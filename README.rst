@@ -8,7 +8,7 @@ User account service for MuckRock and DocumentCloud
      :alt: Built with Cookiecutter Django
 
 
-:License: GPLv3
+:License: AGPLv3
 
 
 Settings
