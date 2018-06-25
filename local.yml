@@ -1,0 +1,62 @@
+version: '2'
+
+volumes:
+  postgres_data_local: {}
+  postgres_backup_local: {}
+
+services:
+  django: &django
+    build:
+      context: .
+      dockerfile: ./compose/local/django/Dockerfile
+    image: squarelet_local_django
+    depends_on:
+      - postgres
+      - mailhog
+    volumes:
+      - .:/app
+    env_file:
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
+    ports:
+      - "8001:8000"
+    command: /start
+
+  postgres:
+    build:
+      context: .
+      dockerfile: ./compose/production/postgres/Dockerfile
+    image: squarelet_production_postgres
+    volumes:
+      - postgres_data_local:/var/lib/postgresql/data
+      - postgres_backup_local:/backups
+    env_file:
+      - ./.envs/.local/.postgres
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.0
+    ports:
+      - "8025:8025"
+
+  redis:
+    image: redis:3.2
+
+  celeryworker:
+    <<: *django
+    image: squarelet_local_celeryworker
+    depends_on:
+      - redis
+      - postgres
+      - mailhog
+    ports: []
+    command: /start-celeryworker
+
+  celerybeat:
+    <<: *django
+    image: squarelet_local_celerybeat
+    depends_on:
+      - redis
+      - postgres
+      - mailhog
+    ports: []
+    command: /start-celerybeat
