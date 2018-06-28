@@ -255,3 +255,4 @@ INSTALLED_APPS += ['compressor']
 STATICFILES_FINDERS += ['compressor.finders.CompressorFinder']
 # Your stuff...
 # ------------------------------------------------------------------------------
+OIDC_USERINFO = 'squarelet.users.oidc.userinfo'

@@ -12,6 +12,7 @@ ALLOWED_HOSTS = [
     "localhost",
     "0.0.0.0",
     "127.0.0.1",
+    "*",
 ]
 
 # CACHES
@@ -66,3 +67,5 @@ INSTALLED_APPS += ['django_extensions']  # noqa F405
 CELERY_ALWAYS_EAGER = True
 # Your stuff...
 # ------------------------------------------------------------------------------
+
+SITE_URL = 'http://localhost:8001'

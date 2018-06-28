@@ -13,7 +13,7 @@ class UserManager(AuthUserManager):
             raise ValueError("The given username must be set")
         email = self.normalize_email(email)
         username = self.model.normalize_username(username)
-        user = self.model(username=username, **extra_fields)
+        user = self.model(username=username, email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
         EmailAddress.objects.create(user=user, email=email, primary=True)

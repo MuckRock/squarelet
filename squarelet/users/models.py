@@ -69,7 +69,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     updated_at = AutoLastModifiedField(_("updated at"))
 
     USERNAME_FIELD = 'username'
-    EMAIL_FIELD = None
+    EMAIL_FIELD = 'email'
+    REQUIRED_FIELDS = ['email']
 
     objects = UserManager()
 
