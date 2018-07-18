@@ -1,4 +1,7 @@
+# Django
 from django.conf import settings
+
+# Third Party
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 

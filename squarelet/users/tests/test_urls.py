@@ -1,5 +1,7 @@
-from django.urls import reverse, resolve
+# Django
+from django.urls import resolve, reverse
 
+# Third Party
 from test_plus.test import TestCase
 
 

@@ -1,7 +1,10 @@
+# Django
 from django.test import RequestFactory
 
+# Third Party
 from test_plus.test import TestCase
 
+# Local
 from ..views import UserRedirectView, UserUpdateView
 
 

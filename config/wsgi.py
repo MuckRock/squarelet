@@ -13,10 +13,12 @@ middleware here, or combine a Django application with an application of another
 framework.
 
 """
+# Django
+from django.core.wsgi import get_wsgi_application
+
+# Standard Library
 import os
 import sys
-
-from django.core.wsgi import get_wsgi_application
 
 # This allows easy placement of apps within the interior
 # squarelet directory.

@@ -265,6 +265,9 @@ Session.vim
 # Auto-generated tag files
 tags
 
+# Local vimrc
+.lvimrc
+
 
 ### Project template
 

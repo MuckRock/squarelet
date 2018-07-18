@@ -8,6 +8,7 @@ from django.utils.translation import ugettext_lazy as _
 # Standard Library
 import uuid
 
+# Local
 from ..core.fields import AutoCreatedField, AutoLastModifiedField
 from .managers import UserManager
 from .validators import UsernameValidator
@@ -68,9 +69,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     created_at = AutoCreatedField(_("created at"))
     updated_at = AutoLastModifiedField(_("updated at"))
 
-    USERNAME_FIELD = 'username'
-    EMAIL_FIELD = 'email'
-    REQUIRED_FIELDS = ['email']
+    USERNAME_FIELD = "username"
+    EMAIL_FIELD = "email"
+    REQUIRED_FIELDS = ["email"]
 
     objects = UserManager()
 
