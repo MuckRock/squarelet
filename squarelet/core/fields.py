@@ -13,9 +13,10 @@ class AutoCreatedField(models.DateTimeField):
     object creation.
     By default, sets editable=False, default=datetime.now.
     """
+
     def __init__(self, *args, **kwargs):
-        kwargs.setdefault('editable', False)
-        kwargs.setdefault('default', now)
+        kwargs.setdefault("editable", False)
+        kwargs.setdefault("default", now)
         super(AutoCreatedField, self).__init__(*args, **kwargs)
 
 
@@ -24,6 +25,7 @@ class AutoLastModifiedField(AutoCreatedField):
     A DateTimeField that updates itself on each save() of the model.
     By default, sets editable=False and default=datetime.now.
     """
+
     def pre_save(self, model_instance, add):
         value = now()
         setattr(model_instance, self.attname, value)
