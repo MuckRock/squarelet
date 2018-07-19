@@ -1,10 +1,6 @@
 # Standard Library
 import logging
 
-# Third Party
-# region http://stackoverflow.com/questions/10390244/
-from storages.backends.s3boto3 import S3Boto3Storage  # noqa E402
-
 # Local
 from .base import *  # noqa
 from .base import env
@@ -99,6 +95,9 @@ STATIC_URL = f"https://s3.amazonaws.com/{AWS_STORAGE_BUCKET_NAME}/static/"
 
 # MEDIA
 # ------------------------------------------------------------------------------
+
+# region http://stackoverflow.com/questions/10390244/
+from storages.backends.s3boto3 import S3Boto3Storage  # noqa E402 isort:skip
 
 StaticRootS3BotoStorage = lambda: S3Boto3Storage(location="static")  # noqa
 MediaRootS3BotoStorage = lambda: S3Boto3Storage(
