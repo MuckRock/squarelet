@@ -39,7 +39,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    # XXX should this be optional?  what do we sign off as on requests?
+    # should this be optional or not?  what do we sign off as on requests?
     # do we want a full name and a short name?
     name = models.CharField(_("name of user"), blank=True, max_length=255)
     email = models.EmailField(_("email"), unique=True)

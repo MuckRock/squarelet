@@ -1,0 +1,17 @@
+Pillow
+argon2-cffi
+celery<5.0
+coreapi
+django-allauth
+django-compressor
+django-crispy-forms
+django-environ
+django-model-utils
+django-oidc-provider
+django-redis
+django<2.1
+djangorestframework
+python-slugify
+pytz
+rcssmin
+redis

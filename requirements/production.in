@@ -1,0 +1,7 @@
+-r ./base.txt
+Collectfast
+django-anymail[mailgun]
+django-storages[boto3]
+gunicorn
+psycopg2 --no-binary psycopg2
+raven

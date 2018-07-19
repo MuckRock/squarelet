@@ -1,0 +1,15 @@
+-r ./base.txt
+Sphinx
+Werkzeug
+coverage
+django-coverage-plugin
+django-debug-toolbar
+django-extensions
+django-test-plus
+factory-boy
+flake8
+ipdb
+psycopg2 --no-binary psycopg2
+pytest
+pytest-django
+pytest-sugar
