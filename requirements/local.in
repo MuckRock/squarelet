@@ -1,6 +1,7 @@
 -r ./base.txt
 Sphinx
 Werkzeug
+black
 coverage
 django-coverage-plugin
 django-debug-toolbar
@@ -10,6 +11,10 @@ factory-boy
 flake8
 ipdb
 psycopg2 --no-binary psycopg2
+pylint<2.0
 pytest
 pytest-django
 pytest-sugar
+pylint_common
+pylint_django
+pylint_celery
