@@ -4,6 +4,8 @@
 #
 #    pip-compile --output-file base.txt base.in
 #
+--no-binary psycopg2
+
 amqp==2.3.2               # via kombu
 argon2-cffi==18.1.0
 billiard==3.5.0.4         # via celery
@@ -32,12 +34,14 @@ kombu==4.2.1              # via celery
 markupsafe==1.0           # via jinja2
 oauthlib==2.1.0           # via requests-oauthlib
 pillow==5.1.0
+psycopg2==2.7.5
 pycparser==2.18           # via cffi
 pycryptodomex==3.6.4      # via pyjwkest
 pyjwkest==1.4.0           # via django-oidc-provider
 python-slugify==1.2.5
 python3-openid==3.1.0     # via django-allauth
 pytz==2018.4
+raven==6.9.0
 rcssmin==1.0.6
 redis==2.10.6
 requests-oauthlib==1.0.0  # via django-allauth

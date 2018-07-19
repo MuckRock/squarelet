@@ -1,4 +1,3 @@
--r ./base.txt
 Sphinx
 Werkzeug
 black
@@ -10,7 +9,6 @@ django-test-plus
 factory-boy
 flake8
 ipdb
-psycopg2 --no-binary psycopg2
 pylint<2.0
 pytest
 pytest-django

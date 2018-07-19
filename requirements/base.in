@@ -15,3 +15,5 @@ python-slugify
 pytz
 rcssmin
 redis
+psycopg2 --no-binary psycopg2
+raven
