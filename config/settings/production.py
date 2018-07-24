@@ -147,6 +147,22 @@ ANYMAIL = {
     "MAILGUN_SENDER_DOMAIN": env("MAILGUN_DOMAIN"),
 }
 
+# Bandit (Email Hijacking)
+# ------------------------------------------------------------------------------
+class HijackAnymailBackend(HijackBackendMixin, MailgunBackend):
+    """Anymail backend that hijacks all emails"""
+
+
+if env.bool("USE_BANDIT", default=False):
+    INSTALLED_APPS += ["bandit"]
+    BANDIT_EMAIL = env("BANDIT_EMAIL")
+
+    from bandit.backends.base import HijackBackendMixin  # isort:skip
+    from anymail.backends.mailgun import EmailBackend as MailgunBackend
+
+    EMAIL_BACKEND = "config.settings.production.HijackAnymailBackend"
+
+
 # Gunicorn
 # ------------------------------------------------------------------------------
 INSTALLED_APPS += ["gunicorn"]  # noqa F405

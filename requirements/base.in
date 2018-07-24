@@ -1,5 +1,6 @@
 Pillow
 argon2-cffi
+bandit
 celery<5.0
 coreapi
 django-allauth
@@ -11,9 +12,9 @@ django-oidc-provider
 django-redis
 django<2.1
 djangorestframework
+psycopg2 --no-binary psycopg2
 python-slugify
 pytz
+raven
 rcssmin
 redis
-psycopg2 --no-binary psycopg2
-raven
