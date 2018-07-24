@@ -149,6 +149,10 @@ ANYMAIL = {
 
 # Bandit (Email Hijacking)
 # ------------------------------------------------------------------------------
+from bandit.backends.base import HijackBackendMixin  # isort:skip
+from anymail.backends.mailgun import EmailBackend as MailgunBackend  # isort:skip
+
+
 class HijackAnymailBackend(HijackBackendMixin, MailgunBackend):
     """Anymail backend that hijacks all emails"""
 
@@ -156,9 +160,6 @@ class HijackAnymailBackend(HijackBackendMixin, MailgunBackend):
 if env.bool("USE_BANDIT", default=False):
     INSTALLED_APPS += ["bandit"]
     BANDIT_EMAIL = env("BANDIT_EMAIL")
-
-    from bandit.backends.base import HijackBackendMixin  # isort:skip
-    from anymail.backends.mailgun import EmailBackend as MailgunBackend
 
     EMAIL_BACKEND = "config.settings.production.HijackAnymailBackend"
 
