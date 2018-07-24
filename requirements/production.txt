@@ -6,21 +6,66 @@
 #
 --no-binary psycopg2
 
+amqp==2.3.2
+argon2-cffi==18.1.0
+bandit==1.4.0
+billiard==3.5.0.4
 boto3==1.7.60             # via django-storages
 botocore==1.10.60         # via boto3, s3transfer
-certifi==2018.4.16        # via requests
-chardet==3.0.4            # via requests
+celery==4.2.0
+certifi==2018.4.16
+cffi==1.11.5
+chardet==3.0.4
 collectfast==0.6.2
+coreapi==2.3.3
+coreschema==0.0.4
+defusedxml==0.5.0
+django-allauth==0.36.0
 django-anymail[mailgun]==3.0
+django-appconf==1.0.2
+django-compressor==2.2
+django-crispy-forms==1.7.2
+django-environ==0.4.4
+django-model-utils==3.1.2
+django-oidc-provider==0.6.0
+django-redis==4.9.0
 django-storages[boto3]==1.6.6
-django==2.0.6             # via collectfast, django-anymail
+django==2.0.6
+djangorestframework==3.8.2
 docutils==0.14            # via botocore
+future==0.16.0
+gitdb2==2.0.4
+gitpython==2.1.11
 gunicorn==19.8.1
-idna==2.7                 # via requests
+idna==2.7
+itypes==1.1.0
+jinja2==2.10
 jmespath==0.9.3           # via boto3, botocore
+kombu==4.2.1
+markupsafe==1.0
+oauthlib==2.1.0
+pbr==4.2.0
+pillow==5.1.0
+psycopg2==2.7.5
+pycparser==2.18
+pycryptodomex==3.6.4
+pyjwkest==1.4.0
 python-dateutil==2.7.3    # via botocore
-pytz==2018.4              # via django
-requests==2.19.1          # via django-anymail
+python-slugify==1.2.5
+python3-openid==3.1.0
+pytz==2018.4
+pyyaml==3.13
+raven==6.9.0
+rcssmin==1.0.6
+redis==2.10.6
+requests-oauthlib==1.0.0
+requests==2.19.1
+rjsmin==1.0.12
 s3transfer==0.1.13        # via boto3
-six==1.11.0               # via django-anymail, python-dateutil
-urllib3==1.23             # via requests
+six==1.11.0
+smmap2==2.0.4
+stevedore==1.29.0
+unidecode==1.0.22
+uritemplate==3.0.0
+urllib3==1.23
+vine==1.1.4

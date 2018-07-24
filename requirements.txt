@@ -1,4 +1,3 @@
 # This file is expected by Heroku.
 
--r requirements/base.txt
 -r requirements/production.txt

@@ -1,3 +1,4 @@
+-r base.txt
 Collectfast
 django-anymail[mailgun]
 django-storages[boto3]
