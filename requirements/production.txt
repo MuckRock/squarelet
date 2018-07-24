@@ -8,7 +8,6 @@
 
 amqp==2.3.2
 argon2-cffi==18.1.0
-bandit==1.4.0
 billiard==3.5.0.4
 boto3==1.7.60             # via django-storages
 botocore==1.10.60         # via boto3, s3transfer
@@ -25,6 +24,7 @@ django-anymail[mailgun]==3.0
 django-appconf==1.0.2
 django-compressor==2.2
 django-crispy-forms==1.7.2
+django-email-bandit==1.5
 django-environ==0.4.4
 django-model-utils==3.1.2
 django-oidc-provider==0.6.0
@@ -34,8 +34,6 @@ django==2.0.6
 djangorestframework==3.8.2
 docutils==0.14            # via botocore
 future==0.16.0
-gitdb2==2.0.4
-gitpython==2.1.11
 gunicorn==19.8.1
 idna==2.7
 itypes==1.1.0
@@ -44,7 +42,6 @@ jmespath==0.9.3           # via boto3, botocore
 kombu==4.2.1
 markupsafe==1.0
 oauthlib==2.1.0
-pbr==4.2.0
 pillow==5.1.0
 psycopg2==2.7.5
 pycparser==2.18
@@ -54,7 +51,6 @@ python-dateutil==2.7.3    # via botocore
 python-slugify==1.2.5
 python3-openid==3.1.0
 pytz==2018.4
-pyyaml==3.13
 raven==6.9.0
 rcssmin==1.0.6
 redis==2.10.6
@@ -63,8 +59,6 @@ requests==2.19.1
 rjsmin==1.0.12
 s3transfer==0.1.13        # via boto3
 six==1.11.0
-smmap2==2.0.4
-stevedore==1.29.0
 unidecode==1.0.22
 uritemplate==3.0.0
 urllib3==1.23

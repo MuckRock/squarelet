@@ -1,11 +1,11 @@
 Pillow
 argon2-cffi
-bandit
 celery<5.0
 coreapi
 django-allauth
 django-compressor
 django-crispy-forms
+django-email-bandit
 django-environ
 django-model-utils
 django-oidc-provider

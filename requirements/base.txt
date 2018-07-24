@@ -8,7 +8,6 @@
 
 amqp==2.3.2               # via kombu
 argon2-cffi==18.1.0
-bandit==1.4.0
 billiard==3.5.0.4         # via celery
 celery==4.2.0
 certifi==2018.4.16        # via requests
@@ -21,6 +20,7 @@ django-allauth==0.36.0
 django-appconf==1.0.2     # via django-compressor
 django-compressor==2.2
 django-crispy-forms==1.7.2
+django-email-bandit==1.5
 django-environ==0.4.4
 django-model-utils==3.1.2
 django-oidc-provider==0.6.0
@@ -28,15 +28,12 @@ django-redis==4.9.0
 django==2.0.6
 djangorestframework==3.8.2
 future==0.16.0            # via pyjwkest
-gitdb2==2.0.4             # via gitpython
-gitpython==2.1.11         # via bandit
 idna==2.7                 # via requests
 itypes==1.1.0             # via coreapi
 jinja2==2.10              # via coreschema
 kombu==4.2.1              # via celery
 markupsafe==1.0           # via jinja2
 oauthlib==2.1.0           # via requests-oauthlib
-pbr==4.2.0                # via stevedore
 pillow==5.1.0
 psycopg2==2.7.5
 pycparser==2.18           # via cffi
@@ -45,16 +42,13 @@ pyjwkest==1.4.0           # via django-oidc-provider
 python-slugify==1.2.5
 python3-openid==3.1.0     # via django-allauth
 pytz==2018.4
-pyyaml==3.13              # via bandit
 raven==6.9.0
 rcssmin==1.0.6
 redis==2.10.6
 requests-oauthlib==1.0.0  # via django-allauth
 requests==2.19.1          # via coreapi, django-allauth, pyjwkest, requests-oauthlib
 rjsmin==1.0.12            # via django-compressor
-six==1.11.0               # via argon2-cffi, bandit, django-environ, pyjwkest, stevedore
-smmap2==2.0.4             # via gitdb2
-stevedore==1.29.0         # via bandit
+six==1.11.0               # via argon2-cffi, django-environ, pyjwkest
 unidecode==1.0.22         # via python-slugify
 uritemplate==3.0.0        # via coreapi
 urllib3==1.23             # via requests
