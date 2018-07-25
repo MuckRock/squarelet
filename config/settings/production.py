@@ -1,5 +1,6 @@
 # Standard Library
 import logging
+import os
 
 # Local
 from .base import *  # noqa
@@ -247,6 +248,6 @@ RAVEN_CONFIG = {"dsn": SENTRY_DSN}
 # ------------------------------------------------------------------------------
 # set proxy for static outgoing IP address, so we can cross
 # white list muckrock and squarelet staging sites
-if os.environ.get("FIXIE_URL"):
-    os.environ["http_proxy"] = os.environ.get("FIXIE_URL", "")
-    os.environ["https_proxy"] = os.environ.get("FIXIE_URL", "")
+if env("FIXIE_URL"):
+    os.environ["http_proxy"] = env("FIXIE_URL")
+    os.environ["https_proxy"] = env("FIXIE_URL")
