@@ -242,3 +242,11 @@ SENTRY_CELERY_LOGLEVEL = env.int("DJANGO_SENTRY_LOG_LEVEL", logging.INFO)
 RAVEN_CONFIG = {"dsn": SENTRY_DSN}
 # Your stuff...
 # ------------------------------------------------------------------------------
+
+# Fixie
+# ------------------------------------------------------------------------------
+# set proxy for static outgoing IP address, so we can cross
+# white list muckrock and squarelet staging sites
+if os.environ.get("FIXIE_URL"):
+    os.environ["http_proxy"] = os.environ.get("FIXIE_URL", "")
+    os.environ["https_proxy"] = os.environ.get("FIXIE_URL", "")
