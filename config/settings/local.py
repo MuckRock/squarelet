@@ -65,5 +65,3 @@ INSTALLED_APPS += ["django_extensions"]  # noqa F405
 CELERY_ALWAYS_EAGER = True
 # Your stuff...
 # ------------------------------------------------------------------------------
-
-SITE_URL = "http://localhost:8001"
