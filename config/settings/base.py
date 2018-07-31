@@ -110,7 +110,9 @@ PASSWORD_HASHERS = [
 # https://docs.djangoproject.com/en/dev/ref/settings/#auth-password-validators
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
+        "NAME": "django.contrib.auth.password_validation."
+        "UserAttributeSimilarityValidator",
+        "OPTIONS": {"user_attributes": ["username", "name", "email"]},
     },
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
@@ -232,7 +234,8 @@ ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_EMAIL_VERIFICATION = "optional"
 ACCOUNT_ADAPTER = "squarelet.users.adapters.AccountAdapter"
 SOCIALACCOUNT_ADAPTER = "squarelet.users.adapters.SocialAccountAdapter"
-# ACCOUNT_USER_MODEL_EMAIL_FIELD = None
+ACCOUNT_FORMS = {"signup": "squarelet.users.forms.SignupForm"}
+
 
 # django-compressor
 # ------------------------------------------------------------------------------
