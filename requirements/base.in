@@ -1,5 +1,6 @@
 Pillow
 argon2-cffi
+bcrypt
 celery<5.0
 coreapi
 django-allauth
