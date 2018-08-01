@@ -1,6 +1,7 @@
 # Django
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.models import PermissionsMixin
+from django.contrib.postgres.fields import CICharField, CIEmailField
 from django.db import models
 from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
@@ -42,8 +43,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     # should this be optional or not?  what do we sign off as on requests?
     # do we want a full name and a short name?
     name = models.CharField(_("name of user"), blank=True, max_length=255)
-    email = models.EmailField(_("email"), unique=True)
-    username = models.CharField(
+    email = CIEmailField(_("email"), unique=True)
+    username = CICharField(
         _("username"),
         max_length=150,
         unique=True,
