@@ -65,7 +65,7 @@ Fields
 
         :class:`~django.db.models.CharField`
 
-        Hash of the users password.  We will use the `argon2 <https://password-hashing.net/#argon2>`_ hash to store passwords.  We will also accept ``pbkdf2_sha256`` and ``bcrypt`` as this is what MuckRock and DocumentCloud used, respectively.  We will not be imposing password strength requirements at this time, but plan to add them in later.
+        Hash of the users password.  We will use the `argon2 <https://password-hashing.net/#argon2>`_ hash to store passwords.  We will also accept ``pbkdf2_sha256`` and ``bcrypt`` as this is what MuckRock and DocumentCloud used, respectively.  These will be upgraded to ``argon2`` upon user login.  We will have a minimum password length of 8, a similarity check to the username, name and email fields, a common password check and a numeric only password check.
 
         - Required
 
