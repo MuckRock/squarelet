@@ -73,7 +73,7 @@ Fields
 
         :class:`~django.db.models.ImageField`
 
-        A profile image associates with the user
+        A profile image associated with the user.
 
     .. attribute:: is_active
 
