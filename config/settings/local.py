@@ -65,3 +65,4 @@ INSTALLED_APPS += ["django_extensions"]  # noqa F405
 CELERY_ALWAYS_EAGER = True
 # Your stuff...
 # ------------------------------------------------------------------------------
+SQUARELET_URL = "http://dev.squarelet.com:8001"

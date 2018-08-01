@@ -101,6 +101,7 @@ rjsmin==1.0.12
 simplegeneric==0.8.1      # via ipython
 six==1.11.0
 snowballstemmer==1.2.1    # via sphinx
+sorl-thumbnail==12.4.1
 sphinx==1.7.5
 sphinxcontrib-websupport==1.1.0  # via sphinx
 sqlparse==0.2.4           # via django-debug-toolbar

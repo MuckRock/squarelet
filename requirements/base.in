@@ -19,3 +19,4 @@ pytz
 raven
 rcssmin
 redis
+sorl-thumbnail

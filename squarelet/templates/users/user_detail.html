@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load thumbnail %}
 
 {% block title %}User: {{ object.username }}{% endblock %}
 
@@ -13,6 +14,11 @@
       {% if object.name %}
         <p>{{ object.name }}</p>
       {% endif %}
+      {% thumbnail object.avatar "150x150" as im %}
+        <p><img src="{{ im.url }}"></p>
+      {% empty %}
+        <p>No avatar</p>
+      {% endthumbnail %}
     </div>
   </div>
 

@@ -9,6 +9,9 @@ from django.utils.translation import ugettext_lazy as _
 # Standard Library
 import uuid
 
+# Third Party
+from sorl.thumbnail import ImageField
+
 # Local
 from ..core.fields import AutoCreatedField, AutoLastModifiedField
 from .managers import UserManager
@@ -49,11 +52,12 @@ class User(AbstractBaseUser, PermissionsMixin):
         max_length=150,
         unique=True,
         help_text=_(
-            "Required. 150 characters or fewer. Letters, digits and ./+/-/_ only"
+            "Required. 150 characters or fewer. Letters, digits and ./-/_ only"
         ),
         validators=[UsernameValidator()],
         error_messages={"unqiue": _("A user with that username already exists.")},
     )
+    avatar = ImageField(upload_to="avatars", blank=True)
     is_staff = models.BooleanField(
         _("staff status"),
         default=False,

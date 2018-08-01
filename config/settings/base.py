@@ -69,6 +69,7 @@ THIRD_PARTY_APPS = [
     "allauth.socialaccount",
     "rest_framework",
     "oidc_provider",
+    "sorl.thumbnail",
 ]
 LOCAL_APPS = [
     "squarelet.users.apps.UsersAppConfig",
