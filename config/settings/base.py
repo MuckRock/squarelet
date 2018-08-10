@@ -131,6 +131,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "oidc_provider.middleware.SessionManagementMiddleware",
 ]
 
 # STATIC
@@ -246,3 +247,11 @@ STATICFILES_FINDERS += ["compressor.finders.CompressorFinder"]
 # Your stuff...
 # ------------------------------------------------------------------------------
 OIDC_USERINFO = "squarelet.users.oidc.userinfo"
+OIDC_EXTRA_SCOPE_CLAIMS = "squarelet.users.oidc.CustomScopeClaims"
+OIDC_SESSION_MANAGEMENT_ENABLE = True
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "squarelet.oidc.authentication.OidcOauth2Authentication",
+    )
+}
