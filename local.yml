@@ -38,7 +38,7 @@ services:
   mailhog:
     image: mailhog/mailhog:v1.0.0
     ports:
-      - "8025:8025"
+      - "8026:8025"
 
   redis:
     image: redis:3.2
