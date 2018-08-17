@@ -52,12 +52,17 @@ class User(AbstractBaseUser, PermissionsMixin):
         max_length=150,
         unique=True,
         help_text=_(
-            "Required. 150 characters or fewer. Letters, digits and ./-/_ only"
+            "Required. 150 characters or fewer. Letters, digits and ./-/_ only.  May only be changed once."
         ),
         validators=[UsernameValidator()],
         error_messages={"unqiue": _("A user with that username already exists.")},
     )
-    avatar = ImageField(upload_to="avatars", blank=True)
+    avatar = ImageField(_("avatar"), upload_to="avatars", blank=True)
+    can_change_username = models.BooleanField(
+        _("can change username"),
+        default=True,
+        help_text="Keeps track of whether or not the user has used their one username change",
+    )
     is_staff = models.BooleanField(
         _("staff status"),
         default=False,

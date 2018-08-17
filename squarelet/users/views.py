@@ -1,5 +1,6 @@
 # Django
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.http.response import HttpResponseRedirect
 from django.urls import reverse
 from django.views.generic import DetailView, ListView, RedirectView, UpdateView
 
@@ -9,7 +10,6 @@ from .models import User
 
 class UserDetailView(LoginRequiredMixin, DetailView):
     model = User
-    # These next two lines tell the view to index lookups by username
     slug_field = "username"
     slug_url_kwarg = "username"
 
@@ -22,24 +22,33 @@ class UserRedirectView(LoginRequiredMixin, RedirectView):
 
 
 class UserUpdateView(LoginRequiredMixin, UpdateView):
-
-    fields = ["name", "avatar"]
-
-    # we already imported User in the view code above, remember?
     model = User
 
-    # send the user back to their own page after a successful update
+    def get_form_class(self):
+        """Include username in form if the user hasn't changed their username yet"""
+        fields = ["name", "avatar"]
+        if self.object.can_change_username:
+            self.fields = ["username"] + fields
+        else:
+            self.fields = fields
+        return super().get_form_class()
+
+    def form_valid(self, form):
+        """Mark the username as changed if it has changed"""
+        self.object = form.save()
+        if self.request.user.username != self.object.username:
+            self.object.can_change_username = False
+            self.object.save()
+        return HttpResponseRedirect(self.get_success_url())
 
     def get_success_url(self):
-        return reverse("users:detail", kwargs={"username": self.request.user.username})
+        return reverse("users:detail", kwargs={"username": self.object.username})
 
     def get_object(self, queryset=None):
-        # Only get the User record for the user making the request
-        return User.objects.get(username=self.request.user.username)
+        return User.objects.get(pk=self.request.user.pk)
 
 
 class UserListView(LoginRequiredMixin, ListView):
     model = User
-    # These next two lines tell the view to index lookups by username
     slug_field = "username"
     slug_url_kwarg = "username"
