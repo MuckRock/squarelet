@@ -165,6 +165,12 @@ if env.bool("USE_BANDIT", default=False):
     EMAIL_BACKEND = "config.settings.production.HijackAnymailBackend"
 
 
+# Celery Email
+# ------------------------------------------------------------------------------
+if env.bool("USE_CELERY_EMAIL", default=True):
+    CELERY_EMAIL_BACKEND = EMAIL_BACKEND
+    EMAIL_BACKEND = "djcelery_email.backends.CeleryEmailBackend"
+
 # Gunicorn
 # ------------------------------------------------------------------------------
 INSTALLED_APPS += ["gunicorn"]  # noqa F405
