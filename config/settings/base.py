@@ -246,10 +246,15 @@ INSTALLED_APPS += ["compressor"]
 STATICFILES_FINDERS += ["compressor.finders.CompressorFinder"]
 # Your stuff...
 # ------------------------------------------------------------------------------
+
+# oidc
+# ------------------------------------------------------------------------------
 OIDC_USERINFO = "squarelet.users.oidc.userinfo"
 OIDC_EXTRA_SCOPE_CLAIMS = "squarelet.users.oidc.CustomScopeClaims"
 OIDC_SESSION_MANAGEMENT_ENABLE = True
 
+# rest framework
+# ------------------------------------------------------------------------------
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "squarelet.oidc.authentication.OidcOauth2Authentication",
