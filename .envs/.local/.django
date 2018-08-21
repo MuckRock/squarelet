@@ -5,3 +5,5 @@ USE_DOCKER=yes
 # Redis
 # ------------------------------------------------------------------------------
 REDIS_URL=redis://redis:6379/0
+
+MUCKROCK_TOKEN=c4dad7f4c30cbe8c455fbcfc0b79af707009547f

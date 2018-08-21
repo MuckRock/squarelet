@@ -22,6 +22,7 @@ services:
       - "8001:8000"
     extra_hosts:
         - "dev.squarelet.com:127.0.0.1"
+        - "dev.muckrock.com:172.19.0.1"
     command: /start
 
   postgres:

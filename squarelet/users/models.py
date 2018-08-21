@@ -1,4 +1,5 @@
 # Django
+from django.conf import settings
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.models import PermissionsMixin
 from django.contrib.postgres.fields import CICharField, CIEmailField
@@ -52,7 +53,8 @@ class User(AbstractBaseUser, PermissionsMixin):
         max_length=150,
         unique=True,
         help_text=_(
-            "Required. 150 characters or fewer. Letters, digits and ./-/_ only.  May only be changed once."
+            "Required. 150 characters or fewer. Letters, digits and ./-/_ only.  "
+            "May only be changed once."
         ),
         validators=[UsernameValidator()],
         error_messages={"unqiue": _("A user with that username already exists.")},
@@ -61,7 +63,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     can_change_username = models.BooleanField(
         _("can change username"),
         default=True,
-        help_text="Keeps track of whether or not the user has used their one username change",
+        help_text=_(
+            "Keeps track of whether or not the user has used their one "
+            "username change"
+        ),
     )
     is_staff = models.BooleanField(
         _("staff status"),
@@ -93,3 +98,12 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def get_full_name(self):
         return self.name
+
+    @property
+    def avatar_url(self):
+        if self.avatar and self.avatar.url.startswith("http"):
+            return user.avatar.url
+        elif self.avatar:
+            return f"{settings.SQUARELET_URL}{self.avatar.url}"
+        else:
+            return ""
