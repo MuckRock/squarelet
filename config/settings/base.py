@@ -252,6 +252,8 @@ STATICFILES_FINDERS += ["compressor.finders.CompressorFinder"]
 OIDC_USERINFO = "squarelet.users.oidc.userinfo"
 OIDC_EXTRA_SCOPE_CLAIMS = "squarelet.users.oidc.CustomScopeClaims"
 OIDC_SESSION_MANAGEMENT_ENABLE = True
+OIDC_GRANT_TYPE_PASSWORD_ENABLE = True
+
 
 # rest framework
 # ------------------------------------------------------------------------------
