@@ -102,7 +102,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     @property
     def avatar_url(self):
         if self.avatar and self.avatar.url.startswith("http"):
-            return user.avatar.url
+            return self.avatar.url
         elif self.avatar:
             return f"{settings.SQUARELET_URL}{self.avatar.url}"
         else:
