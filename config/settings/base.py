@@ -267,4 +267,4 @@ REST_FRAMEWORK = {
 # ------------------------------------------------------------------------------
 SQUARELET_URL = env("SQUARLET_URL", default="http://dev.squarelet.com:8001")
 MUCKROCK_URL = env("MUCKROCK_URL", default="http://dev.muckrock.com:8000")
-MUCKROCK_TOKEN = env("MUCKROCK_TOKEN")
+MUCKROCK_TOKEN = env("MUCKROCK_TOKEN", default="set-me")
