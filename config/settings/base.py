@@ -215,7 +215,7 @@ MANAGERS = ADMINS
 # ------------------------------------------------------------------------------
 INSTALLED_APPS += ["squarelet.taskapp.celery.CeleryAppConfig"]
 # http://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-broker_url
-CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="django://")
+CELERY_BROKER_URL = env("REDIS_URL", default="django://")
 # http://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-result_backend
 if CELERY_BROKER_URL == "django://":
     CELERY_RESULT_BACKEND = "redis://"
