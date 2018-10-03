@@ -1,6 +1,18 @@
 # Third Party
 from invoke import task
 
+DOCKER_COMPOSE_RUN_OPT = "docker-compose run {opt} --rm {service} {cmd}"
+DOCKER_COMPOSE_RUN_OPT_USER = DOCKER_COMPOSE_RUN_OPT.format(
+    opt="-u $(id -u):$(id -g) {opt}", service="{service}", cmd="{cmd}"
+)
+DOCKER_COMPOSE_RUN = DOCKER_COMPOSE_RUN_OPT.format(
+    opt="", service="{service}", cmd="{cmd}"
+)
+DJANGO_RUN = DOCKER_COMPOSE_RUN.format(service="django", cmd="{cmd}")
+DJANGO_RUN_USER = DOCKER_COMPOSE_RUN_OPT_USER.format(
+    opt="", service="django", cmd="{cmd}"
+)
+
 
 @task
 def test(c, path="", reuse_db=False):
@@ -10,55 +22,79 @@ def test(c, path="", reuse_db=False):
     else:
         reuse_switch = ""
     c.run(
-        f"docker-compose run -e DJANGO_SETTINGS_MODULE=config.settings.test --rm "
-        f"django pytest {reuse_switch} {path}"
+        DOCKER_COMPOSE_RUN_OPT.format(
+            opt="-e DJANGO_SETTINGS_MODULE=config.settings.test",
+            service="django",
+            cmd=f"pytest {reuse_switch} {path}",
+        )
     )
 
 
 @task
 def pylint(c):
     """Run the linter"""
-    c.run("docker-compose run --rm django pylint squarelet")
+    c.run(DJANGO_RUN.format(cmd="pylint squarelet"))
 
 
 @task
 def format(c):
     """Format your code"""
-    c.run("docker-compose run --rm django black squarelet --exclude migrations")
-    c.run("docker-compose run --rm django isort -rc squarelet")
+    c.run(
+        DJANGO_RUN_USER.format(
+            cmd="black squarelet --exclude migrations && isort -rc squarelet"
+        )
+    )
 
 
 @task
 def runserver(c):
     """Run the development server"""
-    c.run("docker-compose run --service-ports --rm django")
+    c.run(
+        DOCKER_COMPOSE_RUN_OPT.format(opt="--service-ports", service="django", cmd="")
+    )
 
 
 @task
 def shell(c):
     """Run an interactive shell"""
-    c.run("docker-compose run --rm django python manage.py shell_plus", pty=True)
+    c.run(DJANGO_RUN.format(cmd="python manage.py shell_plus"), pty=True)
 
 
 @task
 def celeryworker(c):
     """Run a celery worker"""
-    c.run("docker-compose run --service-ports --rm celeryworker")
+    c.run(DOCKER_COMPOSE_RUN.format(service="celeryworker", cmd=""))
 
 
 @task
 def celerybeat(c):
     """Run the celery scheduler"""
-    c.run("docker-compose run --service-ports --rm celerybeat")
+    c.run(DOCKER_COMPOSE_RUN.format(service="celerybeat", cmd=""))
 
 
 @task
 def manage(c, cmd):
     """Run a Django management command"""
-    c.run(f"docker-compose run --rm -u $(id -u):$(id -g) django python manage.py {cmd}")
+    c.run(DJANGO_RUN_USER.format(cmd=f"python manage.py {cmd}"))
+
+
+@task(name="pip-compile")
+def pip_compile(c, upgrade=False):
+    """Run pip compile"""
+    if upgrade:
+        upgrade_flag = "--upgrade"
+    else:
+        upgrade_flag = ""
+    c.run(
+        DJANGO_RUN.format(
+            cmd=f"pip-compile {upgrade_flag} requirements/base.in &&"
+            f"pip-compile {upgrade_flag} requirements/local.in &&"
+            f"pip-compile {upgrade_flag} requirements/production.in"
+        )
+    )
 
 
 @task
-def pip_compile(c, upgrade=False):
-    """Run pip compile"""
-    c.run("pip-compile")
+def build(c):
+    """Build the docker images"""
+    c.run("docker-compose build")

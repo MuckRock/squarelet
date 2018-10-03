@@ -3,4 +3,5 @@ from django.apps import AppConfig
 
 
 class OidcConfig(AppConfig):
-    name = "oidc"
+    name = "squarelet.oidc"
+    verbose_name = "OpenID Connect"

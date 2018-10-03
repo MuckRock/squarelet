@@ -2,7 +2,7 @@
 from django.apps import AppConfig
 
 
-class UsersAppConfig(AppConfig):
+class UsersConfig(AppConfig):
     name = "squarelet.users"
     verbose_name = "Users"
 

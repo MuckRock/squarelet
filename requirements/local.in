@@ -10,10 +10,11 @@ django-test-plus
 factory-boy
 flake8
 ipdb
+pip-tools
 pylint<2.0
+pylint_celery
+pylint_common
+pylint_django
 pytest
 pytest-django
 pytest-sugar
-pylint_common
-pylint_django
-pylint_celery

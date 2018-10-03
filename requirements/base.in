@@ -4,6 +4,8 @@ bcrypt
 celery<5.0
 coreapi
 django-allauth
+django-autoslug-iplweb
+django-choices
 django-compressor
 django-crispy-forms
 django-email-bandit
