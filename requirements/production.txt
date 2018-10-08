@@ -64,6 +64,7 @@ rjsmin==1.0.12
 s3transfer==0.1.13        # via boto3
 six==1.11.0
 sorl-thumbnail==12.4.1
+stripe==2.10.1
 unidecode==1.0.22
 uritemplate==3.0.0
 urllib3==1.23

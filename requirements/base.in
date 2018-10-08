@@ -22,3 +22,4 @@ raven
 rcssmin
 redis
 sorl-thumbnail
+stripe

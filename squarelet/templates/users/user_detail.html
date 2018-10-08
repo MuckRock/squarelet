@@ -2,7 +2,7 @@
 {% load static %}
 {% load thumbnail %}
 
-{% block title %}User: {{ object.username }}{% endblock %}
+{% block title %}User: {{ user.username }}{% endblock %}
 
 {% block content %}
 <div class="container">
@@ -10,11 +10,11 @@
   <div class="row">
     <div class="col-sm-12">
 
-      <h2>{{ object.username }}</h2>
-      {% if object.name %}
-        <p>{{ object.name }}</p>
+      <h2>{{ user.username }}</h2>
+      {% if user.name %}
+        <p>{{ user.name }}</p>
       {% endif %}
-      {% thumbnail object.avatar "150x150" as im %}
+      {% thumbnail user.avatar "150x150" as im %}
         <p><img src="{{ im.url }}"></p>
       {% empty %}
         <p>No avatar</p>
@@ -22,7 +22,7 @@
     </div>
   </div>
 
-{% if object == request.user %}
+{% if user == request.user %}
 <!-- Action buttons -->
 <div class="row">
 

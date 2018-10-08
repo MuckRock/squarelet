@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% load static i18n %}
+{% block title %}Organizations{% endblock %}
+
+{% block content %}
+  <div class="container">
+    <h2>Organizations</h2>
+    <p>
+      <a href="{% url "organizations:create" %}">
+        Create a new organization
+      </a>
+    </p>
+
+    <div class="list-group">
+      {% for org in organization_list %}
+        <a href="{% url 'organizations:detail' org.slug %}" class="list-group-item">
+          <h4 class="list-group-item-heading">{{ org.name }}</h4>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+{% endblock content %}

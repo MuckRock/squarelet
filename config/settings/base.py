@@ -269,3 +269,9 @@ REST_FRAMEWORK = {
 SQUARELET_URL = env("SQUARLET_URL", default="http://dev.squarelet.com:8001")
 MUCKROCK_URL = env("MUCKROCK_URL", default="http://dev.muckrock.com:8000")
 MUCKROCK_TOKEN = env("MUCKROCK_TOKEN", default="set-me")
+
+# stripe
+# ------------------------------------------------------------------------------
+STRIPE_PUB_KEY = env("STRIPE_PUB_KEY")
+STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY")
+STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET")

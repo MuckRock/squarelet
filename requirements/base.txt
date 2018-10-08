@@ -49,10 +49,11 @@ raven==6.9.0
 rcssmin==1.0.6
 redis==2.10.6
 requests-oauthlib==1.0.0  # via django-allauth
-requests==2.19.1          # via coreapi, django-allauth, pyjwkest, requests-oauthlib
+requests==2.19.1          # via coreapi, django-allauth, pyjwkest, requests-oauthlib, stripe
 rjsmin==1.0.12            # via django-compressor
 six==1.11.0               # via argon2-cffi, bcrypt, django-environ, pyjwkest
 sorl-thumbnail==12.4.1
+stripe==2.10.1
 unidecode==1.0.22         # via python-slugify
 uritemplate==3.0.0        # via coreapi
 urllib3==1.23             # via requests
