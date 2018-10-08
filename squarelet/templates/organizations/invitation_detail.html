@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% load static %}
+{% load thumbnail %}
+
+{% block title %}Organization: {{ invitation.organization.name }}{% endblock %}
+
+{% block content %}
+  <div class="container">
+
+    <div class="row">
+      <div class="col-sm-12">
+        <h2>Invitation to {{ invitation.organization.name}}</h2>
+
+        {% if invitation.user %}
+          <p>This invitation has already been accepted.</p>
+        {% else %}
+          <form method="post">
+            {% csrf_token %}
+            <p>Join this organization?</p>
+            <input type="submit" value="Yes">
+          </form>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+{% endblock content %}

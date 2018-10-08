@@ -101,7 +101,9 @@
         <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta/js/bootstrap.min.js" integrity="sha384-h0AbiXch4ZDo7tp9hKZ4TsHbi047NrKGLO3SEJAg45jXxnGIfYzk4Si90RDIqNm1" crossorigin="anonymous"></script>
 
         <!-- Your stuff: Third-party javascript libraries go here -->
+        <script src="https://js.stripe.com/v3/"></script>
 
+        {% block extra_javascript %}{% endblock extra_javascript %}
 
         <!-- place project specific Javascript in this file -->
         {% compress js %}

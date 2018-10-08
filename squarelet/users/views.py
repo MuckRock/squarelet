@@ -53,5 +53,3 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
 
 class UserListView(LoginRequiredMixin, ListView):
     model = User
-    slug_field = "username"
-    slug_url_kwarg = "username"

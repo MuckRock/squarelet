@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load static %}
+{% load thumbnail %}
+
+{% block title %}Organization: {{ organization.name }}{% endblock %}
+
+{% block content %}
+  <div class="container">
+
+    <div class="row">
+      <div class="col-sm-12">
+        <h2>{{ organization.name}}</h2>
+        <dl>
+          <dt>Plan</dt>
+          <dd>{{ organization.get_org_type_display }}</dd>
+          <dt>Max Users</dt>
+          <dd>{{ organization.max_users }}</dd>
+          <dt>Requests Per Month</dt>
+          <dd>{{ organization.requests_per_month }}</dd>
+          <dt>Monthly Requests</dt>
+          <dd>{{ organization.monthly_requests }}</dd>
+        </dl>
+        <h3>Users</h3>
+        <ul>
+          {% for user in organization.users.all %}
+            <li>
+              <a href="{% url "users:detail" user.username %}">
+                {{ user.username }}
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+
+    {% if is_admin %}
+      <div class="row">
+        <div class="col-sm-2">
+          <a
+             class="btn btn-primary"
+             href="{% url "organizations:update" organization.slug %}"
+             role="button">
+            Edit Info
+          </a>
+        </div>
+        <div class="col-sm-2">
+          <a
+             class="btn btn-primary"
+             href="{% url "organizations:add-member" organization.slug %}"
+             role="button">
+            Add Member
+          </a>
+        </div>
+      </div>
+    {% endif %}
+
+  </div>
+{% endblock content %}
