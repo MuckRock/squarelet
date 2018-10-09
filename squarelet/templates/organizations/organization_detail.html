@@ -51,6 +51,14 @@
             Add Member
           </a>
         </div>
+        <div class="col-sm-2">
+          <a
+             class="btn btn-primary"
+             href="{% url "organizations:buy-requests" organization.slug %}"
+             role="button">
+            Buy Requests
+          </a>
+        </div>
       </div>
     {% endif %}
 

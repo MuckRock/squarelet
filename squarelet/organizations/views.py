@@ -3,12 +3,14 @@
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import F
 from django.http.response import HttpResponseRedirect
 from django.shortcuts import redirect
 from django.views.generic import CreateView, DetailView, FormView, ListView, UpdateView
 
 # Local
-from .forms import AddMemberForm, UpdateForm
+from .constants import PRICE_PER_REQUEST
+from .forms import AddMemberForm, BuyRequestsForm, UpdateForm
 from .mixins import OrganizationAdminMixin
 from .models import Invitation, Organization, OrganizationMembership
 
@@ -47,6 +49,13 @@ class Update(OrganizationAdminMixin, UpdateView):
         context["STRIPE_PUB_KEY"] = settings.STRIPE_PUB_KEY
         return context
 
+    def get_initial(self):
+        return {
+            "org_type": self.object.org_type,
+            "max_users": self.object.max_users,
+            "private": self.object.private,
+        }
+
 
 class Create(LoginRequiredMixin, CreateView):
     model = Organization
@@ -76,6 +85,26 @@ class AddMember(OrganizationAdminMixin, DetailView, FormView):
         invitation.send()
         messages.success(self.request, "Invitation sent")
         return redirect(organization)
+
+
+class BuyRequests(OrganizationAdminMixin, UpdateView):
+    model = Organization
+    form_class = BuyRequestsForm
+
+    def form_valid(self, form):
+        """Create an invitation and send it to the given email address"""
+        organization = self.object
+        if form.cleaned_data["save_card"]:
+            organization.save_card(form.cleaned_data["stripe_token"])
+        organization.buy_requests(
+            form.cleaned_data["number_requests"], form.cleaned_data["stripe_token"]
+        )
+        return redirect(organization)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["STRIPE_PUB_KEY"] = settings.STRIPE_PUB_KEY
+        return context
 
 
 class InvitationAccept(LoginRequiredMixin, DetailView):

@@ -36,6 +36,7 @@ itypes==1.1.0             # via coreapi
 jinja2==2.10              # via coreschema
 kombu==4.2.1              # via celery
 markupsafe==1.0           # via jinja2
+memoize==1.0.0
 oauthlib==2.1.0           # via requests-oauthlib
 pillow==5.1.0
 psycopg2==2.7.5

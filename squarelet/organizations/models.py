@@ -14,6 +14,7 @@ from datetime import date
 # Third Party
 import stripe
 from autoslug import AutoSlugField
+from memoize import mproperty
 
 # Local
 from ..core.fields import AutoCreatedField, AutoLastModifiedField
@@ -25,6 +26,7 @@ from .constants import (
     EXTRA_PAGES_PER_USER,
     EXTRA_REQUESTS_PER_USER,
     MIN_USERS,
+    PRICE_PER_REQUEST,
     PRICE_PER_USER,
 )
 
@@ -127,6 +129,7 @@ class Organization(models.Model):
         ).exists()
 
     # Payment Management
+    @mproperty
     def customer(self):
         """Retrieve the customer from Stripe or create one if it doesn't exist"""
         if self.customer_id:
@@ -142,6 +145,7 @@ class Organization(models.Model):
         self.save()
         return customer
 
+    @mproperty
     def subscription(self):
         if self.subscription_id:
             try:
@@ -151,25 +155,27 @@ class Organization(models.Model):
         else:
             return None
 
+    @mproperty
     def card(self):
         """Retrieve the customer's default credit card on file, if there is one"""
-        customer = self.customer()
-        if customer.default_source:
-            return customer.sources.retrieve(customer.default_source)
+        if self.customer.default_source:
+            return self.customer.sources.retrieve(self.customer.default_source)
         else:
             return None
+
+    def save_card(self, token):
+        self.customer.source = token
+        self.customer.save()
 
     def set_subscription(self, token, org_type, max_users):
         if self.individual:
             max_users = 1
-        customer = self.customer()
         if token:
-            customer.source = token
-            customer.save()
+            self.save_card(token)
 
         if self.org_type == OrgType.free and org_type != OrgType.free:
             # create a subscription going from free to non-free
-            self._create_subscription(customer, org_type, max_users)
+            self._create_subscription(self.customer, org_type, max_users)
         elif self.org_type != OrgType.free and org_type == OrgType.free:
             # cancel a subscription going from non-free to free
             self._cancel_subscription()
@@ -212,9 +218,8 @@ class Organization(models.Model):
         self.save()
 
     def _cancel_subscription(self):
-        subscription = self.subscription()
-        subscription.cancel_at_period_end = True
-        subscription.save()
+        self.subscription.cancel_at_period_end = True
+        self.subscription.save()
         self.next_org_type = OrgType.free
         self.save()
 
@@ -231,13 +236,13 @@ class Organization(models.Model):
             BASE_PAGES[org_type] + extra_users * EXTRA_PAGES_PER_USER[org_type]
         )
 
-        subscription = self.subscription()
         stripe.Subscription.modify(
             self.subscription_id,
             cancel_at_period_end=False,
             items=[
                 {
-                    "id": subscription["items"]["data"][0].id,
+                    # pylint: disable=unsubscriptable-object
+                    "id": self.subscription["items"]["data"][0].id,
                     "plan": "org",
                     "quantity": quantity,
                 }
@@ -266,6 +271,34 @@ class Organization(models.Model):
         )
         self.pages_per_month = pages_per_month
 
+        self.save()
+
+    def charge(self, amount, token, metadata=None):
+        if metadata is None:
+            metadata = {}
+        metadata["organization"] = self.name
+        if token:
+            source = token
+            customer = None
+        else:
+            source = self.card
+            customer = self.customer
+        stripe.Charge.create(
+            # convert amount from dollars to cents
+            amount=amount * 100,
+            currency="usd",
+            source=source,
+            customer=customer,
+            metadata=metadata,
+        )
+
+    def buy_requests(self, number_requests, token):
+        self.charge(
+            amount=PRICE_PER_REQUEST * number_requests,
+            token=token,
+            metadata={"action": "buy-requests", "amount": number_requests},
+        )
+        self.num_requests = F("num_requests") + number_requests
         self.save()
 
     # Resource Management
