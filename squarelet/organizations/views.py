@@ -3,16 +3,14 @@
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import F
 from django.http.response import HttpResponseRedirect
 from django.shortcuts import redirect
 from django.views.generic import CreateView, DetailView, FormView, ListView, UpdateView
 
 # Local
-from .constants import PRICE_PER_REQUEST
 from .forms import AddMemberForm, BuyRequestsForm, UpdateForm
 from .mixins import OrganizationAdminMixin
-from .models import Invitation, Organization, OrganizationMembership
+from .models import Invitation, Organization, OrganizationMembership, ReceiptEmail
 
 
 class Detail(DetailView):
@@ -36,13 +34,15 @@ class Update(OrganizationAdminMixin, UpdateView):
     form_class = UpdateForm
 
     def form_valid(self, form):
-        self.object.set_subscription(
+        organization = self.object
+        organization.set_subscription(
             token=form.cleaned_data["stripe_token"],
             org_type=form.cleaned_data["org_type"],
             max_users=form.cleaned_data.get("max_users"),
         )
+        organization.set_receipt_emails(form.cleaned_data["receipt_emails"])
         messages.success(self.request, "Organization Updated")
-        return HttpResponseRedirect(self.get_success_url())
+        return redirect(organization)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -54,6 +54,9 @@ class Update(OrganizationAdminMixin, UpdateView):
             "org_type": self.object.org_type,
             "max_users": self.object.max_users,
             "private": self.object.private,
+            "receipt_emails": "\n".join(
+                r.email for r in self.object.receipt_emails.all()
+            ),
         }
 
 
@@ -65,8 +68,13 @@ class Create(LoginRequiredMixin, CreateView):
         """The organization creator is automatically a member and admin of the
         organization"""
         response = super().form_valid(form)
+        # add creator to the organization as an admin by default
         OrganizationMembership.objects.create(
             user=self.request.user, organization=self.object, admin=True
+        )
+        # add the creators email as a receipt recipient by default
+        ReceiptEmail.objects.create(
+            organization=self.object, email=self.request.user.email
         )
         return response
 
