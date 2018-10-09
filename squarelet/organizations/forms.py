@@ -1,6 +1,7 @@
 
 # Django
 from django import forms
+from django.core.validators import validate_email
 from django.utils.translation import ugettext_lazy as _
 
 # Local
@@ -44,6 +45,12 @@ class UpdateForm(StripeForm):
         label=_("Number of Users"), min_value=MIN_USERS[OrgType.basic]
     )
     private = forms.BooleanField(label=_("Private"), required=False)
+    receipt_emails = forms.CharField(
+        label=_("Receipt Emails"),
+        widget=forms.Textarea(),
+        required=False,
+        help_text=_("One email address per line"),
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -60,6 +67,20 @@ class UpdateForm(StripeForm):
             self.fields["max_users"].validators[0].limit_value = limit_value
             self.fields["max_users"].widget.attrs["min"] = limit_value
             self.fields["max_users"].initial = limit_value
+
+    def clean_receipt_emails(self):
+        """Make sure each line is a valid email"""
+        emails = self.cleaned_data["receipt_emails"].split("\n")
+        emails = [e.strip() for e in emails]
+        bad_emails = []
+        for email in emails:
+            try:
+                validate_email(email.strip())
+            except forms.ValidationError:
+                bad_emails.append(email)
+        if bad_emails:
+            raise forms.ValidationError("Invalid email: %s" % ", ".join(bad_emails))
+        return emails
 
 
 class AddMemberForm(forms.Form):

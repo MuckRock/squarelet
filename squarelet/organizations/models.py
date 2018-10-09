@@ -301,6 +301,14 @@ class Organization(models.Model):
         self.num_requests = F("num_requests") + number_requests
         self.save()
 
+    def set_receipt_emails(self, emails):
+        new_emails = set(emails)
+        old_emails = {r.email for r in self.receipt_emails.all()}
+        self.receipt_emails.filter(email__in=old_emails - new_emails).delete()
+        ReceiptEmail.objects.bulk_create(
+            [ReceiptEmail(organization=self, email=e) for e in new_emails - old_emails]
+        )
+
     # Resource Management
 
 
