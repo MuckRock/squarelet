@@ -2,6 +2,8 @@
 # Local
 from .choices import OrgType
 
+PRICE_PER_REQUEST = 5
+
 MIN_USERS = {OrgType.free: 1, OrgType.pro: 1, OrgType.basic: 5, OrgType.plus: 5}
 
 BASE_PRICE = {OrgType.basic: 100, OrgType.plus: 200}
