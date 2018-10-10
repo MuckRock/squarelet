@@ -122,3 +122,19 @@ class BuyRequestsForm(StripeForm):
                 _("You cannot use your card on file and enter a credit card number."),
             )
         return cleaned_data
+
+
+class ManageMembersForm(forms.Form):
+    def __init__(self, *args, **kwargs):
+        self.organization = kwargs.pop("instance")
+        super().__init__(*args, **kwargs)
+        memberships = self.organization.organizationmembership_set.select_related(
+            "user"
+        )
+        for membership in memberships:
+            self.fields[f"remove-{membership.user.pk}"] = forms.BooleanField(
+                required=False
+            )
+            self.fields[f"admin-{membership.user.pk}"] = forms.BooleanField(
+                required=False, initial=membership.admin
+            )

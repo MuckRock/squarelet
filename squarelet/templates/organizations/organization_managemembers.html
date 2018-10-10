@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ organization.name }}{% endblock %}
+
+{% block content %}
+  <h1>{{ organization.name }}</h1>
+  <h2>Manage Members</h2>
+  <form class="form-horizontal" method="post" enctype="multipart/form-data" id="org-form">
+    {% csrf_token %}
+    <table>
+      <tr>
+        <th>User</th>
+        <th>Admin</th>
+        <th>Remove</th>
+      </tr>
+      {% for user, admin_field, remove_field in users %}
+        <tr>
+          <td><a href="{{ user.get_absolute_url }}">{{ user.username }}</a></td>
+          <td>{{ admin_field }}</td>
+          <td>{{ remove_field }}</td>
+        </tr>
+      {% endfor %}
+    </table>
+
+    <div class="control-group">
+      <div class="controls">
+        <button type="submit" class="btn">Save</button>
+      </div>
+    </div>
+  </form>
+{% endblock %}
