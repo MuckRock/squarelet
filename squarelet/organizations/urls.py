@@ -15,6 +15,11 @@ urlpatterns = [
         view=views.BuyRequests.as_view(),
         name="buy-requests",
     ),
+    path(
+        "<slug:slug>/manage-members/",
+        view=views.ManageMembers.as_view(),
+        name="manage-members",
+    ),
     path("<slug:slug>/", view=views.Detail.as_view(), name="detail"),
     path(
         "<uuid:uuid>/invitation/",

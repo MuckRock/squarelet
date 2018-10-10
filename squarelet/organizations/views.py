@@ -3,12 +3,11 @@
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http.response import HttpResponseRedirect
 from django.shortcuts import redirect
 from django.views.generic import CreateView, DetailView, FormView, ListView, UpdateView
 
 # Local
-from .forms import AddMemberForm, BuyRequestsForm, UpdateForm
+from .forms import AddMemberForm, BuyRequestsForm, ManageMembersForm, UpdateForm
 from .mixins import OrganizationAdminMixin
 from .models import Invitation, Organization, OrganizationMembership, ReceiptEmail
 
@@ -83,6 +82,7 @@ class AddMember(OrganizationAdminMixin, DetailView, FormView):
     model = Organization
     form_class = AddMemberForm
     template_name = "organizations/organization_form.html"
+    # XXX no addingmembers to individual organizations
 
     def form_valid(self, form):
         """Create an invitation and send it to the given email address"""
@@ -107,11 +107,39 @@ class BuyRequests(OrganizationAdminMixin, UpdateView):
         organization.buy_requests(
             form.cleaned_data["number_requests"], form.cleaned_data["stripe_token"]
         )
+        messages.success(self.request, "Requests bought")
         return redirect(organization)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["STRIPE_PUB_KEY"] = settings.STRIPE_PUB_KEY
+        return context
+
+
+class ManageMembers(OrganizationAdminMixin, UpdateView):
+    model = Organization
+    form_class = ManageMembersForm
+    template_name = "organizations/organization_managemembers.html"
+
+    def form_valid(self, form):
+        """Edit members admin status or remove them from the organization"""
+        organization = self.object
+        for membership in organization.organizationmembership_set.all():
+            if form.cleaned_data[f"remove-{membership.user_id}"]:
+                membership.delete()
+            elif form.cleaned_data[f"admin-{membership.user_id}"] != membership.admin:
+                membership.admin = form.cleaned_data[f"admin-{membership.user_id}"]
+                membership.save()
+        messages.success(self.request, "Members updated")
+        return redirect(organization)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        form = context["form"]
+        context["users"] = [
+            (u, form[f"admin-{u.pk}"], form[f"remove-{u.pk}"])
+            for u in self.object.users.all()
+        ]
         return context
 
 
