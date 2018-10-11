@@ -1,4 +1,3 @@
-
 # Third Party
 from oidc_provider.lib.utils.oauth2 import extract_access_token
 from oidc_provider.models import Token

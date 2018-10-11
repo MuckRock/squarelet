@@ -1,4 +1,3 @@
-
 # Django
 from celery import task
 
