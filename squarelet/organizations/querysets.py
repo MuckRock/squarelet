@@ -10,5 +10,5 @@ class OrganizationQuerySet(models.QuerySet):
             # staff can always view all organizations
             return self
         else:
-            # other users may not see privat eorganizations unless they are a member
+            # other users may not see private organizations unless they are a member
             return self.filter(Q(private=False) | Q(organizationmembership__user=user))
