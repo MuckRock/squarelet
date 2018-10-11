@@ -1,4 +1,3 @@
-
 # Third Party
 from allauth.account import signals
 

@@ -1,4 +1,3 @@
-
 # Django
 from celery import Celery
 from django.apps import AppConfig, apps
@@ -34,7 +33,7 @@ class CeleryAppConfig(AppConfig):
             from raven import Client as RavenClient
             from raven.contrib.celery import register_signal as raven_register_signal
             from raven.contrib.celery import (
-                register_logger_signal as raven_register_logger_signal
+                register_logger_signal as raven_register_logger_signal,
             )
 
             raven_client = RavenClient(dsn=settings.RAVEN_CONFIG["dsn"])

@@ -1,4 +1,3 @@
-
 # Django
 from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 from django.utils.translation import ugettext_lazy as _
