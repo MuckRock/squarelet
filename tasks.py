@@ -15,6 +15,11 @@ DJANGO_RUN_USER = DOCKER_COMPOSE_RUN_OPT_USER.format(
 
 
 @task
+def staging(c):
+    c.run("git push origin staging")
+
+
+@task
 def test(c, path="", reuse_db=False):
     """Run the test suite"""
     if reuse_db:
