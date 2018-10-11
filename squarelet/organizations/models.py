@@ -29,6 +29,7 @@ from .constants import (
     PRICE_PER_REQUEST,
     PRICE_PER_USER,
 )
+from .querysets import OrganizationQuerySet
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 stripe.api_version = "2018-09-24"
@@ -36,6 +37,8 @@ stripe.api_version = "2018-09-24"
 
 class Organization(models.Model):
     """Orginization to allow pooled requests and collaboration"""
+
+    objects = OrganizationQuerySet.as_manager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
