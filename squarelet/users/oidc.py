@@ -27,7 +27,12 @@ class CustomScopeClaims(ScopeClaims):
     """Custom Scope Claims for OIDC"""
 
     info_uuid = (_("UUID"), _("Access to the user's UUID"))
+    info_organizations = (_("organizations"), _("Access to the user's organizations"))
 
     def scope_uuid(self):
         """Populate the scope with the UUID"""
         return {"uuid": self.user.pk}
+
+    def scope_organizations(self):
+        """Populate the scope with the organizations"""
+        return {"organizations": [o.pk for o in self.user.organizations.all()]}
