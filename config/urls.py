@@ -7,13 +7,25 @@ from django.views import defaults as default_views
 from django.views.generic import TemplateView
 
 # Third Party
-from rest_framework.routers import DefaultRouter
+from rest_framework_nested import routers
 
 # Squarelet
+from squarelet.organizations.viewsets import (
+    OrganizationRequestsViewSet,
+    OrganizationViewSet,
+)
 from squarelet.users.viewsets import UserViewSet
 
-router = DefaultRouter()
+router = routers.DefaultRouter()
 router.register("users", UserViewSet)
+router.register("organizations", OrganizationViewSet)
+
+organizations_router = routers.NestedSimpleRouter(
+    router, "organizations", lookup="organization"
+)
+organizations_router.register(
+    "requests", OrganizationRequestsViewSet, base_name="organization-requests"
+)
 
 urlpatterns = [
     path("", TemplateView.as_view(template_name="pages/home.html"), name="home"),
@@ -30,6 +42,7 @@ urlpatterns = [
     ),
     path("accounts/", include("allauth.urls")),
     path("api/", include(router.urls)),
+    path("api/", include(organizations_router.urls)),
     path("openid/", include("oidc_provider.urls", namespace="oidc_provider")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

@@ -8,7 +8,7 @@ from django.views.generic import CreateView, DetailView, FormView, ListView, Upd
 # Local
 from .forms import AddMemberForm, BuyRequestsForm, ManageMembersForm, UpdateForm
 from .mixins import OrganizationAdminMixin
-from .models import Invitation, Organization, OrganizationMembership, ReceiptEmail
+from .models import Invitation, Membership, Organization, ReceiptEmail
 
 
 class Detail(DetailView):
@@ -24,7 +24,12 @@ class List(ListView):
     model = Organization
 
     def get_queryset(self):
-        return super().get_queryset().get_viewable(self.request.user)
+        return (
+            super()
+            .get_queryset()
+            .filter(individual=False)
+            .get_viewable(self.request.user)
+        )
 
 
 class Update(OrganizationAdminMixin, UpdateView):
@@ -67,7 +72,7 @@ class Create(LoginRequiredMixin, CreateView):
         organization"""
         response = super().form_valid(form)
         # add creator to the organization as an admin by default
-        OrganizationMembership.objects.create(
+        Membership.objects.create(
             user=self.request.user, organization=self.object, admin=True
         )
         # add the creators email as a receipt recipient by default
@@ -123,7 +128,7 @@ class ManageMembers(OrganizationAdminMixin, UpdateView):
     def form_valid(self, form):
         """Edit members admin status or remove them from the organization"""
         organization = self.object
-        for membership in organization.organizationmembership_set.all():
+        for membership in organization.memberships.all():
             if form.cleaned_data[f"remove-{membership.user_id}"]:
                 membership.delete()
             elif form.cleaned_data[f"admin-{membership.user_id}"] != membership.admin:
@@ -155,7 +160,7 @@ class InvitationAccept(LoginRequiredMixin, DetailView):
             return redirect(self.request.user)
         invitation.user = self.request.user
         invitation.save()
-        OrganizationMembership.objects.create(
+        Membership.objects.create(
             organization=invitation.organization, user=self.request.user
         )
         messages.success(self.request, "Invitation accepted")
