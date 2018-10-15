@@ -72,6 +72,7 @@ THIRD_PARTY_APPS = [
     "sorl.thumbnail",
 ]
 LOCAL_APPS = [
+    "squarelet.core",
     "squarelet.users.apps.UsersConfig",
     "squarelet.oidc.apps.OidcConfig",
     "squarelet.organizations.apps.OrganizationsConfig",

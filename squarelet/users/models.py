@@ -43,6 +43,8 @@ class User(AbstractBaseUser, PermissionsMixin):
         is_staff (BooleanField):
     """
 
+    # XXX finish doc string
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     # should this be optional or not?  what do we sign off as on requests?
     # do we want a full name and a short name?

@@ -1,7 +1,7 @@
 # Django
 from django.conf import settings
 from django.core.mail import send_mail
-from django.db import models
+from django.db import models, transaction
 from django.db.models import F
 from django.db.models.functions import Greatest
 from django.urls import reverse
@@ -29,6 +29,7 @@ from .constants import (
     PRICE_PER_REQUEST,
     PRICE_PER_USER,
 )
+from .exceptions import InsufficientRequestsError
 from .querysets import OrganizationQuerySet
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -43,14 +44,12 @@ class Organization(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     name = models.CharField(_("name"), max_length=255, unique=True)
-    slug = AutoSlugField(_("slug"), populate_from="name")
+    slug = AutoSlugField(_("slug"), populate_from="name", unique=True)
     created_at = AutoCreatedField(_("created at"))
     updated_at = AutoLastModifiedField(_("updated at"))
 
     users = models.ManyToManyField(
-        "users.User",
-        through="organizations.OrganizationMembership",
-        related_name="organizations",
+        "users.User", through="organizations.Membership", related_name="organizations"
     )
 
     org_type = models.IntegerField(
@@ -117,6 +116,9 @@ class Organization(models.Model):
     subscription_id = models.CharField(_("subscription id"), max_length=255, blank=True)
     payment_failed = models.BooleanField(_("payment failed"), default=False)
 
+    class Meta:
+        ordering = ("slug",)
+
     def __str__(self):
         return self.name
 
@@ -127,9 +129,7 @@ class Organization(models.Model):
     # User Management
     def is_admin(self, user):
         """Is the given user an admin of this organization"""
-        return self.users.filter(
-            pk=user.pk, organizationmembership__admin=True
-        ).exists()
+        return self.users.filter(pk=user.pk, memberships__admin=True).exists()
 
     # Payment Management
     @mproperty
@@ -314,13 +314,43 @@ class Organization(models.Model):
 
     # Resource Management
 
+    def make_requests(self, amount):
+        """Deduct `amount` requests from this organization's balance"""
+        request_count = {"monthly": 0, "regular": 0}
+        with transaction.atomic():
+            organization = Organization.objects.select_for_update().get(pk=self.pk)
 
-class OrganizationMembership(models.Model):
+            request_count["monthly"] = min(amount, organization.monthly_requests)
+            amount -= request_count["monthly"]
+
+            request_count["regular"] = min(amount, organization.num_requests)
+            amount -= request_count["regular"]
+
+            if amount > 0:
+                raise InsufficientRequestsError(amount)
+
+            organization.monthly_requests -= request_count["monthly"]
+            organization.num_requests -= request_count["regular"]
+            organization.save()
+            return request_count
+
+    def return_requests(self, data):
+        """Return requests to the organization's balance"""
+        self.monthly_requests = F("monthly_requests") + data["return_monthly"]
+        self.num_requests = F("num_requests") + data["return_regular"]
+        self.save()
+
+
+class Membership(models.Model):
     """Through table for organization membership"""
 
-    user = models.ForeignKey("users.User", on_delete=models.CASCADE)
+    user = models.ForeignKey(
+        "users.User", on_delete=models.CASCADE, related_name="memberships"
+    )
     organization = models.ForeignKey(
-        "organizations.Organization", on_delete=models.CASCADE
+        "organizations.Organization",
+        on_delete=models.CASCADE,
+        related_name="memberships",
     )
     admin = models.BooleanField(
         _("admin"),
@@ -350,6 +380,8 @@ class ReceiptEmail(models.Model):
 
 
 class Invitation(models.Model):
+    """An invitation for a user to join an organization"""
+
     organization = models.ForeignKey(
         "organizations.Organization",
         related_name="invitations",

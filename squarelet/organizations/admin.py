@@ -2,11 +2,11 @@
 from django.contrib import admin
 
 # Local
-from .models import Invitation, Organization, OrganizationMembership, ReceiptEmail
+from .models import Invitation, Membership, Organization, ReceiptEmail
 
 
-class OrganizationMembershipInline(admin.TabularInline):
-    model = OrganizationMembership
+class MembershipInline(admin.TabularInline):
+    model = Membership
     autocomplete_fields = ("user",)
     extra = 0
 
@@ -27,4 +27,4 @@ class OrganizationAdmin(admin.ModelAdmin):
     list_display = ("name", "org_type", "individual", "private")
     list_filter = ("org_type", "individual", "private")
     search_fields = ("name",)
-    inlines = (OrganizationMembershipInline, ReceiptEmailInline, InvitationInline)
+    inlines = (MembershipInline, ReceiptEmailInline, InvitationInline)

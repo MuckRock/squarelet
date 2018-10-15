@@ -127,9 +127,7 @@ class ManageMembersForm(forms.Form):
     def __init__(self, *args, **kwargs):
         self.organization = kwargs.pop("instance")
         super().__init__(*args, **kwargs)
-        memberships = self.organization.organizationmembership_set.select_related(
-            "user"
-        )
+        memberships = self.organization.memberships.select_related("user")
         for membership in memberships:
             self.fields[f"remove-{membership.user.pk}"] = forms.BooleanField(
                 required=False

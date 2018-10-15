@@ -30,6 +30,7 @@ django-oidc-provider==0.6.0
 django-redis==4.9.0
 django==2.0.6
 djangorestframework==3.8.2
+drf-nested-routers==0.91
 future==0.16.0            # via pyjwkest
 idna==2.7                 # via requests
 itypes==1.1.0             # via coreapi
