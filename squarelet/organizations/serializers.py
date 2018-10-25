@@ -17,8 +17,8 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "private",
             "requests_per_month",
             "monthly_requests",
-            "num_requests",
+            "number_requests",
             "pages_per_month",
             "monthly_pages",
-            "num_pages",
+            "number_pages",
         )

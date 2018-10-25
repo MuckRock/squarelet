@@ -89,7 +89,7 @@ class Organization(models.Model):
         default=0,
         help_text=_("How many recurring requests are left for this month."),
     )
-    num_requests = models.IntegerField(
+    number_requests = models.IntegerField(
         _("number of requests"),
         default=0,
         help_text=_("How many non-recurring requests are left."),
@@ -105,7 +105,7 @@ class Organization(models.Model):
         default=0,
         help_text=_("How many recurring pages are left for this month."),
     )
-    num_pages = models.IntegerField(
+    number_pages = models.IntegerField(
         _("number of pages"),
         default=0,
         help_text=_("How many non-recurring pages are left."),
@@ -301,7 +301,7 @@ class Organization(models.Model):
             token=token,
             metadata={"action": "buy-requests", "amount": number_requests},
         )
-        self.num_requests = F("num_requests") + number_requests
+        self.number_requests = F("number_requests") + number_requests
         self.save()
 
     def set_receipt_emails(self, emails):
@@ -323,21 +323,21 @@ class Organization(models.Model):
             request_count["monthly"] = min(amount, organization.monthly_requests)
             amount -= request_count["monthly"]
 
-            request_count["regular"] = min(amount, organization.num_requests)
+            request_count["regular"] = min(amount, organization.number_requests)
             amount -= request_count["regular"]
 
             if amount > 0:
                 raise InsufficientRequestsError(amount)
 
             organization.monthly_requests -= request_count["monthly"]
-            organization.num_requests -= request_count["regular"]
+            organization.number_requests -= request_count["regular"]
             organization.save()
             return request_count
 
     def return_requests(self, data):
         """Return requests to the organization's balance"""
         self.monthly_requests = F("monthly_requests") + data["return_monthly"]
-        self.num_requests = F("num_requests") + data["return_regular"]
+        self.number_requests = F("number_requests") + data["return_regular"]
         self.save()
 
 
