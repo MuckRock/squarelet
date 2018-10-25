@@ -6,6 +6,9 @@ from django.db import transaction
 # Standard Library
 import csv
 
+# Third Party
+from allauth.account.models import EmailAddress
+
 # Squarelet
 from squarelet.organizations.models import Membership, Organization
 from squarelet.users.models import User
@@ -28,7 +31,7 @@ class Command(BaseCommand):
                 # XXX skip non unique emails
                 if User.objects.filter(email=user[2]).exists():
                     continue
-                User.objects.create(
+                user_obj = User.objects.create(
                     id=user[0],
                     username=user[1],
                     email=user[2],
@@ -37,6 +40,12 @@ class Command(BaseCommand):
                     is_staff=user[5] == "True",
                     is_active=user[6] == "True",
                     is_superuser=user[7] == "True",
+                )
+                EmailAddress.objects.create(
+                    user=user_obj,
+                    email=user_obj.email,
+                    primary=True,
+                    verified=user[8] == "True",
                 )
 
     def import_orgs(self):
