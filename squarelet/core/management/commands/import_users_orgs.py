@@ -8,10 +8,13 @@ import csv
 
 # Third Party
 from allauth.account.models import EmailAddress
+from smart_open.smart_open_lib import smart_open
 
 # Squarelet
 from squarelet.organizations.models import Membership, Organization
 from squarelet.users.models import User
+
+BUCKET = os.environ["IMPORT_BUCKET"]
 
 
 class Command(BaseCommand):
@@ -24,7 +27,7 @@ class Command(BaseCommand):
             self.import_members()
 
     def import_users(self):
-        with open("users.csv", newline="") as infile:
+        with smart_open(f"s3://{BUCKET}/squarelet_export/users.csv") as infile:
             reader = csv.reader(infile)
             next(reader)  # discard headers
             for user in reader:
@@ -49,7 +52,7 @@ class Command(BaseCommand):
                 )
 
     def import_orgs(self):
-        with open("orgs.csv", newline="") as infile:
+        with smart_open(f"s3://{BUCKET}/squarelet_export/orgs.csv") as infile:
             reader = csv.reader(infile)
             next(reader)  # discard headers
             for org in reader:
@@ -70,7 +73,7 @@ class Command(BaseCommand):
                 )
 
     def import_members(self):
-        with open("members.csv", newline="") as infile:
+        with smart_open(f"s3://{BUCKET}/squarelet_export/members.csv") as infile:
             reader = csv.reader(infile)
             next(reader)  # discard headers
             for member in reader:
