@@ -10,6 +10,10 @@ amqp==2.3.2               # via kombu
 argon2-cffi==18.1.0
 bcrypt==3.1.4
 billiard==3.5.0.4         # via celery
+boto3==1.9.32             # via smart-open
+boto==2.49.0              # via smart-open
+botocore==1.12.32         # via boto3, s3transfer
+bz2file==0.98             # via smart-open
 celery==4.2.0
 certifi==2018.4.16        # via requests
 cffi==1.11.5              # via argon2-cffi, bcrypt
@@ -30,11 +34,13 @@ django-oidc-provider==0.6.0
 django-redis==4.9.0
 django==2.0.6
 djangorestframework==3.8.2
+docutils==0.14            # via botocore
 drf-nested-routers==0.91
 future==0.16.0            # via pyjwkest
 idna==2.7                 # via requests
 itypes==1.1.0             # via coreapi
 jinja2==2.10              # via coreschema
+jmespath==0.9.3           # via boto3, botocore
 kombu==4.2.1              # via celery
 markupsafe==1.0           # via jinja2
 memoize==1.0.0
@@ -44,6 +50,7 @@ psycopg2==2.7.5
 pycparser==2.18           # via cffi
 pycryptodomex==3.6.4      # via pyjwkest
 pyjwkest==1.4.0           # via django-oidc-provider
+python-dateutil==2.7.4    # via botocore
 python-slugify==1.2.5
 python3-openid==3.1.0     # via django-allauth
 pytz==2018.4
@@ -51,12 +58,14 @@ raven==6.9.0
 rcssmin==1.0.6
 redis==2.10.6
 requests-oauthlib==1.0.0  # via django-allauth
-requests==2.19.1          # via coreapi, django-allauth, pyjwkest, requests-oauthlib, stripe
+requests==2.19.1          # via coreapi, django-allauth, pyjwkest, requests-oauthlib, smart-open, stripe
 rjsmin==1.0.12            # via django-compressor
-six==1.11.0               # via argon2-cffi, bcrypt, django-environ, pyjwkest
+s3transfer==0.1.13        # via boto3
+six==1.11.0               # via argon2-cffi, bcrypt, django-environ, pyjwkest, python-dateutil
+smart-open==1.7.1
 sorl-thumbnail==12.4.1
 stripe==2.10.1
 unidecode==1.0.22         # via python-slugify
 uritemplate==3.0.0        # via coreapi
-urllib3==1.23             # via requests
+urllib3==1.23             # via botocore, requests
 vine==1.1.4               # via amqp
