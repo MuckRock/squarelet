@@ -374,6 +374,7 @@ class ReceiptEmail(models.Model):
         on_delete=models.CASCADE,
     )
     email = models.EmailField(_("email"))
+    # XXX add unique constraint
 
     def __str__(self):
         return "Receipt Email: <%s>" % self.email
@@ -387,6 +388,7 @@ class Invitation(models.Model):
         related_name="invitations",
         on_delete=models.CASCADE,
     )
+    # XXX pk
     uuid = models.UUIDField(default=uuid.uuid4, editable=False)
     email = models.EmailField()
     user = models.ForeignKey(
@@ -400,6 +402,7 @@ class Invitation(models.Model):
             "accepted yet"
         ),
     )
+    # XXX add date fields, sent, accepted
 
     def __str__(self):
         return f"Invitation: {self.uuid}"

@@ -10,6 +10,7 @@ class OrganizationQuerySet(models.QuerySet):
             return self
         elif user.is_authenticated:
             # other users may not see private organizations unless they are a member
+            # XXX memberships -> users
             return self.filter(Q(private=False) | Q(memberships__user=user))
         else:
             # anonymous users may not see any private organizations
