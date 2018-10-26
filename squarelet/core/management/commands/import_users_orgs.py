@@ -27,7 +27,7 @@ class Command(BaseCommand):
             self.import_members()
 
     def import_users(self):
-        with smart_open(f"s3://{BUCKET}/squarelet_export/users.csv") as infile:
+        with smart_open(f"s3://{BUCKET}/squarelet_export/users.csv", "r") as infile:
             reader = csv.reader(infile)
             next(reader)  # discard headers
             for user in reader:
@@ -52,7 +52,7 @@ class Command(BaseCommand):
                 )
 
     def import_orgs(self):
-        with smart_open(f"s3://{BUCKET}/squarelet_export/orgs.csv") as infile:
+        with smart_open(f"s3://{BUCKET}/squarelet_export/orgs.csv", "r") as infile:
             reader = csv.reader(infile)
             next(reader)  # discard headers
             for org in reader:
@@ -73,7 +73,7 @@ class Command(BaseCommand):
                 )
 
     def import_members(self):
-        with smart_open(f"s3://{BUCKET}/squarelet_export/members.csv") as infile:
+        with smart_open(f"s3://{BUCKET}/squarelet_export/members.csv", "r") as infile:
             reader = csv.reader(infile)
             next(reader)  # discard headers
             for member in reader:
