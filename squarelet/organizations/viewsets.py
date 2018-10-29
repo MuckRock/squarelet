@@ -40,6 +40,7 @@ class OrganizationRequestsViewSet(viewsets.ViewSet):
             else:
                 return Response(request_count)
         elif "return_regular" in request.data and "return_monthly" in request.data:
+            # XXX check int(v) for error
             organization.return_requests({k: int(v) for k, v in request.data.items()})
             return Response("OK")
         else:
