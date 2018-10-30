@@ -4,7 +4,7 @@ from django.core.validators import validate_email
 from django.utils.translation import ugettext_lazy as _
 
 # Local
-from .choices import OrgType
+from .choices import Plan
 from .constants import MIN_USERS
 
 
@@ -39,9 +39,9 @@ class StripeForm(forms.Form):
 class UpdateForm(StripeForm):
     """Update an organization"""
 
-    org_type = forms.TypedChoiceField(label=_("Type"), coerce=int)
+    plan = forms.TypedChoiceField(label=_("Type"), coerce=int)
     max_users = forms.IntegerField(
-        label=_("Number of Users"), min_value=MIN_USERS[OrgType.basic]
+        label=_("Number of Users"), min_value=MIN_USERS[Plan.basic]
     )
     private = forms.BooleanField(label=_("Private"), required=False)
     receipt_emails = forms.CharField(
@@ -57,12 +57,12 @@ class UpdateForm(StripeForm):
 
     def _set_group_options(self):
         if self.organization.individual:
-            self.fields["org_type"].choices = OrgType.individual_choices()
+            self.fields["plan"].choices = Plan.individual_choices()
             del self.fields["max_users"]
         else:
-            self.fields["org_type"].choices = OrgType.group_choices()
+            self.fields["plan"].choices = Plan.group_choices()
             # XXX should count pending invitations
-            limit_value = max(MIN_USERS[OrgType.basic], self.organization.users.count())
+            limit_value = max(MIN_USERS[Plan.basic], self.organization.users.count())
             self.fields["max_users"].validators[0].limit_value = limit_value
             self.fields["max_users"].widget.attrs["min"] = limit_value
             self.fields["max_users"].initial = limit_value

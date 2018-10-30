@@ -24,7 +24,7 @@ class InvitationInline(admin.TabularInline):
 
 @admin.register(Organization)
 class OrganizationAdmin(admin.ModelAdmin):
-    list_display = ("name", "org_type", "individual", "private")
-    list_filter = ("org_type", "individual", "private")
+    list_display = ("name", "plan", "individual", "private")
+    list_filter = ("plan", "individual", "private")
     search_fields = ("name",)
     inlines = (MembershipInline, ReceiptEmailInline, InvitationInline)

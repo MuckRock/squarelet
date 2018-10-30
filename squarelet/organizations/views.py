@@ -40,7 +40,7 @@ class Update(OrganizationAdminMixin, UpdateView):
         organization = self.object
         organization.set_subscription(
             token=form.cleaned_data["stripe_token"],
-            org_type=form.cleaned_data["org_type"],
+            plan=form.cleaned_data["plan"],
             max_users=form.cleaned_data.get("max_users"),
         )
         organization.set_receipt_emails(form.cleaned_data["receipt_emails"])
@@ -54,7 +54,7 @@ class Update(OrganizationAdminMixin, UpdateView):
 
     def get_initial(self):
         return {
-            "org_type": self.object.org_type,
+            "plan": self.object.plan,
             "max_users": self.object.max_users,
             "private": self.object.private,
             "receipt_emails": "\n".join(

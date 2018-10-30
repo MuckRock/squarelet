@@ -5,7 +5,12 @@ from django.utils.translation import ugettext_lazy as _
 from djchoices import ChoiceItem, DjangoChoices
 
 
-class OrgType(DjangoChoices):
+class Plan(DjangoChoices):
+    """The plan choices available for organizations
+    These choices are replicated across all sites,
+    be sure to keep them in sync
+    """
+
     free = ChoiceItem(0, _("Free"))
     pro = ChoiceItem(1, _("Pro"))
     basic = ChoiceItem(2, _("Basic"))

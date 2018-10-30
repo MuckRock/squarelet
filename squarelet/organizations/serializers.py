@@ -11,7 +11,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "name",
-            "org_type",
+            "plan",
             "individual",
             "private",
             "requests_per_month",
