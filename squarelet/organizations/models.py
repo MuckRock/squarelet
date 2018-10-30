@@ -18,7 +18,7 @@ from memoize import mproperty
 
 # Local
 from ..core.fields import AutoCreatedField, AutoLastModifiedField
-from .choices import OrgType
+from .choices import Plan
 from .constants import (
     BASE_PAGES,
     BASE_PRICE,
@@ -52,14 +52,12 @@ class Organization(models.Model):
         "users.User", through="organizations.Membership", related_name="organizations"
     )
 
-    org_type = models.IntegerField(
-        _("organization type"), choices=OrgType.choices, default=OrgType.free
-    )
-    next_org_type = models.IntegerField(
-        _("next organization type"),
+    plan = models.IntegerField(_("plan"), choices=Plan.choices, default=Plan.free)
+    next_plan = models.IntegerField(
+        _("next plan"),
         help_text=_("Type to switch to at next billing cycle"),
-        choices=OrgType.choices,
-        default=OrgType.basic,
+        choices=Plan.choices,
+        default=Plan.basic,
     )
     individual = models.BooleanField(
         _("individual organization"),
@@ -170,47 +168,45 @@ class Organization(models.Model):
         self.customer.source = token
         self.customer.save()
 
-    def set_subscription(self, token, org_type, max_users):
+    def set_subscription(self, token, plan, max_users):
         if self.individual:
             max_users = 1
         if token:
             self.save_card(token)
 
-        if self.org_type == OrgType.free and org_type != OrgType.free:
+        if self.plan == Plan.free and plan != Plan.free:
             # create a subscription going from free to non-free
-            self._create_subscription(self.customer, org_type, max_users)
-        elif self.org_type != OrgType.free and org_type == OrgType.free:
+            self._create_subscription(self.customer, plan, max_users)
+        elif self.plan != Plan.free and plan == Plan.free:
             # cancel a subscription going from non-free to free
             self._cancel_subscription()
-        elif self.org_type != OrgType.free and org_type != OrgType.free:
+        elif self.plan != Plan.free and plan != Plan.free:
             # modify a subscription going from non-free to non-free
-            self._modify_subscription(org_type, max_users)
+            self._modify_subscription(plan, max_users)
 
-    def _create_subscription(self, customer, org_type, max_users):
+    def _create_subscription(self, customer, plan, max_users):
         # must have card on file
 
-        extra_users = max_users - MIN_USERS[org_type]
+        extra_users = max_users - MIN_USERS[plan]
 
-        if org_type == OrgType.pro:
+        if plan == Plan.pro:
             plan = "pro"
             quantity = 1
         else:
             plan = "org"
-            quantity = BASE_PRICE[org_type] + extra_users * PRICE_PER_USER[org_type]
+            quantity = BASE_PRICE[plan] + extra_users * PRICE_PER_USER[plan]
 
         subscription = customer.subscriptions.create(
             items=[{"plan": plan, "quantity": quantity}]
         )
 
         requests_per_month = (
-            BASE_REQUESTS[org_type] + extra_users * EXTRA_REQUESTS_PER_USER[org_type]
+            BASE_REQUESTS[plan] + extra_users * EXTRA_REQUESTS_PER_USER[plan]
         )
-        pages_per_month = (
-            BASE_PAGES[org_type] + extra_users * EXTRA_PAGES_PER_USER[org_type]
-        )
+        pages_per_month = BASE_PAGES[plan] + extra_users * EXTRA_PAGES_PER_USER[plan]
 
-        self.org_type = org_type
-        self.next_org_type = org_type
+        self.plan = plan
+        self.next_plan = plan
         self.max_users = max_users
         self.date_update = date.today()
         self.requests_per_month = requests_per_month
@@ -223,21 +219,19 @@ class Organization(models.Model):
     def _cancel_subscription(self):
         self.subscription.cancel_at_period_end = True
         self.subscription.save()
-        self.next_org_type = OrgType.free
+        self.next_plan = Plan.free
         self.save()
 
-    def _modify_subscription(self, org_type, max_users):
+    def _modify_subscription(self, plan, max_users):
         # only for basic/plus accounts
 
-        extra_users = max_users - MIN_USERS[org_type]
-        quantity = BASE_PRICE[org_type] + extra_users * PRICE_PER_USER[org_type]
+        extra_users = max_users - MIN_USERS[plan]
+        quantity = BASE_PRICE[plan] + extra_users * PRICE_PER_USER[plan]
 
         requests_per_month = (
-            BASE_REQUESTS[org_type] + extra_users * EXTRA_REQUESTS_PER_USER[org_type]
+            BASE_REQUESTS[plan] + extra_users * EXTRA_REQUESTS_PER_USER[plan]
         )
-        pages_per_month = (
-            BASE_PAGES[org_type] + extra_users * EXTRA_PAGES_PER_USER[org_type]
-        )
+        pages_per_month = BASE_PAGES[plan] + extra_users * EXTRA_PAGES_PER_USER[plan]
 
         stripe.Subscription.modify(
             self.subscription_id,
@@ -252,13 +246,13 @@ class Organization(models.Model):
             ],
         )
 
-        if org_type == OrgType.plus:
+        if plan == Plan.plus:
             # upgrade immediately
-            self.org_type = org_type
-            self.next_org_type = org_type
+            self.plan = plan
+            self.next_plan = plan
         else:
             # downgrade at end of billing cycle
-            self.next_org_type = org_type
+            self.next_plan = plan
 
         self.max_users = max_users
 

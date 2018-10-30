@@ -59,8 +59,8 @@ class Command(BaseCommand):
                 Organization.objects.create(
                     id=org[0],
                     name=org[1],
-                    org_type=int(org[2]),
-                    next_org_type=int(org[2]),
+                    plan=int(org[2]),
+                    next_plan=int(org[2]),
                     individual=org[3] == "True",
                     private=org[4] == "True",
                     customer_id=org[5],

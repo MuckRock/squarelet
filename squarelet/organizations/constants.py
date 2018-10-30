@@ -1,33 +1,18 @@
 # Local
-from .choices import OrgType
+from .choices import Plan
 
 PRICE_PER_REQUEST = 5
 
-MIN_USERS = {OrgType.free: 1, OrgType.pro: 1, OrgType.basic: 5, OrgType.plus: 5}
+MIN_USERS = {Plan.free: 1, Plan.pro: 1, Plan.basic: 5, Plan.plus: 5}
 
-BASE_PRICE = {OrgType.basic: 100, OrgType.plus: 200}
+BASE_PRICE = {Plan.basic: 100, Plan.plus: 200}
 
-PRICE_PER_USER = {OrgType.basic: 10, OrgType.plus: 20}
+PRICE_PER_USER = {Plan.basic: 10, Plan.plus: 20}
 
-BASE_REQUESTS = {OrgType.free: 0, OrgType.pro: 20, OrgType.basic: 50, OrgType.plus: 50}
+BASE_REQUESTS = {Plan.free: 0, Plan.pro: 20, Plan.basic: 50, Plan.plus: 50}
 
-EXTRA_REQUESTS_PER_USER = {
-    OrgType.free: 0,
-    OrgType.pro: 0,
-    OrgType.basic: 5,
-    OrgType.plus: 5,
-}
+EXTRA_REQUESTS_PER_USER = {Plan.free: 0, Plan.pro: 0, Plan.basic: 5, Plan.plus: 5}
 
-BASE_PAGES = {
-    OrgType.free: 250,
-    OrgType.pro: 2500,
-    OrgType.basic: 5000,
-    OrgType.plus: 20000,
-}
+BASE_PAGES = {Plan.free: 250, Plan.pro: 2500, Plan.basic: 5000, Plan.plus: 20000}
 
-EXTRA_PAGES_PER_USER = {
-    OrgType.free: 0,
-    OrgType.pro: 0,
-    OrgType.basic: 1000,
-    OrgType.plus: 5000,
-}
+EXTRA_PAGES_PER_USER = {Plan.free: 0, Plan.pro: 0, Plan.basic: 1000, Plan.plus: 5000}
