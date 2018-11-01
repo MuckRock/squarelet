@@ -70,7 +70,7 @@ class UpdateForm(StripeForm):
     def clean_receipt_emails(self):
         """Make sure each line is a valid email"""
         emails = self.cleaned_data["receipt_emails"].split("\n")
-        emails = [e.strip() for e in emails]
+        emails = [e.strip() for e in emails if e.strip()]
         bad_emails = []
         for email in emails:
             try:

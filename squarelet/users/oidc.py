@@ -34,4 +34,14 @@ class CustomScopeClaims(ScopeClaims):
 
     def scope_organizations(self):
         """Populate the scope with the organizations"""
-        return {"organizations": [o.pk for o in self.user.organizations.all()]}
+        return {
+            "organizations": {
+                str(o.pk): {
+                    "name": o.name,
+                    "private": o.private,
+                    "plan": o.plan,
+                    "individual": o.individual,
+                }
+                for o in self.user.organizations.all()
+            }
+        }
