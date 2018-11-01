@@ -11,10 +11,6 @@ from . import update
 from .models import Organization
 
 
-# XXX check http responses and retry on error's if appropriate
-# make this code DRYer
-
-
 @periodic_task(run_every=crontab(hour=0, minute=5), name="restore_organizations")
 def restore_organization():
     Organization.objects.filter(date_update__lte=date.today()).update(
@@ -23,6 +19,10 @@ def restore_organization():
         monthly_requests=F("requests_per_month"),
         monthly_pages=F("pages_per_month"),
     )
+
+
+# XXX check http responses and retry on error's if appropriate
+# make this code DRYer
 
 
 @task(name="update_muckrock_organization")
