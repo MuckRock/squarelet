@@ -2,13 +2,22 @@
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db import transaction
 from django.shortcuts import redirect
 from django.views.generic import CreateView, DetailView, FormView, ListView, UpdateView
+
+# Standard Library
+from datetime import datetime
 
 # Local
 from .forms import AddMemberForm, BuyRequestsForm, ManageMembersForm, UpdateForm
 from .mixins import OrganizationAdminMixin
 from .models import Invitation, Membership, Organization, ReceiptEmail
+from .tasks import (
+    push_update_add_member,
+    push_update_organization,
+    push_update_remove_member,
+)
 
 
 class Detail(DetailView):
@@ -37,13 +46,19 @@ class Update(OrganizationAdminMixin, UpdateView):
     form_class = UpdateForm
 
     def form_valid(self, form):
-        organization = self.object
-        organization.set_subscription(
-            token=form.cleaned_data["stripe_token"],
-            plan=form.cleaned_data["plan"],
-            max_users=form.cleaned_data.get("max_users"),
-        )
-        organization.set_receipt_emails(form.cleaned_data["receipt_emails"])
+        with transaction.atomic():
+            organization = self.object
+            organization.private = form.cleaned_data["private"]
+            organization.set_subscription(
+                token=form.cleaned_data["stripe_token"],
+                plan=form.cleaned_data["plan"],
+                max_users=form.cleaned_data.get("max_users"),
+            )
+            organization.set_receipt_emails(form.cleaned_data["receipt_emails"])
+            organization.save()
+            transaction.on_commit(
+                lambda: push_update_organization.delay(organization.pk)
+            )
         messages.success(self.request, "Organization Updated")
         return redirect(organization)
 
@@ -70,15 +85,27 @@ class Create(LoginRequiredMixin, CreateView):
     def form_valid(self, form):
         """The organization creator is automatically a member and admin of the
         organization"""
-        response = super().form_valid(form)
-        # add creator to the organization as an admin by default
-        Membership.objects.create(
-            user=self.request.user, organization=self.object, admin=True
-        )
-        # add the creators email as a receipt recipient by default
-        ReceiptEmail.objects.create(
-            organization=self.object, email=self.request.user.email
-        )
+        with transaction.atomic():
+            response = super().form_valid(form)
+            organization = self.object
+            # add creator to the organization as an admin by default
+            Membership.objects.create(
+                user=self.request.user, organization=organization, admin=True
+            )
+            # add the creators email as a receipt recipient by default
+            ReceiptEmail.objects.create(
+                organization=organization, email=self.request.user.email
+            )
+            transaction.on_commit(
+                lambda: (
+                    push_update_organization.delay(organization.pk),
+                    # wait 5 seconds to add the member to give time for organization
+                    # to be saved
+                    push_update_add_member.apply_async(
+                        args=[organization.pk, self.request.user.pk], countdown=5
+                    ),
+                )
+            )
         return response
 
 
@@ -127,13 +154,27 @@ class ManageMembers(OrganizationAdminMixin, UpdateView):
 
     def form_valid(self, form):
         """Edit members admin status or remove them from the organization"""
+
         organization = self.object
-        for membership in organization.memberships.all():
-            if form.cleaned_data[f"remove-{membership.user_id}"]:
-                membership.delete()
-            elif form.cleaned_data[f"admin-{membership.user_id}"] != membership.admin:
-                membership.admin = form.cleaned_data[f"admin-{membership.user_id}"]
-                membership.save()
+        remove_user_ids = []
+
+        with transaction.atomic():
+            for membership in organization.memberships.all():
+                if form.cleaned_data[f"remove-{membership.user_id}"]:
+                    membership.delete()
+                    remove_user_ids.append(membership.user_id)
+                elif (
+                    form.cleaned_data[f"admin-{membership.user_id}"] != membership.admin
+                ):
+                    membership.admin = form.cleaned_data[f"admin-{membership.user_id}"]
+                    membership.save()
+            transaction.on_commit(
+                lambda: [
+                    push_update_remove_member.delay(organization.pk, user_id)
+                    for user_id in remove_user_ids
+                ]
+            )
+
         messages.success(self.request, "Members updated")
         return redirect(organization)
 
@@ -158,10 +199,16 @@ class InvitationAccept(LoginRequiredMixin, DetailView):
         if invitation.user is not None:
             messages.error(self.request, "That invitation has already been accepted")
             return redirect(self.request.user)
-        invitation.user = self.request.user
-        invitation.save()
-        Membership.objects.create(
-            organization=invitation.organization, user=self.request.user
-        )
+        with transaction.atomic():
+            invitation.user = self.request.user
+            invitation.save()
+            Membership.objects.create(
+                organization=invitation.organization, user=self.request.user
+            )
+            transaction.on_commit(
+                lambda: push_update_add_member(
+                    invitation.organization.pk, self.request.user.pk
+                )
+            )
         messages.success(self.request, "Invitation accepted")
         return redirect(invitation.organization)

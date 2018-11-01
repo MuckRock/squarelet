@@ -1,5 +1,5 @@
 # Django
-from celery import task
+from celery.task import task
 
 # Local
 from . import update
@@ -18,7 +18,7 @@ def update_doccloud_user(user_pk):
     update.doccloud(user)
 
 
-@task(name="update_all")
+@task(name="update_all_user")
 def push_update_user(user_pk):
     updaters = [update_muckrock_user]
     for updater in updaters:
