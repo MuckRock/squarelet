@@ -13,13 +13,16 @@ import uuid
 # Third Party
 from sorl.thumbnail import ImageField
 
+# Squarelet
+from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
+from squarelet.syncers.models import SyncableMixin
+
 # Local
-from ..core.fields import AutoCreatedField, AutoLastModifiedField
 from .managers import UserManager
 from .validators import UsernameValidator
 
 
-class User(AbstractBaseUser, PermissionsMixin):
+class User(SyncableMixin, AbstractBaseUser, PermissionsMixin):
     """User model for squarelet
 
     This is a general user model which should only store information applicable
@@ -46,9 +49,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     # XXX finish doc string
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    # should this be optional or not?  what do we sign off as on requests?
+    # XXX should this be optional or not?  what do we sign off as on requests?
     # do we want a full name and a short name?
     name = models.CharField(_("name of user"), blank=True, max_length=255)
+    # XXX should this be optional or not?
     email = CIEmailField(_("email"), unique=True)
     username = CICharField(
         _("username"),
@@ -91,6 +95,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     REQUIRED_FIELDS = ["email"]
 
     objects = UserManager()
+
+    sync_actions = ("create", "update")
 
     def __str__(self):
         return self.username
