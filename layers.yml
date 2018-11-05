@@ -1,0 +1,17 @@
+Django App Contract:
+    containers:
+        - squarelet.users
+        - squarelet.organizations
+    layers:
+        - (apps)
+        - (urls)
+        - (views)
+        - (viewsets)
+        - (forms)
+        - (serializers)
+        - (signals)
+        - (tasks)
+        - (models)
+        - (managers)
+        - (querysets)
+        - (validators)

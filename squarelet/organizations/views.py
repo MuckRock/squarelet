@@ -6,18 +6,10 @@ from django.db import transaction
 from django.shortcuts import redirect
 from django.views.generic import CreateView, DetailView, FormView, ListView, UpdateView
 
-# Standard Library
-from datetime import datetime
-
 # Local
 from .forms import AddMemberForm, BuyRequestsForm, ManageMembersForm, UpdateForm
 from .mixins import OrganizationAdminMixin
 from .models import Invitation, Membership, Organization, ReceiptEmail
-from .tasks import (
-    push_update_add_member,
-    push_update_organization,
-    push_update_remove_member,
-)
 
 
 class Detail(DetailView):
@@ -46,19 +38,15 @@ class Update(OrganizationAdminMixin, UpdateView):
     form_class = UpdateForm
 
     def form_valid(self, form):
-        with transaction.atomic():
-            organization = self.object
-            organization.private = form.cleaned_data["private"]
-            organization.set_subscription(
-                token=form.cleaned_data["stripe_token"],
-                plan=form.cleaned_data["plan"],
-                max_users=form.cleaned_data.get("max_users"),
-            )
-            organization.set_receipt_emails(form.cleaned_data["receipt_emails"])
-            organization.save()
-            transaction.on_commit(
-                lambda: push_update_organization.delay(organization.pk)
-            )
+        organization = self.object
+        organization.private = form.cleaned_data["private"]
+        organization.set_subscription(
+            token=form.cleaned_data["stripe_token"],
+            plan=form.cleaned_data["plan"],
+            max_users=form.cleaned_data.get("max_users"),
+        )
+        organization.set_receipt_emails(form.cleaned_data["receipt_emails"])
+        organization.save()
         messages.success(self.request, "Organization Updated")
         return redirect(organization)
 
@@ -95,16 +83,6 @@ class Create(LoginRequiredMixin, CreateView):
             # add the creators email as a receipt recipient by default
             ReceiptEmail.objects.create(
                 organization=organization, email=self.request.user.email
-            )
-            transaction.on_commit(
-                lambda: (
-                    push_update_organization.delay(organization.pk),
-                    # wait 5 seconds to add the member to give time for organization
-                    # to be saved
-                    push_update_add_member.apply_async(
-                        args=[organization.pk, self.request.user.pk], countdown=5
-                    ),
-                )
             )
         return response
 
@@ -168,12 +146,6 @@ class ManageMembers(OrganizationAdminMixin, UpdateView):
                 ):
                     membership.admin = form.cleaned_data[f"admin-{membership.user_id}"]
                     membership.save()
-            transaction.on_commit(
-                lambda: [
-                    push_update_remove_member.delay(organization.pk, user_id)
-                    for user_id in remove_user_ids
-                ]
-            )
 
         messages.success(self.request, "Members updated")
         return redirect(organization)
@@ -204,11 +176,6 @@ class InvitationAccept(LoginRequiredMixin, DetailView):
             invitation.save()
             Membership.objects.create(
                 organization=invitation.organization, user=self.request.user
-            )
-            transaction.on_commit(
-                lambda: push_update_add_member(
-                    invitation.organization.pk, self.request.user.pk
-                )
             )
         messages.success(self.request, "Invitation accepted")
         return redirect(invitation.organization)

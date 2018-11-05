@@ -1,42 +1,34 @@
 # Django
-from django import forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as AuthUserAdmin
-from django.contrib.auth.forms import UserChangeForm, UserCreationForm
+from django.contrib.auth.forms import UserCreationForm
 from django.utils.translation import ugettext_lazy as _
+
+# Third Party
+from allauth.account.utils import sync_user_email_addresses
 
 # Local
 from .models import User
 
 
-class MyUserChangeForm(UserChangeForm):
-    class Meta(UserChangeForm.Meta):
-        model = User
-
-
 class MyUserCreationForm(UserCreationForm):
-
-    error_message = UserCreationForm.error_messages.update(
-        {"duplicate_username": _("This username has already been taken.")}
-    )
-
     class Meta(UserCreationForm.Meta):
         model = User
-
-    def clean_username(self):
-        username = self.cleaned_data["username"]
-        try:
-            User.objects.get(username=username)
-        except User.DoesNotExist:
-            return username
-
-        raise forms.ValidationError(self.error_messages["duplicate_username"])
+        fields = ("username", "email")
 
 
 @admin.register(User)
 class MyUserAdmin(AuthUserAdmin):
-    form = MyUserChangeForm
     add_form = MyUserCreationForm
+    add_fieldsets = (
+        (
+            None,
+            {
+                "classes": ("wide",),
+                "fields": ("email", "username", "password1", "password2"),
+            },
+        ),
+    )
     fieldsets = (
         (None, {"fields": ("username", "password", "can_change_username")}),
         (_("Personal info"), {"fields": ("name", "email")}),
@@ -56,4 +48,9 @@ class MyUserAdmin(AuthUserAdmin):
     )
     readonly_fields = ("created_at", "updated_at")
     list_display = ("username", "name", "is_superuser")
-    search_fields = ["name"]
+    search_fields = ("username", "name")
+
+    def save_model(self, request, obj, form, change):
+        """Sync all auth email addresses"""
+        super().save_model(request, obj, form, change)
+        sync_user_email_addresses(obj)

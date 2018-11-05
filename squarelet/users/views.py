@@ -1,13 +1,11 @@
 # Django
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db import transaction
 from django.http.response import HttpResponseRedirect
 from django.urls import reverse
 from django.views.generic import DetailView, ListView, RedirectView, UpdateView
 
 # Local
 from .models import User
-from .tasks import push_update_user
 
 
 class UserDetailView(LoginRequiredMixin, DetailView):
@@ -36,12 +34,10 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
         return super().get_form_class()
 
     def form_valid(self, form):
-        with transaction.atomic():
-            self.object = form.save()
-            if self.request.user.username != self.object.username:
-                self.object.can_change_username = False
-                self.object.save()
-            transaction.on_commit(lambda: push_update_user.delay(self.object.pk))
+        self.object = form.save(commit=False)
+        if self.request.user.username != self.object.username:
+            self.object.can_change_username = False
+        self.object.save()
         return HttpResponseRedirect(self.get_success_url())
 
     def get_success_url(self):

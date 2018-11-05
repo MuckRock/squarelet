@@ -2,16 +2,16 @@
 from allauth.account import signals
 
 # Squarelet
-from squarelet.users.tasks import push_update_user
+from squarelet.syncers.tasks import sync
 
 
 def email_confirmed(request, email_address, **kwargs):
     if email_address.primary:
-        push_update_user.delay(email_address.user.pk)
+        sync.delay("User", "update", email_address.user.pk)
 
 
 def email_changed(request, user, from_email_address, to_email_address, **kwargs):
-    push_update_user.delay(user.pk)
+    sync.delay("User", "update", user.pk)
 
 
 signals.email_confirmed.connect(

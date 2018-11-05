@@ -1,4 +1,5 @@
 # Django
+from celery import current_app
 from django.conf import settings
 from django.core.mail import send_mail
 from django.db import models, transaction
@@ -16,8 +17,11 @@ import stripe
 from autoslug import AutoSlugField
 from memoize import mproperty
 
+# Squarelet
+from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
+from squarelet.syncers.models import SyncableMixin
+
 # Local
-from ..core.fields import AutoCreatedField, AutoLastModifiedField
 from .choices import Plan
 from .constants import (
     BASE_PAGES,
@@ -36,7 +40,7 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 stripe.api_version = "2018-09-24"
 
 
-class Organization(models.Model):
+class Organization(SyncableMixin, models.Model):
     """Orginization to allow pooled requests and collaboration"""
 
     objects = OrganizationQuerySet.as_manager()
@@ -113,6 +117,8 @@ class Organization(models.Model):
     customer_id = models.CharField(_("customer id"), max_length=255, blank=True)
     subscription_id = models.CharField(_("subscription id"), max_length=255, blank=True)
     payment_failed = models.BooleanField(_("payment failed"), default=False)
+
+    sync_actions = ("create", "update")
 
     class Meta:
         ordering = ("slug",)
@@ -335,7 +341,7 @@ class Organization(models.Model):
         self.save()
 
 
-class Membership(models.Model):
+class Membership(SyncableMixin, models.Model):
     """Through table for organization membership"""
 
     user = models.ForeignKey(
@@ -352,8 +358,14 @@ class Membership(models.Model):
         help_text="This user has administrative rights for this organization",
     )
 
+    sync_actions = ("create", "delete")
+
     class Meta:
         unique_together = ("user", "organization")
+
+    def _get_sync_args(self):
+        """Identify a membership by organization and user pk"""
+        return (self.organization.pk, self.user.pk)
 
     def __str__(self):
         return "Membership: {} in {}".format(self.user, self.organization)
