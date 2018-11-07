@@ -33,12 +33,22 @@
       </div>
     </div>
 
-    {% if can_join %}
+    {% if not is_member %}
       <div class="row">
         <div class="col-sm-2">
           <form method="post">
             {% csrf_token %}
-            <button type="submit" class="btn">Request to Join</button>
+            <button type="submit" class="btn" name="action" value="join">Request to Join</button>
+        </div>
+      </div>
+    {% endif %}
+
+    {% if is_member %}
+      <div class="row">
+        <div class="col-sm-2">
+          <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn" name="action" value="leave">Leave this Organization</button>
         </div>
       </div>
     {% endif %}

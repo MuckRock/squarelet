@@ -4,7 +4,6 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.shortcuts import redirect
-from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
 from django.views.generic import CreateView, DetailView, FormView, ListView, UpdateView
 
@@ -21,28 +20,29 @@ from .models import Invitation, Membership, Organization, ReceiptEmail
 
 
 class Detail(DetailView):
-    model = Organization
-
-    def can_join(self):
-        """Can the current user request to join this organization?"""
-        return self.request.user.is_authenticated and not self.object.has_member(
-            self.request.user
-        )
+    queryset = Organization.objects.filter(individual=False)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data()
-        context["is_admin"] = self.object.is_admin(self.request.user)
-        context["can_join"] = self.can_join()
+        if self.request.user.is_authenticated:
+            context["is_admin"] = self.object.has_admin(self.request.user)
+            context["is_member"] = self.object.has_member(self.request.user)
         return context
 
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
-        if self.can_join():
+        if not self.request.user.is_authenticated:
+            return redirect(self.object)
+        is_member = self.object.has_member(self.request.user)
+        if request.POST.get("action") == "join" and not is_member:
             self.object.invitations.create(
                 email=request.user.email, user=request.user, request=True
             )
             messages.success(request, _("Request to join the organization sent!"))
             # XXX notify the admins via email
+        elif request.POST.get("action") == "leave" and is_member:
+            self.request.user.memberships.filter(organization=self.object).delete()
+            messages.success(request, _("You have left the organization"))
         return redirect(self.object)
 
 
@@ -59,7 +59,7 @@ class List(ListView):
 
 
 class Update(OrganizationAdminMixin, UpdateView):
-    model = Organization
+    queryset = Organization.objects.filter(individual=False)
     form_class = UpdateForm
 
     def form_valid(self, form):
@@ -113,7 +113,7 @@ class Create(LoginRequiredMixin, CreateView):
 
 
 class AddMember(OrganizationAdminMixin, DetailView, FormView):
-    model = Organization
+    queryset = Organization.objects.filter(individual=False)
     form_class = AddMemberForm
     template_name = "organizations/organization_form.html"
 
@@ -140,7 +140,7 @@ class AddMember(OrganizationAdminMixin, DetailView, FormView):
 
 
 class BuyRequests(OrganizationAdminMixin, UpdateView):
-    model = Organization
+    queryset = Organization.objects.filter(individual=False)
     form_class = BuyRequestsForm
 
     def form_valid(self, form):
@@ -161,7 +161,7 @@ class BuyRequests(OrganizationAdminMixin, UpdateView):
 
 
 class ManageMembers(OrganizationAdminMixin, UpdateView):
-    model = Organization
+    queryset = Organization.objects.filter(individual=False)
     form_class = ManageMembersForm
     template_name = "organizations/organization_managemembers.html"
 
@@ -194,7 +194,7 @@ class ManageMembers(OrganizationAdminMixin, UpdateView):
 
 
 class InvitationAccept(LoginRequiredMixin, DetailView):
-    model = Invitation
+    queryset = Organization.objects.filter(individual=False)
     slug_field = "uuid"
     slug_url_kwarg = "uuid"
 
@@ -210,7 +210,7 @@ class InvitationAccept(LoginRequiredMixin, DetailView):
 
 
 class ManageInvitations(OrganizationAdminMixin, UpdateView):
-    model = Organization
+    queryset = Organization.objects.filter(individual=False)
     form_class = ManageInvitationsForm
     template_name = "organizations/invitation_list.html"
 
