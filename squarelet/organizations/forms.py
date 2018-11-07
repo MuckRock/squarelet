@@ -51,6 +51,15 @@ class UpdateForm(StripeForm):
         help_text=_("One email address per line"),
     )
 
+    field_order = [
+        "stripe_token",
+        "plan",
+        "max_users",
+        "private",
+        "receipt_emails",
+        "use_card_on_file",
+    ]
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._set_group_options()
@@ -59,6 +68,7 @@ class UpdateForm(StripeForm):
         if self.organization.individual:
             self.fields["plan"].choices = Plan.individual_choices()
             del self.fields["max_users"]
+            del self.fields["private"]
         else:
             self.fields["plan"].choices = Plan.group_choices()
             limit_value = max(MIN_USERS[Plan.basic], self.organization.user_count())

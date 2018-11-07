@@ -72,7 +72,7 @@ class Update(OrganizationAdminMixin, UpdateView):
         )
         organization.set_receipt_emails(form.cleaned_data["receipt_emails"])
         organization.save()
-        messages.success(self.request, "Organization Updated")
+        messages.success(self.request, _("Organization Updated"))
         return redirect(organization)
 
     def get_context_data(self, **kwargs):
@@ -89,6 +89,13 @@ class Update(OrganizationAdminMixin, UpdateView):
                 r.email for r in self.object.receipt_emails.all()
             ),
         }
+
+
+class IndividualUpdate(Update):
+    """Subclass to update individual organizations"""
+
+    def get_object(self, queryset=None):
+        return Organization.objects.get(pk=self.request.user.pk)
 
 
 class Create(LoginRequiredMixin, CreateView):

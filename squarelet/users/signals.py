@@ -20,6 +20,3 @@ signals.email_confirmed.connect(
 signals.email_changed.connect(
     email_changed, dispatch_uid="squarelet.users.signals.email_changed"
 )
-signals.user_signed_up.connect(
-    user_signed_up, dispatch_uid="squarelet.users.signals.user_signed_up"
-)
