@@ -167,6 +167,13 @@ class BuyRequests(OrganizationAdminMixin, UpdateView):
         return context
 
 
+class IndividualBuyRequests(BuyRequests):
+    """Subclass to buy requests for individual organizations"""
+
+    def get_object(self, queryset=None):
+        return Organization.objects.get(pk=self.request.user.pk)
+
+
 class ManageMembers(OrganizationAdminMixin, UpdateView):
     queryset = Organization.objects.filter(individual=False)
     form_class = ManageMembersForm
