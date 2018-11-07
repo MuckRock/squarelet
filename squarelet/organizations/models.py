@@ -61,7 +61,7 @@ class Organization(SyncableMixin, models.Model):
         _("next plan"),
         help_text=_("Type to switch to at next billing cycle"),
         choices=Plan.choices,
-        default=Plan.basic,
+        default=Plan.free,
     )
     individual = models.BooleanField(
         _("individual organization"),
