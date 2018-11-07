@@ -131,7 +131,7 @@ class Organization(SyncableMixin, models.Model):
         return reverse("organizations:detail", kwargs={"slug": self.slug})
 
     # User Management
-    def is_admin(self, user):
+    def has_admin(self, user):
         """Is the given user an admin of this organization"""
         return self.users.filter(pk=user.pk, memberships__admin=True).exists()
 
