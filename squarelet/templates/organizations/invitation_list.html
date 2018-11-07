@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}{{ organization.name }} | Manage Invitations{% endblock %}
+
+{% block content %}
+  {% if form.non_field_errors %}
+    <div class="alert alert-error">
+      {{ form.non_field_errors }}
+    </div>
+  {% endif %}
+  <h1>{{ organization.name }}</h1>
+  <h2>Manage Invitations</h2>
+
+  {% if requested_invitations %}
+    <h3>Requested Invitations</h3>
+    <form class="form-horizontal" method="post" enctype="multipart/form-data" id="org-form">
+      {% csrf_token %}
+      <ul>
+        {% for invitation, accept_field in requested_invitations %}
+          <li>
+            {{ invitation.created_at|date }} -
+            {{ invitation.email }} -
+            <a href="{{ invitation.user.get_absolute_url }}">
+              {{ invitation.user.username }}
+            </a>
+            <label>{{ accept_field }} Accept?</label>
+          </li>
+        {% endfor %}
+      </ul>
+      <div class="control-group">
+        <div class="controls">
+          <button type="submit" class="btn" name="action" value="accept">Accept</button>
+        </div>
+      </div>
+    </form>
+  {% endif %}
+  {% if pending_invitations %}
+    <h3>Pending Invitations</h3>
+    <form class="form-horizontal" method="post" enctype="multipart/form-data" id="org-form">
+      {% csrf_token %}
+      <ul>
+        {% for invitation, remove_field in pending_invitations %}
+          <li>
+            {{ invitation.created_at|date }} - {{ invitation.email }} -
+            <label>{{ remove_field }} Revoke?</label>
+          </li>
+        {% endfor %}
+      </ul>
+      <div class="control-group">
+        <div class="controls">
+          <button type="submit" class="btn" name="action" value="revoke">Revoke</button>
+        </div>
+      </div>
+    </form>
+  {% endif %}
+  {% if accepted_invitations %}
+    <h3>Accepted Invitations</h3>
+    <ul>
+      {% for invitation in accepted_invitations %}
+        <li>
+          {{ invitation.created_at|date }} - {{ invitation.accepted_at|date }} -
+          {{ invitation.email }} -
+          <a href="{{ invitation.user.get_absolute_url }}">
+            {{ invitation.user.username }}
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+{% endblock content %}

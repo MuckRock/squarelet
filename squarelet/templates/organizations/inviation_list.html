@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}{{ organization.name }} | Manage Invitations{% endblock %}
+
+{% block content %}
+  <h1>{{ organization.name }}</h1>
+  <h2>Manage Invitations</h2>
+
+  <ul>
+    {% for invitation in invitations %}
+      <li>
+        {{ invitation.email }} -
+        {% if invitation.user %}
+          <a href="{{ invitation.user.get_absolute_url }}">
+            {{ invitation.user.username }}
+          </a>
+        {% else %}Not accepted yet{% endif%}
+      </li>
+    {% endfor %}
+  </ul>
+{% endblock content %}

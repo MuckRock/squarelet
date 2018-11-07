@@ -1,11 +1,11 @@
 # Django
-from celery import current_app
 from django.conf import settings
 from django.core.mail import send_mail
 from django.db import models, transaction
 from django.db.models import F
 from django.db.models.functions import Greatest
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
 
 # Standard Library
@@ -34,7 +34,7 @@ from .constants import (
     PRICE_PER_USER,
 )
 from .exceptions import InsufficientRequestsError
-from .querysets import OrganizationQuerySet
+from .querysets import InvitationQuerySet, OrganizationQuerySet
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 stripe.api_version = "2018-09-24"
@@ -134,6 +134,14 @@ class Organization(SyncableMixin, models.Model):
     def is_admin(self, user):
         """Is the given user an admin of this organization"""
         return self.users.filter(pk=user.pk, memberships__admin=True).exists()
+
+    def has_member(self, user):
+        """Is the user a member?"""
+        return self.users.filter(pk=user.pk).exists()
+
+    def user_count(self):
+        """Count the number of users, including pending invitations"""
+        return self.users.count() + self.invitations.get_pending().count()
 
     # Payment Management
     @mproperty
@@ -389,26 +397,31 @@ class ReceiptEmail(models.Model):
 class Invitation(models.Model):
     """An invitation for a user to join an organization"""
 
+    objects = InvitationQuerySet.as_manager()
+
     organization = models.ForeignKey(
         "organizations.Organization",
         related_name="invitations",
         on_delete=models.CASCADE,
     )
-    # XXX pk
-    uuid = models.UUIDField(default=uuid.uuid4, editable=False)
-    email = models.EmailField()
+    uuid = models.UUIDField(_("uuid"), default=uuid.uuid4, editable=False)
+    email = models.EmailField(_("email"))
     user = models.ForeignKey(
         "users.User",
         related_name="invitations",
         on_delete=models.PROTECT,
         blank=True,
         null=True,
-        help_text=_(
-            "The user who accepted this invitation - NULL means it has not been "
-            "accepted yet"
-        ),
     )
-    # XXX add date fields, sent, accepted
+    request = models.BooleanField(
+        _("request"),
+        help_text="Is this a request for an invitation from the user or an invitation "
+        "to the user from an admin?",
+        default=False,
+    )
+    created_at = AutoCreatedField(_("created at"))
+    # NULL accepted_at signifies it has not been accepted yet
+    accepted_at = models.DateTimeField(_("accepted_at"), blank=True, null=True)
 
     def __str__(self):
         return f"Invitation: {self.uuid}"
@@ -422,3 +435,16 @@ class Invitation(models.Model):
             "info@muckrock.com",  # XXX make this a variable - use diff email?
             [self.email],
         )
+
+    def accept(self, user=None):
+        """Accept the invitation"""
+        if self.user is None and user is None:
+            raise ValueError(
+                "Must give a user when accepting if invitation has no user"
+            )
+        with transaction.atomic():
+            if self.user is None:
+                self.user = user
+            self.accepted_at = timezone.now()
+            self.save()
+            Membership.objects.create(organization=self.organization, user=self.user)

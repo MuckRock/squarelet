@@ -33,6 +33,16 @@
       </div>
     </div>
 
+    {% if can_join %}
+      <div class="row">
+        <div class="col-sm-2">
+          <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn">Request to Join</button>
+        </div>
+      </div>
+    {% endif %}
+
     {% if is_admin %}
       <div class="row">
         <div class="col-sm-2">
@@ -49,6 +59,14 @@
              href="{% url "organizations:manage-members" organization.slug %}"
              role="button">
             Manage Members
+          </a>
+        </div>
+        <div class="col-sm-2">
+          <a
+             class="btn btn-primary"
+             href="{% url "organizations:manage-invitations" organization.slug %}"
+             role="button">
+            Manage Invitations
           </a>
         </div>
         <div class="col-sm-2">

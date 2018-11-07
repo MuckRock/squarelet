@@ -10,8 +10,18 @@ class OrganizationQuerySet(models.QuerySet):
             return self
         elif user.is_authenticated:
             # other users may not see private organizations unless they are a member
-            # XXX memberships -> users
-            return self.filter(Q(private=False) | Q(memberships__user=user))
+            return self.filter(Q(private=False) | Q(users=user)).distinct()
         else:
             # anonymous users may not see any private organizations
             return self.filter(private=False)
+
+
+class InvitationQuerySet(models.QuerySet):
+    def get_pending(self):
+        return self.filter(accepted_at=None, request=False)
+
+    def get_accepted(self):
+        return self.exclude(accepted_at=None)
+
+    def get_requested(self):
+        return self.filter(accepted_at=None, request=True)
