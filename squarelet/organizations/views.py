@@ -4,10 +4,18 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.shortcuts import redirect
+from django.utils import timezone
+from django.utils.translation import ugettext_lazy as _
 from django.views.generic import CreateView, DetailView, FormView, ListView, UpdateView
 
 # Local
-from .forms import AddMemberForm, BuyRequestsForm, ManageMembersForm, UpdateForm
+from .forms import (
+    AddMemberForm,
+    BuyRequestsForm,
+    ManageInvitationsForm,
+    ManageMembersForm,
+    UpdateForm,
+)
 from .mixins import OrganizationAdminMixin
 from .models import Invitation, Membership, Organization, ReceiptEmail
 
@@ -15,10 +23,27 @@ from .models import Invitation, Membership, Organization, ReceiptEmail
 class Detail(DetailView):
     model = Organization
 
+    def can_join(self):
+        """Can the current user request to join this organization?"""
+        return self.request.user.is_authenticated and not self.object.has_member(
+            self.request.user
+        )
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data()
         context["is_admin"] = self.object.is_admin(self.request.user)
+        context["can_join"] = self.can_join()
         return context
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        if self.can_join():
+            self.object.invitations.create(
+                email=request.user.email, user=request.user, request=True
+            )
+            messages.success(request, _("Request to join the organization sent!"))
+            # XXX notify the admins via email
+        return redirect(self.object)
 
 
 class List(ListView):
@@ -91,7 +116,17 @@ class AddMember(OrganizationAdminMixin, DetailView, FormView):
     model = Organization
     form_class = AddMemberForm
     template_name = "organizations/organization_form.html"
-    # XXX no addingmembers to individual organizations
+
+    def dispatch(self, request, *args, **kwargs):
+        """Check max users"""
+        organization = self.get_object()
+        if organization.user_count() >= organization.max_users:
+            messages.error(
+                request, "You need to increase your max users to invite another member"
+            )
+            return self.get(request, *args, **kwargs)
+        else:
+            return super(AddMember, self).dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
         """Create an invitation and send it to the given email address"""
@@ -134,13 +169,11 @@ class ManageMembers(OrganizationAdminMixin, UpdateView):
         """Edit members admin status or remove them from the organization"""
 
         organization = self.object
-        remove_user_ids = []
 
         with transaction.atomic():
             for membership in organization.memberships.all():
                 if form.cleaned_data[f"remove-{membership.user_id}"]:
                     membership.delete()
-                    remove_user_ids.append(membership.user_id)
                 elif (
                     form.cleaned_data[f"admin-{membership.user_id}"] != membership.admin
                 ):
@@ -165,17 +198,47 @@ class InvitationAccept(LoginRequiredMixin, DetailView):
     slug_field = "uuid"
     slug_url_kwarg = "uuid"
 
+    def get_queryset(self):
+        return super().get_pending()
+
     def post(self, request, *args, **kwargs):
         """Accept the invitation"""
         invitation = self.get_object()
-        if invitation.user is not None:
-            messages.error(self.request, "That invitation has already been accepted")
-            return redirect(self.request.user)
-        with transaction.atomic():
-            invitation.user = self.request.user
-            invitation.save()
-            Membership.objects.create(
-                organization=invitation.organization, user=self.request.user
-            )
+        invitation.accept(self.request.user)
         messages.success(self.request, "Invitation accepted")
         return redirect(invitation.organization)
+
+
+class ManageInvitations(OrganizationAdminMixin, UpdateView):
+    model = Organization
+    form_class = ManageInvitationsForm
+    template_name = "organizations/invitation_list.html"
+
+    def get_context_data(self, **kwargs):
+        # pylint: disable=arguments-differ
+        context = super().get_context_data(**kwargs)
+        form = context["form"]
+        context["requested_invitations"] = [
+            (i, form[f"accept-{i.pk}"]) for i in self.object.invitations.get_requested()
+        ]
+        context["pending_invitations"] = [
+            (i, form[f"remove-{i.pk}"]) for i in self.object.invitations.get_pending()
+        ]
+        context["accepted_invitations"] = self.object.invitations.get_accepted()
+        return context
+
+    def form_valid(self, form):
+        """Revoke selected invitations"""
+        organization = self.object
+
+        with transaction.atomic():
+            if form.cleaned_data["action"] == "revoke":
+                for invitation in organization.invitations.get_pending():
+                    if form.cleaned_data[f"remove-{invitation.id}"]:
+                        invitation.delete()
+                messages.success(self.request, "Invitations revoked")
+            elif form.cleaned_data["action"] == "accept":
+                for invitation in organization.invitations.get_requested():
+                    if form.cleaned_data[f"accept-{invitation.id}"]:
+                        invitation.accept()
+        return redirect(organization)

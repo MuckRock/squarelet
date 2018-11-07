@@ -20,6 +20,11 @@ urlpatterns = [
         view=views.ManageMembers.as_view(),
         name="manage-members",
     ),
+    path(
+        "<slug:slug>/manage-invitations/",
+        view=views.ManageInvitations.as_view(),
+        name="manage-invitations",
+    ),
     path("<slug:slug>/", view=views.Detail.as_view(), name="detail"),
     path(
         "<uuid:uuid>/invitation/",
