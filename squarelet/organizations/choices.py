@@ -13,8 +13,8 @@ class Plan(DjangoChoices):
 
     free = ChoiceItem(0, _("Free"))
     pro = ChoiceItem(1, _("Pro"))
-    basic = ChoiceItem(2, _("Basic"))
-    plus = ChoiceItem(3, _("Plus"))
+    basic = ChoiceItem(2, _("Organization Basic"))
+    plus = ChoiceItem(3, _("Organization Plus"))
 
     @classmethod
     def _choices_subset(cls, values):

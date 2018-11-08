@@ -47,6 +47,7 @@ class Organization(SyncableMixin, models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
+    # XXX make this case insensitive?
     name = models.CharField(_("name"), max_length=255, unique=True)
     slug = AutoSlugField(_("slug"), populate_from="name", unique=True)
     created_at = AutoCreatedField(_("created at"))
@@ -143,6 +144,13 @@ class Organization(SyncableMixin, models.Model):
         """Count the number of users, including pending invitations"""
         return self.users.count() + self.invitations.get_pending().count()
 
+    def add_creator(self, user):
+        """Add user as the creator of the organization"""
+        # add creator to the organization as an admin by default
+        self.memberships.create(user=user, admin=True)
+        # add the creators email as a receipt recipient by default
+        self.receipt_emails.create(email=user.email)
+
     # Payment Management
     @mproperty
     def customer(self):
@@ -204,14 +212,14 @@ class Organization(SyncableMixin, models.Model):
         extra_users = max_users - MIN_USERS[plan]
 
         if plan == Plan.pro:
-            plan = "pro"
+            stripe_plan = "pro"
             quantity = 1
         else:
-            plan = "org"
+            stripe_plan = "org"
             quantity = BASE_PRICE[plan] + extra_users * PRICE_PER_USER[plan]
 
         subscription = customer.subscriptions.create(
-            items=[{"plan": plan, "quantity": quantity}]
+            items=[{"plan": stripe_plan, "quantity": quantity}]
         )
 
         requests_per_month = (

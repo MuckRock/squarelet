@@ -94,6 +94,8 @@ class Update(OrganizationAdminMixin, UpdateView):
 class IndividualUpdate(Update):
     """Subclass to update individual organizations"""
 
+    # XXX mixin for indiviual orgs?
+
     def get_object(self, queryset=None):
         return Organization.objects.get(pk=self.request.user.pk)
 
@@ -107,15 +109,7 @@ class Create(LoginRequiredMixin, CreateView):
         organization"""
         with transaction.atomic():
             response = super().form_valid(form)
-            organization = self.object
-            # add creator to the organization as an admin by default
-            Membership.objects.create(
-                user=self.request.user, organization=organization, admin=True
-            )
-            # add the creators email as a receipt recipient by default
-            ReceiptEmail.objects.create(
-                organization=organization, email=self.request.user.email
-            )
+            self.object.add_creator(self.request.user)
         return response
 
 
