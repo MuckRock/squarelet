@@ -185,6 +185,7 @@ TEMPLATES = [
                 "django.template.context_processors.static",
                 "django.template.context_processors.tz",
                 "django.contrib.messages.context_processors.messages",
+                "squarelet.core.context_processors.settings",
             ],
         },
     }
@@ -239,6 +240,7 @@ ACCOUNT_EMAIL_VERIFICATION = "optional"
 ACCOUNT_ADAPTER = "squarelet.users.adapters.AccountAdapter"
 SOCIALACCOUNT_ADAPTER = "squarelet.users.adapters.SocialAccountAdapter"
 ACCOUNT_FORMS = {"signup": "squarelet.users.forms.SignupForm"}
+ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = False
 
 
 # django-compressor

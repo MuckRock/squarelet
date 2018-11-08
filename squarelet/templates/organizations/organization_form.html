@@ -9,7 +9,7 @@
     {% csrf_token %}
     {{ form|crispy }}
 
-    {% if STRIPE_PUB_KEY %}
+    {% if form.stripe_token %}
       <div class="form-group">
         <label for="card-element">
           Credit or debit card
@@ -30,7 +30,7 @@
 
 {% block extra_javascript %}
   <script>
-    var stripe = Stripe('{{ STRIPE_PUB_KEY }}');
+    var stripe = Stripe('{{ settings.STRIPE_PUB_KEY }}');
     var elements = stripe.elements();
 
     function stripeTokenHandler(token) {
@@ -64,7 +64,9 @@
       // Create a token or display an error when the form is submitted.
       var form = document.getElementById('org-form');
       form.addEventListener('submit', function(event) {
-        if ($("input[name=use_card_on_file]:checked").val() !== "True") {
+        var useCardOnFile = $("input[name=use_card_on_file]:checked").val() === "True";
+        var freePlan = $("#id_plan").val() === "0";
+        if (!useCardOnFile && !freePlan) {
           event.preventDefault();
 
           stripe.createToken(card).then(function(result) {

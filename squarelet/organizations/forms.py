@@ -3,43 +3,18 @@ from django import forms
 from django.core.validators import validate_email
 from django.utils.translation import ugettext_lazy as _
 
+# Squarelet
+from squarelet.core.forms import StripeForm
+
 # Local
 from .choices import Plan
 from .constants import MIN_USERS
 
 
-class StripeForm(forms.Form):
-    """Base class for forms which include stripe fields"""
-
-    stripe_token = forms.CharField(widget=forms.HiddenInput())
-    use_card_on_file = forms.TypedChoiceField(
-        label=_("Use Credit Card on File"),
-        coerce=lambda x: x == "True",
-        initial=True,
-        widget=forms.RadioSelect,
-    )
-
-    def __init__(self, *args, **kwargs):
-        self.organization = kwargs.pop("instance")
-        super().__init__(*args, **kwargs)
-        self._set_card_options()
-
-    def _set_card_options(self):
-        card = self.organization.card
-        if card:
-            self.fields["use_card_on_file"].choices = (
-                (True, f"{card.brand}: {card.last4}"),
-                (False, "New Card"),
-            )
-            self.fields["stripe_token"].required = False
-        else:
-            del self.fields["use_card_on_file"]
-
-
 class UpdateForm(StripeForm):
     """Update an organization"""
 
-    plan = forms.TypedChoiceField(label=_("Type"), coerce=int)
+    plan = forms.TypedChoiceField(label=_("Plan"), coerce=int)
     max_users = forms.IntegerField(
         label=_("Number of Users"), min_value=MIN_USERS[Plan.basic]
     )
@@ -62,6 +37,7 @@ class UpdateForm(StripeForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["stripe_token"].required = False
         self._set_group_options()
 
     def _set_group_options(self):
@@ -90,11 +66,21 @@ class UpdateForm(StripeForm):
             raise forms.ValidationError("Invalid email: %s" % ", ".join(bad_emails))
         return emails
 
+    def clean(self):
+        data = super().clean()
 
-class AddMemberForm(forms.Form):
-    """Add a member to the organization"""
+        payment_required = (
+            data.get("plan") != self.organization.plan and data.get("plan") != Plan.free
+        )
+        payment_supplied = data.get("use_card_on_file") or data.get("stripe_token")
 
-    email = forms.EmailField()
+        if payment_required and not payment_supplied:
+            self.add_error(
+                None,
+                _("You must supply a credit card number to upgrade to a non-free plan"),
+            )
+
+        return data
 
 
 class BuyRequestsForm(StripeForm):
@@ -110,13 +96,13 @@ class BuyRequestsForm(StripeForm):
     field_order = ["stripe_token", "number_requests", "use_card_on_file", "save_card"]
 
     def clean(self):
-        cleaned_data = super().clean()
-        if cleaned_data.get("save_card") and not cleaned_data.get("stripe_token"):
+        data = super().clean()
+        if data.get("save_card") and not data.get("stripe_token"):
             self.add_error(
                 "save_card",
                 _("You must enter credit card information in order to save it"),
             )
-        if cleaned_data.get("save_card") and cleaned_data.get("use_card_on_file"):
+        if data.get("save_card") and data.get("use_card_on_file"):
             self.add_error(
                 "save_card",
                 _(
@@ -124,12 +110,23 @@ class BuyRequestsForm(StripeForm):
                     "card on file."
                 ),
             )
-        if cleaned_data.get("use_card_on_file") and cleaned_data.get("stripe_token"):
+
+        if (
+            "use_card_on_file" in self.fields
+            and not data.get("use_card_on_file")
+            and not data.get("stripe_token")
+        ):
             self.add_error(
                 "use_card_on_file",
-                _("You cannot use your card on file and enter a credit card number."),
+                _("You must use your card on file or enter a credit card number."),
             )
-        return cleaned_data
+        return data
+
+
+class AddMemberForm(forms.Form):
+    """Add a member to the organization"""
+
+    email = forms.EmailField()
 
 
 class ManageMembersForm(forms.Form):
