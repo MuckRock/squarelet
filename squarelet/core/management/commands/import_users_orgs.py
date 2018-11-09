@@ -21,6 +21,7 @@ class Command(BaseCommand):
     """Import users and orgs from MuckRock"""
 
     def handle(self, *args, **kwargs):
+        # pylint: disable=unused-argument
         with transaction.atomic():
             self.import_users()
             self.import_orgs()

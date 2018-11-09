@@ -9,7 +9,7 @@ from allauth.account.forms import SignupForm as AllauthSignupForm
 # Squarelet
 from squarelet.core.forms import StripeForm
 from squarelet.organizations.choices import Plan
-from squarelet.organizations.models import Membership, Organization
+from squarelet.organizations.models import Organization
 
 
 class SignupForm(AllauthSignupForm, StripeForm):
