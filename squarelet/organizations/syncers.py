@@ -1,4 +1,3 @@
-
 # Squarelet
 from squarelet.organizations.models import Membership, Organization
 from squarelet.syncers import syncers

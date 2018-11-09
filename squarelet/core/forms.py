@@ -2,7 +2,6 @@
 from django import forms
 from django.utils.translation import ugettext_lazy as _
 
-
 # XXX refactor for which of use_card_on_file / save_card you need
 
 
