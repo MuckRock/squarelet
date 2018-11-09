@@ -16,7 +16,7 @@ from .forms import (
     UpdateForm,
 )
 from .mixins import OrganizationAdminMixin
-from .models import Invitation, Membership, Organization, ReceiptEmail
+from .models import Invitation, Organization
 
 
 class Detail(DetailView):

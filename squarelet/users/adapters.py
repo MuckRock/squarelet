@@ -1,13 +1,9 @@
 # Django
 from django.conf import settings
-from django.db import transaction
 
 # Third Party
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
-
-# Squarelet
-from squarelet.organizations.models import Membership, Organization
 
 
 class AccountAdapter(DefaultAccountAdapter):

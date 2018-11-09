@@ -1,7 +1,7 @@
 
 # Django
 from celery import current_app
-from django.db import models, transaction
+from django.db import transaction
 
 
 class SyncableMixin:
