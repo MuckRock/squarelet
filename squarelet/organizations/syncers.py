@@ -32,7 +32,7 @@ class MuckRockSyncSiteMembership(syncers.MuckRockSyncSite):
     delete_path = "/organization/{obj[organization_pk]}/membership/{obj[user_pk]}/"
 
     def _get_data(self, obj, create=False):
-        """Get the organization data"""
+        """Get the membership data"""
         return {"user": str(obj["user_pk"])}
 
 
