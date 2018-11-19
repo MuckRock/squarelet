@@ -83,6 +83,12 @@ def manage(c, cmd):
     c.run(DJANGO_RUN_USER.format(cmd=f"python manage.py {cmd}"))
 
 
+@task
+def run(c, cmd):
+    """Run a command directly on the docker instance"""
+    c.run(DJANGO_RUN_USER.format(cmd=cmd))
+
+
 @task(name="pip-compile")
 def pip_compile(c, upgrade=False):
     """Run pip compile"""
