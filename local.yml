@@ -5,6 +5,23 @@ volumes:
   postgres_backup_local: {}
 
 services:
+
+  nginx:
+    image: nginx:latest
+    depends_on:
+      - mailhog
+    volumes:
+      - ./compose/local/nginx/nginx.conf:/etc/nginx/nginx.conf
+    ports:
+      - "80:80"
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.0
+    networks:
+      default:
+        aliases:
+          - dev.mailhog.com
+
   django: &django
     build:
       context: .
@@ -13,17 +30,17 @@ services:
     depends_on:
       - postgres
       - mailhog
+      - nginx
     volumes:
       - .:/app
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
-    ports:
-      - "8001:8000"
-    extra_hosts:
-        - "dev.squarelet.com:127.0.0.1"
-        - "dev.muckrock.com:172.22.0.1"
     command: /start
+    networks:
+      default:
+        aliases:
+          - dev.squarelet.com
 
   postgres:
     build:
@@ -35,11 +52,6 @@ services:
       - postgres_backup_local:/backups
     env_file:
       - ./.envs/.local/.postgres
-
-  mailhog:
-    image: mailhog/mailhog:v1.0.0
-    ports:
-      - "8026:8025"
 
   redis:
     image: redis:3.2
@@ -53,6 +65,9 @@ services:
       - mailhog
     ports: []
     command: /start-celeryworker
+    networks:
+      default:
+        aliases: []
 
   celerybeat:
     <<: *django
@@ -63,3 +78,6 @@ services:
       - mailhog
     ports: []
     command: /start-celerybeat
+    networks:
+      default:
+        aliases: []

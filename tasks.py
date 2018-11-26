@@ -55,7 +55,9 @@ def format(c):
 def runserver(c):
     """Run the development server"""
     c.run(
-        DOCKER_COMPOSE_RUN_OPT.format(opt="--service-ports", service="django", cmd="")
+        DOCKER_COMPOSE_RUN_OPT.format(
+            opt="--service-ports --use-aliases", service="django", cmd=""
+        )
     )
 
 
@@ -68,13 +70,19 @@ def shell(c):
 @task
 def celeryworker(c):
     """Run a celery worker"""
-    c.run(DOCKER_COMPOSE_RUN.format(service="celeryworker", cmd=""))
+    c.run(
+        DOCKER_COMPOSE_RUN_OPT.format(
+            opt="--use-aliases", service="celeryworker", cmd=""
+        )
+    )
 
 
 @task
 def celerybeat(c):
     """Run the celery scheduler"""
-    c.run(DOCKER_COMPOSE_RUN.format(service="celerybeat", cmd=""))
+    c.run(
+        DOCKER_COMPOSE_RUN_OPT.format(opt="--use-aliases", service="celerybeat", cmd="")
+    )
 
 
 @task
