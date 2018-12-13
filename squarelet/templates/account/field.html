@@ -1,0 +1,11 @@
+{% load crispy_forms_field %}
+
+{% if field.is_hidden %}
+  {{ field }}
+{% else %}
+  <div class="_cls-field">
+    {% crispy_field field %}
+    <!-- <input type="{{field.input_type}}" class="{{field.field_class}}" placeholder="{{field.label}}"> -->
+  </div>
+  {% include 'bootstrap4/layout/help_text_and_errors.html' %}
+{% endif %}

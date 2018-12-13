@@ -1,11 +1,11 @@
 # Django
+from allauth.account.forms import SignupForm as AllauthSignupForm
+# Crispy
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Field, Layout
 from django import forms
 from django.db import transaction
 from django.utils.translation import ugettext_lazy as _
-
-# Third Party
-from allauth.account.forms import SignupForm as AllauthSignupForm
-
 # Squarelet
 from squarelet.core.forms import StripeForm
 from squarelet.organizations.models import Organization, Plan
@@ -29,6 +29,15 @@ class SignupForm(AllauthSignupForm, StripeForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["stripe_token"].required = False
+
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Field('name', css_class="_cls-nameInput", wrapper_class="_cls-field", template="account/field.html"),
+            Field('username', css_class="_cls-usernameInput", wrapper_class="_cls-field", template="account/field.html"),
+            Field('email', type="email", css_class="_cls-emailInput", wrapper_class="_cls-field", template="account/field.html"),
+            Field('password1', type="password", css_class="_cls-passwordInput", wrapper_class="_cls-field", template="account/field.html"),
+        )
+        self.helper.form_tag = False
 
     def clean(self):
         data = super().clean()
