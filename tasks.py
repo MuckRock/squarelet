@@ -46,7 +46,10 @@ def format(c):
     """Format your code"""
     c.run(
         DJANGO_RUN_USER.format(
-            cmd="black squarelet --exclude migrations && isort -rc squarelet"
+            cmd="black squarelet --exclude migrations && "
+            "black config/urls.py && "
+            "isort -rc squarelet && "
+            "isort -c config/urls.py"
         )
     )
 
