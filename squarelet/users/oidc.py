@@ -14,10 +14,12 @@ def userinfo(claims, user):
 
     try:
         email = user.emailaddress_set.get(primary=True)
+    except (ObjectDoesNotExist, MultipleObjectsReturned):
+        claims["email"] = ""
+        claims["email_verified"] = False
+    else:
         claims["email"] = email.email
         claims["email_verified"] = email.verified
-    except (ObjectDoesNotExist, MultipleObjectsReturned):
-        pass
 
     return claims
 
@@ -35,13 +37,17 @@ class CustomScopeClaims(ScopeClaims):
     def scope_organizations(self):
         """Populate the scope with the organizations"""
         return {
-            "organizations": {
-                str(o.pk): {
-                    "name": o.name,
-                    "private": o.private,
-                    "plan": o.plan,
-                    "individual": o.individual,
+            "organizations": [
+                {
+                    "uuid": m.organization.id,
+                    "name": m.organization.name,
+                    "slug": m.organization.slug,
+                    "private": m.organization.private,
+                    "plan": m.organization.plan,
+                    "individual": m.organization.individual,
+                    "admin": m.admin,
+                    "updated_at": m.organization.updated_at,
                 }
-                for o in self.user.organizations.all()
-            }
+                for m in self.user.memberships.select_related("organization")
+            ]
         }

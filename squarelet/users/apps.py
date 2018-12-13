@@ -9,4 +9,3 @@ class UsersConfig(AppConfig):
     def ready(self):
         # pylint: disable=unused-variable
         from . import signals
-        from . import syncers

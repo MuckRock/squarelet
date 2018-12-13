@@ -264,7 +264,10 @@ OIDC_GRANT_TYPE_PASSWORD_ENABLE = True
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "squarelet.oidc.authentication.OidcOauth2Authentication",
-    )
+        "rest_framework.authentication.SessionAuthentication",
+    ),
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 100,
 }
 
 # first party urls

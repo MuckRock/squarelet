@@ -3,7 +3,7 @@ from django.conf import settings
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.models import PermissionsMixin
 from django.contrib.postgres.fields import CICharField, CIEmailField
-from django.db import models
+from django.db import models, transaction
 from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
 
@@ -15,14 +15,14 @@ from sorl.thumbnail import ImageField
 
 # Squarelet
 from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
-from squarelet.syncers.models import SyncableMixin
+from squarelet.oidc.utils import send_cache_invalidations
 
 # Local
 from .managers import UserManager
 from .validators import UsernameValidator
 
 
-class User(SyncableMixin, AbstractBaseUser, PermissionsMixin):
+class User(AbstractBaseUser, PermissionsMixin):
     """User model for squarelet
 
     This is a general user model which should only store information applicable
@@ -96,10 +96,13 @@ class User(SyncableMixin, AbstractBaseUser, PermissionsMixin):
 
     objects = UserManager()
 
-    sync_actions = ("create", "update")
-
     def __str__(self):
         return self.username
+
+    def save(self, *args, **kwargs):
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            transaction.on_commit(lambda: send_cache_invalidations("user", self.pk))
 
     def get_absolute_url(self):
         return reverse("users:detail", kwargs={"username": self.username})

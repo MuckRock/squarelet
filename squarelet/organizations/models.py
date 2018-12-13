@@ -19,7 +19,7 @@ from memoize import mproperty
 
 # Squarelet
 from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
-from squarelet.syncers.models import SyncableMixin
+from squarelet.oidc.utils import send_cache_invalidations
 
 # Local
 from .choices import Plan
@@ -40,7 +40,7 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 stripe.api_version = "2018-09-24"
 
 
-class Organization(SyncableMixin, models.Model):
+class Organization(models.Model):
     """Orginization to allow pooled requests and collaboration"""
 
     objects = OrganizationQuerySet.as_manager()
@@ -119,13 +119,19 @@ class Organization(SyncableMixin, models.Model):
     subscription_id = models.CharField(_("subscription id"), max_length=255, blank=True)
     payment_failed = models.BooleanField(_("payment failed"), default=False)
 
-    sync_actions = ("create", "update")
-
     class Meta:
         ordering = ("slug",)
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        # pylint: disable=arguments-differ
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            transaction.on_commit(
+                lambda: send_cache_invalidations("organization", self.pk)
+            )
 
     def get_absolute_url(self):
         """The url for this object"""
@@ -293,6 +299,7 @@ class Organization(SyncableMixin, models.Model):
         self.save()
 
     def charge(self, amount, token, metadata=None):
+        # XXX make a charge object / api???
         if metadata is None:
             metadata = {}
         metadata["organization"] = self.name
@@ -312,6 +319,7 @@ class Organization(SyncableMixin, models.Model):
         )
 
     def buy_requests(self, number_requests, token):
+        # XXX remove
         self.charge(
             amount=PRICE_PER_REQUEST * number_requests,
             token=token,
@@ -332,6 +340,7 @@ class Organization(SyncableMixin, models.Model):
 
     def make_requests(self, amount):
         """Deduct `amount` requests from this organization's balance"""
+        # XXX remove
         request_count = {"monthly": 0, "regular": 0}
         with transaction.atomic():
             organization = Organization.objects.select_for_update().get(pk=self.pk)
@@ -352,12 +361,13 @@ class Organization(SyncableMixin, models.Model):
 
     def return_requests(self, data):
         """Return requests to the organization's balance"""
+        # XXX remove
         self.monthly_requests = F("monthly_requests") + data["return_monthly"]
         self.number_requests = F("number_requests") + data["return_regular"]
         self.save()
 
 
-class Membership(SyncableMixin, models.Model):
+class Membership(models.Model):
     """Through table for organization membership"""
 
     user = models.ForeignKey(
@@ -374,17 +384,27 @@ class Membership(SyncableMixin, models.Model):
         help_text="This user has administrative rights for this organization",
     )
 
-    sync_actions = ("create", "delete")
-
     class Meta:
         unique_together = ("user", "organization")
 
-    def _get_sync_args(self):
-        """Identify a membership by organization and user pk"""
-        return (self.organization.pk, self.user.pk)
-
     def __str__(self):
         return "Membership: {} in {}".format(self.user, self.organization)
+
+    def save(self, *args, **kwargs):
+        # pylint: disable=arguments-differ
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            transaction.on_commit(
+                lambda: send_cache_invalidations("user", self.user_id)
+            )
+
+    def delete(self, *args, **kwargs):
+        # pylint: disable=arguments-differ
+        with transaction.atomic():
+            super().delete(*args, **kwargs)
+            transaction.on_commit(
+                lambda: send_cache_invalidations("user", self.user_id)
+            )
 
 
 class ReceiptEmail(models.Model):

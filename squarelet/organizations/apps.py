@@ -7,5 +7,4 @@ class OrganizationsConfig(AppConfig):
     verbose_name = "Organizations"
 
     def ready(self):
-        # pylint: disable=unused-variable
-        from . import syncers
+        pass
