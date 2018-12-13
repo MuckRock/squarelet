@@ -36,19 +36,17 @@
   <!-- Start form -->
   <form id="signup_form" method="post" action="/accounts/signup/">
 
-    {% if request.GET.plan %}
-      <input type="hidden" name="plan" value="{{ request.GET.plan }}">
-    {% endif %}
+    <input type="hidden" name="plan" value="{{ request.GET.plan|default:"0" }}">
 
     {% crispy form form.helper %}
 
-    {% if request.GET.plan|startswith:'org' %}
+    {% if request.GET.plan == "2" or request.GET.plan == "3" %}
       <div class="_cls-field">
         <input class="_cls-organizationInput" placeholder="Organization name">
       </div>
     {% endif %}
 
-    {% if request.GET.plan and request.GET.plan != 'free' %}
+    {% if request.GET.plan and request.GET.plan != "0" %}
       <div class="form-group">
         <label for="card-element">
           Credit or debit card
