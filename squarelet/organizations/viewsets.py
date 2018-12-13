@@ -1,13 +1,14 @@
 # Third Party
 from rest_framework import viewsets
+from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.status import HTTP_400_BAD_REQUEST, HTTP_402_PAYMENT_REQUIRED
 
 # Squarelet
+from squarelet.oidc.permissions import ScopePermission
 from squarelet.organizations.exceptions import InsufficientRequestsError
 
 # Local
-from ..oidc.permissions import ScopePermission
 from .models import Organization
 from .serializers import OrganizationSerializer
 
@@ -15,13 +16,16 @@ from .serializers import OrganizationSerializer
 class OrganizationViewSet(viewsets.ModelViewSet):
     queryset = Organization.objects.all()
     serializer_class = OrganizationSerializer
-    permission_classes = (ScopePermission,)
+    # permission_classes = (ScopePermission,)
+    permission_classes = (IsAdminUser,)
     read_scopes = ("read_organization",)
     write_scopes = ("write_organization",)
 
 
 class OrganizationRequestsViewSet(viewsets.ViewSet):
     """Viewset for managing the requests of an organization"""
+
+    # XXX this should go away?
 
     permission_classes = (ScopePermission,)
     write_scopes = ("write_requests",)
