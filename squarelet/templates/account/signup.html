@@ -1,11 +1,100 @@
 {% extends "account/base.html" %}
 
-{% load i18n %}
+{% load i18n static %}
 {% load crispy_forms_tags %}
+{% load startswith %}
 
 {% block head_title %}{% trans "Signup" %}{% endblock %}
 
 {% block inner %}
+
+<div class="_cls-content">
+  <div class="_cls-intent">
+    <div class="_cls-intentLogo">
+      <img src="{% static 'assets/documentcloud.svg' %}">
+    </div>
+    <div class="_cls-intentBody">
+      <div class="_cls-smallHeader">Create an account for</div>
+      <div class="_cls-intentTitle">DocumentCloud</div>
+    </div>
+  </div>
+  <p class="_cls-info">
+    <span class="_cls-rightBump">You’ll also be able to sign into MuckRock, FOIA Machine, and Quackbot.</span><span class="_cls-action">Learn&nbsp;more</span>
+  </p>
+  <div class="_cls-infoLogos">
+    <div class="_cls-infoLogo">
+      <img src="{% static 'assets/muckrock.svg' %}">
+    </div>
+    <div class="_cls-infoLogo">
+      <img src="{% static 'assets/foiamachine.svg' %}">
+    </div>
+    <div class="_cls-infoLogo">
+      <img src="{% static 'assets/quackbot.svg' %}">
+    </div>
+  </div>
+
+  <!-- Start form -->
+  <form id="signup_form" method="post" action="/accounts/signup/">
+
+    {% if request.GET.plan %}
+      <input type="hidden" name="plan" value="{{ request.GET.plan }}">
+    {% endif %}
+
+    {% crispy form form.helper %}
+
+    {% if request.GET.plan|startswith:'org' %}
+      <div class="_cls-field">
+        <input class="_cls-organizationInput" placeholder="Organization name">
+      </div>
+    {% endif %}
+
+    {% if request.GET.plan and request.GET.plan != 'free' %}
+      <div class="form-group">
+        <label for="card-element">
+          Credit or debit card
+        </label>
+        <div id="card-element" class="form-control"></div>
+      </div>
+    {% endif %}
+
+
+
+<!-- 
+    <div class="_cls-smallHeader">Billing information</div>
+
+    <div class="_cls-field">
+      <input placeholder="Card number (stripe stuff)">
+    </div> -->
+
+    <div class="_cls-actionBig">
+      <button>Sign Up</button>
+    </div>
+    <div class="_cls-center">
+      <div class="_cls-minorInfo">Already have an account?</div>
+      <div class="_cls-action">Log&nbsp;In</div>
+    </div>
+  </form>
+</div>
+<div class="_cls-footer">
+  <div class="_cls-doublepane">
+    <div class="_cls-leftpane">
+      <p class="_cls-info">MuckRock is a non-profit collaborative news site that gives you the tools to keep our government transparent and accountable.</p>
+    </div>
+    <div class="_cls-rightpane">
+      <h3 class="_cls-services">Services</h3>
+      <ul>
+        <li>MuckRock</li>
+        <li>DocumentCloud</li>
+        <li>FOIA Machine</li>
+        <li>Quackbot</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+
+
+{% comment %}
 <h1>{% trans "Sign Up Here" %}</h1>
 
 <p>{% blocktrans %}Already have an account? Then please <a href="{{ login_url }}">sign in</a>.{% endblocktrans %}</p>
@@ -26,6 +115,7 @@
   {% endif %}
   <button class="btn btn-primary" type="submit">{% trans "Sign Up" %} &raquo;</button>
 </form>
+{% endcomment %}
 
 {% endblock %}
 
@@ -36,13 +126,13 @@
 
     function stripeTokenHandler(token) {
       // Insert the token ID into the form so it gets submitted to the server
-      var hiddenInput = $("#id_stripe_token");
+      var hiddenInput = documnet.getElementById("id_stripe_token");
       hiddenInput.val(token.id);
       // Submit the form
-      $("#signup_form").submit();
+      document.getElementById("signup_form").submit();
     }
 
-    $('document').ready(function(){
+    document.addEventListener("DOMContentLoaded", function() {
       var style = {
         base: {
           // Add your base input styles here. For example:
@@ -61,11 +151,11 @@
         }
       });
       // We don't want the browser to fill this in with old values
-      $("#id_stripe_token").val("");
+      document.getElementById("id_stripe_token").value = "";
       // Create a token or display an error when the form is submitted.
       var form = document.getElementById('signup_form');
       form.addEventListener('submit', function(event) {
-        var freePlan = $("#id_plan option:selected").text() === "Free";
+        var freePlan = document.querySelector('#id_plan option:selected').textContent === 'Free';
         if (!freePlan) {
           event.preventDefault();
 
