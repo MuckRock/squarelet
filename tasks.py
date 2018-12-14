@@ -1,7 +1,7 @@
 # Third Party
 from invoke import task
 
-DOCKER_COMPOSE_RUN_OPT = "docker-compose run {opt} --rm {service} {cmd}"
+DOCKER_COMPOSE_RUN_OPT = "docker-compose -f local.yml run {opt} --rm {service} {cmd}"
 DOCKER_COMPOSE_RUN_OPT_USER = DOCKER_COMPOSE_RUN_OPT.format(
     opt="-u $(id -u):$(id -g) {opt}", service="{service}", cmd="{cmd}"
 )

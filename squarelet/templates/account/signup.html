@@ -14,12 +14,12 @@
       <img src="{% static 'assets/documentcloud.svg' %}">
     </div>
     <div class="_cls-intentBody">
-      <div class="_cls-smallHeader">Create an account for</div>
-      <div class="_cls-intentTitle">DocumentCloud</div>
+      <div class="_cls-smallHeader">{% blocktrans %}Create an account for{% endblocktrans %}</div>
+      <div class="_cls-intentTitle">{% trans 'DocumentCloud' %}</div>
     </div>
   </div>
   <p class="_cls-info">
-    <span class="_cls-rightBump">You’ll also be able to sign into MuckRock, FOIA Machine, and Quackbot.</span><span class="_cls-action">Learn&nbsp;more</span>
+    <span class="_cls-rightBump">{% blocktrans %}You’ll also be able to sign into MuckRock, FOIA Machine, and Quackbot.{% endblocktrans %}</span><a href="{% url 'about' %}"><span class="_cls-action">{% blocktrans %}Learn&nbsp;more{% endblocktrans %}</span></a>
   </p>
   <div class="_cls-infoLogos">
     <div class="_cls-infoLogo">
@@ -46,30 +46,19 @@
       </div>
     {% endif %}
 
-    {% if request.GET.plan and request.GET.plan != "0" %}
-      <div class="form-group">
-        <label for="card-element">
-          Credit or debit card
-        </label>
-        <div id="card-element" class="form-control"></div>
+    {% if request.GET.plan and request.GET.plan != '0' %}
+      <h3 class="_cls-smallHeading">{% blocktrans %}Billing information{% endblocktrans %}</h3>
+      <div class="_cls-field">
+        <div id="card-element" class="_cls-fieldInput"></div>
       </div>
     {% endif %}
 
-
-
-<!-- 
-    <div class="_cls-smallHeader">Billing information</div>
-
-    <div class="_cls-field">
-      <input placeholder="Card number (stripe stuff)">
-    </div> -->
-
     <div class="_cls-actionBig">
-      <button>Sign Up</button>
+      <button>{% trans 'Sign Up' %}</button>
     </div>
     <div class="_cls-center">
-      <div class="_cls-minorInfo">Already have an account?</div>
-      <div class="_cls-action">Log&nbsp;In</div>
+      <div class="_cls-minorInfo">{% blocktrans %}Already have an account?{% endblocktrans %}</div>
+      <a href="{% url 'account_login' %}"><div class="_cls-action">{% blocktrans %}Log&nbsp;In{% endblocktrans %}</div></a>
     </div>
   </form>
 </div>
@@ -100,10 +89,7 @@
 <form class="signup" id="signup_form" method="post" action="{% url 'account_signup' %}">
   {% csrf_token %}
   {{ form|crispy }}
-  <div class="form-group">
-    <label for="card-element">
-      Credit or debit card
-    </label>
+  <div class="_cls-field">
     <div id="card-element" class="form-control"></div>
   </div>
   <!-- Used to display Element errors. -->
@@ -133,10 +119,20 @@
     document.addEventListener("DOMContentLoaded", function() {
       var style = {
         base: {
-          // Add your base input styles here. For example:
-          fontSize: '1rem',
-          color: "#32325d",
-        }
+          color: '#3F3F3F',
+          fontSize: '18px',
+          fontFamily: 'system-ui, sans-serif',
+          fontSmoothing: 'antialiased',
+          '::placeholder': {
+            color: '#899194',
+          },
+        },
+        invalid: {
+          color: '#e5424d',
+          ':focus': {
+            color: '#303238',
+          },
+        },
       };
       var card = elements.create('card', {style: style});
       card.mount('#card-element');

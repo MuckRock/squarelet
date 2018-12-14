@@ -14,11 +14,11 @@
     </div>
     <div class="_cls-intentBody">
       <div class="_cls-smallHeader">{% blocktrans %}Create an account for{% endblocktrans %}</div>
-      <div class="_cls-intentTitle">DocumentCloud</div>
+      <div class="_cls-intentTitle">{% trans 'DocumentCloud' %}</div>
     </div>
   </div>
   <p class="_cls-info">
-    {% blocktrans %}<span class="_cls-rightBump">You’ll also be able to sign into MuckRock, FOIA Machine, and Quackbot.</span><span class="_cls-action">Learn&nbsp;more</span>{% endblocktrans %}
+    {% blocktrans %}<span class="_cls-rightBump">You’ll also be able to sign into MuckRock, FOIA Machine, and Quackbot.</span>{% endblocktrans %}<a href="{% url 'about' %}"><span class="_cls-action">{% blocktrans %}Learn&nbsp;more{% endblocktrans %}</span></a>
   </p>
   <div class="_cls-infoLogos">
     <div class="_cls-infoLogo">

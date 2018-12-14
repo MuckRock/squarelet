@@ -5,6 +5,11 @@ body {
   background: #FAFAFA;
 }
 
+a {
+  color: inherit;
+  text-decoration: inherit;
+}
+
 ._cls-content {
   max-width: 480px;
   margin: 0 auto;
@@ -54,7 +59,8 @@ body {
   vertical-align: middle;
 }
 
-._cls-field input {
+._cls-field input,
+._cls-field ._cls-fieldInput {
   border: none;
   font-size: 18px;
   letter-spacing: 0.03em;
@@ -167,7 +173,8 @@ form,
   background-size: 19px;
 }
 
-._cls-field input:focus {
+._cls-field input:focus,
+._cls-field ._cls-fieldInput:focus {
   background-color: #ffffff;
   box-shadow: 0 0 6px #00000021;
   transform: scale(1.05);
@@ -378,4 +385,17 @@ nav a:hover {
 
 ._cls-mainLogo {
   margin-right: 2em;
+}
+
+._cls-fieldInput {
+  padding: 0.8em !important;
+}
+
+._cls-smallHeading {
+  font-weight: 400;
+  text-transform: uppercase;
+  color: #737373;
+  letter-spacing: 0.08em;
+  font-size: 13px;
+  padding: 1em 0.5em 0 0.5em;
 }
