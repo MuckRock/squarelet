@@ -62,6 +62,7 @@ class SignupForm(AllauthSignupForm, StripeForm):
                 template="account/field.html",
             ),
         )
+        self.fields["username"].widget.attrs.pop("autofocus", None)
         self.helper.form_tag = False
 
     def clean(self):
