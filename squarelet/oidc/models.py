@@ -24,17 +24,16 @@ class ClientProfile(models.Model):
 
     client = models.OneToOneField("oidc_provider.Client", on_delete=models.CASCADE)
     webhook_url = models.URLField(blank=True)
-    secret_key = models.CharField(max_length=24, default=make_secret_key)
 
     def __str__(self):
         return str(self.client)
 
     def send_cache_invalidation(self, model, uuid):
         """Send a cache invalidation to this client"""
-        timestamp = time.time()
+        timestamp = int(time.time())
         signature = hmac.new(
-            key=self.secret_key,
-            msg="{}{}{}".format(timestamp, model, uuid),
+            key=self.client.client_secret.encode("utf8"),
+            msg="{}{}{}".format(timestamp, model, uuid).encode("utf8"),
             digestmod=hashlib.sha256,
         ).hexdigest()
         data = {

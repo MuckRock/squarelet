@@ -134,6 +134,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "oidc_provider.middleware.SessionManagementMiddleware",
+    "squarelet.oidc.middleware.CacheInvalidationSenderMiddleware",
 ]
 
 # STATIC
