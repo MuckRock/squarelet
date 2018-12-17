@@ -41,7 +41,11 @@ class Detail(DetailView):
             messages.success(request, _("Request to join the organization sent!"))
             # XXX notify the admins via email
         elif request.POST.get("action") == "leave" and is_member:
-            self.request.user.memberships.filter(organization=self.object).delete()
+            membership = self.request.user.memberships.filter(
+                organization=self.object
+            ).first()
+            if membership:
+                membership.delete()
             messages.success(request, _("You have left the organization"))
         return redirect(self.object)
 

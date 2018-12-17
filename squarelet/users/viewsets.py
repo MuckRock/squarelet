@@ -24,7 +24,6 @@ class UserViewSet(viewsets.ModelViewSet):
         ),
     )
     serializer_class = UserSerializer
-    # permission_classes = (ScopePermission,)
-    permission_classes = (IsAdminUser,)
+    permission_classes = (ScopePermission,)
     read_scopes = ("read_user",)
     write_scopes = ("write_user",)

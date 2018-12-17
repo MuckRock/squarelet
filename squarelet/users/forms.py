@@ -47,35 +47,28 @@ class SignupForm(AllauthSignupForm, StripeForm):
                 ),
             )
 
+    @transaction.atomic()
     def save(self, request):
-        with transaction.atomic():
-            user = super().save(request)
-            user.name = self.cleaned_data.get("name", "")
-            # XXX validate things here - ie ensure name uniqueness
-            individual_organization = Organization.objects.create(
-                id=user.pk,
-                name=user.username,
-                individual=True,
-                private=True,
-                max_users=1,
+        user = super().save(request)
+        user.name = self.cleaned_data.get("name", "")
+        user.save()
+        # XXX validate things here - ie ensure name uniqueness
+        individual_organization = Organization.objects.create(
+            id=user.pk, name=user.username, individual=True, private=True, max_users=1
+        )
+        individual_organization.add_creator(user)
+
+        if self.cleaned_data.get("plan") == Plan.pro:
+            individual_organization.set_subscription(
+                self.cleaned_data.get("stripe_token"), self.cleaned_data.get("plan"), 1
             )
-            individual_organization.add_creator(user)
 
-            if self.cleaned_data.get("plan") == Plan.pro:
-                individual_organization.set_subscription(
-                    self.cleaned_data.get("stripe_token"),
-                    self.cleaned_data.get("plan"),
-                    1,
-                )
-
-            if self.cleaned_data.get("plan") in [Plan.basic, Plan.plus]:
-                group_organization = Organization.objects.create(
-                    name=self.cleaned_data.get("organization_name")
-                )
-                group_organization.add_creator(user)
-                group_organization.set_subscription(
-                    self.cleaned_data.get("stripe_token"),
-                    self.cleaned_data.get("plan"),
-                    5,
-                )
-            return user
+        if self.cleaned_data.get("plan") in [Plan.basic, Plan.plus]:
+            group_organization = Organization.objects.create(
+                name=self.cleaned_data.get("organization_name")
+            )
+            group_organization.add_creator(user)
+            group_organization.set_subscription(
+                self.cleaned_data.get("stripe_token"), self.cleaned_data.get("plan"), 5
+            )
+        return user

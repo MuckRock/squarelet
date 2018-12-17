@@ -16,8 +16,7 @@ from .serializers import OrganizationSerializer
 class OrganizationViewSet(viewsets.ModelViewSet):
     queryset = Organization.objects.all()
     serializer_class = OrganizationSerializer
-    # permission_classes = (ScopePermission,)
-    permission_classes = (IsAdminUser,)
+    permission_classes = (ScopePermission,)
     read_scopes = ("read_organization",)
     write_scopes = ("write_organization",)
 

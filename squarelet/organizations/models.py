@@ -19,7 +19,7 @@ from memoize import mproperty
 
 # Squarelet
 from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
-from squarelet.oidc.utils import send_cache_invalidations
+from squarelet.oidc.middleware import send_cache_invalidations
 
 # Local
 from .choices import Plan
