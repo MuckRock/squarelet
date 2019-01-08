@@ -6,15 +6,21 @@ from django.db.models import F
 # Standard Library
 from datetime import date
 
+# Squarelet
+from squarelet.core.models import Interval
+from squarelet.oidc.middleware import send_cache_invalidations
+
 # Local
 from .models import Organization
 
 
 @periodic_task(run_every=crontab(hour=0, minute=5), name="restore_organizations")
 def restore_organization():
-    Organization.objects.filter(date_update__lte=date.today()).update(
-        date_update=date.today(),  # XXX fix this
-        plan=F("next_plan"),
-        monthly_requests=F("requests_per_month"),
-        monthly_pages=F("pages_per_month"),
+    organizations = Organization.objects.filter(date_update__lte=date.today())
+    uuids = organizations.values_list("pk", flat=True)
+    organizations.update(
+        date_update=date.today() + Interval("1 month"), plan=F("next_plan")
     )
+    # XXX send single cache invalidation for all uuids
+    for uuid in uuids:
+        send_cache_invalidations("organization", uuid)

@@ -34,4 +34,9 @@ class CacheInvalidationSenderMiddleware:
 
 def send_cache_invalidations(model, uuid):
     """Set a cache invalidation to be sent at the end of the request"""
-    CACHE_INVALIDATION_SET.set.add((model, uuid))
+    if hasattr(CACHE_INVALIDATION_SET, "set"):
+        CACHE_INVALIDATION_SET.set.add((model, uuid))
+    else:
+        # if there is no set, we are not in a request-response cycle
+        # (ie celery or the REPL) - just send immediately
+        utils.send_cache_invalidations(model, uuid)

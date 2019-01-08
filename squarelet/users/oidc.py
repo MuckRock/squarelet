@@ -5,6 +5,9 @@ from django.utils.translation import ugettext_lazy as _
 # Third Party
 from oidc_provider.lib.claims import ScopeClaims
 
+# Squarelet
+from squarelet.organizations.serializers import MembershipSerializer
+
 
 def userinfo(claims, user):
     claims["name"] = user.name
@@ -38,16 +41,7 @@ class CustomScopeClaims(ScopeClaims):
         """Populate the scope with the organizations"""
         return {
             "organizations": [
-                {
-                    "uuid": m.organization.id,
-                    "name": m.organization.name,
-                    "slug": m.organization.slug,
-                    "private": m.organization.private,
-                    "plan": m.organization.plan,
-                    "individual": m.organization.individual,
-                    "admin": m.admin,
-                    "updated_at": m.organization.updated_at,
-                }
-                for m in self.user.memberships.select_related("organization")
+                MembershipSerializer(m).data
+                for m in self.user.memberships.select_related("organization__plan")
             ]
         }

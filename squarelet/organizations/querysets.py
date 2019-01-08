@@ -16,6 +16,14 @@ class OrganizationQuerySet(models.QuerySet):
             return self.filter(private=False)
 
 
+class PlanQuerySet(models.QuerySet):
+    def individual_choices(self):
+        return self.filter(public=True, for_individuals=True)
+
+    def group_choices(self):
+        return self.filter(public=True, for_groups=True)
+
+
 class InvitationQuerySet(models.QuerySet):
     def get_pending(self):
         return self.filter(accepted_at=None, request=False)
