@@ -14,7 +14,7 @@ from .serializers import OrganizationSerializer
 
 
 class OrganizationViewSet(viewsets.ModelViewSet):
-    queryset = Organization.objects.all()
+    queryset = Organization.objects.all().select_related("plan")
     serializer_class = OrganizationSerializer
     permission_classes = (ScopePermission,)
     read_scopes = ("read_organization",)
@@ -24,7 +24,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 class OrganizationRequestsViewSet(viewsets.ViewSet):
     """Viewset for managing the requests of an organization"""
 
-    # XXX this should go away?
+    # XXX this should go away
 
     permission_classes = (ScopePermission,)
     write_scopes = ("write_requests",)

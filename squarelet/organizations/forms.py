@@ -7,17 +7,14 @@ from django.utils.translation import ugettext_lazy as _
 from squarelet.core.forms import StripeForm
 
 # Local
-from .choices import Plan
-from .constants import MIN_USERS
+from .models import Plan
 
 
 class UpdateForm(StripeForm):
     """Update an organization"""
 
-    plan = forms.TypedChoiceField(label=_("Plan"), coerce=int)
-    max_users = forms.IntegerField(
-        label=_("Number of Users"), min_value=MIN_USERS[Plan.basic]
-    )
+    plan = forms.ModelChoiceField(label=_("Plan"), queryset=Plan.objects.none())
+    max_users = forms.IntegerField(label=_("Number of Users"), min_value=5)
     private = forms.BooleanField(label=_("Private"), required=False)
     receipt_emails = forms.CharField(
         label=_("Receipt Emails"),
@@ -42,12 +39,12 @@ class UpdateForm(StripeForm):
 
     def _set_group_options(self):
         if self.organization.individual:
-            self.fields["plan"].choices = Plan.individual_choices()
+            self.fields["plan"].queryset = Plan.objects.individual_choices()
             del self.fields["max_users"]
             del self.fields["private"]
         else:
-            self.fields["plan"].choices = Plan.group_choices()
-            limit_value = max(MIN_USERS[Plan.basic], self.organization.user_count())
+            self.fields["plan"].queryset = Plan.objects.group_choices()
+            limit_value = max(5, self.organization.user_count())
             self.fields["max_users"].validators[0].limit_value = limit_value
             self.fields["max_users"].widget.attrs["min"] = limit_value
             self.fields["max_users"].initial = limit_value
@@ -69,8 +66,8 @@ class UpdateForm(StripeForm):
     def clean(self):
         data = super().clean()
 
-        payment_required = (
-            data.get("plan") != self.organization.plan and data.get("plan") != Plan.free
+        payment_required = data["plan"] != self.organization.plan and (
+            data["plan"].base_price > 0 or data["plan"].price_per_user > 0
         )
         payment_supplied = data.get("use_card_on_file") or data.get("stripe_token")
 
@@ -78,6 +75,16 @@ class UpdateForm(StripeForm):
             self.add_error(
                 None,
                 _("You must supply a credit card number to upgrade to a non-free plan"),
+            )
+
+        if "max_users" in data and data["max_users"] < data["plan"].minimum_users:
+            self.add_error(
+                "max_users",
+                _(
+                    "The minimum users for the {} plan is {}".format(
+                        data["plan"], data["plan"].minimum_users
+                    )
+                ),
             )
 
         return data

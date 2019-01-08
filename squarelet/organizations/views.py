@@ -16,7 +16,7 @@ from .forms import (
     UpdateForm,
 )
 from .mixins import OrganizationAdminMixin
-from .models import Invitation, Organization
+from .models import Invitation, Organization, Plan
 
 
 class Detail(DetailView):
@@ -68,7 +68,8 @@ class Update(OrganizationAdminMixin, UpdateView):
 
     def form_valid(self, form):
         organization = self.object
-        organization.private = form.cleaned_data["private"]
+        if "private" in form.cleaned_data:
+            organization.private = form.cleaned_data["private"]
         organization.set_subscription(
             token=form.cleaned_data["stripe_token"],
             plan=form.cleaned_data["plan"],
@@ -77,7 +78,14 @@ class Update(OrganizationAdminMixin, UpdateView):
         organization.set_receipt_emails(form.cleaned_data["receipt_emails"])
         organization.save()
         messages.success(self.request, _("Organization Updated"))
-        return redirect(organization)
+        if organization.individual:
+            user = organization.users.first()
+            if user:
+                return redirect(user)
+            else:
+                return redirect("index")
+        else:
+            return redirect(organization)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -108,13 +116,17 @@ class Create(LoginRequiredMixin, CreateView):
     model = Organization
     fields = ("name",)
 
+    @transaction.atomic
     def form_valid(self, form):
         """The organization creator is automatically a member and admin of the
         organization"""
-        with transaction.atomic():
-            response = super().form_valid(form)
-            self.object.add_creator(self.request.user)
-        return response
+        free_plan = Plan.objects.get(slug="free")
+        organization = form.save(commit=False)
+        organization.plan = free_plan
+        organization.next_plan = free_plan
+        organization.save()
+        organization.add_creator(self.request.user)
+        return redirect(organization)
 
 
 class AddMember(OrganizationAdminMixin, DetailView, FormView):

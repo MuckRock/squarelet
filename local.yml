@@ -33,6 +33,8 @@ services:
       - nginx
     volumes:
       - .:/app
+    environment:
+      - IPYTHONDIR=/app/.ipython
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres

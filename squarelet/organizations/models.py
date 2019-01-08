@@ -2,8 +2,6 @@
 from django.conf import settings
 from django.core.mail import send_mail
 from django.db import models, transaction
-from django.db.models import F
-from django.db.models.functions import Greatest
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
@@ -15,6 +13,7 @@ from datetime import date
 # Third Party
 import stripe
 from autoslug import AutoSlugField
+from dateutil.relativedelta import relativedelta
 from memoize import mproperty
 
 # Squarelet
@@ -22,19 +21,8 @@ from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
 from squarelet.oidc.middleware import send_cache_invalidations
 
 # Local
-from .choices import Plan
-from .constants import (
-    BASE_PAGES,
-    BASE_PRICE,
-    BASE_REQUESTS,
-    EXTRA_PAGES_PER_USER,
-    EXTRA_REQUESTS_PER_USER,
-    MIN_USERS,
-    PRICE_PER_REQUEST,
-    PRICE_PER_USER,
-)
-from .exceptions import InsufficientRequestsError
-from .querysets import InvitationQuerySet, OrganizationQuerySet
+from .constants import BASE_PRICE, MIN_USERS, PRICE_PER_USER
+from .querysets import InvitationQuerySet, OrganizationQuerySet, PlanQuerySet
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 stripe.api_version = "2018-09-24"
@@ -57,12 +45,13 @@ class Organization(models.Model):
         "users.User", through="organizations.Membership", related_name="organizations"
     )
 
-    plan = models.IntegerField(_("plan"), choices=Plan.choices, default=Plan.free)
-    next_plan = models.IntegerField(
-        _("next plan"),
-        help_text=_("Type to switch to at next billing cycle"),
-        choices=Plan.choices,
-        default=Plan.free,
+    plan = models.ForeignKey(
+        "organizations.Plan", on_delete=models.PROTECT, related_name="organizations"
+    )
+    next_plan = models.ForeignKey(
+        "organizations.Plan",
+        on_delete=models.PROTECT,
+        related_name="pending_organizations",
     )
     individual = models.BooleanField(
         _("individual organization"),
@@ -76,42 +65,12 @@ class Organization(models.Model):
     monthly_cost = models.IntegerField(
         _("monthly cost"), default=0, help_text="In cents"
     )
+    # XXX rename this?
     date_update = models.DateField(
         _("date update"),
-        default=date.today,
+        null=True,
+        blank=True,
         help_text=_("Date when monthly requests are restored"),
-    )
-    ## MuckRock Book keeping
-    requests_per_month = models.IntegerField(
-        _("requests per month"),
-        default=0,
-        help_text=_("Number of requests this organization receives each month."),
-    )
-    monthly_requests = models.IntegerField(
-        _("monthly requests"),
-        default=0,
-        help_text=_("How many recurring requests are left for this month."),
-    )
-    number_requests = models.IntegerField(
-        _("number of requests"),
-        default=0,
-        help_text=_("How many non-recurring requests are left."),
-    )
-    ## DocCloud Book keeping
-    pages_per_month = models.IntegerField(
-        _("pages per month"),
-        default=0,
-        help_text=_("Number of pages this organization receives each month."),
-    )
-    monthly_pages = models.IntegerField(
-        _("monthly pages"),
-        default=0,
-        help_text=_("How many recurring pages are left for this month."),
-    )
-    number_pages = models.IntegerField(
-        _("number of pages"),
-        default=0,
-        help_text=_("How many non-recurring pages are left."),
     )
 
     # stripe
@@ -202,64 +161,39 @@ class Organization(models.Model):
         if token:
             self.save_card(token)
 
-        if self.plan == Plan.free and plan != Plan.free:
+        if self.plan.free() and not plan.free():
             # create a subscription going from free to non-free
             self._create_subscription(self.customer, plan, max_users)
-        elif self.plan != Plan.free and plan == Plan.free:
+        elif not self.plan.free() and plan.free():
             # cancel a subscription going from non-free to free
-            self._cancel_subscription()
-        elif self.plan != Plan.free and plan != Plan.free:
+            self._cancel_subscription(plan)
+        elif not self.plan.free() and not plan.free():
             # modify a subscription going from non-free to non-free
             self._modify_subscription(plan, max_users)
 
     def _create_subscription(self, customer, plan, max_users):
-        # must have card on file
-
-        extra_users = max_users - MIN_USERS[plan]
-
-        if plan == Plan.pro:
-            stripe_plan = "pro"
-            quantity = 1
-        else:
-            stripe_plan = "org"
-            quantity = BASE_PRICE[plan] + extra_users * PRICE_PER_USER[plan]
 
         subscription = customer.subscriptions.create(
-            items=[{"plan": stripe_plan, "quantity": quantity}]
+            items=[{"plan": plan.stripe_id, "quantity": max_users}],
+            billing="send_invoice" if plan.annual else "charge_automatically",
         )
-
-        requests_per_month = (
-            BASE_REQUESTS[plan] + extra_users * EXTRA_REQUESTS_PER_USER[plan]
-        )
-        pages_per_month = BASE_PAGES[plan] + extra_users * EXTRA_PAGES_PER_USER[plan]
 
         self.plan = plan
         self.next_plan = plan
         self.max_users = max_users
-        self.date_update = date.today()
-        self.requests_per_month = requests_per_month
-        self.monthly_requests = requests_per_month
-        self.pages_per_month = pages_per_month
-        self.monthly_pages = pages_per_month
+        self.date_update = date.today() + relativedelta(months=1)
         self.subscription_id = subscription.id
         self.save()
 
-    def _cancel_subscription(self):
+    def _cancel_subscription(self, plan):
         self.subscription.cancel_at_period_end = True
         self.subscription.save()
-        self.next_plan = Plan.free
+
+        self.next_plan = plan
+        self.date_update = None
         self.save()
 
     def _modify_subscription(self, plan, max_users):
-        # only for basic/plus accounts
-
-        extra_users = max_users - MIN_USERS[plan]
-        quantity = BASE_PRICE[plan] + extra_users * PRICE_PER_USER[plan]
-
-        requests_per_month = (
-            BASE_REQUESTS[plan] + extra_users * EXTRA_REQUESTS_PER_USER[plan]
-        )
-        pages_per_month = BASE_PAGES[plan] + extra_users * EXTRA_PAGES_PER_USER[plan]
 
         stripe.Subscription.modify(
             self.subscription_id,
@@ -268,13 +202,14 @@ class Organization(models.Model):
                 {
                     # pylint: disable=unsubscriptable-object
                     "id": self.subscription["items"]["data"][0].id,
-                    "plan": "org",
-                    "quantity": quantity,
+                    "plan": plan.stripe_id,
+                    "quantity": max_users,
                 }
             ],
+            billing="send_invoice" if plan.annual else "charge_automatically",
         )
 
-        if plan == Plan.plus:
+        if plan.feature_level >= self.plan.feature_level:
             # upgrade immediately
             self.plan = plan
             self.next_plan = plan
@@ -283,18 +218,6 @@ class Organization(models.Model):
             self.next_plan = plan
 
         self.max_users = max_users
-
-        # if new limit is higher than the old limit, add them immediately
-        # use f expressions to avoid race conditions
-        self.monthly_requests = F("monthly_requests") + Greatest(
-            requests_per_month - F("requests_per_month"), 0
-        )
-        self.requests_per_month = requests_per_month
-
-        self.monthly_pages = F("monthly_pages") + Greatest(
-            pages_per_month - F("pages_per_month"), 0
-        )
-        self.pages_per_month = pages_per_month
 
         self.save()
 
@@ -318,16 +241,6 @@ class Organization(models.Model):
             metadata=metadata,
         )
 
-    def buy_requests(self, number_requests, token):
-        # XXX remove
-        self.charge(
-            amount=PRICE_PER_REQUEST * number_requests,
-            token=token,
-            metadata={"action": "buy-requests", "amount": number_requests},
-        )
-        self.number_requests = F("number_requests") + number_requests
-        self.save()
-
     def set_receipt_emails(self, emails):
         new_emails = set(emails)
         old_emails = {r.email for r in self.receipt_emails.all()}
@@ -335,36 +248,6 @@ class Organization(models.Model):
         ReceiptEmail.objects.bulk_create(
             [ReceiptEmail(organization=self, email=e) for e in new_emails - old_emails]
         )
-
-    # Resource Management
-
-    def make_requests(self, amount):
-        """Deduct `amount` requests from this organization's balance"""
-        # XXX remove
-        request_count = {"monthly": 0, "regular": 0}
-        with transaction.atomic():
-            organization = Organization.objects.select_for_update().get(pk=self.pk)
-
-            request_count["monthly"] = min(amount, organization.monthly_requests)
-            amount -= request_count["monthly"]
-
-            request_count["regular"] = min(amount, organization.number_requests)
-            amount -= request_count["regular"]
-
-            if amount > 0:
-                raise InsufficientRequestsError(amount)
-
-            organization.monthly_requests -= request_count["monthly"]
-            organization.number_requests -= request_count["regular"]
-            organization.save()
-            return request_count
-
-    def return_requests(self, data):
-        """Return requests to the organization's balance"""
-        # XXX remove
-        self.monthly_requests = F("monthly_requests") + data["return_monthly"]
-        self.number_requests = F("number_requests") + data["return_regular"]
-        self.save()
 
 
 class Membership(models.Model):
@@ -405,6 +288,100 @@ class Membership(models.Model):
             transaction.on_commit(
                 lambda: send_cache_invalidations("user", self.user_id)
             )
+
+
+class Plan(models.Model):
+    """Plans that organizations can subscribe to"""
+
+    objects = PlanQuerySet.as_manager()
+
+    name = models.CharField(_("name"), max_length=255, unique=True)
+    slug = AutoSlugField(_("slug"), populate_from="name", unique=True)
+
+    minimum_users = models.PositiveSmallIntegerField(_("minimum users"), default=1)
+    base_price = models.PositiveSmallIntegerField(_("base price"), default=0)
+    price_per_user = models.PositiveSmallIntegerField(_("price per user"), default=0)
+
+    # XXX only on clients?
+    feature_level = models.PositiveSmallIntegerField(_("feature level"), default=0)
+
+    public = models.BooleanField(_("public"), default=False)
+    annual = models.BooleanField(
+        _("annual"),
+        default=False,
+        help_text=_("Invoice this plan annually instead of charging monthly"),
+    )
+    for_individuals = models.BooleanField(
+        _("for individuals"),
+        default=True,
+        help_text=_("Is this plan usable for individual organizations?"),
+    )
+    for_groups = models.BooleanField(
+        _("for groups"),
+        default=True,
+        help_text=_("Is this plan usable for non-individual organizations?"),
+    )
+
+    def __str__(self):
+        return self.name
+
+    def free(self):
+        return self.base_price == 0 and self.price_per_user == 0
+
+    def cost(self, users):
+        return self.base_price + (users - self.minimum_users) * self.price_per_user
+
+    @property
+    def stripe_id(self):
+        """Namespace the stripe ID to not conflict with previous plans we have made"""
+        return f"squarelet-{self.slug}"
+
+    def make_stripe_plan(self):
+        """Create the plan on stripe"""
+        # XXX how to migrate customers???
+        if not self.free():
+            try:
+                # set up the pricing for groups and individuals
+                # convert dollar amounts to cents for stripe
+                if self.for_groups:
+                    kwargs = {
+                        "billing_scheme": "tiered",
+                        "tiers": [
+                            {
+                                "flat_amount": 100 * self.base_price,
+                                "up_to": self.minimum_users,
+                            },
+                            {"unit_amount": 100 * self.price_per_user, "up_to": "inf"},
+                        ],
+                        "tiers_mode": "graduated",
+                    }
+                else:
+                    kwargs = {
+                        "billing_scheme": "per_unit",
+                        "amount": 100 * self.base_price,
+                    }
+                stripe.Plan.create(
+                    id=self.stripe_id,
+                    currency="usd",
+                    interval="year" if self.annual else "month",
+                    product={"name": self.name, "unit_label": "Seats"},
+                    **kwargs,
+                )
+            except stripe.error.InvalidRequestError:
+                # if the plan already exists, just skip
+                pass
+
+    def delete_stripe_plan(self):
+        """Remove a stripe plan"""
+        try:
+            plan = stripe.Plan.retrieve(id=self.stripe_id)
+            # We also want to remove the associated product
+            product = stripe.Product.retrieve(id=plan.product)
+            plan.delete()
+            product.delete()
+        except stripe.error.InvalidRequestError:
+            # if the plan or product do not exist, just skip
+            pass
 
 
 class ReceiptEmail(models.Model):

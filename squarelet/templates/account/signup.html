@@ -65,7 +65,7 @@
       // Create a token or display an error when the form is submitted.
       var form = document.getElementById('signup_form');
       form.addEventListener('submit', function(event) {
-        var freePlan = $("#id_plan").val() === "0";
+        var freePlan = $("#id_plan option:selected").text() === "Free";
         if (!freePlan) {
           event.preventDefault();
 
