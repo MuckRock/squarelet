@@ -5,11 +5,12 @@ from django.core.mail import send_mail
 from django.db import models, transaction
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.timezone import get_current_timezone
 from django.utils.translation import ugettext_lazy as _
 
 # Standard Library
 import uuid
-from datetime import date
+from datetime import date, datetime
 
 # Third Party
 import stripe
@@ -235,25 +236,9 @@ class Organization(models.Model):
 
         self.save()
 
-    def charge(self, amount, token, metadata=None):
-        # XXX make a charge object / api???
-        if metadata is None:
-            metadata = {}
-        metadata["organization"] = self.name
-        if token:
-            source = token
-            customer = None
-        else:
-            source = self.card
-            customer = self.customer
-        stripe.Charge.create(
-            # convert amount from dollars to cents
-            amount=amount * 100,
-            currency="usd",
-            source=source,
-            customer=customer,
-            metadata=metadata,
-        )
+    def charge(self, amount, description, token=None):
+        charge = Charge(amount=amount * 100, organization=self, description=description)
+        charge.make_charge(token)
 
     def set_receipt_emails(self, emails):
         new_emails = set(emails)
@@ -398,21 +383,6 @@ class Plan(models.Model):
             pass
 
 
-class ReceiptEmail(models.Model):
-    """An additional email address to send receipts to"""
-
-    organization = models.ForeignKey(
-        "organizations.Organization",
-        related_name="receipt_emails",
-        on_delete=models.CASCADE,
-    )
-    email = models.EmailField(_("email"))
-    # XXX add unique constraint
-
-    def __str__(self):
-        return "Receipt Email: <%s>" % self.email
-
-
 class Invitation(models.Model):
     """An invitation for a user to join an organization"""
 
@@ -477,3 +447,63 @@ class Invitation(models.Model):
             return self.user.name
         else:
             return self.email
+
+
+class ReceiptEmail(models.Model):
+    """An additional email address to send receipts to"""
+
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        related_name="receipt_emails",
+        on_delete=models.CASCADE,
+    )
+    email = models.EmailField(_("email"))
+    # XXX add unique constraint
+
+    def __str__(self):
+        return "Receipt Email: <%s>" % self.email
+
+
+class Charge(models.Model):
+    """A payment charged to an organization through Stripe"""
+
+    amount = models.PositiveSmallIntegerField(
+        _("amount"), help_text=_("Amount in cents")
+    )
+    organization = models.ForeignKey(
+        "organizations.Organization", related_name="charges", on_delete=models.CASCADE
+    )
+    created_at = models.DateTimeField(_("created at"))
+    charge_id = models.CharField(_("charge_id"), max_length=255)
+    description = models.CharField(_("description"), max_length=255)
+
+    def __str__(self):
+        return f"${self.amount / 100:.2f} charge to {self.organization.name}"
+
+    def make_charge(self, token=None):
+        """Make the charge on stripe"""
+        if token:
+            source = token
+            # XXX why no set customer here?
+            customer = None
+        else:
+            source = self.organization.card
+            customer = self.organization.customer
+
+        charge = stripe.Charge.create(
+            amount=self.amount,
+            currency="usd",
+            customer=customer,
+            description=self.description,
+            source=source,
+            metadata={"organization": self.organization.name},
+        )
+        self.charge_id = charge.id
+        self.created_at = datetime.fromtimestamp(
+            charge.created, tz=get_current_timezone()
+        )
+        self.save()
+
+    @mproperty
+    def charge(self):
+        return stripe.Charge.retrieve(self.charge_id)

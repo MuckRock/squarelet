@@ -36,7 +36,6 @@ django-redis==4.9.0
 django==2.0.6
 djangorestframework==3.8.2
 docutils==0.14            # via botocore
-drf-nested-routers==0.91
 future==0.16.0            # via pyjwkest
 idna==2.7                 # via requests
 itypes==1.1.0             # via coreapi
