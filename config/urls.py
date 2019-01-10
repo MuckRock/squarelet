@@ -10,15 +10,13 @@ from django.views.generic import TemplateView
 from rest_framework import routers
 
 # Squarelet
-from squarelet.organizations.viewsets import (
-    OrganizationRequestsViewSet,
-    OrganizationViewSet,
-)
+from squarelet.organizations.viewsets import ChargeViewSet, OrganizationViewSet
 from squarelet.users.viewsets import UserViewSet
 
 router = routers.DefaultRouter()
 router.register("users", UserViewSet)
 router.register("organizations", OrganizationViewSet)
+router.register("charges", ChargeViewSet)
 
 urlpatterns = [
     path("", TemplateView.as_view(template_name="pages/home.html"), name="home"),

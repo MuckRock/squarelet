@@ -15,7 +15,6 @@ django-oidc-provider
 django-redis
 django<2.1
 djangorestframework
-drf-nested-routers
 memoize
 psycopg2 --no-binary psycopg2
 python-slugify

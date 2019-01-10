@@ -40,7 +40,6 @@ django-storages[boto3]==1.6.6
 django==2.0.6
 djangorestframework==3.8.2
 docutils==0.14
-drf-nested-routers==0.91
 future==0.16.0
 gunicorn==19.8.1
 idna==2.7
