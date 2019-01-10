@@ -2,7 +2,7 @@ body {
   font-family: Lato;
   margin: 0;
   padding: 0;
-  background: #FAFAFA;
+  background: #fafafa;
 }
 
 a {
@@ -19,7 +19,7 @@ a {
 ._cls-heading {
   padding: 1.2em 2em;
   box-shadow: 0 0 8px #0000005c;
-  background: #168EE5;
+  background: #168ee5;
   margin-bottom: 1.5em;
 }
 
@@ -64,7 +64,7 @@ a {
   border: none;
   font-size: 18px;
   letter-spacing: 0.03em;
-  color: #3F3F3F;
+  color: #3f3f3f;
   outline: none;
   line-height: 45px;
   position: absolute;
@@ -76,14 +76,14 @@ a {
   border-radius: 2px;
   transition: all 0.2s;
   box-shadow: 0 0 2px #0000002e;
-  background-color: #FFFFFF;
+  background-color: #ffffff;
 }
 
 ._cls-action {
   font-weight: bold;
   font-size: 11px;
   letter-spacing: 0.08em;
-  color: #168EE5;
+  color: #168ee5;
   text-transform: uppercase;
 }
 
@@ -107,7 +107,7 @@ div._cls-action {
 ._cls-intentTitle {
   font-weight: bold;
   font-size: 22px;
-  color: #3F3F3F;
+  color: #3f3f3f;
 }
 
 form,
@@ -123,7 +123,7 @@ form,
   display: block;
   margin-left: 25px;
   font-size: 15px;
-  color: #B0B0B0;
+  color: #b0b0b0;
 }
 
 ._cls-radioField input {
@@ -135,7 +135,7 @@ form,
 }
 
 ._cls-black {
-  color: #3F3F3F;
+  color: #3f3f3f;
 }
 
 ._cls-nameInput {
@@ -283,7 +283,6 @@ form,
   padding: 1em 2em;
   font-size: 1em;
   width: 90%;
-  margin-left: 5%;
   border-radius: 100px;
   outline: none;
   border: none;
@@ -312,7 +311,7 @@ form,
   font-size: 15px;
   text-align: center;
   letter-spacing: 0.14em;
-  color: #FFFFFF;
+  color: #ffffff;
   text-transform: uppercase;
   border: none;
   width: 80%;
@@ -320,7 +319,7 @@ form,
   height: 3em;
   margin: 1.5em 0 2em 0;
   box-shadow: 0 3px 0px #b2ceff;
-  outline:  none;
+  outline: none;
 }
 
 ._cls-actionBig {
@@ -398,4 +397,14 @@ nav a:hover {
   letter-spacing: 0.08em;
   font-size: 13px;
   padding: 1em 0.5em 0 0.5em;
+}
+
+._cls-intentLogo img {
+  width: 62px;
+  height: 62px;
+}
+
+._cls-infoLogo img {
+  width: 39px;
+  height: 39px;
 }

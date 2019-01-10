@@ -3,11 +3,36 @@
 {% load i18n %}
 {% load account socialaccount %}
 {% load crispy_forms_tags %}
+{% load handleintent %}
 
 {% block head_title %}{% trans "Sign In" %}{% endblock %}
 
 {% block inner %}
 
+<div class="_cls-content">
+  {% trans "Sign in for" as intent_header %}
+  {% trans "You’ll also be able to log into" as intent_text %}
+  {% handleintent intent_header intent_text %}
+
+  <!-- Start form -->
+  <form id="login_form" method="POST" action="{% url 'account_login' %}">
+    {% comment %} {% crispy form form.helper %} {% endcomment %}
+    <div class="_cls-field">
+      <input class="_cls-usernameInput" placeholder="Username or email">
+    </div>
+    <div class="_cls-field">
+      <input class="_cls-passwordInput" type="password" placeholder="Password">
+    </div>
+    <div class="_cls-actionBig">
+      <button>{% trans 'Log in' %}</button>
+    </div>
+    <div class="_cls-center">
+      <div class="_cls-minorInfo">{% blocktrans %}Don’t have an account?{% endblocktrans %}</div>
+      <a href="{% url 'select_plan' %}"><div class="_cls-action">{% blocktrans %}Sign&nbsp;Up{% endblocktrans %}</div></a>
+    </div>
+  </form>
+</div>
+{% comment %} 
 <h1>{% trans "Sign In" %}</h1>
 
 {% url 'select_plan' as selectplan_url %}
@@ -44,7 +69,7 @@ for a {{ site_name }} account and sign in below:{% endblocktrans %}</p>
   {% endif %}
   <a class="button secondaryAction" href="{% url 'account_reset_password' %}">{% trans "Forgot Password?" %}</a>
   <button class="primaryAction btn btn-primary" type="submit">{% trans "Sign In" %}</button>
-</form>
+</form> {% endcomment %}
 
 {% endblock %}
 
