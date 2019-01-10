@@ -242,7 +242,7 @@ ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_EMAIL_VERIFICATION = "optional"
 ACCOUNT_ADAPTER = "squarelet.users.adapters.AccountAdapter"
 SOCIALACCOUNT_ADAPTER = "squarelet.users.adapters.SocialAccountAdapter"
-ACCOUNT_FORMS = {"signup": "squarelet.users.forms.SignupForm"}
+ACCOUNT_FORMS = {"signup": "squarelet.users.forms.SignupForm", "signin": "squarelet.users.forms.LoginForm"}
 ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = False
 
 
