@@ -16,13 +16,13 @@
 
   <!-- Start form -->
   <form id="login_form" method="POST" action="{% url 'account_login' %}">
-    {% comment %} {% crispy form form.helper %} {% endcomment %}
-    <div class="_cls-field">
+    {% crispy form form.helper %}
+    {% comment %} <div class="_cls-field">
       <input class="_cls-usernameInput" placeholder="Username or email">
     </div>
     <div class="_cls-field">
       <input class="_cls-passwordInput" type="password" placeholder="Password">
-    </div>
+    </div> {% endcomment %}
     <div class="_cls-actionBig">
       <button>{% trans 'Log in' %}</button>
     </div>
