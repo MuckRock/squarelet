@@ -4,7 +4,10 @@ from django.db import transaction
 from django.utils.translation import ugettext_lazy as _
 
 # Third Party
-from allauth.account.forms import SignupForm as AllauthSignupForm
+from allauth.account.forms import (
+    LoginForm as AllauthLoginForm,
+    SignupForm as AllauthSignupForm,
+)
 
 # Crispy
 from crispy_forms.helper import FormHelper
@@ -119,7 +122,7 @@ class SignupForm(AllauthSignupForm, StripeForm):
         return user
 
 
-class LoginForm(AllauthSignupForm):
+class LoginForm(AllauthLoginForm):
     """Add a name field to the sign up form"""
 
     def __init__(self, *args, **kwargs):
@@ -128,18 +131,18 @@ class LoginForm(AllauthSignupForm):
         self.helper = FormHelper()
         self.helper.layout = Layout(
             Field(
-                "usernameOrEmail",
+                "login",
                 css_class="_cls-usernameInput",
                 wrapper_class="_cls-field",
                 template="account/field.html",
             ),
             Field(
-                "password1",
+                "password",
                 type="password",
                 css_class="_cls-passwordInput",
                 wrapper_class="_cls-field",
                 template="account/field.html",
             ),
         )
-        self.fields["usernameOrEmail"].widget.attrs.pop("autofocus", None)
+        self.fields["login"].widget.attrs.pop("autofocus", None)
         self.helper.form_tag = False
