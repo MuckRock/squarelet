@@ -166,9 +166,18 @@ class Organization(models.Model):
         else:
             return None
 
+    @property
+    def card_display(self):
+        if self.card:
+            return f"{self.card.brand}: {self.card.last4}"
+        else:
+            return ""
+
     def save_card(self, token):
+        # XXX race condition with stripe?
         self.customer.source = token
         self.customer.save()
+        send_cache_invalidations("organization", self.pk)
 
     def set_subscription(self, token, plan, max_users):
         if self.individual:

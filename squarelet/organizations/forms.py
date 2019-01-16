@@ -35,7 +35,6 @@ class UpdateForm(StripeForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["stripe_token"].required = False
         self._set_group_options()
 
     def _set_group_options(self):
@@ -93,6 +92,8 @@ class UpdateForm(StripeForm):
 
 class BuyRequestsForm(StripeForm):
     """A form to buy ala carte requests"""
+
+    # XXX remove me
 
     number_requests = forms.IntegerField(
         label=_("Number of requests to buy"), min_value=1

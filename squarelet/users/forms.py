@@ -1,15 +1,15 @@
 # Django
 from django import forms
+from django.contrib import messages
 from django.db import transaction
 from django.utils.translation import ugettext_lazy as _
 
 # Third Party
+import stripe
 from allauth.account.forms import (
     LoginForm as AllauthLoginForm,
     SignupForm as AllauthSignupForm,
 )
-
-# Crispy
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Field, Layout
 
@@ -106,21 +106,24 @@ class SignupForm(AllauthSignupForm, StripeForm):
         individual_organization.add_creator(user)
 
         plan = self.cleaned_data["plan"]
-        if not plan.free() and plan.for_individuals:
-            individual_organization.set_subscription(
-                self.cleaned_data.get("stripe_token"), plan, max_users=1
-            )
+        try:
+            if not plan.free() and plan.for_individuals:
+                individual_organization.set_subscription(
+                    self.cleaned_data.get("stripe_token"), plan, max_users=1
+                )
 
-        if not plan.free() and plan.for_groups:
-            group_organization = Organization.objects.create(
-                name=self.cleaned_data["organization_name"],
-                plan=free_plan,
-                next_plan=free_plan,
-            )
-            group_organization.add_creator(user)
-            group_organization.set_subscription(
-                self.cleaned_data.get("stripe_token"), plan, max_users=5
-            )
+            if not plan.free() and plan.for_groups:
+                group_organization = Organization.objects.create(
+                    name=self.cleaned_data["organization_name"],
+                    plan=free_plan,
+                    next_plan=free_plan,
+                )
+                group_organization.add_creator(user)
+                group_organization.set_subscription(
+                    self.cleaned_data.get("stripe_token"), plan, max_users=5
+                )
+        except stripe.error.StripeError as exc:
+            messages.error(request, "Payment error: {}".format(exc.user_message))
         return user
 
 

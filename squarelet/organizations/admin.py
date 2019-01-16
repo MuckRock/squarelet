@@ -32,6 +32,7 @@ class OrganizationAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         """Update the stripe subscription"""
+        # XXX dont set non-free plans through admin
         obj.set_subscription(
             token=None,
             plan=form.cleaned_data["plan"],
