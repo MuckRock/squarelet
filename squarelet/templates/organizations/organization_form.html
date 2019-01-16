@@ -65,7 +65,7 @@
       var form = document.getElementById('org-form');
       form.addEventListener('submit', function(event) {
         var useCardOnFile = $("input[name=use_card_on_file]:checked").val() === "True";
-        var freePlan = $("#id_plan").val() === "0";
+        var freePlan = $("#id_plan option:selected").text() === "Free";
         if (!useCardOnFile && !freePlan) {
           event.preventDefault();
 

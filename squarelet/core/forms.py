@@ -2,6 +2,7 @@
 from django import forms
 from django.utils.translation import ugettext_lazy as _
 
+
 # XXX refactor for which of use_card_on_file / save_card you need
 
 
@@ -25,8 +26,8 @@ class StripeForm(forms.Form):
         card = self.organization and self.organization.card
         if card:
             self.fields["use_card_on_file"].choices = (
-                (True, f"{card.brand}: {card.last4}"),
-                (False, "New Card"),
+                (True, self.organization.card_display),
+                (False, _("New Card")),
             )
         else:
             del self.fields["use_card_on_file"]

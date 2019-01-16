@@ -11,6 +11,7 @@ from django.utils.translation import ugettext_lazy as _
 from django.views.generic import CreateView, DetailView, FormView, ListView, UpdateView
 
 # Third Party
+import stripe
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Field, Layout
 
@@ -112,14 +113,18 @@ class Update(OrganizationAdminMixin, UpdateView):
         organization = self.object
         if "private" in form.cleaned_data:
             organization.private = form.cleaned_data["private"]
-        organization.set_subscription(
-            token=form.cleaned_data["stripe_token"],
-            plan=form.cleaned_data["plan"],
-            max_users=form.cleaned_data.get("max_users"),
-        )
-        organization.set_receipt_emails(form.cleaned_data["receipt_emails"])
-        organization.save()
-        messages.success(self.request, _("Organization Updated"))
+        try:
+            organization.set_subscription(
+                token=form.cleaned_data["stripe_token"],
+                plan=form.cleaned_data["plan"],
+                max_users=form.cleaned_data.get("max_users"),
+            )
+        except stripe.error.StripeError as exc:
+            messages.error(self.request, "Payment error: {}".format(exc.user_message))
+        else:
+            organization.set_receipt_emails(form.cleaned_data["receipt_emails"])
+            organization.save()
+            messages.success(self.request, _("Organization Updated"))
         if organization.individual:
             user = organization.users.first()
             if user:
@@ -216,6 +221,7 @@ class AddMember(OrganizationAdminMixin, DetailView, FormView):
 
 
 class BuyRequests(OrganizationAdminMixin, UpdateView):
+    # XXX remove me
     queryset = Organization.objects.filter(individual=False)
     form_class = BuyRequestsForm
 

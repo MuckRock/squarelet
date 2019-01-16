@@ -1,5 +1,7 @@
 # Third Party
-from rest_framework import serializers
+import stripe
+from rest_framework import serializers, status
+from rest_framework.exceptions import APIException
 
 # Local
 from .models import Charge, Membership, Organization
@@ -8,6 +10,7 @@ from .models import Charge, Membership, Organization
 class OrganizationSerializer(serializers.ModelSerializer):
     uuid = serializers.UUIDField(required=False, source="id")
     plan = serializers.CharField(source="plan.slug")
+    card = serializers.CharField(source="card_display")
 
     class Meta:
         model = Organization
@@ -16,6 +19,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "name",
             "slug",
             "plan",
+            "card",
             "max_users",
             "individual",
             "private",
@@ -29,6 +33,7 @@ class MembershipSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source="organization.name")
     slug = serializers.CharField(source="organization.slug")
     plan = serializers.CharField(source="organization.plan.slug")
+    card = serializers.CharField(source="organization.card_display")
     max_users = serializers.IntegerField(source="organization.max_users")
     individual = serializers.BooleanField(source="organization.individual")
     private = serializers.BooleanField(source="organization.private")
@@ -42,6 +47,7 @@ class MembershipSerializer(serializers.ModelSerializer):
             "name",
             "slug",
             "plan",
+            "card",
             "max_users",
             "individual",
             "private",
@@ -49,6 +55,11 @@ class MembershipSerializer(serializers.ModelSerializer):
             "updated_at",
             "admin",
         )
+
+
+class StripeError(APIException):
+    status_code = status.HTTP_400_BAD_REQUEST
+    default_detail = "Stripe error"
 
 
 class ChargeSerializer(serializers.ModelSerializer):
@@ -72,15 +83,18 @@ class ChargeSerializer(serializers.ModelSerializer):
         """Create the charge object locally and on stripe"""
         organization = validated_data["organization"]
         token = validated_data.get("token")
-        if validated_data.get("save_card"):
-            organization.save_card(token)
-            token = None
-        charge = Charge(
-            organization=organization,
-            amount=validated_data["amount"],
-            description=validated_data["description"],
-        )
-        charge.make_charge(token)
+        try:
+            if validated_data.get("save_card"):
+                organization.save_card(token)
+                token = None
+            charge = Charge(
+                organization=organization,
+                amount=validated_data["amount"],
+                description=validated_data["description"],
+            )
+            charge.make_charge(token)
+        except stripe.error.StripeError as exc:
+            raise StripeError(exc.user_message)
         return charge
 
     def validate(self, attrs):
