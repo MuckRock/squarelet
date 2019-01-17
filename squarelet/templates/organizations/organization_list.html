@@ -1,22 +1,184 @@
 {% extends "base.html" %}
-{% load static i18n %}
+{% load static i18n bold %}
 {% block title %}Organizations{% endblock %}
 
+{% block css %}
+  <link href="{% static 'css/autocomplete.css' %}" rel="stylesheet">
+{% endblock %}
+
 {% block content %}
-  <div class="container">
+  <div class="_cls-content">
     <h2>Organizations</h2>
-    <p>
+    <div class="_cls-action">
       <a href="{% url "organizations:create" %}">
         Create a new organization
       </a>
-    </p>
-
-    <div class="list-group">
-      {% for org in organization_list %}
-        <a href="{% url 'organizations:detail' org.slug %}" class="list-group-item">
-          <h4 class="list-group-item-heading">{{ org.name }}</h4>
-        </a>
-      {% endfor %}
     </div>
   </div>
+  
+  <div class="_cls-expandedContent">
+    <div class="_cls-autocomplete">
+      <div class="_cls-inputSection">
+        <div class="_cls-input">
+          <div class="_cls-searchCircle"></div>
+          <div class="_cls-searchRectangle"></div>
+          <div id="_id-close" class="_cls-closeButton">
+            <div class="_cls-closeOpaque"></div>
+            <div class="_cls-closeLeft"></div>
+            <div class="_cls-closeRight"></div>
+          </div>
+          <input id="_id-filter" placeholder="Filter..." />
+          <div class="_cls-bottomLine"></div>
+        </div>
+        <div class="_cls-inputPad"></div>
+      </div>
+      <div class="_cls-results">
+
+        <div class="_cls-transpGradient"></div>
+        <div class="_cls-resultsList" id="_id-results">
+          {% for org in organization_list %}
+            <a href="{% url 'organizations:detail' org.slug %}"><div class="_cls-result">{% autoescape off %}{% bold name org.name %}{% endautoescape %}</div></a>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="_cls-footer" style="position: fixed; bottom: 0;">
+    <div class="_cls-doublepane">
+      <div class="_cls-leftpane">
+        <p class="_cls-info">MuckRock is a non-profit collaborative news site that gives you the tools to keep our government transparent and accountable.</p>
+      </div>
+      <div class="_cls-rightpane">
+        <h3 class="_cls-services">Services</h3>
+        <ul>
+          <li>MuckRock</li>
+          <li>DocumentCloud</li>
+          <li>FOIA Machine</li>
+          <li>Quackbot</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+{% comment %} 
+    {% if is_paginated %}
+      <ul class="pagination">
+        {% if page_obj.has_previous %}
+          <li><a href="?page={{ page_obj.previous_page_number }}">&laquo;</a></li>
+        {% else %}
+          <li class="disabled"><span>&laquo;</span></li>
+        {% endif %}
+        {% for i in paginator.page_range %}
+          {% if page_obj.number == i %}
+            <li class="active"><span>{{ i }} <span class="sr-only">(current)</span></span></li>
+          {% else %}
+            <li><a href="?page={{ i }}">{{ i }}</a></li>
+          {% endif %}
+        {% endfor %}
+        {% if page_obj.has_next %}
+          <li><a href="?page={{ page_obj.next_page_number }}">&raquo;</a></li>
+        {% else %}
+          <li class="disabled"><span>&raquo;</span></li>
+        {% endif %}
+      </ul>
+    {% endif %}
+
+  </div>
+
+  <script type="text/javascript" src="{% static 'admin/js/vendor/jquery/jquery.js' %}"></script>
+
+  {{ form.media }} {% endcomment %}
+  <script>
+function d(id) {
+    return document.getElementById(id);
+}
+// Set event listener
+function on(element, event, fn) {
+    if (Array.isArray(event)) {
+        event.forEach(function (evt) { return element.addEventListener(evt, fn, false); });
+    }
+    else {
+        element.addEventListener(event, fn, false);
+    }
+}
+
+var SCROLL_BUFFER = 40;
+var View = /** @class */ (function () {
+    function View() {
+        var _this = this;
+        this.filter = d('_id-filter');
+        this.close = d('_id-close');
+        this.results = d('_id-results');
+        this.page = 1;
+        this.async = null;
+        on(this.close, 'click', function () {
+            _this.filter.value = '';
+            _this.page = 1;
+            _this.fetch('');
+        });
+        on(this.filter, 'input', function () {
+            _this.resetAsync();
+            _this.page = 1;
+            _this.fetch(_this.filter.value);
+        });
+        on(this.results, 'scroll', function () {
+            var position = _this.results.scrollTop + _this.results.offsetHeight;
+            if (position > _this.results.scrollHeight - SCROLL_BUFFER) {
+                _this.nextPage();
+            }
+        });
+    }
+    View.prototype.resetAsync = function () {
+        if (this.async != null) {
+            // Somehow make null
+        }
+        this.async = null;
+    };
+    View.prototype.clearResults = function () {
+        while (this.results.firstChild)
+            this.results.removeChild(this.results.firstChild);
+    };
+    View.prototype.render = function (json, append) {
+        if (!append) {
+            this.clearResults();
+        }
+        for (var _i = 0, json_1 = json; _i < json_1.length; _i++) {
+            var result = json_1[_i];
+            this.addResult(result.text);
+        }
+        if (this.results.scrollHeight < this.results.offsetHeight + SCROLL_BUFFER) {
+            this.nextPage();
+        }
+    };
+    View.prototype.addResult = function (text, link) {
+        if (link === void 0) { link = '#'; }
+        var a = document.createElement('a');
+        a.href = link;
+        var div = document.createElement('div');
+        div.className = '_cls-result';
+        div.textContent = text;
+        a.appendChild(div);
+        this.results.appendChild(a);
+    };
+    View.prototype.fetch = function (term, append) {
+        var _this = this;
+        if (append === void 0) { append = false; }
+        this.async = fetch("autocomplete?q=" + term + "&page=" + this.page)
+            .then(function (response) {
+            return response.json();
+        })
+            .then(function (myJson) {
+            _this.render(myJson.results, append);
+        });
+    };
+    View.prototype.nextPage = function () {
+        this.page++;
+        this.fetch(this.filter.value, true);
+    };
+    return View;
+}());
+
+var view = new View();
+//# sourceMappingURL=main.js.map
+
+  </script>
 {% endblock content %}

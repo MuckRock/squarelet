@@ -3,6 +3,9 @@ from django import forms
 from django.core.validators import validate_email
 from django.utils.translation import ugettext_lazy as _
 
+# Third Party
+from dal import autocomplete
+
 # Squarelet
 from squarelet.core.forms import StripeForm
 
@@ -183,3 +186,14 @@ class ManageInvitationsForm(forms.Form):
                 raise forms.ValidationError(
                     _("You must add more max users before accepting those invitations")
                 )
+
+
+# class AutocompleteForm(forms.Form):
+#     name_includes = forms.ModelChoiceField(
+#         queryset=Organization.objects.all(),
+#         widget=autocomplete.ModelSelect2(url='/organizations/autocomplete')
+#     )
+
+#     class Meta:
+#         model = Organization
+#         fields = ('__all__')

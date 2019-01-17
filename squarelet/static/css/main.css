@@ -241,6 +241,7 @@ form,
 ._cls-cardContainer {
   max-width: 1300px;
   margin: 0 auto;
+  text-align: left;
 }
 
 ._cls-cards {
@@ -292,6 +293,7 @@ form,
 
 ._cls-expandedContent {
   margin: 1em;
+  text-align: center;
 }
 
 ._cls-card li {
@@ -407,4 +409,147 @@ nav a:hover {
 ._cls-infoLogo img {
   width: 39px;
   height: 39px;
+}
+
+._cls-avatar {
+  background: #3b496e;
+  width: 45px;
+  height: 45px;
+  border-radius: 45px;
+  text-align: center;
+  line-height: 45px;
+  font-weight: bold;
+  color: #87bbf1;
+  font-size: 21px;
+}
+
+._cls-profileAvatar {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 0.5em;
+}
+
+._cls-profileNames {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 1em 0;
+}
+
+._cls-profileInfo {
+  margin-top: -1em;
+}
+
+._cls-profileColumns {
+  flex-direction: row;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-around;
+}
+
+._cls-profileColumn {
+  display: flex;
+  flex-direction: column;
+  flex: 0.5;
+  border-right: solid 1px #dedede;
+  padding: 0 2em 0 0;
+}
+
+._cls-planColumn {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 0 0 0 2em;
+}
+
+._cls-planInfo {
+  margin-bottom: 1em;
+}
+
+._cls-organizationSection {
+  margin-top: 2em;
+}
+
+._cls-actionSmall button {
+  background: #3a8fef;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 14px;
+  text-align: center;
+  color: #ffffff;
+  border: none;
+  width: 160px;
+  line-height: 2.5em;
+  height: 2.5em;
+  box-shadow: 0 3px 0px #b2ceff;
+  outline: none;
+}
+
+._cls-mediumHeader {
+  font-size: 17px;
+  color: #3f3f3f;
+  font-weight: bold;
+}
+
+._cls-services {
+  margin-top: 2em;
+}
+
+._cls-serviceIcon img {
+  width: 36px;
+  height: 36px;
+}
+
+._cls-serviceIcon {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+._cls-serviceInfo {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 0.8em;
+}
+
+._cls-services li {
+  display: flex;
+  margin: 0.6em 0 0.6em 0.3em;
+}
+
+._cls-services ul {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+._cls-serviceName {
+  color: #3f3f3f;
+  font-weight: bold;
+}
+
+._cls-serviceDescription {
+  color: #737373;
+  font-size: 13px;
+}
+
+._cls-largeContent {
+  max-width: 1000px;
+  margin: auto;
+  padding: 1em;
+}
+
+@media only screen and (max-width: 374px) {
+  ._cls-profileColumns {
+    flex-direction: column;
+  }
+
+  ._cls-profileColumn {
+    padding: 0;
+    border-right: none;
+  }
+
+  ._cls-planColumn {
+    padding: 0;
+    padding-top: 2em;
+  }
 }

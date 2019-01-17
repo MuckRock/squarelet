@@ -23,12 +23,12 @@
     <meta name="msapplication-config" content="{% static 'images/favicons/browserconfig.xml' %}">
     <meta name="theme-color" content="#ffffff">
 
+    <link href="{% static 'css/main.css' %}" rel="stylesheet">
+    <link href="{% static 'css/project.css' %}" rel="stylesheet">
     {% block css %}
       <!-- Your stuff: Third-party CSS libraries go here -->
       {% compress css %}
         <!-- This file stores project-specific CSS -->
-        <link href="{% static 'css/main.css' %}" rel="stylesheet">
-        <link href="{% static 'css/project.css' %}" rel="stylesheet">
 
       {% endcompress %}
     {% endblock %}

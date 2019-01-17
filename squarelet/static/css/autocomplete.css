@@ -1,0 +1,174 @@
+/* Autocomplete */
+
+._cls-autocomplete {
+  display: inline-block;
+  border-radius: 3px;
+  font-family: sans-serif;
+  text-align: left;
+  width: 80%;
+  max-width: 550px;
+  margin-top: 20px;
+}
+
+._cls-input {
+  background: #617088;
+  width: 100%;
+  height: 31px;
+  border-top-right-radius: 3px;
+  border-top-left-radius: 3px;
+  position: relative;
+  padding-top: 2px;
+}
+
+._cls-input input {
+  border: none;
+  outline: none;
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: calc(100% - 1em - 34px);
+  background: none;
+  font-size: 18px;
+  padding: 0 8px 0 30px;
+  color: white;
+}
+
+._cls-result {
+  padding: 0.8em 0.8em;
+  margin: 0.7em 0;
+  background: white;
+  border-radius: 3px;
+  box-shadow: 0 1px 2px #00000047;
+}
+
+._cls-results a {
+  color: inherit;
+  text-decoration: inherit;
+}
+
+._cls-results {
+  font-size: 14px;
+  margin-top: 11px;
+  position: relative;
+}
+
+._cls-result:hover {
+  background: #efefef;
+}
+
+::placeholder {
+  font-style: italic;
+  color: #ffffff88;
+}
+
+._cls-searchCircle {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  width: 7px;
+  height: 7px;
+  border: solid 2px white;
+  border-radius: 10px;
+}
+
+._cls-searchRectangle {
+  position: absolute;
+  top: 17px;
+  left: 10px;
+  width: 3px;
+  height: 8px;
+  background: white;
+  transform: rotate(45deg);
+}
+
+._cls-closeLeft {
+  position: absolute;
+  right: 11px;
+  top: 13px;
+  width: 3px;
+  height: 10px;
+  background: white;
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+
+._cls-closeRight {
+  position: absolute;
+  right: 11px;
+  top: 13px;
+  width: 3px;
+  height: 10px;
+  background: white;
+  transform: rotate(-45deg);
+  pointer-events: none;
+}
+
+._cls-closeButton {
+  position: absolute;
+  width: 21px;
+  height: 100%;
+  right: 0;
+  top: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+
+._cls-closeOpaque {
+  position: absolute;
+  top: 11px;
+  right: 6px;
+  width: 13px;
+  bottom: 9px;
+  z-index: 2;
+}
+
+._cls-closeButton:hover ._cls-closeOpaque {
+  background: #61708893;
+}
+
+._cls-inputPad {
+  height: 6px;
+  background: #617088;
+  border-bottom-right-radius: 3px;
+  border-bottom-left-radius: 3px;
+}
+
+._cls-bottomLine {
+  position: absolute;
+  bottom: 2px;
+  height: 2px;
+  left: 30px;
+  right: 27px;
+  background: white;
+  transition: all 0.2s ease;
+}
+
+input:focus + ._cls-bottomLine {
+  background: #ffffff99;
+  bottom: 1px;
+}
+
+._cls-inputSection {
+  box-shadow: 0 1px 2px #00000047;
+  border-radius: 3px;
+}
+
+._cls-transpGradient {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 20px;
+  background: linear-gradient(white, #ffffff00);
+  z-index: 2;
+}
+
+._cls-resultsList {
+  position: absolute;
+  top: 0;
+  width: 100%;
+  left: 0;
+  height: 400px;
+  overflow: scroll;
+}
