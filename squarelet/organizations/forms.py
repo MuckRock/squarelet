@@ -90,48 +90,6 @@ class UpdateForm(StripeForm):
         return data
 
 
-class BuyRequestsForm(StripeForm):
-    """A form to buy ala carte requests"""
-
-    # XXX remove me
-
-    number_requests = forms.IntegerField(
-        label=_("Number of requests to buy"), min_value=1
-    )
-    save_card = forms.BooleanField(
-        label=_("Save credit card information"), required=False
-    )
-
-    field_order = ["stripe_token", "number_requests", "use_card_on_file", "save_card"]
-
-    def clean(self):
-        data = super().clean()
-        if data.get("save_card") and not data.get("stripe_token"):
-            self.add_error(
-                "save_card",
-                _("You must enter credit card information in order to save it"),
-            )
-        if data.get("save_card") and data.get("use_card_on_file"):
-            self.add_error(
-                "save_card",
-                _(
-                    "You cannot save your card information if you are using your "
-                    "card on file."
-                ),
-            )
-
-        if (
-            "use_card_on_file" in self.fields
-            and not data.get("use_card_on_file")
-            and not data.get("stripe_token")
-        ):
-            self.add_error(
-                "use_card_on_file",
-                _("You must use your card on file or enter a credit card number."),
-            )
-        return data
-
-
 class AddMemberForm(forms.Form):
     """Add a member to the organization"""
 
