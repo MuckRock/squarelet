@@ -7,37 +7,83 @@ import string
 from rest_framework import serializers
 
 # Squarelet
+from squarelet.organizations.models import Organization
 from squarelet.organizations.serializers import MembershipSerializer
 
 # Local
 from .models import User
 
 
-class UserSerializer(serializers.ModelSerializer):
-    """This is read by client sites to pull data over
-    It is written to by client sites only for minireg functionality
-    """
+class UserBaseSerializer(serializers.ModelSerializer):
+    """This serializer is the base for both the read and write serializers"""
 
     uuid = serializers.UUIDField(required=False, source="id")
     preferred_username = serializers.CharField(source="username")
-    picture = serializers.CharField(source="avatar_url")
-    email = serializers.SerializerMethodField()
+    picture = serializers.CharField(source="avatar_url", required=False)
     email_verified = serializers.SerializerMethodField()
     organizations = MembershipSerializer(
         many=True, read_only=True, source="memberships"
     )
 
+    def get_primary_email_field(self, obj, field, default):
+        if hasattr(obj, "primary_emails") and obj.primary_emails:
+            email = obj.primary_emails[0]
+            return getattr(email, field, default)
+        elif not hasattr(obj, "primary_emails"):
+            email = obj.emailaddress_set.filter(primary=True).first()
+            if email:
+                return getattr(email, field, default)
+
+        return default
+
+    def get_email_verified(self, obj):
+        return self.get_primary_email_field(obj, "verified", False)
+
+
+class UserReadSerializer(UserBaseSerializer):
+    """Read serializer for user, for clients to pull data
+    This reads email information from the primary EmailAddress object
+
+    We do this to ensure that the verified email field is consistent with the email
+    address.  The primary email address object email should match the user's
+    email field.
+    """
+
+    email = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = (
-            "uuid",
-            "name",
-            "preferred_username",
-            "updated_at",
-            "picture",
             "email",
             "email_verified",
+            "name",
             "organizations",
+            "picture",
+            "preferred_username",
+            "updated_at",
+            "uuid",
+        )
+
+    def get_email(self, obj):
+        return self.get_primary_email_field(obj, "email", "")
+
+
+class UserWriteSerializer(UserBaseSerializer):
+    """Write serializer for user, for miniregistration: registration via API
+    This write's the email to the user email field
+    """
+
+    class Meta:
+        model = User
+        fields = (
+            "email",
+            "email_verified",
+            "name",
+            "organizations",
+            "picture",
+            "preferred_username",
+            "updated_at",
+            "uuid",
         )
 
     def create(self, validated_data):
@@ -45,7 +91,10 @@ class UserSerializer(serializers.ModelSerializer):
             validated_data["preferred_username"] = self.unique_username(
                 validated_data["preferred_username"]
             )
-        return super().create(validated_data)
+        # XXX need to send welcome email with way to set password
+        user = super().create(validated_data)
+        Organization.objects.create_individual(user)
+        return user
 
     @staticmethod
     def unique_username(name):
@@ -59,16 +108,3 @@ class UserSerializer(serializers.ModelSerializer):
                 base_username, "".join(random.sample(string.ascii_letters, 8))
             )
         return username
-
-    def get_primary_email_field(self, obj, field, default):
-        if obj.primary_emails:
-            email = obj.primary_emails[0]
-            return getattr(email, field, default)
-        else:
-            return default
-
-    def get_email(self, obj):
-        return self.get_primary_email_field(obj, "email", "")
-
-    def get_email_verified(self, obj):
-        return self.get_primary_email_field(obj, "verified", False)
