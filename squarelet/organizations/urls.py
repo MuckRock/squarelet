@@ -12,11 +12,6 @@ urlpatterns = [
     path("<slug:slug>/update/", view=views.Update.as_view(), name="update"),
     path("<slug:slug>/add-member/", view=views.AddMember.as_view(), name="add-member"),
     path(
-        "<slug:slug>/buy-requests/",
-        view=views.BuyRequests.as_view(),
-        name="buy-requests",
-    ),
-    path(
         "<slug:slug>/manage-members/",
         view=views.ManageMembers.as_view(),
         name="manage-members",

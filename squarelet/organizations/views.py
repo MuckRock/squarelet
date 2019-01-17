@@ -16,13 +16,7 @@ from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Field, Layout
 
 # Local
-from .forms import (
-    AddMemberForm,
-    BuyRequestsForm,
-    ManageInvitationsForm,
-    ManageMembersForm,
-    UpdateForm,
-)
+from .forms import AddMemberForm, ManageInvitationsForm, ManageMembersForm, UpdateForm
 from .mixins import OrganizationAdminMixin
 from .models import Invitation, Membership, Organization, Plan
 
@@ -218,35 +212,6 @@ class AddMember(OrganizationAdminMixin, DetailView, FormView):
         invitation.send()
         messages.success(self.request, "Invitation sent")
         return redirect(organization)
-
-
-class BuyRequests(OrganizationAdminMixin, UpdateView):
-    # XXX remove me
-    queryset = Organization.objects.filter(individual=False)
-    form_class = BuyRequestsForm
-
-    def form_valid(self, form):
-        """Create an invitation and send it to the given email address"""
-        organization = self.object
-        if form.cleaned_data["save_card"]:
-            organization.save_card(form.cleaned_data["stripe_token"])
-        organization.buy_requests(
-            form.cleaned_data["number_requests"], form.cleaned_data["stripe_token"]
-        )
-        messages.success(self.request, "Requests bought")
-        return redirect(organization)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["STRIPE_PUB_KEY"] = settings.STRIPE_PUB_KEY
-        return context
-
-
-class IndividualBuyRequests(BuyRequests):
-    """Subclass to buy requests for individual organizations"""
-
-    def get_object(self, queryset=None):
-        return Organization.objects.get(pk=self.request.user.pk)
 
 
 class ManageMembers(OrganizationAdminMixin, UpdateView):
