@@ -1,4 +1,5 @@
 # Django
+# Third Party
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -6,6 +7,12 @@ from django.db import transaction
 from django.shortcuts import redirect
 from django.utils.translation import ugettext_lazy as _
 from django.views.generic import CreateView, DetailView, FormView, ListView, UpdateView
+
+# Standard Library
+from itertools import chain
+
+# Third Party
+from dal import autocomplete
 
 # Local
 from .forms import (
@@ -52,14 +59,41 @@ class Detail(DetailView):
 
 class List(ListView):
     model = Organization
+    paginate_by = 100
 
     def get_queryset(self):
-        return (
+        orgs = super().get_queryset().filter(individual=False)
+        filter_name = self.request.GET.get("name")
+        # self.form = AutocompleteForm(self.request.GET)
+        if filter_name:
+            orgs = orgs.filter(name__icontains=filter_name)
+        return orgs.get_viewable(self.request.user)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["name"] = self.request.GET.get("name", "")
+        # context['form'] = self.form
+        return context
+
+
+class Autocomplete(autocomplete.Select2QuerySetView):
+    model = Organization
+
+    def get_queryset(self):
+        orgs = (
             super()
             .get_queryset()
             .filter(individual=False)
             .get_viewable(self.request.user)
         )
+        if self.q:
+            # Prioritize showing things that start with query
+            orgs1 = orgs.filter(name__istartswith=self.q)
+            orgs2 = orgs.filter(name__icontains=self.q).exclude(
+                name__istartswith=self.q
+            )
+            orgs = list(chain(orgs1, orgs2))
+        return orgs
 
 
 class Update(OrganizationAdminMixin, UpdateView):

@@ -7,6 +7,7 @@ from . import views
 app_name = "organizations"
 urlpatterns = [
     path("", view=views.List.as_view(), name="list"),
+    path("autocomplete", views.Autocomplete.as_view(), name="org-autocomplete"),
     path("~create", view=views.Create.as_view(), name="create"),
     path("<slug:slug>/update/", view=views.Update.as_view(), name="update"),
     path("<slug:slug>/add-member/", view=views.AddMember.as_view(), name="add-member"),

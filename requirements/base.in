@@ -26,3 +26,4 @@ redis
 smart_open
 sorl-thumbnail
 stripe
+django-autocomplete-light

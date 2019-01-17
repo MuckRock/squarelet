@@ -5,6 +5,106 @@
 {% block title %}User: {{ user.username }}{% endblock %}
 
 {% block content %}
+
+  <div class="_cls-largeContent">
+    <div class="_cls-profileColumns">
+      <div class="_cls-profileColumn">
+        <div class="_cls-profileSection">
+          <div class="_cls-profileInfo">
+            <div class="_cls-profileAvatar">
+              <div class="_cls-avatar">DF</div>
+            </div>
+            <div class="_cls-profileNames">
+              <div class="_cls-profileName">
+                {{ user.name }}
+              </div>
+              <div class="_cls-info">
+                {{ user.username }}
+              </div>
+            </div>
+          </div>
+          <div class="_cls-action">Edit profile</div>
+        </div>
+        <div class="_cls-organizationSection">
+          <div class="_cls-mediumHeader">Organizations</div>
+          <div class="_cls-info">
+            <p>You are not a member of any organization.</p>
+          </div>
+          <div class="_cls-action">Request to join</div>
+        </div>
+      </div>
+      <div class="_cls-planColumn">
+        <div class="_cls-currentPlan">
+          <div class="_cls-planInfo">Current plan: <b>Basic</b></div>
+          <div class="_cls-actionSmall">
+            <button>Upgrade</button>
+          </div>
+        </div>
+        <div class="_cls-services">
+          <div class="_cls-mediumHeader">Services</div>
+          <p class="_cls-info">
+            <span class="_cls-rightBump">A toolset for journalists and the public at large.</span><span class="_cls-action">Learn&nbsp;more</span>
+          </p>
+          <ul>
+            <li>
+              <div class="_cls-serviceIcon">
+                <img src="{% static 'assets/muckrock.svg' %}">
+              </div>
+              <div class="_cls-serviceInfo">
+                <div class="_cls-serviceName">
+                  MuckRock
+                </div>
+                <div class="_cls-serviceDescription">
+                  File, track, share government requests
+                </div>
+              </div>
+            </li>
+            <li>
+              <div class="_cls-serviceIcon">
+                <img src="{% static 'assets/documentcloud.svg' %}">
+              </div>
+              <div class="_cls-serviceInfo">
+                <div class="_cls-serviceName">
+                  DocumentCloud
+                </div>
+                <div class="_cls-serviceDescription">
+                  Upload, analyze, embed documents
+                </div>
+              </div>
+            </li>
+            <li>
+              <div class="_cls-serviceIcon">
+                <img src="{% static 'assets/foiamachine.svg' %}">
+              </div>
+              <div class="_cls-serviceInfo">
+                <div class="_cls-serviceName">
+                  FOIA Machine
+                </div>
+                <div class="_cls-serviceDescription">
+                  File Freedom of Information Act requests privately
+                </div>
+              </div>
+            </li>
+            <li>
+              <div class="_cls-serviceIcon">
+                <img src="{% static 'assets/quackbot.svg' %}">
+              </div>
+              <div class="_cls-serviceInfo">
+                <div class="_cls-serviceName">
+                  Quackbot
+                </div>
+                <div class="_cls-serviceDescription">
+                  A task-oriented chat bot for journalists using Slack
+                </div>
+              </div>
+            </li>
+            
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+{% comment %} 
 <div class="container">
 
   <div class="row">
@@ -39,6 +139,6 @@
 {% endif %}
 
 
-</div>
+</div> {% endcomment %}
 {% endblock content %}
 
