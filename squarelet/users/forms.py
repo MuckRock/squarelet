@@ -92,19 +92,10 @@ class SignupForm(AllauthSignupForm, StripeForm):
         user = super().save(request)
         user.name = self.cleaned_data.get("name", "")
         user.save()
-        free_plan = Plan.objects.get(slug="free")
         # XXX validate things here - ie ensure name uniqueness
-        individual_organization = Organization.objects.create(
-            id=user.pk,
-            name=user.username,
-            individual=True,
-            private=True,
-            max_users=1,
-            plan=free_plan,
-            next_plan=free_plan,
-        )
-        individual_organization.add_creator(user)
+        individual_organization = Organization.objects.create_individual(user)
 
+        free_plan = Plan.objects.get(slug="free")
         plan = self.cleaned_data["plan"]
         try:
             if not plan.free() and plan.for_individuals:

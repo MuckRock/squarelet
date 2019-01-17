@@ -13,12 +13,6 @@ import time
 import requests
 
 
-def make_secret_key():
-    # leave out easily confused characters: I,1,O,0
-    chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-    return "".join(random.choice(chars) for _ in range(24))
-
-
 class ClientProfile(models.Model):
     """Extra information for OIDC clients"""
 

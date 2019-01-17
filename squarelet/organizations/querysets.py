@@ -15,6 +15,23 @@ class OrganizationQuerySet(models.QuerySet):
             # anonymous users may not see any private organizations
             return self.filter(private=False)
 
+    def create_individual(self, user):
+        """Create the individual organization for this user"""
+        from .models import Plan
+
+        free_plan = Plan.objects.get(slug="free")
+        individual_organization = self.create(
+            id=user.pk,
+            name=user.username,
+            individual=True,
+            private=True,
+            max_users=1,
+            plan=free_plan,
+            next_plan=free_plan,
+        )
+        individual_organization.add_creator(user)
+        return individual_organization
+
 
 class PlanQuerySet(models.QuerySet):
     def individual_choices(self):

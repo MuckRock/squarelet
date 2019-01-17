@@ -7,6 +7,9 @@ from django.utils.translation import ugettext_lazy as _
 # Third Party
 from allauth.account.utils import sync_user_email_addresses
 
+# Squarelet
+from squarelet.organizations.models import Organization
+
 # Local
 from .models import User
 
@@ -53,4 +56,7 @@ class MyUserAdmin(AuthUserAdmin):
     def save_model(self, request, obj, form, change):
         """Sync all auth email addresses"""
         super().save_model(request, obj, form, change)
+        # XXX if created, create indivudal org
+        if not change:
+            Organization.objects.create_individual(obj)
         sync_user_email_addresses(obj)

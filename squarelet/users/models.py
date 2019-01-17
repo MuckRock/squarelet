@@ -18,6 +18,7 @@ from sorl.thumbnail import ImageField
 # Squarelet
 from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
 from squarelet.oidc.middleware import send_cache_invalidations
+from squarelet.organizations.models import Plan
 
 # Local
 from .managers import UserManager
