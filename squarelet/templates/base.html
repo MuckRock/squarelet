@@ -75,11 +75,13 @@
       </div>
     </div>
 
-    <div class="container">
+    <div class="_cls-main">
 
       {% if messages %}
         {% for message in messages %}
-          <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">{{ message }}</div>
+          <div class="_cls-alert">
+            <div class="{% if message.tags %}alert-{{ message.tags }}{% endif %}">{{ message }} <span class="_cls-close" onclick="event.target.parentElement.classList.add('_cls-dismiss')">Dismiss</span></div>
+          </div>
         {% endfor %}
       {% endif %}
 
