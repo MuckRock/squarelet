@@ -6,9 +6,20 @@ from django.db import transaction
 from django.db.models import Value as V
 from django.db.models.functions import Lower, StrIndex
 from django.http import JsonResponse
+from django.http.response import (
+    HttpResponse,
+    HttpResponseBadRequest,
+    HttpResponseNotAllowed,
+)
 from django.shortcuts import redirect
 from django.utils.translation import ugettext_lazy as _
+from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import CreateView, DetailView, FormView, ListView, UpdateView
+
+# Standard Library
+import json
+import logging
+import sys
 
 # Third Party
 import stripe
@@ -17,11 +28,13 @@ from crispy_forms.layout import Field, Layout
 
 # Local
 from .forms import AddMemberForm, ManageInvitationsForm, ManageMembersForm, UpdateForm
-from .mixins import OrganizationAdminMixin
+from .mixins import IndividualMixin, OrganizationAdminMixin
 from .models import Invitation, Membership, Organization, Plan
 
 # How much to paginate organizations list by
 ORG_PAGINATION = 100
+
+logger = logging.getLogger(__name__)
 
 
 class Detail(DetailView):
@@ -144,13 +157,8 @@ class Update(OrganizationAdminMixin, UpdateView):
         }
 
 
-class IndividualUpdate(Update):
+class IndividualUpdate(IndividualMixin, Update):
     """Subclass to update individual organizations"""
-
-    # XXX mixin for indiviual orgs?
-
-    def get_object(self, queryset=None):
-        return Organization.objects.get(pk=self.request.user.pk)
 
 
 class Create(LoginRequiredMixin, CreateView):
@@ -370,3 +378,70 @@ class ManageInvitations(OrganizationAdminMixin, UpdateView):
                     if form.cleaned_data[f"accept-{invitation.id}"]:
                         invitation.accept()
         return redirect(organization)
+
+
+class Receipts(OrganizationAdminMixin, DetailView):
+    queryset = Organization.objects.filter(individual=False)
+    template_name = "organizations/organization_receipts.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data()
+        context["charges"] = self.object.charges.all()
+        return context
+
+
+class IndividualReceipts(IndividualMixin, Receipts):
+    """Subclass to view individual's receipts"""
+
+
+@csrf_exempt
+def stripe_webhook(request):
+    """Handle webhooks from stripe"""
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+
+    payload = request.body
+    sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")
+    try:
+        if settings.STRIPE_WEBHOOK_SECRET:
+            event = stripe.Webhook.construct_event(
+                payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
+            )
+        else:
+            event = json.loads(request.body)
+
+        event_type = event["type"]
+    except (TypeError, ValueError, SyntaxError) as exception:
+        logger.error(
+            "Stripe Webhook: Error parsing JSON: %s", exception, exc_info=sys.exc_info()
+        )
+        return HttpResponseBadRequest()
+    except KeyError as exception:
+        logger.error(
+            "Stripe Webhook: Unexpected structure: %s in %s",
+            exception,
+            event,
+            exc_info=sys.exc_info(),
+        )
+        return HttpResponseBadRequest()
+    except stripe.error.SignatureVerificationError as exception:
+        logger.error(
+            "Stripe Webhook: Signature Verification Error: %s",
+            sig_header,
+            exc_info=sys.exc_info(),
+        )
+        return HttpResponseBadRequest()
+    # If we've made it this far, then the webhook message was successfully sent!
+    # Now it's up to us to act on it.
+    success_msg = (
+        "Received Stripe webhook\n"
+        "\tfrom:\t%(address)s\n"
+        "\ttype:\t%(type)s\n"
+        "\tdata:\t%(data)s\n"
+    ) % {"address": request.META["REMOTE_ADDR"], "type": event_type, "data": event}
+    logger.info(success_msg)
+    if event_type == "charge.succeeded":
+        handle_charge_succeeded.delay(event["data"]["object"])
+    elif event_type == "invoice.payment_failed":
+        handle_invoice_failed.delay(event["data"]["object"])
+    return HttpResponse()

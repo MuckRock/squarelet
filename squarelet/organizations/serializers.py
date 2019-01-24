@@ -87,6 +87,8 @@ class ChargeSerializer(serializers.ModelSerializer):
             if validated_data.get("save_card"):
                 organization.save_card(token)
                 token = None
+            # XXX use org.charge here?
+            # fold token logic in there or in make charge
             charge = Charge(
                 organization=organization,
                 amount=validated_data["amount"],

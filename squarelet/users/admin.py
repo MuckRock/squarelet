@@ -56,7 +56,6 @@ class MyUserAdmin(AuthUserAdmin):
     def save_model(self, request, obj, form, change):
         """Sync all auth email addresses"""
         super().save_model(request, obj, form, change)
-        # XXX if created, create indivudal org
         if not change:
             Organization.objects.create_individual(obj)
         sync_user_email_addresses(obj)
