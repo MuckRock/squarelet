@@ -82,6 +82,8 @@ class Organization(models.Model):
     # stripe
     customer_id = models.CharField(_("customer id"), max_length=255, blank=True)
     subscription_id = models.CharField(_("subscription id"), max_length=255, blank=True)
+    # XXX sync this to client sites, so they can show a notification
+    # XXX show a notification on here
     payment_failed = models.BooleanField(_("payment failed"), default=False)
 
     class Meta:
@@ -194,6 +196,7 @@ class Organization(models.Model):
         elif not self.plan.free() and not plan.free():
             # modify a subscription going from non-free to non-free
             self._modify_subscription(plan, max_users)
+        # XXX free to free
 
     def _create_subscription(self, customer, plan, max_users):
 
@@ -246,6 +249,7 @@ class Organization(models.Model):
         self.save()
 
     def charge(self, amount, description, token=None):
+        # XXX ?
         charge = Charge(amount=amount * 100, organization=self, description=description)
         charge.make_charge(token)
 
@@ -459,7 +463,7 @@ class Invitation(models.Model):
 
 
 class ReceiptEmail(models.Model):
-    """An additional email address to send receipts to"""
+    """An email address to send receipts to"""
 
     organization = models.ForeignKey(
         "organizations.Organization",
@@ -480,24 +484,28 @@ class Charge(models.Model):
         _("amount"), help_text=_("Amount in cents")
     )
     organization = models.ForeignKey(
-        "organizations.Organization", related_name="charges", on_delete=models.CASCADE
+        "organizations.Organization", related_name="charges", on_delete=models.PROTECT
     )
     created_at = models.DateTimeField(_("created at"))
-    charge_id = models.CharField(_("charge_id"), max_length=255)
+    charge_id = models.CharField(_("charge_id"), max_length=255, unique=True)
+
+    # type & quantity ??
     description = models.CharField(_("description"), max_length=255)
+
+    class Meta:
+        ordering = ("-created_at",)
 
     def __str__(self):
         return f"${self.amount / 100:.2f} charge to {self.organization.name}"
 
     def make_charge(self, token=None):
-        """Make the charge on stripe"""
+        """Make the charge on stripe
+        """
+        customer = self.organization.customer
         if token:
-            source = token
-            # XXX why no set customer here?
-            customer = None
+            source = customer.sources.create(source=token)
         else:
             source = self.organization.card
-            customer = self.organization.customer
 
         charge = stripe.Charge.create(
             amount=self.amount,
@@ -507,6 +515,8 @@ class Charge(models.Model):
             source=source,
             metadata={"organization": self.organization.name},
         )
+        if token:
+            source.delete()
         self.charge_id = charge.id
         self.created_at = datetime.fromtimestamp(
             charge.created, tz=get_current_timezone()
@@ -516,3 +526,12 @@ class Charge(models.Model):
     @mproperty
     def charge(self):
         return stripe.Charge.retrieve(self.charge_id)
+
+    @property
+    def amount_dollars(self):
+        return self.amount / 100.0
+
+    def send_receipt(self):
+        """Send receipt"""
+        # XXX
+        Receipt(self).send()

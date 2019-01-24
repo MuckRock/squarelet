@@ -13,12 +13,13 @@ from django.utils.translation import ugettext_lazy as _
 import uuid
 
 # Third Party
+from memoize import mproperty
 from sorl.thumbnail import ImageField
 
 # Squarelet
 from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
 from squarelet.oidc.middleware import send_cache_invalidations
-from squarelet.organizations.models import Plan
+from squarelet.organizations.models import Organization, Plan
 
 # Local
 from .managers import UserManager
@@ -128,3 +129,8 @@ class User(AbstractBaseUser, PermissionsMixin):
             return f"{settings.SQUARELET_URL}{self.avatar.url}"
         else:
             return DEFAULT_AVATAR
+
+    @mproperty
+    def individual_organization(self):
+        """A user's individual organization has a matching UUID"""
+        return Organization.objects.get(id=self.id)
