@@ -1,31 +1,43 @@
 {% extends "base.html" %}
-
-{% block title %}{{ organization.name }}{% endblock %}
+{% load avatar %}
+{% block title %}{{ organization.name }} | Manage Memberships{% endblock %}
 
 {% block content %}
-  <h1>{{ organization.name }}</h1>
-  <h2>Manage Members</h2>
-  <form class="form-horizontal" method="post" enctype="multipart/form-data" id="org-form">
-    {% csrf_token %}
-    <table>
-      <tr>
-        <th>User</th>
-        <th>Admin</th>
-        <th>Remove</th>
-      </tr>
-      {% for user, admin_field, remove_field in users %}
-        <tr>
-          <td><a href="{{ user.get_absolute_url }}">{{ user.username }}</a></td>
-          <td>{{ admin_field }}</td>
-          <td>{{ remove_field }}</td>
-        </tr>
-      {% endfor %}
-    </table>
-
-    <div class="control-group">
-      <div class="controls">
-        <button type="submit" class="btn">Save</button>
+  <div class="_cls-content">
+    {% comment %} <div>
+      {% autoescape off %}{% avatar user.username 37 %}{% endautoescape %}
+      {{ organization.name }}
+    </div> {% endcomment %}
+    <h2>Manage memberships</h2>
+    <h3>{{ organization.name }}</h3>
+    <form method="post" enctype="multipart/form-data" id="org-form">
+      {% csrf_token %}
+      <div class="_cls-manageTable">
+        <div class="_cls-manageRow _cls-manageHeader">
+          <div class="_cls-manageCell">User</div>
+          <div class="_cls-manageCell">Admin</div>
+          <div class="_cls-manageCell">Action</div>
+          </div>
+        {% for user, admin_field, remove_field in users %}
+          <div class="_cls-manageRow">
+            <div class="_cls-manageCell">
+              <a href="{{ user.get_absolute_url }}">
+                <div class="_cls-inlineAvatar">
+                  {% autoescape off %}{% avatar user.username 25 %}{% endautoescape %}
+                </div>
+                {{ user.username }}
+              </a>
+            </div>
+            <div class="_cls-manageCell">{{ admin_field }}</div>
+            <div class="_cls-manageCell">{{ remove_field }}</div>
+          </div>
+        {% endfor %}
       </div>
-    </div>
-  </form>
+
+      <div class="_cls-actionSmall">
+        <button type="submit">Update</button>
+        <a href="{% url "organizations:detail" organization.slug %}" class="_cls-altAction">Cancel</a>
+      </div>
+    </form>
+  </div>
 {% endblock %}

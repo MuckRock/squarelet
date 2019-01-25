@@ -1,5 +1,6 @@
 # Django
 # Third Party
+# Standard Library
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -12,6 +13,9 @@ from django.views.generic import CreateView, DetailView, FormView, ListView, Upd
 from itertools import chain
 
 # Third Party
+# Crispy
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Field, Layout
 from dal import autocomplete
 
 # Local
@@ -34,6 +38,15 @@ class Detail(DetailView):
         if self.request.user.is_authenticated:
             context["is_admin"] = self.object.has_admin(self.request.user)
             context["is_member"] = self.object.has_member(self.request.user)
+
+            context["requested_invite"] = self.request.user.invitations.filter(
+                organization=self.object, request=True, accepted_at=None
+            )
+            context["invited"] = self.request.user.invitations.filter(
+                organization=self.object, request=False, accepted_at=None
+            )
+            if context["is_admin"]:
+                context["invites"] = self.object.invitations.all()
         return context
 
     def post(self, request, *args, **kwargs):
@@ -148,7 +161,24 @@ class IndividualUpdate(Update):
 
 class Create(LoginRequiredMixin, CreateView):
     model = Organization
+    template_name_suffix = "_create_form"
     fields = ("name",)
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        form.helper = FormHelper()
+        form.helper.layout = Layout(
+            Field(
+                "name",
+                css_class="_cls-nameInput",
+                wrapper_class="_cls-field",
+                template="account/field.html",
+                placeholder="New organization name",
+            )
+        )
+        # self.fields["name"].widget.attrs.pop("autofocus", None)
+        form.helper.form_tag = False
+        return form
 
     @transaction.atomic
     def form_valid(self, form):

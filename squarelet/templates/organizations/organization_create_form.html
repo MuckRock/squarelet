@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% load static i18n bold avatar crispy_forms_tags %}
+{% block title %}Create organization{% endblock %}
+
+{% block content %}
+
+<div class="_cls-content">
+  <form id="login_form" method="POST" action="{% url 'organizations:create' %}">
+    {% crispy form form.helper %}
+
+    <div class="_cls-actionBig">
+      <button type="submit">{% trans 'Create organization' %}</button>
+    </div>
+  </form>
+</div>
+
+{% endblock %}
