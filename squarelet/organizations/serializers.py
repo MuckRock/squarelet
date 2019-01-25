@@ -81,6 +81,7 @@ class ChargeSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         """Create the charge object locally and on stripe"""
+        # XXX should this logic be in the viewset instead of the serializer?
         organization = validated_data["organization"]
         token = validated_data.get("token")
         try:
@@ -97,6 +98,9 @@ class ChargeSerializer(serializers.ModelSerializer):
             charge.make_charge(token)
         except stripe.error.StripeError as exc:
             raise StripeError(exc.user_message)
+        data = {"card": organization.card_display}
+        data.update(self.data)
+        self._data = data
         return charge
 
     def validate(self, attrs):

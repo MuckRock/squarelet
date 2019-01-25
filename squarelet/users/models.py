@@ -54,6 +54,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     # XXX finish doc string
 
+    # XXX make this a fk to individual org?
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     # XXX should this be optional or not?  what do we sign off as on requests?
     # do we want a full name and a short name?
