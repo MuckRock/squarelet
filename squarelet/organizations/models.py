@@ -24,7 +24,12 @@ from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
 from squarelet.oidc.middleware import send_cache_invalidations
 
 # Local
-from .querysets import InvitationQuerySet, OrganizationQuerySet, PlanQuerySet
+from .querysets import (
+    InvitationQuerySet,
+    OrganizationQuerySet,
+    PlanQuerySet,
+    SubscriptionQuerySet,
+)
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 stripe.api_version = "2018-09-24"
