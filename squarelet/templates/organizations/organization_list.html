@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static i18n bold %}
+{% load static i18n bold avatar %}
 {% block title %}Organizations{% endblock %}
 
 {% block css %}
@@ -37,25 +37,12 @@
         <div class="_cls-transpGradient"></div>
         <div class="_cls-resultsList" id="_id-results">
           {% for org in organization_list %}
-            <a href="{% url 'organizations:detail' org.slug %}"><div class="_cls-result">{% autoescape off %}{% bold name org.name %}{% endautoescape %}</div></a>
+            <a href="{% url 'organizations:detail' org.slug %}"><div class="_cls-result">
+              <div class="_cls-inlineAvatar">{% autoescape off %}{% avatar org.name 22 %}{% endautoescape %}</div>
+              {% autoescape off %}{% bold name org.name %}{% endautoescape %}
+            </div></a>
           {% endfor %}
         </div>
-      </div>
-    </div>
-  </div>
-  <div class="_cls-footer" style="position: fixed; bottom: 0;">
-    <div class="_cls-doublepane">
-      <div class="_cls-leftpane">
-        <p class="_cls-info">MuckRock is a non-profit collaborative news site that gives you the tools to keep our government transparent and accountable.</p>
-      </div>
-      <div class="_cls-rightpane">
-        <h3 class="_cls-services">Services</h3>
-        <ul>
-          <li>MuckRock</li>
-          <li>DocumentCloud</li>
-          <li>FOIA Machine</li>
-          <li>Quackbot</li>
-        </ul>
       </div>
     </div>
   </div>

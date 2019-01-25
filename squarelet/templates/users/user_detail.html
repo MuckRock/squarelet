@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 {% load thumbnail %}
+{% load avatar %}
 
 {% block title %}User: {{ user.username }}{% endblock %}
 
@@ -12,7 +13,7 @@
         <div class="_cls-profileSection">
           <div class="_cls-profileInfo">
             <div class="_cls-profileAvatar">
-              <div class="_cls-avatar">DF</div>
+              {% autoescape off %}{% avatar user.username 37 %}{% endautoescape %}
             </div>
             <div class="_cls-profileNames">
               <div class="_cls-profileName">
@@ -23,27 +24,42 @@
               </div>
             </div>
           </div>
-          <div class="_cls-action">Edit profile</div>
+          <a href="{% url "users:update" %}"><div class="_cls-action">Edit profile</div></a>
         </div>
         <div class="_cls-organizationSection">
           <div class="_cls-mediumHeader">Organizations</div>
-          <div class="_cls-info">
-            <p>You are not a member of any organization.</p>
-          </div>
-          <div class="_cls-action">Request to join</div>
+          {% if other_orgs.count > 0 %}
+            <ul class="_cls-profList">
+            {% for org in other_orgs.all %}
+              <a href="{% url "organizations:detail" org.slug %}">
+                <li>
+                  <div class="_cls-inlineAvatar">
+                    {% autoescape off %}{% avatar org.name 15 %}{% endautoescape %}
+                  </div>
+                  {{ org.name }}
+                </li>
+              </a>
+            {% endfor %}
+            </ul>
+          {% else %}
+            <div class="_cls-info">
+              <p>You are not a member of any organization.</p>
+            </div>
+          {% endif %}
+          {% comment %} <div class="_cls-action">Request to join</div> {% endcomment %}
         </div>
       </div>
       <div class="_cls-planColumn">
         <div class="_cls-currentPlan">
           <div class="_cls-planInfo">Current plan: <b>Basic</b></div>
           <div class="_cls-actionSmall">
-            <button>Upgrade</button>
+            <a href="{% url "users:payment" %}"><button>Upgrade</button></a>
           </div>
         </div>
         <div class="_cls-services">
           <div class="_cls-mediumHeader">Services</div>
           <p class="_cls-info">
-            <span class="_cls-rightBump">A toolset for journalists and the public at large.</span><span class="_cls-action">Learn&nbsp;more</span>
+            <span class="_cls-rightBump">A toolset for journalists and the public at large.</span><a href="{% url "about" %}"><span class="_cls-action">Learn&nbsp;more</span></a>
           </p>
           <ul>
             <li>

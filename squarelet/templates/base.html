@@ -80,7 +80,7 @@
       {% if messages %}
         {% for message in messages %}
           <div class="_cls-alert">
-            <div class="{% if message.tags %}alert-{{ message.tags }}{% endif %}">{{ message }} <span class="_cls-close" onclick="event.target.parentElement.classList.add('_cls-dismiss')">Dismiss</span></div>
+            <div class="{% if message.tags %}alert-{{ message.tags }}{% endif %}"><span class="_cls-alertIcon">✓</span><span class="_cls-middleAlign">{{ message }} </span><span class="_cls-close" onclick="event.target.parentElement.classList.add('_cls-dismiss')">Dismiss</span></div>
           </div>
         {% endfor %}
       {% endif %}
