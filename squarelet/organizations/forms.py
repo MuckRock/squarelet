@@ -14,7 +14,9 @@ from .models import Plan
 class UpdateForm(StripeForm):
     """Update an organization"""
 
-    plan = forms.ModelChoiceField(label=_("Plan"), queryset=Plan.objects.none())
+    plan = forms.ModelChoiceField(
+        label=_("Plan"), queryset=Plan.objects.none(), empty_label=None
+    )
     max_users = forms.IntegerField(label=_("Number of Users"), min_value=5)
     private = forms.BooleanField(label=_("Private"), required=False)
     receipt_emails = forms.CharField(
@@ -38,12 +40,19 @@ class UpdateForm(StripeForm):
         self._set_group_options()
 
     def _set_group_options(self):
+        # only show public options, plus the current plan, in case they are currently
+        # on a private plan
+        current_plan_qs = Plan.objects.filter(id=self.organization.plan_id)
         if self.organization.individual:
-            self.fields["plan"].queryset = Plan.objects.individual_choices()
+            self.fields["plan"].queryset = (
+                Plan.objects.individual_choices() | current_plan_qs
+            )
             del self.fields["max_users"]
             del self.fields["private"]
         else:
-            self.fields["plan"].queryset = Plan.objects.group_choices()
+            self.fields["plan"].queryset = (
+                Plan.objects.group_choices() | current_plan_qs
+            )
             limit_value = max(5, self.organization.user_count())
             self.fields["max_users"].validators[0].limit_value = limit_value
             self.fields["max_users"].widget.attrs["min"] = limit_value
