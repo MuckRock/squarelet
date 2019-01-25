@@ -213,10 +213,13 @@ class Organization(models.Model):
         self.save()
 
     def _cancel_subscription(self, plan):
+        # XXX check that subscription exists?
         self.subscription.cancel_at_period_end = True
         self.subscription.save()
 
         self.next_plan = plan
+        # XXX this will never trigger next plan
+        # date update needs to destruct itself on next update
         self.date_update = None
         self.save()
 
@@ -535,3 +538,44 @@ class Charge(models.Model):
         """Send receipt"""
         # XXX
         Receipt(self).send()
+
+
+class Subscription(models.Model):
+    """A generic subscription we offer outside of the normal account plans"""
+
+    objects = SubscriptionQuerySet.as_manager()
+
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        on_delete=models.PROTECT,
+        related_name="%(class)ss",
+    )
+    subscription_id = models.CharField(
+        _("subscription id"), unique=True, max_length=255
+    )
+    amount = models.PositiveIntegerField(_("amount"))
+    created_at = AutoCreatedField(_("created at"))
+    deactivated_at = models.DateTimeField(_("deactivated at"), blank=True, null=True)
+
+    class Meta:
+        abstract = True
+
+    def cancel(self):
+        """Cancel the recurring donation"""
+        self.deactivated_datetime = timezone.now()
+        self.save()
+        subscription = stripe.Subscription.retrieve(self.subscription_id)
+        subscription.delete()
+
+    @property
+    def active(self):
+        return self.deactivated_at is None
+
+
+class DonationSubscription(Subscription):
+    """A recurring donation"""
+
+    plan = "donate"
+
+    def __str__(self):
+        return f"Donation: ${self.amount}/Month by {self.organization}"
