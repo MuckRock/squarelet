@@ -253,31 +253,116 @@ class ManageMembers(OrganizationAdminMixin, UpdateView):
     form_class = ManageMembersForm
     template_name = "organizations/organization_managemembers.html"
 
-    def form_valid(self, form):
-        """Edit members admin status or remove them from the organization"""
+    def post(self, request, **kwargs):
+        """Handle form processing"""
+        action = request.POST.get('action')
+        print('\n\n\n-=-=-=-=-=-=-=-\nACTION:', action, '\n-=-=-=-=-=-\n\n\n')
 
-        organization = self.object
+        addmember_form = None
+        if action == 'addmember':
+            addmember_form = AddMemberForm(request.POST)
+            return self._handle_add_member(request, addmember_form)
+        elif action == 'revokeinvite':
+            # Validate this CAN be done
+            inviteid = request.POST.get('inviteid')
+            invite = Invitation.objects.get(pk=inviteid)
+            invite.delete()
+            messages.success(self.request, "Invitation revoked")
+            return redirect('organizations:manage-members', slug=self.get_object().slug)
+        elif action == 'acceptinvite':
+            # Validate this CAN be done
+            inviteid = request.POST.get('inviteid')
+            invite = Invitation.objects.get(pk=inviteid)
+            invite.accept()
+            messages.success(self.request, "Invitation accepted")
+            return redirect('organizations:manage-members', slug=self.get_object().slug)
+        elif action == 'rejectinvite':
+            # Validate this CAN be done
+            inviteid = request.POST.get('inviteid')
+            invite = Invitation.objects.get(pk=inviteid)
+            invite.delete()
+            messages.success(self.request, "Invitation rejected")
+            return redirect('organizations:manage-members', slug=self.get_object().slug)
+        elif action == 'makeadmin':
+            # Validate this CAN be done
+            userid = request.POST.get('userid')
+            membership = self.get_object().memberships.get(user_id=userid)
+            membership.admin = False if request.POST.get('admin') == 'false' else True
+            membership.save()
+            messages.success(self.request, f"Made an admin" if membership.admin else "Made not an admin")
+            return redirect('organizations:manage-members', slug=self.get_object().slug)
+        elif action == 'removeuser':
+            # Validate this CAN be done
+            userid = request.POST.get('userid')
+            membership = self.get_object().memberships.get(user_id=userid)
+            membership.delete()
+            messages.success(self.request, f"Removed user" if membership.admin else "Made not an admin")
+            return redirect('organizations:manage-members', slug=self.get_object().slug)
 
-        with transaction.atomic():
-            for membership in organization.memberships.all():
-                if form.cleaned_data[f"remove-{membership.user_id}"]:
-                    membership.delete()
-                elif (
-                    form.cleaned_data[f"admin-{membership.user_id}"] != membership.admin
-                ):
-                    membership.admin = form.cleaned_data[f"admin-{membership.user_id}"]
-                    membership.save()
+    def _handle_add_member(self, request, addmember_form):
+        if not addmember_form.is_valid():
+            # Ensure the email is valid
+            messages.error(request, "Please enter a valid email address")
+        else:
+            # Ensure the org has capacity
+            organization = self.get_object()
+            if organization.user_count() >= organization.max_users:
+                messages.error(
+                    request, "You need to increase your max users to invite another member"
+                )
+            else:
+                # Create an invitation and send it to the given email address
+                invitation = Invitation.objects.create(
+                    organization=organization, email=addmember_form.cleaned_data["email"]
+                )
+                invitation.send()
+                messages.success(self.request, "Invitation sent")
+        return redirect('organizations:manage-members', slug=self.get_object().slug)
 
-        messages.success(self.request, "Members updated")
-        return redirect(organization)
+    # Add member validation
+        # organization = self.get_object()
+        # if organization.user_count() >= organization.max_users:
+        #     messages.error(
+        #         request, "You need to increase your max users to invite another member"
+        #     )
+        #     return self.get(request, *args, **kwargs)
+        # """Create an invitation and send it to the given email address"""
+        # organization = self.get_object()
+        # invitation = Invitation.objects.create(
+        #     organization=organization, email=form.cleaned_data["email"]
+        # )
+        # invitation.send()
+        # messages.success(self.request, "Invitation sent")
+        # return redirect(organization)
+
+
+
+    # def form_valid(self, form):
+    #     """Edit members admin status or remove them from the organization"""
+
+    #     organization = self.object
+
+    #     with transaction.atomic():
+    #         for membership in organization.memberships.all():
+    #             if form.cleaned_data[f"remove-{membership.user_id}"]:
+    #                 membership.delete()
+    #             elif (
+    #                 form.cleaned_data[f"admin-{membership.user_id}"] != membership.admin
+    #             ):
+    #                 membership.admin = form.cleaned_data[f"admin-{membership.user_id}"]
+    #                 membership.save()
+
+    #     messages.success(self.request, "Members updated")
+    #     return redirect(organization)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         form = context["form"]
-        context["users"] = [
-            (u, form[f"admin-{u.pk}"], form[f"remove-{u.pk}"])
-            for u in self.object.users.all()
-        ]
+        context["admin"] = self.request.user
+        users = self.object.users.all().order_by('created_at')
+        context["users"] = [(u, self.get_object().memberships.get(user_id=u.id).admin) for u in users]
+        context["requested_invitations"] = self.object.invitations.get_requested().order_by('created_at')
+        context["pending_invitations"] = self.object.invitations.get_pending().order_by('created_at')
         return context
 
 

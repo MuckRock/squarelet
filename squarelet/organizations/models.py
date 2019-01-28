@@ -1,4 +1,5 @@
 # Django
+# Standard Library
 from django.conf import settings
 from django.core.mail import send_mail
 from django.db import models, transaction
@@ -453,3 +454,10 @@ class Invitation(models.Model):
             self.accepted_at = timezone.now()
             self.save()
             Membership.objects.create(organization=self.organization, user=self.user)
+
+    def get_name(self):
+        """Returns the name or email if no name is set"""
+        if self.user is not None and self.user.name:
+            return self.user.name
+        else:
+            return self.email

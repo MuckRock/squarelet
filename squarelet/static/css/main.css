@@ -478,6 +478,14 @@ nav a:hover {
   outline: none;
 }
 
+._cls-actionSmall._cls-actionSmaller button {
+  height: 2em;
+  font-size: 13px;
+  line-height: 2em;
+  width: inherit;
+  padding: 0 1.4em;
+}
+
 ._cls-mediumHeader {
   font-size: 17px;
   color: #3f3f3f;
@@ -684,6 +692,10 @@ nav a:hover {
   margin: 0;
 }
 
+._cls-inlineInlineForm {
+  display: inline;
+}
+
 ._cls-action:hover {
   background: none;
   box-shadow: none;
@@ -699,6 +711,8 @@ nav a:hover {
   margin: 1em 0 2em 0;
   border-radius: 3px;
   border: solid 1px gray;
+  width: 100%;
+  table-layout: fixed;
 }
 
 ._cls-manageRow {
@@ -759,4 +773,71 @@ h3 {
 
 ._cls-manageCell a:hover {
   color: #3c3c3c;
+}
+
+._cls-inviteUsers input {
+  height: 21px;
+  border-radius: 3px;
+  border: 1px solid gainsboro;
+  box-shadow: 0 1px 3px #00000026;
+  margin-right: 1em;
+  width: 150px;
+  outline: none;
+  padding: 0.2em 1em;
+  font-size: 13px;
+  transition: all 0.2s ease;
+}
+
+._cls-inviteUsers input:focus,
+._cls-inviteUsers input:valid {
+  width: 200px;
+}
+
+._cls-inviteUsers input:focus {
+  border: solid 1px gray;
+  box-shadow: 0 1px 3px #00000070;
+}
+
+._cls-tableHeading {
+  font-weight: bold;
+  margin-top: 2.5em;
+}
+
+._cls-tableInfo {
+  color: gray;
+  margin: 0.5em 0;
+}
+
+._cls-compactButton {
+  background: #3a8fef;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.2em 0.8em;
+  font-size: 13px;
+  vertical-align: middle;
+  margin: 0 0.8em 0 0;
+  outline: none;
+}
+
+._cls-inviteUsers {
+  margin-top: 1.5em;
+}
+
+._cls-fauxBox {
+  background: white;
+  border: solid 2px #383838;
+  border-radius: 2px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  outline: none;
+  font-size: 16px;
+  line-height: 17px;
+  color: #383838;
+}
+
+._cls-fauxBox:hover {
+  background: #a5d9ff;
+  box-shadow: inherit;
 }
