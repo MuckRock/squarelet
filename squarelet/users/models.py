@@ -1,4 +1,7 @@
 # Django
+# Standard Library
+import uuid
+
 from django.conf import settings
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.models import PermissionsMixin
@@ -6,13 +9,8 @@ from django.contrib.postgres.fields import CICharField, CIEmailField
 from django.db import models, transaction
 from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
-
-# Standard Library
-import uuid
-
 # Third Party
 from sorl.thumbnail import ImageField
-
 # Squarelet
 from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
 from squarelet.oidc.middleware import send_cache_invalidations
@@ -109,6 +107,11 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def get_full_name(self):
         return self.name
+
+    def safe_name(self):
+        if self.name:
+            return self.name
+        return self.username
 
     @property
     def avatar_url(self):

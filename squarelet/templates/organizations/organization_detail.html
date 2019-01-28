@@ -21,7 +21,9 @@
               </div>
             </div>
           </div>
-          <a href="{% url "organizations:update" organization.slug %}"><div class="_cls-action">Edit organization</div></a>
+          {% if is_admin %}
+            <a href="{% url "organizations:update" organization.slug %}"><div class="_cls-action">Edit organization</div></a>
+          {% endif %}
         </div>
         <div class="_cls-organizationSection">
           {% if is_admin %}
@@ -59,7 +61,7 @@
                     <div class="_cls-inlineAvatar">
                       {% autoescape off %}{% avatar user.username 15 %}{% endautoescape %}
                     </div>
-                    {{ user.name }}
+                    {{ user.safe_name }}
                   </li>
                 </a>
               {% endfor %}
@@ -72,12 +74,14 @@
         </div>
       </div>
       <div class="_cls-planColumn">
-        <div class="_cls-currentPlan">
-          <div class="_cls-planInfo">Current plan: <b>Basic</b></div>
-          <div class="_cls-actionSmall">
-            <a href="{% url "organizations:update" organization.slug %}"><button>Upgrade</button></a>
+        {% if is_admin %}
+          <div class="_cls-currentPlan">
+            <div class="_cls-planInfo">Current plan: <b>Basic</b></div>
+            <div class="_cls-actionSmall">
+              <a href="{% url "organizations:update" organization.slug %}"><button>Upgrade</button></a>
+            </div>
           </div>
-        </div>
+        {% endif %}
         <div class="_cls-services">
           <div class="_cls-mediumHeader">Services</div>
           <p class="_cls-info">
