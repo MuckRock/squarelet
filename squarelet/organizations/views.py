@@ -26,6 +26,9 @@ import stripe
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Field, Layout
 
+# Squarelet
+from squarelet.organizations.tasks import handle_charge_succeeded, handle_invoice_failed
+
 # Local
 from .forms import AddMemberForm, ManageInvitationsForm, ManageMembersForm, UpdateForm
 from .mixins import IndividualMixin, OrganizationAdminMixin

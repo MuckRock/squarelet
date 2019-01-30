@@ -24,12 +24,7 @@ from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
 from squarelet.oidc.middleware import send_cache_invalidations
 
 # Local
-from .querysets import (
-    InvitationQuerySet,
-    OrganizationQuerySet,
-    PlanQuerySet,
-    SubscriptionQuerySet,
-)
+from .querysets import InvitationQuerySet, OrganizationQuerySet, PlanQuerySet
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 stripe.api_version = "2018-09-24"
@@ -542,45 +537,10 @@ class Charge(models.Model):
     def send_receipt(self):
         """Send receipt"""
         # XXX
-        Receipt(self).send()
-
-
-class Subscription(models.Model):
-    """A generic subscription we offer outside of the normal account plans"""
-
-    objects = SubscriptionQuerySet.as_manager()
-
-    organization = models.ForeignKey(
-        "organizations.Organization",
-        on_delete=models.PROTECT,
-        related_name="%(class)ss",
-    )
-    subscription_id = models.CharField(
-        _("subscription id"), unique=True, max_length=255
-    )
-    amount = models.PositiveIntegerField(_("amount"))
-    created_at = AutoCreatedField(_("created at"))
-    deactivated_at = models.DateTimeField(_("deactivated at"), blank=True, null=True)
-
-    class Meta:
-        abstract = True
-
-    def cancel(self):
-        """Cancel the recurring donation"""
-        self.deactivated_datetime = timezone.now()
-        self.save()
-        subscription = stripe.Subscription.retrieve(self.subscription_id)
-        subscription.delete()
-
-    @property
-    def active(self):
-        return self.deactivated_at is None
-
-
-class DonationSubscription(Subscription):
-    """A recurring donation"""
-
-    plan = "donate"
-
-    def __str__(self):
-        return f"Donation: ${self.amount}/Month by {self.organization}"
+        # Receipt(self).send()
+        send_mail(
+            "Receipt",
+            f"This is a receipt for {self.description}",
+            "info@muckrock.com",  # XXX make this a variable - use diff email?
+            [r.email for r in self.organization.receipt_emails.all()],
+        )
