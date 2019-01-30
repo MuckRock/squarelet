@@ -50,38 +50,3 @@ class InvitationQuerySet(models.QuerySet):
 
     def get_requested(self):
         return self.filter(accepted_at=None, request=True)
-
-
-class SubscriptionQuerySet(models.QuerySet):
-    def start(self, amount, token, organization=None, email=None):
-        """Start the subscription
-        Must supply either an organization or an email
-        If an email is supplied, an anonymous organization will be created
-        """
-        # XXX eliminate circular imports
-        from .models import Organization, Plan
-
-        if organization is None:
-            # XXX make unique name function
-            name = unique_name(email, "Anonymous: {base} {random}")
-            organization = Organization.objects.create(
-                name=name,
-                # XXX set default plan to 'free'
-                plan=Plan.objects.get(slug="free"),
-                next_plan=Plan.objects.get(slug="free"),
-                private=True,
-                max_users=1,
-            )
-
-        if token:
-            organization.save_card(token)
-
-        stripe_subscription = organization.customer.subscriptions.create(
-            items=[{"plan": self.model.plan, "quantity": amount}]
-        )
-
-        return self.create(
-            organization=organization,
-            subscription_id=stripe_subscription,
-            amount=amount,
-        )
