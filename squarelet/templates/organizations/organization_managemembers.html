@@ -6,7 +6,7 @@
 {% block content %}
   <div class="_cls-largeContent">
     {% comment %} <div>
-      {% autoescape off %}{% avatar user 37 %}{% endautoescape %}
+      {% avatar user 37 %}
       {{ organization.name }}
     </div> {% endcomment %}
     <h2>Manage memberships</h2>
@@ -23,12 +23,12 @@
           <div class="_cls-manageCell">{% trans 'Admin' %}</div>
           <div class="_cls-manageCell">{% trans 'Action' %}</div>
           </div>
-        {% for user, isAdmin in users %}
+        {% for user, is_admin in users %}
           <div class="_cls-manageRow">
             <div class="_cls-manageCell">
               <a href="{{ user.get_absolute_url }}">
                 <div class="_cls-inlineAvatar">
-                  {% autoescape off %}{% avatar user 25 %}{% endautoescape %}
+                  {% avatar user 25 %}
                 </div>
                 {{ user.safe_name }}
               </a>
@@ -43,7 +43,7 @@
                   <input type="hidden" name="action" value="makeadmin">
                   <input type="hidden" name="userid" value="{{ user.id }}">
                   
-                  {% if isAdmin %}
+                  {% if is_admin %}
                     <input type="hidden" name="admin" value="false">
                     <button type="submit" class="_cls-fauxBox _cls-checked">✓</button>
                   {% else %}
@@ -80,7 +80,7 @@
           <div class="_cls-manageCell">
             <a href="{{ invite.user.get_absolute_url }}">
               <div class="_cls-inlineAvatar">
-                {% autoescape off %}{% avatar invite.user 25 %}{% endautoescape %}
+                {% avatar invite.user 25 %}
               </div>
               {{ invite.get_name }}
             </a>
@@ -119,7 +119,7 @@
           <div class="_cls-manageCell">
             <a href="{{ invite.user.get_absolute_url }}">
               <div class="_cls-inlineAvatar">
-                {% autoescape off %}{% avatar invite.user 25 %}{% endautoescape %}
+                {% avatar invite.user 25 %}
               </div>
               {{ invite.get_name }}
             </a>

@@ -1,7 +1,7 @@
 # Django
 from django import template
 
-# Standard Library
+# Third Party
 import html
 
 register = template.Library()
@@ -15,6 +15,7 @@ def bold(highlight_text, full_text):
 
     result = ""
 
+    # XXX replace?
     while True:
         try:
             idx = text.index(highlight_text)

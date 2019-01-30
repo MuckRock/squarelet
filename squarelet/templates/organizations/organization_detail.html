@@ -14,7 +14,7 @@
         <div class="_cls-profileSection">
           <div class="_cls-profileInfo _cls-organizationInfo">
             <div class="_cls-profileAvatar">
-              {% autoescape off %}{% avatar organization 45 %}{% endautoescape %}
+              {% avatar organization 45 %}
             </div>
             <div class="_cls-profileNames">
               <div class="_cls-profileName">
@@ -36,7 +36,7 @@
           {% if is_admin %}
             <div class="_cls-infoSpaced">
               <a class="_cls-action" href="{% url "organizations:manage-members" organization.slug %}">
-                {% trans 'Manage' %} {% if invites.count == 1 %}
+                {% trans 'Manage' %} {% if invite_count == 1 %}
                   (1 {% trans 'join request' %})
                 {% elif invites.count > 1 %}
                   ({{ invites.count }} {% trans 'join requests' %})
@@ -59,7 +59,7 @@
                 <a href="{% url "users:detail" user.username %}">
                   <li>
                     <div class="_cls-inlineAvatar">
-                      {% autoescape off %}{% avatar user 15 %}{% endautoescape %}
+                      {% avatar user 15 %}
                     </div>
                     {{ user.safe_name }}
                   </li>

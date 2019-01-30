@@ -23,7 +23,6 @@ from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
 from squarelet.oidc.middleware import send_cache_invalidations
 
 # Local
-from .constants import BASE_PRICE, MIN_USERS, PRICE_PER_USER
 from .querysets import InvitationQuerySet, OrganizationQuerySet, PlanQuerySet
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -101,12 +100,6 @@ class Organization(models.Model):
     def get_absolute_url(self):
         """The url for this object"""
         return reverse("organizations:detail", kwargs={"slug": self.slug})
-
-    def avatar_url(self):
-        if not self.avatar:
-            return DEFAULT_AVATAR
-        else:
-            return self.avatar.url
 
     # User Management
     def has_admin(self, user):
@@ -448,6 +441,9 @@ class Invitation(models.Model):
     created_at = AutoCreatedField(_("created at"))
     # NULL accepted_at signifies it has not been accepted yet
     accepted_at = models.DateTimeField(_("accepted_at"), blank=True, null=True)
+
+    class Meta:
+        ordering = ("created_at",)
 
     def __str__(self):
         return f"Invitation: {self.uuid}"
