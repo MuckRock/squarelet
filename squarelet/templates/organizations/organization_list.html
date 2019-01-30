@@ -38,7 +38,7 @@
         <div class="_cls-resultsList" id="_id-results">
           {% for org in organization_list %}
             <a href="{% url 'organizations:detail' org.slug %}"><div class="_cls-result">
-              <div class="_cls-inlineAvatar">{% autoescape off %}{% avatar org.name 22 %}{% endautoescape %}</div>
+              <div class="_cls-inlineAvatar">{% autoescape off %}{% avatar org 22 %}{% endautoescape %}</div>
               {% autoescape off %}{% bold name org.name %}{% endautoescape %}
             </div></a>
           {% endfor %}
@@ -74,98 +74,5 @@
   <script type="text/javascript" src="{% static 'admin/js/vendor/jquery/jquery.js' %}"></script>
 
   {{ form.media }} {% endcomment %}
-  <script>
-function d(id) {
-    return document.getElementById(id);
-}
-// Set event listener
-function on(element, event, fn) {
-    if (Array.isArray(event)) {
-        event.forEach(function (evt) { return element.addEventListener(evt, fn, false); });
-    }
-    else {
-        element.addEventListener(event, fn, false);
-    }
-}
-
-var SCROLL_BUFFER = 40;
-var View = /** @class */ (function () {
-    function View() {
-        var _this = this;
-        this.filter = d('_id-filter');
-        this.close = d('_id-close');
-        this.results = d('_id-results');
-        this.page = 1;
-        this.async = null;
-        on(this.close, 'click', function () {
-            _this.filter.value = '';
-            _this.page = 1;
-            _this.fetch('');
-        });
-        on(this.filter, 'input', function () {
-            _this.resetAsync();
-            _this.page = 1;
-            _this.fetch(_this.filter.value);
-        });
-        on(this.results, 'scroll', function () {
-            var position = _this.results.scrollTop + _this.results.offsetHeight;
-            if (position > _this.results.scrollHeight - SCROLL_BUFFER) {
-                _this.nextPage();
-            }
-        });
-    }
-    View.prototype.resetAsync = function () {
-        if (this.async != null) {
-            // Somehow make null
-        }
-        this.async = null;
-    };
-    View.prototype.clearResults = function () {
-        while (this.results.firstChild)
-            this.results.removeChild(this.results.firstChild);
-    };
-    View.prototype.render = function (json, append) {
-        if (!append) {
-            this.clearResults();
-        }
-        for (var _i = 0, json_1 = json; _i < json_1.length; _i++) {
-            var result = json_1[_i];
-            this.addResult(result.text);
-        }
-        if (this.results.scrollHeight < this.results.offsetHeight + SCROLL_BUFFER) {
-            this.nextPage();
-        }
-    };
-    View.prototype.addResult = function (text, link) {
-        if (link === void 0) { link = '#'; }
-        var a = document.createElement('a');
-        a.href = link;
-        var div = document.createElement('div');
-        div.className = '_cls-result';
-        div.textContent = text;
-        a.appendChild(div);
-        this.results.appendChild(a);
-    };
-    View.prototype.fetch = function (term, append) {
-        var _this = this;
-        if (append === void 0) { append = false; }
-        this.async = fetch("autocomplete?q=" + term + "&page=" + this.page)
-            .then(function (response) {
-            return response.json();
-        })
-            .then(function (myJson) {
-            _this.render(myJson.results, append);
-        });
-    };
-    View.prototype.nextPage = function () {
-        this.page++;
-        this.fetch(this.filter.value, true);
-    };
-    return View;
-}());
-
-var view = new View();
-//# sourceMappingURL=main.js.map
-
-  </script>
+  <script src="{% static 'js/autocomplete.js' %}"></script>
 {% endblock content %}

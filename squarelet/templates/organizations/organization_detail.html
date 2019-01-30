@@ -13,7 +13,7 @@
         <div class="_cls-profileSection">
           <div class="_cls-profileInfo _cls-organizationInfo">
             <div class="_cls-profileAvatar">
-              {% autoescape off %}{% avatar organization.name 45 %}{% endautoescape %}
+              {% autoescape off %}{% avatar organization 45 %}{% endautoescape %}
             </div>
             <div class="_cls-profileNames">
               <div class="_cls-profileName">
@@ -59,7 +59,7 @@
                 <a href="{% url "users:detail" user.username %}">
                   <li>
                     <div class="_cls-inlineAvatar">
-                      {% autoescape off %}{% avatar user.username 15 %}{% endautoescape %}
+                      {% autoescape off %}{% avatar user 15 %}{% endautoescape %}
                     </div>
                     {{ user.safe_name }}
                   </li>
