@@ -2,8 +2,9 @@
 {% load static %}
 {% load thumbnail %}
 {% load avatar %}
+{% load i18n %}
 
-{% block title %}Organization: {{ organization.name }}{% endblock %}
+{% block title %}{% trans 'Organization' %}: {{ organization.name }}{% endblock %}
 
 {% block content %}
 
@@ -22,35 +23,34 @@
             </div>
           </div>
           {% if is_admin %}
-            <a href="{% url "organizations:update" organization.slug %}"><div class="_cls-action">Edit organization</div></a>
+            <a href="{% url "organizations:update" organization.slug %}"><div class="_cls-action">{% trans 'Edit organization' %}</div></a>
           {% endif %}
         </div>
         <div class="_cls-organizationSection">
           {% if is_admin %}
-            <div class="_cls-info _cls-infoPreSpaced">You are an admin for this organization</div>
+            <div class="_cls-info _cls-infoPreSpaced">{% trans 'You are an admin for this organization' %}</div>
           {% elif is_member %}
-            <div class="_cls-info _cls-infoPreSpaced">You are a user for this organization</div>
+            <div class="_cls-info _cls-infoPreSpaced">{% trans 'You are a user for this organization' %}</div>
           {% endif %}
-          <div class="_cls-mediumHeader">Users ({{ organization.users.count }})</div>
+          <div class="_cls-mediumHeader">{% trans 'Users' %} ({{ organization.users.count }})</div>
           {% if is_admin %}
             <div class="_cls-infoSpaced">
               <a class="_cls-action" href="{% url "organizations:manage-members" organization.slug %}">
-                Manage {% if invites.count == 1 %}
-                  (1 join request)
+                {% trans 'Manage' %} {% if invites.count == 1 %}
+                  (1 {% trans 'join request' %})
                 {% elif invites.count > 1 %}
-                  ({{ invites.count }} join requests)
+                  ({{ invites.count }} {% trans 'join requests' %})
                 {% endif %}
               </a>
             </div>
           {% elif is_member %}
           {% elif invited %}
-
           {% elif requested_invite %}
-            <div class="_cls-info _cls-infoStatus _cls-infoSpaced">You have requested an invite.</div>
+            <div class="_cls-info _cls-infoStatus _cls-infoSpaced">{% trans 'You have requested an invite.' %}</div>
           {% else %}
             <form class="_cls-infoSpaced" method="post">
               {% csrf_token %}
-              <button class="_cls-action" name="action" value="join">Request to join</button>
+              <button class="_cls-action" name="action" value="join">{% trans 'Request to join' %}</button>
             </form>
           {% endif %}
           {% if organization.users.count > 0 %}
@@ -68,7 +68,7 @@
             </ul>
           {% else %}
             <div class="_cls-info">
-              <p>This organization has no members.</p>
+              <p>{% trans 'This organization has no members.' %}</p>
             </div>
           {% endif %}
         </div>
@@ -76,16 +76,17 @@
       <div class="_cls-planColumn">
         {% if is_admin %}
           <div class="_cls-currentPlan">
-            <div class="_cls-planInfo">Current plan: <b>Basic</b></div>
+            {% comment %} TODO handle plan name {% endcomment %}
+            <div class="_cls-planInfo">{% trans 'Current plan' %}: <b>{% trans 'Basic' %}</b></div>
             <div class="_cls-actionSmall">
-              <a href="{% url "organizations:update" organization.slug %}"><button>Upgrade</button></a>
+              <a href="{% url "organizations:update" organization.slug %}"><button>{% trans 'Upgrade' %}</button></a>
             </div>
           </div>
         {% endif %}
         <div class="_cls-services">
-          <div class="_cls-mediumHeader">Services</div>
+          <div class="_cls-mediumHeader">{% trans 'Services' %}</div>
           <p class="_cls-info">
-            <span class="_cls-rightBump">A toolset for journalists and the public at large.</span><a href="{% url "about" %}"><span class="_cls-action">Learn&nbsp;more</span></a>
+            <span class="_cls-rightBump">{% blocktrans %}A toolset for journalists and the public at large.{% endblocktrans %}</span><a href="{% url "about" %}"><span class="_cls-action">Learn&nbsp;more</span></a>
           </p>
           <ul>
             <li>
@@ -94,10 +95,10 @@
               </div>
               <div class="_cls-serviceInfo">
                 <div class="_cls-serviceName">
-                  MuckRock
+                  {% trans 'MuckRock' %}
                 </div>
                 <div class="_cls-serviceDescription">
-                  File, track, share government requests
+                  {% blocktrans %}File, track, share government requests{% endblocktrans %}
                 </div>
               </div>
             </li>
@@ -107,10 +108,10 @@
               </div>
               <div class="_cls-serviceInfo">
                 <div class="_cls-serviceName">
-                  DocumentCloud
+                  {% trans 'DocumentCloud' %}
                 </div>
                 <div class="_cls-serviceDescription">
-                  Upload, analyze, embed documents
+                  {% blocktrans %}Upload, analyze, embed documents{% endblocktrans %}
                 </div>
               </div>
             </li>
@@ -120,10 +121,10 @@
               </div>
               <div class="_cls-serviceInfo">
                 <div class="_cls-serviceName">
-                  FOIA Machine
+                  {% trans 'FOIA Machine' %}
                 </div>
                 <div class="_cls-serviceDescription">
-                  File Freedom of Information Act requests privately
+                  {% blocktrans %}File Freedom of Information Act requests privately{% endblocktrans %}
                 </div>
               </div>
             </li>
@@ -133,175 +134,16 @@
               </div>
               <div class="_cls-serviceInfo">
                 <div class="_cls-serviceName">
-                  Quackbot
+                  {% trans 'Quackbot' %}
                 </div>
                 <div class="_cls-serviceDescription">
-                  A task-oriented chat bot for journalists using Slack
+                  {% blocktrans %}A task-oriented chat bot for journalists using Slack{% endblocktrans %}
                 </div>
               </div>
             </li>
-            
           </ul>
         </div>
       </div>
     </div>
   </div>
-{% comment %} 
-<div class="container">
-
-  <div class="row">
-    <div class="col-sm-12">
-
-      <h2>{{ user.username }}</h2>
-      {% if user.name %}
-        <p>{{ user.name }}</p>
-      {% endif %}
-      {% thumbnail user.avatar "150x150" as im %}
-        <p><img src="{{ im.url }}"></p>
-      {% empty %}
-        <p>No avatar</p>
-      {% endthumbnail %}
-    </div>
-  </div>
-
-{% if user == request.user %}
-<!-- Action buttons -->
-<div class="row">
-
-  <div class="col-sm-12">
-    <a class="btn btn-primary" href="{% url 'users:update' %}" role="button">My Info</a>
-    <a class="btn btn-primary" href="{% url 'users:payment' %}" role="button">My Payment Info</a>
-    <a class="btn btn-primary" href="{% url 'users:buy-requests' %}" role="button">Buy Requests</a>
-    <a class="btn btn-primary" href="{% url 'account_email' %}" role="button">E-Mail</a>
-    <!-- Your Stuff: Custom user template urls -->
-  </div>
-
-</div>
-<!-- End Action buttons -->
-{% endif %}
-
-
-</div> {% endcomment %}
 {% endblock content %}
-
-
-
-
-
-{% comment %} 
-{% extends "base.html" %}
-{% load static %}
-{% load thumbnail %}
-
-{% block title %}Organization: {{ organization.name }}{% endblock %}
-
-{% block content %}
-  <div class="container">
-
-    <div class="row">
-      <div class="col-sm-12">
-        <h2>{{ organization.name}}</h2>
-        <dl>
-          <dt>Plan</dt>
-          <dd>{{ organization.get_plan_display }}</dd>
-          <dt>Max Users</dt>
-          <dd>{{ organization.max_users }}</dd>
-          <dt>Requests Per Month</dt>
-          <dd>{{ organization.requests_per_month }}</dd>
-          <dt>Monthly Requests</dt>
-          <dd>{{ organization.monthly_requests }}</dd>
-        </dl>
-        <h3>Users</h3>
-        <ul>
-          {% for user in organization.users.all %}
-            <li>
-              <a href="{% url "users:detail" user.username %}">
-                {{ user.username }}
-              </a>
-            </li>
-          {% endfor %}
-        </ul>
-      </div>
-    </div>
-
-    {% if not is_member %}
-      <div class="row">
-        <div class="col-sm-2">
-          <form method="post">
-            {% csrf_token %}
-            <button type="submit" class="btn" name="action" value="join">Request to Join</button>
-        </div>
-      </div>
-    {% endif %}
-
-    {% if is_member %}
-      <div class="row">
-        <div class="col-sm-2">
-          <form method="post">
-            {% csrf_token %}
-            <button type="submit" class="btn" name="action" value="leave">Leave this Organization</button>
-        </div>
-      </div>
-    {% endif %}
-
-    {% if is_admin %}
-      <div class="row">
-        <div class="col-sm-2">
-          <a
-             class="btn btn-primary"
-             href="{% url "organizations:update" organization.slug %}"
-             role="button">
-            Edit Info
-          </a>
-        </div>
-        <div class="col-sm-2">
-          <a
-             class="btn btn-primary"
-             href="{% url "organizations:manage-members" organization.slug %}"
-             role="button">
-            Manage Members
-          </a>
-        </div>
-        <div class="col-sm-2">
-          <a
-             class="btn btn-primary"
-             href="{% url "organizations:manage-invitations" organization.slug %}"
-             role="button">
-            Manage Invitations
-          </a>
-        </div>
-        <div class="col-sm-2">
-          <a
-             class="btn btn-primary"
-             href="{% url "organizations:add-member" organization.slug %}"
-             role="button">
-            Add Member
-          </a>
-        </div>
-        <div class="col-sm-2">
-          <a
-             class="btn btn-primary"
-             href="{% url "organizations:buy-requests" organization.slug %}"
-             role="button">
-            Buy Requests
-          </a>
-        </div>
-      </div>
-    {% endif %}
-
-{% for invite in invites %}
-  <li class="_cls-pendingInvite">
-    <div class="_cls-info">Requested invite</div>
-    <div>
-      <div class="_cls-inlineAvatar">
-        {% autoescape off %}{% avatar invite.user.name 15 %}{% endautoescape %}
-      </div>
-      {{ invite.user.name }}Dylan Freedman
-    </div>
-  </li>
-{% endfor %}
-
-
-
-  </div>
-{% endblock content %} {% endcomment %}

@@ -2,8 +2,9 @@
 {% load static %}
 {% load thumbnail %}
 {% load avatar %}
+{% load i18n %}
 
-{% block title %}User: {{ user.username }}{% endblock %}
+{% block title %}{% trans 'User' %}: {{ user.username }}{% endblock %}
 
 {% block content %}
 
@@ -24,10 +25,10 @@
               </div>
             </div>
           </div>
-          <a href="{% url "users:update" %}"><div class="_cls-action">Edit profile</div></a>
+          <a href="{% url "users:update" %}"><div class="_cls-action">{% trans 'Edit profile' %}</div></a>
         </div>
         <div class="_cls-organizationSection">
-          <div class="_cls-mediumHeader">Organizations</div>
+          <div class="_cls-mediumHeader">{% trans 'Organizations' %}</div>
           {% if other_orgs.count > 0 %}
             <ul class="_cls-profList">
             {% for org in other_orgs.all %}
@@ -43,23 +44,23 @@
             </ul>
           {% else %}
             <div class="_cls-info">
-              <p>You are not a member of any organization.</p>
+              <p>{% trans 'You are not a member of any organization.' %}</p>
             </div>
           {% endif %}
-          {% comment %} <div class="_cls-action">Request to join</div> {% endcomment %}
         </div>
       </div>
       <div class="_cls-planColumn">
         <div class="_cls-currentPlan">
-          <div class="_cls-planInfo">Current plan: <b>Basic</b></div>
+          <!-- TODO: put in plan name -->
+          <div class="_cls-planInfo">{% trans 'Current plan: ' %}<b>{% trans 'Basic' %}</b></div>
           <div class="_cls-actionSmall">
-            <a href="{% url "users:payment" %}"><button>Upgrade</button></a>
+            <a href="{% url "users:payment" %}"><button>{% trans 'Upgrade' %}</button></a>
           </div>
         </div>
         <div class="_cls-services">
-          <div class="_cls-mediumHeader">Services</div>
+          <div class="_cls-mediumHeader">{% trans 'Services' %}</div>
           <p class="_cls-info">
-            <span class="_cls-rightBump">A toolset for journalists and the public at large.</span><a href="{% url "about" %}"><span class="_cls-action">Learn&nbsp;more</span></a>
+            <span class="_cls-rightBump">{% blocktrans %}A toolset for journalists and the public at large.{% endblocktrans %}</span><a href="{% url "about" %}"><span class="_cls-action">Learn&nbsp;more</span></a>
           </p>
           <ul>
             <li>
@@ -68,10 +69,10 @@
               </div>
               <div class="_cls-serviceInfo">
                 <div class="_cls-serviceName">
-                  MuckRock
+                  {% trans 'MuckRock' %}
                 </div>
                 <div class="_cls-serviceDescription">
-                  File, track, share government requests
+                  {% blocktrans %}File, track, share government requests{% endblocktrans %}
                 </div>
               </div>
             </li>
@@ -81,10 +82,10 @@
               </div>
               <div class="_cls-serviceInfo">
                 <div class="_cls-serviceName">
-                  DocumentCloud
+                  {% trans 'DocumentCloud' %}
                 </div>
                 <div class="_cls-serviceDescription">
-                  Upload, analyze, embed documents
+                  {% blocktrans %}Upload, analyze, embed documents{% endblocktrans %}
                 </div>
               </div>
             </li>
@@ -94,10 +95,10 @@
               </div>
               <div class="_cls-serviceInfo">
                 <div class="_cls-serviceName">
-                  FOIA Machine
+                  {% trans 'FOIA Machine' %}
                 </div>
                 <div class="_cls-serviceDescription">
-                  File Freedom of Information Act requests privately
+                  {% blocktrans %}File Freedom of Information Act requests privately{% endblocktrans %}
                 </div>
               </div>
             </li>
@@ -107,54 +108,16 @@
               </div>
               <div class="_cls-serviceInfo">
                 <div class="_cls-serviceName">
-                  Quackbot
+                  {% trans 'Quackbot' %}
                 </div>
                 <div class="_cls-serviceDescription">
-                  A task-oriented chat bot for journalists using Slack
+                  {% blocktrans %}A task-oriented chat bot for journalists using Slack{% endblocktrans %}
                 </div>
               </div>
             </li>
-            
           </ul>
         </div>
       </div>
     </div>
   </div>
-{% comment %} 
-<div class="container">
-
-  <div class="row">
-    <div class="col-sm-12">
-
-      <h2>{{ user.username }}</h2>
-      {% if user.name %}
-        <p>{{ user.name }}</p>
-      {% endif %}
-      {% thumbnail user.avatar "150x150" as im %}
-        <p><img src="{{ im.url }}"></p>
-      {% empty %}
-        <p>No avatar</p>
-      {% endthumbnail %}
-    </div>
-  </div>
-
-{% if user == request.user %}
-<!-- Action buttons -->
-<div class="row">
-
-  <div class="col-sm-12">
-    <a class="btn btn-primary" href="{% url 'users:update' %}" role="button">My Info</a>
-    <a class="btn btn-primary" href="{% url 'users:payment' %}" role="button">My Payment Info</a>
-    <a class="btn btn-primary" href="{% url 'users:buy-requests' %}" role="button">Buy Requests</a>
-    <a class="btn btn-primary" href="{% url 'account_email' %}" role="button">E-Mail</a>
-    <!-- Your Stuff: Custom user template urls -->
-  </div>
-
-</div>
-<!-- End Action buttons -->
-{% endif %}
-
-
-</div> {% endcomment %}
 {% endblock content %}
-
