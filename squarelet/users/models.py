@@ -23,7 +23,7 @@ from squarelet.oidc.middleware import send_cache_invalidations
 from .managers import UserManager
 from .validators import UsernameValidator
 
-DEFAULT_AVATAR = static("images/avatars/organization.png")
+DEFAULT_AVATAR = static("images/avatars/profile.png")
 
 
 class User(AbstractBaseUser, PermissionsMixin):
