@@ -1,16 +1,20 @@
 # Django
 # Standard Library
-import uuid
-
 from django.conf import settings
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.models import PermissionsMixin
 from django.contrib.postgres.fields import CICharField, CIEmailField
+from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.db import models, transaction
 from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
+
+# Standard Library
+import uuid
+
 # Third Party
 from sorl.thumbnail import ImageField
+
 # Squarelet
 from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
 from squarelet.oidc.middleware import send_cache_invalidations
@@ -18,6 +22,8 @@ from squarelet.oidc.middleware import send_cache_invalidations
 # Local
 from .managers import UserManager
 from .validators import UsernameValidator
+
+DEFAULT_AVATAR = static("images/avatars/organization.png")
 
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -120,4 +126,4 @@ class User(AbstractBaseUser, PermissionsMixin):
         elif self.avatar:
             return f"{settings.SQUARELET_URL}{self.avatar.url}"
         else:
-            return ""
+            return DEFAULT_AVATAR

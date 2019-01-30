@@ -1,6 +1,6 @@
 # Django
-# Standard Library
 from django.conf import settings
+from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.core.mail import send_mail
 from django.db import models, transaction
 from django.urls import reverse
@@ -16,6 +16,7 @@ import stripe
 from autoslug import AutoSlugField
 from dateutil.relativedelta import relativedelta
 from memoize import mproperty
+from sorl.thumbnail import ImageField
 
 # Squarelet
 from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
@@ -27,6 +28,8 @@ from .querysets import InvitationQuerySet, OrganizationQuerySet, PlanQuerySet
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 stripe.api_version = "2018-09-24"
+
+DEFAULT_AVATAR = static("images/avatars/organization.png")
 
 
 class Organization(models.Model):
@@ -41,6 +44,8 @@ class Organization(models.Model):
     slug = AutoSlugField(_("slug"), populate_from="name", unique=True)
     created_at = AutoCreatedField(_("created at"))
     updated_at = AutoLastModifiedField(_("updated at"))
+
+    avatar = ImageField(_("avatar"), upload_to="org_avatars", blank=True)
 
     users = models.ManyToManyField(
         "users.User", through="organizations.Membership", related_name="organizations"
@@ -97,6 +102,12 @@ class Organization(models.Model):
         """The url for this object"""
         return reverse("organizations:detail", kwargs={"slug": self.slug})
 
+    def avatar_url(self):
+        if not self.avatar:
+            return DEFAULT_AVATAR
+        else:
+            return self.avatar.url
+
     # User Management
     def has_admin(self, user):
         """Is the given user an admin of this organization"""
@@ -116,6 +127,15 @@ class Organization(models.Model):
         self.memberships.create(user=user, admin=True)
         # add the creators email as a receipt recipient by default
         self.receipt_emails.create(email=user.email)
+
+    @property
+    def avatar_url(self):
+        if self.avatar and self.avatar.url.startswith("http"):
+            return self.avatar.url
+        elif self.avatar:
+            return f"{settings.SQUARELET_URL}{self.avatar.url}"
+        else:
+            return DEFAULT_AVATAR
 
     # Payment Management
     @mproperty

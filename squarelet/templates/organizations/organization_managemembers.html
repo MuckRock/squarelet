@@ -5,7 +5,7 @@
 {% block content %}
   <div class="_cls-largeContent">
     {% comment %} <div>
-      {% autoescape off %}{% avatar user.username 37 %}{% endautoescape %}
+      {% autoescape off %}{% avatar user 37 %}{% endautoescape %}
       {{ organization.name }}
     </div> {% endcomment %}
     <h2>Manage memberships</h2>
@@ -27,7 +27,7 @@
             <div class="_cls-manageCell">
               <a href="{{ user.get_absolute_url }}">
                 <div class="_cls-inlineAvatar">
-                  {% autoescape off %}{% avatar user.username 25 %}{% endautoescape %}
+                  {% autoescape off %}{% avatar user 25 %}{% endautoescape %}
                 </div>
                 {{ user.safe_name }}
               </a>
@@ -79,7 +79,7 @@
           <div class="_cls-manageCell">
             <a href="{{ invite.user.get_absolute_url }}">
               <div class="_cls-inlineAvatar">
-                {% autoescape off %}{% avatar invite.user.username 25 %}{% endautoescape %}
+                {% autoescape off %}{% avatar invite.user 25 %}{% endautoescape %}
               </div>
               {{ invite.get_name }}
             </a>
@@ -120,7 +120,7 @@
           <div class="_cls-manageCell">
             <a href="{{ invite.user.get_absolute_url }}">
               <div class="_cls-inlineAvatar">
-                {% autoescape off %}{% avatar invite.user.username 25 %}{% endautoescape %}
+                {% autoescape off %}{% avatar invite.user 25 %}{% endautoescape %}
               </div>
               {{ invite.get_name }}
             </a>

@@ -841,3 +841,8 @@ h3 {
   background: #a5d9ff;
   box-shadow: inherit;
 }
+
+._cls-inlineAvatar img {
+  border-radius: 18%;
+  box-shadow: 0 0 2px #0000005e;
+}

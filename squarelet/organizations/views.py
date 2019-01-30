@@ -1,10 +1,11 @@
 # Django
-# Third Party
-# Standard Library
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
+from django.db.models import Func, Value as V
+from django.db.models.functions import Lower, StrIndex
+from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.utils.translation import ugettext_lazy as _
 from django.views.generic import CreateView, DetailView, FormView, ListView, UpdateView
@@ -13,7 +14,6 @@ from django.views.generic import CreateView, DetailView, FormView, ListView, Upd
 from itertools import chain
 
 # Third Party
-# Crispy
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Field, Layout
 from dal import autocomplete
@@ -28,6 +28,9 @@ from .forms import (
 )
 from .mixins import OrganizationAdminMixin
 from .models import Invitation, Organization, Plan
+
+# How much to paginate organizations list by
+ORG_PAGINATION = 100
 
 
 class Detail(DetailView):
@@ -72,41 +75,42 @@ class Detail(DetailView):
 
 class List(ListView):
     model = Organization
-    paginate_by = 100
+    paginate_by = ORG_PAGINATION
 
     def get_queryset(self):
         orgs = super().get_queryset().filter(individual=False)
-        filter_name = self.request.GET.get("name")
-        # self.form = AutocompleteForm(self.request.GET)
-        if filter_name:
-            orgs = orgs.filter(name__icontains=filter_name)
         return orgs.get_viewable(self.request.user)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["name"] = self.request.GET.get("name", "")
-        # context['form'] = self.form
         return context
 
 
-class Autocomplete(autocomplete.Select2QuerySetView):
-    model = Organization
+def Autocomplete(request):
+    q = request.GET.get("q")
+    page = request.GET.get("page") or 1
+    try:
+        page = int(page)
+    except:
+        page = 1
 
-    def get_queryset(self):
+    orgs = Organization.objects.filter(individual=False).get_viewable(request.user)
+    if q:
+        # Prioritize showing things that start with query
         orgs = (
-            super()
-            .get_queryset()
-            .filter(individual=False)
-            .get_viewable(self.request.user)
+            orgs.filter(name__icontains=q)
+            .annotate(pos=StrIndex(Lower("name"), Lower(V(q))))
+            .order_by("pos")
         )
-        if self.q:
-            # Prioritize showing things that start with query
-            orgs1 = orgs.filter(name__istartswith=self.q)
-            orgs2 = orgs.filter(name__icontains=self.q).exclude(
-                name__istartswith=self.q
-            )
-            orgs = list(chain(orgs1, orgs2))
-        return orgs
+
+    data = {
+        "data": [
+            {"name": o.name, "slug": o.slug, "avatar": o.avatar_url}
+            for o in orgs[((page - 1) * ORG_PAGINATION) : (page * ORG_PAGINATION)]
+        ]
+    }
+    return JsonResponse(data)
 
 
 class Update(OrganizationAdminMixin, UpdateView):
@@ -255,22 +259,28 @@ class ManageMembers(OrganizationAdminMixin, UpdateView):
 
     def post(self, request, **kwargs):
         """Handle form processing"""
-        action = request.POST.get('action')
+        action = request.POST.get("action")
 
-        if action == 'addmember':
+        if action == "addmember":
             addmember_form = AddMemberForm(request.POST)
             return self._handle_add_member(request, addmember_form)
-        elif action == 'revokeinvite':
-            return self._handle_invite(request, lambda invite: invite.delete(), 'Invitation revoked')
-        elif action == 'acceptinvite':
-            return self._handle_invite(request, lambda invite: invite.accept(), 'Invitation accepted')
-        elif action == 'rejectinvite':
-            return self._handle_invite(request, lambda invite: invite.delete(), 'Invitation rejected')
-        elif action == 'makeadmin':
-            admin_param = request.POST.get('admin')
-            if admin_param == 'true':
+        elif action == "revokeinvite":
+            return self._handle_invite(
+                request, lambda invite: invite.delete(), "Invitation revoked"
+            )
+        elif action == "acceptinvite":
+            return self._handle_invite(
+                request, lambda invite: invite.accept(), "Invitation accepted"
+            )
+        elif action == "rejectinvite":
+            return self._handle_invite(
+                request, lambda invite: invite.delete(), "Invitation rejected"
+            )
+        elif action == "makeadmin":
+            admin_param = request.POST.get("admin")
+            if admin_param == "true":
                 set_admin = True
-            elif admin_param == 'false':
+            elif admin_param == "false":
                 set_admin = False
             else:
                 return self._bad_call(request)
@@ -278,9 +288,16 @@ class ManageMembers(OrganizationAdminMixin, UpdateView):
             def handle_make_admin(membership):
                 membership.admin = set_admin
                 membership.save()
-            return self._handle_user(request, handle_make_admin, "Made an admin" if set_admin else "Made not an admin")
-        elif action == 'removeuser':
-            return self._handle_user(request, lambda membership: membership.delete(), 'Removed user')
+
+            return self._handle_user(
+                request,
+                handle_make_admin,
+                "Made an admin" if set_admin else "Made not an admin",
+            )
+        elif action == "removeuser":
+            return self._handle_user(
+                request, lambda membership: membership.delete(), "Removed user"
+            )
 
     def _handle_add_member(self, request, addmember_form):
         if not addmember_form.is_valid():
@@ -291,52 +308,60 @@ class ManageMembers(OrganizationAdminMixin, UpdateView):
             organization = self.get_object()
             if organization.user_count() >= organization.max_users:
                 messages.error(
-                    request, "You need to increase your max users to invite another member"
+                    request,
+                    "You need to increase your max users to invite another member",
                 )
             else:
                 # Create an invitation and send it to the given email address
                 invitation = Invitation.objects.create(
-                    organization=organization, email=addmember_form.cleaned_data["email"]
+                    organization=organization,
+                    email=addmember_form.cleaned_data["email"],
                 )
                 invitation.send()
                 messages.success(self.request, "Invitation sent")
-        return redirect('organizations:manage-members', slug=self.get_object().slug)
+        return redirect("organizations:manage-members", slug=self.get_object().slug)
 
     def _handle_invite(self, request, inviteFn, successMessage):
         try:
-            inviteid = request.POST.get('inviteid')
-            assert(inviteid is not None)
+            inviteid = request.POST.get("inviteid")
+            assert inviteid is not None
             invite = Invitation.objects.get(pk=inviteid)
-            assert(invite.organization == self.get_object())
+            assert invite.organization == self.get_object()
             inviteFn(invite)
             messages.success(self.request, successMessage)
         except:
             return self._bad_call(request)
-        return redirect('organizations:manage-members', slug=self.get_object().slug)
+        return redirect("organizations:manage-members", slug=self.get_object().slug)
 
     def _handle_user(self, request, membershipFn, successMessage):
         try:
-            userid = request.POST.get('userid')
-            assert(userid is not None)
+            userid = request.POST.get("userid")
+            assert userid is not None
             membership = self.get_object().memberships.get(user_id=userid)
             membershipFn(membership)
             messages.success(self.request, successMessage)
         except:
             return self._bad_call(request)
-        return redirect('organizations:manage-members', slug=self.get_object().slug)
+        return redirect("organizations:manage-members", slug=self.get_object().slug)
 
     def _bad_call(self, request):
-        messages.error(self.request, 'An unexpected error occurred')
-        return redirect('organizations:manage-members', slug=self.get_object().slug)
+        messages.error(self.request, "An unexpected error occurred")
+        return redirect("organizations:manage-members", slug=self.get_object().slug)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         form = context["form"]
         context["admin"] = self.request.user
-        users = self.object.users.all().order_by('created_at')
-        context["users"] = [(u, self.get_object().memberships.get(user_id=u.id).admin) for u in users]
-        context["requested_invitations"] = self.object.invitations.get_requested().order_by('created_at')
-        context["pending_invitations"] = self.object.invitations.get_pending().order_by('created_at')
+        users = self.object.users.all().order_by("created_at")
+        context["users"] = [
+            (u, self.get_object().memberships.get(user_id=u.id).admin) for u in users
+        ]
+        context[
+            "requested_invitations"
+        ] = self.object.invitations.get_requested().order_by("created_at")
+        context["pending_invitations"] = self.object.invitations.get_pending().order_by(
+            "created_at"
+        )
         return context
 
 
