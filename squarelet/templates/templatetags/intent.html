@@ -10,16 +10,12 @@
   </div>
 </div>
 <p class="_cls-info">
-  <span class="_cls-rightBump">{{ message }} {{ other_service_1 }}, {{ other_service_2 }}, {% trans 'and' %} {{ other_service_3 }}.</span><a href="{% url 'about' %}"><span class="_cls-action">{% blocktrans %}Learn&nbsp;more{% endblocktrans %}</span></a>
+  <span class="_cls-rightBump">{{ message }}.</span><a href="{% url 'about' %}"><span class="_cls-action">{% blocktrans %}Learn&nbsp;more{% endblocktrans %}</span></a>
 </p>
 <div class="_cls-infoLogos">
-  <div class="_cls-infoLogo">
-    <img src="{% static other_asset_1 %}">
-  </div>
-  <div class="_cls-infoLogo">
-    <img src="{% static other_asset_2 %}">
-  </div>
-  <div class="_cls-infoLogo">
-    <img src="{% static other_asset_3 %}">
-  </div>
+  {% for asset in other_assets %}
+    <div class="_cls-infoLogo">
+      <img src="{% static asset %}">
+    </div>
+  {% endfor %}
 </div>

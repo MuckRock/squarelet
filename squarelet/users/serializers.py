@@ -1,6 +1,3 @@
-# Django
-from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
-
 # Standard Library
 import random
 import re

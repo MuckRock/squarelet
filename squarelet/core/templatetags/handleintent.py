@@ -1,5 +1,6 @@
 # Django
 from django import template
+from django.utils.translation import ugettext_lazy as _
 
 register = template.Library()
 
@@ -28,38 +29,32 @@ ALL_ASSETS = [MUCKROCK_ASSET, DOCUMENTCLOUD_ASSET, FOIAMACHINE_ASSET, QUACKBOT_A
 
 @register.inclusion_tag("templatetags/intent.html", takes_context=True)
 def handleintent(context, header, message):
-    intent = "muckrock"
     if "intent" in context.request.GET:
         intent = context.request.GET["intent"].lower().strip()
-
-    if intent == "documentcloud":
-        intent_service = DOCUMENTCLOUD_SERVICE
-        intent_asset = DOCUMENTCLOUD_ASSET
-    elif intent == "foiamachine":
-        intent_service = FOIAMACHINE_SERVICE
-        intent_asset = FOIAMACHINE_ASSET
-    elif intent == "quackbot":
-        intent_service = QUACKBOT_SERVICE
-        intent_asset = QUACKBOT_ASSET
     else:
-        # default to MuckRock
-        intent_service = MUCKROCK_SERVICE
-        intent_asset = MUCKROCK_ASSET
+        intent = "muckrock"
 
-    other_services = ALL_SERVICES[:]
-    other_services.remove(intent_service)
-    other_assets = ALL_ASSETS[:]
-    other_assets.remove(intent_asset)
+    intent_lookup = {
+        "documentcloud": (DOCUMENTCLOUD_SERVICE, DOCUMENTCLOUD_ASSET),
+        "foiamachine": (FOIAMACHINE_SERVICE, FOIAMACHINE_ASSET),
+        "quackbot": (QUACKBOT_SERVICE, QUACKBOT_ASSET),
+        "muckrock": (MUCKROCK_SERVICE, MUCKROCK_ASSET),
+    }
+
+    # default to 'muckrock'
+    intent_service, intent_asset = intent_lookup.get(intent, intent_lookup["muckrock"])
+
+    other_services = [s for s in ALL_SERVICES if s != intent_service]
+    other_assets = [a for a in ALL_ASSETS if a != intent_asset]
+
+    service_message = _("{}, and {}").format(
+        ", ".join(other_services[:-1]), other_services[-1]
+    )
 
     return {
         "header": header,
-        "message": message,
+        "message": f"{message} {service_message}",
         "intent_service": intent_service,
         "intent_asset": intent_asset,
-        "other_service_1": other_services[0],
-        "other_service_2": other_services[1],
-        "other_service_3": other_services[2],
-        "other_asset_1": other_assets[0],
-        "other_asset_2": other_assets[1],
-        "other_asset_3": other_assets[2],
+        "other_assets": other_assets,
     }
