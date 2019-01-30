@@ -8,7 +8,6 @@ from allauth.account.forms import (
     LoginForm as AllauthLoginForm,
     SignupForm as AllauthSignupForm,
 )
-
 # Crispy
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Field, Layout
