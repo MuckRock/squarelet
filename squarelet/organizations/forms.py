@@ -3,6 +3,7 @@
 from django import forms
 from django.core.validators import validate_email
 from django.utils.translation import ugettext_lazy as _
+
 # Squarelet
 from squarelet.core.forms import StripeForm
 
