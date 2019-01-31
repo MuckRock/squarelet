@@ -76,8 +76,7 @@
       <div class="_cls-planColumn">
         {% if is_admin %}
           <div class="_cls-currentPlan">
-            {% comment %} TODO handle plan name {% endcomment %}
-            <div class="_cls-planInfo">{% trans 'Current plan' %}: <b>{% trans 'Basic' %}</b></div>
+            <div class="_cls-planInfo">{% trans 'Current plan' %}: <b>{{ organization.plan.slug }}</b></div>
             <div class="_cls-actionSmall">
               <a href="{% url "organizations:update" organization.slug %}"><button>{% trans 'Upgrade' %}</button></a>
             </div>
