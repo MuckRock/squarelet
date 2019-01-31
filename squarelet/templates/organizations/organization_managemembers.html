@@ -23,17 +23,17 @@
           <div class="_cls-manageCell">{% trans 'Admin' %}</div>
           <div class="_cls-manageCell">{% trans 'Action' %}</div>
           </div>
-        {% for user, is_admin in users %}
+        {% for member in members %}
           <div class="_cls-manageRow">
             <div class="_cls-manageCell">
-              <a href="{{ user.get_absolute_url }}">
+              <a href="{{ member.user.get_absolute_url }}">
                 <div class="_cls-inlineAvatar">
-                  {% avatar user 25 %}
+                  {% avatar member.user 25 %}
                 </div>
-                {{ user.safe_name }}
+                {{ member.user.safe_name }}
               </a>
             </div>
-            {% if user == admin %}
+            {% if member.user == admin %}
               <div class="_cls-manageCell">{% trans 'Yes' %}</div>
               <div class="_cls-manageCell">{% trans 'Cannot remove self' %}</div>
             {% else %}
@@ -41,9 +41,9 @@
                 <form method="POST" class="_cls-inlineForm _cls-inlineInlineForm">
                   {% csrf_token %}
                   <input type="hidden" name="action" value="makeadmin">
-                  <input type="hidden" name="userid" value="{{ user.id }}">
+                  <input type="hidden" name="userid" value="{{ member.user.id }}">
                   
-                  {% if is_admin %}
+                  {% if member.admin %}
                     <input type="hidden" name="admin" value="false">
                     <button type="submit" class="_cls-fauxBox _cls-checked">✓</button>
                   {% else %}
@@ -56,7 +56,7 @@
                 <form method="POST" class="_cls-inlineForm">
                   {% csrf_token %}
                   <input type="hidden" name="action" value="removeuser">
-                  <input type="hidden" name="userid" value="{{ user.id }}">
+                  <input type="hidden" name="userid" value="{{ member.user.id }}">
                   <button type="submit" class="_cls-compactButton">{% trans 'Remove' %}</button>
                 </form>
               </div>
