@@ -51,8 +51,7 @@
       </div>
       <div class="_cls-planColumn">
         <div class="_cls-currentPlan">
-          <!-- TODO: put in plan name -->
-          <div class="_cls-planInfo">{% trans 'Current plan: ' %}<b>{% trans 'Basic' %}</b></div>
+          <div class="_cls-planInfo">{% trans 'Current plan: ' %}<b>{{ user.individual_organization.plan.name }}</b></div>
           <div class="_cls-actionSmall">
             <a href="{% url "users:payment" %}"><button>{% trans 'Upgrade' %}</button></a>
           </div>
