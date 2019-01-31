@@ -1,86 +1,35 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% load crispy_forms_tags %}
 
 {% block title %}{{ organization.name }}{% endblock %}
 
 {% block content %}
-  <h1>{{ organization.name }}</h1>
-  <form class="form-horizontal" method="post" enctype="multipart/form-data" id="org-form">
-    {% csrf_token %}
-    {{ form|crispy }}
+  <div class="_cls-content">
+    <h1>{{ organization.name }}</h1>
+    <form id="stripe-form" method="post">
+      {% csrf_token %}
+      <!-- here -->
+      {% crispy form form.helper %}
 
-    {% if form.stripe_token %}
-      <div class="form-group">
-        <label for="card-element">
-          Credit or debit card
-        </label>
-        <div id="card-element" class="form-control"></div>
+      {% if form.stripe_token %}
+        <h3 class="_cls-smallHeading">{% blocktrans %}Billing information{% endblocktrans %}</h3>
+        <div class="_cls-field">
+          <div id="card-element" class="_cls-fieldInput"></div>
+        </div>
+        <!-- Used to display Element errors. -->
+        <div id="card-errors" role="alert"></div>
+      {% endif %}
+
+      <div class="control-group" style="margin-top: 2em;">
+        <div class="_cls-actionSmall">
+          <button type="submit" class="btn">{% trans 'Update' %}</button>
+          <a href="{% url 'organizations:detail' organization.slug %}" class="_cls-altAction">
+            {% trans 'Cancel' %}
+          </a>
+        </div>
       </div>
-      <!-- Used to display Element errors. -->
-      <div id="card-errors" role="alert"></div>
-    {% endif %}
 
-    <div class="control-group">
-      <div class="controls">
-        <button type="submit" class="btn">Save</button>
-      </div>
-    </div>
-  </form>
-{% endblock %}
-
-{% block extra_javascript %}
-  <script>
-    var stripe = Stripe('{{ settings.STRIPE_PUB_KEY }}');
-    var elements = stripe.elements();
-
-    function stripeTokenHandler(token) {
-      // Insert the token ID into the form so it gets submitted to the server
-      var hiddenInput = $("#id_stripe_token");
-      hiddenInput.val(token.id);
-      // Submit the form
-      $("#org-form").submit();
-    }
-
-    $('document').ready(function(){
-      var style = {
-        base: {
-          // Add your base input styles here. For example:
-          fontSize: '1rem',
-          color: "#32325d",
-        }
-      };
-      var card = elements.create('card', {style: style});
-      card.mount('#card-element');
-      card.addEventListener('change', function(event) {
-        var displayError = document.getElementById('card-errors');
-        if (event.error) {
-          displayError.textContent = event.error.message;
-        } else {
-          displayError.textContent = '';
-        }
-      });
-      // We don't want the browser to fill this in with old values
-      $("#id_stripe_token").val("");
-      // Create a token or display an error when the form is submitted.
-      var form = document.getElementById('org-form');
-      form.addEventListener('submit', function(event) {
-        var useCardOnFile = $("input[name=use_card_on_file]:checked").val() === "True";
-        var freePlan = $("#id_plan option:selected").text() === "Free";
-        if (!useCardOnFile && !freePlan) {
-          event.preventDefault();
-
-          stripe.createToken(card).then(function(result) {
-            if (result.error) {
-              // Inform the customer that there was an error.
-              var errorElement = document.getElementById('card-errors');
-              errorElement.textContent = result.error.message;
-            } else {
-              // Send the token to your server.
-              stripeTokenHandler(result.token);
-            }
-          });
-        }
-      });
-    });
-  </script>
+    </form>
+  </div>
 {% endblock %}

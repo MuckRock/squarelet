@@ -15,14 +15,10 @@
   {% handleintent intent_header intent_text %}
 
   <!-- Start form -->
-  <form id="signup_form" method="post" action="/accounts/signup/">
+  <form id="stripe-form" method="post">
 
     {# this field is explicit so we can grab the plan from the get parameter #}
     <input type="hidden" name="plan" value="{{ request.GET.plan|default:"free" }}">
-    {# for stripe token #}
-    {% for field in form.hidden_fields %}
-      {{ field }}
-    {% endfor %}
 
     {% crispy form form.helper %}
 
@@ -37,6 +33,8 @@
       <div class="_cls-field">
         <div id="card-element" class="_cls-fieldInput"></div>
       </div>
+      <!-- Used to display Element errors. -->
+      <div id="card-errors" role="alert"></div>
     {% endif %}
 
     <div class="_cls-actionBig">
@@ -64,69 +62,4 @@
     </div>
   </div>
 </div>
-{% endblock %}
-
-{% block extra_javascript %}
-  <script>
-    var stripe = Stripe('{{ settings.STRIPE_PUB_KEY }}');
-    var elements = stripe.elements();
-
-    function stripeTokenHandler(token) {
-      // Insert the token ID into the form so it gets submitted to the server
-      var hiddenInput = documnet.getElementById("id_stripe_token");
-      hiddenInput.val(token.id);
-      // Submit the form
-      document.getElementById("signup_form").submit();
-    }
-
-    document.addEventListener("DOMContentLoaded", function() {
-      var style = {
-        base: {
-          color: '#3F3F3F',
-          fontSize: '18px',
-          fontFamily: 'system-ui, sans-serif',
-          fontSmoothing: 'antialiased',
-          '::placeholder': {
-            color: '#899194',
-          },
-        },
-        invalid: {
-          color: '#e5424d',
-          ':focus': {
-            color: '#303238',
-          },
-        },
-      };
-      if (document.getElementById("card-element")) {
-        var card = elements.create('card', {style: style});
-        card.mount('#card-element');
-        card.addEventListener('change', function(event) {
-          var displayError = document.getElementById('card-errors');
-          if (event.error) {
-            displayError.textContent = event.error.message;
-          } else {
-            displayError.textContent = '';
-          }
-        });
-        // We don't want the browser to fill this in with old values
-        document.getElementById("id_stripe_token").value = "";
-        // Create a token or display an error when the form is submitted.
-        var form = document.getElementById('signup_form');
-        form.addEventListener('submit', function(event) {
-          event.preventDefault();
-
-          stripe.createToken(card).then(function(result) {
-            if (result.error) {
-              // Inform the customer that there was an error.
-              var errorElement = document.getElementById('card-errors');
-              errorElement.textContent = result.error.message;
-            } else {
-              // Send the token to your server.
-              stripeTokenHandler(result.token);
-            }
-          });
-        });
-      }
-    });
-  </script>
 {% endblock %}

@@ -48,8 +48,10 @@ def format(c):
         DJANGO_RUN_USER.format(
             cmd="black squarelet --exclude migrations && "
             "black config/urls.py && "
+            "black config/settings && "
             "isort -rc squarelet && "
-            "isort -c config/urls.py"
+            "isort -c config/urls.py && "
+            "isort -rc config/settings"
         )
     )
 

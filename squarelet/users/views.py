@@ -4,6 +4,13 @@ from django.http.response import HttpResponseRedirect
 from django.urls import reverse
 from django.views.generic import DetailView, ListView, RedirectView, UpdateView
 
+# Third Party
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Layout
+
+# Squarelet
+from squarelet.core.layout import Field
+
 # Local
 from .models import User
 
@@ -37,6 +44,13 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
         else:
             self.fields = fields
         return super().get_form_class()
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        form.helper = FormHelper()
+        form.helper.layout = Layout(Field("username"), Field("name"), Field("avatar"))
+        form.helper.form_tag = False
+        return form
 
     def form_valid(self, form):
         self.object = form.save(commit=False)

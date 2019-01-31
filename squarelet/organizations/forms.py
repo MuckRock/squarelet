@@ -4,8 +4,13 @@ from django import forms
 from django.core.validators import validate_email
 from django.utils.translation import ugettext_lazy as _
 
+# Third Party
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Layout
+
 # Squarelet
 from squarelet.core.forms import StripeForm
+from squarelet.core.layout import Field
 
 # Local
 from .models import Plan
@@ -26,18 +31,20 @@ class UpdateForm(StripeForm):
         help_text=_("One email address per line"),
     )
 
-    field_order = [
-        "stripe_token",
-        "plan",
-        "max_users",
-        "private",
-        "receipt_emails",
-        "use_card_on_file",
-    ]
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._set_group_options()
+
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Field("stripe_token"),
+            Field("plan"),
+            Field("max_users"),
+            Field("private"),
+            Field("receipt_emails"),
+            Field("use_card_on_file"),
+        )
+        self.helper.form_tag = False
 
     def _set_group_options(self):
         # only show public options, plus the current plan, in case they are currently
@@ -105,6 +112,7 @@ class AddMemberForm(forms.Form):
     email = forms.EmailField()
 
 
+# XXX remove?
 class ManageMembersForm(forms.Form):
     def __init__(self, *args, **kwargs):
         self.organization = kwargs.pop("instance")
@@ -119,6 +127,7 @@ class ManageMembersForm(forms.Form):
             )
 
 
+# XXX  remove?
 class ManageInvitationsForm(forms.Form):
     """Manage pending and requested invitations for an organization"""
 

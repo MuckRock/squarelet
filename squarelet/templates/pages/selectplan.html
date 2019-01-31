@@ -64,22 +64,6 @@
             <a href="{% url 'account_signup' %}?plan=organization&intent={% firstof request.GET.intent 'muckrock' %}"><button>{% blocktrans %}Subscribe from $50/month{% endblocktrans %}</button></a>
           </div>
         </div>
-        <div class="_cls-card">
-          <div class="_cls-cardHeader">
-            <h1>{% trans 'Organization Pro' %}</h1>
-          </div>
-          <div class="_cls-cardContent">
-            <ul>
-              <li>{% blocktrans %}For organizations with over 10 users.{% endblocktrans %}</li>
-              <li>{% blocktrans %}Get 8 requests per user per month on MuckRock.{% endblocktrans %}</li>
-              <li>{% blocktrans %}Upload unlimited public pages on DocumentCloud.{% endblocktrans %}</li>
-              <li>{% blocktrans %}Upload 3,000 private pages on DocumentCloud per user per month.{% endblocktrans %}</li>
-            </ul>
-          </div>
-          <div class="_cls-cardAction">
-            <a href="{% url 'account_signup' %}?plan=organization-plus&intent={% firstof request.GET.intent 'muckrock' %}"><button>{% blocktrans %}Subscribe from $100/month{% endblocktrans %}</button></a>
-          </div>
-        </div>
       </div>
     </div>
   </div>

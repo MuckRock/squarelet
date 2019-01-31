@@ -92,7 +92,9 @@
       {% endif %}
 
       {% block content %}
-        <p>Use this document as a way to quick start any new project.</p>
+        <div class="_cls-content">
+          <h1>Welcome to MuckRock Accounts</h1>
+        </div>
       {% endblock content %}
 
     </div> <!-- /container -->
@@ -111,7 +113,8 @@
 
         <!-- place project specific Javascript in this file -->
         {% compress js %}
-          {# <script src="{% static 'js/project.js' %}"></script> #}
+           <script src="{% static 'js/autocomplete.js' %}"></script> 
+           <script src="{% static 'js/stripe.js' %}"></script> 
         {% endcompress %}
 
       {% endblock javascript %}
