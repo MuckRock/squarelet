@@ -17,17 +17,22 @@
   <!-- Start form -->
   <form id="signup_form" method="post" action="/accounts/signup/">
 
-    <input type="hidden" name="plan" value="{{ request.GET.plan|default:"0" }}">
+    {# this field is explicit so we can grab the plan from the get parameter #}
+    <input type="hidden" name="plan" value="{{ request.GET.plan|default:"free" }}">
+    {# for stripe token #}
+    {% for field in form.hidden_fields %}
+      {{ field }}
+    {% endfor %}
 
     {% crispy form form.helper %}
 
-    {% if request.GET.plan == "2" or request.GET.plan == "3" %}
+    {% if request.GET.plan == "organization" or request.GET.plan == "organization-plus" %}
       <div class="_cls-field">
         <input class="_cls-organizationInput" placeholder="Organization name">
       </div>
     {% endif %}
 
-    {% if request.GET.plan and request.GET.plan != '0' %}
+    {% if request.GET.plan and request.GET.plan != "free" %}
       <h3 class="_cls-smallHeading">{% blocktrans %}Billing information{% endblocktrans %}</h3>
       <div class="_cls-field">
         <div id="card-element" class="_cls-fieldInput"></div>
@@ -115,23 +120,22 @@
           },
         },
       };
-      var card = elements.create('card', {style: style});
-      card.mount('#card-element');
-      card.addEventListener('change', function(event) {
-        var displayError = document.getElementById('card-errors');
-        if (event.error) {
-          displayError.textContent = event.error.message;
-        } else {
-          displayError.textContent = '';
-        }
-      });
-      // We don't want the browser to fill this in with old values
-      document.getElementById("id_stripe_token").value = "";
-      // Create a token or display an error when the form is submitted.
-      var form = document.getElementById('signup_form');
-      form.addEventListener('submit', function(event) {
-        var freePlan = document.querySelector('#id_plan option:selected').textContent === 'Free';
-        if (!freePlan) {
+      if (document.getElementById("card-element")) {
+        var card = elements.create('card', {style: style});
+        card.mount('#card-element');
+        card.addEventListener('change', function(event) {
+          var displayError = document.getElementById('card-errors');
+          if (event.error) {
+            displayError.textContent = event.error.message;
+          } else {
+            displayError.textContent = '';
+          }
+        });
+        // We don't want the browser to fill this in with old values
+        document.getElementById("id_stripe_token").value = "";
+        // Create a token or display an error when the form is submitted.
+        var form = document.getElementById('signup_form');
+        form.addEventListener('submit', function(event) {
           event.preventDefault();
 
           stripe.createToken(card).then(function(result) {
@@ -144,8 +148,8 @@
               stripeTokenHandler(result.token);
             }
           });
-        }
-      });
+        });
+      }
     });
   </script>
 {% endblock %}

@@ -8,6 +8,7 @@ from allauth.account.forms import (
     LoginForm as AllauthLoginForm,
     SignupForm as AllauthSignupForm,
 )
+
 # Crispy
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Field, Layout
@@ -24,9 +25,11 @@ class SignupForm(AllauthSignupForm, StripeForm):
         max_length=255, widget=forms.TextInput(attrs={"placeholder": "Full name"})
     )
 
-    # XXX js change choices to org/non org on front end
     plan = forms.ModelChoiceField(
-        label=_("Plan"), queryset=Plan.objects.filter(public=True), empty_label=None
+        label=_("Plan"),
+        queryset=Plan.objects.filter(public=True),
+        empty_label=None,
+        to_field_name="slug",
     )
     # XXX ensure org name is unique
     organization_name = forms.CharField(max_length=255, required=False)
