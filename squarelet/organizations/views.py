@@ -227,6 +227,7 @@ class AddMember(OrganizationAdminMixin, DetailView, FormView):
 
 class ManageMembers(OrganizationAdminMixin, UpdateView):
     queryset = Organization.objects.filter(individual=False)
+    # XXX remove form_class UpdateView -> View/TemplateView?
     form_class = ManageMembersForm
     template_name = "organizations/organization_managemembers.html"
 
@@ -348,6 +349,7 @@ class InvitationAccept(LoginRequiredMixin, DetailView):
         return redirect(invitation.organization)
 
 
+# XXX remove?
 class ManageInvitations(OrganizationAdminMixin, UpdateView):
     queryset = Organization.objects.filter(individual=False)
     form_class = ManageInvitationsForm

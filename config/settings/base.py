@@ -196,7 +196,7 @@ TEMPLATES = [
 # http://django-crispy-forms.readthedocs.io/en/latest/install.html#template-packs
 CRISPY_TEMPLATE_PACK = "bootstrap4"
 
-CRISPY_CLASS_CONVERTERS = {'textinput': "", "form-group": "_cls-field"}
+CRISPY_CLASS_CONVERTERS = {"textinput": "", "form-group": "_cls-field"}
 
 # FIXTURES
 # ------------------------------------------------------------------------------
@@ -244,7 +244,10 @@ ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_EMAIL_VERIFICATION = "optional"
 ACCOUNT_ADAPTER = "squarelet.users.adapters.AccountAdapter"
 SOCIALACCOUNT_ADAPTER = "squarelet.users.adapters.SocialAccountAdapter"
-ACCOUNT_FORMS = {"signup": "squarelet.users.forms.SignupForm", "login": "squarelet.users.forms.LoginForm"}
+ACCOUNT_FORMS = {
+    "signup": "squarelet.users.forms.SignupForm",
+    "login": "squarelet.users.forms.LoginForm",
+}
 ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = False
 
 
