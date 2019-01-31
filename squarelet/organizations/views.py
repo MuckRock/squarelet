@@ -77,12 +77,6 @@ class List(ListView):
         orgs = super().get_queryset().filter(individual=False)
         return orgs.get_viewable(self.request.user)
 
-    def get_context_data(self, **kwargs):
-        # pylint: disable=arguments-differ
-        context = super().get_context_data(**kwargs)
-        context["name"] = self.request.GET.get("name", "")
-        return context
-
 
 def autocomplete(request):
     query = request.GET.get("q")

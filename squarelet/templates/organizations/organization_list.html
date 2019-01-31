@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static i18n bold avatar %}
+{% load static i18n avatar %}
 {% block title %}Organizations{% endblock %}
 
 {% block css %}
@@ -37,42 +37,18 @@
         <div class="_cls-transpGradient"></div>
         <div class="_cls-resultsList" id="_id-results">
           {% for org in organization_list %}
-            <a href="{% url 'organizations:detail' org.slug %}"><div class="_cls-result">
-              <div class="_cls-inlineAvatar">{% autoescape off %}{% avatar org 22 %}{% endautoescape %}</div>
-              {% autoescape off %}{% bold name org.name %}{% endautoescape %}
-            </div></a>
+            <a href="{% url 'organizations:detail' org.slug %}">
+              <div class="_cls-result">
+                <div class="_cls-inlineAvatar">
+                  {% avatar org 22 %}
+                </div>
+                {{ org.name }}
+              </div>
+            </a>
           {% endfor %}
         </div>
       </div>
     </div>
   </div>
-{% comment %} 
-    {% if is_paginated %}
-      <ul class="pagination">
-        {% if page_obj.has_previous %}
-          <li><a href="?page={{ page_obj.previous_page_number }}">&laquo;</a></li>
-        {% else %}
-          <li class="disabled"><span>&laquo;</span></li>
-        {% endif %}
-        {% for i in paginator.page_range %}
-          {% if page_obj.number == i %}
-            <li class="active"><span>{{ i }} <span class="sr-only">(current)</span></span></li>
-          {% else %}
-            <li><a href="?page={{ i }}">{{ i }}</a></li>
-          {% endif %}
-        {% endfor %}
-        {% if page_obj.has_next %}
-          <li><a href="?page={{ page_obj.next_page_number }}">&raquo;</a></li>
-        {% else %}
-          <li class="disabled"><span>&raquo;</span></li>
-        {% endif %}
-      </ul>
-    {% endif %}
-
-  </div>
-
-  <script type="text/javascript" src="{% static 'admin/js/vendor/jquery/jquery.js' %}"></script>
-
-  {{ form.media }} {% endcomment %}
   <script src="{% static 'js/autocomplete.js' %}"></script>
 {% endblock content %}
