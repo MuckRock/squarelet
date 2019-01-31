@@ -348,12 +348,9 @@ class ManageMembers(OrganizationAdminMixin, UpdateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["admin"] = self.request.user
-        context["users"] = [
-            (m.user, m.admin)
-            for m in self.object.memberships.select_related("user").order_by(
-                "user__created_at"
-            )
-        ]
+        context["members"] = self.object.memberships.select_related("user").order_by(
+            "user__created_at"
+        )
         context["requested_invitations"] = self.object.invitations.get_requested()
         context["pending_invitations"] = self.object.invitations.get_pending()
         return context

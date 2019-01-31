@@ -36,10 +36,10 @@
           {% if is_admin %}
             <div class="_cls-infoSpaced">
               <a class="_cls-action" href="{% url "organizations:manage-members" organization.slug %}">
-                {% trans 'Manage' %} {% if invite_count == 1 %}
-                  (1 {% trans 'join request' %})
-                {% elif invites.count > 1 %}
-                  ({{ invites.count }} {% trans 'join requests' %})
+                {% blocktrans count invite_count=invite_count %}
+                  Manage (1 join request)
+                {% plural%}
+                  Manage ({{ invite_count }} join requests)
                 {% endif %}
               </a>
             </div>
