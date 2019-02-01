@@ -71,7 +71,6 @@ class Organization(models.Model):
     monthly_cost = models.IntegerField(
         _("monthly cost"), default=0, help_text="In cents"
     )
-    # XXX rename this?
     update_on = models.DateField(
         _("date update"),
         null=True,

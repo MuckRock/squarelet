@@ -11,7 +11,7 @@ from .serializers import ChargeSerializer, OrganizationSerializer
 
 
 class OrganizationViewSet(viewsets.ModelViewSet):
-    queryset = Organization.objects.all().select_related("plan")
+    queryset = Organization.objects.select_related("plan")
     serializer_class = OrganizationSerializer
     permission_classes = (ScopePermission,)
     read_scopes = ("read_organization",)
