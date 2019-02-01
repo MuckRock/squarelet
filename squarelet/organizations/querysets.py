@@ -42,11 +42,17 @@ class PlanQuerySet(models.QuerySet):
 
 
 class InvitationQuerySet(models.QuerySet):
+    def get_open(self):
+        return self.filter(accepted_at=None, rejected_at=None)
+
     def get_pending(self):
-        return self.filter(accepted_at=None, request=False)
+        return self.get_open().filter(request=False)
+
+    def get_requested(self):
+        return self.get_open().filter(request=True)
 
     def get_accepted(self):
         return self.exclude(accepted_at=None)
 
-    def get_requested(self):
-        return self.filter(accepted_at=None, request=True)
+    def get_rejected(self):
+        return self.exclude(rejected_at=None)

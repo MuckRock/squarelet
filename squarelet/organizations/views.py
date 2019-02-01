@@ -14,7 +14,7 @@ from django.http.response import (
 from django.shortcuts import redirect
 from django.utils.translation import ugettext_lazy as _
 from django.views.decorators.csrf import csrf_exempt
-from django.views.generic import CreateView, DetailView, FormView, ListView, UpdateView
+from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 # Standard Library
 import json
@@ -30,7 +30,7 @@ from crispy_forms.layout import Field, Layout
 from squarelet.organizations.tasks import handle_charge_succeeded, handle_invoice_failed
 
 # Local
-from .forms import AddMemberForm, ManageInvitationsForm, ManageMembersForm, UpdateForm
+from .forms import AddMemberForm, UpdateForm
 from .mixins import IndividualMixin, OrganizationAdminMixin
 from .models import Invitation, Membership, Organization, Plan
 
@@ -60,24 +60,30 @@ class Detail(DetailView):
         return context
 
     def post(self, request, *args, **kwargs):
-        self.object = self.get_object()
+        self.organization = self.get_object()
         if not self.request.user.is_authenticated:
-            return redirect(self.object)
-        is_member = self.object.has_member(self.request.user)
+            return redirect(self.organization)
+        is_member = self.organization.has_member(self.request.user)
         if request.POST.get("action") == "join" and not is_member:
-            self.object.invitations.create(
+            self.organization.invitations.create(
                 email=request.user.email, user=request.user, request=True
             )
             messages.success(request, _("Request to join the organization sent!"))
-            # XXX notify the admins via email
+            # XXX set up email
+            send_mail(
+                template_name="join_request",
+                organization=self.organization,
+                organization_admins=True,
+                context={"joiner": request.user},
+            )
         elif request.POST.get("action") == "leave" and is_member:
             membership = self.request.user.memberships.filter(
-                organization=self.object
+                organization=self.organization
             ).first()
             if membership:
                 membership.delete()
             messages.success(request, _("You have left the organization"))
-        return redirect(self.object)
+        return redirect(self.organization)
 
 
 class List(ListView):
@@ -198,86 +204,29 @@ class Create(LoginRequiredMixin, CreateView):
         return redirect(organization)
 
 
-class AddMember(OrganizationAdminMixin, DetailView, FormView):
+class ManageMembers(OrganizationAdminMixin, DetailView):
     queryset = Organization.objects.filter(individual=False)
-    form_class = AddMemberForm
-    template_name = "organizations/organization_form.html"
-
-    def dispatch(self, request, *args, **kwargs):
-        """Check max users"""
-        organization = self.get_object()
-        if organization.user_count() >= organization.max_users:
-            messages.error(
-                request, "You need to increase your max users to invite another member"
-            )
-            return self.get(request, *args, **kwargs)
-        else:
-            return super(AddMember, self).dispatch(request, *args, **kwargs)
-
-    def form_valid(self, form):
-        """Create an invitation and send it to the given email address"""
-        organization = self.get_object()
-        invitation = Invitation.objects.create(
-            organization=organization, email=form.cleaned_data["email"]
-        )
-        invitation.send()
-        messages.success(self.request, "Invitation sent")
-        return redirect(organization)
-
-
-class ManageMembers(OrganizationAdminMixin, UpdateView):
-    queryset = Organization.objects.filter(individual=False)
-    # XXX remove form_class UpdateView -> View/TemplateView?
-    form_class = ManageMembersForm
     template_name = "organizations/organization_managemembers.html"
 
     def post(self, request, *args, **kwargs):
         """Handle form processing"""
         self.organization = self.get_object()
-        action = request.POST.get("action")
 
-        if action == "addmember":
-            addmember_form = AddMemberForm(request.POST)
-            return self._handle_add_member(request, addmember_form)
-        elif action == "revokeinvite":
-            # XXX mark invitations as rejected instead of deleting them
-            return self._handle_invite(
-                request, lambda invite: invite.delete(), "Invitation revoked"
-            )
-        elif action == "acceptinvite":
-            return self._handle_invite(
-                request, lambda invite: invite.accept(), "Invitation accepted"
-            )
-        elif action == "rejectinvite":
-            return self._handle_invite(
-                request, lambda invite: invite.delete(), "Invitation rejected"
-            )
-        elif action == "makeadmin":
-            admin_param = request.POST.get("admin")
-            if admin_param == "true":
-                set_admin = True
-            elif admin_param == "false":
-                set_admin = False
-            else:
-                return self._bad_call(request)
-
-            def handle_make_admin(membership):
-                membership.admin = set_admin
-                membership.save()
-
-            return self._handle_user(
-                request,
-                handle_make_admin,
-                "Made an admin" if set_admin else "Made not an admin",
-            )
-        elif action == "removeuser":
-            return self._handle_user(
-                request, lambda membership: membership.delete(), "Removed user"
-            )
-        else:
+        actions = {
+            "addmember": self._handle_add_member,
+            "revokeinvite": self._handle_revoke_invite,
+            "acceptinvite": self._handle_accept_invite,
+            "rejectinvite": self._handle_reject_invite,
+            "makeadmin": self._handle_makeadmin_user,
+            "removeuser": self._handle_remove_user,
+        }
+        try:
+            return actions[request.POST["action"]](request)
+        except KeyError:
             return self._bad_call(request)
 
-    def _handle_add_member(self, request, addmember_form):
+    def _handle_add_member(self, request):
+        addmember_form = AddMemberForm(request.POST)
         if not addmember_form.is_valid():
             # Ensure the email is valid
             messages.error(request, "Please enter a valid email address")
@@ -308,6 +257,21 @@ class ManageMembers(OrganizationAdminMixin, UpdateView):
             return self._bad_call(request)
         return redirect("organizations:manage-members", slug=self.organization.slug)
 
+    def _handle_revoke_invite(self, request):
+        return self._handle_invite(
+            request, lambda invite: invite.reject(), "Invitation revoked"
+        )
+
+    def _handle_accept_invite(self, request):
+        return self._handle_invite(
+            request, lambda invite: invite.accept(), "Invitation accepted"
+        )
+
+    def _handle_reject_invite(self, request):
+        return self._handle_invite(
+            request, lambda invite: invite.accept(), "Invitation rejected"
+        )
+
     def _handle_user(self, request, membership_fn, success_message):
         try:
             userid = request.POST.get("userid")
@@ -317,6 +281,30 @@ class ManageMembers(OrganizationAdminMixin, UpdateView):
         except Membership.DoesNotExist:
             return self._bad_call(request)
         return redirect("organizations:manage-members", slug=self.organization.slug)
+
+    def _handle_makeadmin_user(self, request):
+        admin_param = request.POST.get("admin")
+        if admin_param == "true":
+            set_admin = True
+        elif admin_param == "false":
+            set_admin = False
+        else:
+            return self._bad_call(request)
+
+        def handle_make_admin(membership):
+            membership.admin = set_admin
+            membership.save()
+
+        return self._handle_user(
+            request,
+            handle_make_admin,
+            "Made an admin" if set_admin else "Made not an admin",
+        )
+
+    def _handle_remove_user(self, request):
+        return self._handle_user(
+            request, lambda membership: membership.delete(), "Removed user"
+        )
 
     def _bad_call(self, request):
         messages.error(self.request, "An unexpected error occurred")
@@ -334,55 +322,25 @@ class ManageMembers(OrganizationAdminMixin, UpdateView):
 
 
 class InvitationAccept(LoginRequiredMixin, DetailView):
-    queryset = Organization.objects.filter(individual=False)
+    queryset = Invitation.objects.get_pending()
     slug_field = "uuid"
     slug_url_kwarg = "uuid"
-
-    def get_queryset(self):
-        return super().get_pending()
 
     def post(self, request, *args, **kwargs):
         """Accept the invitation"""
         invitation = self.get_object()
-        invitation.accept(self.request.user)
-        messages.success(self.request, "Invitation accepted")
-        return redirect(invitation.organization)
-
-
-# XXX remove?
-class ManageInvitations(OrganizationAdminMixin, UpdateView):
-    queryset = Organization.objects.filter(individual=False)
-    form_class = ManageInvitationsForm
-    template_name = "organizations/invitation_list.html"
-
-    def get_context_data(self, **kwargs):
-        # pylint: disable=arguments-differ
-        context = super().get_context_data(**kwargs)
-        form = context["form"]
-        context["requested_invitations"] = [
-            (i, form[f"accept-{i.pk}"]) for i in self.object.invitations.get_requested()
-        ]
-        context["pending_invitations"] = [
-            (i, form[f"remove-{i.pk}"]) for i in self.object.invitations.get_pending()
-        ]
-        context["accepted_invitations"] = self.object.invitations.get_accepted()
-        return context
-
-    def form_valid(self, form):
-        """Revoke selected invitations"""
-        organization = self.object
-
-        with transaction.atomic():
-            if form.cleaned_data["action"] == "revoke":
-                for invitation in organization.invitations.get_pending():
-                    if form.cleaned_data[f"remove-{invitation.id}"]:
-                        invitation.delete()
-                messages.success(self.request, "Invitations revoked")
-            elif form.cleaned_data["action"] == "accept":
-                for invitation in organization.invitations.get_requested():
-                    if form.cleaned_data[f"accept-{invitation.id}"]:
-                        invitation.accept()
-        return redirect(organization)
+        action = request.POST.get("action")
+        if action == "accept":
+            invitation.accept(self.request.user)
+            messages.success(self.request, "Invitation accepted")
+            return redirect(invitation.organization)
+        elif action == "reject":
+            invitation.reject()
+            messages.warning(self.request, "Invitation rejected")
+            return redirect(request.user)
+        else:
+            messages.error(self.request, "Invalid choice")
+            return redirect(request.user)
 
 
 class Receipts(OrganizationAdminMixin, DetailView):

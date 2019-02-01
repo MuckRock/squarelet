@@ -1,27 +1,34 @@
 {% extends "base.html" %}
 {% load static %}
 {% load thumbnail %}
+{% load i18n %}
 
 {% block title %}Organization: {{ invitation.organization.name }}{% endblock %}
 
 {% block content %}
-  <div class="container">
+  <div class="_cls-content">
 
-    <div class="row">
-      <div class="col-sm-12">
-        <h2>Invitation to {{ invitation.organization.name}}</h2>
+    <h1>
+      Invitation to <a href="{{ invitation.organization.get_absolute_url }}">
+        {{ invitation.organization.name}}
+      </a>
+    </h1>
 
-        {% if invitation.user %}
-          <p>This invitation has already been accepted.</p>
-        {% else %}
-          <form method="post">
-            {% csrf_token %}
-            <p>Join this organization?</p>
-            <input type="submit" value="Yes">
-          </form>
-        {% endif %}
+    <form method="post">
+      {% csrf_token %}
+      <p>Join this organization?</p>
+
+    <div class="control-group">
+      <div class="_cls-actionSmall">
+        <button type="submit" name="action" value="accept">
+          {% trans 'Accept' %}
+        </button>
+        <button type="submit" class="_cls-altAction" name="action" value="reject">
+          {% trans 'Reject' %}
+        </button>
       </div>
     </div>
+    </form>
 
   </div>
 {% endblock content %}
