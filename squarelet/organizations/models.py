@@ -1,5 +1,6 @@
 # Django
 from django.conf import settings
+from django.contrib.postgres.fields import CICharField, CIEmailField
 from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.core.mail import send_mail
 from django.db import models, transaction
@@ -39,8 +40,7 @@ class Organization(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
-    # XXX make this case insensitive?
-    name = models.CharField(_("name"), max_length=255, unique=True)
+    name = CICharField(_("name"), max_length=255, unique=True)
     slug = AutoSlugField(_("slug"), populate_from="name", unique=True)
     created_at = AutoCreatedField(_("created at"))
     updated_at = AutoLastModifiedField(_("updated at"))
