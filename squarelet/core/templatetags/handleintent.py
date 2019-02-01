@@ -18,6 +18,7 @@ QUACKBOT_SERVICE = "Quackbot"
 QUACKBOT_ASSET = "assets/quackbot.svg"
 
 # Services and assets in order of display priority
+# XXX define these in terms of one ordered dict
 ALL_SERVICES = [
     MUCKROCK_SERVICE,
     DOCUMENTCLOUD_SERVICE,
