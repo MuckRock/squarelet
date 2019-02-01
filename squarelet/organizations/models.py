@@ -251,10 +251,14 @@ class Organization(models.Model):
 
         self.save()
 
-    def charge(self, amount, description, token=None):
-        # XXX ?
-        charge = Charge(amount=amount * 100, organization=self, description=description)
+    def charge(self, amount, description, token=None, save_card=False):
+        """Charge the organization and optionally save their credit card"""
+        if save_card:
+            self.save_card(token)
+            token = None
+        charge = Charge(organization=self, amount=amount, description=description)
         charge.make_charge(token)
+        return charge
 
     def set_receipt_emails(self, emails):
         new_emails = set(emails)
@@ -426,7 +430,8 @@ class Invitation(models.Model):
     )
     created_at = AutoCreatedField(_("created at"))
     # NULL accepted_at signifies it has not been accepted yet
-    accepted_at = models.DateTimeField(_("accepted_at"), blank=True, null=True)
+    accepted_at = models.DateTimeField(_("accepted at"), blank=True, null=True)
+    rejected_at = models.DateTimeField(_("rejected at"), blank=True, null=True)
 
     class Meta:
         ordering = ("created_at",)
@@ -444,18 +449,27 @@ class Invitation(models.Model):
             [self.email],
         )
 
+    @transaction.atomic
     def accept(self, user=None):
         """Accept the invitation"""
         if self.user is None and user is None:
             raise ValueError(
                 "Must give a user when accepting if invitation has no user"
             )
-        with transaction.atomic():
-            if self.user is None:
-                self.user = user
-            self.accepted_at = timezone.now()
-            self.save()
-            Membership.objects.create(organization=self.organization, user=self.user)
+        if self.accepted_at or self.rejected_at:
+            raise ValueError("This invitation has already been closed")
+        if self.user is None:
+            self.user = user
+        self.accepted_at = timezone.now()
+        self.save()
+        Membership.objects.create(organization=self.organization, user=self.user)
+
+    def reject(self):
+        """Reject or revoke the invitation"""
+        if self.accepted_at or self.rejected_at:
+            raise ValueError("This invitation has already been closed")
+        self.rejected_at = timezone.now()
+        self.save()
 
     def get_name(self):
         """Returns the name or email if no name is set"""

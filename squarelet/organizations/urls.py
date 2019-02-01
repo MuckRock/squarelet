@@ -11,17 +11,11 @@ urlpatterns = [
     path("~create", view=views.Create.as_view(), name="create"),
     path("~stripe_webhook/", view=views.stripe_webhook, name="stripe-webhook"),
     path("<slug:slug>/update/", view=views.Update.as_view(), name="update"),
-    path("<slug:slug>/add-member/", view=views.AddMember.as_view(), name="add-member"),
     path("<slug:slug>/receipts/", view=views.Receipts.as_view(), name="receipts"),
     path(
         "<slug:slug>/manage-members/",
         view=views.ManageMembers.as_view(),
         name="manage-members",
-    ),
-    path(
-        "<slug:slug>/manage-invitations/",
-        view=views.ManageInvitations.as_view(),
-        name="manage-invitations",
     ),
     path("<slug:slug>/", view=views.Detail.as_view(), name="detail"),
     path(
