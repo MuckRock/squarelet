@@ -10,6 +10,7 @@ from rest_framework.response import Response
 
 # Squarelet
 from squarelet.oidc.permissions import ScopePermission
+from squarelet.organizations.models import Membership
 
 # Local
 from .models import User
@@ -18,14 +19,17 @@ from .serializers import UserReadSerializer, UserWriteSerializer
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.prefetch_related(
-        "organizations",
+        Prefetch(
+            "memberships",
+            queryset=Membership.objects.select_related("organization__plan"),
+        ),
         Prefetch(
             "emailaddress_set",
             queryset=EmailAddress.objects.filter(primary=True),
             to_attr="primary_emails",
         ),
-    )
-    permission_classes = (ScopePermission,)
+    ).order_by("created_at")
+    permission_classes = (IsAdminUser,)
     read_scopes = ("read_user",)
     write_scopes = ("write_user",)
 

@@ -10,6 +10,8 @@ from .models import Charge, Membership, Organization
 class OrganizationSerializer(serializers.ModelSerializer):
     uuid = serializers.UUIDField(required=False, source="id")
     plan = serializers.CharField(source="plan.slug")
+    # XXX this can be slow - goes to stripe for customer/card info
+    # may create customer
     card = serializers.CharField(source="card_display")
 
     class Meta:
@@ -25,36 +27,26 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "private",
             "update_on",
             "updated_at",
+            "payment_failed",
         )
 
 
 class MembershipSerializer(serializers.ModelSerializer):
-    uuid = serializers.UUIDField(source="organization.id")
-    name = serializers.CharField(source="organization.name")
-    slug = serializers.CharField(source="organization.slug")
-    plan = serializers.CharField(source="organization.plan.slug")
-    card = serializers.CharField(source="organization.card_display")
-    max_users = serializers.IntegerField(source="organization.max_users")
-    individual = serializers.BooleanField(source="organization.individual")
-    private = serializers.BooleanField(source="organization.private")
-    update_on = serializers.DateField(source="organization.update_on")
-    updated_at = serializers.DateTimeField(source="organization.updated_at")
+    organization = OrganizationSerializer()
 
     class Meta:
         model = Membership
-        fields = (
-            "uuid",
-            "name",
-            "slug",
-            "plan",
-            "card",
-            "max_users",
-            "individual",
-            "private",
-            "update_on",
-            "updated_at",
-            "admin",
-        )
+        fields = ("organization", "admin")
+
+    def to_representation(self, instance):
+        """Move fields from organization to membership representation."""
+        # https://stackoverflow.com/questions/21381700/django-rest-framework-how-do-you-flatten-nested-data
+        representation = super().to_representation(instance)
+        organization_representation = representation.pop("organization")
+        for key in organization_representation:
+            representation[key] = organization_representation[key]
+
+        return representation
 
 
 class StripeError(APIException):
