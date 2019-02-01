@@ -1,0 +1,5 @@
+{% extends "core/email/base.html" %}
+
+{% block body %}
+  <p>The user <a href="{{ joiner.get_absolute_url }}">{{ joiner.name }} ({{ joiner.username }}) &lt;{{ joiner.email }}&gt;</a> has requested to join your organization, <a href="{{ organization.get_absolute_url }}">{{ organization }}</a>.  You may accept or reject them <a href="{% url "organizations:manage-members" slug=organization.slug %}">here</a>.
+{% endblock %}

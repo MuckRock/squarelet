@@ -44,7 +44,10 @@
               </a>
             </div>
           {% elif is_member %}
-          {% elif invited %}
+            <form class="_cls-infoSpaced" method="post">
+              {% csrf_token %}
+              <button class="_cls-action" name="action" value="leave">{% trans 'Leave this organization' %}</button>
+            </form>
           {% elif requested_invite %}
             <div class="_cls-info _cls-infoStatus _cls-infoSpaced">{% trans 'You have requested an invite.' %}</div>
           {% else %}

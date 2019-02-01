@@ -4,6 +4,7 @@ bcrypt
 celery<5.0
 coreapi
 django-allauth
+django-autocomplete-light
 django-autoslug-iplweb
 django-choices
 django-compressor
@@ -12,6 +13,7 @@ django-email-bandit
 django-environ
 django-model-utils
 django-oidc-provider
+django-premailer
 django-redis
 django<2.1
 djangorestframework
@@ -25,4 +27,4 @@ redis
 smart_open
 sorl-thumbnail
 stripe
-django-autocomplete-light
+html2text

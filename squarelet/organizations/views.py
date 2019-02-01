@@ -27,12 +27,13 @@ from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Field, Layout
 
 # Squarelet
-from squarelet.organizations.tasks import handle_charge_succeeded, handle_invoice_failed
+from squarelet.core.mail import ORG_TO_ADMINS, send_mail
 
 # Local
 from .forms import AddMemberForm, UpdateForm
 from .mixins import IndividualMixin, OrganizationAdminMixin
 from .models import Invitation, Membership, Organization, Plan
+from .tasks import handle_charge_succeeded, handle_invoice_failed
 
 # How much to paginate organizations list by
 ORG_PAGINATION = 100
@@ -50,13 +51,12 @@ class Detail(DetailView):
             context["is_member"] = self.object.has_member(self.request.user)
 
             context["requested_invite"] = self.request.user.invitations.filter(
-                organization=self.object, request=True, accepted_at=None
-            )
-            context["invited"] = self.request.user.invitations.filter(
-                organization=self.object, request=False, accepted_at=None
-            )
+                organization=self.object
+            ).get_requested()
             if context["is_admin"]:
-                context["invite_count"] = self.object.invitations.get_pending().count()
+                context[
+                    "invite_count"
+                ] = self.object.invitations.get_requested().count()
         return context
 
     def post(self, request, *args, **kwargs):
@@ -69,12 +69,12 @@ class Detail(DetailView):
                 email=request.user.email, user=request.user, request=True
             )
             messages.success(request, _("Request to join the organization sent!"))
-            # XXX set up email
             send_mail(
-                template_name="join_request",
+                subject=f"{request.user} has requested to join {self.organization}",
+                template="organizations/email/join_request.html",
                 organization=self.organization,
-                organization_admins=True,
-                context={"joiner": request.user},
+                organization_to=ORG_TO_ADMINS,
+                extra_context={"joiner": request.user},
             )
         elif request.POST.get("action") == "leave" and is_member:
             membership = self.request.user.memberships.filter(
@@ -269,7 +269,7 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
 
     def _handle_reject_invite(self, request):
         return self._handle_invite(
-            request, lambda invite: invite.accept(), "Invitation rejected"
+            request, lambda invite: invite.reject(), "Invitation rejected"
         )
 
     def _handle_user(self, request, membership_fn, success_message):

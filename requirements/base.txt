@@ -20,6 +20,8 @@ cffi==1.11.5              # via argon2-cffi, bcrypt
 chardet==3.0.4            # via requests
 coreapi==2.3.3
 coreschema==0.0.4         # via coreapi
+cssselect==1.0.3          # via premailer
+cssutils==1.0.2           # via premailer
 defusedxml==0.5.0         # via python3-openid
 django-allauth==0.36.0
 django-appconf==1.0.2     # via django-compressor
@@ -32,20 +34,24 @@ django-email-bandit==1.5
 django-environ==0.4.4
 django-model-utils==3.1.2
 django-oidc-provider==0.6.0
+django-premailer==0.2.0
 django-redis==4.9.0
 django==2.0.6
 djangorestframework==3.8.2
 docutils==0.14            # via botocore
 future==0.16.0            # via pyjwkest
+html2text==2018.1.9
 idna==2.7                 # via requests
 itypes==1.1.0             # via coreapi
 jinja2==2.10              # via coreschema
 jmespath==0.9.3           # via boto3, botocore
 kombu==4.2.1              # via celery
+lxml==4.3.0               # via premailer
 markupsafe==1.0           # via jinja2
 memoize==1.0.0
 oauthlib==2.1.0           # via requests-oauthlib
 pillow==5.1.0
+premailer==3.0.0          # via django-premailer
 psycopg2==2.7.5
 pycparser==2.18           # via cffi
 pycryptodomex==3.6.4      # via pyjwkest
@@ -58,7 +64,7 @@ raven==6.9.0
 rcssmin==1.0.6
 redis==2.10.6
 requests-oauthlib==1.0.0  # via django-allauth
-requests==2.19.1          # via coreapi, django-allauth, pyjwkest, requests-oauthlib, smart-open, stripe
+requests==2.19.1          # via coreapi, django-allauth, premailer, pyjwkest, requests-oauthlib, smart-open, stripe
 rjsmin==1.0.12            # via django-compressor
 s3transfer==0.1.13        # via boto3
 six==1.11.0               # via argon2-cffi, bcrypt, django-environ, pyjwkest, python-dateutil
