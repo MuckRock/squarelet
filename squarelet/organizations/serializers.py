@@ -23,7 +23,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "max_users",
             "individual",
             "private",
-            "date_update",
+            "update_on",
             "updated_at",
         )
 
@@ -37,7 +37,7 @@ class MembershipSerializer(serializers.ModelSerializer):
     max_users = serializers.IntegerField(source="organization.max_users")
     individual = serializers.BooleanField(source="organization.individual")
     private = serializers.BooleanField(source="organization.private")
-    date_update = serializers.DateField(source="organization.date_update")
+    update_on = serializers.DateField(source="organization.update_on")
     updated_at = serializers.DateTimeField(source="organization.updated_at")
 
     class Meta:
@@ -51,7 +51,7 @@ class MembershipSerializer(serializers.ModelSerializer):
             "max_users",
             "individual",
             "private",
-            "date_update",
+            "update_on",
             "updated_at",
             "admin",
         )

@@ -66,7 +66,7 @@ class Command(BaseCommand):
                     private=org[4] == "True",
                     customer_id=org[5],
                     subscription_id=org[6],
-                    date_update=org[7],
+                    update_on=org[7],
                     monthly_requests=int(org[8]),
                     max_users=int(org[9]),
                     monthly_cost=int(org[10]),

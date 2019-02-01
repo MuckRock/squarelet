@@ -72,7 +72,7 @@ class Organization(models.Model):
         _("monthly cost"), default=0, help_text="In cents"
     )
     # XXX rename this?
-    date_update = models.DateField(
+    update_on = models.DateField(
         _("date update"),
         null=True,
         blank=True,
@@ -208,7 +208,7 @@ class Organization(models.Model):
         self.plan = plan
         self.next_plan = plan
         self.max_users = max_users
-        self.date_update = date.today() + relativedelta(months=1)
+        self.update_on = date.today() + relativedelta(months=1)
         self.subscription_id = subscription.id
         self.save()
 
@@ -220,7 +220,7 @@ class Organization(models.Model):
         self.next_plan = plan
         # XXX this will never trigger next plan
         # date update needs to destruct itself on next update
-        self.date_update = None
+        self.update_on = None
         self.save()
 
     def _modify_subscription(self, plan, max_users):
