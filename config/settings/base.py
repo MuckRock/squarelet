@@ -72,6 +72,7 @@ THIRD_PARTY_APPS = [
     "rest_framework",
     "oidc_provider",
     "sorl.thumbnail",
+    "django_premailer",
 ]
 LOCAL_APPS = [
     "squarelet.core",
@@ -209,6 +210,14 @@ FIXTURE_DIRS = (str(APPS_DIR.path("fixtures")),)
 EMAIL_BACKEND = env(
     "DJANGO_EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend"
 )
+# https://docs.djangoproject.com/en/dev/ref/settings/#default-from-email
+DEFAULT_FROM_EMAIL = env(
+    "DJANGO_DEFAULT_FROM_EMAIL", default="MuckRock <info@muckrock.com>"
+)
+# https://docs.djangoproject.com/en/dev/ref/settings/#server-email
+SERVER_EMAIL = env("DJANGO_SERVER_EMAIL", default=DEFAULT_FROM_EMAIL)
+# https://docs.djangoproject.com/en/dev/ref/settings/#email-subject-prefix
+EMAIL_SUBJECT_PREFIX = env("DJANGO_EMAIL_SUBJECT_PREFIX", default="[MuckRock Accounts]")
 
 # ADMIN
 # ------------------------------------------------------------------------------
