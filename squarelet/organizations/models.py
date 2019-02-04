@@ -10,6 +10,7 @@ from django.utils.timezone import get_current_timezone
 from django.utils.translation import ugettext_lazy as _
 
 # Standard Library
+import logging
 import uuid
 from datetime import date, datetime
 
@@ -31,6 +32,8 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 stripe.api_version = "2018-09-24"
 
 DEFAULT_AVATAR = static("images/avatars/organization.png")
+
+logger = logging.getLogger(__name__)
 
 
 class Organization(models.Model):
@@ -195,9 +198,12 @@ class Organization(models.Model):
         elif not self.plan.free() and not plan.free():
             # modify a subscription going from non-free to non-free
             self._modify_subscription(plan, max_users)
-        # XXX free to free
+        else:
+            # just change the plan without touching stripe if going free to free
+            self._modify_plan(plan, max_users)
 
     def _create_subscription(self, customer, plan, max_users):
+        """Create a subscription on stripe for the new plan"""
 
         subscription = customer.subscriptions.create(
             items=[{"plan": plan.stripe_id, "quantity": max_users}],
@@ -212,17 +218,23 @@ class Organization(models.Model):
         self.save()
 
     def _cancel_subscription(self, plan):
-        # XXX check that subscription exists?
-        self.subscription.cancel_at_period_end = True
-        self.subscription.save()
+        """Cancel the subscription at period end on stripe for the new plan"""
+        if self.subscription is not None:
+            self.subscription.cancel_at_period_end = True
+            self.subscription.save()
+        else:
+            logger.error(
+                "Attempting to cancel subscription for organization: %s %s "
+                "but no subscription was found",
+                self.name,
+                self.pk,
+            )
 
         self.next_plan = plan
-        # XXX this will never trigger next plan
-        # date update needs to destruct itself on next update
-        self.update_on = None
         self.save()
 
     def _modify_subscription(self, plan, max_users):
+        """Modify the subscription on stripe for the new plan"""
 
         stripe.Subscription.modify(
             self.subscription_id,
@@ -237,6 +249,11 @@ class Organization(models.Model):
             ],
             billing="send_invoice" if plan.annual else "charge_automatically",
         )
+
+        self._modify_plan(plan, max_users)
+
+    def _modify_plan(self, plan, max_users):
+        """Modify the plan without affecting stripe, for free to free transitions"""
 
         if plan.feature_level >= self.plan.feature_level:
             # upgrade immediately

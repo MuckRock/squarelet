@@ -29,7 +29,7 @@ class UserViewSet(viewsets.ModelViewSet):
             to_attr="primary_emails",
         ),
     ).order_by("created_at")
-    permission_classes = (IsAdminUser,)
+    permission_classes = (ScopePermission,)
     read_scopes = ("read_user",)
     write_scopes = ("write_user",)
 

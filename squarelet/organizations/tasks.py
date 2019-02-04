@@ -1,7 +1,7 @@
 # Django
 from celery.schedules import crontab
 from celery.task import periodic_task, task
-from django.db.models import F
+from django.db.models import Case, F, When
 from django.utils.timezone import get_current_timezone
 
 # Standard Library
@@ -21,11 +21,15 @@ def restore_organization():
     organizations = Organization.objects.filter(update_on__lte=date.today())
     uuids = organizations.values_list("pk", flat=True)
     organizations.update(
-        update_on=date.today() + Interval("1 month"), plan=F("next_plan")
+        update_on=Case(
+            # if next plan is free, set update_on to NULL
+            When(next_plan__base_price=0, next_plan__price_per_user=0, then=None),
+            # otherwise, set it to one month from now
+            default=date.today() + Interval("1 month"),
+        ),
+        plan=F("next_plan"),
     )
-    # XXX send single cache invalidation for all uuids
-    for uuid in uuids:
-        send_cache_invalidations("organization", uuid)
+    send_cache_invalidations("organization", uuids)
 
 
 @task(name="squarelet.organizations.tasks.handle_charge_succeeded")
