@@ -499,8 +499,10 @@ class ReceiptEmail(models.Model):
         related_name="receipt_emails",
         on_delete=models.CASCADE,
     )
-    email = models.EmailField(_("email"))
-    # XXX add unique constraint
+    email = CIEmailField(_("email"))
+
+    class Meta:
+        unique_together = ("organization", "email")
 
     def __str__(self):
         return "Receipt Email: <%s>" % self.email
