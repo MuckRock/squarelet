@@ -1,7 +1,7 @@
 # Django
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db import transaction
 from django.db.models import Value as V
 from django.db.models.functions import Lower, StrIndex
@@ -32,7 +32,7 @@ from squarelet.core.mail import ORG_TO_ADMINS, send_mail
 # Local
 from .forms import AddMemberForm, UpdateForm
 from .mixins import IndividualMixin, OrganizationAdminMixin
-from .models import Invitation, Membership, Organization, Plan
+from .models import Charge, Invitation, Membership, Organization, Plan
 from .tasks import handle_charge_succeeded, handle_invoice_failed
 
 # How much to paginate organizations list by
@@ -45,7 +45,7 @@ class Detail(DetailView):
     queryset = Organization.objects.filter(individual=False)
 
     def get_context_data(self, **kwargs):
-        context = super().get_context_data()
+        context = super().get_context_data(**kwargs)
         if self.request.user.is_authenticated:
             context["is_admin"] = self.object.has_admin(self.request.user)
             context["is_member"] = self.object.has_member(self.request.user)
@@ -355,6 +355,19 @@ class Receipts(OrganizationAdminMixin, DetailView):
 
 class IndividualReceipts(IndividualMixin, Receipts):
     """Subclass to view individual's receipts"""
+
+
+class ChargeDetail(UserPassesTestMixin, DetailView):
+    queryset = Charge.objects.all()
+    template_name = "organizations/email/receipt.html"
+
+    def test_func(self):
+        return self.get_object().organization.has_admin(self.request.user)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["subject"] = "Receipt"
+        return context
 
 
 @csrf_exempt
