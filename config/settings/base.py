@@ -59,26 +59,26 @@ DJANGO_APPS = [
     "django.contrib.sites",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    # 'django.contrib.humanize', # Handy template tags
-    "dal",
-    "dal_select2",
+    "django.contrib.humanize",
     "django.contrib.admin",
 ]
 THIRD_PARTY_APPS = [
-    "crispy_forms",
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
-    "rest_framework",
-    "oidc_provider",
-    "sorl.thumbnail",
+    "crispy_forms",
+    "dal",
+    "dal_select2",
     "django_premailer",
+    "oidc_provider",
+    "rest_framework",
+    "sorl.thumbnail",
 ]
 LOCAL_APPS = [
     "squarelet.core",
-    "squarelet.users.apps.UsersConfig",
     "squarelet.oidc.apps.OidcConfig",
     "squarelet.organizations.apps.OrganizationsConfig",
+    "squarelet.users.apps.UsersConfig",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS

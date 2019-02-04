@@ -2,7 +2,6 @@
 from django.conf import settings
 from django.contrib.postgres.fields import CICharField, CIEmailField
 from django.contrib.staticfiles.templatetags.staticfiles import static
-from django.core.mail import send_mail
 from django.db import models, transaction
 from django.urls import reverse
 from django.utils import timezone
@@ -23,6 +22,7 @@ from sorl.thumbnail import ImageField
 
 # Squarelet
 from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
+from squarelet.core.mail import ORG_TO_RECEIPTS, send_mail
 from squarelet.oidc.middleware import send_cache_invalidations
 
 # Local
@@ -178,7 +178,6 @@ class Organization(models.Model):
     def save_card(self, token):
         self.payment_failed = False
         self.save()
-        # XXX race condition with stripe and client site?
         self.customer.source = token
         self.customer.save()
         send_cache_invalidations("organization", self.pk)
@@ -337,7 +336,6 @@ class Plan(models.Model):
     base_price = models.PositiveSmallIntegerField(_("base price"), default=0)
     price_per_user = models.PositiveSmallIntegerField(_("price per user"), default=0)
 
-    # XXX only on clients?
     feature_level = models.PositiveSmallIntegerField(_("feature level"), default=0)
 
     public = models.BooleanField(_("public"), default=False)
@@ -456,13 +454,11 @@ class Invitation(models.Model):
         return f"Invitation: {self.uuid}"
 
     def send(self):
-        # XXX custom email class
-        link = reverse("organizations:invitation", kwargs={"uuid": self.uuid})
         send_mail(
-            f"Invitation to join {self.organization.name}",
-            f"Click here to join: {settings.SQUARELET_URL}{link}",
-            "info@muckrock.com",  # XXX make this a variable - use diff email?
-            [self.email],
+            subject=f"Invitation to join {self.organization.name}",
+            template="organizations/email/invitation.html",
+            to=[self.email],
+            extra_context={"invitation": self},
         )
 
     @transaction.atomic
@@ -531,9 +527,11 @@ class Charge(models.Model):
     def __str__(self):
         return f"${self.amount / 100:.2f} charge to {self.organization.name}"
 
+    def get_absolute_url(self):
+        return reverse("organizations:charge", kwargs={"pk": self.pk})
+
     def make_charge(self, token=None):
-        """Make the charge on stripe
-        """
+        """Make the charge on stripe"""
         customer = self.organization.customer
         if token:
             source = customer.sources.create(source=token)
@@ -566,11 +564,14 @@ class Charge(models.Model):
 
     def send_receipt(self):
         """Send receipt"""
-        # XXX
-        # Receipt(self).send()
         send_mail(
-            "Receipt",
-            f"This is a receipt for {self.description}",
-            "info@muckrock.com",  # XXX make this a variable - use diff email?
-            [r.email for r in self.organization.receipt_emails.all()],
+            subject="Receipt",
+            template="organizations/email/receipt.html",
+            organization=self.organization,
+            organization_to=ORG_TO_RECEIPTS,
+            extra_context={"charge": self},
         )
+
+    def items(self):
+        # XXX handle if we added a fee onto the charge
+        return [{"name": self.description, "price": self.amount_dollars}]

@@ -1,0 +1,5 @@
+{% extends "core/email/base.html" %}
+
+{% block body %}
+  <p>You have been invited to join the organization {{ invitation.organization.name }} on MuckRock.  <a href="{% url organizations:invitations uuid=invitation.uuid %}">Click here to accept or reject the invitation.</a></p>
+{% endblock %}

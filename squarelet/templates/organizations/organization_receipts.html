@@ -17,10 +17,13 @@
           <div class="_cls-manageCell">
             {{ charge.created_at|date }} {{ charge.created_at|time }}
           </div>
-          <div class="_cls-manageCell">{{ charge.description }}</div>
+          <div class="_cls-manageCell">
+            <a href="#" onclick="event.preventDefault(); document.getElementById('receipt-iframe').src='/organizations/~charge/{{ charge.pk }}/'">{{ charge.description }}</a>
+          </div>
           <div class="_cls-manageCell">${{ charge.amount_dollars|floatformat:2 }}</div>
         </div>
       {% endfor %}
     </div>
+    <iframe id="receipt-iframe" height="500" width="1000"></iframe>
   </div>
 {% endblock %}
