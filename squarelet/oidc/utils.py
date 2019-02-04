@@ -10,8 +10,8 @@ from .models import ClientProfile
 logger = logging.getLogger(__name__)
 
 
-def send_cache_invalidations(model, uuid):
+def send_cache_invalidations(model, uuids):
     """Send a cache invalidation signal to all clients"""
-    logger.info("Sending cache invalidations for: %s %s", model, uuid)
+    logger.info("Sending cache invalidations for: %s %s", model, uuids)
     for client_profile in ClientProfile.objects.exclude(webhook_url=""):
-        tasks.send_cache_invalidation.delay(client_profile.pk, model, uuid)
+        tasks.send_cache_invalidation.delay(client_profile.pk, model, uuids)
