@@ -6,7 +6,6 @@ from django.db import models
 # Standard Library
 import hashlib
 import hmac
-import random
 import time
 
 # Third Party
