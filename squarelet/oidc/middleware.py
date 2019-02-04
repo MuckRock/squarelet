@@ -2,6 +2,7 @@
 
 # Standard Library
 import threading
+from collections import defaultdict
 
 # Local
 from . import utils
@@ -20,13 +21,13 @@ class CacheInvalidationSenderMiddleware:
 
     def __call__(self, request):
         """Send all cache invalidations after the view is finished"""
-        CACHE_INVALIDATION_SET.set = set()
+        CACHE_INVALIDATION_SET.set = defaultdict(set)
 
         try:
             response = self.get_response(request)
         finally:
-            for model, uuid in CACHE_INVALIDATION_SET.set:
-                utils.send_cache_invalidations(model, uuid)
+            for model, uuids in CACHE_INVALIDATION_SET.set.items():
+                utils.send_cache_invalidations(model, list(uuids))
             del CACHE_INVALIDATION_SET.set
 
         return response
@@ -37,7 +38,8 @@ def send_cache_invalidations(model, uuids):
     if not isinstance(uuids, list):
         uuids = [uuids]
     if hasattr(CACHE_INVALIDATION_SET, "set"):
-        CACHE_INVALIDATION_SET.set.add((model, uuids))
+        for uuid in uuids:
+            CACHE_INVALIDATION_SET.set[model].add(uuid)
     else:
         # if there is no set, we are not in a request-response cycle
         # (ie celery or the REPL) - just send immediately
