@@ -81,8 +81,6 @@ class Organization(models.Model):
     # stripe
     customer_id = models.CharField(_("customer id"), max_length=255, blank=True)
     subscription_id = models.CharField(_("subscription id"), max_length=255, blank=True)
-    # XXX sync this to client sites, so they can show a notification
-    # XXX show a notification on here
     payment_failed = models.BooleanField(_("payment failed"), default=False)
 
     class Meta:
@@ -175,7 +173,9 @@ class Organization(models.Model):
             return ""
 
     def save_card(self, token):
-        # XXX race condition with stripe?
+        self.payment_failed = False
+        self.save()
+        # XXX race condition with stripe and client site?
         self.customer.source = token
         self.customer.save()
         send_cache_invalidations("organization", self.pk)

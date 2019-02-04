@@ -190,6 +190,7 @@ TEMPLATES = [
                 "django.template.context_processors.tz",
                 "django.contrib.messages.context_processors.messages",
                 "squarelet.core.context_processors.settings",
+                "squarelet.core.context_processors.payment_failed",
             ],
         },
     }
