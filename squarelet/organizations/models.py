@@ -82,8 +82,12 @@ class Organization(models.Model):
     )
 
     # stripe
-    customer_id = models.CharField(_("customer id"), max_length=255, blank=True)
-    subscription_id = models.CharField(_("subscription id"), max_length=255, blank=True)
+    customer_id = models.CharField(
+        _("customer id"), max_length=255, unique=True, blank=True
+    )
+    subscription_id = models.CharField(
+        _("subscription id"), max_length=255, unique=True, blank=True
+    )
     payment_failed = models.BooleanField(_("payment failed"), default=False)
 
     class Meta:
@@ -367,6 +371,8 @@ class Plan(models.Model):
     @property
     def stripe_id(self):
         """Namespace the stripe ID to not conflict with previous plans we have made"""
+        # XXX make this parsable/more info (squarelet:plan:{slug}), allows for
+        # future custom crowdfund plans, etc
         return f"squarelet-{self.slug}"
 
     def make_stripe_plan(self):

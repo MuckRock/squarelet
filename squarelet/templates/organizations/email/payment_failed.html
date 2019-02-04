@@ -1,0 +1,37 @@
+{% extends "core/email/base.html" %}
+{% load humanize %}
+
+{% block body %}
+  {% if organization.individual %}
+    Hi {{ organization.users.first.name }},
+  {% else %}
+    Hi {{ organization.name }},
+  {% endif %}
+
+  {% if attempt == "final" %}
+
+      <p class="red">Your subscription has been cancelled.</p>
+      <p>Our final attempt to charge your card has failed and your account has been
+      reverted back to a free account.</P>
+      {% if organization.individual %}
+        <p><a href="{% url "users:payment" %}">Resubscribe</a>.</p>
+      {% else %}
+        <p><a href="{% url "organizations:update" %}">Resubscribe</a>.</p>
+      {% endif %}
+
+    {% else %}
+
+      <p class="red">Your subscription payment has failed.</p>
+      <p>This is the {{ attempt|ordinal }} attempt. The payment will be retried up to
+      3 times.</p>
+      {% if organization.individual %}
+        <p><a href="{% url "users:payment" %}">Update your billing information</a>.</p>
+      {% else %}
+        <p><a href="{% url "organizations:update" %}">Update your billing information</a>.</p>
+      {% endif %}
+
+    {% endif %}
+
+  <p>Sincerely,<br />The MuckRock Team</p>
+{% endblock %}
+

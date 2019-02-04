@@ -5,14 +5,18 @@ from django.db.models import Case, F, When
 from django.utils.timezone import get_current_timezone
 
 # Standard Library
+import logging
 from datetime import date, datetime
 
 # Squarelet
+from squarelet.core.mail import ORG_TO_ADMINS, send_mail
 from squarelet.core.models import Interval
 from squarelet.oidc.middleware import send_cache_invalidations
 
 # Local
 from .models import Charge, Organization, Plan
+
+logger = logging.getLogger(__name__)
 
 
 @periodic_task(run_every=crontab(hour=0, minute=5), name="restore_organizations")
@@ -38,8 +42,16 @@ def handle_charge_succeeded(charge_data):
     try:
         charge = Charge.objects.get(charge_id=charge_data["id"])
     except Charge.DoesNotExist:
-        # XXX error handle missing organization
-        organization = Organization.objects.get(customer_id=charge_data["customer"])
+        try:
+            organization = Organization.objects.get(customer_id=charge_data["customer"])
+        except Organization.DoesNotExist:
+            logger.error(
+                "Charge (%s) made for customer (%s) with no matching organization",
+                charge_data["id"],
+                charge_data["customer"],
+            )
+            return
+
         charge = Charge.objects.create(
             amount=charge_data["amount"],
             organization=organization,
@@ -55,19 +67,36 @@ def handle_charge_succeeded(charge_data):
 @task(name="squarelet.organizations.tasks.handle_invoice_failed")
 def handle_invoice_failed(invoice_data):
     """Handle receiving a invoice.payment_failed event from the Stripe webhook"""
-    attempt = invoice_data["attempt_count"]
-    organization = Organization.objects.get(customer_id=invoice_data["customer"])
-    # XXX handle recurring donations and crowdfunds here
+    try:
+        organization = Organization.objects.get(customer_id=invoice_data["customer"])
+    except Organization.DoesNotExist:
+        logger.error(
+            "Invoice failed (%s) for customer (%s) with no matching organization",
+            invoice_data["id"],
+            invoice_data["customer"],
+        )
+        return
+
     organization.payment_failed = True
     organization.save()
 
-    # XXX send email notification
+    logger.info("Payment failed: %s", invoice_data)
 
-    # XXX log
-
-    # XXX only if for a regular payment plan
+    attempt = invoice_data["attempt_count"]
     if attempt == 4:
-        # XXX cancel subscription, send email
+        subject = "Your subscription has been cancelled"
         organization.set_subscription(
-            None, Plan.objects.get(slug="free"), organization.max_users
+            token=None,
+            plan=Plan.objects.get(slug="free"),
+            max_users=organization.max_users,
         )
+    else:
+        subject = "Your payment has failed"
+
+    send_mail(
+        subject=subject,
+        template="organizations/email/payment_failed.html",
+        organization=organization,
+        organization_to=ORG_TO_ADMINS,
+        extra_context={"attempt": "final" if attempt == 4 else attempt},
+    )
