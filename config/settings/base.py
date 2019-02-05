@@ -257,6 +257,11 @@ SOCIALACCOUNT_ADAPTER = "squarelet.users.adapters.SocialAccountAdapter"
 ACCOUNT_FORMS = {
     "signup": "squarelet.users.forms.SignupForm",
     "login": "squarelet.users.forms.LoginForm",
+    "add_email": "squarelet.users.forms.AddEmailForm",
+    "change_password": "squarelet.users.forms.ChangePasswordForm",
+    "set_password": "squarelet.users.forms.SetPasswordForm",
+    "reset_password": "squarelet.users.forms.ResetPasswordForm",
+    "reset_password_from_key": "squarelet.users.forms.ResetPasswordKeyForm",
 }
 ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = False
 

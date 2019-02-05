@@ -8,30 +8,38 @@
 {% block head_title %}{% trans "Sign In" %}{% endblock %}
 
 {% block inner %}
-  <div class="_cls-content">
-    {% trans "Sign in for" as intent_header %}
-    {% trans "You’ll also be able to log into" as intent_text %}
-    {% handleintent intent_header intent_text %}
+  {% trans "Sign in for" as intent_header %}
+  {% trans "You’ll also be able to log into" as intent_text %}
+  {% handleintent intent_header intent_text %}
 
-    <!-- Start form -->
-    <form id="login_form" method="POST" action="{% url 'account_login' %}">
-      {% crispy form form.helper %}
-      <div class="_cls-actionBig">
-        <button>{% trans 'Log in' %}</button>
+  <!-- Start form -->
+  <form id="login_form" method="POST" action="{% url 'account_login' %}">
+    {% crispy form form.helper %}
+    <div class="_cls-actionBig">
+      <button>{% trans 'Log in' %}</button>
+    </div>
+    <div class="_cls-center">
+      <div class="_cls-minorInfo">
+        {% blocktrans %}
+          Don’t have an account?
+        {% endblocktrans %}
       </div>
-      <div class="_cls-center">
-        <div class="_cls-minorInfo">
-          {% blocktrans %}
-            Don’t have an account?
-          {% endblocktrans %}
+      <a href="{% url 'select_plan' %}">
+        <div class="_cls-action">
+          {% blocktrans %}Sign&nbsp;Up{% endblocktrans %}
         </div>
-        <a href="{% url 'select_plan' %}">
-          <div class="_cls-action">
-            {% blocktrans %}Sign&nbsp;Up{% endblocktrans %}
-          </div>
-        </a>
+      </a>
+      <div class="_cls-minorInfo">
+        {% blocktrans %}
+          Forgot your password?
+        {% endblocktrans %}
       </div>
-    </form>
-  </div>
+      <a href="{% url 'account_reset_password' %}">
+        <div class="_cls-action">
+          {% blocktrans %}Reset&nbsp;It{% endblocktrans %}
+        </div>
+      </a>
+    </div>
+  </form>
 {% endblock %}
 

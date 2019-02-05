@@ -9,7 +9,6 @@
 
 {% block inner %}
 
-<div class="_cls-content">
   {% trans "Create an account for" as intent_header %}
   {% trans "You’ll also be able to sign into" as intent_text %}
   {% handleintent intent_header intent_text %}
@@ -45,21 +44,20 @@
       <a href="{% url 'account_login' %}"><div class="_cls-action">{% blocktrans %}Log&nbsp;In{% endblocktrans %}</div></a>
     </div>
   </form>
-</div>
-<div class="_cls-footer">
-  <div class="_cls-doublepane">
-    <div class="_cls-leftpane">
-      <p class="_cls-info">MuckRock is a non-profit collaborative news site that gives you the tools to keep our government transparent and accountable.</p>
-    </div>
-    <div class="_cls-rightpane">
-      <h3 class="_cls-services">Services</h3>
-      <ul>
-        <li>MuckRock</li>
-        <li>DocumentCloud</li>
-        <li>FOIA Machine</li>
-        <li>Quackbot</li>
-      </ul>
-    </div>
   </div>
-</div>
-{% endblock %}
+  <div class="_cls-footer">
+    <div class="_cls-doublepane">
+      <div class="_cls-leftpane">
+        <p class="_cls-info">MuckRock is a non-profit collaborative news site that gives you the tools to keep our government transparent and accountable.</p>
+      </div>
+      <div class="_cls-rightpane">
+        <h3 class="_cls-services">Services</h3>
+        <ul>
+          <li>MuckRock</li>
+          <li>DocumentCloud</li>
+          <li>FOIA Machine</li>
+          <li>Quackbot</li>
+        </ul>
+      </div>
+    </div>
+  {% endblock %}

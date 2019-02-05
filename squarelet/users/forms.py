@@ -6,10 +6,7 @@ from django.utils.translation import ugettext_lazy as _
 
 # Third Party
 import stripe
-from allauth.account.forms import (
-    LoginForm as AllauthLoginForm,
-    SignupForm as AllauthSignupForm,
-)
+from allauth.account import forms as allauth
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout
 
@@ -19,7 +16,7 @@ from squarelet.core.layout import Field
 from squarelet.organizations.models import Organization, Plan
 
 
-class SignupForm(AllauthSignupForm, StripeForm):
+class SignupForm(allauth.SignupForm, StripeForm):
     """Add a name field to the sign up form"""
 
     name = forms.CharField(
@@ -73,6 +70,7 @@ class SignupForm(AllauthSignupForm, StripeForm):
         user = super().save(request)
         user.name = self.cleaned_data.get("name", "")
         user.save()
+        # XXX send welcome email
         # XXX validate things here - ie ensure name uniqueness
         individual_organization = Organization.objects.create_individual(user)
 
@@ -99,8 +97,8 @@ class SignupForm(AllauthSignupForm, StripeForm):
         return user
 
 
-class LoginForm(AllauthLoginForm):
-    """Add a name field to the sign up form"""
+class LoginForm(allauth.LoginForm):
+    """Customize the login form layout"""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -111,4 +109,69 @@ class LoginForm(AllauthLoginForm):
             Field("password", type="password"),
         )
         self.fields["login"].widget.attrs.pop("autofocus", None)
+        self.helper.form_tag = False
+
+
+class AddEmailForm(allauth.AddEmailForm):
+    """Customize the add email form layout"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.helper = FormHelper()
+        self.helper.layout = Layout(Field("email", type="email"))
+        self.helper.form_tag = False
+
+
+class ChangePasswordForm(allauth.ChangePasswordForm):
+    """Customize the change password form layout"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Field("oldpassword", type="password", css_class="_cls-passwordInput"),
+            Field("password1", type="password", css_class="_cls-passwordInput"),
+            Field("password2", type="password", css_class="_cls-passwordInput"),
+        )
+        self.helper.form_tag = False
+
+
+class SetPasswordForm(allauth.SetPasswordForm):
+    """Customize the set password form layout"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Field("password1", type="password", css_class="_cls-passwordInput"),
+            Field("password2", type="password", css_class="_cls-passwordInput"),
+        )
+        self.helper.form_tag = False
+
+
+class ResetPasswordForm(allauth.ResetPasswordForm):
+    """Customize the reset password form layout"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.helper = FormHelper()
+        self.helper.layout = Layout(Field("email", type="email"))
+        self.helper.form_tag = False
+
+
+class ResetPasswordKeyForm(allauth.ResetPasswordKeyForm):
+    """Customize the reset password key form layout"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Field("password1", type="password", css_class="_cls-passwordInput"),
+            Field("password2", type="password", css_class="_cls-passwordInput"),
+        )
         self.helper.form_tag = False

@@ -26,6 +26,8 @@
             </div>
           </div>
           <a href="{% url "users:update" %}"><div class="_cls-action">{% trans 'Edit profile' %}</div></a>
+          <a href="{% url "account_email" %}"><div class="_cls-action">{% trans 'Edit email' %}</div></a>
+          <a href="{% url "account_change_password" %}"><div class="_cls-action">{% trans 'Edit password' %}</div></a>
         </div>
         <div class="_cls-organizationSection">
           <div class="_cls-mediumHeader">{% trans 'Organizations' %}</div>
@@ -115,6 +117,14 @@
               </div>
             </li>
           </ul>
+        </div>
+        <div class="col-sm-2">
+          <a
+             class="btn btn-primary"
+             href="{% url "users:receipts" %}"
+             role="button">
+            View Receipts
+          </a>
         </div>
       </div>
     </div>
