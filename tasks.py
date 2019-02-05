@@ -103,9 +103,11 @@ def run(c, cmd):
 
 
 @task(name="pip-compile")
-def pip_compile(c, upgrade=False):
+def pip_compile(c, upgrade=False, package=None):
     """Run pip compile"""
-    if upgrade:
+    if package:
+        upgrade_flag = f"--upgrade-package {package}"
+    elif upgrade:
         upgrade_flag = "--upgrade"
     else:
         upgrade_flag = ""
