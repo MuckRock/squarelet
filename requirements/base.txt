@@ -23,7 +23,7 @@ coreschema==0.0.4         # via coreapi
 cssselect==1.0.3          # via premailer
 cssutils==1.0.2           # via premailer
 defusedxml==0.5.0         # via python3-openid
-django-allauth==0.36.0
+django-allauth==0.38.0
 django-appconf==1.0.2     # via django-compressor
 django-autocomplete-light==3.3.2
 django-autoslug-iplweb==1.9.4

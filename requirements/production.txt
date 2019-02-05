@@ -24,7 +24,7 @@ coreschema==0.0.4
 cssselect==1.0.3
 cssutils==1.0.2
 defusedxml==0.5.0
-django-allauth==0.36.0
+django-allauth==0.38.0
 django-anymail[mailgun]==3.0
 django-appconf==1.0.2
 django-autocomplete-light==3.3.2
