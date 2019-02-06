@@ -13,7 +13,6 @@ from crispy_forms.layout import Layout
 # Squarelet
 from squarelet.core.forms import StripeForm
 from squarelet.core.layout import Field
-from squarelet.core.mail import send_mail
 from squarelet.organizations.models import Organization, Plan
 
 
@@ -31,9 +30,7 @@ class SignupForm(allauth.SignupForm, StripeForm):
         to_field_name="slug",
         widget=forms.HiddenInput(),
     )
-    # XXX ensure org name is unique
     organization_name = forms.CharField(max_length=255, required=False)
-    # XXX set max users?
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -66,12 +63,18 @@ class SignupForm(allauth.SignupForm, StripeForm):
                 ),
             )
 
+    def clean_organization(self):
+        """Ensure unique"""
+        data = self.cleaned_data["organization"]
+        if Organization.objects.filter(name=data).exists():
+            raise forms.ValidationError("Organization with this name already exists")
+        return data
+
     @transaction.atomic()
     def save(self, request):
         user = super().save(request)
         user.name = self.cleaned_data.get("name", "")
         user.save()
-        # XXX validate things here - ie ensure name uniqueness
         individual_organization = Organization.objects.create_individual(user)
 
         free_plan = Plan.objects.get(slug="free")
