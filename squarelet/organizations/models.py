@@ -461,7 +461,7 @@ class Invitation(models.Model):
 
     def send(self):
         send_mail(
-            subject=f"Invitation to join {self.organization.name}",
+            subject=_(f"Invitation to join {self.organization.name}"),
             template="organizations/email/invitation.html",
             to=[self.email],
             extra_context={"invitation": self},
@@ -573,7 +573,7 @@ class Charge(models.Model):
     def send_receipt(self):
         """Send receipt"""
         send_mail(
-            subject="Receipt",
+            subject=_("Receipt"),
             template="organizations/email/receipt.html",
             organization=self.organization,
             organization_to=ORG_TO_RECEIPTS,

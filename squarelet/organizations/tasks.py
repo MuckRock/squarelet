@@ -3,6 +3,7 @@ from celery.schedules import crontab
 from celery.task import periodic_task, task
 from django.db.models import Case, F, When
 from django.utils.timezone import get_current_timezone
+from django.utils.translation import ugettext_lazy as _
 
 # Standard Library
 import logging
@@ -84,14 +85,14 @@ def handle_invoice_failed(invoice_data):
 
     attempt = invoice_data["attempt_count"]
     if attempt == 4:
-        subject = "Your subscription has been cancelled"
+        subject = _("Your subscription has been cancelled")
         organization.set_subscription(
             token=None,
             plan=Plan.objects.get(slug="free"),
             max_users=organization.max_users,
         )
     else:
-        subject = "Your payment has failed"
+        subject = _("Your payment has failed")
 
     send_mail(
         subject=subject,

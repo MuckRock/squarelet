@@ -70,7 +70,7 @@ class Detail(DetailView):
             )
             messages.success(request, _("Request to join the organization sent!"))
             send_mail(
-                subject=f"{request.user} has requested to join {self.organization}",
+                subject=_(f"{request.user} has requested to join {self.organization}"),
                 template="organizations/email/join_request.html",
                 organization=self.organization,
                 organization_to=ORG_TO_ADMINS,

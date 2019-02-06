@@ -1,14 +1,17 @@
 # Django
 from django.db.models.query import Prefetch
+from django.urls import reverse
+from django.utils.translation import ugettext_lazy as _
 
 # Third Party
-from allauth.account.models import EmailAddress
+from allauth.account.models import EmailAddress, EmailConfirmationHMAC
 from allauth.account.utils import setup_user_email
 from rest_framework import status, viewsets
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 
 # Squarelet
+from squarelet.core.mail import send_mail
 from squarelet.oidc.permissions import ScopePermission
 from squarelet.organizations.models import Membership
 
@@ -46,7 +49,18 @@ class UserViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         headers = self.get_success_headers(serializer.data)
+
         setup_user_email(request, user, [])
+        email_address = EmailAddress.objects.get_primary(user)
+        key = EmailConfirmationHMAC(email_address).key
+        activate_url = reverse("account_confirm_email", args=[key])
+        send_mail(
+            subject=_("Welcome to MuckRock"),
+            template="account/email/email_confirmation_signup_message.html",
+            user=user,
+            extra_context={"activate_url": activate_url, "minireg": True},
+        )
+
         return Response(
             serializer.data, status=status.HTTP_201_CREATED, headers=headers
         )
