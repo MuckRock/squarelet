@@ -23,6 +23,7 @@ from sorl.thumbnail import ImageField
 # Squarelet
 from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
 from squarelet.core.mail import ORG_TO_RECEIPTS, send_mail
+from squarelet.core.mixins import AvatarMixin
 from squarelet.oidc.middleware import send_cache_invalidations
 
 # Local
@@ -31,12 +32,11 @@ from .querysets import InvitationQuerySet, OrganizationQuerySet, PlanQuerySet
 stripe.api_key = settings.STRIPE_SECRET_KEY
 stripe.api_version = "2018-09-24"
 
-DEFAULT_AVATAR = static("images/avatars/organization.png")
 
 logger = logging.getLogger(__name__)
 
 
-class Organization(models.Model):
+class Organization(AvatarMixin, models.Model):
     """Orginization to allow pooled requests and collaboration"""
 
     objects = OrganizationQuerySet.as_manager()
@@ -90,6 +90,8 @@ class Organization(models.Model):
     )
     payment_failed = models.BooleanField(_("payment failed"), default=False)
 
+    default_avatar = static("images/avatars/organization.png")
+
     class Meta:
         ordering = ("slug",)
 
@@ -127,15 +129,6 @@ class Organization(models.Model):
         self.memberships.create(user=user, admin=True)
         # add the creators email as a receipt recipient by default
         self.receipt_emails.create(email=user.email)
-
-    @property
-    def avatar_url(self):
-        if self.avatar and self.avatar.url.startswith("http"):
-            return self.avatar.url
-        elif self.avatar:
-            return f"{settings.SQUARELET_URL}{self.avatar.url}"
-        else:
-            return DEFAULT_AVATAR
 
     # Payment Management
     @mproperty

@@ -18,6 +18,7 @@ from sorl.thumbnail import ImageField
 
 # Squarelet
 from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
+from squarelet.core.mixins import AvatarMixin
 from squarelet.oidc.middleware import send_cache_invalidations
 from squarelet.organizations.models import Organization
 
@@ -25,10 +26,8 @@ from squarelet.organizations.models import Organization
 from .managers import UserManager
 from .validators import UsernameValidator
 
-DEFAULT_AVATAR = static("images/avatars/profile.png")
 
-
-class User(AbstractBaseUser, PermissionsMixin):
+class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
     """User model for squarelet
 
     This is a general user model which should only store information applicable
@@ -99,6 +98,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     EMAIL_FIELD = "email"
     REQUIRED_FIELDS = ["email"]
 
+    default_avatar = static("images/avatars/profile.png")
+
     objects = UserManager()
 
     def __str__(self):
@@ -119,15 +120,6 @@ class User(AbstractBaseUser, PermissionsMixin):
         if self.name:
             return self.name
         return self.username
-
-    @property
-    def avatar_url(self):
-        if self.avatar and self.avatar.url.startswith("http"):
-            return self.avatar.url
-        elif self.avatar:
-            return f"{settings.SQUARELET_URL}{self.avatar.url}"
-        else:
-            return DEFAULT_AVATAR
 
     @mproperty
     def individual_organization(self):
