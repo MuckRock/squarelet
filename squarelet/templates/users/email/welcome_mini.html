@@ -6,15 +6,12 @@
     <a href="{% url "users:detail" username=user.username %}">{{ user.username }}</a>.
   </p>
   <p>
-    We ask that you please <a href="{{ activate_url }}">verify your email</a>.
+  We ask that you please <a href="{% url "account_confirm_email" key %}">verify your email</a>.
     You can also verify your email from your
-    <a href="{% url "account_email" %}">account email settings</a>.
+    <a href="{% url "account_email" %}">account settings</a>.
   </p>
-  {% if minireg %}
-      <p>
-        You should also <a href="{% url "account_set_password" %}">set your password</a>.
-      <p>
-  {% endif %}
+  <p>
+    You should also <a href="{% url "account_set_password" %}">set your password</a>.
   <p>
     <strong>
       Have a technical support or customer service issue?

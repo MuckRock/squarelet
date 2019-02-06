@@ -1,3 +1,4 @@
+
 # Standard Library
 import random
 import re
@@ -87,11 +88,10 @@ class UserWriteSerializer(UserBaseSerializer):
         )
 
     def create(self, validated_data):
-        if "preferred_username" in validated_data:
-            validated_data["preferred_username"] = self.unique_username(
-                validated_data["preferred_username"]
+        if "username" in validated_data:
+            validated_data["username"] = self.unique_username(
+                validated_data["username"]
             )
-        # XXX need to send welcome email with way to set password
         user = super().create(validated_data)
         Organization.objects.create_individual(user)
         return user

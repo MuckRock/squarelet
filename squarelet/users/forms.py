@@ -13,6 +13,7 @@ from crispy_forms.layout import Layout
 # Squarelet
 from squarelet.core.forms import StripeForm
 from squarelet.core.layout import Field
+from squarelet.core.mail import send_mail
 from squarelet.organizations.models import Organization, Plan
 
 
@@ -70,7 +71,6 @@ class SignupForm(allauth.SignupForm, StripeForm):
         user = super().save(request)
         user.name = self.cleaned_data.get("name", "")
         user.save()
-        # XXX send welcome email
         # XXX validate things here - ie ensure name uniqueness
         individual_organization = Organization.objects.create_individual(user)
 
