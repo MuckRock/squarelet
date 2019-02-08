@@ -1,12 +1,13 @@
 {% extends "core/email/base.html" %}
 {% load humanize %}
+{% load i18n %}
 
 {% block body %}
   {% block receipt %}
     <div class="receipt">
       <div class="purchase-data">
         <p>{{ charge.created_at|date:"m/d/Y" }}</p>
-        <p>Order {{ charge.charge_id }}</p>
+        <p>{% trans "Order" %} {{ charge.charge_id }}</p>
         {% with charge.charge.source as card %}
           {% if card %}
             <p>{{ card.brand }} **** **** **** {{ card.last4 }}</p>
@@ -22,7 +23,7 @@
         {% endfor %}
         {% if charge.items|length > 1 %}
           <tr class="total">
-            <td>Total</td>
+            <td>{% trans "Total" %}</td>
             <td>${{ charge.amount_dollars|floatformat:2|intcomma }}</td>
           </tr>
         {% endif %}
@@ -32,15 +33,17 @@
   <div>
     <p>
       {% if charge.organization.individual %}
-        Hi {{ charge.organization.users.first.name }},
+        {% trans "Hi" %} {{ charge.organization.users.first.name }},
       {% else %}
-        Hi {{ charge.organization.name }},
+        {% trans "Hi" %} {{ charge.organization.name }},
       {% endif %}
     </p>
     {% block description %}
-      <p>This receipt confirms your payment to MuckRock.</p>
+      <p>{% trans "This receipt confirms your payment to MuckRock." %}</p>
     {% endblock %}
-    <p>For concerns or more information about this charge, please contact <a href="mailto:info@muckrock.com">info@muckrock.com</a> or call 1-857-488-3081.</p>
-    <p>Thank you,<br/>The MuckRock Team</p>
+    {% blocktrans %}
+      <p>For concerns or more information about this charge, please contact <a href="mailto:info@muckrock.com">info@muckrock.com</a> or call 1-857-488-3081.</p>
+      <p>Thank you,<br/>The MuckRock Team</p>
+    {% endblocktrans %}
   </div>
 {% endblock %}

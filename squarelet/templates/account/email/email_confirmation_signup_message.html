@@ -1,39 +1,50 @@
 {% extends "core/email/base.html" %}
 {% load i18n %}
-{% load sesame %}
+{% load autologin %}
 
 {% block body %}
-  {% sesame_query_string user as sesame_query_string %}
+  {% url "users:detail" username=user.username as url_user %}
+  {% autologin url_user user as url_user_ %}
+  {% url "account_email" as url_email %}
+  {% autologin url_email user as url_email_ %}
+  {% url "account_set_password" as url_password %}
+  {% autologin url_password user as url_password_ %}
+  {% autologin activate_url user as activate_url_ %}
+  {% blocktrans with username=user.username %}
+    <p>
+    Just a reminder, your username is
+    <a href="{{ url_user_ }}">
+      {{ username }}
+    </a>.
+    </p>
+    <p>
+    We ask that you please
+    <a href="{{ activate_url_ }}">verify your email</a>.
+    You can also verify your email from your
+    <a href="{{ url_email_ }}">account email settings</a>.
+    </p>
+  {% endblocktrans %}
+  {% if minireg %}
+    {% blocktrans %}
+      <p>
+      You should also
+      <a href="{{ url_password_ }}">
+        set your password
+      </a>.
+      <p>
+    {% endblocktrans %}
+  {% endif %}
   {% blocktrans %}
     <p>
-      Just a reminder, your username is
-      <a href="{% url "users:detail" username=user.username %}{{ sesame_query_string }}">
-        {{ user.username }}
-      </a>.
-    </p>
-    <p>
-      We ask that you please <a href="{{ activate_url }}">verify your email</a>.
-      You can also verify your email from your
-      <a href="{% url "account_email" %}">account email settings</a>.
-    </p>
-    {% if minireg %}
-        <p>
-          You should also
-          <a href="{% url "account_set_password" %}{{ sesame_query_string %}">
-            set your password
-          </a>.
-        <p>
-    {% endif %}
-    <p>
-      <strong>
-        Have a technical support or customer service issue?
-        <a href="mailto:info@muckrock.com">Email us</a>.
-      </strong>
+    <strong>
+      Have a technical support or customer service issue?
+      <a href="mailto:info@muckrock.com">Email us</a>.
+    </strong>
     </p>
     <p><a href="https://www.twitter.com/muckrock/">Tweet at us</a>.</p>
     <p>
-      Once again, welcome to the MuckRock community. We're excited to see what you
-      do with the tools we've built.
+    Once again, welcome to the MuckRock community. We're excited to see what you
+    do with the tools we've built.
     </p>
     <p>Sincerely,<br/>The MuckRock Team</p>
   {% endblocktrans %}
