@@ -1,11 +1,10 @@
 # Django
-# Standard Library
-from django.conf import settings
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.models import PermissionsMixin
 from django.contrib.postgres.fields import CICharField, CIEmailField
 from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.db import models, transaction
+from django.http.request import urlencode
 from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
 
@@ -13,6 +12,7 @@ from django.utils.translation import ugettext_lazy as _
 import uuid
 
 # Third Party
+import sesame
 from memoize import mproperty
 from sorl.thumbnail import ImageField
 
@@ -94,6 +94,16 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
     created_at = AutoCreatedField(_("created at"))
     updated_at = AutoLastModifiedField(_("updated at"))
 
+    # preferences
+    use_autologin = models.BooleanField(
+        _("use autologin"),
+        default=True,
+        help_text=(
+            "Links you receive in emails from us will contain"
+            " a token to automatically log you in"
+        ),
+    )
+
     USERNAME_FIELD = "username"
     EMAIL_FIELD = "email"
     REQUIRED_FIELDS = ["email"]
@@ -125,3 +135,11 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
     def individual_organization(self):
         """A user's individual organization has a matching UUID"""
         return Organization.objects.get(id=self.id)
+
+    def wrap_url(self, url, **extra):
+        """Wrap a URL for autologin"""
+        if not self.use_autologin:
+            return url
+
+        extra.update(sesame.utils.get_parameters(self))
+        return "{}?{}".format(url, urlencode(extra))

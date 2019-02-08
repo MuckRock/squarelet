@@ -73,6 +73,12 @@ def shell(c, opts=""):
 
 
 @task
+def dbshell(c, opts=""):
+    """Run an interactive db shell"""
+    c.run(DJANGO_RUN.format(cmd=f"python manage.py dbshell {opts}"), pty=True)
+
+
+@task
 def celeryworker(c):
     """Run a celery worker"""
     c.run(

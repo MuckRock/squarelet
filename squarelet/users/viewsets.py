@@ -1,9 +1,13 @@
 # Django
+from django.core.exceptions import ValidationError
 from django.db.models.query import Prefetch
+from django.http.response import Http404
+from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
 
 # Third Party
+import sesame.utils
 from allauth.account.models import EmailAddress, EmailConfirmationHMAC
 from allauth.account.utils import setup_user_email
 from rest_framework import status, viewsets
@@ -64,3 +68,16 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response(
             serializer.data, status=status.HTTP_201_CREATED, headers=headers
         )
+
+
+class UrlAuthTokenViewSet(viewsets.ViewSet):
+    permission_classes = (ScopePermission,)
+    read_scopes = ("read_auth_token",)
+
+    def retrieve(self, request, pk=None):
+        # pylint: disable=invalid-name
+        try:
+            user = get_object_or_404(User, pk=pk)
+        except ValidationError:
+            raise Http404
+        return Response(sesame.utils.get_parameters(user))

@@ -1,10 +1,12 @@
 # Django
 from django.conf import settings
 from django.template.loader import render_to_string
+from django.utils.http import is_safe_url
 
 # Third Party
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
+from furl import furl
 
 # Squarelet
 from squarelet.core.mail import Email
@@ -31,6 +33,15 @@ class AccountAdapter(DefaultAccountAdapter):
             to=[email],
             extra_context=context,
         )
+
+    def is_safe_url(self, url):
+        allowed_hosts = [
+            furl(settings.SQUARELET_URL).host,
+            furl(settings.MUCKROCK_URL).host,
+            furl(settings.FOIAMACHINE_URL).host,
+            furl(settings.DOCCLOUD_URL).host,
+        ]
+        return is_safe_url(url, allowed_hosts=allowed_hosts)
 
 
 class SocialAccountAdapter(DefaultSocialAccountAdapter):

@@ -83,17 +83,13 @@ LOCAL_APPS = [
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
-# MIGRATIONS
-# ------------------------------------------------------------------------------
-# https://docs.djangoproject.com/en/dev/ref/settings/#migration-modules
-MIGRATION_MODULES = {"sites": "squarelet.contrib.sites.migrations"}
-
 # AUTHENTICATION
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#authentication-backends
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
     "allauth.account.auth_backends.AuthenticationBackend",
+    "sesame.backends.ModelBackend",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#auth-user-model
 AUTH_USER_MODEL = "users.User"
@@ -134,6 +130,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "sesame.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "oidc_provider.middleware.SessionManagementMiddleware",
@@ -297,6 +294,8 @@ REST_FRAMEWORK = {
 # ------------------------------------------------------------------------------
 SQUARELET_URL = env("SQUARLET_URL", default="http://dev.squarelet.com")
 MUCKROCK_URL = env("MUCKROCK_URL", default="http://dev.muckrock.com")
+FOIAMACHINE_URL = env("FOIAMACHINE_URL", default="http://dev.foiamachine.com")
+DOCCLOUD_URL = env("DOCCLOUD_URL", default="http://dev.documentcloud.org")
 MUCKROCK_TOKEN = env("MUCKROCK_TOKEN", default="set-me")
 
 # stripe
@@ -304,3 +303,10 @@ MUCKROCK_TOKEN = env("MUCKROCK_TOKEN", default="set-me")
 STRIPE_PUB_KEY = env("STRIPE_PUB_KEY")
 STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET")
+
+# sesame
+# ------------------------------------------------------------------------------
+import sesame.pk_packers  # isort:skip
+
+SESAME_USER_PK_PACKER = sesame.pk_packers.UuidPkPacker
+SESAME_MAX_AGE = 60 * 60 * 24 * 2  # 2 days

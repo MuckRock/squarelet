@@ -11,10 +11,11 @@ from rest_framework import routers
 
 # Squarelet
 from squarelet.organizations.viewsets import ChargeViewSet, OrganizationViewSet
-from squarelet.users.viewsets import UserViewSet
+from squarelet.users.viewsets import UrlAuthTokenViewSet, UserViewSet
 
 router = routers.DefaultRouter()
 router.register("users", UserViewSet)
+router.register("url_auth_tokens", UrlAuthTokenViewSet, base_name="url_auth_token")
 router.register("organizations", OrganizationViewSet)
 router.register("charges", ChargeViewSet)
 

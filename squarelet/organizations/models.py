@@ -43,6 +43,7 @@ class Organization(AvatarMixin, models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
+    # XXX names need to be non-unique
     name = CICharField(_("name"), max_length=255, unique=True)
     slug = AutoSlugField(_("slug"), populate_from="name", unique=True)
     created_at = AutoCreatedField(_("created at"))
@@ -82,6 +83,7 @@ class Organization(AvatarMixin, models.Model):
     )
 
     # stripe
+    # XXX these need to be nullable to be unique
     customer_id = models.CharField(
         _("customer id"), max_length=255, unique=True, blank=True
     )

@@ -1,3 +1,4 @@
+-e git://github.com/GamePad64/django-sesame.git@9d6144110b2cd74cca4e58273926b111eadb3f03#egg=django_sesame
 Pillow
 argon2-cffi
 bcrypt
@@ -15,8 +16,11 @@ django-model-utils
 django-oidc-provider
 django-premailer
 django-redis
+django-request-token
 django<2.1
 djangorestframework
+furl
+html2text
 memoize
 psycopg2 --no-binary psycopg2
 python-slugify
@@ -27,4 +31,3 @@ redis
 smart_open
 sorl-thumbnail
 stripe
-html2text

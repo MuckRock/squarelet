@@ -62,6 +62,7 @@ class UserReadSerializer(UserBaseSerializer):
             "picture",
             "preferred_username",
             "updated_at",
+            "use_autologin",
             "uuid",
         )
 
@@ -84,6 +85,7 @@ class UserWriteSerializer(UserBaseSerializer):
             "picture",
             "preferred_username",
             "updated_at",
+            "use_autologin",
             "uuid",
         )
 

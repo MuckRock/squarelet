@@ -38,7 +38,7 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
 
     def get_form_class(self):
         """Include username in form if the user hasn't changed their username yet"""
-        fields = ["name", "avatar"]
+        fields = ["name", "avatar", "use_autologin"]
         if self.object.can_change_username:
             self.fields = ["username"] + fields
         else:
@@ -48,7 +48,9 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
         form.helper = FormHelper()
-        form.helper.layout = Layout(Field("username"), Field("name"), Field("avatar"))
+        form.helper.layout = Layout(
+            Field("username"), Field("name"), Field("avatar"), Field("use_autologin")
+        )
         form.helper.form_tag = False
         return form
 
