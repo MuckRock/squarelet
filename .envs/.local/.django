@@ -6,7 +6,8 @@ USE_DOCKER=yes
 # ------------------------------------------------------------------------------
 REDIS_URL=redis://redis:6379/0
 
-MUCKROCK_TOKEN=c4dad7f4c30cbe8c455fbcfc0b79af707009547f
-STRIPE_PUB_KEY=***REMOVED***
-STRIPE_SECRET_KEY=***REMOVED***
-STRIPE_WEBHOOK_SECRET=***REMOVED***
+MUCKROCK_TOKEN=
+
+STRIPE_PUB_KEY=
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
