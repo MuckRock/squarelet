@@ -69,6 +69,7 @@ THIRD_PARTY_APPS = [
     "crispy_forms",
     "dal",
     "dal_select2",
+    "django_extensions",
     "django_premailer",
     "oidc_provider",
     "rest_framework",
