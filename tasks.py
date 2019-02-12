@@ -20,7 +20,7 @@ def staging(c):
 
 
 @task
-def test(c, path="", reuse_db=False):
+def test(c, path="squarelet", reuse_db=False):
     """Run the test suite"""
     if reuse_db:
         reuse_switch = "--reuse-db"
@@ -69,7 +69,7 @@ def runserver(c):
 @task
 def shell(c, opts=""):
     """Run an interactive shell"""
-    c.run(DJANGO_RUN.format(cmd=f"python manage.py shell_plus {opts}"), pty=True)
+    c.run(DJANGO_RUN_USER.format(cmd=f"python manage.py shell_plus {opts}"), pty=True)
 
 
 @task
