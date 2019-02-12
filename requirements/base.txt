@@ -9,6 +9,7 @@
 -e git+git://github.com/GamePad64/django-sesame.git@9d6144110b2cd74cca4e58273926b111eadb3f03#egg=django_sesame
 amqp==2.3.2               # via kombu
 argon2-cffi==18.1.0
+backcall==0.1.0           # via ipython
 bcrypt==3.1.4
 billiard==3.5.0.4         # via celery
 boto3==1.9.32             # via smart-open
@@ -23,6 +24,7 @@ coreapi==2.3.3
 coreschema==0.0.4         # via coreapi
 cssselect==1.0.3          # via premailer
 cssutils==1.0.2           # via premailer
+decorator==4.3.2          # via ipython, traitlets
 defusedxml==0.5.0         # via python3-openid
 django-allauth==0.38.0
 django-appconf==1.0.2     # via django-compressor
@@ -31,8 +33,10 @@ django-autoslug-iplweb==1.9.4
 django-choices==1.6.1
 django-compressor==2.2
 django-crispy-forms==1.7.2
+django-debug-toolbar==1.11
 django-email-bandit==1.5
 django-environ==0.4.4
+django-extensions==2.1.5
 django-model-utils==3.1.2
 django-oidc-provider==0.6.0
 django-premailer==0.2.0
@@ -45,7 +49,11 @@ furl==2.0.0
 future==0.16.0            # via pyjwkest
 html2text==2018.1.9
 idna==2.7                 # via requests
+ipdb==0.11
+ipython-genutils==0.2.0   # via traitlets
+ipython==7.2.0            # via ipdb
 itypes==1.1.0             # via coreapi
+jedi==0.13.2              # via ipython
 jinja2==2.10              # via coreschema
 jmespath==0.9.3           # via boto3, botocore
 kombu==4.2.1              # via celery
@@ -54,12 +62,18 @@ markupsafe==1.0           # via jinja2
 memoize==1.0.0
 oauthlib==2.1.0           # via requests-oauthlib
 orderedmultidict==1.0     # via furl
+parso==0.3.3              # via jedi
+pexpect==4.6.0            # via ipython
+pickleshare==0.7.5        # via ipython
 pillow==5.1.0
 premailer==3.0.0          # via django-premailer
+prompt-toolkit==2.0.8     # via ipython
 psycopg2-binary==2.7.7    # via django-request-token
 psycopg2==2.7.5
+ptyprocess==0.6.0         # via pexpect
 pycparser==2.18           # via cffi
 pycryptodomex==3.6.4      # via pyjwkest
+pygments==2.3.1           # via ipython
 pyjwkest==1.4.0           # via django-oidc-provider
 pyjwt==1.7.1              # via django-request-token
 python-dateutil==2.7.4    # via botocore
@@ -73,12 +87,14 @@ requests-oauthlib==1.0.0  # via django-allauth
 requests==2.19.1          # via coreapi, django-allauth, premailer, pyjwkest, requests-oauthlib, smart-open, stripe
 rjsmin==1.0.12            # via django-compressor
 s3transfer==0.1.13        # via boto3
-six==1.11.0               # via argon2-cffi, bcrypt, django-environ, furl, orderedmultidict, pyjwkest, python-dateutil
+six==1.11.0               # via argon2-cffi, bcrypt, django-environ, django-extensions, furl, orderedmultidict, prompt-toolkit, pyjwkest, python-dateutil, traitlets
 smart-open==1.7.1
 sorl-thumbnail==12.4.1
-sqlparse==0.2.4           # via django-request-token
+sqlparse==0.2.4           # via django-debug-toolbar, django-request-token
 stripe==2.10.1
+traitlets==4.3.2          # via ipython
 unidecode==1.0.22         # via python-slugify
 uritemplate==3.0.0        # via coreapi
 urllib3==1.23             # via botocore, requests
 vine==1.1.4               # via amqp
+wcwidth==0.1.7            # via prompt-toolkit

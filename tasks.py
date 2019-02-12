@@ -130,3 +130,13 @@ def pip_compile(c, upgrade=False, package=None):
 def build(c):
     """Build the docker images"""
     c.run("docker-compose build")
+
+
+@task
+def heroku(c, staging=False):
+    """Run commands on heroku"""
+    if staging:
+        app = "squarelet-staging"
+    else:
+        app = "squarelet"
+    c.run(f"heroku run --app {app} python manage.py shell_plus")

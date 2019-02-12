@@ -9,6 +9,7 @@
 -e git+git://github.com/GamePad64/django-sesame.git@9d6144110b2cd74cca4e58273926b111eadb3f03#egg=django_sesame
 amqp==2.3.2
 argon2-cffi==18.1.0
+backcall==0.1.0
 bcrypt==3.1.4
 billiard==3.5.0.4
 boto3==1.9.32
@@ -24,6 +25,7 @@ coreapi==2.3.3
 coreschema==0.0.4
 cssselect==1.0.3
 cssutils==1.0.2
+decorator==4.3.2
 defusedxml==0.5.0
 django-allauth==0.38.0
 django-anymail[mailgun]==3.0
@@ -34,8 +36,10 @@ django-celery-email==2.0.0
 django-choices==1.6.1
 django-compressor==2.2
 django-crispy-forms==1.7.2
+django-debug-toolbar==1.11
 django-email-bandit==1.5
 django-environ==0.4.4
+django-extensions==2.1.5
 django-model-utils==3.1.2
 django-oidc-provider==0.6.0
 django-premailer==0.2.0
@@ -50,7 +54,11 @@ future==0.16.0
 gunicorn==19.8.1
 html2text==2018.1.9
 idna==2.7
+ipdb==0.11
+ipython-genutils==0.2.0
+ipython==7.2.0
 itypes==1.1.0
+jedi==0.13.2
 jinja2==2.10
 jmespath==0.9.3
 kombu==4.2.1
@@ -59,12 +67,18 @@ markupsafe==1.0
 memoize==1.0.0
 oauthlib==2.1.0
 orderedmultidict==1.0
+parso==0.3.3
+pexpect==4.6.0
+pickleshare==0.7.5
 pillow==5.1.0
 premailer==3.0.0
+prompt-toolkit==2.0.8
 psycopg2-binary==2.7.7
 psycopg2==2.7.5
+ptyprocess==0.6.0
 pycparser==2.18
 pycryptodomex==3.6.4
+pygments==2.3.1
 pyjwkest==1.4.0
 pyjwt==1.7.1
 python-dateutil==2.7.4
@@ -83,7 +97,9 @@ smart-open==1.7.1
 sorl-thumbnail==12.4.1
 sqlparse==0.2.4
 stripe==2.10.1
+traitlets==4.3.2
 unidecode==1.0.22
 uritemplate==3.0.0
 urllib3==1.23
 vine==1.1.4
+wcwidth==0.1.7

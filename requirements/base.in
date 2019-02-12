@@ -1,4 +1,4 @@
--e git://github.com/GamePad64/django-sesame.git@9d6144110b2cd74cca4e58273926b111eadb3f03#egg=django_sesame
+-e git://github.com/GamePad64/django-sesame.git@9d6144110b2cd74cca4e58273926b111eadb3f03#egg=django_sesame # git version for UUID support
 Pillow
 argon2-cffi
 bcrypt
@@ -10,8 +10,10 @@ django-autoslug-iplweb
 django-choices
 django-compressor
 django-crispy-forms
+django-debug-toolbar
 django-email-bandit
 django-environ
+django-extensions
 django-model-utils
 django-oidc-provider
 django-premailer
@@ -21,6 +23,7 @@ django<2.1
 djangorestframework
 furl
 html2text
+ipdb
 memoize
 psycopg2 --no-binary psycopg2
 python-slugify
