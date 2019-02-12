@@ -83,12 +83,11 @@ class Organization(AvatarMixin, models.Model):
     )
 
     # stripe
-    # XXX these need to be nullable to be unique
     customer_id = models.CharField(
-        _("customer id"), max_length=255, unique=True, blank=True
+        _("customer id"), max_length=255, unique=True, blank=True, null=True
     )
     subscription_id = models.CharField(
-        _("subscription id"), max_length=255, unique=True, blank=True
+        _("subscription id"), max_length=255, unique=True, blank=True, null=True
     )
     payment_failed = models.BooleanField(_("payment failed"), default=False)
 
