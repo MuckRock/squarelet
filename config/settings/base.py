@@ -69,6 +69,7 @@ THIRD_PARTY_APPS = [
     "crispy_forms",
     "dal",
     "dal_select2",
+    "debug_toolbar",
     "django_extensions",
     "django_premailer",
     "oidc_provider",
@@ -136,6 +137,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "oidc_provider.middleware.SessionManagementMiddleware",
     "squarelet.oidc.middleware.CacheInvalidationSenderMiddleware",
+    "debug_toolbar.middleware.DebugToolbarMiddleware",
 ]
 
 # STATIC
@@ -310,3 +312,18 @@ import sesame.pk_packers  # isort:skip
 
 SESAME_USER_PK_PACKER = sesame.pk_packers.UuidPkPacker
 SESAME_MAX_AGE = 60 * 60 * 24 * 2  # 2 days
+
+# django-debug-toolbar
+# ------------------------------------------------------------------------------
+def show_toolbar(request):
+    """show toolbar on the site"""
+    return env.bool("SHOW_DDT", default=False) or (
+        request.user and request.user.username == "mitch"
+    )
+
+
+DEBUG_TOOLBAR_CONFIG = {
+    "INTERCEPT_REDIRECT": False,
+    "SHOW_TEMPLATE_CONTEXT": True,
+    "SHOW_TOOLBAR_CALLBACK": show_toolbar,
+}
