@@ -160,7 +160,8 @@ class HijackAnymailBackend(HijackBackendMixin, MailgunBackend):
 
 if env.bool("USE_BANDIT", default=False):
     INSTALLED_APPS += ["bandit"]
-    BANDIT_EMAIL = env("BANDIT_EMAIL")
+    BANDIT_EMAIL = env("BANDIT_EMAIL", default="staging+squarelet@muckrock.com")
+    BANDIT_WHITELIST = env.list("BANDIT_WHITELIST", default=[])
 
     EMAIL_BACKEND = "config.settings.production.HijackAnymailBackend"
 
