@@ -92,6 +92,7 @@ AWS_S3_OBJECT_PARAMETERS = {
 # ------------------------
 
 STATICFILES_STORAGE = "config.settings.production.StaticRootS3BotoStorage"
+# XXX set up cloudfront cdn
 STATIC_URL = f"https://s3.amazonaws.com/{AWS_STORAGE_BUCKET_NAME}/static/"
 
 # MEDIA
@@ -100,10 +101,16 @@ STATIC_URL = f"https://s3.amazonaws.com/{AWS_STORAGE_BUCKET_NAME}/static/"
 # region http://stackoverflow.com/questions/10390244/
 from storages.backends.s3boto3 import S3Boto3Storage  # noqa E402 isort:skip
 
-StaticRootS3BotoStorage = lambda: S3Boto3Storage(location="static")  # noqa
-MediaRootS3BotoStorage = lambda: S3Boto3Storage(
-    location="media", file_overwrite=False
-)  # noqa
+
+class StaticRootS3BotoStorage(S3Boto3Storage):
+    location = "static"
+
+
+class MediaRootS3BotoStorage(S3Boto3Storage):
+    location = "media"
+    file_overwrite = False
+
+
 # endregion
 DEFAULT_FILE_STORAGE = "config.settings.production.MediaRootS3BotoStorage"
 MEDIA_URL = f"https://s3.amazonaws.com/{AWS_STORAGE_BUCKET_NAME}/media/"
