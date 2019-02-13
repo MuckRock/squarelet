@@ -74,6 +74,8 @@ class SignupForm(allauth.SignupForm, StripeForm):
     def save(self, request):
         user = super().save(request)
         user.name = self.cleaned_data.get("name", "")
+        # set source based on the intent
+        user.source = request.GET.get("intent", "squarelet").lower().strip()
         user.save()
         individual_organization = Organization.objects.create_individual(user)
 

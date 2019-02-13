@@ -56,6 +56,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     # XXX should this be optional or not?  what do we sign off as on requests?
     # do we want a full name and a short name?
+    # remove blank
     name = models.CharField(_("name of user"), blank=True, max_length=255)
     email = CIEmailField(_("email"), unique=True)
     username = CICharField(
@@ -91,6 +92,18 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
             "Unselect this instead of deleting accounts."
         ),
     )
+    source = models.CharField(
+        max_length=11,
+        choices=(
+            ("muckrock", "MuckRock"),
+            ("documentcloud", "DocumentCloud"),
+            ("foiamachine", "FOIA Machine"),
+            ("quackbot", "QuackBot"),
+            ("squarelet", "Squarelet"),
+        ),
+        default="squarelet",
+    )
+
     created_at = AutoCreatedField(_("created at"))
     updated_at = AutoLastModifiedField(_("updated at"))
 
