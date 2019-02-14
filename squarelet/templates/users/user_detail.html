@@ -57,6 +57,12 @@
           <div class="_cls-actionSmall">
             <a href="{% url "users:payment" %}"><button>{% trans 'Upgrade' %}</button></a>
           </div>
+          {% if request.user.is_staff %}
+            <form action="{% url "hijack:login_with_username" user.username %}" method="post" class="_cls-actionSmall">
+              {% csrf_token %}
+              <button type="submit">Hijack {{ user.username }}</button>
+            </form>
+          {% endif %}
         </div>
         <div class="_cls-services">
           <div class="_cls-mediumHeader">{% trans 'Services' %}</div>

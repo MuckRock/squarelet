@@ -37,6 +37,7 @@ urlpatterns = [
     path("accounts/", include("allauth.urls")),
     path("api/", include(router.urls)),
     path("openid/", include("oidc_provider.urls", namespace="oidc_provider")),
+    path("hijack/", include("hijack.urls", namespace="hijack")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:

@@ -66,16 +66,18 @@ THIRD_PARTY_APPS = [
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
+    "compat",  # for hijack
     "crispy_forms",
     "dal",
     "dal_select2",
     "debug_toolbar",
     "django_extensions",
     "django_premailer",
+    "hijack",
     "oidc_provider",
     "rest_framework",
-    "sorl.thumbnail",
     "reversion",
+    "sorl.thumbnail",
 ]
 LOCAL_APPS = [
     "squarelet.core",
@@ -329,3 +331,6 @@ DEBUG_TOOLBAR_CONFIG = {
     "SHOW_TEMPLATE_CONTEXT": True,
     "SHOW_TOOLBAR_CALLBACK": show_toolbar,
 }
+# django-hijack
+# ------------------------------------------------------------------------------
+HIJACK_AUTHORIZE_STAFF = True

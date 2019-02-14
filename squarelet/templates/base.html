@@ -1,4 +1,5 @@
 {% load static i18n compress%}<!DOCTYPE html>
+{% load hijack_tags %}
 <html lang="en">
   <head>
     <meta charset="utf-8">
@@ -25,6 +26,7 @@
 
     <link href="{% static 'css/main.css' %}" rel="stylesheet">
     <link href="{% static 'css/project.css' %}" rel="stylesheet">
+    <link href="{% static 'hijack/hijack-styles.css' %}" rel="stylesheet">
     {% block css %}
       <!-- Your stuff: Third-party CSS libraries go here -->
       {% compress css %}
@@ -36,6 +38,8 @@
   </head>
 
   <body>
+
+    {% hijack_notification %}
 
     <div class="_cls-heading">
       <div class="_cls-headingContent">
