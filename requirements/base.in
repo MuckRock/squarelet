@@ -19,7 +19,7 @@ django-oidc-provider
 django-premailer
 django-redis
 django-request-token
-django<2.1
+django<2.2
 djangorestframework
 furl
 html2text

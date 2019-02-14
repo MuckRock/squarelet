@@ -56,3 +56,4 @@ class PlanAdmin(admin.ModelAdmin):
         "for_groups",
     )
     search_fields = ("name",)
+    autocomplete_fields = ("private_organizations",)

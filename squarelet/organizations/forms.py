@@ -37,6 +37,7 @@ class UpdateForm(StripeForm):
 
         self.helper = FormHelper()
         self.helper.layout = Layout(
+            Field("stripe_pk"),
             Field("stripe_token"),
             Field("plan"),
             Field("max_users"),
@@ -48,18 +49,13 @@ class UpdateForm(StripeForm):
 
     def _set_group_options(self):
         # only show public options, plus the current plan, in case they are currently
-        # on a private plan
-        current_plan_qs = Plan.objects.filter(id=self.organization.plan_id)
+        # on a private plan, plus private plans they have been given access to
+        self.fields["plan"].queryset = Plan.objects.choices(self.organization)
+        self.fields["plan"].default = self.organization.plan
         if self.organization.individual:
-            self.fields["plan"].queryset = (
-                Plan.objects.individual_choices() | current_plan_qs
-            )
             del self.fields["max_users"]
             del self.fields["private"]
         else:
-            self.fields["plan"].queryset = (
-                Plan.objects.group_choices() | current_plan_qs
-            )
             limit_value = max(5, self.organization.user_count())
             self.fields["max_users"].validators[0].limit_value = limit_value
             self.fields["max_users"].widget.attrs["min"] = limit_value

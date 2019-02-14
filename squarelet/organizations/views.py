@@ -152,7 +152,9 @@ class Update(OrganizationAdminMixin, UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["STRIPE_PUB_KEY"] = settings.STRIPE_PUB_KEY
+        context["free_choices"] = list(
+            Plan.objects.choices(self.object).free().values_list("id", flat=True)
+        )
         return context
 
     def get_initial(self):

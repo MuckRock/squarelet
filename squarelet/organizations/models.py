@@ -97,7 +97,10 @@ class Organization(AvatarMixin, models.Model):
         ordering = ("slug",)
 
     def __str__(self):
-        return self.name
+        if self.individual:
+            return f"{self.name} (Individual)"
+        else:
+            return self.name
 
     def save(self, *args, **kwargs):
         # pylint: disable=arguments-differ
@@ -351,6 +354,14 @@ class Plan(models.Model):
         _("for groups"),
         default=True,
         help_text=_("Is this plan usable for non-individual organizations?"),
+    )
+
+    private_organizations = models.ManyToManyField(
+        "organizations.Organization",
+        related_name="private_plans",
+        help_text=_(
+            "For private plans, organizations which should have access to this plan"
+        ),
     )
 
     def __str__(self):
