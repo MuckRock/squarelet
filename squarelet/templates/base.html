@@ -58,6 +58,15 @@
                 {# URL provided by django-allauth/account/urls.py #}
                 <a href="{% url 'account_logout' %}">{% trans "Sign Out" %}</a>
               </li>
+              {% if request.user.is_staff %}
+              <li>
+                {% if admin_link %}
+                  <a href="{{ admin_link }}">{% trans "Admin" %}</a>
+                {% else %}
+                  <a href="{% url 'admin:index' %}">{% trans "Admin" %}</a>
+                {% endif %}
+              </li>
+              {% endif %}
             {% else %}
               <li>
                 <a id="sign-up-link" href="{% url 'select_plan' %}">{% trans "Sign Up" %}</a>

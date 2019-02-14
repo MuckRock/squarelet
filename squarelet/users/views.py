@@ -10,18 +10,19 @@ from crispy_forms.layout import Layout
 
 # Squarelet
 from squarelet.core.layout import Field
+from squarelet.core.mixins import AdminLinkMixin
 
 # Local
 from .models import User
 
 
-class UserDetailView(LoginRequiredMixin, DetailView):
+class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
     model = User
     slug_field = "username"
     slug_url_kwarg = "username"
 
     def get_context_data(self, **kwargs):
-        context = super().get_context_data()
+        context = super().get_context_data(**kwargs)
         context["other_orgs"] = context["user"].organizations.filter(individual=False)
         return context
 

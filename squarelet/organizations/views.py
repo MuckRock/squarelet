@@ -28,6 +28,7 @@ from crispy_forms.layout import Field, Layout
 
 # Squarelet
 from squarelet.core.mail import ORG_TO_ADMINS, send_mail
+from squarelet.core.mixins import AdminLinkMixin
 
 # Local
 from .forms import AddMemberForm, UpdateForm
@@ -41,7 +42,7 @@ ORG_PAGINATION = 100
 logger = logging.getLogger(__name__)
 
 
-class Detail(DetailView):
+class Detail(AdminLinkMixin, DetailView):
     queryset = Organization.objects.filter(individual=False)
 
     def get_context_data(self, **kwargs):
