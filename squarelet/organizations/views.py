@@ -189,7 +189,6 @@ class Create(LoginRequiredMixin, CreateView):
                 placeholder="New organization name",
             )
         )
-        # self.fields["name"].widget.attrs.pop("autofocus", None)
         form.helper.form_tag = False
         return form
 

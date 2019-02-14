@@ -330,7 +330,7 @@ class Plan(models.Model):
 
     objects = PlanQuerySet.as_manager()
 
-    name = models.CharField(_("name"), max_length=255, unique=True)
+    name = models.CharField(_("name"), max_length=255)
     slug = AutoSlugField(_("slug"), populate_from="name", unique=True)
 
     minimum_users = models.PositiveSmallIntegerField(_("minimum users"), default=1)

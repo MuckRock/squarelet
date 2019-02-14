@@ -63,13 +63,6 @@ class SignupForm(allauth.SignupForm, StripeForm):
                 ),
             )
 
-    def clean_organization(self):
-        """Ensure unique"""
-        data = self.cleaned_data["organization"]
-        if Organization.objects.filter(name=data).exists():
-            raise forms.ValidationError("Organization with this name already exists")
-        return data
-
     @transaction.atomic()
     def save(self, request):
         user = super().save(request)
