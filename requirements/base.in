@@ -34,3 +34,7 @@ redis
 smart_open
 sorl-thumbnail
 stripe
+django-reversion
+django-hijack
+django-celery-email
+dogslow

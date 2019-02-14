@@ -75,6 +75,7 @@ THIRD_PARTY_APPS = [
     "oidc_provider",
     "rest_framework",
     "sorl.thumbnail",
+    "reversion",
 ]
 LOCAL_APPS = [
     "squarelet.core",
@@ -138,6 +139,7 @@ MIDDLEWARE = [
     "oidc_provider.middleware.SessionManagementMiddleware",
     "squarelet.oidc.middleware.CacheInvalidationSenderMiddleware",
     "debug_toolbar.middleware.DebugToolbarMiddleware",
+    "reversion.middleware.RevisionMiddleware",
 ]
 
 # STATIC

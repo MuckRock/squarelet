@@ -1,6 +1,9 @@
 # Django
 from django.contrib import admin
 
+# Third Party
+from reversion.admin import VersionAdmin
+
 # Local
 from .models import Invitation, Membership, Organization, Plan, ReceiptEmail
 
@@ -23,7 +26,7 @@ class InvitationInline(admin.TabularInline):
 
 
 @admin.register(Organization)
-class OrganizationAdmin(admin.ModelAdmin):
+class OrganizationAdmin(VersionAdmin):
     list_display = ("name", "plan", "individual", "private")
     list_filter = ("plan", "individual", "private")
     list_select_related = ("plan",)
@@ -42,7 +45,7 @@ class OrganizationAdmin(admin.ModelAdmin):
 
 
 @admin.register(Plan)
-class PlanAdmin(admin.ModelAdmin):
+class PlanAdmin(VersionAdmin):
     list_display = (
         "name",
         "slug",
