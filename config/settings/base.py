@@ -131,6 +131,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # https://docs.djangoproject.com/en/dev/ref/settings/#middleware
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "dogslow.WatchdogMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -334,3 +335,13 @@ DEBUG_TOOLBAR_CONFIG = {
 # django-hijack
 # ------------------------------------------------------------------------------
 HIJACK_AUTHORIZE_STAFF = True
+
+# dogslow
+# ------------------------------------------------------------------------------
+DOGSLOW = True
+DOGSLOW_LOG_TO_FILE = False
+DOGSLOW_TIMER = 25
+DOGSLOW_EMAIL_TO = "mitch@muckrock.com"
+DOGSLOW_EMAIL_FROM = "info@muckrock.com"
+DOGSLOW_LOGGER = "dogslow"  # can be anything, but must match `logger` below
+DOGSLOW_LOG_TO_SENTRY = True

@@ -216,7 +216,7 @@ SENTRY_CLIENT = env(
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": True,
-    "root": {"level": "WARNING", "handlers": ["sentry"]},
+    "root": {"level": "WARNING", "handlers": ["sentry", "console"]},
     "formatters": {
         "verbose": {
             "format": "%(levelname)s %(asctime)s %(module)s "
@@ -226,6 +226,10 @@ LOGGING = {
     "handlers": {
         "sentry": {
             "level": "ERROR",
+            "class": "raven.contrib.django.raven_compat.handlers.SentryHandler",
+        },
+        "dogslow": {
+            "level": "WARNING",
             "class": "raven.contrib.django.raven_compat.handlers.SentryHandler",
         },
         "console": {
@@ -251,6 +255,7 @@ LOGGING = {
             "handlers": ["console", "sentry"],
             "propagate": False,
         },
+        "dogslow": {"level": "WARNING", "handlers": ["dogslow"], "propogate": False},
     },
 }
 
