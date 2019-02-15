@@ -14,13 +14,16 @@ django-debug-toolbar
 django-email-bandit
 django-environ
 django-extensions
+django-hijack
 django-model-utils
 django-oidc-provider
 django-premailer
 django-redis
 django-request-token
+django-reversion
 django<2.2
 djangorestframework
+dogslow
 furl
 html2text
 ipdb
@@ -34,7 +37,3 @@ redis
 smart_open
 sorl-thumbnail
 stripe
-django-reversion
-django-hijack
-django-celery-email
-dogslow

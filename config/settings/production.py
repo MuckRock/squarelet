@@ -176,6 +176,7 @@ if env.bool("USE_BANDIT", default=False):
 # Celery Email
 # ------------------------------------------------------------------------------
 if env.bool("USE_CELERY_EMAIL", default=True):
+    INSTALLED_APPS += ["djcelery_email"]  # noqa F405
     CELERY_EMAIL_BACKEND = EMAIL_BACKEND
     EMAIL_BACKEND = "djcelery_email.backends.CeleryEmailBackend"
 
