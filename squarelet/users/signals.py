@@ -12,6 +12,9 @@ def email_confirmed(request, email_address, **kwargs):
 
 def email_changed(request, user, from_email_address, to_email_address, **kwargs):
     send_cache_invalidations("user", user.pk)
+    # XXX remove failed
+    # XXX update stripe customer
+    # XXX notify the user?
 
 
 signals.email_confirmed.connect(
