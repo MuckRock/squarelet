@@ -156,6 +156,9 @@ class Update(OrganizationAdminMixin, UpdateView):
         context["free_choices"] = list(
             Plan.objects.choices(self.object).free().values_list("id", flat=True)
         )
+        context["failed_receipt_emails"] = self.object.receipt_emails.filter(
+            failed=True
+        )
         return context
 
     def get_initial(self):

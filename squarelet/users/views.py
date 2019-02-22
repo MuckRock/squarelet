@@ -1,8 +1,18 @@
 # Django
+from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http.response import HttpResponseRedirect
+from django.http.response import (
+    HttpResponse,
+    HttpResponseForbidden,
+    HttpResponseRedirect,
+)
 from django.urls import reverse
 from django.views.generic import DetailView, ListView, RedirectView, UpdateView
+
+# Standard Library
+import hashlib
+import hmac
+import time
 
 # Third Party
 from crispy_forms.helper import FormHelper
@@ -11,6 +21,7 @@ from crispy_forms.layout import Layout
 # Squarelet
 from squarelet.core.layout import Field
 from squarelet.core.mixins import AdminLinkMixin
+from squarelet.organizations.models import ReceiptEmail
 
 # Local
 from .models import User
@@ -71,3 +82,32 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
 
 class UserListView(LoginRequiredMixin, ListView):
     model = User
+
+
+def mailgun_webhook(request):
+    """Handle mailgun webhooks to keep track of user emails that have failed"""
+
+    def verify(params):
+        """Verify that the message is from mailgun"""
+        token = params.get("token", "")
+        timestamp = params.get("timestamp", "")
+        signature = params.get("signature", "")
+        hmac_digest = hmac.new(
+            key=settings.MAILGUN_ACCESS_KEY,
+            msg=f"{timestamp}{token}",
+            digestmod=hashlib.sha256,
+        ).hexdigest()
+        match = hmac.compare_digest(signature, str(hmac_digest))
+        return match and int(timestamp) + 300 > time.time()
+
+    if not verify(request.POST.get("signature")):
+        return HttpResponseForbidden()
+
+    event = request.POST["event-data"]
+    if event["event"] != "failed":
+        return HttpResponse("OK")
+
+    email = event["recipient"]
+
+    User.objects.filter(email=email).update(email_failed=True)
+    ReceiptEmail.objects.filter(email=email).update(failed=True)

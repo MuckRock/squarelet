@@ -7,6 +7,14 @@
 {% block content %}
   <div class="_cls-content">
     <h1>{{ organization.name }}</h1>
+    {% if failed_receipt_emails %}
+      <p>Warning: there were errors sending email to the following email addresses in your receipt emails:</p>
+      <ul>
+        {% for email in failed_receipt_emails %}
+          <li> {{ email.email }} </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
     {% if organization.plan != organization.next_plan %}
       <p>
         {% blocktrans with update_on=organization.update_on|date:"m/d/Y" %}

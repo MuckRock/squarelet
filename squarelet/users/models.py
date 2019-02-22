@@ -102,13 +102,18 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
     source = models.CharField(
         max_length=11,
         choices=(
-            ("muckrock", "MuckRock"),
-            ("documentcloud", "DocumentCloud"),
-            ("foiamachine", "FOIA Machine"),
-            ("quackbot", "QuackBot"),
-            ("squarelet", "Squarelet"),
+            ("muckrock", _("MuckRock")),
+            ("documentcloud", _("DocumentCloud")),
+            ("foiamachine", _("FOIA Machine")),
+            ("quackbot", _("QuackBot")),
+            ("squarelet", _("Squarelet")),
         ),
         default="squarelet",
+    )
+    email_failed = models.BooleanField(
+        _("email failed"),
+        default=False,
+        help_text=_("Has an email we sent to this user's email address failed?"),
     )
 
     created_at = AutoCreatedField(_("created at"))

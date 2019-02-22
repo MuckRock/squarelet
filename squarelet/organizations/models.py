@@ -513,6 +513,7 @@ class ReceiptEmail(models.Model):
         on_delete=models.CASCADE,
     )
     email = CIEmailField(_("email"))
+    failed = models.BooleanField(_("failed"), default=False)
 
     class Meta:
         unique_together = ("organization", "email")

@@ -55,6 +55,7 @@ class UserReadSerializer(UserBaseSerializer):
         model = User
         fields = (
             "email",
+            "email_failed",
             "email_verified",
             "is_agency",
             "name",
@@ -79,6 +80,7 @@ class UserWriteSerializer(UserBaseSerializer):
         model = User
         fields = (
             "email",
+            "email_failed",
             "email_verified",
             "is_agency",
             "name",

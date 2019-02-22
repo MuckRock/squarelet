@@ -108,6 +108,17 @@
             </div>
           </div>
       {% endif %}
+      {% if request.user.email_failed %}
+          <div class="_cls-alert">
+            <div class="alert-error">
+              <span class="_cls-alertIcon">⚠</span>
+              <span class="_cls-middleAlign">
+                We received an error trying to email you, please
+                <a href="{% url "account_email" %}">update your email.</a>
+              </span>
+            </div>
+          </div>
+      {% endif %}
 
       {% if messages %}
         {% for message in messages %}
