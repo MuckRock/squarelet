@@ -58,7 +58,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
     # do we want a full name and a short name?
     # remove blank
     name = models.CharField(_("name of user"), blank=True, max_length=255)
-    email = CIEmailField(_("email"), unique=True)
+    email = CIEmailField(_("email"), unique=True, null=True)
     username = CICharField(
         _("username"),
         max_length=150,
@@ -90,6 +90,13 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         help_text=_(
             "Designates whether this user should be treated as active. "
             "Unselect this instead of deleting accounts."
+        ),
+    )
+    is_agency = models.BooleanField(
+        _("agency user"),
+        default=False,
+        help_text=_(
+            "This is an account used for allowing agencies to log in to the site"
         ),
     )
     source = models.CharField(

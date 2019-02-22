@@ -31,7 +31,7 @@ def store_statistics():
     kwargs["date"] = yesterday
     kwargs["total_users"] = User.objects.count()
     kwargs["total_users_excluding_agencies"] = User.objects.exclude(
-        agency_user=True
+        is_agency=True
     ).count()
     kwargs["total_users_pro"] = User.objects.filter(
         organizations__plan__slug="professional"

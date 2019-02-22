@@ -132,7 +132,9 @@ class Organization(AvatarMixin, models.Model):
         # add creator to the organization as an admin by default
         self.memberships.create(user=user, admin=True)
         # add the creators email as a receipt recipient by default
-        self.receipt_emails.create(email=user.email)
+        # agency users may not have an email
+        if user.email:
+            self.receipt_emails.create(email=user.email)
 
     # Payment Management
     @mproperty

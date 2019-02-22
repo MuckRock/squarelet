@@ -56,6 +56,7 @@ class UserReadSerializer(UserBaseSerializer):
         fields = (
             "email",
             "email_verified",
+            "is_agency",
             "name",
             "organizations",
             "picture",
@@ -79,6 +80,7 @@ class UserWriteSerializer(UserBaseSerializer):
         fields = (
             "email",
             "email_verified",
+            "is_agency",
             "name",
             "organizations",
             "picture",
@@ -87,6 +89,7 @@ class UserWriteSerializer(UserBaseSerializer):
             "use_autologin",
             "uuid",
         )
+        extra_kwargs = {"email": {"required": False}, "is_agency": {"required": False}}
 
     def create(self, validated_data):
         if "username" in validated_data:
@@ -94,6 +97,8 @@ class UserWriteSerializer(UserBaseSerializer):
                 validated_data["username"]
             )
         user = super().create(validated_data)
+        user.set_unusable_password()
+        user.save()
         Organization.objects.create_individual(user)
         return user
 
