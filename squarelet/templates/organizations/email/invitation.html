@@ -3,7 +3,7 @@
 {% load autologin %}
 
 {% block body %}
-  {% url organizations:invitations uuid=invitation.uuid as url_org %}
+  {% url "organizations:invitations" uuid=invitation.uuid as url_org %}
   {% autologin url_org user as url_org_ %}
   {% blocktrans with org_name=invitation.organization.name %}
     <p>
