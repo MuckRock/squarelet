@@ -8,7 +8,10 @@ function stripeTokenHandler(token) {
 }
 
 document.addEventListener("DOMContentLoaded", function() {
-  var stripe = Stripe(document.getElementById('id_stripe_pk').value);
+  idStripePk = document.getElementById('id_stripe_pk');
+  if (idStripePk) {
+    var stripe = Stripe(idStripePk.value);
+  }
   var elements = stripe.elements();
   var style = {
     base: {
@@ -42,7 +45,12 @@ document.addEventListener("DOMContentLoaded", function() {
     document.getElementById("id_stripe_token").value = "";
     // only show payment fields if needed
     var planInput = document.getElementById('id_plan');
-    var freeChoices = JSON.parse(document.getElementById('free-choices').textContent);
+    var freeChoicesEl = document.getElementById('free-choices')
+    if (freeChoicesEl) {
+      var freeChoices = JSON.parse(freeChoicesEl.textContent);
+    } else {
+      var freeChoices = [];
+    }
     planInput.addEventListener('change', function() {
       var isFreePlan = freeChoices.indexOf(parseInt(this.value)) >= 0;
       var ucofInput = document.getElementById('id_use_card_on_file');
@@ -62,9 +70,7 @@ document.addEventListener("DOMContentLoaded", function() {
       var ucofInput = document.querySelector(
         "input[name=use_card_on_file]:checked");
       var useCardOnFile = ucofInput && ucofInput.value === "True";
-      console.log(freeChoices);
       var isFreePlan = freeChoices.indexOf(parseInt(planInput.value)) >= 0;
-      console.log(isFreePlan);
       if (!useCardOnFile && !isFreePlan) {
         event.preventDefault();
 

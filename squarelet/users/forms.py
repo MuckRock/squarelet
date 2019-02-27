@@ -39,6 +39,7 @@ class SignupForm(allauth.SignupForm, StripeForm):
         self.helper = FormHelper()
         self.helper.layout = Layout(
             Field("stripe_token"),
+            Field("stripe_pk"),
             Field("name"),
             Field("username"),
             Field("email", type="email"),
@@ -49,12 +50,13 @@ class SignupForm(allauth.SignupForm, StripeForm):
 
     def clean(self):
         data = super().clean()
-        if not data["plan"].free() and not data.get("stripe_token"):
+        plan = data["plan"]
+        if not plan.free() and not data.get("stripe_token"):
             self.add_error(
                 "plan",
                 _("You must supply a credit card number to upgrade to a non-free plan"),
             )
-        if not data["plan"].for_individuals and not data.get("organization_name"):
+        if not plan.for_individuals and not data.get("organization_name"):
             self.add_error(
                 "organization_name",
                 _(
@@ -62,6 +64,7 @@ class SignupForm(allauth.SignupForm, StripeForm):
                     "organizational account"
                 ),
             )
+        return data
 
     @transaction.atomic()
     def save(self, request):

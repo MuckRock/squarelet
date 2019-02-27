@@ -36,6 +36,32 @@ def test(c, path="squarelet", reuse_db=False):
 
 
 @task
+def coverage(c):
+    """Run the test suite with coverage report"""
+    c.run(
+        DOCKER_COMPOSE_RUN_OPT_USER.format(
+            opt="-e DJANGO_SETTINGS_MODULE=config.settings.test",
+            service="django",
+            cmd=f"coverage run --source . -m py.test",
+        )
+    )
+    c.run(
+        DOCKER_COMPOSE_RUN_OPT_USER.format(
+            opt="-e DJANGO_SETTINGS_MODULE=config.settings.test",
+            service="django",
+            cmd=f"coverage report",
+        )
+    )
+    c.run(
+        DOCKER_COMPOSE_RUN_OPT_USER.format(
+            opt="-e DJANGO_SETTINGS_MODULE=config.settings.test",
+            service="django",
+            cmd=f"coverage html",
+        )
+    )
+
+
+@task
 def pylint(c):
     """Run the linter"""
     c.run(DJANGO_RUN.format(cmd="pylint squarelet"))

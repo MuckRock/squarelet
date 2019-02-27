@@ -17,13 +17,13 @@
   <form id="stripe-form" method="post">
 
     {# this field is explicit so we can grab the plan from the get parameter #}
-    <input type="hidden" name="plan" value="{{ request.GET.plan|default:"free" }}">
+    <input type="hidden" name="plan" id="id_plan" value="{{ request.GET.plan|default:"free" }}">
 
     {% crispy form form.helper %}
 
     {% if request.GET.plan == "organization" or request.GET.plan == "organization-plus" %}
       <div class="_cls-field">
-        <input class="_cls-organizationInput" placeholder="Organization name">
+        <input class="_cls-organizationInput" placeholder="Organization name" name="organization_name" max_length="255">
       </div>
     {% endif %}
 
