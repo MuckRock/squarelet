@@ -62,7 +62,7 @@
           <div class="_cls-actionSmall">
             <a href="{% url "users:payment" %}"><button>{% trans 'Upgrade' %}</button></a>
           </div>
-          {% if request.user.is_staff %}
+          {% if request.user.is_staff and request.user != user %}
             <form action="{% url "hijack:login_with_username" user.username %}" method="post" class="_cls-actionSmall">
               {% csrf_token %}
               <button type="submit">Hijack {{ user.username }}</button>
