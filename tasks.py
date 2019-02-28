@@ -101,7 +101,10 @@ def shell(c, opts=""):
 @task
 def sh(c):
     """Run an interactive shell"""
-    c.run(DJANGO_RUN.format(cmd="sh"), pty=True)
+    c.run(
+        DOCKER_COMPOSE_RUN_OPT.format(opt="--use-aliases", service="django", cmd="sh"),
+        pty=True,
+    )
 
 
 @task
