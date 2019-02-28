@@ -94,8 +94,14 @@ def runserver(c):
 
 @task
 def shell(c, opts=""):
-    """Run an interactive shell"""
+    """Run an interactive python shell"""
     c.run(DJANGO_RUN.format(cmd=f"python manage.py shell_plus {opts}"), pty=True)
+
+
+@task
+def sh(c):
+    """Run an interactive shell"""
+    c.run(DJANGO_RUN.format(cmd="sh"), pty=True)
 
 
 @task
