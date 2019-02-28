@@ -239,6 +239,7 @@ MANAGERS = ADMINS
 INSTALLED_APPS += ["squarelet.taskapp.celery.CeleryAppConfig"]
 # http://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-broker_url
 CELERY_BROKER_URL = env("REDIS_URL", default="django://")
+BROKER_URL = CELERY_BROKER_URL
 # http://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-result_backend
 if CELERY_BROKER_URL == "django://":
     CELERY_RESULT_BACKEND = "redis://"
@@ -250,6 +251,7 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 # http://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-result_serializer
 CELERY_RESULT_SERIALIZER = "json"
+CELERY_REDIS_MAX_CONNECTIONS = env.int("CELERY_REDIS_MAX_CONNECTIONS", default=10)
 # django-allauth
 # ------------------------------------------------------------------------------
 # https://django-allauth.readthedocs.io/en/latest/configuration.html
@@ -302,7 +304,7 @@ REST_FRAMEWORK = {
 
 # first party urls
 # ------------------------------------------------------------------------------
-SQUARELET_URL = env("SQUARLET_URL", default="http://dev.squarelet.com")
+SQUARELET_URL = env("SQUARELET_URL", default="http://dev.squarelet.com")
 MUCKROCK_URL = env("MUCKROCK_URL", default="http://dev.muckrock.com")
 FOIAMACHINE_URL = env("FOIAMACHINE_URL", default="http://dev.foiamachine.com")
 DOCCLOUD_URL = env("DOCCLOUD_URL", default="http://dev.documentcloud.org")
