@@ -31,6 +31,11 @@
         </div>
         <div class="_cls-organizationSection">
           <div class="_cls-mediumHeader">{% trans 'Organizations' %}</div>
+          <div>
+            <a class="_cls-action" href="{% url "organizations:list" %}">
+              {% trans "View all organizations" %}
+            </a>
+          </div>
           {% if other_orgs.count > 0 %}
             <ul class="_cls-profList">
             {% for org in other_orgs.all %}

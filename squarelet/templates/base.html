@@ -51,33 +51,65 @@
         <nav>
           <ul>
             <li>
-              <a href="{% url 'organizations:list' %}">{% trans "Organizations" %}</a>
+              <a href="{{ settings.MUCKROCK_URL }}">
+                <div class="_cls-serviceIcon">
+                  <img src="{% static 'assets/muckrock.svg' %}">
+                </div>
+                <div class="_cls-serviceInfo">
+                  <div class="_cls-serviceName">
+                    {% trans 'MuckRock' %}
+                  </div>
+                </div>
+              </a>
             </li>
+            <li>
+              <a href="{{ settings.DOCCLOUD_URL }}">
+                <div class="_cls-serviceIcon">
+                  <img src="{% static 'assets/documentcloud.svg' %}">
+                </div>
+                <div class="_cls-serviceInfo">
+                  <div class="_cls-serviceName">
+                    {% trans 'DocumentCloud' %}
+                  </div>
+                </div>
+              </a>
+            </li>
+            <li>
+              <a href="{{ settings.FOIAMACHINE_URL }}">
+                <div class="_cls-serviceIcon">
+                  <img src="{% static 'assets/foiamachine.svg' %}">
+                </div>
+                <div class="_cls-serviceInfo">
+                  <div class="_cls-serviceName">
+                    {% trans 'FOIA Machine' %}
+                  </div>
+                </div>
+              </a>
+            </li>
+            {% comment %}
+            <li>
+              <div class="_cls-serviceIcon">
+                <img src="{% static 'assets/quackbot.svg' %}">
+              </div>
+              <div class="_cls-serviceInfo">
+                <div class="_cls-serviceName">
+                  {% trans 'Quackbot' %}
+                </div>
+              </div>
+            </li>
+            {% endcomment %}
             {% if request.user.is_authenticated %}
               <li>
-                {# URL provided by django-allauth/account/urls.py #}
-                <a href="{% url 'users:detail' request.user.username  %}">{% trans "My Profile" %}</a>
-              </li>
-              <li>
-                {# URL provided by django-allauth/account/urls.py #}
                 <a href="{% url 'account_logout' %}">{% trans "Sign Out" %}</a>
               </li>
-              {% if request.user.is_staff %}
+            {% endif %}
+            {% if request.user.is_staff %}
               <li>
                 {% if admin_link %}
                   <a href="{{ admin_link }}">{% trans "Admin" %}</a>
                 {% else %}
                   <a href="{% url 'admin:index' %}">{% trans "Admin" %}</a>
                 {% endif %}
-              </li>
-              {% endif %}
-            {% else %}
-              <li>
-                <a id="sign-up-link" href="{% url 'select_plan' %}">{% trans "Sign Up" %}</a>
-              </li>
-              <li>
-                {# URL provided by django-allauth/account/urls.py #}
-                <a id="log-in-link" href="{% url 'account_login' %}">{% trans "Sign In" %}</a>
               </li>
             {% endif %}
           </ul>
