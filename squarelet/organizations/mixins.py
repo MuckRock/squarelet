@@ -6,7 +6,9 @@ class OrganizationAdminMixin(UserPassesTestMixin):
     """Only allow access to organization admins"""
 
     def test_func(self):
-        return self.get_object().has_admin(self.request.user)
+        return self.request.user.is_authenticated and self.get_object().has_admin(
+            self.request.user
+        )
 
 
 class IndividualMixin(object):
@@ -14,4 +16,7 @@ class IndividualMixin(object):
 
     def get_object(self, queryset=None):
         # pylint: disable=unused-argument
-        return self.request.user.individual_organization
+        if self.request.user.is_authenticated:
+            return self.request.user.individual_organization
+        else:
+            return None
