@@ -195,6 +195,7 @@ $RECYCLE.BIN/
 *.DS_Store
 .AppleDouble
 .LSOverride
+.rpt2_cache
 
 # Icon must end with two \r
 Icon
@@ -280,3 +281,5 @@ squarelet/media/
 .env
 .envs/*
 !.envs/.local/
+
+js_build
