@@ -1,20 +1,3 @@
-<<<<<<< HEAD
-# Third Party
-from allauth.account import signals
-
-
-def email_confirmed(request, email_address, **kwargs):
-    if email_address.primary:
-        pass
-        # XXX send cache invalidation for user
-        # sync.delay("User", "update", email_address.user.pk)
-
-
-def email_changed(request, user, from_email_address, to_email_address, **kwargs):
-    pass
-    # XXX send cache invalidation for user
-    # sync.delay("User", "update", user.pk)
-=======
 # Django
 from django.db import transaction
 from django.utils.translation import ugettext_lazy as _
@@ -54,7 +37,6 @@ def email_changed(request, user, from_email_address, to_email_address, **kwargs)
             "to_email_address": to_email_address.email,
         },
     )
->>>>>>> 12ec74ebf3f5076b05785065adb2435d5017154c
 
 
 signals.email_confirmed.connect(

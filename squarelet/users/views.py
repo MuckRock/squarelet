@@ -1,12 +1,6 @@
 # Django
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
-<<<<<<< HEAD
-from django.http.response import HttpResponseRedirect
-from django.urls import reverse
-from django.views.generic import DetailView, ListView, RedirectView, UpdateView
-
-=======
 from django.http.response import (
     HttpResponse,
     HttpResponseForbidden,
@@ -20,18 +14,14 @@ import hashlib
 import hmac
 import time
 
->>>>>>> 12ec74ebf3f5076b05785065adb2435d5017154c
 # Third Party
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout
 
 # Squarelet
 from squarelet.core.layout import Field
-<<<<<<< HEAD
-=======
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.organizations.models import ReceiptEmail
->>>>>>> 12ec74ebf3f5076b05785065adb2435d5017154c
 
 # Local
 from .models import User
@@ -43,11 +33,7 @@ class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
     slug_url_kwarg = "username"
 
     def get_context_data(self, **kwargs):
-<<<<<<< HEAD
-        context = super().get_context_data()
-=======
         context = super().get_context_data(**kwargs)
->>>>>>> 12ec74ebf3f5076b05785065adb2435d5017154c
         context["other_orgs"] = context["user"].organizations.filter(individual=False)
         return context
 
@@ -74,13 +60,9 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
     def get_form(self, form_class=None):
         form = super().get_form(form_class)
         form.helper = FormHelper()
-<<<<<<< HEAD
-        form.helper.layout = Layout(Field("username"), Field("name"), Field("avatar"))
-=======
         form.helper.layout = Layout(
             Field("username"), Field("name"), Field("avatar"), Field("use_autologin")
         )
->>>>>>> 12ec74ebf3f5076b05785065adb2435d5017154c
         form.helper.form_tag = False
         return form
 
@@ -100,8 +82,6 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
 
 class UserListView(LoginRequiredMixin, ListView):
     model = User
-<<<<<<< HEAD
-=======
 
 
 def mailgun_webhook(request):
@@ -131,4 +111,3 @@ def mailgun_webhook(request):
 
     User.objects.filter(email=email).update(email_failed=True)
     ReceiptEmail.objects.filter(email=email).update(failed=True)
->>>>>>> 12ec74ebf3f5076b05785065adb2435d5017154c
