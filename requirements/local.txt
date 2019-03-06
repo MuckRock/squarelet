@@ -39,11 +39,10 @@ django-allauth==0.38.0
 django-appconf==1.0.2
 django-autocomplete-light==3.3.2
 django-autoslug-iplweb==1.9.4
-django-celery-email==2.0.1
 django-choices==1.6.1
 django-compat==1.0.15
 django-compressor==2.2
-django-coverage-plugin==1.5.0
+django-coverage-plugin==1.6.0
 django-crispy-forms==1.7.2
 django-debug-toolbar==1.11
 django-email-bandit==1.5
