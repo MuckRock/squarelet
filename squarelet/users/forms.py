@@ -13,7 +13,6 @@ from crispy_forms.layout import Layout
 # Squarelet
 from squarelet.core.forms import StripeForm
 from squarelet.core.layout import Field
-from squarelet.core.mail import send_mail
 from squarelet.organizations.models import Organization, Plan
 
 
@@ -31,9 +30,7 @@ class SignupForm(allauth.SignupForm, StripeForm):
         to_field_name="slug",
         widget=forms.HiddenInput(),
     )
-    # XXX ensure org name is unique
     organization_name = forms.CharField(max_length=255, required=False)
-    # XXX set max users?
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -42,6 +39,7 @@ class SignupForm(allauth.SignupForm, StripeForm):
         self.helper = FormHelper()
         self.helper.layout = Layout(
             Field("stripe_token"),
+            Field("stripe_pk"),
             Field("name"),
             Field("username"),
             Field("email", type="email"),
@@ -52,12 +50,13 @@ class SignupForm(allauth.SignupForm, StripeForm):
 
     def clean(self):
         data = super().clean()
-        if not data["plan"].free() and not data.get("stripe_token"):
+        plan = data["plan"]
+        if not plan.free() and not data.get("stripe_token"):
             self.add_error(
                 "plan",
                 _("You must supply a credit card number to upgrade to a non-free plan"),
             )
-        if not data["plan"].for_individuals and not data.get("organization_name"):
+        if not plan.for_individuals and not data.get("organization_name"):
             self.add_error(
                 "organization_name",
                 _(
@@ -65,13 +64,15 @@ class SignupForm(allauth.SignupForm, StripeForm):
                     "organizational account"
                 ),
             )
+        return data
 
     @transaction.atomic()
     def save(self, request):
         user = super().save(request)
         user.name = self.cleaned_data.get("name", "")
+        # set source based on the intent
+        user.source = request.GET.get("intent", "squarelet").lower().strip()
         user.save()
-        # XXX validate things here - ie ensure name uniqueness
         individual_organization = Organization.objects.create_individual(user)
 
         free_plan = Plan.objects.get(slug="free")

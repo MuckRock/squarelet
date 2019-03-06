@@ -14,5 +14,9 @@ urlpatterns = [
     path("~update/", view=views.UserUpdateView.as_view(), name="update"),
     path("~payment/", view=IndividualUpdate.as_view(), name="payment"),
     path("~receipts/", view=IndividualReceipts.as_view(), name="receipts"),
+<<<<<<< HEAD
+=======
+    path("~mailgun/", view=views.mailgun_webhook, name="mailgun"),
+>>>>>>> 12ec74ebf3f5076b05785065adb2435d5017154c
     path("<str:username>/", view=views.UserDetailView.as_view(), name="detail"),
 ]

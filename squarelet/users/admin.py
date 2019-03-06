@@ -6,6 +6,7 @@ from django.utils.translation import ugettext_lazy as _
 
 # Third Party
 from allauth.account.utils import sync_user_email_addresses
+from reversion.admin import VersionAdmin
 
 # Squarelet
 from squarelet.organizations.models import Organization
@@ -21,7 +22,7 @@ class MyUserCreationForm(UserCreationForm):
 
 
 @admin.register(User)
-class MyUserAdmin(AuthUserAdmin):
+class MyUserAdmin(VersionAdmin, AuthUserAdmin):
     add_form = MyUserCreationForm
     add_fieldsets = (
         (

@@ -32,6 +32,10 @@ class CustomScopeClaims(ScopeClaims):
 
     info_uuid = (_("UUID"), _("Access to the user's UUID"))
     info_organizations = (_("organizations"), _("Access to the user's organizations"))
+<<<<<<< HEAD
+=======
+    info_preferences = (_("preferences"), _("Access to the user's preferences"))
+>>>>>>> 12ec74ebf3f5076b05785065adb2435d5017154c
 
     def scope_uuid(self):
         """Populate the scope with the UUID"""
@@ -45,3 +49,10 @@ class CustomScopeClaims(ScopeClaims):
                 for m in self.user.memberships.select_related("organization__plan")
             ]
         }
+<<<<<<< HEAD
+=======
+
+    def scope_preferences(self):
+        """Populate the scope with user preferences"""
+        return {"use_autologin": self.user.use_autologin}
+>>>>>>> 12ec74ebf3f5076b05785065adb2435d5017154c

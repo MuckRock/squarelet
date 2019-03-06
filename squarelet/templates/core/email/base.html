@@ -1,5 +1,6 @@
 {% load premailer %}
 {% load static from staticfiles %}
+{% load i18n %}
 {% spaceless %}
   {% premailer base_url %}
   <!DOCTYPE html>
@@ -225,8 +226,15 @@
                     </div>
                     <div class="footer">
                       {% block settings %}{% endblock %}
-                      {% if user %}<p>This email was sent to <a href="mailto:{{ user.email }}">{{ user.email }}</a>.{% endif %}
-                      <p>Add <a href="mailto:info@muckrock.com">info@muckrock.com</a> to your address book to prevent our emails from being marked as spam.</p>
+                      {% if user %}
+                        <p>
+                        {% trans "This email was sent to" %}
+                          <a href="mailto:{{ user.email }}">{{ user.email }}</a>.
+                        </p>
+                      {% endif %}
+                      {% blocktrans %}
+                        <p>Add <a href="mailto:info@muckrock.com">info@muckrock.com</a> to your address book to prevent our emails from being marked as spam.</p>
+                      {% endblocktrans %}
                       <p>MuckRock, 411A Highland Avenue, Somerville, MA 02144</p>
                     </div>
                   </div>

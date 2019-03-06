@@ -4,12 +4,9 @@ Werkzeug
 black
 coverage
 django-coverage-plugin
-django-debug-toolbar
-django-extensions
 django-test-plus
 factory-boy
 flake8
-ipdb
 pip-tools
 pylint<2.0
 pylint_celery

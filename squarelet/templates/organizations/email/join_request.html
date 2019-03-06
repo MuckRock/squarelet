@@ -1,5 +1,22 @@
 {% extends "core/email/base.html" %}
+{% load i18n %}
+{% load autologin %}
 
 {% block body %}
-  <p>The user <a href="{{ joiner.get_absolute_url }}">{{ joiner.name }} ({{ joiner.username }}) &lt;{{ joiner.email }}&gt;</a> has requested to join your organization, <a href="{{ organization.get_absolute_url }}">{{ organization }}</a>.  You may accept or reject them <a href="{% url "organizations:manage-members" slug=organization.slug %}">here</a>.
+  {% url "organizations:manage-members" slug=organization.slug as url_members %}
+  {% autologin url_org user as url_members_ %}
+  {% autologin joiner.get_absolute_url user as url_joiner_ %}
+  {% autologin organization.get_absolute_url user as url_org_ %}
+  {% blocktrans with name=joiner.name username=joiner.username email=joiner.email %}
+    <p>
+      The user
+      <a href="{{ url_joiner_ }}">
+        {{ name }} ({{ username }}) &lt;{{ email }}&gt;
+      </a>
+      has requested to join your organization,
+      <a href="{{ url_org_ }}">{{ organization }}</a>.
+      You may accept or reject them
+      <a href="{{ url_members_ }}">here</a>.
+    </p>
+  {% endblocktrans %}
 {% endblock %}

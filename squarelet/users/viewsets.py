@@ -1,9 +1,20 @@
 # Django
+<<<<<<< HEAD
 from django.db.models.query import Prefetch
+=======
+from django.core.exceptions import ValidationError
+from django.db.models.query import Prefetch
+from django.http.response import Http404
+from django.shortcuts import get_object_or_404
+>>>>>>> 12ec74ebf3f5076b05785065adb2435d5017154c
 from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
 
 # Third Party
+<<<<<<< HEAD
+=======
+import sesame.utils
+>>>>>>> 12ec74ebf3f5076b05785065adb2435d5017154c
 from allauth.account.models import EmailAddress, EmailConfirmationHMAC
 from allauth.account.utils import setup_user_email
 from rest_framework import status, viewsets
@@ -51,6 +62,7 @@ class UserViewSet(viewsets.ModelViewSet):
         headers = self.get_success_headers(serializer.data)
 
         setup_user_email(request, user, [])
+<<<<<<< HEAD
         email_address = EmailAddress.objects.get_primary(user)
         key = EmailConfirmationHMAC(email_address).key
         activate_url = reverse("account_confirm_email", args=[key])
@@ -60,7 +72,35 @@ class UserViewSet(viewsets.ModelViewSet):
             user=user,
             extra_context={"activate_url": activate_url, "minireg": True},
         )
+=======
+        if not user.is_agency:
+            email_address = EmailAddress.objects.get_primary(user)
+            key = EmailConfirmationHMAC(email_address).key
+            activate_url = reverse("account_confirm_email", args=[key])
+            send_mail(
+                subject=_("Welcome to MuckRock"),
+                template="account/email/email_confirmation_signup_message.html",
+                user=user,
+                extra_context={"activate_url": activate_url, "minireg": True},
+            )
+>>>>>>> 12ec74ebf3f5076b05785065adb2435d5017154c
 
         return Response(
             serializer.data, status=status.HTTP_201_CREATED, headers=headers
         )
+<<<<<<< HEAD
+=======
+
+
+class UrlAuthTokenViewSet(viewsets.ViewSet):
+    permission_classes = (ScopePermission,)
+    read_scopes = ("read_auth_token",)
+
+    def retrieve(self, request, pk=None):
+        # pylint: disable=invalid-name
+        try:
+            user = get_object_or_404(User, pk=pk)
+        except ValidationError:
+            raise Http404
+        return Response(sesame.utils.get_parameters(user))
+>>>>>>> 12ec74ebf3f5076b05785065adb2435d5017154c

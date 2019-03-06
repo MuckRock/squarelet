@@ -534,6 +534,14 @@ nav a:hover {
   font-size: 13px;
 }
 
+nav ._cls-serviceName {
+  color: #f0f0f0;
+}
+
+nav ._cls-serviceDescription {
+  color: #e0e0e0;
+}
+
 ._cls-largeContent {
   max-width: 1000px;
   margin: auto;

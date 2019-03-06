@@ -1,14 +1,16 @@
-
 function stripeTokenHandler(token) {
   // Insert the token ID into the form so it gets submitted to the server
-  var hiddenInput = documnet.getElementById("id_stripe_token");
-  hiddenInput.val(token.id);
+  var hiddenInput = document.getElementById('_id-stripe_token');
+  hiddenInput.value = token.id;
   // Submit the form
-  document.getElementById("stripe-form").submit();
+  document.getElementById('stripe-form').submit();
 }
 
-document.addEventListener("DOMContentLoaded", function() {
-  var stripe = Stripe('{{ settings.STRIPE_PUB_KEY }}');
+document.addEventListener('DOMContentLoaded', function() {
+  idStripePk = document.getElementById('_id-stripe_pk');
+  if (idStripePk) {
+    var stripe = Stripe(idStripePk.value);
+  }
   var elements = stripe.elements();
   var style = {
     base: {
@@ -27,7 +29,7 @@ document.addEventListener("DOMContentLoaded", function() {
       },
     },
   };
-  if (document.getElementById("card-element")) {
+  if (document.getElementById('card-element')) {
     var card = elements.create('card', {style: style});
     card.mount('#card-element');
     card.addEventListener('change', function(event) {
@@ -39,14 +41,43 @@ document.addEventListener("DOMContentLoaded", function() {
       }
     });
     // We don't want the browser to fill this in with old values
-    document.getElementById("id_stripe_token").value = "";
+    document.getElementById('id_stripe_token').value = '';
+    // only show payment fields if needed
+    var planInput = document.getElementById('id_plan');
+    var freeChoicesEl = document.getElementById('free-choices');
+    if (freeChoicesEl) {
+      var freeChoices = JSON.parse(freeChoicesEl.textContent);
+    } else {
+      var freeChoices = [];
+    }
+    planInput.addEventListener('change', function() {
+      var isFreePlan = freeChoices.indexOf(parseInt(this.value)) >= 0;
+      var ucofInput = document.getElementById('id_use_card_on_file');
+      var cardContainer = document.getElementById('card-container');
+      if (isFreePlan) {
+        if (ucofInput) {
+          ucofInput.parentNode.style.display = 'none';
+        }
+        if (cardContainer) {
+          cardContainer.style.display = 'none';
+        }
+      } else {
+        if (ucofInput) {
+          ucofInput.parentNode.style.display = '';
+        }
+        if (cardContainer) {
+          cardContainer.style.display = '';
+        }
+      }
+    });
+    planInput.dispatchEvent(new Event('change'));
     // Create a token or display an error when the form is submitted.
     var form = document.getElementById('stripe-form');
     form.addEventListener('submit', function(event) {
-      var ucofInput = document.querySelector(
-        "input[name=use_card_on_file]:checked");
-      var useCardOnFile = ucofInput && ucofInput.value === "True";
-      if (!useCardOnFile) {
+      var ucofInput = document.querySelector('input[name=use_card_on_file]:checked');
+      var useCardOnFile = ucofInput && ucofInput.value === 'True';
+      var isFreePlan = freeChoices.indexOf(parseInt(planInput.value)) >= 0;
+      if (!useCardOnFile && !isFreePlan) {
         event.preventDefault();
 
         stripe.createToken(card).then(function(result) {

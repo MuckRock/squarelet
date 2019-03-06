@@ -1,11 +1,15 @@
 # Django
 from django import forms
+from django.conf import settings
 from django.utils.translation import ugettext_lazy as _
 
 
 class StripeForm(forms.Form):
     """Base class for forms which include stripe fields"""
 
+    stripe_pk = forms.CharField(
+        widget=forms.HiddenInput(), initial=settings.STRIPE_PUB_KEY
+    )
     stripe_token = forms.CharField(widget=forms.HiddenInput(), required=False)
     use_card_on_file = forms.TypedChoiceField(
         label=_("Use Credit Card on File"),

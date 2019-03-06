@@ -4,6 +4,7 @@ from django.contrib import admin
 # Third Party
 from oidc_provider.admin import ClientAdmin
 from oidc_provider.models import Client
+from reversion.admin import VersionAdmin
 
 # Squarelet
 from squarelet.oidc.models import ClientProfile
@@ -18,5 +19,5 @@ class ClientProfileInline(admin.StackedInline):
 
 
 @admin.register(Client)
-class MyClientAdmin(ClientAdmin):
+class MyClientAdmin(VersionAdmin, ClientAdmin):
     inlines = [ClientProfileInline]

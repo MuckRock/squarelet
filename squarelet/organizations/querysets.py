@@ -34,11 +34,23 @@ class OrganizationQuerySet(models.QuerySet):
 
 
 class PlanQuerySet(models.QuerySet):
-    def individual_choices(self):
-        return self.filter(public=True, for_individuals=True)
+    def choices(self, organization):
+        """Return the plan choices for the given organization"""
+        if organization.individual:
+            queryset = self.filter(for_individuals=True)
+        else:
+            queryset = self.filter(for_groups=True)
+        # show public plans, the organizations current plan, and any custom plan
+        # to which they have been granted explicit access
+        return queryset.filter(
+            Q(public=True)
+            | Q(organizations=organization)
+            | Q(private_organizations=organization)
+        ).distinct()
 
-    def group_choices(self):
-        return self.filter(public=True, for_groups=True)
+    def free(self):
+        """Free plans"""
+        return self.filter(base_price=0, price_per_user=0)
 
 
 class InvitationQuerySet(models.QuerySet):

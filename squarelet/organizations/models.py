@@ -23,6 +23,7 @@ from sorl.thumbnail import ImageField
 # Squarelet
 from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
 from squarelet.core.mail import ORG_TO_RECEIPTS, send_mail
+from squarelet.core.mixins import AvatarMixin
 from squarelet.oidc.middleware import send_cache_invalidations
 
 # Local
@@ -36,13 +37,14 @@ DEFAULT_AVATAR = static("images/avatars/organization.png")
 logger = logging.getLogger(__name__)
 
 
-class Organization(models.Model):
+class Organization(AvatarMixin, models.Model):
     """Orginization to allow pooled requests and collaboration"""
 
     objects = OrganizationQuerySet.as_manager()
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
+    # XXX names need to be non-unique
     name = CICharField(_("name"), max_length=255, unique=True)
     slug = AutoSlugField(_("slug"), populate_from="name", unique=True)
     created_at = AutoCreatedField(_("created at"))
@@ -83,18 +85,31 @@ class Organization(models.Model):
 
     # stripe
     customer_id = models.CharField(
-        _("customer id"), max_length=255, unique=True, blank=True
+        _("customer id"), max_length=255, unique=True, blank=True, null=True
     )
     subscription_id = models.CharField(
-        _("subscription id"), max_length=255, unique=True, blank=True
+        _("subscription id"), max_length=255, unique=True, blank=True, null=True
     )
     payment_failed = models.BooleanField(_("payment failed"), default=False)
+
+    default_avatar = static("images/avatars/organization.png")
 
     class Meta:
         ordering = ("slug",)
 
     def __str__(self):
-        return self.name
+        if self.individual:
+            return f"{self.name} (Individual)"
+        else:
+            return self.name
+
+    def save(self, *args, **kwargs):
+        # pylint: disable=arguments-differ
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            transaction.on_commit(
+                lambda: send_cache_invalidations("organization", self.pk)
+            )
 
     def save(self, *args, **kwargs):
         # pylint: disable=arguments-differ
@@ -126,16 +141,9 @@ class Organization(models.Model):
         # add creator to the organization as an admin by default
         self.memberships.create(user=user, admin=True)
         # add the creators email as a receipt recipient by default
-        self.receipt_emails.create(email=user.email)
-
-    @property
-    def avatar_url(self):
-        if self.avatar and self.avatar.url.startswith("http"):
-            return self.avatar.url
-        elif self.avatar:
-            return f"{settings.SQUARELET_URL}{self.avatar.url}"
-        else:
-            return DEFAULT_AVATAR
+        # agency users may not have an email
+        if user.email:
+            self.receipt_emails.create(email=user.email)
 
     # Payment Management
     @mproperty
@@ -333,7 +341,7 @@ class Plan(models.Model):
 
     objects = PlanQuerySet.as_manager()
 
-    name = models.CharField(_("name"), max_length=255, unique=True)
+    name = models.CharField(_("name"), max_length=255)
     slug = AutoSlugField(_("slug"), populate_from="name", unique=True)
 
     minimum_users = models.PositiveSmallIntegerField(_("minimum users"), default=1)
@@ -357,6 +365,14 @@ class Plan(models.Model):
         _("for groups"),
         default=True,
         help_text=_("Is this plan usable for non-individual organizations?"),
+    )
+
+    private_organizations = models.ManyToManyField(
+        "organizations.Organization",
+        related_name="private_plans",
+        help_text=_(
+            "For private plans, organizations which should have access to this plan"
+        ),
     )
 
     def __str__(self):
@@ -506,6 +522,7 @@ class ReceiptEmail(models.Model):
         on_delete=models.CASCADE,
     )
     email = CIEmailField(_("email"))
+    failed = models.BooleanField(_("failed"), default=False)
 
     class Meta:
         unique_together = ("organization", "email")

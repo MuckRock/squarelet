@@ -31,6 +31,11 @@
         </div>
         <div class="_cls-organizationSection">
           <div class="_cls-mediumHeader">{% trans 'Organizations' %}</div>
+          <div>
+            <a class="_cls-action" href="{% url "organizations:list" %}">
+              {% trans "View all organizations" %}
+            </a>
+          </div>
           {% if other_orgs.count > 0 %}
             <ul class="_cls-profList">
             {% for org in other_orgs.all %}
@@ -57,6 +62,12 @@
           <div class="_cls-actionSmall">
             <a href="{% url "users:payment" %}"><button>{% trans 'Upgrade' %}</button></a>
           </div>
+          {% if request.user.is_staff and request.user != user %}
+            <form action="{% url "hijack:login_with_username" user.username %}" method="post" class="_cls-actionSmall">
+              {% csrf_token %}
+              <button type="submit">Hijack {{ user.username }}</button>
+            </form>
+          {% endif %}
         </div>
         <div class="_cls-services">
           <div class="_cls-mediumHeader">{% trans 'Services' %}</div>

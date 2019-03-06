@@ -1,23 +1,23 @@
 # Django
 # Standard Library
-from django.conf import settings
+import uuid
+
+# Third Party
+import sesame
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.models import PermissionsMixin
 from django.contrib.postgres.fields import CICharField, CIEmailField
 from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.db import models, transaction
+from django.http.request import urlencode
 from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
-
-# Standard Library
-import uuid
-
-# Third Party
 from memoize import mproperty
 from sorl.thumbnail import ImageField
 
 # Squarelet
 from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
+from squarelet.core.mixins import AvatarMixin
 from squarelet.oidc.middleware import send_cache_invalidations
 from squarelet.organizations.models import Organization
 
@@ -28,7 +28,7 @@ from .validators import UsernameValidator
 DEFAULT_AVATAR = static("images/avatars/profile.png")
 
 
-class User(AbstractBaseUser, PermissionsMixin):
+class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
     """User model for squarelet
 
     This is a general user model which should only store information applicable
@@ -54,13 +54,12 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     # XXX finish doc string
 
-    # XXX make this a fk to individual org?
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     # XXX should this be optional or not?  what do we sign off as on requests?
     # do we want a full name and a short name?
+    # remove blank
     name = models.CharField(_("name of user"), blank=True, max_length=255)
-    # XXX should this be optional or not?
-    email = CIEmailField(_("email"), unique=True)
+    email = CIEmailField(_("email"), unique=True, null=True)
     username = CICharField(
         _("username"),
         max_length=150,
@@ -94,12 +93,48 @@ class User(AbstractBaseUser, PermissionsMixin):
             "Unselect this instead of deleting accounts."
         ),
     )
+    is_agency = models.BooleanField(
+        _("agency user"),
+        default=False,
+        help_text=_(
+            "This is an account used for allowing agencies to log in to the site"
+        ),
+    )
+    source = models.CharField(
+        max_length=11,
+        choices=(
+            ("muckrock", _("MuckRock")),
+            ("documentcloud", _("DocumentCloud")),
+            ("foiamachine", _("FOIA Machine")),
+            ("quackbot", _("QuackBot")),
+            ("squarelet", _("Squarelet")),
+        ),
+        default="squarelet",
+    )
+    email_failed = models.BooleanField(
+        _("email failed"),
+        default=False,
+        help_text=_("Has an email we sent to this user's email address failed?"),
+    )
+
     created_at = AutoCreatedField(_("created at"))
     updated_at = AutoLastModifiedField(_("updated at"))
+
+    # preferences
+    use_autologin = models.BooleanField(
+        _("use autologin"),
+        default=True,
+        help_text=(
+            "Links you receive in emails from us will contain"
+            " a token to automatically log you in"
+        ),
+    )
 
     USERNAME_FIELD = "username"
     EMAIL_FIELD = "email"
     REQUIRED_FIELDS = ["email"]
+
+    default_avatar = static("images/avatars/profile.png")
 
     objects = UserManager()
 
@@ -122,16 +157,15 @@ class User(AbstractBaseUser, PermissionsMixin):
             return self.name
         return self.username
 
-    @property
-    def avatar_url(self):
-        if self.avatar and self.avatar.url.startswith("http"):
-            return self.avatar.url
-        elif self.avatar:
-            return f"{settings.SQUARELET_URL}{self.avatar.url}"
-        else:
-            return DEFAULT_AVATAR
-
     @mproperty
     def individual_organization(self):
         """A user's individual organization has a matching UUID"""
         return Organization.objects.get(id=self.id)
+
+    def wrap_url(self, url, **extra):
+        """Wrap a URL for autologin"""
+        if not self.use_autologin:
+            return url
+
+        extra.update(sesame.utils.get_parameters(self))
+        return "{}?{}".format(url, urlencode(extra))

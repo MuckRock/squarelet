@@ -92,6 +92,7 @@ AWS_S3_OBJECT_PARAMETERS = {
 # ------------------------
 
 STATICFILES_STORAGE = "config.settings.production.StaticRootS3BotoStorage"
+# XXX set up cloudfront cdn
 STATIC_URL = f"https://s3.amazonaws.com/{AWS_STORAGE_BUCKET_NAME}/static/"
 
 # MEDIA
@@ -100,10 +101,16 @@ STATIC_URL = f"https://s3.amazonaws.com/{AWS_STORAGE_BUCKET_NAME}/static/"
 # region http://stackoverflow.com/questions/10390244/
 from storages.backends.s3boto3 import S3Boto3Storage  # noqa E402 isort:skip
 
-StaticRootS3BotoStorage = lambda: S3Boto3Storage(location="static")  # noqa
-MediaRootS3BotoStorage = lambda: S3Boto3Storage(
-    location="media", file_overwrite=False
-)  # noqa
+
+class StaticRootS3BotoStorage(S3Boto3Storage):
+    location = "static"
+
+
+class MediaRootS3BotoStorage(S3Boto3Storage):
+    location = "media"
+    file_overwrite = False
+
+
 # endregion
 DEFAULT_FILE_STORAGE = "config.settings.production.MediaRootS3BotoStorage"
 MEDIA_URL = f"https://s3.amazonaws.com/{AWS_STORAGE_BUCKET_NAME}/media/"
@@ -160,7 +167,8 @@ class HijackAnymailBackend(HijackBackendMixin, MailgunBackend):
 
 if env.bool("USE_BANDIT", default=False):
     INSTALLED_APPS += ["bandit"]
-    BANDIT_EMAIL = env("BANDIT_EMAIL")
+    BANDIT_EMAIL = env("BANDIT_EMAIL", default="staging+squarelet@muckrock.com")
+    BANDIT_WHITELIST = env.list("BANDIT_WHITELIST", default=[])
 
     EMAIL_BACKEND = "config.settings.production.HijackAnymailBackend"
 
@@ -168,6 +176,7 @@ if env.bool("USE_BANDIT", default=False):
 # Celery Email
 # ------------------------------------------------------------------------------
 if env.bool("USE_CELERY_EMAIL", default=True):
+    INSTALLED_APPS += ["djcelery_email"]  # noqa F405
     CELERY_EMAIL_BACKEND = EMAIL_BACKEND
     EMAIL_BACKEND = "djcelery_email.backends.CeleryEmailBackend"
 
@@ -207,7 +216,7 @@ SENTRY_CLIENT = env(
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": True,
-    "root": {"level": "WARNING", "handlers": ["sentry"]},
+    "root": {"level": "WARNING", "handlers": ["sentry", "console"]},
     "formatters": {
         "verbose": {
             "format": "%(levelname)s %(asctime)s %(module)s "
@@ -217,6 +226,10 @@ LOGGING = {
     "handlers": {
         "sentry": {
             "level": "ERROR",
+            "class": "raven.contrib.django.raven_compat.handlers.SentryHandler",
+        },
+        "dogslow": {
+            "level": "WARNING",
             "class": "raven.contrib.django.raven_compat.handlers.SentryHandler",
         },
         "console": {
@@ -242,6 +255,7 @@ LOGGING = {
             "handlers": ["console", "sentry"],
             "propagate": False,
         },
+        "dogslow": {"level": "WARNING", "handlers": ["dogslow"], "propogate": False},
     },
 }
 

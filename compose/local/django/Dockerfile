@@ -15,7 +15,9 @@ RUN apk update \
   # https://docs.djangoproject.com/en/dev/ref/django-admin/#dbshell
   && apk add postgresql-client \
   # libxml
-  &&apk add libxml2-dev libxslt-dev
+  && apk add libxml2-dev libxslt-dev \
+  # git
+  && apk add git
 
 # Requirements are installed here to ensure they will be cached.
 COPY ./requirements /requirements

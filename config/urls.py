@@ -10,16 +10,18 @@ from django.views.generic import TemplateView
 from rest_framework import routers
 
 # Squarelet
+from squarelet.core.views import HomeView
 from squarelet.organizations.viewsets import ChargeViewSet, OrganizationViewSet
-from squarelet.users.viewsets import UserViewSet
+from squarelet.users.viewsets import UrlAuthTokenViewSet, UserViewSet
 
 router = routers.DefaultRouter()
 router.register("users", UserViewSet)
+router.register("url_auth_tokens", UrlAuthTokenViewSet, base_name="url_auth_token")
 router.register("organizations", OrganizationViewSet)
 router.register("charges", ChargeViewSet)
 
 urlpatterns = [
-    path("", TemplateView.as_view(template_name="pages/home.html"), name="home"),
+    path("", HomeView.as_view(), name="home"),
     path(
         "selectplan/",
         TemplateView.as_view(template_name="pages/selectplan.html"),
@@ -36,6 +38,7 @@ urlpatterns = [
     path("accounts/", include("allauth.urls")),
     path("api/", include(router.urls)),
     path("openid/", include("oidc_provider.urls", namespace="oidc_provider")),
+    path("hijack/", include("hijack.urls", namespace="hijack")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:
@@ -59,7 +62,7 @@ if settings.DEBUG:
         ),
         path("500/", default_views.server_error),
     ]
-    if "debug_toolbar" in settings.INSTALLED_APPS:
-        import debug_toolbar
+if "debug_toolbar" in settings.INSTALLED_APPS:
+    import debug_toolbar
 
-        urlpatterns = [path("__debug__/", include(debug_toolbar.urls))] + urlpatterns
+    urlpatterns = [path("__debug__/", include(debug_toolbar.urls))] + urlpatterns

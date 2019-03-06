@@ -1,4 +1,13 @@
 # Django
+# Standard Library
+import json
+import logging
+import sys
+
+# Third Party
+import stripe
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Field, Layout
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
@@ -16,18 +25,9 @@ from django.utils.translation import ugettext_lazy as _
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
-# Standard Library
-import json
-import logging
-import sys
-
-# Third Party
-import stripe
-from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Field, Layout
-
 # Squarelet
 from squarelet.core.mail import ORG_TO_ADMINS, send_mail
+from squarelet.core.mixins import AdminLinkMixin
 
 # Local
 from .forms import AddMemberForm, UpdateForm
@@ -41,7 +41,7 @@ ORG_PAGINATION = 100
 logger = logging.getLogger(__name__)
 
 
-class Detail(DetailView):
+class Detail(AdminLinkMixin, DetailView):
     queryset = Organization.objects.filter(individual=False)
 
     def get_context_data(self, **kwargs):
@@ -152,7 +152,12 @@ class Update(OrganizationAdminMixin, UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["STRIPE_PUB_KEY"] = settings.STRIPE_PUB_KEY
+        context["free_choices"] = list(
+            Plan.objects.choices(self.object).free().values_list("id", flat=True)
+        )
+        context["failed_receipt_emails"] = self.object.receipt_emails.filter(
+            failed=True
+        )
         return context
 
     def get_initial(self):
@@ -187,7 +192,6 @@ class Create(LoginRequiredMixin, CreateView):
                 placeholder="New organization name",
             )
         )
-        # self.fields["name"].widget.attrs.pop("autofocus", None)
         form.helper.form_tag = False
         return form
 

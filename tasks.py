@@ -20,7 +20,7 @@ def staging(c):
 
 
 @task
-def test(c, path="", reuse_db=False):
+def test(c, path="squarelet", reuse_db=False):
     """Run the test suite"""
     if reuse_db:
         reuse_switch = "--reuse-db"
@@ -31,6 +31,32 @@ def test(c, path="", reuse_db=False):
             opt="-e DJANGO_SETTINGS_MODULE=config.settings.test",
             service="django",
             cmd=f"pytest {reuse_switch} {path}",
+        )
+    )
+
+
+@task
+def coverage(c):
+    """Run the test suite with coverage report"""
+    c.run(
+        DOCKER_COMPOSE_RUN_OPT_USER.format(
+            opt="-e DJANGO_SETTINGS_MODULE=config.settings.test",
+            service="django",
+            cmd=f"coverage run --source . -m py.test",
+        )
+    )
+    c.run(
+        DOCKER_COMPOSE_RUN_OPT_USER.format(
+            opt="-e DJANGO_SETTINGS_MODULE=config.settings.test",
+            service="django",
+            cmd=f"coverage report",
+        )
+    )
+    c.run(
+        DOCKER_COMPOSE_RUN_OPT_USER.format(
+            opt="-e DJANGO_SETTINGS_MODULE=config.settings.test",
+            service="django",
+            cmd=f"coverage html",
         )
     )
 
@@ -68,8 +94,23 @@ def runserver(c):
 
 @task
 def shell(c, opts=""):
-    """Run an interactive shell"""
+    """Run an interactive python shell"""
     c.run(DJANGO_RUN.format(cmd=f"python manage.py shell_plus {opts}"), pty=True)
+
+
+@task
+def sh(c):
+    """Run an interactive shell"""
+    c.run(
+        DOCKER_COMPOSE_RUN_OPT.format(opt="--use-aliases", service="django", cmd="sh"),
+        pty=True,
+    )
+
+
+@task
+def dbshell(c, opts=""):
+    """Run an interactive db shell"""
+    c.run(DJANGO_RUN.format(cmd=f"python manage.py dbshell {opts}"), pty=True)
 
 
 @task
@@ -124,3 +165,13 @@ def pip_compile(c, upgrade=False, package=None):
 def build(c):
     """Build the docker images"""
     c.run("docker-compose build")
+
+
+@task
+def heroku(c, staging=False):
+    """Run commands on heroku"""
+    if staging:
+        app = "squarelet-staging"
+    else:
+        app = "squarelet"
+    c.run(f"heroku run --app {app} python manage.py shell_plus")

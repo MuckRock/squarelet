@@ -1,5 +1,16 @@
 {% extends "core/email/base.html" %}
+{% load i18n %}
+{% load autologin %}
 
 {% block body %}
-  <p>You have been invited to join the organization {{ invitation.organization.name }} on MuckRock.  <a href="{% url organizations:invitations uuid=invitation.uuid %}">Click here to accept or reject the invitation.</a></p>
+  {% url "organizations:invitations" uuid=invitation.uuid as url_org %}
+  {% autologin url_org user as url_org_ %}
+  {% blocktrans with org_name=invitation.organization.name %}
+    <p>
+      You have been invited to join the organization {{ org_name }} on MuckRock.
+      <a href="{{ url_org_ }}">
+        Click here to accept or reject the invitation.
+      </a>
+    </p>
+  {% endblocktrans %}
 {% endblock %}

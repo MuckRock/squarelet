@@ -23,10 +23,7 @@ QUACKBOT_ASSET = "assets/quackbot.svg"
 
 @register.inclusion_tag("templatetags/intent.html", takes_context=True)
 def handleintent(context, header, message):
-    if "intent" in context.request.GET:
-        intent = context.request.GET["intent"].lower().strip()
-    else:
-        intent = "muckrock"
+    intent = context.request.GET.get("intent", "muckrock").lower().strip()
 
     intent_lookup = OrderedDict(
         [

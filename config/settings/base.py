@@ -66,12 +66,17 @@ THIRD_PARTY_APPS = [
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
+    "compat",  # for hijack
     "crispy_forms",
     "dal",
     "dal_select2",
+    "debug_toolbar",
+    "django_extensions",
     "django_premailer",
+    "hijack",
     "oidc_provider",
     "rest_framework",
+    "reversion",
     "sorl.thumbnail",
 ]
 LOCAL_APPS = [
@@ -83,17 +88,13 @@ LOCAL_APPS = [
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
-# MIGRATIONS
-# ------------------------------------------------------------------------------
-# https://docs.djangoproject.com/en/dev/ref/settings/#migration-modules
-MIGRATION_MODULES = {"sites": "squarelet.contrib.sites.migrations"}
-
 # AUTHENTICATION
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#authentication-backends
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
     "allauth.account.auth_backends.AuthenticationBackend",
+    "sesame.backends.ModelBackend",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#auth-user-model
 AUTH_USER_MODEL = "users.User"
@@ -130,14 +131,18 @@ AUTH_PASSWORD_VALIDATORS = [
 # https://docs.djangoproject.com/en/dev/ref/settings/#middleware
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "dogslow.WatchdogMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "sesame.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "oidc_provider.middleware.SessionManagementMiddleware",
     "squarelet.oidc.middleware.CacheInvalidationSenderMiddleware",
+    "debug_toolbar.middleware.DebugToolbarMiddleware",
+    "reversion.middleware.RevisionMiddleware",
 ]
 
 # STATIC
@@ -234,6 +239,7 @@ MANAGERS = ADMINS
 INSTALLED_APPS += ["squarelet.taskapp.celery.CeleryAppConfig"]
 # http://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-broker_url
 CELERY_BROKER_URL = env("REDIS_URL", default="django://")
+BROKER_URL = CELERY_BROKER_URL
 # http://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-result_backend
 if CELERY_BROKER_URL == "django://":
     CELERY_RESULT_BACKEND = "redis://"
@@ -245,6 +251,7 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 # http://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-result_serializer
 CELERY_RESULT_SERIALIZER = "json"
+CELERY_REDIS_MAX_CONNECTIONS = env.int("CELERY_REDIS_MAX_CONNECTIONS", default=10)
 # django-allauth
 # ------------------------------------------------------------------------------
 # https://django-allauth.readthedocs.io/en/latest/configuration.html
@@ -280,6 +287,8 @@ OIDC_USERINFO = "squarelet.users.oidc.userinfo"
 OIDC_EXTRA_SCOPE_CLAIMS = "squarelet.users.oidc.CustomScopeClaims"
 OIDC_SESSION_MANAGEMENT_ENABLE = True
 OIDC_GRANT_TYPE_PASSWORD_ENABLE = True
+# required due to changes in Django 2.1
+SESSION_COOKIE_SAMESITE = None
 
 
 # rest framework
@@ -295,12 +304,48 @@ REST_FRAMEWORK = {
 
 # first party urls
 # ------------------------------------------------------------------------------
-SQUARELET_URL = env("SQUARLET_URL", default="http://dev.squarelet.com")
+SQUARELET_URL = env("SQUARELET_URL", default="http://dev.squarelet.com")
 MUCKROCK_URL = env("MUCKROCK_URL", default="http://dev.muckrock.com")
-MUCKROCK_TOKEN = env("MUCKROCK_TOKEN", default="set-me")
+FOIAMACHINE_URL = env("FOIAMACHINE_URL", default="http://dev.foiamachine.com")
+DOCCLOUD_URL = env("DOCCLOUD_URL", default="http://dev.documentcloud.org")
 
 # stripe
 # ------------------------------------------------------------------------------
 STRIPE_PUB_KEY = env("STRIPE_PUB_KEY")
 STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET")
+
+# sesame
+# ------------------------------------------------------------------------------
+import sesame.pk_packers  # isort:skip
+
+SESAME_USER_PK_PACKER = sesame.pk_packers.UuidPkPacker
+SESAME_MAX_AGE = 60 * 60 * 24 * 2  # 2 days
+
+# django-debug-toolbar
+# ------------------------------------------------------------------------------
+def show_toolbar(request):
+    """show toolbar on the site"""
+    return env.bool("SHOW_DDT", default=False) or (
+        request.user and request.user.username == "mitch"
+    )
+
+
+DEBUG_TOOLBAR_CONFIG = {
+    "INTERCEPT_REDIRECT": False,
+    "SHOW_TEMPLATE_CONTEXT": True,
+    "SHOW_TOOLBAR_CALLBACK": show_toolbar,
+}
+# django-hijack
+# ------------------------------------------------------------------------------
+HIJACK_AUTHORIZE_STAFF = True
+
+# dogslow
+# ------------------------------------------------------------------------------
+DOGSLOW = True
+DOGSLOW_LOG_TO_FILE = False
+DOGSLOW_TIMER = 25
+DOGSLOW_EMAIL_TO = "mitch@muckrock.com"
+DOGSLOW_EMAIL_FROM = "info@muckrock.com"
+DOGSLOW_LOGGER = "dogslow"  # can be anything, but must match `logger` below
+DOGSLOW_LOG_TO_SENTRY = True
