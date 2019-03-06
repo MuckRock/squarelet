@@ -81,9 +81,10 @@ THIRD_PARTY_APPS = [
 ]
 LOCAL_APPS = [
     "squarelet.core",
-    "squarelet.oidc.apps.OidcConfig",
-    "squarelet.organizations.apps.OrganizationsConfig",
-    "squarelet.users.apps.UsersConfig",
+    "squarelet.oidc",
+    "squarelet.organizations",
+    "squarelet.statistics",
+    "squarelet.users",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS

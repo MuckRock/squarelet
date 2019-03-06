@@ -1,4 +1,5 @@
 # Django
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import models
 
@@ -16,8 +17,8 @@ class Statistics(models.Model):
 
     total_orgs = models.IntegerField()
 
-    users_today = models.ManyToManyField(User)
-    pro_users = models.ManyToManyField(User)
+    users_today = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="+")
+    pro_users = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="+")
 
     def __str__(self):
         return "Stats for %s" % self.date
