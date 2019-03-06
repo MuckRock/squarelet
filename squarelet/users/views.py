@@ -79,6 +79,13 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
         self.object.save()
         return HttpResponseRedirect(self.get_success_url())
 
+    def form_invalid(self, form):
+        """The user object has the invalid data in it - refresh it from the database
+        before displaying to the user
+        """
+        self.object.refresh_from_db()
+        return super().form_invalid(form)
+
     def get_success_url(self):
         return reverse("users:detail", kwargs={"username": self.object.username})
 
