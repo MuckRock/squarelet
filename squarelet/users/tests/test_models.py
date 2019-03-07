@@ -1,4 +1,3 @@
-
 # Standard Library
 from urllib.parse import parse_qs, urlsplit
 from uuid import uuid4

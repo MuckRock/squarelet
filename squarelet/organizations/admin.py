@@ -8,9 +8,6 @@ from reversion.admin import VersionAdmin
 from .models import Invitation, Membership, Organization, Plan, ReceiptEmail
 
 
-# XXX add charges
-
-
 class MembershipInline(admin.TabularInline):
     model = Membership
     autocomplete_fields = ("user",)
@@ -63,3 +60,6 @@ class PlanAdmin(VersionAdmin):
     )
     search_fields = ("name",)
     autocomplete_fields = ("private_organizations",)
+
+
+# XXX add charges

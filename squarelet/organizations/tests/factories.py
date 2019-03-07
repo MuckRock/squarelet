@@ -1,4 +1,3 @@
-
 # Third Party
 import factory
 from autoslug.utils import slugify
