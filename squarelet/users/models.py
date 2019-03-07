@@ -145,6 +145,10 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return self.username
 
+    @property
+    def id(self):
+        return self.pk
+
     def save(self, *args, **kwargs):
         with transaction.atomic():
             super().save(*args, **kwargs)
