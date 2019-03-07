@@ -15,6 +15,12 @@ class OrganizationFactory(factory.django.DjangoModelFactory):
         django_get_or_create = ("name",)
 
 
+class IndividualOrganizationFactory(OrganizationFactory):
+    individual = True
+    private = True
+    max_users = 1
+
+
 class MembershipFactory(factory.django.DjangoModelFactory):
     user = factory.SubFactory("squarelet.users.tests.factories.UserFactory")
     organization = factory.SubFactory(

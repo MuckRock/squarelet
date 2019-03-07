@@ -5,11 +5,11 @@ from django.contrib.auth.forms import UserCreationForm
 from django.utils.translation import ugettext_lazy as _
 
 # Third Party
-from allauth.account.utils import sync_user_email_addresses
+from allauth.account.utils import setup_user_email, sync_user_email_addresses
 from reversion.admin import VersionAdmin
 
 # Squarelet
-from squarelet.organizations.models import Organization
+from squarelet.organizations.models import Organization, Plan
 
 # Local
 from .models import User
@@ -56,7 +56,19 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
 
     def save_model(self, request, obj, form, change):
         """Sync all auth email addresses"""
-        super().save_model(request, obj, form, change)
-        if not change:
-            Organization.objects.create_individual(obj)
-        sync_user_email_addresses(obj)
+        if change:
+            super().save_model(request, obj, form, change)
+            sync_user_email_addresses(obj)
+        else:
+            free_plan = Plan.objects.get(slug="free")
+            obj.individual_organization = Organization.objects.create(
+                name=obj.username,
+                individual=True,
+                private=True,
+                max_users=1,
+                plan=free_plan,
+                next_plan=free_plan,
+            )
+            obj.save()
+            setup_user_email(request, obj, [])
+            obj.individual_organization.add_creator(obj)

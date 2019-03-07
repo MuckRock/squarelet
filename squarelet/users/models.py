@@ -9,9 +9,6 @@ from django.http.request import urlencode
 from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
 
-# Standard Library
-import uuid
-
 # Third Party
 import sesame
 from memoize import mproperty
@@ -21,7 +18,6 @@ from sorl.thumbnail import ImageField
 from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
 from squarelet.core.mixins import AvatarMixin
 from squarelet.oidc.middleware import send_cache_invalidations
-from squarelet.organizations.models import Organization
 
 # Local
 from .managers import UserManager
@@ -56,7 +52,13 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
 
     # XXX finish doc string
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    individual_organization = models.OneToOneField(
+        "organizations.Organization",
+        on_delete=models.PROTECT,
+        primary_key=True,
+        db_column="id",
+        editable=False,
+    )
     # XXX should this be optional or not?  what do we sign off as on requests?
     # do we want a full name and a short name?
     # remove blank
@@ -160,13 +162,9 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         return self.username
 
     @mproperty
-    def individual_organization(self):
-        """A user's individual organization has a matching UUID"""
-        return Organization.objects.get(id=self.id)
-
-    @mproperty
     def primary_email(self):
         """A user's primary email object"""
+        # XXX this should be self.email
         if self.emailaddress_set.count() == 1:
             return self.emailaddress_set.first()
         return self.emailaddress_set.get(primary=True)

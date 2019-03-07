@@ -111,19 +111,13 @@ class Organization(AvatarMixin, models.Model):
                 lambda: send_cache_invalidations("organization", self.pk)
             )
 
-    def save(self, *args, **kwargs):
-        # pylint: disable=arguments-differ
-        with transaction.atomic():
-            super().save(*args, **kwargs)
-            transaction.on_commit(
-                lambda: send_cache_invalidations("organization", self.pk)
-            )
-
     def get_absolute_url(self):
         """The url for this object"""
         if self.individual:
-            return reverse("users:detail", kwargs={"username": self.name})
-        return reverse("organizations:detail", kwargs={"slug": self.slug})
+            # individual orgs do not have a detail page, use the user's page
+            return self.user.get_absolute_url()
+        else:
+            return reverse("organizations:detail", kwargs={"slug": self.slug})
 
     # User Management
     def has_admin(self, user):

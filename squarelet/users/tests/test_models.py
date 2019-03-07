@@ -1,6 +1,7 @@
 
 # Standard Library
 from urllib.parse import parse_qs, urlsplit
+from uuid import uuid4
 
 # Third Party
 import pytest
@@ -12,9 +13,9 @@ def test_str(user_factory):
 
 
 @pytest.mark.django_db(transaction=True)
-def test_save(user, mocker):
+def test_save(user_factory, mocker):
     mocked = mocker.patch("squarelet.users.models.send_cache_invalidations")
-    user.save()
+    user = user_factory()
     mocked.assert_called_with("user", user.pk)
 
 
@@ -39,7 +40,8 @@ def test_safe_name_without_name(user_factory):
 
 
 @pytest.mark.django_db()
-def test_inidividual_organization(user):
+def test_inidividual_organization(user_factory):
+    user = user_factory()
     assert (
         user.individual_organization
         == user.organizations.filter(individual=True).first()
@@ -47,7 +49,8 @@ def test_inidividual_organization(user):
 
 
 def test_wrap_url(user_factory):
-    user = user_factory.build()
+    # need pk here, not set by default since it is a FK to org
+    user = user_factory.build(pk=uuid4())
     url = "http://www.example.com"
     parse = urlsplit(user.wrap_url(url, a=1))
     assert parse.scheme == "http"
@@ -59,7 +62,8 @@ def test_wrap_url(user_factory):
 
 
 def test_wrap_url_off(user_factory):
-    user = user_factory.build(use_autologin=False)
+    # need pk here, not set by default since it is a FK to org
+    user = user_factory.build(use_autologin=False, pk=uuid4())
     url = "http://www.example.com"
     parse = urlsplit(user.wrap_url(url, a=1))
     assert parse.scheme == "http"
