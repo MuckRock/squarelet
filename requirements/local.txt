@@ -68,6 +68,7 @@ future==0.16.0
 html2text==2018.1.9
 idna==2.7
 imagesize==1.0.0          # via sphinx
+inflection==0.3.1         # via pytest-factoryboy
 ipdb==0.11
 ipython-genutils==0.2.0
 ipython==7.2.0
@@ -112,6 +113,8 @@ pylint-plugin-utils==0.4  # via pylint-celery, pylint-common, pylint-django
 pylint==1.9.2
 pyparsing==2.2.0          # via packaging
 pytest-django==3.3.0
+pytest-factoryboy==2.0.2
+pytest-mock==1.10.1
 pytest-sugar==0.9.1
 pytest==3.6.2
 python-dateutil==2.7.4

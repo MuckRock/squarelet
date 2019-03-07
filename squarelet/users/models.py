@@ -173,8 +173,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
 
     def wrap_url(self, url, **extra):
         """Wrap a URL for autologin"""
-        if not self.use_autologin:
-            return url
+        if self.use_autologin:
+            extra.update(sesame.utils.get_parameters(self))
 
-        extra.update(sesame.utils.get_parameters(self))
         return "{}?{}".format(url, urlencode(extra))
