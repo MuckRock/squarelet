@@ -77,6 +77,8 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
         if self.request.user.username != self.object.username:
             self.object.can_change_username = False
         self.object.save()
+        self.object.individual_organization.avatar = self.object.avatar
+        self.object.individual_organization.save()
         return HttpResponseRedirect(self.get_success_url())
 
     def form_invalid(self, form):

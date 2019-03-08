@@ -24,7 +24,7 @@
         <b>{{ organization.next_plan.name }}</b>
       </div>
     {% endif %}
-    <form id="stripe-form" method="post">
+    <form id="stripe-form" method="post" enctype="multipart/form-data">
       {% crispy form form.helper %}
 
       {% if form.stripe_token %}

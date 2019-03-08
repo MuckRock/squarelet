@@ -141,6 +141,7 @@ class Update(OrganizationAdminMixin, UpdateView):
             messages.error(self.request, "Payment error: {}".format(exc.user_message))
         else:
             organization.set_receipt_emails(form.cleaned_data["receipt_emails"])
+            organization.avatar = form.cleaned_data["avatar"]
             organization.save()
             messages.success(
                 self.request,
@@ -148,14 +149,7 @@ class Update(OrganizationAdminMixin, UpdateView):
                 if organization.individual
                 else _("Organization Updated"),
             )
-        if organization.individual:
-            user = organization.users.first()
-            if user:
-                return redirect(user)
-            else:
-                return redirect("index")
-        else:
-            return redirect(organization)
+        return redirect(organization)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

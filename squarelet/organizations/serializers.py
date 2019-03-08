@@ -28,6 +28,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "update_on",
             "updated_at",
             "payment_failed",
+            "avatar_url",
         )
 
 

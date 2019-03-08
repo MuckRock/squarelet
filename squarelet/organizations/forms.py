@@ -31,6 +31,7 @@ class UpdateForm(StripeForm):
         required=False,
         help_text=_("One email address per line"),
     )
+    avatar = forms.ImageField(label=_("Avatar"), required=False)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -47,6 +48,7 @@ class UpdateForm(StripeForm):
             Fieldset("Private", Field("private"), css_class="_cls-compactField")
             if "private" in self.fields
             else None,
+            Fieldset("Avatar", Field("avatar"), css_class="_cls-compactField"),
             Fieldset(
                 "Receipt emails",
                 Field("receipt_emails", id="_id-receiptEmails"),

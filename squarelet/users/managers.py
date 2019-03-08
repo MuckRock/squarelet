@@ -1,9 +1,6 @@
 # Django
 from django.contrib.auth.models import UserManager as AuthUserManager
 
-# Third Party
-from allauth.account.models import EmailAddress
-
 # Squarelet
 from squarelet.organizations.models import Organization, Plan
 
