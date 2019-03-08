@@ -277,12 +277,17 @@ class Organization(AvatarMixin, models.Model):
 
         self.save()
 
-    def charge(self, amount, description, token=None, save_card=False):
+    def charge(self, amount, description, fee_amount=0, token=None, save_card=False):
         """Charge the organization and optionally save their credit card"""
         if save_card:
             self.save_card(token)
             token = None
-        charge = Charge(organization=self, amount=amount, description=description)
+        charge = Charge(
+            organization=self,
+            amount=amount,
+            fee_amount=fee_amount,
+            description=description,
+        )
         charge.make_charge(token)
         return charge
 
@@ -386,13 +391,10 @@ class Plan(models.Model):
     @property
     def stripe_id(self):
         """Namespace the stripe ID to not conflict with previous plans we have made"""
-        # XXX make this parsable/more info (squarelet:plan:{slug}), allows for
-        # future custom crowdfund plans, etc
-        return f"squarelet-{self.slug}"
+        return f"squarelet:plan:{self.slug}"
 
     def make_stripe_plan(self):
         """Create the plan on stripe"""
-        # XXX how to migrate customers???
         if not self.free():
             try:
                 # set up the pricing for groups and individuals
@@ -536,6 +538,9 @@ class Charge(models.Model):
     amount = models.PositiveSmallIntegerField(
         _("amount"), help_text=_("Amount in cents")
     )
+    fee_amount = models.PositiveSmallIntegerField(
+        _("fee amount"), default=0, help_text=_("Fee percantage")
+    )
     organization = models.ForeignKey(
         "organizations.Organization", related_name="charges", on_delete=models.PROTECT
     )
@@ -597,5 +602,13 @@ class Charge(models.Model):
         )
 
     def items(self):
-        # XXX handle if we added a fee onto the charge
-        return [{"name": self.description, "price": self.amount_dollars}]
+        if self.fee_amount:
+            fee_multiplier = 1 + (self.fee_amount / 100.0)
+            base_price = int(self.amount / fee_multiplier)
+            fee_price = self.amount - base_price
+            return [
+                {"name": self.description, "price": base_price / 100},
+                {"name": "Processing Fee", "price": fee_price / 100},
+            ]
+        else:
+            return [{"name": self.description, "price": self.amount_dollars}]
