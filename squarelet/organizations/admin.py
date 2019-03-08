@@ -4,6 +4,9 @@ from django.contrib import admin
 # Third Party
 from reversion.admin import VersionAdmin
 
+# Squarelet
+from squarelet.organizations.models import Charge
+
 # Local
 from .models import Invitation, Membership, Organization, Plan, ReceiptEmail
 
@@ -31,17 +34,14 @@ class OrganizationAdmin(VersionAdmin):
     list_filter = ("plan", "individual", "private")
     list_select_related = ("plan",)
     search_fields = ("name",)
+    readonly_fields = (
+        "plan",
+        "next_plan",
+        "max_users",
+        "customer_id",
+        "subscription_id",
+    )
     inlines = (MembershipInline, ReceiptEmailInline, InvitationInline)
-
-    def save_model(self, request, obj, form, change):
-        """Update the stripe subscription"""
-        # XXX dont set non-free plans through admin
-        obj.set_subscription(
-            token=None,
-            plan=form.cleaned_data["plan"],
-            max_users=form.cleaned_data.get("max_users"),
-        )
-        super().save_model(request, obj, form, change)
 
 
 @admin.register(Plan)
@@ -62,4 +62,10 @@ class PlanAdmin(VersionAdmin):
     autocomplete_fields = ("private_organizations",)
 
 
-# XXX add charges
+@admin.register(Charge)
+class ChargeAdmin(VersionAdmin):
+    list_display = ("organization", "amount", "created_at", "description")
+    list_select_related = ("organization",)
+    search_fields = ("organization__name", "description")
+    date_hierarchy = "created_at"
+    readonly_fields = ("organization", "amount", "created_at", "charge_id")
