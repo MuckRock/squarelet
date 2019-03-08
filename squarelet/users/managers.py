@@ -19,16 +19,6 @@ class UserManager(AuthUserManager):
             user.set_unusable_password()
 
         # all users must have an individual organization
-        free_plan = Plan.objects.get(slug="free")
-        user.individual_organization = Organization.objects.create(
-            name=user.username,
-            individual=True,
-            private=True,
-            max_users=1,
-            plan=free_plan,
-            next_plan=free_plan,
-        )
-        user.save(using=self._db)
-        user.individual_organization.add_creator(user)
+        Organization.objects.create_individual(user)
 
         return user

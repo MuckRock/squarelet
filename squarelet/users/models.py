@@ -142,6 +142,8 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
 
     @property
     def id(self):
+        """For compatibility with third party apps that access user.id"""
+        # pylint: disable=invalid-name
         return self.pk
 
     def save(self, *args, **kwargs):

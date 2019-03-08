@@ -60,15 +60,5 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
             super().save_model(request, obj, form, change)
             sync_user_email_addresses(obj)
         else:
-            free_plan = Plan.objects.get(slug="free")
-            obj.individual_organization = Organization.objects.create(
-                name=obj.username,
-                individual=True,
-                private=True,
-                max_users=1,
-                plan=free_plan,
-                next_plan=free_plan,
-            )
-            obj.save()
+            Organization.objects.create_individual(obj)
             setup_user_email(request, obj, [])
-            obj.individual_organization.add_creator(obj)
