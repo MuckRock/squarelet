@@ -73,9 +73,6 @@ class Organization(AvatarMixin, models.Model):
 
     # Book keeping
     max_users = models.IntegerField(_("maximum users"), default=5)
-    monthly_cost = models.IntegerField(
-        _("monthly cost"), default=0, help_text="In cents"
-    )
     update_on = models.DateField(
         _("date update"),
         null=True,
