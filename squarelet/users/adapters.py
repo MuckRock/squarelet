@@ -24,8 +24,6 @@ class AccountAdapter(DefaultAccountAdapter):
         subject = render_to_string(f"{template_prefix}_subject.txt", context)
         # remove superfluous line breaks
         subject = " ".join(subject.splitlines()).strip()
-        # XXX do we want the [Squarelet] prefix?
-        subject = self.format_email_subject(subject)
 
         return Email(
             subject=subject,
