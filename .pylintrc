@@ -12,3 +12,8 @@ generated-members=REQUEST,acl_users,aq_parent,"[a-zA-Z]+_set{1,2}",save,delete,o
 
 [BASIC]
 const-rgx=(([A-Za-z_][A-Za-z0-9_]*)|(__.*__))$
+
+[DESIGN]
+
+# Maximum number of arguments for function / method
+max-args=8
