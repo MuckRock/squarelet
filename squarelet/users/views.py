@@ -78,6 +78,7 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
             self.object.can_change_username = False
         self.object.save()
         self.object.individual_organization.avatar = self.object.avatar
+        self.object.individual_organization.name = self.object.username
         self.object.individual_organization.save()
         return HttpResponseRedirect(self.get_success_url())
 
