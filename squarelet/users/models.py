@@ -50,8 +50,6 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         is_staff (BooleanField):
     """
 
-    # XXX finish doc string
-
     individual_organization = models.OneToOneField(
         "organizations.Organization",
         on_delete=models.PROTECT,
@@ -59,10 +57,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         db_column="id",
         editable=False,
     )
-    # XXX should this be optional or not?  what do we sign off as on requests?
-    # do we want a full name and a short name?
-    # remove blank
-    name = models.CharField(_("name of user"), blank=True, max_length=255)
+    name = models.CharField(_("name of user"), max_length=255)
     email = CIEmailField(_("email"), unique=True, null=True)
     username = CICharField(
         _("username"),
