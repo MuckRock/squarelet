@@ -17,7 +17,7 @@ import time
 
 # Third Party
 from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Div, Fieldset, Layout
+from crispy_forms.layout import Fieldset, Layout
 
 # Squarelet
 from squarelet.core.layout import Field
@@ -63,7 +63,9 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
         form.helper = FormHelper()
         form.helper.layout = Layout(
             Fieldset("Name", Field("name")),
-            Fieldset("Username", Field("username")),
+            Fieldset("Username", Field("username"))
+            if "username" in form.fields
+            else None,
             Fieldset("Avatar image", Field("avatar"), css_class="_cls-compactField"),
             Fieldset(
                 "Autologin", Field("use_autologin"), css_class="_cls-compactField"
