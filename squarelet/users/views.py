@@ -20,6 +20,7 @@ from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Fieldset, Layout
 
 # Squarelet
+from squarelet.core.forms import ImagePreviewWidget
 from squarelet.core.layout import Field
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.organizations.models import ReceiptEmail
@@ -72,6 +73,7 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
             ),
         )
         form.helper.form_tag = False
+        form.fields["avatar"].widget = ImagePreviewWidget()
         return form
 
     def form_valid(self, form):

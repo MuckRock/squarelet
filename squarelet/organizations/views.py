@@ -32,7 +32,7 @@ from squarelet.core.mail import ORG_TO_ADMINS, send_mail
 from squarelet.core.mixins import AdminLinkMixin
 
 # Local
-from .forms import AddMemberForm, UpdateForm
+from .forms import AddMemberForm, PaymentForm, UpdateForm
 from .mixins import IndividualMixin, OrganizationAdminMixin
 from .models import Charge, Invitation, Membership, Organization, Plan
 from .tasks import handle_charge_succeeded, handle_invoice_failed
@@ -123,14 +123,12 @@ def autocomplete(request):
     return JsonResponse(data)
 
 
-class Update(OrganizationAdminMixin, UpdateView):
+class UpdateSubscription(OrganizationAdminMixin, UpdateView):
     queryset = Organization.objects.filter(individual=False)
-    form_class = UpdateForm
+    form_class = PaymentForm
 
     def form_valid(self, form):
         organization = self.object
-        if "private" in form.cleaned_data:
-            organization.private = form.cleaned_data["private"]
         try:
             organization.set_subscription(
                 token=form.cleaned_data["stripe_token"],
@@ -141,7 +139,6 @@ class Update(OrganizationAdminMixin, UpdateView):
             messages.error(self.request, "Payment error: {}".format(exc.user_message))
         else:
             organization.set_receipt_emails(form.cleaned_data["receipt_emails"])
-            organization.avatar = form.cleaned_data["avatar"]
             organization.save()
             messages.success(
                 self.request,
@@ -168,15 +165,19 @@ class Update(OrganizationAdminMixin, UpdateView):
         return {
             "plan": self.object.plan,
             "max_users": self.object.max_users,
-            "private": self.object.private,
             "receipt_emails": "\n".join(
                 r.email for r in self.object.receipt_emails.all()
             ),
         }
 
 
-class IndividualUpdate(IndividualMixin, Update):
-    """Subclass to update individual organizations"""
+class IndividualUpdateSubscription(IndividualMixin, UpdateSubscription):
+    """Subclass to update subscriptions for individual organizations"""
+
+
+class Update(OrganizationAdminMixin, UpdateView):
+    queryset = Organization.objects.filter(individual=False)
+    form_class = UpdateForm
 
 
 class Create(LoginRequiredMixin, CreateView):

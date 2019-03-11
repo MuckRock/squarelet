@@ -61,6 +61,7 @@ DJANGO_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.humanize",
     "django.contrib.admin",
+    "django.forms",
 ]
 THIRD_PARTY_APPS = [
     "allauth",
@@ -350,3 +351,5 @@ DOGSLOW_EMAIL_TO = "mitch@muckrock.com"
 DOGSLOW_EMAIL_FROM = "info@muckrock.com"
 DOGSLOW_LOGGER = "dogslow"  # can be anything, but must match `logger` below
 DOGSLOW_LOG_TO_SENTRY = True
+
+FORM_RENDERER = "django.forms.renderers.TemplatesSetting"

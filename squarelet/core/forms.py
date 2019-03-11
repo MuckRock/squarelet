@@ -1,6 +1,7 @@
 # Django
 from django import forms
 from django.conf import settings
+from django.forms.widgets import ClearableFileInput
 from django.utils.translation import ugettext_lazy as _
 
 
@@ -42,3 +43,7 @@ class StripeForm(forms.Form):
                 _("You cannot use your card on file and enter a credit card number."),
             )
         return data
+
+
+class ImagePreviewWidget(ClearableFileInput):
+    template_name = "widgets/image_field.html"
