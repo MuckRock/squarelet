@@ -24,7 +24,11 @@ class UpdateForm(StripeForm):
         label=_("Plan"), queryset=Plan.objects.none(), empty_label=None
     )
     max_users = forms.IntegerField(label=_("Number of Users"), min_value=5)
-    private = forms.BooleanField(label=_("Private"), required=False)
+    private = forms.BooleanField(
+        label=_("Private"),
+        required=False,
+        help_text=_("Only members of this organization will be able to view it"),
+    )
     receipt_emails = forms.CharField(
         label=_("Receipt Emails"),
         widget=forms.Textarea(),
