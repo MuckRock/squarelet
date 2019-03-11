@@ -1,12 +1,13 @@
 {% extends "base.html" %}
+{% load i18n %}
 
 {% block title %}{{ organization.name }} - Receipts{% endblock %}
 
 {% block content %}
   <div class="_cls-largeContent">
-    <h1>{{ organization.name }}</h1>
+    <h1>{% if organization.individual %}{% blocktrans %}Your receipts{% endblocktrans %}{% else %}{{ organization.name }}{% endif %}</h1>
     <h2>Receipts</h2>
-    <div class="_cls-manageTable">
+    <div id="_id-receiptsTable" class="_cls-manageTable">
       <div class="_cls-manageRow _cls-manageHeader">
         <div class="_cls-manageCell">Date</div>
         <div class="_cls-manageCell">Description</div>
@@ -18,12 +19,15 @@
             {{ charge.created_at|date }} {{ charge.created_at|time }}
           </div>
           <div class="_cls-manageCell">
-            <a href="#" onclick="event.preventDefault(); document.getElementById('receipt-iframe').src='/organizations/~charge/{{ charge.pk }}/'">{{ charge.description }}</a>
+            <b>{{ charge.description }}</b>
+            <div class="_cls-action _cls-expandAction" data-charge="{{ charge.pk }}"><span class="_cls-nostyle">Expand</span></div>
           </div>
           <div class="_cls-manageCell">${{ charge.amount_dollars|floatformat:2 }}</div>
         </div>
       {% endfor %}
     </div>
-    <iframe id="receipt-iframe" height="500" width="1000"></iframe>
+    <p><a href="{{ organization.get_absolute_url }}" class="_cls-altAction">
+      {% trans 'Go back' %}
+    </a></p>
   </div>
 {% endblock %}

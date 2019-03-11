@@ -2,11 +2,11 @@
 {% load i18n %}
 {% load crispy_forms_tags %}
 
-{% block title %}{{ organization.name }}{% endblock %}
+{% block title %}{{ organization.reference_name }}{% endblock %}
 
 {% block content %}
   <div class="_cls-content">
-    <h1>{{ organization.name }}</h1>
+    <h1>{{ organization.reference_name }}</h1>
     {% if failed_receipt_emails %}
       <p>Warning: there were errors sending email to the following email addresses in your receipt emails:</p>
       <ul>
@@ -15,18 +15,23 @@
         {% endfor %}
       </ul>
     {% endif %}
+    <div class="_cls-planInfo">{% trans 'Current plan: ' %}<b>{{ organization.plan }}</b></div>
     {% if organization.plan != organization.next_plan %}
-      <p>
+      <div class="_cls-pendingPlan">
         {% blocktrans with update_on=organization.update_on|date:"m/d/Y" %}
           Pending Plan (on {{ update_on }}):
         {% endblocktrans %}
         <b>{{ organization.next_plan.name }}</b>
-      </p>
+      </div>
     {% endif %}
     <form id="stripe-form" method="post">
       {% crispy form form.helper %}
 
       {% if form.stripe_token %}
+        <div id="_id-planProjection" class="_cls-planProjection">
+          <b>Expected cost: <span id="_id-totalCost"></span></b>
+          <div class="_cls-breakdown" id="_id-costBreakdown"></div>
+        </div>
         <div id="card-container">
           <h3 class="_cls-smallHeading">{% blocktrans %}Billing information{% endblocktrans %}</h3>
           <div class="_cls-field">
@@ -40,13 +45,13 @@
       <div class="control-group" style="margin-top: 2em;">
         <div class="_cls-actionSmall">
           <button type="submit" class="btn">{% trans 'Update' %}</button>
-          <a href="{% url 'organizations:detail' organization.slug %}" class="_cls-altAction">
+          <a href="{{ organization.get_absolute_url }}" class="_cls-altAction">
             {% trans 'Cancel' %}
           </a>
         </div>
       </div>
 
     </form>
-    {{ free_choices|json_script:"free-choices" }}
+    {{ plan_info|json_script:"_id-planInfo" }}
   </div>
 {% endblock %}

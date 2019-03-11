@@ -36,11 +36,15 @@
           {% if is_admin %}
             <div class="_cls-infoSpaced">
               <a class="_cls-action" href="{% url "organizations:manage-members" organization.slug %}">
-                {% blocktrans count invite_count=invite_count %}
-                  Manage (1 join request)
-                {% plural%}
-                  Manage ({{ invite_count }} join requests)
-                {% endblocktrans %}
+                {% if invite_count == 0 %}
+                  Manage members
+                {% else %}
+                  {% blocktrans count invite_count=invite_count %}
+                    Manage (1 join request)
+                  {% plural%}
+                    Manage ({{ invite_count }} join requests)
+                  {% endblocktrans %}
+                {% endif %}
               </a>
             </div>
           {% elif is_member %}
@@ -83,16 +87,19 @@
               {% trans 'Current plan' %}: <b>{{ organization.plan.name }}</b>
             </div>
             {% if organization.plan != organization.next_plan %}
-              <div class="_cls-planInfo">
-                {% blocktrans with update_on=organization.update_on|date:"m/d/Y" %}
-                  Pending Plan (on {{ update_on }}):
-                {% endblocktrans %}
-                <b>{{ organization.next_plan.name }}</b>
-              </div>
-            {% endif %}
-            <div class="_cls-actionSmall">
-              <a href="{% url "organizations:update" organization.slug %}"><button>{% trans 'Upgrade' %}</button></a>
+            <div class="_cls-pendingPlan">
+              {% blocktrans with update_on=organization.update_on|date:"m/d/Y" %}
+                Pending Plan (on {{ update_on }}):
+              {% endblocktrans %}
+              <b>{{ organization.next_plan.name }}</b>
             </div>
+            {% endif %}
+            {% if organization.plan.free %}
+              <div class="_cls-actionSmall"><a href="{% url "organizations:update" organization.slug %}"><button>{% trans 'Upgrade' %}</button></a></div>
+            {% else %}
+              <p><a class="_cls-nostyle" href="{% url "organizations:update" organization.slug %}"><div class="_cls-action">{% trans 'Edit plans and payment' %}</div></a></p>
+            {% endif %}
+            <p><a class="_cls-nostyle" href="{% url "organizations:receipts" organization.slug %}"><div class="_cls-action">{% trans 'View receipts' %}</div></a></p>
           </div>
         {% endif %}
         <div class="_cls-services">
@@ -154,14 +161,6 @@
               </div>
             </li>
           </ul>
-        </div>
-        <div class="col-sm-2">
-          <a
-             class="btn btn-primary"
-             href="{% url "organizations:receipts" organization.slug %}"
-             role="button">
-            View Receipts
-          </a>
         </div>
       </div>
     </div>

@@ -140,7 +140,12 @@ class Update(OrganizationAdminMixin, UpdateView):
         else:
             organization.set_receipt_emails(form.cleaned_data["receipt_emails"])
             organization.save()
-            messages.success(self.request, _("Organization Updated"))
+            messages.success(
+                self.request,
+                _("Plan Updated")
+                if organization.individual
+                else _("Organization Updated"),
+            )
         if organization.individual:
             user = organization.users.first()
             if user:
@@ -152,9 +157,12 @@ class Update(OrganizationAdminMixin, UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["free_choices"] = list(
-            Plan.objects.choices(self.object).free().values_list("id", flat=True)
-        )
+        context["plan_info"] = {
+            p["pk"]: p
+            for p in Plan.objects.values(
+                "pk", "base_price", "price_per_user", "minimum_users"
+            )
+        }
         context["failed_receipt_emails"] = self.object.receipt_emails.filter(
             failed=True
         )

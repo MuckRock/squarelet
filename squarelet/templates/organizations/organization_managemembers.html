@@ -22,7 +22,7 @@
         {% for member in members %}
           <div class="_cls-manageRow">
             <div class="_cls-manageCell">
-              <a href="{{ member.user.get_absolute_url }}">
+              <a class="_cls-nostyle" href="{{ member.user.get_absolute_url }}">
                 <div class="_cls-inlineAvatar">
                   {% avatar member.user 25 %}
                 </div>
@@ -149,5 +149,8 @@
       <div class="_cls-tableInfo">{% trans 'Users and invitations capacity full' %} ({{ organization.max_users }}).</div>
     {% endif %}
     </form>
+    <p class="_cls-spaced"><a href="{{ organization.get_absolute_url }}" class="_cls-altAction">
+      {% trans 'Go back' %}
+    </a></p>
   </div>
 {% endblock %}

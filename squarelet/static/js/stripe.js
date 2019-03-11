@@ -1,16 +1,16 @@
 function stripeTokenHandler(token) {
   // Insert the token ID into the form so it gets submitted to the server
-  var hiddenInput = document.getElementById('_id-stripe_token');
+  var hiddenInput = document.getElementById('id_stripe_token');
   hiddenInput.value = token.id;
   // Submit the form
   document.getElementById('stripe-form').submit();
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-  idStripePk = document.getElementById('_id-stripe_pk');
-  if (idStripePk) {
-    var stripe = Stripe(idStripePk.value);
-  }
+  idStripePk = document.getElementById('id_stripe_pk');
+  if (!idStripePk) return;
+
+  var stripe = Stripe(idStripePk.value);
   var elements = stripe.elements();
   var style = {
     base: {

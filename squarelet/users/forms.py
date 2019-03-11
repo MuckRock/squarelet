@@ -1,19 +1,22 @@
 # Django
+import stripe
+from allauth.account import forms as allauth
+from allauth.account.forms import SignupForm as AllauthSignupForm
+
+# Crispy
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Field, Layout
 from django import forms
 from django.contrib import messages
 from django.db import transaction
 from django.utils.translation import ugettext_lazy as _
 
-# Third Party
-import stripe
-from allauth.account import forms as allauth
-from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Layout
-
 # Squarelet
 from squarelet.core.forms import StripeForm
 from squarelet.core.layout import Field
 from squarelet.organizations.models import Organization, Plan
+
+# Third Party
 
 
 class SignupForm(allauth.SignupForm, StripeForm):
@@ -40,10 +43,32 @@ class SignupForm(allauth.SignupForm, StripeForm):
         self.helper.layout = Layout(
             Field("stripe_token"),
             Field("stripe_pk"),
-            Field("name"),
-            Field("username"),
-            Field("email", type="email"),
-            Field("password1", type="password", css_class="_cls-passwordInput"),
+            Field(
+                "name",
+                css_class="_cls-nameInput",
+                wrapper_class="_cls-field",
+                template="account/field.html",
+            ),
+            Field(
+                "username",
+                css_class="_cls-usernameInput",
+                wrapper_class="_cls-field",
+                template="account/field.html",
+            ),
+            Field(
+                "email",
+                type="email",
+                css_class="_cls-emailInput",
+                wrapper_class="_cls-field",
+                template="account/field.html",
+            ),
+            Field(
+                "password1",
+                type="password",
+                css_class="_cls-passwordInput",
+                wrapper_class="_cls-field",
+                template="account/field.html",
+            ),
         )
         self.fields["username"].widget.attrs.pop("autofocus", None)
         self.helper.form_tag = False

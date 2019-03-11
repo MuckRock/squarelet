@@ -1,12 +1,11 @@
 # Django
 # Third Party
+# Third Party
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Fieldset, Layout
 from django import forms
 from django.core.validators import validate_email
 from django.utils.translation import ugettext_lazy as _
-
-# Third Party
-from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Layout
 
 # Squarelet
 from squarelet.core.forms import StripeForm
@@ -39,11 +38,26 @@ class UpdateForm(StripeForm):
         self.helper.layout = Layout(
             Field("stripe_pk"),
             Field("stripe_token"),
-            Field("plan"),
-            Field("max_users"),
-            Field("private"),
-            Field("receipt_emails"),
-            Field("use_card_on_file"),
+            Fieldset("Plan", Field("plan"), css_class="_cls-compactField"),
+            Fieldset("Max Users", Field("max_users"), css_class="_cls-compactField")
+            if "max_users" in self.fields
+            else None,
+            Fieldset("Private", Field("private"), css_class="_cls-compactField")
+            if "private" in self.fields
+            else None,
+            Fieldset(
+                "Receipt emails",
+                Field("receipt_emails", id="_id-receiptEmails"),
+                css_class="_cls-resizeField",
+            ),
+            Fieldset(
+                "Credit card",
+                Field("use_card_on_file"),
+                css_class="_cls-compactField",
+                id="_id-cardFieldset",
+            )
+            if "use_card_on_file" in self.fields
+            else None,
         )
         self.helper.form_tag = False
 

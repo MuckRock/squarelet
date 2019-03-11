@@ -7,6 +7,10 @@
   <div class="_cls-largeContent">
     <h2>{{ user.name }}</h2>
     <h3>{{ user.username }}</h3>
+    <p>{% blocktrans %}Modify your name, username, and avatar below.{% endblocktrans %}</p>
+
+    <p><a class="_cls-nostyle" href="{% url "account_email" %}"><div class="_cls-action">{% trans 'Edit email' %}</div></a></p>
+    <p><a class="_cls-nostyle" href="{% url "account_change_password" %}"><div class="_cls-action">{% trans 'Edit password' %}</div></a></p>
     <form class="form-horizontal" method="post" enctype="multipart/form-data" action="{% url 'users:update' %}">
       {% csrf_token %}
       {% crispy form form.helper %}

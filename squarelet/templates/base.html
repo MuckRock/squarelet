@@ -1,4 +1,5 @@
 {% load static i18n compress%}<!DOCTYPE html>
+{% load avatar %}
 {% load hijack_tags %}
 <html lang="en">
   <head>
@@ -24,6 +25,7 @@
     <meta name="msapplication-config" content="{% static 'images/favicons/browserconfig.xml' %}">
     <meta name="theme-color" content="#ffffff">
 
+    <link href="https://fonts.googleapis.com/css?family=Lato:400,700" rel="stylesheet">
     <link href="{% static 'css/main.css' %}" rel="stylesheet">
     <link href="{% static 'css/project.css' %}" rel="stylesheet">
     <link href="{% static 'hijack/hijack-styles.css' %}" rel="stylesheet">
@@ -43,7 +45,7 @@
 
     <div class="_cls-heading">
       <div class="_cls-headingContent">
-        <a href="{% url 'home' %}">
+        <a class="_cls-nostyle" href="{% url 'home' %}">
           <span class="_cls-mainLogo">
             <img src="{% static 'assets/muckrock_accounts.svg' %}">
           </span>
@@ -51,7 +53,7 @@
         <nav>
           <ul>
             <li>
-              <a href="{{ settings.MUCKROCK_URL }}">
+              <a class="_cls-nostyle" href="{{ settings.MUCKROCK_URL }}">
                 <div class="_cls-serviceIcon">
                   <img src="{% static 'assets/muckrock.svg' %}">
                 </div>
@@ -63,7 +65,7 @@
               </a>
             </li>
             <li>
-              <a href="{{ settings.DOCCLOUD_URL }}">
+              <a class="_cls-nostyle" href="{{ settings.DOCCLOUD_URL }}">
                 <div class="_cls-serviceIcon">
                   <img src="{% static 'assets/documentcloud.svg' %}">
                 </div>
@@ -75,7 +77,7 @@
               </a>
             </li>
             <li>
-              <a href="{{ settings.FOIAMACHINE_URL }}">
+              <a class="_cls-nostyle" href="{{ settings.FOIAMACHINE_URL }}">
                 <div class="_cls-serviceIcon">
                   <img src="{% static 'assets/foiamachine.svg' %}">
                 </div>
@@ -99,8 +101,17 @@
             </li>
             {% endcomment %}
             {% if request.user.is_authenticated %}
-              <li>
-                <a href="{% url 'account_logout' %}">{% trans "Sign Out" %}</a>
+              <div class="_cls-shim _cls-hide" id="_id-shim"></div>
+              <li id="_id-profDropdown" class="_cls-profDropdown">
+                {% avatar user 25 %}
+                <div id="_id-dropdownContents" class="_cls-dropdown _cls-hide">
+                    <a href="{% url 'users:detail' user.username %}" class="_cls-nostyle _cls-dropdownItem"><div>
+                    {% trans "View Profile" %}
+                  </div></a>
+                  <a href="{% url 'account_logout' %}" class="_cls-nostyle _cls-dropdownItem"><div>
+                    {% trans "Sign Out" %}
+                  </div></a>
+                </div>
               </li>
             {% endif %}
             {% if request.user.is_staff %}
@@ -122,7 +133,7 @@
       {% if payment_failed_organizations %}
           <div class="_cls-alert">
             <div class="alert-error">
-              <span class="_cls-alertIcon">⚠</span>
+              <span class="_cls-alertIcon"></span>
               <span class="_cls-middleAlign">
                 A recent charge made to your credit card has failed.
                 {% for organization in payment_failed_organizations %}
@@ -143,7 +154,7 @@
       {% if request.user.email_failed %}
           <div class="_cls-alert">
             <div class="alert-error">
-              <span class="_cls-alertIcon">⚠</span>
+              <span class="_cls-alertIcon"></span>
               <span class="_cls-middleAlign">
                 We received an error trying to email you, please
                 <a href="{% url "account_email" %}">update your email.</a>
@@ -156,7 +167,7 @@
         {% for message in messages %}
           <div class="_cls-alert">
             <div class="{% if message.tags %}alert-{{ message.tags }}{% endif %}">
-              <span class="_cls-alertIcon">✓</span>
+              <span class="_cls-alertIcon"></span>
               <span class="_cls-middleAlign">{{ message }}</span>
               <span
                 class="_cls-close"
@@ -177,6 +188,11 @@
 
     </div> <!-- /container -->
 
+    <div class="_cls-footer">
+        <p>MuckRock Accounts is a unified accounts platform for MuckRock, DocumentCloud, FOIAMachine, and Quackbot.</p>
+        <p>Additional footer content here.  </p>
+    </div>
+
     {% block modal %}{% endblock modal %}
 
     <!-- Le javascript
@@ -191,8 +207,7 @@
 
         <!-- place project specific Javascript in this file -->
         {% compress js %}
-           <script src="{% static 'js/autocomplete.js' %}"></script> 
-           <script src="{% static 'js/stripe.js' %}"></script> 
+           <script src="{% static 'js/main.js' %}"></script> 
         {% endcompress %}
 
       {% endblock javascript %}

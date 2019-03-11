@@ -1,4 +1,12 @@
 # Django
+# Standard Library
+import hashlib
+import hmac
+import time
+
+# Third Party
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Div, Fieldset, Layout
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http.response import (
@@ -8,15 +16,6 @@ from django.http.response import (
 )
 from django.urls import reverse
 from django.views.generic import DetailView, ListView, RedirectView, UpdateView
-
-# Standard Library
-import hashlib
-import hmac
-import time
-
-# Third Party
-from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Layout
 
 # Squarelet
 from squarelet.core.layout import Field
@@ -61,7 +60,12 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
         form = super().get_form(form_class)
         form.helper = FormHelper()
         form.helper.layout = Layout(
-            Field("username"), Field("name"), Field("avatar"), Field("use_autologin")
+            Fieldset("Name", Field("name")),
+            Fieldset("Username", Field("username")),
+            Fieldset("Avatar image", Field("avatar"), css_class="_cls-compactField"),
+            Fieldset(
+                "Autologin", Field("use_autologin"), css_class="_cls-compactField"
+            ),
         )
         form.helper.form_tag = False
         return form

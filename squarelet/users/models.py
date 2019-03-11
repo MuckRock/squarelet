@@ -162,6 +162,13 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         """A user's individual organization has a matching UUID"""
         return Organization.objects.get(id=self.id)
 
+    @mproperty
+    def primary_email(self):
+        """A user's primary email object"""
+        if self.emailaddress_set.count() == 1:
+            return self.emailaddress_set.first()
+        return self.emailaddress_set.get(primary=True)
+
     def wrap_url(self, url, **extra):
         """Wrap a URL for autologin"""
         if not self.use_autologin:
