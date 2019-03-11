@@ -1,11 +1,13 @@
 # Django
 # Third Party
 # Third Party
-from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Fieldset, Layout
 from django import forms
 from django.core.validators import validate_email
 from django.utils.translation import ugettext_lazy as _
+
+# Third Party
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Fieldset, Layout
 
 # Squarelet
 from squarelet.core.forms import StripeForm

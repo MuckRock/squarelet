@@ -1,9 +1,5 @@
 # Django
 # Standard Library
-import uuid
-
-# Third Party
-import sesame
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.models import PermissionsMixin
 from django.contrib.postgres.fields import CICharField, CIEmailField
@@ -12,6 +8,12 @@ from django.db import models, transaction
 from django.http.request import urlencode
 from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
+
+# Standard Library
+import uuid
+
+# Third Party
+import sesame
 from memoize import mproperty
 from sorl.thumbnail import ImageField
 

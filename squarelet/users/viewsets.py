@@ -1,14 +1,17 @@
 # Django
 # Third Party
 # Third Party
+from django.core.exceptions import ValidationError
+from django.db.models.query import Prefetch
+
+# Third Party
 import sesame.utils
 from allauth.account.models import EmailAddress, EmailConfirmationHMAC
 from allauth.account.utils import setup_user_email
-from django.core.exceptions import ValidationError
-from django.db.models.query import Prefetch
 from rest_framework import viewsets
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
+
 # Squarelet
 from squarelet.oidc.permissions import ScopePermission
 from squarelet.organizations.models import Membership

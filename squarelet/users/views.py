@@ -1,12 +1,5 @@
 # Django
 # Standard Library
-import hashlib
-import hmac
-import time
-
-# Third Party
-from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Div, Fieldset, Layout
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http.response import (
@@ -16,6 +9,15 @@ from django.http.response import (
 )
 from django.urls import reverse
 from django.views.generic import DetailView, ListView, RedirectView, UpdateView
+
+# Standard Library
+import hashlib
+import hmac
+import time
+
+# Third Party
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Div, Fieldset, Layout
 
 # Squarelet
 from squarelet.core.layout import Field

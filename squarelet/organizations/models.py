@@ -1,14 +1,5 @@
 # Django
 # Standard Library
-import logging
-import uuid
-from datetime import date, datetime
-
-from dateutil.relativedelta import relativedelta
-
-# Third Party
-import stripe
-from autoslug import AutoSlugField
 from django.conf import settings
 from django.contrib.postgres.fields import CICharField, CIEmailField
 from django.contrib.staticfiles.templatetags.staticfiles import static
@@ -17,8 +8,19 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.timezone import get_current_timezone
 from django.utils.translation import ugettext_lazy as _
+
+# Standard Library
+import logging
+import uuid
+from datetime import date, datetime
+
+# Third Party
+import stripe
+from autoslug import AutoSlugField
+from dateutil.relativedelta import relativedelta
 from memoize import mproperty
 from sorl.thumbnail import ImageField
+
 # Squarelet
 from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
 from squarelet.core.mail import ORG_TO_RECEIPTS, send_mail
@@ -149,7 +151,7 @@ class Organization(AvatarMixin, models.Model):
     @mproperty
     def reference_name(self):
         if self.individual:
-            return _('Your account')
+            return _("Your account")
         return self.name
 
     # Payment Management

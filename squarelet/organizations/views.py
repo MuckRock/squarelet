@@ -1,13 +1,5 @@
 # Django
 # Standard Library
-import json
-import logging
-import sys
-
-# Third Party
-import stripe
-from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Field, Layout
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
@@ -24,6 +16,16 @@ from django.shortcuts import redirect
 from django.utils.translation import ugettext_lazy as _
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
+
+# Standard Library
+import json
+import logging
+import sys
+
+# Third Party
+import stripe
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Field, Layout
 
 # Squarelet
 from squarelet.core.mail import ORG_TO_ADMINS, send_mail

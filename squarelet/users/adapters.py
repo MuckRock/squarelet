@@ -11,9 +11,6 @@ from furl import furl
 # Squarelet
 from squarelet.core.mail import Email
 
-# Squarelet
-from squarelet.core.mail import Email
-
 
 class AccountAdapter(DefaultAccountAdapter):
     def is_open_for_signup(self, request):
