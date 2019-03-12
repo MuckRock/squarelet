@@ -31,7 +31,7 @@
             </ul>
           </div>
           <div class="_cls-cardAction">
-            <a href="{% url 'account_signup' %}?plan=free&intent={% firstof request.GET.intent 'muckrock' %}"><button>{% blocktrans %}Sign up for free{% endblocktrans %}</button></a>
+            <a class="_cls-nostyle" href="{% url 'account_signup' %}?plan=free&intent={% firstof request.GET.intent 'muckrock' %}"><button>{% blocktrans %}Sign up for free{% endblocktrans %}</button></a>
           </div>
         </div>
         <div class="_cls-card">
@@ -46,7 +46,7 @@
             </ul>
           </div>
           <div class="_cls-cardAction">
-            <a href="{% url 'account_signup' %}?plan=professional&intent={% firstof request.GET.intent 'muckrock' %}"><button>{% blocktrans %}Subscribe for $10/month{% endblocktrans %}</button></a>
+            <a class="_cls-nostyle" href="{% url 'account_signup' %}?plan=professional&intent={% firstof request.GET.intent 'muckrock' %}"><button>{% blocktrans %}Subscribe for $10/month{% endblocktrans %}</button></a>
           </div>
         </div>
         <div class="_cls-card">
@@ -62,7 +62,7 @@
             </ul>
           </div>
           <div class="_cls-cardAction">
-            <a href="{% url 'account_signup' %}?plan=organization&intent={% firstof request.GET.intent 'muckrock' %}"><button>{% blocktrans %}Subscribe from $50/month{% endblocktrans %}</button></a>
+            <a class="_cls-nostyle" href="{% url 'account_signup' %}?plan=organization&intent={% firstof request.GET.intent 'muckrock' %}"><button>{% blocktrans %}Subscribe from $50/month{% endblocktrans %}</button></a>
           </div>
         </div>
       </div>

@@ -448,6 +448,10 @@ nav a:hover ._cls-serviceName {
   height: 38px;
 }
 
+.invalid-feedback {
+  color: #d40b36;
+}
+
 .invalid-feedback::before {
   content: '*';
   font-size: 0.9em;

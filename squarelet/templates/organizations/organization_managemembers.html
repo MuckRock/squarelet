@@ -74,7 +74,7 @@
       {% for invite in requested_invitations %}
         <div class="_cls-manageRow">
           <div class="_cls-manageCell">
-            <a href="{{ invite.user.get_absolute_url }}">
+            <a class="_cls-nostyle" href="{{ invite.user.get_absolute_url }}">
               <div class="_cls-inlineAvatar">
                 {% avatar invite.user 25 %}
               </div>
@@ -113,7 +113,7 @@
       {% for invite in pending_invitations %}
         <div class="_cls-manageRow">
           <div class="_cls-manageCell">
-            <a href="{{ invite.user.get_absolute_url }}">
+            <a class="_cls-nostyle" href="{{ invite.user.get_absolute_url }}">
               <div class="_cls-inlineAvatar">
                 {% avatar invite.user 25 %}
               </div>
