@@ -95,73 +95,14 @@
             </div>
             {% endif %}
             {% if organization.plan.free %}
-              <div class="_cls-actionSmall"><a href="{% url "organizations:update" organization.slug %}"><button>{% trans 'Upgrade' %}</button></a></div>
+              <div class="_cls-actionSmall"><a href="{% url "organizations:payment" organization.slug %}"><button>{% trans 'Upgrade' %}</button></a></div>
             {% else %}
-              <p><a class="_cls-nostyle" href="{% url "organizations:update" organization.slug %}"><div class="_cls-action">{% trans 'Edit plans and payment' %}</div></a></p>
+              <p><a class="_cls-nostyle" href="{% url "organizations:payment" organization.slug %}"><div class="_cls-action">{% trans 'Edit plans and payment' %}</div></a></p>
             {% endif %}
             <p><a class="_cls-nostyle" href="{% url "organizations:receipts" organization.slug %}"><div class="_cls-action">{% trans 'View receipts' %}</div></a></p>
           </div>
         {% endif %}
-        <div class="_cls-services">
-          <div class="_cls-mediumHeader">{% trans 'Services' %}</div>
-          <p class="_cls-info">
-            <span class="_cls-rightBump">{% blocktrans %}A toolset for journalists and the public at large.{% endblocktrans %}</span><a href="{% url "home" %}"><span class="_cls-action">Learn&nbsp;more</span></a>
-          </p>
-          <ul>
-            <li>
-              <div class="_cls-serviceIcon">
-                <img src="{% static 'assets/muckrock.svg' %}">
-              </div>
-              <div class="_cls-serviceInfo">
-                <div class="_cls-serviceName">
-                  {% trans 'MuckRock' %}
-                </div>
-                <div class="_cls-serviceDescription">
-                  {% blocktrans %}File, track, share government requests{% endblocktrans %}
-                </div>
-              </div>
-            </li>
-            <li>
-              <div class="_cls-serviceIcon">
-                <img src="{% static 'assets/documentcloud.svg' %}">
-              </div>
-              <div class="_cls-serviceInfo">
-                <div class="_cls-serviceName">
-                  {% trans 'DocumentCloud' %}
-                </div>
-                <div class="_cls-serviceDescription">
-                  {% blocktrans %}Upload, analyze, embed documents{% endblocktrans %}
-                </div>
-              </div>
-            </li>
-            <li>
-              <div class="_cls-serviceIcon">
-                <img src="{% static 'assets/foiamachine.svg' %}">
-              </div>
-              <div class="_cls-serviceInfo">
-                <div class="_cls-serviceName">
-                  {% trans 'FOIA Machine' %}
-                </div>
-                <div class="_cls-serviceDescription">
-                  {% blocktrans %}File Freedom of Information Act requests privately{% endblocktrans %}
-                </div>
-              </div>
-            </li>
-            <li>
-              <div class="_cls-serviceIcon">
-                <img src="{% static 'assets/quackbot.svg' %}">
-              </div>
-              <div class="_cls-serviceInfo">
-                <div class="_cls-serviceName">
-                  {% trans 'Quackbot' %}
-                </div>
-                <div class="_cls-serviceDescription">
-                  {% blocktrans %}A task-oriented chat bot for journalists using Slack{% endblocktrans %}
-                </div>
-              </div>
-            </li>
-          </ul>
-        </div>
+        {% include "core/lib/services.html" %}
       </div>
     </div>
   </div>

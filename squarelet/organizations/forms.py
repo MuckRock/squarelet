@@ -10,21 +10,20 @@ from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Fieldset, Layout
 
 # Squarelet
-from squarelet.core.forms import StripeForm
+from squarelet.core.forms import ImagePreviewWidget, StripeForm
 from squarelet.core.layout import Field
 
 # Local
-from .models import Plan
+from .models import Organization, Plan
 
 
-class UpdateForm(StripeForm):
-    """Update an organization"""
+class PaymentForm(StripeForm):
+    """Update subscription information for an organization"""
 
     plan = forms.ModelChoiceField(
         label=_("Plan"), queryset=Plan.objects.none(), empty_label=None
     )
     max_users = forms.IntegerField(label=_("Number of Users"), min_value=5)
-    private = forms.BooleanField(label=_("Private"), required=False)
     receipt_emails = forms.CharField(
         label=_("Receipt Emails"),
         widget=forms.Textarea(),
@@ -43,9 +42,6 @@ class UpdateForm(StripeForm):
             Fieldset("Plan", Field("plan"), css_class="_cls-compactField"),
             Fieldset("Max Users", Field("max_users"), css_class="_cls-compactField")
             if "max_users" in self.fields
-            else None,
-            Fieldset("Private", Field("private"), css_class="_cls-compactField")
-            if "private" in self.fields
             else None,
             Fieldset(
                 "Receipt emails",
@@ -70,7 +66,6 @@ class UpdateForm(StripeForm):
         self.fields["plan"].default = self.organization.plan
         if self.organization.individual:
             del self.fields["max_users"]
-            del self.fields["private"]
         else:
             limit_value = max(5, self.organization.user_count())
             self.fields["max_users"].validators[0].limit_value = limit_value
@@ -116,6 +111,33 @@ class UpdateForm(StripeForm):
             )
 
         return data
+
+
+class UpdateForm(forms.ModelForm):
+    """Update misc information for an organization"""
+
+    avatar = forms.ImageField(
+        label=_("Avatar"), required=False, widget=ImagePreviewWidget
+    )
+    private = forms.BooleanField(
+        label=_("Private"),
+        required=False,
+        help_text=_("Only members of this organization will be able to view it"),
+    )
+
+    class Meta:
+        model = Organization
+        fields = ["avatar", "private"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Fieldset("Avatar", Field("avatar"), css_class="_cls-compactField"),
+            Fieldset("Private", Field("private"), css_class="_cls-compactField"),
+        )
+        self.helper.form_tag = False
 
 
 class AddMemberForm(forms.Form):

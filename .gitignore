@@ -279,7 +279,6 @@ squarelet/media/
 
 .pytest_cache/
 .env
-.envs/*
-!.envs/.local/
+.envs/
 
 js_build

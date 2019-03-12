@@ -108,19 +108,25 @@
                     <a href="{% url 'users:detail' user.username %}" class="_cls-nostyle _cls-dropdownItem"><div>
                     {% trans "View Profile" %}
                   </div></a>
+                  {% if request.user.is_staff %}
+                    {% if admin_link %}
+                      <a href="{{ admin_link }}" class="_cls-nostyle _cls-dropdownItem">
+                        <div>
+                          {% trans "Admin" %}
+                        </div>
+                      </a>
+                    {% else %}
+                      <a href="{% url 'admin:index' %}" class="_cls-nostyle _cls-dropdownItem">
+                        <div>
+                          {% trans "Admin" %}
+                        </div>
+                      </a>
+                    {% endif %}
+                  {% endif %}
                   <a href="{% url 'account_logout' %}" class="_cls-nostyle _cls-dropdownItem"><div>
                     {% trans "Sign Out" %}
                   </div></a>
                 </div>
-              </li>
-            {% endif %}
-            {% if request.user.is_staff %}
-              <li>
-                {% if admin_link %}
-                  <a href="{{ admin_link }}">{% trans "Admin" %}</a>
-                {% else %}
-                  <a href="{% url 'admin:index' %}">{% trans "Admin" %}</a>
-                {% endif %}
               </li>
             {% endif %}
           </ul>

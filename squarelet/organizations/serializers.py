@@ -28,6 +28,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "update_on",
             "updated_at",
             "payment_failed",
+            "avatar_url",
         )
 
 
@@ -62,12 +63,13 @@ class ChargeSerializer(serializers.ModelSerializer):
         model = Charge
         fields = (
             "amount",
-            "organization",
-            "created_at",
             "charge_id",
+            "created_at",
             "description",
-            "token",
+            "fee_amount",
+            "organization",
             "save_card",
+            "token",
         )
         read_only_fields = ("created_at", "charge_id")
 
@@ -78,6 +80,7 @@ class ChargeSerializer(serializers.ModelSerializer):
             charge = organization.charge(
                 validated_data["amount"],
                 validated_data["description"],
+                validated_data.get("fee_amount", 0),
                 validated_data.get("token"),
                 validated_data.get("save_card"),
             )

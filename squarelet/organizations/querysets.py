@@ -16,12 +16,13 @@ class OrganizationQuerySet(models.QuerySet):
             return self.filter(private=False)
 
     def create_individual(self, user):
-        """Create the individual organization for this user"""
-        from .models import Plan
+        """Create an individual organization for user
+        The user model must be unsaved
+        """
+        from squarelet.organizations.models import Plan
 
         free_plan = Plan.objects.get(slug="free")
-        individual_organization = self.create(
-            id=user.pk,
+        user.individual_organization = self.create(
             name=user.username,
             individual=True,
             private=True,
@@ -29,8 +30,9 @@ class OrganizationQuerySet(models.QuerySet):
             plan=free_plan,
             next_plan=free_plan,
         )
-        individual_organization.add_creator(user)
-        return individual_organization
+        user.save()
+        user.individual_organization.add_creator(user)
+        return user.individual_organization
 
 
 class PlanQuerySet(models.QuerySet):

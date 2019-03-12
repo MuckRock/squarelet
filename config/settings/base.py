@@ -61,6 +61,7 @@ DJANGO_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.humanize",
     "django.contrib.admin",
+    "django.forms",
 ]
 THIRD_PARTY_APPS = [
     "allauth",
@@ -81,9 +82,10 @@ THIRD_PARTY_APPS = [
 ]
 LOCAL_APPS = [
     "squarelet.core",
-    "squarelet.oidc.apps.OidcConfig",
-    "squarelet.organizations.apps.OrganizationsConfig",
-    "squarelet.users.apps.UsersConfig",
+    "squarelet.oidc",
+    "squarelet.organizations",
+    "squarelet.statistics",
+    "squarelet.users",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -306,7 +308,7 @@ REST_FRAMEWORK = {
 # ------------------------------------------------------------------------------
 SQUARELET_URL = env("SQUARELET_URL", default="http://dev.squarelet.com")
 MUCKROCK_URL = env("MUCKROCK_URL", default="http://dev.muckrock.com")
-FOIAMACHINE_URL = env("FOIAMACHINE_URL", default="http://dev.foiamachine.com")
+FOIAMACHINE_URL = env("FOIAMACHINE_URL", default="http://dev.foiamachine.org")
 DOCCLOUD_URL = env("DOCCLOUD_URL", default="http://dev.documentcloud.org")
 
 # stripe
@@ -349,3 +351,5 @@ DOGSLOW_EMAIL_TO = "mitch@muckrock.com"
 DOGSLOW_EMAIL_FROM = "info@muckrock.com"
 DOGSLOW_LOGGER = "dogslow"  # can be anything, but must match `logger` below
 DOGSLOW_LOG_TO_SENTRY = True
+
+FORM_RENDERER = "django.forms.renderers.TemplatesSetting"

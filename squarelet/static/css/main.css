@@ -393,6 +393,17 @@ nav a:hover ._cls-serviceName {
   color: #00000091;
 }
 
+._cls-services a ._cls-serviceName {
+  color: #2b2b2b;
+  text-decoration: inherit;
+  font-weight: bold;
+  transition: all 0.2s;
+}
+
+._cls-services a:hover ._cls-serviceName {
+  color: #00000091;
+}
+
 ._cls-headingContent {
   max-width: 900px;
   margin: -0.5em auto 0 auto;

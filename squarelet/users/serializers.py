@@ -7,7 +7,6 @@ import string
 from rest_framework import serializers
 
 # Squarelet
-from squarelet.organizations.models import Organization
 from squarelet.organizations.serializers import MembershipSerializer
 
 # Local
@@ -17,7 +16,7 @@ from .models import User
 class UserBaseSerializer(serializers.ModelSerializer):
     """This serializer is the base for both the read and write serializers"""
 
-    uuid = serializers.UUIDField(required=False, source="id")
+    uuid = serializers.UUIDField(required=False, source="pk")
     preferred_username = serializers.CharField(source="username")
     picture = serializers.CharField(source="avatar_url", required=False)
     email_verified = serializers.SerializerMethodField()
@@ -98,10 +97,8 @@ class UserWriteSerializer(UserBaseSerializer):
             validated_data["username"] = self.unique_username(
                 validated_data["username"]
             )
-        user = super().create(validated_data)
-        user.set_unusable_password()
-        user.save()
-        Organization.objects.create_individual(user)
+        user = User.objects.create_user(**validated_data)
+
         return user
 
     @staticmethod

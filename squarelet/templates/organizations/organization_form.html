@@ -24,12 +24,12 @@
         <b>{{ organization.next_plan.name }}</b>
       </div>
     {% endif %}
-    <form id="stripe-form" method="post">
+    <form id="stripe-form" method="post" enctype="multipart/form-data">
       {% crispy form form.helper %}
 
       {% if form.stripe_token %}
         <div id="_id-planProjection" class="_cls-planProjection">
-          <b>Expected cost: <span id="_id-totalCost"></span></b>
+          <b>Cost: <span id="_id-totalCost"></span></b>
           <div class="_cls-breakdown" id="_id-costBreakdown"></div>
         </div>
         <div id="card-container">

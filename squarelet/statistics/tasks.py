@@ -45,8 +45,8 @@ def store_statistics():
     stats = Statistics.objects.create(**kwargs)
 
     # stats needs to be saved before many to many relationships can be set
-    stats.users_today = User.objects.filter(
-        last_login__range=(yesterday_midnight, today_midnight)
+    stats.users_today.set(
+        User.objects.filter(last_login__range=(yesterday_midnight, today_midnight))
     )
-    stats.pro_users = User.objects.filter(organizations__plan__slug="professional")
+    stats.pro_users.set(User.objects.filter(organizations__plan__slug="professional"))
     stats.save()

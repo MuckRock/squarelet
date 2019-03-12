@@ -13,7 +13,7 @@ from squarelet.organizations.models import Plan
 )
 def make_stripe_plan(sender, instance, created, raw, using, update_fields, **kwargs):
     """Create a stripe plan on plan creation"""
-    # pylint: disable=too-many-arguments, unused-argument
+    # pylint: disable=unused-argument
     if created:
         instance.make_stripe_plan()
 

@@ -8,12 +8,8 @@ class AvatarMixin(object):
 
     @property
     def avatar_url(self):
-        if self.avatar and self.avatar.url.startswith("http"):
-            return self.avatar.url
-        elif self.avatar:
-            return f"{settings.SQUARELET_URL}{self.avatar.url}"
-        else:
-            return self.default_avatar
+        url = self.avatar.url if self.avatar else self.default_avatar
+        return url if url.startswith("http") else f"{settings.SQUARELET_URL}{url}"
 
 
 class AdminLinkMixin(object):

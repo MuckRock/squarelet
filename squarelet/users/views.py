@@ -17,9 +17,10 @@ import time
 
 # Third Party
 from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Div, Fieldset, Layout
+from crispy_forms.layout import Fieldset, Layout
 
 # Squarelet
+from squarelet.core.forms import ImagePreviewWidget
 from squarelet.core.layout import Field
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.organizations.models import ReceiptEmail
@@ -63,13 +64,16 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
         form.helper = FormHelper()
         form.helper.layout = Layout(
             Fieldset("Name", Field("name")),
-            Fieldset("Username", Field("username")),
+            Fieldset("Username", Field("username"))
+            if "username" in form.fields
+            else None,
             Fieldset("Avatar image", Field("avatar"), css_class="_cls-compactField"),
             Fieldset(
                 "Autologin", Field("use_autologin"), css_class="_cls-compactField"
             ),
         )
         form.helper.form_tag = False
+        form.fields["avatar"].widget = ImagePreviewWidget()
         return form
 
     def form_valid(self, form):
@@ -77,7 +81,17 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
         if self.request.user.username != self.object.username:
             self.object.can_change_username = False
         self.object.save()
+        self.object.individual_organization.avatar = self.object.avatar
+        self.object.individual_organization.name = self.object.username
+        self.object.individual_organization.save()
         return HttpResponseRedirect(self.get_success_url())
+
+    def form_invalid(self, form):
+        """The user object has the invalid data in it - refresh it from the database
+        before displaying to the user
+        """
+        self.object.refresh_from_db()
+        return super().form_invalid(form)
 
     def get_success_url(self):
         return reverse("users:detail", kwargs={"username": self.object.username})

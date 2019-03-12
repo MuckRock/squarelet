@@ -22,10 +22,8 @@ def staging(c):
 @task
 def test(c, path="squarelet", reuse_db=False):
     """Run the test suite"""
-    if reuse_db:
-        reuse_switch = "--reuse-db"
-    else:
-        reuse_switch = ""
+    reuse_switch = "--reuse-db" if reuse_db else ""
+
     c.run(
         DOCKER_COMPOSE_RUN_OPT_USER.format(
             opt="-e DJANGO_SETTINGS_MODULE=config.settings.test",
@@ -42,14 +40,14 @@ def coverage(c):
         DOCKER_COMPOSE_RUN_OPT_USER.format(
             opt="-e DJANGO_SETTINGS_MODULE=config.settings.test",
             service="django",
-            cmd=f"coverage run --source . -m py.test",
+            cmd=f"coverage erase",
         )
     )
     c.run(
         DOCKER_COMPOSE_RUN_OPT_USER.format(
             opt="-e DJANGO_SETTINGS_MODULE=config.settings.test",
             service="django",
-            cmd=f"coverage report",
+            cmd=f"coverage run --source squarelet -m py.test",
         )
     )
     c.run(
