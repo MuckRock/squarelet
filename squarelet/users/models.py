@@ -165,7 +165,6 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
     @mproperty
     def primary_email(self):
         """A user's primary email object"""
-        # XXX this should be self.email
         if self.emailaddress_set.count() == 1:
             return self.emailaddress_set.first()
         return self.emailaddress_set.get(primary=True)

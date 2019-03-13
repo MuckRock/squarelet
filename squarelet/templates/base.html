@@ -26,14 +26,13 @@
     <meta name="theme-color" content="#ffffff">
 
     <link href="https://fonts.googleapis.com/css?family=Lato:400,700" rel="stylesheet">
-    <link href="{% static 'css/main.css' %}" rel="stylesheet">
-    <link href="{% static 'css/project.css' %}" rel="stylesheet">
-    <link href="{% static 'hijack/hijack-styles.css' %}" rel="stylesheet">
     {% block css %}
       <!-- Your stuff: Third-party CSS libraries go here -->
       {% compress css %}
         <!-- This file stores project-specific CSS -->
-
+        <link href="{% static 'css/main.css' %}" rel="stylesheet">
+        <link href="{% static 'css/project.css' %}" rel="stylesheet">
+        <link href="{% static 'hijack/hijack-styles.css' %}" rel="stylesheet">
       {% endcompress %}
     {% endblock %}
 
