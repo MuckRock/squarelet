@@ -16,10 +16,11 @@ if (exists('_id-autocomplete')) {
   new AutocompleteView();
 }
 
-if (exists('_id-manageTable')) {
-  // Manage members view.
-  new ManageTableView();
-}
+// TODO(incorporate new manage table)
+// if (exists('_id-manageTable')) {
+//   // Manage members view.
+//   new ManageTableView();
+// }
 
 if (exists('_id-resendVerification')) {
   // E-mail address page.
