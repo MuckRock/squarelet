@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% load avatar %}
+{% load i18n %}
+{% block title %}{{ organization.name }} | Manage Memberships{% endblock %}
+
+{% block content %}
+  <div class="_cls-largeContent">
+    <h2>Manage memberships</h2>
+    <h3>{{ organization.name }}</h3>
+
+    <div class="_cls-tableHeading">{% trans 'Manage members' %}</div>
+    <div class="_cls-tableInfo">{% trans 'Users who are a part of the organization' %}</div>
+    <form class="_cls-inlineForm" method="post" enctype="multipart/form-data" id="org-form">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="managemembers">
+      <div class="_cls-manageTable">
+        <div class="_cls-manageRow _cls-manageHeader">
+          <div class="_cls-manageCell">{% trans 'User' %}</div>
+          <div class="_cls-manageCell">{% trans 'Admin' %}</div>
+          <div class="_cls-manageCell">{% trans 'Action' %}</div>
+          </div>
+        {% for member in members %}
+          <div class="_cls-manageRow">
+            <div class="_cls-manageCell">
+              <a class="_cls-nostyle" href="{{ member.user.get_absolute_url }}">
+                <div class="_cls-inlineAvatar">
+                  {% avatar member.user 25 %}
+                </div>
+                {{ member.user.safe_name }}
+              </a>
+            </div>
+            {% if member.user == admin %}
+              <div class="_cls-manageCell">{% trans 'Yes' %}</div>
+              <div class="_cls-manageCell">{% trans 'Cannot remove self' %}</div>
+            {% else %}
+              <div class="_cls-manageCell">
+                <form method="POST" class="_cls-inlineForm _cls-inlineInlineForm">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="makeadmin">
+                  <input type="hidden" name="userid" value="{{ member.user.id }}">
+                  
+                  {% if member.admin %}
+                    <input type="hidden" name="admin" value="false">
+                    <button type="submit" class="_cls-fauxBox _cls-checked">✓</button>
+                  {% else %}
+                    <input type="hidden" name="admin" value="true">
+                    <button type="submit" class="_cls-fauxBox _cls-unchecked"></button>
+                  {% endif %}
+                </form>
+              </div>
+              <div class="_cls-manageCell">
+                <form method="POST" class="_cls-inlineForm">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="removeuser">
+                  <input type="hidden" name="userid" value="{{ member.user.id }}">
+                  <button type="submit" class="_cls-compactButton">{% trans 'Remove' %}</button>
+                </form>
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </form>
+
+    {% if requested_invitations %}
+    <div class="_cls-tableHeading">{% trans 'Requested invites' %}</div>
+    <div class="_cls-tableInfo">{% trans 'Users that have requested to be a part of the organization' %}</div>
+    <div class="_cls-manageTable">
+      <div class="_cls-manageRow _cls-manageHeader">
+        <div class="_cls-manageCell">{% trans 'User' %}</div>
+        <div class="_cls-manageCell">{% trans 'Requested time' %}</div>
+        <div class="_cls-manageCell">{% trans 'Action' %}</div>
+        </div>
+      {% for invite in requested_invitations %}
+        <div class="_cls-manageRow">
+          <div class="_cls-manageCell">
+            <a class="_cls-nostyle" href="{{ invite.user.get_absolute_url }}">
+              <div class="_cls-inlineAvatar">
+                {% avatar invite.user 25 %}
+              </div>
+              {{ invite.get_name }}
+            </a>
+          </div>
+          <div class="_cls-manageCell">{{ invite.created_at | date:"Y-m-d H:i" }}</div>
+          <div class="_cls-manageCell">
+            <form method="POST" class="_cls-inlineForm _cls-inlineInlineForm">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="acceptinvite">
+              <input type="hidden" name="inviteid" value="{{ invite.id }}">
+              <button type="submit" class="_cls-compactButton">{% trans 'Accept' %}</button>
+            </form>
+            <form method="POST" class="_cls-inlineForm _cls-inlineInlineForm">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="rejectinvite">
+              <input type="hidden" name="inviteid" value="{{ invite.id }}">
+              <button type="submit" class="_cls-compactButton">{% trans 'Reject' %}</button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if pending_invitations %}
+    <div class="_cls-tableHeading">{% trans 'Pending invites' %}</div>
+    <div class="_cls-tableInfo">{% trans 'Users you have invited to be a part of the organization' %}</div>
+    <div class="_cls-manageTable">
+      <div class="_cls-manageRow _cls-manageHeader">
+        <div class="_cls-manageCell">{% trans 'User' %}</div>
+        <div class="_cls-manageCell">{% trans 'Requested time' %}</div>
+        <div class="_cls-manageCell">{% trans 'Action' %}</div>
+        </div>
+      {% for invite in pending_invitations %}
+        <div class="_cls-manageRow">
+          <div class="_cls-manageCell">
+            <a class="_cls-nostyle" href="{{ invite.user.get_absolute_url }}">
+              <div class="_cls-inlineAvatar">
+                {% avatar invite.user 25 %}
+              </div>
+              {{ invite.get_name }}
+            </a>
+          </div>
+          <div class="_cls-manageCell">{{ invite.created_at | date:"Y-m-d H:i" }}</div>
+          <div class="_cls-manageCell">
+            <form method="POST" class="_cls-inlineForm">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="revokeinvite">
+              <input type="hidden" name="inviteid" value="{{ invite.id }}">
+              <button type="submit" class="_cls-compactButton">{% trans 'Revoke' %}</button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="_cls-tableHeading">{% trans 'Invite new members' %}</div>
+    {% if organization.user_count < organization.max_users %}
+      <div class="_cls-tableInfo">{% trans 'They will get an email inviting them to join.' %}</div>
+      <form class="_cls-inlineForm" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="addmember">
+        <div class="_cls-inviteUsers _cls-actionSmall _cls-actionSmaller">
+          <input name="email" placeholder="Email address" required>
+          <button type="submit" name="addmember">+ {% trans 'Add a user' %}</button>
+        </div>
+      </form>
+    {% else %}
+      <div class="_cls-tableInfo">{% trans 'Users and invitations capacity full' %} ({{ organization.max_users }}).</div>
+    {% endif %}
+    </form>
+    <p class="_cls-spaced"><a href="{{ organization.get_absolute_url }}" class="_cls-altAction">
+      {% trans 'Go back' %}
+    </a></p>
+  </div>
+{% endblock %}
