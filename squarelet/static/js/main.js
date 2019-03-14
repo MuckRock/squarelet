@@ -555,7 +555,7 @@ if (exists('_id-autocomplete')) {
 }
 if (exists('_id-manageTable')) {
     // Manage members view.
-    new ManageTableView();
+    //new ManageTableView();
 }
 if (exists('_id-resendVerification')) ;
 if (exists('_id-receiptsTable')) {
