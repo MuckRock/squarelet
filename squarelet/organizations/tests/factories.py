@@ -1,6 +1,8 @@
 # Third Party
 import factory
 from autoslug.utils import slugify
+
+# Squarelet
 from squarelet.organizations.models import Role
 
 

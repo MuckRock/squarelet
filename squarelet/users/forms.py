@@ -1,15 +1,17 @@
 # Django
 # Third Party
-import stripe
-from allauth.account import forms as allauth
-from allauth.account.utils import setup_user_email
-from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Layout
 from django import forms
 from django.contrib import messages
 from django.db import transaction
 from django.utils.translation import ugettext_lazy as _
 from django.views.generic.edit import FormView
+
+# Third Party
+import stripe
+from allauth.account import forms as allauth
+from allauth.account.utils import setup_user_email
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Layout
 
 # Squarelet
 from squarelet.core.forms import StripeForm
