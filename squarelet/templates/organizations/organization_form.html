@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load i18n %}
 {% load crispy_forms_tags %}
+{% load planinfo %}
 
 {% block title %}{{ organization.reference_name }}{% endblock %}
 
@@ -52,6 +53,6 @@
       </div>
 
     </form>
-    {{ plan_info|json_script:"_id-planInfo" }}
   </div>
+  {% planinfo %}
 {% endblock %}

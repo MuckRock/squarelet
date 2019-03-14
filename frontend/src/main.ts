@@ -3,7 +3,7 @@ import {exists} from './util';
 import {DropdownView} from './dropdown';
 import {EmailAddressView} from './emailaddress';
 import {ReceiptsView} from './receipts';
-import {StripeView} from './stripe';
+import {PlansView} from './plans';
 
 if (exists('_id-profDropdown')) {
   // Dropdown view;
@@ -26,6 +26,6 @@ if (exists('_id-receiptsTable')) {
 }
 
 if (exists('id_stripe_pk')) {
-  // Stripe.
-  new StripeView();
+  // Stripe and plans pages.
+  new PlansView();
 }
