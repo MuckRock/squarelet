@@ -1,6 +1,4 @@
 # Django
-# Standard Library
-# Standard Library
 from django.conf import settings
 from django.contrib.postgres.fields import CICharField, CIEmailField
 from django.contrib.staticfiles.templatetags.staticfiles import static
@@ -19,7 +17,6 @@ from datetime import date, datetime
 import stripe
 from autoslug import AutoSlugField
 from dateutil.relativedelta import relativedelta
-from djchoices import ChoiceItem, DjangoChoices
 from memoize import mproperty
 from sorl.thumbnail import ImageField
 
@@ -38,14 +35,6 @@ stripe.api_version = "2018-09-24"
 DEFAULT_AVATAR = static("images/avatars/organization.png")
 
 logger = logging.getLogger(__name__)
-
-
-class Role(DjangoChoices):
-    disabled = ChoiceItem(0, _("Disabled"))
-    administrator = ChoiceItem(1, _("Administrator"))
-    contributor = ChoiceItem(2, _("Contributor"))
-    reviewer = ChoiceItem(3, _("Reviewer"))
-    freelancer = ChoiceItem(4, _("Freelancer"))
 
 
 class Organization(AvatarMixin, models.Model):
@@ -129,9 +118,7 @@ class Organization(AvatarMixin, models.Model):
     # User Management
     def has_admin(self, user):
         """Is the given user an admin of this organization"""
-        return self.users.filter(
-            pk=user.pk, memberships__role=Role.administrator
-        ).exists()
+        return self.users.filter(pk=user.pk, memberships__admin=True).exists()
 
     def has_member(self, user):
         """Is the user a member?"""
@@ -144,7 +131,7 @@ class Organization(AvatarMixin, models.Model):
     def add_creator(self, user):
         """Add user as the creator of the organization"""
         # add creator to the organization as an admin by default
-        self.memberships.create(user=user, role=Role.administrator)
+        self.memberships.create(user=user, admin=True)
         # add the creators email as a receipt recipient by default
         # agency users may not have an email
         if user.email:
@@ -323,19 +310,17 @@ class Membership(models.Model):
         on_delete=models.CASCADE,
         related_name="memberships",
     )
-    role = models.IntegerField(choices=Role.choices, default=Role.administrator)
-
-    created_at = AutoCreatedField(_("created at"))
+    admin = models.BooleanField(
+        _("admin"),
+        default=False,
+        help_text="This user has administrative rights for this organization",
+    )
 
     class Meta:
         unique_together = ("user", "organization")
 
     def __str__(self):
         return "Membership: {} in {}".format(self.user, self.organization)
-
-    @mproperty
-    def admin(self):
-        return self.role == Role.administrator
 
     def save(self, *args, **kwargs):
         # pylint: disable=arguments-differ
@@ -405,7 +390,7 @@ class Plan(models.Model):
     @property
     def stripe_id(self):
         """Namespace the stripe ID to not conflict with previous plans we have made"""
-        return f"squarelet_plan_{self.slug}"
+        return f"squarelet:plan:{self.slug}"
 
     def make_stripe_plan(self):
         """Create the plan on stripe"""
@@ -511,9 +496,7 @@ class Invitation(models.Model):
             self.user = user
         self.accepted_at = timezone.now()
         self.save()
-        Membership.objects.create(
-            organization=self.organization, user=self.user, role=Role.contributor
-        )
+        Membership.objects.create(organization=self.organization, user=self.user)
 
     def reject(self):
         """Reject or revoke the invitation"""
