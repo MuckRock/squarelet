@@ -1,15 +1,6 @@
 # Django
 # Standard Library
 # Standard Library
-import logging
-import uuid
-from datetime import date, datetime
-
-from dateutil.relativedelta import relativedelta
-
-# Third Party
-import stripe
-from autoslug import AutoSlugField
 from django.conf import settings
 from django.contrib.postgres.fields import CICharField, CIEmailField
 from django.contrib.staticfiles.templatetags.staticfiles import static
@@ -18,9 +9,20 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.timezone import get_current_timezone
 from django.utils.translation import ugettext_lazy as _
+
+# Standard Library
+import logging
+import uuid
+from datetime import date, datetime
+
+# Third Party
+import stripe
+from autoslug import AutoSlugField
+from dateutil.relativedelta import relativedelta
 from djchoices import ChoiceItem, DjangoChoices
 from memoize import mproperty
 from sorl.thumbnail import ImageField
+
 # Squarelet
 from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
 from squarelet.core.mail import ORG_TO_RECEIPTS, send_mail
@@ -322,7 +324,7 @@ class Membership(models.Model):
         related_name="memberships",
     )
     role = models.IntegerField(choices=Role.choices, default=Role.administrator)
-    
+
     created_at = AutoCreatedField(_("created at"))
 
     class Meta:
@@ -509,7 +511,9 @@ class Invitation(models.Model):
             self.user = user
         self.accepted_at = timezone.now()
         self.save()
-        Membership.objects.create(organization=self.organization, user=self.user, role=Role.contributor)
+        Membership.objects.create(
+            organization=self.organization, user=self.user, role=Role.contributor
+        )
 
     def reject(self):
         """Reject or revoke the invitation"""

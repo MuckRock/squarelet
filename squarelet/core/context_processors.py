@@ -1,5 +1,7 @@
 # Django
 from django.conf import settings as django_settings
+
+# Squarelet
 from squarelet.organizations.models import Role
 
 
