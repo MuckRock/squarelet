@@ -626,22 +626,7 @@ nav a:hover ._cls-serviceName {
   font-size: 0.9em;
   border-radius: 3px;
   box-shadow: 0 1px 2px #00000014;
-<<<<<<< HEAD
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  margin-top: -31px;
-||||||| merged common ancestors
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  margin-top: -31px;
-  animation: autoHide 3s forwards;
-=======
   /* animation: autoHide 5s forwards; */
->>>>>>> Initial doc cloud Squarelet changes + design/style things
 }
 
 ._cls-alert div._cls-dismiss {

@@ -149,12 +149,6 @@ class UpdateSubscription(OrganizationAdminMixin, UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["plan_info"] = {
-            p["pk"]: p
-            for p in Plan.objects.values(
-                "pk", "base_price", "price_per_user", "minimum_users"
-            )
-        }
         context["failed_receipt_emails"] = self.object.receipt_emails.filter(
             failed=True
         )
