@@ -633,7 +633,6 @@ nav a:hover ._cls-serviceName {
   right: 0;
   top: 0;
   margin-top: -31px;
-  animation: autoHide 3s forwards;
 }
 
 ._cls-alert div._cls-dismiss {
