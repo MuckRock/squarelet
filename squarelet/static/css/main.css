@@ -12,7 +12,7 @@ a {
 }
 
 a._cls-nostyle {
-  border-bottom: inherit;
+  border-bottom: none;
 }
 
 ._cls-content {
@@ -459,7 +459,8 @@ nav a:hover ._cls-serviceName {
   height: 38px;
 }
 
-.invalid-feedback {
+.invalid-feedback,
+.alert-danger {
   color: #d40b36;
 }
 
@@ -615,28 +616,36 @@ nav a:hover ._cls-serviceName {
 }
 
 ._cls-alert {
+  margin: 0.8em auto;
   width: 90%;
   max-width: 500px;
-  margin: auto;
-  position: relative;
 }
 
 ._cls-alert div {
   padding: 0.5em 0.8em;
-  /* font-weight: bold; */
   font-size: 0.9em;
-  /* color: #3a3a3a; */
   border-radius: 3px;
   box-shadow: 0 1px 2px #00000014;
+<<<<<<< HEAD
   position: absolute;
   left: 0;
   right: 0;
   top: 0;
   margin-top: -31px;
+||||||| merged common ancestors
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  margin-top: -31px;
+  animation: autoHide 3s forwards;
+=======
+  /* animation: autoHide 5s forwards; */
+>>>>>>> Initial doc cloud Squarelet changes + design/style things
 }
 
 ._cls-alert div._cls-dismiss {
-  animation-delay: -2.5s;
+  animation-delay: -4.5s;
   pointer-events: none;
 }
 
@@ -655,29 +664,28 @@ nav a:hover ._cls-serviceName {
 @keyframes autoHide {
   0% {
     opacity: 1;
-    margin-top: -31px;
+    margin-top: 0;
     visibility: visible;
   }
   90% {
     opacity: 1;
-    margin-top: -31px;
+    margin-top: 0;
     visibility: visible;
   }
   99% {
     opacity: 0;
-    margin-top: -50px;
+    margin-top: -19px;
     visibility: visible;
   }
   100% {
     opacity: 0;
-    margin-top: -50px;
+    margin-top: -19px;
     visibility: hidden;
   }
 }
 
 .alert-success {
-  background: #93d893e6;
-  border: solid 1px darkgreen;
+  background: #a5dea5f2;
   color: darkgreen;
 }
 
@@ -800,6 +808,7 @@ nav a:hover ._cls-serviceName {
   border-right: solid 1px gray;
   padding: 0.5em 0.8em;
   border-bottom: solid 1px gray;
+  position: relative;
 }
 
 ._cls-manageCell:last-child {
@@ -1009,7 +1018,7 @@ button._cls-altAction {
 
 ._cls-profDropdown ._cls-avatar {
   position: relative;
-  z-index: 3;
+  z-index: 10;
   transition: background 0.2s ease;
 }
 
@@ -1039,7 +1048,7 @@ button._cls-altAction {
   top: 26px;
   border-radius: 6px;
   border-top-left-radius: 0;
-  z-index: 2;
+  z-index: 9;
   padding: 12px 0 10px 0;
   border-left: solid 1px gainsboro;
   border-bottom: solid 2px gainsboro;
@@ -1078,6 +1087,8 @@ a._cls-dropdownItem {
   left: 0;
   right: 0;
   bottom: 0;
+  z-index: 8;
+  user-select: none;
 }
 
 ._cls-pendingPlan {
@@ -1147,4 +1158,120 @@ textarea {
   margin-bottom: 0.5em;
   height: inherit;
   line-height: inherit;
+}
+
+._cls-alerts {
+  width: 100%;
+  margin: auto;
+  position: absolute;
+  margin-top: -53px;
+}
+
+.alert-info {
+  background: #bad8eae6;
+  color: #0c3e8e;
+}
+
+.alert-info ._cls-alertIcon::before {
+  content: 'i';
+  font-style: italic;
+  font-family: serif;
+  color: #0c3e8e;
+  font-size: 1.2em;
+}
+
+.alert-info ._cls-alertIcon {
+  border: solid 3px #0c3e8e;
+}
+
+._cls-roleDropdown {
+  display: inline-block;
+  vertical-align: top;
+  background: #f9fbfd;
+  box-shadow: 0.5px 0.5px 2px #00000045;
+  position: absolute;
+  left: 0.5em;
+  top: 0.5em;
+  right: 0.5em;
+  z-index: 9;
+}
+
+._cls-roleDropdown h1 {
+  font-size: 14px;
+  margin: 0.5em 0;
+}
+
+._cls-roleDropdown ._cls-roleInfo {
+  font-size: 12px;
+  line-height: 1.3;
+  margin: 0.5em 0;
+  color: #585858;
+}
+
+._cls-roleItem {
+  padding: 0.3em 1em;
+  border-bottom: solid 1px #00000026;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+._cls-roleItem:hover {
+  background: #eef3f9;
+}
+
+._cls-roleDropdown ._cls-selected h1::before {
+  content: '\2713 ';
+  font-weight: normal;
+  margin-right: 4px;
+}
+
+._cls-roleDropdown ._cls-selected {
+  background: #e7e9ec;
+  pointer-events: none;
+}
+
+._cls-roleDropdown button {
+  background: none;
+  border: none;
+  outline: none;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+}
+
+._cls-roleDropdown button:hover {
+  box-shadow: none;
+}
+
+._cls-roleSelect {
+  box-shadow: 0.5px 0.5px 2px #b3b3b3;
+  padding: 0.5em 1em;
+  border-radius: 6px;
+  display: inline-block;
+  user-select: none;
+  cursor: pointer;
+  background: #eef0f3;
+  transition: all 0.2s ease;
+  position: absolute;
+}
+
+._cls-roleSelect::after {
+  content: '\25BC';
+  font-size: 0.75em;
+  margin-left: 5px;
+  color: #00000091;
+}
+
+._cls-roleSelect:hover {
+  background: #d4d9e0;
+}
+
+._cls-roleDropdown ._cls-selected h1 {
+  color: #646565;
+}
+
+._cls-roleDropdown ._cls-selected ._cls-roleInfo {
+  color: #98999a;
 }

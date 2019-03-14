@@ -4,6 +4,7 @@ import {DropdownView} from './dropdown';
 import {EmailAddressView} from './emailaddress';
 import {ReceiptsView} from './receipts';
 import {PlansView} from './plans';
+import {ManageTableView} from './managetable';
 
 if (exists('_id-profDropdown')) {
   // Dropdown view;
@@ -13,6 +14,11 @@ if (exists('_id-profDropdown')) {
 if (exists('_id-autocomplete')) {
   // Autocomplete page.
   new AutocompleteView();
+}
+
+if (exists('_id-manageTable')) {
+  // Manage members view.
+  new ManageTableView();
 }
 
 if (exists('_id-resendVerification')) {

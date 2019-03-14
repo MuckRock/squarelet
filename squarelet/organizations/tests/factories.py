@@ -1,6 +1,7 @@
 # Third Party
 import factory
 from autoslug.utils import slugify
+from squarelet.organizations.models import Role
 
 
 class OrganizationFactory(factory.django.DjangoModelFactory):
@@ -25,7 +26,7 @@ class MembershipFactory(factory.django.DjangoModelFactory):
     organization = factory.SubFactory(
         "squarelet.organizations.tests.factories.OrganizationFactory"
     )
-    admin = True
+    role = Role.administrator
 
     class Meta:
         model = "organizations.Membership"

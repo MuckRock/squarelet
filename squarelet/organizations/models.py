@@ -1,5 +1,15 @@
 # Django
 # Standard Library
+# Standard Library
+import logging
+import uuid
+from datetime import date, datetime
+
+from dateutil.relativedelta import relativedelta
+
+# Third Party
+import stripe
+from autoslug import AutoSlugField
 from django.conf import settings
 from django.contrib.postgres.fields import CICharField, CIEmailField
 from django.contrib.staticfiles.templatetags.staticfiles import static
@@ -8,19 +18,9 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.timezone import get_current_timezone
 from django.utils.translation import ugettext_lazy as _
-
-# Standard Library
-import logging
-import uuid
-from datetime import date, datetime
-
-# Third Party
-import stripe
-from autoslug import AutoSlugField
-from dateutil.relativedelta import relativedelta
+from djchoices import ChoiceItem, DjangoChoices
 from memoize import mproperty
 from sorl.thumbnail import ImageField
-
 # Squarelet
 from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
 from squarelet.core.mail import ORG_TO_RECEIPTS, send_mail
@@ -36,6 +36,14 @@ stripe.api_version = "2018-09-24"
 DEFAULT_AVATAR = static("images/avatars/organization.png")
 
 logger = logging.getLogger(__name__)
+
+
+class Role(DjangoChoices):
+    disabled = ChoiceItem(0, _("Disabled"))
+    administrator = ChoiceItem(1, _("Administrator"))
+    contributor = ChoiceItem(2, _("Contributor"))
+    reviewer = ChoiceItem(3, _("Reviewer"))
+    freelancer = ChoiceItem(4, _("Freelancer"))
 
 
 class Organization(AvatarMixin, models.Model):
@@ -119,7 +127,9 @@ class Organization(AvatarMixin, models.Model):
     # User Management
     def has_admin(self, user):
         """Is the given user an admin of this organization"""
-        return self.users.filter(pk=user.pk, memberships__admin=True).exists()
+        return self.users.filter(
+            pk=user.pk, memberships__role=Role.administrator
+        ).exists()
 
     def has_member(self, user):
         """Is the user a member?"""
@@ -132,7 +142,7 @@ class Organization(AvatarMixin, models.Model):
     def add_creator(self, user):
         """Add user as the creator of the organization"""
         # add creator to the organization as an admin by default
-        self.memberships.create(user=user, admin=True)
+        self.memberships.create(user=user, role=Role.administrator)
         # add the creators email as a receipt recipient by default
         # agency users may not have an email
         if user.email:
@@ -311,17 +321,19 @@ class Membership(models.Model):
         on_delete=models.CASCADE,
         related_name="memberships",
     )
-    admin = models.BooleanField(
-        _("admin"),
-        default=False,
-        help_text="This user has administrative rights for this organization",
-    )
+    role = models.IntegerField(choices=Role.choices, default=Role.administrator)
+    
+    created_at = AutoCreatedField(_("created at"))
 
     class Meta:
         unique_together = ("user", "organization")
 
     def __str__(self):
         return "Membership: {} in {}".format(self.user, self.organization)
+
+    @mproperty
+    def admin(self):
+        return self.role == Role.administrator
 
     def save(self, *args, **kwargs):
         # pylint: disable=arguments-differ
@@ -497,7 +509,7 @@ class Invitation(models.Model):
             self.user = user
         self.accepted_at = timezone.now()
         self.save()
-        Membership.objects.create(organization=self.organization, user=self.user)
+        Membership.objects.create(organization=self.organization, user=self.user, role=Role.contributor)
 
     def reject(self):
         """Reject or revoke the invitation"""

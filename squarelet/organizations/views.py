@@ -1,5 +1,14 @@
 # Django
 # Standard Library
+# Standard Library
+import json
+import logging
+import sys
+
+# Third Party
+import stripe
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Field, Layout
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
@@ -17,16 +26,6 @@ from django.utils.translation import ugettext_lazy as _
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
-# Standard Library
-import json
-import logging
-import sys
-
-# Third Party
-import stripe
-from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Field, Layout
-
 # Squarelet
 from squarelet.core.mail import ORG_TO_ADMINS, send_mail
 from squarelet.core.mixins import AdminLinkMixin
@@ -34,7 +33,7 @@ from squarelet.core.mixins import AdminLinkMixin
 # Local
 from .forms import AddMemberForm, PaymentForm, UpdateForm
 from .mixins import IndividualMixin, OrganizationAdminMixin
-from .models import Charge, Invitation, Membership, Organization, Plan
+from .models import Charge, Invitation, Membership, Organization, Plan, Role
 from .tasks import handle_charge_succeeded, handle_invoice_failed
 
 # How much to paginate organizations list by
@@ -222,6 +221,7 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
             "rejectinvite": self._handle_reject_invite,
             "makeadmin": self._handle_makeadmin_user,
             "removeuser": self._handle_remove_user,
+            "changerole": self._handle_changerole_user,
         }
         try:
             return actions[request.POST["action"]](request)
@@ -285,6 +285,25 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
             return self._bad_call(request)
         return redirect("organizations:manage-members", slug=self.organization.slug)
 
+    def _handle_changerole_user(self, request):
+        role = request.POST.get("role")
+
+        try:
+            role = int(role)
+        except ValueError:
+            return self._bad_call(request)
+
+        if role not in Role.values:
+            return self._bad_call(request)
+
+        def handle_change_role(membership):
+            membership.role = role
+            membership.save()
+
+        return self._handle_user(
+            request, handle_change_role, f"Changed user role to {Role.values[role]}"
+        )
+
     def _handle_makeadmin_user(self, request):
         admin_param = request.POST.get("admin")
         if admin_param == "true":
@@ -317,7 +336,7 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
         context = super().get_context_data(**kwargs)
         context["admin"] = self.request.user
         context["members"] = self.object.memberships.select_related("user").order_by(
-            "user__created_at"
+            "created_at"
         )
         context["requested_invitations"] = self.object.invitations.get_requested()
         context["pending_invitations"] = self.object.invitations.get_pending()

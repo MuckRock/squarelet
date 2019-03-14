@@ -1,4 +1,5 @@
 const resolve = require('rollup-plugin-node-resolve');
+const commonjs = require('rollup-plugin-commonjs');
 const sourceMaps = require('rollup-plugin-sourcemaps');
 import typescript from 'rollup-plugin-typescript2';
 import compiler from '@ampproject/rollup-plugin-closure-compiler';
@@ -14,9 +15,12 @@ export default {
   },
   plugins: [
     resolve(),
+    commonjs(),
     typescript({
       useTsconfigDeclarationDir: true,
-      tsconfigOverride: {compilerOptions: {module: 'ES2015'}},
+      tsconfigOverride: {
+        compilerOptions: {module: 'ES2015', allowSyntheticDefaultImports: true},
+      },
       clean: production,
     }),
     !production && sourceMaps(),

@@ -1,15 +1,15 @@
 # Django
-from django import forms
-from django.contrib import messages
-from django.db import transaction
-from django.utils.translation import ugettext_lazy as _
-
 # Third Party
 import stripe
 from allauth.account import forms as allauth
 from allauth.account.utils import setup_user_email
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout
+from django import forms
+from django.contrib import messages
+from django.db import transaction
+from django.utils.translation import ugettext_lazy as _
+from django.views.generic.edit import FormView
 
 # Squarelet
 from squarelet.core.forms import StripeForm
@@ -49,6 +49,16 @@ class SignupForm(allauth.SignupForm, StripeForm):
         )
         self.fields["username"].widget.attrs.pop("autofocus", None)
         self.helper.form_tag = False
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["plan_info"] = {
+            p["slug"]: p
+            for p in Plan.objects.values(
+                "pk", "slug", "base_price", "price_per_user", "minimum_users"
+            )
+        }
+        return context
 
     def clean(self):
         data = super().clean()
