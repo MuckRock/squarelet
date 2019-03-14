@@ -391,7 +391,7 @@ class Plan(models.Model):
     @property
     def stripe_id(self):
         """Namespace the stripe ID to not conflict with previous plans we have made"""
-        return f"squarelet:plan:{self.slug}"
+        return f"squarelet_plan_{self.slug}"
 
     def make_stripe_plan(self):
         """Create the plan on stripe"""
