@@ -88,7 +88,7 @@ raven==6.9.0
 rcssmin==1.0.6
 redis==2.10.6
 requests-oauthlib==1.0.0  # via django-allauth
-requests==2.19.1          # via coreapi, django-allauth, premailer, pyjwkest, requests-oauthlib, smart-open, stripe
+requests==2.21.0          # via coreapi, django-allauth, premailer, pyjwkest, requests-oauthlib, smart-open, stripe
 rjsmin==1.0.12            # via django-compressor
 s3transfer==0.1.13        # via boto3
 six==1.11.0               # via argon2-cffi, bcrypt, django-compat, django-environ, django-extensions, furl, orderedmultidict, prompt-toolkit, pyjwkest, python-dateutil, traitlets
