@@ -4,6 +4,7 @@
 {% load crispy_forms_tags %}
 {% load startswith %}
 {% load handleintent %}
+{% load planjson %}
 
 {% block head_title %}{% trans "Signup" %}{% endblock %}
 
@@ -44,5 +45,7 @@
       <a href="{% url 'account_login' %}"><div class="_cls-action">{% blocktrans %}Log&nbsp;In{% endblocktrans %}</div></a>
     </div>
   </form>
+  {% planjson as plan_info %}
+  {{ plan_info |json_script:"_id-planInfo" }}
   </div>
   {% endblock %}

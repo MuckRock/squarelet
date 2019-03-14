@@ -136,7 +136,9 @@
 
     <div class="_cls-main">
 
-      {% if payment_failed_organizations %}
+
+      <div class="_cls-alerts">
+        {% if payment_failed_organizations %}
           <div class="_cls-alert">
             <div class="alert-error">
               <span class="_cls-alertIcon"></span>
@@ -156,8 +158,8 @@
               </span>
             </div>
           </div>
-      {% endif %}
-      {% if request.user.email_failed %}
+        {% endif %}
+        {% if request.user.email_failed %}
           <div class="_cls-alert">
             <div class="alert-error">
               <span class="_cls-alertIcon"></span>
@@ -167,9 +169,9 @@
               </span>
             </div>
           </div>
-      {% endif %}
+        {% endif %}
 
-      {% if messages %}
+        {% if messages %}
         {% for message in messages %}
           <div class="_cls-alert">
             <div class="{% if message.tags %}alert-{{ message.tags }}{% endif %}">
@@ -184,7 +186,8 @@
             </div>
           </div>
         {% endfor %}
-      {% endif %}
+        {% endif %}
+      </div>
 
       {% block content %}
         <div class="_cls-content">

@@ -6,6 +6,8 @@ from django.template.loader import render_to_string
 # Third Party
 from html2text import html2text
 
+# from squarelet.organizations.models import Role
+
 ORG_TO_ALL = 0
 ORG_TO_ADMINS = 1
 ORG_TO_RECEIPTS = 2
@@ -33,7 +35,7 @@ class Email(EmailMultiAlternatives):
                 [
                     m.user.email
                     for m in organization.memberships.select_related("user").filter(
-                        admin=True
+                        role=1  # administrator
                     )
                 ]
             )

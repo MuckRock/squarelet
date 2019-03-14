@@ -1,5 +1,6 @@
 # Django
 from django.conf import settings as django_settings
+from squarelet.organizations.models import Role
 
 
 def settings(request):
@@ -9,7 +10,7 @@ def settings(request):
 def payment_failed(request):
     if request.user.is_authenticated:
         payment_failed_organizations = request.user.organizations.filter(
-            memberships__admin=True, payment_failed=True
+            memberships__role=Role.administrator, payment_failed=True
         )
     else:
         payment_failed_organizations = None

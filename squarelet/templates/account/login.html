@@ -21,24 +21,24 @@
     <div class="_cls-center">
       <div class="_cls-minorInfo">
         {% blocktrans %}
-          Don’t have an account?
-        {% endblocktrans %}
-      </div>
-      <a href="{% url 'select_plan' %}">
-        <div class="_cls-action">
-          {% blocktrans %}Sign&nbsp;Up{% endblocktrans %}
-        </div>
-      </a>
-      <div class="_cls-minorInfo">
-        {% blocktrans %}
           Forgot your password?
         {% endblocktrans %}
+        <a href="{% url 'account_reset_password' %}">
+          <span class="_cls-action">
+            {% blocktrans %}Reset&nbsp;It{% endblocktrans %}
+          </span>
+        </a>
       </div>
-      <a href="{% url 'account_reset_password' %}">
-        <div class="_cls-action">
-          {% blocktrans %}Reset&nbsp;It{% endblocktrans %}
-        </div>
-      </a>
+      <div class="_cls-minorInfo">
+        {% blocktrans %}
+          Don’t have an account?
+        {% endblocktrans %}
+        <a href="{% url 'select_plan' %}">
+          <span class="_cls-action">
+            {% blocktrans %}Sign&nbsp;Up{% endblocktrans %}
+          </span>
+        </a>
+      </div>
     </div>
   </form>
 {% endblock %}

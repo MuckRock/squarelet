@@ -235,118 +235,116 @@ var ReceiptsView = /** @class */ (function () {
     return ReceiptsView;
 }());
 
-// TODO: get Stripe import to work.
-var Stripe = window['Stripe'];
+/// <reference types="stripe-v3" />
+// Style for the Stripe card element.
+var STRIPE_STYLE = {
+    base: {
+        color: '#3F3F3F',
+        fontSize: '18px',
+        fontFamily: 'system-ui, sans-serif',
+        fontSmoothing: 'antialiased',
+        '::placeholder': {
+            color: '#899194',
+        },
+    },
+    invalid: {
+        color: '#e5424d',
+        ':focus': {
+            color: '#303238',
+        },
+    },
+};
 /**
- * Return whether the specified plan is free.
+ * Set up and handle reactive views related to paid plans.
  */
-function isFree(plan) {
-    return plan.base_price == 0 && plan.price_per_user == 0 && plan.minimum_users == 1;
-}
-var StripeView = /** @class */ (function () {
-    function StripeView() {
-        var _this = this;
-        this.stripePk = d('id_stripe_pk');
+var PlansView = /** @class */ (function () {
+    function PlansView() {
+        this.stripePk = d('id_stripe_pk'); // hidden Stripe key
         this.planInput = d('id_plan');
-        this.planInfoElem = d('_id-planInfo');
-        this.planProjection = d('_id-planProjection');
         this.ucofInput = d('id_use_card_on_file');
         this.ccFieldset = d('_id-cardFieldset');
-        this.cardContainer = d('card-container');
+        this.planInfoElem = d('_id-planInfo'); // Pane to show plan information
+        this.planProjection = d('_id-planProjection'); // Plan projection information
+        this.cardContainer = d('card-container'); // Credit card container.
         this.receiptEmails = d('_id-receiptEmails');
         this.totalCost = d('_id-totalCost');
         this.costBreakdown = d('_id-costBreakdown');
         this.maxUsersElem = d('id_max_users');
         this.planInfo = JSON.parse(this.planInfoElem.textContent);
-        if (exists('id_max_users')) {
-            // Handle reactive max user updates if field is defined.
-            var maxUsersElem = this.maxUsersElem;
-            this.maxUsers = parseInt(maxUsersElem.value);
-            on(maxUsersElem, 'input', function () {
-                _this.updateMaxUsers();
-            });
-            this.updateMaxUsers();
+        this.setupMaxUsersField();
+        this.setupCardOnFileField();
+        this.setupReceiptEmails();
+        this.setupStripe();
+        this.updateAll();
+    }
+    /**
+     * Resize the receipt emails to match the text content.
+     */
+    PlansView.prototype.receiptResize = function () {
+        // Set a small initial height to derive the scroll height.
+        this.receiptEmails.style.height = '5px';
+        this.receiptEmails.style.height = this.receiptEmails.scrollHeight + 'px';
+    };
+    /**
+     * Returns the currently selected plan information.
+     */
+    PlansView.prototype.getPlan = function () {
+        return this.planInfo[this.planInput.value];
+    };
+    /**
+     * Update the total cost breakdown text.
+     * TODO: figure out i18n for these strings
+     */
+    PlansView.prototype.updateTotalCost = function () {
+        var plan = this.getPlan();
+        var cost = "" + (plan.base_price +
+            (this.maxUsers - plan.minimum_users) * plan.price_per_user);
+        var costFormatted = "$" + cost;
+        this.totalCost.textContent = costFormatted;
+        var costBreakdownFormatted = "$" + plan.base_price + " (base price)";
+        if (this.maxUsers != 0) {
+            if (this.maxUsers - plan.minimum_users == 0) {
+                costBreakdownFormatted += " with " + plan.minimum_users + " user" + (plan.minimum_users != 1 ? 's' : '') + " included";
+                if (plan.price_per_user != 0) {
+                    costBreakdownFormatted += " ($" + plan.price_per_user + " per additional user)";
+                }
+            }
+            else {
+                costBreakdownFormatted += " with " + plan.minimum_users + " user" + (plan.minimum_users != 1 ? 's' : '') + " included and " + (this.maxUsers - plan.minimum_users) + " extra users at $" + plan.price_per_user + " each";
+            }
+        }
+        this.costBreakdown.textContent = costBreakdownFormatted;
+    };
+    /**
+     * Handle updates to the plan selection.
+     */
+    PlansView.prototype.updatePlanInput = function () {
+        var plan = this.getPlan();
+        var isFreePlan = isFree(plan);
+        this.updateTotalCost();
+        // TODO: use util function for this display logic.
+        if (isFreePlan) {
+            if (this.ccFieldset != null) {
+                this.ccFieldset.style.display = 'none';
+            }
+            if (this.planProjection != null) {
+                this.planProjection.style.display = 'none';
+            }
         }
         else {
-            this.maxUsers = 1;
+            if (this.ccFieldset != null) {
+                this.ccFieldset.style.display = '';
+            }
+            if (this.planProjection != null) {
+                this.planProjection.style.display = '';
+            }
         }
-        if (exists('id_use_card_on_file')) {
-            on(this.ucofInput, 'input', function () { return _this.updateSavedCC(); });
-            this.updateSavedCC();
-        }
-        // Make receipt emails field auto-resize.
-        this.receiptEmails.rows = 2;
-        on(this.receiptEmails, 'input', function () { return _this.receiptResize(); });
-        this.receiptResize();
-        // this.receiptEmails.setAttribute('resize', 'false');
-        // Stripe and Mitch's code, largely unchanged.
-        var stripe = Stripe(this.stripePk.value);
-        var elements = stripe.elements();
-        var style = {
-            base: {
-                color: '#3F3F3F',
-                fontSize: '18px',
-                fontFamily: 'system-ui, sans-serif',
-                fontSmoothing: 'antialiased',
-                '::placeholder': {
-                    color: '#899194',
-                },
-            },
-            invalid: {
-                color: '#e5424d',
-                ':focus': {
-                    color: '#303238',
-                },
-            },
-        };
-        if (exists('card-element')) {
-            // Decorate card.
-            var card_1 = elements.create('card', { style: style });
-            card_1.mount('#card-element');
-            card_1.addEventListener('change', function (event) {
-                // Show Stripe errors.
-                var displayError = document.getElementById('card-errors');
-                if (event.error) {
-                    displayError.textContent = event.error.message;
-                }
-                else {
-                    displayError.textContent = '';
-                }
-            });
-            // We don't want the browser to fill this in with old values
-            document.getElementById('id_stripe_token').value = '';
-            // only show payment fields if needed
-            this.planInput.addEventListener('input', function () {
-                _this.updateMaxUsers(false);
-                _this.updatePlanInput();
-            });
-            this.updatePlanInput();
-            // Create a token or display an error when the form is submitted.
-            var form = document.getElementById('stripe-form');
-            form.addEventListener('submit', function (event) {
-                var ucofInput = document.querySelector('input[name=use_card_on_file]:checked');
-                var useCardOnFile = ucofInput != null && ucofInput.value == 'True';
-                var plan = _this.planInfo[parseInt(_this.planInput.value)];
-                var isFreePlan = isFree(plan);
-                if (!useCardOnFile && !isFreePlan) {
-                    event.preventDefault();
-                    stripe.createToken(card_1).then(function (result) {
-                        if (result.error) {
-                            // Inform the customer that there was an error.
-                            var errorElement = document.getElementById('card-errors');
-                            errorElement.textContent = result.error.message;
-                        }
-                        else {
-                            // Send the token to your server.
-                            stripeTokenHandler(result.token);
-                        }
-                    });
-                }
-            });
-        }
-    }
-    StripeView.prototype.updateMaxUsers = function (updatePlanInput) {
-        if (updatePlanInput === void 0) { updatePlanInput = true; }
+        this.updateAll(false);
+    };
+    /**
+     * Handle changes to the max users element.
+     */
+    PlansView.prototype.updateMaxUsers = function () {
         if (this.maxUsersElem == null)
             return;
         this.maxUsers = parseInt(this.maxUsersElem.value);
@@ -356,11 +354,11 @@ var StripeView = /** @class */ (function () {
             this.maxUsersElem.value = "" + minUsers;
             this.maxUsers = minUsers;
         }
-        if (updatePlanInput)
-            this.updatePlanInput();
     };
-    StripeView.prototype.updateSavedCC = function (updatePlanInput) {
-        if (updatePlanInput === void 0) { updatePlanInput = true; }
+    /**
+     * Handle changes to the saved credit card selection.
+     */
+    PlansView.prototype.updateSavedCC = function () {
         if (this.ucofInput == null) {
             if (isFree(this.getPlan())) {
                 if (this.cardContainer != null) {
@@ -386,61 +384,119 @@ var StripeView = /** @class */ (function () {
                 this.cardContainer.style.display = '';
             }
         }
+    };
+    /**
+     * Updates the max users, saved credit card, and plan input selections simultaneously.
+     * This method is used to safely ensure changes are recognized by all reactive
+     * components.
+     * @param updatePlanInput Whether to also update the plan input. This is set to false
+     * when the plan input calls this method to avoid infinite loops.
+     */
+    PlansView.prototype.updateAll = function (updatePlanInput) {
+        if (updatePlanInput === void 0) { updatePlanInput = true; }
+        this.updateMaxUsers();
+        this.updateSavedCC();
         if (updatePlanInput)
             this.updatePlanInput();
     };
-    StripeView.prototype.receiptResize = function () {
-        this.receiptEmails.style.height = '5px';
-        this.receiptEmails.style.height = this.receiptEmails.scrollHeight + 'px';
-    };
-    StripeView.prototype.getPlan = function () {
-        return this.planInfo[parseInt(this.planInput.value)];
-    };
-    StripeView.prototype.updateTotalCost = function () {
-        var plan = this.getPlan();
-        var cost = "" + (plan.base_price +
-            (this.maxUsers - plan.minimum_users) * plan.price_per_user);
-        var costFormatted = "$" + cost;
-        this.totalCost.textContent = costFormatted;
-        var costBreakdownFormatted = "$" + plan.base_price + " (base price)";
-        if (this.maxUsers != 0) {
-            if (this.maxUsers - plan.minimum_users == 0) {
-                costBreakdownFormatted += " with " + plan.minimum_users + " user" + (plan.minimum_users != 1 ? 's' : '') + " included";
-                if (plan.price_per_user != 0) {
-                    costBreakdownFormatted += "($" + plan.price_per_user + " per additional user)";
-                }
-            }
-            else {
-                costBreakdownFormatted += " with " + plan.minimum_users + " user" + (plan.minimum_users != 1 ? 's' : '') + " included and " + (this.maxUsers - plan.minimum_users) + " extra users at $" + plan.price_per_user + " each";
-            }
-        }
-        this.costBreakdown.textContent = costBreakdownFormatted;
-    };
-    StripeView.prototype.updatePlanInput = function () {
-        var plan = this.getPlan();
-        var isFreePlan = isFree(plan);
-        this.updateTotalCost();
-        // TODO: use util function for this display logic.
-        if (isFreePlan) {
-            if (this.ccFieldset != null) {
-                this.ccFieldset.style.display = 'none';
-            }
-            if (this.planProjection != null) {
-                this.planProjection.style.display = 'none';
-            }
+    /**
+     * Set up event listeners and variables related to the max users setting.
+     */
+    PlansView.prototype.setupMaxUsersField = function () {
+        var _this = this;
+        if (exists('id_max_users')) {
+            // Handle reactive max user updates if field is defined.
+            var maxUsersElem = this.maxUsersElem;
+            this.maxUsers = parseInt(maxUsersElem.value);
+            on(maxUsersElem, 'input', function () {
+                _this.updateAll();
+            });
         }
         else {
-            if (this.ccFieldset != null) {
-                this.ccFieldset.style.display = '';
-            }
-            if (this.planProjection != null) {
-                this.planProjection.style.display = '';
-            }
+            this.maxUsers = 1;
         }
-        this.updateSavedCC(false);
     };
-    return StripeView;
+    /**
+     * Set up event listeners and variables related to the card on file field.
+     */
+    PlansView.prototype.setupCardOnFileField = function () {
+        var _this = this;
+        if (exists('id_use_card_on_file')) {
+            on(this.ucofInput, 'input', function () {
+                _this.updateAll();
+            });
+        }
+    };
+    /**
+     * Set up event listeners and variables related to the receipt emails field.
+     */
+    PlansView.prototype.setupReceiptEmails = function () {
+        var _this = this;
+        if (this.receiptEmails == null)
+            return;
+        // Make receipt emails field auto-resize.
+        this.receiptEmails.rows = 2;
+        on(this.receiptEmails, 'input', function () { return _this.receiptResize(); });
+        this.receiptResize();
+    };
+    /**
+     * Set up event listeners and variables related to Stripe.
+     */
+    PlansView.prototype.setupStripe = function () {
+        var _this = this;
+        if (exists('card-element')) {
+            var stripe_1 = Stripe(this.stripePk.value);
+            var elements = stripe_1.elements();
+            // Decorate card.
+            var card_1 = elements.create('card', { style: STRIPE_STYLE });
+            card_1.mount('#card-element');
+            card_1.addEventListener('change', function (event) {
+                var changeEvent = event;
+                // Show Stripe errors.
+                var displayError = document.getElementById('card-errors');
+                if (changeEvent.error) {
+                    displayError.textContent = changeEvent.error.message;
+                }
+                else {
+                    displayError.textContent = '';
+                }
+            });
+            // We don't want the browser to fill this in with old values
+            document.getElementById('id_stripe_token').value = '';
+            // only show payment fields if needed
+            this.planInput.addEventListener('input', function () {
+                _this.updateAll();
+            });
+            // Create a token or display an error when the form is submitted.
+            var form = document.getElementById('stripe-form');
+            form.addEventListener('submit', function (event) {
+                var ucofInput = document.querySelector('input[name=use_card_on_file]:checked');
+                var useCardOnFile = ucofInput != null && ucofInput.value == 'True';
+                var plan = _this.getPlan();
+                var isFreePlan = isFree(plan);
+                if (!useCardOnFile && !isFreePlan) {
+                    event.preventDefault();
+                    stripe_1.createToken(card_1).then(function (result) {
+                        if (result.error) {
+                            // Inform the customer that there was an error.
+                            var errorElement = document.getElementById('card-errors');
+                            errorElement.textContent = result.error.message;
+                        }
+                        else {
+                            // Send the token to your server.
+                            stripeTokenHandler(result.token);
+                        }
+                    });
+                }
+            });
+        }
+    };
+    return PlansView;
 }());
+/**
+ * Set the hidden Stripe token input to reflect the given token, then submit the form.
+ * @param token
+ */
 function stripeTokenHandler(token) {
     // Insert the token ID into the form so it gets submitted to the server
     var hiddenInput = document.getElementById('id_stripe_token');
@@ -448,6 +504,46 @@ function stripeTokenHandler(token) {
     // Submit the form
     document.getElementById('stripe-form').submit();
 }
+/**
+ * Return whether the specified plan is free.
+ */
+function isFree(plan) {
+    return plan.base_price == 0 && plan.price_per_user == 0 && plan.minimum_users == 1;
+}
+
+var ManageTableView = /** @class */ (function () {
+    function ManageTableView() {
+        var _this = this;
+        this.shim = d('_id-shim');
+        this.selects = Array.from(document.getElementsByClassName('_cls-roleSelect'));
+        this.dropdowns = this.selects.map(function (select) { return select.nextElementSibling; });
+        this.hideAction = null;
+        this.selects.forEach(function (select, i) {
+            var dropdown = _this.dropdowns[i];
+            on(select, 'click', function () {
+                show(dropdown);
+                show(_this.shim);
+                _this.hideAction = function () {
+                    hide(dropdown);
+                    hide(_this.shim);
+                };
+            });
+            on(dropdown.querySelector('._cls-selected'), 'click', function () {
+                _this.hide();
+            });
+        });
+        on(this.shim, 'click', function () {
+            _this.hide();
+        });
+    }
+    ManageTableView.prototype.hide = function () {
+        if (this.hideAction != null) {
+            this.hideAction();
+            this.hideAction = null;
+        }
+    };
+    return ManageTableView;
+}());
 
 if (exists('_id-profDropdown')) {
     // Dropdown view;
@@ -457,13 +553,17 @@ if (exists('_id-autocomplete')) {
     // Autocomplete page.
     new AutocompleteView();
 }
+if (exists('_id-manageTable')) {
+    // Manage members view.
+    new ManageTableView();
+}
 if (exists('_id-resendVerification')) ;
 if (exists('_id-receiptsTable')) {
     // Receipts page.
     new ReceiptsView();
 }
 if (exists('id_stripe_pk')) {
-    // Stripe.
-    new StripeView();
+    // Stripe and plans pages.
+    new PlansView();
 }
 //# sourceMappingURL=main.js.map
