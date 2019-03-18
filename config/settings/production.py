@@ -190,6 +190,12 @@ COMPRESS_STORAGE = STATICFILES_STORAGE
 COMPRESS_URL = STATIC_URL
 COMPRESS_OFFLINE = True
 COMPRESS_ROOT = STATIC_ROOT
+COMPRESS_CSS_FILTERS = [
+    "compressor.filters.css_default.CssAbsoluteFilter",
+    "compressor.filters.cssmin.CSSMinFilter",
+]
+# Don't do any JS compression here, we compress it during rollup build process
+COMPRESS_JS_FILTERS = []
 
 # Collectfast
 # ------------------------------------------------------------------------------
