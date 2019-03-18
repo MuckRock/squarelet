@@ -3,16 +3,21 @@
 # Third Party
 from django.core.exceptions import ValidationError
 from django.db.models.query import Prefetch
+from django.http.response import Http404
+from django.shortcuts import get_object_or_404
+from django.urls import reverse
+from django.utils.translation import ugettext_lazy as _
 
 # Third Party
 import sesame.utils
 from allauth.account.models import EmailAddress, EmailConfirmationHMAC
 from allauth.account.utils import setup_user_email
-from rest_framework import viewsets
+from rest_framework import status, viewsets
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 
 # Squarelet
+from squarelet.core.mail import send_mail
 from squarelet.oidc.permissions import ScopePermission
 from squarelet.organizations.models import Membership
 

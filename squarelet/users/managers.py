@@ -2,7 +2,7 @@
 from django.contrib.auth.models import UserManager as AuthUserManager
 
 # Squarelet
-from squarelet.organizations.models import Organization, Plan
+from squarelet.organizations.models import Organization
 
 
 class UserManager(AuthUserManager):

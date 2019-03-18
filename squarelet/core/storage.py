@@ -10,6 +10,8 @@ class CachedS3Boto3Storage(S3Boto3Storage):
     S3 storage backend that saves the files locally, too.
     """
 
+    # pylint: disable=abstract-method
+
     location = "static"
 
     def __init__(self, *args, **kwargs):
@@ -19,6 +21,7 @@ class CachedS3Boto3Storage(S3Boto3Storage):
         )()
 
     def save(self, name, content):
+        # pylint: disable=protected-access, arguments-differ
         self.local_storage._save(name, content)
         super(CachedS3Boto3Storage, self).save(name, self.local_storage._open(name))
         return name

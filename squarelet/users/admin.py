@@ -9,7 +9,7 @@ from allauth.account.utils import setup_user_email, sync_user_email_addresses
 from reversion.admin import VersionAdmin
 
 # Squarelet
-from squarelet.organizations.models import Organization, Plan
+from squarelet.organizations.models import Organization
 
 # Local
 from .models import User
