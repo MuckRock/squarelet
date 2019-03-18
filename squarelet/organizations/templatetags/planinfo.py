@@ -1,4 +1,3 @@
-
 # Django
 from django import template
 from django.utils.html import json_script

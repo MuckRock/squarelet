@@ -1,4 +1,3 @@
-
 # Django
 from django.core.files.storage import get_storage_class
 
