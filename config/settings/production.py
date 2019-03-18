@@ -93,7 +93,7 @@ AWS_S3_OBJECT_PARAMETERS = {
 
 STATICFILES_STORAGE = "squarelet.core.storage.CachedS3Boto3Storage"
 # XXX set up cloudfront cdn
-STATIC_URL = f"https://s3.amazonaws.com/{AWS_STORAGE_BUCKET_NAME}/static/"
+STATIC_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/static/"
 
 # MEDIA
 # ------------------------------------------------------------------------------
@@ -109,7 +109,7 @@ class MediaRootS3BotoStorage(S3Boto3Storage):
 
 # endregion
 DEFAULT_FILE_STORAGE = "config.settings.production.MediaRootS3BotoStorage"
-MEDIA_URL = f"https://s3.amazonaws.com/{AWS_STORAGE_BUCKET_NAME}/media/"
+MEDIA_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/media/"
 
 # TEMPLATES
 # ------------------------------------------------------------------------------
