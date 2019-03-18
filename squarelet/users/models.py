@@ -70,7 +70,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         validators=[UsernameValidator()],
         error_messages={"unqiue": _("A user with that username already exists.")},
     )
-    avatar = ImageField(_("avatar"), upload_to="avatars", blank=True)
+    avatar = ImageField(_("avatar"), upload_to="avatars", blank=True, max_length=255)
     can_change_username = models.BooleanField(
         _("can change username"),
         default=True,

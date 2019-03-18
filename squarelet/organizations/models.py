@@ -44,6 +44,7 @@ class Organization(AvatarMixin, models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
+    # XXX any reason for this to still be CI?
     name = CICharField(_("name"), max_length=255)
     slug = AutoSlugField(_("slug"), populate_from="name", unique=True)
     created_at = AutoCreatedField(_("created at"))

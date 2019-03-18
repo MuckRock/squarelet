@@ -102,7 +102,7 @@
             {% if request.user.is_authenticated %}
               <div class="_cls-shim _cls-hide" id="_id-shim"></div>
               <li id="_id-profDropdown" class="_cls-profDropdown">
-                {% avatar user 25 %}
+                {% avatar request.user 25 %}
                 <div id="_id-dropdownContents" class="_cls-dropdown _cls-hide">
                     <a href="{% url 'users:detail' user.username %}" class="_cls-nostyle _cls-dropdownItem"><div>
                     {% trans "View Profile" %}
