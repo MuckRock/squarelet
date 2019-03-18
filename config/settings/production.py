@@ -91,7 +91,7 @@ AWS_S3_OBJECT_PARAMETERS = {
 # STATIC
 # ------------------------
 
-STATICFILES_STORAGE = "config.settings.production.StaticRootS3BotoStorage"
+STATICFILES_STORAGE = "squarelet.core.storage.CachedS3Boto3Storage"
 # XXX set up cloudfront cdn
 STATIC_URL = f"https://s3.amazonaws.com/{AWS_STORAGE_BUCKET_NAME}/static/"
 
@@ -100,10 +100,6 @@ STATIC_URL = f"https://s3.amazonaws.com/{AWS_STORAGE_BUCKET_NAME}/static/"
 
 # region http://stackoverflow.com/questions/10390244/
 from storages.backends.s3boto3 import S3Boto3Storage  # noqa E402 isort:skip
-
-
-class StaticRootS3BotoStorage(S3Boto3Storage):
-    location = "static"
 
 
 class MediaRootS3BotoStorage(S3Boto3Storage):
@@ -189,9 +185,11 @@ INSTALLED_APPS += ["gunicorn"]  # noqa F405
 # https://django-compressor.readthedocs.io/en/latest/settings/#django.conf.settings.COMPRESS_ENABLED
 COMPRESS_ENABLED = env.bool("COMPRESS_ENABLED", default=True)
 # https://django-compressor.readthedocs.io/en/latest/settings/#django.conf.settings.COMPRESS_STORAGE
-COMPRESS_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+COMPRESS_STORAGE = STATICFILES_STORAGE
 # https://django-compressor.readthedocs.io/en/latest/settings/#django.conf.settings.COMPRESS_URL
 COMPRESS_URL = STATIC_URL
+COMPRESS_OFFLINE = True
+COMPRESS_ROOT = STATIC_ROOT
 
 # Collectfast
 # ------------------------------------------------------------------------------
