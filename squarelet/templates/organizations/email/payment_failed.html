@@ -30,7 +30,7 @@
 
   {% else %}
 
-    {% blocktrans with attempt=attempt|organial %}
+    {% blocktrans with attempt=attempt|ordinal %}
       <p class="red">Your subscription payment has failed.</p>
       <p>This is the {{ attempt }} attempt. The payment will be retried up to
       3 times.</p>
