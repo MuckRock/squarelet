@@ -13,7 +13,7 @@ from .serializers import ChargeSerializer, OrganizationSerializer
 class OrganizationViewSet(viewsets.ModelViewSet):
     queryset = Organization.objects.select_related("plan")
     serializer_class = OrganizationSerializer
-    permission_classes = (ScopePermission,)
+    permission_classes = (ScopePermission | IsAdminUser,)
     read_scopes = ("read_organization",)
     write_scopes = ("write_organization",)
 
