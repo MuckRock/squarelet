@@ -39,12 +39,14 @@ class Command(BaseCommand):
                     print("User {} - {}".format(i, timezone.now()))
                 # XXX skip non unique emails
                 # all emails should be unqiue before official migration
-                if User.objects.filter(email=user[2]).exists():
+                # but dont skip blank emails
+                if user[2] and User.objects.filter(email=user[2]).exists():
+                    print("[User] Skipping a duplicate email: {}".format(user[2]))
                     continue
                 user_obj = User.objects.create(
                     individual_organization_id=UUID(user[0]),
                     username=user[1],
-                    email=user[2],
+                    email=user[2] if user[2] else None,
                     password=user[3],
                     name=user[4],
                     is_staff=user[5] == "True",
@@ -66,13 +68,14 @@ class Command(BaseCommand):
 
     def import_orgs(self):
         print("Begin Organization Import {}".format(timezone.now()))
+        plans = {p.slug: p for p in Plan.objects.all()}
         with smart_open(f"s3://{BUCKET}/squarelet_export/orgs.csv", "r") as infile:
             reader = csv.reader(infile)
             next(reader)  # discard headers
             for i, org in enumerate(reader):
                 if i % 1000 == 0:
                     print("Org {} - {}".format(i, timezone.now()))
-                plan = Plan.objects.get(slug=org[3])
+                plan = plans[org[3]]
                 Organization.objects.create(
                     id=org[0],
                     name=org[1],
@@ -99,6 +102,7 @@ class Command(BaseCommand):
                     print("Member {} - {}".format(i, timezone.now()))
                 # XXX skip users we skipped above
                 if not User.objects.filter(pk=member[0]).exists():
+                    print("[Member] Skipping a missing user: {}".format(member[0]))
                     continue
                 Membership.objects.create(
                     user_id=member[0],
