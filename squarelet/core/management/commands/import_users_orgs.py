@@ -58,12 +58,13 @@ class Command(BaseCommand):
                     use_autologin=user[12] == "True",
                     source=user[13],
                 )
-                EmailAddress.objects.create(
-                    user=user_obj,
-                    email=user_obj.email,
-                    primary=True,
-                    verified=user[8] == "True",
-                )
+                if user_obj.email:
+                    EmailAddress.objects.create(
+                        user=user_obj,
+                        email=user_obj.email,
+                        primary=True,
+                        verified=user[8] == "True",
+                    )
         print("End User Import {}".format(timezone.now()))
 
     def import_orgs(self):
