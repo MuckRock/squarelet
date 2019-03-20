@@ -90,6 +90,7 @@ class Command(BaseCommand):
                     payment_failed=org[8] == "True",
                     update_on=org[9],
                     max_users=int(org[10]),
+                    avatar=org[12],
                 ).set_receipt_emails(e for e in org[11].split(",") if e)
         print("End Organization Import {}".format(timezone.now()))
 
