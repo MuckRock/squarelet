@@ -72,20 +72,21 @@ class Command(BaseCommand):
             for i, org in enumerate(reader):
                 if i % 1000 == 0:
                     print("Org {} - {}".format(i, timezone.now()))
-                plan = Plan.objects.get(slug=org[2])
+                plan = Plan.objects.get(slug=org[3])
                 Organization.objects.create(
                     id=org[0],
                     name=org[1],
+                    slug=org[2],
                     plan=plan,
                     next_plan=plan,
-                    individual=org[3] == "True",
-                    private=org[4] == "True",
-                    customer_id=org[5] if org[5] else None,
-                    subscription_id=org[6] if org[6] else None,
-                    payment_failed=org[7] == "True",
-                    update_on=org[8],
-                    max_users=int(org[9]),
-                ).set_receipt_emails(e for e in org[10].split(",") if e)
+                    individual=org[4] == "True",
+                    private=org[5] == "True",
+                    customer_id=org[6] if org[6] else None,
+                    subscription_id=org[7] if org[7] else None,
+                    payment_failed=org[8] == "True",
+                    update_on=org[9],
+                    max_users=int(org[10]),
+                ).set_receipt_emails(e for e in org[11].split(",") if e)
         print("End Organization Import {}".format(timezone.now()))
 
     def import_members(self):
