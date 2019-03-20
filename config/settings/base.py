@@ -291,6 +291,9 @@ OIDC_SESSION_MANAGEMENT_ENABLE = True
 OIDC_GRANT_TYPE_PASSWORD_ENABLE = True
 # required due to changes in Django 2.1
 SESSION_COOKIE_SAMESITE = None
+ENABLE_SEND_CACHE_INVALIDATIONS = env.bool(
+    "ENABLE_SEND_CACHE_INVALIDATIONS", default=True
+)
 
 
 # rest framework
