@@ -322,9 +322,6 @@ STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET")
 
 # sesame
 # ------------------------------------------------------------------------------
-import sesame.pk_packers  # isort:skip
-
-SESAME_USER_PK_PACKER = sesame.pk_packers.UuidPkPacker
 SESAME_MAX_AGE = 60 * 60 * 24 * 2  # 2 days
 
 # django-debug-toolbar

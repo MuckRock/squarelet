@@ -20,7 +20,10 @@ from .models import Charge, Organization, Plan
 logger = logging.getLogger(__name__)
 
 
-@periodic_task(run_every=crontab(hour=0, minute=5), name="restore_organizations")
+@periodic_task(
+    run_every=crontab(hour=0, minute=5),
+    name="squarelet.organizations.tasks.restore_organizations",
+)
 def restore_organization():
     """Monthly update of organizations subscriptions"""
     organizations = Organization.objects.filter(update_on__lte=date.today())

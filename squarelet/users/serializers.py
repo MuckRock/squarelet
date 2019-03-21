@@ -16,7 +16,7 @@ from .models import User
 class UserBaseSerializer(serializers.ModelSerializer):
     """This serializer is the base for both the read and write serializers"""
 
-    uuid = serializers.UUIDField(required=False, source="pk")
+    uuid = serializers.UUIDField(required=False, source="uuid")
     preferred_username = serializers.CharField(source="username")
     picture = serializers.CharField(source="avatar_url", required=False)
     email_verified = serializers.SerializerMethodField()

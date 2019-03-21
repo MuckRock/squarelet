@@ -36,7 +36,7 @@ class CustomScopeClaims(ScopeClaims):
 
     def scope_uuid(self):
         """Populate the scope with the UUID"""
-        return {"uuid": self.user.pk}
+        return {"uuid": self.user.uuid}
 
     def scope_organizations(self):
         """Populate the scope with the organizations"""

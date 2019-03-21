@@ -15,7 +15,7 @@ def test_str(user_factory):
 def test_save(user_factory, mocker):
     mocked = mocker.patch("squarelet.users.models.send_cache_invalidations")
     user = user_factory()
-    mocked.assert_called_with("user", user.pk)
+    mocked.assert_called_with("user", user.uuid)
 
 
 def test_get_absolute_urluser(user_factory):
@@ -48,8 +48,7 @@ def test_inidividual_organization(user_factory):
 
 
 def test_wrap_url(user_factory):
-    # need pk here, not set by default since it is a FK to org
-    user = user_factory.build(pk=uuid4())
+    user = user_factory.build(pk=1)
     url = "http://www.example.com"
     parse = urlsplit(user.wrap_url(url, a=1))
     assert parse.scheme == "http"
@@ -61,8 +60,7 @@ def test_wrap_url(user_factory):
 
 
 def test_wrap_url_off(user_factory):
-    # need pk here, not set by default since it is a FK to org
-    user = user_factory.build(use_autologin=False, pk=uuid4())
+    user = user_factory.build(use_autologin=False, pk=1)
     url = "http://www.example.com"
     parse = urlsplit(user.wrap_url(url, a=1))
     assert parse.scheme == "http"

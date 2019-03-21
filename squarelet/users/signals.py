@@ -12,7 +12,7 @@ from squarelet.oidc.middleware import send_cache_invalidations
 
 def email_confirmed(request, email_address, **kwargs):
     if email_address.primary:
-        send_cache_invalidations("user", email_address.user.pk)
+        send_cache_invalidations("user", email_address.user.uuid)
 
 
 def email_changed(request, user, from_email_address, to_email_address, **kwargs):
@@ -26,7 +26,7 @@ def email_changed(request, user, from_email_address, to_email_address, **kwargs)
         user.email_failed = False
         user.save()
         # send client sites a cache invalidation to update this user's info
-        transaction.on_commit(lambda: send_cache_invalidations("user", user.pk))
+        transaction.on_commit(lambda: send_cache_invalidations("user", user.uuid))
     # send the user a notification
     send_mail(
         subject=_("Changed email address"),

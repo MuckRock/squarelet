@@ -42,10 +42,9 @@ class Organization(AvatarMixin, models.Model):
 
     objects = OrganizationQuerySet.as_manager()
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
 
-    # XXX any reason for this to still be CI?
-    name = CICharField(_("name"), max_length=255)
+    name = models.CharField(_("name"), max_length=255)
     slug = AutoSlugField(_("slug"), populate_from="name", unique=True)
     created_at = AutoCreatedField(_("created at"))
     updated_at = AutoLastModifiedField(_("updated at"))
@@ -105,7 +104,7 @@ class Organization(AvatarMixin, models.Model):
         with transaction.atomic():
             super().save(*args, **kwargs)
             transaction.on_commit(
-                lambda: send_cache_invalidations("organization", self.pk)
+                lambda: send_cache_invalidations("organization", self.uuid)
             )
 
     def get_absolute_url(self):
@@ -191,7 +190,7 @@ class Organization(AvatarMixin, models.Model):
         self.save()
         self.customer.source = token
         self.customer.save()
-        send_cache_invalidations("organization", self.pk)
+        send_cache_invalidations("organization", self.uuid)
 
     def set_subscription(self, token, plan, max_users):
         if self.individual:
@@ -328,7 +327,7 @@ class Membership(models.Model):
         with transaction.atomic():
             super().save(*args, **kwargs)
             transaction.on_commit(
-                lambda: send_cache_invalidations("user", self.user_id)
+                lambda: send_cache_invalidations("user", self.user.uuid)
             )
 
     def delete(self, *args, **kwargs):
@@ -336,7 +335,7 @@ class Membership(models.Model):
         with transaction.atomic():
             super().delete(*args, **kwargs)
             transaction.on_commit(
-                lambda: send_cache_invalidations("user", self.user_id)
+                lambda: send_cache_invalidations("user", self.user.uuid)
             )
 
 

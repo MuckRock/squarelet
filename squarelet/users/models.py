@@ -53,9 +53,8 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
     individual_organization = models.OneToOneField(
         "organizations.Organization",
         on_delete=models.PROTECT,
-        primary_key=True,
-        db_column="id",
         editable=False,
+        to_field="uuid",
     )
     name = models.CharField(_("name of user"), max_length=255)
     email = CIEmailField(_("email"), unique=True, null=True)
@@ -141,15 +140,14 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         return self.username
 
     @property
-    def id(self):
-        """For compatibility with third party apps that access user.id"""
-        # pylint: disable=invalid-name
-        return self.pk
+    def uuid(self):
+        """The UUID is the value of the foreign key to the individual organization"""
+        return self.individual_organization_id
 
     def save(self, *args, **kwargs):
         with transaction.atomic():
             super().save(*args, **kwargs)
-            transaction.on_commit(lambda: send_cache_invalidations("user", self.pk))
+            transaction.on_commit(lambda: send_cache_invalidations("user", self.uuid))
 
     def get_absolute_url(self):
         return reverse("users:detail", kwargs={"username": self.username})

@@ -18,6 +18,9 @@ from squarelet.users.models import User
 
 BUCKET = os.environ["IMPORT_BUCKET"]
 
+user_uuid2pk = {}
+org_uuid2pk = {}
+
 
 class Command(BaseCommand):
     """Import users and orgs from MuckRock"""
@@ -58,6 +61,7 @@ class Command(BaseCommand):
                     use_autologin=user[12] == "True",
                     source=user[13],
                 )
+                user_uuid2pk[user[0]] = user_obj.pk
                 if user_obj.email:
                     EmailAddress.objects.create(
                         user=user_obj,
@@ -77,8 +81,8 @@ class Command(BaseCommand):
                 if i % 1000 == 0:
                     print("Org {} - {}".format(i, timezone.now()))
                 plan = plans[org[3]]
-                Organization.objects.create(
-                    id=org[0],
+                org_obj = Organization.objects.create(
+                    uuid=org[0],
                     name=org[1],
                     slug=org[2],
                     plan=plan,
@@ -91,7 +95,9 @@ class Command(BaseCommand):
                     update_on=org[9],
                     max_users=int(org[10]),
                     avatar=org[12],
-                ).set_receipt_emails(e for e in org[11].split(",") if e)
+                )
+                org_obj.set_receipt_emails(e for e in org[11].split(",") if e)
+                org_uuid2pk[org[0]] = org_obj.pk
         print("End Organization Import {}".format(timezone.now()))
 
     def import_members(self):
@@ -103,12 +109,14 @@ class Command(BaseCommand):
                 if i % 1000 == 0:
                     print("Member {} - {}".format(i, timezone.now()))
                 # XXX skip users we skipped above
-                if not User.objects.filter(pk=member[0]).exists():
+                if not User.objects.filter(
+                    individual_organization_id=member[0]
+                ).exists():
                     print("[Member] Skipping a missing user: {}".format(member[0]))
                     continue
                 Membership.objects.create(
-                    user_id=member[0],
-                    organization_id=member[1],
+                    user_id=user_uuid2pk[member[0]],
+                    organization_id=org_uuid2pk[member[1]],
                     admin=member[4] == "True",
                 )
         print("End Member Import {}".format(timezone.now()))

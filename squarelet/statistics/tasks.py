@@ -16,7 +16,7 @@ from .models import Statistics
 
 @periodic_task(
     run_every=crontab(hour=0, minute=30),
-    name="muckrock.accounts.tasks.store_statistics",
+    name="squarelet.statistics.tasks.store_statistics",
 )
 def store_statistics():
     """Store the daily statistics"""

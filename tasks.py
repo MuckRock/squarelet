@@ -20,15 +20,15 @@ def staging(c):
 
 
 @task
-def test(c, path="squarelet", reuse_db=False):
+def test(c, path="squarelet", create_db=False):
     """Run the test suite"""
-    reuse_switch = "--reuse-db" if reuse_db else ""
+    create_switch = "--create-db" if create_db else ""
 
     c.run(
         DOCKER_COMPOSE_RUN_OPT_USER.format(
             opt="-e DJANGO_SETTINGS_MODULE=config.settings.test",
             service="django",
-            cmd=f"pytest {reuse_switch} {path}",
+            cmd=f"pytest {create_switch} {path}",
         )
     )
 
@@ -129,7 +129,7 @@ def celerybeat(c):
     )
 
 
-@task
+@task(aliases=["m"])
 def manage(c, cmd):
     """Run a Django management command"""
     c.run(DJANGO_RUN_USER.format(cmd=f"python manage.py {cmd}"))
