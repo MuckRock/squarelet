@@ -10,8 +10,7 @@ from .models import Charge, Membership, Organization
 class OrganizationSerializer(serializers.ModelSerializer):
     uuid = serializers.UUIDField(required=False)
     plan = serializers.CharField(source="plan.slug")
-    # XXX this can be slow - goes to stripe for customer/card info
-    # may create customer
+    # XXX this can be slow - goes to stripe for customer/card info - cache this
     card = serializers.CharField(source="card_display")
 
     class Meta:

@@ -16,6 +16,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
     permission_classes = (ScopePermission | IsAdminUser,)
     read_scopes = ("read_organization",)
     write_scopes = ("write_organization",)
+    lookup_field = "uuid"
 
 
 class ChargeViewSet(viewsets.ModelViewSet):

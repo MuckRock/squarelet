@@ -41,6 +41,7 @@ class UserViewSet(viewsets.ModelViewSet):
     permission_classes = (ScopePermission | IsAdminUser,)
     read_scopes = ("read_user",)
     write_scopes = ("write_user",)
+    lookup_field = "individual_organization_id"
 
     def get_serializer_class(self):
         # The only actions expected are create and retrieve

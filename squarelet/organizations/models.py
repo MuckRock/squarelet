@@ -180,7 +180,7 @@ class Organization(AvatarMixin, models.Model):
 
     @property
     def card_display(self):
-        if self.card:
+        if self.customer_id and self.card:
             return f"{self.card.brand}: {self.card.last4}"
         else:
             return ""
