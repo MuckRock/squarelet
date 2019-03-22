@@ -19,6 +19,7 @@ class OrganizationQuerySet(models.QuerySet):
         """Create an individual organization for user
         The user model must be unsaved
         """
+        # pylint: disable=cyclic-import
         from squarelet.organizations.models import Plan
 
         free_plan = Plan.objects.get(slug="free")

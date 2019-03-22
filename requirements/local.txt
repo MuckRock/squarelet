@@ -55,6 +55,7 @@ django-redis==4.9.0
 django-request-token==0.9.2
 django-reversion==3.0.3
 django-sesame==1.4
+django-storages[boto3]==1.7.1
 django-test-plus==1.1.0
 django==2.1.7
 djangorestframework==3.9.2

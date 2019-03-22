@@ -11,7 +11,7 @@ argon2-cffi==18.1.0
 backcall==0.1.0           # via ipython
 bcrypt==3.1.4
 billiard==3.5.0.4         # via celery
-boto3==1.9.32             # via smart-open
+boto3==1.9.32             # via django-storages, smart-open
 boto==2.49.0              # via smart-open
 botocore==1.12.32         # via boto3, s3transfer
 bz2file==0.98             # via smart-open
@@ -45,6 +45,7 @@ django-redis==4.9.0
 django-request-token==0.9.2
 django-reversion==3.0.3
 django-sesame==1.4
+django-storages[boto3]==1.7.1
 django==2.1.7
 djangorestframework==3.9.2
 docutils==0.14            # via botocore

@@ -40,7 +40,7 @@ class Command(BaseCommand):
             for i, user in enumerate(reader):
                 if i % 1000 == 0:
                     print("User {} - {}".format(i, timezone.now()))
-                # XXX skip non unique emails
+                # skip non unique emails
                 # all emails should be unqiue before official migration
                 # but dont skip blank emails
                 if user[2] and User.objects.filter(email=user[2]).exists():
@@ -108,7 +108,7 @@ class Command(BaseCommand):
             for i, member in enumerate(reader):
                 if i % 1000 == 0:
                     print("Member {} - {}".format(i, timezone.now()))
-                # XXX skip users we skipped above
+                # skip users we skipped above
                 if not User.objects.filter(
                     individual_organization_id=member[0]
                 ).exists():

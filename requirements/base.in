@@ -21,6 +21,7 @@ django-redis
 django-request-token
 django-reversion
 django-sesame
+django-storages[boto3]
 django<2.2
 djangorestframework
 dogslow

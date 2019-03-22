@@ -1,6 +1,6 @@
 # Django
 from django.conf import settings
-from django.contrib.postgres.fields import CICharField, CIEmailField
+from django.contrib.postgres.fields import CIEmailField
 from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.db import models, transaction
 from django.urls import reverse

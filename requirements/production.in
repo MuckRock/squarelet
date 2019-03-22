@@ -2,5 +2,4 @@
 Collectfast
 django-anymail[mailgun]
 django-celery-email
-django-storages[boto3]
 gunicorn
