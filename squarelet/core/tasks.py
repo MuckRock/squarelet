@@ -11,6 +11,4 @@ from django.core.management import call_command
 def db_cleanup():
     """Call some management commands to clean up the database"""
     call_command("clearsessions", verbosity=2)
-    call_command(
-        "deleterevisions", days=730, force=True, confirmation=False, verbosity=2
-    )
+    call_command("deleterevisions", days=730, verbosity=2)
