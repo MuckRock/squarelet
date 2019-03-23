@@ -28,9 +28,9 @@ def handleintent(context, header, message):
     intent_lookup = OrderedDict(
         [
             ("muckrock", (MUCKROCK_SERVICE, MUCKROCK_ASSET)),
-            ("documentcloud", (DOCUMENTCLOUD_SERVICE, DOCUMENTCLOUD_ASSET)),
+            # ("documentcloud", (DOCUMENTCLOUD_SERVICE, DOCUMENTCLOUD_ASSET)),
             ("foiamachine", (FOIAMACHINE_SERVICE, FOIAMACHINE_ASSET)),
-            ("quackbot", (QUACKBOT_SERVICE, QUACKBOT_ASSET)),
+            # ("quackbot", (QUACKBOT_SERVICE, QUACKBOT_ASSET)),
         ]
     )
 
@@ -40,9 +40,12 @@ def handleintent(context, header, message):
     other_services = [s for s, a in intent_lookup.values() if s != intent_service]
     other_assets = [a for s, a in intent_lookup.values() if a != intent_asset]
 
-    service_message = _("{}, and {}").format(
-        ", ".join(other_services[:-1]), other_services[-1]
-    )
+    if len(other_services) == 1:
+        service_message = other_services[0]
+    else:
+        service_message = _("{} and {}").format(
+            ", ".join(other_services[:-1]), other_services[-1]
+        )
 
     return {
         "header": header,

@@ -62,6 +62,7 @@
                 </div>
               </a>
             </li>
+            {% comment %}
             <li>
               <a class="_cls-nostyle" href="{{ settings.DOCCLOUD_URL }}">
                 <div class="_cls-serviceIcon">
@@ -74,6 +75,7 @@
                 </div>
               </a>
             </li>
+            {% endcomment %}
             <li>
               <a class="_cls-nostyle" href="{{ settings.FOIAMACHINE_URL }}">
                 <div class="_cls-serviceIcon">
@@ -196,8 +198,10 @@
     </div> <!-- /container -->
 
     <div class="_cls-footer">
-        <p>MuckRock Accounts is a unified accounts platform for MuckRock, DocumentCloud, FOIAMachine, and Quackbot.</p>
-        <p>Additional footer content here.  </p>
+      <p>
+        MuckRock Accounts is a unified accounts platform for MuckRock and
+        FOIAMachine.
+      </p>
     </div>
 
     {% block modal %}{% endblock modal %}
