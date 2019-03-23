@@ -626,11 +626,10 @@ nav a:hover ._cls-serviceName {
   font-size: 0.9em;
   border-radius: 3px;
   box-shadow: 0 1px 2px #00000014;
-  /* animation: autoHide 5s forwards; */
 }
 
 ._cls-alert div._cls-dismiss {
-  animation-delay: -4.5s;
+  animation: autoHide 0.5s forwards;
   pointer-events: none;
 }
 
@@ -648,11 +647,6 @@ nav a:hover ._cls-serviceName {
 
 @keyframes autoHide {
   0% {
-    opacity: 1;
-    margin-top: 0;
-    visibility: visible;
-  }
-  90% {
     opacity: 1;
     margin-top: 0;
     visibility: visible;

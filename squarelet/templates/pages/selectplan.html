@@ -14,8 +14,10 @@
   {% handleintent intent_header intent_text %}
   <p class="_cls-info">
     {% trans "Already have an account?" %}
-    <a class="_cls-action" href="{% url "account_login" %}">
-      {% trans "Login now" %}
+    <a href="{% url "account_login" %}">
+      <span class="_cls-action">
+        {% trans "Login now" %}
+      </span>
     </a>
   </p>
 </div>
