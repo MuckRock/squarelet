@@ -94,25 +94,18 @@ AWS_S3_OBJECT_PARAMETERS = {
 STATICFILES_STORAGE = "squarelet.core.storage.CachedS3Boto3Storage"
 CLOUDFRONT_DOMAIN = env("CLOUDFRONT_DOMAIN", default="")
 if CLOUDFRONT_DOMAIN:
-    STATIC_URL = f"https://{CLOUDFRONT_DOMAIN}/"
+    STATIC_URL = f"https://{CLOUDFRONT_DOMAIN}/static/"
 else:
     STATIC_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/static/"
 
 # MEDIA
 # ------------------------------------------------------------------------------
 
-# region http://stackoverflow.com/questions/10390244/
-from storages.backends.s3boto3 import S3Boto3Storage  # noqa E402 isort:skip
-
-
-class MediaRootS3BotoStorage(S3Boto3Storage):
-    location = "media"
-    file_overwrite = False
-
-
-# endregion
-DEFAULT_FILE_STORAGE = "config.settings.production.MediaRootS3BotoStorage"
-MEDIA_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/media/"
+DEFAULT_FILE_STORAGE = "squarelet.core.storage.MediaRootS3BotoStorage"
+if CLOUDFRONT_DOMAIN:
+    MEDIA_URL = f"https://{CLOUDFRONT_DOMAIN}/media/"
+else:
+    MEDIA_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/media/"
 
 # TEMPLATES
 # ------------------------------------------------------------------------------
