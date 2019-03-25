@@ -692,6 +692,11 @@ nav a:hover ._cls-serviceName {
   color: darkgreen;
 }
 
+.alert-error {
+  background: #dea5a5f2;
+  color: darkred;
+}
+
 .alert-error ._cls-alertIcon::before {
   content: '!';
   color: #7b0202;
