@@ -199,9 +199,16 @@
 
     <div class="_cls-footer">
       <p>
-        MuckRock Accounts is a unified accounts platform for MuckRock and
-        FOIAMachine.
+        MuckRock Accounts let you log in and manage users, payments, and
+        organizations for MuckRock and FOIAMachine.
       </p>
+      <ul>
+        <li>
+          <a href="{{ settings.MUCKROCK_URL }}/privacy-policy/">
+            Privacy Policy
+          </a>
+        </li>
+        <li><a href="{{ settings.MUCKROCK_URL }}/tos/">Terms of Services</a></li>
     </div>
 
     {% block modal %}{% endblock modal %}

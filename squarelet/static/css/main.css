@@ -209,7 +209,7 @@ form,
   width: 50%;
 }
 
-._cls-footer p {
+._cls-footer p, ul {
   max-width: 800px;
   margin: 1.5em auto;
   line-height: 1.5;
