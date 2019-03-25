@@ -5,12 +5,13 @@ from django.core.files.storage import get_storage_class
 from storages.backends.s3boto3 import S3Boto3Storage
 
 
+# pylint: disable=abstract-method
+
+
 class CachedS3Boto3Storage(S3Boto3Storage):
     """
     S3 storage backend that saves the files locally, too.
     """
-
-    # pylint: disable=abstract-method
 
     location = "static"
 
@@ -25,3 +26,8 @@ class CachedS3Boto3Storage(S3Boto3Storage):
         self.local_storage._save(name, content)
         super(CachedS3Boto3Storage, self).save(name, self.local_storage._open(name))
         return name
+
+
+class MediaRootS3BotoStorage(S3Boto3Storage):
+    location = "media"
+    file_overwrite = False

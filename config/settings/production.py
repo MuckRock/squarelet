@@ -92,9 +92,9 @@ AWS_S3_OBJECT_PARAMETERS = {
 # ------------------------
 
 STATICFILES_STORAGE = "squarelet.core.storage.CachedS3Boto3Storage"
-CLOUDFRONT_DOMAIN = env("CLOUDFRONT_DOMAIN", default="")
-if CLOUDFRONT_DOMAIN:
-    STATIC_URL = f"https://{CLOUDFRONT_DOMAIN}/static/"
+AWS_S3_CUSTOM_DOMAIN = env("CLOUDFRONT_DOMAIN", default="")
+if AWS_S3_CUSTOM_DOMAIN:
+    STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/static/"
 else:
     STATIC_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/static/"
 
@@ -102,8 +102,8 @@ else:
 # ------------------------------------------------------------------------------
 
 DEFAULT_FILE_STORAGE = "squarelet.core.storage.MediaRootS3BotoStorage"
-if CLOUDFRONT_DOMAIN:
-    MEDIA_URL = f"https://{CLOUDFRONT_DOMAIN}/media/"
+if AWS_S3_CUSTOM_DOMAIN:
+    MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/media/"
 else:
     MEDIA_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/media/"
 
