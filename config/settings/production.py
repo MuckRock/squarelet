@@ -92,8 +92,11 @@ AWS_S3_OBJECT_PARAMETERS = {
 # ------------------------
 
 STATICFILES_STORAGE = "squarelet.core.storage.CachedS3Boto3Storage"
-# XXX set up cloudfront cdn
-STATIC_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/static/"
+CLOUDFRONT_DOMAIN = env("CLOUDFRONT_DOMAIN", default="")
+if CLOUDFRONT_DOMAIN:
+    STATIC_URL = f"https://{CLOUDFRONT_DOMAIN}/"
+else:
+    STATIC_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/static/"
 
 # MEDIA
 # ------------------------------------------------------------------------------
