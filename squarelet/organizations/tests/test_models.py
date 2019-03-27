@@ -1,4 +1,3 @@
-
 # Django
 from django.utils import timezone
 
@@ -10,7 +9,6 @@ import pytest
 
 # Squarelet
 from squarelet.organizations.models import ReceiptEmail
-
 
 # pylint: disable=invalid-name
 
