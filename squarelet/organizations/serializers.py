@@ -57,6 +57,9 @@ class StripeError(APIException):
 class ChargeSerializer(serializers.ModelSerializer):
     token = serializers.CharField(write_only=True, required=False)
     save_card = serializers.BooleanField(write_only=True, required=False)
+    organization = serializers.SlugRelatedField(
+        slug_field="uuid", queryset=Organization.objects.all()
+    )
 
     class Meta:
         model = Charge
