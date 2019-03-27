@@ -320,7 +320,7 @@ class Membership(models.Model):
         unique_together = ("user", "organization")
 
     def __str__(self):
-        return "Membership: {} in {}".format(self.user, self.organization)
+        return f"Membership: {self.user} in {self.organization}"
 
     def save(self, *args, **kwargs):
         # pylint: disable=arguments-differ
@@ -385,7 +385,9 @@ class Plan(models.Model):
         return self.base_price == 0 and self.price_per_user == 0
 
     def cost(self, users):
-        return self.base_price + (users - self.minimum_users) * self.price_per_user
+        return (
+            self.base_price + max(users - self.minimum_users, 0) * self.price_per_user
+        )
 
     @property
     def stripe_id(self):
@@ -528,7 +530,7 @@ class ReceiptEmail(models.Model):
         unique_together = ("organization", "email")
 
     def __str__(self):
-        return "Receipt Email: <%s>" % self.email
+        return f"Receipt Email: <{self.email}>"
 
 
 class Charge(models.Model):

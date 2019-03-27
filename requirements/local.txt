@@ -64,6 +64,7 @@ dogslow==1.2
 factory-boy==2.11.1
 faker==0.8.17             # via factory-boy
 flake8==3.5.0
+freezegun==0.3.11         # via pytest-freezegun
 furl==2.0.0
 future==0.16.0
 html2text==2018.1.9
@@ -115,6 +116,7 @@ pylint==1.9.2
 pyparsing==2.2.0          # via packaging
 pytest-django==3.3.0
 pytest-factoryboy==2.0.2
+pytest-freezegun==0.3.0.post1
 pytest-mock==1.10.1
 pytest-sugar==0.9.1
 pytest==3.6.2

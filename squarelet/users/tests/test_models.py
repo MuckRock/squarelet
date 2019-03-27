@@ -17,7 +17,7 @@ def test_save(user_factory, mocker):
     mocked.assert_called_with("user", user.uuid)
 
 
-def test_get_absolute_urluser(user_factory):
+def test_get_absolute_url(user_factory):
     user = user_factory.build()
     assert user.get_absolute_url() == f"/users/{user.username}/"
 

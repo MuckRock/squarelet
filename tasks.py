@@ -20,16 +20,18 @@ def staging(c):
 
 
 @task
-def test(c, path="squarelet", create_db=False):
+def test(c, path="squarelet", create_db=False, ipdb=False):
     """Run the test suite"""
     create_switch = "--create-db" if create_db else ""
+    ipdb_switch = "--pdb --pdbcls=IPython.terminal.debugger:Pdb" if ipdb else ""
 
     c.run(
         DOCKER_COMPOSE_RUN_OPT_USER.format(
             opt="-e DJANGO_SETTINGS_MODULE=config.settings.test",
             service="django",
-            cmd=f"pytest {create_switch} {path}",
-        )
+            cmd=f"pytest {create_switch} {ipdb_switch} {path}",
+        ),
+        pty=True,
     )
 
 

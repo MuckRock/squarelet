@@ -1,4 +1,9 @@
 # Third Party
+# Standard Library
+
+# Django
+from django.utils import timezone
+
 import factory
 from autoslug.utils import slugify
 
@@ -67,3 +72,26 @@ class OrganizationPlanFactory(PlanFactory):
     base_price = 100
     price_per_user = 10
     feature_level = 2
+
+
+class InvitationFactory(factory.django.DjangoModelFactory):
+
+    organization = factory.SubFactory(
+        "squarelet.organizations.tests.factories.OrganizationFactory"
+    )
+    email = factory.Sequence(lambda n: f"user-{n}@example.com")
+
+    class Meta:
+        model = "organizations.Invitation"
+
+
+class ChargeFactory(factory.django.DjangoModelFactory):
+    organization = factory.SubFactory(
+        "squarelet.organizations.tests.factories.OrganizationFactory"
+    )
+    description = factory.Sequence(lambda n: f"Description {n}")
+    created_at = factory.LazyFunction(timezone.now)
+    amount = 350
+
+    class Meta:
+        model = "organizations.Charge"

@@ -15,5 +15,6 @@ pylint_django
 pytest
 pytest-django
 pytest-factoryboy
+pytest-freezegun
 pytest-mock
 pytest-sugar
