@@ -78,11 +78,9 @@ class Detail(AdminLinkMixin, DetailView):
                 extra_context={"joiner": request.user},
             )
         elif request.POST.get("action") == "leave" and is_member:
-            membership = self.request.user.memberships.filter(
+            self.request.user.memberships.filter(
                 organization=self.organization
-            ).first()
-            if membership:
-                membership.delete()
+            ).delete()
             messages.success(request, _("You have left the organization"))
         return redirect(self.organization)
 
@@ -97,11 +95,12 @@ class List(ListView):
 
 
 def autocomplete(request):
+    # This should be replaced by a real API
     query = request.GET.get("q")
-    page = request.GET.get("page") or 1
+    page = request.GET.get("page")
     try:
         page = int(page)
-    except ValueError:
+    except (ValueError, TypeError):
         page = 1
 
     orgs = Organization.objects.filter(individual=False).get_viewable(request.user)

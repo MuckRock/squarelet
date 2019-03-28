@@ -10,6 +10,7 @@ import pytest
 # Squarelet
 from squarelet.organizations.models import ReceiptEmail
 
+
 # pylint: disable=invalid-name
 
 
@@ -41,22 +42,18 @@ class TestOrganization:
         )
 
     @pytest.mark.django_db()
-    def test_has_admin(self, organization_factory, user_factory, membership_factory):
+    def test_has_admin(self, organization_factory, user_factory):
         admin, member, user = user_factory.create_batch(3)
-        org = organization_factory()
-        membership_factory(user=admin, organization=org, admin=True)
-        membership_factory(user=member, organization=org, admin=False)
+        org = organization_factory(users=[member], admins=[admin])
 
         assert org.has_admin(admin)
         assert not org.has_admin(member)
         assert not org.has_admin(user)
 
     @pytest.mark.django_db()
-    def test_has_member(self, organization_factory, user_factory, membership_factory):
+    def test_has_member(self, organization_factory, user_factory):
         admin, member, user = user_factory.create_batch(3)
-        org = organization_factory()
-        membership_factory(user=admin, organization=org, admin=True)
-        membership_factory(user=member, organization=org, admin=False)
+        org = organization_factory(users=[member], admins=[admin])
 
         assert org.has_member(admin)
         assert org.has_member(member)
@@ -273,7 +270,7 @@ class TestCharge:
         assert len(mailoutbox) == 1
         mail = mailoutbox[0]
         assert mail.subject == "Receipt"
-        assert mail.to == emails
+        assert set(mail.to) == set(emails)
 
     def test_items_no_fee(self, charge_factory):
         charge = charge_factory.build()

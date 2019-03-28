@@ -20,7 +20,8 @@ class UserFactory(factory.django.DjangoModelFactory):
         # pylint: disable=unused-argument
         if extracted:
             self.set_password(extracted)
-            self.save()
+            if create:
+                self.save()
 
     @factory.post_generation
     def membership(self, create, extracted, **kwargs):

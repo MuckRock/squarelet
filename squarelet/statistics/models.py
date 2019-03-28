@@ -20,7 +20,7 @@ class Statistics(models.Model):
     pro_users = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="+")
 
     def __str__(self):
-        return "Stats for %s" % self.date
+        return f"Stats for {self.date}"
 
     class Meta:
         ordering = ["-date"]

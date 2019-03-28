@@ -18,6 +18,18 @@ class OrganizationFactory(factory.django.DjangoModelFactory):
         model = "organizations.Organization"
         django_get_or_create = ("name",)
 
+    @factory.post_generation
+    def users(self, create, extracted, **kwargs):
+        if create and extracted:
+            for user in extracted:
+                MembershipFactory(user=user, organization=self, admin=False)
+
+    @factory.post_generation
+    def admins(self, create, extracted, **kwargs):
+        if create and extracted:
+            for user in extracted:
+                MembershipFactory(user=user, organization=self, admin=True)
+
 
 class IndividualOrganizationFactory(OrganizationFactory):
     individual = True
