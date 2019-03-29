@@ -536,9 +536,7 @@ class ReceiptEmail(models.Model):
 class Charge(models.Model):
     """A payment charged to an organization through Stripe"""
 
-    amount = models.PositiveSmallIntegerField(
-        _("amount"), help_text=_("Amount in cents")
-    )
+    amount = models.PositiveIntegerField(_("amount"), help_text=_("Amount in cents"))
     fee_amount = models.PositiveSmallIntegerField(
         _("fee amount"), default=0, help_text=_("Fee percantage")
     )
