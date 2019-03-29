@@ -4,6 +4,7 @@ from django.contrib.auth.models import AnonymousUser
 from django.http.response import Http404
 
 # Standard Library
+import json
 from unittest.mock import MagicMock
 
 # Third Party
@@ -108,3 +109,39 @@ def test_list(rf, organization_factory):
     response = views.List.as_view()(request)
     assert response.status_code == 200
     assert len(response.context_data["organization_list"]) == 5
+
+
+@pytest.mark.django_db()
+class TestAutocomplete:
+    def call_view(self, rf, data):
+        # pylint: disable=protected-access
+        request = rf.get(f"/organizations/autocomplete/", data)
+        request.user = AnonymousUser()
+        return views.autocomplete(request)
+
+    def test_simple(self, rf, organization_factory):
+        orgs = organization_factory.create_batch(5)
+        response = self.call_view(rf, {})
+        assert response.status_code == 200
+        content = json.loads(response.content)
+        # sort? order by name second?
+        assert content["data"] == [
+            {"name": o.name, "slug": o.slug, "avatar": o.avatar_url} for o in orgs
+        ]
+
+    def test_query(self, rf, organization_factory):
+        organization_factory.create_batch(5)
+        org = organization_factory.create(name="example")
+        response = self.call_view(rf, {"q": "exam"})
+        assert response.status_code == 200
+        content = json.loads(response.content)
+        assert content["data"] == [
+            {"name": org.name, "slug": org.slug, "avatar": org.avatar_url}
+        ]
+
+    def test_page(self, rf, organization_factory):
+        organization_factory.create_batch(101)
+        response = self.call_view(rf, {"page": "2"})
+        assert response.status_code == 200
+        content = json.loads(response.content)
+        assert len(content["data"]) == 1
