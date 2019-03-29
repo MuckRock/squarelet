@@ -40,6 +40,8 @@ http {
         <% end %>
     }
 
+    map_hash_bucket_size <%= ENV.fetch("NGINX_MAX_BUCKET_SIZE", 128) %>;
+
     map "$whitelist:$http_x_bypass_rate_limit" $limit_key {
         # default is to limit by ip address
         default $binary_remote_addr;
