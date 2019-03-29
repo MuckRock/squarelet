@@ -20,12 +20,14 @@ class OrganizationFactory(factory.django.DjangoModelFactory):
 
     @factory.post_generation
     def users(self, create, extracted, **kwargs):
+        # pylint: disable=unused-argument
         if create and extracted:
             for user in extracted:
                 MembershipFactory(user=user, organization=self, admin=False)
 
     @factory.post_generation
     def admins(self, create, extracted, **kwargs):
+        # pylint: disable=unused-argument
         if create and extracted:
             for user in extracted:
                 MembershipFactory(user=user, organization=self, admin=True)
