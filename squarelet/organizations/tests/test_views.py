@@ -1,4 +1,3 @@
-
 # Django
 from django.contrib.auth.models import AnonymousUser
 from django.http.response import Http404
@@ -12,7 +11,6 @@ import pytest
 
 # Squarelet
 from squarelet.organizations import views
-
 
 # pylint: disable=invalid-name
 
