@@ -98,7 +98,7 @@ rjsmin==1.0.12
 s3transfer==0.1.13
 six==1.11.0
 smart-open==1.7.1
-sorl-thumbnail==12.4.1
+sorl-thumbnail==12.5.0
 sqlparse==0.2.4
 stripe==2.10.1
 traitlets==4.3.2

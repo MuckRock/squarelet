@@ -94,7 +94,7 @@ rjsmin==1.0.12            # via django-compressor
 s3transfer==0.1.13        # via boto3
 six==1.11.0               # via argon2-cffi, bcrypt, django-compat, django-environ, django-extensions, furl, orderedmultidict, prompt-toolkit, pyjwkest, python-dateutil, traitlets
 smart-open==1.7.1
-sorl-thumbnail==12.4.1
+sorl-thumbnail==12.5.0
 sqlparse==0.2.4           # via django-debug-toolbar, django-request-token
 stripe==2.10.1
 traitlets==4.3.2          # via ipython
