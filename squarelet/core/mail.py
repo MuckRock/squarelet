@@ -3,12 +3,17 @@ from django.conf import settings
 from django.core.mail.message import EmailMultiAlternatives
 from django.template.loader import render_to_string
 
+# Standard Library
+import logging
+
 # Third Party
 from html2text import html2text
 
 ORG_TO_ALL = 0
 ORG_TO_ADMINS = 1
 ORG_TO_RECEIPTS = 2
+
+logger = logging.getLogger(__name__)
 
 
 class Email(EmailMultiAlternatives):
@@ -41,6 +46,16 @@ class Email(EmailMultiAlternatives):
             self.to.extend([r.email for r in organization.receipt_emails.all()])
         elif organization and organization_to == ORG_TO_ALL:
             self.to.extend([u.email for u in organization.users.all()])
+
+        if not self.to:
+            logger.warning(
+                "Email created with no receipients - "
+                "User: %s, Organization: %s, Organization To: %d, Subject: %s",
+                user,
+                organization,
+                organization_to,
+                self.subject,
+            )
         # always BCC diagnostics
         self.bcc.append("diagnostics@muckrock.com")
 
@@ -55,6 +70,14 @@ class Email(EmailMultiAlternatives):
         plain = html2text(html)
         self.body = plain
         self.attach_alternative(html, "text/html")
+
+    def send(self, fail_silently=False):
+        if self.to:
+            super().send(fail_silently)
+        else:
+            logger.warning(
+                "Refusing to send email with no recipients: %s", self.subject
+            )
 
 
 def send_mail(**kwargs):
