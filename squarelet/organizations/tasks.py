@@ -60,7 +60,7 @@ def handle_charge_succeeded(charge_data):
             amount=charge_data["amount"],
             organization=organization,
             created_at=datetime.fromtimestamp(
-                charge.created, tz=get_current_timezone()
+                charge_data["created"], tz=get_current_timezone()
             ),
             charge_id=charge_data["id"],
             description=charge_data["descrption"],
