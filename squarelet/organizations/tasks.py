@@ -1,7 +1,7 @@
 # Django
 from celery.schedules import crontab
 from celery.task import periodic_task, task
-from django.db.models import Case, F, When
+from django.db.models import F
 from django.utils.timezone import get_current_timezone
 from django.utils.translation import ugettext_lazy as _
 
@@ -27,15 +27,15 @@ logger = logging.getLogger(__name__)
 def restore_organization():
     """Monthly update of organizations subscriptions"""
     organizations = Organization.objects.filter(update_on__lte=date.today())
-    uuids = organizations.values_list("pk", flat=True)
-    organizations.update(
-        update_on=Case(
-            # if next plan is free, set update_on to NULL
-            When(next_plan__base_price=0, next_plan__price_per_user=0, then=None),
-            # otherwise, set it to one month from now
-            default=date.today() + Interval("1 month"),
-        ),
-        plan=F("next_plan"),
+    # convert to a list so it can be serialized by celery
+    uuids = list(organizations.values_list("uuid", flat=True))
+    # if the next plan is free, update_on is set to null
+    organizations.filter(next_plan__base_price=0, next_plan__price_per_user=0).update(
+        update_on=None, plan=F("next_plan")
+    )
+    # if the next plan is not free, update_on is set to 1 month from now
+    organizations.exclude(next_plan__base_price=0, next_plan__price_per_user=0).update(
+        update_on=date.today() + Interval("1 month"), plan=F("next_plan")
     )
     send_cache_invalidations("organization", uuids)
 
