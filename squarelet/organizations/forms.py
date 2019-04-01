@@ -34,6 +34,9 @@ class PaymentForm(StripeForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._set_group_options()
+        # stripe token is only required if switching to a paid plan
+        # this is checked in the clean method
+        self.fields["stripe_token"].required = False
 
         self.helper = FormHelper()
         self.helper.layout = Layout(
