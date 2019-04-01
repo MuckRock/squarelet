@@ -63,7 +63,7 @@ def handle_charge_succeeded(charge_data):
                 charge_data["created"], tz=get_current_timezone()
             ),
             charge_id=charge_data["id"],
-            description=charge_data["descrption"],
+            description=charge_data["description"],
         )
     charge.send_receipt()
 
