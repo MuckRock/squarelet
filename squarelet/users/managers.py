@@ -11,6 +11,9 @@ class UserManager(AuthUserManager):
         if not username:
             raise ValueError("The given username must be set")
         email = self.normalize_email(email)
+        if not email:
+            # if email is blank, set it to NULL to avoid unique constraint
+            email = None
         username = self.model.normalize_username(username)
         user = self.model(username=username, email=email, **extra_fields)
         if password:
