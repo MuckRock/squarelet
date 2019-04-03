@@ -214,17 +214,24 @@ class Organization(AvatarMixin, models.Model):
     def _create_subscription(self, customer, plan, max_users):
         """Create a subscription on stripe for the new plan"""
 
-        subscription = customer.subscriptions.create(
-            items=[{"plan": plan.stripe_id, "quantity": max_users}],
-            billing="send_invoice" if plan.annual else "charge_automatically",
-        )
+        def stripe_create_subscription():
+            """Call this after the current transaction is committed,
+            to ensure the organization is in the database before we
+            receive the charge succeeded webhook
+            """
+            subscription = customer.subscriptions.create(
+                items=[{"plan": plan.stripe_id, "quantity": max_users}],
+                billing="send_invoice" if plan.annual else "charge_automatically",
+            )
+            self.subscription_id = subscription.id
+            self.save()
 
         self.plan = plan
         self.next_plan = plan
         self.max_users = max_users
         self.update_on = date.today() + relativedelta(months=1)
-        self.subscription_id = subscription.id
         self.save()
+        transaction.on_commit(stripe_create_subscription)
 
     def _cancel_subscription(self, plan):
         """Cancel the subscription at period end on stripe for the new plan"""
