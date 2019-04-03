@@ -165,7 +165,8 @@ class TestUpdateSubscription:
         response = self.call_view(rf, organization)
         assert response.status_code == 302
 
-    def test_get_admin(self, rf, organization_factory, user_factory):
+    def test_get_admin(self, rf, organization_factory, user_factory, mocker):
+        mocker.patch("squarelet.organizations.models.Organization.card", None)
         user = user_factory()
         organization = organization_factory(admins=[user])
         ReceiptEmail.objects.create(

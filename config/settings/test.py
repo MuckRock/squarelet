@@ -58,3 +58,7 @@ EMAIL_PORT = 1025
 
 # Your stuff...
 # ------------------------------------------------------------------------------
+# Should not contact stripe during tests
+STRIPE_PUB_KEY = ""
+STRIPE_SECRET_KEY = ""
+STRIPE_WEBHOOK_SECRET = ""
