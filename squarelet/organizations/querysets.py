@@ -1,6 +1,13 @@
 # Django
 from django.db import models
 from django.db.models import Q
+from django.utils.timezone import get_current_timezone
+
+# Standard Library
+from datetime import datetime
+
+# Third Party
+import stripe
 
 
 class OrganizationQuerySet(models.QuerySet):
@@ -71,3 +78,45 @@ class InvitationQuerySet(models.QuerySet):
 
     def get_rejected(self):
         return self.exclude(rejected_at=None)
+
+
+class ChargeQuerySet(models.QuerySet):
+    def make_charge(self, organization, token, amount, fee_amount, description):
+        """Make a charge on stripe and locally"""
+        customer = organization.customer
+        if token:
+            source = customer.sources.create(source=token)
+        else:
+            source = organization.card
+
+        stripe_charge = stripe.Charge.create(
+            amount=amount,
+            currency="usd",
+            customer=customer,
+            description=description,
+            source=source,
+            metadata={
+                "organization": organization.name,
+                "organization id": organization.uuid,
+                "fee amount": fee_amount,
+            },
+        )
+        if token:
+            source.delete()
+
+        # use get or create as there is a race condition from creating the charge on
+        # stripe, to receiving the webhook and saving it to the database there,
+        # and saving it here
+        charge, _ = self.get_or_create(
+            charge_id=stripe_charge.id,
+            defaults={
+                "amount": amount,
+                "fee_amount": fee_amount,
+                "organization": organization,
+                "created_at": datetime.fromtimestamp(
+                    stripe_charge.created, tz=get_current_timezone()
+                ),
+                "description": description,
+            },
+        )
+        return charge

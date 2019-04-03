@@ -5,13 +5,12 @@ from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.db import models, transaction
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.timezone import get_current_timezone
 from django.utils.translation import ugettext_lazy as _
 
 # Standard Library
 import logging
 import uuid
-from datetime import date, datetime
+from datetime import date
 
 # Third Party
 import stripe
@@ -27,7 +26,12 @@ from squarelet.core.mixins import AvatarMixin
 from squarelet.oidc.middleware import send_cache_invalidations
 
 # Local
-from .querysets import InvitationQuerySet, OrganizationQuerySet, PlanQuerySet
+from .querysets import (
+    ChargeQuerySet,
+    InvitationQuerySet,
+    OrganizationQuerySet,
+    PlanQuerySet,
+)
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 stripe.api_version = "2018-09-24"
@@ -288,13 +292,9 @@ class Organization(AvatarMixin, models.Model):
         if save_card:
             self.save_card(token)
             token = None
-        charge = Charge(
-            organization=self,
-            amount=amount,
-            fee_amount=fee_amount,
-            description=description,
+        charge = Charge.objects.make_charge(
+            self, token, amount, fee_amount, description
         )
-        charge.make_charge(token)
         return charge
 
     def set_receipt_emails(self, emails):
@@ -543,6 +543,8 @@ class ReceiptEmail(models.Model):
 class Charge(models.Model):
     """A payment charged to an organization through Stripe"""
 
+    objects = ChargeQuerySet.as_manager()
+
     amount = models.PositiveIntegerField(_("amount"), help_text=_("Amount in cents"))
     fee_amount = models.PositiveSmallIntegerField(
         _("fee amount"), default=0, help_text=_("Fee percantage")
@@ -564,30 +566,6 @@ class Charge(models.Model):
 
     def get_absolute_url(self):
         return reverse("organizations:charge", kwargs={"pk": self.pk})
-
-    def make_charge(self, token=None):
-        """Make the charge on stripe"""
-        customer = self.organization.customer
-        if token:
-            source = customer.sources.create(source=token)
-        else:
-            source = self.organization.card
-
-        charge = stripe.Charge.create(
-            amount=self.amount,
-            currency="usd",
-            customer=customer,
-            description=self.description,
-            source=source,
-            metadata={"organization": self.organization.name},
-        )
-        if token:
-            source.delete()
-        self.charge_id = charge.id
-        self.created_at = datetime.fromtimestamp(
-            charge.created, tz=get_current_timezone()
-        )
-        self.save()
 
     @mproperty
     def charge(self):

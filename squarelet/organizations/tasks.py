@@ -9,6 +9,9 @@ from django.utils.translation import ugettext_lazy as _
 import logging
 from datetime import date, datetime
 
+# Third Party
+import stripe
+
 # Squarelet
 from squarelet.core.mail import ORG_TO_ADMINS, send_mail
 from squarelet.core.models import Interval
@@ -40,31 +43,61 @@ def restore_organization():
     send_cache_invalidations("organization", uuids)
 
 
-@task(name="squarelet.organizations.tasks.handle_charge_succeeded")
+@task(
+    name="squarelet.organizations.tasks.handle_charge_succeeded",
+    autoretry_for=(Organization.DoesNotExist,),
+)
 def handle_charge_succeeded(charge_data):
     """Handle receiving a charge.succeeded event from the Stripe webhook"""
-    try:
-        charge = Charge.objects.get(charge_id=charge_data["id"])
-    except Charge.DoesNotExist:
-        try:
-            organization = Organization.objects.get(customer_id=charge_data["customer"])
-        except Organization.DoesNotExist:
-            logger.error(
-                "Charge (%s) made for customer (%s) with no matching organization",
-                charge_data["id"],
-                charge_data["customer"],
-            )
-            return
 
-        charge = Charge.objects.create(
-            amount=charge_data["amount"],
-            organization=organization,
-            created_at=datetime.fromtimestamp(
+    # We autorety if the organization does not exist, as that should mean the webhook
+    # is being processed before the database synced the customer id to the organization
+    # We can't use transaction.on_commit since we need to return the Charge object
+    # when we create it
+
+    if charge_data["customer"] is None:
+        # Customer should only be blank for anonymous donations or crowdfunds
+        # from MuckRock - no need to log those here
+        return
+
+    if charge_data["invoice"]:
+        # fetch the invoice from stripe if one associated with the charge
+        invoice = stripe.Invoice.retrieve(charge_data["invoice"])
+        invoice_line = invoice["lines"]["data"][0]
+
+    def get_description():
+        """Get the description from the charge data"""
+        if charge_data["invoice"]:
+            return invoice_line["plan"]["name"]
+        else:
+            return charge_data["description"]
+
+    charge, _ = Charge.objects.get_or_create(
+        charge_id=charge_data["id"],
+        defaults={
+            "amount": charge_data["amount"],
+            "fee_amount": charge_data["metadata"].get("fee amount", 0),
+            "organization": lambda: Organization.objects.get(
+                customer_id=charge_data["customer"]
+            ),
+            "created_at": datetime.fromtimestamp(
                 charge_data["created"], tz=get_current_timezone()
             ),
-            charge_id=charge_data["id"],
-            description=charge_data["description"],
-        )
+            "description": get_description,
+        },
+    )
+
+    # do not send receipts for MuckRock donations and crowdfunds
+    if charge_data["invoice"] and invoice_line["plan"]["id"].startswith(
+        ("donate", "crowdfund")
+    ):
+        return
+    if not charge_data["invoice"] and charge_data["metadata"].get("action") in [
+        "donation",
+        "crowdfund-payment",
+    ]:
+        return
+
     charge.send_receipt()
 
 
