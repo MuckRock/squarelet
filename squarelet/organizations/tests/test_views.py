@@ -11,6 +11,8 @@ import pytest
 
 # Squarelet
 from squarelet.organizations import views
+from squarelet.organizations.models import ReceiptEmail
+
 
 # pylint: disable=invalid-name
 
@@ -47,7 +49,7 @@ class TestDetail:
         assert "invite_count" not in response.context_data
 
     def test_get_admin(self, rf, organization_factory, user_factory):
-        user = user_factory(password="password")
+        user = user_factory()
         organization = organization_factory(admins=[user])
         response = self.call_view(rf, organization, user)
         assert response.status_code == 200
@@ -122,7 +124,6 @@ class TestAutocomplete:
         response = self.call_view(rf, {})
         assert response.status_code == 200
         content = json.loads(response.content)
-        # sort? order by name second?
         assert content["data"] == [
             {"name": o.name, "slug": o.slug, "avatar": o.avatar_url} for o in orgs
         ]
@@ -143,3 +144,40 @@ class TestAutocomplete:
         assert response.status_code == 200
         content = json.loads(response.content)
         assert len(content["data"]) == 1
+
+
+@pytest.mark.django_db()
+class TestUpdateSubscription:
+    def call_view(self, rf, organization, user=None, data=None):
+        # pylint: disable=protected-access
+        if user is None:
+            user = AnonymousUser()
+        if data is None:
+            request = rf.get(f"/organizations/{organization.slug}/update/")
+        else:
+            request = rf.post(f"/organizations/{organization.slug}/update/", data)
+        request.user = user
+        request._messages = MagicMock()
+        return views.UpdateSubscription.as_view()(request, slug=organization.slug)
+
+    def test_get_anonymous(self, rf, organization_factory):
+        organization = organization_factory()
+        response = self.call_view(rf, organization)
+        assert response.status_code == 302
+
+    def test_get_admin(self, rf, organization_factory, user_factory):
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        ReceiptEmail.objects.create(
+            organization=organization, email="receipts@example.com", failed=False
+        )
+        failed_email = ReceiptEmail.objects.create(
+            organization=organization, email="failed@example.com", failed=True
+        )
+        response = self.call_view(rf, organization, user)
+        assert response.status_code == 200
+        assert response.context_data["failed_receipt_emails"][0] == failed_email
+        initial = response.context_data["form"].initial
+        assert initial["plan"] == organization.plan
+        assert initial["max_users"] == organization.max_users
+        assert len(initial["receipt_emails"].split("\n")) == 2
