@@ -90,8 +90,12 @@ class List(ListView):
     paginate_by = ORG_PAGINATION
 
     def get_queryset(self):
-        orgs = super().get_queryset().filter(individual=False)
-        return orgs.get_viewable(self.request.user)
+        return (
+            super()
+            .get_queryset()
+            .filter(individual=False)
+            .get_viewable(self.request.user)
+        )
 
 
 def autocomplete(request):
@@ -109,7 +113,7 @@ def autocomplete(request):
         orgs = (
             orgs.filter(name__icontains=query)
             .annotate(pos=StrIndex(Lower("name"), Lower(V(query))))
-            .order_by("pos")
+            .order_by("pos", "slug")
         )
 
     data = {
