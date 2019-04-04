@@ -259,7 +259,9 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
     def _handle_invite(self, request, invite_fn, success_message):
         try:
             inviteid = request.POST.get("inviteid")
-            invite = Invitation.objects.get(pk=inviteid, organization=self.organization)
+            invite = Invitation.objects.get_open().get(
+                pk=inviteid, organization=self.organization
+            )
             invite_fn(invite)
             messages.success(self.request, success_message)
         except Invitation.DoesNotExist:

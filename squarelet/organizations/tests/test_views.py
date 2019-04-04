@@ -1,6 +1,9 @@
 # Django
+from django.contrib import messages
 from django.contrib.auth.models import AnonymousUser
+from django.core.exceptions import PermissionDenied
 from django.http.response import Http404
+from django.utils import timezone
 
 # Standard Library
 import json
@@ -8,6 +11,7 @@ from unittest.mock import MagicMock
 
 # Third Party
 import pytest
+import stripe
 
 # Squarelet
 from squarelet.organizations import views
@@ -16,20 +20,28 @@ from squarelet.organizations.models import ReceiptEmail
 # pylint: disable=invalid-name
 
 
+# XXX move this to core
 class ViewTest:
+    """Test mixin to help call views from tests"""
+
+    # pylint: disable=protected-access
+
     def call_view(self, rf, user=None, data=None, **kwargs):
-        # pylint: disable=protected-access
         url = self.url.format(**kwargs)
         if user is None:
             user = AnonymousUser()
         if data is None:
-            request = rf.get(url)
+            self.request = rf.get(url)
         else:
-            request = rf.post(url, data)
-        request.user = user
-        request._messages = MagicMock()
-        request.session = MagicMock()
-        return self.view.as_view()(request, **kwargs)
+            self.request = rf.post(url, data)
+        self.request.user = user
+        self.request._messages = MagicMock()
+        self.request.session = MagicMock()
+        return self.view.as_view()(self.request, **kwargs)
+
+    def assert_message(self, level, message):
+        """Assert a message was added"""
+        self.request._messages.add.assert_called_with(level, message, "")
 
 
 @pytest.mark.django_db()
@@ -178,22 +190,15 @@ class TestAutocomplete:
 
 
 @pytest.mark.django_db()
-class TestUpdateSubscription:
-    def call_view(self, rf, organization, user=None, data=None):
-        # pylint: disable=protected-access
-        if user is None:
-            user = AnonymousUser()
-        if data is None:
-            request = rf.get(f"/organizations/{organization.slug}/update/")
-        else:
-            request = rf.post(f"/organizations/{organization.slug}/update/", data)
-        request.user = user
-        request._messages = MagicMock()
-        return views.UpdateSubscription.as_view()(request, slug=organization.slug)
+class TestUpdateSubscription(ViewTest):
+    """Test the Organization Update Subscription view"""
+
+    view = views.UpdateSubscription
+    url = "/organizations/{slug}/update/"
 
     def test_get_anonymous(self, rf, organization_factory):
         organization = organization_factory()
-        response = self.call_view(rf, organization)
+        response = self.call_view(rf, slug=organization.slug)
         assert response.status_code == 302
 
     def test_get_admin(self, rf, organization_factory, user_factory, mocker):
@@ -206,7 +211,7 @@ class TestUpdateSubscription:
         failed_email = ReceiptEmail.objects.create(
             organization=organization, email="failed@example.com", failed=True
         )
-        response = self.call_view(rf, organization, user)
+        response = self.call_view(rf, user, slug=organization.slug)
         assert response.status_code == 200
         assert response.context_data["failed_receipt_emails"][0] == failed_email
         initial = response.context_data["form"].initial
@@ -228,7 +233,7 @@ class TestUpdateSubscription:
             "receipt_emails": "receipt1@example.com\nreceipt2@example.com",
             "stripe_pk": "key",
         }
-        response = self.call_view(rf, organization, user, data)
+        response = self.call_view(rf, user, data, slug=organization.slug)
         assert response.status_code == 302
         assert mocked.called_with(
             token=data["stripe_token"],
@@ -238,6 +243,26 @@ class TestUpdateSubscription:
         assert set(e.email for e in organization.receipt_emails.all()) == set(
             data["receipt_emails"].split("\n")
         )
+
+    def test_post_admin_stripe_error(
+        self, rf, organization_factory, user_factory, mocker
+    ):
+        mocker.patch("squarelet.organizations.models.Organization.card", None)
+        mocked = mocker.patch(
+            "squarelet.organizations.models.Organization.set_subscription"
+        )
+        mocked.side_effect = stripe.error.StripeError("Error message")
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        data = {
+            "stripe_token": "token",
+            "plan": organization.plan.pk,
+            "max_users": 6,
+            "receipt_emails": "receipt1@example.com\nreceipt2@example.com",
+            "stripe_pk": "key",
+        }
+        self.call_view(rf, user, data, slug=organization.slug)
+        self.assert_message(messages.ERROR, "Payment error: Error message")
 
 
 @pytest.mark.django_db()
@@ -254,6 +279,160 @@ class TestCreate(ViewTest):
         assert organization.plan.slug == "free"
         assert organization.has_admin(user)
         assert user.email in organization.receipt_emails.values_list("email", flat=True)
+
+
+@pytest.mark.django_db()
+class TestManageMembers(ViewTest):
+    """Test the ManageMembers Create view"""
+
+    view = views.ManageMembers
+    url = "/organizations/{slug}/manage-members/"
+
+    def test_get(self, rf, organization_factory, user_factory):
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        response = self.call_view(rf, user, slug=organization.slug)
+        assert response.status_code == 200
+        assert response.context_data["admin"] == user
+
+    def test_add_member_good(self, rf, mailoutbox, organization_factory, user_factory):
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        email = "invite@example.com"
+        data = {"action": "addmember", "email": email}
+        self.call_view(rf, user, data, slug=organization.slug)
+        assert organization.invitations.filter(email=email).exists()
+        mail = mailoutbox[0]
+        assert mail.subject == f"Invitation to join {organization.name}"
+        assert mail.to == [email]
+        self.assert_message(messages.SUCCESS, "Invitation sent")
+
+    def test_add_member_bad_email(self, rf, organization_factory, user_factory):
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        email = "not an email"
+        data = {"action": "addmember", "email": email}
+        self.call_view(rf, user, data, slug=organization.slug)
+        self.assert_message(messages.ERROR, "Please enter a valid email address")
+
+    def test_add_member_bad_user_limit(self, rf, organization_factory, user_factory):
+        user = user_factory()
+        members = user_factory.create_batch(4)
+        organization = organization_factory(admins=[user], users=members, max_users=5)
+        email = "invite@example.com"
+        data = {"action": "addmember", "email": email}
+        self.call_view(rf, user, data, slug=organization.slug)
+        self.assert_message(
+            messages.ERROR,
+            "You need to increase your max users to invite another member",
+        )
+
+    def test_revoke_invite(
+        self, rf, organization_factory, user_factory, invitation_factory
+    ):
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        invitation = invitation_factory(organization=organization)
+        data = {"action": "revokeinvite", "inviteid": invitation.pk}
+        self.call_view(rf, user, data, slug=organization.slug)
+        invitation.refresh_from_db()
+        assert invitation.rejected_at is not None
+        self.assert_message(messages.SUCCESS, "Invitation revoked")
+
+    def test_accept_invite(
+        self, rf, organization_factory, user_factory, invitation_factory
+    ):
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        invitation = invitation_factory(organization=organization, user=user_factory())
+        data = {"action": "acceptinvite", "inviteid": invitation.pk}
+        self.call_view(rf, user, data, slug=organization.slug)
+        invitation.refresh_from_db()
+        assert invitation.accepted_at is not None
+        self.assert_message(messages.SUCCESS, "Invitation accepted")
+
+    def test_reject_invite(
+        self, rf, organization_factory, user_factory, invitation_factory
+    ):
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        invitation = invitation_factory(organization=organization)
+        data = {"action": "rejectinvite", "inviteid": invitation.pk}
+        self.call_view(rf, user, data, slug=organization.slug)
+        invitation.refresh_from_db()
+        assert invitation.rejected_at is not None
+        self.assert_message(messages.SUCCESS, "Invitation rejected")
+
+    def test_revoke_invite_missing(self, rf, organization_factory, user_factory):
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        data = {"action": "revokeinvite", "inviteid": 1}
+        self.call_view(rf, user, data, slug=organization.slug)
+        self.assert_message(messages.ERROR, "An unexpected error occurred")
+
+    def test_revoke_invite_closed(
+        self, rf, organization_factory, user_factory, invitation_factory
+    ):
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        now = timezone.now()
+        invitation = invitation_factory(organization=organization, rejected_at=now)
+        data = {"action": "revokeinvite", "inviteid": invitation.pk}
+        self.call_view(rf, user, data, slug=organization.slug)
+        invitation.refresh_from_db()
+        assert invitation.rejected_at == now
+        self.assert_message(messages.ERROR, "An unexpected error occurred")
+
+    def test_make_admin(self, rf, organization_factory, user_factory):
+        admin = user_factory()
+        member = user_factory()
+        organization = organization_factory(admins=[admin], users=[member])
+        data = {"action": "makeadmin", "userid": member.pk, "admin": "true"}
+        self.call_view(rf, admin, data, slug=organization.slug)
+        assert organization.has_admin(member)
+        self.assert_message(messages.SUCCESS, "Made an admin")
+
+    def test_remove_admin(self, rf, organization_factory, user_factory):
+        admins = user_factory.create_batch(2)
+        organization = organization_factory(admins=admins)
+        data = {"action": "makeadmin", "userid": admins[1].pk, "admin": "false"}
+        self.call_view(rf, admins[0], data, slug=organization.slug)
+        assert not organization.has_admin(admins[1])
+        self.assert_message(messages.SUCCESS, "Made not an admin")
+
+    def test_make_admin_bad_bool(self, rf, organization_factory, user_factory):
+        admin = user_factory()
+        member = user_factory()
+        organization = organization_factory(admins=[admin], users=[member])
+        data = {"action": "makeadmin", "userid": member.pk, "admin": "foo"}
+        self.call_view(rf, admin, data, slug=organization.slug)
+        assert not organization.has_admin(member)
+        self.assert_message(messages.ERROR, "An unexpected error occurred")
+
+    def test_make_admin_bad_member(self, rf, organization_factory, user_factory):
+        admin = user_factory()
+        user = user_factory()
+        organization = organization_factory(admins=[admin])
+        data = {"action": "makeadmin", "userid": user.pk, "admin": "true"}
+        self.call_view(rf, admin, data, slug=organization.slug)
+        assert not organization.has_admin(user)
+        self.assert_message(messages.ERROR, "An unexpected error occurred")
+
+    def test_remove_user(self, rf, organization_factory, user_factory):
+        admin = user_factory()
+        member = user_factory()
+        organization = organization_factory(admins=[admin], users=[member])
+        data = {"action": "removeuser", "userid": member.pk}
+        self.call_view(rf, admin, data, slug=organization.slug)
+        assert not organization.has_member(member)
+        self.assert_message(messages.SUCCESS, "Removed user")
+
+    def test_bad_action(self, rf, organization_factory, user_factory):
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        data = {"action": "fakeaction"}
+        self.call_view(rf, admin, data, slug=organization.slug)
+        self.assert_message(messages.ERROR, "An unexpected error occurred")
 
 
 @pytest.mark.django_db()
@@ -286,3 +465,44 @@ class TestInvitationAccept(ViewTest):
         invitation.refresh_from_db()
         assert invitation.accepted_at is None
         assert invitation.rejected_at is None
+
+
+@pytest.mark.django_db()
+class TestReceipts(ViewTest):
+    """Test the Organization Receipts view"""
+
+    view = views.Receipts
+    url = "/organizations/{slug}/receipts/"
+
+    def test_get_admin(self, rf, organization_factory, user_factory, charge_factory):
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        charge_factory(organization=organization)
+        response = self.call_view(rf, user, slug=organization.slug)
+        assert response.status_code == 200
+        assert list(response.context_data["charges"]) == list(
+            organization.charges.all()
+        )
+
+
+@pytest.mark.django_db()
+class TestChargeDetail(ViewTest):
+    """Test the Organization Receipts view"""
+
+    view = views.ChargeDetail
+    url = "/organizations/~charges/{pk}/"
+
+    def test_get_member(self, rf, organization_factory, user_factory, charge_factory):
+        user = user_factory()
+        organization = organization_factory(users=[user])
+        charge = charge_factory(organization=organization)
+        with pytest.raises(PermissionDenied):
+            self.call_view(rf, user, pk=charge.pk)
+
+    def test_get_admin(self, rf, organization_factory, user_factory, charge_factory):
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        charge = charge_factory(organization=organization)
+        response = self.call_view(rf, user, pk=charge.pk)
+        assert response.status_code == 200
+        assert response.context_data["subject"] == "Receipt"
