@@ -68,7 +68,12 @@ def handle_charge_succeeded(charge_data):
     def get_description():
         """Get the description from the charge data"""
         if charge_data["invoice"]:
-            return invoice_line["plan"]["name"]
+            # depends on new or old version of API - MuckRock still uses old,
+            # Squarelet uses new
+            if "name" in invoice_line["plan"]:
+                return invoice_line["plan"]["name"]
+            else:
+                return stripe.Product.retrieve(invoice_line["plan"]["product"])["name"]
         else:
             return charge_data["description"]
 
