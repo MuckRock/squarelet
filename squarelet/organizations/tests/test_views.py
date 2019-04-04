@@ -17,7 +17,6 @@ from squarelet.organizations.models import ReceiptEmail
 # pylint: disable=invalid-name
 
 
-# XXX move this to core
 class ViewTest:
     def call_view(self, rf, user=None, data=None, **kwargs):
         # pylint: disable=protected-access
