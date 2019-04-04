@@ -76,6 +76,7 @@ class ProfessionalPlanFactory(PlanFactory):
     base_price = 20
     price_per_user = 5
     feature_level = 1
+    for_groups = False
 
 
 class OrganizationPlanFactory(PlanFactory):
@@ -86,6 +87,7 @@ class OrganizationPlanFactory(PlanFactory):
     base_price = 100
     price_per_user = 10
     feature_level = 2
+    for_individuals = False
 
 
 class InvitationFactory(factory.django.DjangoModelFactory):

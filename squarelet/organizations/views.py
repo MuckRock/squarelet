@@ -141,7 +141,6 @@ class UpdateSubscription(OrganizationAdminMixin, UpdateView):
             messages.error(self.request, "Payment error: {}".format(exc.user_message))
         else:
             organization.set_receipt_emails(form.cleaned_data["receipt_emails"])
-            organization.save()
             messages.success(
                 self.request,
                 _("Plan Updated")
