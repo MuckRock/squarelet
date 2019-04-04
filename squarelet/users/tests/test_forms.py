@@ -10,7 +10,6 @@ from squarelet.users import forms
 # Local
 from ..models import User
 
-
 # pylint: disable=invalid-name
 
 
