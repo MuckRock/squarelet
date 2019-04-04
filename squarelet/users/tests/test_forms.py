@@ -1,4 +1,3 @@
-
 # Standard Library
 from unittest.mock import MagicMock
 
@@ -8,7 +7,6 @@ import pytest
 # Local
 from ..forms import SignupForm
 from ..models import User
-
 
 # pylint: disable=invalid-name
 
