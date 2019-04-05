@@ -127,11 +127,7 @@ def handle_invoice_failed(invoice_data):
     attempt = invoice_data["attempt_count"]
     if attempt == 4:
         subject = _("Your subscription has been cancelled")
-        organization.set_subscription(
-            token=None,
-            plan=Plan.objects.get(slug="free"),
-            max_users=organization.max_users,
-        )
+        organization.subscription_cancelled()
     else:
         subject = _("Your payment has failed")
 

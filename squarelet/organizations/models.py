@@ -242,6 +242,7 @@ class Organization(AvatarMixin, models.Model):
         if self.subscription is not None:
             self.subscription.cancel_at_period_end = True
             self.subscription.save()
+            self.subscription_id = None
         else:
             logger.error(
                 "Attempting to cancel subscription for organization: %s %s "
@@ -285,6 +286,12 @@ class Organization(AvatarMixin, models.Model):
 
         self.max_users = max_users
 
+        self.save()
+
+    def subscription_cancelled(self):
+        """The subsctription was cancelled due to payment failure"""
+        self.subscription_id = None
+        self.plan = self.next_plan = Plan.objects.get(slug="free")
         self.save()
 
     def charge(self, amount, description, fee_amount=0, token=None, save_card=False):
