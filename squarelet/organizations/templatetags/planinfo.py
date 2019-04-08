@@ -17,7 +17,7 @@ def planinfo(organization=None, field="pk"):
     plan_info = {
         p[field]: p
         for p in plans.values(
-            "pk", "slug", "base_price", "price_per_user", "minimum_users"
+            "pk", "slug", "base_price", "price_per_user", "minimum_users", "annual"
         )
     }
     return json_script(plan_info, "_id-planInfo")

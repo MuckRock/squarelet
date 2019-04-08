@@ -93,7 +93,7 @@ class PaymentForm(StripeForm):
         data = super().clean()
 
         payment_required = data["plan"] != self.organization.plan and (
-            data["plan"].base_price > 0 or data["plan"].price_per_user > 0
+            data["plan"].requires_payment()
         )
         payment_supplied = data.get("use_card_on_file") or data.get("stripe_token")
 

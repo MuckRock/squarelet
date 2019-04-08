@@ -53,10 +53,12 @@ class SignupForm(allauth.SignupForm, StripeForm):
     def clean(self):
         data = super().clean()
         plan = data["plan"]
-        if not plan.free() and not data.get("stripe_token"):
+        if plan.requires_payment() and not data.get("stripe_token"):
             self.add_error(
                 "plan",
-                _("You must supply a credit card number to upgrade to a non-free plan"),
+                _(
+                    "You must supply a credit card number to sign up for a non-free plan"
+                ),
             )
         if not plan.for_individuals and not data.get("organization_name"):
             self.add_error(

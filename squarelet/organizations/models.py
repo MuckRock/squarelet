@@ -158,7 +158,8 @@ class Organization(AvatarMixin, models.Model):
                 pass
 
         customer = stripe.Customer.create(
-            description=self.users.first().username if self.individual else self.name
+            description=self.users.first().username if self.individual else self.name,
+            email=self.receipt_emails.first().email,
         )
         self.customer_id = customer.id
         self.save()
@@ -210,7 +211,7 @@ class Organization(AvatarMixin, models.Model):
             self._cancel_subscription(plan)
         elif not self.plan.free() and not plan.free():
             # modify a subscription going from non-free to non-free
-            self._modify_subscription(plan, max_users)
+            self._modify_subscription(self.customer, plan, max_users)
         else:
             # just change the plan without touching stripe if going free to free
             self._modify_plan(plan, max_users)
@@ -226,6 +227,7 @@ class Organization(AvatarMixin, models.Model):
             subscription = customer.subscriptions.create(
                 items=[{"plan": plan.stripe_id, "quantity": max_users}],
                 billing="send_invoice" if plan.annual else "charge_automatically",
+                days_until_due=30 if plan.annual else None,
             )
             self.subscription_id = subscription.id
             self.save()
@@ -254,8 +256,19 @@ class Organization(AvatarMixin, models.Model):
         self.next_plan = plan
         self.save()
 
-    def _modify_subscription(self, plan, max_users):
+    def _modify_subscription(self, customer, plan, max_users):
         """Modify the subscription on stripe for the new plan"""
+
+        # if we are trying to modify the subscription, one should already exist
+        # if for some reason it does not, then just create a new one
+        if self.subscription is None:
+            logger.warning(
+                "Trying to modify non-existent subscription for organization - %d - %s",
+                self.pk,
+                self,
+            )
+            self._create_subscription(customer, plan, max_users)
+            return
 
         stripe.Subscription.modify(
             self.subscription_id,
@@ -269,6 +282,7 @@ class Organization(AvatarMixin, models.Model):
                 }
             ],
             billing="send_invoice" if plan.annual else "charge_automatically",
+            days_until_due=30 if plan.annual else None,
         )
 
         self._modify_plan(plan, max_users)
@@ -397,6 +411,13 @@ class Plan(models.Model):
 
     def free(self):
         return self.base_price == 0 and self.price_per_user == 0
+
+    def requires_payment(self):
+        """Does this plan require immediate payment?
+        Free plans never require payment
+        Annual payments are invoiced and do not require payment at time of purchase
+        """
+        return not self.free() and not self.annual
 
     def cost(self, users):
         return (

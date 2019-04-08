@@ -13,6 +13,7 @@ interface Plan {
   base_price: number;
   price_per_user: number;
   minimum_users: number;
+  annual: boolean;
 }
 
 // Style for the Stripe card element.
@@ -117,22 +118,28 @@ export class PlansView {
    */
   updatePlanInput() {
     const plan = this.getPlan();
-    const isFreePlan = isFree(plan);
 
     this.updateTotalCost();
 
     // TODO: use util function for this display logic.
-    if (isFreePlan) {
+    // show credit card field only if payment is required
+    if (requiresPayment(plan)) {
+      if (this.ccFieldset != null) {
+        this.ccFieldset.style.display = '';
+      }
+    } else {
       if (this.ccFieldset != null) {
         this.ccFieldset.style.display = 'none';
       }
+    }
+
+    // show cost projection for any non-free plan,
+    // including annually invoiced plans
+    if (isFree(plan)) {
       if (this.planProjection != null) {
         this.planProjection.style.display = 'none';
       }
     } else {
-      if (this.ccFieldset != null) {
-        this.ccFieldset.style.display = '';
-      }
       if (this.planProjection != null) {
         this.planProjection.style.display = '';
       }
@@ -159,13 +166,13 @@ export class PlansView {
    */
   updateSavedCC() {
     if (this.ucofInput == null) {
-      if (isFree(this.getPlan())) {
+      if (requiresPayment(this.getPlan())) {
         if (this.cardContainer != null) {
-          this.cardContainer.style.display = 'none';
+          this.cardContainer.style.display = '';
         }
       } else {
         if (this.cardContainer != null) {
-          this.cardContainer.style.display = '';
+          this.cardContainer.style.display = 'none';
         }
       }
       return;
@@ -278,8 +285,7 @@ export class PlansView {
         const useCardOnFile = ucofInput != null && ucofInput.value == 'True';
         const plan = this.getPlan();
 
-        const isFreePlan = isFree(plan);
-        if (!useCardOnFile && !isFreePlan) {
+        if (!useCardOnFile && requiresPayment(plan)) {
           event.preventDefault();
 
           stripe.createToken(card).then(function(result) {
@@ -315,4 +321,12 @@ function stripeTokenHandler(token) {
  */
 function isFree(plan: Plan): boolean {
   return plan.base_price == 0 && plan.price_per_user == 0;
+}
+
+/**
+ * Return whether the specified plan requires payment
+ * The plan requires payment if it is not free and not billed via invoice annually
+ */
+function requiresPayment(plan: Plan): boolean {
+  return !(isFree(plan)) && !(plan.annual);
 }
