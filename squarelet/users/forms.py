@@ -57,7 +57,8 @@ class SignupForm(allauth.SignupForm, StripeForm):
             self.add_error(
                 "plan",
                 _(
-                    "You must supply a credit card number to sign up for a non-free plan"
+                    "You must supply a credit card number to sign up for a "
+                    "non-free plan"
                 ),
             )
         if not plan.for_individuals and not data.get("organization_name"):
