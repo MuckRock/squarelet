@@ -18,7 +18,7 @@ from squarelet.core.models import Interval
 from squarelet.oidc.middleware import send_cache_invalidations
 
 # Local
-from .models import Charge, Organization, Plan
+from .models import Charge, Organization
 
 logger = logging.getLogger(__name__)
 
