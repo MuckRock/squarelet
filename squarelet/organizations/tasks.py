@@ -92,7 +92,7 @@ def handle_charge_succeeded(charge_data):
         charge_id=charge_data["id"],
         defaults={
             "amount": charge_data["amount"],
-            "fee_amount": charge_data["metadata"].get("fee amount", 0),
+            "fee_amount": int(charge_data["metadata"].get("fee amount", 0)),
             "organization": lambda: Organization.objects.get(
                 customer_id=charge_data["customer"]
             ),
