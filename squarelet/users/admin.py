@@ -52,7 +52,7 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
     )
     readonly_fields = ("created_at", "updated_at")
     list_display = ("username", "name", "is_superuser")
-    search_fields = ("username", "name")
+    search_fields = ("username", "name", "email")
 
     def save_model(self, request, obj, form, change):
         """Sync all auth email addresses"""
