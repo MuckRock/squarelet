@@ -12,7 +12,9 @@ from django.http.response import (
     HttpResponseNotAllowed,
 )
 from django.shortcuts import redirect
+from django.utils.decorators import method_decorator
 from django.utils.translation import ugettext_lazy as _
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
@@ -361,6 +363,7 @@ class IndividualReceipts(IndividualMixin, Receipts):
     """Subclass to view individual's receipts"""
 
 
+@method_decorator(xframe_options_sameorigin, name="dispatch")
 class ChargeDetail(UserPassesTestMixin, DetailView):
     queryset = Charge.objects.all()
     template_name = "organizations/email/receipt.html"
