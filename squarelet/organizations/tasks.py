@@ -77,6 +77,17 @@ def handle_charge_succeeded(charge_data):
         else:
             return charge_data["description"]
 
+    # do not send receipts for MuckRock donations and crowdfunds
+    if charge_data["invoice"] and invoice_line["plan"]["id"].startswith(
+        ("donate", "crowdfund")
+    ):
+        return
+    if not charge_data["invoice"] and charge_data["metadata"].get("action") in [
+        "donation",
+        "crowdfund-payment",
+    ]:
+        return
+
     charge, _ = Charge.objects.get_or_create(
         charge_id=charge_data["id"],
         defaults={
@@ -91,17 +102,6 @@ def handle_charge_succeeded(charge_data):
             "description": get_description,
         },
     )
-
-    # do not send receipts for MuckRock donations and crowdfunds
-    if charge_data["invoice"] and invoice_line["plan"]["id"].startswith(
-        ("donate", "crowdfund")
-    ):
-        return
-    if not charge_data["invoice"] and charge_data["metadata"].get("action") in [
-        "donation",
-        "crowdfund-payment",
-    ]:
-        return
 
     charge.send_receipt()
 
