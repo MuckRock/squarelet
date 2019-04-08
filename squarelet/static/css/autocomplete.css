@@ -57,7 +57,7 @@
   background: #efefef;
 }
 
-::placeholder {
+._cls-autocomplete ::placeholder {
   font-style: italic;
   color: #ffffff88;
 }
