@@ -119,6 +119,18 @@ class Organization(AvatarMixin, models.Model):
         else:
             return reverse("organizations:detail", kwargs={"slug": self.slug})
 
+    @property
+    def email(self):
+        """Get an email for this organization"""
+        if self.individual:
+            return self.user.email
+
+        receipt_email = self.receipt_emails.first()
+        if receipt_email:
+            return receipt_email.email
+
+        return self.users.filter(memberships__admin=True).first().email
+
     # User Management
     def has_admin(self, user):
         """Is the given user an admin of this organization"""
@@ -159,7 +171,7 @@ class Organization(AvatarMixin, models.Model):
 
         customer = stripe.Customer.create(
             description=self.users.first().username if self.individual else self.name,
-            email=self.receipt_emails.first().email,
+            email=self.email,
         )
         self.customer_id = customer.id
         self.save()
@@ -224,6 +236,9 @@ class Organization(AvatarMixin, models.Model):
             to ensure the organization is in the database before we
             receive the charge succeeded webhook
             """
+            if not customer.email:
+                customer.email = self.email
+                customer.save()
             subscription = customer.subscriptions.create(
                 items=[{"plan": plan.stripe_id, "quantity": max_users}],
                 billing="send_invoice" if plan.annual else "charge_automatically",
@@ -270,6 +285,9 @@ class Organization(AvatarMixin, models.Model):
             self._create_subscription(customer, plan, max_users)
             return
 
+        if not customer.email:
+            customer.email = self.email
+            customer.save()
         stripe.Subscription.modify(
             self.subscription_id,
             cancel_at_period_end=False,
