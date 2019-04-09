@@ -10,6 +10,7 @@ import pytest
 # Squarelet
 from squarelet.organizations.models import ReceiptEmail
 
+
 # pylint: disable=invalid-name
 
 
@@ -207,6 +208,16 @@ class TestInvitation:
         invitation = invitation_factory.build(accepted_at=timezone.now())
         with pytest.raises(ValueError):
             invitation.accept(user)
+
+    @pytest.mark.freeze_time
+    @pytest.mark.django_db()
+    def test_accept_duplicate(self, invitation, user_factory, membership_factory):
+        invitation.user = user_factory()
+        membership_factory(organization=invitation.organization, user=invitation.user)
+        assert invitation.organization.has_member(invitation.user)
+        invitation.accept()
+        assert invitation.organization.has_member(invitation.user)
+        assert invitation.accepted_at == timezone.now()
 
     @pytest.mark.freeze_time
     @pytest.mark.django_db()

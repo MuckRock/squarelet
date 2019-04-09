@@ -533,7 +533,8 @@ class Invitation(models.Model):
             self.user = user
         self.accepted_at = timezone.now()
         self.save()
-        Membership.objects.create(organization=self.organization, user=self.user)
+        if not self.organization.has_member(self.user):
+            Membership.objects.create(organization=self.organization, user=self.user)
 
     def reject(self):
         """Reject or revoke the invitation"""
