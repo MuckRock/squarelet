@@ -2,16 +2,18 @@
 from django.utils import timezone
 
 # Standard Library
+from datetime import date
 from unittest.mock import Mock, PropertyMock
 
 # Third Party
 import pytest
+from dateutil.relativedelta import relativedelta
 
 # Squarelet
 from squarelet.organizations.models import ReceiptEmail
 
 
-# pylint: disable=invalid-name
+# pylint: disable=invalid-name,too-many-public-methods,protected-access
 
 
 class TestOrganization:
@@ -40,6 +42,23 @@ class TestOrganization:
         assert (
             user.individual_organization.get_absolute_url() == user.get_absolute_url()
         )
+
+    def test_email_individual(self, user_factory):
+        user = user_factory.build()
+        assert user.individual_organization.email == user.email
+
+    @pytest.mark.django_db()
+    def test_email_receipt(self, organization_factory):
+        organization = organization_factory()
+        email = "org@example.com"
+        organization.receipt_emails.create(email=email)
+        assert organization.email == email
+
+    @pytest.mark.django_db()
+    def test_email_admin(self, organization_factory, user_factory):
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        assert organization.email == user.email
 
     @pytest.mark.django_db()
     def test_has_admin(self, organization_factory, user_factory):
@@ -105,9 +124,11 @@ class TestOrganization:
         customer = Mock(id=customer_id)
         mocked_create = mocker.patch("stripe.Customer.create", return_value=customer)
         mocked_save = mocker.patch("squarelet.organizations.models.Organization.save")
+        email = "email@example.com"
+        mocker.patch("squarelet.organizations.models.Organization.email", email)
         organization = organization_factory.build()
         assert customer == organization.customer
-        mocked_create.assert_called_with(description=organization.name)
+        mocked_create.assert_called_with(description=organization.name, email=email)
         mocked_save.assert_called_once()
 
     def test_subscription_existing(self, organization_factory, mocker):
@@ -167,6 +188,108 @@ class TestOrganization:
         assert mocked_customer.source == token
         mocked_customer.save.assert_called_once()
         mocked_sci.assert_called_with("organization", organization.uuid)
+
+    def test_set_subscription_create(
+        self, organization_factory, organization_plan_factory, mocker
+    ):
+        organization = organization_factory.build()
+        organization_plan = organization_plan_factory.build()
+        mocked_create = mocker.patch(
+            "squarelet.organizations.models.Organization._create_subscription"
+        )
+        mocked_save_card = mocker.patch(
+            "squarelet.organizations.models.Organization.save_card"
+        )
+        mocker.patch("squarelet.organizations.models.Organization.customer")
+        token = "token"
+        max_users = 10
+        organization.set_subscription(token, organization_plan, max_users)
+        mocked_save_card.assert_called_with(token)
+        mocked_create.assert_called_with(
+            organization.customer, organization_plan, max_users
+        )
+
+    def test_set_subscription_cancel(
+        self, organization_factory, free_plan_factory, organization_plan_factory, mocker
+    ):
+        organization = organization_factory.build(
+            plan=organization_plan_factory.build()
+        )
+        free_plan = free_plan_factory.build()
+        mocked_cancel = mocker.patch(
+            "squarelet.organizations.models.Organization._cancel_subscription"
+        )
+        max_users = 5
+        organization.set_subscription(None, free_plan, max_users)
+        mocked_cancel.assert_called_with(free_plan)
+
+    def test_set_subscription_modify(
+        self, individual_organization_factory, professional_plan_factory, mocker
+    ):
+        professional_plan = professional_plan_factory.build()
+        organization = individual_organization_factory.build(plan=professional_plan)
+        mocked_modify = mocker.patch(
+            "squarelet.organizations.models.Organization._modify_subscription"
+        )
+        mocker.patch("squarelet.organizations.models.Organization.customer")
+        max_users = 10
+        organization.set_subscription(None, professional_plan, max_users)
+        # individual orgs always have 1 user
+        mocked_modify.assert_called_with(organization.customer, professional_plan, 1)
+
+    def test_set_subscription_modify_free(self, organization_factory, mocker):
+        organization = organization_factory.build()
+        mocked_modify = mocker.patch(
+            "squarelet.organizations.models.Organization._modify_plan"
+        )
+        max_users = 10
+        organization.set_subscription(None, organization.plan, max_users)
+        mocked_modify.assert_called_with(organization.plan, max_users)
+
+    @pytest.mark.django_db(transaction=True)
+    def test_create_subscription(
+        self, organization_factory, organization_plan_factory, mocker
+    ):
+        organization = organization_factory()
+        organization_plan = organization_plan_factory()
+        mocked = mocker.patch("squarelet.organizations.models.Organization.customer")
+        subscription_id = "subscription_id"
+        mocked.subscriptions.create.return_value.id = subscription_id
+        max_users = 10
+        organization._create_subscription(
+            organization.customer, organization_plan, max_users
+        )
+        assert organization.plan == organization_plan
+        assert organization.next_plan == organization_plan
+        assert organization.max_users == max_users
+        assert organization.update_on == date.today() + relativedelta(months=1)
+        mocked.subscriptions.create.assert_called_with(
+            items=[{"plan": organization_plan.stripe_id, "quantity": max_users}],
+            billing="charge_automatically",
+            days_until_due=None,
+        )
+        assert organization.subscription_id == subscription_id
+
+    def test_cancel_subscription(
+        self, organization_factory, organization_plan_factory, free_plan_factory, mocker
+    ):
+        organization_plan = organization_plan_factory.build()
+        organization = organization_factory.build(
+            plan=organization_plan,
+            next_plan=organization_plan,
+            subscription_id="subscription_id",
+        )
+        mocked_subscription = mocker.patch(
+            "squarelet.organizations.models.Organization.subscription"
+        )
+        mocked_save = mocker.patch("squarelet.organizations.models.Organization.save")
+        free_plan = free_plan_factory.build()
+        organization._cancel_subscription(free_plan)
+        assert mocked_subscription.cancel_at_period_end is True
+        mocked_subscription.save.assert_called_once()
+        assert organization.subscription_id is None
+        assert organization.next_plan == free_plan
+        mocked_save.assert_called_once()
 
     @pytest.mark.django_db()
     def test_set_receipt_emails(self, organization_factory):
