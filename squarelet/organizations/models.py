@@ -166,13 +166,10 @@ class Organization(AvatarMixin, models.Model):
         if self.customer_id:
             try:
                 return stripe.Customer.retrieve(self.customer_id)
-            except stripe.error.InvalidRequestError:
+            except stripe.error.InvalidRequestError:  # pragma: no cover
                 pass
 
-        customer = stripe.Customer.create(
-            description=self.users.first().username if self.individual else self.name,
-            email=self.email,
-        )
+        customer = stripe.Customer.create(description=self.name, email=self.email)
         self.customer_id = customer.id
         self.save()
         return customer
@@ -182,7 +179,7 @@ class Organization(AvatarMixin, models.Model):
         if self.subscription_id:
             try:
                 return stripe.Subscription.retrieve(self.subscription_id)
-            except stripe.error.InvalidRequestError:
+            except stripe.error.InvalidRequestError:  # pragma: no cover
                 return None
         else:
             return None

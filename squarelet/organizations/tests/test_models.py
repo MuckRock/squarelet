@@ -2,13 +2,14 @@
 from django.utils import timezone
 
 # Standard Library
-from unittest.mock import PropertyMock
+from unittest.mock import Mock, PropertyMock
 
 # Third Party
 import pytest
 
 # Squarelet
 from squarelet.organizations.models import ReceiptEmail
+
 
 # pylint: disable=invalid-name
 
@@ -91,6 +92,81 @@ class TestOrganization:
     def test_reference_name_individual(self, individual_organization_factory):
         organization = individual_organization_factory.build()
         assert organization.reference_name == "Your account"
+
+    def test_customer_existing(self, organization_factory, mocker):
+        mocked = mocker.patch("stripe.Customer.retrieve")
+        customer_id = "customer_id"
+        organization = organization_factory.build(customer_id=customer_id)
+        assert mocked.return_value == organization.customer
+        mocked.assert_called_with(customer_id)
+
+    def test_customer_new(self, organization_factory, mocker):
+        customer_id = "customer_id"
+        customer = Mock(id=customer_id)
+        mocked_create = mocker.patch("stripe.Customer.create", return_value=customer)
+        mocked_save = mocker.patch("squarelet.organizations.models.Organization.save")
+        organization = organization_factory.build()
+        assert customer == organization.customer
+        mocked_create.assert_called_with(description=organization.name)
+        mocked_save.assert_called_once()
+
+    def test_subscription_existing(self, organization_factory, mocker):
+        mocked = mocker.patch("stripe.Subscription.retrieve")
+        subscription_id = "subscription_id"
+        organization = organization_factory.build(subscription_id=subscription_id)
+        assert mocked.return_value == organization.subscription
+        mocked.assert_called_with(subscription_id)
+
+    def test_subscription_blank(self, organization_factory):
+        organization = organization_factory.build()
+        assert organization.subscription is None
+
+    def test_card_existing(self, organization_factory, mocker):
+        default_source = "default_source"
+        mocked = mocker.patch(
+            "squarelet.organizations.models.Organization.customer",
+            default_source=default_source,
+        )
+        organization = organization_factory.build()
+        assert mocked.sources.retrieve.return_value == organization.card
+        mocked.sources.retrieve.assert_called_with(default_source)
+
+    def test_card_blank(self, organization_factory, mocker):
+        mocker.patch(
+            "squarelet.organizations.models.Organization.customer", default_source=None
+        )
+        organization = organization_factory.build()
+        assert organization.card is None
+
+    def test_card_display(self, organization_factory, mocker):
+        brand = "Visa"
+        last4 = "4242"
+        mocker.patch(
+            "squarelet.organizations.models.Organization.card", brand=brand, last4=last4
+        )
+        organization = organization_factory.build(customer_id="customer_id")
+        assert organization.card_display == f"{brand}: {last4}"
+
+    def test_card_display_empty(self, organization_factory):
+        organization = organization_factory.build()
+        assert organization.card_display == ""
+
+    def test_save_card(self, organization_factory, mocker):
+        token = "token"
+        mocked_customer = mocker.patch(
+            "squarelet.organizations.models.Organization.customer"
+        )
+        mocked_save = mocker.patch("squarelet.organizations.models.Organization.save")
+        mocked_sci = mocker.patch(
+            "squarelet.organizations.models.send_cache_invalidations"
+        )
+        organization = organization_factory.build()
+        organization.save_card(token)
+        assert not organization.payment_failed
+        mocked_save.assert_called_once()
+        assert mocked_customer.source == token
+        mocked_customer.save.assert_called_once()
+        mocked_sci.assert_called_with("organization", organization.uuid)
 
     @pytest.mark.django_db()
     def test_set_receipt_emails(self, organization_factory):
