@@ -7,45 +7,24 @@ from django.utils import timezone
 
 # Standard Library
 import json
-from unittest.mock import MagicMock
 
 # Third Party
 import pytest
 import stripe
 
 # Squarelet
-from squarelet.organizations import views
-from squarelet.organizations.models import ReceiptEmail
+from squarelet.core.tests.mixins import ViewTestMixin
+
+# Local
+from .. import views
+from ..models import ReceiptEmail
+
 
 # pylint: disable=invalid-name
 
 
-# XXX move this to core
-class ViewTest:
-    """Test mixin to help call views from tests"""
-
-    # pylint: disable=protected-access
-
-    def call_view(self, rf, user=None, data=None, **kwargs):
-        url = self.url.format(**kwargs)
-        if user is None:
-            user = AnonymousUser()
-        if data is None:
-            self.request = rf.get(url)
-        else:
-            self.request = rf.post(url, data)
-        self.request.user = user
-        self.request._messages = MagicMock()
-        self.request.session = MagicMock()
-        return self.view.as_view()(self.request, **kwargs)
-
-    def assert_message(self, level, message):
-        """Assert a message was added"""
-        self.request._messages.add.assert_called_with(level, message, "")
-
-
 @pytest.mark.django_db()
-class TestDetail(ViewTest):
+class TestDetail(ViewTestMixin):
     """Test the Organization Detail view"""
 
     view = views.Detail
@@ -190,7 +169,7 @@ class TestAutocomplete:
 
 
 @pytest.mark.django_db()
-class TestUpdateSubscription(ViewTest):
+class TestUpdateSubscription(ViewTestMixin):
     """Test the Organization Update Subscription view"""
 
     view = views.UpdateSubscription
@@ -266,7 +245,7 @@ class TestUpdateSubscription(ViewTest):
 
 
 @pytest.mark.django_db()
-class TestCreate(ViewTest):
+class TestCreate(ViewTestMixin):
     """Test the Organization Create view"""
 
     view = views.Create
@@ -282,7 +261,7 @@ class TestCreate(ViewTest):
 
 
 @pytest.mark.django_db()
-class TestManageMembers(ViewTest):
+class TestManageMembers(ViewTestMixin):
     """Test the ManageMembers Create view"""
 
     view = views.ManageMembers
@@ -436,7 +415,7 @@ class TestManageMembers(ViewTest):
 
 
 @pytest.mark.django_db()
-class TestInvitationAccept(ViewTest):
+class TestInvitationAccept(ViewTestMixin):
     """Test the Organization InvitationAccept view"""
 
     view = views.InvitationAccept
@@ -468,7 +447,7 @@ class TestInvitationAccept(ViewTest):
 
 
 @pytest.mark.django_db()
-class TestReceipts(ViewTest):
+class TestReceipts(ViewTestMixin):
     """Test the Organization Receipts view"""
 
     view = views.Receipts
@@ -486,7 +465,7 @@ class TestReceipts(ViewTest):
 
 
 @pytest.mark.django_db()
-class TestChargeDetail(ViewTest):
+class TestChargeDetail(ViewTestMixin):
     """Test the Organization Receipts view"""
 
     view = views.ChargeDetail
