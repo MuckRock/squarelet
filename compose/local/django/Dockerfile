@@ -1,23 +1,43 @@
-FROM python:3.6-alpine
+FROM python:3.6
 
 ENV PYTHONUNBUFFERED 1
 
-RUN apk update \
-  # psycopg2 dependencies
-  && apk add --virtual build-deps gcc python3-dev musl-dev \
-  && apk add postgresql-dev \
-  # Pillow dependencies
-  && apk add jpeg-dev zlib-dev freetype-dev lcms2-dev openjpeg-dev tiff-dev tk-dev tcl-dev \
-  # CFFI dependencies
-  && apk add libffi-dev py-cffi \
-  # Translations dependencies
-  && apk add gettext \
-  # https://docs.djangoproject.com/en/dev/ref/django-admin/#dbshell
-  && apk add postgresql-client \
-  # libxml
-  && apk add libxml2-dev libxslt-dev \
-  # git
-  && apk add git
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    postgresql-client
+
+#RUN apk update \
+#  # psycopg2 dependencies
+#  && apk add --virtual build-deps gcc python3-dev musl-dev \
+#  && apk add postgresql-dev \
+#  # Pillow dependencies
+#  && apk add jpeg-dev zlib-dev freetype-dev lcms2-dev openjpeg-dev tiff-dev tk-dev tcl-dev \
+#  # CFFI dependencies
+#  && apk add libffi-dev py-cffi \
+#  # Translations dependencies
+#  && apk add gettext \
+#  # https://docs.djangoproject.com/en/dev/ref/django-admin/#dbshell
+#  && apk add postgresql-client \
+#  # libxml
+#  && apk add libxml2-dev libxslt-dev \
+#  # git
+#  && apk add git
+
+# install NVM
+ENV NVM_DIR /usr/local/nvm
+ENV NODE_VERSION 10.15.3
+
+RUN mkdir $NVM_DIR
+RUN curl https://raw.githubusercontent.com/creationix/nvm/v0.34.0/install.sh | sh \
+    && . $NVM_DIR/nvm.sh \
+    && nvm install $NODE_VERSION \
+    && nvm alias default $NODE_VERSION \
+    && nvm use default
+
+ENV NODE_PATH $NVM_DIR/v$NODE_VERSION/lib/node_modules
+ENV PATH      $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
+
+# heroku cli
+RUN curl https://cli-assets.heroku.com/install.sh | sh
 
 # Requirements are installed here to ensure they will be cached.
 COPY ./requirements /requirements

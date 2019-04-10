@@ -1,4 +1,4 @@
-version: '2'
+version: '2.4'
 
 volumes:
   postgres_data_local: {}
@@ -6,35 +6,34 @@ volumes:
 
 services:
 
-  nginx:
+  squarelet_nginx:
     image: nginx:latest
     depends_on:
-      - mailhog
+      - squarelet_mailhog
     volumes:
       - ./compose/local/nginx/nginx.conf:/etc/nginx/nginx.conf
     ports:
       - "80:80"
 
-  mailhog:
+  squarelet_mailhog:
     image: mailhog/mailhog:v1.0.0
     networks:
       default:
         aliases:
           - dev.mailhog.com
 
-  django: &django
+  squarelet_django: &django
     build:
       context: .
       dockerfile: ./compose/local/django/Dockerfile
     image: squarelet_local_django
     depends_on:
-      - postgres
-      - mailhog
-      - nginx
+      - squarelet_postgres
+      - squarelet_mailhog
+      - squarelet_nginx
     volumes:
       - .:/app
-    environment:
-      - IPYTHONDIR=/app/.ipython
+      - ~/.netrc:/root/.netrc
     env_file:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
@@ -44,7 +43,7 @@ services:
         aliases:
           - dev.squarelet.com
 
-  postgres:
+  squarelet_postgres:
     build:
       context: .
       dockerfile: ./compose/production/postgres/Dockerfile
@@ -55,31 +54,33 @@ services:
     env_file:
       - ./.envs/.local/.postgres
 
-  redis:
+  squarelet_redis:
     image: redis:3.2
 
-  celeryworker:
+  squarelet_celeryworker:
     <<: *django
     image: squarelet_local_celeryworker
     depends_on:
-      - redis
-      - postgres
-      - mailhog
-    ports: []
+      - squarelet_redis
+      - squarelet_postgres
+      - squarelet_mailhog
     command: /start-celeryworker
     networks:
       default:
         aliases: []
 
-  celerybeat:
+  squarelet_celerybeat:
     <<: *django
     image: squarelet_local_celerybeat
     depends_on:
-      - redis
-      - postgres
-      - mailhog
-    ports: []
+      - squarelet_redis
+      - squarelet_postgres
+      - squarelet_mailhog
     command: /start-celerybeat
     networks:
       default:
         aliases: []
+
+networks:
+  default:
+    name: "squarelet_default"

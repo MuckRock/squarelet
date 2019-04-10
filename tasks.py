@@ -8,15 +8,34 @@ DOCKER_COMPOSE_RUN_OPT_USER = DOCKER_COMPOSE_RUN_OPT.format(
 DOCKER_COMPOSE_RUN = DOCKER_COMPOSE_RUN_OPT.format(
     opt="", service="{service}", cmd="{cmd}"
 )
-DJANGO_RUN = DOCKER_COMPOSE_RUN.format(service="django", cmd="{cmd}")
+DJANGO_RUN = DOCKER_COMPOSE_RUN.format(service="squarelet_django", cmd="{cmd}")
 DJANGO_RUN_USER = DOCKER_COMPOSE_RUN_OPT_USER.format(
-    opt="", service="django", cmd="{cmd}"
+    opt="", service="squarelet_django", cmd="{cmd}"
 )
+
+# Release
+# --------------------------------------------------------------------------------
+
+
+@task(aliases=["prod", "p"])
+def production(c):
+    """Merge your dev branch into master and push to production"""
+    c.run("git pull origin dev")
+    c.run("git checkout master")
+    c.run("git pull origin master")
+    c.run("git merge dev")
+    c.run("git push origin master")
+    c.run("git checkout dev")
 
 
 @task
 def staging(c):
+    """Push out staging"""
     c.run("git push origin staging")
+
+
+# Test
+# --------------------------------------------------------------------------------
 
 
 @task
@@ -28,7 +47,7 @@ def test(c, path="squarelet", create_db=False, ipdb=False):
     c.run(
         DOCKER_COMPOSE_RUN_OPT_USER.format(
             opt="-e DJANGO_SETTINGS_MODULE=config.settings.test",
-            service="django",
+            service="squarelet_django",
             cmd=f"pytest {create_switch} {ipdb_switch} {path}",
         ),
         pty=True,
@@ -41,24 +60,28 @@ def coverage(c):
     c.run(
         DOCKER_COMPOSE_RUN_OPT_USER.format(
             opt="-e DJANGO_SETTINGS_MODULE=config.settings.test",
-            service="django",
+            service="squarelet_django",
             cmd=f"coverage erase",
         )
     )
     c.run(
         DOCKER_COMPOSE_RUN_OPT_USER.format(
             opt="-e DJANGO_SETTINGS_MODULE=config.settings.test",
-            service="django",
+            service="squarelet_django",
             cmd=f"coverage run --source squarelet -m py.test",
         )
     )
     c.run(
         DOCKER_COMPOSE_RUN_OPT_USER.format(
             opt="-e DJANGO_SETTINGS_MODULE=config.settings.test",
-            service="django",
+            service="squarelet_django",
             cmd=f"coverage html",
         )
     )
+
+
+# Code Quality
+# --------------------------------------------------------------------------------
 
 
 @task
@@ -82,13 +105,35 @@ def format(c):
     )
 
 
+# Run
+# --------------------------------------------------------------------------------
+
+
 @task
 def runserver(c):
     """Run the development server"""
     c.run(
         DOCKER_COMPOSE_RUN_OPT.format(
-            opt="--service-ports --use-aliases", service="django", cmd=""
+            opt="--service-ports --use-aliases", service="squarelet_django", cmd=""
         )
+    )
+
+
+@task
+def celeryworker(c):
+    """Run a celery worker"""
+    c.run(
+        DOCKER_COMPOSE_RUN_OPT.format(
+            opt="--use-aliases", service="squarelet_celeryworker", cmd=""
+        )
+    )
+
+
+@task
+def celerybeat(c):
+    """Run the celery scheduler"""
+    c.run(
+        DOCKER_COMPOSE_RUN_OPT.format(opt="--use-aliases", service="squarelet_celerybeat", cmd="")
     )
 
 
@@ -102,7 +147,9 @@ def shell(c, opts=""):
 def sh(c):
     """Run an interactive shell"""
     c.run(
-        DOCKER_COMPOSE_RUN_OPT.format(opt="--use-aliases", service="django", cmd="sh"),
+        DOCKER_COMPOSE_RUN_OPT.format(
+            opt="--use-aliases", service="squarelet_django", cmd="sh"
+        ),
         pty=True,
     )
 
@@ -111,24 +158,6 @@ def sh(c):
 def dbshell(c, opts=""):
     """Run an interactive db shell"""
     c.run(DJANGO_RUN.format(cmd=f"python manage.py dbshell {opts}"), pty=True)
-
-
-@task
-def celeryworker(c):
-    """Run a celery worker"""
-    c.run(
-        DOCKER_COMPOSE_RUN_OPT.format(
-            opt="--use-aliases", service="celeryworker", cmd=""
-        )
-    )
-
-
-@task
-def celerybeat(c):
-    """Run the celery scheduler"""
-    c.run(
-        DOCKER_COMPOSE_RUN_OPT.format(opt="--use-aliases", service="celerybeat", cmd="")
-    )
 
 
 @task(aliases=["m"])
@@ -141,6 +170,30 @@ def manage(c, cmd):
 def run(c, cmd):
     """Run a command directly on the docker instance"""
     c.run(DJANGO_RUN_USER.format(cmd=cmd))
+
+
+@task
+def npm(c, cmd):
+    """Run an NPM command"""
+    c.run(
+        DOCKER_COMPOSE_RUN_OPT.format(
+            opt="--workdir /app/frontend", service="squarelet_django", cmd=f"npm {cmd}"
+        )
+    )
+
+
+@task
+def heroku(c, staging=False):
+    """Run commands on heroku"""
+    if staging:
+        app = "squarelet-staging"
+    else:
+        app = "squarelet"
+    c.run(f"heroku run --app {app} python manage.py shell_plus")
+
+
+# Dependency Management
+# --------------------------------------------------------------------------------
 
 
 @task(name="pip-compile")
@@ -167,20 +220,18 @@ def build(c):
     c.run("docker-compose build")
 
 
-@task
-def heroku(c, staging=False):
-    """Run commands on heroku"""
-    if staging:
-        app = "squarelet-staging"
-    else:
-        app = "squarelet"
-    c.run(f"heroku run --app {app} python manage.py shell_plus")
+# Database populating
+# --------------------------------------------------------------------------------
 
 
 @task(name="populate-db")
 def populate_db(c, db_name="squarelet"):
     """Populate the local DB with the data from heroku"""
     # https://devcenter.heroku.com/articles/heroku-postgres-import-export
+    # this doesnt work due to version mismatch in postgres
+    # work around is to heroku pg:backups:download
+    # and manual pg_restore
+    #  pg_restore --verbose --clean --no-acl --no-owner -h $POSTGRES_HOST -U $POSTGRES_USER -d $POSTGRES_DB latest.dump
 
     confirm = input(
         f"This will over write your local database ({db_name}).  "
@@ -190,8 +241,43 @@ def populate_db(c, db_name="squarelet"):
         return
 
     c.run(
-        DJANGO_RUN.format(
+        DJANGO_RUN_USER.format(
             cmd=f'sh -c "dropdb {db_name} && heroku pg:pull DATABASE {db_name} --app squarelet '
             '--exclude-table-data=public.reversion_version"'
         )
     )
+
+
+@task(name="update-staging-db")
+def update_staging_db(c):
+    """Update the staging database"""
+    c.run("heroku maintenance:on --app squarelet-staging")
+    c.run("heroku pg:copy squarelet::DATABASE_URL DATABASE_URL --app squarelet-staging")
+    c.run("heroku maintenance:off --app squarelet-staging")
+
+
+# Static file populating
+# --------------------------------------------------------------------------------
+
+
+@task(name="sync-aws")
+def sync_aws(c):
+    """Sync images from AWS to match the production database"""
+
+    folders = ["account_images", "avatars", "org_avatars"]
+    for folder in folders:
+        c.run(
+            f"aws s3 sync s3://squarelet/media/{folder} " f"./squarelet/media/{folder}"
+        )
+
+
+@task(name="sync-aws-staging")
+def sync_aws_staging(c):
+    """Sync images from AWS to match the production database"""
+
+    folders = ["account_images", "avatars", "org_avatars"]
+    for folder in folders:
+        c.run(
+            f"aws s3 sync s3://squarelet/media/{folder} "
+            f"s3://squarelet-staging/media/{folder}"
+        )
