@@ -229,6 +229,7 @@ class Organization(AvatarMixin, models.Model):
             # just change the plan without touching stripe if going free to free
             self._modify_plan(plan, max_users)
 
+    @transaction.atomic
     def _create_subscription(self, customer, plan, max_users):
         """Create a subscription on stripe for the new plan"""
 
@@ -237,7 +238,7 @@ class Organization(AvatarMixin, models.Model):
             to ensure the organization is in the database before we
             receive the charge succeeded webhook
             """
-            if not customer.email:
+            if not customer.email:  # pragma: no cover
                 customer.email = self.email
                 customer.save()
             subscription = customer.subscriptions.create(
@@ -261,7 +262,7 @@ class Organization(AvatarMixin, models.Model):
             self.subscription.cancel_at_period_end = True
             self.subscription.save()
             self.subscription_id = None
-        else:
+        else:  # pragma: no cover
             logger.error(
                 "Attempting to cancel subscription for organization: %s %s "
                 "but no subscription was found",
