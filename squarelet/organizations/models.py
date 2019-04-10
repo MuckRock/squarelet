@@ -191,7 +191,11 @@ class Organization(AvatarMixin, models.Model):
     def card(self):
         """Retrieve the customer's default credit card on file, if there is one"""
         if self.customer.default_source:
-            return self.customer.sources.retrieve(self.customer.default_source)
+            source = self.customer.sources.retrieve(self.customer.default_source)
+            if source.object == "card":
+                return source
+            else:
+                return None
         else:
             return None
 
