@@ -278,7 +278,7 @@ class Organization(AvatarMixin, models.Model):
 
         # if we are trying to modify the subscription, one should already exist
         # if for some reason it does not, then just create a new one
-        if self.subscription is None:
+        if self.subscription is None:  # pragma: no cover
             logger.warning(
                 "Trying to modify non-existent subscription for organization - %d - %s",
                 self.pk,
