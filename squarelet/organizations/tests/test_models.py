@@ -291,6 +291,72 @@ class TestOrganization:
         assert organization.next_plan == free_plan
         mocked_save.assert_called_once()
 
+    def test_modify_subscription(
+        self, organization_factory, organization_plan_factory, mocker
+    ):
+        organization_plan = organization_plan_factory.build()
+        organization = organization_factory.build(
+            plan=organization_plan,
+            next_plan=organization_plan,
+            subscription_id="subscription_id",
+        )
+        mocker.patch("squarelet.organizations.models.Organization.customer")
+        mocked_stripe = mocker.patch("squarelet.organizations.models.stripe")
+        mocked_modify_plan = mocker.patch(
+            "squarelet.organizations.models.Organization._modify_plan"
+        )
+        max_users = 10
+        organization._modify_subscription(
+            organization.customer, organization_plan, max_users
+        )
+
+        mocked_stripe.Subscription.modify.assert_called_with(
+            organization.subscription_id,
+            cancel_at_period_end=False,
+            items=[
+                {
+                    "id": organization.subscription["items"]["data"][0].id,
+                    "plan": organization_plan.stripe_id,
+                    "quantity": max_users,
+                }
+            ],
+            billing="charge_automatically",
+            days_until_due=None,
+        )
+        mocked_modify_plan.assert_called_with(organization_plan, max_users)
+
+    def test_modify_plan_upgrade(
+        self, organization_factory, organization_plan_factory, free_plan_factory, mocker
+    ):
+        organization_plan = organization_plan_factory.build()
+        free_plan = free_plan_factory.build()
+        organization = organization_factory.build(plan=free_plan, next_plan=free_plan)
+        mocked_save = mocker.patch("squarelet.organizations.models.Organization.save")
+        max_users = 10
+        organization._modify_plan(organization_plan, max_users)
+
+        assert organization.plan == organization_plan
+        assert organization.next_plan == organization_plan
+        assert organization.max_users == max_users
+        mocked_save.assert_called_once()
+
+    def test_modify_plan_downgrade(
+        self, organization_factory, organization_plan_factory, free_plan_factory, mocker
+    ):
+        organization_plan = organization_plan_factory.build()
+        free_plan = free_plan_factory.build()
+        organization = organization_factory.build(
+            plan=organization_plan, next_plan=organization_plan
+        )
+        mocked_save = mocker.patch("squarelet.organizations.models.Organization.save")
+        max_users = 10
+        organization._modify_plan(free_plan, max_users)
+
+        assert organization.plan == organization_plan
+        assert organization.next_plan == free_plan
+        assert organization.max_users == max_users
+        mocked_save.assert_called_once()
+
     @pytest.mark.django_db()
     def test_set_receipt_emails(self, organization_factory):
         organization = organization_factory()

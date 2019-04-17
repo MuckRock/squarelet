@@ -142,7 +142,7 @@ class TestAutocomplete:
         return views.autocomplete(request)
 
     def test_simple(self, rf, organization_factory):
-        orgs = organization_factory.create_batch(5)
+        orgs = sorted(organization_factory.create_batch(5), key=lambda x: x.slug)
         response = self.call_view(rf, {})
         assert response.status_code == 200
         content = json.loads(response.content)
