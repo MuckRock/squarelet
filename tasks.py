@@ -175,3 +175,23 @@ def heroku(c, staging=False):
     else:
         app = "squarelet"
     c.run(f"heroku run --app {app} python manage.py shell_plus")
+
+
+@task(name="populate-db")
+def populate_db(c, db_name="squarelet"):
+    """Populate the local DB with the data from heroku"""
+    # https://devcenter.heroku.com/articles/heroku-postgres-import-export
+
+    confirm = input(
+        f"This will over write your local database ({db_name}).  "
+        "Are you sure you want to continue? [y/N]"
+    )
+    if confirm.lower() not in ["y", "yes"]:
+        return
+
+    c.run(
+        DJANGO_RUN.format(
+            cmd=f'sh -c "dropdb {db_name} && heroku pg:pull DATABASE {db_name} --app squarelet '
+            '--exclude-table-data=public.reversion_version"'
+        )
+    )
