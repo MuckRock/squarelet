@@ -1,5 +1,6 @@
 # Django
 from django.conf import settings
+from django.conf.urls import url
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
@@ -12,6 +13,7 @@ from rest_framework import routers
 # Squarelet
 from squarelet.core.views import HomeView
 from squarelet.organizations.viewsets import ChargeViewSet, OrganizationViewSet
+from squarelet.users.views import LoginView
 from squarelet.users.viewsets import UrlAuthTokenViewSet, UserViewSet
 
 router = routers.DefaultRouter()
@@ -35,6 +37,8 @@ urlpatterns = [
         "organizations/",
         include("squarelet.organizations.urls", namespace="organizations"),
     ),
+    # override the accounts login with our version
+    url("accounts/login/$", LoginView.as_view(), name="account_login"),
     path("accounts/", include("allauth.urls")),
     path("api/", include(router.urls)),
     path("openid/", include("oidc_provider.urls", namespace="oidc_provider")),

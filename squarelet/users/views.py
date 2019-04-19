@@ -1,5 +1,4 @@
 # Django
-# Standard Library
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http.response import (
@@ -7,6 +6,7 @@ from django.http.response import (
     HttpResponseForbidden,
     HttpResponseRedirect,
 )
+from django.shortcuts import redirect
 from django.urls import reverse
 from django.views.generic import DetailView, ListView, RedirectView, UpdateView
 
@@ -14,8 +14,10 @@ from django.views.generic import DetailView, ListView, RedirectView, UpdateView
 import hashlib
 import hmac
 import time
+from urllib.parse import parse_qs, urlparse
 
 # Third Party
+from allauth.account.views import LoginView as AllAuthLoginView
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Fieldset, Layout
 
@@ -102,6 +104,23 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
 
 class UserListView(LoginRequiredMixin, ListView):
     model = User
+
+
+class LoginView(AllAuthLoginView):
+    """Subclass of All Auth Login View to add redirect ability for failed auth tokens
+
+    If the url_auth_token parameter is still present, it means the auth token failed
+    to authenticate the user.  Redirect them to the nested next parameter instead of
+    asking them to login
+    """
+
+    def get(self, request, *args, **kwargs):
+        if "url_auth_token" in request.GET and "next" in request.GET:
+            parsed = urlparse(request.GET["next"])
+            params = parse_qs(parsed.query)
+            if "next" in params:
+                return redirect(f"{settings.MUCKROCK_URL}{params['next'][0]}")
+        return super().get(request, *args, **kwargs)
 
 
 def mailgun_webhook(request):
