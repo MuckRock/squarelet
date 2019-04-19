@@ -90,7 +90,11 @@ class UserWriteSerializer(UserBaseSerializer):
             "use_autologin",
             "uuid",
         )
-        extra_kwargs = {"email": {"required": False}, "is_agency": {"required": False}}
+        extra_kwargs = {
+            "email": {"required": False},
+            "is_agency": {"required": False},
+            "use_autologin": {"required": False, "default": True},
+        }
 
     def create(self, validated_data):
         if "username" in validated_data:
