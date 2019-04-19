@@ -26,6 +26,7 @@ def production(c):
     c.run("git merge dev")
     c.run("git push origin master")
     c.run("git checkout dev")
+    c.run("git push origin dev")
 
 
 @task
@@ -133,7 +134,9 @@ def celeryworker(c):
 def celerybeat(c):
     """Run the celery scheduler"""
     c.run(
-        DOCKER_COMPOSE_RUN_OPT.format(opt="--use-aliases", service="squarelet_celerybeat", cmd="")
+        DOCKER_COMPOSE_RUN_OPT.format(
+            opt="--use-aliases", service="squarelet_celerybeat", cmd=""
+        )
     )
 
 
