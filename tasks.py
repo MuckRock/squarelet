@@ -192,7 +192,7 @@ def heroku(c, staging=False):
         app = "squarelet-staging"
     else:
         app = "squarelet"
-    c.run(f"heroku run --app {app} python manage.py shell_plus")
+    c.run(f"heroku run --app {app} python manage.py shell_plus", pty=True)
 
 
 # Dependency Management
