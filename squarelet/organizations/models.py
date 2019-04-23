@@ -479,7 +479,7 @@ class Plan(models.Model):
                     product={"name": self.name, "unit_label": "Seats"},
                     **kwargs,
                 )
-            except stripe.error.InvalidRequestError:
+            except stripe.error.InvalidRequestError:  # pragma: no cover
                 # if the plan already exists, just skip
                 pass
 
