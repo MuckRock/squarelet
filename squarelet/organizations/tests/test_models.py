@@ -148,8 +148,20 @@ class TestOrganization:
             "squarelet.organizations.models.Organization.customer",
             default_source=default_source,
         )
+        mocked.sources.retrieve.return_value.object = "card"
         organization = organization_factory.build()
         assert mocked.sources.retrieve.return_value == organization.card
+        mocked.sources.retrieve.assert_called_with(default_source)
+
+    def test_card_ach(self, organization_factory, mocker):
+        default_source = "default_source"
+        mocked = mocker.patch(
+            "squarelet.organizations.models.Organization.customer",
+            default_source=default_source,
+        )
+        mocked.sources.retrieve.return_value.object = "ach"
+        organization = organization_factory.build()
+        assert organization.card is None
         mocked.sources.retrieve.assert_called_with(default_source)
 
     def test_card_blank(self, organization_factory, mocker):
@@ -423,6 +435,36 @@ class TestPlan:
     def test_stripe_id(self, free_plan_factory):
         plan = free_plan_factory.build()
         assert plan.stripe_id == "squarelet_plan_free"
+
+    def test_make_stripe_plan_individual(self, professional_plan_factory, mocker):
+        mocked = mocker.patch("stripe.Plan.create")
+        plan = professional_plan_factory.build()
+        plan.make_stripe_plan()
+        mocked.assert_called_with(
+            id=plan.stripe_id,
+            currency="usd",
+            interval="month",
+            product={"name": plan.name, "unit_label": "Seats"},
+            billing_scheme="per_unit",
+            amount=100 * plan.base_price,
+        )
+
+    def test_make_stripe_plan_group(self, organization_plan_factory, mocker):
+        mocked = mocker.patch("stripe.Plan.create")
+        plan = organization_plan_factory.build()
+        plan.make_stripe_plan()
+        mocked.assert_called_with(
+            id=plan.stripe_id,
+            currency="usd",
+            interval="month",
+            product={"name": plan.name, "unit_label": "Seats"},
+            billing_scheme="tiered",
+            tiers=[
+                {"flat_amount": 100 * plan.base_price, "up_to": plan.minimum_users},
+                {"unit_amount": 100 * plan.price_per_user, "up_to": "inf"},
+            ],
+            tiers_mode="graduated",
+        )
 
 
 class TestInvitation:
