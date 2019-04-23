@@ -142,6 +142,11 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         """The UUID is the value of the foreign key to the individual organization"""
         return self.individual_organization_id
 
+    @property
+    def date_joined(self):
+        """Alias date joined to create_at for third party apps"""
+        return self.created_at
+
     def save(self, *args, **kwargs):
         with transaction.atomic():
             super().save(*args, **kwargs)
