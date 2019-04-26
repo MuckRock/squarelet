@@ -11,12 +11,14 @@ class ViewTestMixin:
 
     # pylint: disable=protected-access, invalid-name
 
-    def call_view(self, rf, user=None, data=None, **kwargs):
+    def call_view(self, rf, user=None, data=None, params=None, **kwargs):
+        if params is None:
+            params = {}
         url = self.url.format(**kwargs)
         if user is None:
             user = AnonymousUser()
         if data is None:
-            self.request = rf.get(url)
+            self.request = rf.get(url, params)
         else:
             self.request = rf.post(url, data)
         self.request.user = user
