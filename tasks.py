@@ -10,7 +10,7 @@ DOCKER_COMPOSE_RUN = DOCKER_COMPOSE_RUN_OPT.format(
 )
 DJANGO_RUN = DOCKER_COMPOSE_RUN.format(service="squarelet_django", cmd="{cmd}")
 DJANGO_RUN_USER = DOCKER_COMPOSE_RUN_OPT_USER.format(
-    opt="", service="squarelet_django", cmd="{cmd}"
+    opt="-e HOME=/app", service="squarelet_django", cmd="{cmd}"
 )
 
 # Release
@@ -150,7 +150,7 @@ def shell(c, opts=""):
 def sh(c):
     """Run an interactive shell"""
     c.run(
-        DOCKER_COMPOSE_RUN_OPT.format(
+        DOCKER_COMPOSE_RUN_OPT_USER.format(
             opt="--use-aliases", service="squarelet_django", cmd="sh"
         ),
         pty=True,
@@ -209,10 +209,13 @@ def pip_compile(c, upgrade=False, package=None):
     else:
         upgrade_flag = ""
     c.run(
-        DJANGO_RUN.format(
-            cmd=f"pip-compile {upgrade_flag} requirements/base.in &&"
-            f"pip-compile {upgrade_flag} requirements/local.in &&"
+        DJANGO_RUN_USER.format(
+            cmd=
+            'sh -c "'
+            f"pip-compile {upgrade_flag} requirements/base.in && "
+            f"pip-compile {upgrade_flag} requirements/local.in && "
             f"pip-compile {upgrade_flag} requirements/production.in"
+            '"'
         )
     )
 

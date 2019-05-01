@@ -323,6 +323,7 @@ STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET")
 # sesame
 # ------------------------------------------------------------------------------
 SESAME_MAX_AGE = 60 * 60 * 24 * 2  # 2 days
+SESAME_ONE_TIME = True
 
 # django-debug-toolbar
 # ------------------------------------------------------------------------------
