@@ -13,7 +13,6 @@ import pytest
 from squarelet.organizations import views
 from squarelet.organizations.models import ReceiptEmail
 
-
 # pylint: disable=invalid-name
 
 
