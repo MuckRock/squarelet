@@ -45,7 +45,10 @@ logger = logging.getLogger(__name__)
 
 
 class Detail(AdminLinkMixin, DetailView):
-    queryset = Organization.objects.filter(individual=False)
+    def get_queryset(self):
+        return Organization.objects.filter(individual=False).get_viewable(
+            self.request.user
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
