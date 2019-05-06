@@ -13,6 +13,7 @@ import pytest
 from squarelet.organizations import views
 from squarelet.organizations.models import ReceiptEmail
 
+
 # pylint: disable=invalid-name
 
 
@@ -88,7 +89,7 @@ class TestDetail(ViewTest):
         user = user_factory()
         organization = organization_factory(private=True)
         with pytest.raises(Http404):
-            response = self.call_view(rf, user, slug=organization.slug)
+            self.call_view(rf, user, slug=organization.slug)
 
     def test_post_anonymous(self, rf, organization_factory):
         organization = organization_factory()
