@@ -1,4 +1,5 @@
 [run]
+branch = False
 include = squarelet/*
 omit = *migrations*, *tests*
 plugins =

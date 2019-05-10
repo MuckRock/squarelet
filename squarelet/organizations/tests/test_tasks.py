@@ -187,3 +187,16 @@ class TestHandleChargeSucceeded:
         )
 
         tasks.handle_charge_succeeded(charge_data)
+
+
+@pytest.mark.django_db()
+def test_handle_invoice_failed(organization_factory, user_factory, mailoutbox):
+    user = user_factory()
+    organization = organization_factory(admins=[user], customer_id="cus_123")
+    invoice_data = {"id": 1, "customer": organization.customer_id, "attempt_count": 2}
+    tasks.handle_invoice_failed(invoice_data)
+    organization.refresh_from_db()
+    assert organization.payment_failed
+    mail = mailoutbox[0]
+    assert mail.subject == "Your payment has failed"
+    assert mail.to == [user.email]
