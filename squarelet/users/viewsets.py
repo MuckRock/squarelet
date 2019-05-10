@@ -1,6 +1,4 @@
 # Django
-# Third Party
-# Third Party
 from django.core.exceptions import ValidationError
 from django.db.models.query import Prefetch
 from django.http.response import Http404
