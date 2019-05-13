@@ -273,6 +273,7 @@ ACCOUNT_FORMS = {
     "reset_password_from_key": "squarelet.users.forms.ResetPasswordKeyForm",
 }
 ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = False
+ACCOUNT_SESSION_REMEMBER = True
 
 
 # django-compressor
