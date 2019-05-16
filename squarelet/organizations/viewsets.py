@@ -22,6 +22,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
 class ChargeViewSet(viewsets.ModelViewSet):
     queryset = Charge.objects.all()
     serializer_class = ChargeSerializer
-    permission_classes = (ScopePermission,)
+    permission_classes = (ScopePermission | IsAdminUser,)
     read_scopes = ("read_charge",)
     write_scopes = ("write_charge",)
