@@ -128,6 +128,7 @@ class LoginView(AllAuthLoginView):
 
 def mailgun_webhook(request):
     """Handle mailgun webhooks to keep track of user emails that have failed"""
+    # pylint: disable=too-many-return-statements
 
     def verify(event):
         """Verify that the message is from mailgun"""

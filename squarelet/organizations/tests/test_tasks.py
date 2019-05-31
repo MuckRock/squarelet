@@ -1,4 +1,3 @@
-
 # Django
 from django.utils import timezone
 
@@ -180,7 +179,6 @@ class TestHandleChargeSucceeded:
                 ]
             },
         }
-        product = {"name": "Donation"}
         mocker.patch(
             "squarelet.organizations.tasks.stripe.Invoice.retrieve",
             return_value=invoice,

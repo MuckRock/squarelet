@@ -1,13 +1,9 @@
-
 # Standard Library
 import json
 
 # Third Party
 import pytest
 from rest_framework.test import APIClient
-
-# Local
-from .. import viewsets
 
 
 @pytest.mark.django_db()

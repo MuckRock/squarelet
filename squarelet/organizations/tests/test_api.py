@@ -1,4 +1,3 @@
-
 # Standard Library
 import json
 import time
@@ -9,7 +8,6 @@ import pytest
 from rest_framework.test import APIClient
 
 # Local
-from .. import viewsets
 from ..models import Charge
 
 
