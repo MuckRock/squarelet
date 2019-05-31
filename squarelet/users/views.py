@@ -3,7 +3,9 @@ from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http.response import (
     HttpResponse,
+    HttpResponseBadRequest,
     HttpResponseForbidden,
+    HttpResponseNotAllowed,
     HttpResponseRedirect,
 )
 from django.shortcuts import redirect
@@ -13,6 +15,7 @@ from django.views.generic import DetailView, ListView, RedirectView, UpdateView
 # Standard Library
 import hashlib
 import hmac
+import json
 import time
 from urllib.parse import parse_qs, urlparse
 
@@ -126,27 +129,41 @@ class LoginView(AllAuthLoginView):
 def mailgun_webhook(request):
     """Handle mailgun webhooks to keep track of user emails that have failed"""
 
-    def verify(params):
+    def verify(event):
         """Verify that the message is from mailgun"""
-        token = params.get("token", "")
-        timestamp = params.get("timestamp", "")
-        signature = params.get("signature", "")
+        token = event.get("token", "")
+        timestamp = event.get("timestamp", "")
+        signature = event.get("signature", "")
         hmac_digest = hmac.new(
-            key=settings.MAILGUN_ACCESS_KEY,
-            msg=f"{timestamp}{token}",
+            key=settings.MAILGUN_ACCESS_KEY.encode("utf8"),
+            msg=f"{timestamp}{token}".encode("utf8"),
             digestmod=hashlib.sha256,
         ).hexdigest()
         match = hmac.compare_digest(signature, str(hmac_digest))
         return match and int(timestamp) + 300 > time.time()
 
-    if not verify(request.POST.get("signature")):
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+
+    try:
+        event = json.loads(request.body)
+    except ValueError:
+        return HttpResponseBadRequest("JSON decode error")
+
+    if not verify(event.get("signature", {})):
         return HttpResponseForbidden()
 
-    event = request.POST["event-data"]
-    if event["event"] != "failed":
+    if "event-data" not in event:
+        return HttpResponseBadRequest("Missing event-data")
+    event = event["event-data"]
+
+    if event.get("event") != "failed":
         return HttpResponse("OK")
 
+    if "recipient" not in event:
+        return HttpResponseBadRequest("Missing recipient")
     email = event["recipient"]
 
     User.objects.filter(email=email).update(email_failed=True)
     ReceiptEmail.objects.filter(email=email).update(failed=True)
+    return HttpResponse("OK")

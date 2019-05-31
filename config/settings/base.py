@@ -321,6 +321,11 @@ STRIPE_PUB_KEY = env("STRIPE_PUB_KEY")
 STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET")
 
+# mailgun
+# ------------------------------------------------------------------------------
+MAILGUN_ACCESS_KEY = env("MAILGUN_ACCESS_KEY")
+
+
 # sesame
 # ------------------------------------------------------------------------------
 SESAME_MAX_AGE = 60 * 60 * 24 * 2  # 2 days

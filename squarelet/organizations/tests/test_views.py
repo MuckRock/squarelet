@@ -506,7 +506,6 @@ class TestStripeWebhook:
 
     def test_get(self, rf):
         """GET requests should fail"""
-        event = {"type": "test"}
         request = rf.get(f"/organizations/~stripe_webhook/")
         response = views.stripe_webhook(request)
         assert response.status_code == 405

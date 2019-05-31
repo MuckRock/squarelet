@@ -1,8 +1,11 @@
-
 # Django
 from django.conf import settings
 
 # Standard Library
+import hashlib
+import hmac
+import json
+import time
 from urllib.parse import urlencode
 
 # Third Party
@@ -106,3 +109,82 @@ class TestLoginView(ViewTestMixin):
         response = self.call_view(rf, params=params)
         assert response.status_code == 302
         assert response.url == f"{settings.MUCKROCK_URL}{url}"
+
+
+class TestMailgunWebhook:
+    def call_view(self, rf, data):
+        # pylint: disable=protected-access
+        self.sign(data)
+        request = rf.post(
+            f"/users/~mailgun/", json.dumps(data), content_type="application/json"
+        )
+        return views.mailgun_webhook(request)
+
+    def sign(self, data):
+        token = "token"
+        timestamp = int(time.time())
+        signature = hmac.new(
+            key=settings.MAILGUN_ACCESS_KEY.encode("utf8"),
+            msg=f"{timestamp}{token}".encode("utf8"),
+            digestmod=hashlib.sha256,
+        ).hexdigest()
+        data["signature"] = {
+            "token": token,
+            "timestamp": timestamp,
+            "signature": str(signature),
+        }
+
+    @pytest.mark.django_db()
+    def test_simple(self, rf, user_factory):
+        """Succesful request"""
+        user = user_factory(email="mitch@example.com", email_failed=False)
+        event = {"event-data": {"event": "failed", "recipient": "mitch@example.com"}}
+        response = self.call_view(rf, event)
+        assert response.status_code == 200
+        user.refresh_from_db()
+        assert user.email_failed
+
+    @pytest.mark.django_db()
+    def test_ignored(self, rf, user_factory):
+        """Non-fail events are ignored"""
+        user = user_factory(email="mitch@example.com", email_failed=False)
+        event = {"event-data": {"event": "bounced", "receipient": "mitch@example.com"}}
+        response = self.call_view(rf, event)
+        assert response.status_code == 200
+        user.refresh_from_db()
+        assert not user.email_failed
+
+    def test_get(self, rf):
+        """GET requests should fail"""
+        request = rf.get(f"/users/~mailgun/")
+        response = views.mailgun_webhook(request)
+        assert response.status_code == 405
+
+    def test_missing_event(self, rf):
+        """Missing event-data should fail"""
+        event = {"foo": "bar"}
+        response = self.call_view(rf, event)
+        assert response.status_code == 400
+
+    def test_missing_recipient(self, rf):
+        """Succesful request"""
+        event = {"event-data": {"event": "failed"}}
+        response = self.call_view(rf, event)
+        assert response.status_code == 400
+
+    def test_signature_verification(self, rf):
+        """Signature verification error should fail"""
+        event = {"event-data": {"event": "failed", "receipient": "mitch@example.com"}}
+        request = rf.post(
+            f"/users/~mailgun/", json.dumps(event), content_type="application/json"
+        )
+        response = views.mailgun_webhook(request)
+        assert response.status_code == 403
+
+    def test_bad_json(self, rf):
+        """Malformed JSON should fail"""
+        request = rf.post(
+            f"/users/~mailgun/", "{'malformed json'", content_type="application/json"
+        )
+        response = views.mailgun_webhook(request)
+        assert response.status_code == 400
