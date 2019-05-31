@@ -3,6 +3,7 @@ from django.contrib import messages
 from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import PermissionDenied
 from django.http.response import Http404
+from django.test.utils import override_settings
 from django.utils import timezone
 
 # Standard Library
@@ -485,3 +486,50 @@ class TestChargeDetail(ViewTestMixin):
         response = self.call_view(rf, user, pk=charge.pk)
         assert response.status_code == 200
         assert response.context_data["subject"] == "Receipt"
+
+
+class TestStripeWebhook:
+    def call_view(self, rf, data):
+        # pylint: disable=protected-access
+        request = rf.post(
+            f"/organizations/~stripe_webhook/",
+            json.dumps(data),
+            content_type="application/json",
+        )
+        return views.stripe_webhook(request)
+
+    def test_simple(self, rf):
+        """Succesful request"""
+        event = {"type": "test"}
+        response = self.call_view(rf, event)
+        assert response.status_code == 200
+
+    def test_get(self, rf):
+        """GET requests should fail"""
+        event = {"type": "test"}
+        request = rf.get(f"/organizations/~stripe_webhook/")
+        response = views.stripe_webhook(request)
+        assert response.status_code == 405
+
+    def test_bad_json(self, rf):
+        """Malformed JSON should fail"""
+        request = rf.post(
+            f"/organizations/~stripe_webhook/",
+            "{'malformed json'",
+            content_type="application/json",
+        )
+        response = views.stripe_webhook(request)
+        assert response.status_code == 400
+
+    def test_missing_key(self, rf):
+        """Missing event type should fail"""
+        event = {"foo": "bar"}
+        response = self.call_view(rf, event)
+        assert response.status_code == 400
+
+    @override_settings(STRIPE_WEBHOOK_SECRET="123")
+    def test_signature_verification(self, rf):
+        """Signature verification error should fail"""
+        event = {"type": "test"}
+        response = self.call_view(rf, event)
+        assert response.status_code == 400
