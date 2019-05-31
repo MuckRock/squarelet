@@ -1,4 +1,3 @@
-
 # Standard Library
 from unittest.mock import Mock
 

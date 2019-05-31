@@ -12,7 +12,6 @@ from dateutil.relativedelta import relativedelta
 # Squarelet
 from squarelet.organizations.models import ReceiptEmail
 
-
 # pylint: disable=invalid-name,too-many-public-methods,protected-access
 
 

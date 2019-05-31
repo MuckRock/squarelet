@@ -1,4 +1,3 @@
-
 # Standard Library
 from datetime import date, timedelta
 

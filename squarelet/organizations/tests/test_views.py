@@ -20,7 +20,6 @@ from squarelet.core.tests.mixins import ViewTestMixin
 from .. import views
 from ..models import ReceiptEmail
 
-
 # pylint: disable=invalid-name
 
 
