@@ -14,8 +14,9 @@ from squarelet.users.models import User
 from .models import Statistics
 
 
+# This is using UTC time instead of the local timezone
 @periodic_task(
-    run_every=crontab(hour=0, minute=30),
+    run_every=crontab(hour=5, minute=30),
     name="squarelet.statistics.tasks.store_statistics",
 )
 def store_statistics():
