@@ -14,7 +14,7 @@ from crispy_forms.layout import Layout
 # Squarelet
 from squarelet.core.forms import StripeForm
 from squarelet.core.layout import Field
-from squarelet.organizations.models import Organization, Plan
+from squarelet.organizations.models import Organization, OrganizationChangeLog, Plan
 from squarelet.users.models import User
 
 
@@ -88,7 +88,7 @@ class SignupForm(allauth.SignupForm, StripeForm):
         try:
             if not plan.free() and plan.for_individuals:
                 user.individual_organization.set_subscription(
-                    self.cleaned_data.get("stripe_token"), plan, max_users=1
+                    self.cleaned_data.get("stripe_token"), plan, max_users=1, user=user
                 )
 
             if not plan.free() and plan.for_groups:
@@ -98,8 +98,15 @@ class SignupForm(allauth.SignupForm, StripeForm):
                     next_plan=free_plan,
                 )
                 group_organization.add_creator(user)
+                group_organization.change_logs.create(
+                    reason=OrganizationChangeLog.CREATED,
+                    user=user,
+                    to_plan=group_organization.plan,
+                    to_next_plan=group_organization.next_plan,
+                    to_max_users=group_organization.max_users,
+                )
                 group_organization.set_subscription(
-                    self.cleaned_data.get("stripe_token"), plan, max_users=5
+                    self.cleaned_data.get("stripe_token"), plan, max_users=5, user=user
                 )
         except stripe.error.StripeError as exc:
             messages.error(request, "Payment error: {}".format(exc.user_message))

@@ -210,11 +210,18 @@ class Organization(AvatarMixin, models.Model):
         self.customer.save()
         send_cache_invalidations("organization", self.uuid)
 
-    def set_subscription(self, token, plan, max_users):
+    def set_subscription(self, token, plan, max_users, user):
         if self.individual:
             max_users = 1
         if token:
             self.save_card(token)
+
+        # store so we can log
+        from_plan, from_next_plan, from_max_users = (
+            self.plan,
+            self.next_plan,
+            self.max_users,
+        )
 
         if self.plan.free() and not plan.free():
             # create a subscription going from free to non-free
@@ -228,6 +235,17 @@ class Organization(AvatarMixin, models.Model):
         else:
             # just change the plan without touching stripe if going free to free
             self._modify_plan(plan, max_users)
+
+        self.change_logs.create(
+            user=user,
+            reason=OrganizationChangeLog.UPDATED,
+            from_plan=from_plan,
+            from_next_plan=from_next_plan,
+            from_max_users=from_max_users,
+            to_plan=self.plan,
+            to_next_plan=self.next_plan,
+            to_max_users=self.max_users,
+        )
 
     @transaction.atomic
     def _create_subscription(self, customer, plan, max_users):
@@ -324,8 +342,18 @@ class Organization(AvatarMixin, models.Model):
 
     def subscription_cancelled(self):
         """The subsctription was cancelled due to payment failure"""
+        free_plan = Plan.objects.get(slug="free")
+        self.change_logs.create(
+            reason=OrganizationChangeLog.FAILED,
+            from_plan=self.plan,
+            from_next_plan=self.next_plan,
+            from_max_users=self.max_users,
+            to_plan=free_plan,
+            to_next_plan=free_plan,
+            to_max_users=self.max_users,
+        )
         self.subscription_id = None
-        self.plan = self.next_plan = Plan.objects.get(slug="free")
+        self.plan = self.next_plan = free_plan
         self.save()
 
     def charge(self, amount, description, fee_amount=0, token=None, save_card=False):
@@ -645,3 +673,57 @@ class Charge(models.Model):
             ]
         else:
             return [{"name": self.description, "price": self.amount_dollars}]
+
+
+class OrganizationChangeLog(models.Model):
+    """Track important changes to organizations"""
+
+    CREATED = 0
+    UPDATED = 1
+    FAILED = 2
+
+    created_at = AutoCreatedField(_("created at"))
+
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        on_delete=models.CASCADE,
+        related_name="change_logs",
+    )
+    user = models.ForeignKey(
+        "users.User",
+        related_name="change_logs",
+        on_delete=models.PROTECT,
+        blank=True,
+        null=True,
+    )
+    reason = models.PositiveSmallIntegerField(
+        choices=(
+            (CREATED, _("Created")),
+            (UPDATED, _("Updated")),
+            (FAILED, _("Payment failed")),
+        )
+    )
+
+    from_plan = models.ForeignKey(
+        "organizations.Plan",
+        on_delete=models.PROTECT,
+        related_name="+",
+        blank=True,
+        null=True,
+    )
+    from_next_plan = models.ForeignKey(
+        "organizations.Plan",
+        on_delete=models.PROTECT,
+        related_name="+",
+        blank=True,
+        null=True,
+    )
+    from_max_users = models.IntegerField(_("maximum users"), blank=True, null=True)
+
+    to_plan = models.ForeignKey(
+        "organizations.Plan", on_delete=models.PROTECT, related_name="+"
+    )
+    to_next_plan = models.ForeignKey(
+        "organizations.Plan", on_delete=models.PROTECT, related_name="+"
+    )
+    to_max_users = models.IntegerField(_("maximum users"))

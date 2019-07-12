@@ -31,12 +31,17 @@ from crispy_forms.layout import Field, Layout
 # Squarelet
 from squarelet.core.mail import ORG_TO_ADMINS, send_mail
 from squarelet.core.mixins import AdminLinkMixin
-
-# Local
-from .forms import AddMemberForm, PaymentForm, UpdateForm
-from .mixins import IndividualMixin, OrganizationAdminMixin
-from .models import Charge, Invitation, Membership, Organization, Plan
-from .tasks import handle_charge_succeeded, handle_invoice_failed
+from squarelet.organizations.forms import AddMemberForm, PaymentForm, UpdateForm
+from squarelet.organizations.mixins import IndividualMixin, OrganizationAdminMixin
+from squarelet.organizations.models import (
+    Charge,
+    Invitation,
+    Membership,
+    Organization,
+    OrganizationChangeLog,
+    Plan,
+)
+from squarelet.organizations.tasks import handle_charge_succeeded, handle_invoice_failed
 
 # How much to paginate organizations list by
 ORG_PAGINATION = 100
@@ -141,6 +146,7 @@ class UpdateSubscription(OrganizationAdminMixin, UpdateView):
                 token=form.cleaned_data["stripe_token"],
                 plan=form.cleaned_data["plan"],
                 max_users=form.cleaned_data.get("max_users"),
+                user=self.request.user,
             )
         except stripe.error.StripeError as exc:
             messages.error(self.request, "Payment error: {}".format(exc.user_message))
@@ -210,6 +216,13 @@ class Create(LoginRequiredMixin, CreateView):
         organization.next_plan = free_plan
         organization.save()
         organization.add_creator(self.request.user)
+        organization.change_logs.create(
+            reason=OrganizationChangeLog.CREATED,
+            user=self.request.user,
+            to_plan=organization.plan,
+            to_next_plan=organization.next_plan,
+            to_max_users=organization.max_users,
+        )
         return redirect(organization)
 
 

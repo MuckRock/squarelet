@@ -28,6 +28,7 @@ class OrganizationQuerySet(models.QuerySet):
         """
         # pylint: disable=cyclic-import
         from squarelet.organizations.models import Plan
+        from squarelet.organizations.models import OrganizationChangeLog
 
         free_plan = Plan.objects.get(slug="free")
         user.individual_organization = self.create(
@@ -40,6 +41,13 @@ class OrganizationQuerySet(models.QuerySet):
         )
         user.save()
         user.individual_organization.add_creator(user)
+        user.individual_organization.change_logs.create(
+            reason=OrganizationChangeLog.CREATED,
+            user=user,
+            to_plan=user.individual_organization.plan,
+            to_next_plan=user.individual_organization.next_plan,
+            to_max_users=user.individual_organization.max_users,
+        )
         return user.individual_organization
 
 

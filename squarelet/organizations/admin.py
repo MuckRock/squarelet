@@ -5,10 +5,15 @@ from django.contrib import admin
 from reversion.admin import VersionAdmin
 
 # Squarelet
-from squarelet.organizations.models import Charge
-
-# Local
-from .models import Invitation, Membership, Organization, Plan, ReceiptEmail
+from squarelet.organizations.models import (
+    Charge,
+    Invitation,
+    Membership,
+    Organization,
+    OrganizationChangeLog,
+    Plan,
+    ReceiptEmail,
+)
 
 
 class MembershipInline(admin.TabularInline):
@@ -69,3 +74,35 @@ class ChargeAdmin(VersionAdmin):
     search_fields = ("organization__name", "description")
     date_hierarchy = "created_at"
     readonly_fields = ("organization", "amount", "created_at", "charge_id")
+
+
+@admin.register(OrganizationChangeLog)
+class OrganizationChangeLogAdmin(VersionAdmin):
+    list_display = (
+        "organization",
+        "created_at",
+        "user",
+        "reason",
+        "from_plan",
+        "from_next_plan",
+        "from_max_users",
+        "to_plan",
+        "to_next_plan",
+        "to_max_users",
+    )
+    list_select_related = ("organization", "user")
+    date_hierarchy = "created_at"
+    readonly_fields = (
+        "organization",
+        "created_at",
+        "user",
+        "reason",
+        "from_plan",
+        "from_next_plan",
+        "from_max_users",
+        "to_plan",
+        "to_next_plan",
+        "to_max_users",
+    )
+    search_fields = ("organization__name",)
+    list_filter = ("reason",)

@@ -201,28 +201,36 @@ class TestOrganization:
         mocked_sci.assert_called_with("organization", organization.uuid)
 
     def test_set_subscription_create(
-        self, organization_factory, organization_plan_factory, mocker
+        self, organization_factory, organization_plan_factory, mocker, user_factory
     ):
+        user = user_factory.build()
         organization = organization_factory.build()
         organization_plan = organization_plan_factory.build()
         mocked_create = mocker.patch(
             "squarelet.organizations.models.Organization._create_subscription"
         )
+        mocker.patch("squarelet.organizations.models.Organization.change_logs")
         mocked_save_card = mocker.patch(
             "squarelet.organizations.models.Organization.save_card"
         )
         mocker.patch("squarelet.organizations.models.Organization.customer")
         token = "token"
         max_users = 10
-        organization.set_subscription(token, organization_plan, max_users)
+        organization.set_subscription(token, organization_plan, max_users, user)
         mocked_save_card.assert_called_with(token)
         mocked_create.assert_called_with(
             organization.customer, organization_plan, max_users
         )
 
     def test_set_subscription_cancel(
-        self, organization_factory, free_plan_factory, organization_plan_factory, mocker
+        self,
+        organization_factory,
+        free_plan_factory,
+        organization_plan_factory,
+        mocker,
+        user_factory,
     ):
+        user = user_factory.build()
         organization = organization_factory.build(
             plan=organization_plan_factory.build()
         )
@@ -230,31 +238,42 @@ class TestOrganization:
         mocked_cancel = mocker.patch(
             "squarelet.organizations.models.Organization._cancel_subscription"
         )
+        mocker.patch("squarelet.organizations.models.Organization.change_logs")
         max_users = 5
-        organization.set_subscription(None, free_plan, max_users)
+        organization.set_subscription(None, free_plan, max_users, user)
         mocked_cancel.assert_called_with(free_plan)
 
     def test_set_subscription_modify(
-        self, individual_organization_factory, professional_plan_factory, mocker
+        self,
+        individual_organization_factory,
+        professional_plan_factory,
+        mocker,
+        user_factory,
     ):
+        user = user_factory.build()
         professional_plan = professional_plan_factory.build()
         organization = individual_organization_factory.build(plan=professional_plan)
         mocked_modify = mocker.patch(
             "squarelet.organizations.models.Organization._modify_subscription"
         )
         mocker.patch("squarelet.organizations.models.Organization.customer")
+        mocker.patch("squarelet.organizations.models.Organization.change_logs")
         max_users = 10
-        organization.set_subscription(None, professional_plan, max_users)
+        organization.set_subscription(None, professional_plan, max_users, user)
         # individual orgs always have 1 user
         mocked_modify.assert_called_with(organization.customer, professional_plan, 1)
 
-    def test_set_subscription_modify_free(self, organization_factory, mocker):
+    def test_set_subscription_modify_free(
+        self, organization_factory, mocker, user_factory
+    ):
+        user = user_factory.build()
         organization = organization_factory.build()
         mocked_modify = mocker.patch(
             "squarelet.organizations.models.Organization._modify_plan"
         )
+        mocker.patch("squarelet.organizations.models.Organization.change_logs")
         max_users = 10
-        organization.set_subscription(None, organization.plan, max_users)
+        organization.set_subscription(None, organization.plan, max_users, user)
         mocked_modify.assert_called_with(organization.plan, max_users)
 
     @pytest.mark.django_db(transaction=True)
