@@ -90,7 +90,14 @@ class OrganizationChangeLogAdmin(VersionAdmin):
         "to_next_plan",
         "to_max_users",
     )
-    list_select_related = ("organization", "user")
+    list_select_related = (
+        "organization",
+        "user",
+        "from_plan",
+        "from_next_plan",
+        "to_plan",
+        "to_next_plan",
+    )
     date_hierarchy = "created_at"
     readonly_fields = (
         "organization",
@@ -105,4 +112,11 @@ class OrganizationChangeLogAdmin(VersionAdmin):
         "to_max_users",
     )
     search_fields = ("organization__name",)
-    list_filter = ("reason",)
+    list_filter = (
+        "reason",
+        "organization__individual",
+        "from_plan",
+        "from_next_plan",
+        "to_plan",
+        "to_next_plan",
+    )
