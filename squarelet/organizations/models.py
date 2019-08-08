@@ -659,7 +659,11 @@ class Charge(models.Model):
             template="organizations/email/receipt.html",
             organization=self.organization,
             organization_to=ORG_TO_RECEIPTS,
-            extra_context={"charge": self},
+            extra_context={
+                "charge": self,
+                "individual_subscription": self.description == "Professional",
+                "group_subscription": self.description.startswith("Organization"),
+            },
         )
 
     def items(self):
