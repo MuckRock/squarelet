@@ -27,7 +27,12 @@ CONFIG = [
                     ("IPYTHONDIR", "/app/.ipython"),
                 ],
             },
-            {"name": "Redis", "envvars": [("REDIS_URL", "redis://squarelet_redis:6379/0")]},
+            {
+                "name": "Redis",
+                "envvars": [("REDIS_URL", "redis://squarelet_redis:6379/0")],
+            },
+            {"name": "Mailgun", "envvars": [("MAILGUN_ACCESS_KEY", "")]},
+            {"name": "Mixpanel", "envvars": [("MIXPANEL_TOKEN", "")]},
             {
                 "name": "Stripe",
                 "url": "https://stripe.com",

@@ -31,6 +31,7 @@ from crispy_forms.layout import Field, Layout
 # Squarelet
 from squarelet.core.mail import ORG_TO_ADMINS, send_mail
 from squarelet.core.mixins import AdminLinkMixin
+from squarelet.core.utils import mixpanel_event
 from squarelet.organizations.forms import AddMemberForm, PaymentForm, UpdateForm
 from squarelet.organizations.mixins import IndividualMixin, OrganizationAdminMixin
 from squarelet.organizations.models import (
@@ -92,6 +93,11 @@ class Detail(AdminLinkMixin, DetailView):
                 organization=self.organization
             ).delete()
             messages.success(request, _("You have left the organization"))
+            mixpanel_event(
+                request,
+                "Left Organization",
+                {"Name": self.organization.name, "UUID": str(self.organization.uuid)},
+            )
         return redirect(self.organization)
 
 
@@ -141,6 +147,8 @@ class UpdateSubscription(OrganizationAdminMixin, UpdateView):
 
     def form_valid(self, form):
         organization = self.object
+        old_plan = organization.plan
+        old_users = organization.max_users
         try:
             organization.set_subscription(
                 token=form.cleaned_data["stripe_token"],
@@ -157,6 +165,18 @@ class UpdateSubscription(OrganizationAdminMixin, UpdateView):
                 _("Plan Updated")
                 if organization.individual
                 else _("Organization Updated"),
+            )
+            mixpanel_event(
+                self.request,
+                "Organization Subscription Changed",
+                {
+                    "Name": organization.name,
+                    "UUID": str(organization.uuid),
+                    "Old Plan": old_plan.name,
+                    "New Plan": form.cleaned_data["plan"].name,
+                    "Old Users": old_users,
+                    "New Users": form.cleaned_data.get("max_users", 1),
+                },
             )
         return redirect(organization)
 
@@ -223,6 +243,17 @@ class Create(LoginRequiredMixin, CreateView):
             to_next_plan=organization.next_plan,
             to_max_users=organization.max_users,
         )
+        mixpanel_event(
+            self.request,
+            "Create Organization",
+            {
+                "Name": organization.name,
+                "UUID": str(organization.uuid),
+                "Plan": organization.plan.name,
+                "Max Users": organization.max_users,
+                "Sign Up": False,
+            },
+        )
         return redirect(organization)
 
 
@@ -287,9 +318,22 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
         )
 
     def _handle_accept_invite(self, request):
-        return self._handle_invite(
-            request, lambda invite: invite.accept(), "Invitation accepted"
-        )
+        def accept_invite(invite):
+            invite.accept()
+            mixpanel_event(
+                request,
+                "Invitation Accepted by Admin",
+                {
+                    "Organization Name": invite.organization.name,
+                    "Organization UUID": str(invite.organization.uuid),
+                    "User UUID": str(invite.user.uuid),
+                    "User Username": invite.user.username,
+                    "User Name": invite.user.name,
+                    "User Email": invite.user.email,
+                },
+            )
+
+        return self._handle_invite(request, accept_invite, "Invitation accepted")
 
     def _handle_reject_invite(self, request):
         return self._handle_invite(
@@ -326,9 +370,22 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
         )
 
     def _handle_remove_user(self, request):
-        return self._handle_user(
-            request, lambda membership: membership.delete(), "Removed user"
-        )
+        def remove_user(membership):
+            membership.delete()
+            mixpanel_event(
+                request,
+                "User Removed",
+                {
+                    "Organization Name": membership.organization.name,
+                    "Organization UUID": str(membership.organization.uuid),
+                    "User UUID": str(membership.user.uuid),
+                    "User Username": membership.user.username,
+                    "User Name": membership.user.name,
+                    "User Email": membership.user.email,
+                },
+            )
+
+        return self._handle_user(request, remove_user, "Removed user")
 
     def _bad_call(self, request):
         messages.error(self.request, "An unexpected error occurred")
@@ -357,6 +414,14 @@ class InvitationAccept(LoginRequiredMixin, DetailView):
         if action == "accept":
             invitation.accept(self.request.user)
             messages.success(self.request, "Invitation accepted")
+            mixpanel_event(
+                request,
+                "Invitation Accepted",
+                {
+                    "Name": invitation.organization.name,
+                    "UUID": str(invitation.organization.uuid),
+                },
+            )
             return redirect(invitation.organization)
         elif action == "reject":
             invitation.reject()

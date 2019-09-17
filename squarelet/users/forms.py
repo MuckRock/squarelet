@@ -14,6 +14,7 @@ from crispy_forms.layout import Layout
 # Squarelet
 from squarelet.core.forms import StripeForm
 from squarelet.core.layout import Field
+from squarelet.core.utils import mixpanel_event
 from squarelet.organizations.models import Organization, OrganizationChangeLog, Plan
 from squarelet.users.models import User
 
@@ -82,6 +83,9 @@ class SignupForm(allauth.SignupForm, StripeForm):
             source=request.GET.get("intent", "squarelet").lower().strip(),
         )
         setup_user_email(request, user, [])
+        mixpanel_event(
+            request, "Sign Up", {"Source": f"Squarelet: {user.source}"}, signup=True
+        )
 
         free_plan = Plan.objects.get(slug="free")
         plan = self.cleaned_data["plan"]
@@ -107,6 +111,17 @@ class SignupForm(allauth.SignupForm, StripeForm):
                 )
                 group_organization.set_subscription(
                     self.cleaned_data.get("stripe_token"), plan, max_users=5, user=user
+                )
+                mixpanel_event(
+                    request,
+                    "Create Organization",
+                    {
+                        "Name": group_organization.name,
+                        "UUID": group_organization.uuid,
+                        "Plan": group_organization.plan.name,
+                        "Max Users": group_organization.max_users,
+                        "Sign Up": True,
+                    },
                 )
         except stripe.error.StripeError as exc:
             messages.error(request, "Payment error: {}".format(exc.user_message))
