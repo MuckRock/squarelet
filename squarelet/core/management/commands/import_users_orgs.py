@@ -10,6 +10,7 @@ from uuid import UUID
 
 # Third Party
 from allauth.account.models import EmailAddress
+from dateutil.parser import parse
 from smart_open.smart_open_lib import smart_open
 
 # Squarelet
@@ -25,12 +26,21 @@ org_uuid2pk = {}
 class Command(BaseCommand):
     """Import users and orgs from MuckRock"""
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--date_joined", action="store_true", help="Only import date joined data"
+        )
+
     def handle(self, *args, **kwargs):
         # pylint: disable=unused-argument
-        with transaction.atomic():
-            self.import_orgs()
-            self.import_users()
-            self.import_members()
+        if kwargs["date_joined"]:
+            with transaction.atomic():
+                self.import_date_joined()
+        else:
+            with transaction.atomic():
+                self.import_orgs()
+                self.import_users()
+                self.import_members()
 
     def import_users(self):
         print("Begin User Import {}".format(timezone.now()))
@@ -120,3 +130,24 @@ class Command(BaseCommand):
                     admin=member[4] == "True",
                 )
         print("End Member Import {}".format(timezone.now()))
+
+    def import_date_joined(self):
+        print("Begin Date Joined Import {}".format(timezone.now()))
+        with smart_open(
+            f"s3://{BUCKET}/squarelet_export/date_joined.csv", "r"
+        ) as infile:
+            reader = csv.reader(infile)
+            next(reader)  # discard headers
+            for i, user in enumerate(reader):
+                if i % 1000 == 0:
+                    print("User {} - {}".format(i, timezone.now()))
+                try:
+                    user_ = User.objects.get(individual_organization_id=UUID(user[0]))
+                except User.DoesNotExist:
+                    print(f"ERROR: User {user[0]} does not exist")
+                else:
+                    created_at = parse(user[1])
+                    if user_.created_at > created_at:
+                        user_.created_at = created_at
+                        user_.save()
+        print("End User Import {}".format(timezone.now()))
