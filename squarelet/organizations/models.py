@@ -46,36 +46,82 @@ class Organization(AvatarMixin, models.Model):
 
     objects = OrganizationQuerySet.as_manager()
 
-    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    uuid = models.UUIDField(
+        _("UUID"),
+        default=uuid.uuid4,
+        editable=False,
+        unique=True,
+        help_text=_("Uniquely identify the organization across services"),
+    )
 
-    name = models.CharField(_("name"), max_length=255)
-    slug = AutoSlugField(_("slug"), populate_from="name", unique=True)
-    created_at = AutoCreatedField(_("created at"))
-    updated_at = AutoLastModifiedField(_("updated at"))
+    name = models.CharField(
+        _("name"), max_length=255, help_text=_("The name of the organization")
+    )
+    slug = AutoSlugField(
+        _("slug"),
+        populate_from="name",
+        unique=True,
+        help_text=_("A unique slug for use in URLs"),
+    )
+    created_at = AutoCreatedField(
+        _("created at"), help_text=_("When this organization was created")
+    )
+    updated_at = AutoLastModifiedField(
+        _("updated at"), help_text=_("When this organization was last updated")
+    )
 
-    avatar = ImageField(_("avatar"), upload_to="org_avatars", blank=True)
+    avatar = ImageField(
+        _("avatar"),
+        upload_to="org_avatars",
+        blank=True,
+        help_text=_("An image to represent the organization"),
+    )
 
     users = models.ManyToManyField(
-        "users.User", through="organizations.Membership", related_name="organizations"
+        verbose_name=_("users"),
+        to="users.User",
+        through="organizations.Membership",
+        related_name="organizations",
+        help_text=_("The user's in this organization"),
     )
 
     plan = models.ForeignKey(
-        "organizations.Plan", on_delete=models.PROTECT, related_name="organizations"
+        verbose_name=_("plan"),
+        to="organizations.Plan",
+        on_delete=models.PROTECT,
+        related_name="organizations",
+        help_text=_("The current plan this organization is subscribed to"),
     )
     next_plan = models.ForeignKey(
-        "organizations.Plan",
+        verbose_name=_("next plan"),
+        to="organizations.Plan",
         on_delete=models.PROTECT,
         related_name="pending_organizations",
+        help_text=_(
+            "The pending plan to be updated to on the next billing cycle - "
+            "used when downgrading a plan to let the organization finish out a "
+            "subscription is paid for"
+        ),
     )
     individual = models.BooleanField(
         _("individual organization"),
         default=False,
         help_text=_("This organization is solely for the use of one user"),
     )
-    private = models.BooleanField(_("private organization"), default=False)
+    private = models.BooleanField(
+        _("private organization"),
+        default=False,
+        help_text=_(
+            "This organization's information and membership is not made public"
+        ),
+    )
 
     # Book keeping
-    max_users = models.IntegerField(_("maximum users"), default=5)
+    max_users = models.IntegerField(
+        _("maximum users"),
+        default=5,
+        help_text=_("The maximum number of users in this organization"),
+    )
     update_on = models.DateField(
         _("date update"),
         null=True,
@@ -85,12 +131,29 @@ class Organization(AvatarMixin, models.Model):
 
     # stripe
     customer_id = models.CharField(
-        _("customer id"), max_length=255, unique=True, blank=True, null=True
+        _("customer id"),
+        max_length=255,
+        unique=True,
+        blank=True,
+        null=True,
+        help_text=_("The organization's corresponding ID on stripe"),
     )
     subscription_id = models.CharField(
-        _("subscription id"), max_length=255, unique=True, blank=True, null=True
+        _("subscription id"),
+        max_length=255,
+        unique=True,
+        blank=True,
+        null=True,
+        help_text=_("The organization's corresponding subscription ID on stripe"),
     )
-    payment_failed = models.BooleanField(_("payment failed"), default=False)
+    payment_failed = models.BooleanField(
+        _("payment failed"),
+        default=False,
+        help_text=_(
+            "A payment for this organization has failed - they should update their "
+            "payment information"
+        ),
+    )
 
     default_avatar = static("images/avatars/organization.png")
 
@@ -379,17 +442,21 @@ class Membership(models.Model):
     """Through table for organization membership"""
 
     user = models.ForeignKey(
-        "users.User", on_delete=models.CASCADE, related_name="memberships"
+        verbose_name=_("user"),
+        to="users.User",
+        on_delete=models.CASCADE,
+        related_name="memberships",
     )
     organization = models.ForeignKey(
-        "organizations.Organization",
+        verbose_name=_("organization"),
+        to="organizations.Organization",
         on_delete=models.CASCADE,
         related_name="memberships",
     )
     admin = models.BooleanField(
         _("admin"),
         default=False,
-        help_text="This user has administrative rights for this organization",
+        help_text=_("This user has administrative rights for this organization"),
     )
 
     class Meta:
@@ -420,16 +487,43 @@ class Plan(models.Model):
 
     objects = PlanQuerySet.as_manager()
 
-    name = models.CharField(_("name"), max_length=255)
-    slug = AutoSlugField(_("slug"), populate_from="name", unique=True)
+    name = models.CharField(_("name"), max_length=255, help_text=_("The plan's name"))
+    slug = AutoSlugField(
+        _("slug"),
+        populate_from="name",
+        unique=True,
+        help_text=_("A uinique slug to identify the plan"),
+    )
 
-    minimum_users = models.PositiveSmallIntegerField(_("minimum users"), default=1)
-    base_price = models.PositiveSmallIntegerField(_("base price"), default=0)
-    price_per_user = models.PositiveSmallIntegerField(_("price per user"), default=0)
+    minimum_users = models.PositiveSmallIntegerField(
+        _("minimum users"),
+        default=1,
+        help_text=_("The minimum number of users allowed on this plan"),
+    )
+    base_price = models.PositiveSmallIntegerField(
+        _("base price"),
+        default=0,
+        help_text=_(
+            "The price per month for this plan with the minimum number of users"
+        ),
+    )
+    price_per_user = models.PositiveSmallIntegerField(
+        _("price per user"),
+        default=0,
+        help_text=_("The additional cost per month per user over the minimum"),
+    )
 
-    feature_level = models.PositiveSmallIntegerField(_("feature level"), default=0)
+    feature_level = models.PositiveSmallIntegerField(
+        _("feature level"),
+        default=0,
+        help_text=_("Specifies the level of premium features this plan grants"),
+    )
 
-    public = models.BooleanField(_("public"), default=False)
+    public = models.BooleanField(
+        _("public"),
+        default=False,
+        help_text=_("Is this plan available for anybody to sign up for?"),
+    )
     annual = models.BooleanField(
         _("annual"),
         default=False,
@@ -447,7 +541,8 @@ class Plan(models.Model):
     )
 
     private_organizations = models.ManyToManyField(
-        "organizations.Organization",
+        verbose_name=_("private organizations"),
+        to="organizations.Organization",
         related_name="private_plans",
         help_text=_(
             "For private plans, organizations which should have access to this plan"
@@ -530,18 +625,32 @@ class Invitation(models.Model):
     objects = InvitationQuerySet.as_manager()
 
     organization = models.ForeignKey(
-        "organizations.Organization",
+        verbose_name=_("organization"),
+        to="organizations.Organization",
         related_name="invitations",
         on_delete=models.CASCADE,
+        help_text=_("The organization this invitation is for"),
     )
-    uuid = models.UUIDField(_("uuid"), default=uuid.uuid4, editable=False)
-    email = models.EmailField(_("email"))
+    uuid = models.UUIDField(
+        _("UUID"),
+        default=uuid.uuid4,
+        editable=False,
+        help_text=_("This UUID serves as a secret token for this invitation in URLs"),
+    )
+    email = models.EmailField(
+        _("email"), help_text=_("The email address to send this invitation to")
+    )
     user = models.ForeignKey(
-        "users.User",
+        verbose_name=_("user"),
+        to="users.User",
         related_name="invitations",
         on_delete=models.PROTECT,
         blank=True,
         null=True,
+        help_text=_(
+            "The user this invitation is for.  Used if a user requested an "
+            "invitation directly as opposed to an admin inviting them via email."
+        ),
     )
     request = models.BooleanField(
         _("request"),
@@ -549,10 +658,27 @@ class Invitation(models.Model):
         "to the user from an admin?",
         default=False,
     )
-    created_at = AutoCreatedField(_("created at"))
-    # NULL accepted_at signifies it has not been accepted yet
-    accepted_at = models.DateTimeField(_("accepted at"), blank=True, null=True)
-    rejected_at = models.DateTimeField(_("rejected at"), blank=True, null=True)
+    created_at = AutoCreatedField(
+        _("created at"), help_text=_("When this invitation was created")
+    )
+    accepted_at = models.DateTimeField(
+        _("accepted at"),
+        blank=True,
+        null=True,
+        help_text=_(
+            "When this invitation was accepted.  NULL signifies it has not been "
+            "accepted yet"
+        ),
+    )
+    rejected_at = models.DateTimeField(
+        _("rejected at"),
+        blank=True,
+        null=True,
+        help_text=_(
+            "When this invitation was rejected.  NULL signifies it has not been "
+            "rejected yet"
+        ),
+    )
 
     class Meta:
         ordering = ("created_at",)
@@ -603,12 +729,20 @@ class ReceiptEmail(models.Model):
     """An email address to send receipts to"""
 
     organization = models.ForeignKey(
-        "organizations.Organization",
+        verbose_name=_("organization"),
+        to="organizations.Organization",
         related_name="receipt_emails",
         on_delete=models.CASCADE,
+        help_text=_("The organization this receipt email corresponds to"),
     )
-    email = CIEmailField(_("email"))
-    failed = models.BooleanField(_("failed"), default=False)
+    email = CIEmailField(
+        _("email"), help_text=_("The email address to send the receipt to")
+    )
+    failed = models.BooleanField(
+        _("failed"),
+        default=False,
+        help_text=_("Has sending to this email address failed?"),
+    )
 
     class Meta:
         unique_together = ("organization", "email")
@@ -627,13 +761,27 @@ class Charge(models.Model):
         _("fee amount"), default=0, help_text=_("Fee percantage")
     )
     organization = models.ForeignKey(
-        "organizations.Organization", related_name="charges", on_delete=models.PROTECT
+        verbose_name=_("organization"),
+        to="organizations.Organization",
+        related_name="charges",
+        on_delete=models.PROTECT,
+        help_text=_("The organization charged"),
     )
-    created_at = models.DateTimeField(_("created at"))
-    charge_id = models.CharField(_("charge_id"), max_length=255, unique=True)
+    created_at = models.DateTimeField(
+        _("created at"), help_text=_("When the charge was created")
+    )
+    charge_id = models.CharField(
+        _("charge_id"),
+        max_length=255,
+        unique=True,
+        help_text=_("The strip ID for the charge"),
+    )
 
-    # type & quantity ??
-    description = models.CharField(_("description"), max_length=255)
+    description = models.CharField(
+        _("description"),
+        max_length=255,
+        help_text=_("A description of what the charge was for"),
+    )
 
     class Meta:
         ordering = ("-created_at",)
@@ -686,48 +834,76 @@ class OrganizationChangeLog(models.Model):
     UPDATED = 1
     FAILED = 2
 
-    created_at = AutoCreatedField(_("created at"))
+    created_at = AutoCreatedField(
+        _("created at"), help_text=_("When the organization was changed")
+    )
 
     organization = models.ForeignKey(
-        "organizations.Organization",
+        verbose_name=_("organization"),
+        to="organizations.Organization",
         on_delete=models.CASCADE,
         related_name="change_logs",
+        help_text=_("The organization which changed"),
     )
     user = models.ForeignKey(
-        "users.User",
+        verbose_name=_("user"),
+        to="users.User",
         related_name="change_logs",
         on_delete=models.PROTECT,
         blank=True,
         null=True,
+        help_text=_("The user who changed the organization"),
     )
     reason = models.PositiveSmallIntegerField(
+        _("reason"),
         choices=(
             (CREATED, _("Created")),
             (UPDATED, _("Updated")),
             (FAILED, _("Payment failed")),
-        )
+        ),
+        help_text=_("Which category of change occurred"),
     )
 
     from_plan = models.ForeignKey(
-        "organizations.Plan",
+        verbose_name=_("from plan"),
+        to="organizations.Plan",
         on_delete=models.PROTECT,
         related_name="+",
         blank=True,
         null=True,
+        help_text=_("The organization's plan before the change occurred"),
     )
     from_next_plan = models.ForeignKey(
-        "organizations.Plan",
+        verbose_name=_("from next plan"),
+        to="organizations.Plan",
         on_delete=models.PROTECT,
         related_name="+",
         blank=True,
         null=True,
+        help_text=_("The organization's next_plan before the change occurred"),
     )
-    from_max_users = models.IntegerField(_("maximum users"), blank=True, null=True)
+    from_max_users = models.IntegerField(
+        _("maximum users"),
+        blank=True,
+        null=True,
+        help_text=_("The organization's max_users before the change occurred"),
+    )
 
     to_plan = models.ForeignKey(
-        "organizations.Plan", on_delete=models.PROTECT, related_name="+"
+        verbose_name=_("to plan"),
+        to="organizations.Plan",
+        on_delete=models.PROTECT,
+        related_name="+",
+        help_text=_("The organization's plan after the change occurred"),
     )
     to_next_plan = models.ForeignKey(
-        "organizations.Plan", on_delete=models.PROTECT, related_name="+"
+        verbose_name=_("to next plan"),
+        to="organizations.Plan",
+        on_delete=models.PROTECT,
+        related_name="+",
+        help_text=_("The organization's plan after the change occurred"),
     )
-    to_max_users = models.IntegerField(_("maximum users"))
+    to_max_users = models.IntegerField(
+        _("maximum users"),
+        help_text=_("The organization's max_users after the change occurred"),
+    )

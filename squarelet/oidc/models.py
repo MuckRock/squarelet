@@ -2,6 +2,7 @@
 
 # Django
 from django.db import models
+from django.utils.translation import ugettext_lazy as _
 
 # Standard Library
 import hashlib
@@ -15,8 +16,17 @@ import requests
 class ClientProfile(models.Model):
     """Extra information for OIDC clients"""
 
-    client = models.OneToOneField("oidc_provider.Client", on_delete=models.CASCADE)
-    webhook_url = models.URLField(blank=True)
+    client = models.OneToOneField(
+        verbose_name=_("client"),
+        to="oidc_provider.Client",
+        on_delete=models.CASCADE,
+        help_text=_("OIDC provider client this profile provides extra data for"),
+    )
+    webhook_url = models.URLField(
+        _("webhook URL"),
+        blank=True,
+        help_text=_("URL to send webhook notifications to for this client"),
+    )
 
     def __str__(self):
         return str(self.client)

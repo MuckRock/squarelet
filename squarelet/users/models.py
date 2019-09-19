@@ -40,21 +40,26 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         groups (ManyToManyField): groups the user are in - they will receive
             permissions from their groups
         user_permissions (ManyToManyField): permissions for this user
-
-        # defined here
-        name (CharField): full name for the user
-        username (CharField): a unique name for each user
-        is_staff (BooleanField):
     """
 
     individual_organization = models.OneToOneField(
-        "organizations.Organization",
+        verbose_name=_("individual organization"),
+        to="organizations.Organization",
         on_delete=models.PROTECT,
         editable=False,
         to_field="uuid",
+        help_text=_(
+            "This is both the UUID for the user, as well as a foreign key to the "
+            "corresponding individual organization, which has the same UUID. "
+            "This is used to uniquely identify the user across services."
+        ),
     )
-    name = models.CharField(_("name of user"), max_length=255)
-    email = CIEmailField(_("email"), unique=True, null=True)
+    name = models.CharField(
+        _("name of user"), max_length=255, help_text=_("The user's full name")
+    )
+    email = CIEmailField(
+        _("email"), unique=True, null=True, help_text=_("The user's email address")
+    )
     username = CICharField(
         _("username"),
         max_length=150,
@@ -66,7 +71,13 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         validators=[UsernameValidator()],
         error_messages={"unqiue": _("A user with that username already exists.")},
     )
-    avatar = ImageField(_("avatar"), upload_to="avatars", blank=True, max_length=255)
+    avatar = ImageField(
+        _("avatar"),
+        upload_to="avatars",
+        blank=True,
+        max_length=255,
+        help_text=_("An image to represent the user"),
+    )
     can_change_username = models.BooleanField(
         _("can change username"),
         default=True,
@@ -96,6 +107,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         ),
     )
     source = models.CharField(
+        _("source"),
         max_length=11,
         choices=(
             ("muckrock", _("MuckRock")),
@@ -105,6 +117,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
             ("squarelet", _("Squarelet")),
         ),
         default="squarelet",
+        help_text=_("Which service did this user originally sign up for?"),
     )
     email_failed = models.BooleanField(
         _("email failed"),
@@ -112,8 +125,12 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         help_text=_("Has an email we sent to this user's email address failed?"),
     )
 
-    created_at = AutoCreatedField(_("created at"))
-    updated_at = AutoLastModifiedField(_("updated at"))
+    created_at = AutoCreatedField(
+        _("created at"), help_text=_("When this user was created")
+    )
+    updated_at = AutoLastModifiedField(
+        _("updated at"), help_text=_("When this user was last updated")
+    )
 
     # preferences
     use_autologin = models.BooleanField(
