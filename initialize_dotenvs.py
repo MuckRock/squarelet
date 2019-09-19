@@ -29,10 +29,21 @@ CONFIG = [
             },
             {
                 "name": "Redis",
+                "description": "Redis is used as a celery broker and as a cache backend",
                 "envvars": [("REDIS_URL", "redis://squarelet_redis:6379/0")],
             },
-            {"name": "Mailgun", "envvars": [("MAILGUN_ACCESS_KEY", "")]},
-            {"name": "Mixpanel", "envvars": [("MIXPANEL_TOKEN", "")]},
+            {
+                "name": "Mailgun",
+                "url": "https://www.mailgun.com",
+                "description": "Mailgun is used for sending mail",
+                "envvars": [("MAILGUN_ACCESS_KEY", "")],
+            },
+            {
+                "name": "Mixpanel",
+                "url": "https://mixpanel.com",
+                "description": "Mixpanel is used for analytics",
+                "envvars": [("MIXPANEL_TOKEN", "")],
+            },
             {
                 "name": "Stripe",
                 "url": "https://stripe.com",
