@@ -22,8 +22,8 @@ def mixpanel(request):
     Retrieve and delete any mixpanel analytics session data and send it to the template
     """
     return {
-        "mp_events": SimpleLazyObject(lambda _: request.session.pop("mp_events", [])),
-        "mp_alias": SimpleLazyObject(lambda _: request.session.pop("mp_alias", False)),
-        "mp_charge": SimpleLazyObject(lambda _: request.session.pop("mp_charge", 0)),
+        "mp_events": SimpleLazyObject(lambda: request.session.pop("mp_events", [])),
+        "mp_alias": SimpleLazyObject(lambda: request.session.pop("mp_alias", False)),
+        "mp_charge": SimpleLazyObject(lambda: request.session.pop("mp_charge", 0)),
         "mp_token": django_settings.MIXPANEL_TOKEN,
     }
