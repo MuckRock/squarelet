@@ -1,6 +1,3 @@
-# Django
-from django.utils.safestring import mark_safe
-
 # Standard Library
 import json
 
