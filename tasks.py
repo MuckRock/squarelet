@@ -111,6 +111,12 @@ def format(c):
 
 
 @task
+def up(c):
+    """Start the docker images"""
+    c.run("docker-compose up -d")
+
+
+@task
 def runserver(c):
     """Run the development server"""
     c.run(
@@ -210,8 +216,7 @@ def pip_compile(c, upgrade=False, package=None):
         upgrade_flag = ""
     c.run(
         DJANGO_RUN_USER.format(
-            cmd=
-            'sh -c "'
+            cmd='sh -c "'
             f"pip-compile {upgrade_flag} requirements/base.in && "
             f"pip-compile {upgrade_flag} requirements/local.in && "
             f"pip-compile {upgrade_flag} requirements/production.in"

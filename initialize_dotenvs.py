@@ -75,7 +75,9 @@ CONFIG = [
 
 
 def main():
+    print("Initializing the dot env environment for Squarelet development")
     os.makedirs(".envs/.local/", 0o775)
+    print("Created the directories")
     for file_config in CONFIG:
         with open(".envs/.local/{}".format(file_config["name"]), "w") as file_:
             for section in file_config["sections"]:
@@ -88,6 +90,8 @@ def main():
                         "{}={}\n".format(var, value() if callable(value) else value)
                     )
                 file_.write("\n")
+        print("Created file .envs/.local/{}".format(file_config["name"]))
+    print("Initialization Complete")
 
 
 if __name__ == "__main__":
