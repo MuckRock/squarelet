@@ -239,7 +239,7 @@ MIXPANEL_CUSTOM_LIB_URL:"file:"===c.location.protocol&&"//cdn4.mxpnl.com/libs/mi
       {% if request.user.is_authenticated %}
         mixpanel.identify("{{ request.user.uuid }}");
         {% for event, props in mp_events %}
-          mixpanel.track("{{ event }}", {{ props }});
+          mixpanel.track("{{ event }}", {{ props|safe }});
           {% if event == "Request Submitted" %}
             mixpanel.people.increment("Requests Filed");
           {% endif %}

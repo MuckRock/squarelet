@@ -12,9 +12,9 @@ def mixpanel_event(request, event, props=None, **kwargs):
     if props is None:
         props = {}
     if "mp_events" in request.session:
-        request.session["mp_events"].append((event, mark_safe(json.dumps(props))))
+        request.session["mp_events"].append((event, json.dumps(props)))
     else:
-        request.session["mp_events"] = [(event, mark_safe(json.dumps(props)))]
+        request.session["mp_events"] = [(event, json.dumps(props))]
     if kwargs.get("signup"):
         request.session["mp_alias"] = True
     if kwargs.get("charge"):
