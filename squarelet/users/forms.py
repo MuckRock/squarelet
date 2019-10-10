@@ -80,7 +80,7 @@ class SignupForm(allauth.SignupForm, StripeForm):
             email=self.cleaned_data.get("email"),
             password=self.cleaned_data.get("password1"),
             name=self.cleaned_data.get("name"),
-            source=request.GET.get("intent", "squarelet").lower().strip(),
+            source=request.GET.get("intent", "squarelet").lower().strip()[:11],
         )
         setup_user_email(request, user, [])
         mixpanel_event(
