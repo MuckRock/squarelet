@@ -17,10 +17,11 @@ botocore==1.12.32         # via boto3, s3transfer
 bz2file==0.98             # via smart-open
 celery==4.2.0
 certifi==2018.4.16        # via requests
-cffi==1.11.5              # via argon2-cffi, bcrypt
+cffi==1.11.5              # via argon2-cffi, bcrypt, cryptography
 chardet==3.0.4            # via requests
 coreapi==2.3.3
 coreschema==0.0.4         # via coreapi
+cryptography==2.8
 cssselect==1.0.3          # via premailer
 cssutils==1.0.2           # via premailer
 decorator==4.3.2          # via ipython, traitlets
@@ -47,6 +48,7 @@ django-reversion==3.0.3
 django-sesame==1.5
 django-storages[boto3]==1.7.1
 django==2.1.7
+djangorestframework-simplejwt==4.3.0
 djangorestframework==3.9.2
 docutils==0.14            # via botocore
 dogslow==1.2
@@ -80,7 +82,7 @@ pycparser==2.18           # via cffi
 pycryptodomex==3.6.4      # via pyjwkest
 pygments==2.3.1           # via ipython
 pyjwkest==1.4.0           # via django-oidc-provider
-pyjwt==1.7.1              # via django-request-token
+pyjwt==1.7.1              # via django-request-token, djangorestframework-simplejwt
 python-dateutil==2.7.4    # via botocore
 python-slugify==1.2.5
 python3-openid==3.1.0     # via django-allauth
@@ -92,7 +94,7 @@ requests-oauthlib==1.0.0  # via django-allauth
 requests==2.21.0          # via coreapi, django-allauth, premailer, pyjwkest, requests-oauthlib, smart-open, stripe
 rjsmin==1.0.12            # via django-compressor
 s3transfer==0.1.13        # via boto3
-six==1.11.0               # via argon2-cffi, bcrypt, django-compat, django-environ, django-extensions, furl, orderedmultidict, prompt-toolkit, pyjwkest, python-dateutil, traitlets
+six==1.11.0               # via argon2-cffi, bcrypt, cryptography, django-compat, django-environ, django-extensions, furl, orderedmultidict, prompt-toolkit, pyjwkest, python-dateutil, traitlets
 smart-open==1.7.1
 sorl-thumbnail==12.5.0
 sqlparse==0.2.4           # via django-debug-toolbar, django-request-token

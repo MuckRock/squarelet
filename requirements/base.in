@@ -3,6 +3,7 @@ argon2-cffi
 bcrypt
 celery<5.0
 coreapi
+cryptography
 django-allauth
 django-autocomplete-light
 django-autoslug-iplweb
@@ -24,6 +25,7 @@ django-sesame
 django-storages[boto3]
 django<2.2
 djangorestframework
+djangorestframework_simplejwt
 dogslow
 furl
 html2text

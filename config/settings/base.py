@@ -85,7 +85,7 @@ LOCAL_APPS = [
     "squarelet.oidc",
     "squarelet.organizations",
     "squarelet.statistics",
-    "squarelet.users",
+    "squarelet.users.apps.UsersConfig",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -366,3 +366,18 @@ FORM_RENDERER = "django.forms.renderers.TemplatesSetting"
 # mixpanel
 # ------------------------------------------------------------------------------
 MIXPANEL_TOKEN = env("MIXPANEL_TOKEN")
+
+# simplejwt
+# ------------------------------------------------------------------------------
+
+SIMPLE_JWT = {
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": False,
+    "ALGORITHM": "RS256",
+    "AUDIENCE": ["squarelet", "muckrock", "documentcloud"],
+    "ISSUER": ["squarelet"],
+    "USER_ID_FIELD": "uuid",
+    # These are set in `users/apps.py` as they need to fetch from the database
+    "SIGNING_KEY": "",
+    "VERIFYING_KEY": "",
+}
