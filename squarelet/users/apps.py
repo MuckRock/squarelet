@@ -11,7 +11,7 @@ class UsersConfig(AppConfig):
     verbose_name = "Users"
 
     def ready(self):
-        # pylint: disable=unused-import
+        # pylint: disable=unused-variable, unused-import
         from . import signals
         from django.conf import settings
         from oidc_provider.models import RSAKey
