@@ -9,6 +9,7 @@ from django.views.generic import TemplateView
 
 # Third Party
 from rest_framework import routers
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 # Squarelet
 from squarelet.core.views import HomeView
@@ -41,6 +42,8 @@ urlpatterns = [
     url("accounts/login/$", LoginView.as_view(), name="account_login"),
     path("accounts/", include("allauth.urls")),
     path("api/", include(router.urls)),
+    path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("api/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("openid/", include("oidc_provider.urls", namespace="oidc_provider")),
     path("hijack/", include("hijack.urls", namespace="hijack")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
