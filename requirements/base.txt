@@ -102,6 +102,6 @@ stripe==2.10.1
 traitlets==4.3.2          # via ipython
 unidecode==1.0.22         # via python-slugify
 uritemplate==3.0.0        # via coreapi
-urllib3==1.23             # via botocore, requests
+urllib3==1.24.2             # via botocore, requests
 vine==1.1.4               # via amqp
 wcwidth==0.1.7            # via prompt-toolkit
