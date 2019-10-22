@@ -4,7 +4,7 @@
 
 {% block body %}
   {% url "organizations:manage-members" slug=organization.slug as url_members %}
-  {% autologin url_org user as url_members_ %}
+  {% autologin url_members user as url_members_ %}
   {% autologin joiner.get_absolute_url user as url_joiner_ %}
   {% autologin organization.get_absolute_url user as url_org_ %}
   {% blocktrans with name=joiner.name username=joiner.username email=joiner.email %}
