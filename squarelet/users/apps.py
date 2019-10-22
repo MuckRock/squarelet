@@ -18,10 +18,11 @@ class UsersConfig(AppConfig):
 
         try:
             rsakey = RSAKey.objects.first()
-            settings.SIMPLE_JWT["SIGNING_KEY"] = rsakey.key
-            settings.SIMPLE_JWT["VERIFYING_KEY"] = (
-                RSA.import_key(rsakey.key).publickey().export_key()
-            )
+            if rsakey:
+                settings.SIMPLE_JWT["SIGNING_KEY"] = rsakey.key
+                settings.SIMPLE_JWT["VERIFYING_KEY"] = (
+                    RSA.import_key(rsakey.key).publickey().export_key()
+                )
         except ProgrammingError:
             # skip if RSA Key is not found for some reason
             pass
