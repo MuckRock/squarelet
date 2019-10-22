@@ -15,6 +15,7 @@ django-email-bandit
 django-environ
 django-extensions
 django-hijack
+django-hosts
 django-model-utils
 django-oidc-provider
 django-premailer

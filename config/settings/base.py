@@ -46,7 +46,7 @@ DATABASES["default"]["ATOMIC_REQUESTS"] = True
 # URLS
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#root-urlconf
-ROOT_URLCONF = "config.urls"
+ROOT_URLCONF = "config.squarelet_urls"
 # https://docs.djangoproject.com/en/dev/ref/settings/#wsgi-application
 WSGI_APPLICATION = "config.wsgi.application"
 
@@ -73,6 +73,7 @@ THIRD_PARTY_APPS = [
     "dal_select2",
     "debug_toolbar",
     "django_extensions",
+    "django_hosts",
     "django_premailer",
     "hijack",
     "oidc_provider",
@@ -132,6 +133,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#middleware
 MIDDLEWARE = [
+    "django_hosts.middleware.HostsRequestMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "dogslow.WatchdogMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -145,6 +147,7 @@ MIDDLEWARE = [
     "squarelet.oidc.middleware.CacheInvalidationSenderMiddleware",
     "debug_toolbar.middleware.DebugToolbarMiddleware",
     "reversion.middleware.RevisionMiddleware",
+    "django_hosts.middleware.HostsResponseMiddleware",
 ]
 
 # STATIC
@@ -313,6 +316,7 @@ REST_FRAMEWORK = {
 # first party urls
 # ------------------------------------------------------------------------------
 SQUARELET_URL = env("SQUARELET_URL", default="http://dev.squarelet.com")
+PRESSPASS_URL = env("PRESSPASS_URL", default="http://dev.presspass.com")
 MUCKROCK_URL = env("MUCKROCK_URL", default="http://dev.muckrock.com")
 FOIAMACHINE_URL = env("FOIAMACHINE_URL", default="http://dev.foiamachine.org")
 DOCCLOUD_URL = env("DOCCLOUD_URL", default="http://dev.documentcloud.org")
@@ -381,3 +385,8 @@ SIMPLE_JWT = {
     "SIGNING_KEY": "",
     "VERIFYING_KEY": "",
 }
+
+# django hosts
+# ------------------------------------------------------------------------------
+ROOT_HOSTCONF = "config.hosts"
+DEFAULT_HOST = "squarelet"
