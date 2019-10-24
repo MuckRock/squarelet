@@ -37,6 +37,7 @@ pytz
 raven
 rcssmin
 redis
+rules
 smart_open
 sorl-thumbnail
 stripe
