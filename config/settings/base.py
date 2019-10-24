@@ -78,6 +78,7 @@ THIRD_PARTY_APPS = [
     "oidc_provider",
     "rest_framework",
     "reversion",
+    "rules.apps.AutodiscoverRulesConfig",
     "sorl.thumbnail",
 ]
 LOCAL_APPS = [
@@ -94,6 +95,7 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#authentication-backends
 AUTHENTICATION_BACKENDS = [
+    "rules.permissions.ObjectPermissionBackend",
     "django.contrib.auth.backends.ModelBackend",
     "allauth.account.auth_backends.AuthenticationBackend",
     "sesame.backends.ModelBackend",
