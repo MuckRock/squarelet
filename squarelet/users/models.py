@@ -16,11 +16,16 @@ from sorl.thumbnail import ImageField
 # Squarelet
 from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
 from squarelet.core.mixins import AvatarMixin
+from squarelet.core.utils import file_path
 from squarelet.oidc.middleware import send_cache_invalidations
 
 # Local
 from .managers import UserManager
 from .validators import UsernameValidator
+
+
+def user_file_path(instance, filename):
+    return file_path("avatars", instance, filename)
 
 
 class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
@@ -73,7 +78,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
     )
     avatar = ImageField(
         _("avatar"),
-        upload_to="avatars",
+        upload_to=user_file_path,
         blank=True,
         max_length=255,
         help_text=_("An image to represent the user"),
