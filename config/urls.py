@@ -41,6 +41,7 @@ urlpatterns = [
     url("accounts/login/$", LoginView.as_view(), name="account_login"),
     path("accounts/", include("allauth.urls")),
     path("api/", include(router.urls)),
+    path("csrf/", include("squarelet.csrf.urls")),
     path("openid/", include("oidc_provider.urls", namespace="oidc_provider")),
     path("hijack/", include("hijack.urls", namespace="hijack")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
