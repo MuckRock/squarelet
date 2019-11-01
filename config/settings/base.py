@@ -79,7 +79,7 @@ THIRD_PARTY_APPS = [
     "rest_framework",
     "reversion",
     "sorl.thumbnail",
-    "corsheaders"
+    "corsheaders",
 ]
 LOCAL_APPS = [
     "squarelet.core",
