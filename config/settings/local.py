@@ -50,3 +50,21 @@ DEBUG_TOOLBAR_CONFIG = {
 CELERY_ALWAYS_EAGER = False
 # Your stuff...
 # ------------------------------------------------------------------------------
+
+CORS_ORIGIN_WHITELIST = [
+    "http://dev.squarelet.com",
+    "http://localhost:3000",
+    "http://localhost:4200",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:4200",
+]
+
+CORS_ALLOW_CREDENTIALS = True
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://dev.squarelet.com",
+    "http://localhost:3000",
+    "http://localhost:4200",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:4200",
+]

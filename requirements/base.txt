@@ -33,6 +33,7 @@ django-autoslug-iplweb==1.9.4
 django-choices==1.6.1
 django-compat==1.0.15     # via django-hijack
 django-compressor==2.2
+django-cors-headers==3.1.1
 django-crispy-forms==1.7.2
 django-debug-toolbar==1.11
 django-email-bandit==1.5
