@@ -1,6 +1,4 @@
 # Django
-# Third Party
-# Third Party
 from django import forms
 from django.core.validators import validate_email
 from django.utils.translation import ugettext_lazy as _
