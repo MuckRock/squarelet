@@ -68,3 +68,6 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:3000",
     "http://127.0.0.1:4200",
 ]
+
+CSRF_COOKIE_SAMESITE = None # Necessary for debugging
+SESSION_COOKIE_SAMESITE = None # Necessary for debugging
