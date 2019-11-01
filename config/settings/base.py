@@ -81,7 +81,7 @@ THIRD_PARTY_APPS = [
     "reversion",
     "rules.apps.AutodiscoverRulesConfig",
     "sorl.thumbnail",
-    "corsheaders"
+    "corsheaders",
 ]
 LOCAL_APPS = [
     "squarelet.core",
