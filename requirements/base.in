@@ -20,6 +20,7 @@ django-oidc-provider
 django-premailer
 django-redis
 django-request-token
+django-rest-auth
 django-reversion
 django-sesame
 django-storages[boto3]
