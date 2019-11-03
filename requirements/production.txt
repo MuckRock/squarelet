@@ -7,6 +7,7 @@
 --no-binary psycopg2
 
 amqp==2.3.2
+appnope==0.1.0
 argon2-cffi==18.1.0
 backcall==0.1.0
 bcrypt==3.1.4
@@ -36,6 +37,7 @@ django-celery-email==2.0.1
 django-choices==1.6.1
 django-compat==1.0.15
 django-compressor==2.2
+django-cors-headers==3.1.1
 django-crispy-forms==1.7.2
 django-debug-toolbar==1.11
 django-email-bandit==1.5
@@ -47,6 +49,7 @@ django-oidc-provider==0.7.0
 django-premailer==0.2.0
 django-redis==4.9.0
 django-request-token==0.9.2
+django-rest-auth==0.9.5
 django-reversion==3.0.3
 django-sesame==1.5
 django-storages[boto3]==1.7.1
@@ -117,3 +120,6 @@ uritemplate==3.0.0
 urllib3==1.23
 vine==1.1.4
 wcwidth==0.1.7
+
+# The following packages are considered to be unsafe in a requirements file:
+# setuptools==41.6.0        # via ipdb, ipython
