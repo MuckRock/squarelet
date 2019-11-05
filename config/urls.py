@@ -41,7 +41,7 @@ urlpatterns = [
     url("accounts/login/$", LoginView.as_view(), name="account_login"),
     path("accounts/", include("allauth.urls")),
     path("api/", include(router.urls)),
-    path("csrf/", include("squarelet.csrf.urls")),
+    path("authstatus/", include("squarelet.authstatus.urls")),
     path("openid/", include("oidc_provider.urls", namespace="oidc_provider")),
     path("hijack/", include("hijack.urls", namespace="hijack")),
     path("rest-auth/", include("rest_auth.urls")),
