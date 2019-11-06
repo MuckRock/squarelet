@@ -52,7 +52,7 @@ CELERY_ALWAYS_EAGER = False
 # ------------------------------------------------------------------------------
 
 CORS_ORIGIN_WHITELIST = [
-    "http://dev.squarelet.com",
+    "http://api.dev.presspass.com",
     "http://localhost:3000",
     "http://localhost:4200",
     "http://127.0.0.1:3000",
@@ -62,7 +62,7 @@ CORS_ORIGIN_WHITELIST = [
 CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = [
-    "http://dev.squarelet.com",
+    "http://api.dev.presspass.com",
     "http://localhost:3000",
     "http://localhost:4200",
     "http://127.0.0.1:3000",
