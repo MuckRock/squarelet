@@ -23,6 +23,7 @@ chardet==3.0.4
 collectfast==0.6.2
 coreapi==2.3.3
 coreschema==0.0.4
+cryptography==2.8
 cssselect==1.0.3
 cssutils==1.0.2
 decorator==4.3.2
@@ -53,6 +54,7 @@ django-reversion==3.0.3
 django-sesame==1.5
 django-storages[boto3]==1.7.1
 django==2.1.7
+djangorestframework-simplejwt==4.3.0
 djangorestframework==3.9.2
 docutils==0.14
 dogslow==1.2
@@ -98,6 +100,7 @@ redis==2.10.6
 requests-oauthlib==1.0.0
 requests==2.21.0
 rjsmin==1.0.12
+rules==2.1
 s3transfer==0.1.13
 six==1.11.0
 smart-open==1.7.1

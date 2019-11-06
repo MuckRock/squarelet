@@ -23,6 +23,7 @@ from sorl.thumbnail import ImageField
 from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
 from squarelet.core.mail import ORG_TO_RECEIPTS, send_mail
 from squarelet.core.mixins import AvatarMixin
+from squarelet.core.utils import file_path
 from squarelet.oidc.middleware import send_cache_invalidations
 
 # Local
@@ -39,6 +40,10 @@ stripe.api_version = "2018-09-24"
 DEFAULT_AVATAR = static("images/avatars/organization.png")
 
 logger = logging.getLogger(__name__)
+
+
+def organization_file_path(instance, filename):
+    return file_path("org_avatars", instance, filename)
 
 
 class Organization(AvatarMixin, models.Model):
@@ -72,7 +77,7 @@ class Organization(AvatarMixin, models.Model):
 
     avatar = ImageField(
         _("avatar"),
-        upload_to="org_avatars",
+        upload_to=organization_file_path,
         blank=True,
         help_text=_("An image to represent the organization"),
     )

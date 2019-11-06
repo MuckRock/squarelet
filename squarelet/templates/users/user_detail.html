@@ -25,7 +25,11 @@
               </div>
             </div>
           </div>
-          <a href="{% url "users:update" %}"><div class="_cls-action">{% trans 'Edit profile' %}</div></a>
+          {% if user == request.user %}
+            <a href="{% url "users:update" %}">
+              <div class="_cls-action">{% trans 'Edit profile' %}</div>
+            </a>
+          {% endif %}
         </div>
         <div class="_cls-organizationSection">
           <div class="_cls-mediumHeader">{% trans 'Organizations' %}</div>
@@ -55,29 +59,46 @@
         </div>
       </div>
       <div class="_cls-planColumn">
-        <div class="_cls-currentPlan">
-          <div class="_cls-planInfo">{% trans 'Current plan: ' %}<b>{{ user.individual_organization.plan }}</b></div>
-          {% if user.individual_organization.plan != user.individual_organization.next_plan %}
-            <div class="_cls-pendingPlan">
-              {% blocktrans with update_on=user.individual_organization.update_on|date:"m/d/Y" %}
-                Pending Plan (on {{ update_on }}):
-              {% endblocktrans %}
-              <b>{{ user.individual_organization.next_plan.name }}</b>
+        {% if user == request.user %}
+          <div class="_cls-currentPlan">
+            <div class="_cls-planInfo">
+              {% trans 'Current plan: ' %}
+              <b>{{ user.individual_organization.plan }}</b>
             </div>
-          {% endif %}
-          {% if user.individual_organization.plan.free %}
-            <div class="_cls-actionSmall"><a href="{% url "users:payment" %}"><button>{% trans 'Upgrade' %}</button></a></div>
-          {% else %}
-            <p><a class="_cls-nostyle" href="{% url "users:payment" %}"><div class="_cls-action">{% trans 'Edit plans and payment' %}</div></a></p>
-          {% endif %}
-          <p><a class="_cls-nostyle" href="{% url "users:receipts" %}"><div class="_cls-action">{% trans 'View receipts' %}</div></a></p>
-          {% if request.user.is_staff and request.user != user %}
-            <form action="{% url "hijack:login_with_username" user.username %}" method="post" class="_cls-actionSmall">
-              {% csrf_token %}
-              <button type="submit">Hijack {{ user.username }}</button>
-            </form>
-          {% endif %}
-        </div>
+            {% if user.individual_organization.plan != user.individual_organization.next_plan %}
+              <div class="_cls-pendingPlan">
+                {% blocktrans with update_on=user.individual_organization.update_on|date:"m/d/Y" %}
+                  Pending Plan (on {{ update_on }}):
+                {% endblocktrans %}
+                <b>{{ user.individual_organization.next_plan.name }}</b>
+              </div>
+            {% endif %}
+            {% if user.individual_organization.plan.free %}
+              <div class="_cls-actionSmall">
+                <a href="{% url "users:payment" %}">
+                  <button>{% trans 'Upgrade' %}</button>
+                </a>
+              </div>
+            {% else %}
+              <p>
+                <a class="_cls-nostyle" href="{% url "users:payment" %}">
+                  <div class="_cls-action">{% trans 'Edit plans and payment' %}</div>
+                </a>
+              </p>
+            {% endif %}
+            <p>
+              <a class="_cls-nostyle" href="{% url "users:receipts" %}">
+                <div class="_cls-action">{% trans 'View receipts' %}</div>
+              </a>
+            </p>
+          </div>
+        {% endif %}
+        {% if request.user.is_staff and request.user != user %}
+          <form action="{% url "hijack:login_with_username" user.username %}" method="post" class="_cls-actionSmall">
+            {% csrf_token %}
+            <button type="submit">Hijack {{ user.username }}</button>
+          </form>
+        {% endif %}
         {% include "core/component/services.html" %}
       </div>
     </div>
