@@ -49,8 +49,8 @@ urlpatterns = [
     path("authstatus/", include("squarelet.authstatus.urls")),
     path("openid/", include("oidc_provider.urls", namespace="oidc_provider")),
     path("hijack/", include("hijack.urls", namespace="hijack")),
-    path("rest-auth/", include("rest_auth.urls")),
-    path("rest-auth/registration/", include("rest_auth.registration.urls")),
+    path("api/rest-auth/", include("rest_auth.urls")),
+    path("api/rest-auth/registration/", include("rest_auth.registration.urls")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:
