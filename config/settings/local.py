@@ -52,7 +52,7 @@ CELERY_ALWAYS_EAGER = False
 # ------------------------------------------------------------------------------
 
 CORS_ORIGIN_WHITELIST = [
-    "http://api.dev.presspass.com",
+    "http://dev.presspass.com:3000",
     "http://localhost:3000",
     "http://localhost:4200",
     "http://127.0.0.1:3000",
@@ -62,9 +62,16 @@ CORS_ORIGIN_WHITELIST = [
 CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = [
-    "http://api.dev.presspass.com",
+    "http://dev.presspass.com:3000",
     "http://localhost:3000",
     "http://localhost:4200",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:4200",
 ]
+
+# Important: for development only
+# Allows for csrf cookie to be embedded in POST request headers
+# This potentially will be necessary in prod as well
+# Note that Django says that this is NOT a security vulnerability,
+# and setting this to True would not have any meaningful security benefit.
+CSRF_COOKIE_HTTPONLY = False
