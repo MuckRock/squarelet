@@ -83,7 +83,7 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     "squarelet.core",
     "squarelet.oidc",
-    "squarelet.organizations",
+    "squarelet.organizations.apps,OrganizationsConfig",
     "squarelet.statistics",
     "squarelet.users.apps.UsersConfig",
 ]
