@@ -280,6 +280,7 @@ class TestOrganization:
     def test_create_subscription(
         self, organization_factory, organization_plan_factory, mocker
     ):
+        mocker.patch("stripe.Plan.create")
         organization = organization_factory()
         organization_plan = organization_plan_factory()
         mocked = mocker.patch("squarelet.organizations.models.Organization.customer")
@@ -502,7 +503,9 @@ class TestInvitation:
 
     @pytest.mark.freeze_time
     @pytest.mark.django_db()
-    def test_accept_with_user(self, invitation, user_factory):
+    def test_accept_with_user(self, invitation_factory, user_factory, mocker):
+        mocker.patch("stripe.Plan.create")
+        invitation = invitation_factory()
         invitation.user = user_factory()
         assert not invitation.organization.has_member(invitation.user)
         invitation.accept()
@@ -511,7 +514,9 @@ class TestInvitation:
 
     @pytest.mark.freeze_time
     @pytest.mark.django_db()
-    def test_accept_without_user(self, invitation, user_factory):
+    def test_accept_without_user(self, invitation_factory, user_factory, mocker):
+        mocker.patch("stripe.Plan.create")
+        invitation = invitation_factory()
         user = user_factory()
         assert invitation.user is None
         invitation.accept(user)
@@ -520,14 +525,16 @@ class TestInvitation:
         assert invitation.accepted_at == timezone.now()
 
     @pytest.mark.django_db()
-    def test_accept_missing_user(self, invitation_factory):
+    def test_accept_missing_user(self, invitation_factory, mocker):
+        mocker.patch("stripe.Plan.create")
         invitation = invitation_factory.build()
         assert invitation.user is None
         with pytest.raises(ValueError):
             invitation.accept()
 
     @pytest.mark.django_db()
-    def test_accept_closed(self, invitation_factory, user_factory):
+    def test_accept_closed(self, invitation_factory, user_factory, mocker):
+        mocker.patch("stripe.Plan.create")
         user = user_factory.build()
         invitation = invitation_factory.build(accepted_at=timezone.now())
         with pytest.raises(ValueError):
@@ -535,7 +542,11 @@ class TestInvitation:
 
     @pytest.mark.freeze_time
     @pytest.mark.django_db()
-    def test_accept_duplicate(self, invitation, user_factory, membership_factory):
+    def test_accept_duplicate(
+        self, invitation_factory, user_factory, membership_factory, mocker
+    ):
+        mocker.patch("stripe.Plan.create")
+        invitation = invitation_factory()
         invitation.user = user_factory()
         membership_factory(organization=invitation.organization, user=invitation.user)
         assert invitation.organization.has_member(invitation.user)
@@ -545,7 +556,9 @@ class TestInvitation:
 
     @pytest.mark.freeze_time
     @pytest.mark.django_db()
-    def test_reject(self, invitation):
+    def test_reject(self, invitation_factory, mocker):
+        mocker.patch("stripe.Plan.create")
+        invitation = invitation_factory()
         invitation.reject()
         assert invitation.rejected_at == timezone.now()
 
