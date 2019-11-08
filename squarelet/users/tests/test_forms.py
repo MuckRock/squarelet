@@ -29,7 +29,8 @@ def test_clean_good(free_plan_factory):
 
 
 @pytest.mark.django_db
-def test_clean_bad_no_pay(professional_plan_factory):
+def test_clean_bad_no_pay(professional_plan_factory, mocker):
+    mocker.patch("stripe.Plan.create")
     professional_plan_factory()
     data = {
         "name": "john doe",
@@ -45,7 +46,8 @@ def test_clean_bad_no_pay(professional_plan_factory):
 
 
 @pytest.mark.django_db
-def test_clean_bad_no_org_name(organization_plan_factory):
+def test_clean_bad_no_org_name(organization_plan_factory, mocker):
+    mocker.patch("stripe.Plan.create")
     organization_plan_factory()
     data = {
         "name": "john doe",
