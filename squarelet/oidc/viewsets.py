@@ -23,8 +23,8 @@ class ClientViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         code_type, _created = ResponseType.objects.get_or_create(value="code")
         kwargs = {"owner": self.request.user, "response_types": [code_type]}
+        kwargs["client_id"] = str(randint(1, 999999)).zfill(6)
         if serializer.initial_data["client_type"] == "confidential":
-            kwargs["client_id"] = str(randint(1, 999999)).zfill(6)
             kwargs["client_secret"] = sha224(uuid4().hex.encode()).hexdigest()
         serializer.save(**kwargs)
 
