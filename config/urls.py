@@ -46,7 +46,7 @@ urlpatterns = [
     path("api/", include(router.urls)),
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
-    path("authstatus/", include("squarelet.authstatus.urls")),
+    path("api/authstatus/", include("squarelet.authstatus.urls")),
     path("openid/", include("oidc_provider.urls", namespace="oidc_provider")),
     path("hijack/", include("hijack.urls", namespace="hijack")),
     path("api/rest-auth/", include("rest_auth.urls")),
