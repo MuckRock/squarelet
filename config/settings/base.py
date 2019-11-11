@@ -390,3 +390,8 @@ SIMPLE_JWT = {
     "SIGNING_KEY": "",
     "VERIFYING_KEY": "",
 }
+
+# django-rest-auth
+# ------------------------------------------------------------------------------
+
+OLD_PASSWORD_FIELD_ENABLED = True
