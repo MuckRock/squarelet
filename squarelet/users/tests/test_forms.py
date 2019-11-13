@@ -5,10 +5,9 @@ from unittest.mock import MagicMock
 import pytest
 
 # Squarelet
+from squarelet.organizations.models import Organization
 from squarelet.users import forms
-
-# Local
-from ..models import User
+from squarelet.users.models import User
 
 # pylint: disable=invalid-name
 
@@ -82,6 +81,35 @@ def test_save(rf, free_plan_factory):
     assert User.objects.filter(
         username=data["username"], email=data["email"], name=data["name"]
     ).exists()
+
+
+@pytest.mark.django_db
+def test_save_org(rf, free_plan_factory, organization_plan_factory, mocker):
+    # pylint: disable=protected-access
+    mocker.patch("stripe.Plan.create")
+    mocker.patch("squarelet.organizations.models.Organization.set_subscription")
+    free_plan_factory()
+    organization_plan_factory()
+    data = {
+        "name": "john doe",
+        "username": "john",
+        "email": "doe@example.com",
+        "password1": "squarelet",
+        "stripe_pk": "key",
+        "stripe_token": "token",
+        "plan": "organization",
+        "organization_name": "my organization",
+    }
+    request = rf.post("/accounts/signup/", data)
+    request.session = {}  # MagicMock()
+    request._messages = MagicMock()
+    form = forms.SignupForm(data)
+    assert form.is_valid()
+    form.save(request)
+    assert User.objects.filter(
+        username=data["username"], email=data["email"], name=data["name"]
+    ).exists()
+    assert Organization.objects.filter(name=data["organization_name"]).exists()
 
 
 @pytest.mark.parametrize(
