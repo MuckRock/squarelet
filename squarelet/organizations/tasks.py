@@ -112,6 +112,9 @@ def handle_invoice_failed(invoice_data):
     try:
         organization = Organization.objects.get(customer_id=invoice_data["customer"])
     except Organization.DoesNotExist:
+        if invoice_data["lines"]["data"][0]["plan"]["id"] == "donate":
+            # donations are handled through muckrock - do not log an error
+            return
         logger.error(
             "Invoice failed (%s) for customer (%s) with no matching organization",
             invoice_data["id"],
