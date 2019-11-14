@@ -117,7 +117,7 @@ class SignupForm(allauth.SignupForm, StripeForm):
                     "Create Organization",
                     {
                         "Name": group_organization.name,
-                        "UUID": group_organization.uuid,
+                        "UUID": str(group_organization.uuid),
                         "Plan": group_organization.plan.name,
                         "Max Users": group_organization.max_users,
                         "Sign Up": True,

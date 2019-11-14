@@ -18,6 +18,7 @@ def test_restore_organization(
     organization_factory, free_plan_factory, organization_plan_factory, mocker
 ):
     patched = mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
+    mocker.patch("stripe.Plan.create")
     today = date.today()
     free_plan = free_plan_factory()
     organization_plan = organization_plan_factory()
