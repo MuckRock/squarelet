@@ -14,7 +14,7 @@ from crispy_forms.layout import Layout
 from squarelet.core.forms import StripeForm
 from squarelet.core.layout import Field
 from squarelet.core.utils import mixpanel_event
-from squarelet.organizations.models import Organization, Plan
+from squarelet.organizations.models import Plan
 from squarelet.users.models import User
 
 
