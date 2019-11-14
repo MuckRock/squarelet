@@ -3,10 +3,10 @@ from django.conf import settings
 from django.conf.urls import url
 from django.conf.urls.static import static
 from django.contrib import admin
+from django.http import HttpResponse
 from django.urls import include, path
 from django.views import defaults as default_views
 from django.views.generic import TemplateView
-from django.http import HttpResponse
 
 # Third Party
 from drf_yasg import openapi
@@ -29,6 +29,7 @@ from squarelet.organizations.viewsets import (
 )
 from squarelet.users.views import LoginView
 from squarelet.users.viewsets import (
+    PressPassRegisterView,
     PressPassUserViewSet,
     UrlAuthTokenViewSet,
     UserViewSet,
@@ -100,7 +101,7 @@ urlpatterns = [
     path("openid/", include("oidc_provider.urls", namespace="oidc_provider")),
     path("hijack/", include("hijack.urls", namespace="hijack")),
     path("api/rest-auth/", include("rest_auth.urls")),
-    path("api/rest-auth/registration/", include("rest_auth.registration.urls")),
+    path("api/register/", PressPassRegisterView.as_view(), name="presspass_register"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:

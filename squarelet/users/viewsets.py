@@ -1,4 +1,5 @@
 # Django
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db.models.query import Prefetch
 from django.http.response import Http404
@@ -9,10 +10,12 @@ from django.utils.translation import ugettext_lazy as _
 
 # Third Party
 import sesame.utils
+from allauth.account import app_settings as allauth_settings
 from allauth.account.models import EmailAddress, EmailConfirmationHMAC
-from allauth.account.utils import setup_user_email
+from allauth.account.utils import complete_signup, setup_user_email
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
+from rest_auth.registration.views import RegisterView
 from rest_framework import mixins, status, viewsets
 from rest_framework.permissions import DjangoObjectPermissions, IsAdminUser
 from rest_framework.response import Response
@@ -20,7 +23,7 @@ from rest_framework.response import Response
 # Squarelet
 from squarelet.core.mail import send_mail
 from squarelet.oidc.permissions import ScopePermission
-from squarelet.organizations.models import Membership
+from squarelet.organizations.models import Membership, Plan
 from squarelet.users.models import User
 from squarelet.users.serializers import (
     PressPassUserSerializer,
@@ -111,3 +114,28 @@ class PressPassUserViewSet(
             return self.request.user
         else:
             return super().get_object()
+
+
+class PressPassRegisterView(RegisterView):
+    def get_response_data(self, user):
+        if (
+            allauth_settings.EMAIL_VERIFICATION
+            == allauth_settings.EmailVerificationMethod.MANDATORY
+        ):
+            return {"detail": _("Verification e-mail sent.")}
+        return {}
+
+    def perform_create(self, serializer):
+        data = serializer.data
+        data["name"] = ""
+        data["source"] = "PressPass"  # TODO: Is this the proper 'source' for MixPanel?
+        data["plan"] = Plan.objects.get(slug="free")
+        user, group_organization, error = get_user_model().objects.register_user(data)
+        user.save()
+
+        print(self.request)
+        print(self.request._request)
+
+        complete_signup(self.request, user, allauth_settings.EMAIL_VERIFICATION, None)
+
+        return user
