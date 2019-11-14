@@ -5,7 +5,6 @@ from django.db import transaction
 from django.utils.translation import ugettext_lazy as _
 
 # Third Party
-import stripe
 from allauth.account import forms as allauth
 from allauth.account.utils import setup_user_email
 from crispy_forms.helper import FormHelper
@@ -15,7 +14,7 @@ from crispy_forms.layout import Layout
 from squarelet.core.forms import StripeForm
 from squarelet.core.layout import Field
 from squarelet.core.utils import mixpanel_event
-from squarelet.organizations.models import Organization, OrganizationChangeLog, Plan
+from squarelet.organizations.models import Organization, Plan
 from squarelet.users.models import User
 
 
@@ -75,56 +74,33 @@ class SignupForm(allauth.SignupForm, StripeForm):
     @transaction.atomic()
     def save(self, request):
 
-        user = User.objects.create_user(
-            username=self.cleaned_data.get("username"),
-            email=self.cleaned_data.get("email"),
-            password=self.cleaned_data.get("password1"),
-            name=self.cleaned_data.get("name"),
-            source=request.GET.get("intent", "squarelet").lower().strip()[:11],
-        )
+        user_data = {
+            "source": request.GET.get("intent", "squarelet").lower().strip()[:11]
+        }
+        user_data.update(self.cleaned_data)
+
+        user, group_organization, error = User.objects.register_user(user_data)
+
         setup_user_email(request, user, [])
         mixpanel_event(
             request, "Sign Up", {"Source": f"Squarelet: {user.source}"}, signup=True
         )
 
-        free_plan = Plan.objects.get(slug="free")
-        plan = self.cleaned_data["plan"]
-        try:
-            if not plan.free() and plan.for_individuals:
-                user.individual_organization.set_subscription(
-                    self.cleaned_data.get("stripe_token"), plan, max_users=1, user=user
-                )
+        if group_organization is not None:
+            mixpanel_event(
+                request,
+                "Create Organization",
+                {
+                    "Name": group_organization.name,
+                    "UUID": str(group_organization.uuid),
+                    "Plan": group_organization.plan.name,
+                    "Max Users": group_organization.max_users,
+                    "Sign Up": True,
+                },
+            )
+        if error:
+            messages.error(request, error)
 
-            if not plan.free() and plan.for_groups:
-                group_organization = Organization.objects.create(
-                    name=self.cleaned_data["organization_name"],
-                    plan=free_plan,
-                    next_plan=free_plan,
-                )
-                group_organization.add_creator(user)
-                group_organization.change_logs.create(
-                    reason=OrganizationChangeLog.CREATED,
-                    user=user,
-                    to_plan=group_organization.plan,
-                    to_next_plan=group_organization.next_plan,
-                    to_max_users=group_organization.max_users,
-                )
-                group_organization.set_subscription(
-                    self.cleaned_data.get("stripe_token"), plan, max_users=5, user=user
-                )
-                mixpanel_event(
-                    request,
-                    "Create Organization",
-                    {
-                        "Name": group_organization.name,
-                        "UUID": str(group_organization.uuid),
-                        "Plan": group_organization.plan.name,
-                        "Max Users": group_organization.max_users,
-                        "Sign Up": True,
-                    },
-                )
-        except stripe.error.StripeError as exc:
-            messages.error(request, "Payment error: {}".format(exc.user_message))
         return user
 
 
