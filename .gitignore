@@ -282,3 +282,7 @@ squarelet/media/
 .envs/
 
 js_build
+
+### IDEs/Editors
+
+.vscode/
