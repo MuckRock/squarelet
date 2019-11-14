@@ -101,10 +101,6 @@ urlpatterns = [
     path("hijack/", include("hijack.urls", namespace="hijack")),
     path("api/rest-auth/", include("rest_auth.urls")),
     path("api/rest-auth/registration/", include("rest_auth.registration.urls")),
-    # This URL exists so that allauth can have a valid reverse match when generating the password reset
-    # email from django-rest-auth. TODO: Figure out how to include a direct link to the SPA, instead of
-    # this hack.
-    path('resetpassword/submit/<uidb64>/<token>', lambda k: HttpResponse(""), name='password_reset_confirm'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:
