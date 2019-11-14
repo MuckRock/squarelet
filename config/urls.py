@@ -17,7 +17,7 @@ from squarelet.core.views import HomeView
 from squarelet.oidc.viewsets import ClientViewSet
 from squarelet.organizations.viewsets import ChargeViewSet, OrganizationViewSet
 from squarelet.users.views import LoginView
-from squarelet.users.viewsets import UrlAuthTokenViewSet, UserViewSet
+from squarelet.users.viewsets import UrlAuthTokenViewSet, UserViewSet, PressPassRegisterView
 
 router = routers.DefaultRouter()
 router.register("users", UserViewSet)
@@ -51,7 +51,7 @@ urlpatterns = [
     path("openid/", include("oidc_provider.urls", namespace="oidc_provider")),
     path("hijack/", include("hijack.urls", namespace="hijack")),
     path("api/rest-auth/", include("rest_auth.urls")),
-    path("api/rest-auth/registration/", include("rest_auth.registration.urls")),
+    path("api/register/", PressPassRegisterView.as_view(), name="presspass_register"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:

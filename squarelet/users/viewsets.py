@@ -9,19 +9,22 @@ from django.utils.translation import ugettext_lazy as _
 # Third Party
 import sesame.utils
 from allauth.account.models import EmailAddress, EmailConfirmationHMAC
-from allauth.account.utils import setup_user_email
+from allauth.account.utils import setup_user_email, complete_signup
+from rest_auth.registration.views import RegisterView
 from rest_framework import status, viewsets
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
+from allauth.account import app_settings as allauth_settings
 
 # Squarelet
 from squarelet.core.mail import send_mail
 from squarelet.oidc.permissions import ScopePermission
-from squarelet.organizations.models import Membership
+from squarelet.organizations.models import Membership, Plan
 
 # Local
 from .models import User
 from .serializers import UserReadSerializer, UserWriteSerializer
+from django.contrib.auth import get_user_model
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -84,3 +87,30 @@ class UrlAuthTokenViewSet(viewsets.ViewSet):
         except ValidationError:
             raise Http404
         return Response(sesame.utils.get_parameters(user))
+
+
+class PressPassRegisterView(RegisterView):
+    def get_response_data(self, user):
+        if (
+            allauth_settings.EMAIL_VERIFICATION
+            == allauth_settings.EmailVerificationMethod.MANDATORY
+        ):
+            return {"detail": _("Verification e-mail sent.")}
+        return {}
+
+    def perform_create(self, serializer):
+        data = serializer.data
+        data["name"] = ""
+        data["source"] = "PressPass" # TODO: Is this the proper 'source' for MixPanel?
+        data["plan"] = Plan.objects.get(slug="free")
+        user, group_organization, error = get_user_model().objects.register_user(data)
+        user.save()
+
+        print(self.request)
+        print(self.request._request)
+
+        complete_signup(
+            self.request, user, allauth_settings.EMAIL_VERIFICATION, None
+        )
+
+        return user
