@@ -560,6 +560,7 @@ class Plan(models.Model):
         help_text=_(
             "For private plans, organizations which should have access to this plan"
         ),
+        blank=True,
     )
 
     def __str__(self):
