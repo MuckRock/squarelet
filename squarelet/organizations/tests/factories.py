@@ -66,6 +66,7 @@ class FreePlanFactory(PlanFactory):
     """A free plan factory"""
 
     name = "Free"
+    requires_updates = False
 
 
 class ProfessionalPlanFactory(PlanFactory):
