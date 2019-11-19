@@ -17,7 +17,7 @@ babel==2.6.0              # via sphinx
 backcall==0.1.0
 bcrypt==3.1.4
 billiard==3.5.0.4
-black==19.3b0
+black==19.10b0
 boto3==1.9.32
 boto==2.49.0
 botocore==1.12.32
@@ -63,6 +63,7 @@ djangorestframework-simplejwt==4.3.0
 djangorestframework==3.9.2
 docutils==0.14
 dogslow==1.2
+drf-yasg==1.17.0
 factory-boy==2.11.1
 faker==0.8.17             # via factory-boy
 flake8==3.5.0
@@ -72,7 +73,7 @@ future==0.16.0
 html2text==2018.1.9
 idna==2.7
 imagesize==1.0.0          # via sphinx
-inflection==0.3.1         # via pytest-factoryboy
+inflection==0.3.1
 ipdb==0.11
 ipython-genutils==0.2.0
 ipython==7.2.0
@@ -90,8 +91,9 @@ memoize==1.0.0
 more-itertools==4.2.0     # via pytest
 oauthlib==2.1.0
 orderedmultidict==1.0
-packaging==17.1           # via sphinx
+packaging==19.2
 parso==0.3.3
+pathspec==0.6.0           # via black
 pexpect==4.6.0
 pickleshare==0.7.5
 pillow==5.1.0
@@ -115,7 +117,7 @@ pylint-common==0.2.5
 pylint-django==0.11.1
 pylint-plugin-utils==0.4  # via pylint-celery, pylint-common, pylint-django
 pylint==1.9.2
-pyparsing==2.2.0          # via packaging
+pyparsing==2.4.5
 pytest-django==3.3.0
 pytest-factoryboy==2.0.2
 pytest-freezegun==0.3.0.post1
@@ -129,9 +131,12 @@ pytz==2018.4
 raven==6.9.0
 rcssmin==1.0.6
 redis==2.10.6
+regex==2019.11.1          # via black
 requests-oauthlib==1.0.0
 requests==2.21.0
 rjsmin==1.0.12
+ruamel.yaml.clib==0.2.0
+ruamel.yaml==0.16.5
 rules==2.1
 s3transfer==0.1.13
 six==1.11.0
@@ -146,6 +151,7 @@ termcolor==1.1.0          # via pytest-sugar
 text-unidecode==1.2       # via faker
 toml==0.9.4               # via black
 traitlets==4.3.2
+typed-ast==1.4.0          # via black
 unidecode==1.0.22
 uritemplate==3.0.0
 urllib3==1.23
