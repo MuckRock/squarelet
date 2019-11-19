@@ -120,6 +120,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
             ("foiamachine", _("FOIA Machine")),
             ("quackbot", _("QuackBot")),
             ("squarelet", _("Squarelet")),
+            ("presspass", _("PressPass")),
         ),
         default="squarelet",
         help_text=_("Which service did this user originally sign up for?"),
