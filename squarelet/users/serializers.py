@@ -128,7 +128,6 @@ class PressPassUserSerializer(serializers.ModelSerializer):
             "name",
             "email",
             "email_failed",
-            "email_verified",
             "avatar",
             "username",
             "created_at",
@@ -140,13 +139,10 @@ class PressPassUserSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             "email": {"read_only": True},
             "email_failed": {"read_only": True},
-            "email_verified": {"read_only": True},
             "created_at": {"read_only": True},
             "updated_at": {"read_only": True},
             "can_change_username": {"read_only": True},
         }
-
-        # XXX how to update avatar?
 
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)

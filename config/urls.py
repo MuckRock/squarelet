@@ -27,7 +27,7 @@ from squarelet.users.viewsets import (
 SchemaView = get_schema_view(
     openapi.Info(
         title="Squarelet API",
-        default_version="v1",
+        default_version="Beta",
         description="API for Muckrock Accounts and PressPass",
         terms_of_service="https://www.muckrock.com/tos/",
         contact=openapi.Contact(email="mitch@muckrock.com"),
