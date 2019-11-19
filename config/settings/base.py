@@ -74,6 +74,7 @@ THIRD_PARTY_APPS = [
     "debug_toolbar",
     "django_extensions",
     "django_premailer",
+    "drf_yasg",
     "hijack",
     "oidc_provider",
     "rest_framework",
