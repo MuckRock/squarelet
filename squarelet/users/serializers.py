@@ -117,3 +117,39 @@ class UserWriteSerializer(UserBaseSerializer):
                 base_username, "".join(random.sample(string.ascii_letters, 8))
             )
         return username
+
+
+class PressPassUserSerializer(serializers.ModelSerializer):
+    """Serializer for the more traditional API for PressPass"""
+
+    class Meta:
+        model = User
+        fields = (
+            "name",
+            "email",
+            "email_failed",
+            "email_verified",
+            "avatar",
+            "username",
+            "created_at",
+            "updated_at",
+            "use_autologin",
+            "uuid",
+            "can_change_username",
+        )
+        extra_kwargs = {
+            "email": {"read_only": True},
+            "email_failed": {"read_only": True},
+            "email_verified": {"read_only": True},
+            "created_at": {"read_only": True},
+            "updated_at": {"read_only": True},
+            "can_change_username": {"read_only": True},
+        }
+
+        # XXX how to update avatar?
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            if self.instance and not self.instance.can_change_username:
+                # pylint: disable=invalid-sequence-index
+                self.fields["username"].read_only = True

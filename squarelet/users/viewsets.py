@@ -11,17 +11,19 @@ import sesame.utils
 from allauth.account.models import EmailAddress, EmailConfirmationHMAC
 from allauth.account.utils import setup_user_email
 from rest_framework import status, viewsets
-from rest_framework.permissions import IsAdminUser
+from rest_framework.permissions import DjangoObjectPermissions, IsAdminUser
 from rest_framework.response import Response
 
 # Squarelet
 from squarelet.core.mail import send_mail
 from squarelet.oidc.permissions import ScopePermission
 from squarelet.organizations.models import Membership
-
-# Local
-from .models import User
-from .serializers import UserReadSerializer, UserWriteSerializer
+from squarelet.users.models import User
+from squarelet.users.serializers import (
+    PressPassUserSerializer,
+    UserReadSerializer,
+    UserWriteSerializer,
+)
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -84,3 +86,24 @@ class UrlAuthTokenViewSet(viewsets.ViewSet):
         except ValidationError:
             raise Http404
         return Response(sesame.utils.get_parameters(user))
+
+
+class PressPassUserViewSet(
+    # Cannot create or destroy users
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.ListModelMixin,
+    viewsets.GenericViewSet,
+):
+    # XXX how do we want to limit user access?
+    queryset = User.objects.all()
+    permission_classes = (DjangoObjectPermissions,)
+    lookup_field = "individual_organization_id"
+    serializer_class = PressPassUserSerializer
+
+    def get_object(self):
+        """Allow one to lookup themselves by specifying `me` as the pk"""
+        if self.kwargs["pk"] == "me" and self.request.user.is_authenticated:
+            return self.request.user
+        else:
+            return super().get_object()
