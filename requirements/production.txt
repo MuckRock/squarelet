@@ -55,11 +55,13 @@ djangorestframework-simplejwt==4.3.0
 djangorestframework==3.9.2
 docutils==0.14
 dogslow==1.2
+drf-yasg==1.17.0
 furl==2.0.0
 future==0.16.0
 gunicorn==19.8.1
 html2text==2018.1.9
 idna==2.7
+inflection==0.3.1
 ipdb==0.11
 ipython-genutils==0.2.0
 ipython==7.2.0
@@ -73,6 +75,7 @@ markupsafe==1.0
 memoize==1.0.0
 oauthlib==2.1.0
 orderedmultidict==1.0
+packaging==19.2
 parso==0.3.3
 pexpect==4.6.0
 pickleshare==0.7.5
@@ -87,6 +90,7 @@ pycryptodomex==3.6.4
 pygments==2.3.1
 pyjwkest==1.4.0
 pyjwt==1.7.1
+pyparsing==2.4.5
 python-dateutil==2.7.4
 python-slugify==1.2.5
 python3-openid==3.1.0
@@ -97,6 +101,8 @@ redis==2.10.6
 requests-oauthlib==1.0.0
 requests==2.21.0
 rjsmin==1.0.12
+ruamel.yaml.clib==0.2.0
+ruamel.yaml==0.16.5
 rules==2.1
 s3transfer==0.1.13
 six==1.11.0

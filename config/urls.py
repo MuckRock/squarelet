@@ -16,14 +16,21 @@ from squarelet.core.views import HomeView
 from squarelet.oidc.viewsets import ClientViewSet
 from squarelet.organizations.viewsets import ChargeViewSet, OrganizationViewSet
 from squarelet.users.views import LoginView
-from squarelet.users.viewsets import UrlAuthTokenViewSet, UserViewSet
+from squarelet.users.viewsets import (
+    PressPassUserViewSet,
+    UrlAuthTokenViewSet,
+    UserViewSet,
+)
 
 router = routers.DefaultRouter()
 router.register("users", UserViewSet)
 router.register("url_auth_tokens", UrlAuthTokenViewSet, base_name="url_auth_token")
 router.register("organizations", OrganizationViewSet)
 router.register("charges", ChargeViewSet)
-router.register("clients", ClientViewSet)
+
+presspass_router = routers.DefaultRouter()
+presspass_router.register("clients", ClientViewSet)
+presspass_router.register("users", PressPassUserViewSet)
 
 urlpatterns = [
     path("", HomeView.as_view(), name="home"),
@@ -46,6 +53,7 @@ urlpatterns = [
     path("api/", include(router.urls)),
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("pp-api/", include(presspass_router.urls)),
     path("openid/", include("oidc_provider.urls", namespace="oidc_provider")),
     path("hijack/", include("hijack.urls", namespace="hijack")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
