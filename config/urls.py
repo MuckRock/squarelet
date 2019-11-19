@@ -8,7 +8,9 @@ from django.views import defaults as default_views
 from django.views.generic import TemplateView
 
 # Third Party
-from rest_framework import routers
+from drf_yasg import openapi
+from drf_yasg.views import get_schema_view
+from rest_framework import permissions, routers
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 # Squarelet
@@ -20,6 +22,30 @@ from squarelet.users.viewsets import (
     PressPassUserViewSet,
     UrlAuthTokenViewSet,
     UserViewSet,
+)
+
+SchemaView = get_schema_view(
+    openapi.Info(
+        title="Squarelet API",
+        default_version="v1",
+        description="API for Muckrock Accounts and PressPass",
+        terms_of_service="https://www.muckrock.com/tos/",
+        contact=openapi.Contact(email="mitch@muckrock.com"),
+    ),
+    public=True,
+    permission_classes=(permissions.AllowAny,),
+)
+
+SchemaView = get_schema_view(
+    openapi.Info(
+        title="Squarelet API",
+        default_version="v1",
+        description="API for Muckrock Accounts and PressPass",
+        terms_of_service="https://www.muckrock.com/tos/",
+        contact=openapi.Contact(email="mitch@muckrock.com"),
+    ),
+    public=True,
+    permission_classes=(permissions.AllowAny,),
 )
 
 router = routers.DefaultRouter()
@@ -54,6 +80,13 @@ urlpatterns = [
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("pp-api/", include(presspass_router.urls)),
+    # Swagger
+    path("swagger<format>", SchemaView.without_ui(cache_timeout=0), name="schema-json"),
+    path(
+        "swagger/",
+        SchemaView.with_ui("swagger", cache_timeout=0),
+        name="schema-swagger-ui",
+    ),
     path("openid/", include("oidc_provider.urls", namespace="oidc_provider")),
     path("hijack/", include("hijack.urls", namespace="hijack")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
