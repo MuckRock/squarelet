@@ -29,3 +29,16 @@ class AutoLastModifiedField(AutoCreatedField):
         value = now()
         setattr(model_instance, self.attname, value)
         return value
+
+
+class AliasField(models.Field):
+    """Virtual field
+    https://stackoverflow.com/a/46995564
+    """
+
+    def contribute_to_class(self, cls, name, private_only=False):
+        super(AliasField, self).contribute_to_class(cls, name, private_only=True)
+        setattr(cls, name, self)
+
+    def __get__(self, instance, instance_type=None):
+        return getattr(instance, self.db_column)

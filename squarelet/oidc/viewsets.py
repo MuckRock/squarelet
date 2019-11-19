@@ -13,6 +13,10 @@ from squarelet.oidc.serializers import ClientSerializer
 
 
 class ClientViewSet(viewsets.ModelViewSet):
+    """Third party clients which would like to authenticate against Squarelet/PressPass
+    OIDC server
+    """
+
     queryset = Client.objects.none()
     serializer_class = ClientSerializer
     permission_classes = (DjangoObjectPermissions,)
