@@ -17,6 +17,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
     read_scopes = ("read_organization",)
     write_scopes = ("write_organization",)
     lookup_field = "uuid"
+    swagger_schema = None
 
 
 class ChargeViewSet(viewsets.ModelViewSet):
@@ -25,3 +26,4 @@ class ChargeViewSet(viewsets.ModelViewSet):
     permission_classes = (ScopePermission | IsAdminUser,)
     read_scopes = ("read_charge",)
     write_scopes = ("write_charge",)
+    swagger_schema = None

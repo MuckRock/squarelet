@@ -14,7 +14,7 @@ from memoize import mproperty
 from sorl.thumbnail import ImageField
 
 # Squarelet
-from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
+from squarelet.core.fields import AliasField, AutoCreatedField, AutoLastModifiedField
 from squarelet.core.mixins import AvatarMixin
 from squarelet.core.utils import file_path
 from squarelet.oidc.middleware import send_cache_invalidations
@@ -58,6 +58,11 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
             "corresponding individual organization, which has the same UUID. "
             "This is used to uniquely identify the user across services."
         ),
+    )
+    uuid = AliasField(
+        _("uuid"),
+        db_column="individual_organization_id",
+        help_text=_("Uniquely identify the user across services"),
     )
     name = models.CharField(
         _("name of user"), max_length=255, help_text=_("The user's full name")
@@ -158,11 +163,6 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.username
-
-    @property
-    def uuid(self):
-        """The UUID is the value of the foreign key to the individual organization"""
-        return self.individual_organization_id
 
     @property
     def date_joined(self):
