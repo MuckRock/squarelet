@@ -20,7 +20,9 @@ from squarelet.oidc.viewsets import ClientViewSet
 from squarelet.organizations.viewsets import (
     ChargeViewSet,
     OrganizationViewSet,
+    PressPassInvitationViewSet,
     PressPassMembershipViewSet,
+    PressPassNestedInvitationViewSet,
     PressPassOrganizationViewSet,
 )
 from squarelet.users.views import LoginView
@@ -64,11 +66,13 @@ presspass_router = routers.DefaultRouter()
 presspass_router.register("clients", ClientViewSet)
 presspass_router.register("users", PressPassUserViewSet)
 presspass_router.register("organizations", PressPassOrganizationViewSet)
+presspass_router.register("inivitations", PressPassInvitationViewSet)
 
 organization_router = routers.NestedDefaultRouter(
     presspass_router, "organizations", lookup="organization"
 )
 organization_router.register("memberships", PressPassMembershipViewSet)
+organization_router.register("invitations", PressPassNestedInvitationViewSet)
 
 urlpatterns = [
     path("", HomeView.as_view(), name="home"),
