@@ -10,13 +10,19 @@ from django.views.generic import TemplateView
 # Third Party
 from drf_yasg import openapi
 from drf_yasg.views import get_schema_view
-from rest_framework import permissions, routers
+from rest_framework import permissions
+from rest_framework_nested import routers
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 # Squarelet
 from squarelet.core.views import HomeView
 from squarelet.oidc.viewsets import ClientViewSet
-from squarelet.organizations.viewsets import ChargeViewSet, OrganizationViewSet
+from squarelet.organizations.viewsets import (
+    ChargeViewSet,
+    OrganizationViewSet,
+    PressPassMembershipViewSet,
+    PressPassOrganizationViewSet,
+)
 from squarelet.users.views import LoginView
 from squarelet.users.viewsets import (
     PressPassUserViewSet,
@@ -57,6 +63,12 @@ router.register("charges", ChargeViewSet)
 presspass_router = routers.DefaultRouter()
 presspass_router.register("clients", ClientViewSet)
 presspass_router.register("users", PressPassUserViewSet)
+presspass_router.register("organizations", PressPassOrganizationViewSet)
+
+organization_router = routers.NestedDefaultRouter(
+    presspass_router, "organizations", lookup="organization"
+)
+organization_router.register("memberships", PressPassMembershipViewSet)
 
 urlpatterns = [
     path("", HomeView.as_view(), name="home"),
@@ -80,6 +92,7 @@ urlpatterns = [
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("pp-api/", include(presspass_router.urls)),
+    path("pp-api/", include(organization_router.urls)),
     # Swagger
     path("swagger<format>", SchemaView.without_ui(cache_timeout=0), name="schema-json"),
     path(
