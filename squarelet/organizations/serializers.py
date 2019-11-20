@@ -102,3 +102,33 @@ class ChargeSerializer(serializers.ModelSerializer):
                 "Must supply a token if save card is true"
             )
         return attrs
+
+
+# PressPass
+
+
+class PressPassOrganizationSerializer(serializers.ModelSerializer):
+    plan = serializers.CharField(source="plan.slug")
+
+    class Meta:
+        model = Organization
+        fields = (
+            "uuid",
+            "name",
+            "slug",
+            "plan",
+            "max_users",
+            "individual",
+            "private",
+            "update_on",
+            "updated_at",
+            "payment_failed",
+            "avatar",
+        )
+
+
+class PressPassMembershipSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Membership
+        fields = ("user", "admin")
+        extra_kwargs = {"user": {"read_only": True}}

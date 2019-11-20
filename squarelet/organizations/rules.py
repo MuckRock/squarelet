@@ -45,3 +45,39 @@ add_perm("organizations.view_organization", is_public | (is_authenticated & is_m
 add_perm("organizations.add_organization", is_authenticated)
 add_perm("organizations.change_organization", is_authenticated & is_admin)
 add_perm("organizations.delete_organization", always_deny)
+
+
+@predicate
+@skip_if_not_obj
+def is_member_public(user, membership):
+    return is_public(user, membership.organization)
+
+
+@predicate
+@skip_if_not_obj
+def is_member_organization(user, membership):
+    return is_member(user, membership.organization)
+
+
+@predicate
+@skip_if_not_obj
+def is_member_admin(user, membership):
+    return is_admin(user, membership.organization)
+
+
+@predicate
+@skip_if_not_obj
+def is_member_owner(user, membership):
+    return user == membership.user
+
+
+add_perm(
+    "organizations.view_membership",
+    is_member_public | (is_authenticated & is_member_organization),
+)
+add_perm("organizations.add_membership", always_deny)
+add_perm("organizations.change_membership", is_authenticated & is_member_admin)
+add_perm(
+    "organizations.delete_membership",
+    is_authenticated & (is_member_owner | is_member_admin),
+)
