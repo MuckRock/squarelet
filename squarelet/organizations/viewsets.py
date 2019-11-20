@@ -5,14 +5,16 @@ from rest_framework.permissions import DjangoObjectPermissions, IsAdminUser
 
 # Squarelet
 from squarelet.oidc.permissions import ScopePermission
-from squarelet.organizations.models import Membership
+from squarelet.organizations.models import Invitation, Membership
 
 # Local
 from .models import Charge, Organization
 from .serializers import (
     ChargeSerializer,
     OrganizationSerializer,
+    PressPassInvitationSerializer,
     PressPassMembershipSerializer,
+    PressPassNestedInvitationSerializer,
     PressPassOrganizationSerializer,
 )
 
@@ -64,8 +66,39 @@ class PressPassMembershipViewSet(
     lookup_field = "user_id"
 
     def get_queryset(self):
-        """Only fetch both documents and notes viewable to this user"""
+        """Only fetch both organizations and memberships viewable to this user"""
         organization = get_object_or_404(
             Organization, uuid=self.kwargs["organization_uuid"]
         )
         return organization.memberships.all()
+
+
+class PressPassNestedInvitationViewSet(
+    mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.GenericViewSet
+):
+    queryset = Invitation.objects.none()
+    serializer_class = PressPassNestedInvitationSerializer
+    permission_classes = (DjangoObjectPermissions,)
+
+    def get_queryset(self):
+        """Only fetch both organizations and inivtations viewable to this user"""
+        organization = get_object_or_404(
+            Organization, uuid=self.kwargs["organization_uuid"]
+        )
+        return organization.invitations.all()
+
+
+class PressPassInvitationViewSet(
+    mixins.RetrieveModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet
+):
+    queryset = Invitation.objects.all()
+    serializer_class = PressPassInvitationSerializer
+    permission_classes = (DjangoObjectPermissions,)
+    lookup_field = "uuid"
+
+    def perform_update(self, serializer):
+        """Accept or reject the invitation"""
+        if serializer.data.get("accept"):
+            serializer.instance.accept(self.request.user)
+        elif serializer.data.get("reject"):
+            serializer.instance.reject()
