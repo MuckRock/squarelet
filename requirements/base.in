@@ -27,6 +27,7 @@ django<2.2
 djangorestframework
 djangorestframework_simplejwt
 dogslow
+drf-nested-routers
 drf-yasg
 furl
 html2text
