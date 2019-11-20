@@ -3,8 +3,8 @@ import stripe
 from rest_framework import serializers, status
 from rest_framework.exceptions import APIException
 
-# Local
-from .models import Charge, Membership, Organization
+# Squarelet
+from squarelet.organizations.models import Charge, Invitation, Membership, Organization
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
@@ -133,3 +133,57 @@ class PressPassMembershipSerializer(serializers.ModelSerializer):
         model = Membership
         fields = ("user", "admin")
         extra_kwargs = {"user": {"read_only": True}}
+
+
+class PressPassNestedInvitationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Invitation
+        fields = (
+            "organization",
+            "email",
+            "user",
+            "request",
+            "created_at",
+            "accepted_at",
+            "rejected_at",
+        )
+        extra_kwargs = {
+            "created_at": {"read_only": True},
+            "accepted_at": {"read_only": True},
+            "rejected_at": {"read_only": True},
+        }
+
+
+class PressPassInvitationSerializer(serializers.ModelSerializer):
+    accept = serializers.BooleanField(write_only=True)
+    reject = serializers.BooleanField(write_only=True)
+
+    class Meta:
+        model = Invitation
+        fields = (
+            "organization",
+            "email",
+            "user",
+            "request",
+            "created_at",
+            "accepted_at",
+            "rejected_at",
+            "accept",
+            "reject",
+        )
+        extra_kwargs = {
+            "created_at": {"read_only": True},
+            "accepted_at": {"read_only": True},
+            "rejected_at": {"read_only": True},
+            "organization": {"read_only": True},
+            "email": {"read_only": True},
+            "user": {"read_only": True},
+        }
+
+    def validate(self, attrs):
+        """Must not try to accept and reject"""
+        if attrs.get("accept") and attrs.get("reject"):
+            raise serializers.ValidationError(
+                "May not accept and reject the invitation"
+            )
+        return attrs
