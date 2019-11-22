@@ -4,10 +4,11 @@ from django.db.models import Q
 from django.utils.timezone import get_current_timezone
 
 # Standard Library
-from datetime import datetime
+from datetime import date, datetime
 
 # Third Party
 import stripe
+from dateutil.relativedelta import relativedelta
 
 
 class OrganizationQuerySet(models.QuerySet):
@@ -128,3 +129,23 @@ class ChargeQuerySet(models.QuerySet):
             },
         )
         return charge
+
+
+class SubscriptionQuerySet(models.QuerySet):
+    def start(self, organization, plan):
+        if plan.free:
+            subscription_id = None
+        else:
+            stripe_subscription = organization.customer.subscriptions.create(
+                items=[{"plan": plan.stripe_id, "quantity": organization.max_users}],
+                billing="send_invoice" if plan.annual else "charge_automatically",
+                days_until_due=30 if plan.annual else None,
+            )
+            subscription_id = stripe_subscription.id
+        return self.create(
+            organization=organization,
+            plan=plan,
+            subscription_id=subscription_id,
+            update_on=date.today() + relativedelta(months=1),
+        )
+        # XXX log org change

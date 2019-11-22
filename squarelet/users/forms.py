@@ -31,6 +31,7 @@ class SignupForm(allauth.SignupForm, StripeForm):
         empty_label=None,
         to_field_name="slug",
         widget=forms.HiddenInput(),
+        required=False,
     )
     organization_name = forms.CharField(max_length=255, required=False)
 
@@ -53,7 +54,7 @@ class SignupForm(allauth.SignupForm, StripeForm):
     def clean(self):
         data = super().clean()
         plan = data["plan"]
-        if plan.requires_payment() and not data.get("stripe_token"):
+        if plan and plan.requires_payment() and not data.get("stripe_token"):
             self.add_error(
                 "plan",
                 _(
@@ -61,7 +62,7 @@ class SignupForm(allauth.SignupForm, StripeForm):
                     "non-free plan"
                 ),
             )
-        if not plan.for_individuals and not data.get("organization_name"):
+        if plan and not plan.for_individuals and not data.get("organization_name"):
             self.add_error(
                 "organization_name",
                 _(
