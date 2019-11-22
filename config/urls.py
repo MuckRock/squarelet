@@ -55,7 +55,7 @@ presspass_router = routers.DefaultRouter()
 presspass_router.register("clients", ClientViewSet)
 presspass_router.register("users", PressPassUserViewSet)
 presspass_router.register("organizations", PressPassOrganizationViewSet)
-presspass_router.register("inivitations", PressPassInvitationViewSet)
+presspass_router.register("invitations", PressPassInvitationViewSet)
 presspass_router.register("plans", PressPassPlanViewSet)
 
 organization_router = routers.NestedDefaultRouter(
