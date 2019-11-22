@@ -4,7 +4,13 @@ from rest_framework import serializers, status
 from rest_framework.exceptions import APIException
 
 # Squarelet
-from squarelet.organizations.models import Charge, Invitation, Membership, Organization
+from squarelet.organizations.models import (
+    Charge,
+    Invitation,
+    Membership,
+    Organization,
+    Plan,
+)
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
@@ -187,3 +193,22 @@ class PressPassInvitationSerializer(serializers.ModelSerializer):
                 "May not accept and reject the invitation"
             )
         return attrs
+
+
+class PressPassPlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Plan
+        fields = (
+            "name",
+            "slug",
+            "minimum_users",
+            "base_price",
+            "price_per_user",
+            "feature_level",
+            "public",
+            "annual",
+            "for_individuals",
+            "for_groups",
+            "requires_updates",
+        )
+        extra_kwargs = {"slug": {"read_only": True}}
