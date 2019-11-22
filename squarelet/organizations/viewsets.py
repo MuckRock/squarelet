@@ -5,7 +5,7 @@ from rest_framework.permissions import DjangoObjectPermissions, IsAdminUser
 
 # Squarelet
 from squarelet.oidc.permissions import ScopePermission
-from squarelet.organizations.models import Invitation, Membership
+from squarelet.organizations.models import Invitation, Membership, Plan
 
 # Local
 from .models import Charge, Organization
@@ -16,6 +16,7 @@ from .serializers import (
     PressPassMembershipSerializer,
     PressPassNestedInvitationSerializer,
     PressPassOrganizationSerializer,
+    PressPassPlanSerializer,
 )
 
 
@@ -102,3 +103,9 @@ class PressPassInvitationViewSet(
             serializer.instance.accept(self.request.user)
         elif serializer.data.get("reject"):
             serializer.instance.reject()
+
+
+class PressPassPlanViewSet(viewsets.ModelViewSet):
+    queryset = Plan.objects.all()
+    serializer_class = PressPassPlanSerializer
+    permission_classes = (DjangoObjectPermissions,)
