@@ -24,24 +24,13 @@ from squarelet.organizations.viewsets import (
     PressPassMembershipViewSet,
     PressPassNestedInvitationViewSet,
     PressPassOrganizationViewSet,
+    PressPassPlanViewSet,
 )
 from squarelet.users.views import LoginView
 from squarelet.users.viewsets import (
     PressPassUserViewSet,
     UrlAuthTokenViewSet,
     UserViewSet,
-)
-
-SchemaView = get_schema_view(
-    openapi.Info(
-        title="Squarelet API",
-        default_version="Beta",
-        description="API for Muckrock Accounts and PressPass",
-        terms_of_service="https://www.muckrock.com/tos/",
-        contact=openapi.Contact(email="mitch@muckrock.com"),
-    ),
-    public=True,
-    permission_classes=(permissions.AllowAny,),
 )
 
 SchemaView = get_schema_view(
@@ -67,6 +56,7 @@ presspass_router.register("clients", ClientViewSet)
 presspass_router.register("users", PressPassUserViewSet)
 presspass_router.register("organizations", PressPassOrganizationViewSet)
 presspass_router.register("inivitations", PressPassInvitationViewSet)
+presspass_router.register("plans", PressPassPlanViewSet)
 
 organization_router = routers.NestedDefaultRouter(
     presspass_router, "organizations", lookup="organization"
