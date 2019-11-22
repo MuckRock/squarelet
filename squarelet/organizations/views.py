@@ -230,11 +230,7 @@ class Create(LoginRequiredMixin, CreateView):
     def form_valid(self, form):
         """The organization creator is automatically a member and admin of the
         organization"""
-        free_plan = Plan.objects.get(slug="free")
-        organization = form.save(commit=False)
-        organization.plan = free_plan
-        organization.next_plan = free_plan
-        organization.save()
+        organization = form.save()
         organization.add_creator(self.request.user)
         organization.change_logs.create(
             reason=OrganizationChangeLog.CREATED,

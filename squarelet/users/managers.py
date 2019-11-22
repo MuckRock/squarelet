@@ -42,12 +42,12 @@ class UserManager(AuthUserManager):
         free_plan = Plan.objects.get(slug="free")
         plan = user_data["plan"]
         try:
-            if not plan.free() and plan.for_individuals:
+            if not plan.free and plan.for_individuals:
                 user.individual_organization.set_subscription(
                     user_data.get("stripe_token"), plan, max_users=1, user=user
                 )
 
-            if not plan.free() and plan.for_groups:
+            if not plan.free and plan.for_groups:
                 group_organization = Organization.objects.create(
                     name=user_data["organization_name"],
                     plan=free_plan,

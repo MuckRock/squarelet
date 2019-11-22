@@ -32,6 +32,7 @@ from .querysets import (
     InvitationQuerySet,
     OrganizationQuerySet,
     PlanQuerySet,
+    SubscriptionQuerySet,
 )
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -90,12 +91,15 @@ class Organization(AvatarMixin, models.Model):
         help_text=_("The user's in this organization"),
     )
 
+    # XXX remove these
     plan = models.ForeignKey(
         verbose_name=_("plan"),
         to="organizations.Plan",
         on_delete=models.PROTECT,
-        related_name="organizations",
+        related_name="+",
         help_text=_("The current plan this organization is subscribed to"),
+        blank=True,
+        null=True,
     )
     next_plan = models.ForeignKey(
         verbose_name=_("next plan"),
@@ -107,7 +111,19 @@ class Organization(AvatarMixin, models.Model):
             "used when downgrading a plan to let the organization finish out a "
             "subscription is paid for"
         ),
+        blank=True,
+        null=True,
     )
+    # XXX remove these
+
+    plans = models.ManyToManyField(
+        verbose_name=_("plans"),
+        to="organizations.Plan",
+        related_name="organizations",
+        help_text=_("Plans this organization is subscribed to"),
+        blank=True,
+    )
+
     individual = models.BooleanField(
         _("individual organization"),
         default=False,
@@ -127,6 +143,7 @@ class Organization(AvatarMixin, models.Model):
         default=5,
         help_text=_("The maximum number of users in this organization"),
     )
+    # XXX move this to subscription
     update_on = models.DateField(
         _("date update"),
         null=True,
@@ -143,6 +160,7 @@ class Organization(AvatarMixin, models.Model):
         null=True,
         help_text=_("The organization's corresponding ID on stripe"),
     )
+    # XXX move to subscription
     subscription_id = models.CharField(
         _("subscription id"),
         max_length=255,
@@ -278,6 +296,19 @@ class Organization(AvatarMixin, models.Model):
         self.customer.save()
         send_cache_invalidations("organization", self.uuid)
 
+    def create_subscription(self, token, plan, user):
+        # XXX ensure org is in database before creating subscription
+
+        if token:
+            self.save_card(token)
+
+        if not self.customer.email:
+            self.customer.email = self.email
+            self.customer.save()
+
+        self.subscriptions.start(organization=self, plan=plan)
+
+    # XXX remove
     def set_subscription(self, token, plan, max_users, user):
         if self.individual:
             max_users = 1
@@ -291,13 +322,13 @@ class Organization(AvatarMixin, models.Model):
             self.max_users,
         )
 
-        if self.plan.free() and not plan.free():
+        if self.plan.free and not plan.free:
             # create a subscription going from free to non-free
             self._create_subscription(self.customer, plan, max_users)
-        elif not self.plan.free() and plan.free():
+        elif not self.plan.free and plan.free:
             # cancel a subscription going from non-free to free
             self._cancel_subscription(plan)
-        elif not self.plan.free() and not plan.free():
+        elif not self.plan.free and not plan.free:
             # modify a subscription going from non-free to non-free
             self._modify_subscription(self.customer, plan, max_users)
         else:
@@ -424,6 +455,8 @@ class Organization(AvatarMixin, models.Model):
         self.plan = self.next_plan = free_plan
         self.save()
 
+    # XXX remove
+
     def charge(self, amount, description, fee_amount=0, token=None, save_card=False):
         """Charge the organization and optionally save their credit card"""
         if save_card:
@@ -487,8 +520,87 @@ class Membership(models.Model):
             )
 
 
+class Subscription(models.Model):
+    """Through table for organization plans"""
+
+    objects = SubscriptionQuerySet.as_manager()
+
+    organization = models.ForeignKey(
+        verbose_name=_("organization"),
+        to="organizations.Organization",
+        on_delete=models.CASCADE,
+        related_name="subscriptions",
+    )
+    plan = models.ForeignKey(
+        verbose_name=_("plan"),
+        to="organizations.Plan",
+        on_delete=models.CASCADE,
+        related_name="subscriptions",
+    )
+
+    subscription_id = models.CharField(
+        _("subscription id"),
+        max_length=255,
+        unique=True,
+        blank=True,
+        null=True,
+        help_text=_("The subscription ID on stripe"),
+    )
+    update_on = models.DateField(
+        _("date update"), help_text=_("Date when monthly resources are restored")
+    )
+
+    cancelled = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ("organization", "plan")
+
+    def __str__(self):
+        return f"Subscription: {self.organization} to {self.plan}"
+
+    @mproperty
+    def stripe_subscription(self):
+        if self.subscription_id:
+            try:
+                return stripe.Subscription.retrieve(self.subscription_id)
+            except stripe.error.InvalidRequestError:  # pragma: no cover
+                return None
+        else:
+            return None
+
+    def cancel(self):
+        if self.stripe_subscription:
+            self.stripe_subscription.cancel_at_period_end = True
+            self.stripe_subscription.save()
+
+        self.cancelled = True
+        self.save()
+
+        # XXX log org change
+
+    def update_max_users(self):
+        if self.stripe_subscription:
+            stripe.Subscription.modify(
+                self.subscription_id,
+                cancel_at_period_end=False,
+                items=[
+                    {
+                        # pylint: disable=unsubscriptable-object
+                        "id": self.stripe_subscription["items"]["data"][0].id,
+                        "plan": self.plan.stripe_id,
+                        "quantity": self.organizations.max_users,
+                    }
+                ],
+                billing="send_invoice" if self.plan.annual else "charge_automatically",
+                days_until_due=30 if self.plan.annual else None,
+            )
+
+
 class Plan(models.Model):
     """Plans that organizations can subscribe to"""
+
+    MUCKROCK = 0
+    PRESSPASS = 1
 
     objects = PlanQuerySet.as_manager()
 
@@ -518,17 +630,12 @@ class Plan(models.Model):
         help_text=_("The additional cost per month per user over the minimum"),
     )
 
-    feature_level = models.PositiveSmallIntegerField(
-        _("feature level"),
-        default=0,
-        help_text=_("Specifies the level of premium features this plan grants"),
-    )
-
     public = models.BooleanField(
         _("public"),
         default=False,
         help_text=_("Is this plan available for anybody to sign up for?"),
     )
+    # XXX move to subscription?
     annual = models.BooleanField(
         _("annual"),
         default=False,
@@ -544,6 +651,8 @@ class Plan(models.Model):
         default=True,
         help_text=_("Is this plan usable for non-individual organizations?"),
     )
+    # XXX I think this becomes obsolete and just assume yes?
+    # Free plan will no longer be a plan
     requires_updates = models.BooleanField(
         _("requires updates"),
         default=True,
@@ -551,6 +660,14 @@ class Plan(models.Model):
             "Specifies if this plan requires monthly updates, in order for client "
             "sites to restore montly consumable resources"
         ),
+    )
+
+    entitlements = models.ManyToManyField(
+        verbose_name=_("entitlements"),
+        to="organizations.Entitlement",
+        related_name="plans",
+        help_text=_("Entitlements granted by this plan"),
+        blank=True,
     )
 
     private_organizations = models.ManyToManyField(
@@ -563,9 +680,18 @@ class Plan(models.Model):
         blank=True,
     )
 
+    pay_to = models.PositiveSmallIntegerField(
+        _("pay to"),
+        choices=((MUCKROCK, _("MuckRock")), (PRESSPASS, _("PressPass"))),
+        help_text=_(
+            "Which company's stripe account is used for subscrpitions to this plan"
+        ),
+    )
+
     def __str__(self):
         return self.name
 
+    @property
     def free(self):
         return self.base_price == 0 and self.price_per_user == 0
 
@@ -574,7 +700,7 @@ class Plan(models.Model):
         Free plans never require payment
         Annual payments are invoiced and do not require payment at time of purchase
         """
-        return not self.free() and not self.annual
+        return not self.free and not self.annual
 
     def cost(self, users):
         return (
@@ -588,7 +714,7 @@ class Plan(models.Model):
 
     def make_stripe_plan(self):
         """Create the plan on stripe"""
-        if not self.free():
+        if not self.free:
             try:
                 # set up the pricing for groups and individuals
                 # convert dollar amounts to cents for stripe
@@ -844,6 +970,7 @@ class Charge(models.Model):
 class OrganizationChangeLog(models.Model):
     """Track important changes to organizations"""
 
+    # XXX switch to django choices
     CREATED = 0
     UPDATED = 1
     FAILED = 2
@@ -921,3 +1048,34 @@ class OrganizationChangeLog(models.Model):
         _("maximum users"),
         help_text=_("The organization's max_users after the change occurred"),
     )
+
+
+def entitlement_slug(instance):
+    return f"{instance.client.name}-{instance.name}"
+
+
+class Entitlement(models.Model):
+    """Grants access to some service for a given client"""
+
+    name = models.CharField(
+        _("name"), max_length=255, help_text=_("The entitlement's name")
+    )
+    slug = AutoSlugField(
+        _("slug"),
+        populate_from=entitlement_slug,
+        unique=True,
+        help_text=_("A unique slug to identify the plan"),
+    )
+    client = models.ForeignKey(
+        verbose_name=_("client"),
+        to="oidc_provider.Client",
+        on_delete=models.CASCADE,
+        help_text=_("Client this entitlement grants access to"),
+    )
+    description = models.TextField(
+        _("description"),
+        help_text=_("A brief description of the service this grants access to"),
+    )
+
+    class Meta:
+        unique_together = ("name", "client")
