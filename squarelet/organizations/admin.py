@@ -58,7 +58,6 @@ class PlanAdmin(VersionAdmin):
         "minimum_users",
         "base_price",
         "price_per_user",
-        "feature_level",
         "public",
         "annual",
         "for_individuals",

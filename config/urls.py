@@ -97,8 +97,6 @@ urlpatterns = [
         SchemaView.with_ui("swagger", cache_timeout=0),
         name="schema-swagger-ui",
     ),
-    path("csrf/", include("squarelet.csrf.urls")),
-    path("api/authstatus/", include("squarelet.authstatus.urls")),
     path("openid/", include("oidc_provider.urls", namespace="oidc_provider")),
     path("hijack/", include("hijack.urls", namespace="hijack")),
     path(
