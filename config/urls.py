@@ -87,6 +87,7 @@ urlpatterns = [
     path("api/", include(router.urls)),
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("pp-api/auth/", include("squarelet.auth_helpers.urls")),
     path("pp-api/", include(presspass_router.urls)),
     path("pp-api/", include(organization_router.urls)),
     # Swagger
@@ -100,8 +101,9 @@ urlpatterns = [
     path("api/authstatus/", include("squarelet.authstatus.urls")),
     path("openid/", include("oidc_provider.urls", namespace="oidc_provider")),
     path("hijack/", include("hijack.urls", namespace="hijack")),
-    path("api/rest-auth/", include("rest_auth.urls")),
-    path("api/register/", PressPassRegisterView.as_view(), name="presspass_register"),
+    path(
+        "pp-api/register/", PressPassRegisterView.as_view(), name="presspass_register"
+    ),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:
