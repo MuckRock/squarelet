@@ -111,7 +111,7 @@ class PressPassRegisterView(RegisterView):
         return {}
 
     def perform_create(self, serializer):
-        data = serializer.data
+        data = serializer.get_cleaned_data()
         data["name"] = ""
         data["source"] = "PressPass" # TODO: Is this the proper 'source' for MixPanel?
         data["plan"] = Plan.objects.get(slug="free")
@@ -127,7 +127,7 @@ class PressPassRegisterView(RegisterView):
 
         return user
 
-        
+
 class PressPassUserViewSet(
     # Cannot create or destroy users
     mixins.RetrieveModelMixin,
