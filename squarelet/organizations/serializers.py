@@ -3,8 +3,14 @@ import stripe
 from rest_framework import serializers, status
 from rest_framework.exceptions import APIException
 
-# Local
-from .models import Charge, Membership, Organization
+# Squarelet
+from squarelet.organizations.models import (
+    Charge,
+    Invitation,
+    Membership,
+    Organization,
+    Plan,
+)
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
@@ -102,3 +108,106 @@ class ChargeSerializer(serializers.ModelSerializer):
                 "Must supply a token if save card is true"
             )
         return attrs
+
+
+# PressPass
+
+
+class PressPassOrganizationSerializer(serializers.ModelSerializer):
+    plan = serializers.CharField(source="plan.slug")
+
+    class Meta:
+        model = Organization
+        fields = (
+            "uuid",
+            "name",
+            "slug",
+            "plan",
+            "max_users",
+            "individual",
+            "private",
+            "update_on",
+            "updated_at",
+            "payment_failed",
+            "avatar",
+        )
+
+
+class PressPassMembershipSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Membership
+        fields = ("user", "admin")
+        extra_kwargs = {"user": {"read_only": True}}
+
+
+class PressPassNestedInvitationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Invitation
+        fields = (
+            "organization",
+            "email",
+            "user",
+            "request",
+            "created_at",
+            "accepted_at",
+            "rejected_at",
+        )
+        extra_kwargs = {
+            "created_at": {"read_only": True},
+            "accepted_at": {"read_only": True},
+            "rejected_at": {"read_only": True},
+        }
+
+
+class PressPassInvitationSerializer(serializers.ModelSerializer):
+    accept = serializers.BooleanField(write_only=True)
+    reject = serializers.BooleanField(write_only=True)
+
+    class Meta:
+        model = Invitation
+        fields = (
+            "organization",
+            "email",
+            "user",
+            "request",
+            "created_at",
+            "accepted_at",
+            "rejected_at",
+            "accept",
+            "reject",
+        )
+        extra_kwargs = {
+            "created_at": {"read_only": True},
+            "accepted_at": {"read_only": True},
+            "rejected_at": {"read_only": True},
+            "organization": {"read_only": True},
+            "email": {"read_only": True},
+            "user": {"read_only": True},
+        }
+
+    def validate(self, attrs):
+        """Must not try to accept and reject"""
+        if attrs.get("accept") and attrs.get("reject"):
+            raise serializers.ValidationError(
+                "May not accept and reject the invitation"
+            )
+        return attrs
+
+
+class PressPassPlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Plan
+        fields = (
+            "name",
+            "slug",
+            "minimum_users",
+            "base_price",
+            "price_per_user",
+            "feature_level",
+            "public",
+            "annual",
+            "for_individuals",
+            "for_groups",
+            "requires_updates",
+        )
+        extra_kwargs = {"slug": {"read_only": True}}

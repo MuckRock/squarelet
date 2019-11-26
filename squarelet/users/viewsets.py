@@ -4,6 +4,7 @@ from django.db.models.query import Prefetch
 from django.http.response import Http404
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
+from django.utils.decorators import method_decorator
 from django.utils.translation import ugettext_lazy as _
 
 # Third Party
@@ -11,8 +12,11 @@ import sesame.utils
 from allauth.account.models import EmailAddress, EmailConfirmationHMAC
 from allauth.account.utils import setup_user_email, complete_signup
 from rest_auth.registration.views import RegisterView
-from rest_framework import status, viewsets
 from rest_framework.permissions import IsAdminUser
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
+from rest_framework import mixins, status, viewsets
+from rest_framework.permissions import DjangoObjectPermissions, IsAdminUser
 from rest_framework.response import Response
 from allauth.account import app_settings as allauth_settings
 
@@ -25,6 +29,13 @@ from squarelet.organizations.models import Membership, Plan
 from .models import User
 from .serializers import UserReadSerializer, UserWriteSerializer
 from django.contrib.auth import get_user_model
+from squarelet.organizations.models import Membership
+from squarelet.users.models import User
+from squarelet.users.serializers import (
+    PressPassUserSerializer,
+    UserReadSerializer,
+    UserWriteSerializer,
+)
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -42,7 +53,8 @@ class UserViewSet(viewsets.ModelViewSet):
     permission_classes = (ScopePermission | IsAdminUser,)
     read_scopes = ("read_user",)
     write_scopes = ("write_user",)
-    lookup_field = "individual_organization_id"
+    lookup_field = "uuid"
+    swagger_schema = None
 
     def get_serializer_class(self):
         # The only actions expected are create and retrieve
@@ -78,12 +90,12 @@ class UserViewSet(viewsets.ModelViewSet):
 class UrlAuthTokenViewSet(viewsets.ViewSet):
     permission_classes = (ScopePermission,)
     read_scopes = ("read_auth_token",)
+    swagger_schema = None
 
     def retrieve(self, request, pk=None):
         # pylint: disable=invalid-name
         try:
-            # individual_organization_id is the uuid of the user
-            user = get_object_or_404(User, individual_organization_id=pk)
+            user = get_object_or_404(User, uuid=pk)
         except ValidationError:
             raise Http404
         return Response(sesame.utils.get_parameters(user))
@@ -114,3 +126,24 @@ class PressPassRegisterView(RegisterView):
         )
 
         return user
+
+        
+class PressPassUserViewSet(
+    # Cannot create or destroy users
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.ListModelMixin,
+    viewsets.GenericViewSet,
+):
+    # XXX how do we want to limit user access?
+    queryset = User.objects.all()
+    permission_classes = (DjangoObjectPermissions,)
+    lookup_field = "uuid"
+    serializer_class = PressPassUserSerializer
+
+    def get_object(self):
+        """Allow one to lookup themselves by specifying `me` as the pk"""
+        if self.kwargs["uuid"] == "me" and self.request.user.is_authenticated:
+            return self.request.user
+        else:
+            return super().get_object()

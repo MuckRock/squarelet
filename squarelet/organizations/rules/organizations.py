@@ -1,24 +1,10 @@
 # pylint: disable=unused-argument, invalid-unary-operand-type
 
-# Standard Library
-from functools import wraps
-
 # Third Party
 from rules import add_perm, always_deny, is_authenticated, predicate
 
-
-def skip_if_not_obj(func):
-    """Decorator for predicates
-    Skip the predicate if obj is None"""
-
-    @wraps(func)
-    def inner(user, obj):
-        if obj is None:
-            return None
-        else:
-            return func(user, obj)
-
-    return inner
+# Squarelet
+from squarelet.core.rules import skip_if_not_obj
 
 
 @predicate

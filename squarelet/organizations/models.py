@@ -544,6 +544,14 @@ class Plan(models.Model):
         default=True,
         help_text=_("Is this plan usable for non-individual organizations?"),
     )
+    requires_updates = models.BooleanField(
+        _("requires updates"),
+        default=True,
+        help_text=_(
+            "Specifies if this plan requires monthly updates, in order for client "
+            "sites to restore montly consumable resources"
+        ),
+    )
 
     private_organizations = models.ManyToManyField(
         verbose_name=_("private organizations"),
@@ -552,6 +560,7 @@ class Plan(models.Model):
         help_text=_(
             "For private plans, organizations which should have access to this plan"
         ),
+        blank=True,
     )
 
     def __str__(self):
