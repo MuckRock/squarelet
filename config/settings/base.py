@@ -157,7 +157,7 @@ MIDDLEWARE = [
 # FOR PRESSPASS FRONTEND
 # ------------------------------------------------------------------------------
 
-# The CSRF_TRUSTED_ORIGINS environment variable should be set to include the host names 
+# The CSRF_TRUSTED_ORIGINS environment variable should be set to include the host names
 # of the frontend, separated by spaces. A reasonable env setting for a development environment is:
 # CSRF_TRUSTED_ORIGINS=http://dev.presspass.com:3000 http://localhost:3000 http://localhost:4200 http://127.0.0.1:3000 http://127.0.0.1:4200
 
@@ -407,14 +407,12 @@ OLD_PASSWORD_FIELD_ENABLED = True
 # Swagger
 # ------------------------------------------------------------------------------
 
-SWAGGER_SETTINGS = {
-    "exclude_namespaces": ["auth_helpers"],
-}
+SWAGGER_SETTINGS = {"exclude_namespaces": ["auth_helpers"]}
 
 # django-cors-headers
 # ------------------------------------------------------------------------------
 
-# The CORS_ORIGIN_WHITELIST environment variable should be set to include the host names 
+# The CORS_ORIGIN_WHITELIST environment variable should be set to include the host names
 # of the frontend, separated by spaces. A reasonable env setting for a development environment is:
 # CORS_ORIGIN_WHITELIST=http://dev.presspass.com:3000 http://localhost:3000 http://localhost:4200 http://127.0.0.1:3000 http://127.0.0.1:4200
 

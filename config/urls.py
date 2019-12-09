@@ -28,7 +28,12 @@ from squarelet.organizations.viewsets import (
     PressPassPlanViewSet,
 )
 from squarelet.users.views import LoginView
-from squarelet.users.viewsets import PressPassRegisterView, PressPassUserViewSet, UrlAuthTokenViewSet, UserViewSet
+from squarelet.users.viewsets import (
+    PressPassRegisterView,
+    PressPassUserViewSet,
+    UrlAuthTokenViewSet,
+    UserViewSet,
+)
 
 SchemaView = get_schema_view(
     openapi.Info(
@@ -94,8 +99,9 @@ urlpatterns = [
     ),
     path("openid/", include("oidc_provider.urls", namespace="oidc_provider")),
     path("hijack/", include("hijack.urls", namespace="hijack")),
-    path("pp-api/register/", PressPassRegisterView.as_view(), name="presspass_register"),
-
+    path(
+        "pp-api/register/", PressPassRegisterView.as_view(), name="presspass_register"
+    ),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:
