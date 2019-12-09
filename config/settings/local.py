@@ -48,26 +48,9 @@ DEBUG_TOOLBAR_CONFIG = {
 # ------------------------------------------------------------------------------
 # http://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-task_always_eager
 CELERY_ALWAYS_EAGER = False
+
 # Your stuff...
 # ------------------------------------------------------------------------------
-
-CORS_ORIGIN_WHITELIST = [
-    "http://dev.presspass.com:3000",
-    "http://localhost:3000",
-    "http://localhost:4200",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:4200",
-]
-
-CORS_ALLOW_CREDENTIALS = True
-
-CSRF_TRUSTED_ORIGINS = [
-    "http://dev.presspass.com:3000",
-    "http://localhost:3000",
-    "http://localhost:4200",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:4200",
-]
 
 # Important: for development only
 # Allows for csrf cookie to be embedded in POST request headers
