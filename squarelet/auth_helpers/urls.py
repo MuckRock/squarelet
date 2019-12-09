@@ -12,7 +12,7 @@ from rest_auth.views import (
 )
 
 # Local
-from . import views
+from auth_helpers import views
 
 app_name = "auth_helpers"
 urlpatterns = [
