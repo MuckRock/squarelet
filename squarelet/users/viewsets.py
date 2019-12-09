@@ -137,9 +137,6 @@ class PressPassRegisterView(RegisterView):
         user, group_organization, error = get_user_model().objects.register_user(data)
         user.save()
 
-        print(self.request)
-        print(self.request._request)
-
         complete_signup(self.request, user, allauth_settings.EMAIL_VERIFICATION, None)
 
         return user
