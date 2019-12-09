@@ -109,9 +109,7 @@ class PressPassRegisterView(RegisterView):
         return {}
 
     def perform_create(self, serializer):
-        data = serializer.data
-        # Because the django-rest-auth serializer only supports usernames, emails, and passwords,
-        # we must set the user's name to some default.
+        data = serializer.get_cleaned_data()
         data["name"] = ""
         data["source"] = "PressPass"  # TODO: Is this the proper 'source' for MixPanel?
         data["plan"] = Plan.objects.get(slug="free")
