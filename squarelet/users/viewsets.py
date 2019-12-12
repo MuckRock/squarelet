@@ -5,7 +5,6 @@ from django.db.models.query import Prefetch
 from django.http.response import Http404
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
-from django.utils.decorators import method_decorator
 from django.utils.translation import ugettext_lazy as _
 
 # Third Party
@@ -13,8 +12,6 @@ import sesame.utils
 from allauth.account import app_settings as allauth_settings
 from allauth.account.models import EmailAddress, EmailConfirmationHMAC
 from allauth.account.utils import complete_signup, setup_user_email
-from drf_yasg import openapi
-from drf_yasg.utils import swagger_auto_schema
 from rest_auth.registration.views import RegisterView
 from rest_framework import mixins, status, viewsets
 from rest_framework.permissions import DjangoObjectPermissions, IsAdminUser
