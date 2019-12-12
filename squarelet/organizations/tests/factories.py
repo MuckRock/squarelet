@@ -1,9 +1,7 @@
-# Third Party
-# Standard Library
-
 # Django
 from django.utils import timezone
 
+# Third Party
 import factory
 from autoslug.utils import slugify
 
