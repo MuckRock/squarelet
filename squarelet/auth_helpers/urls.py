@@ -2,7 +2,7 @@
 from django.urls import path
 
 # Third Party
-# Third party
+from auth_helpers import views
 from rest_auth.views import (
     LoginView,
     LogoutView,
@@ -10,9 +10,6 @@ from rest_auth.views import (
     PasswordResetConfirmView,
     PasswordResetView,
 )
-
-# Local
-from auth_helpers import views
 
 app_name = "auth_helpers"
 urlpatterns = [
