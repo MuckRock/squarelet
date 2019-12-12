@@ -1,6 +1,5 @@
 # Django
 from django.http.response import JsonResponse
-from django.shortcuts import render
 
 
 def check(request):
