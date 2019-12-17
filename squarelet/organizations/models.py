@@ -119,6 +119,7 @@ class Organization(AvatarMixin, models.Model):
     plans = models.ManyToManyField(
         verbose_name=_("plans"),
         to="organizations.Plan",
+        through="organizations.Subscription",
         related_name="organizations",
         help_text=_("Plans this organization is subscribed to"),
         blank=True,
