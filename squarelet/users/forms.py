@@ -94,7 +94,7 @@ class SignupForm(allauth.SignupForm, StripeForm):
                 {
                     "Name": group_organization.name,
                     "UUID": str(group_organization.uuid),
-                    "Plan": group_organization.plan.name,
+                    "Plans": [p.name for p in group_organization.plans.all()],
                     "Max Users": group_organization.max_users,
                     "Sign Up": True,
                 },

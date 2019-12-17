@@ -61,19 +61,25 @@
       <div class="_cls-planColumn">
         {% if user == request.user %}
           <div class="_cls-currentPlan">
-            <div class="_cls-planInfo">
-              {% trans 'Current plan: ' %}
-              <b>{{ user.individual_organization.plan }}</b>
-            </div>
-            {% if user.individual_organization.plan != user.individual_organization.next_plan %}
-              <div class="_cls-pendingPlan">
-                {% blocktrans with update_on=user.individual_organization.update_on|date:"m/d/Y" %}
-                  Pending Plan (on {{ update_on }}):
-                {% endblocktrans %}
-                <b>{{ user.individual_organization.next_plan.name }}</b>
+
+            {% for subscription in user.individual_organization.subscriptions.all %}
+              <div class="_cls-planInfo">
+                {% trans "Current plan" %}: <b>{{ subscription.plan.name }}</b>
+                {% if subscription.cancelled %}
+                  <div class="_cls-info _cls-infoSpaced">
+                    {% blocktrans with update_on=subscription.update_on|date:"m/d/Y" %}
+                      Subscription ends  on {{ update_on }}
+                    {% endblocktrans %}
+                  </div>
+                {% endif %}
               </div>
-            {% endif %}
-            {% if user.individual_organization.plan.free %}
+            {% empty %}
+              <div class="_cls-planInfo">
+                {% trans "Current plan" %}: <b>{% trans "Free" %}</b>
+              </div>
+            {% endfor %}
+
+            {% if not user.individual_organization.subscriptions.all %}
               <div class="_cls-actionSmall">
                 <a href="{% url "users:payment" %}">
                   <button>{% trans 'Upgrade' %}</button>

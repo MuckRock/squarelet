@@ -39,30 +39,28 @@ class UserManager(AuthUserManager):
             source=user_data.get("source"),
         )
 
-        free_plan = Plan.objects.get(slug="free")
         plan = user_data["plan"]
         try:
-            if not plan.free and plan.for_individuals:
-                user.individual_organization.set_subscription(
-                    user_data.get("stripe_token"), plan, max_users=1, user=user
+            if plan and not plan.free and plan.for_individuals:
+                user.individual_organization.create_subscription(
+                    user_data.get("stripe_token"), plan, user
                 )
 
-            if not plan.free and plan.for_groups:
+            if plan and not plan.free and plan.for_groups:
                 group_organization = Organization.objects.create(
-                    name=user_data["organization_name"],
-                    plan=free_plan,
-                    next_plan=free_plan,
+                    name=user_data["organization_name"]
                 )
                 group_organization.add_creator(user)
-                group_organization.change_logs.create(
-                    reason=OrganizationChangeLog.CREATED,
-                    user=user,
-                    to_plan=group_organization.plan,
-                    to_next_plan=group_organization.next_plan,
-                    to_max_users=group_organization.max_users,
-                )
-                group_organization.set_subscription(
-                    user_data.get("stripe_token"), plan, max_users=5, user=user
+                # XXX
+                # group_organization.change_logs.create(
+                #     reason=OrganizationChangeLog.CREATED,
+                #     user=user,
+                #     to_plan=group_organization.plan,
+                #     to_next_plan=group_organization.next_plan,
+                #     to_max_users=group_organization.max_users,
+                # )
+                group_organization.create_subscription(
+                    user_data.get("stripe_token"), plan, user
                 )
             else:
                 group_organization = None

@@ -51,7 +51,7 @@
             </ul>
           </div>
           <div class="_cls-cardAction">
-            <a class="_cls-nostyle" href="{% url 'account_signup' %}?plan=free&intent={% firstof request.GET.intent 'muckrock' %}{% if request.GET.next %}&next={{ request.GET.next }}{% endif %}">
+            <a class="_cls-nostyle" href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'muckrock' %}{% if request.GET.next %}&next={{ request.GET.next }}{% endif %}">
               <button>{% blocktrans %}Sign up for free{% endblocktrans %}</button>
             </a>
           </div>
