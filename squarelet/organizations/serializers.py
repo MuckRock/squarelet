@@ -29,6 +29,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "name",
             "slug",
             "plan",
+            "entitlements",
             "card",
             "max_users",
             "individual",
