@@ -6,7 +6,6 @@ from rest_framework.exceptions import APIException
 # Squarelet
 from squarelet.organizations.models import (
     Charge,
-    Entitlement,
     Invitation,
     Membership,
     Organization,
@@ -16,7 +15,7 @@ from squarelet.organizations.models import (
 
 class OrganizationSerializer(serializers.ModelSerializer):
     uuid = serializers.UUIDField(required=False)
-    # XXX remove plan
+    # XXX remove plan ??
     plan = serializers.CharField(source="plan.slug")
     entitlements = serializers.SerializerMethodField()
     # this can be slow - goes to stripe for customer/card info - cache this
@@ -43,8 +42,8 @@ class OrganizationSerializer(serializers.ModelSerializer):
     def get_entitlements(self, obj):
         request = self.context.get("request")
         if request and hasattr(request, "auth") and request.auth:
-            return Entitlement.objects.filter(
-                plans__organization=obj, client=request.auth.client
+            return request.auth.client.entitlements.filter(
+                plans__organization=obj
             ).values_list("slug", flat=True)
         return []
 

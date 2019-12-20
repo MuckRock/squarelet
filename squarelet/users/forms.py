@@ -27,7 +27,7 @@ class SignupForm(allauth.SignupForm, StripeForm):
 
     plan = forms.ModelChoiceField(
         label=_("Plan"),
-        queryset=Plan.objects.filter(public=True),
+        queryset=Plan.objects.filter(public=True).muckrock(),
         empty_label=None,
         to_field_name="slug",
         widget=forms.HiddenInput(),
@@ -94,7 +94,9 @@ class SignupForm(allauth.SignupForm, StripeForm):
                 {
                     "Name": group_organization.name,
                     "UUID": str(group_organization.uuid),
-                    "Plans": [p.name for p in group_organization.plans.all()],
+                    "Plan": group_organization.plan.name
+                    if group_organization.plan
+                    else "Free",
                     "Max Users": group_organization.max_users,
                     "Sign Up": True,
                 },

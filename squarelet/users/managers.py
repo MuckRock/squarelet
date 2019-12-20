@@ -1,11 +1,13 @@
 # Django
 from django.contrib.auth.models import UserManager as AuthUserManager
+from django.db import transaction
 
 # Third Party
 import stripe
 
 # Squarelet
-from squarelet.organizations.models import Organization, OrganizationChangeLog, Plan
+from squarelet.organizations.choices import ChangeLogReason
+from squarelet.organizations.models import Organization
 
 
 class UserManager(AuthUserManager):
@@ -29,6 +31,7 @@ class UserManager(AuthUserManager):
 
         return user
 
+    @transaction.atomic
     def register_user(self, user_data):
         """Registration logic"""
         user = self.create_user(
@@ -41,26 +44,31 @@ class UserManager(AuthUserManager):
 
         plan = user_data["plan"]
         try:
-            if plan and not plan.free and plan.for_individuals:
-                user.individual_organization.create_subscription(
-                    user_data.get("stripe_token"), plan, user
+            if plan and plan.for_individuals:
+                # Ensure organization is in the database before start subscription
+                # on stripe, so that the stripe call back will definitely be able
+                # to load the organization
+                transaction.on_commit(
+                    lambda: user.individual_organization.create_subscription(
+                        user_data.get("stripe_token"), plan
+                    )
                 )
 
-            if plan and not plan.free and plan.for_groups:
+            if plan and plan.for_groups:
                 group_organization = Organization.objects.create(
                     name=user_data["organization_name"]
                 )
                 group_organization.add_creator(user)
-                # XXX
-                # group_organization.change_logs.create(
-                #     reason=OrganizationChangeLog.CREATED,
-                #     user=user,
-                #     to_plan=group_organization.plan,
-                #     to_next_plan=group_organization.next_plan,
-                #     to_max_users=group_organization.max_users,
-                # )
-                group_organization.create_subscription(
-                    user_data.get("stripe_token"), plan, user
+                group_organization.change_logs.create(
+                    reason=ChangeLogReason.created,
+                    user=user,
+                    to_plan=plan,
+                    to_max_users=group_organization.max_users,
+                )
+                transaction.on_commit(
+                    lambda: group_organization.create_subscription(
+                        user_data.get("stripe_token"), plan
+                    )
                 )
             else:
                 group_organization = None
