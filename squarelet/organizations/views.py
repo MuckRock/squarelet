@@ -32,16 +32,10 @@ from crispy_forms.layout import Field, Layout
 from squarelet.core.mail import ORG_TO_ADMINS, send_mail
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import mixpanel_event
+from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.forms import AddMemberForm, PaymentForm, UpdateForm
 from squarelet.organizations.mixins import IndividualMixin, OrganizationAdminMixin
-from squarelet.organizations.models import (
-    Charge,
-    Invitation,
-    Membership,
-    Organization,
-    OrganizationChangeLog,
-    Plan,
-)
+from squarelet.organizations.models import Charge, Invitation, Membership, Organization
 from squarelet.organizations.tasks import handle_charge_succeeded, handle_invoice_failed
 
 # How much to paginate organizations list by
@@ -153,10 +147,11 @@ class UpdateSubscription(OrganizationAdminMixin, UpdateView):
         organization = self.object
         old_plan = organization.plan
         old_users = organization.max_users
+        new_plan = form.cleaned_data.get("plan")
         try:
             organization.set_subscription(
                 token=form.cleaned_data["stripe_token"],
-                plan=form.cleaned_data["plan"],
+                plan=new_plan,
                 max_users=form.cleaned_data.get("max_users"),
                 user=self.request.user,
             )
@@ -176,8 +171,8 @@ class UpdateSubscription(OrganizationAdminMixin, UpdateView):
                 {
                     "Name": organization.name,
                     "UUID": str(organization.uuid),
-                    "Old Plan": old_plan.name,
-                    "New Plan": form.cleaned_data["plan"].name,
+                    "Old Plan": old_plan.name if old_plan else "Free",
+                    "New Plan": new_plan.name if new_plan else "Free",
                     "Old Users": old_users,
                     "New Users": form.cleaned_data.get("max_users", 1),
                 },
@@ -237,10 +232,9 @@ class Create(LoginRequiredMixin, CreateView):
         organization = form.save()
         organization.add_creator(self.request.user)
         organization.change_logs.create(
-            reason=OrganizationChangeLog.CREATED,
+            reason=ChangeLogReason.created,
             user=self.request.user,
             to_plan=organization.plan,
-            to_next_plan=organization.next_plan,
             to_max_users=organization.max_users,
         )
         mixpanel_event(
@@ -249,7 +243,7 @@ class Create(LoginRequiredMixin, CreateView):
             {
                 "Name": organization.name,
                 "UUID": str(organization.uuid),
-                "Plan": organization.plan.name,
+                "Plan": organization.plan.name if organization.plan else "Free",
                 "Max Users": organization.max_users,
                 "Sign Up": False,
             },

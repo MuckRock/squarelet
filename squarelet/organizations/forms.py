@@ -19,7 +19,10 @@ class PaymentForm(StripeForm):
     """Update subscription information for an organization"""
 
     plan = forms.ModelChoiceField(
-        label=_("Plan"), queryset=Plan.objects.none(), empty_label=None
+        label=_("Plan"),
+        queryset=Plan.objects.none(),
+        empty_label="Free",
+        required=False,
     )
     max_users = forms.IntegerField(label=_("Number of Users"), min_value=5)
     receipt_emails = forms.CharField(
@@ -89,9 +92,10 @@ class PaymentForm(StripeForm):
 
     def clean(self):
         data = super().clean()
+        plan = data.get("plan")
 
-        payment_required = data["plan"] != self.organization.plan and (
-            data["plan"].requires_payment()
+        payment_required = plan != self.organization.plan and (
+            plan and plan.requires_payment()
         )
         payment_supplied = data.get("use_card_on_file") or data.get("stripe_token")
 
@@ -101,12 +105,12 @@ class PaymentForm(StripeForm):
                 _("You must supply a credit card number to upgrade to a non-free plan"),
             )
 
-        if "max_users" in data and data["max_users"] < data["plan"].minimum_users:
+        if plan and "max_users" in data and data["max_users"] < plan.minimum_users:
             self.add_error(
                 "max_users",
                 _(
                     "The minimum users for the {} plan is {}".format(
-                        data["plan"], data["plan"].minimum_users
+                        plan, plan.minimum_users
                     )
                 ),
             )

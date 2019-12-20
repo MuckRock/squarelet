@@ -1,7 +1,6 @@
 # Django
 from celery.schedules import crontab
 from celery.task import periodic_task, task
-from django.db.models import F
 from django.utils.timezone import get_current_timezone
 from django.utils.translation import ugettext_lazy as _
 
@@ -16,9 +15,7 @@ import stripe
 from squarelet.core.mail import ORG_TO_ADMINS, send_mail
 from squarelet.core.models import Interval
 from squarelet.oidc.middleware import send_cache_invalidations
-
-# Local
-from .models import Charge, Organization
+from squarelet.organizations.models import Charge, Organization, Subscription
 
 logger = logging.getLogger(__name__)
 
@@ -29,17 +26,13 @@ logger = logging.getLogger(__name__)
 )
 def restore_organization():
     """Monthly update of organizations subscriptions"""
-    organizations = Organization.objects.filter(update_on__lte=date.today())
+    subscriptions = Subscription.objects.filter(update_on__lte=date.today())
+    # delete cancelled subscriptions first
+    subscriptions.filter(cancelled=True).delete()
+    subscriptions.update(update_on=date.today() + Interval("1 month"))
+
     # convert to a list so it can be serialized by celery
-    uuids = list(organizations.values_list("uuid", flat=True))
-    # if the next plan does not requires updates, update_on is set to null
-    organizations.filter(next_plan__requires_updates=False).update(
-        update_on=None, plan=F("next_plan")
-    )
-    # if the next plan does require updates, update_on is set to 1 month from now
-    organizations.filter(next_plan__requires_updates=True).update(
-        update_on=date.today() + Interval("1 month"), plan=F("next_plan")
-    )
+    uuids = list(subscriptions.values_list("organization__uuid", flat=True))
     send_cache_invalidations("organization", uuids)
 
 

@@ -10,12 +10,10 @@ from django.utils.translation import ugettext_lazy as _
 # Standard Library
 import logging
 import uuid
-from datetime import date
 
 # Third Party
 import stripe
 from autoslug import AutoSlugField
-from dateutil.relativedelta import relativedelta
 from memoize import mproperty
 from sorl.thumbnail import ImageField
 
@@ -25,9 +23,8 @@ from squarelet.core.mail import ORG_TO_RECEIPTS, send_mail
 from squarelet.core.mixins import AvatarMixin
 from squarelet.core.utils import file_path
 from squarelet.oidc.middleware import send_cache_invalidations
-
-# Local
-from .querysets import (
+from squarelet.organizations.choices import ChangeLogReason, Payees
+from squarelet.organizations.querysets import (
     ChargeQuerySet,
     InvitationQuerySet,
     OrganizationQuerySet,
@@ -92,7 +89,7 @@ class Organization(AvatarMixin, models.Model):
     )
 
     # XXX remove these
-    plan = models.ForeignKey(
+    plan_ = models.ForeignKey(
         verbose_name=_("plan"),
         to="organizations.Plan",
         on_delete=models.PROTECT,
@@ -100,6 +97,7 @@ class Organization(AvatarMixin, models.Model):
         help_text=_("The current plan this organization is subscribed to"),
         blank=True,
         null=True,
+        db_column="plan",
     )
     next_plan = models.ForeignKey(
         verbose_name=_("next plan"),
@@ -267,16 +265,6 @@ class Organization(AvatarMixin, models.Model):
         return customer
 
     @mproperty
-    def subscription(self):
-        if self.subscription_id:
-            try:
-                return stripe.Subscription.retrieve(self.subscription_id)
-            except stripe.error.InvalidRequestError:  # pragma: no cover
-                return None
-        else:
-            return None
-
-    @mproperty
     def card(self):
         """Retrieve the customer's default credit card on file, if there is one"""
         if self.customer.default_source:
@@ -302,9 +290,15 @@ class Organization(AvatarMixin, models.Model):
         self.customer.save()
         send_cache_invalidations("organization", self.uuid)
 
-    def create_subscription(self, token, plan, user):
-        # XXX ensure org is in database before creating subscription
+    @mproperty
+    def plan(self):
+        return self.plans.muckrock().first()
 
+    @mproperty
+    def subscription(self):
+        return self.subscriptions.muckrock().first()
+
+    def create_subscription(self, token, plan):
         if token:
             self.save_card(token)
 
@@ -314,7 +308,6 @@ class Organization(AvatarMixin, models.Model):
 
         self.subscriptions.start(organization=self, plan=plan)
 
-    # XXX remove
     def set_subscription(self, token, plan, max_users, user):
         if self.individual:
             max_users = 1
@@ -322,146 +315,39 @@ class Organization(AvatarMixin, models.Model):
             self.save_card(token)
 
         # store so we can log
-        from_plan, from_next_plan, from_max_users = (
-            self.plan,
-            self.next_plan,
-            self.max_users,
-        )
+        from_plan, from_max_users = (self.plan, self.max_users)
 
-        if self.plan.free and not plan.free:
-            # create a subscription going from free to non-free
-            self._create_subscription(self.customer, plan, max_users)
-        elif not self.plan.free and plan.free:
-            # cancel a subscription going from non-free to free
-            self._cancel_subscription(plan)
-        elif not self.plan.free and not plan.free:
-            # modify a subscription going from non-free to non-free
-            self._modify_subscription(self.customer, plan, max_users)
-        else:
-            # just change the plan without touching stripe if going free to free
-            self._modify_plan(plan, max_users)
+        self.max_users = max_users
+        self.save()
+
+        if not self.plan and plan:
+            # create a subscription going from no plan to plan
+            self.create_subscription(token, plan)
+        elif self.plan and not plan:
+            # cancel a subscription going from plan to no plan
+            self.subscription.cancel()
+        elif self.plan and plan:
+            # modify the subscription
+            self.subscription.modify(plan)
 
         self.change_logs.create(
             user=user,
-            reason=OrganizationChangeLog.UPDATED,
+            reason=ChangeLogReason.updated,
             from_plan=from_plan,
-            from_next_plan=from_next_plan,
             from_max_users=from_max_users,
-            to_plan=self.plan,
-            to_next_plan=self.next_plan,
+            to_plan=plan,
             to_max_users=self.max_users,
         )
-
-    @transaction.atomic
-    def _create_subscription(self, customer, plan, max_users):
-        """Create a subscription on stripe for the new plan"""
-
-        def stripe_create_subscription():
-            """Call this after the current transaction is committed,
-            to ensure the organization is in the database before we
-            receive the charge succeeded webhook
-            """
-            if not customer.email:  # pragma: no cover
-                customer.email = self.email
-                customer.save()
-            subscription = customer.subscriptions.create(
-                items=[{"plan": plan.stripe_id, "quantity": max_users}],
-                billing="send_invoice" if plan.annual else "charge_automatically",
-                days_until_due=30 if plan.annual else None,
-            )
-            self.subscription_id = subscription.id
-            self.save()
-
-        self.plan = plan
-        self.next_plan = plan
-        self.max_users = max_users
-        self.update_on = date.today() + relativedelta(months=1)
-        self.save()
-        transaction.on_commit(stripe_create_subscription)
-
-    def _cancel_subscription(self, plan):
-        """Cancel the subscription at period end on stripe for the new plan"""
-        if self.subscription is not None:
-            self.subscription.cancel_at_period_end = True
-            self.subscription.save()
-            self.subscription_id = None
-        else:  # pragma: no cover
-            logger.error(
-                "Attempting to cancel subscription for organization: %s %s "
-                "but no subscription was found",
-                self.name,
-                self.pk,
-            )
-
-        self.next_plan = plan
-        self.save()
-
-    def _modify_subscription(self, customer, plan, max_users):
-        """Modify the subscription on stripe for the new plan"""
-
-        # if we are trying to modify the subscription, one should already exist
-        # if for some reason it does not, then just create a new one
-        if self.subscription is None:  # pragma: no cover
-            logger.warning(
-                "Trying to modify non-existent subscription for organization - %d - %s",
-                self.pk,
-                self,
-            )
-            self._create_subscription(customer, plan, max_users)
-            return
-
-        if not customer.email:
-            customer.email = self.email
-            customer.save()
-        stripe.Subscription.modify(
-            self.subscription_id,
-            cancel_at_period_end=False,
-            items=[
-                {
-                    # pylint: disable=unsubscriptable-object
-                    "id": self.subscription["items"]["data"][0].id,
-                    "plan": plan.stripe_id,
-                    "quantity": max_users,
-                }
-            ],
-            billing="send_invoice" if plan.annual else "charge_automatically",
-            days_until_due=30 if plan.annual else None,
-        )
-
-        self._modify_plan(plan, max_users)
-
-    def _modify_plan(self, plan, max_users):
-        """Modify the plan without affecting stripe, for free to free transitions"""
-
-        if plan.feature_level >= self.plan.feature_level:
-            # upgrade immediately
-            self.plan = plan
-            self.next_plan = plan
-        else:
-            # downgrade at end of billing cycle
-            self.next_plan = plan
-
-        self.max_users = max_users
-
-        self.save()
 
     def subscription_cancelled(self):
         """The subsctription was cancelled due to payment failure"""
-        free_plan = Plan.objects.get(slug="free")
         self.change_logs.create(
-            reason=OrganizationChangeLog.FAILED,
+            reason=ChangeLogReason.failed,
             from_plan=self.plan,
-            from_next_plan=self.next_plan,
             from_max_users=self.max_users,
-            to_plan=free_plan,
-            to_next_plan=free_plan,
             to_max_users=self.max_users,
         )
-        self.subscription_id = None
-        self.plan = self.next_plan = free_plan
-        self.save()
-
-    # XXX remove
+        self.subscription.delete()
 
     def charge(self, amount, description, fee_amount=0, token=None, save_card=False):
         """Charge the organization and optionally save their credit card"""
@@ -562,7 +448,8 @@ class Subscription(models.Model):
         unique_together = ("organization", "plan")
 
     def __str__(self):
-        return f"Subscription: {self.organization} to {self.plan}"
+        plan_name = self.plan.name if self.plan else "Free"
+        return f"Subscription: {self.organization} to {plan_name}"
 
     @mproperty
     def stripe_subscription(self):
@@ -574,6 +461,27 @@ class Subscription(models.Model):
         else:
             return None
 
+    def start(self):
+        if self.stripe_subscription:
+            logger.error(
+                "Trying to start an existing subscription: %s %s",
+                self.pk,
+                self.subscription_id,
+            )
+            return
+        if self.plan and not self.plan.free:
+            stripe_subscription = self.organization.customer.subscriptions.create(
+                items=[
+                    {
+                        "plan": self.plan.stripe_id,
+                        "quantity": self.organization.max_users,
+                    }
+                ],
+                billing="send_invoice" if self.plan.annual else "charge_automatically",
+                days_until_due=30 if self.plan.annual else None,
+            )
+            self.subscription_id = stripe_subscription.id
+
     def cancel(self):
         if self.stripe_subscription:
             self.stripe_subscription.cancel_at_period_end = True
@@ -582,10 +490,23 @@ class Subscription(models.Model):
         self.cancelled = True
         self.save()
 
-        # XXX log org change
+    def modify(self, plan):
+        old_plan = self.plan
+        self.plan = plan
+        self.save()
+        old_plan_free = not old_plan or old_plan.free
+        new_plan_free = not plan or plan.free
 
-    def update_max_users(self):
-        if self.stripe_subscription:
+        if old_plan_free and not new_plan_free:
+            # start subscription on stripe
+            self.start()
+        elif not old_plan_free and new_plan_free:
+            # cancel subscription on stripe
+            # XXX check this works
+            self.stripe_subscription.delete()
+            self.subscription_id = None
+        elif not old_plan_free and not new_plan_free:
+            # modify plan
             stripe.Subscription.modify(
                 self.subscription_id,
                 cancel_at_period_end=False,
@@ -594,19 +515,18 @@ class Subscription(models.Model):
                         # pylint: disable=unsubscriptable-object
                         "id": self.stripe_subscription["items"]["data"][0].id,
                         "plan": self.plan.stripe_id,
-                        "quantity": self.organizations.max_users,
+                        "quantity": self.organization.max_users,
                     }
                 ],
                 billing="send_invoice" if self.plan.annual else "charge_automatically",
                 days_until_due=30 if self.plan.annual else None,
             )
 
+        self.save()
+
 
 class Plan(models.Model):
     """Plans that organizations can subscribe to"""
-
-    MUCKROCK = 0
-    PRESSPASS = 1
 
     objects = PlanQuerySet.as_manager()
 
@@ -688,7 +608,8 @@ class Plan(models.Model):
 
     pay_to = models.PositiveSmallIntegerField(
         _("pay to"),
-        choices=((MUCKROCK, _("MuckRock")), (PRESSPASS, _("PressPass"))),
+        choices=Payees.choices,
+        default=Payees.muckrock,
         help_text=_(
             "Which company's stripe account is used for subscrpitions to this plan"
         ),
@@ -976,11 +897,6 @@ class Charge(models.Model):
 class OrganizationChangeLog(models.Model):
     """Track important changes to organizations"""
 
-    # XXX switch to django choices
-    CREATED = 0
-    UPDATED = 1
-    FAILED = 2
-
     created_at = AutoCreatedField(
         _("created at"), help_text=_("When the organization was changed")
     )
@@ -1003,11 +919,7 @@ class OrganizationChangeLog(models.Model):
     )
     reason = models.PositiveSmallIntegerField(
         _("reason"),
-        choices=(
-            (CREATED, _("Created")),
-            (UPDATED, _("Updated")),
-            (FAILED, _("Payment failed")),
-        ),
+        choices=ChangeLogReason.choices,
         help_text=_("Which category of change occurred"),
     )
 
@@ -1076,6 +988,7 @@ class Entitlement(models.Model):
         verbose_name=_("client"),
         to="oidc_provider.Client",
         on_delete=models.CASCADE,
+        related_name="entitlements",
         help_text=_("Client this entitlement grants access to"),
     )
     description = models.TextField(

@@ -10,6 +10,9 @@ from datetime import date, datetime
 import stripe
 from dateutil.relativedelta import relativedelta
 
+# Squarelet
+from squarelet.organizations.choices import ChangeLogReason, Payees
+
 
 class OrganizationQuerySet(models.QuerySet):
     def get_viewable(self, user):
@@ -27,26 +30,15 @@ class OrganizationQuerySet(models.QuerySet):
         """Create an individual organization for user
         The user model must be unsaved
         """
-        # pylint: disable=cyclic-import
-        from squarelet.organizations.models import Plan
-        from squarelet.organizations.models import OrganizationChangeLog
-
-        free_plan = Plan.objects.get(slug="free")
         user.individual_organization = self.create(
-            name=user.username,
-            individual=True,
-            private=True,
-            max_users=1,
-            plan=free_plan,
-            next_plan=free_plan,
+            name=user.username, individual=True, private=True, max_users=1
         )
         user.save()
         user.individual_organization.add_creator(user)
         user.individual_organization.change_logs.create(
-            reason=OrganizationChangeLog.CREATED,
+            reason=ChangeLogReason.created,
             user=user,
             to_plan=user.individual_organization.plan,
-            to_next_plan=user.individual_organization.next_plan,
             to_max_users=user.individual_organization.max_users,
         )
         return user.individual_organization
@@ -61,15 +53,22 @@ class PlanQuerySet(models.QuerySet):
             queryset = self.filter(for_groups=True)
         # show public plans, the organizations current plan, and any custom plan
         # to which they have been granted explicit access
-        return queryset.filter(
-            Q(public=True)
-            | Q(organizations=organization)
-            | Q(private_organizations=organization)
-        ).distinct()
+        return (
+            queryset.filter(
+                Q(public=True)
+                | Q(organizations=organization)
+                | Q(private_organizations=organization)
+            )
+            .muckrock()
+            .distinct()
+        )
 
     def free(self):
         """Free plans"""
         return self.filter(base_price=0, price_per_user=0)
+
+    def muckrock(self):
+        return self.filter(pay_to=Payees.muckrock)
 
 
 class InvitationQuerySet(models.QuerySet):
@@ -133,19 +132,14 @@ class ChargeQuerySet(models.QuerySet):
 
 class SubscriptionQuerySet(models.QuerySet):
     def start(self, organization, plan):
-        if plan.free:
-            subscription_id = None
-        else:
-            stripe_subscription = organization.customer.subscriptions.create(
-                items=[{"plan": plan.stripe_id, "quantity": organization.max_users}],
-                billing="send_invoice" if plan.annual else "charge_automatically",
-                days_until_due=30 if plan.annual else None,
-            )
-            subscription_id = stripe_subscription.id
-        return self.create(
+        subscription = self.model(
             organization=organization,
             plan=plan,
-            subscription_id=subscription_id,
             update_on=date.today() + relativedelta(months=1),
         )
-        # XXX log org change
+        subscription.start()
+        subscription.save()
+        return subscription()
+
+    def muckrock(self):
+        return self.filter(plan__pay_to=Payees.muckrock)
