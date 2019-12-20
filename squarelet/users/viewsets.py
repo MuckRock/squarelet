@@ -133,7 +133,7 @@ class PressPassRegisterView(RegisterView):
         data["name"] = ""
         data["source"] = "PressPass"  # TODO: Is this the proper 'source' for MixPanel?
         data["plan"] = Plan.objects.get(slug="free")
-        user, group_organization, error = get_user_model().objects.register_user(data)
+        user, _, _ = get_user_model().objects.register_user(data)
         user.save()
 
         complete_signup(self.request, user, allauth_settings.EMAIL_VERIFICATION, None)
