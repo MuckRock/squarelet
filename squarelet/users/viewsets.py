@@ -128,12 +128,12 @@ class PressPassRegisterView(RegisterView):
 
     def perform_create(self, serializer):
         data = serializer.data
-        # Because the django-rest-auth serializer only supports usernames, emails, and passwords,
-        # we must set the user's name to some default.
+        # Because the django-rest-auth serializer only supports usernames, emails,
+        # and passwords, we must set the user's name to some default.
         data["name"] = ""
-        data["source"] = "PressPass"  # TODO: Is this the proper 'source' for MixPanel?
+        data["source"] = "presspass"
         data["plan"] = Plan.objects.get(slug="free")
-        user, _, _ = get_user_model().objects.register_user(data)
+        user, _group_organization, _error = get_user_model().objects.register_user(data)
         user.save()
 
         complete_signup(self.request, user, allauth_settings.EMAIL_VERIFICATION, None)
