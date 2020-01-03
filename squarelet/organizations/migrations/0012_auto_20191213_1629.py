@@ -51,15 +51,15 @@ def create_subscriptions(apps, schema_editor):
     Organization = apps.get_model("organizations", "Organization")
     Subscription = apps.get_model("organizations", "Subscription")
 
-    for organization in Organization.objects.exclude(plan__slug="free"):
+    for organization in Organization.objects.exclude(_plan__slug="free"):
         # ensure any pending organization changes are simple cancels
         assert (
-            organization.plan == organization.next_plan
+            organization._plan == organization.next_plan
             or organization.next_plan.slug == "free"
         )
         Subscription.objects.create(
             organization=organization,
-            plan=organization.plan,
+            plan=organization._plan,
             subscription_id=organization.subscription_id,
             update_on=organization.update_on
             if organization.update_on is not None
@@ -74,7 +74,12 @@ def create_entitlements(apps, schema_editor):
     Entitlement = apps.get_model("organizations", "Entitlement")
     Client = apps.get_model("oidc_provider", "Client")
 
-    muckrock_client = Client.objects.get(name__startswith="MuckRock")
+    muckrock_client, _created = Client.objects.get_or_create(
+        name__startswith="MuckRock", defaults={"name": "MuckRock"}
+    )
+
+    if Entitlement.objects.count():
+        return
 
     for entitlement_data in ENTITLEMENTS:
         entitlement = Entitlement.objects.create(
@@ -88,7 +93,7 @@ def create_entitlements(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("organizations", "0010_auto_20191213_1627"),
+        ("organizations", "0011_auto_20191220_1122"),
         ("oidc_provider", "0026_client_multiple_response_types"),
     ]
 
