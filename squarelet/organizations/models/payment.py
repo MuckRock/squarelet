@@ -1,5 +1,6 @@
 # Django
 from django.conf import settings
+from django.contrib.postgres.fields import JSONField
 from django.db import models
 from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
@@ -509,6 +510,13 @@ class Entitlement(models.Model):
     description = models.TextField(
         _("description"),
         help_text=_("A brief description of the service this grants access to"),
+    )
+    resources = JSONField(
+        _("resources"),
+        default=dict,
+        help_text=_(
+            "Allows clients to track metadata for the resources this entitlement grants"
+        ),
     )
 
     objects = EntitlementQuerySet.as_manager()
