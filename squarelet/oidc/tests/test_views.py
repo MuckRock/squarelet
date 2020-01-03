@@ -20,7 +20,7 @@ class TestClientAPI:
         ClientFactory.create_batch(size, owner=user)
         # Create some client by other users, these should not be listed
         ClientFactory.create_batch(5)
-        response = api_client.get(f"/api/clients/")
+        response = api_client.get(f"/pp-api/clients/")
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == size
@@ -40,7 +40,7 @@ class TestClientAPI:
             "redirect_uris": "https://www.example.com/accounts/complete/squarelet",
             "post_logout_redirect_uris": "https://www.example.com/",
         }
-        response = api_client.post(f"/api/clients/", data)
+        response = api_client.post(f"/pp-api/clients/", data)
         assert response.status_code == status.HTTP_201_CREATED
         response_json = json.loads(response.content)
         assert response_json["owner"] == user.pk
@@ -55,7 +55,7 @@ class TestClientAPI:
     def test_create_anonymous(self, api_client):
         """Must be authenticated to create a client"""
         response = api_client.post(
-            f"/api/clients/",
+            f"/pp-api/clients/",
             {
                 "name": "Test",
                 "client_type": "confidential",
@@ -72,7 +72,7 @@ class TestClientAPI:
     def test_retrieve(self, api_client, client):
         """Test retrieving a client"""
         api_client.force_authenticate(user=client.owner)
-        response = api_client.get(f"/api/clients/{client.pk}/")
+        response = api_client.get(f"/pp-api/clients/{client.pk}/")
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         serializer = ClientSerializer(client)
@@ -81,14 +81,14 @@ class TestClientAPI:
     def test_retrieve_bad(self, api_client, client, user):
         """Test retrieving a client you do not have access to"""
         api_client.force_authenticate(user=user)
-        response = api_client.get(f"/api/clients/{client.pk}/")
+        response = api_client.get(f"/pp-api/clients/{client.pk}/")
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_update(self, api_client, client):
         """Test updating a client"""
         api_client.force_authenticate(user=client.owner)
         name = "New Name"
-        response = api_client.patch(f"/api/clients/{client.pk}/", {"name": name})
+        response = api_client.patch(f"/pp-api/clients/{client.pk}/", {"name": name})
         assert response.status_code == status.HTTP_200_OK
         client.refresh_from_db()
         assert client.name == name
@@ -97,18 +97,18 @@ class TestClientAPI:
         """Test updating a client you do not have access to"""
         api_client.force_authenticate(user=user)
         name = "New Name"
-        response = api_client.patch(f"/api/clients/{client.pk}/", {"name": name})
+        response = api_client.patch(f"/pp-api/clients/{client.pk}/", {"name": name})
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_destroy(self, api_client, client):
         """Test destroying a client"""
         api_client.force_authenticate(user=client.owner)
-        response = api_client.delete(f"/api/clients/{client.pk}/")
+        response = api_client.delete(f"/pp-api/clients/{client.pk}/")
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert not Client.objects.filter(pk=client.pk).exists()
 
     def test_destroy_bad(self, api_client, client, user):
         """Test destroying a client you do not have access to"""
         api_client.force_authenticate(user=user)
-        response = api_client.delete(f"/api/clients/{client.pk}/")
+        response = api_client.delete(f"/pp-api/clients/{client.pk}/")
         assert response.status_code == status.HTTP_404_NOT_FOUND

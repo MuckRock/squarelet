@@ -173,7 +173,7 @@ class TestUpdateSubscription(ViewTestMixin):
     """Test the Organization Update Subscription view"""
 
     view = views.UpdateSubscription
-    url = "/organizations/{slug}/update/"
+    url = "/organizations/{slug}/payment/"
 
     def test_get_anonymous(self, rf, organization_factory):
         organization = organization_factory()
@@ -207,7 +207,7 @@ class TestUpdateSubscription(ViewTestMixin):
         organization = organization_factory(admins=[user])
         data = {
             "stripe_token": "token",
-            "plan": organization.plan.pk,
+            "plan": "",
             "max_users": 6,
             "receipt_emails": "receipt1@example.com\nreceipt2@example.com",
             "stripe_pk": "key",
@@ -235,7 +235,7 @@ class TestUpdateSubscription(ViewTestMixin):
         organization = organization_factory(admins=[user])
         data = {
             "stripe_token": "token",
-            "plan": organization.plan.pk,
+            "plan": "",
             "max_users": 6,
             "receipt_emails": "receipt1@example.com\nreceipt2@example.com",
             "stripe_pk": "key",
@@ -255,7 +255,7 @@ class TestCreate(ViewTestMixin):
         user = user_factory()
         self.call_view(rf, user, {"name": "test"})
         organization = user.organizations.get(individual=False)
-        assert organization.plan.slug == "free"
+        assert organization.plan is None
         assert organization.has_admin(user)
         assert user.email in organization.receipt_emails.values_list("email", flat=True)
 

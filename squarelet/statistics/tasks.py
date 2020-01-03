@@ -22,6 +22,7 @@ from .models import Statistics
 def store_statistics():
     """Store the daily statistics"""
     # pylint: disable=too-many-statements
+    # XXX review this
 
     midnight = time(tzinfo=timezone.get_current_timezone())
     today_midnight = datetime.combine(date.today(), midnight)
@@ -35,13 +36,13 @@ def store_statistics():
         is_agency=True
     ).count()
     kwargs["total_users_pro"] = User.objects.filter(
-        organizations__plan__slug="professional"
+        organizations__plans__slug="professional"
     ).count()
     kwargs["total_users_org"] = User.objects.filter(
-        organizations__plan__slug="organization"
+        organizations__plans__slug="organization"
     ).count()
     kwargs["total_orgs"] = Organization.objects.exclude(
-        individual=True, plan__slug="free"
+        individual=True, plans__slug="free"
     ).count()
     stats = Statistics.objects.create(**kwargs)
 
@@ -49,5 +50,5 @@ def store_statistics():
     stats.users_today.set(
         User.objects.filter(last_login__range=(yesterday_midnight, today_midnight))
     )
-    stats.pro_users.set(User.objects.filter(organizations__plan__slug="professional"))
+    stats.pro_users.set(User.objects.filter(organizations__plans__slug="professional"))
     stats.save()

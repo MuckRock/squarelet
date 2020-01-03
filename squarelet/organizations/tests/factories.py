@@ -1,6 +1,9 @@
 # Django
 from django.utils import timezone
 
+# Standard Library
+from datetime import date
+
 # Third Party
 import factory
 from autoslug.utils import slugify
@@ -9,8 +12,6 @@ from autoslug.utils import slugify
 class OrganizationFactory(factory.django.DjangoModelFactory):
     name = factory.Sequence(lambda n: f"org-{n}")
     slug = factory.LazyAttribute(lambda obj: slugify(obj.name))
-    plan = factory.SubFactory("squarelet.organizations.tests.factories.FreePlanFactory")
-    next_plan = factory.LazyAttribute(lambda obj: obj.plan)
 
     class Meta:
         model = "organizations.Organization"
@@ -30,6 +31,13 @@ class OrganizationFactory(factory.django.DjangoModelFactory):
             for user in extracted:
                 MembershipFactory(user=user, organization=self, admin=True)
 
+    @factory.post_generation
+    def plans(self, create, extracted, **kwargs):
+        # pylint: disable=unused-argument
+        if create and extracted:
+            for plan in extracted:
+                SubscriptionFactory(plan=plan, organization=self)
+
 
 class IndividualOrganizationFactory(OrganizationFactory):
     individual = True
@@ -48,6 +56,17 @@ class MembershipFactory(factory.django.DjangoModelFactory):
         model = "organizations.Membership"
 
 
+class SubscriptionFactory(factory.django.DjangoModelFactory):
+    organization = factory.SubFactory(
+        "squarelet.organizations.tests.factories.OrganizationFactory"
+    )
+    plan = factory.SubFactory("squarelet.organizations.tests.factories.PlanFactory")
+    update_on = factory.LazyFunction(date.today)
+
+    class Meta:
+        model = "organizations.Subscription"
+
+
 class PlanFactory(factory.django.DjangoModelFactory):
     """A factory for creating Plan test objects"""
 
@@ -60,13 +79,6 @@ class PlanFactory(factory.django.DjangoModelFactory):
         django_get_or_create = ("name",)
 
 
-class FreePlanFactory(PlanFactory):
-    """A free plan factory"""
-
-    name = "Free"
-    requires_updates = False
-
-
 class ProfessionalPlanFactory(PlanFactory):
     """A professional plan factory"""
 
@@ -74,7 +86,6 @@ class ProfessionalPlanFactory(PlanFactory):
     minimum_users = 1
     base_price = 20
     price_per_user = 5
-    feature_level = 1
     for_groups = False
 
 
@@ -85,7 +96,6 @@ class OrganizationPlanFactory(PlanFactory):
     minimum_users = 5
     base_price = 100
     price_per_user = 10
-    feature_level = 2
     for_individuals = False
 
 

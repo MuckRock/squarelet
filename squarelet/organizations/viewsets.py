@@ -21,7 +21,8 @@ from .serializers import (
 
 
 class OrganizationViewSet(viewsets.ModelViewSet):
-    queryset = Organization.objects.select_related("plan")
+    # XXX
+    queryset = Organization.objects.select_related("_plan")
     serializer_class = OrganizationSerializer
     permission_classes = (ScopePermission | IsAdminUser,)
     read_scopes = ("read_organization",)
@@ -47,7 +48,8 @@ class PressPassOrganizationViewSet(
     mixins.ListModelMixin,
     viewsets.GenericViewSet,
 ):
-    queryset = Organization.objects.select_related("plan")
+    # XXX
+    queryset = Organization.objects.select_related("_plan")
     serializer_class = PressPassOrganizationSerializer
     permission_classes = (DjangoObjectPermissions,)
     lookup_field = "uuid"

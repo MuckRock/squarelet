@@ -35,10 +35,8 @@ from .serializers import UserReadSerializer, UserWriteSerializer
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.prefetch_related(
-        Prefetch(
-            "memberships",
-            queryset=Membership.objects.select_related("organization__plan"),
-        ),
+        # XXX performance
+        Prefetch("memberships", queryset=Membership.objects.all()),
         Prefetch(
             "emailaddress_set",
             queryset=EmailAddress.objects.filter(primary=True),

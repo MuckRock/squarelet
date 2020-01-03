@@ -13,15 +13,15 @@ from squarelet.users.models import User
 
 
 @pytest.mark.django_db
-def test_clean_good(free_plan_factory):
-    free_plan_factory()
+def test_clean_good(plan_factory):
+    plan = plan_factory()
     data = {
         "name": "john doe",
         "username": "john",
         "email": "doe@example.com",
         "password1": "squarelet",
         "stripe_pk": "key",
-        "plan": "free",
+        "plan": plan.slug,
     }
     form = forms.SignupForm(data)
     assert form.is_valid()
@@ -63,15 +63,15 @@ def test_clean_bad_no_org_name(organization_plan_factory, mocker):
 
 
 @pytest.mark.django_db
-def test_save(rf, free_plan_factory):
-    free_plan_factory()
+def test_save(rf, plan_factory):
+    plan = plan_factory()
     data = {
         "name": "john doe",
         "username": "john",
         "email": "doe@example.com",
         "password1": "squarelet",
         "stripe_pk": "key",
-        "plan": "free",
+        "plan": plan.slug,
     }
     request = rf.post("/accounts/signup/", data)
     request.session = MagicMock()
@@ -84,11 +84,11 @@ def test_save(rf, free_plan_factory):
 
 
 @pytest.mark.django_db
-def test_save_org(rf, free_plan_factory, organization_plan_factory, mocker):
+def test_save_org(rf, plan_factory, organization_plan_factory, mocker):
     # pylint: disable=protected-access
     mocker.patch("stripe.Plan.create")
     mocker.patch("squarelet.organizations.models.Organization.set_subscription")
-    free_plan_factory()
+    plan_factory()
     organization_plan_factory()
     data = {
         "name": "john doe",
