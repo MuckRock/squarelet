@@ -3,15 +3,13 @@ from pytest_factoryboy import register
 
 # Squarelet
 from squarelet.organizations.tests.factories import (
-    FreePlanFactory,
     OrganizationPlanFactory,
+    PlanFactory,
     ProfessionalPlanFactory,
 )
-
-# Local
-from .factories import UserFactory
+from squarelet.users.tests.factories import UserFactory
 
 register(UserFactory)
-register(FreePlanFactory)
+register(PlanFactory)
 register(ProfessionalPlanFactory)
 register(OrganizationPlanFactory)

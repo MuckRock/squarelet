@@ -89,7 +89,7 @@ class Organization(AvatarMixin, models.Model):
     )
 
     # XXX remove these
-    plan_ = models.ForeignKey(
+    _plan = models.ForeignKey(
         verbose_name=_("plan"),
         to="organizations.Plan",
         on_delete=models.PROTECT,
@@ -953,6 +953,8 @@ class OrganizationChangeLog(models.Model):
         to="organizations.Plan",
         on_delete=models.PROTECT,
         related_name="+",
+        blank=True,
+        null=True,
         help_text=_("The organization's plan after the change occurred"),
     )
     to_next_plan = models.ForeignKey(
@@ -960,6 +962,8 @@ class OrganizationChangeLog(models.Model):
         to="organizations.Plan",
         on_delete=models.PROTECT,
         related_name="+",
+        blank=True,
+        null=True,
         help_text=_("The organization's plan after the change occurred"),
     )
     to_max_users = models.IntegerField(

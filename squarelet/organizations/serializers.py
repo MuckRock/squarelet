@@ -16,7 +16,7 @@ from squarelet.organizations.models import (
 class OrganizationSerializer(serializers.ModelSerializer):
     uuid = serializers.UUIDField(required=False)
     # XXX remove plan ??
-    plan = serializers.CharField(source="plan.slug")
+    plan = serializers.SerializerMethodField()
     entitlements = serializers.SerializerMethodField()
     # this can be slow - goes to stripe for customer/card info - cache this
     card = serializers.CharField(source="card_display")
@@ -40,7 +40,11 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "avatar_url",
         )
 
+    def get_plan(self, obj):
+        return obj.plan.slug if obj.plan else "Free"
+
     def get_entitlements(self, obj):
+        # XXX performance
         request = self.context.get("request")
         if request and hasattr(request, "auth") and request.auth:
             return request.auth.client.entitlements.filter(

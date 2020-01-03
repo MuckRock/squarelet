@@ -33,8 +33,7 @@ def test_scope_organizations(user_factory):
     claims = oidc.CustomScopeClaims(token)
     info = claims.scope_organizations()
     assert info["organizations"] == [
-        MembershipSerializer(m).data
-        for m in user.memberships.select_related("organization__plan")
+        MembershipSerializer(m).data for m in user.memberships.all()
     ]
 
 

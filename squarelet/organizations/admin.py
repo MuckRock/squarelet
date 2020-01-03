@@ -35,17 +35,10 @@ class InvitationInline(admin.TabularInline):
 
 @admin.register(Organization)
 class OrganizationAdmin(VersionAdmin):
-    list_display = ("name", "plan", "individual", "private", "verified_journalist")
-    list_filter = ("plan", "individual", "private", "verified_journalist")
-    list_select_related = ("plan",)
+    list_display = ("name", "individual", "private", "verified_journalist")
+    list_filter = ("individual", "private", "verified_journalist")
     search_fields = ("name",)
-    readonly_fields = (
-        "plan",
-        "next_plan",
-        "max_users",
-        "customer_id",
-        "subscription_id",
-    )
+    readonly_fields = ("max_users", "customer_id", "subscription_id")
     save_on_top = True
     inlines = (MembershipInline, ReceiptEmailInline, InvitationInline)
 
