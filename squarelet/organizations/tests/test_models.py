@@ -437,7 +437,8 @@ class TestSubscription:
         subscription = subscription_factory.build(plan=plan)
         mocked = Mock()
         mocker.patch(
-            "squarelet.organizations.models.Organization.customer", return_value=mocked
+            "squarelet.organizations.models.organization.Organization.customer",
+            return_value=mocked,
         )
         subscription.start()
         mocked.stripe_customer.subscriptions.create.assert_called_with(

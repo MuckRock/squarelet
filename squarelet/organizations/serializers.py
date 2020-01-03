@@ -1,3 +1,6 @@
+# Django
+from django.db.models.expressions import F
+
 # Third Party
 import stripe
 from oidc_provider.models import Client
@@ -38,7 +41,6 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "individual",
             "private",
             "verified_journalist",
-            "update_on",
             "updated_at",
             "payment_failed",
             "avatar_url",
@@ -50,9 +52,11 @@ class OrganizationSerializer(serializers.ModelSerializer):
     def get_entitlements(self, obj):
         request = self.context.get("request")
         if request and hasattr(request, "auth") and request.auth:
-            return request.auth.client.entitlements.filter(
-                plans__organizations=obj
-            ).values_list("slug", flat=True)
+            return (
+                request.auth.client.entitlements.filter(plans__organizations=obj)
+                .annotate(update_on=F("plans__subscriptions__update_on"))
+                .values("name", "slug", "description", "resources", "update_on")
+            )
         return []
 
     def get_card(self, obj):
@@ -146,7 +150,6 @@ class PressPassOrganizationSerializer(serializers.ModelSerializer):
             "max_users",
             "individual",
             "private",
-            "update_on",
             "updated_at",
             "payment_failed",
             "avatar",
@@ -157,7 +160,6 @@ class PressPassOrganizationSerializer(serializers.ModelSerializer):
             "max_users": {"required": False},
             "individual": {"read_only": True},
             "private": {"required": False},
-            "update_on": {"read_only": True},
             "updated_at": {"read_only": True},
             "payment_failed": {"read_only": True},
             "avatar": {"required": False},

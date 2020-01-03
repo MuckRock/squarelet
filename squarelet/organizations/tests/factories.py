@@ -16,7 +16,7 @@ class OrganizationFactory(factory.django.DjangoModelFactory):
     name = factory.Sequence(lambda n: f"org-{n}")
     slug = factory.LazyAttribute(lambda obj: slugify(obj.name))
     customer = factory.RelatedFactory(
-        "squarelet.organizations.tests.factories.CustomerFactory", "organization",
+        "squarelet.organizations.tests.factories.CustomerFactory", "organization"
     )
 
     class Meta:
