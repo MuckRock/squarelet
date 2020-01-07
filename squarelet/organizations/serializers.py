@@ -40,7 +40,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
         )
 
     def get_plan(self, obj):
-        return obj.plan.slug if obj.plan else "Free"
+        return obj.plan.slug if obj.plan else "free"
 
     def get_entitlements(self, obj):
         # XXX performance
