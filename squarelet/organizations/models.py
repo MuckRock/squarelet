@@ -97,7 +97,7 @@ class Organization(AvatarMixin, models.Model):
         help_text=_("The current plan this organization is subscribed to"),
         blank=True,
         null=True,
-        db_column="plan",
+        db_column="plan_id",
     )
     next_plan = models.ForeignKey(
         verbose_name=_("next plan"),
