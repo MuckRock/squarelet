@@ -15,7 +15,7 @@ class Migration(migrations.Migration):
             name="plan",
             field=models.ForeignKey(
                 blank=True,
-                db_column="plan",
+                db_column="plan_id",
                 help_text="The current plan this organization is subscribed to",
                 null=True,
                 on_delete=django.db.models.deletion.PROTECT,
