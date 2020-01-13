@@ -7,13 +7,21 @@ from reversion.admin import VersionAdmin
 # Squarelet
 from squarelet.organizations.models import (
     Charge,
+    Entitlement,
     Invitation,
     Membership,
     Organization,
     OrganizationChangeLog,
     Plan,
     ReceiptEmail,
+    Subscription,
 )
+
+
+class SubscriptionInline(admin.TabularInline):
+    model = Subscription
+    readonly_fields = ("plan", "subscription_id", "update_on", "cancelled")
+    extra = 0
 
 
 class MembershipInline(admin.TabularInline):
@@ -40,7 +48,12 @@ class OrganizationAdmin(VersionAdmin):
     search_fields = ("name",)
     readonly_fields = ("max_users", "customer_id", "subscription_id")
     save_on_top = True
-    inlines = (MembershipInline, ReceiptEmailInline, InvitationInline)
+    inlines = (
+        SubscriptionInline,
+        MembershipInline,
+        ReceiptEmailInline,
+        InvitationInline,
+    )
 
 
 @admin.register(Plan)
@@ -57,7 +70,14 @@ class PlanAdmin(VersionAdmin):
         "for_groups",
     )
     search_fields = ("name",)
-    autocomplete_fields = ("private_organizations",)
+    autocomplete_fields = ("private_organizations", "entitlements")
+
+
+@admin.register(Entitlement)
+class EntitlementAdmin(VersionAdmin):
+    list_display = ("name", "client")
+    search_fields = ("name",)
+    autocomplete_fields = ("client",)
 
 
 @admin.register(Charge)
