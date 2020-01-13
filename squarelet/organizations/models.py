@@ -1002,3 +1002,6 @@ class Entitlement(models.Model):
 
     class Meta:
         unique_together = ("name", "client")
+
+    def __str__(self):
+        return f"{self.client} - {self.name}"
