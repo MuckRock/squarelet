@@ -337,13 +337,9 @@ DOCCLOUD_URL = env("DOCCLOUD_URL", default="http://www.dev.documentcloud.org")
 
 # stripe
 # ------------------------------------------------------------------------------
-STRIPE_PUB_KEY = env("STRIPE_PUB_KEY")
-STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY")
-STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET")
-
-STRIPE_PP_PUB_KEY = env("STRIPE_PP_PUB_KEY")
-STRIPE_PP_SECRET_KEY = env("STRIPE_PP_SECRET_KEY")
-STRIPE_PP_WEBHOOK_SECRET = env("STRIPE_PP_WEBHOOK_SECRET")
+STRIPE_PUB_KEYS = env.list("STRIPE_PUB_KEYS")
+STRIPE_SECRET_KEYS = env.list("STRIPE_SECRET_KEYS")
+STRIPE_WEBHOOK_SECRETS = env.list("STRIPE_WEBHOOK_SECRETS")
 
 # mailgun
 # ------------------------------------------------------------------------------

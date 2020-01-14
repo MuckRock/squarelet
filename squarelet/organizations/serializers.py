@@ -4,6 +4,7 @@ from rest_framework import serializers, status
 from rest_framework.exceptions import APIException
 
 # Squarelet
+from squarelet.organizations.choices import StripeAccounts
 from squarelet.organizations.models import (
     Charge,
     Invitation,
@@ -18,8 +19,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
     # XXX remove plan ??
     plan = serializers.SerializerMethodField()
     entitlements = serializers.SerializerMethodField()
-    # this can be slow - goes to stripe for customer/card info - cache this
-    card = serializers.CharField(source="card_display")
+    card = serializers.SerializerMethodField()
 
     class Meta:
         model = Organization
@@ -51,6 +51,10 @@ class OrganizationSerializer(serializers.ModelSerializer):
                 plans__organization=obj
             ).values_list("slug", flat=True)
         return []
+
+    def get_card(self, obj):
+        # this can be slow - goes to stripe for customer/card info - cache this
+        return obj.customer(StripeAccounts.muckrock).card_display
 
 
 class MembershipSerializer(serializers.ModelSerializer):
@@ -112,7 +116,7 @@ class ChargeSerializer(serializers.ModelSerializer):
             raise StripeError(exc.user_message)
         # add the card display to the response, so the client has immediate access
         # to the newly saved card
-        data = {"card": organization.card_display}
+        data = {"card": organization.customer(StripeAccounts.muckrock).card_display}
         data.update(self.data)
         self._data = data
         return charge

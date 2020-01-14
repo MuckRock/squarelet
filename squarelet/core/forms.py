@@ -4,12 +4,17 @@ from django.conf import settings
 from django.forms.widgets import ClearableFileInput
 from django.utils.translation import ugettext_lazy as _
 
+# Squarelet
+from squarelet.organizations.choices import StripeAccounts
+
 
 class StripeForm(forms.Form):
     """Base class for forms which include stripe fields"""
 
+    # this form always uses MuckRock's stripe account
     stripe_pk = forms.CharField(
-        widget=forms.HiddenInput(), initial=settings.STRIPE_PUB_KEY
+        widget=forms.HiddenInput(),
+        initial=settings.STRIPE_PUB_KEYS[StripeAccounts.muckrock],
     )
     stripe_token = forms.CharField(widget=forms.HiddenInput(), required=False)
     use_card_on_file = forms.TypedChoiceField(
@@ -25,10 +30,13 @@ class StripeForm(forms.Form):
         self._set_card_options()
 
     def _set_card_options(self):
-        card = self.organization and self.organization.card
+        card = None
+        if self.organization:
+            customer = self.organization.customer(StripeAccounts.muckrock)
+            card = customer.card
         if card:
             self.fields["use_card_on_file"].choices = (
-                (True, self.organization.card_display),
+                (True, customer.card_display),
                 (False, _("New Card")),
             )
         else:

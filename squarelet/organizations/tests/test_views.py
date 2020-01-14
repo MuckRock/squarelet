@@ -190,7 +190,7 @@ class TestUpdateSubscription(ViewTestMixin):
         assert response.status_code == 302
 
     def test_get_admin(self, rf, organization_factory, user_factory, mocker):
-        mocker.patch("squarelet.organizations.models.Organization.card", None)
+        mocker.patch("squarelet.organizations.models.Customer.card", None)
         user = user_factory()
         organization = organization_factory(admins=[user])
         ReceiptEmail.objects.create(
@@ -208,7 +208,7 @@ class TestUpdateSubscription(ViewTestMixin):
         assert len(initial["receipt_emails"].split("\n")) == 2
 
     def test_post_admin(self, rf, organization_factory, user_factory, mocker):
-        mocker.patch("squarelet.organizations.models.Organization.card", None)
+        mocker.patch("squarelet.organizations.models.Customer.card", None)
         mocked = mocker.patch(
             "squarelet.organizations.models.Organization.set_subscription"
         )
@@ -235,7 +235,7 @@ class TestUpdateSubscription(ViewTestMixin):
     def test_post_admin_stripe_error(
         self, rf, organization_factory, user_factory, mocker
     ):
-        mocker.patch("squarelet.organizations.models.Organization.card", None)
+        mocker.patch("squarelet.organizations.models.Customer.card", None)
         mocked = mocker.patch(
             "squarelet.organizations.models.Organization.set_subscription"
         )
