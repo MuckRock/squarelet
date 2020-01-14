@@ -12,7 +12,7 @@ class ChangeLogReason(DjangoChoices):
     failed = ChoiceItem(0, _("Failed"))
 
 
-class Payees(DjangoChoices):
+class StripeAccounts(DjangoChoices):
     # pylint: disable=no-init
     muckrock = ChoiceItem(0, _("MuckRock"))
     presspass = ChoiceItem(1, _("PressPass"))

@@ -7,6 +7,7 @@ from squarelet.users.tests.factories import UserFactory
 # Local
 from .factories import (
     ChargeFactory,
+    CustomerFactory,
     IndividualOrganizationFactory,
     InvitationFactory,
     MembershipFactory,
@@ -26,5 +27,6 @@ register(OrganizationFactory)
 register(OrganizationPlanFactory)
 register(ProfessionalPlanFactory)
 register(SubscriptionFactory)
+register(CustomerFactory)
 
 register(UserFactory)

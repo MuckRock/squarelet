@@ -1,4 +1,5 @@
 # Django
+from django.conf import settings
 from django.utils import timezone
 
 # Standard Library
@@ -7,10 +8,11 @@ from unittest.mock import Mock, PropertyMock
 
 # Third Party
 import pytest
+import stripe
 from dateutil.relativedelta import relativedelta
 
 # Squarelet
-from squarelet.organizations.choices import ChangeLogReason
+from squarelet.organizations.choices import ChangeLogReason, StripeAccounts
 from squarelet.organizations.models import ReceiptEmail
 
 # pylint: disable=invalid-name,too-many-public-methods,protected-access
@@ -112,86 +114,52 @@ class TestOrganization:
         organization = individual_organization_factory.build()
         assert organization.reference_name == "Your account"
 
-    def test_customer_existing(self, organization_factory, mocker):
-        mocked = mocker.patch("stripe.Customer.retrieve")
+    @pytest.mark.django_db()
+    def test_customer_existing(self, customer_factory):
         customer_id = "customer_id"
-        organization = organization_factory.build(customer_id=customer_id)
-        assert mocked.return_value == organization.customer
-        mocked.assert_called_with(customer_id)
+        customer = customer_factory(customer_id=customer_id)
+        assert customer == customer.organization.customer(StripeAccounts.muckrock)
 
+    @pytest.mark.django_db()
     def test_customer_new(self, organization_factory, mocker):
         customer_id = "customer_id"
-        customer = Mock(id=customer_id)
-        mocked_create = mocker.patch("stripe.Customer.create", return_value=customer)
-        mocked_save = mocker.patch("squarelet.organizations.models.Organization.save")
+        stripe_customer = Mock(id=customer_id)
+        mocked_stripe_create = mocker.patch(
+            "stripe.Customer.create", return_value=stripe_customer
+        )
         email = "email@example.com"
         mocker.patch("squarelet.organizations.models.Organization.email", email)
-        organization = organization_factory.build()
-        assert customer == organization.customer
-        mocked_create.assert_called_with(description=organization.name, email=email)
-        mocked_save.assert_called_once()
+        organization = organization_factory()
+        customer = organization.customer(StripeAccounts.muckrock)
+        assert customer.customer_id == customer_id
+        assert customer.stripe_account == StripeAccounts.muckrock
+        assert customer.organization == organization
+        mocked_stripe_create.assert_called_with(
+            description=organization.name,
+            email=email,
+            api_key=settings.STRIPE_SECRET_KEYS[StripeAccounts.muckrock],
+        )
 
     def test_subscription_blank(self, organization_factory):
         organization = organization_factory.build()
         assert organization.subscription is None
 
-    def test_card_existing(self, organization_factory, mocker):
-        default_source = "default_source"
-        mocked = mocker.patch(
-            "squarelet.organizations.models.Organization.customer",
-            default_source=default_source,
-        )
-        mocked.sources.retrieve.return_value.object = "card"
-        organization = organization_factory.build()
-        assert mocked.sources.retrieve.return_value == organization.card
-        mocked.sources.retrieve.assert_called_with(default_source)
-
-    def test_card_ach(self, organization_factory, mocker):
-        default_source = "default_source"
-        mocked = mocker.patch(
-            "squarelet.organizations.models.Organization.customer",
-            default_source=default_source,
-        )
-        mocked.sources.retrieve.return_value.object = "ach"
-        organization = organization_factory.build()
-        assert organization.card is None
-        mocked.sources.retrieve.assert_called_with(default_source)
-
-    def test_card_blank(self, organization_factory, mocker):
-        mocker.patch(
-            "squarelet.organizations.models.Organization.customer", default_source=None
-        )
-        organization = organization_factory.build()
-        assert organization.card is None
-
-    def test_card_display(self, organization_factory, mocker):
-        brand = "Visa"
-        last4 = "4242"
-        mocker.patch(
-            "squarelet.organizations.models.Organization.card", brand=brand, last4=last4
-        )
-        organization = organization_factory.build(customer_id="customer_id")
-        assert organization.card_display == f"{brand}: {last4}"
-
-    def test_card_display_empty(self, organization_factory):
-        organization = organization_factory.build()
-        assert organization.card_display == ""
-
     def test_save_card(self, organization_factory, mocker):
         token = "token"
-        mocked_customer = mocker.patch(
-            "squarelet.organizations.models.Organization.customer"
+        customer = Mock()
+        mocker.patch(
+            "squarelet.organizations.models.Organization.customer",
+            return_value=customer,
         )
         mocked_save = mocker.patch("squarelet.organizations.models.Organization.save")
         mocked_sci = mocker.patch(
             "squarelet.organizations.models.send_cache_invalidations"
         )
         organization = organization_factory.build()
-        organization.save_card(token)
+        organization.save_card(token, StripeAccounts.muckrock)
         assert not organization.payment_failed
         mocked_save.assert_called_once()
-        assert mocked_customer.source == token
-        mocked_customer.save.assert_called_once()
+        customer.save_card.assert_called_with(token)
         mocked_sci.assert_called_with("organization", organization.uuid)
 
     @pytest.mark.django_db
@@ -227,7 +195,7 @@ class TestOrganization:
         max_users = 10
         token = "token"
         organization.create_subscription(token, plan)
-        mocked_save_card.assert_called_with(token)
+        mocked_save_card.assert_called_with(token, StripeAccounts.muckrock)
         assert mocked_customer.email == organization.email
         mocked_customer.save.assert_called()
         mocked_subscriptions.start.assert_called_with(
@@ -317,6 +285,98 @@ class TestOrganization:
         emails = ["email2@example.com", "email4@example.com"]
         organization.set_receipt_emails(emails)
         assert set(emails) == set(r.email for r in organization.receipt_emails.all())
+
+
+class TestCustomer:
+    """Unit tests for Customer model"""
+
+    def test_customer_existing(self, customer_factory, mocker):
+        mocked = mocker.patch("stripe.Customer.retrieve")
+        customer_id = "customer_id"
+        customer = customer_factory.build(customer_id=customer_id)
+        assert mocked.return_value == customer.stripe_customer
+        mocked.assert_called_with(
+            customer_id, api_key=settings.STRIPE_SECRET_KEYS[StripeAccounts.muckrock]
+        )
+
+    def test_customer_new(self, customer_factory, mocker):
+        customer_id = "customer_id"
+        mock_customer = Mock(id=customer_id)
+        mocker.patch(
+            "stripe.Customer.retrieve",
+            side_effect=stripe.error.InvalidRequestError(None, None),
+        )
+        mocked_create = mocker.patch(
+            "stripe.Customer.create", return_value=mock_customer
+        )
+        email = "email@example.com"
+        mocker.patch("squarelet.organizations.models.Organization.email", email)
+        mocked_save = mocker.patch("squarelet.organizations.models.Customer.save")
+        customer = customer_factory.build()
+        assert mock_customer == customer.stripe_customer
+        mocked_create.assert_called_with(
+            description=customer.organization.name,
+            email=email,
+            api_key=settings.STRIPE_SECRET_KEYS[StripeAccounts.muckrock],
+        )
+        mocked_save.assert_called_once()
+
+    def test_card_existing(self, customer_factory, mocker):
+        default_source = "default_source"
+        mocked = mocker.patch(
+            "squarelet.organizations.models.Customer.stripe_customer",
+            default_source=default_source,
+        )
+        mocked.sources.retrieve.return_value.object = "card"
+        customer = customer_factory.build()
+        assert mocked.sources.retrieve.return_value == customer.card
+        mocked.sources.retrieve.assert_called_with(default_source)
+
+    def test_card_ach(self, customer_factory, mocker):
+        default_source = "default_source"
+        mocked = mocker.patch(
+            "squarelet.organizations.models.Customer.stripe_customer",
+            default_source=default_source,
+        )
+        mocked.sources.retrieve.return_value.object = "ach"
+        customer = customer_factory.build()
+        assert customer.card is None
+        mocked.sources.retrieve.assert_called_with(default_source)
+
+    def test_card_blank(self, customer_factory, mocker):
+        mocker.patch(
+            "squarelet.organizations.models.Customer.stripe_customer",
+            default_source=None,
+        )
+        customer = customer_factory.build()
+        assert customer.card is None
+
+    def test_card_display(self, customer_factory, mocker):
+        brand = "Visa"
+        last4 = "4242"
+        mocker.patch(
+            "squarelet.organizations.models.Customer.card", brand=brand, last4=last4
+        )
+        customer = customer_factory.build(customer_id="customer_id")
+        assert customer.card_display == f"{brand}: {last4}"
+
+    def test_card_display_empty(self, customer_factory, mocker):
+        mocker.patch(
+            "squarelet.organizations.models.Customer.stripe_customer",
+            default_source=None,
+        )
+        customer = customer_factory.build()
+        assert customer.card_display == ""
+
+    def test_save_card(self, customer_factory, mocker):
+        token = "token"
+        mocked_customer = mocker.patch(
+            "squarelet.organizations.models.Customer.stripe_customer"
+        )
+        customer = customer_factory.build()
+        customer.save_card(token)
+        assert mocked_customer.source == token
+        mocked_customer.save.assert_called_once()
 
 
 class TestMembership:
@@ -461,6 +521,7 @@ class TestSubscription:
             ],
             billing="charge_automatically",
             days_until_due=None,
+            api_key=settings.STRIPE_SECRET_KEYS[plan.stripe_account],
         )
 
 
@@ -501,6 +562,7 @@ class TestPlan:
             product={"name": plan.name, "unit_label": "Seats"},
             billing_scheme="per_unit",
             amount=100 * plan.base_price,
+            api_key=settings.STRIPE_SECRET_KEYS[plan.stripe_account],
         )
 
     def test_make_stripe_plan_group(self, organization_plan_factory, mocker):
@@ -518,6 +580,7 @@ class TestPlan:
                 {"unit_amount": 100 * plan.price_per_user, "up_to": "inf"},
             ],
             tiers_mode="graduated",
+            api_key=settings.STRIPE_SECRET_KEYS[plan.stripe_account],
         )
 
 

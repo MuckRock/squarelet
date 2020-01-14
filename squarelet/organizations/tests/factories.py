@@ -8,6 +8,9 @@ from datetime import date
 import factory
 from autoslug.utils import slugify
 
+# Squarelet
+from squarelet.organizations.choices import StripeAccounts
+
 
 class OrganizationFactory(factory.django.DjangoModelFactory):
     name = factory.Sequence(lambda n: f"org-{n}")
@@ -43,6 +46,17 @@ class IndividualOrganizationFactory(OrganizationFactory):
     individual = True
     private = True
     max_users = 1
+
+
+class CustomerFactory(factory.django.DjangoModelFactory):
+    organization = factory.SubFactory(
+        "squarelet.organizations.tests.factories.OrganizationFactory"
+    )
+    stripe_account = StripeAccounts.muckrock
+    customer_id = factory.Sequence(lambda n: f"customer-{n}")
+
+    class Meta:
+        model = "organizations.Customer"
 
 
 class MembershipFactory(factory.django.DjangoModelFactory):

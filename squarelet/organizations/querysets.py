@@ -1,4 +1,5 @@
 # Django
+from django.conf import settings
 from django.db import models
 from django.db.models import Q
 from django.utils.timezone import get_current_timezone
@@ -11,7 +12,7 @@ import stripe
 from dateutil.relativedelta import relativedelta
 
 # Squarelet
-from squarelet.organizations.choices import ChangeLogReason, Payees
+from squarelet.organizations.choices import ChangeLogReason, StripeAccounts
 
 
 class OrganizationQuerySet(models.QuerySet):
@@ -68,7 +69,7 @@ class PlanQuerySet(models.QuerySet):
         return self.filter(base_price=0, price_per_user=0)
 
     def muckrock(self):
-        return self.filter(pay_to=Payees.muckrock)
+        return self.filter(stripe_account=StripeAccounts.muckrock)
 
 
 class InvitationQuerySet(models.QuerySet):
@@ -89,18 +90,20 @@ class InvitationQuerySet(models.QuerySet):
 
 
 class ChargeQuerySet(models.QuerySet):
-    def make_charge(self, organization, token, amount, fee_amount, description):
+    def make_charge(
+        self, organization, token, amount, fee_amount, description, stripe_account
+    ):
         """Make a charge on stripe and locally"""
-        customer = organization.customer
+        customer = organization.customer(stripe_account)
         if token:
-            source = customer.sources.create(source=token)
+            source = customer.add_source(token)
         else:
-            source = organization.card
+            source = customer.card
 
         stripe_charge = stripe.Charge.create(
             amount=amount,
             currency="usd",
-            customer=customer,
+            customer=customer.stripe_customer,
             description=description,
             source=source,
             metadata={
@@ -108,6 +111,7 @@ class ChargeQuerySet(models.QuerySet):
                 "organization id": organization.uuid,
                 "fee amount": fee_amount,
             },
+            api_key=settings.STRIPE_SECRET_KEYS[stripe_account],
         )
         if token:
             source.delete()
@@ -126,6 +130,7 @@ class ChargeQuerySet(models.QuerySet):
                 ),
                 "description": description,
             },
+            stripe_account=stripe_account,
         )
         return charge
 
@@ -142,4 +147,4 @@ class SubscriptionQuerySet(models.QuerySet):
         return subscription()
 
     def muckrock(self):
-        return self.filter(plan__pay_to=Payees.muckrock)
+        return self.filter(plan__stripe_account=StripeAccounts.muckrock)
