@@ -7,6 +7,7 @@ from reversion.admin import VersionAdmin
 # Squarelet
 from squarelet.organizations.models import (
     Charge,
+    Customer,
     Entitlement,
     Invitation,
     Membership,
@@ -21,6 +22,12 @@ from squarelet.organizations.models import (
 class SubscriptionInline(admin.TabularInline):
     model = Subscription
     readonly_fields = ("plan", "subscription_id", "update_on", "cancelled")
+    extra = 0
+
+
+class CustomerInline(admin.TabularInline):
+    model = Customer
+    readonly_fields = ("stripe_account", "customer_id")
     extra = 0
 
 
@@ -50,6 +57,7 @@ class OrganizationAdmin(VersionAdmin):
     save_on_top = True
     inlines = (
         SubscriptionInline,
+        CustomerInline,
         MembershipInline,
         ReceiptEmailInline,
         InvitationInline,

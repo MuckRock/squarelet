@@ -26,16 +26,17 @@ class TestOrganizationAPI:
         assert response_json["name"] == user.individual_organization.name
         assert response_json["individual"]
 
-    def test_create_charge(self, user_factory, mocker):
+    def test_create_charge(self, user_factory, customer_factory, mocker):
         mocked = mocker.patch(
             "stripe.Charge.create",
             return_value=Mock(id="charge_id", created=time.time()),
         )
         mocker.patch(
-            "squarelet.organizations.models.Organization.customer",
+            "squarelet.organizations.models.Customer.stripe_customer",
             default_source="default_source",
         )
         user = user_factory(is_staff=True)
+        customer = customer_factory(organization=user.individual_organization)
         data = {
             "organization": str(user.individual_organization.uuid),
             "amount": 2700,
