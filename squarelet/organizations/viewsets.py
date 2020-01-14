@@ -5,18 +5,25 @@ from rest_framework.permissions import DjangoObjectPermissions, IsAdminUser
 
 # Squarelet
 from squarelet.oidc.permissions import ScopePermission
-from squarelet.organizations.models import Invitation, Membership, Plan
-
-# Local
-from .models import Charge, Organization
-from .serializers import (
+from squarelet.organizations.models import (
+    Charge,
+    Entitlement,
+    Invitation,
+    Membership,
+    Organization,
+    Plan,
+    Subscription,
+)
+from squarelet.organizations.serializers import (
     ChargeSerializer,
     OrganizationSerializer,
+    PressPassEntitlmentSerializer,
     PressPassInvitationSerializer,
     PressPassMembershipSerializer,
     PressPassNestedInvitationSerializer,
     PressPassOrganizationSerializer,
     PressPassPlanSerializer,
+    PressPassSubscriptionSerializer,
 )
 
 
@@ -56,7 +63,7 @@ class PressPassOrganizationViewSet(
 
 
 class PressPassMembershipViewSet(
-    # Cannot create memberships directly
+    # Cannot create memberships directly - must use invitations
     mixins.RetrieveModelMixin,
     mixins.UpdateModelMixin,
     mixins.ListModelMixin,
@@ -108,6 +115,31 @@ class PressPassInvitationViewSet(
 
 
 class PressPassPlanViewSet(viewsets.ModelViewSet):
+    # XXX
     queryset = Plan.objects.all()
     serializer_class = PressPassPlanSerializer
     permission_classes = (DjangoObjectPermissions,)
+
+
+class PressPassEntitlmentViewSet(viewsets.ModelViewSet):
+    # XXX
+    queryset = Entitlement.objects.all()
+    serializer_class = PressPassEntitlmentSerializer
+    permission_classes = (DjangoObjectPermissions,)
+
+
+class PressPassSubscriptionViewSet(viewsets.ModelViewSet):
+    queryset = Subscription.objects.none()
+    serializer_class = PressPassSubscriptionSerializer
+    permission_classes = (DjangoObjectPermissions,)
+    lookup_field = "plan_id"
+
+    # XXX business logic
+
+    def get_queryset(self):
+        """Only fetch both organizations and subscriptions viewable to this user"""
+        organization = get_object_or_404(
+            Organization, uuid=self.kwargs["organization_uuid"]
+        )
+        # XXX
+        return organization.subscriptions.all()

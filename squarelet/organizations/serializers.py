@@ -7,10 +7,12 @@ from rest_framework.exceptions import APIException
 from squarelet.organizations.choices import StripeAccounts
 from squarelet.organizations.models import (
     Charge,
+    Entitlement,
     Invitation,
     Membership,
     Organization,
     Plan,
+    Subscription,
 )
 
 
@@ -222,7 +224,6 @@ class PressPassPlanSerializer(serializers.ModelSerializer):
             "minimum_users",
             "base_price",
             "price_per_user",
-            "feature_level",
             "public",
             "annual",
             "for_individuals",
@@ -230,3 +231,20 @@ class PressPassPlanSerializer(serializers.ModelSerializer):
             "requires_updates",
         )
         extra_kwargs = {"slug": {"read_only": True}}
+
+
+class PressPassEntitlmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Entitlement
+        fields = ("name", "slug", "client", "description")
+        extra_kwargs = {"slug": {"read_only": True}}
+
+
+class PressPassSubscriptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subscription
+        fields = ("plan", "update_on", "cancelled")
+        extra_kwargs = {
+            "update_on": {"read_only": True},
+            "cancelled": {"read_only": True},
+        }
