@@ -8,9 +8,7 @@ from rest_framework import serializers
 
 # Squarelet
 from squarelet.organizations.serializers import MembershipSerializer
-
-# Local
-from .models import User
+from squarelet.users.models import User
 
 
 class UserBaseSerializer(serializers.ModelSerializer):

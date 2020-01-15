@@ -3,13 +3,11 @@ from django.conf import settings
 from django.utils import timezone
 
 # Standard Library
-from datetime import date
 from unittest.mock import Mock, PropertyMock
 
 # Third Party
 import pytest
 import stripe
-from dateutil.relativedelta import relativedelta
 
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason, StripeAccounts
@@ -192,7 +190,6 @@ class TestOrganization:
             "squarelet.organizations.models.Organization.subscriptions"
         )
         mocked_customer.email = None
-        max_users = 10
         token = "token"
         organization.create_subscription(token, plan)
         mocked_save_card.assert_called_with(token, StripeAccounts.muckrock)
@@ -468,9 +465,9 @@ class TestSubscription:
         )
         subscription = subscription_factory.build()
         subscription.cancel()
-        assert mocked_stripe_subscription.cancel_at_period_end == True
+        assert mocked_stripe_subscription.cancel_at_period_end
         mocked_stripe_subscription.save.assert_called()
-        assert subscription.cancelled == True
+        assert subscription.cancelled
         mocked_save.assert_called()
 
     def test_modify_start(
