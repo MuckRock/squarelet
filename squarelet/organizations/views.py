@@ -32,7 +32,7 @@ from crispy_forms.layout import Field, Layout
 from squarelet.core.mail import ORG_TO_ADMINS, send_mail
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import mixpanel_event
-from squarelet.organizations.choices import ChangeLogReason
+from squarelet.organizations.choices import ChangeLogReason, StripeAccounts
 from squarelet.organizations.forms import AddMemberForm, PaymentForm, UpdateForm
 from squarelet.organizations.mixins import IndividualMixin, OrganizationAdminMixin
 from squarelet.organizations.models import Charge, Invitation, Membership, Organization
@@ -459,9 +459,11 @@ def stripe_webhook(request):
     payload = request.body
     sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")
     try:
-        if settings.STRIPE_WEBHOOK_SECRET:
+        if settings.STRIPE_WEBHOOK_SECRETS[StripeAccounts.muckrock]:
             event = stripe.Webhook.construct_event(
-                payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
+                payload,
+                sig_header,
+                settings.STRIPE_WEBHOOK_SECRETS[StripeAccounts.muckrock],
             )
         else:
             event = json.loads(request.body)
