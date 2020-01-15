@@ -127,7 +127,7 @@ class TestOrganization:
         )
         email = "email@example.com"
         mocker.patch("squarelet.organizations.models.Organization.email", email)
-        organization = organization_factory()
+        organization = organization_factory(customer=None)
         customer = organization.customer(StripeAccounts.muckrock)
         assert customer.customer_id == customer_id
         assert customer.stripe_account == StripeAccounts.muckrock

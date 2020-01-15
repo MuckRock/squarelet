@@ -534,7 +534,7 @@ class TestStripeWebhook:
         response = self.call_view(rf, event)
         assert response.status_code == 400
 
-    @override_settings(STRIPE_WEBHOOK_SECRET="123")
+    @override_settings(STRIPE_WEBHOOK_SECRETS=["123"])
     def test_signature_verification(self, rf):
         """Signature verification error should fail"""
         event = {"type": "test"}
