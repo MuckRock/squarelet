@@ -13,10 +13,14 @@ from squarelet.organizations.models import Charge
 
 @pytest.mark.django_db()
 class TestOrganizationAPI:
-    def test_retrieve(self, user_factory):
+    def test_retrieve(self, user_factory, mocker):
         user = user_factory(is_staff=True)
         client = APIClient()
         client.force_authenticate(user=user)
+        mocker.patch(
+            "squarelet.organizations.models.Customer.stripe_customer",
+            default_source=None,
+        )
         response = client.get(
             f"/api/organizations/{user.individual_organization.uuid}/"
         )
@@ -26,7 +30,7 @@ class TestOrganizationAPI:
         assert response_json["name"] == user.individual_organization.name
         assert response_json["individual"]
 
-    def test_create_charge(self, user_factory, customer_factory, mocker):
+    def test_create_charge(self, user_factory, mocker):
         mocked = mocker.patch(
             "stripe.Charge.create",
             return_value=Mock(id="charge_id", created=time.time()),
@@ -36,7 +40,6 @@ class TestOrganizationAPI:
             default_source="default_source",
         )
         user = user_factory(is_staff=True)
-        customer_factory(organization=user.individual_organization)
         data = {
             "organization": str(user.individual_organization.uuid),
             "amount": 2700,
