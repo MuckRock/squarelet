@@ -25,7 +25,7 @@ class TestClientAPI:
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == size
         for result in response_json["results"]:
-            assert result["owner"] == user.pk
+            assert result["owner"] == str(user.individual_organization_id)
 
     def test_create(self, api_client, user):
         """Create a client"""
@@ -43,7 +43,7 @@ class TestClientAPI:
         response = api_client.post(f"/pp-api/clients/", data)
         assert response.status_code == status.HTTP_201_CREATED
         response_json = json.loads(response.content)
-        assert response_json["owner"] == user.pk
+        assert response_json["owner"] == str(user.individual_organization_id)
         assert len(response_json["client_id"]) == 6
         assert len(response_json["client_secret"]) == 56
         for key, value in data.items():

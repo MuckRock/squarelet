@@ -7,8 +7,8 @@ from unittest.mock import Mock
 import pytest
 from rest_framework.test import APIClient
 
-# Local
-from ..models import Charge
+# Squarelet
+from squarelet.organizations.models import Charge
 
 
 @pytest.mark.django_db()
@@ -36,7 +36,7 @@ class TestOrganizationAPI:
             default_source="default_source",
         )
         user = user_factory(is_staff=True)
-        customer = customer_factory(organization=user.individual_organization)
+        customer_factory(organization=user.individual_organization)
         data = {
             "organization": str(user.individual_organization.uuid),
             "amount": 2700,

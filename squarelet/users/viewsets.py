@@ -28,10 +28,6 @@ from squarelet.users.serializers import (
     UserWriteSerializer,
 )
 
-# Local
-from .models import User
-from .serializers import UserReadSerializer, UserWriteSerializer
-
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.prefetch_related(
