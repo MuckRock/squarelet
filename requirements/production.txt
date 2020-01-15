@@ -7,7 +7,6 @@
 --no-binary psycopg2
 
 amqp==2.3.2
-appnope==0.1.0
 argon2-cffi==18.1.0
 backcall==0.1.0
 bcrypt==3.1.4
@@ -43,6 +42,7 @@ django-debug-toolbar==1.11
 django-email-bandit==1.5
 django-environ==0.4.4
 django-extensions==2.1.5
+django-filter==2.2.0
 django-hijack==2.1.10
 django-model-utils==3.1.2
 django-oidc-provider==0.7.0
@@ -120,6 +120,3 @@ uritemplate==3.0.0
 urllib3==1.23
 vine==1.1.4
 wcwidth==0.1.7
-
-# The following packages are considered to be unsafe in a requirements file:
-# setuptools==41.6.0        # via ipdb, ipython

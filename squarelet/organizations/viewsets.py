@@ -1,4 +1,5 @@
 # Third Party
+import django_filters
 from rest_framework import mixins, viewsets
 from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import DjangoObjectPermissions, IsAdminUser
@@ -25,6 +26,7 @@ from squarelet.organizations.serializers import (
     PressPassPlanSerializer,
     PressPassSubscriptionSerializer,
 )
+from squarelet.users.models import User
 
 
 class OrganizationViewSet(viewsets.ModelViewSet):
@@ -61,6 +63,17 @@ class PressPassOrganizationViewSet(
     permission_classes = (DjangoObjectPermissions,)
     lookup_field = "uuid"
 
+    class Filter(django_filters.FilterSet):
+        user = django_filters.ModelChoiceFilter(
+            queryset=User.objects.all(), to_field_name="uuid", field_name="users"
+        )
+
+        class Meta:
+            model = Organization
+            fields = ["user"]
+
+    filterset_class = Filter
+
 
 class PressPassMembershipViewSet(
     # Cannot create memberships directly - must use invitations
@@ -73,7 +86,7 @@ class PressPassMembershipViewSet(
     queryset = Membership.objects.none()
     serializer_class = PressPassMembershipSerializer
     permission_classes = (DjangoObjectPermissions,)
-    lookup_field = "user_id"
+    lookup_field = "user__uuid"
 
     def get_queryset(self):
         """Only fetch both organizations and memberships viewable to this user"""

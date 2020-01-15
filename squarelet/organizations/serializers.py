@@ -135,15 +135,12 @@ class ChargeSerializer(serializers.ModelSerializer):
 
 
 class PressPassOrganizationSerializer(serializers.ModelSerializer):
-    plan = serializers.CharField(source="plan.slug")
-
     class Meta:
         model = Organization
         fields = (
             "uuid",
             "name",
             "slug",
-            "plan",
             "max_users",
             "individual",
             "private",
@@ -155,17 +152,19 @@ class PressPassOrganizationSerializer(serializers.ModelSerializer):
 
 
 class PressPassMembershipSerializer(serializers.ModelSerializer):
+    user = serializers.SlugRelatedField(slug_field="uuid", read_only=True)
+
     class Meta:
         model = Membership
         fields = ("user", "admin")
-        extra_kwargs = {"user": {"read_only": True}}
 
 
 class PressPassNestedInvitationSerializer(serializers.ModelSerializer):
+    user = serializers.SlugRelatedField(slug_field="uuid", read_only=True)
+
     class Meta:
         model = Invitation
         fields = (
-            "organization",
             "email",
             "user",
             "request",
@@ -181,6 +180,8 @@ class PressPassNestedInvitationSerializer(serializers.ModelSerializer):
 
 
 class PressPassInvitationSerializer(serializers.ModelSerializer):
+    organization = serializers.SlugRelatedField(slug_field="uuid", read_only=True)
+    user = serializers.SlugRelatedField(slug_field="uuid", read_only=True)
     accept = serializers.BooleanField(write_only=True)
     reject = serializers.BooleanField(write_only=True)
 
@@ -201,9 +202,7 @@ class PressPassInvitationSerializer(serializers.ModelSerializer):
             "created_at": {"read_only": True},
             "accepted_at": {"read_only": True},
             "rejected_at": {"read_only": True},
-            "organization": {"read_only": True},
             "email": {"read_only": True},
-            "user": {"read_only": True},
         }
 
     def validate(self, attrs):

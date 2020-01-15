@@ -84,6 +84,7 @@ THIRD_PARTY_APPS = [
     "rules.apps.AutodiscoverRulesConfig",
     "sorl.thumbnail",
     "corsheaders",
+    "django_filters",
 ]
 LOCAL_APPS = [
     "squarelet.core",
@@ -324,6 +325,7 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.SessionAuthentication",
     ),
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"],
     "PAGE_SIZE": 100,
 }
 

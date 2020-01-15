@@ -4,6 +4,8 @@ from rest_framework import serializers
 
 
 class ClientSerializer(serializers.ModelSerializer):
+    owner = serializers.SerializerMethodField()
+
     class Meta:
         model = Client
         fields = (
@@ -23,7 +25,6 @@ class ClientSerializer(serializers.ModelSerializer):
             "post_logout_redirect_uris",
         )
         extra_kwargs = {
-            "owner": {"read_only": True},
             "client_id": {"read_only": True},
             "client_secret": {"read_only": True},
             "date_created": {"read_only": True},
@@ -31,3 +32,8 @@ class ClientSerializer(serializers.ModelSerializer):
             "redirect_uris": {"source": "_redirect_uris"},
             "post_logout_redirect_uris": {"source": "_post_logout_redirect_uris"},
         }
+
+    def get_owner(self, obj):
+        # using the alias field `uuid` here instead of individual_organization_id
+        # breaks only during testing for some reason
+        return str(obj.owner.individual_organization_id)

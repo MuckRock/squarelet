@@ -9,11 +9,13 @@ django-autocomplete-light
 django-autoslug-iplweb
 django-choices
 django-compressor
+django-cors-headers
 django-crispy-forms
 django-debug-toolbar
 django-email-bandit
 django-environ
 django-extensions
+django-filter
 django-hijack
 django-model-utils
 django-oidc-provider
@@ -44,4 +46,3 @@ rules
 smart_open
 sorl-thumbnail
 stripe
-django-cors-headers
