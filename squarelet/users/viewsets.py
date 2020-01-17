@@ -129,7 +129,9 @@ class PressPassRegisterView(RegisterView):
         # and passwords, we must set the user's name to some default.
         data["name"] = ""
 
-        # For some reason, the serializer isn't returning passwords. This is bad!
+        # The serializer uses write-only fields for passwords, which makes sense.
+        # This probably means we shouldn't use rest auth for registration at all.
+        # We should write our own registration view from scratch.
         data["password1"] = self.request.data["password1"]
 
         # Set to none until we have plans developed
