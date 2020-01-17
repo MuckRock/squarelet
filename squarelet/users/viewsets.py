@@ -127,7 +127,10 @@ class PressPassRegisterView(RegisterView):
         # and passwords, we must set the user's name to some default.
         data["name"] = ""
         data["source"] = "presspass"
-        data["plan"] = Plan.objects.get(slug="free")
+        # Set to none until we have plans developed
+        data["plan"] = None
+        # Set to News Catalyst until we setup organization registration
+        data["organization_name"] = "News Catalyst"
         user, _group_organization, _error = get_user_model().objects.register_user(data)
         user.save()
 
