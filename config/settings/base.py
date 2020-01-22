@@ -420,3 +420,4 @@ SWAGGER_SETTINGS = {"exclude_namespaces": ["auth_helpers"]}
 
 CORS_ORIGIN_WHITELIST = env.list("CORS_ORIGIN_WHITELIST", default=[])
 CORS_ALLOW_CREDENTIALS = True
+CSRF_COOKIE_HTTPONLY = False
