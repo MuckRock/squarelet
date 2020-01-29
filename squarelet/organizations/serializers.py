@@ -174,10 +174,22 @@ class PressPassNestedInvitationSerializer(serializers.ModelSerializer):
             "rejected_at",
         )
         extra_kwargs = {
+            "email": {"required": False},
+            "request": {"read_only": True},
             "created_at": {"read_only": True},
             "accepted_at": {"read_only": True},
             "rejected_at": {"read_only": True},
         }
+
+    def validate_email(self, value):
+        request = self.context.get("request")
+        view = self.context.get("view")
+        organization = Organization.objects.get(uuid=view.kwargs["organization_uuid"])
+        if organization.has_admin(request.user) and not value:
+            raise serializers.ValidationError("You must supply en email")
+        elif not organization.has_admin(request.user) and value:
+            raise serializers.ValidationError("You must not supply en email")
+        return value
 
 
 class PressPassInvitationSerializer(serializers.ModelSerializer):

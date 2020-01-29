@@ -57,11 +57,13 @@ class PressPassOrganizationViewSet(
     mixins.ListModelMixin,
     viewsets.GenericViewSet,
 ):
-    # XXX
-    queryset = Organization.objects.select_related("_plan")
+    queryset = Organization.objects.none()
     serializer_class = PressPassOrganizationSerializer
     permission_classes = (DjangoObjectPermissions,)
     lookup_field = "uuid"
+
+    def get_queryset(self):
+        return Organization.objects.get_viewable(self.request.user)
 
     class Filter(django_filters.FilterSet):
         user = django_filters.ModelChoiceFilter(
@@ -91,7 +93,8 @@ class PressPassMembershipViewSet(
     def get_queryset(self):
         """Only fetch both organizations and memberships viewable to this user"""
         organization = get_object_or_404(
-            Organization, uuid=self.kwargs["organization_uuid"]
+            Organization.objects.get_viewable(self.request.user),
+            uuid=self.kwargs["organization_uuid"],
         )
         return organization.memberships.all()
 
@@ -106,9 +109,29 @@ class PressPassNestedInvitationViewSet(
     def get_queryset(self):
         """Only fetch both organizations and inivtations viewable to this user"""
         organization = get_object_or_404(
-            Organization, uuid=self.kwargs["organization_uuid"]
+            Organization.objects.get_viewable(self.request.user),
+            uuid=self.kwargs["organization_uuid"],
         )
-        return organization.invitations.all()
+        if organization.has_admin(self.request.user):
+            return organization.invitations.all()
+        else:
+            return organization.invitations.none()
+
+    def perform_create(self, serializer):
+        organization = get_object_or_404(
+            Organization.objects.get_viewable(self.request.user),
+            uuid=self.kwargs["organization_uuid"],
+        )
+        # Admins will set an email address to invite and we will send the invitation
+        if organization.has_admin(self.request.user):
+            invitation = serializer.save(organization=organization, request=False)
+            invitation.send()
+        # Users can also request to join - no email address is used, we set
+        # `user` to the current user
+        else:
+            invitation = serializer.save(
+                organization=organization, request=True, user=self.request.user
+            )
 
 
 class PressPassInvitationViewSet(
