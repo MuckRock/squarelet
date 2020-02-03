@@ -1,11 +1,11 @@
 # Third Party
+import pytest
 from pytest_factoryboy import register
+from rest_framework.test import APIClient
 
 # Squarelet
-from squarelet.users.tests.factories import UserFactory
-
-# Local
-from .factories import (
+from squarelet.oidc.tests.factories import ClientFactory
+from squarelet.organizations.tests.factories import (
     ChargeFactory,
     CustomerFactory,
     IndividualOrganizationFactory,
@@ -17,6 +17,7 @@ from .factories import (
     ProfessionalPlanFactory,
     SubscriptionFactory,
 )
+from squarelet.users.tests.factories import UserFactory
 
 register(ChargeFactory)
 register(PlanFactory)
@@ -30,3 +31,13 @@ register(SubscriptionFactory)
 register(CustomerFactory)
 
 register(UserFactory)
+
+
+@pytest.fixture
+def api_client():
+    return APIClient()
+
+
+@pytest.fixture
+def client():
+    return ClientFactory()
