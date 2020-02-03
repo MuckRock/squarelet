@@ -6,6 +6,8 @@ from rules import add_perm, always_deny, is_authenticated, predicate
 
 @predicate
 def is_me(user, user_):
+    if user_ is None:
+        return None
     return user == user_
 
 
