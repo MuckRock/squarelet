@@ -29,7 +29,7 @@ from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Field, Layout
 
 # Squarelet
-from squarelet.core.mail import ORG_TO_ADMINS, send_mail
+from squarelet.core.mail import send_mail
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import mixpanel_event
 from squarelet.organizations.choices import ChangeLogReason, StripeAccounts
@@ -75,17 +75,11 @@ class Detail(AdminLinkMixin, DetailView):
             return redirect(self.organization)
         is_member = self.organization.has_member(self.request.user)
         if request.POST.get("action") == "join" and not is_member:
-            self.organization.invitations.create(
+            invitation = self.organization.invitations.create(
                 email=request.user.email, user=request.user, request=True
             )
             messages.success(request, _("Request to join the organization sent!"))
-            send_mail(
-                subject=_(f"{request.user} has requested to join {self.organization}"),
-                template="organizations/email/join_request.html",
-                organization=self.organization,
-                organization_to=ORG_TO_ADMINS,
-                extra_context={"joiner": request.user},
-            )
+            invitation.send()
         elif request.POST.get("action") == "leave" and is_member:
             self.request.user.memberships.filter(
                 organization=self.organization
