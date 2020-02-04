@@ -150,6 +150,17 @@ class PressPassOrganizationSerializer(serializers.ModelSerializer):
             "payment_failed",
             "avatar",
         )
+        extra_kwargs = {
+            "uuid": {"read_only": True},
+            "slug": {"read_only": True},
+            "max_users": {"required": False},
+            "individual": {"read_only": True},
+            "private": {"required": False},
+            "update_on": {"read_only": True},
+            "updated_at": {"read_only": True},
+            "payment_failed": {"read_only": True},
+            "avatar": {"required": False},
+        }
 
 
 class PressPassMembershipSerializer(serializers.ModelSerializer):
@@ -158,6 +169,7 @@ class PressPassMembershipSerializer(serializers.ModelSerializer):
     class Meta:
         model = Membership
         fields = ("user", "admin")
+        extra_kwargs = {"admin": {"default": False}}
 
 
 class PressPassNestedInvitationSerializer(serializers.ModelSerializer):
@@ -240,9 +252,8 @@ class PressPassPlanSerializer(serializers.ModelSerializer):
             "annual",
             "for_individuals",
             "for_groups",
-            "requires_updates",
+            "entitlements",
         )
-        extra_kwargs = {"slug": {"read_only": True}}
 
 
 class PressPassEntitlmentSerializer(serializers.ModelSerializer):

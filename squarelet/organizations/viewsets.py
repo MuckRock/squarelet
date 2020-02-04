@@ -2,10 +2,12 @@
 import django_filters
 from rest_framework import mixins, viewsets
 from rest_framework.generics import get_object_or_404
-from rest_framework.permissions import DjangoObjectPermissions, IsAdminUser
+from rest_framework.permissions import IsAdminUser
 
 # Squarelet
+from squarelet.core.permissions import DjangoObjectPermissionsOrAnonReadOnly
 from squarelet.oidc.permissions import ScopePermission
+from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.models import (
     Charge,
     Entitlement,
@@ -59,11 +61,23 @@ class PressPassOrganizationViewSet(
 ):
     queryset = Organization.objects.none()
     serializer_class = PressPassOrganizationSerializer
-    permission_classes = (DjangoObjectPermissions,)
+    permission_classes = (DjangoObjectPermissionsOrAnonReadOnly,)
     lookup_field = "uuid"
+
+    # XXX if update max_users, need to update subscriptions
 
     def get_queryset(self):
         return Organization.objects.get_viewable(self.request.user)
+
+    def perform_create(self, serializer):
+        organization = serializer.save()
+        organization.add_creator(self.request.user)
+        organization.change_logs.create(
+            reason=ChangeLogReason.created,
+            user=self.request.user,
+            to_plan=organization.plan,
+            to_max_users=organization.max_users,
+        )
 
     class Filter(django_filters.FilterSet):
         user = django_filters.ModelChoiceFilter(
@@ -87,7 +101,7 @@ class PressPassMembershipViewSet(
 ):
     queryset = Membership.objects.none()
     serializer_class = PressPassMembershipSerializer
-    permission_classes = (DjangoObjectPermissions,)
+    permission_classes = (DjangoObjectPermissionsOrAnonReadOnly,)
     lookup_field = "user__uuid"
 
     def get_queryset(self):
@@ -102,9 +116,15 @@ class PressPassMembershipViewSet(
 class PressPassNestedInvitationViewSet(
     mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.GenericViewSet
 ):
+    """
+    The nested invitation view set is for requesting to join an organization,
+    inviting somebody to join your organization and seeing who has requested to join
+    your organization
+    """
+
     queryset = Invitation.objects.none()
     serializer_class = PressPassNestedInvitationSerializer
-    permission_classes = (DjangoObjectPermissions,)
+    permission_classes = (DjangoObjectPermissionsOrAnonReadOnly,)
 
     def get_queryset(self):
         """Only fetch both organizations and inivtations viewable to this user"""
@@ -137,9 +157,14 @@ class PressPassNestedInvitationViewSet(
 class PressPassInvitationViewSet(
     mixins.RetrieveModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet
 ):
+    """
+    The stand alone invitation viewset is for viewing and accepting or rejecting
+    your invitations
+    """
+
     queryset = Invitation.objects.all()
     serializer_class = PressPassInvitationSerializer
-    permission_classes = (DjangoObjectPermissions,)
+    permission_classes = (DjangoObjectPermissionsOrAnonReadOnly,)
     lookup_field = "uuid"
 
     def perform_update(self, serializer):
@@ -150,24 +175,24 @@ class PressPassInvitationViewSet(
             serializer.instance.reject()
 
 
-class PressPassPlanViewSet(viewsets.ModelViewSet):
+class PressPassPlanViewSet(viewsets.ReadOnlyModelViewSet):
     # XXX
     queryset = Plan.objects.all()
     serializer_class = PressPassPlanSerializer
-    permission_classes = (DjangoObjectPermissions,)
+    permission_classes = (DjangoObjectPermissionsOrAnonReadOnly,)
 
 
-class PressPassEntitlmentViewSet(viewsets.ModelViewSet):
+class PressPassEntitlmentViewSet(viewsets.ReadOnlyModelViewSet):
     # XXX
     queryset = Entitlement.objects.all()
     serializer_class = PressPassEntitlmentSerializer
-    permission_classes = (DjangoObjectPermissions,)
+    permission_classes = (DjangoObjectPermissionsOrAnonReadOnly,)
 
 
 class PressPassSubscriptionViewSet(viewsets.ModelViewSet):
     queryset = Subscription.objects.none()
     serializer_class = PressPassSubscriptionSerializer
-    permission_classes = (DjangoObjectPermissions,)
+    permission_classes = (DjangoObjectPermissionsOrAnonReadOnly,)
     lookup_field = "plan_id"
 
     # XXX business logic

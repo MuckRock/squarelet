@@ -8,6 +8,7 @@ from squarelet.oidc.tests.factories import ClientFactory
 from squarelet.organizations.tests.factories import (
     ChargeFactory,
     CustomerFactory,
+    EntitlementFactory,
     IndividualOrganizationFactory,
     InvitationFactory,
     MembershipFactory,
@@ -41,3 +42,8 @@ def api_client():
 @pytest.fixture
 def client():
     return ClientFactory()
+
+
+@pytest.fixture
+def entitlement():
+    return EntitlementFactory()

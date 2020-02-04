@@ -138,3 +138,13 @@ class ChargeFactory(factory.django.DjangoModelFactory):
 
     class Meta:
         model = "organizations.Charge"
+
+
+class EntitlementFactory(factory.django.DjangoModelFactory):
+    name = factory.Sequence(lambda n: f"Entitlement {n}")
+    slug = factory.LazyAttribute(lambda obj: slugify(obj.name))
+    client = factory.SubFactory("squarelet.oidc.tests.factories.ClientFactory")
+    description = factory.Sequence(lambda n: f"Description {n}")
+
+    class Meta:
+        model = "organizations.Entitlement"
