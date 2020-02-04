@@ -3,11 +3,13 @@
 # Third Party
 from rules import add_perm, is_authenticated, predicate
 
+# Squarelet
+from squarelet.core.rules import skip_if_not_obj
+
 
 @predicate
+@skip_if_not_obj
 def is_owner(user, client):
-    if client is None:
-        return None
     return user == client.owner
 
 
