@@ -455,6 +455,7 @@ class Membership(models.Model):
 
     class Meta:
         unique_together = ("user", "organization")
+        ordering = ("user_id",)
 
     def __str__(self):
         return f"Membership: {self.user} in {self.organization}"
@@ -685,6 +686,9 @@ class Plan(models.Model):
             "Which company's stripe account is used for subscrpitions to this plan"
         ),
     )
+
+    class Meta:
+        ordering = ("slug",)
 
     def __str__(self):
         return self.name
@@ -1088,6 +1092,7 @@ class Entitlement(models.Model):
 
     class Meta:
         unique_together = ("name", "client")
+        ordering = ("slug",)
 
     def __str__(self):
         return f"{self.client} - {self.name}"
