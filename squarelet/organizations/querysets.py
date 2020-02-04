@@ -46,6 +46,16 @@ class OrganizationQuerySet(models.QuerySet):
 
 
 class PlanQuerySet(models.QuerySet):
+    def get_viewable(self, user):
+        if user.is_staff:
+            return self
+        elif user.is_authenticated:
+            return self.filter(
+                Q(public=True) | Q(private_organizations=user.organization)
+            ).distinct()
+        else:
+            return self.filter(public=True)
+
     def choices(self, organization):
         """Return the plan choices for the given organization"""
         if organization.individual:

@@ -19,7 +19,7 @@ from sorl.thumbnail import ImageField
 
 # Squarelet
 from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
-from squarelet.core.mail import ORG_TO_RECEIPTS, send_mail
+from squarelet.core.mail import ORG_TO_ADMINS, ORG_TO_RECEIPTS, send_mail
 from squarelet.core.mixins import AvatarMixin
 from squarelet.core.utils import file_path
 from squarelet.oidc.middleware import send_cache_invalidations
@@ -841,12 +841,21 @@ class Invitation(models.Model):
         return f"Invitation: {self.uuid}"
 
     def send(self):
-        send_mail(
-            subject=_(f"Invitation to join {self.organization.name}"),
-            template="organizations/email/invitation.html",
-            to=[self.email],
-            extra_context={"invitation": self},
-        )
+        if self.request:
+            send_mail(
+                subject=_(f"{self.user} has requested to join {self.organization}"),
+                template="organizations/email/join_request.html",
+                organization=self.organization,
+                organization_to=ORG_TO_ADMINS,
+                extra_context={"joiner": self.user},
+            )
+        else:
+            send_mail(
+                subject=_(f"Invitation to join {self.organization.name}"),
+                template="organizations/email/invitation.html",
+                to=[self.email],
+                extra_context={"invitation": self},
+            )
 
     @transaction.atomic
     def accept(self, user=None):
