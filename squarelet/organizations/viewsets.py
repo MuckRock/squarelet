@@ -176,14 +176,15 @@ class PressPassInvitationViewSet(
 
 
 class PressPassPlanViewSet(viewsets.ReadOnlyModelViewSet):
-    # XXX
-    queryset = Plan.objects.all()
+    queryset = Plan.objects.none()
     serializer_class = PressPassPlanSerializer
     permission_classes = (DjangoObjectPermissionsOrAnonReadOnly,)
 
+    def get_queryset(self):
+        return Plan.objects.get_viewable(self.request.user)
+
 
 class PressPassEntitlmentViewSet(viewsets.ReadOnlyModelViewSet):
-    # XXX
     queryset = Entitlement.objects.all()
     serializer_class = PressPassEntitlmentSerializer
     permission_classes = (DjangoObjectPermissionsOrAnonReadOnly,)
