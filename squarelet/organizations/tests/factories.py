@@ -123,6 +123,7 @@ class InvitationFactory(factory.django.DjangoModelFactory):
         "squarelet.organizations.tests.factories.OrganizationFactory"
     )
     email = factory.Sequence(lambda n: f"user-{n}@example.com")
+    request = False
 
     class Meta:
         model = "organizations.Invitation"
