@@ -13,6 +13,7 @@ from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.models import Charge, Organization
 from squarelet.organizations.tests.factories import (
     EntitlementFactory,
+    InvitationFactory,
     MembershipFactory,
     OrganizationFactory,
     PlanFactory,
@@ -160,7 +161,35 @@ class TestPPMembershipAPI:
 
 @pytest.mark.django_db()
 class TestPPInvitationAPI:
-    pass
+    def test_list(self, api_client, user):
+        """List invitations for an organization"""
+        organization = OrganizationFactory(admins=[user])
+        api_client.force_authenticate(user=user)
+        size = 10
+        InvitationFactory.create_batch(size, organization=organization)
+        response = api_client.get(
+            f"/pp-api/organizations/{organization.uuid}/invitations/"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        response_json = json.loads(response.content)
+        assert len(response_json["results"]) == size
+
+    def test_create_admin_invite(self, api_client, user, mailoutbox):
+        """Create an organization"""
+        organization = OrganizationFactory(admins=[user])
+        api_client.force_authenticate(user=user)
+        data = {"email": "invitee@example.org"}
+        response = api_client.post(
+            f"/pp-api/organizations/{organization.uuid}/invitations/", data
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        response_json = json.loads(response.content)
+        assert not response_json["request"]
+        assert response_json["user"] is None
+        assert len(mailoutbox) == 1
+        mail = mailoutbox[0]
+        assert mail.subject == f"Invitation to join {organization.name}"
+        assert mail.to == [data["email"]]
 
 
 @pytest.mark.django_db()
