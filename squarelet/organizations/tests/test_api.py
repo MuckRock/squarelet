@@ -10,7 +10,7 @@ from rest_framework.test import APIClient
 
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason
-from squarelet.organizations.models import Charge, Organization
+from squarelet.organizations.models import Charge, Entitlement, Organization
 from squarelet.organizations.tests.factories import (
     EntitlementFactory,
     InvitationFactory,
@@ -222,10 +222,47 @@ class TestPPEntitlementAPI:
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == size
 
+    def test_create(self, api_client, client):
+        """Create an entitlement"""
+        api_client.force_authenticate(user=client.owner)
+        data = {
+            "name": "Test Entitlement",
+            "client": client.pk,
+            "description": "Description goes here",
+        }
+        response = api_client.post(f"/pp-api/entitlements/", data)
+        assert response.status_code == status.HTTP_201_CREATED
+
+    def test_create_bad(self, api_client, user, client):
+        """Create an entitlement for a client you don't own"""
+        api_client.force_authenticate(user=user)
+        data = {
+            "name": "Test Entitlement",
+            "client": client.pk,
+            "description": "Description goes here",
+        }
+        response = api_client.post(f"/pp-api/entitlements/", data)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
     def test_retrieve(self, api_client, entitlement):
         """Test retrieving an entitlement"""
-        response = api_client.get(f"/pp-api/entitlements/{entitlement.id}/")
+        response = api_client.get(f"/pp-api/entitlements/{entitlement.pk}/")
         assert response.status_code == status.HTTP_200_OK
+
+    def test_update(self, api_client, entitlement):
+        """Test updating an entitlement"""
+        api_client.force_authenticate(user=entitlement.client.owner)
+        data = {"description": "new description"}
+        response = api_client.patch(f"/pp-api/entitlements/{entitlement.pk}/", data)
+        assert response.status_code == status.HTTP_200_OK
+        entitlement.refresh_from_db()
+        assert entitlement.description == data["description"]
+
+    def test_destroy(self, api_client, entitlement):
+        api_client.force_authenticate(user=entitlement.client.owner)
+        response = api_client.delete(f"/pp-api/entitlements/{entitlement.pk}/")
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not Entitlement.objects.filter(pk=entitlement.pk).exists()
 
 
 @pytest.mark.django_db()
