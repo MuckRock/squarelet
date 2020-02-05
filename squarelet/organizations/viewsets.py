@@ -169,9 +169,9 @@ class PressPassInvitationViewSet(
 
     def perform_update(self, serializer):
         """Accept or reject the invitation"""
-        if serializer.data.get("accept"):
+        if serializer.validated_data.get("accept"):
             serializer.instance.accept(self.request.user)
-        elif serializer.data.get("reject"):
+        elif serializer.validated_data.get("reject"):
             serializer.instance.reject()
 
 

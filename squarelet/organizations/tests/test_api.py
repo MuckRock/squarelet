@@ -175,7 +175,7 @@ class TestPPInvitationAPI:
         assert len(response_json["results"]) == size
 
     def test_create_admin_invite(self, api_client, user, mailoutbox):
-        """Create an organization"""
+        """Admin invites a user to join"""
         organization = OrganizationFactory(admins=[user])
         api_client.force_authenticate(user=user)
         data = {"email": "invitee@example.org"}
@@ -190,6 +190,40 @@ class TestPPInvitationAPI:
         mail = mailoutbox[0]
         assert mail.subject == f"Invitation to join {organization.name}"
         assert mail.to == [data["email"]]
+
+    def test_create_user_request(self, api_client, user, mailoutbox):
+        """User requests to join an organization"""
+        admin = UserFactory()
+        organization = OrganizationFactory(admins=[admin])
+        api_client.force_authenticate(user=user)
+        response = api_client.post(
+            f"/pp-api/organizations/{organization.uuid}/invitations/"
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        response_json = json.loads(response.content)
+        invitation = organization.invitations.first()
+        assert invitation.request
+        assert invitation.user == user
+        assert len(mailoutbox) == 1
+        mail = mailoutbox[0]
+        assert mail.subject == f"{user} has requested to join {organization}"
+        assert mail.to == [admin.email]
+
+    def test_retrieve(self, api_client, invitation):
+        """Get an invitation"""
+        response = api_client.get(f"/pp-api/invitations/{invitation.uuid}/")
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_update(self, api_client, user, invitation):
+        """Accept an invitation"""
+        api_client.force_authenticate(user=user)
+        response = api_client.patch(
+            f"/pp-api/invitations/{invitation.uuid}/", {"accept": True}
+        )
+        assert response.status_code == status.HTTP_200_OK
+        invitation.refresh_from_db()
+        assert invitation.accepted_at
+        assert invitation.organization.has_member(user)
 
 
 @pytest.mark.django_db()
