@@ -1,5 +1,6 @@
 # Third Party
 import stripe
+from oidc_provider.models import Client
 from rest_framework import serializers, status
 from rest_framework.exceptions import APIException
 
@@ -260,6 +261,16 @@ class PressPassEntitlmentSerializer(serializers.ModelSerializer):
         model = Entitlement
         fields = ("name", "slug", "client", "description")
         extra_kwargs = {"slug": {"read_only": True}}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        context = kwargs.get("context", {})
+        request = context.get("request")
+        # may only create entitlements for your own clients
+        if request and request.user and request.user.is_authenticated:
+            self.fields["client"].queryset = Client.objects.filter(owner=request.user)
+        else:
+            self.fields["client"].queryset = Client.objects.none()
 
 
 class PressPassSubscriptionSerializer(serializers.ModelSerializer):
