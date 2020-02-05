@@ -142,16 +142,16 @@ class PressPassNestedInvitationViewSet(
             Organization.objects.get_viewable(self.request.user),
             uuid=self.kwargs["organization_uuid"],
         )
-        # Admins will set an email address to invite and we will send the invitation
+        # Admins will set an email address to invite
         if organization.has_admin(self.request.user):
             invitation = serializer.save(organization=organization, request=False)
-            invitation.send()
         # Users can also request to join - no email address is used, we set
         # `user` to the current user
         else:
             invitation = serializer.save(
                 organization=organization, request=True, user=self.request.user
             )
+        invitation.send()
 
 
 class PressPassInvitationViewSet(
