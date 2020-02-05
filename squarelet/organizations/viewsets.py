@@ -184,7 +184,7 @@ class PressPassPlanViewSet(viewsets.ReadOnlyModelViewSet):
         return Plan.objects.get_viewable(self.request.user)
 
 
-class PressPassEntitlmentViewSet(viewsets.ReadOnlyModelViewSet):
+class PressPassEntitlmentViewSet(viewsets.ModelViewSet):
     queryset = Entitlement.objects.all()
     serializer_class = PressPassEntitlmentSerializer
     permission_classes = (DjangoObjectPermissionsOrAnonReadOnly,)
