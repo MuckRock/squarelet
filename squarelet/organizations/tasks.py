@@ -27,12 +27,14 @@ logger = logging.getLogger(__name__)
 def restore_organization():
     """Monthly update of organizations subscriptions"""
     subscriptions = Subscription.objects.filter(update_on__lte=date.today())
+
+    # convert to a list so it can be serialized by celery
+    uuids = list(subscriptions.values_list("organization__uuid", flat=True))
+
     # delete cancelled subscriptions first
     subscriptions.filter(cancelled=True).delete()
     subscriptions.update(update_on=date.today() + Interval("1 month"))
 
-    # convert to a list so it can be serialized by celery
-    uuids = list(subscriptions.values_list("organization__uuid", flat=True))
     send_cache_invalidations("organization", uuids)
 
 
