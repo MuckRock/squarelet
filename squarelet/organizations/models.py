@@ -646,7 +646,6 @@ class Plan(models.Model):
         default=False,
         help_text=_("Is this plan available for anybody to sign up for?"),
     )
-    # XXX move to subscription?
     annual = models.BooleanField(
         _("annual"),
         default=False,
@@ -662,8 +661,7 @@ class Plan(models.Model):
         default=True,
         help_text=_("Is this plan usable for non-individual organizations?"),
     )
-    # XXX I think this becomes obsolete and just assume yes?
-    # Free plan will no longer be a plan
+    # XXX remove
     requires_updates = models.BooleanField(
         _("requires updates"),
         default=True,
