@@ -26,6 +26,7 @@ from squarelet.oidc.middleware import send_cache_invalidations
 from squarelet.organizations.choices import ChangeLogReason, StripeAccounts
 from squarelet.organizations.querysets import (
     ChargeQuerySet,
+    EntitlementQuerySet,
     InvitationQuerySet,
     OrganizationQuerySet,
     PlanQuerySet,
@@ -1105,9 +1106,15 @@ class Entitlement(models.Model):
         help_text=_("A brief description of the service this grants access to"),
     )
 
+    objects = EntitlementQuerySet.as_manager()
+
     class Meta:
         unique_together = ("name", "client")
         ordering = ("slug",)
 
     def __str__(self):
         return f"{self.client} - {self.name}"
+
+    @property
+    def public(self):
+        return self.plans.filter(public=True).exists()

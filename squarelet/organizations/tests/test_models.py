@@ -12,6 +12,7 @@ import stripe
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason, StripeAccounts
 from squarelet.organizations.models import ReceiptEmail
+from squarelet.organizations.tests.factories import EntitlementFactory, PlanFactory
 
 # pylint: disable=invalid-name,too-many-public-methods,protected-access
 
@@ -527,7 +528,7 @@ class TestSubscription:
 
 
 class TestPlan:
-    """Unit tests for Organization model"""
+    """Unit tests for Plan model"""
 
     def test_str(self, plan_factory):
         plan = plan_factory.build()
@@ -730,3 +731,24 @@ class TestCharge:
             {"name": charge.description, "price": 100.00},
             {"name": "Processing Fee", "price": 5.00},
         ]
+
+
+class TestEntitlement:
+    """Unit tests for Entitlement model"""
+
+    @pytest.mark.django_db()
+    def test_public(self):
+        public_plan = PlanFactory()
+        private_plan = PlanFactory(public=False)
+        entitlement = EntitlementFactory()
+
+        assert not entitlement.public
+
+        entitlement.plans.set([private_plan])
+        assert not entitlement.public
+
+        entitlement.plans.set([public_plan])
+        assert entitlement.public
+
+        entitlement.plans.set([private_plan, public_plan])
+        assert entitlement.public
