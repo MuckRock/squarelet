@@ -447,6 +447,7 @@ class ChargeDetail(UserPassesTestMixin, DetailView):
 @csrf_exempt
 def stripe_webhook(request):
     """Handle webhooks from stripe"""
+    # XXX handle webhooks for presspass ?
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
 
