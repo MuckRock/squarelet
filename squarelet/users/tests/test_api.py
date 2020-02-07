@@ -70,7 +70,6 @@ class TestPPUserAPI:
         api_client.force_authenticate(user=user)
         response = api_client.get(f"/pp-api/users/{user.individual_organization_id}/")
         assert response.status_code == status.HTTP_200_OK
-        response_json = json.loads(response.content)
 
     def test_retrieve_me(self, api_client, user):
         """Test retrieving a user using special identifier `me`"""

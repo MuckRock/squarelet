@@ -1,7 +1,7 @@
 # pylint: disable=unused-argument, invalid-unary-operand-type
 
 # Third Party
-from rules import add_perm, always_allow, always_deny, is_authenticated, predicate
+from rules import add_perm, always_deny, is_authenticated, predicate
 
 # Squarelet
 from squarelet.core.rules import skip_if_not_obj

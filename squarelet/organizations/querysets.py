@@ -82,6 +82,16 @@ class PlanQuerySet(models.QuerySet):
         return self.filter(stripe_account=StripeAccounts.muckrock)
 
 
+class EntitlementQuerySet(models.QuerySet):
+    def get_viewable(self, user):
+        if user.is_staff:
+            return self
+        elif user.is_authenticated:
+            return self.filter(Q(plans__public=True) | Q(client__owner=user)).distinct()
+        else:
+            return self.filter(plans__public=True)
+
+
 class InvitationQuerySet(models.QuerySet):
     def get_open(self):
         return self.filter(accepted_at=None, rejected_at=None)

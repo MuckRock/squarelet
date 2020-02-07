@@ -105,7 +105,7 @@ class TestPPOrganizationAPI:
         mocked_modify = mocker.patch("stripe.Subscription.modify")
         mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
         organization = OrganizationFactory(admins=[user])
-        subscription = SubscriptionFactory(organization=organization)
+        SubscriptionFactory(organization=organization)
         api_client.force_authenticate(user=user)
         response = api_client.patch(
             f"/pp-api/organizations/{organization.uuid}/", {"max_users": 42}
@@ -206,7 +206,6 @@ class TestPPInvitationAPI:
             f"/pp-api/organizations/{organization.uuid}/invitations/"
         )
         assert response.status_code == status.HTTP_201_CREATED
-        response_json = json.loads(response.content)
         invitation = organization.invitations.first()
         assert invitation.request
         assert invitation.user == user
@@ -253,10 +252,14 @@ class TestPPPlanAPI:
 
 @pytest.mark.django_db()
 class TestPPEntitlementAPI:
-    def test_list(self, api_client):
+    def test_list(self, api_client, mocker):
         """List entitlements"""
         size = 10
-        EntitlementFactory.create_batch(size)
+        entitlements = EntitlementFactory.create_batch(size)
+        mocker.patch("stripe.Plan.create")
+        # make entitlements public by adding it to a public plan
+        plan = PlanFactory(public=True)
+        plan.entitlements.set(entitlements)
         response = api_client.get(f"/pp-api/entitlements/")
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
@@ -284,10 +287,19 @@ class TestPPEntitlementAPI:
         response = api_client.post(f"/pp-api/entitlements/", data)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_retrieve(self, api_client, entitlement):
+    def test_retrieve(self, api_client, entitlement, mocker):
         """Test retrieving an entitlement"""
+        mocker.patch("stripe.Plan.create")
+        # make entitlement public by adding it to a public plan
+        plan = PlanFactory(public=True)
+        plan.entitlements.add(entitlement)
         response = api_client.get(f"/pp-api/entitlements/{entitlement.pk}/")
         assert response.status_code == status.HTTP_200_OK
+
+    def test_retrieve_bad(self, api_client, entitlement):
+        """Test retrieving a private entitlement"""
+        response = api_client.get(f"/pp-api/entitlements/{entitlement.pk}/")
+        assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_update(self, api_client, entitlement):
         """Test updating an entitlement"""
@@ -342,8 +354,8 @@ class TestPPSubscriptionAPI:
             billing="charge_automatically",
             days_until_due=None,
         )
-        mocked_customer.email == organization.email
-        mocked_customer.source == "stripe_token"
+        assert mocked_customer.email == organization.email
+        assert mocked_customer.source == "stripe_token"
         assert mocked_customer.save.call_count == 2
         assert organization.subscriptions.first().subscription_id == stripe_id
 
@@ -354,7 +366,8 @@ class TestPPSubscriptionAPI:
         subscription = SubscriptionFactory(organization=organization)
         api_client.force_authenticate(user=user)
         response = api_client.get(
-            f"/pp-api/organizations/{organization.uuid}/subscriptions/{subscription.pk}/"
+            f"/pp-api/organizations/{organization.uuid}/subscriptions/"
+            f"{subscription.pk}/"
         )
         assert response.status_code == status.HTTP_200_OK
 
@@ -368,7 +381,8 @@ class TestPPSubscriptionAPI:
         subscription = SubscriptionFactory(organization=organization)
         api_client.force_authenticate(user=user)
         response = api_client.delete(
-            f"/pp-api/organizations/{organization.uuid}/subscriptions/{subscription.pk}/"
+            f"/pp-api/organizations/{organization.uuid}/subscriptions/"
+            f"{subscription.pk}/"
         )
         assert response.status_code == status.HTTP_204_NO_CONTENT
         subscription.refresh_from_db()
