@@ -184,12 +184,11 @@ class TestOrganization:
             "squarelet.organizations.models.Organization.save_card"
         )
         mocked_customer = mocker.patch(
-            "squarelet.organizations.models.Organization.customer"
+            "squarelet.organizations.models.Customer.stripe_customer", email=None
         )
         mocked_subscriptions = mocker.patch(
             "squarelet.organizations.models.Organization.subscriptions"
         )
-        mocked_customer.email = None
         token = "token"
         organization.create_subscription(token, plan)
         mocked_save_card.assert_called_with(token, StripeAccounts.muckrock)
@@ -427,9 +426,12 @@ class TestSubscription:
     def test_start(self, subscription_factory, professional_plan_factory, mocker):
         plan = professional_plan_factory.build()
         subscription = subscription_factory.build(plan=plan)
-        mocked = mocker.patch("squarelet.organizations.models.Organization.customer")
+        mocked = Mock()
+        mocker.patch(
+            "squarelet.organizations.models.Organization.customer", return_value=mocked
+        )
         subscription.start()
-        mocked.subscriptions.create.assert_called_with(
+        mocked.stripe_customer.subscriptions.create.assert_called_with(
             items=[
                 {
                     "plan": subscription.plan.stripe_id,
@@ -440,7 +442,8 @@ class TestSubscription:
             days_until_due=None,
         )
         assert (
-            subscription.subscription_id == mocked.subscriptions.create.return_value.id
+            subscription.subscription_id
+            == mocked.stripe_customer.subscriptions.create.return_value.id
         )
 
     def test_start_existing(self, subscription_factory, mocker):
