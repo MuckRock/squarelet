@@ -190,18 +190,52 @@ class PressPassEntitlmentViewSet(viewsets.ModelViewSet):
     permission_classes = (DjangoObjectPermissionsOrAnonReadOnly,)
 
 
-class PressPassSubscriptionViewSet(viewsets.ModelViewSet):
+class PressPassSubscriptionViewSet(
+    mixins.CreateModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.ListModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
     queryset = Subscription.objects.none()
     serializer_class = PressPassSubscriptionSerializer
     permission_classes = (DjangoObjectPermissionsOrAnonReadOnly,)
-    lookup_field = "plan_id"
-
-    # XXX business logic
 
     def get_queryset(self):
         """Only fetch both organizations and subscriptions viewable to this user"""
         organization = get_object_or_404(
-            Organization, uuid=self.kwargs["organization_uuid"]
+            Organization.objects.get_viewable(self.request.user),
+            uuid=self.kwargs["organization_uuid"],
         )
-        # XXX
-        return organization.subscriptions.all()
+        if organization.has_admin(self.request.user):
+            return organization.subscriptions.all()
+        else:
+            return organization.subscriptions.none()
+
+    def perform_create(self, serializer):
+        organization = get_object_or_404(
+            Organization.objects.get_viewable(self.request.user),
+            uuid=self.kwargs["organization_uuid"],
+        )
+        organization.create_subscription(
+            serializer.validated_data.get("token"), serializer.validated_data["plan"]
+        )
+
+        organization.change_logs.create(
+            user=self.request.user,
+            reason=ChangeLogReason.updated,
+            from_max_users=organization.max_users,
+            to_plan=serializer.validated_data["plan"],
+            to_max_users=organization.max_users,
+        )
+
+    def perform_destroy(self, instance):
+        instance.cancel()
+
+        instance.organization.change_logs.create(
+            user=self.request.user,
+            reason=ChangeLogReason.updated,
+            from_plan=instance.plan,
+            from_max_users=instance.organization.max_users,
+            to_max_users=instance.organization.max_users,
+        )

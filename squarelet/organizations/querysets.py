@@ -154,7 +154,7 @@ class SubscriptionQuerySet(models.QuerySet):
         )
         subscription.start()
         subscription.save()
-        return subscription()
+        return subscription
 
     def muckrock(self):
         return self.filter(plan__stripe_account=StripeAccounts.muckrock)
