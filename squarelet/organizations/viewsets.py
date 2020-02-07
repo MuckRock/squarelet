@@ -193,9 +193,12 @@ class PressPassPlanViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class PressPassEntitlmentViewSet(viewsets.ModelViewSet):
-    queryset = Entitlement.objects.all()
+    queryset = Entitlement.objects.none()
     serializer_class = PressPassEntitlmentSerializer
     permission_classes = (DjangoObjectPermissionsOrAnonReadOnly,)
+
+    def get_queryset(self):
+        return Entitlement.objects.get_viewable(self.request.user)
 
 
 class PressPassSubscriptionViewSet(
