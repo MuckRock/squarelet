@@ -22,7 +22,6 @@ from .models import Statistics
 def store_statistics():
     """Store the daily statistics"""
     # pylint: disable=too-many-statements
-    # XXX review this
 
     midnight = time(tzinfo=timezone.get_current_timezone())
     today_midnight = datetime.combine(date.today(), midnight)
@@ -42,7 +41,7 @@ def store_statistics():
         organizations__plans__slug="organization"
     ).count()
     kwargs["total_orgs"] = Organization.objects.exclude(
-        individual=True, plans__slug="free"
+        individual=True, plans=None
     ).count()
     stats = Statistics.objects.create(**kwargs)
 
