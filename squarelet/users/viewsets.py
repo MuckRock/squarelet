@@ -31,7 +31,6 @@ from squarelet.users.serializers import (
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.prefetch_related(
-        # XXX performance
         Prefetch("memberships", queryset=Membership.objects.all()),
         Prefetch(
             "emailaddress_set",
