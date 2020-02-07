@@ -100,9 +100,12 @@ class TestPPOrganizationAPI:
         response = api_client.get(f"/pp-api/organizations/{organization.uuid}/")
         assert response.status_code == status.HTTP_200_OK
 
-    def test_update(self, api_client, user):
+    def test_update(self, api_client, user, mocker):
         """Test updating an organization"""
+        mocked_modify = mocker.patch("stripe.Subscription.modify")
+        mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
         organization = OrganizationFactory(admins=[user])
+        subscription = SubscriptionFactory(organization=organization)
         api_client.force_authenticate(user=user)
         response = api_client.patch(
             f"/pp-api/organizations/{organization.uuid}/", {"max_users": 42}
@@ -110,6 +113,7 @@ class TestPPOrganizationAPI:
         assert response.status_code == status.HTTP_200_OK
         organization.refresh_from_db()
         assert organization.max_users == 42
+        mocked_modify.assert_called_once()
 
 
 @pytest.mark.django_db()

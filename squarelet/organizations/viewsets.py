@@ -32,7 +32,7 @@ from squarelet.users.models import User
 
 
 class OrganizationViewSet(viewsets.ModelViewSet):
-    # XXX
+    # XXX remove _plan after muckrock is updated
     queryset = Organization.objects.select_related("_plan")
     serializer_class = OrganizationSerializer
     permission_classes = (ScopePermission | IsAdminUser,)
@@ -64,8 +64,6 @@ class PressPassOrganizationViewSet(
     permission_classes = (DjangoObjectPermissionsOrAnonReadOnly,)
     lookup_field = "uuid"
 
-    # XXX if update max_users, need to update subscriptions
-
     def get_queryset(self):
         return Organization.objects.get_viewable(self.request.user)
 
@@ -78,6 +76,16 @@ class PressPassOrganizationViewSet(
             to_plan=organization.plan,
             to_max_users=organization.max_users,
         )
+
+    def perform_update(self, serializer):
+        """Update the subscription on stripe if max users changes"""
+        update_subscriptions = (
+            serializer.validated_data.get("max_users") != serializer.instance.max_users
+        )
+        super().perform_update(serializer)
+        if update_subscriptions:
+            for subscription in serializer.instance.subscriptions.all():
+                subscription.stripe_modify()
 
     class Filter(django_filters.FilterSet):
         user = django_filters.ModelChoiceFilter(
