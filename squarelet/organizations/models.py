@@ -573,19 +573,24 @@ class Subscription(models.Model):
         old_plan = self.plan
         self.plan = plan
         self.save()
-        old_plan_free = not old_plan or old_plan.free
-        new_plan_free = not plan or plan.free
 
-        if old_plan_free and not new_plan_free:
+        if old_plan.free and not plan.free:
             # start subscription on stripe
             self.start()
-        elif not old_plan_free and new_plan_free:
+        elif not old_plan.free and plan.free:
             # cancel subscription on stripe
             # XXX check this works
             self.stripe_subscription.delete()
             self.subscription_id = None
-        elif not old_plan_free and not new_plan_free:
+        elif not old_plan.free and not plan.free:
             # modify plan
+            self.stripe_modify()
+
+        self.save()
+
+    def stripe_modify(self):
+        """Update stripe subscription to match local subscription"""
+        if self.stripe_subscription:
             stripe.Subscription.modify(
                 self.subscription_id,
                 cancel_at_period_end=False,
@@ -601,8 +606,6 @@ class Subscription(models.Model):
                 days_until_due=30 if self.plan.annual else None,
                 api_key=settings.STRIPE_SECRET_KEYS[self.plan.stripe_account],
             )
-
-        self.save()
 
 
 class Plan(models.Model):

@@ -482,15 +482,16 @@ class TestSubscription:
         mocked_start.assert_called()
 
     def test_modify_cancel(
-        self, subscription_factory, professional_plan_factory, mocker
+        self, subscription_factory, professional_plan_factory, plan_factory, mocker
     ):
         mocked_save = mocker.patch("squarelet.organizations.models.Subscription.save")
         mocked_stripe_subscription = mocker.patch(
             "squarelet.organizations.models.Subscription.stripe_subscription"
         )
         plan = professional_plan_factory.build()
+        free_plan = plan_factory.build()
         subscription = subscription_factory.build(plan=plan, subscription_id="id")
-        subscription.modify(None)
+        subscription.modify(free_plan)
         mocked_save.assert_called()
         mocked_stripe_subscription.delete.assert_called()
         assert subscription.subscription_id is None
