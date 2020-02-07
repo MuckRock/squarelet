@@ -19,7 +19,7 @@ from squarelet.organizations.models import (
 
 class OrganizationSerializer(serializers.ModelSerializer):
     uuid = serializers.UUIDField(required=False)
-    # XXX remove plan ??
+    # XXX remove plan once muckrock is updated to handle entitlements
     plan = serializers.SerializerMethodField()
     entitlements = serializers.SerializerMethodField()
     card = serializers.SerializerMethodField()
@@ -47,7 +47,6 @@ class OrganizationSerializer(serializers.ModelSerializer):
         return obj.plan.slug if obj.plan else "free"
 
     def get_entitlements(self, obj):
-        # XXX performance
         request = self.context.get("request")
         if request and hasattr(request, "auth") and request.auth:
             return request.auth.client.entitlements.filter(
@@ -275,10 +274,49 @@ class PressPassEntitlmentSerializer(serializers.ModelSerializer):
 
 
 class PressPassSubscriptionSerializer(serializers.ModelSerializer):
+    token = serializers.CharField(write_only=True, required=False)
+
     class Meta:
         model = Subscription
-        fields = ("plan", "update_on", "cancelled")
+        fields = ("plan", "update_on", "cancelled", "token")
         extra_kwargs = {
             "update_on": {"read_only": True},
             "cancelled": {"read_only": True},
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        context = kwargs.get("context", {})
+        view = context.get("view")
+        organization = Organization.objects.get(uuid=view.kwargs["organization_uuid"])
+        self.fields["plan"].queryset = Plan.objects.choices(organization)
+
+    def validate(self, attrs):
+        """Check the permissions"""
+        request = self.context.get("request")
+        view = self.context.get("view")
+        organization = Organization.objects.get(uuid=view.kwargs["organization_uuid"])
+
+        # only modify subscriptions for organizations you have admin access to
+        if not request.user.has_perm("organizations.change_organization", organization):
+            raise serializers.ValidationError(
+                "You may only modify subscriptions for organizations you are "
+                "an admin for"
+            )
+
+        # token is required if paid plan unless you have a card on file
+        payment_required = attrs["plan"].requires_payment()
+        card_on_file = organization.customer(attrs["plan"].stripe_account).card
+        if payment_required and not card_on_file and not attrs.get("token"):
+            raise serializers.ValidationError("Must supply a credit card for paid plan")
+
+        return attrs
+
+    def validate_plan(self, value):
+        """Cannot switch between plans that are paid to different stripe accounts"""
+        if self.instance and self.instance.plan.stripe_account != value.stripe_account:
+            raise serializers.ValidationError(
+                "You may not switch to a plan paid to a different company.  "
+                "Please cancel this plan and create a new one."
+            )
+        return value

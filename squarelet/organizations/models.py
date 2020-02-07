@@ -173,6 +173,8 @@ class Organization(AvatarMixin, models.Model):
         null=True,
         help_text=_("The organization's corresponding subscription ID on stripe"),
     )
+    # XXX should this be moved to customer?
+    # XXX should have better card management functionality
     payment_failed = models.BooleanField(
         _("payment failed"),
         default=False,
@@ -516,6 +518,7 @@ class Subscription(models.Model):
 
     class Meta:
         unique_together = ("organization", "plan")
+        ordering = ("plan",)
 
     def __str__(self):
         plan_name = self.plan.name if self.plan else "Free"

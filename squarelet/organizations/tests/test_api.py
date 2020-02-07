@@ -16,7 +16,9 @@ from squarelet.organizations.tests.factories import (
     InvitationFactory,
     MembershipFactory,
     OrganizationFactory,
+    OrganizationPlanFactory,
     PlanFactory,
+    SubscriptionFactory,
 )
 from squarelet.users.tests.factories import UserFactory
 
@@ -301,4 +303,67 @@ class TestPPEntitlementAPI:
 
 @pytest.mark.django_db()
 class TestPPSubscriptionAPI:
-    pass
+    def test_list(self, api_client, user):
+        """List subscriptions"""
+        size = 10
+        organization = OrganizationFactory(admins=[user])
+        api_client.force_authenticate(user=user)
+        SubscriptionFactory.create_batch(size, organization=organization)
+        response = api_client.get(
+            f"/pp-api/organizations/{organization.uuid}/subscriptions/"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        response_json = json.loads(response.content)
+        assert len(response_json["results"]) == size
+
+    def test_create(self, api_client, user, mocker):
+        """Create a subscription"""
+        mocker.patch("stripe.Plan.create")
+        stripe_id = "stripe_subscription_id"
+        mocked_customer = mocker.patch(
+            "squarelet.organizations.models.Organization.customer",
+            **{"subscriptions.create.return_value": Mock(id=stripe_id)},
+        )
+        plan = OrganizationPlanFactory()
+        organization = OrganizationFactory(admins=[user])
+        api_client.force_authenticate(user=user)
+        data = {"plan": plan.pk}
+        response = api_client.post(
+            f"/pp-api/organizations/{organization.uuid}/subscriptions/", data
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        mocked_customer.subscriptions.create.assert_called_with(
+            items=[{"plan": plan.stripe_id, "quantity": organization.max_users}],
+            billing="charge_automatically",
+            days_until_due=None,
+        )
+        assert organization.subscriptions.first().subscription_id == stripe_id
+
+    def test_retrieve(self, api_client, user, mocker):
+        """Test retrieving a subscription"""
+        mocker.patch("stripe.Plan.create")
+        organization = OrganizationFactory(admins=[user])
+        subscription = SubscriptionFactory(organization=organization)
+        api_client.force_authenticate(user=user)
+        response = api_client.get(
+            f"/pp-api/organizations/{organization.uuid}/subscriptions/{subscription.pk}/"
+        )
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_destroy(self, api_client, user, mocker):
+        """Test cancelling a subscription"""
+        mocker.patch("stripe.Plan.create")
+        mocked_stripe_subscription = mocker.patch(
+            "squarelet.organizations.models.Subscription.stripe_subscription"
+        )
+        organization = OrganizationFactory(admins=[user])
+        subscription = SubscriptionFactory(organization=organization)
+        api_client.force_authenticate(user=user)
+        response = api_client.delete(
+            f"/pp-api/organizations/{organization.uuid}/subscriptions/{subscription.pk}/"
+        )
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        subscription.refresh_from_db()
+        assert subscription.cancelled
+        assert mocked_stripe_subscription.cancel_at_period_end is True
+        mocked_stripe_subscription.save.assert_called_once()
