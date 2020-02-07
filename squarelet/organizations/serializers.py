@@ -47,11 +47,10 @@ class OrganizationSerializer(serializers.ModelSerializer):
         return obj.plan.slug if obj.plan else "free"
 
     def get_entitlements(self, obj):
-        # XXX test this
         request = self.context.get("request")
         if request and hasattr(request, "auth") and request.auth:
             return request.auth.client.entitlements.filter(
-                plans__organization=obj
+                plans__organizations=obj
             ).values_list("slug", flat=True)
         return []
 
