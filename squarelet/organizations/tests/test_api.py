@@ -325,13 +325,14 @@ class TestPPSubscriptionAPI:
         mocker.patch("stripe.Plan.create")
         stripe_id = "stripe_subscription_id"
         mocked_customer = mocker.patch(
-            "squarelet.organizations.models.Organization.customer",
+            "squarelet.organizations.models.Customer.stripe_customer",
+            email=None,
             **{"subscriptions.create.return_value": Mock(id=stripe_id)},
         )
         plan = OrganizationPlanFactory()
         organization = OrganizationFactory(admins=[user])
         api_client.force_authenticate(user=user)
-        data = {"plan": plan.pk}
+        data = {"plan": plan.pk, "token": "stripe_token"}
         response = api_client.post(
             f"/pp-api/organizations/{organization.uuid}/subscriptions/", data
         )
@@ -341,6 +342,9 @@ class TestPPSubscriptionAPI:
             billing="charge_automatically",
             days_until_due=None,
         )
+        mocked_customer.email == organization.email
+        mocked_customer.source == "stripe_token"
+        assert mocked_customer.save.call_count == 2
         assert organization.subscriptions.first().subscription_id == stripe_id
 
     def test_retrieve(self, api_client, user, mocker):

@@ -286,9 +286,10 @@ class Organization(AvatarMixin, models.Model):
         if token:
             self.save_card(token, plan.stripe_account)
 
-        if not self.customer.email:
-            self.customer.email = self.email
-            self.customer.save()
+        customer = self.customer(plan.stripe_account).stripe_customer
+        if not customer.email:
+            customer.email = self.email
+            customer.save()
 
         self.subscriptions.start(organization=self, plan=plan)
 
@@ -546,7 +547,9 @@ class Subscription(models.Model):
             )
             return
         if self.plan and not self.plan.free:
-            stripe_subscription = self.organization.customer.subscriptions.create(
+            stripe_subscription = self.organization.customer(
+                self.plan.stripe_account
+            ).stripe_customer.subscriptions.create(
                 items=[
                     {
                         "plan": self.plan.stripe_id,
@@ -579,7 +582,6 @@ class Subscription(models.Model):
             self.start()
         elif not old_plan.free and plan.free:
             # cancel subscription on stripe
-            # XXX check this works
             self.stripe_subscription.delete()
             self.subscription_id = None
         elif not old_plan.free and not plan.free:

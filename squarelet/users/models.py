@@ -161,6 +161,9 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
 
     objects = UserManager()
 
+    class Meta:
+        ordering = ("username",)
+
     def __str__(self):
         return self.username
 

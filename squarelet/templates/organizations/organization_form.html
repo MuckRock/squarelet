@@ -16,15 +16,16 @@
         {% endfor %}
       </ul>
     {% endif %}
-    <div class="_cls-planInfo">{% trans 'Current plan: ' %}<b>{{ organization.plan }}</b></div>
-    {% if organization.plan != organization.next_plan %}
-      <div class="_cls-pendingPlan">
-        {% blocktrans with update_on=organization.update_on|date:"m/d/Y" %}
-          Pending Plan (on {{ update_on }}):
-        {% endblocktrans %}
-        <b>{{ organization.next_plan.name }}</b>
-      </div>
-    {% endif %}
+    <div class="_cls-planInfo">
+      {% trans "Current plan" %}: <b>{{ organization.plan }}</b>
+      {% if organization.subscription.cancelled %}
+        <div class="_cls-info _cls-infoSpaced">
+          {% blocktrans with update_on=organization.subscription.update_on|date:"m/d/Y" %}
+            Subscription ends on {{ update_on }}
+          {% endblocktrans %}
+        </div>
+      {% endif %}
+    </div>
     <form id="stripe-form" method="post" enctype="multipart/form-data">
       {% crispy form form.helper %}
 

@@ -29,7 +29,6 @@ from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Field, Layout
 
 # Squarelet
-from squarelet.core.mail import send_mail
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import mixpanel_event
 from squarelet.organizations.choices import ChangeLogReason, StripeAccounts
