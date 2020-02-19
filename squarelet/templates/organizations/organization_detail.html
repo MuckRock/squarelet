@@ -32,7 +32,7 @@
           {% elif is_member %}
             <div class="_cls-info _cls-infoPreSpaced">{% trans 'You are a user for this organization' %}</div>
           {% endif %}
-          <div class="_cls-mediumHeader">{% trans 'Users' %} ({{ organization.users.count }})</div>
+          <div class="_cls-mediumHeader">{% trans 'Users' %} ({{ users|length }})</div>
           {% if is_admin %}
             <div class="_cls-infoSpaced">
               <a class="_cls-action" href="{% url "organizations:manage-members" organization.slug %}">
@@ -60,9 +60,9 @@
               <button class="_cls-action" name="action" value="join">{% trans 'Request to join' %}</button>
             </form>
           {% endif %}
-          {% if organization.users.count > 0 %}
+          {% if users|length > 0 %}
             <ul class="_cls-profList">
-              {% for user in organization.users.all %}
+              {% for user in usersl %}
                 <a href="{% url "users:detail" user.username %}">
                   <li>
                     <div class="_cls-inlineAvatar">

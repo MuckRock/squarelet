@@ -2,6 +2,7 @@
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http.response import (
+    Http404,
     HttpResponse,
     HttpResponseBadRequest,
     HttpResponseForbidden,
@@ -38,6 +39,11 @@ class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
     model = User
     slug_field = "username"
     slug_url_kwarg = "username"
+
+    def dispatch(self, request, *args, **kwargs):
+        if kwargs["username"] != request.user.username and not request.user.is_staff:
+            raise Http404
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

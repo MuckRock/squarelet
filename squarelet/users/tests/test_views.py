@@ -1,5 +1,6 @@
 # Django
 from django.conf import settings
+from django.http.response import Http404
 
 # Standard Library
 import hashlib
@@ -13,9 +14,7 @@ import pytest
 
 # Squarelet
 from squarelet.core.tests.mixins import ViewTestMixin
-
-# Local
-from .. import views
+from squarelet.users import views
 
 # pylint: disable=invalid-name
 
@@ -34,6 +33,12 @@ class TestUserDetailView(ViewTestMixin):
         assert list(response.context_data["other_orgs"]) == list(
             user.organizations.filter(individual=False)
         )
+
+    def test_get_bad(self, rf, user_factory):
+        user = user_factory()
+        other_user = user_factory()
+        with pytest.raises(Http404):
+            self.call_view(rf, other_user, username=user.username)
 
 
 @pytest.mark.django_db()

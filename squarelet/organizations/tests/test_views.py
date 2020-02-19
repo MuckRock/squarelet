@@ -30,18 +30,27 @@ class TestDetail(ViewTestMixin):
     view = views.Detail
     url = "/organizations/{slug}/"
 
-    def test_get_anonymous(self, rf, organization_factory):
-        organization = organization_factory()
+    def test_get_anonymous(self, rf, organization_factory, user_factory):
+        user = user_factory()
+        admin = user_factory()
+        organization = organization_factory(users=[user], admins=[admin])
         response = self.call_view(rf, slug=organization.slug)
         assert response.status_code == 200
         assert response.context_data["organization"] == organization
+        users = response.context_data["users"]
+        assert len(users) == 1
+        assert admin in users
 
     def test_get_member(self, rf, organization_factory, user_factory):
         user = user_factory()
-        organization = organization_factory(users=[user])
+        admin = user_factory()
+        organization = organization_factory(users=[user], admins=[admin])
         response = self.call_view(rf, user, slug=organization.slug)
         assert response.status_code == 200
         assert response.context_data["organization"] == organization
+        users = response.context_data["users"]
+        assert len(users) == 2
+        assert admin in users and user in users
         assert not response.context_data["is_admin"]
         assert response.context_data["is_member"]
         assert "requested_invite" in response.context_data
