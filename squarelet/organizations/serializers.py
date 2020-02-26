@@ -255,7 +255,18 @@ class PressPassPlanSerializer(serializers.ModelSerializer):
         )
 
 
+class PressPassClientSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Client
+        fields = ("name", "client_type", "website_url")
+
+
 class PressPassEntitlmentSerializer(serializers.ModelSerializer):
+    client = serializers.SerializerMethodField()
+
+    def get_client(self, obj):
+        return PressPassClientSerializer(obj.client).data
+
     class Meta:
         model = Entitlement
         fields = ("name", "slug", "client", "description")
