@@ -35,7 +35,7 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
     )
     fieldsets = (
         (None, {"fields": ("username", "password", "can_change_username")}),
-        (_("Personal info"), {"fields": ("name", "email")}),
+        (_("Personal info"), {"fields": ("name", "email", "email_failed")}),
         (
             _("Permissions"),
             {
