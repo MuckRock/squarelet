@@ -120,6 +120,11 @@ class Organization(AvatarMixin, models.Model):
             "This organization's information and membership is not made public"
         ),
     )
+    verified_journalist = models.BooleanField(
+        _("verified journalist"),
+        default=False,
+        help_text=_("This organization is a verified jorunalistic organization"),
+    )
 
     # Book keeping
     max_users = models.IntegerField(

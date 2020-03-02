@@ -46,6 +46,7 @@ class OrganizationAdmin(VersionAdmin):
         "customer_id",
         "subscription_id",
     )
+    save_on_top = True
     inlines = (MembershipInline, ReceiptEmailInline, InvitationInline)
 
 
