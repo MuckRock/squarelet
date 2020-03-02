@@ -11,6 +11,7 @@ from squarelet.organizations.serializers import MembershipSerializer
 from squarelet.users.models import User
 from squarelet.organizations.models import (
     Membership,
+    Invitation
 )
 
 
@@ -159,3 +160,12 @@ class PressPassUserMembershipsSerializer(serializers.ModelSerializer):
         model = Membership
         fields = ("organization", "admin")
         extra_kwargs = {"admin": {"default": False}}
+
+
+class PressPassUserInvitationsSerializer(serializers.ModelSerializer):
+    organization = serializers.SlugRelatedField(slug_field="uuid", read_only=True)
+
+    class Meta:
+        model = Invitation
+        fields = ("organization", "request")
+        extra_kwargs = {"request": {"default": False}}
