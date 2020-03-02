@@ -21,13 +21,14 @@ from rest_framework.response import Response
 from squarelet.core.mail import send_mail
 from squarelet.core.permissions import DjangoObjectPermissionsOrAnonReadOnly
 from squarelet.oidc.permissions import ScopePermission
-from squarelet.organizations.models import Membership, Plan
+from squarelet.organizations.models import Membership, Plan, Invitation
 from squarelet.users.models import User
 from squarelet.users.serializers import (
     PressPassUserSerializer,
     UserReadSerializer,
     UserWriteSerializer,
     PressPassUserMembershipsSerializer,
+    PressPassUserInvitationsSerializer,
 )
 
 
@@ -113,11 +114,7 @@ class PressPassUserViewSet(
 
 
 class PressPassUserMembershipViewSet(
-    # Cannot create memberships directly - must use invitations
-    mixins.RetrieveModelMixin,
-    mixins.UpdateModelMixin,
     mixins.ListModelMixin,
-    mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
     queryset = Membership.objects.none()
@@ -126,8 +123,28 @@ class PressPassUserMembershipViewSet(
     lookup_field = "user__uuid"
 
     def get_queryset(self):
-        # TODO: lookup user by {uuid} in the url? not sure if self.request.user is always what we'll want here
-        return self.request.user.memberships.all()
+        user = get_object_or_404(
+            User,
+            uuid=self.kwargs["user_uuid"],
+        )
+        return user.memberships.all()
+
+
+class PressPassUserInvitationViewSet(
+    mixins.ListModelMixin,
+    viewsets.GenericViewSet,
+):
+    queryset = Invitation.objects.none()
+    serializer_class = PressPassUserInvitationsSerializer
+    permission_classes = (DjangoObjectPermissionsOrAnonReadOnly,)
+    lookup_field = "user__uuid"
+
+    def get_queryset(self):
+        user = get_object_or_404(
+            User,
+            uuid=self.kwargs["user_uuid"],
+        )
+        return user.invitations.all()
 
 
 class PressPassRegisterView(RegisterView):
