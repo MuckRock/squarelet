@@ -156,7 +156,7 @@ MIXPANEL_CUSTOM_LIB_URL:"file:"===c.location.protocol&&"//cdn4.mxpnl.com/libs/mi
                     {% if organization.individual %}
                       <a href="{% url "users:payment" %}">Update your billing info.</a>
                     {% else %}
-                      <a href="{% url "organizations:update" slug=organization.slug %}">
+                      <a href="{% url "organizations:payment" slug=organization.slug %}">
                         Update the billing info for {{ organization.name }}.
                       </a>
                     {% endif %}
