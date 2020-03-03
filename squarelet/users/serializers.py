@@ -167,5 +167,5 @@ class PressPassUserInvitationsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Invitation
-        fields = ("uuid", "organization", "request", "accepted_at", "rejected_at", "created_at")
+        fields = ("uuid", "user", "organization", "request", "accepted_at", "rejected_at", "created_at")
         extra_kwargs = {"request": {"default": False}}
