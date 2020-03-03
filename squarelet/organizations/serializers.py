@@ -24,6 +24,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "max_users",
             "individual",
             "private",
+            "verified_journalist",
             "update_on",
             "updated_at",
             "payment_failed",
