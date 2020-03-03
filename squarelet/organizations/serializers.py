@@ -177,6 +177,7 @@ class PressPassNestedInvitationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Invitation
         fields = (
+            "uuid",
             "email",
             "user",
             "request",
@@ -190,6 +191,7 @@ class PressPassNestedInvitationSerializer(serializers.ModelSerializer):
             "created_at": {"read_only": True},
             "accepted_at": {"read_only": True},
             "rejected_at": {"read_only": True},
+            "uuid": {"read_only": True},
         }
 
     def validate_email(self, value):
