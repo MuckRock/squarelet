@@ -160,12 +160,3 @@ class PressPassUserMembershipsSerializer(serializers.ModelSerializer):
         model = Membership
         fields = ("organization", "admin")
         extra_kwargs = {"admin": {"default": False}}
-
-
-class PressPassUserInvitationsSerializer(serializers.ModelSerializer):
-    organization = serializers.SlugRelatedField(slug_field="uuid", read_only=True)
-
-    class Meta:
-        model = Invitation
-        fields = ("uuid", "user", "organization", "request", "accepted_at", "rejected_at", "created_at")
-        extra_kwargs = {"request": {"default": False}}

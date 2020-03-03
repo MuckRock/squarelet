@@ -28,7 +28,6 @@ from squarelet.users.serializers import (
     UserReadSerializer,
     UserWriteSerializer,
     PressPassUserMembershipsSerializer,
-    PressPassUserInvitationsSerializer,
 )
 
 
@@ -128,23 +127,6 @@ class PressPassUserMembershipViewSet(
             uuid=self.kwargs["user_uuid"],
         )
         return user.memberships.all()
-
-
-class PressPassUserInvitationViewSet(
-    mixins.ListModelMixin,
-    viewsets.GenericViewSet,
-):
-    queryset = Invitation.objects.none()
-    serializer_class = PressPassUserInvitationsSerializer
-    permission_classes = (DjangoObjectPermissionsOrAnonReadOnly,)
-    lookup_field = "user__uuid"
-
-    def get_queryset(self):
-        user = get_object_or_404(
-            User,
-            uuid=self.kwargs["user_uuid"],
-        )
-        return user.invitations.all()
 
 
 class PressPassRegisterView(RegisterView):
