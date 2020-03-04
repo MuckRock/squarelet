@@ -7,7 +7,10 @@ import string
 from rest_framework import serializers
 
 # Squarelet
-from squarelet.organizations.serializers import MembershipSerializer
+from squarelet.organizations.serializers import (
+    MembershipSerializer,
+    PressPassOrganizationSerializer
+)
 from squarelet.users.models import User
 from squarelet.organizations.models import (
     Membership,
@@ -154,7 +157,10 @@ class PressPassUserSerializer(serializers.ModelSerializer):
 
 
 class PressPassUserMembershipsSerializer(serializers.ModelSerializer):
-    organization = serializers.SlugRelatedField(slug_field="uuid", read_only=True)
+    organization = serializers.SerializerMethodField()
+
+    def get_organization(self, obj):
+        return PressPassOrganizationSerializer(obj.organization).data
 
     class Meta:
         model = Membership
