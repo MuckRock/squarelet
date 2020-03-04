@@ -264,20 +264,22 @@ class PressPassClientSerializer(serializers.ModelSerializer):
 
 
 class PressPassEntitlmentSerializer(serializers.ModelSerializer):
-    client = serializers.SerializerMethodField()
+    client_data = serializers.SerializerMethodField()
 
-    def get_client(self, obj):
+    def get_client_data(self, obj):
         return PressPassClientSerializer(obj.client).data
 
     class Meta:
         model = Entitlement
-        fields = ("name", "slug", "client", "description")
+        fields = ("name", "slug", "client", "description", "client_data")
         extra_kwargs = {"slug": {"read_only": True}}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         context = kwargs.get("context", {})
         request = context.get("request")
+        view = context.get("view")
+
         # may only create entitlements for your own clients
         if request and request.user and request.user.is_authenticated:
             self.fields["client"].queryset = Client.objects.filter(owner=request.user)
