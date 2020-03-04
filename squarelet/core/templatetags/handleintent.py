@@ -4,6 +4,7 @@ from django.utils.translation import ugettext_lazy as _
 
 # Standard Library
 from collections import OrderedDict
+from urllib.parse import parse_qs, urlparse
 
 register = template.Library()
 
@@ -23,16 +24,28 @@ QUACKBOT_ASSET = "assets/quackbot.svg"
 
 @register.inclusion_tag("templatetags/intent.html", takes_context=True)
 def handleintent(context, header, message):
-    intent = context.request.GET.get("intent", "muckrock").lower().strip()
+    intent = context.request.GET.get("intent")
+    if not intent:
+        next_ = context.request.GET.get("next")
+        if next_:
+            url = urlparse(next_)
+            params = parse_qs(url.query)
+            intent = params.get("intent", [None])[0]
+    if not intent:
+        intent = "muckrock"
+    intent = intent.lower().strip()
 
     intent_lookup = OrderedDict(
         [
             ("muckrock", (MUCKROCK_SERVICE, MUCKROCK_ASSET)),
-            # ("documentcloud", (DOCUMENTCLOUD_SERVICE, DOCUMENTCLOUD_ASSET)),
+            ("documentcloud", (DOCUMENTCLOUD_SERVICE, DOCUMENTCLOUD_ASSET)),
             ("foiamachine", (FOIAMACHINE_SERVICE, FOIAMACHINE_ASSET)),
             # ("quackbot", (QUACKBOT_SERVICE, QUACKBOT_ASSET)),
         ]
     )
+
+    if intent != "documentcloud":
+        del intent_lookup["documentcloud"]
 
     # default to 'muckrock'
     intent_service, intent_asset = intent_lookup.get(intent, intent_lookup["muckrock"])
