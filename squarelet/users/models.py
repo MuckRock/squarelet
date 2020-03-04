@@ -195,3 +195,6 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
             extra.update(sesame.utils.get_parameters(self))
 
         return "{}?{}".format(url, urlencode(extra))
+
+    def verified_journalist(self):
+        return self.organizations.filter(verified_journalist=True).exists()

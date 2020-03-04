@@ -22,23 +22,23 @@
         </div>
       </a>
     </li>
-    {% comment %}
-    <li>
-      <a class="_cls-nostyle" href="{{ settings.DOCCLOUD_URL }}">
-        <div class="_cls-serviceIcon">
-          <img src="{% static 'assets/documentcloud.svg' %}">
-        </div>
-        <div class="_cls-serviceInfo">
-          <div class="_cls-serviceName">
-            {% trans 'DocumentCloud' %}
+    {% if request.user.verified_journalist %}
+      <li>
+        <a class="_cls-nostyle" href="{{ settings.DOCCLOUD_URL }}">
+          <div class="_cls-serviceIcon">
+            <img src="{% static 'assets/documentcloud.svg' %}">
           </div>
-          <div class="_cls-serviceDescription">
-            {% blocktrans %}Upload, analyze, embed documents{% endblocktrans %}
+          <div class="_cls-serviceInfo">
+            <div class="_cls-serviceName">
+              {% trans 'DocumentCloud' %}
+            </div>
+            <div class="_cls-serviceDescription">
+              {% blocktrans %}Upload, analyze, embed documents{% endblocktrans %}
+            </div>
           </div>
-        </div>
-      </a>
-    </li>
-    {% endcomment %}
+        </a>
+      </li>
+    {% endif %}
     <li>
       <a class="_cls-nostyle" href="{{ settings.FOIAMACHINE_URL }}">
         <div class="_cls-serviceIcon">
