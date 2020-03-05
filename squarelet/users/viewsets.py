@@ -118,7 +118,7 @@ class PressPassUserMembershipViewSet(
 ):
     queryset = Membership.objects.none()
     serializer_class = PressPassUserMembershipsSerializer
-    permission_classes = (DjangoObjectPermissionsOrAnonReadOnly,)
+    permission_classes = (DjangoObjectPermissions,)
     lookup_field = "user__uuid"
 
     def get_queryset(self):
