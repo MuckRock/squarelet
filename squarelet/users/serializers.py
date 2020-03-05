@@ -156,10 +156,7 @@ class PressPassUserSerializer(serializers.ModelSerializer):
 
 
 class PressPassUserMembershipsSerializer(serializers.ModelSerializer):
-    organization = serializers.SerializerMethodField()
-
-    def get_organization(self, obj):
-        return PressPassOrganizationSerializer(obj.organization).data
+    organization = PressPassOrganizationSerializer(read_only=True)
 
     class Meta:
         model = Membership
