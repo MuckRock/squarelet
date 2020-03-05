@@ -273,7 +273,6 @@ class PressPassEntitlmentSerializer(serializers.ModelSerializer):
         super().__init__(*args, **kwargs)
         context = kwargs.get("context", {})
         request = context.get("request")
-        view = context.get("view")
 
         # may only create entitlements for your own clients
         if request and request.user and request.user.is_authenticated:
