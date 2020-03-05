@@ -263,14 +263,10 @@ class PressPassClientSerializer(serializers.ModelSerializer):
 
 
 class PressPassEntitlmentSerializer(serializers.ModelSerializer):
-    client_data = serializers.SerializerMethodField()
-
-    def get_client_data(self, obj):
-        return PressPassClientSerializer(obj.client).data
 
     class Meta:
         model = Entitlement
-        fields = ("name", "slug", "client", "description", "client_data")
+        fields = ("name", "slug", "client", "description")
         extra_kwargs = {"slug": {"read_only": True}}
 
     def __init__(self, *args, **kwargs):
