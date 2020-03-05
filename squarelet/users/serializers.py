@@ -13,8 +13,7 @@ from squarelet.organizations.serializers import (
 )
 from squarelet.users.models import User
 from squarelet.organizations.models import (
-    Membership,
-    Invitation
+    Membership
 )
 
 

@@ -21,7 +21,7 @@ from rest_framework.response import Response
 from squarelet.core.mail import send_mail
 from squarelet.core.permissions import DjangoObjectPermissionsOrAnonReadOnly
 from squarelet.oidc.permissions import ScopePermission
-from squarelet.organizations.models import Membership, Plan, Invitation
+from squarelet.organizations.models import Membership, Plan
 from squarelet.users.models import User
 from squarelet.users.serializers import (
     PressPassUserSerializer,
