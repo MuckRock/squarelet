@@ -43,6 +43,9 @@ def store_statistics():
     kwargs["total_orgs"] = Organization.objects.exclude(
         individual=True, plan__slug="free"
     ).count()
+    kwargs["verified_orgs"] = Organization.objects.filter(
+        verified_journalist=True
+    ).count()
     stats = Statistics.objects.create(**kwargs)
 
     # stats needs to be saved before many to many relationships can be set

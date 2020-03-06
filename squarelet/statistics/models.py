@@ -31,6 +31,9 @@ class Statistics(models.Model):
             "individual organizations"
         )
     )
+    verified_orgs = models.IntegerField(
+        help_text=_("The number of organizations which are verified journalists")
+    )
 
     users_today = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
