@@ -105,7 +105,7 @@ class Command(BaseCommand):
                     user_obj = User.objects.create_user(
                         username=UserWriteSerializer.unqiue_username(user[1] + user[2]),
                         email=user[3],
-                        name=user[4],
+                        name=f"{user[1]} {user[2]}",
                         is_staff=False,
                         # 10 is role, 0 is disabled, active as long as not disabled
                         is_active=user[10] != "0",
