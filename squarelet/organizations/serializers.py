@@ -3,6 +3,8 @@ import stripe
 from oidc_provider.models import Client
 from rest_framework import serializers, status
 from rest_framework.exceptions import APIException
+from rest_flex_fields import FlexFieldsModelSerializer
+
 
 # Squarelet
 from squarelet.organizations.choices import StripeAccounts
@@ -17,7 +19,7 @@ from squarelet.organizations.models import (
 )
 
 
-class OrganizationSerializer(serializers.ModelSerializer):
+class OrganizationSerializer(FlexFieldsModelSerializer):
     uuid = serializers.UUIDField(required=False)
     # XXX remove plan once muckrock is updated to handle entitlements
     plan = serializers.SerializerMethodField()
@@ -58,7 +60,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
         return obj.customer(StripeAccounts.muckrock).card_display
 
 
-class MembershipSerializer(serializers.ModelSerializer):
+class MembershipSerializer(FlexFieldsModelSerializer):
     organization = OrganizationSerializer()
 
     class Meta:
@@ -81,7 +83,7 @@ class StripeError(APIException):
     default_detail = "Stripe error"
 
 
-class ChargeSerializer(serializers.ModelSerializer):
+class ChargeSerializer(FlexFieldsModelSerializer):
     token = serializers.CharField(write_only=True, required=False)
     save_card = serializers.BooleanField(write_only=True, required=False)
     organization = serializers.SlugRelatedField(
@@ -134,7 +136,7 @@ class ChargeSerializer(serializers.ModelSerializer):
 # PressPass
 
 
-class PressPassOrganizationSerializer(serializers.ModelSerializer):
+class PressPassOrganizationSerializer(FlexFieldsModelSerializer):
     class Meta:
         model = Organization
         fields = (
@@ -162,7 +164,7 @@ class PressPassOrganizationSerializer(serializers.ModelSerializer):
         }
 
 
-class PressPassMembershipSerializer(serializers.ModelSerializer):
+class PressPassMembershipSerializer(FlexFieldsModelSerializer):
     user = serializers.SlugRelatedField(slug_field="uuid", read_only=True)
 
     class Meta:
@@ -171,7 +173,7 @@ class PressPassMembershipSerializer(serializers.ModelSerializer):
         extra_kwargs = {"admin": {"default": False}}
 
 
-class PressPassNestedInvitationSerializer(serializers.ModelSerializer):
+class PressPassNestedInvitationSerializer(FlexFieldsModelSerializer):
     user = serializers.SlugRelatedField(slug_field="uuid", read_only=True)
 
     class Meta:
@@ -204,7 +206,7 @@ class PressPassNestedInvitationSerializer(serializers.ModelSerializer):
         return value
 
 
-class PressPassInvitationSerializer(serializers.ModelSerializer):
+class PressPassInvitationSerializer(FlexFieldsModelSerializer):
     organization = serializers.SlugRelatedField(slug_field="uuid", read_only=True)
     user = serializers.SlugRelatedField(slug_field="uuid", read_only=True)
     accept = serializers.BooleanField(write_only=True)
@@ -229,6 +231,7 @@ class PressPassInvitationSerializer(serializers.ModelSerializer):
             "rejected_at": {"read_only": True},
             "email": {"read_only": True},
         }
+        expandable_fields = { 'organization': PressPassOrganizationSerializer }
 
     def validate(self, attrs):
         """Must not try to accept and reject"""
@@ -239,7 +242,7 @@ class PressPassInvitationSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class PressPassPlanSerializer(serializers.ModelSerializer):
+class PressPassPlanSerializer(FlexFieldsModelSerializer):
     class Meta:
         model = Plan
         fields = (
@@ -256,18 +259,19 @@ class PressPassPlanSerializer(serializers.ModelSerializer):
         )
 
 
-class PressPassClientSerializer(serializers.ModelSerializer):
+class PressPassClientSerializer(FlexFieldsModelSerializer):
     class Meta:
         model = Client
         fields = ("name", "client_type", "website_url")
 
 
-class PressPassEntitlmentSerializer(serializers.ModelSerializer):
+class PressPassEntitlmentSerializer(FlexFieldsModelSerializer):
 
     class Meta:
         model = Entitlement
         fields = ("name", "slug", "client", "description")
         extra_kwargs = {"slug": {"read_only": True}}
+        expandable_fields = { 'client': PressPassClientSerializer }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -281,7 +285,7 @@ class PressPassEntitlmentSerializer(serializers.ModelSerializer):
             self.fields["client"].queryset = Client.objects.none()
 
 
-class PressPassSubscriptionSerializer(serializers.ModelSerializer):
+class PressPassSubscriptionSerializer(FlexFieldsModelSerializer):
     token = serializers.CharField(write_only=True, required=False)
 
     class Meta:
