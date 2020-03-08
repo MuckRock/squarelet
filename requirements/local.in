@@ -5,6 +5,7 @@ black
 coverage
 django-coverage-plugin
 django-test-plus
+drf-flex-fields
 factory-boy
 flake8
 pip-tools
