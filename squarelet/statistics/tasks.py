@@ -8,10 +8,9 @@ from datetime import date, datetime, time, timedelta
 
 # Squarelet
 from squarelet.organizations.models import Organization
+from squarelet.statistics.mail import Digest
+from squarelet.statistics.models import Statistics
 from squarelet.users.models import User
-
-# Local
-from .models import Statistics
 
 
 # This is using UTC time instead of the local timezone
@@ -54,3 +53,11 @@ def store_statistics():
     )
     stats.pro_users.set(User.objects.filter(organizations__plan__slug="professional"))
     stats.save()
+
+
+# This is using UTC time instead of the local timezone
+@periodic_task(
+    run_every=crontab(hour=7, minute=0), name="squarelet.statistics.tasks.send_digest"
+)
+def send_digest():
+    Digest().send()
