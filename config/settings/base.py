@@ -277,6 +277,7 @@ ACCOUNT_FORMS = {
 ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = False
 ACCOUNT_SESSION_REMEMBER = True
 
+DIGEST_EMAILS = env.list("DIGEST_EMAILS", default=[])
 
 # django-compressor
 # ------------------------------------------------------------------------------

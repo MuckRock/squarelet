@@ -1,0 +1,39 @@
+{% extends "core/email/base.html" %}
+{% load humanize %}
+
+{% block body %}
+  <table>
+    <tr>
+      <th>Statistic</th>
+      <th>Current Value</th>
+      <th>Change from day before</th>
+      <th>Change from week before</th>
+      <th>Change from month before</th>
+    </tr>
+    {% for name, value, deltas in stats %}
+      <tr>
+        <td>{{ name }}</td>
+        <td>{{ value|intcomma }}</td>
+        {% for delta in deltas %}
+          <td class="{% if delta > 0 %}green{% else %}red{% endif %}">
+            {{ delta|intcomma }}
+          </td>
+        {% endfor%}
+      </tr>
+    {% endfor %}
+  </table>
+
+  <p>Pro Users Gained</p>
+  <ul>
+    {% for user in pro_users.gained %}
+      <li><a href="{% url "users:detail" username=user %}">{{ user }}</a></li>
+    {% endfor %}
+  </ul>
+  <p>Pro Users Lost</p>
+  <ul>
+    {% for user in pro_users.lost %}
+      <li><a href="{% url "users:detail" username=user %}">{{ user }}</a></li>
+    {% endfor %}
+  </ul>
+
+{% endblock %}
