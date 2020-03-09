@@ -62,7 +62,7 @@
           {% endif %}
           {% if users|length > 0 %}
             <ul class="_cls-profList">
-              {% for user in usersl %}
+              {% for user in users %}
                 <a href="{% url "users:detail" user.username %}">
                   <li>
                     <div class="_cls-inlineAvatar">

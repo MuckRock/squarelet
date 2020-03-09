@@ -90,7 +90,8 @@ export class PlansView {
     const plan = this.getPlan();
     const cost = `${plan.base_price +
       (this.maxUsers - plan.minimum_users) * plan.price_per_user}`;
-    const costFormatted = `$${cost}`;
+    const timePeriod = plan.annual ? 'year' : 'month';
+    const costFormatted = `$${cost} / ${timePeriod}`;
     this.totalCost.textContent = costFormatted;
 
     let costBreakdownFormatted = `$${plan.base_price} (base price)`;
