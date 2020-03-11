@@ -84,7 +84,7 @@ class Command(BaseCommand):
             reader = csv.reader(infile)
             writer = csv.writer(outfile)
             next(reader)  # discard headers
-            for i, user in enumerate(reader):
+            for user in reader:
                 # 3 is reviewer - do not import
                 if user[10] == "3":
                     self.stdout.write(f"Skipping reviewer: {user[3]}")
@@ -107,8 +107,7 @@ class Command(BaseCommand):
                         email=user[3],
                         name=f"{user[1]} {user[2]}",
                         is_staff=False,
-                        # 10 is role, 0 is disabled, active as long as not disabled
-                        is_active=user[10] != "0",
+                        is_active=True,
                         is_superuser=False,
                         email_failed=False,
                         is_agency=False,
@@ -120,7 +119,8 @@ class Command(BaseCommand):
                     user_obj.password = "bcrypt$" + user[4]
                     user_obj.save()
 
-                if user[10] != "4":
+                if user[10] not in ("0", "4"):
+                    # 0 is disabled - do not add to organization
                     # 4 is freelancer - do not add to organization
                     if not created and organization.has_member(user_obj):
                         self.stdout.write(f"Already a member")
@@ -133,4 +133,4 @@ class Command(BaseCommand):
                             admin=user[10] == "1",
                         )
 
-                writer.writerow([user[0], user_obj.uuid])
+                writer.writerow([user[0], user_obj.uuid, user_obj.username])
