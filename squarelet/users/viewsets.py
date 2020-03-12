@@ -12,7 +12,7 @@ import sesame.utils
 from allauth.account import app_settings as allauth_settings
 from allauth.account.models import EmailAddress, EmailConfirmationHMAC
 from allauth.account.utils import complete_signup, setup_user_email
-from rest_auth.registration.views import RegisterView
+from dj_rest_auth.registration.views import RegisterView
 from rest_framework import mixins, status, viewsets
 from rest_framework.permissions import DjangoObjectPermissions, IsAdminUser
 from rest_framework.response import Response
