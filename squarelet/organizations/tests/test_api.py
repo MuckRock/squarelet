@@ -230,6 +230,13 @@ class TestPPInvitationAPI:
         assert invitation.accepted_at
         assert invitation.organization.has_member(user)
 
+    def test_retrieve_with_expanded_organization(self, api_client, invitation):
+        """Get an invitation with expanded organization data"""
+        response = api_client.get(f"/pp-api/invitations/{invitation.uuid}/?expand=organization")
+        assert response.status_code == status.HTTP_200_OK
+        response_json = json.loads(response.content)
+        assert ("name" in response_json["organization"])
+
 
 @pytest.mark.django_db()
 class TestPPPlanAPI:
