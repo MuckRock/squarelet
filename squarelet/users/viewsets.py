@@ -126,7 +126,7 @@ class PressPassUserMembershipViewSet(
             User,
             uuid=self.kwargs["user_uuid"],
         )
-        return user.memberships.all()
+        return user.memberships.get_viewable(self.request.user)
 
 
 class PressPassRegisterView(RegisterView):
