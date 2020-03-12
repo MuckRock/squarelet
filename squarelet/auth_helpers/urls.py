@@ -2,7 +2,7 @@
 from django.urls import path
 
 # Third Party
-from rest_auth.views import (
+from dj_rest_auth.views import (
     LoginView,
     LogoutView,
     PasswordChangeView,
