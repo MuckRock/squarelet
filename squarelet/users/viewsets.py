@@ -112,6 +112,17 @@ class PressPassUserViewSet(
             return super().get_object()
 
 
+class PressPassUserMembershipViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    queryset = Membership.objects.none()
+    serializer_class = PressPassUserMembershipsSerializer
+    permission_classes = (DjangoObjectPermissions,)
+    lookup_field = "user__uuid"
+
+    def get_queryset(self):
+        user = get_object_or_404(User, uuid=self.kwargs["user_uuid"])
+        return user.memberships.all()
+
+
 class PressPassRegisterView(RegisterView):
     serializer_class = PressPassUserWriteSerializer
 
