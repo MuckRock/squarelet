@@ -1,10 +1,9 @@
 # Third Party
 import stripe
 from oidc_provider.models import Client
+from rest_flex_fields import FlexFieldsModelSerializer
 from rest_framework import serializers, status
 from rest_framework.exceptions import APIException
-from rest_flex_fields import FlexFieldsModelSerializer
-
 
 # Squarelet
 from squarelet.organizations.choices import StripeAccounts
@@ -231,7 +230,7 @@ class PressPassInvitationSerializer(FlexFieldsModelSerializer):
             "rejected_at": {"read_only": True},
             "email": {"read_only": True},
         }
-        expandable_fields = { 'organization': PressPassOrganizationSerializer }
+        expandable_fields = {"organization": PressPassOrganizationSerializer}
 
     def validate(self, attrs):
         """Must not try to accept and reject"""
@@ -266,12 +265,11 @@ class PressPassClientSerializer(FlexFieldsModelSerializer):
 
 
 class PressPassEntitlmentSerializer(FlexFieldsModelSerializer):
-
     class Meta:
         model = Entitlement
         fields = ("name", "slug", "client", "description")
         extra_kwargs = {"slug": {"read_only": True}}
-        expandable_fields = { 'client': PressPassClientSerializer }
+        expandable_fields = {"client": PressPassClientSerializer}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

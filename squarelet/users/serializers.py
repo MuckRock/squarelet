@@ -8,14 +8,12 @@ from dj_rest_auth.registration.serializers import RegisterSerializer
 from rest_framework import serializers
 
 # Squarelet
+from squarelet.organizations.models import Membership
 from squarelet.organizations.serializers import (
     MembershipSerializer,
-    PressPassOrganizationSerializer
+    PressPassOrganizationSerializer,
 )
 from squarelet.users.models import User
-from squarelet.organizations.models import (
-    Membership
-)
 
 
 class UserBaseSerializer(serializers.ModelSerializer):
@@ -170,5 +168,6 @@ class PressPassUserWriteSerializer(RegisterSerializer):
     Override dj-rest-auth's user serializer so that we can pass
     password data to the user manager
     """
+
     password1 = serializers.CharField()
     password2 = serializers.CharField()
