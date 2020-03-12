@@ -23,7 +23,9 @@ from squarelet.oidc.permissions import ScopePermission
 from squarelet.organizations.models import Membership, Plan
 from squarelet.users.models import User
 from squarelet.users.serializers import (
+    PressPassUserMembershipsSerializer,
     PressPassUserSerializer,
+    PressPassUserWriteSerializer,
     UserReadSerializer,
     UserWriteSerializer,
 )
@@ -111,6 +113,8 @@ class PressPassUserViewSet(
 
 
 class PressPassRegisterView(RegisterView):
+    serializer_class = PressPassUserWriteSerializer
+
     def get_response_data(self, user):
         if (
             allauth_settings.EMAIL_VERIFICATION
