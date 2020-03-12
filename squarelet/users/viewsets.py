@@ -28,6 +28,7 @@ from squarelet.users.serializers import (
     UserReadSerializer,
     UserWriteSerializer,
     PressPassUserMembershipsSerializer,
+    PressPassUserWriteSerializer
 )
 
 
@@ -130,6 +131,8 @@ class PressPassUserMembershipViewSet(
 
 
 class PressPassRegisterView(RegisterView):
+    serializer_class = PressPassUserWriteSerializer
+
     def get_response_data(self, user):
         if (
             allauth_settings.EMAIL_VERIFICATION

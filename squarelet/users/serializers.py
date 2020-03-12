@@ -4,6 +4,7 @@ import re
 import string
 
 # Third Party
+from dj_rest_auth.registration.serializers import RegisterSerializer
 from rest_framework import serializers
 
 # Squarelet
@@ -162,3 +163,12 @@ class PressPassUserMembershipsSerializer(serializers.ModelSerializer):
         model = Membership
         fields = ("organization", "admin")
         extra_kwargs = {"admin": {"default": False}}
+
+
+class PressPassUserWriteSerializer(RegisterSerializer):
+    """
+    Override dj-rest-auth's user serializer so that we can pass
+    password data to the user manager
+    """
+    password1 = serializers.CharField()
+    password2 = serializers.CharField()
