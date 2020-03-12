@@ -7,14 +7,12 @@ import string
 from rest_framework import serializers
 
 # Squarelet
+from squarelet.organizations.models import Membership
 from squarelet.organizations.serializers import (
     MembershipSerializer,
-    PressPassOrganizationSerializer
+    PressPassOrganizationSerializer,
 )
 from squarelet.users.models import User
-from squarelet.organizations.models import (
-    Membership
-)
 
 
 class UserBaseSerializer(serializers.ModelSerializer):

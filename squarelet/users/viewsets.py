@@ -19,15 +19,14 @@ from rest_framework.response import Response
 
 # Squarelet
 from squarelet.core.mail import send_mail
-from squarelet.core.permissions import DjangoObjectPermissionsOrAnonReadOnly
 from squarelet.oidc.permissions import ScopePermission
 from squarelet.organizations.models import Membership, Plan
 from squarelet.users.models import User
 from squarelet.users.serializers import (
+    PressPassUserMembershipsSerializer,
     PressPassUserSerializer,
     UserReadSerializer,
     UserWriteSerializer,
-    PressPassUserMembershipsSerializer,
 )
 
 
@@ -113,8 +112,7 @@ class PressPassUserViewSet(
 
 
 class PressPassUserMembershipViewSet(
-    mixins.ListModelMixin,
-    viewsets.GenericViewSet,
+    mixins.ListModelMixin, viewsets.GenericViewSet,
 ):
     queryset = Membership.objects.none()
     serializer_class = PressPassUserMembershipsSerializer
@@ -122,10 +120,7 @@ class PressPassUserMembershipViewSet(
     lookup_field = "user__uuid"
 
     def get_queryset(self):
-        user = get_object_or_404(
-            User,
-            uuid=self.kwargs["user_uuid"],
-        )
+        user = get_object_or_404(User, uuid=self.kwargs["user_uuid"],)
         return user.memberships.all()
 
 

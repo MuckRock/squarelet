@@ -230,12 +230,14 @@ class TestPPInvitationAPI:
         assert invitation.accepted_at
         assert invitation.organization.has_member(user)
 
-    def test_retrieve_with_expanded_organization(self, api_client, invitation):
+    def test_retrieve_expand_org(self, api_client, invitation):
         """Get an invitation with expanded organization data"""
-        response = api_client.get(f"/pp-api/invitations/{invitation.uuid}/?expand=organization")
+        response = api_client.get(
+            f"/pp-api/invitations/{invitation.uuid}/?expand=organization"
+        )
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
-        assert ("name" in response_json["organization"])
+        assert "name" in response_json["organization"]
 
 
 @pytest.mark.django_db()
@@ -272,7 +274,7 @@ class TestPPEntitlementAPI:
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == size
 
-    def test_list_with_expanded_clients(self, api_client, mocker):
+    def test_list_expand_clients(self, api_client, mocker):
         """List entitlements"""
         size = 10
         entitlements = EntitlementFactory.create_batch(size)
@@ -284,8 +286,8 @@ class TestPPEntitlementAPI:
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == size
-        for e in response_json["results"]:
-            assert "name" in e["client"]
+        for entitlement in response_json["results"]:
+            assert "name" in entitlement["client"]
 
     def test_create(self, api_client, client):
         """Create an entitlement"""
@@ -318,16 +320,18 @@ class TestPPEntitlementAPI:
         response = api_client.get(f"/pp-api/entitlements/{entitlement.pk}/")
         assert response.status_code == status.HTTP_200_OK
 
-    def test_retrieve_with_expanded_client(self, api_client, entitlement, mocker):
+    def test_retrieve_expand_client(self, api_client, entitlement, mocker):
         """Test retrieving an entitlement"""
         mocker.patch("stripe.Plan.create")
         # make entitlement public by adding it to a public plan
         plan = PlanFactory(public=True)
         plan.entitlements.add(entitlement)
-        response = api_client.get(f"/pp-api/entitlements/{entitlement.pk}/?expand=client")
+        response = api_client.get(
+            f"/pp-api/entitlements/{entitlement.pk}/?expand=client"
+        )
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
-        assert ("name" in response_json["client"])
+        assert "name" in response_json["client"]
 
     def test_retrieve_bad(self, api_client, entitlement):
         """Test retrieving a private entitlement"""
