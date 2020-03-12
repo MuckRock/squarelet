@@ -47,7 +47,8 @@ class OrganizationQuerySet(models.QuerySet):
 
 class MembershipQuerySet(models.QuerySet):
     def get_viewable(self, user):
-        return user.memberships.filter(Q(private=False) | Q(organization__users=self.request.user))
+        """Returns memberships in either public organizations or any org the user is a member of"""
+        return self.filter(Q(organization__private=False) | Q(organization__users=user))
 
 
 class PlanQuerySet(models.QuerySet):
