@@ -135,6 +135,8 @@ class ChargeSerializer(serializers.ModelSerializer):
 
 
 class PressPassOrganizationSerializer(serializers.ModelSerializer):
+    plan = serializers.SerializerMethodField()
+
     class Meta:
         model = Organization
         fields = (
@@ -148,6 +150,7 @@ class PressPassOrganizationSerializer(serializers.ModelSerializer):
             "updated_at",
             "payment_failed",
             "avatar",
+            "plan",
         )
         extra_kwargs = {
             "uuid": {"read_only": True},
@@ -160,6 +163,9 @@ class PressPassOrganizationSerializer(serializers.ModelSerializer):
             "payment_failed": {"read_only": True},
             "avatar": {"required": False},
         }
+
+    def get_plan(self, obj):
+        return obj.plan.slug if obj.plan else "free"
 
 
 class PressPassMembershipSerializer(serializers.ModelSerializer):
