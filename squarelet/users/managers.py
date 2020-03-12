@@ -54,10 +54,9 @@ class UserManager(AuthUserManager):
                     )
                 )
 
-            if plan and plan.for_groups:
-                group_organization = Organization.objects.create(
-                    name=user_data["organization_name"]
-                )
+            organization_name = user_data.get("organization_name")
+            if plan and plan.for_groups and organization_name:
+                group_organization = Organization.objects.create(name=organization_name)
                 group_organization.add_creator(user)
                 group_organization.change_logs.create(
                     reason=ChangeLogReason.created,
