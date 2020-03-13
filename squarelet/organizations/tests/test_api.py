@@ -389,3 +389,20 @@ class TestPPSubscriptionAPI:
         assert subscription.cancelled
         assert mocked_stripe_subscription.cancel_at_period_end is True
         mocked_stripe_subscription.save.assert_called_once()
+
+@pytest.mark.django_db()
+class TestPPUserMembershipAPI:
+    def test_list(self, api_client, user):
+        """List user memberships"""
+        api_client.force_authenticate(user=user)
+        organization = OrganizationFactory(admins=[user], private=True)
+        new_user = UserFactory()
+        MembershipFactory(organization=organization, user=new_user, admin=False)
+        response = api_client.get(
+            f"/pp-api/users/{new_user.individual_organization_id}/memberships/"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        response_json = json.loads(response.content)
+        assert len(response_json["results"]) == 1
+        for membership in response_json["results"]:
+            print(membership)
