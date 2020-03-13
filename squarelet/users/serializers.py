@@ -7,14 +7,8 @@ import string
 from rest_framework import serializers
 
 # Squarelet
-from squarelet.organizations.serializers import (
-    MembershipSerializer,
-    PressPassOrganizationSerializer
-)
+from squarelet.organizations.serializers import MembershipSerializer
 from squarelet.users.models import User
-from squarelet.organizations.models import (
-    Membership
-)
 
 
 class UserBaseSerializer(serializers.ModelSerializer):
@@ -153,12 +147,3 @@ class PressPassUserSerializer(serializers.ModelSerializer):
             if self.instance and not self.instance.can_change_username:
                 # pylint: disable=invalid-sequence-index
                 self.fields["username"].read_only = True
-
-
-class PressPassUserMembershipsSerializer(serializers.ModelSerializer):
-    organization = PressPassOrganizationSerializer(read_only=True)
-
-    class Meta:
-        model = Membership
-        fields = ("organization", "admin")
-        extra_kwargs = {"admin": {"default": False}}

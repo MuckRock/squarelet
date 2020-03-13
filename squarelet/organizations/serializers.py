@@ -171,6 +171,15 @@ class PressPassMembershipSerializer(serializers.ModelSerializer):
         extra_kwargs = {"admin": {"default": False}}
 
 
+class PressPassUserMembershipsSerializer(serializers.ModelSerializer):
+    organization = PressPassOrganizationSerializer(read_only=True)
+
+    class Meta:
+        model = Membership
+        fields = ("organization", "admin")
+        extra_kwargs = {"admin": {"default": False}}
+
+
 class PressPassNestedInvitationSerializer(serializers.ModelSerializer):
     user = serializers.SlugRelatedField(slug_field="uuid", read_only=True)
 
@@ -263,7 +272,6 @@ class PressPassClientSerializer(serializers.ModelSerializer):
 
 
 class PressPassEntitlmentSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Entitlement
         fields = ("name", "slug", "client", "description")

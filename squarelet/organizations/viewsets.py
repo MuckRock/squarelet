@@ -2,7 +2,7 @@
 import django_filters
 from rest_framework import mixins, viewsets
 from rest_framework.generics import get_object_or_404
-from rest_framework.permissions import IsAdminUser
+from rest_framework.permissions import DjangoObjectPermissions, IsAdminUser
 
 # Squarelet
 from squarelet.core.permissions import DjangoObjectPermissionsOrAnonReadOnly
@@ -27,6 +27,7 @@ from squarelet.organizations.serializers import (
     PressPassOrganizationSerializer,
     PressPassPlanSerializer,
     PressPassSubscriptionSerializer,
+    PressPassUserMembershipsSerializer,
 )
 from squarelet.users.models import User
 
@@ -119,6 +120,19 @@ class PressPassMembershipViewSet(
             uuid=self.kwargs["organization_uuid"],
         )
         return organization.memberships.all()
+
+
+class PressPassUserMembershipViewSet(
+    mixins.ListModelMixin, viewsets.GenericViewSet,
+):
+    queryset = Membership.objects.none()
+    serializer_class = PressPassUserMembershipsSerializer
+    permission_classes = (DjangoObjectPermissions,)
+    lookup_field = "user__uuid"
+
+    def get_queryset(self):
+        user = get_object_or_404(User, uuid=self.kwargs["user_uuid"],)
+        return user.memberships.get_viewable(self.request.user)
 
 
 class PressPassNestedInvitationViewSet(
