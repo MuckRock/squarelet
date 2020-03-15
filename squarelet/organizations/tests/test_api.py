@@ -405,5 +405,3 @@ class TestPPUserMembershipAPI:
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == 1
-        for membership in response_json["results"]:
-            print(membership)
