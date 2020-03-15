@@ -390,6 +390,7 @@ class TestPPSubscriptionAPI:
         assert mocked_stripe_subscription.cancel_at_period_end is True
         mocked_stripe_subscription.save.assert_called_once()
 
+
 @pytest.mark.django_db()
 class TestPPUserMembershipAPI:
     def test_list(self, api_client, user):
