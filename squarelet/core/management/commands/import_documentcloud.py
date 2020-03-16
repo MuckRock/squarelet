@@ -13,6 +13,10 @@ from dateutil.parser import parse
 from smart_open.smart_open_lib import smart_open
 
 # Squarelet
+from squarelet.oidc.middleware import (
+    delete_cache_invalidation_set,
+    initialize_cache_invalidation_set,
+)
 from squarelet.organizations.models import Membership, Organization, Plan
 from squarelet.users.models import User
 
@@ -30,6 +34,10 @@ class Command(BaseCommand):
         org_id = kwargs["organization"]
         self.bucket_path = f"s3://{BUCKET}/documentcloud-export/organization-{org_id}/"
         with transaction.atomic():
+            # we initialize the cache invalidation set here in order to
+            # not send a cache invalidation for users and orgs during the
+            # import
+            initialize_cache_invalidation_set()
             organization, created = self.import_org()
             self.import_users(organization)
             if created:
@@ -40,6 +48,8 @@ class Command(BaseCommand):
                     ]
                 )
             # XXX update max users after importing users
+            # we do not send the batched invalidations, but just delete them
+            delete_cache_invalidation_set()
 
     def import_org(self):
         self.stdout.write("Begin Organization Import {}".format(timezone.now()))
