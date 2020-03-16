@@ -4,8 +4,8 @@
 import threading
 from collections import defaultdict
 
-# Local
-from . import utils
+# Squarelet
+from squarelet.oidc import utils
 
 CACHE_INVALIDATION_SET = threading.local()
 
@@ -21,14 +21,13 @@ class CacheInvalidationSenderMiddleware:
 
     def __call__(self, request):
         """Send all cache invalidations after the view is finished"""
-        CACHE_INVALIDATION_SET.set = defaultdict(set)
+        initialize_cache_invalidation_set()
 
         try:
             response = self.get_response(request)
         finally:
-            for model, uuids in CACHE_INVALIDATION_SET.set.items():
-                utils.send_cache_invalidations(model, list(uuids))
-            del CACHE_INVALIDATION_SET.set
+            send_cache_invalidation_set()
+            delete_cache_invalidation_set()
 
         return response
 
@@ -42,5 +41,23 @@ def send_cache_invalidations(model, uuids):
             CACHE_INVALIDATION_SET.set[model].add(uuid)
     else:
         # if there is no set, we are not in a request-response cycle
-        # (ie celery or the REPL) - just send immediately
+        # (ie celery or the REPL) and we have not manually initalized a batch set
+        # just send immediately
         utils.send_cache_invalidations(model, uuids)
+
+
+# these are pulled out to allow manually batching cache invalidations in
+# non request-response cycle environments
+
+
+def initialize_cache_invalidation_set():
+    CACHE_INVALIDATION_SET.set = defaultdict(set)
+
+
+def send_cache_invalidation_set():
+    for model, uuids in CACHE_INVALIDATION_SET.set.items():
+        utils.send_cache_invalidations(model, list(uuids))
+
+
+def delete_cache_invalidation_set():
+    del CACHE_INVALIDATION_SET.set
