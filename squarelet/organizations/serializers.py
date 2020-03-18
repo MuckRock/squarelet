@@ -1,6 +1,7 @@
 # Third Party
 import stripe
 from oidc_provider.models import Client
+from rest_flex_fields import FlexFieldsModelSerializer
 from rest_framework import serializers, status
 from rest_framework.exceptions import APIException
 
@@ -186,6 +187,7 @@ class PressPassNestedInvitationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Invitation
         fields = (
+            "uuid",
             "email",
             "user",
             "request",
@@ -212,7 +214,7 @@ class PressPassNestedInvitationSerializer(serializers.ModelSerializer):
         return value
 
 
-class PressPassInvitationSerializer(serializers.ModelSerializer):
+class PressPassInvitationSerializer(FlexFieldsModelSerializer):
     organization = serializers.SlugRelatedField(slug_field="uuid", read_only=True)
     user = serializers.SlugRelatedField(slug_field="uuid", read_only=True)
     accept = serializers.BooleanField(write_only=True)
@@ -237,6 +239,7 @@ class PressPassInvitationSerializer(serializers.ModelSerializer):
             "rejected_at": {"read_only": True},
             "email": {"read_only": True},
         }
+        expandable_fields = {"organization": PressPassOrganizationSerializer}
 
     def validate(self, attrs):
         """Must not try to accept and reject"""
@@ -270,11 +273,12 @@ class PressPassClientSerializer(serializers.ModelSerializer):
         fields = ("name", "client_type", "website_url")
 
 
-class PressPassEntitlmentSerializer(serializers.ModelSerializer):
+class PressPassEntitlmentSerializer(FlexFieldsModelSerializer):
     class Meta:
         model = Entitlement
         fields = ("name", "slug", "client", "description")
         extra_kwargs = {"slug": {"read_only": True}}
+        expandable_fields = {"client": PressPassClientSerializer}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

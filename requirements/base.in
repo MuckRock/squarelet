@@ -30,6 +30,7 @@ django<2.2
 djangorestframework
 djangorestframework_simplejwt
 dogslow
+drf-flex-fields
 drf-nested-routers
 drf-yasg
 furl
