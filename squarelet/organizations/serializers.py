@@ -178,6 +178,7 @@ class PressPassNestedInvitationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Invitation
         fields = (
+            "uuid", 
             "email",
             "user",
             "request",
