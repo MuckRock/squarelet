@@ -255,6 +255,7 @@ class PressPassPlanSerializer(serializers.ModelSerializer):
     class Meta:
         model = Plan
         fields = (
+            "id",
             "name",
             "slug",
             "minimum_users",
@@ -298,7 +299,7 @@ class PressPassSubscriptionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Subscription
-        fields = ("plan", "update_on", "cancelled", "token")
+        fields = ("id", "plan", "update_on", "cancelled", "token")
         extra_kwargs = {
             "update_on": {"read_only": True},
             "cancelled": {"read_only": True},
