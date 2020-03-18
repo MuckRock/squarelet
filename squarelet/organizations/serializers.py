@@ -171,6 +171,15 @@ class PressPassMembershipSerializer(serializers.ModelSerializer):
         extra_kwargs = {"admin": {"default": False}}
 
 
+class PressPassUserMembershipsSerializer(serializers.ModelSerializer):
+    organization = PressPassOrganizationSerializer(read_only=True)
+
+    class Meta:
+        model = Membership
+        fields = ("organization", "admin")
+        extra_kwargs = {"admin": {"default": False}}
+
+
 class PressPassNestedInvitationSerializer(serializers.ModelSerializer):
     user = serializers.SlugRelatedField(slug_field="uuid", read_only=True)
 
@@ -262,11 +271,6 @@ class PressPassClientSerializer(serializers.ModelSerializer):
 
 
 class PressPassEntitlmentSerializer(serializers.ModelSerializer):
-    client = serializers.SerializerMethodField()
-
-    def get_client(self, obj):
-        return PressPassClientSerializer(obj.client).data
-
     class Meta:
         model = Entitlement
         fields = ("name", "slug", "client", "description")
@@ -276,6 +280,7 @@ class PressPassEntitlmentSerializer(serializers.ModelSerializer):
         super().__init__(*args, **kwargs)
         context = kwargs.get("context", {})
         request = context.get("request")
+
         # may only create entitlements for your own clients
         if request and request.user and request.user.is_authenticated:
             self.fields["client"].queryset = Client.objects.filter(owner=request.user)

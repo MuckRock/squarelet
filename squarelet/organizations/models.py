@@ -28,6 +28,7 @@ from squarelet.organizations.querysets import (
     ChargeQuerySet,
     EntitlementQuerySet,
     InvitationQuerySet,
+    MembershipQuerySet,
     OrganizationQuerySet,
     PlanQuerySet,
     SubscriptionQuerySet,
@@ -438,6 +439,8 @@ class Customer(models.Model):
 
 class Membership(models.Model):
     """Through table for organization membership"""
+
+    objects = MembershipQuerySet.as_manager()
 
     user = models.ForeignKey(
         verbose_name=_("user"),

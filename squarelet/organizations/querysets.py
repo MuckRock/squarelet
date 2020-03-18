@@ -45,6 +45,15 @@ class OrganizationQuerySet(models.QuerySet):
         return user.individual_organization
 
 
+class MembershipQuerySet(models.QuerySet):
+    def get_viewable(self, user):
+        """Returns memberships in public orgs or any org the user is a member of"""
+        # you can view membership info if:
+        #  * this organization is public, regardless of your membership
+        #  * or, you are a member of the org
+        return self.filter(Q(organization__private=False) | Q(organization__users=user))
+
+
 class PlanQuerySet(models.QuerySet):
     def get_viewable(self, user):
         if user.is_staff:

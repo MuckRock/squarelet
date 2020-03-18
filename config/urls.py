@@ -28,6 +28,7 @@ from squarelet.organizations.viewsets import (
     PressPassOrganizationViewSet,
     PressPassPlanViewSet,
     PressPassSubscriptionViewSet,
+    PressPassUserMembershipViewSet,
 )
 from squarelet.users.views import LoginView
 from squarelet.users.viewsets import (
@@ -70,6 +71,9 @@ organization_router.register("memberships", PressPassMembershipViewSet)
 organization_router.register("invitations", PressPassNestedInvitationViewSet)
 organization_router.register("subscriptions", PressPassSubscriptionViewSet)
 
+user_router = routers.NestedDefaultRouter(presspass_router, "users", lookup="user")
+user_router.register("memberships", PressPassUserMembershipViewSet)
+
 urlpatterns = [
     path("", HomeView.as_view(), name="home"),
     path(
@@ -94,6 +98,7 @@ urlpatterns = [
     path("pp-api/auth/", include("squarelet.auth_helpers.urls")),
     path("pp-api/", include(presspass_router.urls)),
     path("pp-api/", include(organization_router.urls)),
+    path("pp-api/", include(user_router.urls)),
     # Swagger
     path("swagger<format>", SchemaView.without_ui(cache_timeout=0), name="schema-json"),
     path(
