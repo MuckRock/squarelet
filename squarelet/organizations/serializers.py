@@ -293,7 +293,7 @@ class PressPassEntitlmentSerializer(FlexFieldsModelSerializer):
             self.fields["client"].queryset = Client.objects.none()
 
 
-class PressPassSubscriptionSerializer(serializers.ModelSerializer):
+class PressPassSubscriptionSerializer(FlexFieldsModelSerializer):
     token = serializers.CharField(write_only=True, required=False)
 
     class Meta:
@@ -303,6 +303,7 @@ class PressPassSubscriptionSerializer(serializers.ModelSerializer):
             "update_on": {"read_only": True},
             "cancelled": {"read_only": True},
         }
+        expandable_fields = {"plan": PressPassPlanSerializer}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
