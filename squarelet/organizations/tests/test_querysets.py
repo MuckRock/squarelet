@@ -1,7 +1,7 @@
-# Third Party
 # Django
 from django.test import TestCase
 
+# Third Party
 import pytest
 
 # Squarelet

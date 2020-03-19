@@ -250,6 +250,7 @@ class TestPPPlanAPI:
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == size
+        assert "id" in response_json["results"][0]
 
     def test_retrieve(self, api_client, mocker):
         """Test retrieving a plan"""
@@ -257,6 +258,8 @@ class TestPPPlanAPI:
         plan = PlanFactory()
         response = api_client.get(f"/pp-api/plans/{plan.id}/")
         assert response.status_code == status.HTTP_200_OK
+        response_json = json.loads(response.content)
+        assert "id" in response_json
 
 
 @pytest.mark.django_db()
@@ -368,6 +371,7 @@ class TestPPSubscriptionAPI:
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == size
+        assert "id" in response_json["results"][0]
 
     def test_create(self, api_client, user, mocker):
         """Create a subscription"""
@@ -407,6 +411,8 @@ class TestPPSubscriptionAPI:
             f"{subscription.pk}/"
         )
         assert response.status_code == status.HTTP_200_OK
+        response_json = json.loads(response.content)
+        assert "id" in response_json
 
     def test_destroy(self, api_client, user, mocker):
         """Test cancelling a subscription"""
