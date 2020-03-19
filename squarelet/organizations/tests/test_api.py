@@ -418,6 +418,20 @@ class TestPPSubscriptionAPI:
         assert len(response_json["results"]) == size
         assert "id" in response_json["results"][0]
 
+    def test_list_expand_plans(self, api_client, user):
+        """List subscriptions expanding plans"""
+        size = 10
+        organization = OrganizationFactory(admins=[user])
+        api_client.force_authenticate(user=user)
+        SubscriptionFactory.create_batch(size, organization=organization)
+        response = api_client.get(
+            f"/pp-api/organizations/{organization.uuid}/subscriptions/?expand=plan"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        response_json = json.loads(response.content)
+        assert len(response_json["results"]) == size
+        assert "name" in response_json["results"][0]["plan"]
+
     def test_create(self, api_client, user, mocker):
         """Create a subscription"""
         mocker.patch("stripe.Plan.create")
