@@ -279,7 +279,7 @@ class TestPPPlanAPI:
         my_plan = PlanFactory(for_individuals=False, for_groups=True, public=False)
         my_plan.private_organizations.add(org)
 
-        response = api_client.get(f"/pp-api/plans/", {"organization": org.pk})
+        response = api_client.get(f"/pp-api/plans/", {"organization": org.uuid})
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         # you should not be able to see the individual plan or the private plan
@@ -292,7 +292,9 @@ class TestPPPlanAPI:
 
     def test_list_filter_by_organization_bad(self, api_client, organization):
         """You may not list plans for an organization you are not a member of"""
-        response = api_client.get(f"/pp-api/plans/", {"organization": organization.pk})
+        response = api_client.get(
+            f"/pp-api/plans/", {"organization": organization.uuid}
+        )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_retrieve(self, api_client, mocker):
