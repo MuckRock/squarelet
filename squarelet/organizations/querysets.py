@@ -60,28 +60,29 @@ class PlanQuerySet(models.QuerySet):
             return self
         elif user.is_authenticated:
             return self.filter(
-                Q(public=True) | Q(private_organizations=user.organization)
+                Q(public=True)
+                | Q(organizations__in=user.organizations.all())
+                | Q(private_organizations__in=user.organizations.all())
             ).distinct()
         else:
             return self.filter(public=True)
 
-    def choices(self, organization):
+    def choices(self, organization, stripe_account=None):
         """Return the plan choices for the given organization"""
         if organization.individual:
             queryset = self.filter(for_individuals=True)
         else:
             queryset = self.filter(for_groups=True)
+        if stripe_account is not None:
+            queryset = queryset.filter(stripe_account=stripe_account)
+
         # show public plans, the organizations current plan, and any custom plan
         # to which they have been granted explicit access
-        return (
-            queryset.filter(
-                Q(public=True)
-                | Q(organizations=organization)
-                | Q(private_organizations=organization)
-            )
-            .muckrock()
-            .distinct()
-        )
+        return queryset.filter(
+            Q(public=True)
+            | Q(organizations=organization)
+            | Q(private_organizations=organization)
+        ).distinct()
 
     def free(self):
         """Free plans"""

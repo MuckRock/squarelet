@@ -7,7 +7,7 @@ from rest_framework.permissions import DjangoObjectPermissions, IsAdminUser
 # Squarelet
 from squarelet.core.permissions import DjangoObjectPermissionsOrAnonReadOnly
 from squarelet.oidc.permissions import ScopePermission
-from squarelet.organizations.choices import ChangeLogReason
+from squarelet.organizations.choices import ChangeLogReason, StripeAccounts
 from squarelet.organizations.models import (
     Charge,
     Entitlement,
@@ -122,16 +122,14 @@ class PressPassMembershipViewSet(
         return organization.memberships.all()
 
 
-class PressPassUserMembershipViewSet(
-    mixins.ListModelMixin, viewsets.GenericViewSet,
-):
+class PressPassUserMembershipViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     queryset = Membership.objects.none()
     serializer_class = PressPassUserMembershipsSerializer
     permission_classes = (DjangoObjectPermissions,)
     lookup_field = "user__uuid"
 
     def get_queryset(self):
-        user = get_object_or_404(User, uuid=self.kwargs["user_uuid"],)
+        user = get_object_or_404(User, uuid=self.kwargs["user_uuid"])
         return user.memberships.get_viewable(self.request.user)
 
 
@@ -197,6 +195,13 @@ class PressPassInvitationViewSet(
             serializer.instance.reject()
 
 
+def plan_filter_organizations(request):
+    if request is None or not request.user.is_authenticated:
+        return Organization.objects.none()
+    else:
+        return request.user.organizations.all()
+
+
 class PressPassPlanViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Plan.objects.none()
     serializer_class = PressPassPlanSerializer
@@ -204,6 +209,23 @@ class PressPassPlanViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         return Plan.objects.get_viewable(self.request.user)
+
+    class Filter(django_filters.FilterSet):
+        organization = django_filters.ModelChoiceFilter(
+            queryset=plan_filter_organizations, method="organization_choices"
+        )
+        account = django_filters.ChoiceFilter(
+            choices=StripeAccounts.choices, field_name="stripe_account"
+        )
+
+        def organization_choices(self, queryset, name, value):
+            return queryset.choices(value)
+
+        class Meta:
+            model = Plan
+            fields = ["organization", "account"]
+
+    filterset_class = Filter
 
 
 class PressPassEntitlmentViewSet(viewsets.ModelViewSet):

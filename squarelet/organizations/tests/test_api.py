@@ -9,7 +9,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 # Squarelet
-from squarelet.organizations.choices import ChangeLogReason
+from squarelet.organizations.choices import ChangeLogReason, StripeAccounts
 from squarelet.organizations.models import Charge, Entitlement, Organization
 from squarelet.organizations.tests.factories import (
     EntitlementFactory,
@@ -251,6 +251,49 @@ class TestPPPlanAPI:
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == size
         assert "id" in response_json["results"][0]
+
+    def test_list_filter_by_account(self, api_client):
+        """List plans by stripe account"""
+        size = 2
+        PlanFactory.create_batch(size, stripe_account=StripeAccounts.muckrock)
+        PlanFactory.create_batch(size, stripe_account=StripeAccounts.presspass)
+
+        for account in [StripeAccounts.muckrock, StripeAccounts.presspass]:
+            response = api_client.get(f"/pp-api/plans/", {"account": account})
+            assert response.status_code == status.HTTP_200_OK
+            response_json = json.loads(response.content)
+            assert len(response_json["results"]) == size
+
+        response = api_client.get(f"/pp-api/plans/")
+        assert response.status_code == status.HTTP_200_OK
+        response_json = json.loads(response.content)
+        assert len(response_json["results"]) == 2 * size
+
+    def test_list_filter_by_organization(self, api_client, user):
+        """List plans for a given organization"""
+        api_client.force_authenticate(user=user)
+        org = OrganizationFactory(admins=[user])
+        ind_plan = PlanFactory(for_individuals=True, for_groups=False, public=True)
+        grp_plan = PlanFactory(for_individuals=False, for_groups=True, public=True)
+        priv_plan = PlanFactory(for_individuals=False, for_groups=True, public=False)
+        my_plan = PlanFactory(for_individuals=False, for_groups=True, public=False)
+        my_plan.private_organizations.add(org)
+
+        response = api_client.get(f"/pp-api/plans/", {"organization": org.pk})
+        assert response.status_code == status.HTTP_200_OK
+        response_json = json.loads(response.content)
+        # you should not be able to see the individual plan or the private plan
+        # which is not shared with you
+        plan_ids = [j["id"] for j in response_json["results"]]
+        assert ind_plan.pk not in plan_ids
+        assert grp_plan.pk in plan_ids
+        assert priv_plan.pk not in plan_ids
+        assert my_plan.pk in plan_ids
+
+    def test_list_filter_by_organization_bad(self, api_client, organization):
+        """You may not list plans for an organization you are not a member of"""
+        response = api_client.get(f"/pp-api/plans/", {"organization": organization.pk})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_retrieve(self, api_client, mocker):
         """Test retrieving a plan"""
