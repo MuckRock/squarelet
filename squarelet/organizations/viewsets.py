@@ -212,7 +212,9 @@ class PressPassPlanViewSet(viewsets.ReadOnlyModelViewSet):
 
     class Filter(django_filters.FilterSet):
         organization = django_filters.ModelChoiceFilter(
-            queryset=plan_filter_organizations, method="organization_choices"
+            queryset=plan_filter_organizations,
+            method="organization_choices",
+            to_field_name="uuid",
         )
         account = django_filters.ChoiceFilter(
             choices=StripeAccounts.choices, field_name="stripe_account"
