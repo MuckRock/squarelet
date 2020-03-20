@@ -101,10 +101,8 @@ class Command(BaseCommand):
             writer = csv.writer(outfile)
             next(reader)  # discard headers
             for user in reader:
-                # 3 is reviewer - do not import
-                if user[10] == "3":
-                    self.stdout.write(f"Skipping reviewer: {user[3]}")
-                    continue
+                # 3 is reviewer - should not have been exported
+                assert user[10] != "3", f"Found a rogue reviewer, {user[0]}"
 
                 email = (
                     EmailAddress.objects.filter(email=user[3])
