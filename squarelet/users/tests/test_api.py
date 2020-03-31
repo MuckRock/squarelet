@@ -8,6 +8,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 # Squarelet
+from squarelet.organizations.tests.factories import InvitationRequestFactory
 from squarelet.users.serializers import PressPassUserSerializer
 from squarelet.users.tests.factories import UserFactory
 
@@ -101,3 +102,15 @@ class TestPPUserAPI:
             f"/pp-api/users/{other_user.individual_organization_id}/", {"name": name}
         )
         assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_list_invitations(self, api_client, user):
+        """List user invitations"""
+        api_client.force_authenticate(user=user)
+        InvitationRequestFactory(user=user)
+        response = api_client.get(
+            f"/pp-api/users/{user.individual_organization_id}/invitations/"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        response_json = json.loads(response.content)
+        assert len(response_json["results"]) == 1
+        assert response_json["results"][0]["request"]
