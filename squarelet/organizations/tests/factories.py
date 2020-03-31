@@ -129,6 +129,17 @@ class InvitationFactory(factory.django.DjangoModelFactory):
         model = "organizations.Invitation"
 
 
+class InvitationRequestFactory(factory.django.DjangoModelFactory):
+    user = factory.SubFactory("squarelet.users.tests.factories.UserFactory")
+    organization = factory.SubFactory(
+        "squarelet.organizations.tests.factories.OrganizationFactory"
+    )
+    request = True
+
+    class Meta:
+        model = "organizations.Invitation"
+
+
 class ChargeFactory(factory.django.DjangoModelFactory):
     organization = factory.SubFactory(
         "squarelet.organizations.tests.factories.OrganizationFactory"
