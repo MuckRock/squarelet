@@ -5,10 +5,11 @@ import string
 
 # Third Party
 from dj_rest_auth.registration.serializers import RegisterSerializer
+from rest_flex_fields import FlexFieldsModelSerializer
 from rest_framework import serializers
 
 # Squarelet
-from squarelet.organizations.models import Membership
+from squarelet.organizations.models import Invitation, Membership
 from squarelet.organizations.serializers import (
     MembershipSerializer,
     PressPassOrganizationSerializer,
@@ -152,6 +153,24 @@ class PressPassUserSerializer(serializers.ModelSerializer):
             if self.instance and not self.instance.can_change_username:
                 # pylint: disable=invalid-sequence-index
                 self.fields["username"].read_only = True
+
+
+class PressPassUserInvitationsSerializer(FlexFieldsModelSerializer):
+    organization = serializers.SlugRelatedField(slug_field="uuid", read_only=True)
+
+    class Meta:
+        model = Invitation
+        fields = (
+            "uuid",
+            "user",
+            "organization",
+            "request",
+            "accepted_at",
+            "rejected_at",
+            "created_at",
+        )
+        extra_kwargs = {"request": {"default": False}}
+        expandable_fields = {"organization": PressPassOrganizationSerializer}
 
 
 class PressPassUserMembershipsSerializer(serializers.ModelSerializer):

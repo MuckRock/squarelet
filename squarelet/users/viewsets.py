@@ -20,9 +20,10 @@ from rest_framework.response import Response
 # Squarelet
 from squarelet.core.mail import send_mail
 from squarelet.oidc.permissions import ScopePermission
-from squarelet.organizations.models import Membership, Plan
+from squarelet.organizations.models import Invitation, Membership, Plan
 from squarelet.users.models import User
 from squarelet.users.serializers import (
+    PressPassUserInvitationsSerializer,
     PressPassUserMembershipsSerializer,
     PressPassUserSerializer,
     PressPassUserWriteSerializer,
@@ -110,6 +111,19 @@ class PressPassUserViewSet(
             return self.request.user
         else:
             return super().get_object()
+
+
+class PressPassUserInvitationViewSet(
+    mixins.ListModelMixin, viewsets.GenericViewSet,
+):
+    queryset = Invitation.objects.none()
+    serializer_class = PressPassUserInvitationsSerializer
+    permission_classes = (DjangoObjectPermissions,)
+    lookup_field = "user__uuid"
+
+    def get_queryset(self):
+        user = get_object_or_404(User, uuid=self.kwargs["user_uuid"],)
+        return user.invitations.all()
 
 
 class PressPassUserMembershipViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
