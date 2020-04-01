@@ -23,6 +23,9 @@ from squarelet.users.models import User
 from squarelet.users.serializers import UserWriteSerializer
 
 BUCKET = os.environ["IMPORT_BUCKET"]
+IMPORT_DIR = os.environ["IMPORT_DIR"]
+ACCESS_KEY = os.environ["IMPORT_AWS_ACCESS_KEY_ID"]
+SECRET_KEY = os.environ["IMPORT_AWS_SECRET_ACCESS_KEY"]
 
 
 class Command(BaseCommand):
@@ -35,7 +38,8 @@ class Command(BaseCommand):
         # pylint: disable=unused-argument
         org_id = kwargs["organization"]
         self.bucket_path = (
-            f"s3://{BUCKET}/documentcloud-export-test/organization-{org_id}/"
+            f"s3://{ACCESS_KEY}:{SECRET_KEY}@{BUCKET}/"
+            f"{IMPORT_DIR}/organization-{org_id}/"
         )
         with transaction.atomic():
             # we initialize the cache invalidation set here in order to
@@ -44,6 +48,7 @@ class Command(BaseCommand):
             initialize_cache_invalidation_set()
             organization, created = self.import_org()
             self.import_users(organization)
+
             if created:
                 organization.set_receipt_emails(
                     [
@@ -51,7 +56,17 @@ class Command(BaseCommand):
                         for u in organization.users.filter(memberships__admin=True)
                     ]
                 )
-            # XXX update max users after importing users
+            if organization.user_count() > organization.max_users:
+                if organization.plan.free():
+                    organization.max_users = organization.user_count()
+                    organization.save()
+                else:
+                    self.stdout.write(
+                        f"WARNING: Organization {organization.name} "
+                        f"({organization.pk}) has {organization.user_count()} users, "
+                        f"but max users is {organization.max_users} with plan "
+                        f"{organization.plan}"
+                    )
             # we do not send the batched invalidations, but just delete them
             delete_cache_invalidation_set()
 
