@@ -28,12 +28,12 @@ from squarelet.organizations.viewsets import (
     PressPassOrganizationViewSet,
     PressPassPlanViewSet,
     PressPassSubscriptionViewSet,
+    PressPassUserInvitationViewSet,
     PressPassUserMembershipViewSet,
 )
 from squarelet.users.views import LoginView
 from squarelet.users.viewsets import (
     PressPassRegisterView,
-    PressPassUserInvitationViewSet,
     PressPassUserViewSet,
     UrlAuthTokenViewSet,
     UserViewSet,
