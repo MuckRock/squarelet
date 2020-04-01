@@ -180,6 +180,20 @@ class TestPPInvitationAPI:
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == size
 
+    def test_list_expand_users(self, api_client, user):
+        """List invitations for an organization expanding user data"""
+        organization = OrganizationFactory(admins=[user])
+        api_client.force_authenticate(user=user)
+        size = 10
+        InvitationFactory.create_batch(size, user=user, organization=organization)
+        response = api_client.get(
+            f"/pp-api/organizations/{organization.uuid}/invitations/?expand=user"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        response_json = json.loads(response.content)
+        assert len(response_json["results"]) == size
+        assert "username" in response_json["results"][0]["user"]
+
     def test_create_admin_invite(self, api_client, user, mailoutbox):
         """Admin invites a user to join"""
         organization = OrganizationFactory(admins=[user])
