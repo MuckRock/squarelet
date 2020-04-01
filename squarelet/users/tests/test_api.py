@@ -102,28 +102,3 @@ class TestPPUserAPI:
             f"/pp-api/users/{other_user.individual_organization_id}/", {"name": name}
         )
         assert response.status_code == status.HTTP_403_FORBIDDEN
-
-    def test_list_invitations(self, api_client, user):
-        """List user invitations"""
-        api_client.force_authenticate(user=user)
-        InvitationRequestFactory(user=user)
-        response = api_client.get(
-            f"/pp-api/users/{user.individual_organization_id}/invitations/"
-        )
-        assert response.status_code == status.HTTP_200_OK
-        response_json = json.loads(response.content)
-        assert len(response_json["results"]) == 1
-        assert response_json["results"][0]["request"]
-
-    def test_list_invitations_expand_org(self, api_client, user):
-        """List user invitations and expand organization data"""
-        api_client.force_authenticate(user=user)
-        InvitationRequestFactory(user=user)
-        response = api_client.get(
-            f"/pp-api/users/{user.individual_organization_id}/invitations/?expand=organization"
-        )
-        assert response.status_code == status.HTTP_200_OK
-        response_json = json.loads(response.content)
-        assert len(response_json["results"]) == 1
-        assert response_json["results"][0]["request"]
-        assert "name" in response_json["results"][0]["organization"]
