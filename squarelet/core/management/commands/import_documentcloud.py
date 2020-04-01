@@ -56,7 +56,6 @@ class Command(BaseCommand):
                         for u in organization.users.filter(memberships__admin=True)
                     ]
                 )
-            # XXX update max users after importing users
             if organization.user_count() > organization.max_users:
                 if organization.plan.free():
                     organization.max_users = organization.user_count()
