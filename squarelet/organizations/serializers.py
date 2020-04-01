@@ -181,7 +181,7 @@ class PressPassUserMembershipsSerializer(serializers.ModelSerializer):
         extra_kwargs = {"admin": {"default": False}}
 
 
-class PressPassNestedInvitationSerializer(serializers.ModelSerializer):
+class PressPassNestedInvitationSerializer(FlexFieldsModelSerializer):
     user = serializers.SlugRelatedField(slug_field="uuid", read_only=True)
 
     class Meta:
@@ -202,6 +202,7 @@ class PressPassNestedInvitationSerializer(serializers.ModelSerializer):
             "accepted_at": {"read_only": True},
             "rejected_at": {"read_only": True},
         }
+        expandable_fields = {"user": "squarelet.users.PressPassUserSerializer"}
 
     def validate_email(self, value):
         request = self.context.get("request")
