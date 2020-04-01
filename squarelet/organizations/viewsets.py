@@ -27,6 +27,7 @@ from squarelet.organizations.serializers import (
     PressPassOrganizationSerializer,
     PressPassPlanSerializer,
     PressPassSubscriptionSerializer,
+    PressPassUserInvitationsSerializer,
     PressPassUserMembershipsSerializer,
 )
 from squarelet.users.models import User
@@ -120,17 +121,6 @@ class PressPassMembershipViewSet(
             uuid=self.kwargs["organization_uuid"],
         )
         return organization.memberships.all()
-
-
-class PressPassUserMembershipViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
-    queryset = Membership.objects.none()
-    serializer_class = PressPassUserMembershipsSerializer
-    permission_classes = (DjangoObjectPermissions,)
-    lookup_field = "user__uuid"
-
-    def get_queryset(self):
-        user = get_object_or_404(User, uuid=self.kwargs["user_uuid"])
-        return user.memberships.get_viewable(self.request.user)
 
 
 class PressPassNestedInvitationViewSet(
@@ -228,6 +218,38 @@ class PressPassPlanViewSet(viewsets.ReadOnlyModelViewSet):
             fields = ["organization", "account"]
 
     filterset_class = Filter
+
+
+class PressPassUserInvitationViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    queryset = Invitation.objects.none()
+    serializer_class = PressPassUserInvitationsSerializer
+    permission_classes = (DjangoObjectPermissions,)
+    lookup_field = "user__uuid"
+
+    def get_queryset(self):
+        if self.kwargs["user_uuid"] == "me" or self.kwargs["user_uuid"] == str(
+            self.request.user.uuid
+        ):
+            user = self.request.user
+            return user.invitations.all()
+        else:
+            return self.queryset
+
+
+class PressPassUserMembershipViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    queryset = Membership.objects.none()
+    serializer_class = PressPassUserMembershipsSerializer
+    permission_classes = (DjangoObjectPermissions,)
+    lookup_field = "user__uuid"
+
+    def get_queryset(self):
+        if self.kwargs["user_uuid"] == "me" or self.kwargs["user_uuid"] == str(
+            self.request.user.uuid
+        ):
+            user = self.request.user
+            return user.memberships.get_viewable(self.request.user)
+        else:
+            return self.queryset
 
 
 class PressPassEntitlementViewSet(viewsets.ModelViewSet):

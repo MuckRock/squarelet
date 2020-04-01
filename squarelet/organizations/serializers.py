@@ -251,6 +251,21 @@ class PressPassInvitationSerializer(FlexFieldsModelSerializer):
         return attrs
 
 
+class PressPassUserInvitationsSerializer(FlexFieldsModelSerializer):
+    organization = serializers.SlugRelatedField(slug_field="uuid", read_only=True)
+
+    class Meta:
+        model = Invitation
+        fields = (
+            "uuid",
+            "organization",
+            "request",
+            "accepted_at",
+            "rejected_at",
+            "created_at",
+        )
+        expandable_fields = {"organization": PressPassOrganizationSerializer}
+
 class PressPassPlanSerializer(serializers.ModelSerializer):
     class Meta:
         model = Plan
