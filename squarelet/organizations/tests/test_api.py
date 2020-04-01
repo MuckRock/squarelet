@@ -15,6 +15,7 @@ from squarelet.oidc.tests.factories import ClientFactory
 from squarelet.organizations.tests.factories import (
     EntitlementFactory,
     InvitationFactory,
+    InvitationRequestFactory,
     MembershipFactory,
     OrganizationFactory,
     OrganizationPlanFactory,
@@ -544,8 +545,38 @@ class TestPPUserMembershipAPI:
         new_user = UserFactory()
         MembershipFactory(organization=organization, user=new_user, admin=False)
         response = api_client.get(
-            f"/pp-api/users/{new_user.individual_organization_id}/memberships/"
+            f"/pp-api/users/me/memberships/"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        response_json = json.loads(response.content)
+        # will return individual organization membership
+        # and membership from organization created above
+        assert len(response_json["results"]) == 2
+
+
+@pytest.mark.django_db()
+class TestPPUserInvitationAPI:
+    def test_list_invitations(self, api_client, user):
+        """List user invitations"""
+        api_client.force_authenticate(user=user)
+        InvitationRequestFactory(user=user)
+        response = api_client.get(
+            f"/pp-api/users/me/invitations/"
         )
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == 1
+        assert response_json["results"][0]["request"]
+
+    def test_list_invitations_expand_org(self, api_client, user):
+        """List user invitations and expand organization data"""
+        api_client.force_authenticate(user=user)
+        InvitationRequestFactory(user=user)
+        response = api_client.get(
+            f"/pp-api/users/me/invitations/?expand=organization"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        response_json = json.loads(response.content)
+        assert len(response_json["results"]) == 1
+        assert response_json["results"][0]["request"]
+        assert "name" in response_json["results"][0]["organization"]

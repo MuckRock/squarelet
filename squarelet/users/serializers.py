@@ -155,33 +155,6 @@ class PressPassUserSerializer(serializers.ModelSerializer):
                 self.fields["username"].read_only = True
 
 
-class PressPassUserInvitationsSerializer(FlexFieldsModelSerializer):
-    organization = serializers.SlugRelatedField(slug_field="uuid", read_only=True)
-
-    class Meta:
-        model = Invitation
-        fields = (
-            "uuid",
-            "user",
-            "organization",
-            "request",
-            "accepted_at",
-            "rejected_at",
-            "created_at",
-        )
-        extra_kwargs = {"request": {"default": False}}
-        expandable_fields = {"organization": PressPassOrganizationSerializer}
-
-
-class PressPassUserMembershipsSerializer(serializers.ModelSerializer):
-    organization = PressPassOrganizationSerializer(read_only=True)
-
-    class Meta:
-        model = Membership
-        fields = ("organization", "admin")
-        extra_kwargs = {"admin": {"default": False}}
-
-
 class PressPassUserWriteSerializer(RegisterSerializer):
     """
     Override dj-rest-auth's user serializer so that we can pass
