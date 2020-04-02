@@ -323,18 +323,27 @@ class TestPPPlanAPI:
 
 @pytest.mark.django_db()
 class TestPPEntitlementAPI:
-    def test_list(self, api_client, mocker):
+    def test_list(self, api_client, user):
         """List entitlements"""
         size = 10
-        entitlements = EntitlementFactory.create_batch(size)
-        mocker.patch("stripe.Plan.create")
-        # make entitlements public by adding it to a public plan
+        org = OrganizationFactory(admins=[user])
+
+        my_plan = PlanFactory(for_individuals=False, for_groups=True, public=False)
+        my_plan.private_organizations.add(org)
+
+        my_entitlements = EntitlementFactory.create_batch(5)
+        my_plan.entitlements.set(my_entitlements)
+
+        entitlements = EntitlementFactory.create_batch(5)
         plan = PlanFactory(public=True)
         plan.entitlements.set(entitlements)
+
+        # mocker.patch("stripe.Plan.create")
+        # make entitlements public by adding it to a public plan
         response = api_client.get(f"/pp-api/entitlements/")
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
-        assert len(response_json["results"]) == size
+        assert len(response_json["results"]) == 5
 
     def test_list_expand_clients(self, api_client, mocker):
         """List entitlements"""
