@@ -21,7 +21,7 @@ from squarelet.oidc.viewsets import ClientViewSet
 from squarelet.organizations.viewsets import (
     ChargeViewSet,
     OrganizationViewSet,
-    PressPassEntitlmentViewSet,
+    PressPassEntitlementViewSet,
     PressPassInvitationViewSet,
     PressPassMembershipViewSet,
     PressPassNestedInvitationViewSet,
@@ -62,7 +62,7 @@ presspass_router.register("users", PressPassUserViewSet)
 presspass_router.register("organizations", PressPassOrganizationViewSet)
 presspass_router.register("invitations", PressPassInvitationViewSet)
 presspass_router.register("plans", PressPassPlanViewSet)
-presspass_router.register("entitlements", PressPassEntitlmentViewSet)
+presspass_router.register("entitlements", PressPassEntitlementViewSet)
 
 organization_router = routers.NestedDefaultRouter(
     presspass_router, "organizations", lookup="organization"
