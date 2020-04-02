@@ -97,7 +97,7 @@ class EntitlementQuerySet(models.QuerySet):
         if user.is_staff:
             return self
         elif user.is_authenticated:
-            return self.filter(Q(plans__public=True) | Q(client__owner=user)).distinct()
+            return self.filter(Q(plans__organizations__in=user.organizations.all()) | Q(plans__private_organizations__in=user.organizations.all()) | Q(client__owner=user))
         else:
             return self.filter(plans__public=True)
 
