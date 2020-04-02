@@ -309,10 +309,11 @@ class TestPPPlanAPI:
 
 @pytest.mark.django_db()
 class TestPPEntitlementAPI:
-    def test_list(self, api_client, user):
+    def test_list(self, api_client, mocker):
         """List entitlements"""
         size = 10
         entitlements = EntitlementFactory.create_batch(size)
+        mocker.patch("stripe.Plan.create")
         plan = PlanFactory(public=True)
         plan.entitlements.set(entitlements)
         response = api_client.get(f"/pp-api/entitlements/")
