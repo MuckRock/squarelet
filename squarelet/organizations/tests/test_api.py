@@ -314,17 +314,30 @@ class TestPPEntitlementAPI:
         size = 10
         org = OrganizationFactory(admins=[user])
 
-        my_plan = PlanFactory(for_individuals=False, for_groups=True, public=False)
-        my_plan.private_organizations.add(org)
-
-        my_entitlements = EntitlementFactory.create_batch(size)
-        my_plan.entitlements.set(my_entitlements)
-
         entitlements = EntitlementFactory.create_batch(size)
         plan = PlanFactory(public=True)
         plan.entitlements.set(entitlements)
 
         response = api_client.get(f"/pp-api/entitlements/")
+        assert response.status_code == status.HTTP_200_OK
+        response_json = json.loads(response.content)
+        assert len(response_json["results"]) == size
+
+    def test_subscribed(self, api_client, user):
+        """List entitlements for a subscribed user"""
+        size = 10
+        api_client.force_authenticate(user=user)
+        org = OrganizationFactory(admins=[user])
+
+        plan = PlanFactory(for_individuals=False, for_groups=True, public=False)
+        plan.private_organizations.add(org)
+
+        entitlements = EntitlementFactory.create_batch(size)
+        plan.entitlements.set(entitlements)
+
+        SubscriptionFactory(plan=plan, organization=org)
+
+        response = api_client.get(f"/pp-api/entitlements/?subscribed=true")
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == size
