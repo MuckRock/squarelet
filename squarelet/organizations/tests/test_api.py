@@ -326,12 +326,9 @@ class TestPPEntitlementAPI:
     def test_list(self, api_client, user):
         """List entitlements"""
         size = 10
-        org = OrganizationFactory(admins=[user])
-
         entitlements = EntitlementFactory.create_batch(size)
         plan = PlanFactory(public=True)
         plan.entitlements.set(entitlements)
-
         response = api_client.get(f"/pp-api/entitlements/")
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
@@ -342,15 +339,11 @@ class TestPPEntitlementAPI:
         size = 10
         api_client.force_authenticate(user=user)
         org = OrganizationFactory(admins=[user])
-
         plan = PlanFactory(for_individuals=False, for_groups=True, public=False)
         plan.private_organizations.add(org)
-
         entitlements = EntitlementFactory.create_batch(size)
         plan.entitlements.set(entitlements)
-
         SubscriptionFactory(plan=plan, organization=org)
-
         response = api_client.get(f"/pp-api/entitlements/?subscribed=true")
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
