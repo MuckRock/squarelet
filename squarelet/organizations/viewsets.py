@@ -230,7 +230,7 @@ class PressPassPlanViewSet(viewsets.ReadOnlyModelViewSet):
     filterset_class = Filter
 
 
-class PressPassEntitlmentViewSet(viewsets.ModelViewSet):
+class PressPassEntitlementViewSet(viewsets.ModelViewSet):
     queryset = Entitlement.objects.none()
     serializer_class = PressPassEntitlmentSerializer
     permission_classes = (DjangoObjectPermissionsOrAnonReadOnly,)
