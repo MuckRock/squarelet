@@ -104,9 +104,14 @@ class EntitlementQuerySet(models.QuerySet):
     def get_subscribed(self, user):
         if user.is_authenticated:
             return self.filter(
-                Q(plans__organizations__in=user.organizations.all())
-                | Q(client__owner=user)
+                plans__organizations__in=user.organizations.all()
             ).distinct()
+        else:
+            return self.none()
+
+    def get_owned(self, user):
+        if user.is_authenticated:
+            return self.filter(client__owner=user)
         else:
             return self.none()
 

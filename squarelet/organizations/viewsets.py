@@ -236,10 +236,20 @@ class PressPassEntitlementViewSet(viewsets.ModelViewSet):
     permission_classes = (DjangoObjectPermissionsOrAnonReadOnly,)
 
     def get_queryset(self):
+        queryset = self.queryset
+
         if self.request.query_params.get("subscribed"):
-            return Entitlement.objects.get_subscribed(self.request.user)
-        else:
-            return Entitlement.objects.get_viewable(self.request.user)
+            queryset = queryset | Entitlement.objects.get_subscribed(self.request.user)
+
+        if self.request.query_params.get("owned"):
+            queryset = queryset | Entitlement.objects.get_owned(self.request.user)
+
+        if not self.request.query_params.get(
+            "subscribed"
+        ) and not self.request.query_params.get("owned"):
+            queryset = queryset | Entitlement.objects.get_viewable(self.request.user)
+
+        return queryset
 
 
 class PressPassSubscriptionViewSet(
