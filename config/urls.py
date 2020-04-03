@@ -28,6 +28,7 @@ from squarelet.organizations.viewsets import (
     PressPassOrganizationViewSet,
     PressPassPlanViewSet,
     PressPassSubscriptionViewSet,
+    PressPassUserInvitationViewSet,
     PressPassUserMembershipViewSet,
 )
 from squarelet.users.views import LoginView
@@ -72,6 +73,7 @@ organization_router.register("invitations", PressPassNestedInvitationViewSet)
 organization_router.register("subscriptions", PressPassSubscriptionViewSet)
 
 user_router = routers.NestedDefaultRouter(presspass_router, "users", lookup="user")
+user_router.register("invitations", PressPassUserInvitationViewSet)
 user_router.register("memberships", PressPassUserMembershipViewSet)
 
 urlpatterns = [

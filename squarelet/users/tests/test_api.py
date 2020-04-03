@@ -8,6 +8,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 # Squarelet
+from squarelet.organizations.tests.factories import InvitationRequestFactory
 from squarelet.users.serializers import PressPassUserSerializer
 from squarelet.users.tests.factories import UserFactory
 
