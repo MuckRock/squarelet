@@ -267,6 +267,7 @@ class PressPassUserInvitationsSerializer(FlexFieldsModelSerializer):
         )
         expandable_fields = {"organization": PressPassOrganizationSerializer}
 
+
 class PressPassPlanSerializer(serializers.ModelSerializer):
     class Meta:
         model = Plan

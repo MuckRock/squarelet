@@ -227,10 +227,11 @@ class PressPassUserInvitationViewSet(mixins.ListModelMixin, viewsets.GenericView
     lookup_field = "user__uuid"
 
     def get_queryset(self):
+        user = self.request.user
+
         if self.kwargs["user_uuid"] == "me" or self.kwargs["user_uuid"] == str(
-            self.request.user.uuid
+            user.uuid
         ):
-            user = self.request.user
             return user.invitations.all()
         else:
             return self.queryset
@@ -243,11 +244,12 @@ class PressPassUserMembershipViewSet(mixins.ListModelMixin, viewsets.GenericView
     lookup_field = "user__uuid"
 
     def get_queryset(self):
+        user = self.request.user
+
         if self.kwargs["user_uuid"] == "me" or self.kwargs["user_uuid"] == str(
-            self.request.user.uuid
+            user.uuid
         ):
-            user = self.request.user
-            return user.memberships.get_viewable(self.request.user)
+            return user.memberships.get_viewable(user)
         else:
             return self.queryset
 
