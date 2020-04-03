@@ -544,9 +544,7 @@ class TestPPUserMembershipAPI:
         organization = OrganizationFactory(admins=[user], private=True)
         new_user = UserFactory()
         MembershipFactory(organization=organization, user=new_user, admin=False)
-        response = api_client.get(
-            f"/pp-api/users/me/memberships/"
-        )
+        response = api_client.get(f"/pp-api/users/me/memberships/")
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         # will return individual organization membership
@@ -560,9 +558,7 @@ class TestPPUserInvitationAPI:
         """List user invitations"""
         api_client.force_authenticate(user=user)
         InvitationRequestFactory(user=user)
-        response = api_client.get(
-            f"/pp-api/users/me/invitations/"
-        )
+        response = api_client.get(f"/pp-api/users/me/invitations/")
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == 1
@@ -572,9 +568,7 @@ class TestPPUserInvitationAPI:
         """List user invitations and expand organization data"""
         api_client.force_authenticate(user=user)
         InvitationRequestFactory(user=user)
-        response = api_client.get(
-            f"/pp-api/users/me/invitations/?expand=organization"
-        )
+        response = api_client.get(f"/pp-api/users/me/invitations/?expand=organization")
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == 1
