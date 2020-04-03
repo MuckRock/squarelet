@@ -343,9 +343,12 @@ class TestPPEntitlementAPI:
         org = OrganizationFactory(admins=[user])
         plan = PlanFactory(for_individuals=False, for_groups=True, public=False)
         plan.private_organizations.add(org)
-        entitlements = EntitlementFactory.create_batch(size)
-        plan.entitlements.set(entitlements)
+        # set entitlements for the plan, as well as entitlements not in the plan
+        subscribed_entitlements = EntitlementFactory.create_batch(size)
+        plan.entitlements.set(subscribed_entitlements)
         SubscriptionFactory(plan=plan, organization=org)
+        # these do not get attached to the plan
+        EntitlementFactory.create_batch(size)
         response = api_client.get(f"/pp-api/entitlements/?subscribed=true")
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
