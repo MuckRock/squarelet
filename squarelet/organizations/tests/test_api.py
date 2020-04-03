@@ -11,6 +11,7 @@ from rest_framework.test import APIClient
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason, StripeAccounts
 from squarelet.organizations.models import Charge, Entitlement, Organization
+from squarelet.oidc.tests.factories import ClientFactory
 from squarelet.organizations.tests.factories import (
     EntitlementFactory,
     InvitationFactory,
@@ -349,6 +350,16 @@ class TestPPEntitlementAPI:
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == size
+
+    def test_owned(self, api_client, user):
+        """List owned entitlements for a user"""
+        api_client.force_authenticate(user=user)
+        client = ClientFactory(owner=user)
+        EntitlementFactory(client=client)
+        response = api_client.get(f"/pp-api/entitlements/?owned=true")
+        assert response.status_code == status.HTTP_200_OK
+        response_json = json.loads(response.content)
+        assert len(response_json["results"]) == 1
 
     def test_list_expand_clients(self, api_client, mocker):
         """List entitlements"""
