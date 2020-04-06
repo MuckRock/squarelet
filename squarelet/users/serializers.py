@@ -5,14 +5,11 @@ import string
 
 # Third Party
 from dj_rest_auth.registration.serializers import RegisterSerializer
-from rest_flex_fields import FlexFieldsModelSerializer
 from rest_framework import serializers
 
 # Squarelet
-from squarelet.organizations.models import Invitation, Membership
 from squarelet.organizations.serializers import (
     MembershipSerializer,
-    PressPassOrganizationSerializer,
 )
 from squarelet.users.models import User
 

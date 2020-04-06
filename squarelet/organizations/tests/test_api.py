@@ -9,9 +9,9 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 # Squarelet
+from squarelet.oidc.tests.factories import ClientFactory
 from squarelet.organizations.choices import ChangeLogReason, StripeAccounts
 from squarelet.organizations.models import Charge, Entitlement, Organization
-from squarelet.oidc.tests.factories import ClientFactory
 from squarelet.organizations.tests.factories import (
     EntitlementFactory,
     InvitationFactory,
@@ -196,6 +196,35 @@ class TestPPInvitationAPI:
         assert len(response_json["results"]) == size
         assert "username" in response_json["results"][0]["user"]
 
+    def test_list_expand_orgs(self, api_client, user):
+        """List invitations for an organization expanding org data"""
+        organization = OrganizationFactory(admins=[user])
+        api_client.force_authenticate(user=user)
+        size = 10
+        InvitationFactory.create_batch(size, user=user, organization=organization)
+        response = api_client.get(
+            f"/pp-api/organizations/{organization.uuid}/invitations/?expand=organization"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        response_json = json.loads(response.content)
+        assert len(response_json["results"]) == size
+        assert "name" in response_json["results"][0]["organization"]
+
+    def test_list_expand_data(self, api_client, user):
+        """List invitations for an organization expanding user and org data"""
+        organization = OrganizationFactory(admins=[user])
+        api_client.force_authenticate(user=user)
+        size = 10
+        InvitationFactory.create_batch(size, user=user, organization=organization)
+        response = api_client.get(
+            f"/pp-api/organizations/{organization.uuid}/invitations/?expand=organization,user"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        response_json = json.loads(response.content)
+        assert len(response_json["results"]) == size
+        assert "name" in response_json["results"][0]["organization"]
+        assert "username" in response_json["results"][0]["user"]
+
     def test_create_admin_invite(self, api_client, user, mailoutbox):
         """Admin invites a user to join"""
         organization = OrganizationFactory(admins=[user])
@@ -285,7 +314,7 @@ class TestPPPlanAPI:
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == 2 * size
 
-    def test_list_filter_by_organization(self, api_client, user):
+    def test_list_filter_by_org(self, api_client, user):
         """List plans for a given organization"""
         api_client.force_authenticate(user=user)
         org = OrganizationFactory(admins=[user])
@@ -306,7 +335,7 @@ class TestPPPlanAPI:
         assert priv_plan.pk not in plan_ids
         assert my_plan.pk in plan_ids
 
-    def test_list_filter_by_organization_bad(self, api_client, organization):
+    def test_list_filter_by_org_bad(self, api_client, organization):
         """You may not list plans for an organization you are not a member of"""
         response = api_client.get(
             f"/pp-api/plans/", {"organization": organization.uuid}
@@ -564,7 +593,7 @@ class TestPPUserInvitationAPI:
         assert len(response_json["results"]) == 1
         assert response_json["results"][0]["request"]
 
-    def test_list_invitations_expand_org(self, api_client, user):
+    def test_list_invites_expand_org(self, api_client, user):
         """List user invitations and expand organization data"""
         api_client.force_authenticate(user=user)
         InvitationRequestFactory(user=user)
@@ -574,3 +603,28 @@ class TestPPUserInvitationAPI:
         assert len(response_json["results"]) == 1
         assert response_json["results"][0]["request"]
         assert "name" in response_json["results"][0]["organization"]
+
+    def test_list_invites_expand_user(self, api_client, user):
+        """List user invitations and expand user data"""
+        api_client.force_authenticate(user=user)
+        InvitationRequestFactory(user=user)
+        response = api_client.get(f"/pp-api/users/me/invitations/?expand=user")
+        assert response.status_code == status.HTTP_200_OK
+        response_json = json.loads(response.content)
+        assert len(response_json["results"]) == 1
+        assert response_json["results"][0]["request"]
+        assert "username" in response_json["results"][0]["user"]
+
+    def test_list_invites_expand_data(self, api_client, user):
+        """List user invitations and expand organization and user data"""
+        api_client.force_authenticate(user=user)
+        InvitationRequestFactory(user=user)
+        response = api_client.get(
+            f"/pp-api/users/me/invitations/?expand=organization,user"
+        )
+        assert response.status_code == status.HTTP_200_OK
+        response_json = json.loads(response.content)
+        assert len(response_json["results"]) == 1
+        assert response_json["results"][0]["request"]
+        assert "name" in response_json["results"][0]["organization"]
+        assert "username" in response_json["results"][0]["user"]
