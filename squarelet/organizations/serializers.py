@@ -202,7 +202,10 @@ class PressPassNestedInvitationSerializer(FlexFieldsModelSerializer):
             "accepted_at": {"read_only": True},
             "rejected_at": {"read_only": True},
         }
-        expandable_fields = {"user": "squarelet.users.PressPassUserSerializer"}
+        expandable_fields = {
+            "user": "squarelet.users.PressPassUserSerializer",
+            "organization": PressPassOrganizationSerializer,
+        }
 
     def validate_email(self, value):
         request = self.context.get("request")
@@ -240,7 +243,10 @@ class PressPassInvitationSerializer(FlexFieldsModelSerializer):
             "rejected_at": {"read_only": True},
             "email": {"read_only": True},
         }
-        expandable_fields = {"organization": PressPassOrganizationSerializer}
+        expandable_fields = {
+            "user": "squarelet.users.PressPassUserSerializer",
+            "organization": PressPassOrganizationSerializer,
+        }
 
     def validate(self, attrs):
         """Must not try to accept and reject"""
@@ -264,7 +270,10 @@ class PressPassUserInvitationsSerializer(FlexFieldsModelSerializer):
             "rejected_at",
             "created_at",
         )
-        expandable_fields = {"organization": PressPassOrganizationSerializer}
+        expandable_fields = {
+            "organization": PressPassOrganizationSerializer,
+            "user": "squarelet.users.PressPassUserSerializer",
+        }
 
 
 class PressPassPlanSerializer(serializers.ModelSerializer):
