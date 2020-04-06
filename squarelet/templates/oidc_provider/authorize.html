@@ -2,17 +2,23 @@
   rel="stylesheet"
   href="https://cdn.jsdelivr.net/npm/bulma@0.8.1/css/bulma.css"
 />{% endblock %}
+
 <div class="navbar">
   <div class="container">
-    <div class="navbar-brand">PressPass</div>
+    <div class="navbar-brand">
+      <div class="navbar-item">
+        <strong>PressPass</strong>
+      </div>
+    </div>
   </div>
 </div>
-<section class="section">
+<section class="section" style="background-color: #eff0eb;">
   <div class="container">
-    <h1 class="title">Request for Permission</h1>
+    <p class="subtitle">Request for Permission</p>
+    <h1 class="title">Login to {{ client.name }}</h1>
 
     <p>
-      Continue to login to PressPass Client
+      Continue to PressPass Client
       <strong>{{ client.name }}</strong> by authorizing below...
     </p>
 
