@@ -8,9 +8,7 @@ from dj_rest_auth.registration.serializers import RegisterSerializer
 from rest_framework import serializers
 
 # Squarelet
-from squarelet.organizations.serializers import (
-    MembershipSerializer,
-)
+from squarelet.organizations.serializers import MembershipSerializer
 from squarelet.users.models import User
 
 

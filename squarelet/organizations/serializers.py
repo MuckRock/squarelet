@@ -243,7 +243,10 @@ class PressPassInvitationSerializer(FlexFieldsModelSerializer):
             "rejected_at": {"read_only": True},
             "email": {"read_only": True},
         }
-        expandable_fields = {"organization": PressPassOrganizationSerializer}
+        expandable_fields = {
+            "user": "squarelet.users.PressPassUserSerializer",
+            "organization": PressPassOrganizationSerializer,
+        }
 
     def validate(self, attrs):
         """Must not try to accept and reject"""
