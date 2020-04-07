@@ -34,7 +34,8 @@ class ClientProfile(models.Model):
             ("muckrock", _("MuckRock")),
             ("presspass", _("PressPass")),
         ),
-        default="muckrock"
+        default="muckrock",
+        help_text=_("Which application did this client originate from?")
     )
 
     def __str__(self):
