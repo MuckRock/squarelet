@@ -33,15 +33,20 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("organization", type=int, help="Organization ID to import")
+        parser.add_argument(
+            "--dry_run", action="store_true", help="Do not commit to database"
+        )
 
     def handle(self, *args, **kwargs):
         # pylint: disable=unused-argument
         org_id = kwargs["organization"]
+        dry_run = kwargs["dry_run"]
         self.bucket_path = (
             f"s3://{ACCESS_KEY}:{SECRET_KEY}@{BUCKET}/"
             f"{IMPORT_DIR}/organization-{org_id}/"
         )
         with transaction.atomic():
+            sid = transaction.savepoint()
             # we initialize the cache invalidation set here in order to
             # not send a cache invalidation for users and orgs during the
             # import
@@ -70,7 +75,9 @@ class Command(BaseCommand):
             # we do not send the batched invalidations, but just delete them
             delete_cache_invalidation_set()
 
-            raise ValueError("Do not commit")
+            if dry_run:
+                self.stdout.write("Dry run, not commiting changes")
+                transaction.savepoint_rollback(sid)
 
     def import_org(self):
         self.stdout.write("Begin Organization Import {}".format(timezone.now()))
