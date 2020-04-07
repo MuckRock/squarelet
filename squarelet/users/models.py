@@ -113,7 +113,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
     )
     source = models.CharField(
         _("source"),
-        max_length=11,
+        max_length=13,
         choices=(
             ("muckrock", _("MuckRock")),
             ("documentcloud", _("DocumentCloud")),
