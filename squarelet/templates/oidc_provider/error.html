@@ -1,8 +1,7 @@
-{% if client.name == "MuckRock" or client.name == "DocumentCloud" or client.name == "FOIA Machine" %}
+{% if client.clientprofile.source == "muckrock" %}
   <h3>{{ error }}</h3>
   <p>{{ description }}</p>
-
-{% else %} 
+{% else %}
 
   {% block css %}
   <link
