@@ -171,5 +171,7 @@ class Command(BaseCommand):
                             # 1 is admin
                             admin=user[10] == "1",
                         )
+                else:
+                    self.stdout.write(f"Not adding disabled/freelancer to organization")
 
                 writer.writerow([user[0], user_obj.uuid, user_obj.username])
