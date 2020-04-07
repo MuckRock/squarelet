@@ -127,7 +127,7 @@ class Command(BaseCommand):
                 assert user[10] != "3", f"Found a rogue reviewer, {user[0]}"
 
                 email = (
-                    EmailAddress.objects.filter(email=user[3])
+                    EmailAddress.objects.filter(email__iexact=user[3])
                     .select_related("user")
                     .first()
                 )
@@ -154,6 +154,9 @@ class Command(BaseCommand):
                     )
                     user_obj.password = "bcrypt$" + user[4]
                     user_obj.save()
+                    EmailAddress.objects.create(
+                        user=user_obj, email=user[3], verified=True, primary=True
+                    )
 
                 if user[10] not in ("0", "4"):
                     # 0 is disabled - do not add to organization
