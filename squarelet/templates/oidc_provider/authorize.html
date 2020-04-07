@@ -1,4 +1,5 @@
-{% if client.name == "MuckRock" or client.name == "DocumentCloud" or client.name == "FOIA Machine" %}
+{% load tags %}
+{% if client.clientprofile.source == "muckrock" %}
   <h1>Request for Permission</h1>
 
   <p>
@@ -7,7 +8,7 @@
   </p>
 
   <form method="post" action="{% url 'oidc_provider:authorize' %}">
-    {% csrf_token %} 
+    {% csrf_token %}
     {{ hidden_inputs }}
 
     <ul>
@@ -22,7 +23,7 @@
     <input name="allow" type="submit" value="Authorize" />
   </form>
 
-{% else %} 
+{% else %}
 
   {% block css %}
   <link
