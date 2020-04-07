@@ -174,4 +174,11 @@ class Command(BaseCommand):
                 else:
                     self.stdout.write(f"Not adding disabled/freelancer to organization")
 
-                writer.writerow([user[0], user_obj.uuid, user_obj.username])
+                writer.writerow(
+                    [
+                        user[0],
+                        user_obj.uuid,
+                        user_obj.username,
+                        user_obj.individual_organization.slug,
+                    ]
+                )
