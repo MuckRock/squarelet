@@ -850,13 +850,19 @@ class Invitation(models.Model):
     def __str__(self):
         return f"Invitation: {self.uuid}"
 
-    def send(self):
+    def send(self, source=None):
+
+        # default source to "muckrock" in case this is called without a value
+        if source is None:
+            source = "muckrock"
+
         if self.request:
             send_mail(
                 subject=_(f"{self.user} has requested to join {self.organization}"),
                 template="organizations/email/join_request.html",
                 organization=self.organization,
                 organization_to=ORG_TO_ADMINS,
+                source=source,
                 extra_context={"joiner": self.user},
             )
         else:
@@ -864,6 +870,7 @@ class Invitation(models.Model):
                 subject=_(f"Invitation to join {self.organization.name}"),
                 template="organizations/email/invitation.html",
                 to=[self.email],
+                source=source,
                 extra_context={"invitation": self},
             )
 
