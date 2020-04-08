@@ -161,7 +161,7 @@ class PressPassNestedInvitationViewSet(
             invitation = serializer.save(
                 organization=organization, request=True, user=self.request.user
             )
-        invitation.send()
+        invitation.send(source="presspass")
 
 
 class PressPassInvitationViewSet(
