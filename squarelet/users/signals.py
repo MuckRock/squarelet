@@ -27,11 +27,13 @@ def email_changed(request, user, from_email_address, to_email_address, **kwargs)
         user.save()
         # send client sites a cache invalidation to update this user's info
         transaction.on_commit(lambda: send_cache_invalidations("user", user.uuid))
+
     # send the user a notification
     send_mail(
         subject=_("Changed email address"),
         template="users/email/email_change.html",
         to=[from_email_address.email],
+        source=user.source,
         extra_context={
             "from_email_address": from_email_address.email,
             "to_email_address": to_email_address.email,
