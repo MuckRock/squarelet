@@ -61,7 +61,7 @@ class Email(EmailMultiAlternatives):
         self.bcc.append("diagnostics@muckrock.com")
 
         if source == "presspass":
-            self.from_email = "PressPass <admin@presspass.com>"
+            self.from_email = settings.PRESSPASS_FROM_EMAIL
             template = "presspass/" + template
 
         context = {
