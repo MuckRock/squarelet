@@ -1,6 +1,5 @@
 # Django
 from django.conf import settings
-from django.contrib.sites.models import Site
 from django.contrib.sites.shortcuts import get_current_site
 from django.template.loader import render_to_string
 from django.utils.http import is_safe_url
