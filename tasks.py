@@ -100,7 +100,7 @@ def format(c):
             "black config/urls.py && "
             "black config/settings && "
             "isort -rc squarelet && "
-            "isort -c config/urls.py && "
+            "isort config/urls.py && "
             "isort -rc config/settings"
         )
     )
