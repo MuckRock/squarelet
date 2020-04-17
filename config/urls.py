@@ -101,6 +101,8 @@ urlpatterns = [
     path("pp-api/", include(presspass_router.urls)),
     path("pp-api/", include(organization_router.urls)),
     path("pp-api/", include(user_router.urls)),
+    path("pp-api/users/email/", include('squarelet.email_helpers.urls')),
+
     # Swagger
     path("swagger<format>", SchemaView.without_ui(cache_timeout=0), name="schema-json"),
     path(
