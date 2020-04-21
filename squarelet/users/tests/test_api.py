@@ -9,7 +9,7 @@ from rest_framework.test import APIClient
 
 # Squarelet
 from squarelet.users.serializers import PressPassUserSerializer
-from squarelet.users.tests.factories import UserFactory
+from squarelet.users.tests.factories import UserFactory, EmailFactory
 
 
 @pytest.mark.django_db()
@@ -101,3 +101,30 @@ class TestPPUserAPI:
             f"/pp-api/users/{other_user.individual_organization_id}/", {"name": name}
         )
         assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.django_db()
+class TestPPEmailAPI:
+    def test_list(self, api_client, user):
+        """List emails for user"""
+        emails_for_user = 10
+        emails_for_other_users = 5
+        api_client.force_authenticate(user=user)
+        EmailFactory.create_batch(emails_for_user, user=user)
+        EmailFactory.create_batch(emails_for_other_users)
+        response = api_client.get(f"/pp-api/users/me/emails/")
+        assert response.status_code == status.HTTP_200_OK
+        response_json = json.loads(response.content)
+        assert len(response_json) == emails_for_user
+
+    def test_update(self, api_client, user):
+        api_client.force_authenticate(user=user)
+        primary_email = EmailFactory(email="primary@gmail.com", user=user, primary=True)
+        secondary_email = EmailFactory(email="secondary@gmail.com", user=user, primary=False)
+        response = api_client.patch(
+            f"/pp-api/users/me/emails/{secondary_email.email}/", {"primary": True}
+        )
+        assert response.status_code == status.HTTP_200_OK
+        secondary_email.refresh_from_db()
+        assert secondary_email.primary
+        assert not primary_email.primary
