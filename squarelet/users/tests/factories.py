@@ -1,4 +1,5 @@
 # Third Party
+from allauth.account.models import EmailAddress
 import factory
 
 # Squarelet
@@ -33,3 +34,14 @@ class UserFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = "users.User"
         django_get_or_create = ("username",)
+
+
+class EmailFactory(factory.django.DjangoModelFactory):
+    email = factory.Sequence(lambda n: f"user-email-{n}@example.com")
+    verified = False
+    primary = factory.Sequence(lambda n: False if n > 0 else True)
+    user = factory.SubFactory(UserFactory)
+
+    class Meta:
+        model = EmailAddress
+        django_get_or_create = ("email",)
