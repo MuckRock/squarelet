@@ -17,8 +17,13 @@ def email_confirmed(request, email_address, **kwargs):
 
 def email_changed(request, user, from_email_address, to_email_address, **kwargs):
     """The user has changed their primary email"""
-    # update their stripe customer
-    customer = user.individual_organization.customer
+    # update their stripe customer for muckrock
+    customer = user.individual_organization.customer(0).stripe_customer
+    customer.email = to_email_address.email
+    customer.save()
+
+    # update their stripe customer for presspass
+    customer = user.individual_organization.customer(1).stripe_customer
     customer.email = to_email_address.email
     customer.save()
     # clear the email failed flag

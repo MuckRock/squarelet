@@ -17,7 +17,6 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 # Squarelet
 from squarelet.core.views import HomeView
-from squarelet.email_helpers.viewsets import PressPassEmailAddressViewSet
 from squarelet.oidc.viewsets import ClientViewSet
 from squarelet.organizations.viewsets import (
     ChargeViewSet,
@@ -34,6 +33,7 @@ from squarelet.organizations.viewsets import (
 )
 from squarelet.users.views import LoginView
 from squarelet.users.viewsets import (
+    PressPassEmailAddressViewSet,
     PressPassRegisterView,
     PressPassUserViewSet,
     UrlAuthTokenViewSet,
@@ -103,8 +103,6 @@ urlpatterns = [
     path("pp-api/", include(presspass_router.urls)),
     path("pp-api/", include(organization_router.urls)),
     path("pp-api/", include(user_router.urls)),
-    path("pp-api/users/email/", include('squarelet.email_helpers.urls')),
-
     # Swagger
     path("swagger<format>", SchemaView.without_ui(cache_timeout=0), name="schema-json"),
     path(
