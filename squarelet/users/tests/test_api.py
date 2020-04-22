@@ -3,6 +3,7 @@ import json
 from unittest.mock import Mock
 
 # Third Party
+from allauth.account.models import EmailAddress
 import pytest
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -135,3 +136,27 @@ class TestPPEmailAPI:
         assert secondary_email.primary
         primary_email.refresh_from_db()
         assert not primary_email.primary
+
+    def test_create(self, api_client, user):
+        api_client.force_authenticate(user=user)
+        test_email_address = "apicreated@gmail.com"
+        response = api_client.post("/pp-api/users/me/emails/", {"email": test_email_address})
+        assert response.status_code == status.HTTP_201_CREATED
+        response_json = json.loads(response.content)
+        assert response_json["email"] == test_email_address
+        assert response_json["verified"] is False
+        assert response_json["primary"] is False
+
+    def test_destroy(self, api_client, user):
+        api_client.force_authenticate(user=user)
+        primary_email = EmailFactory(email="primary@gmail.com", user=user, primary=True)
+        secondary_email = EmailFactory(
+            email="secondary@gmail.com", user=user, primary=False
+        )
+        response = api_client.delete(
+            f"/pp-api/users/me/emails/{secondary_email.email}/"
+        )
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        emails = EmailAddress.objects.filter(user=user)
+        assert len(emails) == 1
+        assert emails.first() == primary_email
