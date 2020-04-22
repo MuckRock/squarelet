@@ -133,12 +133,15 @@ class PressPassEmailAddressViewSet(
         return Response(serializer.data)
 
     def create(self, request, user_uuid=None):
+        # use allauth's form to create the email address
         form = AddEmailForm(data=request.data, user=request.user)
 
         if form.is_valid():
             email_address = form.save(self.request)
 
-            return Response(email_address.email, status=status.HTTP_201_CREATED)
+            # just so we can return this to the client
+            serializer = PressPassEmailAddressSerializer(email_address)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
             return Response(
                 "Please enter a valid email address", status=status.HTTP_400_BAD_REQUEST
@@ -146,6 +149,7 @@ class PressPassEmailAddressViewSet(
 
     def update(self, request, user_uuid=None, email=None, partial=False):
         # Update is used exclusively to set email addresses to primary
+        # This code is taken from allauth's AddEmail view, adapted for DRF
         try:
             email_address = EmailAddress.objects.get_for_user(
                 user=request.user, email=email
@@ -182,9 +186,9 @@ class PressPassEmailAddressViewSet(
                 get_adapter(request).add_message(
                     request, messages.SUCCESS, "account/messages/primary_email_set.txt"
                 )
-                ## Don't trigger this is the user had no primary email address before
-                ## as this signal seems to try emailing the PREVIOUS primary address
-                ## (confusingly the `from:` address is used as the `to:`/recipient here)
+                # Don't trigger this is the user had no primary email address before
+                # as this signal seems to try emailing the PREVIOUS primary address
+                # (confusingly the `from:` address is used as the `to:`/recipient here)
                 if from_email_address is not None:
                     signals.email_changed.send(
                         sender=request.user.__class__,
@@ -200,6 +204,7 @@ class PressPassEmailAddressViewSet(
             )
 
     def destroy(self, request, user_uuid=None, email=None):
+        # This code is taken from allauth's AddEmail view, adapted for DRF
         try:
             email_address = EmailAddress.objects.get(user=request.user, email=email)
             if email_address.primary:
