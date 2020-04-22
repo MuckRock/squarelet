@@ -3,7 +3,6 @@ from django.conf import settings
 from django.conf.urls import url
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.http import HttpResponse
 from django.urls import include, path
 from django.views import defaults as default_views
 from django.views.generic import TemplateView
@@ -17,6 +16,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 # Squarelet
 from squarelet.core.views import HomeView
+from squarelet.email_api.viewsets import PressPassEmailAddressViewSet
 from squarelet.oidc.viewsets import ClientViewSet
 from squarelet.organizations.viewsets import (
     ChargeViewSet,
@@ -33,7 +33,6 @@ from squarelet.organizations.viewsets import (
 )
 from squarelet.users.views import LoginView
 from squarelet.users.viewsets import (
-    PressPassEmailAddressViewSet,
     PressPassRegisterView,
     PressPassUserViewSet,
     UrlAuthTokenViewSet,
@@ -65,6 +64,7 @@ presspass_router.register("organizations", PressPassOrganizationViewSet)
 presspass_router.register("invitations", PressPassInvitationViewSet)
 presspass_router.register("plans", PressPassPlanViewSet)
 presspass_router.register("entitlements", PressPassEntitlementViewSet)
+presspass_router.register("emails", PressPassEmailAddressViewSet)
 
 organization_router = routers.NestedDefaultRouter(
     presspass_router, "organizations", lookup="organization"
@@ -76,7 +76,6 @@ organization_router.register("subscriptions", PressPassSubscriptionViewSet)
 user_router = routers.NestedDefaultRouter(presspass_router, "users", lookup="user")
 user_router.register("invitations", PressPassUserInvitationViewSet)
 user_router.register("memberships", PressPassUserMembershipViewSet)
-user_router.register("emails", PressPassEmailAddressViewSet)
 
 urlpatterns = [
     path("", HomeView.as_view(), name="home"),
