@@ -173,7 +173,9 @@ class PressPassEmailAddressViewSet(
                 # Sending the old primary address to the signal
                 # adds a db query.
                 try:
-                    from_email_address = EmailAddress.objects.get( user=request.user, primary=True)
+                    from_email_address = EmailAddress.objects.get(
+                        user=request.user, primary=True
+                    )
                 except EmailAddress.DoesNotExist:
                     from_email_address = None
                 email_address.set_as_primary()
