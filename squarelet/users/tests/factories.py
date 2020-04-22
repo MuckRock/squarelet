@@ -1,6 +1,6 @@
 # Third Party
-from allauth.account.models import EmailAddress
 import factory
+from allauth.account.models import EmailAddress
 
 # Squarelet
 from squarelet.organizations.tests.factories import (

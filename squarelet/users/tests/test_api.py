@@ -9,7 +9,7 @@ from rest_framework.test import APIClient
 
 # Squarelet
 from squarelet.users.serializers import PressPassUserSerializer
-from squarelet.users.tests.factories import UserFactory, EmailFactory
+from squarelet.users.tests.factories import EmailFactory, UserFactory
 
 
 @pytest.mark.django_db()
@@ -120,7 +120,9 @@ class TestPPEmailAPI:
     def test_update(self, api_client, user):
         api_client.force_authenticate(user=user)
         primary_email = EmailFactory(email="primary@gmail.com", user=user, primary=True)
-        secondary_email = EmailFactory(email="secondary@gmail.com", user=user, primary=False)
+        secondary_email = EmailFactory(
+            email="secondary@gmail.com", user=user, primary=False
+        )
         response = api_client.patch(
             f"/pp-api/users/me/emails/{secondary_email.email}/", {"primary": True}
         )
