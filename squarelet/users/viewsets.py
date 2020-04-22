@@ -173,22 +173,24 @@ class PressPassEmailAddressViewSet(
                 # Sending the old primary address to the signal
                 # adds a db query.
                 try:
-                    from_email_address = EmailAddress.objects.get(
-                        user=request.user, primary=True
-                    )
+                    from_email_address = EmailAddress.objects.get( user=request.user, primary=True)
                 except EmailAddress.DoesNotExist:
                     from_email_address = None
                 email_address.set_as_primary()
                 get_adapter(request).add_message(
                     request, messages.SUCCESS, "account/messages/primary_email_set.txt"
                 )
-                signals.email_changed.send(
-                    sender=request.user.__class__,
-                    request=request,
-                    user=request.user,
-                    from_email_address=from_email_address,
-                    to_email_address=email_address,
-                )
+                ## Don't trigger this is the user had no primary email address before
+                ## as this signal seems to try emailing the PREVIOUS primary address
+                ## (confusingly the `from:` address is used as the `to:`/recipient here)
+                if from_email_address is not None:
+                    signals.email_changed.send(
+                        sender=request.user.__class__,
+                        request=request,
+                        user=request.user,
+                        from_email_address=from_email_address,
+                        to_email_address=email_address,
+                    )
                 return Response(email)
         except EmailAddress.DoesNotExist:
             return Response(
