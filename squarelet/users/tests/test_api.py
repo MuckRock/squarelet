@@ -117,11 +117,15 @@ class TestPPEmailAPI:
         response_json = json.loads(response.content)
         assert len(response_json) == emails_for_user
 
-    def test_update(self, api_client, user):
+    def test_update(self, api_client, user, mocker):
         api_client.force_authenticate(user=user)
         primary_email = EmailFactory(email="primary@gmail.com", user=user, primary=True)
         secondary_email = EmailFactory(
             email="secondary@gmail.com", user=user, primary=False
+        )
+        mocker.patch(
+            "squarelet.organizations.models.Organization.customer",
+            default_source=None,
         )
         response = api_client.patch(
             f"/pp-api/users/me/emails/{secondary_email.email}/", {"primary": True}
@@ -129,4 +133,5 @@ class TestPPEmailAPI:
         assert response.status_code == status.HTTP_200_OK
         secondary_email.refresh_from_db()
         assert secondary_email.primary
+        primary_email.refresh_from_db()
         assert not primary_email.primary
