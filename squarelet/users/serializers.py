@@ -4,7 +4,6 @@ import re
 import string
 
 # Third Party
-from allauth.account.models import EmailAddress
 from dj_rest_auth.registration.serializers import RegisterSerializer
 from rest_framework import serializers
 
@@ -159,9 +158,3 @@ class PressPassUserWriteSerializer(RegisterSerializer):
 
     password1 = serializers.CharField()
     password2 = serializers.CharField()
-
-
-class PressPassEmailAddressSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = EmailAddress
-        fields = ("email", "verified", "primary")
