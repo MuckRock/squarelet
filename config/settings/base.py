@@ -366,7 +366,7 @@ SQUARELET_URL = env("SQUARELET_URL", default="http://dev.squarelet.com")
 MUCKROCK_URL = env("MUCKROCK_URL", default="http://dev.muckrock.com")
 FOIAMACHINE_URL = env("FOIAMACHINE_URL", default="http://dev.foiamachine.org")
 DOCCLOUD_URL = env("DOCCLOUD_URL", default="http://dev.documentcloud.org")
-PRESSPASS_URL = env("PRESSPASS_URL", default="http://dev.presspass.com")
+PRESSPASS_URL = env("PRESSPASS_URL", default="http://dev.presspass.com:3000")
 
 # stripe
 # ------------------------------------------------------------------------------
