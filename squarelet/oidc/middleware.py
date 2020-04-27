@@ -21,7 +21,7 @@ class CacheInvalidationSenderMiddleware:
 
     def __call__(self, request):
         """Send all cache invalidations after the view is finished"""
-        initialize_cache_invalidation_set()
+        init_cache_invalidation_set()
 
         try:
             response = self.get_response(request)
@@ -50,7 +50,7 @@ def send_cache_invalidations(model, uuids):
 # non request-response cycle environments
 
 
-def initialize_cache_invalidation_set():
+def init_cache_invalidation_set():
     CACHE_INVALIDATION_SET.set = defaultdict(set)
 
 

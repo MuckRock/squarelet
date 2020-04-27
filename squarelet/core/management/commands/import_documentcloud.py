@@ -16,7 +16,7 @@ from smart_open.smart_open_lib import smart_open
 # Squarelet
 from squarelet.oidc.middleware import (
     delete_cache_invalidation_set,
-    initialize_cache_invalidation_set,
+    init_cache_invalidation_set,
 )
 from squarelet.organizations.models import Membership, Organization, Plan
 from squarelet.users.models import User
@@ -50,7 +50,7 @@ class Command(BaseCommand):
             # we initialize the cache invalidation set here in order to
             # not send a cache invalidation for users and orgs during the
             # import
-            initialize_cache_invalidation_set()
+            init_cache_invalidation_set()
             organization, created = self.import_org()
             self.import_users(organization)
 
