@@ -8,7 +8,6 @@
 {% autologin url_email user as url_email_ %}
 {% url "account_set_password" as url_password %}
 {% autologin url_password user as url_password_ %}
-{% autologin activate_url user as activate_url_ %}
 {% blocktrans with username=user.username %}
 <p>
   Just a reminder, your username is
@@ -16,20 +15,14 @@
     {{ username }} </a
   >.
 </p>
+<p>{{ settings.PRESSPASS_URL }}</p>
 <p>
   We ask that you please
-  <a href="{{ activate_url_ }}">verify your email</a>. You can also verify your
-  email from your <a href="{{ url_email_ }}">account email settings</a>.
+  <a href="{{ activate_url }}">verify your email</a>. 
 </p>
 {% endblocktrans %}
 {% if minireg %}
 {% blocktrans %}
-<p>
-  You should also
-  <a href="{{ url_password_ }}">
-    set your password </a
-  >.
-</p>
 
 <p>
   {% endblocktrans %}
@@ -45,8 +38,7 @@
 </p>
 <p><a href="https://www.twitter.com/newscatalyst/">Tweet at us</a>.</p>
 <p>
-  Once again, welcome to the PressPass community. We're excited to see what you
-  do with the tools we've built.
+  Once again, welcome to the PressPass community. TKTK
 </p>
 <p>Sincerely,<br />The PressPass Team</p>
 {% endblocktrans %}
