@@ -62,17 +62,18 @@ class AccountAdapter(DefaultAccountAdapter):
         activate_url = self.get_email_confirmation_url(request, emailconfirmation)
 
         source_site = request.get_host()
-        squarelet_source = "muckrock"
-        if source_site == furl(settings.PRESSPASS_URL).host:
-            squarelet_source = "presspass"
 
         ctx = {
             "user": emailconfirmation.email_address.user,
             "activate_url": activate_url,
             "current_site": current_site,
             "key": emailconfirmation.key,
-            "source": squarelet_source,
+            "source": "muckrock",
         }
+        if source_site == furl(settings.PRESSPASS_URL).host:
+            ctx["source"] = "presspass"
+            ctx["activate_url"] = f"{settings.PRESSPASS_URL}/verify-email"
+
         if signup:
             email_template = "account/email/email_confirmation_signup"
         else:
