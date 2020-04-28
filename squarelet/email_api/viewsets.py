@@ -20,7 +20,7 @@ class PressPassEmailConfirmationViewSet(
     queryset = EmailConfirmation.objects.none()
     lookup_field = "key"
 
-    def update(self, request, user_uuid=None, key=None, partial=False):
+    def update(self, request, key=None, partial=False):
         try:
             confirmation = EmailConfirmationHMAC.from_key(key)
             confirmation.confirm(self.request)
@@ -34,7 +34,7 @@ class PressPassEmailConfirmationViewSet(
 
         except EmailConfirmation.DoesNotExist:
             return Response(
-                "Please enter a valid email address", status=status.HTTP_400_BAD_REQUEST
+                "Please specify a valid key", status=status.HTTP_400_BAD_REQUEST
             )
 
 class PressPassEmailAddressViewSet(
