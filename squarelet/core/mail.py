@@ -27,6 +27,7 @@ class Email(EmailMultiAlternatives):
         organization_to = kwargs.pop("organization_to", ORG_TO_ALL)
         extra_context = kwargs.pop("extra_context", {})
         template = kwargs.pop("template", self.template)
+        source = kwargs.pop("source", "muckrock")
         super().__init__(**kwargs)
         # set up who we are sending the email to
         if user and organization:
@@ -58,6 +59,10 @@ class Email(EmailMultiAlternatives):
             )
         # always BCC diagnostics
         self.bcc.append("diagnostics@muckrock.com")
+
+        if source == "presspass":
+            self.from_email = settings.PRESSPASS_FROM_EMAIL
+            template = "presspass/" + template
 
         context = {
             "base_url": settings.SQUARELET_URL,

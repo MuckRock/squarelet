@@ -12,6 +12,7 @@ import stripe
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason, StripeAccounts
 from squarelet.organizations.models import ReceiptEmail
+from squarelet.organizations.tests.factories import EntitlementFactory, PlanFactory
 
 # pylint: disable=invalid-name,too-many-public-methods,protected-access
 
@@ -184,12 +185,11 @@ class TestOrganization:
             "squarelet.organizations.models.Organization.save_card"
         )
         mocked_customer = mocker.patch(
-            "squarelet.organizations.models.Organization.customer"
+            "squarelet.organizations.models.Customer.stripe_customer", email=None
         )
         mocked_subscriptions = mocker.patch(
             "squarelet.organizations.models.Organization.subscriptions"
         )
-        mocked_customer.email = None
         token = "token"
         organization.create_subscription(token, plan)
         mocked_save_card.assert_called_with(token, StripeAccounts.muckrock)
@@ -427,9 +427,12 @@ class TestSubscription:
     def test_start(self, subscription_factory, professional_plan_factory, mocker):
         plan = professional_plan_factory.build()
         subscription = subscription_factory.build(plan=plan)
-        mocked = mocker.patch("squarelet.organizations.models.Organization.customer")
+        mocked = Mock()
+        mocker.patch(
+            "squarelet.organizations.models.Organization.customer", return_value=mocked
+        )
         subscription.start()
-        mocked.subscriptions.create.assert_called_with(
+        mocked.stripe_customer.subscriptions.create.assert_called_with(
             items=[
                 {
                     "plan": subscription.plan.stripe_id,
@@ -440,7 +443,8 @@ class TestSubscription:
             days_until_due=None,
         )
         assert (
-            subscription.subscription_id == mocked.subscriptions.create.return_value.id
+            subscription.subscription_id
+            == mocked.stripe_customer.subscriptions.create.return_value.id
         )
 
     def test_start_existing(self, subscription_factory, mocker):
@@ -482,15 +486,16 @@ class TestSubscription:
         mocked_start.assert_called()
 
     def test_modify_cancel(
-        self, subscription_factory, professional_plan_factory, mocker
+        self, subscription_factory, professional_plan_factory, plan_factory, mocker
     ):
         mocked_save = mocker.patch("squarelet.organizations.models.Subscription.save")
         mocked_stripe_subscription = mocker.patch(
             "squarelet.organizations.models.Subscription.stripe_subscription"
         )
         plan = professional_plan_factory.build()
+        free_plan = plan_factory.build()
         subscription = subscription_factory.build(plan=plan, subscription_id="id")
-        subscription.modify(None)
+        subscription.modify(free_plan)
         mocked_save.assert_called()
         mocked_stripe_subscription.delete.assert_called()
         assert subscription.subscription_id is None
@@ -523,7 +528,7 @@ class TestSubscription:
 
 
 class TestPlan:
-    """Unit tests for Organization model"""
+    """Unit tests for Plan model"""
 
     def test_str(self, plan_factory):
         plan = plan_factory.build()
@@ -726,3 +731,24 @@ class TestCharge:
             {"name": charge.description, "price": 100.00},
             {"name": "Processing Fee", "price": 5.00},
         ]
+
+
+class TestEntitlement:
+    """Unit tests for Entitlement model"""
+
+    @pytest.mark.django_db()
+    def test_public(self):
+        public_plan = PlanFactory()
+        private_plan = PlanFactory(public=False)
+        entitlement = EntitlementFactory()
+
+        assert not entitlement.public
+
+        entitlement.plans.set([private_plan])
+        assert not entitlement.public
+
+        entitlement.plans.set([public_plan])
+        assert entitlement.public
+
+        entitlement.plans.set([private_plan, public_plan])
+        assert entitlement.public

@@ -18,7 +18,7 @@ User account service for MuckRock and DocumentCloud
 3. Run the dotenv initialization script - `python initialize_dotenvs.py`
 This will create files with the environment variables needed to run the development environment.
 4. Start the docker images - `inv up`
-This will build and start all of the docker images using docker-compose.  It will bind to port 80 on localhost, so you must not have anything else running on port 80. The invoke tasks specify the `local.yml` configuration file for docker-compose.  If you would like to run docker-compose commands directly, set the environment variable `export COMPSE_FILE=local.yml`.
+This will build and start all of the docker images using docker-compose.  It will bind to port 80 on localhost, so you must not have anything else running on port 80. The invoke tasks specify the `local.yml` configuration file for docker-compose.  If you would like to run docker-compose commands directly, set the environment variable `export COMPOSE_FILE=local.yml`.
 5. Set `dev.squarelet.com` to point to localhost - `sudo echo "127.0.0.1   dev.squarelet.com" >> /etc/hosts`
 6. Enter `dev.squarelet.com` into your browser - you should see the Squarelet home page.
 

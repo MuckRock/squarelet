@@ -1,0 +1,48 @@
+{% extends "presspass/core/email/base.html" %}
+{% load humanize %}
+{% load i18n %}
+{% load autologin %}
+
+{% block body %}
+  {% url "users:payment" as url_user %}
+  {% autologin url_user user as url_user_ %}
+  {% url "organizations:update" as url_org %}
+  {% autologin url_org user as url_org_ %}
+
+  {% if organization.individual %}
+    {% trans "Hi" %} {{ organization.users.first.name }},
+  {% else %}
+    {% trans "Hi" %} {{ organization.name }},
+  {% endif %}
+
+  {% if attempt == "final" %}
+
+    {% blocktrans %}
+      <p class="red">Your subscription has been cancelled.</p>
+      <p>Our final attempt to charge your card has failed and your account has been
+      reverted back to a free account.</p>
+    {% endblocktrans %}
+    {% if organization.individual %}
+      <p><a href="{{ url_user_ }}">{% trans "Resubscribe" %}</a>.</p>
+    {% else %}
+      <p><a href="{{ url_org_ }}">{% trans "Resubscribe" %}</a>.</p>
+    {% endif %}
+
+  {% else %}
+
+    {% blocktrans with attempt=attempt|ordinal %}
+      <p class="red">Your subscription payment has failed.</p>
+      <p>This is the {{ attempt }} attempt. The payment will be retried up to
+      3 times.</p>
+    {% endblocktrans %}
+    {% if organization.individual %}
+      <p><a href="{{ url_user_ }}">{% trans "Update your billing information" %}</a>.</p>
+    {% else %}
+      <p><a href="{{ url_org_ }}">{% trans "Update your billing information" %}</a>.</p>
+    {% endif %}
+
+  {% endif %}
+
+  {% trans "<p>Sincerely,<br />The PressPass Team</p>" %}
+{% endblock %}
+

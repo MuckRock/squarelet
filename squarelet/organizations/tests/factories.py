@@ -123,6 +123,18 @@ class InvitationFactory(factory.django.DjangoModelFactory):
         "squarelet.organizations.tests.factories.OrganizationFactory"
     )
     email = factory.Sequence(lambda n: f"user-{n}@example.com")
+    request = False
+
+    class Meta:
+        model = "organizations.Invitation"
+
+
+class InvitationRequestFactory(factory.django.DjangoModelFactory):
+    user = factory.SubFactory("squarelet.users.tests.factories.UserFactory")
+    organization = factory.SubFactory(
+        "squarelet.organizations.tests.factories.OrganizationFactory"
+    )
+    request = True
 
     class Meta:
         model = "organizations.Invitation"
@@ -138,3 +150,13 @@ class ChargeFactory(factory.django.DjangoModelFactory):
 
     class Meta:
         model = "organizations.Charge"
+
+
+class EntitlementFactory(factory.django.DjangoModelFactory):
+    name = factory.Sequence(lambda n: f"Entitlement {n}")
+    slug = factory.LazyAttribute(lambda obj: slugify(obj.name))
+    client = factory.SubFactory("squarelet.oidc.tests.factories.ClientFactory")
+    description = factory.Sequence(lambda n: f"Description {n}")
+
+    class Meta:
+        model = "organizations.Entitlement"

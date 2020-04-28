@@ -1,5 +1,7 @@
 # Third Party
 import stripe
+from oidc_provider.models import Client
+from rest_flex_fields import FlexFieldsModelSerializer
 from rest_framework import serializers, status
 from rest_framework.exceptions import APIException
 
@@ -18,7 +20,7 @@ from squarelet.organizations.models import (
 
 class OrganizationSerializer(serializers.ModelSerializer):
     uuid = serializers.UUIDField(required=False)
-    # XXX remove plan ??
+    # XXX remove plan once muckrock is updated to handle entitlements
     plan = serializers.SerializerMethodField()
     entitlements = serializers.SerializerMethodField()
     card = serializers.SerializerMethodField()
@@ -45,11 +47,10 @@ class OrganizationSerializer(serializers.ModelSerializer):
         return obj.plan.slug if obj.plan else "free"
 
     def get_entitlements(self, obj):
-        # XXX performance
         request = self.context.get("request")
         if request and hasattr(request, "auth") and request.auth:
             return request.auth.client.entitlements.filter(
-                plans__organization=obj
+                plans__organizations=obj
             ).values_list("slug", flat=True)
         return []
 
@@ -149,6 +150,17 @@ class PressPassOrganizationSerializer(serializers.ModelSerializer):
             "payment_failed",
             "avatar",
         )
+        extra_kwargs = {
+            "uuid": {"read_only": True},
+            "slug": {"read_only": True},
+            "max_users": {"required": False},
+            "individual": {"read_only": True},
+            "private": {"required": False},
+            "update_on": {"read_only": True},
+            "updated_at": {"read_only": True},
+            "payment_failed": {"read_only": True},
+            "avatar": {"required": False},
+        }
 
 
 class PressPassMembershipSerializer(serializers.ModelSerializer):
@@ -157,14 +169,25 @@ class PressPassMembershipSerializer(serializers.ModelSerializer):
     class Meta:
         model = Membership
         fields = ("user", "admin")
+        extra_kwargs = {"admin": {"default": False}}
 
 
-class PressPassNestedInvitationSerializer(serializers.ModelSerializer):
+class PressPassUserMembershipsSerializer(serializers.ModelSerializer):
+    organization = PressPassOrganizationSerializer(read_only=True)
+
+    class Meta:
+        model = Membership
+        fields = ("organization", "admin")
+        extra_kwargs = {"admin": {"default": False}}
+
+
+class PressPassNestedInvitationSerializer(FlexFieldsModelSerializer):
     user = serializers.SlugRelatedField(slug_field="uuid", read_only=True)
 
     class Meta:
         model = Invitation
         fields = (
+            "uuid",
             "email",
             "user",
             "request",
@@ -173,13 +196,29 @@ class PressPassNestedInvitationSerializer(serializers.ModelSerializer):
             "rejected_at",
         )
         extra_kwargs = {
+            "email": {"required": False},
+            "request": {"read_only": True},
             "created_at": {"read_only": True},
             "accepted_at": {"read_only": True},
             "rejected_at": {"read_only": True},
         }
+        expandable_fields = {
+            "user": "squarelet.users.PressPassUserSerializer",
+            "organization": PressPassOrganizationSerializer,
+        }
+
+    def validate_email(self, value):
+        request = self.context.get("request")
+        view = self.context.get("view")
+        organization = Organization.objects.get(uuid=view.kwargs["organization_uuid"])
+        if organization.has_admin(request.user) and not value:
+            raise serializers.ValidationError("You must supply en email")
+        elif not organization.has_admin(request.user) and value:
+            raise serializers.ValidationError("You must not supply en email")
+        return value
 
 
-class PressPassInvitationSerializer(serializers.ModelSerializer):
+class PressPassInvitationSerializer(FlexFieldsModelSerializer):
     organization = serializers.SlugRelatedField(slug_field="uuid", read_only=True)
     user = serializers.SlugRelatedField(slug_field="uuid", read_only=True)
     accept = serializers.BooleanField(write_only=True)
@@ -204,6 +243,10 @@ class PressPassInvitationSerializer(serializers.ModelSerializer):
             "rejected_at": {"read_only": True},
             "email": {"read_only": True},
         }
+        expandable_fields = {
+            "user": "squarelet.users.PressPassUserSerializer",
+            "organization": PressPassOrganizationSerializer,
+        }
 
     def validate(self, attrs):
         """Must not try to accept and reject"""
@@ -214,10 +257,30 @@ class PressPassInvitationSerializer(serializers.ModelSerializer):
         return attrs
 
 
+class PressPassUserInvitationsSerializer(FlexFieldsModelSerializer):
+    organization = serializers.SlugRelatedField(slug_field="uuid", read_only=True)
+
+    class Meta:
+        model = Invitation
+        fields = (
+            "uuid",
+            "organization",
+            "request",
+            "accepted_at",
+            "rejected_at",
+            "created_at",
+        )
+        expandable_fields = {
+            "organization": PressPassOrganizationSerializer,
+            "user": "squarelet.users.PressPassUserSerializer",
+        }
+
+
 class PressPassPlanSerializer(serializers.ModelSerializer):
     class Meta:
         model = Plan
         fields = (
+            "id",
             "name",
             "slug",
             "minimum_users",
@@ -227,23 +290,80 @@ class PressPassPlanSerializer(serializers.ModelSerializer):
             "annual",
             "for_individuals",
             "for_groups",
-            "requires_updates",
+            "entitlements",
         )
-        extra_kwargs = {"slug": {"read_only": True}}
 
 
-class PressPassEntitlmentSerializer(serializers.ModelSerializer):
+class PressPassClientSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Client
+        fields = ("name", "client_type", "website_url")
+
+
+class PressPassEntitlmentSerializer(FlexFieldsModelSerializer):
     class Meta:
         model = Entitlement
         fields = ("name", "slug", "client", "description")
         extra_kwargs = {"slug": {"read_only": True}}
+        expandable_fields = {"client": PressPassClientSerializer}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        context = kwargs.get("context", {})
+        request = context.get("request")
+
+        # may only create entitlements for your own clients
+        if request and request.user and request.user.is_authenticated:
+            self.fields["client"].queryset = Client.objects.filter(owner=request.user)
+        else:
+            self.fields["client"].queryset = Client.objects.none()
 
 
-class PressPassSubscriptionSerializer(serializers.ModelSerializer):
+class PressPassSubscriptionSerializer(FlexFieldsModelSerializer):
+    token = serializers.CharField(write_only=True, required=False)
+
     class Meta:
         model = Subscription
-        fields = ("plan", "update_on", "cancelled")
+        fields = ("id", "plan", "update_on", "cancelled", "token")
         extra_kwargs = {
             "update_on": {"read_only": True},
             "cancelled": {"read_only": True},
         }
+        expandable_fields = {"plan": PressPassPlanSerializer}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        context = kwargs.get("context", {})
+        view = context.get("view")
+        organization = Organization.objects.get(uuid=view.kwargs["organization_uuid"])
+        self.fields["plan"].queryset = Plan.objects.choices(organization)
+
+    def validate(self, attrs):
+        """Check the permissions"""
+        request = self.context.get("request")
+        view = self.context.get("view")
+        organization = Organization.objects.get(uuid=view.kwargs["organization_uuid"])
+
+        # only modify subscriptions for organizations you have admin access to
+        if not request.user.has_perm("organizations.change_organization", organization):
+            raise serializers.ValidationError(
+                "You may only modify subscriptions for organizations you are "
+                "an admin for"
+            )
+
+        # token is required if paid plan unless you have a card on file
+        payment_required = attrs["plan"].requires_payment()
+        card_on_file = organization.customer(attrs["plan"].stripe_account).card
+        if payment_required and not card_on_file and not attrs.get("token"):
+            raise serializers.ValidationError("Must supply a credit card for paid plan")
+
+        return attrs
+
+    def validate_plan(self, value):
+        """Cannot switch between plans that are paid to different stripe accounts"""
+        if self.instance and self.instance.plan.stripe_account != value.stripe_account:
+            raise serializers.ValidationError(
+                "You may not switch to a plan paid to a different company.  "
+                "Please cancel this plan and create a new one."
+            )
+        return value

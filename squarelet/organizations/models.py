@@ -19,14 +19,16 @@ from sorl.thumbnail import ImageField
 
 # Squarelet
 from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
-from squarelet.core.mail import ORG_TO_RECEIPTS, send_mail
+from squarelet.core.mail import ORG_TO_ADMINS, ORG_TO_RECEIPTS, send_mail
 from squarelet.core.mixins import AvatarMixin
 from squarelet.core.utils import file_path
 from squarelet.oidc.middleware import send_cache_invalidations
 from squarelet.organizations.choices import ChangeLogReason, StripeAccounts
 from squarelet.organizations.querysets import (
     ChargeQuerySet,
+    EntitlementQuerySet,
     InvitationQuerySet,
+    MembershipQuerySet,
     OrganizationQuerySet,
     PlanQuerySet,
     SubscriptionQuerySet,
@@ -168,6 +170,8 @@ class Organization(AvatarMixin, models.Model):
         null=True,
         help_text=_("The organization's corresponding subscription ID on stripe"),
     )
+    # XXX should this be moved to customer?
+    # XXX should have better card management functionality
     payment_failed = models.BooleanField(
         _("payment failed"),
         default=False,
@@ -279,9 +283,10 @@ class Organization(AvatarMixin, models.Model):
         if token:
             self.save_card(token, plan.stripe_account)
 
-        if not self.customer.email:
-            self.customer.email = self.email
-            self.customer.save()
+        customer = self.customer(plan.stripe_account).stripe_customer
+        if not customer.email:
+            customer.email = self.email
+            customer.save()
 
         self.subscriptions.start(organization=self, plan=plan)
 
@@ -435,6 +440,8 @@ class Customer(models.Model):
 class Membership(models.Model):
     """Through table for organization membership"""
 
+    objects = MembershipQuerySet.as_manager()
+
     user = models.ForeignKey(
         verbose_name=_("user"),
         to="users.User",
@@ -455,6 +462,7 @@ class Membership(models.Model):
 
     class Meta:
         unique_together = ("user", "organization")
+        ordering = ("user_id",)
 
     def __str__(self):
         return f"Membership: {self.user} in {self.organization}"
@@ -510,6 +518,7 @@ class Subscription(models.Model):
 
     class Meta:
         unique_together = ("organization", "plan")
+        ordering = ("plan",)
 
     def __str__(self):
         plan_name = self.plan.name if self.plan else "Free"
@@ -537,7 +546,9 @@ class Subscription(models.Model):
             )
             return
         if self.plan and not self.plan.free:
-            stripe_subscription = self.organization.customer.subscriptions.create(
+            stripe_subscription = self.organization.customer(
+                self.plan.stripe_account
+            ).stripe_customer.subscriptions.create(
                 items=[
                     {
                         "plan": self.plan.stripe_id,
@@ -564,19 +575,23 @@ class Subscription(models.Model):
         old_plan = self.plan
         self.plan = plan
         self.save()
-        old_plan_free = not old_plan or old_plan.free
-        new_plan_free = not plan or plan.free
 
-        if old_plan_free and not new_plan_free:
+        if old_plan.free and not plan.free:
             # start subscription on stripe
             self.start()
-        elif not old_plan_free and new_plan_free:
+        elif not old_plan.free and plan.free:
             # cancel subscription on stripe
-            # XXX check this works
             self.stripe_subscription.delete()
             self.subscription_id = None
-        elif not old_plan_free and not new_plan_free:
+        elif not old_plan.free and not plan.free:
             # modify plan
+            self.stripe_modify()
+
+        self.save()
+
+    def stripe_modify(self):
+        """Update stripe subscription to match local subscription"""
+        if self.stripe_subscription:
             stripe.Subscription.modify(
                 self.subscription_id,
                 cancel_at_period_end=False,
@@ -592,8 +607,6 @@ class Subscription(models.Model):
                 days_until_due=30 if self.plan.annual else None,
                 api_key=settings.STRIPE_SECRET_KEYS[self.plan.stripe_account],
             )
-
-        self.save()
 
 
 class Plan(models.Model):
@@ -632,7 +645,6 @@ class Plan(models.Model):
         default=False,
         help_text=_("Is this plan available for anybody to sign up for?"),
     )
-    # XXX move to subscription?
     annual = models.BooleanField(
         _("annual"),
         default=False,
@@ -648,8 +660,7 @@ class Plan(models.Model):
         default=True,
         help_text=_("Is this plan usable for non-individual organizations?"),
     )
-    # XXX I think this becomes obsolete and just assume yes?
-    # Free plan will no longer be a plan
+    # XXX remove
     requires_updates = models.BooleanField(
         _("requires updates"),
         default=True,
@@ -685,6 +696,9 @@ class Plan(models.Model):
             "Which company's stripe account is used for subscrpitions to this plan"
         ),
     )
+
+    class Meta:
+        ordering = ("slug",)
 
     def __str__(self):
         return self.name
@@ -831,13 +845,29 @@ class Invitation(models.Model):
     def __str__(self):
         return f"Invitation: {self.uuid}"
 
-    def send(self):
-        send_mail(
-            subject=_(f"Invitation to join {self.organization.name}"),
-            template="organizations/email/invitation.html",
-            to=[self.email],
-            extra_context={"invitation": self},
-        )
+    def send(self, source=None):
+
+        # default source to "muckrock" in case this is called without a value
+        if source is None:
+            source = "muckrock"
+
+        if self.request:
+            send_mail(
+                subject=_(f"{self.user} has requested to join {self.organization}"),
+                template="organizations/email/join_request.html",
+                organization=self.organization,
+                organization_to=ORG_TO_ADMINS,
+                source=source,
+                extra_context={"joiner": self.user},
+            )
+        else:
+            send_mail(
+                subject=_(f"Invitation to join {self.organization.name}"),
+                template="organizations/email/invitation.html",
+                to=[self.email],
+                source=source,
+                extra_context={"invitation": self},
+            )
 
     @transaction.atomic
     def accept(self, user=None):
@@ -1086,8 +1116,15 @@ class Entitlement(models.Model):
         help_text=_("A brief description of the service this grants access to"),
     )
 
+    objects = EntitlementQuerySet.as_manager()
+
     class Meta:
         unique_together = ("name", "client")
+        ordering = ("slug",)
 
     def __str__(self):
         return f"{self.client} - {self.name}"
+
+    @property
+    def public(self):
+        return self.plans.filter(public=True).exists()

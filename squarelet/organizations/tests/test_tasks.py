@@ -8,49 +8,48 @@ from datetime import date, timedelta
 import pytest
 from dateutil.relativedelta import relativedelta
 
-# Local
-from .. import tasks
-from ..models import Charge
+# Squarelet
+from squarelet.organizations import tasks
+from squarelet.organizations.models import Charge, Subscription
+from squarelet.organizations.tests.factories import SubscriptionFactory
 
 
 @pytest.mark.django_db()
-def _test_restore_organization(
-    organization_factory, free_plan_factory, organization_plan_factory, mocker
-):
-    # XXX
+def test_restore_organization(organization_plan_factory, mocker):
     patched = mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
     mocker.patch("stripe.Plan.create")
     today = date.today()
-    free_plan = free_plan_factory()
     organization_plan = organization_plan_factory()
-    org_update_later = organization_factory(
-        update_on=today + timedelta(1), plan=organization_plan, next_plan=free_plan
+
+    subsc_update_cancel = SubscriptionFactory(
+        update_on=today - timedelta(1), plan=organization_plan, cancelled=True
     )
-    org_update_free = organization_factory(
-        update_on=today - timedelta(1), plan=organization_plan, next_plan=free_plan
+    subsc_update_later = SubscriptionFactory(
+        update_on=today + timedelta(1), plan=organization_plan
     )
-    org_update = organization_factory(
-        update_on=today - timedelta(1),
-        plan=organization_plan,
-        next_plan=organization_plan,
+    subsc_update = SubscriptionFactory(
+        update_on=today - timedelta(1), plan=organization_plan
     )
+
     tasks.restore_organization()
 
-    org_update_later.refresh_from_db()
-    org_update_free.refresh_from_db()
-    org_update.refresh_from_db()
+    subsc_update_later.refresh_from_db()
+    subsc_update.refresh_from_db()
+
+    # update cancel should have been deleted
+    assert not Subscription.objects.filter(pk=subsc_update_cancel.pk).exists()
 
     # update later should have not been changed
-    assert org_update_later.update_on == today + timedelta(1)
-    assert org_update_later.plan == organization_plan
+    assert subsc_update_later.plan == organization_plan
+    assert subsc_update_later.update_on == today + timedelta(1)
 
-    assert org_update_free.plan == free_plan
-    assert org_update_free.update_on is None
+    assert subsc_update.plan == organization_plan
+    assert subsc_update.update_on == today + relativedelta(months=1)
 
-    assert org_update.plan == organization_plan
-    assert org_update.update_on == today + relativedelta(months=1)
-
-    patched.assert_called_with("organization", [org_update_free.uuid, org_update.uuid])
+    patched.assert_called_with(
+        "organization",
+        [subsc_update.organization.uuid, subsc_update_cancel.organization.uuid],
+    )
 
 
 class TestHandleChargeSucceeded:

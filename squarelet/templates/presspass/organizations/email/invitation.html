@@ -1,0 +1,16 @@
+{% extends "presspass/core/email/base.html" %}
+{% load i18n %}
+{% load autologin %}
+
+{% block body %}
+  {% url "organizations:invitation" uuid=invitation.uuid as url_org %}
+  {% autologin url_org user as url_org_ %}
+  {% blocktrans with org_name=invitation.organization.name %}
+    <p>
+      You have been invited to join the organization {{ org_name }} on PressPass.
+      <a href="{{ url_org_ }}">
+        Click here to accept or reject the invitation.
+      </a>
+    </p>
+  {% endblocktrans %}
+{% endblock %}

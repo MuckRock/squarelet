@@ -72,6 +72,7 @@ THIRD_PARTY_APPS = [
     "dal",
     "dal_select2",
     "debug_toolbar",
+    "dj_rest_auth",
     "django_extensions",
     "django_premailer",
     "drf_yasg",
@@ -79,7 +80,6 @@ THIRD_PARTY_APPS = [
     "oidc_provider",
     "rest_framework",
     "rest_framework.authtoken",
-    "rest_auth",
     "reversion",
     "rules.apps.AutodiscoverRulesConfig",
     "sorl.thumbnail",
@@ -242,6 +242,9 @@ EMAIL_BACKEND = env(
 DEFAULT_FROM_EMAIL = env(
     "DJANGO_DEFAULT_FROM_EMAIL", default="MuckRock <info@muckrock.com>"
 )
+PRESSPASS_FROM_EMAIL = env(
+    "PRESSPASS_FROM_EMAIL", default="PressPass <info@presspass.com>"
+)
 # https://docs.djangoproject.com/en/dev/ref/settings/#server-email
 SERVER_EMAIL = env("DJANGO_SERVER_EMAIL", default=DEFAULT_FROM_EMAIL)
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-subject-prefix
@@ -255,6 +258,34 @@ ADMIN_URL = "admin/"
 ADMINS = [("""Mitchell Kotler""", "mitch@muckrock.com")]
 # https://docs.djangoproject.com/en/dev/ref/settings/#managers
 MANAGERS = ADMINS
+
+# LOGGING
+# ------------------------------------------------------------------------------
+# https://docs.djangoproject.com/en/dev/ref/settings/#logging
+# See https://docs.djangoproject.com/en/dev/topics/logging for
+# more details on how to customize your logging configuration.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "%(levelname)s %(asctime)s %(module)s "
+            "%(process)d %(thread)d %(message)s"
+        }
+    },
+    "handlers": {
+        "console": {
+            "level": "DEBUG",
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        }
+    },
+    "root": {"level": "INFO", "handlers": ["console"]},
+}
+if DEBUG:
+    LOGGING["loggers"] = {
+        "rules": {"handlers": ["console"], "level": "DEBUG", "propagate": True}
+    }
 
 # Celery
 # ------------------------------------------------------------------------------
@@ -335,6 +366,7 @@ SQUARELET_URL = env("SQUARELET_URL", default="http://dev.squarelet.com")
 MUCKROCK_URL = env("MUCKROCK_URL", default="http://dev.muckrock.com")
 FOIAMACHINE_URL = env("FOIAMACHINE_URL", default="http://dev.foiamachine.org")
 DOCCLOUD_URL = env("DOCCLOUD_URL", default="http://dev.documentcloud.org")
+PRESSPASS_URL = env("PRESSPASS_URL", default="http://dev.presspass.com:3000")
 
 # stripe
 # ------------------------------------------------------------------------------

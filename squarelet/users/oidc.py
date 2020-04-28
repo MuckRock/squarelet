@@ -40,7 +40,6 @@ class CustomScopeClaims(ScopeClaims):
 
     def scope_organizations(self):
         """Populate the scope with the organizations"""
-        # XXX performance
         return {
             "organizations": [
                 MembershipSerializer(m).data for m in self.user.memberships.all()

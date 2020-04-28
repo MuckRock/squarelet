@@ -27,6 +27,13 @@ class ClientProfile(models.Model):
         blank=True,
         help_text=_("URL to send webhook notifications to for this client"),
     )
+    source = models.CharField(
+        _("source"),
+        max_length=10,
+        choices=(("muckrock", _("MuckRock")), ("presspass", _("PressPass")),),
+        default="muckrock",
+        help_text=_("Which application did this client originate from?"),
+    )
 
     def __str__(self):
         return str(self.client)

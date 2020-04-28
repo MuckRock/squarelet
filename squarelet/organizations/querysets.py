@@ -45,24 +45,44 @@ class OrganizationQuerySet(models.QuerySet):
         return user.individual_organization
 
 
+class MembershipQuerySet(models.QuerySet):
+    def get_viewable(self, user):
+        """Returns memberships in public orgs or any org the user is a member of"""
+        # you can view membership info if:
+        #  * this organization is public, regardless of your membership
+        #  * or, you are a member of the org
+        return self.filter(Q(organization__private=False) | Q(organization__users=user))
+
+
 class PlanQuerySet(models.QuerySet):
-    def choices(self, organization):
+    def get_viewable(self, user):
+        if user.is_staff:
+            return self
+        elif user.is_authenticated:
+            return self.filter(
+                Q(public=True)
+                | Q(organizations__in=user.organizations.all())
+                | Q(private_organizations__in=user.organizations.all())
+            ).distinct()
+        else:
+            return self.filter(public=True)
+
+    def choices(self, organization, stripe_account=None):
         """Return the plan choices for the given organization"""
         if organization.individual:
             queryset = self.filter(for_individuals=True)
         else:
             queryset = self.filter(for_groups=True)
+        if stripe_account is not None:
+            queryset = queryset.filter(stripe_account=stripe_account)
+
         # show public plans, the organizations current plan, and any custom plan
         # to which they have been granted explicit access
-        return (
-            queryset.filter(
-                Q(public=True)
-                | Q(organizations=organization)
-                | Q(private_organizations=organization)
-            )
-            .muckrock()
-            .distinct()
-        )
+        return queryset.filter(
+            Q(public=True)
+            | Q(organizations=organization)
+            | Q(private_organizations=organization)
+        ).distinct()
 
     def free(self):
         """Free plans"""
@@ -70,6 +90,30 @@ class PlanQuerySet(models.QuerySet):
 
     def muckrock(self):
         return self.filter(stripe_account=StripeAccounts.muckrock)
+
+
+class EntitlementQuerySet(models.QuerySet):
+    def get_viewable(self, user):
+        if user.is_staff:
+            return self
+        elif user.is_authenticated:
+            return self.filter(Q(plans__public=True) | Q(client__owner=user)).distinct()
+        else:
+            return self.filter(plans__public=True)
+
+    def get_subscribed(self, user):
+        if user.is_authenticated:
+            return self.filter(
+                plans__organizations__in=user.organizations.all()
+            ).distinct()
+        else:
+            return self.none()
+
+    def get_owned(self, user):
+        if user.is_authenticated:
+            return self.filter(client__owner=user)
+        else:
+            return self.none()
 
 
 class InvitationQuerySet(models.QuerySet):
@@ -144,7 +188,7 @@ class SubscriptionQuerySet(models.QuerySet):
         )
         subscription.start()
         subscription.save()
-        return subscription()
+        return subscription
 
     def muckrock(self):
         return self.filter(plan__stripe_account=StripeAccounts.muckrock)
