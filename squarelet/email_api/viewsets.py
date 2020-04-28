@@ -5,13 +5,37 @@ from django.contrib import messages
 from allauth.account import signals
 from allauth.account.adapter import get_adapter
 from allauth.account.forms import AddEmailForm
-from allauth.account.models import EmailAddress
+from allauth.account.models import EmailAddress, EmailConfirmation, EmailConfirmationHMAC
 from rest_framework import mixins, status, viewsets
 from rest_framework.response import Response
 
 # Squarelet
 from squarelet.email_api.serializers import PressPassEmailAddressSerializer
 
+
+class PressPassEmailConfirmationViewSet(
+    mixins.UpdateModelMixin,
+    viewsets.GenericViewSet,
+):
+    queryset = EmailConfirmation.objects.none()
+    lookup_field = "key"
+
+    def update(self, request, user_uuid=None, key=None, partial=False):
+        try:
+            confirmation = EmailConfirmationHMAC.from_key(key)
+            confirmation.confirm(self.request)
+            get_adapter(self.request).add_message(
+                self.request,
+                messages.SUCCESS,
+                'account/messages/email_confirmed.txt',
+                {'email': confirmation.email_address.email})
+            serializer = PressPassEmailAddressSerializer(confirmation.email_address)
+            return Response(serializer.data)
+
+        except EmailConfirmation.DoesNotExist:
+            return Response(
+                "Please enter a valid email address", status=status.HTTP_400_BAD_REQUEST
+            )
 
 class PressPassEmailAddressViewSet(
     mixins.CreateModelMixin,
@@ -42,7 +66,7 @@ class PressPassEmailAddressViewSet(
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
             return Response(
-                "Please enter a valid email address", status=status.HTTP_400_BAD_REQUEST
+                "Please specify a valid email confirmation key", status=status.HTTP_400_BAD_REQUEST
             )
 
     def update(self, request, user_uuid=None, email=None, partial=False):
