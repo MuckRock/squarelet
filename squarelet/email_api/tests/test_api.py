@@ -3,7 +3,7 @@ import json
 
 # Third Party
 import pytest
-from allauth.account.models import EmailAddress
+from allauth.account.models import EmailAddress, EmailConfirmationHMAC
 from rest_framework import status
 
 # Squarelet
@@ -63,3 +63,19 @@ class TestPPEmailAPI:
         emails = EmailAddress.objects.filter(user=user)
         assert len(emails) == 1
         assert emails.first() == primary_email
+
+@pytest.mark.django_db()
+class TestPPEmailConfirmationAPI:
+    def test_update(self, api_client, user, mocker):
+        api_client.force_authenticate(user=user)
+        unverified_email = EmailFactory(email="sketchy@gmail.com", user=user, verified=False)
+        confirmation = EmailConfirmationHMAC(unverified_email)
+        mocker.patch(
+            "squarelet.organizations.models.Organization.customer", default_source=None,
+        )
+        response = api_client.patch(
+            f"/pp-api/verify/{confirmation.key}/", {"verified": True}
+        )
+        assert response.status_code == status.HTTP_200_OK
+        unverified_email.refresh_from_db()
+        assert unverified_email.verified
