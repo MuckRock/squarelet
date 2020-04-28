@@ -16,7 +16,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 # Squarelet
 from squarelet.core.views import HomeView
-from squarelet.email_api.viewsets import PressPassEmailAddressViewSet
+from squarelet.email_api.viewsets import (PressPassEmailAddressViewSet, PressPassEmailConfirmationViewSet)
 from squarelet.oidc.viewsets import ClientViewSet
 from squarelet.organizations.viewsets import (
     ChargeViewSet,
@@ -65,6 +65,7 @@ presspass_router.register("invitations", PressPassInvitationViewSet)
 presspass_router.register("plans", PressPassPlanViewSet)
 presspass_router.register("entitlements", PressPassEntitlementViewSet)
 presspass_router.register("emails", PressPassEmailAddressViewSet)
+presspass_router.register("verify", PressPassEmailConfirmationViewSet)
 
 organization_router = routers.NestedDefaultRouter(
     presspass_router, "organizations", lookup="organization"
