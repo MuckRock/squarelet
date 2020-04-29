@@ -49,6 +49,12 @@ class PressPassEmailAddressViewSet(
     lookup_value_regex = "[^/]+"
     serializer_class = PressPassEmailAddressSerializer
 
+    # def get_serializer_context(self):
+    #     """
+    #     pass request attribute to serializer
+    #     """
+    #     context = super(PressPassEmailAddressViewSet, self).get_serializer_context()
+
     def list(self, request, user_uuid=None):
         queryset = EmailAddress.objects.filter(user=request.user)
         serializer = PressPassEmailAddressSerializer(queryset, many=True)
@@ -70,34 +76,12 @@ class PressPassEmailAddressViewSet(
             )
 
     def update(self, request, user_uuid=None, email=None, partial=False):
-        # Update is used exclusively to set email addresses to primary
-        # This code is taken from allauth's AddEmail view, adapted for DRF
         try:
             email_address = EmailAddress.objects.get_for_user(
                 user=request.user, email=email
             )
-            # Not primary=True -- Slightly different variation, don't
-            # require verified unless moving from a verified
-            # address. Ignore constraint if previous primary email
-            # address is not verified.
-            if (
-                not email_address.verified
-                and EmailAddress.objects.filter(
-                    user=request.user, verified=True
-                ).exists()
-            ):
-                get_adapter(request).add_message(
-                    request,
-                    messages.ERROR,
-                    "account/messages/" "unverified_primary_email.txt",
-                )
-                return Response(
-                    "Please enter a verified email address.",
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            else:
-                # Sending the old primary address to the signal
-                # adds a db query.
+            serializer = self.get_serializer(instance=email_address, data=request.data["email"])
+            if serializer.is_valid():
                 try:
                     from_email_address = EmailAddress.objects.get(
                         user=request.user, primary=True
@@ -120,6 +104,9 @@ class PressPassEmailAddressViewSet(
                         to_email_address=email_address,
                     )
                 return Response(email)
+            else:
+                return Response("An error occurred", status=status.HTTP_400_BAD_REQUEST)
+
         except EmailAddress.DoesNotExist:
             return Response(
                 "Please enter a valid email address", status=status.HTTP_400_BAD_REQUEST
