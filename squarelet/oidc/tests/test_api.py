@@ -29,7 +29,7 @@ class TestClientAPI:
             assert result["owner"] == str(user.individual_organization_id)
 
     def test_list_nonadmin(self, api_client, user_factory):
-        """List your clients"""
+        """List your clients fails for non-admins"""
         size = 2
         user = user_factory(is_staff=False)
         api_client.force_authenticate(user=user)
@@ -61,6 +61,23 @@ class TestClientAPI:
         assert Client.objects.filter(pk=response_json["id"]).exists()
         client = Client.objects.get(pk=response_json["id"])
         assert client.response_types.first().value == "code"
+
+    def test_create_nonadmin(self, api_client, user_factory):
+        """Create a client fails for non-admins"""
+        user = user_factory(is_staff=False)
+        api_client.force_authenticate(user=user)
+        data = {
+            "name": "Test",
+            "client_type": "confidential",
+            "website_url": "https://www.example.com/",
+            "terms_url": "https://www.example.com/tos/",
+            "contact_email": "admin@example.com",
+            "reuse_consent": True,
+            "redirect_uris": "https://www.example.com/accounts/complete/squarelet",
+            "post_logout_redirect_uris": "https://www.example.com/",
+        }
+        response = api_client.post(f"/pp-api/clients/", data)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_create_anonymous(self, api_client):
         """Must be authenticated to create a client"""
@@ -95,6 +112,13 @@ class TestClientAPI:
         response = api_client.get(f"/pp-api/clients/{client.pk}/")
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
+    def test_retrieve_nonadmin(self, api_client, client, user_factory):
+        """Test retrieving a client when non-admin"""
+        user = user_factory(is_staff=False)
+        api_client.force_authenticate(user=user)
+        response = api_client.get(f"/pp-api/clients/{client.pk}/")
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
     def test_update(self, api_client, client):
         """Test updating a client"""
         api_client.force_authenticate(user=client.owner)
@@ -112,6 +136,13 @@ class TestClientAPI:
         response = api_client.patch(f"/pp-api/clients/{client.pk}/", {"name": name})
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
+    def test_update_nonadmin(self, api_client, client, user_factory):
+        """Test updating a client for non-admins"""
+        user = user_factory(is_staff=False)
+        api_client.force_authenticate(user=user)
+        response = api_client.patch(f"/pp-api/clients/{client.pk}/", {"name": "test"})
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
     def test_destroy(self, api_client, client):
         """Test destroying a client"""
         api_client.force_authenticate(user=client.owner)
@@ -125,3 +156,10 @@ class TestClientAPI:
         api_client.force_authenticate(user=user)
         response = api_client.delete(f"/pp-api/clients/{client.pk}/")
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_destroy_nonadmin(self, api_client, client, user_factory):
+        """Test destroying a client for non-admins"""
+        user = user_factory(is_staff=False)
+        api_client.force_authenticate(user=user)
+        response = api_client.delete(f"/pp-api/clients/{client.pk}/")
+        assert response.status_code == status.HTTP_403_FORBIDDEN
