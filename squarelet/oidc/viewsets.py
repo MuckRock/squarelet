@@ -6,7 +6,7 @@ from uuid import uuid4
 # Third Party
 from oidc_provider.models import Client, ResponseType
 from rest_framework import viewsets
-from rest_framework.permissions import DjangoObjectPermissions, IsAdminUser
+from rest_framework.permissions import DjangoObjectPermissions
 
 # Squarelet
 from squarelet.oidc.serializers import ClientSerializer
@@ -19,7 +19,7 @@ class ClientViewSet(viewsets.ModelViewSet):
 
     queryset = Client.objects.none()
     serializer_class = ClientSerializer
-    permission_classes = (IsAdminUser,)
+    permission_classes = (DjangoObjectPermissions,)
 
     def get_queryset(self):
         return Client.objects.filter(owner=self.request.user).order_by("name")
