@@ -80,7 +80,7 @@ class PressPassEmailAddressViewSet(
             email_address = EmailAddress.objects.get_for_user(
                 user=request.user, email=email
             )
-            serializer = self.get_serializer(instance=email_address, data=request.data["email"])
+            serializer = self.get_serializer(instance=email_address, data=request.data)
             if serializer.is_valid():
                 try:
                     from_email_address = EmailAddress.objects.get(

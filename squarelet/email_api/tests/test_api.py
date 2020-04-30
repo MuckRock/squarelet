@@ -34,7 +34,7 @@ class TestPPEmailAPI:
             "squarelet.organizations.models.Organization.customer", default_source=None,
         )
         response = api_client.patch(
-            f"/pp-api/emails/{secondary_email.email}/", {"primary": True}
+            f"/pp-api/emails/{secondary_email.email}/", { "email": "secondary@gmail.com", "primary": True}
         )
         assert response.status_code == status.HTTP_200_OK
         secondary_email.refresh_from_db()
