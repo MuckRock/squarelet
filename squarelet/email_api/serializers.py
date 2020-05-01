@@ -21,4 +21,3 @@ class PressPassEmailAddressSerializer(serializers.ModelSerializer):
             )
 
         return attrs
-
