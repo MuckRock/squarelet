@@ -3,7 +3,6 @@ from django.contrib import messages
 
 # Third Party
 from allauth.account import signals
-from allauth.account.adapter import get_adapter
 from allauth.account.forms import AddEmailForm
 from allauth.account.models import EmailAddress, EmailConfirmation, EmailConfirmationHMAC
 from rest_framework import mixins, status, viewsets
@@ -24,11 +23,6 @@ class PressPassEmailConfirmationViewSet(
         try:
             confirmation = EmailConfirmationHMAC.from_key(key)
             confirmation.confirm(self.request)
-            get_adapter(self.request).add_message(
-                self.request,
-                messages.SUCCESS,
-                'account/messages/email_confirmed.txt',
-                {'email': confirmation.email_address.email})
             serializer = PressPassEmailAddressSerializer(confirmation.email_address)
             return Response(serializer.data)
 
@@ -36,6 +30,7 @@ class PressPassEmailConfirmationViewSet(
             return Response(
                 "Please specify a valid key", status=status.HTTP_400_BAD_REQUEST
             )
+
 
 class PressPassEmailAddressViewSet(
     mixins.CreateModelMixin,
@@ -89,12 +84,7 @@ class PressPassEmailAddressViewSet(
                 except EmailAddress.DoesNotExist:
                     from_email_address = None
                 email_address.set_as_primary()
-                get_adapter(request).add_message(
-                    request, messages.SUCCESS, "account/messages/primary_email_set.txt"
-                )
-                # Don't trigger this is the user had no primary email address before
-                # as this signal seems to try emailing the PREVIOUS primary address
-                # (confusingly the `from:` address is used as the `to:`/recipient here)
+
                 if from_email_address is not None:
                     signals.email_changed.send(
                         sender=request.user.__class__,
@@ -105,7 +95,7 @@ class PressPassEmailAddressViewSet(
                     )
                 return Response(email)
             else:
-                return Response("An error occurred", status=status.HTTP_400_BAD_REQUEST)
+                return Response("You can only make a verified email address primary.", status=status.HTTP_400_BAD_REQUEST)
 
         except EmailAddress.DoesNotExist:
             return Response(
@@ -113,16 +103,9 @@ class PressPassEmailAddressViewSet(
             )
 
     def destroy(self, request, user_uuid=None, email=None):
-        # This code is taken from allauth's AddEmail view, adapted for DRF
         try:
             email_address = EmailAddress.objects.get(user=request.user, email=email)
             if email_address.primary:
-                get_adapter(request).add_message(
-                    request,
-                    messages.ERROR,
-                    "account/messages/" "cannot_delete_primary_email.txt",
-                    {"email": email},
-                )
                 return Response(
                     "You cannot remove your primary email address.",
                     status=status.HTTP_400_BAD_REQUEST,
@@ -134,12 +117,6 @@ class PressPassEmailAddressViewSet(
                     request=request,
                     user=request.user,
                     email_address=email_address,
-                )
-                get_adapter(request).add_message(
-                    request,
-                    messages.SUCCESS,
-                    "account/messages/email_deleted.txt",
-                    {"email": email},
                 )
                 return Response("", status=status.HTTP_204_NO_CONTENT)
         except EmailAddress.DoesNotExist:
