@@ -1,5 +1,5 @@
 # Django
-from django.contrib import messages
+from django.shortcuts import get_object_or_404
 
 # Third Party
 from allauth.account import signals
@@ -44,11 +44,8 @@ class PressPassEmailAddressViewSet(
     lookup_value_regex = "[^/]+"
     serializer_class = PressPassEmailAddressSerializer
 
-    # def get_serializer_context(self):
-    #     """
-    #     pass request attribute to serializer
-    #     """
-    #     context = super(PressPassEmailAddressViewSet, self).get_serializer_context()
+    def get_object(self, email):
+        return get_object_or_404(EmailAddress, email=email)
 
     def list(self, request, user_uuid=None):
         queryset = EmailAddress.objects.filter(user=request.user)
@@ -71,55 +68,49 @@ class PressPassEmailAddressViewSet(
             )
 
     def update(self, request, user_uuid=None, email=None, partial=False):
-        try:
-            email_address = EmailAddress.objects.get_for_user(
-                user=request.user, email=email
+        email_address = self.get_object(email)
+        serializer = self.get_serializer(instance=email_address, data=request.data)
+
+        if serializer.is_valid() and serializer.is_valid_update(request.data):
+            email_address.set_as_primary()
+
+            try:
+                from_email_address = EmailAddress.objects.get(
+                    user=request.user, primary=True
+                )
+            except EmailAddress.DoesNotExist:
+                from_email_address = None
+
+            signals.email_changed.send(
+                sender=request.user.__class__,
+                request=request,
+                user=request.user,
+                from_email_address=from_email_address,
+                to_email_address=email_address,
             )
-            serializer = self.get_serializer(instance=email_address, data=request.data)
-            if serializer.is_valid():
-                try:
-                    from_email_address = EmailAddress.objects.get(
-                        user=request.user, primary=True
-                    )
-                except EmailAddress.DoesNotExist:
-                    from_email_address = None
-                email_address.set_as_primary()
 
-                if from_email_address is not None:
-                    signals.email_changed.send(
-                        sender=request.user.__class__,
-                        request=request,
-                        user=request.user,
-                        from_email_address=from_email_address,
-                        to_email_address=email_address,
-                    )
-                return Response(email)
-            else:
-                return Response("You can only make a verified email address primary.", status=status.HTTP_400_BAD_REQUEST)
-
-        except EmailAddress.DoesNotExist:
+            return Response(serializer.data)
+        else:
             return Response(
-                "Please enter a valid email address", status=status.HTTP_400_BAD_REQUEST
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
             )
 
     def destroy(self, request, user_uuid=None, email=None):
-        try:
-            email_address = EmailAddress.objects.get(user=request.user, email=email)
-            if email_address.primary:
-                return Response(
-                    "You cannot remove your primary email address.",
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            else:
-                email_address.delete()
-                signals.email_removed.send(
-                    sender=request.user.__class__,
-                    request=request,
-                    user=request.user,
-                    email_address=email_address,
-                )
-                return Response("", status=status.HTTP_204_NO_CONTENT)
-        except EmailAddress.DoesNotExist:
+        email_address = self.get_object(email)
+        serializer = self.get_serializer(instance=email_address)
+
+        if serializer.is_valid_delete(email_address):
+            email_address.delete()
+            signals.email_removed.send(
+                sender=request.user.__class__,
+                request=request,
+                user=request.user,
+                email_address=email_address,
+            )
+            return Response("", status=status.HTTP_204_NO_CONTENT)
+        else:
             return Response(
-                "Please enter a valid email address", status=status.HTTP_400_BAD_REQUEST
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
             )
