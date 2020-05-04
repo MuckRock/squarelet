@@ -101,7 +101,8 @@ class PressPassEmailAddressViewSet(
         email_address = self.get_object(email)
         data = {
             "action": "delete",
-            "primary": email_address.primary
+            "primary": email_address.primary,
+            "email": email_address.email
         }
         serializer = self.get_serializer(instance=email_address, data=data)
 
