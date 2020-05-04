@@ -8,7 +8,7 @@ class PressPassEmailAddressSerializer(serializers.ModelSerializer):
         model = EmailAddress
         fields = ("email", "verified", "primary")
 
-    def validate(self, attrs):
+    def is_valid_update(self, attrs):
         request = self.context.get("request")
         if (
             not attrs["verified"]
@@ -21,3 +21,10 @@ class PressPassEmailAddressSerializer(serializers.ModelSerializer):
             )
 
         return attrs
+
+    def is_valid_delete(self, email):
+        if email.primary:
+            raise serializers.ValidationError(
+                "You cannot delete your primary email address."
+            )
+        return email
