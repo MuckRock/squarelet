@@ -69,9 +69,10 @@ class PressPassEmailAddressViewSet(
 
     def update(self, request, user_uuid=None, email=None, partial=False):
         email_address = self.get_object(email)
+        request.data["action"] = "update"
         serializer = self.get_serializer(instance=email_address, data=request.data)
 
-        if serializer.is_valid() and serializer.is_valid_update(request.data):
+        if serializer.is_valid():
             email_address.set_as_primary()
 
             try:
@@ -98,9 +99,13 @@ class PressPassEmailAddressViewSet(
 
     def destroy(self, request, user_uuid=None, email=None):
         email_address = self.get_object(email)
-        serializer = self.get_serializer(instance=email_address)
+        data = {
+            "action": "delete",
+            "primary": email_address.primary
+        }
+        serializer = self.get_serializer(instance=email_address, data=data)
 
-        if serializer.is_valid_delete(email_address):
+        if serializer.is_valid():
             email_address.delete()
             signals.email_removed.send(
                 sender=request.user.__class__,
