@@ -4,22 +4,23 @@ from django.shortcuts import get_object_or_404
 # Third Party
 from allauth.account import signals
 from allauth.account.forms import AddEmailForm
-from allauth.account.models import EmailAddress, EmailConfirmation, EmailConfirmationHMAC
-from rest_framework import mixins, status, viewsets
+from allauth.account.models import (
+    EmailAddress,
+    EmailConfirmation,
+    EmailConfirmationHMAC,
+)
+from rest_framework import mixins, status, views, viewsets
 from rest_framework.response import Response
 
 # Squarelet
 from squarelet.email_api.serializers import PressPassEmailAddressSerializer
 
 
-class PressPassEmailConfirmationViewSet(
-    mixins.UpdateModelMixin,
-    viewsets.GenericViewSet,
-):
+class PressPassEmailConfirmationUpdateView(views.APIView):
     queryset = EmailConfirmation.objects.none()
     lookup_field = "key"
 
-    def update(self, request, key=None, partial=False):
+    def patch(self, request, key=None):
         try:
             confirmation = EmailConfirmationHMAC.from_key(key)
             confirmation.confirm(self.request)
@@ -44,15 +45,10 @@ class PressPassEmailAddressViewSet(
     lookup_value_regex = "[^/]+"
     serializer_class = PressPassEmailAddressSerializer
 
-    def get_object(self, email):
-        return get_object_or_404(EmailAddress, email=email)
+    def get_queryset(self):
+        return EmailAddress.objects.filter(user=self.request.user)
 
-    def list(self, request, user_uuid=None):
-        queryset = EmailAddress.objects.filter(user=request.user)
-        serializer = PressPassEmailAddressSerializer(queryset, many=True)
-        return Response(serializer.data)
-
-    def create(self, request, user_uuid=None):
+    def create(self, request):
         # use allauth's form to create the email address
         form = AddEmailForm(data=request.data, user=request.user)
 
@@ -64,49 +60,36 @@ class PressPassEmailAddressViewSet(
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
             return Response(
-                "Please specify a valid email confirmation key", status=status.HTTP_400_BAD_REQUEST
+                "Please specify a valid email confirmation key",
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-    def update(self, request, user_uuid=None, email=None, partial=False):
-        email_address = self.get_object(email)
-        request.data["action"] = "update"
-        serializer = self.get_serializer(instance=email_address, data=request.data)
-
+    def perform_update(self, serializer):
         if serializer.is_valid():
-            email_address.set_as_primary()
-
-            try:
-                from_email_address = EmailAddress.objects.get(
-                    user=request.user, primary=True
-                )
-            except EmailAddress.DoesNotExist:
-                from_email_address = None
+            old_primary = EmailAddress.objects.get_primary(self.request.user)
+            serializer.instance.set_as_primary()
 
             signals.email_changed.send(
-                sender=request.user.__class__,
-                request=request,
-                user=request.user,
-                from_email_address=from_email_address,
-                to_email_address=email_address,
+                sender=self.request.user.__class__,
+                request=self.request,
+                user=self.request.user,
+                from_email_address=old_primary,
+                to_email_address=serializer.instance,
             )
 
             return Response(serializer.data)
         else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def destroy(self, request, email=None):
+        email_address = self.get_object()
+
+        if email_address.primary:
             return Response(
-                serializer.errors,
-                status=status.HTTP_400_BAD_REQUEST
+                "You cannot delete your primary email address",
+                status=status.HTTP_400_BAD_REQUEST,
             )
-
-    def destroy(self, request, user_uuid=None, email=None):
-        email_address = self.get_object(email)
-        data = {
-            "action": "delete",
-            "primary": email_address.primary,
-            "email": email_address.email
-        }
-        serializer = self.get_serializer(instance=email_address, data=data)
-
-        if serializer.is_valid():
+        else:
             email_address.delete()
             signals.email_removed.send(
                 sender=request.user.__class__,
@@ -115,8 +98,3 @@ class PressPassEmailAddressViewSet(
                 email_address=email_address,
             )
             return Response("", status=status.HTTP_204_NO_CONTENT)
-        else:
-            return Response(
-                serializer.errors,
-                status=status.HTTP_400_BAD_REQUEST
-            )
