@@ -1,6 +1,3 @@
-# Standard Library
-import json
-
 # Third Party
 import pytest
 from allauth.account.models import EmailAddress, EmailConfirmationHMAC
@@ -21,8 +18,8 @@ class TestPPEmailAPI:
         EmailFactory.create_batch(emails_for_other_users)
         response = api_client.get(f"/pp-api/emails/")
         assert response.status_code == status.HTTP_200_OK
-        response_json = json.loads(response.content)
-        assert len(response_json) == emails_for_user
+        response_json = response.json()
+        assert len(response_json["results"]) == emails_for_user
 
     def test_update(self, api_client, user, mocker):
         api_client.force_authenticate(user=user)
@@ -34,7 +31,8 @@ class TestPPEmailAPI:
             "squarelet.organizations.models.Organization.customer", default_source=None,
         )
         response = api_client.patch(
-            f"/pp-api/emails/{secondary_email.email}/", { "email": "secondary@gmail.com", "primary": True}
+            f"/pp-api/emails/{secondary_email.email}/",
+            {"email": "secondary@gmail.com", "primary": True},
         )
         assert response.status_code == status.HTTP_200_OK
         secondary_email.refresh_from_db()
@@ -47,7 +45,7 @@ class TestPPEmailAPI:
         test_email_address = "apicreated@gmail.com"
         response = api_client.post("/pp-api/emails/", {"email": test_email_address})
         assert response.status_code == status.HTTP_201_CREATED
-        response_json = json.loads(response.content)
+        response_json = response.json()
         assert response_json["email"] == test_email_address
         assert response_json["verified"] is False
         assert response_json["primary"] is False
@@ -64,11 +62,14 @@ class TestPPEmailAPI:
         assert len(emails) == 1
         assert emails.first() == primary_email
 
+
 @pytest.mark.django_db()
 class TestPPEmailConfirmationAPI:
     def test_update(self, api_client, user, mocker):
         api_client.force_authenticate(user=user)
-        unverified_email = EmailFactory(email="sketchy@gmail.com", user=user, verified=False)
+        unverified_email = EmailFactory(
+            email="sketchy@gmail.com", user=user, verified=False
+        )
         confirmation = EmailConfirmationHMAC(unverified_email)
         mocker.patch(
             "squarelet.organizations.models.Organization.customer", default_source=None,

@@ -10,21 +10,12 @@ class PressPassEmailAddressSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         request = self.context.get("request")
-        if request.data.get("action") == "update":
-            if (
-                not attrs["verified"]
-                and EmailAddress.objects.filter(
-                    user=request.user, verified=True
-                ).exists()
-            ):
-                raise serializers.ValidationError(
-                    "You can only make a verified email address primary."
-                )
-
-        if request.data.get("action") == "delete":
-            if request.data.get("primary"):
-                raise serializers.ValidationError(
-                    "You cannot delete your primary email address."
-                )
+        if (
+            not attrs["verified"]
+            and EmailAddress.objects.filter(user=request.user, verified=True).exists()
+        ):
+            raise serializers.ValidationError(
+                "You can only make a verified email address primary."
+            )
 
         return attrs

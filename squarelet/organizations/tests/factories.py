@@ -62,6 +62,7 @@ class CustomerFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = "organizations.Customer"
 
+
 class PressPassCustomerFactory(factory.django.DjangoModelFactory):
     organization = factory.SubFactory(
         "squarelet.organizations.tests.factories.OrganizationFactory",
@@ -72,6 +73,7 @@ class PressPassCustomerFactory(factory.django.DjangoModelFactory):
 
     class Meta:
         model = "organizations.Customer"
+
 
 class MembershipFactory(factory.django.DjangoModelFactory):
     user = factory.SubFactory("squarelet.users.tests.factories.UserFactory")
