@@ -1,6 +1,3 @@
-# Django
-from django.shortcuts import get_object_or_404
-
 # Third Party
 from allauth.account import signals
 from allauth.account.forms import AddEmailForm
@@ -48,7 +45,7 @@ class PressPassEmailAddressViewSet(
     def get_queryset(self):
         return EmailAddress.objects.filter(user=self.request.user)
 
-    def create(self, request):
+    def create(self, request, *args, **kwargs):
         # use allauth's form to create the email address
         form = AddEmailForm(data=request.data, user=request.user)
 
@@ -59,10 +56,7 @@ class PressPassEmailAddressViewSet(
             serializer = PressPassEmailAddressSerializer(email_address)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
-            return Response(
-                "Please specify a valid email confirmation key",
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return Response(form.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def perform_update(self, serializer):
         if serializer.is_valid():
@@ -81,7 +75,7 @@ class PressPassEmailAddressViewSet(
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def destroy(self, request, email=None):
+    def destroy(self, request, *args, **kwargs):
         email_address = self.get_object()
 
         if email_address.primary:
