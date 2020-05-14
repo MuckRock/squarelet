@@ -72,7 +72,9 @@ class AccountAdapter(DefaultAccountAdapter):
         }
         if source_site == furl(settings.PRESSPASS_URL).host:
             ctx["source"] = "presspass"
-            ctx["activate_url"] = f"{settings.PRESSPASS_URL}/profile/welcome"
+            ctx[
+                "activate_url"
+            ] = f"{settings.PRESSPASS_URL}/profile/welcome/{emailconfirmation.key}"
 
         if signup:
             email_template = "account/email/email_confirmation_signup"

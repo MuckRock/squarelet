@@ -16,7 +16,7 @@ class OrganizationFactory(factory.django.DjangoModelFactory):
     name = factory.Sequence(lambda n: f"org-{n}")
     slug = factory.LazyAttribute(lambda obj: slugify(obj.name))
     customer = factory.RelatedFactory(
-        "squarelet.organizations.tests.factories.CustomerFactory", "organization"
+        "squarelet.organizations.tests.factories.CustomerFactory", "organization",
     )
 
     class Meta:
@@ -58,6 +58,18 @@ class CustomerFactory(factory.django.DjangoModelFactory):
     )
     stripe_account = StripeAccounts.muckrock
     customer_id = factory.Sequence(lambda n: f"customer-{n}")
+
+    class Meta:
+        model = "organizations.Customer"
+
+
+class PressPassCustomerFactory(factory.django.DjangoModelFactory):
+    organization = factory.SubFactory(
+        "squarelet.organizations.tests.factories.OrganizationFactory",
+        customer=factory.SelfAttribute("."),
+    )
+    stripe_account = StripeAccounts.presspass
+    customer_id = factory.Sequence(lambda n: f"presspass-customer-{n}")
 
     class Meta:
         model = "organizations.Customer"

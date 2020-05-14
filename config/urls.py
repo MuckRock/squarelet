@@ -3,7 +3,6 @@ from django.conf import settings
 from django.conf.urls import url
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.http import HttpResponse
 from django.urls import include, path
 from django.views import defaults as default_views
 from django.views.generic import TemplateView
@@ -17,6 +16,10 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 # Squarelet
 from squarelet.core.views import HomeView
+from squarelet.email_api.viewsets import (
+    PressPassEmailAddressViewSet,
+    PressPassEmailConfirmationUpdateView,
+)
 from squarelet.oidc.viewsets import ClientViewSet
 from squarelet.organizations.viewsets import (
     ChargeViewSet,
@@ -64,6 +67,7 @@ presspass_router.register("organizations", PressPassOrganizationViewSet)
 presspass_router.register("invitations", PressPassInvitationViewSet)
 presspass_router.register("plans", PressPassPlanViewSet)
 presspass_router.register("entitlements", PressPassEntitlementViewSet)
+presspass_router.register("emails", PressPassEmailAddressViewSet)
 
 organization_router = routers.NestedDefaultRouter(
     presspass_router, "organizations", lookup="organization"
@@ -101,6 +105,11 @@ urlpatterns = [
     path("pp-api/", include(presspass_router.urls)),
     path("pp-api/", include(organization_router.urls)),
     path("pp-api/", include(user_router.urls)),
+    path(
+        "pp-api/verify/<key>/",
+        PressPassEmailConfirmationUpdateView.as_view(),
+        name="presspass_email_confirm",
+    ),
     # Swagger
     path("swagger<format>", SchemaView.without_ui(cache_timeout=0), name="schema-json"),
     path(
