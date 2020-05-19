@@ -13,6 +13,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='user',
             name='source',
-            field=models.CharField(choices=[('muckrock', 'MuckRock'), ('documentcloud', 'DocumentCloud'), ('foiamachine', 'FOIA Machine'), ('quackbot', 'QuackBot'), ('squarelet', 'Squarelet'), ('presspass', 'PressPass')], default='squarelet', help_text='Which service did this user originally sign up for?', max_length=11, verbose_name='source'),
+            field=models.CharField(choices=[('muckrock', 'MuckRock'), ('documentcloud', 'DocumentCloud'), ('foiamachine', 'FOIA Machine'), ('quackbot', 'QuackBot'), ('squarelet', 'Squarelet'), ('presspass', 'PressPass')], default='squarelet', help_text='Which service did this user originally sign up for?', max_length=13, verbose_name='source'),
         ),
     ]
