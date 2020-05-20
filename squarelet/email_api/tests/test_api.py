@@ -23,12 +23,14 @@ class TestPPEmailAPI:
 
     def test_update(self, api_client, user, mocker):
         api_client.force_authenticate(user=user)
-        primary_email = EmailFactory(email="primary@gmail.com", user=user, primary=True)
+        primary_email = EmailFactory(
+            email="primary@gmail.com", user=user, primary=True, verified=True
+        )
         secondary_email = EmailFactory(
-            email="secondary@gmail.com", user=user, primary=False
+            email="secondary@gmail.com", user=user, primary=False, verified=True
         )
         mocker.patch(
-            "squarelet.organizations.models.Organization.customer", default_source=None,
+            "squarelet.organizations.models.Organization.customer", default_source=None
         )
         response = api_client.patch(
             f"/pp-api/emails/{secondary_email.email}/",
@@ -39,6 +41,23 @@ class TestPPEmailAPI:
         assert secondary_email.primary
         primary_email.refresh_from_db()
         assert not primary_email.primary
+
+    def test_update_bad(self, api_client, user, mocker):
+        api_client.force_authenticate(user=user)
+        primary_email = EmailFactory(
+            email="primary@gmail.com", user=user, primary=True, verified=True
+        )
+        secondary_email = EmailFactory(
+            email="secondary@gmail.com", user=user, primary=False, verified=False
+        )
+        mocker.patch(
+            "squarelet.organizations.models.Organization.customer", default_source=None
+        )
+        response = api_client.patch(
+            f"/pp-api/emails/{secondary_email.email}/",
+            {"email": "secondary@gmail.com", "primary": True},
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_create(self, api_client, user):
         api_client.force_authenticate(user=user)
@@ -72,7 +91,7 @@ class TestPPEmailConfirmationAPI:
         )
         confirmation = EmailConfirmationHMAC(unverified_email)
         mocker.patch(
-            "squarelet.organizations.models.Organization.customer", default_source=None,
+            "squarelet.organizations.models.Organization.customer", default_source=None
         )
         response = api_client.patch(
             f"/pp-api/verify/{confirmation.key}/", {"verified": True}

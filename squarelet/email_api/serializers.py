@@ -11,7 +11,7 @@ class PressPassEmailAddressSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         request = self.context.get("request")
         if (
-            not attrs["verified"]
+            not self.instance.verified
             and EmailAddress.objects.filter(user=request.user, verified=True).exists()
         ):
             raise serializers.ValidationError(
