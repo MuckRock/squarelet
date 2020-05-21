@@ -1,5 +1,6 @@
 # Django
 from django.conf import settings
+from django.contrib.auth.models import AnonymousUser
 from django.db import models
 from django.db.models import Q
 from django.utils.timezone import get_current_timezone
@@ -67,6 +68,9 @@ class PlanQuerySet(models.QuerySet):
         else:
             return self.filter(public=True)
 
+    def get_public(self):
+        return self.get_viewable(AnonymousUser())
+
     def choices(self, organization, stripe_account=None):
         """Return the plan choices for the given organization"""
         if organization.individual:
@@ -100,6 +104,9 @@ class EntitlementQuerySet(models.QuerySet):
             return self.filter(Q(plans__public=True) | Q(client__owner=user)).distinct()
         else:
             return self.filter(plans__public=True)
+
+    def get_public(self):
+        return self.get_viewable(AnonymousUser())
 
     def get_subscribed(self, user):
         if user.is_authenticated:
