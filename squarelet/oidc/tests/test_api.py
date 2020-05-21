@@ -117,7 +117,7 @@ class TestClientAPI:
         user = user_factory(is_staff=False)
         api_client.force_authenticate(user=user)
         response = api_client.get(f"/pp-api/clients/{client.pk}/")
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_update(self, api_client, client):
         """Test updating a client"""
