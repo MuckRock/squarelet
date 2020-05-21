@@ -43,7 +43,7 @@ class PressPassEmailAddressViewSet(
     serializer_class = PressPassEmailAddressSerializer
 
     def get_queryset(self):
-        return EmailAddress.objects.filter(user=self.request.user)
+        return EmailAddress.objects.filter(user=self.request.user).order_by("email")
 
     def create(self, request, *args, **kwargs):
         # use allauth's form to create the email address
