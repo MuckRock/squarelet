@@ -203,7 +203,8 @@ class TestPPInvitationAPI:
         size = 10
         InvitationFactory.create_batch(size, user=user, organization=organization)
         response = api_client.get(
-            f"/pp-api/organizations/{organization.uuid}/invitations/?expand=organization"
+            f"/pp-api/organizations/{organization.uuid}/invitations/"
+            f"?expand=organization"
         )
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
@@ -217,7 +218,8 @@ class TestPPInvitationAPI:
         size = 10
         InvitationFactory.create_batch(size, user=user, organization=organization)
         response = api_client.get(
-            f"/pp-api/organizations/{organization.uuid}/invitations/?expand=organization,user"
+            f"/pp-api/organizations/{organization.uuid}/invitations/"
+            f"?expand=organization,user"
         )
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)

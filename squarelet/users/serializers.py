@@ -156,5 +156,7 @@ class PressPassUserWriteSerializer(RegisterSerializer):
     password data to the user manager
     """
 
+    # pylint: disable=abstract-method
+
     password1 = serializers.CharField()
     password2 = serializers.CharField()
