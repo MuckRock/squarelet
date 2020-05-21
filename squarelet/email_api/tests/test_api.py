@@ -44,9 +44,7 @@ class TestPPEmailAPI:
 
     def test_update_bad(self, api_client, user, mocker):
         api_client.force_authenticate(user=user)
-        primary_email = EmailFactory(
-            email="primary@gmail.com", user=user, primary=True, verified=True
-        )
+        EmailFactory(email="primary@gmail.com", user=user, primary=True, verified=True)
         secondary_email = EmailFactory(
             email="secondary@gmail.com", user=user, primary=False, verified=False
         )

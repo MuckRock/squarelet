@@ -210,7 +210,7 @@ class PressPassPlanViewSet(viewsets.ReadOnlyModelViewSet):
             choices=StripeAccounts.choices, field_name="stripe_account"
         )
 
-        def organization_choices(self, queryset, name, value):
+        def organization_choices(self, queryset, _name, value):
             return queryset.choices(value)
 
         class Meta:
