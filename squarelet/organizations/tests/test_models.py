@@ -30,7 +30,9 @@ class TestOrganization:
 
     @pytest.mark.django_db(transaction=True)
     def test_save(self, organization_factory, mocker):
-        mocked = mocker.patch("squarelet.organizations.models.send_cache_invalidations")
+        mocked = mocker.patch(
+            "squarelet.organizations.models.organization.send_cache_invalidations"
+        )
         organization = organization_factory()
         mocked.assert_called_with("organization", organization.uuid)
 
@@ -150,9 +152,11 @@ class TestOrganization:
             "squarelet.organizations.models.Organization.customer",
             return_value=customer,
         )
-        mocked_save = mocker.patch("squarelet.organizations.models.Organization.save")
+        mocked_save = mocker.patch(
+            "squarelet.organizations.models.organization.Organization.save"
+        )
         mocked_sci = mocker.patch(
-            "squarelet.organizations.models.send_cache_invalidations"
+            "squarelet.organizations.models.organization.send_cache_invalidations"
         )
         organization = organization_factory.build()
         organization.save_card(token, StripeAccounts.muckrock)
@@ -388,13 +392,17 @@ class TestMembership:
 
     @pytest.mark.django_db(transaction=True)
     def test_save(self, membership_factory, mocker):
-        mocked = mocker.patch("squarelet.organizations.models.send_cache_invalidations")
+        mocked = mocker.patch(
+            "squarelet.organizations.models.organization.send_cache_invalidations"
+        )
         membership = membership_factory()
         mocked.assert_called_with("user", membership.user.uuid)
 
     @pytest.mark.django_db(transaction=True)
     def test_save_delete(self, membership_factory, mocker):
-        mocked = mocker.patch("squarelet.organizations.models.send_cache_invalidations")
+        mocked = mocker.patch(
+            "squarelet.organizations.models.organization.send_cache_invalidations"
+        )
         membership = membership_factory()
         mocked.assert_called_with("user", membership.user.uuid)
         mocked.reset_mock()
