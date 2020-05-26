@@ -494,18 +494,18 @@ class Entitlement(models.Model):
     name = models.CharField(
         _("name"), max_length=255, help_text=_("The entitlement's name")
     )
-    slug = AutoSlugField(
-        _("slug"),
-        populate_from=entitlement_slug,
-        unique=True,
-        help_text=_("A unique slug to identify the plan"),
-    )
     client = models.ForeignKey(
         verbose_name=_("client"),
         to="oidc_provider.Client",
         on_delete=models.CASCADE,
         related_name="entitlements",
         help_text=_("Client this entitlement grants access to"),
+    )
+    slug = AutoSlugField(
+        _("slug"),
+        populate_from="name",
+        unique_with="client",
+        help_text=_("A slug to identify the plan"),
     )
     description = models.TextField(
         _("description"),
@@ -522,7 +522,7 @@ class Entitlement(models.Model):
     objects = EntitlementQuerySet.as_manager()
 
     class Meta:
-        unique_together = ("name", "client")
+        unique_together = [("name", "client"), ("slug", "client")]
         ordering = ("slug",)
 
     def __str__(self):
