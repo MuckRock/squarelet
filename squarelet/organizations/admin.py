@@ -1,5 +1,7 @@
 # Django
 from django.contrib import admin
+from django.urls import reverse
+from django.utils.safestring import mark_safe
 
 # Third Party
 from reversion.admin import VersionAdmin
@@ -17,6 +19,7 @@ from squarelet.organizations.models import (
     ReceiptEmail,
     Subscription,
 )
+from squarelet.users.models import User
 
 
 class SubscriptionInline(admin.TabularInline):
@@ -52,8 +55,28 @@ class InvitationInline(admin.TabularInline):
 class OrganizationAdmin(VersionAdmin):
     list_display = ("name", "individual", "private", "verified_journalist")
     list_filter = ("individual", "private", "verified_journalist")
-    search_fields = ("name",)
-    readonly_fields = ("max_users", "customer_id", "subscription_id")
+    search_fields = ("name", "users__username")
+    fields = (
+        "uuid",
+        "name",
+        "slug",
+        "created_at",
+        "updated_at",
+        "avatar",
+        "individual",
+        "private",
+        "verified_journalist",
+        "max_users",
+        "payment_failed",
+    )
+    readonly_fields = (
+        "uuid",
+        "slug",
+        "max_users",
+        "created_at",
+        "updated_at",
+        "individual",
+    )
     save_on_top = True
     inlines = (
         SubscriptionInline,
@@ -62,6 +85,29 @@ class OrganizationAdmin(VersionAdmin):
         ReceiptEmailInline,
         InvitationInline,
     )
+
+    def get_fields(self, request, obj=None):
+        """Only add user link for individual organizations"""
+        if obj and obj.individual:
+            return ("user_link",) + self.fields
+        else:
+            return self.fields
+
+    def get_readonly_fields(self, request, obj=None):
+        """Only add user link for individual organizations"""
+        if obj and obj.individual:
+            return ("user_link",) + self.readonly_fields
+        else:
+            return self.readonly_fields
+
+    @mark_safe
+    def user_link(self, obj):
+        """Link to the individual org's user"""
+        user = User.objects.get(uuid=obj.uuid)
+        link = reverse("admin:users_user_change", args=(user.pk,))
+        return '<a href="%s">%s</a>' % (link, user.username)
+
+    user_link.short_description = "User"
 
 
 @admin.register(Plan)
