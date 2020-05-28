@@ -97,7 +97,6 @@ class PressPassUserViewSet(
     mixins.ListModelMixin,
     viewsets.GenericViewSet,
 ):
-    # XXX how do we want to limit user access?
     queryset = User.objects.all()
     permission_classes = (DjangoObjectPermissions,)
     lookup_field = "uuid"

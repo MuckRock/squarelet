@@ -30,7 +30,6 @@ class TestClientAPI:
 
     def test_list_nonadmin(self, api_client, user_factory):
         """List your clients succeeds for non-admins"""
-        # XXX You switched this to work for non-admins
         user = user_factory(is_staff=False)
         api_client.force_authenticate(user=user)
         response = api_client.get(f"/pp-api/clients/")

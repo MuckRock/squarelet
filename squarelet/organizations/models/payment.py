@@ -282,7 +282,7 @@ class Plan(models.Model):
         default=True,
         help_text=_("Is this plan usable for non-individual organizations?"),
     )
-    # XXX remove
+    # remove
     requires_updates = models.BooleanField(
         _("requires updates"),
         default=True,

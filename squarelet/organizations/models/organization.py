@@ -81,7 +81,7 @@ class Organization(AvatarMixin, models.Model):
         help_text=_("The user's in this organization"),
     )
 
-    # XXX remove these
+    # remove these
     _plan = models.ForeignKey(
         verbose_name=_("plan"),
         to="organizations.Plan",
@@ -105,7 +105,7 @@ class Organization(AvatarMixin, models.Model):
         blank=True,
         null=True,
     )
-    # XXX remove these
+    # end remove these
 
     plans = models.ManyToManyField(
         verbose_name=_("plans"),
@@ -140,7 +140,7 @@ class Organization(AvatarMixin, models.Model):
         default=5,
         help_text=_("The maximum number of users in this organization"),
     )
-    # XXX move this to subscription
+    # this moved to subscription, remove
     update_on = models.DateField(
         _("date update"),
         null=True,
@@ -149,7 +149,7 @@ class Organization(AvatarMixin, models.Model):
     )
 
     # stripe
-    # XXX move to customer
+    # moved to customer, remove
     customer_id = models.CharField(
         _("customer id"),
         max_length=255,
@@ -158,7 +158,7 @@ class Organization(AvatarMixin, models.Model):
         null=True,
         help_text=_("The organization's corresponding ID on stripe"),
     )
-    # XXX move to subscription
+    # move to subscription, remove
     subscription_id = models.CharField(
         _("subscription id"),
         max_length=255,
@@ -167,8 +167,7 @@ class Organization(AvatarMixin, models.Model):
         null=True,
         help_text=_("The organization's corresponding subscription ID on stripe"),
     )
-    # XXX should this be moved to customer?
-    # XXX should have better card management functionality
+    # should this be moved to customer?
     payment_failed = models.BooleanField(
         _("payment failed"),
         default=False,

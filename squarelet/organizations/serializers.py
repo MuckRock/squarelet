@@ -23,7 +23,7 @@ from squarelet.organizations.models import (
 
 class OrganizationSerializer(serializers.ModelSerializer):
     uuid = serializers.UUIDField(required=False)
-    # XXX remove plan once muckrock is updated to handle entitlements
+    # remove plan once all clients are updated to handle entitlements
     plan = serializers.SerializerMethodField()
     entitlements = serializers.SerializerMethodField()
     card = serializers.SerializerMethodField()
