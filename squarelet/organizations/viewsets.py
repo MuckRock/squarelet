@@ -34,7 +34,7 @@ from squarelet.users.models import User
 
 
 class OrganizationViewSet(viewsets.ModelViewSet):
-    # XXX remove _plan after muckrock is updated
+    # remove _plan after clients are updated
     queryset = Organization.objects.select_related("_plan")
     serializer_class = OrganizationSerializer
     permission_classes = (ScopePermission | IsAdminUser,)
