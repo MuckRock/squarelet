@@ -75,20 +75,41 @@ http {
 		server unix:/tmp/nginx.socket fail_timeout=0;
  	}
 
+    <% if ENV.key?("PRESSPASS_DOMAIN") %>
+        server {
+            listen <%= ENV["PORT"] %>;
+            server_name <% ENV["PRESSPASS_DOMAIN"] %>;
+            keepalive_timeout 5;
+            limit_req zone=one burst=20 nodelay;
+            if ($http_host ~ "\.$" ){
+                rewrite ^(.*) $scheme://$host$1 permanent;
+            }
+
+            location /pp-api/ {
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header Host $http_host;
+                proxy_redirect off;
+                proxy_pass http://app_server;
+            }
+            location /openid/ {
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header Host $http_host;
+                proxy_redirect off;
+                proxy_pass http://app_server;
+            }
+        }
+    <% end %>
+
 	server {
-		listen <%= ENV["PORT"] %>;
+		listen <%= ENV["PORT"] %> default_server;
 		server_name _;
 		keepalive_timeout 5;
 		limit_req zone=one burst=20 nodelay;
 		if ($http_host ~ "\.$" ){
 			rewrite ^(.*) $scheme://$host$1 permanent;
 		}
-        # rewrite these once we know the url
-		if ($host = 'muckrock.com') {
-			rewrite ^ https://www.muckrock.com$request_uri? permanent;
-		}
-		if ($host = 'muckrock.herokuapp.com') {
-			rewrite ^ https://www.muckrock.com$request_uri? permanent;
+		if ($host = 'squarelet.herokuapp.com') {
+			rewrite ^ https://accounts.muckrock.com$request_uri? permanent;
 		}
 
 		location /.well-known/ {
