@@ -36,8 +36,11 @@ def redo_proxy(apps, schema_editor):
             "proxy": True,
         },
     )
-    proxy_plan = Plan.objects.get(name="Proxy")
-    proxy_plan.entitlements.set([proxy_entitlement])
+    try:
+        proxy_plan = Plan.objects.get(name="Proxy")
+        proxy_plan.entitlements.set([proxy_entitlement])
+    except Plan.DoesNotExist:
+        pass
 
 
 class Migration(migrations.Migration):
