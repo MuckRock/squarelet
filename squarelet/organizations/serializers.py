@@ -46,6 +46,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "updated_at",
             "payment_failed",
             "avatar_url",
+            "update_on",
         )
 
     def get_plan(self, obj):
