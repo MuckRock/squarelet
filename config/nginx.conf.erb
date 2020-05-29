@@ -78,7 +78,7 @@ http {
     <% if ENV.key?("PRESSPASS_DOMAIN") %>
         server {
             listen <%= ENV["PORT"] %>;
-            server_name <% ENV["PRESSPASS_DOMAIN"] %>;
+            server_name <%= ENV["PRESSPASS_DOMAIN"] %>;
             keepalive_timeout 5;
             limit_req zone=one burst=20 nodelay;
             if ($http_host ~ "\.$" ){
