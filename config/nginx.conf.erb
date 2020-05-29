@@ -85,6 +85,9 @@ http {
                 rewrite ^(.*) $scheme://$host$1 permanent;
             }
 
+            proxy_intercept_errors on;
+            error_page 404 =302 <%= ENV["PRESSPASS_URL"] %>/404;
+
             location /pp-api/ {
                 proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
                 proxy_set_header Host $http_host;
