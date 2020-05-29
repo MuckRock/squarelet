@@ -70,7 +70,7 @@ class AccountAdapter(DefaultAccountAdapter):
             "key": emailconfirmation.key,
             "source": "muckrock",
         }
-        if source_site == furl(settings.PRESSPASS_URL).host:
+        if source_site == furl(settings.PRESSPASS_API_URL).host:
             ctx["source"] = "presspass"
             ctx[
                 "activate_url"
