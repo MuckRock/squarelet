@@ -25,6 +25,8 @@ class OrganizationSerializer(serializers.ModelSerializer):
     uuid = serializers.UUIDField(required=False)
     # remove plan once all clients are updated to handle entitlements
     plan = serializers.SerializerMethodField()
+    # remove update_on once all clients are updated to handle entitlements
+    update_on = serializers.SerializerMethodField()
     entitlements = serializers.SerializerMethodField()
     card = serializers.SerializerMethodField()
 
@@ -48,6 +50,9 @@ class OrganizationSerializer(serializers.ModelSerializer):
 
     def get_plan(self, obj):
         return obj.plan.slug if obj.plan else "free"
+
+    def get_update_on(self, _obj):
+        return None
 
     def get_entitlements(self, obj):
         request = self.context.get("request")
