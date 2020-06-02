@@ -481,7 +481,10 @@ class Invitation(models.Model):
                 organization=self.organization,
                 organization_to=ORG_TO_ADMINS,
                 source=source,
-                extra_context={"joiner": self.user},
+                extra_context={
+                    "joiner": self.user,
+                    "presspass_url": settings.PRESSPASS_URL
+                },
             )
         else:
             send_mail(
@@ -489,7 +492,10 @@ class Invitation(models.Model):
                 template="organizations/email/invitation.html",
                 to=[self.email],
                 source=source,
-                extra_context={"invitation": self},
+                extra_context={
+                    "invitation": self,
+                    "presspass_url": settings.PRESSPASS_URL
+                },
             )
 
     @transaction.atomic
