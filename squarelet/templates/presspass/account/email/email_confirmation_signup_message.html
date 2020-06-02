@@ -10,15 +10,11 @@
 {% autologin url_password user as url_password_ %}
 {% blocktrans with username=user.username %}
 <p>
-  Just a reminder, your username is
-  <a href="{{ url_user_ }}">
-    {{ username }} </a
-  >.
+  Just a reminder, your username is {{ username }}
 </p>
-<p>{{ settings.PRESSPASS_URL }}</p>
 <p>
   We ask that you please
-  <a href="{{ activate_url }}">verify your email</a>. 
+  <a href="{{ activate_url }}">verify your email</a>.
 </p>
 {% endblocktrans %}
 {% if minireg %}

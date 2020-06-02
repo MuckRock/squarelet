@@ -74,7 +74,7 @@ class AccountAdapter(DefaultAccountAdapter):
             ctx["source"] = "presspass"
             ctx[
                 "activate_url"
-            ] = f"{settings.PRESSPASS_URL}/profile/welcome/{emailconfirmation.key}"
+            ] = f"{settings.PRESSPASS_URL}/#/profile/welcome/{emailconfirmation.key}"
 
         if signup:
             email_template = "account/email/email_confirmation_signup"
