@@ -483,7 +483,6 @@ class Invitation(models.Model):
                 source=source,
                 extra_context={
                     "joiner": self.user,
-                    "presspass_url": settings.PRESSPASS_URL
                 },
             )
         else:
@@ -494,7 +493,6 @@ class Invitation(models.Model):
                 source=source,
                 extra_context={
                     "invitation": self,
-                    "presspass_url": settings.PRESSPASS_URL
                 },
             )
 
