@@ -2,14 +2,14 @@
 {% load i18n %}
 
 {% block body %}
-  {% blocktrans with name=joiner.name username=joiner.username email=joiner.email %}
+  {% blocktrans with name=joiner.name username=joiner.username email=joiner.email organization_uuid=organization.uuid %}
     <p>
       The user
         {{ name }} ({{ username }}) &lt;{{ email }}&gt;
       has requested to join your organization,
-      <a href="{{ presspass_url }}/#/organizations/{{ organization.uuid }}">{{ organization }}</a>.
+      <a href="{{ presspass_url }}/#/organizations/{{ organization_uuid }}">{{ organization }}</a>.
       You may accept or reject them
-      <a href="{{ presspass_url }}/#/organizations/{{ organization.uuid }}/manage">here</a>.
+      <a href="{{ presspass_url }}/#/organizations/{{ organization_uuid }}/manage">here</a>.
     </p>
   {% endblocktrans %}
 {% endblock %}
