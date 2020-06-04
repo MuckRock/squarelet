@@ -63,6 +63,7 @@ class Email(EmailMultiAlternatives):
         if source == "presspass":
             self.from_email = settings.PRESSPASS_FROM_EMAIL
             template = "presspass/" + template
+            extra_context["presspass_url"] = settings.PRESSPASS_URL
 
         context = {
             "base_url": settings.SQUARELET_URL,
