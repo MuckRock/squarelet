@@ -42,7 +42,8 @@ class UserViewSet(viewsets.ModelViewSet):
     permission_classes = (ScopePermission | IsAdminUser,)
     read_scopes = ("read_user",)
     write_scopes = ("write_user",)
-    lookup_field = "uuid"
+    lookup_field = "individual_organization_id"
+    lookup_url_kwarg = "uuid"
     swagger_schema = None
 
     def get_serializer_class(self):
@@ -84,7 +85,7 @@ class UrlAuthTokenViewSet(viewsets.ViewSet):
     def retrieve(self, request, pk=None):
         # pylint: disable=invalid-name
         try:
-            user = get_object_or_404(User, uuid=pk)
+            user = get_object_or_404(User, individual_organization_id=pk)
         except ValidationError:
             raise Http404
         return Response(sesame.utils.get_parameters(user))
@@ -99,7 +100,8 @@ class PressPassUserViewSet(
 ):
     queryset = User.objects.all()
     permission_classes = (DjangoObjectPermissions,)
-    lookup_field = "uuid"
+    lookup_field = "individual_organization_id"
+    lookup_url_kwarg = "uuid"
     serializer_class = PressPassUserSerializer
 
     def get_object(self):

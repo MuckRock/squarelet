@@ -103,7 +103,7 @@ class OrganizationAdmin(VersionAdmin):
     @mark_safe
     def user_link(self, obj):
         """Link to the individual org's user"""
-        user = User.objects.get(uuid=obj.uuid)
+        user = User.objects.get(individual_organization_id=obj.uuid)
         link = reverse("admin:users_user_change", args=(user.pk,))
         return '<a href="%s">%s</a>' % (link, user.username)
 

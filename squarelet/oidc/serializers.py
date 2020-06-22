@@ -34,6 +34,4 @@ class ClientSerializer(serializers.ModelSerializer):
         }
 
     def get_owner(self, obj):
-        # using the alias field `uuid` here instead of individual_organization_id
-        # breaks only during testing for some reason
-        return str(obj.owner.individual_organization_id)
+        return str(obj.owner.uuid)

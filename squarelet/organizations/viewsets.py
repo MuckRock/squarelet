@@ -112,7 +112,7 @@ class PressPassMembershipViewSet(
     queryset = Membership.objects.none()
     serializer_class = PressPassMembershipSerializer
     permission_classes = (DjangoObjectPermissionsOrAnonReadOnly,)
-    lookup_field = "user__uuid"
+    lookup_field = "user__individual_organization_id"
 
     def get_queryset(self):
         """Only fetch both organizations and memberships viewable to this user"""
@@ -224,7 +224,7 @@ class PressPassUserInvitationViewSet(mixins.ListModelMixin, viewsets.GenericView
     queryset = Invitation.objects.none()
     serializer_class = PressPassUserInvitationsSerializer
     permission_classes = (DjangoObjectPermissions,)
-    lookup_field = "user__uuid"
+    lookup_field = "user__individual_organization_id"
 
     def get_queryset(self):
         user = self.request.user
@@ -241,7 +241,7 @@ class PressPassUserMembershipViewSet(mixins.ListModelMixin, viewsets.GenericView
     queryset = Membership.objects.none()
     serializer_class = PressPassUserMembershipsSerializer
     permission_classes = (DjangoObjectPermissions,)
-    lookup_field = "user__uuid"
+    lookup_field = "user__individual_organization_id"
 
     def get_queryset(self):
         user = self.request.user

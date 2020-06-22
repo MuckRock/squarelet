@@ -78,7 +78,11 @@ class TestPPUserAPI:
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         serializer = PressPassUserSerializer(user)
-        assert response_json == serializer.data
+        for key, value in response_json.items():
+            if key == "uuid":
+                assert value == str(serializer.data[key])
+            else:
+                assert value == serializer.data[key]
 
     def test_update(self, api_client, user):
         """Test updating a user"""
