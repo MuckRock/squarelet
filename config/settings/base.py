@@ -2,6 +2,9 @@
 Base settings to build other settings files upon.
 """
 
+# Standard Library
+from datetime import timedelta
+
 # Third Party
 import environ
 
@@ -437,6 +440,9 @@ SIMPLE_JWT = {
     # These are set in `users/apps.py` as they need to fetch from the database
     "SIGNING_KEY": "",
     "VERIFYING_KEY": "",
+    # These are used for testing token expiration
+    # "ACCESS_TOKEN_LIFETIME": timedelta(seconds=2),
+    # "REFRESH_TOKEN_LIFETIME": timedelta(seconds=5),
 }
 
 # django-rest-auth
