@@ -15,6 +15,7 @@ import stripe
 from squarelet.core.mail import ORG_TO_ADMINS, send_mail
 from squarelet.core.models import Interval
 from squarelet.oidc.middleware import send_cache_invalidations
+from squarelet.organizations.choices import StripeAccounts
 from squarelet.organizations.models import Charge, Organization, Subscription
 
 logger = logging.getLogger(__name__)
@@ -57,7 +58,10 @@ def handle_charge_succeeded(charge_data):
 
     if charge_data["invoice"]:
         # fetch the invoice from stripe if one associated with the charge
-        invoice = stripe.Invoice.retrieve(charge_data["invoice"])
+        invoice = stripe.Invoice.retrieve(
+            charge_data["invoice"],
+            api_key=settings.STRIPE_SECRET_KEYS[StripeAccounts.muckrock],
+        )
         invoice_line = invoice["lines"]["data"][0]
 
     def get_description():
@@ -68,7 +72,10 @@ def handle_charge_succeeded(charge_data):
             if "name" in invoice_line["plan"]:
                 return invoice_line["plan"]["name"]
             else:
-                return stripe.Product.retrieve(invoice_line["plan"]["product"])["name"]
+                return stripe.Product.retrieve(
+                    invoice_line["plan"]["product"],
+                    api_key=settings.STRIPE_SECRET_KEYS[StripeAccounts.muckrock],
+                )["name"]
         else:
             return charge_data["description"]
 
