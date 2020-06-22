@@ -180,5 +180,6 @@ class Command(BaseCommand):
                         user_obj.uuid,
                         user_obj.username,
                         user_obj.individual_organization.slug,
+                        created,
                     ]
                 )
