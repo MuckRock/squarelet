@@ -18,7 +18,7 @@ from squarelet.oidc.middleware import (
     delete_cache_invalidation_set,
     init_cache_invalidation_set,
 )
-from squarelet.organizations.models import Membership, Organization, Plan
+from squarelet.organizations.models import Membership, Organization
 from squarelet.users.models import User
 from squarelet.users.serializers import UserWriteSerializer
 
@@ -62,7 +62,7 @@ class Command(BaseCommand):
                     ]
                 )
             if organization.user_count() > organization.max_users:
-                if organization.plan.free():
+                if organization.plan.free:
                     organization.max_users = organization.user_count()
                     organization.save()
                 else:
@@ -81,7 +81,6 @@ class Command(BaseCommand):
 
     def import_org(self):
         self.stdout.write("Begin Organization Import {}".format(timezone.now()))
-        plan = Plan.objects.get(slug="free")
         with smart_open(
             f"{self.bucket_path}organizations.csv", "r"
         ) as infile, smart_open(
@@ -102,8 +101,6 @@ class Command(BaseCommand):
                 org = Organization.objects.create(
                     name=fields[1],
                     slug=fields[2],
-                    plan=plan,
-                    next_plan=plan,
                     individual=False,
                     private=fields[9] == "t",
                     verified_journalist=True,
