@@ -1,6 +1,7 @@
 # Django
 from celery.schedules import crontab
 from celery.task import periodic_task, task
+from django.conf import settings
 from django.utils.timezone import get_current_timezone
 from django.utils.translation import ugettext_lazy as _
 

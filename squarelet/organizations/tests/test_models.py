@@ -7,7 +7,6 @@ from unittest.mock import Mock, PropertyMock
 
 # Third Party
 import pytest
-import stripe
 
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason, StripeAccounts
@@ -132,6 +131,8 @@ class TestOrganization:
         mocker.patch("squarelet.organizations.models.Organization.email", email)
         organization = organization_factory(customer=None)
         customer = organization.customer(StripeAccounts.muckrock)
+        assert customer.stripe_customer
+        customer.refresh_from_db()
         assert customer.customer_id == customer_id
         assert customer.stripe_account == StripeAccounts.muckrock
         assert customer.organization == organization
@@ -300,27 +301,24 @@ class TestCustomer:
             customer_id, api_key=settings.STRIPE_SECRET_KEYS[StripeAccounts.muckrock]
         )
 
+    @pytest.mark.django_db()
     def test_customer_new(self, customer_factory, mocker):
         customer_id = "customer_id"
         mock_customer = Mock(id=customer_id)
-        mocker.patch(
-            "stripe.Customer.retrieve",
-            side_effect=stripe.error.InvalidRequestError(None, None),
-        )
         mocked_create = mocker.patch(
             "stripe.Customer.create", return_value=mock_customer
         )
         email = "email@example.com"
         mocker.patch("squarelet.organizations.models.Organization.email", email)
-        mocked_save = mocker.patch("squarelet.organizations.models.Customer.save")
-        customer = customer_factory.build()
+        customer = customer_factory(customer_id=None)
         assert mock_customer == customer.stripe_customer
         mocked_create.assert_called_with(
             description=customer.organization.name,
             email=email,
             api_key=settings.STRIPE_SECRET_KEYS[StripeAccounts.muckrock],
         )
-        mocked_save.assert_called_once()
+        customer.refresh_from_db()
+        assert customer.customer_id == customer_id
 
     def test_card_existing(self, customer_factory, mocker):
         default_source = "default_source"

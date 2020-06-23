@@ -1,7 +1,7 @@
 # Django
 from django.conf import settings
 from django.contrib.postgres.fields import JSONField
-from django.db import models
+from django.db import models, transaction
 from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
 
@@ -46,6 +46,7 @@ class Customer(models.Model):
         _("customer id"),
         max_length=255,
         unique=True,
+        null=True,
         help_text=_("The customer's corresponding ID on stripe"),
     )
 
@@ -60,20 +61,33 @@ class Customer(models.Model):
     @mproperty
     def stripe_customer(self):
         """Retrieve the customer from Stripe or create one if it doesn't exist"""
-        try:
-            stripe_customer = stripe.Customer.retrieve(
-                self.customer_id,
-                api_key=settings.STRIPE_SECRET_KEYS[self.stripe_account],
-            )
-        except stripe.error.InvalidRequestError:
+        # first try to find an existing stripe customer
+        if self.customer_id:
+            try:
+                stripe_customer = stripe.Customer.retrieve(
+                    self.customer_id,
+                    api_key=settings.STRIPE_SECRET_KEYS[self.stripe_account],
+                )
+                return stripe_customer
+            except stripe.error.InvalidRequestError:
+                pass
+
+        # if the stripe customer has not been created yet or has been removed,
+        # create a new one.  Lock to avoid creating multiple in a race condition
+        with transaction.atomic():
+            customer = Customer.objects.filter(pk=self.pk).select_for_update().first()
+            # first check if the customer was created in another thread
+            if customer.customer_id:
+                return customer.stripe_customer
+            # create the customer on stripe
             stripe_customer = stripe.Customer.create(
-                description=self.organization.name,
-                email=self.organization.email,
+                description=customer.organization.name,
+                email=customer.organization.email,
                 api_key=settings.STRIPE_SECRET_KEYS[self.stripe_account],
             )
-            self.customer_id = stripe_customer.id
-            self.save()
-        return stripe_customer
+            customer.customer_id = stripe_customer.id
+            customer.save()
+            return stripe_customer
 
     @mproperty
     def card(self):

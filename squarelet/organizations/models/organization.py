@@ -1,5 +1,4 @@
 # Django
-from django.conf import settings
 from django.contrib.postgres.fields import CIEmailField
 from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.db import models, transaction
@@ -23,7 +22,7 @@ from squarelet.core.mixins import AvatarMixin
 from squarelet.core.utils import file_path
 from squarelet.oidc.middleware import send_cache_invalidations
 from squarelet.organizations.choices import ChangeLogReason, StripeAccounts
-from squarelet.organizations.models.payment import Charge, Customer
+from squarelet.organizations.models.payment import Charge
 from squarelet.organizations.querysets import (
     InvitationQuerySet,
     MembershipQuerySet,
@@ -248,17 +247,7 @@ class Organization(AvatarMixin, models.Model):
 
     def customer(self, stripe_account):
         """Retrieve the customer from Stripe or create one if it doesn't exist"""
-        try:
-            customer = self.customers.get(stripe_account=stripe_account)
-        except Customer.DoesNotExist:
-            stripe_customer = stripe.Customer.create(
-                description=self.name,
-                email=self.email,
-                api_key=settings.STRIPE_SECRET_KEYS[stripe_account],
-            )
-            customer = self.customers.create(
-                customer_id=stripe_customer.id, stripe_account=stripe_account
-            )
+        customer, _ = self.customers.get_or_create(stripe_account=stripe_account)
         return customer
 
     def save_card(self, token, stripe_account):
