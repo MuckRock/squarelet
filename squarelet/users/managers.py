@@ -42,7 +42,7 @@ class UserManager(AuthUserManager):
             source=user_data.get("source"),
         )
 
-        plan = user_data["plan"]
+        plan = user_data.get("plan")
         try:
             if plan and plan.for_individuals:
                 # Ensure organization is in the database before start subscription

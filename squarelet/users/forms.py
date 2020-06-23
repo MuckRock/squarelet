@@ -53,7 +53,7 @@ class SignupForm(allauth.SignupForm, StripeForm):
 
     def clean(self):
         data = super().clean()
-        plan = data["plan"]
+        plan = data.get("plan")
         if plan and plan.requires_payment() and not data.get("stripe_token"):
             self.add_error(
                 "plan",
