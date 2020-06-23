@@ -42,7 +42,8 @@ class CustomScopeClaims(ScopeClaims):
         """Populate the scope with the organizations"""
         return {
             "organizations": [
-                MembershipSerializer(m).data for m in self.user.memberships.all()
+                MembershipSerializer(m, context={"client": self.client}).data
+                for m in self.user.memberships.all()
             ]
         }
 

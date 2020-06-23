@@ -56,10 +56,15 @@ class OrganizationSerializer(serializers.ModelSerializer):
         return None
 
     def get_entitlements(self, obj):
-        request = self.context.get("request")
-        if request and hasattr(request, "auth") and request.auth:
-            return (
-                request.auth.client.entitlements.filter(plans__organizations=obj)
+        client = self.context.get("client")
+        if not client:
+            request = self.context.get("request")
+            if request and hasattr(request, "auth") and request.auth:
+                client = request.auth.client
+
+        if client:
+            return list(
+                client.entitlements.filter(plans__organizations=obj)
                 .annotate(update_on=F("plans__subscriptions__update_on"))
                 .values("name", "slug", "description", "resources", "update_on")
             )
