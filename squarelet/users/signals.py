@@ -18,19 +18,14 @@ def email_confirmed(request, email_address, **kwargs):
 
 def email_changed(request, user, from_email_address, to_email_address, **kwargs):
     """The user has changed their primary email"""
-    # update their stripe customer for muckrock
-    customer = user.individual_organization.customer(
-        StripeAccounts.muckrock
-    ).stripe_customer
-    customer.email = to_email_address.email
-    customer.save()
+    # update the stripe customer for all accounts
+    # Leave out presspass for now, as they do not have a stripe account yet
+    accounts = [StripeAccounts.muckrock]
+    for account in accounts:
+        customer = user.individual_organization.customer(account).stripe_customer
+        customer.email = to_email_address.email
+        customer.save()
 
-    # update their stripe customer for presspass
-    customer = user.individual_organization.customer(
-        StripeAccounts.presspass
-    ).stripe_customer
-    customer.email = to_email_address.email
-    customer.save()
     # clear the email failed flag
     with transaction.atomic():
         user.email_failed = False
