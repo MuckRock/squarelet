@@ -63,7 +63,7 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
         ),
         (_("Important dates"), {"fields": ("last_login", "created_at", "updated_at")}),
     )
-    readonly_fields = ("org_link", "created_at", "updated_at")
+    readonly_fields = ("uuid", "org_link", "created_at", "updated_at")
     list_display = (
         "username",
         "name",
