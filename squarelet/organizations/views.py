@@ -152,12 +152,16 @@ class UpdateSubscription(OrganizationAdminMixin, UpdateView):
             messages.error(self.request, "Payment error: {}".format(exc.user_message))
         else:
             organization.set_receipt_emails(form.cleaned_data["receipt_emails"])
-            messages.success(
-                self.request,
-                _("Plan Updated")
-                if organization.individual
-                else _("Organization Updated"),
-            )
+            if form.cleaned_data.get("remove_card_on_file"):
+                organization.remove_card(StripeAccounts.muckrock)
+                messages.success(self.request, _("Credit card removed"))
+            else:
+                messages.success(
+                    self.request,
+                    _("Plan Updated")
+                    if organization.individual
+                    else _("Organization Updated"),
+                )
             mixpanel_event(
                 self.request,
                 "Organization Subscription Changed",

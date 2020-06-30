@@ -61,6 +61,14 @@ class PaymentForm(StripeForm):
             )
             if "use_card_on_file" in self.fields
             else None,
+            Fieldset(
+                "Remove credit card on file",
+                Field("remove_card_on_file"),
+                css_class="_cls-compactField",
+                id="_id-removeCardFieldset",
+            )
+            if "remove_card_on_file" in self.fields
+            else None,
         )
         self.helper.form_tag = False
 
@@ -107,6 +115,17 @@ class PaymentForm(StripeForm):
                 None,
                 _("You must supply a credit card number to upgrade to a non-free plan"),
             )
+
+        if payment_required and data.get("remove_card_on_file"):
+            self.add_error(
+                None, _("You cannot remove your card on file if you have a paid plan")
+            )
+
+        if (
+            data.get("remove_card_on_file")
+            and not self.organization.customer(StripeAccounts.muckrock).card
+        ):
+            self.add_error(None, _("You do not have a card on file to remove"))
 
         if plan and "max_users" in data and data["max_users"] < plan.minimum_users:
             self.add_error(

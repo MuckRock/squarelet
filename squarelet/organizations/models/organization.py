@@ -256,6 +256,10 @@ class Organization(AvatarMixin, models.Model):
         self.customer(stripe_account).save_card(token)
         send_cache_invalidations("organization", self.uuid)
 
+    def remove_card(self, stripe_account):
+        self.customer(stripe_account).remove_card()
+        send_cache_invalidations("organization", self.uuid)
+
     @mproperty
     def plan(self):
         return self.plans.muckrock().first()

@@ -23,6 +23,7 @@ class StripeForm(forms.Form):
         initial=True,
         widget=forms.RadioSelect,
     )
+    remove_card_on_file = forms.BooleanField(initial=False, required=False)
 
     def __init__(self, *args, **kwargs):
         self.organization = kwargs.pop("instance", None)
@@ -39,8 +40,10 @@ class StripeForm(forms.Form):
                 (True, customer.card_display),
                 (False, _("New Card")),
             )
+            self.fields["remove_card_on_file"].label = customer.card_display
         else:
             del self.fields["use_card_on_file"]
+            del self.fields["remove_card_on_file"]
             self.fields["stripe_token"].required = True
 
     def clean(self):

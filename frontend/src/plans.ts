@@ -42,7 +42,9 @@ export class PlansView {
   readonly stripePk = d('id_stripe_pk') as HTMLInputElement; // hidden Stripe key
   readonly planInput = d('id_plan') as HTMLInputElement;
   readonly ucofInput = d('id_use_card_on_file') as HTMLInputElement;
+  readonly rcofInput = d('id_remove_card_on_file') as HTMLInputElement;
   readonly ccFieldset = d('_id-cardFieldset');
+  readonly removeCardFieldset = d('_id-removeCardFieldset');
 
   readonly planInfoElem = d('_id-planInfo'); // Pane to show plan information
   readonly planProjection = d('_id-planProjection'); // Plan projection information
@@ -128,9 +130,15 @@ export class PlansView {
       if (this.ccFieldset != null) {
         this.ccFieldset.style.display = '';
       }
+      if (this.removeCardFieldset != null) {
+        this.removeCardFieldset.style.display = 'none';
+      }
     } else {
       if (this.ccFieldset != null) {
         this.ccFieldset.style.display = 'none';
+      }
+      if (this.removeCardFieldset != null) {
+        this.removeCardFieldset.style.display = '';
       }
     }
 

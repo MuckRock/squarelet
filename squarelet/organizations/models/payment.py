@@ -115,6 +115,14 @@ class Customer(models.Model):
         self.stripe_customer.source = token
         self.stripe_customer.save()
 
+    def remove_card(self):
+        """Remove the default card"""
+        stripe.Customer.delete_source(
+            self.customer_id,
+            self.stripe_customer.default_source,
+            api_key=settings.STRIPE_SECRET_KEYS[self.stripe_account],
+        )
+
     def add_source(self, token):
         """Add a non-default source"""
         return self.stripe_customer.sources.create(source=token)
