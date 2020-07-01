@@ -97,7 +97,7 @@ def handle_charge_succeeded(charge_data):
             "amount": charge_data["amount"],
             "fee_amount": int(charge_data["metadata"].get("fee amount", 0)),
             "organization": lambda: Organization.objects.get(
-                customer_id=charge_data["customer"]
+                customers__customer_id=charge_data["customer"]
             ),
             "created_at": datetime.fromtimestamp(
                 charge_data["created"], tz=get_current_timezone()
@@ -113,7 +113,9 @@ def handle_charge_succeeded(charge_data):
 def handle_invoice_failed(invoice_data):
     """Handle receiving a invoice.payment_failed event from the Stripe webhook"""
     try:
-        organization = Organization.objects.get(customer_id=invoice_data["customer"])
+        organization = Organization.objects.get(
+            customers__customer_id=invoice_data["customer"]
+        )
     except Organization.DoesNotExist:
         if invoice_data["lines"]["data"][0]["plan"]["id"] == "donate":
             # donations are handled through muckrock - do not log an error

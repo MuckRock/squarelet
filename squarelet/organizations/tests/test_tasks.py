@@ -68,7 +68,9 @@ class TestHandleChargeSucceeded:
             "metadata": {},
             "object": "charge",
         }
-        organization = organization_factory(customer_id=charge_data["customer"])
+        organization = organization_factory(
+            customer__customer_id=charge_data["customer"]
+        )
         invoice = {
             "id": "in_EwIgmFCn7cnZFB",
             "lines": {
@@ -114,7 +116,9 @@ class TestHandleChargeSucceeded:
             "metadata": {},
             "object": "charge",
         }
-        organization = organization_factory(customer_id=charge_data["customer"])
+        organization = organization_factory(
+            customer__customer_id=charge_data["customer"]
+        )
         mocked = mocker.patch("squarelet.organizations.models.Charge.send_receipt")
 
         tasks.handle_charge_succeeded(charge_data)
@@ -191,8 +195,11 @@ class TestHandleChargeSucceeded:
 @pytest.mark.django_db()
 def test_handle_invoice_failed(organization_factory, user_factory, mailoutbox):
     user = user_factory()
-    organization = organization_factory(admins=[user], customer_id="cus_123")
-    invoice_data = {"id": 1, "customer": organization.customer_id, "attempt_count": 2}
+    customer_id = "cus_123"
+    organization = organization_factory(
+        admins=[user], customer__customer_id=customer_id
+    )
+    invoice_data = {"id": 1, "customer": customer_id, "attempt_count": 2}
     tasks.handle_invoice_failed(invoice_data)
     organization.refresh_from_db()
     assert organization.payment_failed
