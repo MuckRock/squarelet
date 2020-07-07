@@ -4,6 +4,7 @@ import re
 import string
 
 # Third Party
+from allauth.account.models import EmailAddress
 from dj_rest_auth.registration.serializers import RegisterSerializer
 from rest_framework import serializers
 
@@ -116,6 +117,12 @@ class UserWriteSerializer(UserBaseSerializer):
                 base_username, "".join(random.sample(string.ascii_letters, 8))
             )
         return username
+
+    def validate_email(self, value):
+        """Ensure email address is unique"""
+        if EmailAddress.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("That email already has an account")
+        return value
 
 
 class PressPassUserSerializer(serializers.ModelSerializer):
