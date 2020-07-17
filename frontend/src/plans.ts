@@ -89,6 +89,9 @@ export class PlansView {
    * TODO: figure out i18n for these strings
    */
   updateTotalCost() {
+    // Don't update total cost if the element isn't present
+    if (this.totalCost == null) return;
+
     const plan = this.getPlan();
     const cost = `${plan.base_price +
       (this.maxUsers - plan.minimum_users) * plan.price_per_user}`;

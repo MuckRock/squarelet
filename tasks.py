@@ -228,7 +228,7 @@ def pip_compile(c, upgrade=False, package=None):
 @task
 def build(c):
     """Build the docker images"""
-    c.run("docker-compose build")
+    c.run("docker-compose -f local.yml build")
 
 
 # Database populating

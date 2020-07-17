@@ -17,9 +17,7 @@
   <form id="stripe-form" method="post">
 
     {# this field is explicit so we can grab the plan from the get parameter #}
-    {% if request.GET.plan %}
-      <input type="hidden" name="plan" id="id_plan" value="{{ request.GET.plan }}">
-    {% endif %}
+    <input type="hidden" name="plan" id="id_plan" value="{{ request.GET.plan|default:'free' }}">
 
     {% crispy form form.helper %}
 
