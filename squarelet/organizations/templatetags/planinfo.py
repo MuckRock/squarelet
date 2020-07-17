@@ -24,7 +24,7 @@ def planinfo(organization=None, field="pk"):
         )
     }
     # add in free
-    plan_info[""] = {
+    free_info = {
         "pk": "",
         "slug": "free",
         "base_price": 0,
@@ -32,4 +32,5 @@ def planinfo(organization=None, field="pk"):
         "minimum_users": 1,
         "annual": False,
     }
+    plan_info[free_info[field]] = free_info
     return json_script(plan_info, "_id-planInfo")
