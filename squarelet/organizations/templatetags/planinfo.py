@@ -26,7 +26,7 @@ def planinfo(organization=None, field="pk"):
     # add in free
     free_info = {
         "pk": "",
-        "slug": "free",
+        "slug": "",
         "base_price": 0,
         "price_per_user": 0,
         "minimum_users": 1,

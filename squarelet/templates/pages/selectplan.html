@@ -51,7 +51,7 @@
             </ul>
           </div>
           <div class="_cls-cardAction">
-            <a class="_cls-nostyle" href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'muckrock' %}{% if request.GET.next %}&next={{ request.GET.next }}{% endif %}">
+            <a class="_cls-nostyle" href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'squarelet' %}{% if request.GET.next %}&next={{ request.GET.next }}{% endif %}">
               <button>{% blocktrans %}Sign up for free{% endblocktrans %}</button>
             </a>
           </div>
@@ -81,7 +81,7 @@
             </ul>
           </div>
           <div class="_cls-cardAction">
-            <a class="_cls-nostyle" href="{% url 'account_signup' %}?plan=professional&intent={% firstof request.GET.intent 'muckrock' %}{% if request.GET.next %}&next={{ request.GET.next }}{% endif %}">
+            <a class="_cls-nostyle" href="{% url 'account_signup' %}?plan=professional&intent={% firstof request.GET.intent 'squarelet' %}{% if request.GET.next %}&next={{ request.GET.next }}{% endif %}">
               <button>
                 {% blocktrans %}Subscribe for $40/month{% endblocktrans %}
               </button>
@@ -113,7 +113,7 @@
             </ul>
           </div>
           <div class="_cls-cardAction">
-            <a class="_cls-nostyle" href="{% url 'account_signup' %}?plan=organization&intent={% firstof request.GET.intent 'muckrock' %}{% if request.GET.next %}&next={{ request.GET.next }}{% endif %}">
+            <a class="_cls-nostyle" href="{% url 'account_signup' %}?plan=organization&intent={% firstof request.GET.intent 'squarelet' %}{% if request.GET.next %}&next={{ request.GET.next }}{% endif %}">
               <button>
                 {% blocktrans %}Subscribe from $100/month{% endblocktrans %}
               </button>

@@ -81,7 +81,7 @@ export class PlansView {
    * Returns the currently selected plan information.
    */
   getPlan(): Plan {
-    return this.planInfo[this.planInput.value];
+    return this.planInfo[this.planInput.value] || this.planInfo[""];
   }
 
   /**
