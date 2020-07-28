@@ -19,6 +19,11 @@
     {# this field is explicit so we can grab the plan from the get parameter #}
     <input type="hidden" name="plan" id="id_plan" value="{{ request.GET.plan|default:"" }}">
 
+    {% if form.errors.plan %}
+      <span class="invalid-feedback">
+        <strong>Something went wrong.  Please contact <a href="mailto:info@muckrock.com">info@muckrock.com</a>.</strong>
+      </span>
+    {% endif %}
     {% crispy form form.helper %}
 
     {% if request.GET.plan == "organization" or request.GET.plan == "organization-plus" %}

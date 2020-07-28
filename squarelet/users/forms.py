@@ -4,6 +4,9 @@ from django.contrib import messages
 from django.db import transaction
 from django.utils.translation import ugettext_lazy as _
 
+# Standard Library
+import logging
+
 # Third Party
 from allauth.account import forms as allauth
 from allauth.account.utils import setup_user_email
@@ -16,6 +19,8 @@ from squarelet.core.layout import Field
 from squarelet.core.utils import mixpanel_event
 from squarelet.organizations.models import Plan
 from squarelet.users.models import User
+
+logger = logging.getLogger(__name__)
 
 
 class SignupForm(allauth.SignupForm, StripeForm):
@@ -53,6 +58,10 @@ class SignupForm(allauth.SignupForm, StripeForm):
 
     def clean(self):
         data = super().clean()
+        if self.errors:
+            log_data = self.data.copy()
+            log_data.pop("password1", None)
+            logger.warning("Failed signup attempt:\n\t%r\n\t%s", self.errors, log_data)
         plan = data.get("plan")
         if plan and plan.requires_payment() and not data.get("stripe_token"):
             self.add_error(
