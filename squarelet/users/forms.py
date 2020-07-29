@@ -41,6 +41,11 @@ class SignupForm(allauth.SignupForm, StripeForm):
     organization_name = forms.CharField(max_length=255, required=False)
 
     def __init__(self, *args, **kwargs):
+        # set free to blank in case people have old links
+        if "data" in kwargs and kwargs["data"].get("plan") == "free":
+            data = kwargs["data"].copy()
+            data["plan"] = ""
+            kwargs["data"] = data
         super().__init__(*args, **kwargs)
         self.fields["stripe_token"].required = False
 
