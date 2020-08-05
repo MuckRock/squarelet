@@ -111,7 +111,7 @@ class UserWriteSerializer(UserBaseSerializer):
         # username can be at most 150 characters
         # strips illegal characters from username
         base_username = re.sub(r"[^\w\-.]", "", name)[:141]
-        username = base_username
+        username = base_username or "anonymous"
         while User.objects.filter(username__iexact=username).exists():
             username = "{}_{}".format(
                 base_username, "".join(random.sample(string.ascii_letters, 8))
