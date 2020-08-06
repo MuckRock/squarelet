@@ -213,7 +213,11 @@ class Organization(AvatarMixin, models.Model):
         if receipt_email:
             return receipt_email.email
 
-        return self.users.filter(memberships__admin=True).first().email
+        user = self.users.filter(memberships__admin=True).first()
+        if user:
+            return user.email
+
+        return None
 
     # User Management
     def has_admin(self, user):
