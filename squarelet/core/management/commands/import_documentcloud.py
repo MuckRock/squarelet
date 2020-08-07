@@ -62,7 +62,7 @@ class Command(BaseCommand):
                     ]
                 )
             if organization.user_count() > organization.max_users:
-                if organization.plan.free:
+                if not organization.plan or organization.plan.free:
                     organization.max_users = organization.user_count()
                     organization.save()
                 else:
