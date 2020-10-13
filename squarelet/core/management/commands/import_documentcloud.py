@@ -94,6 +94,8 @@ class Command(BaseCommand):
             if uuid:
                 created = False
                 org = Organization.objects.get(uuid=uuid)
+                org.verified_journalist = True
+                org.save()
                 self.stdout.write(f"Merging {fields[1]} into {org.name}")
             else:
                 created = True
