@@ -7,6 +7,7 @@ from django.utils.timezone import get_current_timezone
 
 # Standard Library
 from datetime import date, datetime
+from uuid import uuid4
 
 # Third Party
 import stripe
@@ -163,6 +164,7 @@ class ChargeQuerySet(models.QuerySet):
                 "fee amount": fee_amount,
             },
             api_key=settings.STRIPE_SECRET_KEYS[stripe_account],
+            idempotency_key=str(uuid4()),
         )
         if token:
             source.delete()
