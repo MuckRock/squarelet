@@ -172,6 +172,8 @@ class Command(BaseCommand):
                         )
                 else:
                     self.stdout.write(f"Not adding disabled/freelancer to organization")
+                    user_obj.individual_organization.verified_journalist = True
+                    user_obj.individual_organization.verified_journalist.save()
 
                 writer.writerow(
                     [
