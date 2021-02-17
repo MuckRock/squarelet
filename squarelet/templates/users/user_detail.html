@@ -31,6 +31,11 @@
             </a>
           {% endif %}
         </div>
+        {% if user.individual_organization.verified_journalist %}
+          <div class="_cls-orgStatus _cls-verified">
+            Verified Journalist
+          </div>
+        {% endif %}
         <div class="_cls-organizationSection">
           <div class="_cls-mediumHeader">{% trans 'Organizations' %}</div>
           <div>

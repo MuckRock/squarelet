@@ -44,9 +44,6 @@ def handleintent(context, header, message):
         ]
     )
 
-    if intent != "documentcloud":
-        del intent_lookup["documentcloud"]
-
     # default to 'muckrock'
     intent_service, intent_asset = intent_lookup.get(intent, intent_lookup["muckrock"])
 

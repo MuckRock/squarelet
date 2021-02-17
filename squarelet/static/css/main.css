@@ -972,6 +972,14 @@ legend {
   padding: 2px 5px;
 }
 
+._cls-orgStatus {
+  font-size: 0.8em;
+  border-radius: 4px;
+  padding: 2px 5px;
+  width: max-content;
+  margin: 5px 0;
+}
+
 ._cls-unverified {
   border: dashed 1px #545454;
   color: #545454;
