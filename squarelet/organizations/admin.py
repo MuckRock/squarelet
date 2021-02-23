@@ -15,6 +15,8 @@ from squarelet.organizations.models import (
     Membership,
     Organization,
     OrganizationChangeLog,
+    OrganizationSubtype,
+    OrganizationType,
     Plan,
     ReceiptEmail,
     Subscription,
@@ -53,8 +55,14 @@ class InvitationInline(admin.TabularInline):
 
 @admin.register(Organization)
 class OrganizationAdmin(VersionAdmin):
-    list_display = ("name", "individual", "private", "verified_journalist")
-    list_filter = ("individual", "private", "verified_journalist")
+    list_display = (
+        "name",
+        "individual",
+        "private",
+        "verified_journalist",
+        "get_subtypes",
+    )
+    list_filter = ("individual", "private", "verified_journalist", "subtypes")
     search_fields = ("name", "users__username")
     fields = (
         "uuid",
@@ -68,6 +76,7 @@ class OrganizationAdmin(VersionAdmin):
         "verified_journalist",
         "max_users",
         "payment_failed",
+        "subtypes",
     )
     readonly_fields = (
         "uuid",
@@ -77,6 +86,7 @@ class OrganizationAdmin(VersionAdmin):
         "updated_at",
         "individual",
     )
+    filter_horizontal = ("subtypes",)
     save_on_top = True
     inlines = (
         SubscriptionInline,
@@ -85,6 +95,9 @@ class OrganizationAdmin(VersionAdmin):
         ReceiptEmailInline,
         InvitationInline,
     )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related("subtypes")
 
     def get_fields(self, request, obj=None):
         """Only add user link for individual organizations"""
@@ -108,6 +121,11 @@ class OrganizationAdmin(VersionAdmin):
         return '<a href="%s">%s</a>' % (link, user.username)
 
     user_link.short_description = "User"
+
+    def get_subtypes(self, obj):
+        return ", ".join(s.name for s in obj.subtypes.all())
+
+    get_subtypes.short_description = "Subtypes"
 
 
 @admin.register(Plan)
@@ -187,3 +205,14 @@ class OrganizationChangeLogAdmin(VersionAdmin):
         "to_plan",
         "to_next_plan",
     )
+
+
+class OrganizationSubtypeInline(admin.TabularInline):
+    model = OrganizationSubtype
+    extra = 1
+
+
+@admin.register(OrganizationType)
+class OrganizationTypeAdmin(VersionAdmin):
+    list_display = ("name",)
+    inlines = (OrganizationSubtypeInline,)

@@ -80,6 +80,13 @@ class Organization(AvatarMixin, models.Model):
         help_text=_("The user's in this organization"),
     )
 
+    subtypes = models.ManyToManyField(
+        verbose_name=_("subtypes"),
+        to="organizations.OrganizationSubtype",
+        related_name="organizations",
+        help_text=_("The subtypes of this organization"),
+    )
+
     # remove these
     _plan = models.ForeignKey(
         verbose_name=_("plan"),
@@ -622,3 +629,32 @@ class OrganizationChangeLog(models.Model):
         _("maximum users"),
         help_text=_("The organization's max_users after the change occurred"),
     )
+
+
+class OrganizationType(models.Model):
+    """A broad type an organization may be classified as"""
+
+    name = models.CharField(
+        _("name"), max_length=255, help_text=_("The name of the organization type")
+    )
+
+    def __str__(self):
+        return self.name
+
+
+class OrganizationSubtype(models.Model):
+    """A specific type an organization may be classified as"""
+
+    name = models.CharField(
+        _("name"), max_length=255, help_text=_("The name of the organization subtype")
+    )
+    type = models.ForeignKey(
+        verbose_name=_("type"),
+        to="organizations.OrganizationType",
+        on_delete=models.PROTECT,
+        related_name="subtypes",
+        help_text=_("The parent type for this subtype"),
+    )
+
+    def __str__(self):
+        return self.name
