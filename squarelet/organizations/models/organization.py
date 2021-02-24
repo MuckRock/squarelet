@@ -85,6 +85,7 @@ class Organization(AvatarMixin, models.Model):
         to="organizations.OrganizationSubtype",
         related_name="organizations",
         help_text=_("The subtypes of this organization"),
+        blank=True,
     )
 
     # remove these
