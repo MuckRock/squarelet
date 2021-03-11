@@ -77,7 +77,7 @@ jinja2==2.10
 jmespath==0.9.3
 kombu==4.2.1
 lxml==4.3.0
-markupsafe==1.0
+markupsafe==1.1.1
 memoize==1.0.0
 oauthlib==2.1.0
 orderedmultidict==1.0
