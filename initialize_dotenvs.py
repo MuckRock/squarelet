@@ -49,9 +49,9 @@ CONFIG = [
                 "url": "https://stripe.com",
                 "description": "Stripe is used for payment processing",
                 "envvars": [
-                    ("STRIPE_SECRET_KEY", ""),
-                    ("STRIPE_PUB_KEY", ""),
-                    ("STRIPE_WEBHOOK_SECRET", ""),
+                    ("STRIPE_SECRET_KEYS", ""),
+                    ("STRIPE_PUB_KEYS", ""),
+                    ("STRIPE_WEBHOOK_SECRETS", ""),
                 ],
             },
         ],
