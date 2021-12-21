@@ -17,11 +17,12 @@ User account service for MuckRock and DocumentCloud
 2. Enter the directory - `cd squarelet`
 3. Run the dotenv initialization script - `python initialize_dotenvs.py`
 This will create files with the environment variables needed to run the development environment.
-4. Start the docker images - `inv up`
+4. You may need to provide valid testing values for `STRIPE_PUB_KEYS`, `STRIPE_SECRET_KEYS` and set `STRIPE_WEBHOOK_SECRETS=None` from the MuckRock team (multiple values are comma separated only, no square braces) 
+5. Start the docker images - `inv up`
 This will build and start all of the docker images using docker-compose.  It will bind to port 80 on localhost, so you must not have anything else running on port 80. The invoke tasks specify the `local.yml` configuration file for docker-compose.  If you would like to run docker-compose commands directly, set the environment variable `export COMPOSE_FILE=local.yml`.
-5. Set `dev.squarelet.com` to point to localhost - `sudo echo "127.0.0.1   dev.squarelet.com" >> /etc/hosts`
-6. Enter `dev.squarelet.com` into your browser - you should see the Squarelet home page.
-7. Follow the instructions for integration in a platform app such as ["Squarelet Integration" on MuckRock](https://github.com/muckrock/muckrock/#squarelet-integration) documentation or in [the DocumentCloud](https://github.com/muckRock/documentcloud) documentation.
+6. Set `dev.squarelet.local` and `dev.squarelet.com` to point to localhost - `sudo echo "127.0.0.1   dev.squarelet.com dev.squarelet.local" >> /etc/hosts`
+7. Enter `dev.squarelet.local` into your browser - you should see the Muckrock Squarelet home page.
+8. Follow the instructions for integration in a platform app such as ["Squarelet Integration" on MuckRock](https://github.com/muckrock/muckrock/#squarelet-integration) documentation or in [the DocumentCloud](https://github.com/muckRock/documentcloud) documentation.
 
 ## Docker info
 
@@ -52,6 +53,7 @@ The celery beat image is responsible for queueing up periodic celery tasks.
 
 All systems can be brought up using `inv up`.  You can rebuild all images using `inv build`.  There are various other invoke commands for common tasks interacting with docker, which you can view in the `tasks.py` file.
 
+In your first few runs after environment creation, if you see `no configuration file provided: not found` then check the Docker volumes for squarelet to make sure they match the generated instances. Consider erasing them if needed to match early on, before they have important data.
 
 ### Networking Setup
 

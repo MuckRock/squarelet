@@ -367,7 +367,7 @@ REST_FRAMEWORK = {
 
 # first party urls
 # ------------------------------------------------------------------------------
-SQUARELET_URL = env("SQUARELET_URL", default="http://dev.squarelet.com")
+SQUARELET_URL = env("SQUARELET_URL", default="http://dev.squarelet.local")
 MUCKROCK_URL = env("MUCKROCK_URL", default="http://dev.muckrock.com")
 FOIAMACHINE_URL = env("FOIAMACHINE_URL", default="http://dev.foiamachine.org")
 DOCCLOUD_URL = env("DOCCLOUD_URL", default="http://www.dev.documentcloud.org")
