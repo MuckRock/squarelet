@@ -52,7 +52,7 @@
         // ],
         "label": "DocCloud",
         "type": "shell",
-        "command": "cd ../documentcloud && export COMPOSE_FILE=local.yml && echo 'wait 20sec for network' && sleep 20 &&  docker-compose up",
+        "command": "cd ../documentcloud && export COMPOSE_FILE=local.yml && echo 'wait 10sec for network' && sleep 20 &&  docker-compose up",
         "options": {
           "shell": {
             // "executable": "bash",
@@ -68,7 +68,7 @@
       {
         "label": "Frontend",
         "type": "shell",
-        "command": "cd ../documentcloud-frontend  && echo 'wait 20sec for network' && sleep 20  && make dev",
+        "command": "cd ../documentcloud-frontend  && echo 'wait 20sec for network' && sleep 10  && make dev",
         "options": {
           "shell": {
             // "executable": "bash",

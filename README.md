@@ -17,9 +17,8 @@ User account service for MuckRock and DocumentCloud
 2. Enter the directory - `cd squarelet`
 3. Run the dotenv initialization script - `python initialize_dotenvs.py`
 This will create files with the environment variables needed to run the development environment.
-4. You may need to provide valid testing values for `STRIPE_PUB_KEYS`, `STRIPE_SECRET_KEYS` and set `STRIPE_WEBHOOK_SECRETS=None` from the MuckRock team (multiple values are comma separated only, no square braces) 
+4. You need to provide valid testing values for `STRIPE_PUB_KEYS`, `STRIPE_SECRET_KEYS` and set `STRIPE_WEBHOOK_SECRETS=None` from the MuckRock team (multiple values are comma separated only, no square braces) 
       - You must always fully `docker-compose down` or Ctrl-C each time you change a `.django` file of a docker-compose session for it to take effect (as far as I know).
-      - Avoid changing Squarelet's `.django` file frequently to prevent Docker network problems from `docker-compose down`.
 5. Set the environment variable `export COMPOSE_FILE=local.yml` in each of your command lines.
 5. Start the docker images - `inv up`
 This will build and start all of the Squarelet session docker images using docker-compose.  It will bind to port 80 on localhost, so you must not have anything else running on port 80. The "invoke" tasks from `tasks.py` specify the `local.yml` configuration file for docker-compose.
