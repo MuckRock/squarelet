@@ -2,11 +2,11 @@
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.models import PermissionsMixin
 from django.contrib.postgres.fields import CICharField, CIEmailField
-from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.db import models, transaction
 from django.http.request import urlencode
+from django.templatetags.static import static
 from django.urls import reverse
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 # Third Party
 import sesame

@@ -1,9 +1,8 @@
 # Django
 from django.conf import settings
-from django.conf.urls import url
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
 from django.views import defaults as default_views
 from django.views.generic import TemplateView
 
@@ -56,7 +55,7 @@ SchemaView = get_schema_view(
 
 router = routers.DefaultRouter()
 router.register("users", UserViewSet)
-router.register("url_auth_tokens", UrlAuthTokenViewSet, base_name="url_auth_token")
+router.register("url_auth_tokens", UrlAuthTokenViewSet, basename="url_auth_token")
 router.register("organizations", OrganizationViewSet)
 router.register("charges", ChargeViewSet)
 
@@ -96,7 +95,7 @@ urlpatterns = [
         include("squarelet.organizations.urls", namespace="organizations"),
     ),
     # override the accounts login with our version
-    url("accounts/login/$", LoginView.as_view(), name="account_login"),
+    re_path("accounts/login/$", LoginView.as_view(), name="account_login"),
     path("accounts/", include("allauth.urls")),
     path("api/", include(router.urls)),
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),

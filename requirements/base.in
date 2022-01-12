@@ -7,8 +7,9 @@ cryptography
 dj-rest-auth
 django-allauth
 django-autocomplete-light
-django-autoslug-iplweb
+django-autoslug
 django-choices
+django-compat
 django-compressor
 django-cors-headers
 django-crispy-forms
@@ -17,7 +18,7 @@ django-email-bandit
 django-environ
 django-extensions
 django-filter
-django-hijack
+django-hijack<3
 django-model-utils
 django-oidc-provider
 django-premailer
@@ -26,7 +27,7 @@ django-request-token
 django-reversion
 django-sesame
 django-storages[boto3]
-django<2.2
+django<4.0
 djangorestframework
 djangorestframework_simplejwt
 dogslow

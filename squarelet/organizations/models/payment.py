@@ -1,9 +1,8 @@
 # Django
 from django.conf import settings
-from django.contrib.postgres.fields import JSONField
 from django.db import models, transaction
 from django.urls import reverse
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 # Standard Library
 import logging
@@ -533,7 +532,7 @@ class Entitlement(models.Model):
         _("description"),
         help_text=_("A brief description of the service this grants access to"),
     )
-    resources = JSONField(
+    resources = models.JSONField(
         _("resources"),
         default=dict,
         help_text=_(

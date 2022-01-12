@@ -59,7 +59,6 @@ class TestOrganizationAPI:
             "amount": 2700,
             "fee_amount": 5,
             "description": "This is only a test",
-            "token": None,
             "save_card": False,
         }
         client = APIClient()
