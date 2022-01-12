@@ -198,6 +198,7 @@ COMPRESS_JS_FILTERS = []
 # ------------------------------------------------------------------------------
 # https://github.com/antonagestam/collectfast#installation
 INSTALLED_APPS = ["collectfast"] + INSTALLED_APPS  # noqa F405
+COLLECTFAST_STRATEGY = "collectfast.strategies.boto3.Boto3Strategy"
 AWS_PRELOAD_METADATA = True
 
 # raven

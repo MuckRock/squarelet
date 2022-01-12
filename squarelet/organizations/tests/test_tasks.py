@@ -46,9 +46,9 @@ def test_restore_organization(organization_plan_factory, mocker):
     assert subsc_update.plan == organization_plan
     assert subsc_update.update_on == today + relativedelta(months=1)
 
-    patched.assert_called_with(
-        "organization",
-        [subsc_update.organization.uuid, subsc_update_cancel.organization.uuid],
+    assert patched.call_args[0][0] == "organization"
+    assert set(patched.call_args[0][1]) == set(
+        [subsc_update.organization.uuid, subsc_update_cancel.organization.uuid]
     )
 
 

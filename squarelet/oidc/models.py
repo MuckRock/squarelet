@@ -2,7 +2,7 @@
 
 # Django
 from django.db import models
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 # Standard Library
 import hashlib
@@ -30,7 +30,10 @@ class ClientProfile(models.Model):
     source = models.CharField(
         _("source"),
         max_length=10,
-        choices=(("muckrock", _("MuckRock")), ("presspass", _("PressPass")),),
+        choices=(
+            ("muckrock", _("MuckRock")),
+            ("presspass", _("PressPass")),
+        ),
         default="muckrock",
         help_text=_("Which application did this client originate from?"),
     )

@@ -1,10 +1,10 @@
 # Django
 from django.contrib.postgres.fields import CIEmailField
-from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.db import models, transaction
+from django.templatetags.static import static
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 # Standard Library
 import uuid
