@@ -43,6 +43,7 @@ services:
         aliases:
           - dev.squarelet.com
           - dev.presspass.com
+          - dev.squarelet.local
 
   squarelet_postgres:
     build:
