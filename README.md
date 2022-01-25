@@ -10,6 +10,7 @@ User account service for MuckRock and DocumentCloud
 2. [docker-compose][docker-compose-install]
 3. [python][python-install]
 4. [invoke][invoke-install]
+5. [mkcert][mkcert-install]
 
 ### Installation Steps
 
@@ -17,10 +18,11 @@ User account service for MuckRock and DocumentCloud
 2. Enter the directory - `cd squarelet`
 3. Run the dotenv initialization script - `python initialize_dotenvs.py`
 This will create files with the environment variables needed to run the development environment.
-4. Start the docker images - `inv up`
+4. Generate local certificates - `inv mkcert`
+5. Start the docker images - `inv up`
 This will build and start all of the docker images using docker-compose.  It will bind to port 80 on localhost, so you must not have anything else running on port 80. The invoke tasks specify the `local.yml` configuration file for docker-compose.  If you would like to run docker-compose commands directly, set the environment variable `export COMPOSE_FILE=local.yml`.
-5. Set `dev.squarelet.com` to point to localhost - `sudo echo "127.0.0.1   dev.squarelet.com" >> /etc/hosts`
-6. Enter `dev.squarelet.com` into your browser - you should see the Squarelet home page.
+6. Set `dev.squarelet.com` to point to localhost - `sudo echo "127.0.0.1   dev.squarelet.com" >> /etc/hosts`
+7. Enter `dev.squarelet.com` into your browser - you should see the Squarelet home page.
 
 ## Docker info
 
@@ -115,3 +117,4 @@ Running `inv pip-compile` will compile the `.in` files to the corresponding `.tx
 [pylint]:  https://www.pylint.org/
 [black]: https://github.com/psf/black
 [pip-tools]: https://github.com/jazzband/pip-tools
+[mkcert-install]: https://github.com/FiloSottile/mkcert#installation

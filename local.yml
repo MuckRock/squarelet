@@ -12,15 +12,31 @@ services:
       - squarelet_mailhog
     volumes:
       - ./compose/local/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./config/certs:/etc/nginx/certs
     ports:
       - "80:80"
-
-  squarelet_mailhog:
-    image: mailhog/mailhog:v1.0.0
+      - "443:443"
     networks:
       default:
         aliases:
+          - root-ca.local
           - dev.mailhog.com
+          - dev.squarelet.com
+          - api.dev.documentcloud.org
+          - www.dev.documentcloud.org
+          - dev.muckrock.com
+          - dev.foiamachine.org
+
+  squarelet_mailhog:
+    image: mailhog/mailhog:v1.0.0
+    environment:
+      - MH_API_BIND_ADDR=0.0.0.0:80
+      - MH_UI_BIND_ADDR=0.0.0.0:80
+    user: root
+    networks:
+      default:
+        aliases:
+          - internal.dev.mailhog.com
 
   squarelet_django: &django
     build:
@@ -41,8 +57,8 @@ services:
     networks:
       default:
         aliases:
-          - dev.squarelet.com
-          - dev.presspass.com
+          - internal.dev.squarelet.com
+          - internal.dev.presspass.com
 
   squarelet_postgres:
     build:
