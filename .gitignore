@@ -283,6 +283,8 @@ squarelet/media/
 
 js_build
 
+config/certs/
+
 ### IDEs/Editors
 
 .vscode/
