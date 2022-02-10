@@ -58,7 +58,7 @@ django-reversion==4.0.1
 django-sesame==1.5
 django-storages[boto3]==1.12.3
 django==3.2.11
-djangorestframework-simplejwt==4.3.0
+djangorestframework-simplejwt==4.4.0
 djangorestframework==3.13.1
 docutils==0.14
 dogslow==1.2
