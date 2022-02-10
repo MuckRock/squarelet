@@ -103,7 +103,11 @@ class AccessTokenViewSet(viewsets.ViewSet):
             user = get_object_or_404(User, individual_organization_id=pk)
         except ValidationError:
             raise Http404
-        return Response({"access_token": str(AccessToken.for_user(user))})
+        token = AccessToken.for_user(user)
+        token.payload["permissions"] = request.query_params.get(
+            "permissions", ""
+        ).split(" ")
+        return Response({"access_token": str(token)})
 
 
 class PressPassUserViewSet(
