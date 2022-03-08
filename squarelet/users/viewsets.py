@@ -125,7 +125,9 @@ class RefreshTokenViewSet(viewsets.ViewSet):
         token.payload["permissions"] = request.query_params.get(
             "permissions", ""
         ).split(" ")
-        return Response({"refresh_token": str(token)})
+        return Response(
+            {"refresh_token": str(token), "access_token": str(token.access_token)}
+        )
 
 
 class PressPassUserViewSet(
