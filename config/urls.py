@@ -38,6 +38,7 @@ from squarelet.users.viewsets import (
     AccessTokenViewSet,
     PressPassRegisterView,
     PressPassUserViewSet,
+    RefreshTokenViewSet,
     UrlAuthTokenViewSet,
     UserViewSet,
 )
@@ -58,6 +59,7 @@ router = routers.DefaultRouter()
 router.register("users", UserViewSet)
 router.register("url_auth_tokens", UrlAuthTokenViewSet, basename="url_auth_token")
 router.register("access_tokens", AccessTokenViewSet, basename="access_token")
+router.register("refresh_tokens", RefreshTokenViewSet, basename="refresh_token")
 router.register("organizations", OrganizationViewSet)
 router.register("charges", ChargeViewSet)
 
