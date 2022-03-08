@@ -16,7 +16,7 @@ from dj_rest_auth.registration.views import RegisterView
 from rest_framework import mixins, status, viewsets
 from rest_framework.permissions import DjangoObjectPermissions, IsAdminUser
 from rest_framework.response import Response
-from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
 # Squarelet
 from squarelet.core.mail import send_mail
@@ -108,6 +108,24 @@ class AccessTokenViewSet(viewsets.ViewSet):
             "permissions", ""
         ).split(" ")
         return Response({"access_token": str(token)})
+
+
+class RefreshTokenViewSet(viewsets.ViewSet):
+    permission_classes = (ScopePermission,)
+    read_scopes = ("read_auth_token",)
+    swagger_schema = None
+
+    def retrieve(self, request, pk=None):
+        # pylint: disable=invalid-name
+        try:
+            user = get_object_or_404(User, individual_organization_id=pk)
+        except ValidationError:
+            raise Http404
+        token = RefreshToken.for_user(user)
+        token.payload["permissions"] = request.query_params.get(
+            "permissions", ""
+        ).split(" ")
+        return Response({"refresh_token": str(token)})
 
 
 class PressPassUserViewSet(
