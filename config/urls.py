@@ -35,7 +35,6 @@ from squarelet.organizations.viewsets import (
 )
 from squarelet.users.views import LoginView
 from squarelet.users.viewsets import (
-    AccessTokenViewSet,
     PressPassRegisterView,
     PressPassUserViewSet,
     RefreshTokenViewSet,
@@ -58,7 +57,6 @@ SchemaView = get_schema_view(
 router = routers.DefaultRouter()
 router.register("users", UserViewSet)
 router.register("url_auth_tokens", UrlAuthTokenViewSet, basename="url_auth_token")
-router.register("access_tokens", AccessTokenViewSet, basename="access_token")
 router.register("refresh_tokens", RefreshTokenViewSet, basename="refresh_token")
 router.register("organizations", OrganizationViewSet)
 router.register("charges", ChargeViewSet)
