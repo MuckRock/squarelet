@@ -1,16 +1,21 @@
 # Django
 from django.conf import settings
+from django.contrib.auth import login
 from django.contrib.sites.shortcuts import get_current_site
+from django.http.response import HttpResponseRedirect
 from django.template.loader import render_to_string
 from django.utils.http import is_safe_url
 
 # Third Party
 from allauth.account.adapter import DefaultAccountAdapter
+from allauth.account.models import EmailAddress
+from allauth.exceptions import ImmediateHttpResponse
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from furl import furl
 
 # Squarelet
 from squarelet.core.mail import Email
+from squarelet.users.models import User
 
 
 class AccountAdapter(DefaultAccountAdapter):
@@ -87,3 +92,29 @@ class AccountAdapter(DefaultAccountAdapter):
 class SocialAccountAdapter(DefaultSocialAccountAdapter):
     def is_open_for_signup(self, request, sociallogin):
         return getattr(settings, "ACCOUNT_ALLOW_REGISTRATION", True)
+
+    def authentication_error(
+        self, request, provider_id, error=None, exception=None, extra_context=None
+    ):
+        print(
+            "SocialAccount authentication error!",
+            "error",
+            request,
+            {
+                "provider_id": provider_id,
+                "error": error.__str__(),
+                "exception": exception.__str__(),
+                "extra_context": extra_context,
+            },
+        )
+
+    def pre_social_login(self, request, sociallogin):
+        try:
+            # XXX ensure email is verified?
+            email = EmailAddress.objects.get(email=sociallogin.user.email)
+            sociallogin.connect(request, email.user)
+            login(request, email.user)
+            response = HttpResponseRedirect("/")
+            raise ImmediateHttpResponse(response)
+        except EmailAddress.DoesNotExist:
+            pass

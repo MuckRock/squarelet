@@ -5,12 +5,28 @@ import string
 
 # Third Party
 from allauth.account.models import EmailAddress
+from allauth.socialaccount.models import SocialAccount, SocialToken
 from dj_rest_auth.registration.serializers import RegisterSerializer
 from rest_framework import serializers
 
 # Squarelet
 from squarelet.organizations.serializers import MembershipSerializer
 from squarelet.users.models import User
+
+
+class SocialTokenSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SocialToken
+        fields = ("token",)
+
+
+class SocialAccountSerializer(serializers.ModelSerializer):
+    tokens = SocialTokenSerializer(many=True, source="socialtoken_set")
+    extra_data = serializers.JSONField()
+
+    class Meta:
+        model = SocialAccount
+        fields = ("provider", "uid", "extra_data", "tokens")
 
 
 class UserBaseSerializer(serializers.ModelSerializer):
@@ -49,6 +65,7 @@ class UserReadSerializer(UserBaseSerializer):
     """
 
     email = serializers.SerializerMethodField()
+    social_accounts = SocialAccountSerializer(many=True, source="socialaccount_set")
 
     class Meta:
         model = User
@@ -64,6 +81,7 @@ class UserReadSerializer(UserBaseSerializer):
             "updated_at",
             "use_autologin",
             "uuid",
+            "social_accounts",
         )
 
     def get_email(self, obj):
