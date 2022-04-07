@@ -113,7 +113,11 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
             # XXX ensure email is verified?
             email = EmailAddress.objects.get(email=sociallogin.user.email)
             sociallogin.connect(request, email.user)
-            login(request, email.user)
+            login(
+                request,
+                email.user,
+                backend="allauth.account.auth_backends.AuthenticationBackend",
+            )
             response = HttpResponseRedirect("/")
             raise ImmediateHttpResponse(response)
         except EmailAddress.DoesNotExist:
