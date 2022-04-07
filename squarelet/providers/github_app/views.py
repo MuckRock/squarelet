@@ -1,7 +1,7 @@
-# Third Party
 # Django
 from django.core.exceptions import PermissionDenied
 
+# Third Party
 from allauth.socialaccount import app_settings
 from allauth.socialaccount.helpers import (
     complete_social_login,
