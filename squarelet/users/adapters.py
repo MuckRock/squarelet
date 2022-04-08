@@ -16,6 +16,7 @@ from furl import furl
 # Squarelet
 from squarelet.core.mail import Email
 from squarelet.users.models import User
+from squarelet.users.serializers import UserWriteSerializer
 
 
 class AccountAdapter(DefaultAccountAdapter):
@@ -122,3 +123,22 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
             raise ImmediateHttpResponse(response)
         except EmailAddress.DoesNotExist:
             pass
+
+    def save_user(self, request, sociallogin, form=None):
+        """
+        Saves a newly signed up social login. In case of auto-signup,
+        the signup form is not available.
+        """
+        account = sociallogin.account
+        user_data = {
+            "username": UserWriteSerializer.unique_username(
+                account.extra_data["login"]
+            ),
+            "email": account.extra_data["email"],
+            "name": account.extra_data["name"],
+            "source": "github",
+        }
+        user, _, _ = User.objects.register_user(user_data)
+        sociallogin.user = user
+        sociallogin.save(request)
+        return user
