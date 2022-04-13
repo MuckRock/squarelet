@@ -2,8 +2,8 @@
 from django.conf import settings
 from django.contrib.auth import login
 from django.contrib.sites.shortcuts import get_current_site
-from django.http.response import HttpResponseRedirect
 from django.template.loader import render_to_string
+from django.urls import reverse
 from django.utils.http import is_safe_url
 
 # Third Party
@@ -16,6 +16,7 @@ from furl import furl
 # Squarelet
 from squarelet.core.mail import Email
 from squarelet.users.models import User
+from squarelet.users.serializers import UserWriteSerializer
 
 
 class AccountAdapter(DefaultAccountAdapter):
@@ -109,16 +110,41 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
         )
 
     def pre_social_login(self, request, sociallogin):
-        try:
-            # XXX ensure email is verified?
-            email = EmailAddress.objects.get(email=sociallogin.user.email)
-            sociallogin.connect(request, email.user)
-            login(
-                request,
-                email.user,
-                backend="allauth.account.auth_backends.AuthenticationBackend",
-            )
-            response = HttpResponseRedirect("/")
-            raise ImmediateHttpResponse(response)
-        except EmailAddress.DoesNotExist:
-            pass
+        if sociallogin.is_existing:
+            return
+        # connect social account to currently logged in account
+        if request.user.is_authenticated:
+            user = request.user
+        else:
+            try:
+                # if not logged in, try matching account based on email
+                email = EmailAddress.objects.get(email=sociallogin.user.email)
+                user = email.user
+            except EmailAddress.DoesNotExist:
+                return
+
+        sociallogin.connect(request, user)
+        login(
+            request, user, backend="allauth.account.auth_backends.AuthenticationBackend"
+        )
+        response = reverse("socialaccount_connections")
+        raise ImmediateHttpResponse(response)
+
+    def save_user(self, request, sociallogin, form=None):
+        """
+        Saves a newly signed up social login. In case of auto-signup,
+        the signup form is not available.
+        """
+        account = sociallogin.account
+        user_data = {
+            "username": UserWriteSerializer.unique_username(
+                account.extra_data["login"]
+            ),
+            "email": account.extra_data["email"],
+            "name": account.extra_data["name"],
+            "source": "github",
+        }
+        user, _, _ = User.objects.register_user(user_data)
+        sociallogin.user = user
+        sociallogin.save(request)
+        return user

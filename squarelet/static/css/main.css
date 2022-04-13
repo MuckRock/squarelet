@@ -65,9 +65,9 @@ a._cls-nostyle {
   vertical-align: middle;
 }
 
-._cls-field input[type='text'],
-._cls-field input[type='email'],
-._cls-field input[type='password'],
+._cls-field input[type="text"],
+._cls-field input[type="email"],
+._cls-field input[type="password"],
 ._cls-field ._cls-fieldInput {
   border: none;
   font-size: 18px;
@@ -209,7 +209,8 @@ form,
   width: 50%;
 }
 
-._cls-footer p, ul {
+._cls-footer p,
+._cls-footer ul {
   max-width: 800px;
   margin: 1.5em auto;
   line-height: 1.5;
@@ -465,7 +466,7 @@ nav a:hover ._cls-serviceName {
 }
 
 .invalid-feedback::before {
-  content: '*';
+  content: "*";
   font-size: 0.9em;
   padding-right: 0.4em;
 }
@@ -688,7 +689,7 @@ nav a:hover ._cls-serviceName {
 }
 
 .alert-success ._cls-alertIcon::before {
-  content: '\2713';
+  content: "\2713";
   color: darkgreen;
 }
 
@@ -698,7 +699,7 @@ nav a:hover ._cls-serviceName {
 }
 
 .alert-error ._cls-alertIcon::before {
-  content: '!';
+  content: "!";
   color: #7b0202;
   font-size: 1.2em;
 }
@@ -1015,7 +1016,7 @@ button._cls-altAction {
 }
 
 ._cls-profDropdown ._cls-avatar::after {
-  content: '\25BC';
+  content: "\25BC";
   vertical-align: middle;
   padding-left: 4px;
   font-size: 0.7em;
@@ -1130,7 +1131,7 @@ a._cls-dropdownItem {
 }
 
 ._cls-breakdown::before {
-  content: '* ';
+  content: "* ";
   font-weight: bold;
 }
 
@@ -1165,7 +1166,7 @@ textarea {
 }
 
 .alert-info ._cls-alertIcon::before {
-  content: 'i';
+  content: "i";
   font-style: italic;
   font-family: serif;
   color: #0c3e8e;
@@ -1213,7 +1214,7 @@ textarea {
 }
 
 ._cls-roleDropdown ._cls-selected h1::before {
-  content: '\2713 ';
+  content: "\2713 ";
   font-weight: normal;
   margin-right: 4px;
 }
@@ -1250,7 +1251,7 @@ textarea {
 }
 
 ._cls-roleSelect::after {
-  content: '\25BC';
+  content: "\25BC";
   font-size: 0.75em;
   margin-left: 5px;
   color: #00000091;
