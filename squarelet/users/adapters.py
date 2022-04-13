@@ -2,6 +2,7 @@
 from django.conf import settings
 from django.contrib.auth import login
 from django.contrib.sites.shortcuts import get_current_site
+from django.http.response import HttpResponseRedirect
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.http import is_safe_url
@@ -127,7 +128,7 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
         login(
             request, user, backend="allauth.account.auth_backends.AuthenticationBackend"
         )
-        response = reverse("socialaccount_connections")
+        response = HttpResponseRedirect(reverse("socialaccount_connections"))
         raise ImmediateHttpResponse(response)
 
     def save_user(self, request, sociallogin, form=None):
