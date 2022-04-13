@@ -26,9 +26,16 @@
             </div>
           </div>
           {% if user == request.user %}
-            <a href="{% url "users:update" %}">
-              <div class="_cls-action">{% trans 'Edit profile' %}</div>
-            </a>
+            <p>
+              <a class="_cls-nostyle" href="{% url "users:update" %}">
+                <div class="_cls-action">{% trans 'Edit profile' %}</div>
+              </a>
+            </p>
+            <p>
+              <a class="_cls-nostyle" href="{% url "socialaccount_connections" %}">
+                <div class="_cls-action">{% trans 'Edit connected accounts' %}</div>
+              </a>
+            </p>
           {% endif %}
         </div>
         {% if user.individual_organization.verified_journalist %}
