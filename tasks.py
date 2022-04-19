@@ -293,3 +293,22 @@ def sync_aws_staging(c):
             f"aws s3 sync s3://squarelet/media/{folder} "
             f"s3://squarelet-staging/media/{folder}"
         )
+
+
+# Setup
+# --------------------------------------------------------------------------------
+@task
+def mkcert(c):
+    """Make SSL certificates for local development"""
+    with c.cd("config/certs/"):
+        c.run(
+            "CAROOT=. mkcert "
+            "-install "
+            "-cert-file dev.squarelet.com.pem "
+            "-key-file dev.squarelet.com-key.pem "
+            "dev.squarelet.com "
+            '"*.dev.documentcloud.org" '
+            "dev.muckrock.com "
+            "dev.foiamachine.org "
+            "dev.mailhog.com"
+        )

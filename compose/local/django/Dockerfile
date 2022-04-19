@@ -22,6 +22,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 #  # git
 #  && apk add git
 
+COPY ./config/certs/rootCA.pem /usr/local/share/ca-certificates/rootCA.crt
+RUN update-ca-certificates
+
 # install NVM
 ENV NVM_DIR /usr/local/nvm
 ENV NODE_VERSION 10.15.3
