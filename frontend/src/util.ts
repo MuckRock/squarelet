@@ -14,14 +14,14 @@ export function on(
   fn: (e: Event) => void
 ) {
   if (Array.isArray(event)) {
-    event.forEach(evt => element.addEventListener(evt, fn, false));
+    event.forEach((evt) => element.addEventListener(evt, fn, false));
   } else {
     element.addEventListener(event, fn, false);
   }
 }
 
 // Fetch a URL
-export function fetch(url: string, method: string = 'GET'): Promise<string> {
+export function fetchUrl(url: string, method: string = "GET"): Promise<string> {
   return new Promise((resolve, reject) => {
     const http = new XMLHttpRequest();
     http.onload = () => {
@@ -39,8 +39,8 @@ export function fetch(url: string, method: string = 'GET'): Promise<string> {
 
 // Show/hide elements.
 export function show(elem: HTMLElement) {
-  elem.classList.remove('_cls-hide');
+  elem.classList.remove("_cls-hide");
 }
 export function hide(elem: HTMLElement) {
-  elem.classList.add('_cls-hide');
+  elem.classList.add("_cls-hide");
 }
