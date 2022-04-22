@@ -227,6 +227,18 @@ class Organization(AvatarMixin, models.Model):
 
         return None
 
+    @property
+    def name(self):
+        """Get a name for this organization"""
+        if self.individual:
+            return self.user.name
+
+        user = self.users.filter(memberships__admin=True).first()
+        if user:
+            return user.name
+
+        return ""
+
     # User Management
     def has_admin(self, user):
         """Is the given user an admin of this organization"""
@@ -339,14 +351,17 @@ class Organization(AvatarMixin, models.Model):
         fee_amount=0,
         token=None,
         save_card=False,
+        metadata=None,
         stripe_account=StripeAccounts.muckrock,
     ):
         """Charge the organization and optionally save their credit card"""
         if save_card:
             self.save_card(token, stripe_account)
             token = None
+        if metadata is None:
+            metadata = {}
         charge = Charge.objects.make_charge(
-            self, token, amount, fee_amount, description, stripe_account
+            self, token, amount, fee_amount, description, stripe_account, metadata
         )
         return charge
 

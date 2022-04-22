@@ -143,7 +143,14 @@ class InvitationQuerySet(models.QuerySet):
 
 class ChargeQuerySet(models.QuerySet):
     def make_charge(
-        self, organization, token, amount, fee_amount, description, stripe_account
+        self,
+        organization,
+        token,
+        amount,
+        fee_amount,
+        description,
+        stripe_account,
+        metadata,
     ):
         """Make a charge on stripe and locally"""
         customer = organization.customer(stripe_account)
@@ -152,18 +159,22 @@ class ChargeQuerySet(models.QuerySet):
         else:
             source = customer.card
 
+        default_metadata = {
+            "organization": organization.name,
+            "organization id": organization.uuid,
+            "fee amount": fee_amount,
+        }
+        metadata.update(default_metadata)
+
         stripe_charge = stripe.Charge.create(
             amount=amount,
             currency="usd",
             customer=customer.stripe_customer,
             description=description,
             source=source,
-            metadata={
-                "organization": organization.name,
-                "organization id": organization.uuid,
-                "fee amount": fee_amount,
-            },
+            metadata=metadata,
             api_key=settings.STRIPE_SECRET_KEYS[stripe_account],
+            statement_descriptor_suffix=metadata.get("action", ""),
             idempotency_key=str(uuid4()),
         )
         if token:

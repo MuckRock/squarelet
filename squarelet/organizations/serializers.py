@@ -116,8 +116,10 @@ class ChargeSerializer(serializers.ModelSerializer):
             "organization",
             "save_card",
             "token",
+            "metadata",
         )
         read_only_fields = ("created_at", "charge_id")
+        extra_kwargs = {"metadata": {"required": False}}
 
     def create(self, validated_data):
         """Create the charge object locally and on stripe"""
@@ -129,6 +131,7 @@ class ChargeSerializer(serializers.ModelSerializer):
                 validated_data.get("fee_amount", 0),
                 validated_data.get("token"),
                 validated_data.get("save_card"),
+                validated_data.get("metadata"),
             )
         except stripe.error.StripeError as exc:
             raise StripeError(exc.user_message)
