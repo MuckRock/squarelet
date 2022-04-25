@@ -228,7 +228,7 @@ class Organization(AvatarMixin, models.Model):
         return None
 
     @property
-    def name(self):
+    def user_full_name(self):
         """Get a name for this organization"""
         if self.individual:
             return self.user.name

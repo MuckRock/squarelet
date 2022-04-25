@@ -82,7 +82,7 @@ class Customer(models.Model):
             stripe_customer = stripe.Customer.create(
                 description=customer.organization.name,
                 email=customer.organization.email,
-                name=customer.organization.name,
+                name=customer.organization.user_full_name,
                 api_key=settings.STRIPE_SECRET_KEYS[self.stripe_account],
             )
             customer.customer_id = stripe_customer.id
