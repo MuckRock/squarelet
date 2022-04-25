@@ -67,6 +67,12 @@ class Customer(models.Model):
                     self.customer_id,
                     api_key=settings.STRIPE_SECRET_KEYS[self.stripe_account],
                 )
+                if stripe_customer.name is None:
+                    stripe.Customer.modify(
+                        stripe_customer.id,
+                        name=self.organization.user_full_name,
+                        api_key=settings.STRIPE_SECRET_KEYS[self.stripe_account],
+                    )
                 return stripe_customer
             except stripe.error.InvalidRequestError:
                 pass
