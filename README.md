@@ -58,7 +58,7 @@ The celery beat image is responsible for queueing up periodic celery tasks.
 All systems can be brought up using `inv up`.  You can rebuild all images using `inv build`.  There are various other invoke commands for common tasks interacting with docker, which you can view in the `tasks.py` file.
 ### Networking Setup
 
-Nginx is run in front of Django in this development environment in order to allow development of squarelet and client applications at the same time.  This works by aliasing all needed domains to localhost, and allowing Nginx to properly route them.  Other projects have their own docker compose files which will have their containers join the squarelet network, so the containers can communicate with each other properly.  For me detail, see the Nginx config file at `compose/local/nginx/nginx.conf`.
+Nginx is run in front of Django in this development environment in order to allow development of squarelet and client applications at the same time.  This works by aliasing all needed domains to localhost, and allowing Nginx to properly route them.  Other projects have their own docker compose files which will have their containers join the squarelet network, so the containers can communicate with each other properly.  For more detail, see the Nginx config file at `compose/local/nginx/nginx.conf`.
 
 ### Environment Variables
 
