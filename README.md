@@ -73,7 +73,8 @@ Invoke is a task execution library.  It is used to allow easy access to common c
 `inv staging` will push the staging branch to GitHub, which will trigger CodeShip to release it to Heroku, as long as all code checks pass.  The staging site is currently hosted at [https://squarelet-staging.herokuapp.com/](https://squarelet-staging.herokuapp.com/).
 
 ### Test
-`inv test` will run the test suite.  By default it will try to reuse the previous test database to save time.  If you have changed the schema and need to rebuild the data base, run it with the `--create-db` switch.
+`inv test` will run the test suite.  By default it will try to reuse the previous test database to save time.  If you have changed the schema and need to rebuild the database, run it with the `--create-db` switch.
+
 `inv coverage` will run the test suite and generate a coverage report at `htmlcov/index.html`.
 
 The test suite will be run on CodeShip prior to releasing new code.  Please ensure your code passes all tests before trying to release it.  Also please add new tests if you develop new code - we try to mantain at least 85% code coverage.
