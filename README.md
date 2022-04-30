@@ -66,7 +66,7 @@ The application is configured with environment variables in order to make it eas
 
 ## Invoke info
 
-Invoke is a task execution library.  It is used to allow easy access to common commands used during development.  You may look through the file to see the commands being run.  I will go through some of the more important ones here.
+Invoke is a task execution library.  It is used to allow easy access to common commands used during development.  You may look through the `tasks.py` file to see the commands being run.  I will go through some of the more important ones here.
 
 ### Release
 `inv prod` will merge your dev branch into master, and push to GitHub, which will trigger [CodeShip][codeship] to release it to Heroku, as long as all code checks pass.  The production site is currently hosted at [https://accounts.muckrock.com/](https://accounts.muckrock.com/).
