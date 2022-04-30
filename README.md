@@ -62,7 +62,7 @@ Nginx is run in front of Django in this development environment in order to allo
 
 ### Environment Variables
 
-The application is configured with environment variables in order to make it easy to customize behavior in different environments (dev, testing, staging, production, etc).  Some of this environment variables may be sensitive information, such as passwords or API tokens to various services.  For this reason, they are not to be checked in to version control.  In order to assist with the setup of a new development environment, a script called `initialize_dotenvs.py` is provided which will create the files in the expected places, with the variables included.  Those which require external accounts will generally be left blank, and you may sign up for an account to use for development and add your own credentials in.  You may also add extra configuration here as necessary for your setup.
+The application is configured with environment variables in order to make it easy to customize behavior in different environments (dev, testing, staging, production, etc).  Some of the environment variables may be sensitive information, such as passwords or API tokens to various services.  For this reason, they are not to be checked in to version control.  In order to assist with the setup of a new development environment, a script called `initialize_dotenvs.py` is provided which will create the files in the expected places, with the variables included.  Those which require external accounts will generally be left blank, and you may sign up for an account to use for development and add your own credentials in.  You may also add extra configuration here as necessary for your setup.
 
 ## Invoke info
 
