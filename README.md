@@ -30,7 +30,7 @@ This will build and start all of the Squarelet session docker images using docke
 
 ## Docker info
 
-The development environment is managed via [docker][docker] and [docker compose][docker-compose].  Please read up on them if you are unfmiliar with them.  The docker compose file is `local.yml`.  If you would like to run `docker-compose` commands directly, please run `export COMPOSE_FILE=local.yml` so you don't need to specify it in every command.
+The development environment is managed via [docker][docker] and [docker compose][docker-compose].  Please read up on them if you are unfamiliar with them.  The docker compose file is `local.yml`.  If you would like to run `docker-compose` commands directly, please run `export COMPOSE_FILE=local.yml` so you don't need to specify it in every command.
 
 The containers which are run include the following:
 
