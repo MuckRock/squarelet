@@ -1,70 +1,28 @@
-{% if client.clientprofile.source == "muckrock" %}
-  <h1>Request for Permission</h1>
+{% extends "base.html" %}
 
-  <p>
-    Client <strong>{{ client.name }}</strong> would like to access this
-    information of you ...
-  </p>
+{% block content %}
+  <div class="_cls-content">
+    <h1>Request for Permission</h1>
 
-  <form method="post" action="{% url 'oidc_provider:authorize' %}">
-    {% csrf_token %}
-    {{ hidden_inputs }}
+    <p>
+      Client <strong>{{ client.name }}</strong> would like to access this
+      information of you ...
+    </p>
 
-    <ul>
-      {% for scope in scopes %}
-      <li>
-        <strong>{{ scope.name }}</strong><br /><i>{{ scope.description }}</i>
-      </li>
-      {% endfor %}
-    </ul>
+    <form method="post" action="{% url 'oidc_provider:authorize' %}">
+      {% csrf_token %}
+      {{ hidden_inputs }}
 
-    <input type="submit" value="Decline" />
-    <input name="allow" type="submit" value="Authorize" />
-  </form>
+      <ul>
+        {% for scope in scopes %}
+        <li>
+          <strong>{{ scope.name }}</strong><br /><i>{{ scope.description }}</i>
+        </li>
+        {% endfor %}
+      </ul>
 
-{% else %}
-
-  {% block css %}
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/bulma@0.8.1/css/bulma.css"
-  />
-  {% endblock %}
-
-  <div class="navbar">
-    <div class="container">
-      <div class="navbar-brand">
-        <div class="navbar-item">
-          <strong>PressPass</strong>
-        </div>
-      </div>
-    </div>
+      <input type="submit" value="Decline" />
+      <input name="allow" type="submit" value="Authorize" />
+    </form>
   </div>
-  <section class="section" style="background-color: #eff0eb;">
-    <div class="container">
-      <p class="subtitle">Request for Permission</p>
-      <h1 class="title">Login to {{ client.name }}</h1>
-
-      <p>
-        Continue to PressPass Client
-        <strong>{{ client.name }}</strong> by authorizing below...
-      </p>
-
-      <form method="post" action="{% url 'oidc_provider:authorize' %}">
-        {% csrf_token %} {{ hidden_inputs }}
-
-        <ul>
-          {% for scope in scopes %}
-          <li>
-            <strong>{{ scope.name }}</strong><br /><i>{{ scope.description }}</i>
-          </li>
-          {% endfor %}
-        </ul>
-
-        <input class="button" type="submit" value="Decline" />
-        <input class="button" name="allow" type="submit" value="Authorize" />
-      </form>
-    </div>
-  </section>
-
-{% endif %}
+{% endblock content %}
