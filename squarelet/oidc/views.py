@@ -1,8 +1,11 @@
+# Django
+from django.conf import settings
+
 # Third Party
 from oidc_provider import views
 from oidc_provider.lib import endpoints
 from oidc_provider.lib.errors import TokenError, UserAuthError
-from oidc_provider.lib.utils.token import create_id_token, create_token
+from oidc_provider.lib.utils.token import create_id_token, create_token, encode_id_token
 from rest_framework_simplejwt.tokens import RefreshToken
 
 
