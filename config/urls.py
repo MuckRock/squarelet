@@ -19,7 +19,7 @@ from squarelet.email_api.viewsets import (
     PressPassEmailAddressViewSet,
     PressPassEmailConfirmationUpdateView,
 )
-from squarelet.oidc.views import TokenView
+from squarelet.oidc.views import token_view
 from squarelet.oidc.viewsets import ClientViewSet
 from squarelet.organizations.viewsets import (
     ChargeViewSet,
@@ -120,7 +120,7 @@ urlpatterns = [
         name="schema-swagger-ui",
     ),
     path("openid/", include("oidc_provider.urls", namespace="oidc_provider")),
-    path("openid/jwt", TokenView.as_view(), name="oidc_jwt"),
+    path("openid/jwt", token_view, name="oidc_jwt"),
     path("hijack/", include("hijack.urls", namespace="hijack")),
     path(
         "pp-api/register/", PressPassRegisterView.as_view(), name="presspass_register"

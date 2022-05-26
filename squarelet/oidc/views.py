@@ -1,5 +1,6 @@
 # Django
 from django.conf import settings
+from django.views.decorators.csrf import csrf_exempt
 
 # Third Party
 from oidc_provider import views
@@ -69,3 +70,6 @@ class TokenView(views.TokenView):
             return TokenEndpoint.response(error.create_dict(), status=400)
         except UserAuthError as error:
             return TokenEndpoint.response(error.create_dict(), status=403)
+
+
+token_view = csrf_exempt(TokenView.as_view())
