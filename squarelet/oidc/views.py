@@ -1,9 +1,8 @@
 # Django
-from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 
 # Third Party
-from oidc_provider import views
+from oidc_provider import settings, views
 from oidc_provider.lib import endpoints
 from oidc_provider.lib.errors import TokenError, UserAuthError
 from oidc_provider.lib.utils.token import create_id_token, create_token, encode_id_token
