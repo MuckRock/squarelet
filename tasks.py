@@ -310,7 +310,7 @@ def mkcert(c):
             '"*.dev.documentcloud.org" '
             "dev.muckrock.com "
             "dev.foiamachine.org "
-            "dev.mailhog.com"
-            "local.biglocalnews.org"
+            "dev.mailhog.com "
+            "local.biglocalnews.org "
             "local-api.biglocalnews.org"
         )
