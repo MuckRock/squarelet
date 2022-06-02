@@ -373,7 +373,7 @@ SQUARELET_URL = env("SQUARELET_URL", default="https://dev.squarelet.com")
 MUCKROCK_URL = env("MUCKROCK_URL", default="https://dev.muckrock.com")
 FOIAMACHINE_URL = env("FOIAMACHINE_URL", default="https://dev.foiamachine.org")
 DOCCLOUD_URL = env("DOCCLOUD_URL", default="https://www.dev.documentcloud.org")
-BIGLOCALNEWS_URL = env("BIGLOCALNEWS_URL", default="https://local.documentcloud.org")
+BIGLOCALNEWS_URL = env("BIGLOCALNEWS_URL", default="https://local.biglocalnews.org")
 PRESSPASS_URL = env("PRESSPASS_URL", default="https://dev.presspass.com:3000")
 PRESSPASS_API_URL = env("PRESSPASS_API_URL", default="https://dev.presspass.com")
 
