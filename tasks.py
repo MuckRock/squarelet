@@ -311,4 +311,6 @@ def mkcert(c):
             "dev.muckrock.com "
             "dev.foiamachine.org "
             "dev.mailhog.com"
+            "local.biglocalnews.org"
+            "local-api.biglocalnews.org"
         )
