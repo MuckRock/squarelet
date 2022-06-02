@@ -26,6 +26,8 @@ services:
           - www.dev.documentcloud.org
           - dev.muckrock.com
           - dev.foiamachine.org
+          - local.biglocalnews.org
+          - local-api.biglocalnews.org
 
   squarelet_mailhog:
     image: mailhog/mailhog:v1.0.0
