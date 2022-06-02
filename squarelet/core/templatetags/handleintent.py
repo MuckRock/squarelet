@@ -18,8 +18,8 @@ DOCUMENTCLOUD_ASSET = "assets/documentcloud.svg"
 FOIAMACHINE_SERVICE = "FOIA Machine"
 FOIAMACHINE_ASSET = "assets/foiamachine.svg"
 
-QUACKBOT_SERVICE = "Quackbot"
-QUACKBOT_ASSET = "assets/quackbot.svg"
+BIGLOCALNEWS_SERVICE = "Big Local News"
+BIGLOCALNEWS_ASSET = "assets/biglocalnews.svg"
 
 
 @register.inclusion_tag("templatetags/intent.html", takes_context=True)
@@ -40,7 +40,7 @@ def handleintent(context, header, message):
             ("muckrock", (MUCKROCK_SERVICE, MUCKROCK_ASSET)),
             ("documentcloud", (DOCUMENTCLOUD_SERVICE, DOCUMENTCLOUD_ASSET)),
             ("foiamachine", (FOIAMACHINE_SERVICE, FOIAMACHINE_ASSET)),
-            # ("quackbot", (QUACKBOT_SERVICE, QUACKBOT_ASSET)),
+            ("biglocalnews", (BIGLOCALNEWS_SERVICE, BIGLOCALNEWS_ASSET)),
         ]
     )
 
