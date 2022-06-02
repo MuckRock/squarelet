@@ -121,6 +121,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
             ("quackbot", _("QuackBot")),
             ("squarelet", _("Squarelet")),
             ("presspass", _("PressPass")),
+            ("biglocalnews", _("Big Local News")),
         ),
         default="squarelet",
         help_text=_("Which service did this user originally sign up for?"),
