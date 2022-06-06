@@ -14,19 +14,50 @@ User account service for MuckRock and DocumentCloud
 
 ### Installation Steps
 
-1. Check out the git repository - `git clone git@github.com:MuckRock/squarelet.git`
-2. Enter the directory - `cd squarelet`
-3. Run the dotenv initialization script - `python initialize_dotenvs.py`
-This will create files with the environment variables needed to run the development environment.
-4. You need to provide valid testing values for `STRIPE_PUB_KEYS`, `STRIPE_SECRET_KEYS` and set `STRIPE_WEBHOOK_SECRETS=None` from the MuckRock team (multiple values are comma separated only, no square braces) 
-      - You must always fully `docker-compose down` or Ctrl-C each time you change a `.django` file of a docker-compose session for it to take effect.
-5. Set the environment variable `export COMPOSE_FILE=local.yml` in each of your command lines.
-6. Generate local certificates - `inv mkcert`
-7. Start the docker images - `inv up`
-This will build and start all of the Squarelet session docker images using docker-compose.  It will bind to port 80 on localhost, so you must not have anything else running on port 80. The "invoke" tasks from `tasks.py` specify the `local.yml` configuration file for docker-compose.
-8. Set `dev.squarelet.com` to point to localhost - `sudo echo "127.0.0.1   dev.squarelet.com" >> /etc/hosts`
-9. Enter `dev.squarelet.com` into your browser - you should see the Muckrock Squarelet home page.
-10. Follow the instructions for integration in a platform app such as ["Squarelet Integration" on MuckRock](https://github.com/muckrock/muckrock/#squarelet-integration) documentation or in [the DocumentCloud](https://github.com/muckRock/documentcloud) documentation.
+Check out the git repository.
+
+```bash
+git clone git@github.com:MuckRock/squarelet.git
+```
+
+Enter the directory.
+
+```bash
+cd squarelet
+```
+
+Run the environment initialization script, which will create files with the environment variables needed to run the development environment.
+
+```bash
+python initialize_dotenvs.py
+```
+
+Set an environment variable that directs `docker-compose` to use the `local.yml` file.
+
+```bash
+export COMPOSE_FILE=local.yml
+```
+
+Generate local certificates for SSL support.
+
+```bash
+inv mkcert
+```
+
+Start the docker containers. This will build and start all of the Squarelet session docker images using docker-compose.  It will bind to port 80 on localhost, so you must not have anything else running on port 80.
+
+```bash
+inv up
+```
+Set `dev.squarelet.com` to point to localhost.
+
+```bash
+sudo echo "127.0.0.1   dev.squarelet.com" >> /etc/hosts
+```
+
+Enter `dev.squarelet.com` into your browser. You should see the Muckrock Squarelet home page.
+
+Follow the instructions for integration in a platform app such as ["Squarelet Integration" on MuckRock](https://github.com/muckrock/muckrock/#squarelet-integration) documentation or in [the DocumentCloud](https://github.com/muckRock/documentcloud) documentation.
 
 ## Docker info
 
