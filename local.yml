@@ -19,7 +19,6 @@ services:
     networks:
       default:
         aliases:
-          - root-ca.local
           - dev.mailhog.com
           - dev.squarelet.com
           - api.dev.documentcloud.org
