@@ -25,6 +25,7 @@ CONFIG = [
                     ("USE_DOCKER", "yes"),
                     ("DJANGO_SECRET_KEY", lambda: random_string(20)),
                     ("IPYTHONDIR", "/app/.ipython"),
+                    ("REQUESTS_CA_BUNDLE", "/etc/ssl/certs/ca-certificates.crt"),
                 ],
             },
             {
