@@ -45,14 +45,19 @@
      cx="19"
      cy="19"
      r="19" />
-  <text
-     xml:space="preserve"
+  <g
+     aria-label="BLN"
      transform="matrix(0.21294137,0,0,0.21294137,2.8122171,5.5846937)"
      id="text58858"
-     style="font-size:120px;line-height:1.25;font-family:'Rift Soft Bold';-inkscape-font-specification:'Rift Soft Bold, ';letter-spacing:0px;word-spacing:13.2051px;white-space:pre;shape-inside:url(#rect58860);fill:#ffffff"
-     x="263.79941"
-     y="0"><tspan
-       x="0"
-       y="105"
-       id="tspan1811">BLN</tspan></text>
+     style="font-size:120px;line-height:1.25;font-family:'Rift Soft Bold';-inkscape-font-specification:'Rift Soft Bold, ';letter-spacing:0px;word-spacing:13.2051px;white-space:pre;shape-inside:url(#rect58860);fill:#ffffff">
+    <path
+       d="m 48.12,48.12 q 0,5.04 -2.4,8.88 -2.28,3.72 -6.96,4.32 9.84,1.56 9.84,13.32 v 13.8 q 0,7.8 -5.64,12.24 Q 37.32,105 27.72,105 H 10.8 Q 6,105 6,100.2 V 25.8 Q 6,21 10.8,21 h 17.16 q 9.6,0 14.88,4.32 5.28,4.32 5.28,12.24 z M 19.92,33 v 22.68 h 7.8 q 6.48,0 6.48,-6.48 V 39.48 Q 34.2,33 27.72,33 Z m 14.76,40.92 q 0,-6.48 -6.48,-6.48 H 19.92 V 93 h 8.28 q 6.48,0 6.48,-6.48 z"
+       id="path926" />
+    <path
+       d="m 89.519998,92.52 q 4.8,0 4.8,4.8 v 2.88 q 0,4.8 -4.8,4.8 h -25.8 q -4.8,0 -4.8,-4.8 V 25.8 q 0,-4.8 4.8,-4.8 h 4.32 q 4.8,0 4.8,4.8 v 66.72 z"
+       id="path928" />
+    <path
+       d="m 114.47981,100.2 q 0,4.8 -4.8,4.8 h -3.12 q -4.8,0 -4.8,-4.8 V 25.8 q 0,-4.8 4.8,-4.8 h 5.04 q 4.08,0 5.4,3.96 l 16.32,48 V 25.8 q 0,-4.8 4.8,-4.8 h 3.12 q 4.8,0 4.8,4.8 v 74.4 q 0,4.8 -4.8,4.8 h -4.32 q -4.2,0 -5.4,-3.96 l -17.04,-50.64 z"
+       id="path930" />
+  </g>
 </svg>
