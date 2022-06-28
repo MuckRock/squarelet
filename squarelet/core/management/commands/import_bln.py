@@ -6,16 +6,16 @@ from django.utils import timezone
 # Standard Library
 import csv
 import os
-from uuid import UUID
 
 # Third Party
+import pytz
 from allauth.account.models import EmailAddress
 from dateutil.parser import parse
 from smart_open.smart_open_lib import smart_open
 
 # Squarelet
-from squarelet.organizations.models import Membership, Organization, Plan
 from squarelet.users.models import User
+from squarelet.users.serializers import UserWriteSerializer
 
 BUCKET = os.environ["IMPORT_BUCKET"]
 
