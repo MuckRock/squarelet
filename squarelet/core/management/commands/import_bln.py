@@ -53,9 +53,9 @@ class Command(BaseCommand):
                 new_username = UserWriteSerializer.unique_username(user[4])
                 if new_username != user[4]:
                     print(
-                        "[User] Non-unique username found: {} -> {}",
-                        user[4],
-                        new_username,
+                        "[User] Non-unique username found: {} -> {}".format(
+                            user[4], new_username
+                        )
                     )
                 user_obj = User.objects.create_user(
                     username=new_username,
