@@ -1,0 +1,85 @@
+{
+    "version": "2.0.0",
+    "presentation": {
+      "echo": false,
+      "reveal": "always",
+      "focus": false,
+      "panel": "dedicated",
+      "showReuseMessage": true
+    },
+    "tasks": [
+      {
+        "label": "Create MuckRock terminals",
+        "dependsOn": [
+          "Squarelet",
+          "DocCloud",
+          "Frontend"
+        ],
+        // Mark as the default build task so cmd/ctrl+shift+b will create them
+        "group": {
+          "kind": "build",
+          "isDefault": true
+        },
+        // Try start the task on folder open
+        "runOptions": {
+          "runOn": "folderOpen"
+        }
+      },
+      {
+        // The name that shows up in terminal tab
+        "label": "Squarelet",
+        // The task will launch a shell
+        "type": "shell",
+        "command": "export COMPOSE_FILE=local.yml && docker-compose up",
+        // Set the shell type
+        "options": {
+          "shell": {
+            // "executable": "sh",
+            "args": []
+          }
+        },
+        // Mark as a background task to avoid the spinner animation on the terminal tab
+        "isBackground": false,
+        "problemMatcher": [],
+        // Create the tasks in a terminal group
+        "presentation": {
+          "group": "my-group"
+        }
+      },
+      {
+        // "dependsOn": [
+        //   "First"
+        // ],
+        "label": "DocCloud",
+        "type": "shell",
+        "command": "cd ../documentcloud && export COMPOSE_FILE=local.yml && echo 'wait 10sec for network' && sleep 20 &&  docker-compose up",
+        "options": {
+          "shell": {
+            // "executable": "bash",
+            "args": []
+          }
+        },
+        "isBackground": false,
+        "problemMatcher": [],
+        "presentation": {
+          "group": "my-group"
+        }
+      },
+      {
+        "label": "Frontend",
+        "type": "shell",
+        "command": "cd ../documentcloud-frontend  && echo 'wait 20sec for network' && sleep 10  && make dev",
+        "options": {
+          "shell": {
+            // "executable": "bash",
+            "args": []
+          }
+        },
+        "isBackground": false,
+        "problemMatcher": [],
+        "presentation": {
+          "group": "my-group"
+        }
+      }
+    ]
+  }

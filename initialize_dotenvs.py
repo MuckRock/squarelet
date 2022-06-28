@@ -25,6 +25,7 @@ CONFIG = [
                     ("USE_DOCKER", "yes"),
                     ("DJANGO_SECRET_KEY", lambda: random_string(20)),
                     ("IPYTHONDIR", "/app/.ipython"),
+                    ("REQUESTS_CA_BUNDLE", "/etc/ssl/certs/ca-certificates.crt"),
                 ],
             },
             {
@@ -49,9 +50,9 @@ CONFIG = [
                 "url": "https://stripe.com",
                 "description": "Stripe is used for payment processing",
                 "envvars": [
-                    ("STRIPE_SECRET_KEY", ""),
-                    ("STRIPE_PUB_KEY", ""),
-                    ("STRIPE_WEBHOOK_SECRET", ""),
+                    ("STRIPE_SECRET_KEYS", "sk_muckrock,sk_presspass"),
+                    ("STRIPE_PUB_KEYS", "pk_muckrock,pk_presspass"),
+                    ("STRIPE_WEBHOOK_SECRETS", "wh_muckrock,wh_presspass"),
                 ],
             },
         ],

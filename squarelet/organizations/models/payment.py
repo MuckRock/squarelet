@@ -67,6 +67,12 @@ class Customer(models.Model):
                     self.customer_id,
                     api_key=settings.STRIPE_SECRET_KEYS[self.stripe_account],
                 )
+                if stripe_customer.name is None:
+                    stripe.Customer.modify(
+                        stripe_customer.id,
+                        name=self.organization.user_full_name,
+                        api_key=settings.STRIPE_SECRET_KEYS[self.stripe_account],
+                    )
                 return stripe_customer
             except stripe.error.InvalidRequestError:
                 pass
@@ -82,6 +88,7 @@ class Customer(models.Model):
             stripe_customer = stripe.Customer.create(
                 description=customer.organization.name,
                 email=customer.organization.email,
+                name=customer.organization.user_full_name,
                 api_key=settings.STRIPE_SECRET_KEYS[self.stripe_account],
             )
             customer.customer_id = stripe_customer.id
@@ -199,6 +206,7 @@ class Subscription(models.Model):
                     }
                 ],
                 billing="send_invoice" if self.plan.annual else "charge_automatically",
+                metadata={"action": f"Subscription ({self.plan})"},
                 days_until_due=30 if self.plan.annual else None,
             )
             self.subscription_id = stripe_subscription.id
@@ -247,6 +255,7 @@ class Subscription(models.Model):
                     }
                 ],
                 billing="send_invoice" if self.plan.annual else "charge_automatically",
+                metadata={"action": f"Subscription ({self.plan})"},
                 days_until_due=30 if self.plan.annual else None,
                 api_key=settings.STRIPE_SECRET_KEYS[self.plan.stripe_account],
             )
@@ -458,6 +467,8 @@ class Charge(models.Model):
         max_length=255,
         help_text=_("A description of what the charge was for"),
     )
+
+    metadata = models.JSONField(_("metadata"), default=dict)
 
     class Meta:
         ordering = ("-created_at",)

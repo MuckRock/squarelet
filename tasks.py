@@ -1,5 +1,6 @@
 # Third Party
 from invoke import task
+from pathlib import Path
 
 DOCKER_COMPOSE_RUN_OPT = "docker-compose -f local.yml run {opt} --rm {service} {cmd}"
 DOCKER_COMPOSE_RUN_OPT_USER = DOCKER_COMPOSE_RUN_OPT.format(
@@ -292,4 +293,26 @@ def sync_aws_staging(c):
         c.run(
             f"aws s3 sync s3://squarelet/media/{folder} "
             f"s3://squarelet-staging/media/{folder}"
+        )
+
+
+# Setup
+# --------------------------------------------------------------------------------
+@task
+def mkcert(c):
+    """Make SSL certificates for local development"""
+    certs_dir = Path("./config/certs/")
+    if not certs_dir.exists():
+        certs_dir.mkdir(parents=True, exist_ok=True)
+    with c.cd(str(certs_dir)):
+        c.run(
+            "CAROOT=. mkcert "
+            "-install "
+            "-cert-file dev.squarelet.com.pem "
+            "-key-file dev.squarelet.com-key.pem "
+            "dev.squarelet.com "
+            '"*.dev.documentcloud.org" '
+            "dev.muckrock.com "
+            "dev.foiamachine.org "
+            "dev.mailhog.com"
         )

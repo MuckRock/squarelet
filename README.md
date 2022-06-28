@@ -10,21 +10,58 @@ User account service for MuckRock and DocumentCloud
 2. [docker-compose][docker-compose-install]
 3. [python][python-install]
 4. [invoke][invoke-install]
+5. [mkcert][mkcert-install]
 
 ### Installation Steps
 
-1. Check out the git repository - `git clone git@github.com:MuckRock/squarelet.git`
-2. Enter the directory - `cd squarelet`
-3. Run the dotenv initialization script - `python initialize_dotenvs.py`
-This will create files with the environment variables needed to run the development environment.
-4. Start the docker images - `inv up`
-This will build and start all of the docker images using docker-compose.  It will bind to port 80 on localhost, so you must not have anything else running on port 80. The invoke tasks specify the `local.yml` configuration file for docker-compose.  If you would like to run docker-compose commands directly, set the environment variable `export COMPOSE_FILE=local.yml`.
-5. Set `dev.squarelet.com` to point to localhost - `sudo echo "127.0.0.1   dev.squarelet.com" >> /etc/hosts`
-6. Enter `dev.squarelet.com` into your browser - you should see the Squarelet home page.
+Check out the git repository.
+
+```bash
+git clone git@github.com:MuckRock/squarelet.git
+```
+
+Enter the directory.
+
+```bash
+cd squarelet
+```
+
+Run the environment initialization script, which will create files with the environment variables needed to run the development environment.
+
+```bash
+python initialize_dotenvs.py
+```
+
+Set an environment variable that directs `docker-compose` to use the `local.yml` file.
+
+```bash
+export COMPOSE_FILE=local.yml
+```
+
+Generate local certificates for SSL support.
+
+```bash
+inv mkcert
+```
+
+Start the docker containers. This will build and start all of the Squarelet session docker images using docker-compose.  It will bind to port 80 on localhost, so you must not have anything else running on port 80.
+
+```bash
+inv up
+```
+Set `dev.squarelet.com` to point to localhost.
+
+```bash
+sudo echo "127.0.0.1   dev.squarelet.com" >> /etc/hosts
+```
+
+Enter `dev.squarelet.com` into your browser. You should see the Muckrock Squarelet home page.
+
+Follow the instructions for integration in a platform app such as ["Squarelet Integration" on MuckRock](https://github.com/muckrock/muckrock/#squarelet-integration) documentation or in [the DocumentCloud](https://github.com/muckRock/documentcloud) documentation.
 
 ## Docker info
 
-The development environment is managed via [docker][docker] and [docker compose][docker-compose].  Please read up on them if you are unfmiliar with them.  The docker compose file is `local.yml`.  If you would like to run `docker-compose` commands directly, please run `export COMPOSE_FILE=local.yml` so you don't need to specify it in every command.
+The development environment is managed via [docker][docker] and [docker compose][docker-compose].  Please read up on them if you are unfamiliar with them.  The docker compose file is `local.yml`.  If you would like to run `docker-compose` commands directly, please run `export COMPOSE_FILE=local.yml` so you don't need to specify it in every command.
 
 The containers which are run include the following:
 
@@ -50,26 +87,25 @@ This is the [Django][django] application
 The celery beat image is responsible for queueing up periodic celery tasks.
 
 All systems can be brought up using `inv up`.  You can rebuild all images using `inv build`.  There are various other invoke commands for common tasks interacting with docker, which you can view in the `tasks.py` file.
-
-
 ### Networking Setup
 
-Nginx is run in front of Django in this development environment in order to allow development of squarelet and client applications at the same time.  This works by aliasing all needed domains to localhost, and allowing Nginx to properly route them.  Other projects have their own docker compose files which will have their containers join the squarelet network, so the containers can communicate with each other properly.  For me detail, see the Nginx config file at `compose/local/nginx/nginx.conf`.
+Nginx is run in front of Django in this development environment in order to allow development of squarelet and client applications at the same time.  This works by aliasing all needed domains to localhost, and allowing Nginx to properly route them.  Other projects have their own docker compose files which will have their containers join the squarelet network, so the containers can communicate with each other properly.  For more detail, see the Nginx config file at `compose/local/nginx/nginx.conf`.
 
 ### Environment Variables
 
-The application is configured with environment variables in order to make it easy to customize behavior in different environments (dev, testing, staging, production, etc).  Some of this environment variables may be sensitive information, such as passwords or API tokens to various services.  For this reason, they are not to be checked in to version control.  In order to assist with the setup of a new development environment, a script called `initialize_dotenvs.py` is provided which will create the files in the expected places, with the variables included.  Those which require external accounts will generally be left blank, and you may sign up for an account to use for development and add your own credentials in.  You may also add extra configuration here as necessary for your setup.
+The application is configured with environment variables in order to make it easy to customize behavior in different environments (dev, testing, staging, production, etc).  Some of the environment variables may be sensitive information, such as passwords or API tokens to various services.  For this reason, they are not to be checked in to version control.  In order to assist with the setup of a new development environment, a script called `initialize_dotenvs.py` is provided which will create the files in the expected places, with the variables included.  Those which require external accounts will generally be left blank, and you may sign up for an account to use for development and add your own credentials in.  You may also add extra configuration here as necessary for your setup.
 
 ## Invoke info
 
-Invoke is a task execution library.  It is used to allow easy access to common commands used during development.  You may look through the file to see the commands being run.  I will go through some of the more important ones here.
+Invoke is a task execution library.  It is used to allow easy access to common commands used during development.  You may look through the `tasks.py` file to see the commands being run.  I will go through some of the more important ones here.
 
 ### Release
 `inv prod` will merge your dev branch into master, and push to GitHub, which will trigger [CodeShip][codeship] to release it to Heroku, as long as all code checks pass.  The production site is currently hosted at [https://accounts.muckrock.com/](https://accounts.muckrock.com/).
 `inv staging` will push the staging branch to GitHub, which will trigger CodeShip to release it to Heroku, as long as all code checks pass.  The staging site is currently hosted at [https://squarelet-staging.herokuapp.com/](https://squarelet-staging.herokuapp.com/).
 
 ### Test
-`inv test` will run the test suite.  By default it will try to reuse the previous test database to save time.  If you have changed the schema and need to rebuild the data base, run it with the `--create-db` switch.
+`inv test` will run the test suite.  By default it will try to reuse the previous test database to save time.  If you have changed the schema and need to rebuild the database, run it with the `--create-db` switch.
+
 `inv coverage` will run the test suite and generate a coverage report at `htmlcov/index.html`.
 
 The test suite will be run on CodeShip prior to releasing new code.  Please ensure your code passes all tests before trying to release it.  Also please add new tests if you develop new code - we try to mantain at least 85% code coverage.
@@ -115,3 +151,4 @@ Running `inv pip-compile` will compile the `.in` files to the corresponding `.tx
 [pylint]:  https://www.pylint.org/
 [black]: https://github.com/psf/black
 [pip-tools]: https://github.com/jazzband/pip-tools
+[mkcert-install]: https://github.com/FiloSottile/mkcert#installation

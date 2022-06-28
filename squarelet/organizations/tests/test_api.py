@@ -528,6 +528,7 @@ class TestPPSubscriptionAPI:
         mocked_customer.subscriptions.create.assert_called_with(
             items=[{"plan": plan.stripe_id, "quantity": organization.max_users}],
             billing="charge_automatically",
+            metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=None,
         )
         assert mocked_customer.email == organization.email

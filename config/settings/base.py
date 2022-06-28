@@ -369,12 +369,12 @@ REST_FRAMEWORK = {
 
 # first party urls
 # ------------------------------------------------------------------------------
-SQUARELET_URL = env("SQUARELET_URL", default="http://dev.squarelet.com")
-MUCKROCK_URL = env("MUCKROCK_URL", default="http://dev.muckrock.com")
-FOIAMACHINE_URL = env("FOIAMACHINE_URL", default="http://dev.foiamachine.org")
-DOCCLOUD_URL = env("DOCCLOUD_URL", default="http://www.dev.documentcloud.org")
-PRESSPASS_URL = env("PRESSPASS_URL", default="http://dev.presspass.com:3000")
-PRESSPASS_API_URL = env("PRESSPASS_API_URL", default="http://dev.presspass.com")
+SQUARELET_URL = env("SQUARELET_URL", default="https://dev.squarelet.com")
+MUCKROCK_URL = env("MUCKROCK_URL", default="https://dev.muckrock.com")
+FOIAMACHINE_URL = env("FOIAMACHINE_URL", default="https://dev.foiamachine.org")
+DOCCLOUD_URL = env("DOCCLOUD_URL", default="https://www.dev.documentcloud.org")
+PRESSPASS_URL = env("PRESSPASS_URL", default="https://dev.presspass.com:3000")
+PRESSPASS_API_URL = env("PRESSPASS_API_URL", default="https://dev.presspass.com")
 
 PRESSPASS_DOMAIN = env("PRESSPASS_DOMAIN", default="")
 PRESSPASS_COOKIE_DOMAIN = env("PRESSPASS_COOKIE_DOMAIN", default="")
@@ -466,3 +466,5 @@ SWAGGER_SETTINGS = {"exclude_namespaces": ["auth_helpers"]}
 
 CORS_ORIGIN_WHITELIST = env.list("CORS_ORIGIN_WHITELIST", default=[])
 CORS_ALLOW_CREDENTIALS = True
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

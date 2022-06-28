@@ -139,6 +139,7 @@ class TestOrganization:
         mocked_stripe_create.assert_called_with(
             description=organization.name,
             email=email,
+            name=organization.user_full_name,
             api_key=settings.STRIPE_SECRET_KEYS[StripeAccounts.muckrock],
         )
 
@@ -315,6 +316,7 @@ class TestCustomer:
         mocked_create.assert_called_with(
             description=customer.organization.name,
             email=email,
+            name=customer.organization.user_full_name,
             api_key=settings.STRIPE_SECRET_KEYS[StripeAccounts.muckrock],
         )
         customer.refresh_from_db()
@@ -447,6 +449,7 @@ class TestSubscription:
                 }
             ],
             billing="charge_automatically",
+            metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=None,
         )
         assert (
@@ -529,6 +532,7 @@ class TestSubscription:
                 }
             ],
             billing="charge_automatically",
+            metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=None,
             api_key=settings.STRIPE_SECRET_KEYS[plan.stripe_account],
         )
