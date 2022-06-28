@@ -29,12 +29,15 @@ class OrganizationQuerySet(models.QuerySet):
             # anonymous users may not see any private organizations
             return self.filter(private=False)
 
-    def create_individual(self, user):
+    def create_individual(self, user, uuid=None):
         """Create an individual organization for user
         The user model must be unsaved
         """
+        kwargs = {}
+        if uuid is not None:
+            kwargs["uuid"] = uuid
         user.individual_organization = self.create(
-            name=user.username, individual=True, private=True, max_users=1
+            name=user.username, individual=True, private=True, max_users=1, **kwargs
         )
         user.save()
         user.individual_organization.add_creator(user)

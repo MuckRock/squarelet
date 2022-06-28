@@ -11,7 +11,7 @@ from squarelet.organizations.models import Organization
 
 
 class UserManager(AuthUserManager):
-    def _create_user(self, username, email, password=None, **extra_fields):
+    def _create_user(self, username, email, password=None, uuid=None, **extra_fields):
         """Create and save a user with the given username, email, and password."""
         if not username:
             raise ValueError("The given username must be set")
@@ -27,7 +27,7 @@ class UserManager(AuthUserManager):
             user.set_unusable_password()
 
         # all users must have an individual organization
-        Organization.objects.create_individual(user)
+        Organization.objects.create_individual(user, uuid)
 
         return user
 
