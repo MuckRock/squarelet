@@ -14,6 +14,10 @@ from dateutil.parser import parse
 from smart_open.smart_open_lib import smart_open
 
 # Squarelet
+from squarelet.oidc.middleware import (
+    delete_cache_invalidation_set,
+    init_cache_invalidation_set,
+)
 from squarelet.users.models import User
 from squarelet.users.serializers import UserWriteSerializer
 
@@ -34,7 +38,9 @@ class Command(BaseCommand):
 
         with transaction.atomic():
             sid = transaction.savepoint()
+            init_cache_invalidation_set()
             self.import_users()
+            delete_cache_invalidation_set()
             if dry_run:
                 self.stdout.write("Dry run, not commiting changes")
                 transaction.savepoint_rollback(sid)
