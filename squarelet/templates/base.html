@@ -93,18 +93,18 @@ MIXPANEL_CUSTOM_LIB_URL:"file:"===c.location.protocol&&"//cdn4.mxpnl.com/libs/mi
                 </div>
               </a>
             </li>
-            {% comment %}
             <li>
-              <div class="_cls-serviceIcon">
-                <img src="{% static 'assets/quackbot.svg' %}">
-              </div>
-              <div class="_cls-serviceInfo">
-                <div class="_cls-serviceName">
-                  {% trans 'Quackbot' %}
+              <a class="_cls-nostyle" href="{{ settings.BIGLOCALNEWS_URL }}">
+                <div class="_cls-serviceIcon">
+                  <img src="{% static 'assets/biglocalnews.svg' %}">
                 </div>
-              </div>
+                <div class="_cls-serviceInfo">
+                  <div class="_cls-serviceName">
+                    {% trans 'Big Local News' %}
+                  </div>
+                </div>
+              </a>
             </li>
-            {% endcomment %}
             {% if request.user.is_authenticated %}
               <div class="_cls-shim _cls-hide" id="_id-shim"></div>
               <li id="_id-profDropdown" class="_cls-profDropdown">
@@ -205,7 +205,7 @@ MIXPANEL_CUSTOM_LIB_URL:"file:"===c.location.protocol&&"//cdn4.mxpnl.com/libs/mi
     <div class="_cls-footer">
       <p>
         MuckRock Accounts let you log in and manage users, payments, and
-        organizations for MuckRock, DocumentCloud, and FOIAMachine.
+        organizations for MuckRock, DocumentCloud, FOIAMachine, and Big Local News.
       </p>
       <ul>
         <li>

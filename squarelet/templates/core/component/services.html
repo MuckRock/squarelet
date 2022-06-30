@@ -52,20 +52,20 @@
         </div>
       </a>
     </li>
-    {% comment %}
     <li>
-      <div class="_cls-serviceIcon">
-        <img src="{% static 'assets/quackbot.svg' %}">
-      </div>
-      <div class="_cls-serviceInfo">
-        <div class="_cls-serviceName">
-          {% trans 'Quackbot' %}
+      <a class="_cls-nostyle" href="{{ settings.BIGLOCALNEWS_URL }}">
+        <div class="_cls-serviceIcon">
+          <img src="{% static 'assets/biglocalnews.svg' %}">
         </div>
-        <div class="_cls-serviceDescription">
-          {% blocktrans %}A task-oriented chat bot for journalists using Slack{% endblocktrans %}
+        <div class="_cls-serviceInfo">
+          <div class="_cls-serviceName">
+            {% trans 'Big Local News' %}
+          </div>
+          <div class="_cls-serviceDescription">
+            {% blocktrans %}Data, tools and collaborations that empower journalists to better cover their community.{% endblocktrans %}
+          </div>
         </div>
-      </div>
+      </a>
     </li>
-    {% endcomment %}
   </ul>
 </div>
