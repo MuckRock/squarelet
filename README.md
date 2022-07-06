@@ -52,7 +52,7 @@ inv up
 Set `dev.squarelet.com` to point to localhost.
 
 ```bash
-sudo echo "127.0.0.1   dev.squarelet.com" >> /etc/hosts
+echo "127.0.0.1   dev.squarelet.com" | sudo tee -a /etc/hosts
 ```
 
 Enter `dev.squarelet.com` into your browser. You should see the Muckrock Squarelet home page.
