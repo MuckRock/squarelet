@@ -132,7 +132,7 @@ Python dependencies are managed via [pip-tools][pip-tools].  This allows us to k
 
 The corresponding files are kept in the `requirements` folder.  There are files for `base`, `local`, and `production` environments.  `local` is used for development environments and `production` is used for production and staging environments.  Both include `base`.  For each environment there is an `.in` file and a `.txt` file.  The `.in` file is the input file - you list your direct dependencies here.  You may specify version constraints here, but do not have to.
 
-Running `inv pip-compile` will compile the `.in` files to the corresponding `.txt` files.  This will pin all of the dependencies, and their dependencies, to the latest versions that meet any constraints that have been put on them.  You should run this command if you need to add any new dependencies to an `.in` files.  Please keep the `.in` files sorted.  After running `inv pip-compile`, you will need to run `inv build` to rebuild the docker images with the new dependencies included.
+Running `inv pip-compile` will compile the `.in` files to the corresponding `.txt` files.  This will pin all of the dependencies, and their dependencies, to the latest versions that meet any constraints that have been put on them.  You should run this command if you need to add any new dependencies to an `.in` file.  Please keep the `.in` files sorted.  After running `inv pip-compile`, you will need to run `inv build` to rebuild the docker images with the new dependencies included.
 
 [docker]: https://docs.docker.com/
 [docker-compose]: https://docs.docker.com/compose/
