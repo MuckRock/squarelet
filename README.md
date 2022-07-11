@@ -1,4 +1,5 @@
 # Squarelet
+**Squarelet** &middot; [MuckRock][muckrock] &middot; [DocumentCloud][documentcloud] &middot; [DocumentCloud-Frontend][documentcloudfrontend]
 
 User account service for MuckRock and DocumentCloud
 
@@ -57,7 +58,10 @@ echo "127.0.0.1   dev.squarelet.com" | sudo tee -a /etc/hosts
 
 Enter `dev.squarelet.com` into your browser. You should see the Muckrock Squarelet home page.
 
-Follow the instructions for integration in a platform app such as ["Squarelet Integration" on MuckRock](https://github.com/muckrock/muckrock/#squarelet-integration) documentation or in [the DocumentCloud](https://github.com/muckRock/documentcloud) documentation.
+If you are developing on any of our other projects. Follow their respective integration steps. 
+
+ - [MuckRock](https://github.com/MuckRock/muckrock#squarelet-integration)
+ - DocumentCloud (https://github.com/MuckRock/documentcloud#squarelet-integration)
 
 ## Docker info
 
@@ -152,3 +156,6 @@ Running `inv pip-compile` will compile the `.in` files to the corresponding `.tx
 [black]: https://github.com/psf/black
 [pip-tools]: https://github.com/jazzband/pip-tools
 [mkcert-install]: https://github.com/FiloSottile/mkcert#installation
+[muckrock]: https://github.com/MuckRock/muckrock
+[documentcloud]: https://github.com/MuckRock/documentcloud
+[documentcloudfrontend]: https://github.com/MuckRock/documentcloud-frontend
