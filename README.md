@@ -61,7 +61,7 @@ Enter `dev.squarelet.com` into your browser. You should see the Muckrock Squarel
 If you are developing on any of our other projects. Follow their respective integration steps. 
 
  - [MuckRock](https://github.com/MuckRock/muckrock#squarelet-integration)
- - DocumentCloud (https://github.com/MuckRock/documentcloud#squarelet-integration)
+ - [DocumentCloud](https://github.com/MuckRock/documentcloud#squarelet-integration)
 
 ## Docker info
 
