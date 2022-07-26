@@ -3,3 +3,4 @@ Collectfast
 django-anymail[mailgun]
 django-celery-email
 gunicorn
+sentry-sdk
