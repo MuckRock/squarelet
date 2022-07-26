@@ -15,8 +15,8 @@ backcall==0.1.0           # via ipython
 bcrypt==3.1.4             # via -r requirements/base.in
 billiard==3.6.4.0         # via celery
 boto==2.49.0              # via smart-open
-boto3==1.9.32             # via django-storages, smart-open
-botocore==1.12.32         # via boto3, s3transfer
+boto3==1.21.21            # via django-storages, smart-open
+botocore==1.24.21         # via boto3, s3transfer
 bz2file==0.98             # via smart-open
 celery==4.4.7             # via -r requirements/base.in
 certifi==2018.4.16        # via requests
@@ -86,7 +86,7 @@ psycopg2-binary==2.9.3    # via django-request-token
 ptyprocess==0.6.0         # via pexpect
 pure-eval==0.2.2          # via stack-data
 pycparser==2.18           # via cffi
-pycryptodomex==3.6.4      # via pyjwkest
+pycryptodomex==3.15.0     # via pyjwkest
 pygments==2.12.0          # via ipython
 pyjwkest==1.4.0           # via django-oidc-provider
 pyjwt[crypto]==2.4.0      # via django-allauth, django-request-token, djangorestframework-simplejwt
@@ -97,11 +97,11 @@ python3-openid==3.1.0     # via django-allauth
 pytz==2018.4              # via -r requirements/base.in, celery, django, djangorestframework
 rcssmin==1.1.0            # via -r requirements/base.in, django-compressor
 redis==4.1.0              # via -r requirements/base.in, django-redis
-requests==2.21.0          # via django-allauth, premailer, pyjwkest, requests-oauthlib, smart-open, stripe
+requests==2.28.1          # via django-allauth, premailer, pyjwkest, requests-oauthlib, smart-open, stripe
 requests-oauthlib==1.0.0  # via django-allauth
 rjsmin==1.2.0             # via django-compressor
 rules==2.1                # via -r requirements/base.in
-s3transfer==0.1.13        # via boto3
+s3transfer==0.5.2         # via boto3
 six==1.16.0               # via asttokens, bcrypt, django-autocomplete-light, django-choices, django-compat, django-environ, furl, orderedmultidict, prompt-toolkit, pyjwkest, python-dateutil
 smart-open==1.7.1         # via -r requirements/base.in
 sorl-thumbnail==12.7.0    # via -r requirements/base.in
@@ -111,7 +111,7 @@ stripe==2.10.1            # via -r requirements/base.in
 toml==0.10.2              # via ipdb
 traitlets==5.3.0          # via ipython, matplotlib-inline
 unidecode==1.0.22         # via python-slugify
-urllib3==1.23             # via botocore, requests
+urllib3==1.26.10          # via botocore, requests
 vine==1.3.0               # via amqp, celery
 wcwidth==0.1.7            # via prompt-toolkit
 wrapt==1.11.2             # via deprecated
