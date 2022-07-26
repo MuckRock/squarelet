@@ -7,8 +7,6 @@ from django.views import defaults as default_views
 from django.views.generic import TemplateView
 
 # Third Party
-from drf_yasg import openapi
-from drf_yasg.views import get_schema_view
 from rest_framework import permissions
 from rest_framework_nested import routers
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
@@ -41,18 +39,6 @@ from squarelet.users.viewsets import (
     RefreshTokenViewSet,
     UrlAuthTokenViewSet,
     UserViewSet,
-)
-
-SchemaView = get_schema_view(
-    openapi.Info(
-        title="Squarelet API",
-        default_version="v1",
-        description="API for Muckrock Accounts and PressPass",
-        terms_of_service="https://www.muckrock.com/tos/",
-        contact=openapi.Contact(email="mitch@muckrock.com"),
-    ),
-    public=True,
-    permission_classes=(permissions.AllowAny,),
 )
 
 router = routers.DefaultRouter()
@@ -111,13 +97,6 @@ urlpatterns = [
         "pp-api/verify/<key>/",
         PressPassEmailConfirmationUpdateView.as_view(),
         name="presspass_email_confirm",
-    ),
-    # Swagger
-    path("swagger<format>", SchemaView.without_ui(cache_timeout=0), name="schema-json"),
-    path(
-        "swagger/",
-        SchemaView.with_ui("swagger", cache_timeout=0),
-        name="schema-swagger-ui",
     ),
     path("openid/", include("oidc_provider.urls", namespace="oidc_provider")),
     path("openid/jwt", token_view, name="oidc_jwt"),
