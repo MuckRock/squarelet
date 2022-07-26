@@ -111,6 +111,7 @@ class Customer(models.Model):
 
     @property
     def card_display(self):
+        # pylint: disable=using-constant-test
         if self.card:
             return f"{self.card.brand}: {self.card.last4}"
         else:
@@ -188,6 +189,7 @@ class Subscription(models.Model):
             return None
 
     def start(self):
+        # pylint: disable=using-constant-test
         if self.stripe_subscription:
             logger.error(
                 "Trying to start an existing subscription: %s %s",
@@ -212,6 +214,7 @@ class Subscription(models.Model):
             self.subscription_id = stripe_subscription.id
 
     def cancel(self):
+        # pylint: disable=using-constant-test
         if self.stripe_subscription:
             self.stripe_subscription.cancel_at_period_end = True
             self.stripe_subscription.save()
@@ -242,6 +245,7 @@ class Subscription(models.Model):
 
     def stripe_modify(self):
         """Update stripe subscription to match local subscription"""
+        # pylint: disable=using-constant-test
         if self.stripe_subscription:
             stripe.Subscription.modify(
                 self.subscription_id,

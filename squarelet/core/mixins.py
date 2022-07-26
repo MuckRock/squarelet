@@ -3,7 +3,7 @@ from django.conf import settings
 from django.urls import reverse
 
 
-class AvatarMixin(object):
+class AvatarMixin:
     """Mixin for models with an avatar"""
 
     @property
@@ -12,7 +12,7 @@ class AvatarMixin(object):
         return url if url.startswith("http") else f"{settings.SQUARELET_URL}{url}"
 
 
-class AdminLinkMixin(object):
+class AdminLinkMixin:
     """Add an admin link to a view for staff"""
 
     def get_context_data(self, **kwargs):

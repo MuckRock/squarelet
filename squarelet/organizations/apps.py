@@ -7,5 +7,5 @@ class OrganizationsConfig(AppConfig):
     verbose_name = "Organizations"
 
     def ready(self):
-        # pylint: disable=unused-variable
+        # pylint: disable=import-outside-toplevel, unused-import
         from . import signals

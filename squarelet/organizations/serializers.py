@@ -230,7 +230,7 @@ class PressPassNestedInvitationSerializer(FlexFieldsModelSerializer):
         organization = Organization.objects.get(uuid=view.kwargs["organization_uuid"])
         if organization.has_admin(request.user) and not value:
             raise serializers.ValidationError("You must supply an email")
-        elif not organization.has_admin(request.user) and value:
+        if not organization.has_admin(request.user) and value:
             raise serializers.ValidationError("You must not supply an email")
         return value
 

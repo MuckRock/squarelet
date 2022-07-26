@@ -120,7 +120,7 @@ class TestMailgunWebhook:
         # pylint: disable=protected-access
         self.sign(data)
         request = rf.post(
-            f"/users/~mailgun/", json.dumps(data), content_type="application/json"
+            "/users/~mailgun/", json.dumps(data), content_type="application/json"
         )
         return views.mailgun_webhook(request)
 
@@ -160,7 +160,7 @@ class TestMailgunWebhook:
 
     def test_get(self, rf):
         """GET requests should fail"""
-        request = rf.get(f"/users/~mailgun/")
+        request = rf.get("/users/~mailgun/")
         response = views.mailgun_webhook(request)
         assert response.status_code == 405
 
@@ -180,7 +180,7 @@ class TestMailgunWebhook:
         """Signature verification error should fail"""
         event = {"event-data": {"event": "failed", "receipient": "mitch@example.com"}}
         request = rf.post(
-            f"/users/~mailgun/", json.dumps(event), content_type="application/json"
+            "/users/~mailgun/", json.dumps(event), content_type="application/json"
         )
         response = views.mailgun_webhook(request)
         assert response.status_code == 403
@@ -188,7 +188,7 @@ class TestMailgunWebhook:
     def test_bad_json(self, rf):
         """Malformed JSON should fail"""
         request = rf.post(
-            f"/users/~mailgun/", "{'malformed json'", content_type="application/json"
+            "/users/~mailgun/", "{'malformed json'", content_type="application/json"
         )
         response = views.mailgun_webhook(request)
         assert response.status_code == 400

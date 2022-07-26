@@ -12,12 +12,14 @@ from squarelet.organizations.choices import StripeAccounts
 
 
 def email_confirmed(request, email_address, **kwargs):
+    # pylint: disable=unused-argument
     if email_address.primary:
         send_cache_invalidations("user", email_address.user.uuid)
 
 
 def email_changed(request, user, from_email_address, to_email_address, **kwargs):
     """The user has changed their primary email"""
+    # pylint: disable=unused-argument
     # update the stripe customer for all accounts
     # Leave out presspass for now, as they do not have a stripe account yet
     accounts = [StripeAccounts.muckrock]
