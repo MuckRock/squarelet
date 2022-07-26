@@ -214,7 +214,7 @@ SENTRY_DSN = env("SENTRY_DSN")
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": True,
-    "root": {"level": "WARNING", "handlers": ["sentry", "console"]},
+    "root": {"level": "WARNING", "handlers": ["console"]},
     "formatters": {
         "verbose": {
             "format": "%(levelname)s %(asctime)s %(module)s "
@@ -237,7 +237,7 @@ LOGGING = {
         "sentry_sdk": {"level": "ERROR", "handlers": ["console"], "propagate": False},
         "django.security.DisallowedHost": {
             "level": "ERROR",
-            "handlers": ["console", "sentry"],
+            "handlers": ["console"],
             "propagate": False,
         },
     },
