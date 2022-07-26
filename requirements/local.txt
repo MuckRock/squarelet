@@ -20,8 +20,8 @@ bcrypt==3.1.4             # via -r requirements/base.txt
 billiard==3.6.4.0         # via -r requirements/base.txt, celery
 black==21.12b0            # via -r requirements/local.in
 boto==2.49.0              # via -r requirements/base.txt, smart-open
-boto3==1.9.32             # via -r requirements/base.txt, django-storages, smart-open
-botocore==1.12.32         # via -r requirements/base.txt, boto3, s3transfer
+boto3==1.21.21            # via -r requirements/base.txt, django-storages, smart-open
+botocore==1.24.21         # via -r requirements/base.txt, boto3, s3transfer
 bz2file==0.98             # via -r requirements/base.txt, smart-open
 celery==4.4.7             # via -r requirements/base.txt
 certifi==2018.4.16        # via -r requirements/base.txt, requests
