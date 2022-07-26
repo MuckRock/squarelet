@@ -82,7 +82,7 @@ inflection==0.5.1         # via pytest-factoryboy
 iniconfig==1.1.1          # via pytest
 ipdb==0.13.9              # via -r requirements/base.txt
 ipython==8.4.0            # via -r requirements/base.txt, ipdb
-isort==4.3.4              # via pylint
+isort==4.3.21             # via pylint
 jedi==0.18.1              # via -r requirements/base.txt, ipython
 jinja2==2.10              # via sphinx
 jmespath==0.9.3           # via -r requirements/base.txt, boto3, botocore
