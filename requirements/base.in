@@ -39,7 +39,6 @@ memoize
 psycopg2 --no-binary psycopg2
 python-slugify
 pytz
-raven
 rcssmin
 redis
 rules

@@ -122,8 +122,8 @@ pyjwt[crypto]==2.4.0      # via -r requirements/base.txt, django-allauth, django
 pylint==2.7.4             # via -r requirements/local.in, pylint-celery, pylint-common, pylint-django, pylint-plugin-utils
 pylint-celery==0.3        # via -r requirements/local.in
 pylint-common==0.2.5      # via -r requirements/local.in
-pylint-django==0.11.1     # via -r requirements/local.in
-pylint-plugin-utils==0.4  # via pylint-celery, pylint-common, pylint-django
+pylint-django==2.5.3      # via -r requirements/local.in
+pylint-plugin-utils==0.7  # via pylint-celery, pylint-common, pylint-django
 pyparsing==2.4.5          # via -r requirements/base.txt, packaging
 pytest==6.2.5             # via -r requirements/local.in, pytest-django, pytest-factoryboy, pytest-freezegun, pytest-mock, pytest-sugar
 pytest-django==4.5.2      # via -r requirements/local.in
@@ -135,7 +135,6 @@ python-dateutil==2.7.4    # via -r requirements/base.txt, botocore, faker, freez
 python-slugify==1.2.5     # via -r requirements/base.txt
 python3-openid==3.1.0     # via -r requirements/base.txt, django-allauth
 pytz==2018.4              # via -r requirements/base.txt, babel, celery, django, djangorestframework
-raven==6.9.0              # via -r requirements/base.txt
 rcssmin==1.1.0            # via -r requirements/base.txt, django-compressor
 redis==4.1.0              # via -r requirements/base.txt, django-redis
 requests==2.21.0          # via -r requirements/base.txt, django-allauth, premailer, pyjwkest, requests-oauthlib, smart-open, sphinx, stripe
