@@ -2,7 +2,6 @@ Pillow
 argon2-cffi
 bcrypt
 celery<5.0
-coreapi
 cryptography
 dj-rest-auth
 django-allauth
@@ -33,7 +32,6 @@ djangorestframework_simplejwt
 dogslow
 drf-flex-fields
 drf-nested-routers
-drf-yasg
 furl
 html2text
 ipdb
