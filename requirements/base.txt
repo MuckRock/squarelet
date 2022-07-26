@@ -15,8 +15,8 @@ backcall==0.1.0           # via ipython
 bcrypt==3.1.4             # via -r requirements/base.in
 billiard==3.6.4.0         # via celery
 boto==2.49.0              # via smart-open
-boto3==1.9.32             # via django-storages, smart-open
-botocore==1.12.32         # via boto3, s3transfer
+boto3==1.21.21            # via django-storages, smart-open
+botocore==1.24.21         # via boto3, s3transfer
 bz2file==0.98             # via smart-open
 celery==4.4.7             # via -r requirements/base.in
 certifi==2018.4.16        # via requests
