@@ -101,7 +101,7 @@ python3-openid==3.1.0     # via -r requirements/base.txt, django-allauth
 pytz==2018.4              # via -r requirements/base.txt, celery, django, djangorestframework
 rcssmin==1.1.0            # via -r requirements/base.txt, django-compressor
 redis==4.1.0              # via -r requirements/base.txt, django-redis
-requests==2.21.0          # via -r requirements/base.txt, django-allauth, django-anymail, premailer, pyjwkest, requests-oauthlib, smart-open, stripe
+requests==2.28.1          # via -r requirements/base.txt, django-allauth, django-anymail, premailer, pyjwkest, requests-oauthlib, smart-open, stripe
 requests-oauthlib==1.0.0  # via -r requirements/base.txt, django-allauth
 rjsmin==1.2.0             # via -r requirements/base.txt, django-compressor
 rules==2.1                # via -r requirements/base.txt
