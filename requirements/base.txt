@@ -95,7 +95,6 @@ python-dateutil==2.7.4    # via botocore
 python-slugify==1.2.5     # via -r requirements/base.in
 python3-openid==3.1.0     # via django-allauth
 pytz==2018.4              # via -r requirements/base.in, celery, django, djangorestframework
-raven==6.9.0              # via -r requirements/base.in
 rcssmin==1.1.0            # via -r requirements/base.in, django-compressor
 redis==4.1.0              # via -r requirements/base.in, django-redis
 requests==2.21.0          # via django-allauth, premailer, pyjwkest, requests-oauthlib, smart-open, stripe

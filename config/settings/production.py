@@ -2,6 +2,12 @@
 import logging
 import os
 
+# Third Party
+import sentry_sdk
+from sentry_sdk.integrations.celery import CeleryIntegration
+from sentry_sdk.integrations.django import DjangoIntegration
+from sentry_sdk.integrations.logging import LoggingIntegration
+
 # Local
 from .base import *  # noqa
 from .base import env
@@ -201,20 +207,10 @@ INSTALLED_APPS = ["collectfast"] + INSTALLED_APPS  # noqa F405
 COLLECTFAST_STRATEGY = "collectfast.strategies.boto3.Boto3Strategy"
 AWS_PRELOAD_METADATA = True
 
-# raven
-# ------------------------------------------------------------------------------
-# https://docs.sentry.io/clients/python/integrations/django/
-INSTALLED_APPS += ["raven.contrib.django.raven_compat"]  # noqa F405
-MIDDLEWARE = [
-    "raven.contrib.django.raven_compat.middleware.SentryResponseErrorIdMiddleware"
-] + MIDDLEWARE
-
 # Sentry
 # ------------------------------------------------------------------------------
 SENTRY_DSN = env("SENTRY_DSN")
-SENTRY_CLIENT = env(
-    "DJANGO_SENTRY_CLIENT", default="raven.contrib.django.raven_compat.DjangoClient"
-)
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": True,
@@ -226,19 +222,11 @@ LOGGING = {
         }
     },
     "handlers": {
-        "sentry": {
-            "level": "ERROR",
-            "class": "raven.contrib.django.raven_compat.handlers.SentryHandler",
-        },
-        "dogslow": {
-            "level": "WARNING",
-            "class": "raven.contrib.django.raven_compat.handlers.SentryHandler",
-        },
         "console": {
             "level": "DEBUG",
             "class": "logging.StreamHandler",
             "formatter": "verbose",
-        },
+        }
     },
     "loggers": {
         "django.db.backends": {
@@ -246,23 +234,28 @@ LOGGING = {
             "handlers": ["console"],
             "propagate": False,
         },
-        "raven": {"level": "DEBUG", "handlers": ["console"], "propagate": False},
-        "sentry.errors": {
-            "level": "DEBUG",
-            "handlers": ["console"],
-            "propagate": False,
-        },
+        "sentry_sdk": {"level": "ERROR", "handlers": ["console"], "propagate": False},
         "django.security.DisallowedHost": {
             "level": "ERROR",
             "handlers": ["console", "sentry"],
             "propagate": False,
         },
-        "dogslow": {"level": "WARNING", "handlers": ["dogslow"], "propogate": False},
     },
 }
 
 SENTRY_CELERY_LOGLEVEL = env.int("DJANGO_SENTRY_LOG_LEVEL", logging.INFO)
-RAVEN_CONFIG = {"dsn": SENTRY_DSN}
+SENTRY_LOG_LEVEL = env.int("DJANGO_SENTRY_LOG_LEVEL", logging.INFO)
+
+sentry_logging = LoggingIntegration(
+    level=SENTRY_LOG_LEVEL,  # Capture info and above as breadcrumbs
+    event_level=logging.ERROR,  # Send errors as events
+)
+sentry_sdk.init(
+    dsn=SENTRY_DSN,
+    integrations=[sentry_logging, DjangoIntegration(), CeleryIntegration()],
+    send_default_pii=True,
+)
+
 # Your stuff...
 # ------------------------------------------------------------------------------
 
