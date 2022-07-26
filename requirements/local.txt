@@ -121,9 +121,8 @@ pyjwkest==1.4.0           # via -r requirements/base.txt, django-oidc-provider
 pyjwt[crypto]==2.4.0      # via -r requirements/base.txt, django-allauth, django-request-token, djangorestframework-simplejwt
 pylint==2.7.4             # via -r requirements/local.in, pylint-celery, pylint-common, pylint-django, pylint-plugin-utils
 pylint-celery==0.3        # via -r requirements/local.in
-pylint-common==0.2.5      # via -r requirements/local.in
-pylint-django==2.5.3      # via -r requirements/local.in
-pylint-plugin-utils==0.7  # via pylint-celery, pylint-common, pylint-django
+pylint-django==2.0.15     # via -r requirements/local.in
+pylint-plugin-utils==0.6  # via pylint-celery, pylint-common, pylint-django
 pyparsing==2.4.5          # via -r requirements/base.txt, packaging
 pytest==6.2.5             # via -r requirements/local.in, pytest-django, pytest-factoryboy, pytest-freezegun, pytest-mock, pytest-sugar
 pytest-django==4.5.2      # via -r requirements/local.in

@@ -10,7 +10,6 @@ flake8
 pip-tools
 pylint
 pylint_celery
-pylint_common
 pylint_django
 pytest
 pytest-django
