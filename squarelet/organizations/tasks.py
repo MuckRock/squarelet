@@ -81,11 +81,11 @@ def handle_charge_succeeded(charge_data):
             return charge_data["description"]
 
     # do not send receipts for MuckRock donations and crowdfunds
-    if charge_data["invoice"] and invoice_line["plan"]["id"].startswith(
+    if charge_data["invoice"] and invoice_line["plan"]["id"].lower().startswith(
         ("donate", "crowdfund")
     ):
         return
-    if not charge_data["invoice"] and charge_data["metadata"].get("action") in [
+    if not charge_data["invoice"] and charge_data["metadata"].get("action").lower() in [
         "donation",
         "crowdfund-payment",
     ]:
