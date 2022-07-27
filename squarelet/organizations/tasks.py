@@ -85,10 +85,9 @@ def handle_charge_succeeded(charge_data):
         ("donate", "crowdfund")
     ):
         return
-    if not charge_data["invoice"] and charge_data["metadata"].get("action").lower() in [
-        "donation",
-        "crowdfund-payment",
-    ]:
+    if not charge_data["invoice"] and charge_data["metadata"].get(
+        "action", ""
+    ).lower() in ["donation", "crowdfund-payment"]:
         return
 
     charge, _ = Charge.objects.get_or_create(
