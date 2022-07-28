@@ -61,6 +61,7 @@ class AccountAdapter(DefaultAccountAdapter):
             furl(settings.DOCCLOUD_URL).host,
             furl(settings.PRESSPASS_URL).host,
             furl(settings.BIGLOCALNEWS_URL).host,
+            furl(settings.BIGLOCALNEWS_API_URL).host,
         ]
         return is_safe_url(url, allowed_hosts=allowed_hosts)
 
