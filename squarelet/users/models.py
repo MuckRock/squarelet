@@ -161,6 +161,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         ordering = ("username",)
 
     def __str__(self):
+        # pylint: disable=invalid-str-returned
         return self.username
 
     @property

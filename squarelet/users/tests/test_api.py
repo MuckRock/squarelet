@@ -46,7 +46,7 @@ class TestUserAPI:
         )
         client = APIClient()
         client.force_authenticate(user=user)
-        response = client.post(f"/api/users/", data)
+        response = client.post("/api/users/", data)
         assert response.status_code == status.HTTP_201_CREATED
         response_json = json.loads(response.content)
         assert response_json["name"] == data["name"]
@@ -71,7 +71,7 @@ class TestUserAPI:
         )
         client = APIClient()
         client.force_authenticate(user=user)
-        response = client.post(f"/api/users/", data)
+        response = client.post("/api/users/", data)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         response_json = json.loads(response.content)
         assert "email" in response_json
@@ -84,7 +84,7 @@ class TestPPUserAPI:
         size = 10
         api_client.force_authenticate(user=user)
         UserFactory.create_batch(size)
-        response = api_client.get(f"/pp-api/users/")
+        response = api_client.get("/pp-api/users/")
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == size + 1
@@ -98,7 +98,7 @@ class TestPPUserAPI:
     def test_retrieve_me(self, api_client, user):
         """Test retrieving a user using special identifier `me`"""
         api_client.force_authenticate(user=user)
-        response = api_client.get(f"/pp-api/users/me/")
+        response = api_client.get("/pp-api/users/me/")
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         serializer = PressPassUserSerializer(user)

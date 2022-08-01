@@ -21,7 +21,7 @@ class TestClientAPI:
         ClientFactory.create_batch(size, owner=user)
         # Create some client by other users, these should not be listed
         ClientFactory.create_batch(5)
-        response = api_client.get(f"/pp-api/clients/")
+        response = api_client.get("/pp-api/clients/")
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == size
@@ -32,7 +32,7 @@ class TestClientAPI:
         """List your clients succeeds for non-admins"""
         user = user_factory(is_staff=False)
         api_client.force_authenticate(user=user)
-        response = api_client.get(f"/pp-api/clients/")
+        response = api_client.get("/pp-api/clients/")
         assert response.status_code == status.HTTP_200_OK
 
     def test_create(self, api_client, user_factory):
@@ -49,7 +49,7 @@ class TestClientAPI:
             "redirect_uris": "https://www.example.com/accounts/complete/squarelet",
             "post_logout_redirect_uris": "https://www.example.com/",
         }
-        response = api_client.post(f"/pp-api/clients/", data)
+        response = api_client.post("/pp-api/clients/", data)
         assert response.status_code == status.HTTP_201_CREATED
         response_json = json.loads(response.content)
         assert response_json["owner"] == str(user.individual_organization_id)
@@ -75,13 +75,13 @@ class TestClientAPI:
             "redirect_uris": "https://www.example.com/accounts/complete/squarelet",
             "post_logout_redirect_uris": "https://www.example.com/",
         }
-        response = api_client.post(f"/pp-api/clients/", data)
+        response = api_client.post("/pp-api/clients/", data)
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_create_anonymous(self, api_client):
         """Must be authenticated to create a client"""
         response = api_client.post(
-            f"/pp-api/clients/",
+            "/pp-api/clients/",
             {
                 "name": "Test",
                 "client_type": "confidential",

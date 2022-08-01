@@ -16,7 +16,7 @@ class TestPPEmailAPI:
         api_client.force_authenticate(user=user)
         EmailFactory.create_batch(emails_for_user, user=user)
         EmailFactory.create_batch(emails_for_other_users)
-        response = api_client.get(f"/pp-api/emails/")
+        response = api_client.get("/pp-api/emails/")
         assert response.status_code == status.HTTP_200_OK
         response_json = response.json()
         assert len(response_json["results"]) == emails_for_user

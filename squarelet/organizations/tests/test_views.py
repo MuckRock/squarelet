@@ -135,7 +135,7 @@ class TestDetail(ViewTestMixin):
 @pytest.mark.django_db()
 def test_list(rf, organization_factory):
     organization_factory.create_batch(5)
-    request = rf.get(f"/organizations/")
+    request = rf.get("/organizations/")
     request.user = AnonymousUser()
     response = views.List.as_view()(request)
     assert response.status_code == 200
@@ -146,7 +146,7 @@ def test_list(rf, organization_factory):
 class TestAutocomplete:
     def call_view(self, rf, data):
         # pylint: disable=protected-access
-        request = rf.get(f"/organizations/autocomplete/", data)
+        request = rf.get("/organizations/autocomplete/", data)
         request.user = AnonymousUser()
         return views.autocomplete(request)
 
@@ -500,7 +500,7 @@ class TestStripeWebhook:
     def call_view(self, rf, data):
         # pylint: disable=protected-access
         request = rf.post(
-            f"/organizations/~stripe_webhook/",
+            "/organizations/~stripe_webhook/",
             json.dumps(data),
             content_type="application/json",
         )
@@ -514,14 +514,14 @@ class TestStripeWebhook:
 
     def test_get(self, rf):
         """GET requests should fail"""
-        request = rf.get(f"/organizations/~stripe_webhook/")
+        request = rf.get("/organizations/~stripe_webhook/")
         response = views.stripe_webhook(request)
         assert response.status_code == 405
 
     def test_bad_json(self, rf):
         """Malformed JSON should fail"""
         request = rf.post(
-            f"/organizations/~stripe_webhook/",
+            "/organizations/~stripe_webhook/",
             "{'malformed json'",
             content_type="application/json",
         )

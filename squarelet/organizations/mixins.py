@@ -11,7 +11,7 @@ class OrganizationAdminMixin(UserPassesTestMixin):
         )
 
 
-class IndividualMixin(object):
+class IndividualMixin:
     """Adapt a organizational view for a user's individual organization"""
 
     def get_object(self, queryset=None):

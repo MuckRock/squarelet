@@ -161,9 +161,9 @@ class Command(BaseCommand):
                     # 0 is disabled - do not add to organization
                     # 4 is freelancer - do not add to organization
                     if not created and organization.has_member(user_obj):
-                        self.stdout.write(f"Already a member")
+                        self.stdout.write("Already a member")
                     else:
-                        self.stdout.write(f"Adding to organization")
+                        self.stdout.write("Adding to organization")
                         Membership.objects.create(
                             user=user_obj,
                             organization=organization,
@@ -171,7 +171,7 @@ class Command(BaseCommand):
                             admin=user[10] == "1",
                         )
                 else:
-                    self.stdout.write(f"Not adding disabled/freelancer to organization")
+                    self.stdout.write("Not adding disabled/freelancer to organization")
                     user_obj.individual_organization.verified_journalist = True
                     user_obj.individual_organization.save()
 

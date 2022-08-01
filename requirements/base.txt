@@ -42,7 +42,7 @@ django-crispy-forms==1.13.0  # via -r requirements/base.in
 django-debug-toolbar==3.2.2  # via -r requirements/base.in
 django-email-bandit==1.5  # via -r requirements/base.in
 django-environ==0.4.4     # via -r requirements/base.in
-django-extensions==3.1.5  # via -r requirements/base.in
+django-extensions==3.2.0  # via -r requirements/base.in
 django-filter==21.1       # via -r requirements/base.in
 django-hijack==2.3.0      # via -r requirements/base.in
 django-model-utils==3.1.2  # via -r requirements/base.in
@@ -80,7 +80,7 @@ pexpect==4.6.0            # via ipython
 pickleshare==0.7.5        # via ipython
 pillow==5.1.0             # via -r requirements/base.in
 premailer==3.0.0          # via django-premailer
-prompt-toolkit==2.0.8     # via ipython
+prompt-toolkit==3.0.30    # via ipython
 psycopg2==2.8.3           # via -r requirements/base.in
 psycopg2-binary==2.9.3    # via django-request-token
 ptyprocess==0.6.0         # via pexpect

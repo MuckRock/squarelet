@@ -63,7 +63,7 @@ class TestOrganizationAPI:
         }
         client = APIClient()
         client.force_authenticate(user=user)
-        response = client.post(f"/api/charges/", data)
+        response = client.post("/api/charges/", data)
         assert response.status_code == status.HTTP_201_CREATED
         response_json = json.loads(response.content)
         assert "card" in response_json
@@ -79,7 +79,7 @@ class TestPPOrganizationAPI:
         """List organizations"""
         size = 10
         OrganizationFactory.create_batch(size)
-        response = api_client.get(f"/pp-api/organizations/")
+        response = api_client.get("/pp-api/organizations/")
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == size
@@ -88,7 +88,7 @@ class TestPPOrganizationAPI:
         """Create an organization"""
         api_client.force_authenticate(user=user)
         data = {"name": "Test"}
-        response = api_client.post(f"/pp-api/organizations/", data)
+        response = api_client.post("/pp-api/organizations/", data)
         assert response.status_code == status.HTTP_201_CREATED
         response_json = json.loads(response.content)
         organization = Organization.objects.get(uuid=response_json["uuid"])
@@ -292,7 +292,7 @@ class TestPPPlanAPI:
         """List plans"""
         size = 10
         PlanFactory.create_batch(size)
-        response = api_client.get(f"/pp-api/plans/")
+        response = api_client.get("/pp-api/plans/")
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == Plan.objects.get_public().count()
@@ -305,7 +305,7 @@ class TestPPPlanAPI:
         PlanFactory.create_batch(size, stripe_account=StripeAccounts.presspass)
 
         for account in [StripeAccounts.muckrock, StripeAccounts.presspass]:
-            response = api_client.get(f"/pp-api/plans/", {"account": account})
+            response = api_client.get("/pp-api/plans/", {"account": account})
             assert response.status_code == status.HTTP_200_OK
             response_json = json.loads(response.content)
             assert (
@@ -313,7 +313,7 @@ class TestPPPlanAPI:
                 == Plan.objects.get_public().filter(stripe_account=account).count()
             )
 
-        response = api_client.get(f"/pp-api/plans/")
+        response = api_client.get("/pp-api/plans/")
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == Plan.objects.get_public().count()
@@ -328,7 +328,7 @@ class TestPPPlanAPI:
         my_plan = PlanFactory(for_individuals=False, for_groups=True, public=False)
         my_plan.private_organizations.add(org)
 
-        response = api_client.get(f"/pp-api/plans/", {"organization": org.uuid})
+        response = api_client.get("/pp-api/plans/", {"organization": org.uuid})
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         # you should not be able to see the individual plan or the private plan
@@ -341,9 +341,7 @@ class TestPPPlanAPI:
 
     def test_list_filter_by_org_bad(self, api_client, organization):
         """You may not list plans for an organization you are not a member of"""
-        response = api_client.get(
-            f"/pp-api/plans/", {"organization": organization.uuid}
-        )
+        response = api_client.get("/pp-api/plans/", {"organization": organization.uuid})
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_retrieve(self, api_client, mocker):
@@ -365,7 +363,7 @@ class TestPPEntitlementAPI:
         mocker.patch("stripe.Plan.create")
         plan = PlanFactory(public=True)
         plan.entitlements.set(entitlements)
-        response = api_client.get(f"/pp-api/entitlements/")
+        response = api_client.get("/pp-api/entitlements/")
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == Entitlement.objects.get_public().count()
@@ -383,7 +381,7 @@ class TestPPEntitlementAPI:
         SubscriptionFactory(plan=plan, organization=org)
         # these do not get attached to the plan
         EntitlementFactory.create_batch(size)
-        response = api_client.get(f"/pp-api/entitlements/?subscribed=true")
+        response = api_client.get("/pp-api/entitlements/?subscribed=true")
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == size
@@ -393,7 +391,7 @@ class TestPPEntitlementAPI:
         api_client.force_authenticate(user=user)
         client = ClientFactory(owner=user)
         EntitlementFactory(client=client)
-        response = api_client.get(f"/pp-api/entitlements/?owned=true")
+        response = api_client.get("/pp-api/entitlements/?owned=true")
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == 1
@@ -406,7 +404,7 @@ class TestPPEntitlementAPI:
         # make entitlements public by adding it to a public plan
         plan = PlanFactory(public=True)
         plan.entitlements.set(entitlements)
-        response = api_client.get(f"/pp-api/entitlements/?expand=client")
+        response = api_client.get("/pp-api/entitlements/?expand=client")
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == Entitlement.objects.get_public().count()
@@ -421,7 +419,7 @@ class TestPPEntitlementAPI:
             "client": client.pk,
             "description": "Description goes here",
         }
-        response = api_client.post(f"/pp-api/entitlements/", data)
+        response = api_client.post("/pp-api/entitlements/", data)
         assert response.status_code == status.HTTP_201_CREATED
 
     def test_create_bad(self, api_client, user, client):
@@ -432,7 +430,7 @@ class TestPPEntitlementAPI:
             "client": client.pk,
             "description": "Description goes here",
         }
-        response = api_client.post(f"/pp-api/entitlements/", data)
+        response = api_client.post("/pp-api/entitlements/", data)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_retrieve(self, api_client, entitlement, mocker):
@@ -578,7 +576,7 @@ class TestPPUserMembershipAPI:
         organization = OrganizationFactory(admins=[user], private=True)
         new_user = UserFactory()
         MembershipFactory(organization=organization, user=new_user, admin=False)
-        response = api_client.get(f"/pp-api/users/me/memberships/")
+        response = api_client.get("/pp-api/users/me/memberships/")
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         # will return individual organization membership
@@ -592,7 +590,7 @@ class TestPPUserInvitationAPI:
         """List user invitations"""
         api_client.force_authenticate(user=user)
         InvitationRequestFactory(user=user)
-        response = api_client.get(f"/pp-api/users/me/invitations/")
+        response = api_client.get("/pp-api/users/me/invitations/")
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == 1
@@ -602,7 +600,7 @@ class TestPPUserInvitationAPI:
         """List user invitations and expand organization data"""
         api_client.force_authenticate(user=user)
         InvitationRequestFactory(user=user)
-        response = api_client.get(f"/pp-api/users/me/invitations/?expand=organization")
+        response = api_client.get("/pp-api/users/me/invitations/?expand=organization")
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == 1
@@ -613,7 +611,7 @@ class TestPPUserInvitationAPI:
         """List user invitations and expand user data"""
         api_client.force_authenticate(user=user)
         InvitationRequestFactory(user=user)
-        response = api_client.get(f"/pp-api/users/me/invitations/?expand=user")
+        response = api_client.get("/pp-api/users/me/invitations/?expand=user")
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
         assert len(response_json["results"]) == 1
@@ -625,7 +623,7 @@ class TestPPUserInvitationAPI:
         api_client.force_authenticate(user=user)
         InvitationRequestFactory(user=user)
         response = api_client.get(
-            f"/pp-api/users/me/invitations/?expand=organization,user"
+            "/pp-api/users/me/invitations/?expand=organization,user"
         )
         assert response.status_code == status.HTTP_200_OK
         response_json = json.loads(response.content)
