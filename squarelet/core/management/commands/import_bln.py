@@ -47,15 +47,21 @@ class Command(BaseCommand):
 
     def import_users(self):
         print("Begin User Import {}".format(timezone.now()))
-        with smart_open(f"s3://{BUCKET}/bln_export/users.csv", "r") as infile:
+        with smart_open(
+            f"s3://{BUCKET}/bln_export/users.csv", "r"
+        ) as infile, smart_open(f"s3://{BUCKET}/bln_export/log.csv", "w") as outfile:
             reader = csv.reader(infile)
+            writer = csv.writer(outfile)
             next(reader)  # discard headers
             for i, user in enumerate(reader):
                 if i % 1000 == 0:
                     print("User {} - {}".format(i, timezone.now()))
                 if User.objects.filter(email=user[5]).exists():
                     print("[User] Skipping a duplicate email: {}".format(user[5]))
+                    writer.writerow([user[5], user[3], "exists"])
                     continue
+                else:
+                    writer.writerow([user[5], user[3], "new"])
                 new_username = UserWriteSerializer.unique_username(user[4])
                 if new_username != user[4]:
                     print(
