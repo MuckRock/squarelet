@@ -21,7 +21,7 @@ bz2file==0.98             # via smart-open
 celery==4.4.7             # via -r requirements/base.in
 certifi==2018.4.16        # via requests
 cffi==1.15.0              # via argon2-cffi-bindings, bcrypt, cryptography
-chardet==3.0.4            # via requests
+charset-normalizer==2.1.0  # via requests
 cryptography==3.4.8       # via -r requirements/base.in, pyjwt
 cssselect==1.0.3          # via premailer
 cssutils==1.0.2           # via premailer
@@ -55,7 +55,6 @@ django-sesame==1.5        # via -r requirements/base.in
 django-storages[boto3]==1.12.3  # via -r requirements/base.in
 djangorestframework==3.13.1  # via -r requirements/base.in, dj-rest-auth, djangorestframework-simplejwt, drf-nested-routers
 djangorestframework-simplejwt==4.8.0  # via -r requirements/base.in
-docutils==0.14            # via botocore
 dogslow==1.2              # via -r requirements/base.in
 drf-flex-fields==0.7.5    # via -r requirements/base.in
 drf-nested-routers==0.91  # via -r requirements/base.in
@@ -78,7 +77,7 @@ packaging==21.3           # via redis
 parso==0.8.3              # via jedi
 pexpect==4.6.0            # via ipython
 pickleshare==0.7.5        # via ipython
-pillow==5.1.0             # via -r requirements/base.in
+pillow==9.2.0             # via -r requirements/base.in
 premailer==3.0.0          # via django-premailer
 prompt-toolkit==3.0.30    # via ipython
 psycopg2==2.8.3           # via -r requirements/base.in
@@ -102,9 +101,9 @@ requests-oauthlib==1.0.0  # via django-allauth
 rjsmin==1.2.0             # via django-compressor
 rules==2.1                # via -r requirements/base.in
 s3transfer==0.5.2         # via boto3
-six==1.16.0               # via asttokens, bcrypt, django-autocomplete-light, django-choices, django-compat, django-environ, furl, orderedmultidict, prompt-toolkit, pyjwkest, python-dateutil
+six==1.16.0               # via asttokens, bcrypt, django-autocomplete-light, django-choices, django-compat, django-environ, furl, orderedmultidict, pyjwkest, python-dateutil
 smart-open==1.7.1         # via -r requirements/base.in
-sorl-thumbnail==12.7.0    # via -r requirements/base.in
+sorl-thumbnail==12.8.0    # via -r requirements/base.in
 sqlparse==0.2.4           # via django, django-debug-toolbar, django-request-token
 stack-data==0.3.0         # via ipython
 stripe==2.10.1            # via -r requirements/base.in
