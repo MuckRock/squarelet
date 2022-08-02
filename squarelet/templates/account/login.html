@@ -33,7 +33,7 @@
         {% blocktrans %}
           Don’t have an account?
         {% endblocktrans %}
-        <a href="{% url 'select_plan' %}{% if request.GET.next %}?next={{ request.GET.next }}{% endif %}">
+        <a href="{% url 'select_plan' %}{% if request.GET.next and request.GET.next|slice:":8" != "/openid/" %}?next={{ request.GET.next }}{% endif %}">
           <span class="_cls-action">
             {% blocktrans %}Sign&nbsp;Up{% endblocktrans %}
           </span>
