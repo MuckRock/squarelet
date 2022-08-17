@@ -15,8 +15,10 @@ from squarelet.organizations.models import (
     Membership,
     Organization,
     OrganizationChangeLog,
+    OrganizationEmailDomain,
     OrganizationSubtype,
     OrganizationType,
+    OrganizationUrl,
     Plan,
     ReceiptEmail,
     Subscription,
@@ -45,6 +47,16 @@ class MembershipInline(admin.TabularInline):
 class ReceiptEmailInline(admin.TabularInline):
     model = ReceiptEmail
     extra = 0
+
+
+class OrganizationEmailDomainInline(admin.TabularInline):
+    model = OrganizationEmailDomain
+    extra = 1
+
+
+class OrganizationUrlInline(admin.TabularInline):
+    model = OrganizationUrl
+    extra = 1
 
 
 class InvitationInline(admin.TabularInline):
@@ -77,6 +89,9 @@ class OrganizationAdmin(VersionAdmin):
         "max_users",
         "payment_failed",
         "subtypes",
+        "members",
+        "parent",
+        "wikidata_id",
     )
     readonly_fields = (
         "uuid",
@@ -87,8 +102,11 @@ class OrganizationAdmin(VersionAdmin):
         "individual",
     )
     filter_horizontal = ("subtypes",)
+    autocomplete_fields = ("members", "parent")
     save_on_top = True
     inlines = (
+        OrganizationUrlInline,
+        OrganizationEmailDomainInline,
         SubscriptionInline,
         CustomerInline,
         MembershipInline,
