@@ -88,6 +88,35 @@ class Organization(AvatarMixin, models.Model):
         blank=True,
     )
 
+    members = models.ManyToManyField(
+        verbose_name=_("members"),
+        to="self",
+        related_name="groups",
+        help_text=_(
+            "Organizations which are members of this organization "
+            "(useful for trade associations or other member groups)"
+        ),
+        limit_choices_to={"individual": False},
+        blank=True,
+        symmetrical=False,
+    )
+    parent = models.ForeignKey(
+        verbose_name=_("parent"),
+        to="self",
+        on_delete=models.PROTECT,
+        related_name="children",
+        help_text=_("The parent organization"),
+        limit_choices_to={"individual": False},
+        blank=True,
+        null=True,
+    )
+    wikidata_id = models.CharField(
+        _("wikidata id"),
+        max_length=255,
+        blank=True,
+        help_text=_("The wikidata identifier"),
+    )
+
     # remove these
     _plan = models.ForeignKey(
         verbose_name=_("plan"),
@@ -671,3 +700,29 @@ class OrganizationSubtype(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class OrganizationUrl(models.Model):
+    """URLs associated with an organization"""
+
+    organization = models.ForeignKey(
+        verbose_name=_("organization"),
+        to="organizations.Organization",
+        on_delete=models.CASCADE,
+        related_name="urls",
+        help_text=_("The organization to associate the URL with"),
+    )
+    url = models.URLField(_("url"))
+
+
+class OrganizationEmailDomain(models.Model):
+    """Email Domains associated with an organization"""
+
+    organization = models.ForeignKey(
+        verbose_name=_("organization"),
+        to="organizations.Organization",
+        on_delete=models.CASCADE,
+        related_name="domains",
+        help_text=_("The organization to associate the email domain with"),
+    )
+    domain = models.CharField(_("domain"), max_length=255)
