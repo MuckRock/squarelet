@@ -9,7 +9,6 @@ User account service for MuckRock and DocumentCloud
 ### Software required
 
 1. [docker][docker-install]
-2. [docker-compose][docker-compose-install]
 3. [python][python-install]
 4. [invoke][invoke-install]
 5. [mkcert][mkcert-install]
@@ -34,7 +33,7 @@ Run the environment initialization script, which will create files with the envi
 python initialize_dotenvs.py
 ```
 
-Set an environment variable that directs `docker-compose` to use the `local.yml` file.
+Set an environment variable that directs `docker compose` to use the `local.yml` file.
 
 ```bash
 export COMPOSE_FILE=local.yml
@@ -46,7 +45,7 @@ Generate local certificates for SSL support.
 inv mkcert
 ```
 
-Start the docker containers. This will build and start all of the Squarelet session docker images using docker-compose. It will bind to port 80 on localhost, so you must not have anything else running on port 80.
+Start the docker containers. This will build and start all of the Squarelet session docker images using docker compose. It will bind to port 80 on localhost, so you must not have anything else running on port 80.
 
 ```bash
 inv up
@@ -117,11 +116,11 @@ If you are developing on any of our other projects. Follow the following integra
     </details>
 8. Click save and continue editing. Note down the `Client ID` and `Client SECRET` values. You will need these later.
 9. Make sure in your `.envs/.local/.django` file, there exist values for: `STRIPE_PUB_KEYS`, `STRIPE_SECRET_KEYS`, and set `STRIPE_WEBHOOK_SECRETS=None`. Multiple values for any of the above should be comma delimited.
-10. You must restart the Docker Compose session (via the command `docker-compose down` followed by `docker-compose up`) each time you change a `.django` file for it to take effect.
+10. You must restart the Docker Compose session (via the command `docker compose down` followed by `docker compose up`) each time you change a `.django` file for it to take effect.
 
 ## Docker info
 
-The development environment is managed via [docker][docker] and [docker compose][docker-compose]. Please read up on them if you are unfamiliar with them. The docker compose file is `local.yml`. If you would like to run `docker-compose` commands directly, please run `export COMPOSE_FILE=local.yml` so you don't need to specify it in every command.
+The development environment is managed via [docker][docker] and docker compose. Please read up on them if you are unfamiliar with them. The docker compose file is `local.yml`. If you would like to run `docker compose` commands directly, please run `export COMPOSE_FILE=local.yml` so you don't need to specify it in every command.
 
 The containers which are run include the following:
 
@@ -151,11 +150,11 @@ All systems can be brought up using `inv up`. You can rebuild all images using `
 <details>
 <summary>Stopping and Restarting Docker Containers</summary>
 
-Be sure to stop (if needed) all the docker compose sessions from the different integrations (Ctrl-C, or `docker-compose down`) and Squarelet (`docker-compose down` in Squarelet folder). Then run the Squarelet session using `inv up` in the squarelet folder. **Finally, run `docker-compose up` in the integration's folder to begin using the new dotfiles.**
+Be sure to stop (if needed) all the docker compose sessions from the different integrations (Ctrl-C, or `docker compose down`) and Squarelet (`docker compose down` in Squarelet folder). Then run the Squarelet session using `inv up` in the squarelet folder. **Finally, run `docker compose up` in the integration's folder to begin using the new dotfiles.**
 
--   This will build and start all of the integration docker images using docker-compose. It will attach to the Squarelet network which must be already running. You can connect to Squarelet nginx on port 80 and it will serve the appropriate dependent http service, such as DocumentCloud, based on domain as a virtual host. The `local.yml` configuration file has the docker-compose details.
-- If you do `docker-compose down` on Squarelet when none of the other dependent docker-compose sessions (such as DocumentCloud) are running, `docker-compose down` will delete the Squarelet network. You will have to explicitly bring the whole squarelet docker-compose session back up to recreate it and nginx before being able to start a dependent docker-compose session (such as DocumentCloud).
-- Using `docker-compose up -d` rather than `docker-compose up` will make a daemon for DocumentCloud as Squarelet defaults to.
+-   This will build and start all of the integration docker images using docker compose. It will attach to the Squarelet network which must be already running. You can connect to Squarelet nginx on port 80 and it will serve the appropriate dependent http service, such as DocumentCloud, based on domain as a virtual host. The `local.yml` configuration file has the docker compose details.
+- If you do `docker compose down` on Squarelet when none of the other dependent docker compose sessions (such as DocumentCloud) are running, `docker compose down` will delete the Squarelet network. You will have to explicitly bring the whole squarelet docker compose session back up to recreate it and nginx before being able to start a dependent docker compose session (such as DocumentCloud).
+- Using `docker compose up -d` rather than `docker compose up` will make a daemon for DocumentCloud as Squarelet defaults to.
 
 </details>
 
@@ -213,7 +212,6 @@ The corresponding files are kept in the `requirements` folder. There are files f
 Running `inv pip-compile` will compile the `.in` files to the corresponding `.txt` files. This will pin all of the dependencies, and their dependencies, to the latest versions that meet any constraints that have been put on them. You should run this command if you need to add any new dependencies to an `.in` file. Please keep the `.in` files sorted. After running `inv pip-compile`, you will need to run `inv build` to rebuild the docker images with the new dependencies included.
 
 [docker]: https://docs.docker.com/
-[docker-compose]: https://docs.docker.com/compose/
 [nginx]: https://www.nginx.com/
 [mailhog]: https://github.com/mailhog/MailHog
 [django]: https://www.djangoproject.com/
@@ -222,7 +220,6 @@ Running `inv pip-compile` will compile the `.in` files to the corresponding `.tx
 [celery]: https://docs.celeryproject.org/en/latest/
 [invoke]: http://www.pyinvoke.org/
 [docker-install]: https://docs.docker.com/install/
-[docker-compose-install]: https://docs.docker.com/compose/install/
 [invoke-install]: http://www.pyinvoke.org/installing.html
 [python-install]: https://www.python.org/downloads/
 [codeship]: https://app.codeship.com/projects/296009
