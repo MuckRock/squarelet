@@ -54,6 +54,7 @@ class Command(BaseCommand):
             writer = csv.writer(outfile)
             next(reader)  # discard headers
             for i, user in enumerate(reader):
+                # pylint: disable=no-else-continue
                 if i % 1000 == 0:
                     print("User {} - {}".format(i, timezone.now()))
                 if User.objects.filter(email=user[5]).exists():
