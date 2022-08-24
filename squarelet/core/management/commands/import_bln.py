@@ -57,7 +57,7 @@ class Command(BaseCommand):
                 # pylint: disable=no-else-continue
                 if i % 1000 == 0:
                     print("User {} - {}".format(i, timezone.now()))
-                if EmailAddress.objects.filter(email=user[5]).exists():
+                if EmailAddress.objects.filter(email__iexact=user[5]).exists():
                     print("[User] Skipping a duplicate email: {}".format(user[5]))
                     writer.writerow([user[5], user[3], "exists"])
                     continue
