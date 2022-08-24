@@ -59,6 +59,12 @@ class Command(BaseCommand):
                     print("User {} - {}".format(i, timezone.now()))
                 if EmailAddress.objects.filter(email__iexact=user[5]).exists():
                     print("[User] Skipping a duplicate email: {}".format(user[5]))
+                    if not User.objects.filter(email__iexact=user[5]).exists():
+                        print(
+                            "[User] !!! NOT THE USERS MAIN EMAIL !!!: {}".format(
+                                user[5]
+                            )
+                        )
                     writer.writerow([user[5], user[3], "exists"])
                     continue
                 else:
