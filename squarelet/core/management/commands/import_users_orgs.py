@@ -43,18 +43,18 @@ class Command(BaseCommand):
                 self.import_members()
 
     def import_users(self):
-        print("Begin User Import {}".format(timezone.now()))
+        print(f"Begin User Import {timezone.now()}")
         with smart_open(f"s3://{BUCKET}/squarelet_export/users.csv", "r") as infile:
             reader = csv.reader(infile)
             next(reader)  # discard headers
             for i, user in enumerate(reader):
                 if i % 1000 == 0:
-                    print("User {} - {}".format(i, timezone.now()))
+                    print(f"User {i} - {timezone.now()}")
                 # skip non unique emails
                 # all emails should be unqiue before official migration
                 # but dont skip blank emails
                 if user[2] and User.objects.filter(email=user[2]).exists():
-                    print("[User] Skipping a duplicate email: {}".format(user[2]))
+                    print("[User] Skipping a duplicate email: {user[2]}")
                     continue
                 user_obj = User.objects.create(
                     individual_organization_id=UUID(user[0]),
@@ -79,17 +79,17 @@ class Command(BaseCommand):
                         primary=True,
                         verified=user[8] == "True",
                     )
-        print("End User Import {}".format(timezone.now()))
+        print(f"End User Import {timezone.now()}")
 
     def import_orgs(self):
-        print("Begin Organization Import {}".format(timezone.now()))
+        print(f"Begin Organization Import {timezone.now()}")
         plans = {p.slug: p for p in Plan.objects.all()}
         with smart_open(f"s3://{BUCKET}/squarelet_export/orgs.csv", "r") as infile:
             reader = csv.reader(infile)
             next(reader)  # discard headers
             for i, org in enumerate(reader):
                 if i % 1000 == 0:
-                    print("Org {} - {}".format(i, timezone.now()))
+                    print(f"Org {i} - {timezone.now()}")
                 plan = plans[org[3]]
                 org_obj = Organization.objects.create(
                     uuid=org[0],
@@ -108,31 +108,31 @@ class Command(BaseCommand):
                 )
                 org_obj.set_receipt_emails(e for e in org[11].split(",") if e)
                 org_uuid2pk[org[0]] = org_obj.pk
-        print("End Organization Import {}".format(timezone.now()))
+        print(f"End Organization Import {timezone.now()}")
 
     def import_members(self):
-        print("Begin Member Import {}".format(timezone.now()))
+        print(f"Begin Member Import {timezone.now()}")
         with smart_open(f"s3://{BUCKET}/squarelet_export/members.csv", "r") as infile:
             reader = csv.reader(infile)
             next(reader)  # discard headers
             for i, member in enumerate(reader):
                 if i % 1000 == 0:
-                    print("Member {} - {}".format(i, timezone.now()))
+                    print(f"Member {i} - {timezone.now()}")
                 # skip users we skipped above
                 if not User.objects.filter(
                     individual_organization_id=member[0]
                 ).exists():
-                    print("[Member] Skipping a missing user: {}".format(member[0]))
+                    print(f"[Member] Skipping a missing user: {member[0]}")
                     continue
                 Membership.objects.create(
                     user_id=user_uuid2pk[member[0]],
                     organization_id=org_uuid2pk[member[1]],
                     admin=member[4] == "True",
                 )
-        print("End Member Import {}".format(timezone.now()))
+        print(f"End Member Import {timezone.now()}")
 
     def import_date_joined(self):
-        print("Begin Date Joined Import {}".format(timezone.now()))
+        print(f"Begin Date Joined Import {timezone.now()}")
         with smart_open(
             f"s3://{BUCKET}/squarelet_export/date_joined.csv", "r"
         ) as infile:
@@ -140,7 +140,7 @@ class Command(BaseCommand):
             next(reader)  # discard headers
             for i, user in enumerate(reader):
                 if i % 1000 == 0:
-                    print("User {} - {}".format(i, timezone.now()))
+                    print(f"User {i} - {timezone.now()}")
                 try:
                     user_ = User.objects.get(individual_organization_id=UUID(user[0]))
                 except User.DoesNotExist:
@@ -150,4 +150,4 @@ class Command(BaseCommand):
                     if user_.created_at > created_at:
                         user_.created_at = created_at
                         user_.save()
-        print("End User Import {}".format(timezone.now()))
+        print(f"End User Import {timezone.now()}")

@@ -118,7 +118,7 @@ class OrganizationAdmin(VersionAdmin):
         """Link to the individual org's user"""
         user = User.objects.get(individual_organization_id=obj.uuid)
         link = reverse("admin:users_user_change", args=(user.pk,))
-        return '<a href="%s">%s</a>' % (link, user.username)
+        return f'<a href="{link}">{user.username}</a>'
 
     user_link.short_description = "User"
 

@@ -74,7 +74,7 @@ class UserManager(AuthUserManager):
             else:
                 group_organization = None
         except stripe.error.StripeError as exc:
-            error = "Payment error: {}".format(exc.user_message)
+            error = f"Payment error: {exc.user_message}"
         else:
             error = None
 

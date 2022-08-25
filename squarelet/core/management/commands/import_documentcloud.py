@@ -80,7 +80,7 @@ class Command(BaseCommand):
                 transaction.savepoint_rollback(sid)
 
     def import_org(self):
-        self.stdout.write("Begin Organization Import {}".format(timezone.now()))
+        self.stdout.write(f"Begin Organization Import {timezone.now()}")
         with smart_open(
             f"{self.bucket_path}organizations.csv", "r"
         ) as infile, smart_open(
@@ -110,11 +110,11 @@ class Command(BaseCommand):
                     updated_at=parse(fields[4]).replace(tzinfo=pytz.UTC),
                 )
             writer.writerow([fields[0], org.uuid])
-        self.stdout.write("End Organization Import {}".format(timezone.now()))
+        self.stdout.write(f"End Organization Import {timezone.now()}")
         return org, created
 
     def import_users(self, organization):
-        print("Begin User Import {}".format(timezone.now()))
+        print(f"Begin User Import {timezone.now()}")
         with smart_open(f"{self.bucket_path}users.csv", "r") as infile, smart_open(
             f"{self.bucket_path}users_map.csv", "w"
         ) as outfile:

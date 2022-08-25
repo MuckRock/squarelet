@@ -150,7 +150,7 @@ class UpdateSubscription(OrganizationAdminMixin, UpdateView):
                 user=self.request.user,
             )
         except stripe.error.StripeError as exc:
-            messages.error(self.request, "Payment error: {}".format(exc.user_message))
+            messages.error(self.request, f"Payment error: {exc.user_message}")
         else:
             organization.set_receipt_emails(form.cleaned_data["receipt_emails"])
             if form.cleaned_data.get("remove_card_on_file"):

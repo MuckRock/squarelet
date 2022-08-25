@@ -46,7 +46,7 @@ class Command(BaseCommand):
                 transaction.savepoint_rollback(sid)
 
     def import_users(self):
-        print("Begin User Import {}".format(timezone.now()))
+        print(f"Begin User Import {timezone.now()}")
         with smart_open(
             f"s3://{BUCKET}/bln_export/users.csv", "r"
         ) as infile, smart_open(f"s3://{BUCKET}/bln_export/log.csv", "w") as outfile:
@@ -56,15 +56,11 @@ class Command(BaseCommand):
             for i, user in enumerate(reader):
                 # pylint: disable=no-else-continue
                 if i % 1000 == 0:
-                    print("User {} - {}".format(i, timezone.now()))
+                    print(f"User {i} - {timezone.now()}")
                 if EmailAddress.objects.filter(email__iexact=user[5]).exists():
-                    print("[User] Skipping a duplicate email: {}".format(user[5]))
+                    print(f"[User] Skipping a duplicate email: {user[5]}")
                     if not User.objects.filter(email__iexact=user[5]).exists():
-                        print(
-                            "[User] !!! NOT THE USERS MAIN EMAIL !!!: {}".format(
-                                user[5]
-                            )
-                        )
+                        print(f"[User] !!! NOT THE USERS MAIN EMAIL !!!: {user[5]}")
                     writer.writerow([user[5], user[3], "exists"])
                     continue
                 else:
@@ -72,9 +68,7 @@ class Command(BaseCommand):
                 new_username = UserWriteSerializer.unique_username(user[4])
                 if new_username != user[4]:
                     print(
-                        "[User] Non-unique username found: {} -> {}".format(
-                            user[4], new_username
-                        )
+                        f"[User] Non-unique username found: {user[4]} -> {new_username}"
                     )
                 user_obj = User.objects.create_user(
                     username=new_username,
@@ -93,4 +87,4 @@ class Command(BaseCommand):
                 EmailAddress.objects.create(
                     user=user_obj, email=user[5], verified=True, primary=True
                 )
-        print("End User Import {}".format(timezone.now()))
+        print(f"End User Import {timezone.now()}")
