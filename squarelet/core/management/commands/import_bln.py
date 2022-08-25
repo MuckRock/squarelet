@@ -33,7 +33,6 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **kwargs):
-        # pylint: disable=unused-argument
         dry_run = kwargs["dry_run"]
 
         with transaction.atomic():

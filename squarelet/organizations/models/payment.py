@@ -252,7 +252,6 @@ class Subscription(models.Model):
                 cancel_at_period_end=False,
                 items=[
                     {
-                        # pylint: disable=unsubscriptable-object
                         "id": self.stripe_subscription["items"]["data"][0].id,
                         "plan": self.plan.stripe_id,
                         "quantity": self.organization.max_users,

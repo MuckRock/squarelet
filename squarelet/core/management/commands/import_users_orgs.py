@@ -32,7 +32,6 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **kwargs):
-        # pylint: disable=unused-argument
         if kwargs["date_joined"]:
             with transaction.atomic():
                 self.import_date_joined()

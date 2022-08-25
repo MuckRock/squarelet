@@ -13,7 +13,7 @@ from squarelet.organizations.choices import ChangeLogReason, StripeAccounts
 from squarelet.organizations.models import ReceiptEmail
 from squarelet.organizations.tests.factories import EntitlementFactory, PlanFactory
 
-# pylint: disable=invalid-name,too-many-public-methods,protected-access
+# pylint: disable=too-many-public-methods
 
 
 class TestOrganization:
@@ -525,7 +525,6 @@ class TestSubscription:
             cancel_at_period_end=False,
             items=[
                 {
-                    # pylint: disable=unsubscriptable-object
                     "id": subscription.stripe_subscription["items"]["data"][0].id,
                     "plan": subscription.plan.stripe_id,
                     "quantity": subscription.organization.max_users,

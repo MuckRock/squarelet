@@ -117,7 +117,6 @@ class TestLoginView(ViewTestMixin):
 
 class TestMailgunWebhook:
     def call_view(self, rf, data):
-        # pylint: disable=protected-access
         self.sign(data)
         request = rf.post(
             "/users/~mailgun/", json.dumps(data), content_type="application/json"

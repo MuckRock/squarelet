@@ -38,7 +38,6 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **kwargs):
-        # pylint: disable=unused-argument
         org_id = kwargs["organization"]
         dry_run = kwargs["dry_run"]
         self.bucket_path = (

@@ -69,7 +69,6 @@ class Detail(AdminLinkMixin, DetailView):
         return context
 
     def post(self, request, *args, **kwargs):
-        # pylint: disable=unused-argument
         self.organization = self.get_object()
         if not self.request.user.is_authenticated:
             return redirect(self.organization)
@@ -255,7 +254,6 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
 
     def post(self, request, *args, **kwargs):
         """Handle form processing"""
-        # pylint: disable=unused-argument
         self.organization = self.get_object()
 
         actions = {
@@ -402,7 +400,6 @@ class InvitationAccept(LoginRequiredMixin, DetailView):
 
     def post(self, request, *args, **kwargs):
         """Accept the invitation"""
-        # pylint: disable=unused-argument
         invitation = self.get_object()
         action = request.POST.get("action")
         if action == "accept":
