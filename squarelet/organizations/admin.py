@@ -166,6 +166,7 @@ class PlanAdmin(VersionAdmin):
 @admin.register(Entitlement)
 class EntitlementAdmin(VersionAdmin):
     list_display = ("name", "client")
+    list_filter = ("client",)
     search_fields = ("name",)
     autocomplete_fields = ("client",)
 
