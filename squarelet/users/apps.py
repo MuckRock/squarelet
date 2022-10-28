@@ -12,9 +12,14 @@ class UsersConfig(AppConfig):
 
     def ready(self):
         # pylint: disable=unused-import, import-outside-toplevel
-        from . import signals
+        # Django
         from django.conf import settings
+
+        # Third Party
         from oidc_provider.models import RSAKey
+
+        # Local
+        from . import signals
 
         try:
             rsakey = RSAKey.objects.first()

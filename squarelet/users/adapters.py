@@ -106,8 +106,8 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
             request,
             {
                 "provider_id": provider_id,
-                "error": error.__str__(),
-                "exception": exception.__str__(),
+                "error": str(error),
+                "exception": str(exception),
                 "extra_context": extra_context,
             },
         )

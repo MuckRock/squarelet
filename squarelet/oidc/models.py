@@ -44,9 +44,10 @@ class ClientProfile(models.Model):
     def send_cache_invalidation(self, model, uuids):
         """Send a cache invalidation to this client"""
         timestamp = int(time.time())
+        uuid_str = "".join(uuids)
         signature = hmac.new(
             key=self.client.client_secret.encode("utf8"),
-            msg="{}{}{}".format(timestamp, model, "".join(uuids)).encode("utf8"),
+            msg=f"{timestamp}{model}{uuid_str}".encode("utf8"),
             digestmod=hashlib.sha256,
         ).hexdigest()
         data = {

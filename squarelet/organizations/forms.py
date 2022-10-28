@@ -98,7 +98,8 @@ class PaymentForm(StripeForm):
             except forms.ValidationError:
                 bad_emails.append(email)
         if bad_emails:
-            raise forms.ValidationError("Invalid email: %s" % ", ".join(bad_emails))
+            bad_emails_str = ", ".join(bad_emails)
+            raise forms.ValidationError(f"Invalid email: {bad_emails_str}")
         return emails
 
     def clean(self):
@@ -130,11 +131,7 @@ class PaymentForm(StripeForm):
         if plan and "max_users" in data and data["max_users"] < plan.minimum_users:
             self.add_error(
                 "max_users",
-                _(
-                    "The minimum users for the {} plan is {}".format(
-                        plan, plan.minimum_users
-                    )
-                ),
+                _(f"The minimum users for the {plan} plan is {plan.minimum_users}"),
             )
 
         return data

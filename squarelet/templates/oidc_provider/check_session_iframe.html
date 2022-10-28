@@ -23,19 +23,11 @@ function receiveMessage(e) {
 
     var sessionStateCalculated = sha256(clientId + ' ' + e.origin + ' ' + browserState + ' ' + salt) + '.' + salt;
 
-    {% if request.user.is_staff %}
-    console.log(
-      `clientID: ${clientId}\nsessionState: ${sessionState}\n` + 
-      `salt: ${salt}\nbrowserState: ${browserState}\n` + 
-      `sessionStateCalculated: ${sessionStateCalculated}`
-      );
-    {% endif %}
-
-      if (sessionState == sessionStateCalculated) {
-        status = 'unchanged';
-      } else {
-        status = 'changed';
-      }
+    if (sessionState == sessionStateCalculated) {
+      status = 'unchanged';
+    } else {
+      status = 'changed';
+    }
   } catch(err) {
     status = 'error';
   }

@@ -90,6 +90,6 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
             "admin:organizations_organization_change",
             args=(obj.individual_organization.pk,),
         )
-        return '<a href="%s">%s</a>' % (link, obj.individual_organization.name)
+        return f'<a href="{link}">{obj.individual_organization.name}</a>'
 
     org_link.short_description = "Individual Organization"

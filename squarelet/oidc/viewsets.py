@@ -25,7 +25,6 @@ class ClientViewSet(viewsets.ModelViewSet):
         return Client.objects.filter(owner=self.request.user).order_by("name")
 
     def perform_create(self, serializer):
-        # pylint: disable=unpacking-non-sequence
         code_type, _created = ResponseType.objects.get_or_create(value="code")
         kwargs = {"owner": self.request.user, "response_types": [code_type]}
         kwargs["client_id"] = str(randint(1, 999999)).zfill(6)

@@ -145,7 +145,6 @@ def test_list(rf, organization_factory):
 @pytest.mark.django_db()
 class TestAutocomplete:
     def call_view(self, rf, data):
-        # pylint: disable=protected-access
         request = rf.get("/organizations/autocomplete/", data)
         request.user = AnonymousUser()
         return views.autocomplete(request)
@@ -498,7 +497,6 @@ class TestChargeDetail(ViewTestMixin):
 
 class TestStripeWebhook:
     def call_view(self, rf, data):
-        # pylint: disable=protected-access
         request = rf.post(
             "/organizations/~stripe_webhook/",
             json.dumps(data),

@@ -12,8 +12,6 @@ from squarelet.organizations.tests.factories import (
 )
 from squarelet.users.tests.factories import UserFactory
 
-# pylint: disable=invalid-name,too-many-public-methods,protected-access
-
 
 class TestMembershipQuerySet(TestCase):
     """Unit tests for Membership queryset"""

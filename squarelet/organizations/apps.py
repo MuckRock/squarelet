@@ -8,4 +8,5 @@ class OrganizationsConfig(AppConfig):
 
     def ready(self):
         # pylint: disable=import-outside-toplevel, unused-import
+        # Local
         from . import signals

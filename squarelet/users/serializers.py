@@ -131,9 +131,8 @@ class UserWriteSerializer(UserBaseSerializer):
         base_username = re.sub(r"[^\w\-.]", "", name)[:141]
         username = base_username or "anonymous"
         while User.objects.filter(username__iexact=username).exists():
-            username = "{}_{}".format(
-                base_username, "".join(random.sample(string.ascii_letters, 8))
-            )
+            rand_postfix = "".join(random.sample(string.ascii_letters, 8))
+            username = f"{base_username}_{rand_postfix}"
         return username
 
     def validate_email(self, value):

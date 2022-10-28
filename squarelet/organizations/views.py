@@ -69,7 +69,6 @@ class Detail(AdminLinkMixin, DetailView):
         return context
 
     def post(self, request, *args, **kwargs):
-        # pylint: disable=unused-argument
         self.organization = self.get_object()
         if not self.request.user.is_authenticated:
             return redirect(self.organization)
@@ -150,7 +149,7 @@ class UpdateSubscription(OrganizationAdminMixin, UpdateView):
                 user=self.request.user,
             )
         except stripe.error.StripeError as exc:
-            messages.error(self.request, "Payment error: {}".format(exc.user_message))
+            messages.error(self.request, f"Payment error: {exc.user_message}")
         else:
             organization.set_receipt_emails(form.cleaned_data["receipt_emails"])
             if form.cleaned_data.get("remove_card_on_file"):
@@ -255,7 +254,6 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
 
     def post(self, request, *args, **kwargs):
         """Handle form processing"""
-        # pylint: disable=unused-argument
         self.organization = self.get_object()
 
         actions = {
@@ -402,7 +400,6 @@ class InvitationAccept(LoginRequiredMixin, DetailView):
 
     def post(self, request, *args, **kwargs):
         """Accept the invitation"""
-        # pylint: disable=unused-argument
         invitation = self.get_object()
         action = request.POST.get("action")
         if action == "accept":

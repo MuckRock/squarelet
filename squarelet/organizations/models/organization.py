@@ -225,7 +225,6 @@ class Organization(AvatarMixin, models.Model):
             return self.name
 
     def save(self, *args, **kwargs):
-        # pylint: disable=arguments-differ
         with transaction.atomic():
             super().save(*args, **kwargs)
             transaction.on_commit(
@@ -434,7 +433,6 @@ class Membership(models.Model):
         return f"Membership: {self.user} in {self.organization}"
 
     def save(self, *args, **kwargs):
-        # pylint: disable=arguments-differ
         with transaction.atomic():
             super().save(*args, **kwargs)
             transaction.on_commit(
@@ -442,7 +440,6 @@ class Membership(models.Model):
             )
 
     def delete(self, *args, **kwargs):
-        # pylint: disable=arguments-differ
         with transaction.atomic():
             super().delete(*args, **kwargs)
             transaction.on_commit(

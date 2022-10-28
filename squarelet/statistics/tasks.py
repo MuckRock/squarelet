@@ -20,8 +20,6 @@ from squarelet.users.models import User
 )
 def store_statistics():
     """Store the daily statistics"""
-    # pylint: disable=too-many-statements
-
     midnight = time(tzinfo=timezone.get_current_timezone())
     today_midnight = datetime.combine(date.today(), midnight)
     yesterday = date.today() - timedelta(1)

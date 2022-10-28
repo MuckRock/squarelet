@@ -1,5 +1,3 @@
-# pylint: disable=invalid-unary-operand-type
-
 # Third Party
 from rules import add_perm, is_authenticated, is_staff, predicate
 

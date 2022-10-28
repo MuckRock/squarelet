@@ -108,7 +108,7 @@ class TestLoginView(ViewTestMixin):
 
     def test_get(self, rf):
         url = "/target/url/"
-        next_url = "{}?{}".format(settings.MUCKROCK_URL, urlencode({"next": url}))
+        next_url = f"{settings.MUCKROCK_URL}?{urlencode({'next': url})}"
         params = {"url_auth_token": "token", "next": next_url}
         response = self.call_view(rf, params=params)
         assert response.status_code == 302
@@ -117,7 +117,6 @@ class TestLoginView(ViewTestMixin):
 
 class TestMailgunWebhook:
     def call_view(self, rf, data):
-        # pylint: disable=protected-access
         self.sign(data)
         request = rf.post(
             "/users/~mailgun/", json.dumps(data), content_type="application/json"
