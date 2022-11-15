@@ -73,11 +73,11 @@
         </div>
         <div class="_cls-card">
           <div class="_cls-cardHeader">
-            <h1>{% trans 'Professional' %}</h1>
+            <h1>{% trans 'Professional' %}*</h1>
           </div>
           <div class="_cls-cardContent">
-            <ul>
-              {% if request.GET.intent == "documentcloud" %}
+            {% if request.GET.intent == "documentcloud" %}
+              <ul>
                 <li>
                   {% blocktrans %}
                     Use advanced OCR powered by AWS Textract for the most
@@ -90,7 +90,22 @@
                     Ability to search through the notes on your documents.
                   {% endblocktrans %}
                 </li>
-              {% else %}
+              </ul>
+              <em class="_cls-plus">Plus access to MuckRock Pro Features:</em>
+              <ul>
+                <li>
+                  {% blocktrans %}
+                    Receive 20 requests per month on MuckRock.
+                  {% endblocktrans %}
+                </li>
+                <li>
+                  {% blocktrans %}
+                    Embargo requests for up to 30 days after completion.
+                  {% endblocktrans %}
+                </li>
+              </ul>
+            {% else %}
+              <ul>
                 <li>
                   {% blocktrans %}
                     Receive 20 requests per month on MuckRock.
@@ -107,8 +122,22 @@
                     additional requests.
                   {% endblocktrans %}
                 </li>
-              {% endif %}
-            </ul>
+              </ul>
+              <em class="_cls-plus">Plus access to DocumentCloud Pro Features:</em>
+              <ul>
+                <li>
+                  {% blocktrans %}
+                    Use Textract advanced OCR on up to 2,000 pages per month on
+                    DocumentCloud.
+                  {% endblocktrans %}
+                </li>
+                <li>
+                  {% blocktrans %}
+                    Ability to search through notes.
+                  {% endblocktrans %}
+                </li>
+              </ul>
+            {% endif %}
           </div>
           <div class="_cls-cardAction">
             <a class="_cls-nostyle" href="{% url 'account_signup' %}?plan=professional&intent={% firstof request.GET.intent 'squarelet' %}{% if request.GET.next %}&next={{ request.GET.next }}{% endif %}">
@@ -117,14 +146,15 @@
               </button>
             </a>
           </div>
+          <strong class="_cls-verify">*DocumentCloud features require user verification</strong>
         </div>
         <div class="_cls-card">
           <div class="_cls-cardHeader">
-            <h1>{% trans 'Organization' %}</h1>
+            <h1>{% trans 'Organization' %}*</h1>
           </div>
           <div class="_cls-cardContent">
-            <ul>
-              {% if request.GET.intent == "documentcloud" %}
+            {% if request.GET.intent == "documentcloud" %}
+              <ul>
                 <li>
                   {% blocktrans %}
                     Start with 5 members and 5,000 advanced OCR pages per month
@@ -137,7 +167,22 @@
                     500 advanced OCR pages per month.
                   {% endblocktrans %}
                 </li>
-              {% else %}
+              </ul>
+              <em class="_cls-plus">Plus access to MuckRock Organization Features:</em>
+              <ul>
+                <li>
+                  {% blocktrans %}
+                    50 collective requests per month on MuckRock.
+                  {% endblocktrans %}
+                </li>
+                <li>
+                  {% blocktrans %}
+                    Members can make embargoes permanent.
+                  {% endblocktrans %}
+                </li>
+              </ul>
+            {% else %}
+              <ul>
                 <li>
                   {% blocktrans %}
                     Start with 5 members and 50 collective requests per month
@@ -155,8 +200,17 @@
                     Members can make embargoes permanent.
                   {% endblocktrans %}
                 </li>
-              {% endif %}
-            </ul>
+              </ul>
+              <em class="_cls-plus">Plus access to DocumentCloud Organization Features:</em>
+              <ul>
+                <li>
+                  {% blocktrans %}
+                    Use Textract advanced OCR on up to 5,000 pages per month on
+                    DocumentCloud.
+                  {% endblocktrans %}
+                </li>
+              </ul>
+            {% endif %}
           </div>
           <div class="_cls-cardAction">
             <a class="_cls-nostyle" href="{% url 'account_signup' %}?plan=organization&intent={% firstof request.GET.intent 'squarelet' %}{% if request.GET.next %}&next={{ request.GET.next }}{% endif %}">
@@ -165,6 +219,7 @@
               </button>
             </a>
           </div>
+          <strong class="_cls-verify">*DocumentCloud features require user verification</strong>
         </div>
       </div>
     </div>

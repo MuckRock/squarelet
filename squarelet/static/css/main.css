@@ -1268,3 +1268,13 @@ textarea {
 ._cls-roleDropdown ._cls-selected ._cls-roleInfo {
   color: #98999a;
 }
+
+._cls-plus {
+  color: #737373;
+  margin: 0.5em;
+  display: inline-block;
+}
+
+._cls-verify {
+  margin: 1em;
+}
