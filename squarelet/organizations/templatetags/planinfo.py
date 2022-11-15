@@ -2,9 +2,6 @@
 from django import template
 from django.utils.html import json_script
 
-# Squarelet
-from squarelet.organizations.choices import StripeAccounts
-
 # Local
 from ..models import Plan
 
@@ -14,7 +11,7 @@ register = template.Library()
 @register.simple_tag
 def planinfo(organization=None, field="pk"):
     if organization:
-        plans = Plan.objects.choices(organization, StripeAccounts.muckrock)
+        plans = Plan.objects.choices(organization)
     else:
         plans = Plan.objects.filter(public=True)
     plan_info = {

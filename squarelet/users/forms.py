@@ -32,7 +32,7 @@ class SignupForm(allauth.SignupForm, StripeForm):
 
     plan = forms.ModelChoiceField(
         label=_("Plan"),
-        queryset=Plan.objects.filter(public=True).muckrock(),
+        queryset=Plan.objects.filter(public=True),
         empty_label=None,
         to_field_name="slug",
         widget=forms.HiddenInput(),

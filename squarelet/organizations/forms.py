@@ -10,7 +10,6 @@ from crispy_forms.layout import Fieldset, Layout
 # Squarelet
 from squarelet.core.forms import ImagePreviewWidget, StripeForm
 from squarelet.core.layout import Field
-from squarelet.organizations.choices import StripeAccounts
 
 # Local
 from .models import Organization, Plan
@@ -75,9 +74,7 @@ class PaymentForm(StripeForm):
     def _set_group_options(self):
         # only show public options, plus the current plan, in case they are currently
         # on a private plan, plus private plans they have been given access to
-        self.fields["plan"].queryset = Plan.objects.choices(
-            self.organization, StripeAccounts.muckrock
-        )
+        self.fields["plan"].queryset = Plan.objects.choices(self.organization)
         self.fields["plan"].default = self.organization.plan
         if self.organization.individual:
             del self.fields["max_users"]
@@ -122,10 +119,7 @@ class PaymentForm(StripeForm):
                 None, _("You cannot remove your card on file if you have a paid plan")
             )
 
-        if (
-            data.get("remove_card_on_file")
-            and not self.organization.customer(StripeAccounts.muckrock).card
-        ):
+        if data.get("remove_card_on_file") and not self.organization.customer().card:
             self.add_error(None, _("You do not have a card on file to remove"))
 
         if plan and "max_users" in data and data["max_users"] < plan.minimum_users:
