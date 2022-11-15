@@ -8,10 +8,6 @@ from allauth.account.models import EmailAddress
 from rest_framework import status
 from rest_framework.test import APIClient
 
-# Squarelet
-from squarelet.users.serializers import PressPassUserSerializer
-from squarelet.users.tests.factories import UserFactory
-
 
 @pytest.mark.django_db()
 class TestUserAPI:
@@ -75,57 +71,3 @@ class TestUserAPI:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         response_json = json.loads(response.content)
         assert "email" in response_json
-
-
-@pytest.mark.django_db()
-class TestPPUserAPI:
-    def test_list(self, api_client, user):
-        """List users"""
-        size = 10
-        api_client.force_authenticate(user=user)
-        UserFactory.create_batch(size)
-        response = api_client.get("/pp-api/users/")
-        assert response.status_code == status.HTTP_200_OK
-        response_json = json.loads(response.content)
-        assert len(response_json["results"]) == size + 1
-
-    def test_retrieve(self, api_client, user):
-        """Test retrieving a user"""
-        api_client.force_authenticate(user=user)
-        response = api_client.get(f"/pp-api/users/{user.individual_organization_id}/")
-        assert response.status_code == status.HTTP_200_OK
-
-    def test_retrieve_me(self, api_client, user):
-        """Test retrieving a user using special identifier `me`"""
-        api_client.force_authenticate(user=user)
-        response = api_client.get("/pp-api/users/me/")
-        assert response.status_code == status.HTTP_200_OK
-        response_json = json.loads(response.content)
-        serializer = PressPassUserSerializer(user)
-        for key, value in response_json.items():
-            if key == "uuid":
-                assert value == str(serializer.data[key])
-            else:
-                assert value == serializer.data[key]
-
-    def test_update(self, api_client, user):
-        """Test updating a user"""
-        api_client.force_authenticate(user=user)
-        name = "John Doe"
-        assert user.name != name
-        response = api_client.patch(
-            f"/pp-api/users/{user.individual_organization_id}/", {"name": name}
-        )
-        assert response.status_code == status.HTTP_200_OK
-        user.refresh_from_db()
-        assert user.name == name
-
-    def test_update_bad(self, api_client, user):
-        """Test updating a user you cannot update"""
-        other_user = UserFactory()
-        api_client.force_authenticate(user=user)
-        name = "John Doe"
-        response = api_client.patch(
-            f"/pp-api/users/{other_user.individual_organization_id}/", {"name": name}
-        )
-        assert response.status_code == status.HTTP_403_FORBIDDEN

@@ -31,7 +31,7 @@ from crispy_forms.layout import Field, Layout
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import mixpanel_event
-from squarelet.organizations.choices import ChangeLogReason, StripeAccounts
+from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.forms import AddMemberForm, PaymentForm, UpdateForm
 from squarelet.organizations.mixins import IndividualMixin, OrganizationAdminMixin
 from squarelet.organizations.models import Charge, Invitation, Membership, Organization
@@ -153,7 +153,7 @@ class UpdateSubscription(OrganizationAdminMixin, UpdateView):
         else:
             organization.set_receipt_emails(form.cleaned_data["receipt_emails"])
             if form.cleaned_data.get("remove_card_on_file"):
-                organization.remove_card(StripeAccounts.muckrock)
+                organization.remove_card()
                 messages.success(self.request, _("Credit card removed"))
             else:
                 messages.success(
@@ -460,11 +460,11 @@ def stripe_webhook(request):
     payload = request.body
     sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")
     try:
-        if settings.STRIPE_WEBHOOK_SECRETS[StripeAccounts.muckrock]:
+        if settings.STRIPE_WEBHOOK_SECRET:
             event = stripe.Webhook.construct_event(
                 payload,
                 sig_header,
-                settings.STRIPE_WEBHOOK_SECRETS[StripeAccounts.muckrock],
+                settings.STRIPE_WEBHOOK_SECRET,
             )
         else:
             event = json.loads(request.body)

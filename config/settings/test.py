@@ -59,6 +59,6 @@ EMAIL_PORT = 1025
 # Your stuff...
 # ------------------------------------------------------------------------------
 # Should not contact stripe during tests
-STRIPE_PUB_KEYS = ["pk_muckrock", "pk_presspass"]
-STRIPE_SECRET_KEYS = ["sk_muckrock", "sk_presspass"]
-STRIPE_WEBHOOK_SECRETS = [None, None]
+STRIPE_PUB_KEY = "pk_muckrock"
+STRIPE_SECRET_KEY = "sk_muckrock"
+STRIPE_WEBHOOK_SECRET = None

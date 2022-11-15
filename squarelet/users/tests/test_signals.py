@@ -6,7 +6,6 @@ import pytest
 from allauth.account.models import EmailAddress
 
 # Squarelet
-from squarelet.organizations.tests.factories import PressPassCustomerFactory
 from squarelet.users import signals
 
 
@@ -26,12 +25,8 @@ def test_email_changed(user_factory, mocker, mailoutbox):
         new_callable=PropertyMock,
     )
     user = user_factory(email_failed=True)
-    mocked_presspass_customer = PressPassCustomerFactory(
-        organization=user.individual_organization
-    )
 
-    user.individual_organization.customer(0).stripe_customer = mocked_customer
-    user.individual_organization.customer(1).stripe_customer = mocked_presspass_customer
+    user.individual_organization.customer().stripe_customer = mocked_customer
 
     old_email = EmailAddress(email="old@example.com")
     new_email = EmailAddress(email="new@example.com", user=user)

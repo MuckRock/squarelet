@@ -1,5 +1,4 @@
 # Django
-from django.conf import settings
 from django.utils import timezone
 
 # Standard Library
@@ -9,7 +8,7 @@ from unittest.mock import Mock, PropertyMock
 import pytest
 
 # Squarelet
-from squarelet.organizations.choices import ChangeLogReason, StripeAccounts
+from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.models import ReceiptEmail
 from squarelet.organizations.tests.factories import EntitlementFactory, PlanFactory
 
@@ -118,7 +117,7 @@ class TestOrganization:
     def test_customer_existing(self, customer_factory):
         customer_id = "customer_id"
         customer = customer_factory(customer_id=customer_id)
-        assert customer == customer.organization.customer(StripeAccounts.muckrock)
+        assert customer == customer.organization.customer()
 
     @pytest.mark.django_db()
     def test_customer_new(self, organization_factory, mocker):
@@ -130,17 +129,15 @@ class TestOrganization:
         email = "email@example.com"
         mocker.patch("squarelet.organizations.models.Organization.email", email)
         organization = organization_factory(customer=None)
-        customer = organization.customer(StripeAccounts.muckrock)
+        customer = organization.customer()
         assert customer.stripe_customer
         customer.refresh_from_db()
         assert customer.customer_id == customer_id
-        assert customer.stripe_account == StripeAccounts.muckrock
         assert customer.organization == organization
         mocked_stripe_create.assert_called_with(
             description=organization.name,
             email=email,
             name=organization.user_full_name,
-            api_key=settings.STRIPE_SECRET_KEYS[StripeAccounts.muckrock],
         )
 
     def test_subscription_blank(self, organization_factory):
@@ -161,7 +158,7 @@ class TestOrganization:
             "squarelet.organizations.models.organization.send_cache_invalidations"
         )
         organization = organization_factory.build()
-        organization.save_card(token, StripeAccounts.muckrock)
+        organization.save_card(token)
         assert not organization.payment_failed
         mocked_save.assert_called_once()
         customer.save_card.assert_called_with(token)
@@ -198,7 +195,7 @@ class TestOrganization:
         )
         token = "token"
         organization.create_subscription(token, plan)
-        mocked_save_card.assert_called_with(token, StripeAccounts.muckrock)
+        mocked_save_card.assert_called_with(token)
         assert mocked_customer.email == organization.email
         mocked_customer.save.assert_called()
         mocked_subscriptions.start.assert_called_with(
@@ -298,9 +295,7 @@ class TestCustomer:
         customer_id = "customer_id"
         customer = customer_factory.build(customer_id=customer_id)
         assert mocked.return_value == customer.stripe_customer
-        mocked.assert_called_with(
-            customer_id, api_key=settings.STRIPE_SECRET_KEYS[StripeAccounts.muckrock]
-        )
+        mocked.assert_called_with(customer_id)
 
     @pytest.mark.django_db()
     def test_customer_new(self, customer_factory, mocker):
@@ -317,7 +312,6 @@ class TestCustomer:
             description=customer.organization.name,
             email=email,
             name=customer.organization.user_full_name,
-            api_key=settings.STRIPE_SECRET_KEYS[StripeAccounts.muckrock],
         )
         customer.refresh_from_db()
         assert customer.customer_id == customer_id
@@ -533,7 +527,6 @@ class TestSubscription:
             billing="charge_automatically",
             metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=None,
-            api_key=settings.STRIPE_SECRET_KEYS[plan.stripe_account],
         )
 
 
@@ -574,7 +567,6 @@ class TestPlan:
             product={"name": plan.name, "unit_label": "Seats"},
             billing_scheme="per_unit",
             amount=100 * plan.base_price,
-            api_key=settings.STRIPE_SECRET_KEYS[plan.stripe_account],
         )
 
     def test_make_stripe_plan_group(self, organization_plan_factory, mocker):
@@ -592,7 +584,6 @@ class TestPlan:
                 {"unit_amount": 100 * plan.price_per_user, "up_to": "inf"},
             ],
             tiers_mode="graduated",
-            api_key=settings.STRIPE_SECRET_KEYS[plan.stripe_account],
         )
 
 

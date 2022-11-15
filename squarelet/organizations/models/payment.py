@@ -14,7 +14,6 @@ from memoize import mproperty
 
 # Squarelet
 from squarelet.core.mail import ORG_TO_RECEIPTS, send_mail
-from squarelet.organizations.choices import StripeAccounts
 from squarelet.organizations.querysets import (
     ChargeQuerySet,
     EntitlementQuerySet,
@@ -23,6 +22,7 @@ from squarelet.organizations.querysets import (
 )
 
 stripe.api_version = "2018-09-24"
+stripe.api_key = settings.STRIPE_SECRET_KEY
 logger = logging.getLogger(__name__)
 
 
@@ -34,11 +34,7 @@ class Customer(models.Model):
         to="organizations.Organization",
         on_delete=models.CASCADE,
         related_name="customers",
-    )
-    stripe_account = models.PositiveSmallIntegerField(
-        _("stripe account"),
-        choices=StripeAccounts.choices,
-        help_text=_("Which company's stripe account"),
+        unique=True,
     )
 
     customer_id = models.CharField(
@@ -49,13 +45,8 @@ class Customer(models.Model):
         help_text=_("The customer's corresponding ID on stripe"),
     )
 
-    class Meta:
-        unique_together = ("organization", "stripe_account")
-
     def __str__(self):
-        return (
-            f"{self.organization.name}'s {self.get_stripe_account_display()} Customer"
-        )
+        return f"{self.organization.name}'s Customer"
 
     @mproperty
     def stripe_customer(self):
@@ -63,15 +54,10 @@ class Customer(models.Model):
         # first try to find an existing stripe customer
         if self.customer_id:
             try:
-                stripe_customer = stripe.Customer.retrieve(
-                    self.customer_id,
-                    api_key=settings.STRIPE_SECRET_KEYS[self.stripe_account],
-                )
+                stripe_customer = stripe.Customer.retrieve(self.customer_id)
                 if stripe_customer.name is None:
                     stripe.Customer.modify(
-                        stripe_customer.id,
-                        name=self.organization.user_full_name,
-                        api_key=settings.STRIPE_SECRET_KEYS[self.stripe_account],
+                        stripe_customer.id, name=self.organization.user_full_name
                     )
                 return stripe_customer
             except stripe.error.InvalidRequestError:
@@ -89,7 +75,6 @@ class Customer(models.Model):
                 description=customer.organization.name,
                 email=customer.organization.email,
                 name=customer.organization.user_full_name,
-                api_key=settings.STRIPE_SECRET_KEYS[self.stripe_account],
             )
             customer.customer_id = stripe_customer.id
             customer.save()
@@ -125,9 +110,7 @@ class Customer(models.Model):
     def remove_card(self):
         """Remove the default card"""
         stripe.Customer.delete_source(
-            self.customer_id,
-            self.stripe_customer.default_source,
-            api_key=settings.STRIPE_SECRET_KEYS[self.stripe_account],
+            self.customer_id, self.stripe_customer.default_source
         )
 
     def add_source(self, token):
@@ -179,10 +162,7 @@ class Subscription(models.Model):
     def stripe_subscription(self):
         if self.subscription_id:
             try:
-                return stripe.Subscription.retrieve(
-                    self.subscription_id,
-                    api_key=settings.STRIPE_SECRET_KEYS[self.plan.stripe_account],
-                )
+                return stripe.Subscription.retrieve(self.subscription_id)
             except stripe.error.InvalidRequestError:  # pragma: no cover
                 return None
         else:
@@ -198,18 +178,20 @@ class Subscription(models.Model):
             )
             return
         if self.plan and not self.plan.free:
-            stripe_subscription = self.organization.customer(
-                self.plan.stripe_account
-            ).stripe_customer.subscriptions.create(
-                items=[
-                    {
-                        "plan": self.plan.stripe_id,
-                        "quantity": self.organization.max_users,
-                    }
-                ],
-                billing="send_invoice" if self.plan.annual else "charge_automatically",
-                metadata={"action": f"Subscription ({self.plan})"},
-                days_until_due=30 if self.plan.annual else None,
+            stripe_subscription = (
+                self.organization.customer().stripe_customer.subscriptions.create(
+                    items=[
+                        {
+                            "plan": self.plan.stripe_id,
+                            "quantity": self.organization.max_users,
+                        }
+                    ],
+                    billing="send_invoice"
+                    if self.plan.annual
+                    else "charge_automatically",
+                    metadata={"action": f"Subscription ({self.plan})"},
+                    days_until_due=30 if self.plan.annual else None,
+                )
             )
             self.subscription_id = stripe_subscription.id
 
@@ -260,7 +242,6 @@ class Subscription(models.Model):
                 billing="send_invoice" if self.plan.annual else "charge_automatically",
                 metadata={"action": f"Subscription ({self.plan})"},
                 days_until_due=30 if self.plan.annual else None,
-                api_key=settings.STRIPE_SECRET_KEYS[self.plan.stripe_account],
             )
 
 
@@ -343,15 +324,6 @@ class Plan(models.Model):
         blank=True,
     )
 
-    stripe_account = models.PositiveSmallIntegerField(
-        _("stripe account"),
-        choices=StripeAccounts.choices,
-        default=StripeAccounts.muckrock,
-        help_text=_(
-            "Which company's stripe account is used for subscrpitions to this plan"
-        ),
-    )
-
     class Meta:
         ordering = ("slug",)
 
@@ -407,7 +379,6 @@ class Plan(models.Model):
                     currency="usd",
                     interval="year" if self.annual else "month",
                     product={"name": self.name, "unit_label": "Seats"},
-                    api_key=settings.STRIPE_SECRET_KEYS[self.stripe_account],
                     **kwargs,
                 )
             except stripe.error.InvalidRequestError:  # pragma: no cover
@@ -417,15 +388,9 @@ class Plan(models.Model):
     def delete_stripe_plan(self):
         """Remove a stripe plan"""
         try:
-            plan = stripe.Plan.retrieve(
-                id=self.stripe_id,
-                api_key=settings.STRIPE_SECRET_KEYS[self.stripe_account],
-            )
+            plan = stripe.Plan.retrieve(id=self.stripe_id)
             # We also want to remove the associated product
-            product = stripe.Product.retrieve(
-                id=plan.product,
-                api_key=settings.STRIPE_SECRET_KEYS[self.stripe_account],
-            )
+            product = stripe.Product.retrieve(id=plan.product)
             plan.delete()
             product.delete()
         except stripe.error.InvalidRequestError:
@@ -458,12 +423,6 @@ class Charge(models.Model):
         unique=True,
         help_text=_("The strip ID for the charge"),
     )
-    stripe_account = models.PositiveSmallIntegerField(
-        _("stripe account"),
-        choices=StripeAccounts.choices,
-        default=StripeAccounts.muckrock,
-        help_text=_("Which company's stripe account is used for this charge"),
-    )
 
     description = models.CharField(
         _("description"),
@@ -484,9 +443,7 @@ class Charge(models.Model):
 
     @mproperty
     def charge(self):
-        return stripe.Charge.retrieve(
-            self.charge_id, api_key=settings.STRIPE_SECRET_KEYS[self.stripe_account]
-        )
+        return stripe.Charge.retrieve(self.charge_id)
 
     @property
     def amount_dollars(self):

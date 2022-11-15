@@ -14,7 +14,10 @@ import stripe
 from dateutil.relativedelta import relativedelta
 
 # Squarelet
-from squarelet.organizations.choices import ChangeLogReason, StripeAccounts
+from squarelet.organizations.choices import ChangeLogReason
+
+stripe.api_version = "2018-09-24"
+stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
 class OrganizationQuerySet(models.QuerySet):
@@ -75,14 +78,12 @@ class PlanQuerySet(models.QuerySet):
     def get_public(self):
         return self.get_viewable(AnonymousUser())
 
-    def choices(self, organization, stripe_account=None):
+    def choices(self, organization):
         """Return the plan choices for the given organization"""
         if organization.individual:
             queryset = self.filter(for_individuals=True)
         else:
             queryset = self.filter(for_groups=True)
-        if stripe_account is not None:
-            queryset = queryset.filter(stripe_account=stripe_account)
 
         # show public plans, the organizations current plan, and any custom plan
         # to which they have been granted explicit access
@@ -95,9 +96,6 @@ class PlanQuerySet(models.QuerySet):
     def free(self):
         """Free plans"""
         return self.filter(base_price=0, price_per_user=0)
-
-    def muckrock(self):
-        return self.filter(stripe_account=StripeAccounts.muckrock)
 
 
 class EntitlementQuerySet(models.QuerySet):
@@ -152,11 +150,10 @@ class ChargeQuerySet(models.QuerySet):
         amount,
         fee_amount,
         description,
-        stripe_account,
         metadata,
     ):
         """Make a charge on stripe and locally"""
-        customer = organization.customer(stripe_account)
+        customer = organization.customer()
         if token:
             source = customer.add_source(token)
         else:
@@ -176,7 +173,6 @@ class ChargeQuerySet(models.QuerySet):
             description=description,
             source=source,
             metadata=metadata,
-            api_key=settings.STRIPE_SECRET_KEYS[stripe_account],
             statement_descriptor_suffix=metadata.get("action", ""),
             idempotency_key=str(uuid4()),
         )
@@ -197,7 +193,6 @@ class ChargeQuerySet(models.QuerySet):
                 ),
                 "description": description,
             },
-            stripe_account=stripe_account,
         )
         return charge
 
@@ -212,6 +207,3 @@ class SubscriptionQuerySet(models.QuerySet):
         subscription.start()
         subscription.save()
         return subscription
-
-    def muckrock(self):
-        return self.filter(plan__stripe_account=StripeAccounts.muckrock)
