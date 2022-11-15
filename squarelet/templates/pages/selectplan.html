@@ -37,17 +37,32 @@
                   Sign up for free, no credit card required.
                 {% endblocktrans %}
               </li>
-              <li>
-                {% blocktrans %}
-                  Purchase bundles of 4 requests for $20 on MuckRock.
-                {% endblocktrans %}
-              </li>
-              <li>
-                {% blocktrans %}
-                  Bulk rate of $4/request on purchases of 20 or more
-                  additional requests.
-                {% endblocktrans %}
-              </li>
+              {% if request.GET.intent == "documentcloud" %}
+                <li>
+                  {% blocktrans %}
+                    Upload, share, annotate and embed documents after account
+                    verification on DocumentCloud.
+                  {% endblocktrans %}
+                </li>
+                <li>
+                  {% blocktrans %}
+                    Use Add-Ons for additional features, such as scraping and
+                    audio transcriptions, or write your own.
+                  {% endblocktrans %}
+                </li>
+              {% else %}
+                <li>
+                  {% blocktrans %}
+                    Purchase bundles of 4 requests for $20 on MuckRock.
+                  {% endblocktrans %}
+                </li>
+                <li>
+                  {% blocktrans %}
+                    Bulk rate of $4/request on purchases of 20 or more
+                    additional requests.
+                  {% endblocktrans %}
+                </li>
+              {% endif %}
             </ul>
           </div>
           <div class="_cls-cardAction">
@@ -62,22 +77,37 @@
           </div>
           <div class="_cls-cardContent">
             <ul>
-              <li>
-                {% blocktrans %}
-                  Receive 20 requests per month on MuckRock.
-                {% endblocktrans %}
-              </li>
-              <li>
-                {% blocktrans %}
-                  Embargo requests for up to 30 days after completion.
-                {% endblocktrans %}
-              </li>
-              <li>
-                {% blocktrans %}
-                  Bulk rate of $3/request on purchases of 20 or more
-                  additional requests.
-                {% endblocktrans %}
-              </li>
+              {% if request.GET.intent == "documentcloud" %}
+                <li>
+                  {% blocktrans %}
+                    Use advanced OCR powered by AWS Textract for the most
+                    accurate text extraction on up to 2,000 pages per month on
+                    DocumentCloud.
+                  {% endblocktrans %}
+                </li>
+                <li>
+                  {% blocktrans %}
+                    Ability to search through the notes on your documents.
+                  {% endblocktrans %}
+                </li>
+              {% else %}
+                <li>
+                  {% blocktrans %}
+                    Receive 20 requests per month on MuckRock.
+                  {% endblocktrans %}
+                </li>
+                <li>
+                  {% blocktrans %}
+                    Embargo requests for up to 30 days after completion.
+                  {% endblocktrans %}
+                </li>
+                <li>
+                  {% blocktrans %}
+                    Bulk rate of $3/request on purchases of 20 or more
+                    additional requests.
+                  {% endblocktrans %}
+                </li>
+              {% endif %}
             </ul>
           </div>
           <div class="_cls-cardAction">
@@ -94,22 +124,38 @@
           </div>
           <div class="_cls-cardContent">
             <ul>
-              <li>
-                {% blocktrans %}
-                  Start with 5 members and 50 collective requests per month on MuckRock.
-                {% endblocktrans %}
-              </li>
-              <li>
-                {% blocktrans %}
-                  Add additional members for $10 &mdash; each new member adds
-                  5 requests per month.
-                {% endblocktrans %}
-              </li>
-              <li>
-                {% blocktrans %}
-                  Members can make embargoes permanent.
-                {% endblocktrans %}
-              </li>
+              {% if request.GET.intent == "documentcloud" %}
+                <li>
+                  {% blocktrans %}
+                    Start with 5 members and 5,000 advanced OCR pages per month
+                    on DocumentCloud.
+                  {% endblocktrans %}
+                </li>
+                <li>
+                  {% blocktrans %}
+                    Add additional members for $10 &mdash; each new member adds
+                    500 advanced OCR pages per month.
+                  {% endblocktrans %}
+                </li>
+              {% else %}
+                <li>
+                  {% blocktrans %}
+                    Start with 5 members and 50 collective requests per month
+                    on MuckRock.
+                  {% endblocktrans %}
+                </li>
+                <li>
+                  {% blocktrans %}
+                    Add additional members for $10 &mdash; each new member adds
+                    5 requests per month.
+                  {% endblocktrans %}
+                </li>
+                <li>
+                  {% blocktrans %}
+                    Members can make embargoes permanent.
+                  {% endblocktrans %}
+                </li>
+              {% endif %}
             </ul>
           </div>
           <div class="_cls-cardAction">
