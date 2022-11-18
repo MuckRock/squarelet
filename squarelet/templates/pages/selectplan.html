@@ -66,7 +66,7 @@
             </ul>
           </div>
           <div class="_cls-cardAction">
-            <a class="_cls-nostyle" href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'squarelet' %}{% if request.GET.next %}&next={{ request.GET.next }}{% endif %}">
+            <a class="_cls-nostyle" href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'squarelet' %}">
               <button>{% blocktrans %}Sign up for free{% endblocktrans %}</button>
             </a>
           </div>
@@ -140,7 +140,7 @@
             {% endif %}
           </div>
           <div class="_cls-cardAction">
-            <a class="_cls-nostyle" href="{% url 'account_signup' %}?plan=professional&intent={% firstof request.GET.intent 'squarelet' %}{% if request.GET.next %}&next={{ request.GET.next }}{% endif %}">
+            <a class="_cls-nostyle" href="{% url 'account_signup' %}?plan=professional&intent={% firstof request.GET.intent 'squarelet' %}">
               <button>
                 {% blocktrans %}Subscribe for $40/month{% endblocktrans %}
               </button>
@@ -213,7 +213,7 @@
             {% endif %}
           </div>
           <div class="_cls-cardAction">
-            <a class="_cls-nostyle" href="{% url 'account_signup' %}?plan=organization&intent={% firstof request.GET.intent 'squarelet' %}{% if request.GET.next %}&next={{ request.GET.next }}{% endif %}">
+            <a class="_cls-nostyle" href="{% url 'account_signup' %}?plan=organization&intent={% firstof request.GET.intent 'squarelet' %}">
               <button>
                 {% blocktrans %}Subscribe from $100/month{% endblocktrans %}
               </button>
