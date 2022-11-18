@@ -398,6 +398,19 @@ class InvitationAccept(LoginRequiredMixin, DetailView):
     slug_field = "uuid"
     slug_url_kwarg = "uuid"
 
+    def dispatch(self, request, *args, **kwargs):
+        """
+        If the user is authenticated, associate the invitation with that user, so
+        they can access it later.
+        If not, store the invitation in the session, so that the invitation can be
+        associated on login
+        """
+        if request.user.is_authenticated:
+            Invitation.objects.filter(uuid=kwargs["uuid"]).update(user=request.user)
+        else:
+            request.session["invitation"] = str(kwargs["uuid"])
+        return super().dispatch(request, *args, **kwargs)
+
     def post(self, request, *args, **kwargs):
         """Accept the invitation"""
         invitation = self.get_object()

@@ -16,6 +16,7 @@ from furl import furl
 
 # Squarelet
 from squarelet.core.mail import Email
+from squarelet.organizations.models import Invitation
 from squarelet.users.models import User
 from squarelet.users.serializers import UserWriteSerializer
 
@@ -91,6 +92,14 @@ class AccountAdapter(DefaultAccountAdapter):
             email_template = "account/email/email_confirmation"
 
         self.send_mail(email_template, emailconfirmation.email_address.email, ctx)
+
+    def login(self, request, user):
+        """Check the session for a pending invitation before logging in,
+        and if found assign it to the newly logged in user"""
+        invitation_uuid = request.session.get("invitation")
+        super().login(request, user)
+        if invitation_uuid is not None and request.user.is_authenticated:
+            Invitation.objects.filter(uuid=invitation_uuid).update(user=request.user)
 
 
 class SocialAccountAdapter(DefaultSocialAccountAdapter):
