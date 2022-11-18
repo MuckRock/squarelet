@@ -141,8 +141,13 @@
         {% csrf_token %}
         <input type="hidden" name="action" value="addmember">
         <div class="_cls-inviteUsers _cls-actionSmall _cls-actionSmaller">
-          <input name="email" placeholder="Email address" required>
-          <button type="submit" name="addmember">+ {% trans 'Add a user' %}</button>
+          <textarea
+            name="emails"
+            placeholder="Enter email addresses separated by commas or whitespace"
+            cols="40"
+            rows="10"
+            required></textarea>
+          <button type="submit" name="addmember">+ {% trans 'Add users' %}</button>
         </div>
       </form>
     {% else %}

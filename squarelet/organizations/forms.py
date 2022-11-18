@@ -8,6 +8,7 @@ from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Fieldset, Layout
 
 # Squarelet
+from squarelet.core.fields import EmailsListField
 from squarelet.core.forms import ImagePreviewWidget, StripeForm
 from squarelet.core.layout import Field
 
@@ -161,4 +162,4 @@ class UpdateForm(forms.ModelForm):
 class AddMemberForm(forms.Form):
     """Add a member to the organization"""
 
-    email = forms.EmailField()
+    emails = EmailsListField()
