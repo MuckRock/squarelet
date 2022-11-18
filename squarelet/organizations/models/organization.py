@@ -10,7 +10,6 @@ from django.utils.translation import gettext_lazy as _
 import uuid
 
 # Third Party
-import stripe
 from autoslug import AutoSlugField
 from memoize import mproperty
 from sorl.thumbnail import ImageField
@@ -21,15 +20,13 @@ from squarelet.core.mail import ORG_TO_ADMINS, send_mail
 from squarelet.core.mixins import AvatarMixin
 from squarelet.core.utils import file_path
 from squarelet.oidc.middleware import send_cache_invalidations
-from squarelet.organizations.choices import ChangeLogReason, StripeAccounts
+from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.models.payment import Charge
 from squarelet.organizations.querysets import (
     InvitationQuerySet,
     MembershipQuerySet,
     OrganizationQuerySet,
 )
-
-stripe.api_version = "2018-09-24"
 
 
 def organization_file_path(instance, filename):
@@ -297,34 +294,34 @@ class Organization(AvatarMixin, models.Model):
 
     # Payment Management
 
-    def customer(self, stripe_account):
+    def customer(self):
         """Retrieve the customer from Stripe or create one if it doesn't exist"""
-        customer, _ = self.customers.get_or_create(stripe_account=stripe_account)
+        customer, _ = self.customers.get_or_create()
         return customer
 
-    def save_card(self, token, stripe_account):
+    def save_card(self, token):
         self.payment_failed = False
         self.save()
-        self.customer(stripe_account).save_card(token)
+        self.customer().save_card(token)
         send_cache_invalidations("organization", self.uuid)
 
-    def remove_card(self, stripe_account):
-        self.customer(stripe_account).remove_card()
+    def remove_card(self):
+        self.customer().remove_card()
         send_cache_invalidations("organization", self.uuid)
 
     @mproperty
     def plan(self):
-        return self.plans.muckrock().first()
+        return self.plans.first()
 
     @mproperty
     def subscription(self):
-        return self.subscriptions.muckrock().first()
+        return self.subscriptions.first()
 
     def create_subscription(self, token, plan):
         if token:
-            self.save_card(token, plan.stripe_account)
+            self.save_card(token)
 
-        customer = self.customer(plan.stripe_account).stripe_customer
+        customer = self.customer().stripe_customer
         if not customer.email:
             customer.email = self.email
             customer.save()
@@ -335,7 +332,7 @@ class Organization(AvatarMixin, models.Model):
         if self.individual:
             max_users = 1
         if token and plan:
-            self.save_card(token, plan.stripe_account)
+            self.save_card(token)
 
         # store so we can log
         from_plan, from_max_users = (self.plan, self.max_users)
@@ -380,16 +377,15 @@ class Organization(AvatarMixin, models.Model):
         token=None,
         save_card=False,
         metadata=None,
-        stripe_account=StripeAccounts.muckrock,
     ):
         """Charge the organization and optionally save their credit card"""
         if save_card:
-            self.save_card(token, stripe_account)
+            self.save_card(token)
             token = None
         if metadata is None:
             metadata = {}
         charge = Charge.objects.make_charge(
-            self, token, amount, fee_amount, description, stripe_account, metadata
+            self, token, amount, fee_amount, description, metadata
         )
         return charge
 

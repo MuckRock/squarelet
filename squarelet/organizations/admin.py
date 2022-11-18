@@ -34,7 +34,7 @@ class SubscriptionInline(admin.TabularInline):
 
 class CustomerInline(admin.TabularInline):
     model = Customer
-    readonly_fields = ("stripe_account", "customer_id")
+    readonly_fields = ("customer_id",)
     extra = 0
 
 

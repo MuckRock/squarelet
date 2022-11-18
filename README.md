@@ -115,7 +115,7 @@ If you are developing on any of our other projects. Follow the following integra
     |Webhook URL (To make this field appear, Add a client profile)|https://api.dev.documentcloud.org/squarelet/webhook/|
     </details>
 8. Click save and continue editing. Note down the `Client ID` and `Client SECRET` values. You will need these later.
-9. Make sure in your `.envs/.local/.django` file, there exist values for: `STRIPE_PUB_KEYS`, `STRIPE_SECRET_KEYS`, and set `STRIPE_WEBHOOK_SECRETS=None`. Multiple values for any of the above should be comma delimited.
+9. Make sure in your `.envs/.local/.django` file, there exist values for: `STRIPE_PUB_KEY`, `STRIPE_SECRET_KEY`, and `STRIPE_WEBHOOK_SECRET`.
 10. You must restart the Docker Compose session (via the command `docker compose down` followed by `docker compose up`) each time you change a `.django` file for it to take effect.
 
 ## Docker info

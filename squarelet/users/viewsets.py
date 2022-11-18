@@ -1,5 +1,4 @@
 # Django
-from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db.models.query import Prefetch
 from django.http.response import Http404
@@ -9,12 +8,10 @@ from django.utils.translation import gettext_lazy as _
 
 # Third Party
 import sesame.utils
-from allauth.account import app_settings as allauth_settings
 from allauth.account.models import EmailAddress, EmailConfirmationHMAC
-from allauth.account.utils import complete_signup, setup_user_email
-from dj_rest_auth.registration.views import RegisterView
-from rest_framework import mixins, status, viewsets
-from rest_framework.permissions import DjangoObjectPermissions, IsAdminUser
+from allauth.account.utils import setup_user_email
+from rest_framework import status, viewsets
+from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -23,12 +20,7 @@ from squarelet.core.mail import send_mail
 from squarelet.oidc.permissions import ScopePermission
 from squarelet.organizations.models import Membership
 from squarelet.users.models import User
-from squarelet.users.serializers import (
-    PressPassUserSerializer,
-    PressPassUserWriteSerializer,
-    UserReadSerializer,
-    UserWriteSerializer,
-)
+from squarelet.users.serializers import UserReadSerializer, UserWriteSerializer
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -112,62 +104,3 @@ class RefreshTokenViewSet(viewsets.ViewSet):
         return Response(
             {"refresh_token": str(token), "access_token": str(token.access_token)}
         )
-
-
-class PressPassUserViewSet(
-    # Cannot create or destroy users
-    mixins.RetrieveModelMixin,
-    mixins.UpdateModelMixin,
-    mixins.ListModelMixin,
-    viewsets.GenericViewSet,
-):
-    queryset = User.objects.all()
-    permission_classes = (DjangoObjectPermissions,)
-    lookup_field = "individual_organization_id"
-    lookup_url_kwarg = "uuid"
-    serializer_class = PressPassUserSerializer
-
-    def get_object(self):
-        """Allow one to lookup themselves by specifying `me` as the pk"""
-        if self.kwargs["uuid"] == "me" and self.request.user.is_authenticated:
-            return self.request.user
-        else:
-            return super().get_object()
-
-
-class PressPassRegisterView(RegisterView):
-    serializer_class = PressPassUserWriteSerializer
-
-    def get_response_data(self, user):
-        if (
-            allauth_settings.EMAIL_VERIFICATION
-            == allauth_settings.EmailVerificationMethod.MANDATORY
-        ):
-            return {"detail": _("Verification e-mail sent.")}
-        return {}
-
-    def perform_create(self, serializer):
-        data = serializer.data
-        data["source"] = "presspass"
-
-        # Because the django-rest-auth serializer only supports usernames, emails,
-        # and passwords, we must set the user's name to some default.
-        data["name"] = ""
-
-        # The serializer uses write-only fields for passwords, which makes sense.
-        # This probably means we shouldn't use rest auth for registration at all.
-        # We should write our own registration view from scratch.
-        data["password1"] = self.request.data["password1"]
-
-        # Set to none until we have plans developed
-        data["plan"] = None
-
-        # Set to News Catalyst until we setup organization registration
-        data["organization_name"] = "News Catalyst"
-
-        user, _group_organization, _error = get_user_model().objects.register_user(data)
-        user.save()
-
-        complete_signup(self.request, user, allauth_settings.EMAIL_VERIFICATION, None)
-
-        return user

@@ -3,7 +3,6 @@ argon2-cffi
 bcrypt
 celery<5.0
 cryptography
-dj-rest-auth
 django-allauth
 django-autocomplete-light
 django-autoslug
@@ -30,7 +29,6 @@ django<4.0
 djangorestframework
 djangorestframework_simplejwt
 dogslow
-drf-flex-fields
 drf-nested-routers
 furl
 html2text

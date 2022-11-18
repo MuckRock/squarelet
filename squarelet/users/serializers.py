@@ -6,7 +6,6 @@ import string
 # Third Party
 from allauth.account.models import EmailAddress
 from allauth.socialaccount.models import SocialAccount, SocialToken
-from dj_rest_auth.registration.serializers import RegisterSerializer
 from rest_framework import serializers
 
 # Squarelet
@@ -140,47 +139,3 @@ class UserWriteSerializer(UserBaseSerializer):
         if EmailAddress.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError("That email already has an account")
         return value
-
-
-class PressPassUserSerializer(serializers.ModelSerializer):
-    """Serializer for the more traditional API for PressPass"""
-
-    class Meta:
-        model = User
-        fields = (
-            "name",
-            "email",
-            "email_failed",
-            "avatar",
-            "username",
-            "created_at",
-            "updated_at",
-            "use_autologin",
-            "uuid",
-            "can_change_username",
-        )
-        extra_kwargs = {
-            "email": {"read_only": True},
-            "email_failed": {"read_only": True},
-            "created_at": {"read_only": True},
-            "updated_at": {"read_only": True},
-            "can_change_username": {"read_only": True},
-        }
-
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            if self.instance and not self.instance.can_change_username:
-                # pylint: disable=invalid-sequence-index
-                self.fields["username"].read_only = True
-
-
-class PressPassUserWriteSerializer(RegisterSerializer):
-    """
-    Override dj-rest-auth's user serializer so that we can pass
-    password data to the user manager
-    """
-
-    # pylint: disable=abstract-method
-
-    password1 = serializers.CharField()
-    password2 = serializers.CharField()

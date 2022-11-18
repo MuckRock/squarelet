@@ -76,7 +76,6 @@ THIRD_PARTY_APPS = [
     "dal",
     "dal_select2",
     "debug_toolbar",
-    "dj_rest_auth",
     "django_extensions",
     "django_premailer",
     "hijack",
@@ -384,9 +383,9 @@ PRESSPASS_COOKIE_DOMAIN = env("PRESSPASS_COOKIE_DOMAIN", default="")
 
 # stripe
 # ------------------------------------------------------------------------------
-STRIPE_PUB_KEYS = env.list("STRIPE_PUB_KEYS")
-STRIPE_SECRET_KEYS = env.list("STRIPE_SECRET_KEYS")
-STRIPE_WEBHOOK_SECRETS = env.list("STRIPE_WEBHOOK_SECRETS")
+STRIPE_PUB_KEY = env("STRIPE_PUB_KEY")
+STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY")
+STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET")
 
 # mailgun
 # ------------------------------------------------------------------------------
@@ -449,16 +448,6 @@ SIMPLE_JWT = {
     # "ACCESS_TOKEN_LIFETIME": timedelta(seconds=2),
     # "REFRESH_TOKEN_LIFETIME": timedelta(seconds=5),
 }
-
-# django-rest-auth
-# ------------------------------------------------------------------------------
-
-OLD_PASSWORD_FIELD_ENABLED = True
-
-# Swagger
-# ------------------------------------------------------------------------------
-
-SWAGGER_SETTINGS = {"exclude_namespaces": ["auth_helpers"]}
 
 # django-cors-headers
 # ------------------------------------------------------------------------------

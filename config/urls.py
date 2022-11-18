@@ -13,29 +13,10 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 # Squarelet
 from squarelet.core.views import HomeView
-from squarelet.email_api.viewsets import (
-    PressPassEmailAddressViewSet,
-    PressPassEmailConfirmationUpdateView,
-)
 from squarelet.oidc.views import token_view
-from squarelet.oidc.viewsets import ClientViewSet
-from squarelet.organizations.viewsets import (
-    ChargeViewSet,
-    OrganizationViewSet,
-    PressPassEntitlementViewSet,
-    PressPassInvitationViewSet,
-    PressPassMembershipViewSet,
-    PressPassNestedInvitationViewSet,
-    PressPassOrganizationViewSet,
-    PressPassPlanViewSet,
-    PressPassSubscriptionViewSet,
-    PressPassUserInvitationViewSet,
-    PressPassUserMembershipViewSet,
-)
+from squarelet.organizations.viewsets import ChargeViewSet, OrganizationViewSet
 from squarelet.users.views import LoginView
 from squarelet.users.viewsets import (
-    PressPassRegisterView,
-    PressPassUserViewSet,
     RefreshTokenViewSet,
     UrlAuthTokenViewSet,
     UserViewSet,
@@ -48,25 +29,6 @@ router.register("refresh_tokens", RefreshTokenViewSet, basename="refresh_token")
 router.register("organizations", OrganizationViewSet)
 router.register("charges", ChargeViewSet)
 
-presspass_router = routers.DefaultRouter()
-presspass_router.register("clients", ClientViewSet)
-presspass_router.register("users", PressPassUserViewSet)
-presspass_router.register("organizations", PressPassOrganizationViewSet)
-presspass_router.register("invitations", PressPassInvitationViewSet)
-presspass_router.register("plans", PressPassPlanViewSet)
-presspass_router.register("entitlements", PressPassEntitlementViewSet)
-presspass_router.register("emails", PressPassEmailAddressViewSet)
-
-organization_router = routers.NestedDefaultRouter(
-    presspass_router, "organizations", lookup="organization"
-)
-organization_router.register("memberships", PressPassMembershipViewSet)
-organization_router.register("invitations", PressPassNestedInvitationViewSet)
-organization_router.register("subscriptions", PressPassSubscriptionViewSet)
-
-user_router = routers.NestedDefaultRouter(presspass_router, "users", lookup="user")
-user_router.register("invitations", PressPassUserInvitationViewSet)
-user_router.register("memberships", PressPassUserMembershipViewSet)
 
 urlpatterns = [
     path("", HomeView.as_view(), name="home"),
@@ -89,21 +51,9 @@ urlpatterns = [
     path("api/", include(router.urls)),
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
-    path("pp-api/auth/", include("squarelet.auth_helpers.urls")),
-    path("pp-api/", include(presspass_router.urls)),
-    path("pp-api/", include(organization_router.urls)),
-    path("pp-api/", include(user_router.urls)),
-    path(
-        "pp-api/verify/<key>/",
-        PressPassEmailConfirmationUpdateView.as_view(),
-        name="presspass_email_confirm",
-    ),
     path("openid/", include("oidc_provider.urls", namespace="oidc_provider")),
     path("openid/jwt", token_view, name="oidc_jwt"),
     path("hijack/", include("hijack.urls", namespace="hijack")),
-    path(
-        "pp-api/register/", PressPassRegisterView.as_view(), name="presspass_register"
-    ),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:
