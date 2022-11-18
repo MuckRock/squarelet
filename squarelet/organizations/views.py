@@ -272,23 +272,27 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
     def _handle_add_member(self, request):
         addmember_form = AddMemberForm(request.POST)
         if not addmember_form.is_valid():
-            # Ensure the email is valid
-            messages.error(request, "Please enter a valid email address")
+            messages.error(request, addmember_form.errors["emails"][0])
         else:
             # Ensure the org has capacity
-            if self.organization.user_count() >= self.organization.max_users:
+            emails = addmember_form.cleaned_data["emails"]
+            if (
+                self.organization.user_count() + len(emails)
+                > self.organization.max_users
+            ):
                 messages.error(
                     request,
                     "You need to increase your max users to invite another member",
                 )
             else:
                 # Create an invitation and send it to the given email address
-                invitation = Invitation.objects.create(
-                    organization=self.organization,
-                    email=addmember_form.cleaned_data["email"],
-                )
-                invitation.send()
-                messages.success(self.request, "Invitation sent")
+                for email in emails:
+                    invitation = Invitation.objects.create(
+                        organization=self.organization,
+                        email=email,
+                    )
+                    invitation.send()
+                messages.success(self.request, "Invitations sent")
         return redirect("organizations:manage-members", slug=self.organization.slug)
 
     def _handle_invite(self, request, invite_fn, success_message):
