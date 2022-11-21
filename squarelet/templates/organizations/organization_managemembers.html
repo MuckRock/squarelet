@@ -107,8 +107,9 @@
     <div class="_cls-manageTable">
       <div class="_cls-manageRow _cls-manageHeader">
         <div class="_cls-manageCell">{% trans 'User' %}</div>
-        <div class="_cls-manageCell">{% trans 'Requested time' %}</div>
-        <div class="_cls-manageCell">{% trans 'Action' %}</div>
+        <div class="_cls-manageCell" style="width: 20%">{% trans 'Requested time' %}</div>
+        <div class="_cls-manageCell" style="width: 10%">{% trans 'Action' %}</div>
+        <div class="_cls-manageCell" style="wdith: 45%">{% trans 'Link' %}</div>
         </div>
       {% for invite in pending_invitations %}
         <div class="_cls-manageRow">
@@ -117,7 +118,11 @@
               <div class="_cls-inlineAvatar">
                 {% avatar invite.user 25 %}
               </div>
-              {{ invite.get_name }}
+              {% if invite.get_name %}
+                {{ invite.get_name }}
+              {% else %}
+                <em>None</em>
+              {% endif %}
             </a>
           </div>
           <div class="_cls-manageCell">{{ invite.created_at | date:"Y-m-d H:i" }}</div>
@@ -128,6 +133,14 @@
               <input type="hidden" name="inviteid" value="{{ invite.id }}">
               <button type="submit" class="_cls-compactButton">{% trans 'Revoke' %}</button>
             </form>
+          </div>
+          <div class="_cls-manageCell">
+            <input
+              type="text"
+              value="{{ settings.SQUARELET_URL }}{% url "organizations:invitation" invite.uuid %}"
+              style="width: 100%"
+
+              >
           </div>
         </div>
       {% endfor %}
@@ -147,13 +160,23 @@
             cols="40"
             rows="10"
             required></textarea>
-          <button type="submit" name="addmember">+ {% trans 'Add users' %}</button>
+          <button type="submit" name="addmember">
+            + {% trans 'Add users by email' %}
+          </button>
+        </div>
+      </form>
+      <form class="_cls-inlineForm" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="addmember_link">
+        <div class="_cls-inviteUsers _cls-actionSmall _cls-actionSmaller">
+          <button type="submit" name="addmember_link">
+            + {% trans 'Generate invite link' %}
+          </button>
         </div>
       </form>
     {% else %}
       <div class="_cls-tableInfo">{% trans 'Users and invitations capacity full' %} ({{ organization.max_users }}).</div>
     {% endif %}
-    </form>
     <p class="_cls-spaced"><a href="{{ organization.get_absolute_url }}" class="_cls-altAction">
       {% trans 'Go back' %}
     </a></p>

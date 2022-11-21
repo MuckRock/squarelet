@@ -12,7 +12,9 @@ from django.http.response import (
     HttpResponseNotAllowed,
 )
 from django.shortcuts import redirect
+from django.urls import reverse
 from django.utils.decorators import method_decorator
+from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.csrf import csrf_exempt
@@ -258,6 +260,7 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
 
         actions = {
             "addmember": self._handle_add_member,
+            "addmember_link": self._handle_add_member_link,
             "revokeinvite": self._handle_revoke_invite,
             "acceptinvite": self._handle_accept_invite,
             "rejectinvite": self._handle_reject_invite,
@@ -293,6 +296,27 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
                     )
                     invitation.send()
                 messages.success(self.request, "Invitations sent")
+        return redirect("organizations:manage-members", slug=self.organization.slug)
+
+    def _handle_add_member_link(self, request):
+        # Ensure the org has capacity
+        if self.organization.user_count() >= self.organization.max_users:
+            messages.error(
+                request,
+                "You need to increase your max users to invite another member",
+            )
+        else:
+            # Create an invitation and display it to the admin
+            invitation = Invitation.objects.create(
+                organization=self.organization,
+            )
+            url = reverse("organizations:invitation", args=(invitation.uuid,))
+            messages.success(
+                self.request,
+                format_html(
+                    "Invitation link created:<p>{}{}</p>", settings.SQUARELET_URL, url
+                ),
+            )
         return redirect("organizations:manage-members", slug=self.organization.slug)
 
     def _handle_invite(self, request, invite_fn, success_message):
