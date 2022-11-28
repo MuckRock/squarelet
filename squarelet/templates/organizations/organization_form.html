@@ -17,7 +17,7 @@
       </ul>
     {% endif %}
     <div class="_cls-planInfo">
-      {% trans "Current plan" %}: <b>{{ organization.plan }}</b>
+      {% trans "Current plan" %}: <b>{{ organization.plan|default:"Free" }}</b>
       {% if organization.subscription.cancelled %}
         <div class="_cls-info _cls-infoSpaced">
           {% blocktrans with update_on=organization.subscription.update_on|date:"m/d/Y" %}

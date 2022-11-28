@@ -65,6 +65,25 @@
     {% if requested_invitations %}
     <div class="_cls-tableHeading">{% trans 'Requested invites' %}</div>
     <div class="_cls-tableInfo">{% trans 'Users that have requested to be a part of the organization' %}</div>
+    <div class="_cls-tableInfo">
+      {% blocktrans with user_count=organization.user_count max_users=organization.max_users user_count_p=organization.user_count|pluralize max_users_p=organization.max_users|pluralize available_seats_p=available_seats|pluralize %}
+        Note: Your organization currently has {{ user_count }}
+        seat{{ user_count_p }} out of {{ max_users }} seat{{ max_users_p }}
+        filled. If you accept more than {{ available_seats }}
+        invitation{{ available_seats_p }}, your max users will be increased.
+      {% endblocktrans %}
+      {% if not organization.plan or organization.plan.free %}
+        {% blocktrans %}
+          This organization is on a free plan, so increasing your max users
+          will have no effect.
+        {% endblocktrans %}
+      {% else %}
+        {% blocktrans with price_per_user=organization.plan.price_per_user %}
+          This organization is on a paid plan, so increasing your max users
+          will increase your monthly bill by ${{ price_per_user }} per user.
+        {% endblocktrans %}
+      {% endif %}
+    </div>
     <div class="_cls-manageTable">
       <div class="_cls-manageRow _cls-manageHeader">
         <div class="_cls-manageCell">{% trans 'User' %}</div>
@@ -148,35 +167,54 @@
     {% endif %}
 
     <div class="_cls-tableHeading">{% trans 'Invite new members' %}</div>
-    {% if organization.user_count < organization.max_users %}
-      <div class="_cls-tableInfo">{% trans 'They will get an email inviting them to join.' %}</div>
-      <form class="_cls-inlineForm" method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="addmember">
-        <div class="_cls-inviteUsers _cls-actionSmall _cls-actionSmaller">
-          <textarea
-            name="emails"
-            placeholder="Enter email addresses separated by commas or whitespace"
-            cols="40"
-            rows="10"
-            required></textarea>
-          <button type="submit" name="addmember">
-            + {% trans 'Add users by email' %}
-          </button>
-        </div>
-      </form>
-      <form class="_cls-inlineForm" method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="addmember_link">
-        <div class="_cls-inviteUsers _cls-actionSmall _cls-actionSmaller">
-          <button type="submit" name="addmember_link">
-            + {% trans 'Generate invite link' %}
-          </button>
-        </div>
-      </form>
-    {% else %}
-      <div class="_cls-tableInfo">{% trans 'Users and invitations capacity full' %} ({{ organization.max_users }}).</div>
-    {% endif %}
+    <div class="_cls-tableInfo">
+      {% blocktrans %}
+        They will get an email inviting them to join.
+      {% endblocktrans %}
+    </div>
+    <div class="_cls-tableInfo">
+      {% blocktrans with user_count=organization.user_count max_users=organization.max_users user_count_p=organization.user_count|pluralize max_users_p=organization.max_users|pluralize available_seats_p=available_seats|pluralize %}
+        Note: Your organization currently has {{ user_count }}
+        seat{{ user_count_p }} out of {{ max_users }} seat{{ max_users_p }}
+        filled. If you create more than {{ available_seats }}
+        invitation{{ available_seats_p }}, your max users will be increased.
+      {% endblocktrans %}
+      {% if not organization.plan or organization.plan.free %}
+        {% blocktrans %}
+          This organization is on a free plan, so increasing your max users
+          will have no effect.
+        {% endblocktrans %}
+      {% else %}
+        {% blocktrans with price_per_user=organization.plan.price_per_user %}
+          This organization is on a paid plan, so increasing your max users
+          will increase your monthly bill by ${{ price_per_user }} per user.
+        {% endblocktrans %}
+      {% endif %}
+    </div>
+    <form class="_cls-inlineForm" method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="addmember">
+      <div class="_cls-inviteUsers _cls-actionSmall _cls-actionSmaller">
+        <textarea
+          name="emails"
+          placeholder="Enter email addresses separated by commas or whitespace"
+          cols="40"
+          rows="10"
+          required></textarea>
+        <button type="submit" name="addmember">
+          + {% trans 'Add users by email' %}
+        </button>
+      </div>
+    </form>
+    <form class="_cls-inlineForm" method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="addmember_link">
+      <div class="_cls-inviteUsers _cls-actionSmall _cls-actionSmaller">
+        <button type="submit" name="addmember_link">
+          + {% trans 'Generate invite link' %}
+        </button>
+      </div>
+    </form>
     <p class="_cls-spaced"><a href="{{ organization.get_absolute_url }}" class="_cls-altAction">
       {% trans 'Go back' %}
     </a></p>
