@@ -286,33 +286,33 @@ class TestManageMembers(ViewTestMixin):
         user = user_factory()
         organization = organization_factory(admins=[user])
         email = "invite@example.com"
-        data = {"action": "addmember", "email": email}
+        data = {"action": "addmember", "emails": email}
         self.call_view(rf, user, data, slug=organization.slug)
         assert organization.invitations.filter(email=email).exists()
         mail = mailoutbox[0]
         assert mail.subject == f"Invitation to join {organization.name}"
         assert mail.to == [email]
-        self.assert_message(messages.SUCCESS, "Invitation sent")
+        self.assert_message(messages.SUCCESS, "Invitations sent")
 
     def test_add_member_bad_email(self, rf, organization_factory, user_factory):
         user = user_factory()
         organization = organization_factory(admins=[user])
         email = "not an email"
-        data = {"action": "addmember", "email": email}
+        data = {"action": "addmember", "emails": email}
         self.call_view(rf, user, data, slug=organization.slug)
-        self.assert_message(messages.ERROR, "Please enter a valid email address")
+        self.assert_message(messages.ERROR, "Enter a valid email address.")
 
-    def test_add_member_bad_user_limit(self, rf, organization_factory, user_factory):
+    def test_add_member_good_user_limit(self, rf, organization_factory, user_factory):
+        """Test automatic max user increase"""
         user = user_factory()
         members = user_factory.create_batch(4)
         organization = organization_factory(admins=[user], users=members, max_users=5)
         email = "invite@example.com"
-        data = {"action": "addmember", "email": email}
+        data = {"action": "addmember", "emails": email}
         self.call_view(rf, user, data, slug=organization.slug)
-        self.assert_message(
-            messages.ERROR,
-            "You need to increase your max users to invite another member",
-        )
+        self.assert_message(messages.SUCCESS, "Invitations sent")
+        organization.refresh_from_db()
+        assert organization.max_users == 6
 
     def test_revoke_invite(
         self, rf, organization_factory, user_factory, invitation_factory
