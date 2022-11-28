@@ -345,6 +345,7 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
 
     def _handle_accept_invite(self, request):
         def accept_invite(invite):
+            self._org_capacity(1, request)
             invite.accept()
             mixpanel_event(
                 request,
