@@ -9,25 +9,73 @@
   <div class="_cls-content">
 
     <h1>
-      Invitation to <a href="{{ invitation.organization.get_absolute_url }}">
+      {% trans "Invitation to" %}
+      <a href="{{ invitation.organization.get_absolute_url }}">
         {{ invitation.organization.name}}
       </a>
+      {% trans "on MuckRock." %}
     </h1>
 
     <form method="post">
       {% csrf_token %}
-      <p>Join this organization?</p>
+      <p>
+        {% blocktrans with name=invitation.organization.name %}
+          You have been invited you to join the {{ name }}’s organization
+          account on MuckRock, a non-profit organization that builds
+          transparency tools for journalists, researchers and the public. If
+          you have questions or think this might malicious, please reach out to
+          them directly to confirm.
+        {% endblocktrans %}
+      </p>
+      <p>
+        {% blocktrans %}
+          Your MuckRock account will give you access to MuckRock,
+          DocumentCloud, FOIA Machine and Big Local News, as well as make it
+          easier to collaborate with your colleagues there.
+        {% endblocktrans %}
+      </p>
+      <p>
+        {% if request.user.is_authenticated %}
+          {% blocktrans with name=request.user.name email=request.user.email %}
+            You're currently logged in as {{ name }} at {{ email }}. If you'd
+            like to associate this invitation with another account, please sign
+            out and sign back in with the account you'd like to use.
+          {% endblocktrans %}
+        {% else %}
+          {% blocktrans %}
+            Before you can accept this account, you need to either create a new
+            account or log in with the account you'd like to join.
+          {% endblocktrans %}
+        {% endif %}
+      </p>
 
-    <div class="control-group">
-      <div class="_cls-actionSmall">
-        <button type="submit" name="action" value="accept">
-          {% trans 'Accept' %}
-        </button>
-        <button type="submit" class="_cls-altAction" name="action" value="reject">
-          {% trans 'Reject' %}
-        </button>
-      </div>
-    </div>
+      {% if request.user.is_authenticated %}
+        <div class="control-group">
+          <div class="_cls-actionSmall">
+            <button type="submit" name="action" value="accept">
+              {% trans "Accept" %}
+            </button>
+            <button type="submit" class="_cls-altAction" name="action" value="reject">
+              {% trans "Reject" %}
+            </button>
+          </div>
+        </div>
+      {% else %}
+        <div class="control-group">
+          <div class="_cls-actionSmall">
+            <a href="{% url "account_signup" %}" class="_cls-nostyle">
+              <button type="button">
+                {% trans "Sign Up" %}
+              </button>
+            </a>
+            <a href="{% url "account_login" %}" class="_cls-nostyle">
+              <button type="button">
+                {% trans "Log In" %}
+              </button>
+            </a>
+          </div>
+        </div>
+      {% endif %}
     </form>
 
   </div>
