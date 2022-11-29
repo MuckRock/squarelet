@@ -206,6 +206,12 @@
         </button>
       </div>
     </form>
+    <div class="_cls-tableInfo">
+      {% blocktrans %}
+        Generate an invitation link to send directly.  A link can only be used
+        once &mdash; generate one link per person you would like to invite.
+      {% endblocktrans %}
+    </div>
     <form class="_cls-inlineForm" method="post" enctype="multipart/form-data">
       {% csrf_token %}
       <input type="hidden" name="action" value="addmember_link">
