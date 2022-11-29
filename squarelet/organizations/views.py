@@ -430,7 +430,7 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
         return context
 
 
-class InvitationAccept(LoginRequiredMixin, DetailView):
+class InvitationAccept(DetailView):
     queryset = Invitation.objects.get_pending()
     slug_field = "uuid"
     slug_url_kwarg = "uuid"
@@ -450,11 +450,13 @@ class InvitationAccept(LoginRequiredMixin, DetailView):
 
     def post(self, request, *args, **kwargs):
         """Accept the invitation"""
+        if not request.user.is_authenticated:
+            return HttpResponseBadRequest()
         invitation = self.get_object()
         action = request.POST.get("action")
         if action == "accept":
-            invitation.accept(self.request.user)
-            messages.success(self.request, "Invitation accepted")
+            invitation.accept(request.user)
+            messages.success(request, "Invitation accepted")
             mixpanel_event(
                 request,
                 "Invitation Accepted",
@@ -466,10 +468,10 @@ class InvitationAccept(LoginRequiredMixin, DetailView):
             return redirect(invitation.organization)
         elif action == "reject":
             invitation.reject()
-            messages.warning(self.request, "Invitation rejected")
+            messages.warning(request, "Invitation rejected")
             return redirect(request.user)
         else:
-            messages.error(self.request, "Invalid choice")
+            messages.error(request, "Invalid choice")
             return redirect(request.user)
 
 
