@@ -12,6 +12,9 @@ urlpatterns = [
     path("~stripe_webhook/", view=views.stripe_webhook, name="stripe-webhook"),
     path("~charge/<int:pk>/", view=views.ChargeDetail.as_view(), name="charge"),
     path(
+        "~charge-pdf/<int:pk>/", view=views.PDFChargeDetail.as_view(), name="charge-pdf"
+    ),
+    path(
         "<slug:slug>/payment/", view=views.UpdateSubscription.as_view(), name="payment"
     ),
     path("<slug:slug>/update/", view=views.Update.as_view(), name="update"),
