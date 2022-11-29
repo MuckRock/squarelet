@@ -29,6 +29,7 @@ import sys
 import stripe
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Field, Layout
+from django_weasyprint import WeasyTemplateResponseMixin
 
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
@@ -501,6 +502,12 @@ class ChargeDetail(UserPassesTestMixin, DetailView):
         context = super().get_context_data(**kwargs)
         context["subject"] = "Receipt"
         return context
+
+
+class PDFChargeDetail(WeasyTemplateResponseMixin, ChargeDetail):
+    """Subclass to view receipt as PDF"""
+
+    pdf_filename = "receipt.pdf"
 
 
 @csrf_exempt
