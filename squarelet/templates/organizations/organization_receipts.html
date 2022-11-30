@@ -1,33 +1,47 @@
 {% extends "base.html" %}
 {% load i18n %}
 
-{% block title %}{{ organization.name }} - Receipts{% endblock %}
+{% block title %}MuckRock - Receipts{% endblock %}
 
 {% block content %}
   <div class="_cls-largeContent">
-    <h1>{% if organization.individual %}{% blocktrans %}Your receipts{% endblocktrans %}{% else %}{{ organization.name }}{% endif %}</h1>
-    <h2>Receipts</h2>
-    <div id="_id-receiptsTable" class="_cls-manageTable">
-      <div class="_cls-manageRow _cls-manageHeader">
-        <div class="_cls-manageCell">Date</div>
-        <div class="_cls-manageCell">Description</div>
-        <div class="_cls-manageCell">Amount</div>
-      </div>
-      {% for charge in charges %}
-        <div class="_cls-manageRow">
-          <div class="_cls-manageCell">
-            {{ charge.created_at|date }} {{ charge.created_at|time }}
-          </div>
-          <div class="_cls-manageCell">
-            <b>{{ charge.description }}</b>
-            <div class="_cls-action _cls-expandAction" data-charge="{{ charge.pk }}"><span class="_cls-nostyle">Expand</span></div>
-          </div>
-          <div class="_cls-manageCell">${{ charge.amount_dollars|floatformat:2 }}</div>
-        </div>
+    <h1>Your receipts</h1>
+
+    <ul>
+      {% for organization in organizations %}
+        <li><a href="#{{ organization.slug }}">{{ organization.name }}</a></li>
       {% endfor %}
-    </div>
-    <p><a href="{{ organization.get_absolute_url }}" class="_cls-altAction">
-      {% trans 'Go back' %}
+    </ul>
+
+    {% for organization in organizations %}
+      <h2 id="{{ organization.slug }}">{{ organization.name }}</h2>
+      <div id="_id-receiptsTable" class="_cls-manageTable">
+        <div class="_cls-manageRow _cls-manageHeader">
+          <div class="_cls-manageCell" style="width: 20%">Date</div>
+          <div class="_cls-manageCell">Description</div>
+          <div class="_cls-manageCell" style="width: 10%">Amount</div>
+          <div class="_cls-manageCell" style="width: 15%">Download</div>
+        </div>
+        {% for charge in organization.charges.all %}
+          <div class="_cls-manageRow">
+            <div class="_cls-manageCell">
+              {{ charge.created_at|date }} {{ charge.created_at|time }}
+            </div>
+            <div class="_cls-manageCell">
+              <b>{{ charge.description }}</b>
+              <div class="_cls-action _cls-expandAction" data-charge="{{ charge.pk }}"><span class="_cls-nostyle">Expand</span></div>
+            </div>
+            <div class="_cls-manageCell">${{ charge.amount_dollars|floatformat:2 }}</div>
+            <div class="_cls-manageCell">
+              <a href="{% url "organizations:charge-pdf" charge.pk %}" class="">Download</a>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% endfor %}
+
+    <p><a href="{{ request.user.get_absolute_url }}" class="_cls-altAction">
+      {% trans "Go back" %}
     </a></p>
   </div>
 {% endblock %}

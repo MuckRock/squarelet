@@ -13,7 +13,13 @@ from django.http.response import (
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.html import format_html
-from django.views.generic import DetailView, ListView, RedirectView, UpdateView
+from django.views.generic import (
+    DetailView,
+    ListView,
+    RedirectView,
+    TemplateView,
+    UpdateView,
+)
 
 # Standard Library
 import hashlib
@@ -198,3 +204,16 @@ def mailgun_webhook(request):
     User.objects.filter(email=email).update(email_failed=True)
     ReceiptEmail.objects.filter(email=email).update(failed=True)
     return HttpResponse("OK")
+
+
+class Receipts(TemplateView):
+    """Subclass to view individual's receipts"""
+
+    template_name = "organizations/organization_receipts.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data()
+        context["organizations"] = self.request.user.organizations.filter(
+            memberships__admin=True
+        ).prefetch_related("charges")
+        return context
