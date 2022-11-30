@@ -2,10 +2,7 @@
 from django.urls import path
 
 # Squarelet
-from squarelet.organizations.views import (
-    IndividualReceipts,
-    IndividualUpdateSubscription,
-)
+from squarelet.organizations.views import IndividualUpdateSubscription
 
 # Local
 from . import views
@@ -16,7 +13,7 @@ urlpatterns = [
     path("~redirect/", view=views.UserRedirectView.as_view(), name="redirect"),
     path("~update/", view=views.UserUpdateView.as_view(), name="update"),
     path("~payment/", view=IndividualUpdateSubscription.as_view(), name="payment"),
-    path("~receipts/", view=IndividualReceipts.as_view(), name="receipts"),
+    path("~receipts/", view=views.Receipts.as_view(), name="receipts"),
     path("~mailgun/", view=views.mailgun_webhook, name="mailgun"),
     path("<str:username>/", view=views.UserDetailView.as_view(), name="detail"),
 ]

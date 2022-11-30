@@ -191,3 +191,18 @@ class TestMailgunWebhook:
         )
         response = views.mailgun_webhook(request)
         assert response.status_code == 400
+
+
+@pytest.mark.django_db()
+class TestReceipts(ViewTestMixin):
+    """Test the User Receipts view"""
+
+    view = views.Receipts
+    url = "/users/~receipts/"
+
+    def test_get_admin(self, rf, organization_factory, user_factory, charge_factory):
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        charge_factory(organization=organization)
+        response = self.call_view(rf, user)
+        assert response.status_code == 200
