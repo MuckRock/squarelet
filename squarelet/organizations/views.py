@@ -468,7 +468,7 @@ class InvitationAccept(DetailView):
             return redirect(invitation.organization)
         elif action == "reject":
             invitation.reject()
-            messages.warning(request, "Invitation rejected")
+            messages.info(request, "Invitation rejected")
             return redirect(request.user)
         else:
             messages.error(request, "Invalid choice")
