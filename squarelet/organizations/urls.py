@@ -18,7 +18,6 @@ urlpatterns = [
         "<slug:slug>/payment/", view=views.UpdateSubscription.as_view(), name="payment"
     ),
     path("<slug:slug>/update/", view=views.Update.as_view(), name="update"),
-    path("<slug:slug>/receipts/", view=views.Receipts.as_view(), name="receipts"),
     path(
         "<slug:slug>/manage-members/",
         view=views.ManageMembers.as_view(),
