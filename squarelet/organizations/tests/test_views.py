@@ -455,24 +455,6 @@ class TestInvitationAccept(ViewTestMixin):
 
 
 @pytest.mark.django_db()
-class TestReceipts(ViewTestMixin):
-    """Test the Organization Receipts view"""
-
-    view = views.Receipts
-    url = "/organizations/{slug}/receipts/"
-
-    def test_get_admin(self, rf, organization_factory, user_factory, charge_factory):
-        user = user_factory()
-        organization = organization_factory(admins=[user])
-        charge_factory(organization=organization)
-        response = self.call_view(rf, user, slug=organization.slug)
-        assert response.status_code == 200
-        assert list(response.context_data["charges"]) == list(
-            organization.charges.all()
-        )
-
-
-@pytest.mark.django_db()
 class TestChargeDetail(ViewTestMixin):
     """Test the Organization Receipts view"""
 

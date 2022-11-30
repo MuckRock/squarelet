@@ -476,20 +476,6 @@ class InvitationAccept(DetailView):
             return redirect(request.user)
 
 
-class Receipts(OrganizationAdminMixin, DetailView):
-    queryset = Organization.objects.filter(individual=False)
-    template_name = "organizations/organization_receipts.html"
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data()
-        context["charges"] = self.object.charges.all()
-        return context
-
-
-class IndividualReceipts(IndividualMixin, Receipts):
-    """Subclass to view individual's receipts"""
-
-
 @method_decorator(xframe_options_sameorigin, name="dispatch")
 class ChargeDetail(UserPassesTestMixin, DetailView):
     queryset = Charge.objects.all()
