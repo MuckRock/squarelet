@@ -87,6 +87,12 @@ THIRD_PARTY_APPS = [
     "sorl.thumbnail",
     "corsheaders",
     "django_filters",
+    "django_otp",
+    "django_otp.plugins.otp_static",
+    "django_otp.plugins.otp_totp",
+    "otp_yubikey",
+    "two_factor",
+    "two_factor.plugins.yubikey",
 ]
 LOCAL_APPS = [
     "squarelet.core",
@@ -113,7 +119,7 @@ AUTH_USER_MODEL = "users.User"
 # https://docs.djangoproject.com/en/dev/ref/settings/#login-redirect-url
 LOGIN_REDIRECT_URL = "users:redirect"
 # https://docs.djangoproject.com/en/dev/ref/settings/#login-url
-LOGIN_URL = "account_login"
+LOGIN_URL = "two_factor:login"
 
 # PASSWORDS
 # ------------------------------------------------------------------------------
@@ -151,6 +157,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "sesame.middleware.AuthenticationMiddleware",
+    "django_otp.middleware.OTPMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "oidc_provider.middleware.SessionManagementMiddleware",

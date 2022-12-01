@@ -1,0 +1,270 @@
+{% load static i18n compress%}<!DOCTYPE html>
+{% load avatar %}
+{% load hijack_tags %}
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <title>{% block title %}MuckRock accounts{% endblock title %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <!-- HTML5 shim, for IE6-8 support of HTML5 elements -->
+    <!--[if lt IE 9]>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.min.js"></script>
+    <![endif]-->
+
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'images/favicons/apple-touch-icon.png' %}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'images/favicons/favicon-32x32.png' %}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{% static 'images/favicons/favicon-16x16.png' %}">
+    <link rel="manifest" href="{% static 'images/favicons/site.webmanifest' %}">
+    <link rel="mask-icon" href="{% static 'images/favicons/safari-pinned-tab.svg' %}" color="#168ee5">
+    <link rel="shortcut icon" href="{% static 'images/favicons/favicon.ico' %}">
+    <meta name="msapplication-TileColor" content="#da532c">
+    <meta name="msapplication-config" content="{% static 'images/favicons/browserconfig.xml' %}">
+    <meta name="theme-color" content="#ffffff">
+
+    <link href="https://fonts.googleapis.com/css?family=Lato:400,700" rel="stylesheet">
+    {% block css %}
+      <!-- Your stuff: Third-party CSS libraries go here -->
+      {% compress css %}
+        <!-- This file stores project-specific CSS -->
+        <link href="{% static 'css/main.css' %}" rel="stylesheet">
+        <link href="{% static 'css/autocomplete.css' %}" rel="stylesheet">
+        <link href="{% static 'hijack/hijack-styles.css' %}" rel="stylesheet">
+      {% endcompress %}
+    {% endblock %}
+
+<!-- start Mixpanel --><script type="text/javascript">(function(c,a){if(!a.__SV){var b=window;try{var d,m,j,k=b.location,f=k.hash;d=function(a,b){return(m=a.match(RegExp(b+"=([^&]*)")))?m[1]:null};f&&d(f,"state")&&(j=JSON.parse(decodeURIComponent(d(f,"state"))),"mpeditor"===j.action&&(b.sessionStorage.setItem("_mpcehash",f),history.replaceState(j.desiredHash||"",c.title,k.pathname+k.search)))}catch(n){}var l,h;window.mixpanel=a;a._i=[];a.init=function(b,d,g){function c(b,i){var a=i.split(".");2==a.length&&(b=b[a[0]],i=a[1]);b[i]=function(){b.push([i].concat(Array.prototype.slice.call(arguments,
+0)))}}var e=a;"undefined"!==typeof g?e=a[g]=[]:g="mixpanel";e.people=e.people||[];e.toString=function(b){var a="mixpanel";"mixpanel"!==g&&(a+="."+g);b||(a+=" (stub)");return a};e.people.toString=function(){return e.toString(1)+".people (stub)"};l="disable time_event track track_pageview track_links track_forms track_with_groups add_group set_group remove_group register register_once alias unregister identify name_tag set_config reset opt_in_tracking opt_out_tracking has_opted_in_tracking has_opted_out_tracking clear_opt_in_out_tracking people.set people.set_once people.unset people.increment people.append people.union people.track_charge people.clear_charges people.delete_user people.remove".split(" ");
+for(h=0;h<l.length;h++)c(e,l[h]);var f="set set_once union unset remove delete".split(" ");e.get_group=function(){function a(c){b[c]=function(){call2_args=arguments;call2=[c].concat(Array.prototype.slice.call(call2_args,0));e.push([d,call2])}}for(var b={},d=["get_group"].concat(Array.prototype.slice.call(arguments,0)),c=0;c<f.length;c++)a(f[c]);return b};a._i.push([b,d,g])};a.__SV=1.2;b=c.createElement("script");b.type="text/javascript";b.async=!0;b.src="undefined"!==typeof MIXPANEL_CUSTOM_LIB_URL?
+MIXPANEL_CUSTOM_LIB_URL:"file:"===c.location.protocol&&"//cdn4.mxpnl.com/libs/mixpanel-2-latest.min.js".match(/^\/\//)?"https://cdn4.mxpnl.com/libs/mixpanel-2-latest.min.js":"//cdn4.mxpnl.com/libs/mixpanel-2-latest.min.js";d=c.getElementsByTagName("script")[0];d.parentNode.insertBefore(b,d)}})(document,window.mixpanel||[]);
+  mixpanel.init("{{ mp_token }}");</script><!-- end Mixpanel -->
+
+  </head>
+
+  <body>
+
+    {% hijack_notification %}
+
+    <div class="_cls-heading">
+      <div class="_cls-headingContent">
+        <a class="_cls-nostyle" href="{% url 'home' %}">
+          <span class="_cls-mainLogo">
+            <img src="{% static 'assets/muckrock_accounts.svg' %}">
+          </span>
+        </a>
+        <nav>
+          <ul>
+            <li>
+              <a class="_cls-nostyle" href="{{ settings.MUCKROCK_URL }}">
+                <div class="_cls-serviceIcon">
+                  <img src="{% static 'assets/muckrock.svg' %}">
+                </div>
+                <div class="_cls-serviceInfo">
+                  <div class="_cls-serviceName">
+                    {% trans 'MuckRock' %}
+                  </div>
+                </div>
+              </a>
+            </li>
+            <li>
+              <a class="_cls-nostyle" href="{{ settings.DOCCLOUD_URL }}">
+                <div class="_cls-serviceIcon">
+                  <img src="{% static 'assets/documentcloud.svg' %}">
+                </div>
+                <div class="_cls-serviceInfo">
+                  <div class="_cls-serviceName">
+                    {% trans 'DocumentCloud' %}
+                  </div>
+                </div>
+              </a>
+            </li>
+            <li>
+              <a class="_cls-nostyle" href="{{ settings.FOIAMACHINE_URL }}">
+                <div class="_cls-serviceIcon">
+                  <img src="{% static 'assets/foiamachine.svg' %}">
+                </div>
+                <div class="_cls-serviceInfo">
+                  <div class="_cls-serviceName">
+                    {% trans 'FOIA Machine' %}
+                  </div>
+                </div>
+              </a>
+            </li>
+            <li>
+              <a class="_cls-nostyle" href="{{ settings.BIGLOCALNEWS_URL }}">
+                <div class="_cls-serviceIcon">
+                  <img src="{% static 'assets/biglocalnews.svg' %}">
+                </div>
+                <div class="_cls-serviceInfo">
+                  <div class="_cls-serviceName">
+                    {% trans 'Big Local News' %}
+                  </div>
+                </div>
+              </a>
+            </li>
+            {% if request.user.is_authenticated %}
+              <div class="_cls-shim _cls-hide" id="_id-shim"></div>
+              <li id="_id-profDropdown" class="_cls-profDropdown">
+                {% avatar request.user 25 %}
+                <div id="_id-dropdownContents" class="_cls-dropdown _cls-hide">
+                    <a href="{% url 'users:detail' user.username %}" class="_cls-nostyle _cls-dropdownItem"><div>
+                    {% trans "View Profile" %}
+                  </div></a>
+                  {% if request.user.is_staff %}
+                    {% if admin_link %}
+                      <a href="{{ admin_link }}" class="_cls-nostyle _cls-dropdownItem">
+                        <div>
+                          {% trans "Admin" %}
+                        </div>
+                      </a>
+                    {% else %}
+                      <a href="{% url 'admin:index' %}" class="_cls-nostyle _cls-dropdownItem">
+                        <div>
+                          {% trans "Admin" %}
+                        </div>
+                      </a>
+                    {% endif %}
+                  {% endif %}
+                  <a href="{% url 'account_logout' %}" class="_cls-nostyle _cls-dropdownItem"><div>
+                    {% trans "Sign Out" %}
+                  </div></a>
+                </div>
+              </li>
+            {% endif %}
+          </ul>
+        </nav>
+      </div>
+    </div>
+
+    <div class="_cls-main">
+
+
+      <div class="_cls-alerts">
+        {% if payment_failed_organizations %}
+          <div class="_cls-alert">
+            <div class="alert-error">
+              <span class="_cls-alertIcon"></span>
+              <span class="_cls-middleAlign">
+                A recent charge made to your credit card has failed.
+                {% for organization in payment_failed_organizations %}
+                  <p>
+                    {% if organization.individual %}
+                      <a href="{% url "users:payment" %}">Update your billing info.</a>
+                    {% else %}
+                      <a href="{% url "organizations:payment" slug=organization.slug %}">
+                        Update the billing info for {{ organization.name }}.
+                      </a>
+                    {% endif %}
+                  </p>
+                {% endfor %}
+              </span>
+            </div>
+          </div>
+        {% endif %}
+        {% if request.user.email_failed %}
+          <div class="_cls-alert">
+            <div class="alert-error">
+              <span class="_cls-alertIcon"></span>
+              <span class="_cls-middleAlign">
+                We received an error trying to email you, please
+                <a href="{% url "account_email" %}">update your email.</a>
+              </span>
+            </div>
+          </div>
+        {% endif %}
+
+        {% if messages %}
+        {% for message in messages %}
+          <div class="_cls-alert">
+            <div class="{% if message.tags %}alert-{{ message.tags }}{% endif %}">
+              <span class="_cls-alertIcon"></span>
+              <span class="_cls-middleAlign">{{ message }}</span>
+              <span
+                class="_cls-close"
+                onclick="event.target.parentElement.classList.add('_cls-dismiss')"
+              >
+                Dismiss
+              </span>
+            </div>
+          </div>
+        {% endfor %}
+        {% endif %}
+      </div>
+
+        <div class="_cls-content">
+          {% block content %}
+          {% endblock content %}
+        </div>
+
+    </div> <!-- /container -->
+
+    <div class="_cls-footer">
+      <p>
+        MuckRock Accounts let you log in and manage users, payments, and
+        organizations for MuckRock, DocumentCloud, FOIAMachine, and Big Local News.
+      </p>
+      <ul>
+        <li>
+          <a href="{{ settings.MUCKROCK_URL }}/privacy-policy/">
+            Privacy Policy
+          </a>
+        </li>
+        <li><a href="{{ settings.MUCKROCK_URL }}/tos/">Terms of Services</a></li>
+    </div>
+
+    {% block modal %}{% endblock modal %}
+
+    <!-- Javascript -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    {% block javascript %}
+
+      <!-- Your stuff: Third-party javascript libraries go here -->
+      <script src="https://js.stripe.com/v3/"></script>
+
+      {% block extra_javascript %}{% endblock extra_javascript %}
+
+      <!-- place project specific Javascript in this file -->
+      {% compress js %}
+         <script src="{% static 'js/main.js' %}"></script> 
+      {% endcompress %}
+
+    {% endblock javascript %}
+    <script>
+      {% if request.user.is_authenticated %}
+        mixpanel.identify("{{ request.user.uuid }}");
+        {% for event, props in mp_events %}
+          mixpanel.track("{{ event }}", {{ props|safe }});
+          {% if event == "Request Submitted" %}
+            mixpanel.people.increment("Requests Filed");
+          {% endif %}
+          {% if event == "Assignment Completed" %}
+            mixpanel.people.increment("Assignments Completed");
+          {% endif %}
+        {% endfor %}
+        {% if mp_charge %}
+          mixpanel.people.track_charge({{ mp_charge }});
+        {% endif %}
+        mixpanel.people.set({
+          "$email": "{{ request.user.email }}",
+          "$name": "{{ request.user.name }}",
+          "Username": "{{ request.user.username }}",
+          "Date Joined": "{{ request.user.created_at|date:"c" }}",
+          "Organizations": [
+              {% for organization in request.user.organizations.all %}
+                {
+                  "UUID": "{{organization.uuid}}",
+                  "Name": "{{organization.name}}",
+                  "Plan": "{{organization.plan}}",
+                },
+              {% endfor %}
+            ]
+        })
+      {% endif %}
+		</script>
+  </body>
+</html>
+
+
