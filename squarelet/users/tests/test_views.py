@@ -100,8 +100,9 @@ class TestUserUpdateView(ViewTestMixin):
 
 
 @pytest.mark.django_db()
-class TestLoginView(ViewTestMixin):
-    """Test the User Redirect view"""
+class _TestLoginView(ViewTestMixin):
+    # FIXME
+    """Test the User Login view"""
 
     view = views.LoginView
     url = "/accounts/login/"
