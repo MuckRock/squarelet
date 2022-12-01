@@ -7,9 +7,9 @@ from django.views import defaults as default_views
 from django.views.generic import TemplateView
 
 # Third Party
-from rest_framework import permissions
 from rest_framework_nested import routers
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from two_factor.urls import urlpatterns as tf_urls
 
 # Squarelet
 from squarelet.core.views import HomeView
@@ -46,6 +46,7 @@ urlpatterns = [
         include("squarelet.organizations.urls", namespace="organizations"),
     ),
     # override the accounts login with our version
+    # XXX need to remove all other login views
     re_path("accounts/login/$", LoginView.as_view(), name="account_login"),
     path("accounts/", include("allauth.urls")),
     path("api/", include(router.urls)),
@@ -54,6 +55,8 @@ urlpatterns = [
     path("openid/", include("oidc_provider.urls", namespace="oidc_provider")),
     path("openid/jwt", token_view, name="oidc_jwt"),
     path("hijack/", include("hijack.urls", namespace="hijack")),
+    # Two-factor URLs
+    path("", include(tf_urls)),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:
