@@ -43,7 +43,8 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
                     "uuid",
                     "username",
                     "password",
-                    "org_link",
+                    "individual_org_link",
+                    "all_org_links",
                     "can_change_username",
                 )
             },
@@ -63,7 +64,13 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
         ),
         (_("Important dates"), {"fields": ("last_login", "created_at", "updated_at")}),
     )
-    readonly_fields = ("uuid", "org_link", "created_at", "updated_at")
+    readonly_fields = (
+        "uuid",
+        "individual_org_link",
+        "all_org_links",
+        "created_at",
+        "updated_at",
+    )
     list_display = (
         "username",
         "name",
@@ -84,7 +91,7 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
             setup_user_email(request, obj, [])
 
     @mark_safe
-    def org_link(self, obj):
+    def individual_org_link(self, obj):
         """Link to the individual org"""
         link = reverse(
             "admin:organizations_organization_change",
@@ -92,4 +99,23 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
         )
         return f'<a href="{link}">{obj.individual_organization.name}</a>'
 
-    org_link.short_description = "Individual Organization"
+    individual_org_link.short_description = "Individual Organization"
+
+    @mark_safe
+    def all_org_links(self, obj):
+        """Link to the user's other orgs"""
+        orgs = obj.organizations.filter(individual=False)
+        links = []
+        for org in orgs:
+            links.append(
+                (
+                    reverse(
+                        "admin:organizations_organization_change",
+                        args=(org.pk,),
+                    ),
+                    org.name,
+                )
+            )
+        return ", ".join(f'<a href="{link}">{name}</a>' for link, name in links)
+
+    all_org_links.short_description = "All Organizations"
