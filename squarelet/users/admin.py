@@ -49,7 +49,7 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
                 )
             },
         ),
-        (_("Personal info"), {"fields": ("name", "email", "email_failed")}),
+        (_("Personal info"), {"fields": ("name", "email", "email_failed", "bio")}),
         (
             _("Permissions"),
             {

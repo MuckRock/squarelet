@@ -83,6 +83,9 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         max_length=255,
         help_text=_("An image to represent the user"),
     )
+    bio = models.TextField(
+        _("bio"), blank=True, help_text=_("Public bio for the user, in Markdown")
+    )
     can_change_username = models.BooleanField(
         _("can change username"),
         default=True,
