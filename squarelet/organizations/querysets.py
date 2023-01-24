@@ -163,8 +163,8 @@ class ChargeQuerySet(models.QuerySet):
             "organization": organization.name,
             "organization id": organization.uuid,
             "fee amount": fee_amount,
+            **metadata,
         }
-        metadata.update(default_metadata)
 
         stripe_charge = stripe.Charge.create(
             amount=amount,
@@ -172,7 +172,7 @@ class ChargeQuerySet(models.QuerySet):
             customer=customer.stripe_customer,
             description=description,
             source=source,
-            metadata=metadata,
+            metadata=default_metadata,
             statement_descriptor_suffix=metadata.get("action", ""),
             idempotency_key=str(uuid4()),
         )
@@ -192,6 +192,7 @@ class ChargeQuerySet(models.QuerySet):
                     stripe_charge.created, tz=get_current_timezone()
                 ),
                 "description": description,
+                "metadata": metadata,
             },
         )
         return charge
