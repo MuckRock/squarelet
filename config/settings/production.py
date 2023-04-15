@@ -40,7 +40,7 @@ CACHES = {
     }
 }
 if env("REDIS_URL").startswith("rediss:"):
-    CACHES["default"]["OPTIONS"]["CONNECTION_POOL_KWARGS"] = {"ssl_cert_reqs": None}
+    CACHES["default"]["OPTIONS"]["CONNECTION_POOL_KWARGS"] = {"ssl_cert_reqs": "none"}
 
 # SECURITY
 # ------------------------------------------------------------------------------
