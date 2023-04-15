@@ -14,7 +14,7 @@ if not settings.configured:
     )  # pragma: no cover
 
 
-if settings.CACHES["default"]["LOCATION"].startswith("rediss:"):
+if settings.CELERY_BROKER_URL:
     app = Celery(
         "squarelet",
         broker_use_ssl={"ssl_cert_reqs": ssl.CERT_NONE},
