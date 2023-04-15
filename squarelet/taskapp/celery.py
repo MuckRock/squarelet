@@ -5,6 +5,7 @@ from django.conf import settings
 
 # Standard Library
 import os
+import ssl
 
 if not settings.configured:
     # set the default Django settings module for the 'celery' program.
@@ -13,7 +14,14 @@ if not settings.configured:
     )  # pragma: no cover
 
 
-app = Celery("squarelet")
+if settings.CACHES["default"]["LOCATION"].startswith("rediss:"):
+    app = Celery(
+        "squarelet",
+        broker_use_ssl={"ssl_cert_reqs": ssl.CERT_NONE},
+        redis_backend_use_ssl={"ssl_cert_reqs": ssl.CERT_NONE},
+    )
+else:
+    app = Celery("squarelet")
 
 
 class CeleryAppConfig(AppConfig):
