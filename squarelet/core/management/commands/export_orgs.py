@@ -27,6 +27,7 @@ class Command(BaseCommand):
             writer.writerow(
                 [
                     "name",
+                    "uuid",
                     "verified",
                     "private",
                     "subtypes",
@@ -53,6 +54,7 @@ class Command(BaseCommand):
                 writer.writerow(
                     [
                         org.name,
+                        org.uuid,
                         org.verified_journalist,
                         org.private,
                         subtypes,
