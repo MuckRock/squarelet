@@ -44,11 +44,12 @@ class Command(BaseCommand):
             for org in orgs:
                 subtypes = ", ".join(str(s) for s in org.subtypes.all())
                 plans = ", ".join(str(p) for p in org.plans.all())
-                domain = mode(
+                email_domains = [
                     e.email.split("@")[1]
                     for e in EmailAddress.objects.filter(user__organizations=org)
                     if "@" in e.email
-                )
+                ]
+                domain = mode(email_domains) if email_domains else ""
                 writer.writerow(
                     [
                         org.name,
