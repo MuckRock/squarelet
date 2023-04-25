@@ -26,14 +26,41 @@
   <p>Pro Users Gained</p>
   <ul>
     {% for user in pro_users.gained %}
-      <li><a href="{% url "users:detail" username=user %}">{{ user }}</a></li>
+      <li>
+        <a href="{% url "users:detail" username=user %}">
+          {{ user }}
+        </a>
+        (<a href="https://www.muckrock.com/accounts/profile/{{ user }}/">
+          MuckRock
+        </a>)
+      </li>
     {% endfor %}
   </ul>
   <p>Pro Users Lost</p>
   <ul>
     {% for user in pro_users.lost %}
-      <li><a href="{% url "users:detail" username=user %}">{{ user }}</a></li>
+      <li>
+        <a href="{% url "users:detail" username=user %}">
+          {{ user }}
+        </a>
+        &mdash;
+        (<a href="https://www.muckrock.com/accounts/profile/{{ user }}/">MuckRock</a>)
+      </li>
     {% endfor %}
   </ul>
+
+  <p>Organization Changes</p>
+  <ul>
+    {% for org_change in org_changes %}
+      <li>
+        <a href="{% url "organizations:detail" slug=org_change.organization.slug %}">
+          {{ org_change.describe }}
+        </a>
+        &mdash;
+        (<a href="https://www.muckrock.com/organization/{{ org_change.organization.slug }}/">MuckRock</a>)
+      </li>
+    {% endfor %}
+  </ul>
+
 
 {% endblock %}
