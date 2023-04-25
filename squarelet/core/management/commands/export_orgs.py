@@ -42,8 +42,8 @@ class Command(BaseCommand):
                 .annotate(user_count=Count("users"))
             )
             for org in orgs:
-                subtypes = ", ".join(org.subtypes.all())
-                plans = ", ".join(org.plans.all())
+                subtypes = ", ".join(str(s) for s in org.subtypes.all())
+                plans = ", ".join(str(p) for p in org.plans.all())
                 domain = mode(
                     e.email.split("@")[1]
                     for e in EmailAddress.objects.filter(user__organizations=org)
