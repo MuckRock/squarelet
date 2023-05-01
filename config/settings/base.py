@@ -71,7 +71,6 @@ THIRD_PARTY_APPS = [
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
-    "compat",  # for hijack
     "crispy_forms",
     "dal",
     "dal_select2",
