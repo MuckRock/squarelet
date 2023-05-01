@@ -7,7 +7,6 @@ django-allauth
 django-autocomplete-light
 django-autoslug
 django-choices
-django-compat
 django-compressor
 django-cors-headers
 django-crispy-forms
@@ -26,7 +25,7 @@ django-reversion
 django-sesame
 django-storages[boto3]
 django-weasyprint
-django<4.0
+django<5.0
 djangorestframework
 djangorestframework_simplejwt
 dogslow
