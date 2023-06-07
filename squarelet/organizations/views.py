@@ -65,10 +65,13 @@ class Detail(AdminLinkMixin, DetailView):
                 context[
                     "invite_count"
                 ] = self.object.invitations.get_requested().count()
+        users = self.object.users.all()
+        admins = users.filter(memberships__admin=True)
         if context.get("is_member"):
-            context["users"] = self.object.users.all()
+            context["users"] = users.order_by("-memberships__admin", "username")
         else:
-            context["users"] = self.object.users.filter(memberships__admin=True)
+            context["users"] = admins
+        context["admins"] = admins
         return context
 
     def post(self, request, *args, **kwargs):
