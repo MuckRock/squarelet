@@ -376,6 +376,7 @@ BIGLOCALNEWS_URL = env("BIGLOCALNEWS_URL", default="https://local.biglocalnews.o
 BIGLOCALNEWS_API_URL = env(
     "BIGLOCALNEWS_API_URL", default="https://local-api.biglocalnews.org"
 )
+AGENDAWATCH_URL = env("AGENDAWATCH_URL", default="https://agendawatch.org")
 PRESSPASS_URL = env("PRESSPASS_URL", default="https://dev.presspass.com:3000")
 PRESSPASS_API_URL = env("PRESSPASS_API_URL", default="https://dev.presspass.com")
 

@@ -123,6 +123,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
             ("foiamachine", _("FOIA Machine")),
             ("squarelet", _("Squarelet")),
             ("biglocalnews", _("Big Local News")),
+            ("agendawatch", _("Agenda Watch")),
         ),
         default="squarelet",
         help_text=_("Which service did this user originally sign up for?"),

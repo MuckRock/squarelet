@@ -82,18 +82,6 @@ MIXPANEL_CUSTOM_LIB_URL:"file:"===c.location.protocol&&"//cdn4.mxpnl.com/libs/mi
               </a>
             </li>
             <li>
-              <a class="_cls-nostyle" href="{{ settings.FOIAMACHINE_URL }}">
-                <div class="_cls-serviceIcon">
-                  <img src="{% static 'assets/foiamachine.svg' %}">
-                </div>
-                <div class="_cls-serviceInfo">
-                  <div class="_cls-serviceName">
-                    {% trans 'FOIA Machine' %}
-                  </div>
-                </div>
-              </a>
-            </li>
-            <li>
               <a class="_cls-nostyle" href="{{ settings.BIGLOCALNEWS_URL }}">
                 <div class="_cls-serviceIcon">
                   <img src="{% static 'assets/biglocalnews.svg' %}">
@@ -101,6 +89,18 @@ MIXPANEL_CUSTOM_LIB_URL:"file:"===c.location.protocol&&"//cdn4.mxpnl.com/libs/mi
                 <div class="_cls-serviceInfo">
                   <div class="_cls-serviceName">
                     {% trans 'Big Local News' %}
+                  </div>
+                </div>
+              </a>
+            </li>
+            <li>
+              <a class="_cls-nostyle" href="{{ settings.AGENDAWATCH_URL }}">
+                <div class="_cls-serviceIcon">
+                  <img src="{% static 'assets/agendawatch.png' %}">
+                </div>
+                <div class="_cls-serviceInfo">
+                  <div class="_cls-serviceName">
+                    {% trans 'Agenda Watch' %}
                   </div>
                 </div>
               </a>

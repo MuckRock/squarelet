@@ -67,5 +67,20 @@
         </div>
       </a>
     </li>
+    <li>
+      <a class="_cls-nostyle" href="{{ settings.AGENDAWATCH_URL }}">
+        <div class="_cls-serviceIcon">
+          <img src="{% static 'assets/agendawatch.png' %}">
+        </div>
+        <div class="_cls-serviceInfo">
+          <div class="_cls-serviceName">
+            {% trans 'Agenda Watch' %}
+          </div>
+          <div class="_cls-serviceDescription">
+            {% blocktrans %}Alerts for local meeting agendas and minutes.{% endblocktrans %}
+          </div>
+        </div>
+      </a>
+    </li>
   </ul>
 </div>
