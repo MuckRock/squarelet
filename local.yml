@@ -1,8 +1,8 @@
 version: '2.4'
 
 volumes:
-  postgres_data_local: {}
-  postgres_backup_local: {}
+  postgres15_data_local: {}
+  postgres15_backup_local: {}
 
 services:
 
@@ -63,10 +63,10 @@ services:
     build:
       context: .
       dockerfile: ./compose/production/postgres/Dockerfile
-    image: squarelet_production_postgres
+    image: squarelet_production_postgres15
     volumes:
-      - postgres_data_local:/var/lib/postgresql/data
-      - postgres_backup_local:/backups
+      - postgres15_data_local:/var/lib/postgresql/data
+      - postgres15_backup_local:/backups
     env_file:
       - ./.envs/.local/.postgres
 
