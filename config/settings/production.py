@@ -121,6 +121,9 @@ STORAGES = {
     "staticfiles": {
         "BACKEND": "squarelet.core.storage.CachedS3Boto3Storage",
     },
+    "compressor": {
+        "BACKEND": "compressor.storage.CompressorFileStorage",
+    },
 }
 
 # TEMPLATES
