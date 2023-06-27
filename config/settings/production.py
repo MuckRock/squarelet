@@ -39,6 +39,8 @@ CACHES = {
         },
     }
 }
+if env("REDIS_URL").startswith("rediss:"):
+    CACHES["default"]["OPTIONS"]["CONNECTION_POOL_KWARGS"] = {"ssl_cert_reqs": None}
 
 # SECURITY
 # ------------------------------------------------------------------------------
@@ -98,7 +100,6 @@ AWS_DEFAULT_ACL = "public-read"
 # STATIC
 # ------------------------
 
-STATICFILES_STORAGE = "squarelet.core.storage.CachedS3Boto3Storage"
 AWS_S3_CUSTOM_DOMAIN = env("CLOUDFRONT_DOMAIN", default="")
 if AWS_S3_CUSTOM_DOMAIN:
     STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/static/"
@@ -108,11 +109,19 @@ else:
 # MEDIA
 # ------------------------------------------------------------------------------
 
-DEFAULT_FILE_STORAGE = "squarelet.core.storage.MediaRootS3BotoStorage"
 if AWS_S3_CUSTOM_DOMAIN:
     MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/media/"
 else:
     MEDIA_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/media/"
+
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.storage.MediaRootS3BotoStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "squarelet.core.storage.CachedS3Boto3Storage",
+    },
+}
 
 # TEMPLATES
 # ------------------------------------------------------------------------------
@@ -188,7 +197,7 @@ INSTALLED_APPS += ["gunicorn"]  # noqa F405
 # https://django-compressor.readthedocs.io/en/latest/settings/#django.conf.settings.COMPRESS_ENABLED
 COMPRESS_ENABLED = env.bool("COMPRESS_ENABLED", default=True)
 # https://django-compressor.readthedocs.io/en/latest/settings/#django.conf.settings.COMPRESS_STORAGE
-COMPRESS_STORAGE = STATICFILES_STORAGE
+COMPRESS_STORAGE = STORAGES["staticfiles"]["BACKEND"]
 # https://django-compressor.readthedocs.io/en/latest/settings/#django.conf.settings.COMPRESS_URL
 COMPRESS_URL = STATIC_URL
 COMPRESS_OFFLINE = True

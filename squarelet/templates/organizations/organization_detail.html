@@ -37,7 +37,13 @@
           {% elif is_member %}
             <div class="_cls-info _cls-infoPreSpaced">{% trans 'You are a user for this organization' %}</div>
           {% endif %}
-          <div class="_cls-mediumHeader">{% trans 'Users' %} ({{ users|length }})</div>
+          {% if is_member %}
+            <div class="_cls-mediumHeader">{% trans 'Users' %} ({{ users|length }})</div>
+          {% else %}
+            <div class="_cls-mediumHeader">
+              {% trans 'Admins' %} ({{ users|length }})
+            </div>
+          {% endif %}
           {% if is_admin %}
             <div class="_cls-infoSpaced">
               <a class="_cls-action" href="{% url "organizations:manage-members" organization.slug %}">
@@ -74,6 +80,7 @@
                       {% avatar user 15 %}
                     </div>
                     {{ user.safe_name }}
+                    {% if user in admins %}(Admin){% endif %}
                   </li>
                 </a>
               {% endfor %}

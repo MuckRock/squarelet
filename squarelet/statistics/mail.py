@@ -1,5 +1,6 @@
 # Django
 from django.conf import settings
+from django.db.models import Q
 
 # Standard Library
 from datetime import date, timedelta
@@ -9,6 +10,7 @@ from dateutil.relativedelta import relativedelta
 
 # Squarelet
 from squarelet.core.mail import Email
+from squarelet.organizations.models.organization import OrganizationChangeLog
 from squarelet.statistics.models import Statistics
 
 
@@ -27,6 +29,7 @@ class Digest(Email):
             "date": current_date,
             "stats": self.get_stats(current_date),
             "pro_users": self.get_pro_users(current_date),
+            "org_changes": self.get_org_changes(current_date),
         }
 
     def get_stats(self, current_date):
@@ -86,3 +89,11 @@ class Digest(Email):
         pro_users["lost"] = yesterday_pro_users - current_pro_users
 
         return pro_users
+
+    def get_org_changes(self, current_date):
+        return OrganizationChangeLog.objects.filter(
+            ~Q(from_plan=None) | ~Q(to_plan=None),
+            created_at__gte=current_date,
+            created_at__lt=current_date + timedelta(1),
+            organization__individual=False,
+        ).select_related("organization")

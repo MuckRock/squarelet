@@ -35,8 +35,6 @@ LANGUAGE_CODE = "en-us"
 SITE_ID = 1
 # https://docs.djangoproject.com/en/dev/ref/settings/#use-i18n
 USE_I18N = True
-# https://docs.djangoproject.com/en/dev/ref/settings/#use-l10n
-USE_L10N = True
 # https://docs.djangoproject.com/en/dev/ref/settings/#use-tz
 USE_TZ = True
 
@@ -71,7 +69,6 @@ THIRD_PARTY_APPS = [
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
-    "compat",  # for hijack
     "crispy_forms",
     "dal",
     "dal_select2",
@@ -355,6 +352,7 @@ OIDC_SESSION_MANAGEMENT_ENABLE = True
 OIDC_GRANT_TYPE_PASSWORD_ENABLE = True
 # Allows session cookie to be used in OAuth
 SESSION_COOKIE_SAMESITE = "None"
+SESSION_COOKIE_SECURE = True
 ENABLE_SEND_CACHE_INVALIDATIONS = env.bool(
     "ENABLE_SEND_CACHE_INVALIDATIONS", default=True
 )
@@ -382,6 +380,7 @@ BIGLOCALNEWS_URL = env("BIGLOCALNEWS_URL", default="https://local.biglocalnews.o
 BIGLOCALNEWS_API_URL = env(
     "BIGLOCALNEWS_API_URL", default="https://local-api.biglocalnews.org"
 )
+AGENDAWATCH_URL = env("AGENDAWATCH_URL", default="https://agendawatch.org")
 PRESSPASS_URL = env("PRESSPASS_URL", default="https://dev.presspass.com:3000")
 PRESSPASS_API_URL = env("PRESSPASS_API_URL", default="https://dev.presspass.com")
 

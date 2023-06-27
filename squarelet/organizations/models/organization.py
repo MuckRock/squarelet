@@ -1,5 +1,4 @@
 # Django
-from django.contrib.postgres.fields import CIEmailField
 from django.db import models, transaction
 from django.templatetags.static import static
 from django.urls import reverse
@@ -575,8 +574,10 @@ class ReceiptEmail(models.Model):
         on_delete=models.CASCADE,
         help_text=_("The organization this receipt email corresponds to"),
     )
-    email = CIEmailField(
-        _("email"), help_text=_("The email address to send the receipt to")
+    email = models.EmailField(
+        _("email"),
+        help_text=_("The email address to send the receipt to"),
+        db_collation="case_insensitive",
     )
     failed = models.BooleanField(
         _("failed"),
@@ -667,6 +668,26 @@ class OrganizationChangeLog(models.Model):
         _("maximum users"),
         help_text=_("The organization's max_users after the change occurred"),
     )
+
+    def describe(self):
+        """A description of the change for digest emails"""
+        if self.reason == ChangeLogReason.created:
+            return (
+                f"Created: {self.organization.name} - "
+                f"Plan: {self.to_plan} with {self.to_max_users} users"
+            )
+        elif self.reason == ChangeLogReason.updated:
+            return (
+                f"Updated: {self.organization.name} - "
+                f"From: Plan {self.from_plan} with {self.from_max_users} users - "
+                f"To: Plan {self.to_plan} with {self.to_max_users} users"
+            )
+        elif self.reason == ChangeLogReason.failed:
+            return (
+                f"Payment Failed: {self.organization.name} - "
+                f"Plan: {self.from_plan} with {self.from_max_users} users"
+            )
+        return "Other reason"
 
 
 class OrganizationType(models.Model):

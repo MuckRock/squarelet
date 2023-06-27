@@ -1,7 +1,6 @@
 # Django
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.models import PermissionsMixin
-from django.contrib.postgres.fields import CICharField, CIEmailField
 from django.db import models, transaction
 from django.http.request import urlencode
 from django.templatetags.static import static
@@ -62,10 +61,14 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
     name = models.CharField(
         _("name of user"), max_length=255, help_text=_("The user's full name")
     )
-    email = CIEmailField(
-        _("email"), unique=True, null=True, help_text=_("The user's email address")
+    email = models.EmailField(
+        _("email"),
+        unique=True,
+        null=True,
+        help_text=_("The user's email address"),
+        db_collation="case_insensitive",
     )
-    username = CICharField(
+    username = models.CharField(
         _("username"),
         max_length=150,
         unique=True,
@@ -75,6 +78,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         ),
         validators=[UsernameValidator()],
         error_messages={"unqiue": _("A user with that username already exists.")},
+        db_collation="case_insensitive",
     )
     avatar = ImageField(
         _("avatar"),
@@ -82,6 +86,9 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         blank=True,
         max_length=255,
         help_text=_("An image to represent the user"),
+    )
+    bio = models.TextField(
+        _("bio"), blank=True, help_text=_("Public bio for the user, in Markdown")
     )
     can_change_username = models.BooleanField(
         _("can change username"),
@@ -120,6 +127,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
             ("foiamachine", _("FOIA Machine")),
             ("squarelet", _("Squarelet")),
             ("biglocalnews", _("Big Local News")),
+            ("agendawatch", _("Agenda Watch")),
         ),
         default="squarelet",
         help_text=_("Which service did this user originally sign up for?"),

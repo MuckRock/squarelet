@@ -69,6 +69,7 @@ class UserReadSerializer(UserBaseSerializer):
     class Meta:
         model = User
         fields = (
+            "bio",
             "email",
             "email_failed",
             "email_verified",

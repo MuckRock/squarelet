@@ -21,6 +21,9 @@ FOIAMACHINE_ASSET = "assets/foiamachine.svg"
 BIGLOCALNEWS_SERVICE = "Big Local News"
 BIGLOCALNEWS_ASSET = "assets/biglocalnews.svg"
 
+AGENDAWATCH_SERVICE = "Agenda Watch"
+AGENDAWATCH_ASSET = "assets/agendawatch.png"
+
 
 @register.inclusion_tag("templatetags/intent.html", takes_context=True)
 def handleintent(context, header, message):
@@ -41,6 +44,7 @@ def handleintent(context, header, message):
             ("documentcloud", (DOCUMENTCLOUD_SERVICE, DOCUMENTCLOUD_ASSET)),
             ("foiamachine", (FOIAMACHINE_SERVICE, FOIAMACHINE_ASSET)),
             ("biglocalnews", (BIGLOCALNEWS_SERVICE, BIGLOCALNEWS_ASSET)),
+            ("agendawatch", (AGENDAWATCH_SERVICE, AGENDAWATCH_ASSET)),
         ]
     )
 
