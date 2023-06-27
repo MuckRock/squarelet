@@ -172,7 +172,7 @@ django-email-bandit==1.5
     # via -r requirements/base.txt
 django-environ==0.4.4
     # via -r requirements/base.txt
-django-extensions==3.2.0
+django-extensions==3.2.3
     # via -r requirements/base.txt
 django-filter==21.1
     # via -r requirements/base.txt
@@ -198,7 +198,7 @@ django-test-plus==2.2.0
     # via -r requirements/local.in
 django-weasyprint==2.2.0
     # via -r requirements/base.txt
-djangorestframework==3.13.1
+djangorestframework==3.14.0
     # via
     #   -r requirements/base.txt
     #   djangorestframework-simplejwt
