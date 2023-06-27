@@ -2,6 +2,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as AuthUserAdmin
 from django.contrib.auth.forms import UserCreationForm
+from django.db.models.functions.comparison import Collate
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
@@ -79,7 +80,19 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
         "is_superuser",
         "is_active",
     )
-    search_fields = ("username", "name", "email")
+    search_fields = ("username_deterministic", "name", "email_deterministic")
+
+    def get_queryset(self, request):
+        """Add deterministic fields for username and email so they
+        can be searched"""
+        return (
+            super()
+            .get_queryset(request)
+            .annotate(
+                email_deterministic=Collate("email", "und-x-icu"),
+                username_deterministic=Collate("username", "und-x-icu"),
+            )
+        )
 
     def save_model(self, request, obj, form, change):
         """Sync all auth email addresses"""

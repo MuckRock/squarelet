@@ -1,5 +1,4 @@
 # Django
-from django.contrib.postgres.fields import CIEmailField
 from django.db import models, transaction
 from django.templatetags.static import static
 from django.urls import reverse
@@ -575,8 +574,10 @@ class ReceiptEmail(models.Model):
         on_delete=models.CASCADE,
         help_text=_("The organization this receipt email corresponds to"),
     )
-    email = CIEmailField(
-        _("email"), help_text=_("The email address to send the receipt to")
+    email = models.EmailField(
+        _("email"),
+        help_text=_("The email address to send the receipt to"),
+        db_collation="case_insensitive",
     )
     failed = models.BooleanField(
         _("failed"),

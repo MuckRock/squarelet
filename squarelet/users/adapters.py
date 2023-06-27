@@ -5,7 +5,7 @@ from django.contrib.sites.shortcuts import get_current_site
 from django.http.response import HttpResponseRedirect
 from django.template.loader import render_to_string
 from django.urls import reverse
-from django.utils.http import is_safe_url
+from django.utils.http import url_has_allowed_host_and_scheme
 
 # Third Party
 from allauth.account.adapter import DefaultAccountAdapter
@@ -65,7 +65,7 @@ class AccountAdapter(DefaultAccountAdapter):
             furl(settings.BIGLOCALNEWS_API_URL).host,
             furl(settings.AGENDAWATCH_URL).host,
         ]
-        return is_safe_url(url, allowed_hosts=allowed_hosts)
+        return url_has_allowed_host_and_scheme(url, allowed_hosts=allowed_hosts)
 
     def send_confirmation_mail(self, request, emailconfirmation, signup):
         current_site = get_current_site(request)
