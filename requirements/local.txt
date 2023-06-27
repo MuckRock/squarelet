@@ -499,7 +499,7 @@ smart-open==1.7.1
     # via -r requirements/base.txt
 snowballstemmer==1.2.1
     # via sphinx
-sorl-thumbnail==12.8.0
+sorl-thumbnail==12.9.0
     # via -r requirements/base.txt
 sphinx==1.7.5
     # via -r requirements/local.in
