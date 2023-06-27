@@ -140,8 +140,9 @@ class TestOrganization:
             name=organization.user_full_name,
         )
 
+    @pytest.mark.django_db()
     def test_subscription_blank(self, organization_factory):
-        organization = organization_factory.build()
+        organization = organization_factory()
         assert organization.subscription is None
 
     def test_save_card(self, organization_factory, mocker):
