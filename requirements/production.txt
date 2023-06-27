@@ -153,7 +153,7 @@ django-celery-email==3.0.0
     # via -r requirements/production.in
 django-choices==1.7.2
     # via -r requirements/base.txt
-django-compressor==3.1
+django-compressor==4.3.1
     # via -r requirements/base.txt
 django-cors-headers==3.10.1
     # via -r requirements/base.txt
@@ -389,7 +389,7 @@ qrcode==7.4.2
     # via
     #   -r requirements/base.txt
     #   django-two-factor-auth
-rcssmin==1.1.0
+rcssmin==1.1.1
     # via
     #   -r requirements/base.txt
     #   django-compressor
@@ -411,7 +411,7 @@ requests-oauthlib==1.0.0
     # via
     #   -r requirements/base.txt
     #   django-allauth
-rjsmin==1.2.0
+rjsmin==1.2.1
     # via
     #   -r requirements/base.txt
     #   django-compressor

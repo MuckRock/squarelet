@@ -102,7 +102,7 @@ django-autoslug==1.9.8
     # via -r requirements/base.in
 django-choices==1.7.2
     # via -r requirements/base.in
-django-compressor==3.1
+django-compressor==4.3.1
     # via -r requirements/base.in
 django-cors-headers==3.10.1
     # via -r requirements/base.in
@@ -259,7 +259,7 @@ pytz==2018.4
     #   djangorestframework
 qrcode==7.4.2
     # via django-two-factor-auth
-rcssmin==1.1.0
+rcssmin==1.1.1
     # via
     #   -r requirements/base.in
     #   django-compressor
@@ -277,7 +277,7 @@ requests==2.28.1
     #   stripe
 requests-oauthlib==1.0.0
     # via django-allauth
-rjsmin==1.2.0
+rjsmin==1.2.1
     # via django-compressor
 rules==2.1
     # via -r requirements/base.in
