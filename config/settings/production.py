@@ -116,7 +116,7 @@ else:
 
 STORAGES = {
     "default": {
-        "BACKEND": "django.core.storage.MediaRootS3BotoStorage",
+        "BACKEND": "squarelet.core.storage.MediaRootS3BotoStorage",
     },
     "staticfiles": {
         "BACKEND": "squarelet.core.storage.CachedS3Boto3Storage",
