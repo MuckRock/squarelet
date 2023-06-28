@@ -20,7 +20,7 @@ class CachedS3Boto3Storage(S3Boto3Storage):
 
     def save(self, name, content):
         # pylint: disable=protected-access, arguments-differ
-        self.local_storage._save(name, content)
+        self.local_storage.save(name, content)
         super().save(name, self.local_storage._open(name))
         return name
 
