@@ -201,6 +201,7 @@ INSTALLED_APPS += ["gunicorn"]  # noqa F405
 COMPRESS_ENABLED = env.bool("COMPRESS_ENABLED", default=True)
 # https://django-compressor.readthedocs.io/en/latest/settings/#django.conf.settings.COMPRESS_STORAGE
 COMPRESS_STORAGE = STORAGES["staticfiles"]["BACKEND"]
+COMPRESS_OFFLINE_MANIFEST_STORAGE = STORAGES["staticfiles"]["BACKEND"]
 # https://django-compressor.readthedocs.io/en/latest/settings/#django.conf.settings.COMPRESS_URL
 COMPRESS_URL = STATIC_URL
 COMPRESS_OFFLINE = True
