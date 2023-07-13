@@ -1,5 +1,6 @@
 # Django
 from django import template
+from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 
 # Standard Library
@@ -40,19 +41,36 @@ def handleintent(context, header, message):
 
     intent_lookup = OrderedDict(
         [
-            ("muckrock", (MUCKROCK_SERVICE, MUCKROCK_ASSET)),
-            ("documentcloud", (DOCUMENTCLOUD_SERVICE, DOCUMENTCLOUD_ASSET)),
-            ("foiamachine", (FOIAMACHINE_SERVICE, FOIAMACHINE_ASSET)),
-            ("biglocalnews", (BIGLOCALNEWS_SERVICE, BIGLOCALNEWS_ASSET)),
-            ("agendawatch", (AGENDAWATCH_SERVICE, AGENDAWATCH_ASSET)),
+            (
+                "muckrock",
+                (MUCKROCK_SERVICE, MUCKROCK_ASSET, settings.MUCKROCK_URL),
+            ),
+            (
+                "documentcloud",
+                (DOCUMENTCLOUD_SERVICE, DOCUMENTCLOUD_ASSET, settings.DOCCLOUD_URL),
+            ),
+            (
+                "foiamachine",
+                (FOIAMACHINE_SERVICE, FOIAMACHINE_ASSET, settings.FOIAMACHINE_URL),
+            ),
+            (
+                "biglocalnews",
+                (BIGLOCALNEWS_SERVICE, BIGLOCALNEWS_ASSET, settings.BIGLOCALNEWS_URL),
+            ),
+            (
+                "agendawatch",
+                (AGENDAWATCH_SERVICE, AGENDAWATCH_ASSET, settings.AGENDAWATCH_URL),
+            ),
         ]
     )
 
     # default to 'muckrock'
-    intent_service, intent_asset = intent_lookup.get(intent, intent_lookup["muckrock"])
+    intent_service, intent_asset, _intent_url = intent_lookup.get(
+        intent, intent_lookup["muckrock"]
+    )
 
-    other_services = [s for s, a in intent_lookup.values() if s != intent_service]
-    other_assets = [a for s, a in intent_lookup.values() if a != intent_asset]
+    other_services = [s for s, a, u in intent_lookup.values() if s != intent_service]
+    other_assets = [(a, u) for s, a, u in intent_lookup.values() if a != intent_asset]
 
     if len(other_services) == 1:
         service_message = other_services[0]

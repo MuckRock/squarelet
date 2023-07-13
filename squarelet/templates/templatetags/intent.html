@@ -13,9 +13,9 @@
   <span class="_cls-rightBump">{{ message }}.</span>
 </p>
 <div class="_cls-infoLogos">
-  {% for asset in other_assets %}
+  {% for asset, url in other_assets %}
     <div class="_cls-infoLogo">
-      <img src="{% static asset %}">
+      <a class="_cls-nostyle" href="{{ url }}"><img src="{% static asset %}"></a>
     </div>
   {% endfor %}
 </div>
