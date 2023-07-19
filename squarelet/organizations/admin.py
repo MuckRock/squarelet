@@ -75,7 +75,7 @@ class OrganizationAdmin(VersionAdmin):
         "get_subtypes",
     )
     list_filter = ("individual", "private", "verified_journalist", "subtypes")
-    search_fields = ("name", "users__username")
+    search_fields = ("name",)
     fields = (
         "uuid",
         "name",
