@@ -206,7 +206,7 @@ def mailgun_webhook(request):
     return HttpResponse("OK")
 
 
-class Receipts(TemplateView):
+class Receipts(LoginRequiredMixin, TemplateView):
     """Subclass to view individual's receipts"""
 
     template_name = "organizations/organization_receipts.html"
