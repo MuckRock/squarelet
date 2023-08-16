@@ -43,7 +43,7 @@ def restore_organization():
 
 @task(
     name="squarelet.organizations.tasks.handle_charge_succeeded",
-    autoretry_for=(Organization.DoesNotExist,),
+    autoretry_for=(Organization.DoesNotExist, stripe.error.RateLimitError),
 )
 def handle_charge_succeeded(charge_data):
     """Handle receiving a charge.succeeded event from the Stripe webhook"""

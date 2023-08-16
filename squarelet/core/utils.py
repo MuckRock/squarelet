@@ -1,6 +1,14 @@
 # Standard Library
 import json
+import logging
 import os.path
+import sys
+import uuid
+
+# Third Party
+import stripe
+
+logger = logging.getLogger(__name__)
 
 
 def mixpanel_event(request, event, props=None, **kwargs):
@@ -34,3 +42,30 @@ def file_path(base, _instance, filename):
         # directory, the file extensions, plus one for the '/'
         file_base = file_base[: path_limit - (len(base) + len(file_ext) + 1)]
         return os.path.join(base, f"{file_base}{file_ext}")
+
+
+def retry_on_error(errors, func, *args, **kwargs):
+    """Retry a function on error"""
+    max_retries = 10
+    times = kwargs.pop("times", 0) + 1
+    try:
+        return func(*args, **kwargs)
+    except errors as exc:
+        if times > max_retries:
+            raise exc
+        logger.warning(
+            "Error, retrying #%d:\n\n%s", times, exc, exc_info=sys.exc_info()
+        )
+        return retry_on_error(errors, func, times=times, *args, **kwargs)
+
+
+def stripe_retry_on_error(func, *args, **kwargs):
+    """Retry stripe API calls on connection errors"""
+    if kwargs.get("idempotency_key") is True:
+        kwargs["idempotency_key"] = uuid.uuid4().hex
+    return retry_on_error(
+        (stripe.error.APIConnectionError, stripe.error.RateLimitError),
+        func,
+        *args,
+        **kwargs,
+    )

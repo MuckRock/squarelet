@@ -14,6 +14,7 @@ from memoize import mproperty
 
 # Squarelet
 from squarelet.core.mail import ORG_TO_RECEIPTS, send_mail
+from squarelet.core.utils import stripe_retry_on_error
 from squarelet.organizations.querysets import (
     ChargeQuerySet,
     EntitlementQuerySet,
@@ -54,7 +55,9 @@ class Customer(models.Model):
         # first try to find an existing stripe customer
         if self.customer_id:
             try:
-                stripe_customer = stripe.Customer.retrieve(self.customer_id)
+                stripe_customer = stripe_retry_on_error(
+                    stripe.Customer.retrieve, self.customer_id
+                )
                 if stripe_customer.name is None:
                     stripe.Customer.modify(
                         stripe_customer.id, name=self.organization.user_full_name
