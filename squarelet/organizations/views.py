@@ -4,6 +4,8 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db import transaction
 from django.db.models import Value as V
+from django.db.models.aggregates import Count
+from django.db.models.expressions import F
 from django.db.models.functions import Lower, StrIndex
 from django.http import JsonResponse
 from django.http.response import (
@@ -72,6 +74,14 @@ class Detail(AdminLinkMixin, DetailView):
         else:
             context["users"] = admins
         context["admins"] = admins
+        context["max_user_organizations"] = self.request.user.organizations.annotate(
+            user_count=Count("users")
+        ).filter(
+            memberships__admin=True,
+            user_count__lt=F("max_users"),
+            plans__price_per_user__gt=0,
+            pk=self.object.pk,
+        )
         return context
 
     def post(self, request, *args, **kwargs):
