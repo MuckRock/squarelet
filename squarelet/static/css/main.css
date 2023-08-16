@@ -622,6 +622,10 @@ nav a:hover ._cls-serviceName {
   max-width: 500px;
 }
 
+._cls-alert.inline {
+  margin: inherit;
+}
+
 ._cls-alert div {
   padding: 0.5em 0.8em;
   font-size: 0.9em;
@@ -706,6 +710,22 @@ nav a:hover ._cls-serviceName {
 
 .alert-error ._cls-alertIcon {
   border: solid 3px #7b0202;
+}
+
+
+.alert-warning {
+  background: #dedea5f2;
+  color: #8b8000;
+}
+
+.alert-warning ._cls-alertIcon::before {
+  content: "!";
+  color: #7b7b02;
+  font-size: 1.2em;
+}
+
+.alert-warning ._cls-alertIcon {
+  border: solid 3px #7b7b02;
 }
 
 ._cls-middleAlign {
