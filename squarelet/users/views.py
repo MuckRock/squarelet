@@ -2,6 +2,8 @@
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models.aggregates import Count
+from django.db.models.expressions import F
 from django.http.response import (
     Http404,
     HttpResponse,
@@ -78,6 +80,16 @@ class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
             .organizations.filter(individual=False)
             .get_viewable(self.request.user)
         )
+        if context["user"] == self.request.user:
+            context[
+                "max_user_organizations"
+            ] = self.request.user.organizations.annotate(
+                user_count=Count("users")
+            ).filter(
+                memberships__admin=True,
+                user_count__lt=F("max_users"),
+                plans__price_per_user__gt=0,
+            )
         return context
 
 
