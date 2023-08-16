@@ -74,14 +74,17 @@ class Detail(AdminLinkMixin, DetailView):
         else:
             context["users"] = admins
         context["admins"] = admins
-        context["max_user_organizations"] = self.request.user.organizations.annotate(
-            user_count=Count("users")
-        ).filter(
-            memberships__admin=True,
-            user_count__lt=F("max_users"),
-            plans__price_per_user__gt=0,
-            pk=self.object.pk,
-        )
+        if self.request.user.is_authenticated:
+            context[
+                "max_user_organizations"
+            ] = self.request.user.organizations.annotate(
+                user_count=Count("users")
+            ).filter(
+                memberships__admin=True,
+                user_count__lt=F("max_users"),
+                plans__price_per_user__gt=0,
+                pk=self.object.pk,
+            )
         return context
 
     def post(self, request, *args, **kwargs):
