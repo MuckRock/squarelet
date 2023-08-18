@@ -165,8 +165,7 @@ export class PlansView {
   updateMaxUsers() {
     if (this.maxUsersElem == null) return;
     this.maxUsers = parseInt(this.maxUsersElem.value);
-    const minUsers = this.getPlan().minimum_users;
-    this.maxUsersElem.min = `${minUsers}`;
+    const minUsers = parseInt(this.maxUsersElem.min);
     if (this.maxUsers < minUsers) {
       this.maxUsersElem.value = `${minUsers}`;
       this.maxUsers = minUsers;
@@ -225,7 +224,7 @@ export class PlansView {
       // Handle reactive max user updates if field is defined.
       const maxUsersElem = this.maxUsersElem as HTMLInputElement;
       this.maxUsers = parseInt(maxUsersElem.value);
-      on(maxUsersElem, 'input', () => {
+      on(maxUsersElem, 'blur', () => {
         this.updateAll();
       });
     } else {

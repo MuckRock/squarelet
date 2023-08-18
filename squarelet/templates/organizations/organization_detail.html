@@ -132,22 +132,22 @@
             </p>
           </div>
         {% endif %}
-        {% if max_user_organizations %}
+        {% if max_user_organization %}
           <div class="_cls-alert inline">
             <div class="alert-warning">
               <span class="_cls-alertIcon"></span>
-              {% for organization in max_user_organizations %}
-                <span class="_cls-middleAlign">
-                  You are paying for {{ organization.max_users }} max users,
-                  but there are currently only {{ organization.user_count }}
-                  user's in {{ organization.name }}.
-                  <p>
-                    <a href="{% url "organizations:payment" slug=organization.slug %}">
-                      Update the billing info for {{ organization.name }}.
-                    </a>
-                  </p>
-                </span>
-              {% endfor %}
+              <span class="_cls-middleAlign">
+                You are paying for {{ organization.max_users }} max users,
+                but there are currently only {{ organization.user_count }}
+                seats taken ({{ organization.users.count }} users and
+                {{ organization.invitations.get_pending.count }} pending
+                invitations).
+                <p>
+                  <a href="{% url "organizations:payment" slug=organization.slug %}">
+                    Update the billing info.
+                  </a>
+                </p>
+              </span>
             </div>
           </div>
         {% endif %}
