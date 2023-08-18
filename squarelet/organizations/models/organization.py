@@ -281,7 +281,10 @@ class Organization(AvatarMixin, models.Model):
         if self.plan is None:
             return False
         paid_plan = self.plan.price_per_user > 0
-        max_users_high = self.plan.minimum_users < self.user_count() < self.max_users
+        max_users_high = (
+            self.plan.minimum_users < self.max_users
+            and self.user_count() < self.max_users
+        )
         return paid_plan and max_users_high
 
     def add_creator(self, user):
