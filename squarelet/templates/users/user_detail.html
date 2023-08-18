@@ -123,7 +123,10 @@
                 <span class="_cls-middleAlign">
                   You are paying for {{ organization.max_users }} max users,
                   but there are currently only {{ organization.user_count }}
-                  user's in {{ organization.name }}.
+                  seats taken in {{ organization.name }} (
+                  {{ organization.users.count }} users and
+                  {{ organization.invitations.get_pending.count }} pending
+                  invitations).
                   <p>
                     <a href="{% url "organizations:payment" slug=organization.slug %}">
                       Update the billing info for {{ organization.name }}.

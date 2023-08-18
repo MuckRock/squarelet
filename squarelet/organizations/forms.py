@@ -80,10 +80,19 @@ class PaymentForm(StripeForm):
         if self.organization.individual:
             del self.fields["max_users"]
         else:
-            limit_value = max(5, self.organization.user_count())
+            seat_count = self.organization.user_count()
+            limit_value = max(5, seat_count)
             self.fields["max_users"].validators[0].limit_value = limit_value
             self.fields["max_users"].widget.attrs["min"] = limit_value
             self.fields["max_users"].initial = limit_value
+            if limit_value > 5:
+                self.fields["max_users"].help_text = (
+                    "You currently have "
+                    f"{self.organization.users.count()} users and "
+                    f"{self.organization.invitations.get_pending().count()} pending "
+                    f"invitations for this organization, for a total of "
+                    f"{seat_count}.  You may not set this value lower than that."
+                )
 
     def clean_receipt_emails(self):
         """Make sure each line is a valid email"""
