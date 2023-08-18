@@ -1298,3 +1298,8 @@ textarea {
 ._cls-verify {
   margin: 1em;
 }
+
+#hint_id_max_users {
+  display: block;
+  margin-top: 0.5em;
+}

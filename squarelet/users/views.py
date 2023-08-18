@@ -2,8 +2,6 @@
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models.aggregates import Count
-from django.db.models.expressions import F
 from django.http.response import (
     Http404,
     HttpResponse,
@@ -39,7 +37,7 @@ from crispy_forms.layout import Fieldset, Layout
 from squarelet.core.forms import ImagePreviewWidget
 from squarelet.core.layout import Field
 from squarelet.core.mixins import AdminLinkMixin
-from squarelet.organizations.models import Invitation, ReceiptEmail
+from squarelet.organizations.models import Invitation, Organization, ReceiptEmail
 
 # Local
 from .models import User
@@ -83,13 +81,7 @@ class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
         if context["user"] == self.request.user:
             context[
                 "max_user_organizations"
-            ] = self.request.user.organizations.annotate(
-                user_count=Count("users")
-            ).filter(
-                memberships__admin=True,
-                user_count__lt=F("max_users"),
-                plans__price_per_user__gt=0,
-            )
+            ] = Organization.objects.get_max_user_notifications(self.request.user)
         return context
 
 

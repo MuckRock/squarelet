@@ -276,6 +276,14 @@ class Organization(AvatarMixin, models.Model):
         """Count the number of users, including pending invitations"""
         return self.users.count() + self.invitations.get_pending().count()
 
+    def check_max_users(self):
+        """Could the max users be reduced for cost savings?"""
+        if self.plan is None:
+            return False
+        paid_plan = self.plan.price_per_user > 0
+        max_users_high = self.plan.minimum_users < self.user_count() < self.max_users
+        return paid_plan and max_users_high
+
     def add_creator(self, user):
         """Add user as the creator of the organization"""
         # add creator to the organization as an admin by default
