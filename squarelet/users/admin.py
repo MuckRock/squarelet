@@ -8,6 +8,7 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
 # Third Party
+from allauth.account.models import EmailAddress
 from allauth.account.utils import setup_user_email, sync_user_email_addresses
 from reversion.admin import VersionAdmin
 
@@ -16,6 +17,12 @@ from squarelet.organizations.models import Organization
 
 # Local
 from .models import User
+
+
+class EmailInline(admin.TabularInline):
+    model = EmailAddress
+    extra = 0
+    readonly_fields = ["verified", "primary"]
 
 
 class MyUserCreationForm(UserCreationForm):
@@ -81,6 +88,7 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
         "is_active",
     )
     search_fields = ("username_deterministic", "name", "email_deterministic")
+    inlines = [EmailInline]
 
     def get_queryset(self, request):
         """Add deterministic fields for username and email so they
