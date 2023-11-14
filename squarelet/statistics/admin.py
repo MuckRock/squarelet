@@ -27,4 +27,5 @@ class StatisticsAdmin(VersionAdmin):
         "total_orgs",
         "users_today",
         "pro_users",
+        "verified_orgs",
     )
