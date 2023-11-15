@@ -181,7 +181,7 @@ MIXPANEL_CUSTOM_LIB_URL:"file:"===c.location.protocol&&"//cdn4.mxpnl.com/libs/mi
           <div class="_cls-alert">
             <div class="{% if message.tags %}alert-{{ message.tags }}{% endif %}">
               <span class="_cls-alertIcon"></span>
-              <span class="_cls-middleAlign">{{ message }}</span>
+              <span class="_cls-middleAlign">{{ message|safe }}</span>
               <span
                 class="_cls-close"
                 onclick="event.target.parentElement.classList.add('_cls-dismiss')"

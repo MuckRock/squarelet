@@ -86,7 +86,18 @@ class Detail(AdminLinkMixin, DetailView):
             invitation = self.organization.invitations.create(
                 email=request.user.email, user=request.user, request=True
             )
-            messages.success(request, _("Request to join the organization sent!"))
+            messages.success(
+                request,
+                _(
+                    "Request to join the organization sent!<br><br>"
+                    "We strongly recommend reaching out directly to one or all of "
+                    "the admins listed below to ensure your request is approved "
+                    "quickly. If all of the admins shown below have left the "
+                    "organization, please "
+                    '<a href="mailto:info@muckrock.com">contact support</a> '
+                    "for assistance.<br><br>"
+                ),
+            )
             invitation.send()
         elif request.POST.get("action") == "leave" and is_member:
             self.request.user.memberships.filter(
