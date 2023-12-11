@@ -1,13 +1,21 @@
+{% extends "base.html" %}
 
-<!doctype html>
-<html>
-  <head>
-    <title>
-      Error 403
-    </title>
-  </head>
-  <body>
-    <h1>Forbidden (403)</h1>
-  </body>
-</html>
+{% block title %}Forbidden{% endblock %}
 
+{% block content %}
+  <div class="_cls-content">
+    <h1>Forbidden</h1>
+
+    <p>You do not have permission to view this page.</p>
+
+    <p>
+      {% if user.is_authenticated %}
+        <a href="{% url "account_logout" %}">Do you need to switch accounts?</a>
+      {% else %}
+        <a href="{% url "account_login" %}">Do you need to log in?</a>
+      {% endif %}
+    </p>
+
+
+  </div>
+{% endblock content %}
