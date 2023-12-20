@@ -1,3 +1,6 @@
+# Django
+from django.conf import settings
+
 # Standard Library
 import json
 import logging
@@ -6,6 +9,7 @@ import sys
 import uuid
 
 # Third Party
+import requests
 import stripe
 
 logger = logging.getLogger(__name__)
@@ -69,3 +73,27 @@ def stripe_retry_on_error(func, *args, **kwargs):
         *args,
         **kwargs,
     )
+
+
+def mailchimp_subscribe(emails, list_=settings.MAILCHIMP_LIST_DEFAULT):
+    """Adds the email to the mailing list throught the MailChimp API.
+    https://mailchimp.com/developer/marketing/api/lists/"""
+
+    api_url = f"{settings.MAILCHIMP_API_ROOT}/lists/{list_}/"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"apikey {settings.MAILCHIMP_API_KEY}",
+    }
+    data = {
+        "members": [
+            {
+                "email_address": email,
+                "status": "subscribed",
+            }
+            for email in emails
+        ]
+    }
+    response = retry_on_error(
+        requests.ConnectionError, requests.post, api_url, json=data, headers=headers
+    )
+    return response

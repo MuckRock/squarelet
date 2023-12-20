@@ -117,6 +117,11 @@ class OrganizationAdmin(VersionAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).prefetch_related("subtypes")
 
+    def save_model(self, request, obj, form, change):
+        if obj.verified_journalist and "verified_journalist" in form.changed_data:
+            obj.subscribe()
+        super().save_model(request, obj, form, change)
+
     def get_fields(self, request, obj=None):
         """Only add user link for individual organizations"""
         if obj and obj.individual:
