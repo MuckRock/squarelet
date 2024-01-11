@@ -1,6 +1,7 @@
 # Django
 from django import forms
 from django.core.validators import validate_email
+from django.db.models.aggregates import Min
 from django.utils.translation import gettext_lazy as _
 
 # Third Party
@@ -25,7 +26,7 @@ class PaymentForm(StripeForm):
         empty_label="Free",
         required=False,
     )
-    max_users = forms.IntegerField(label=_("Number of Users"), min_value=5)
+    max_users = forms.IntegerField(label=_("Number of Users"), min_value=1)
     receipt_emails = forms.CharField(
         label=_("Receipt Emails"),
         widget=forms.Textarea(),
@@ -75,17 +76,19 @@ class PaymentForm(StripeForm):
     def _set_group_options(self):
         # only show public options, plus the current plan, in case they are currently
         # on a private plan, plus private plans they have been given access to
-        self.fields["plan"].queryset = Plan.objects.choices(self.organization)
+        plans = Plan.objects.choices(self.organization)
+        self.fields["plan"].queryset = plans
         self.fields["plan"].default = self.organization.plan
         if self.organization.individual:
             del self.fields["max_users"]
         else:
             seat_count = self.organization.user_count()
-            limit_value = max(5, seat_count)
+            plan_minimum = plans.aggregate(minimum=Min("minimum_users"))["minimum"]
+            limit_value = max(plan_minimum, seat_count)
             self.fields["max_users"].validators[0].limit_value = limit_value
             self.fields["max_users"].widget.attrs["min"] = limit_value
             self.fields["max_users"].initial = limit_value
-            if limit_value > 5:
+            if limit_value > plan_minimum:
                 self.fields["max_users"].help_text = (
                     "You currently have "
                     f"{self.organization.users.count()} users and "
