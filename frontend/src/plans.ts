@@ -177,21 +177,15 @@ export class PlansView {
    */
   updateSavedCC() {
     if (this.ucofInput == null) {
-      if (requiresPayment(this.getPlan())) {
-        if (this.cardContainer != null) {
-          this.cardContainer.style.display = '';
-        }
-      } else {
-        if (this.cardContainer != null) {
-          this.cardContainer.style.display = 'none';
-        }
+      if (this.cardContainer != null) {
+        this.cardContainer.style.display = '';
       }
       return;
     }
     const ucofInput = document.querySelector(
       'input[name=use_card_on_file]:checked'
     ) as HTMLInputElement;
-    if (ucofInput.value == 'True') {
+    if (ucofInput.value == 'True' && this.ccFieldset.style.display === "") {
       if (this.cardContainer != null) {
         // TODO: Use utility hide function
         this.cardContainer.style.display = 'none';
@@ -296,7 +290,7 @@ export class PlansView {
         const useCardOnFile = ucofInput != null && ucofInput.value == 'True';
         const plan = this.getPlan();
 
-        if (!useCardOnFile && requiresPayment(plan)) {
+        if (!useCardOnFile) {
           event.preventDefault();
 
           stripe.createToken(card).then(function(result) {
