@@ -343,7 +343,7 @@ class Organization(AvatarMixin, models.Model):
     def set_subscription(self, token, plan, max_users, user):
         if self.individual:
             max_users = 1
-        if token and plan:
+        if token:
             self.save_card(token)
 
         # store so we can log
