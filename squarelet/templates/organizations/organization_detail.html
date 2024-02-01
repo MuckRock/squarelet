@@ -44,6 +44,16 @@
               {% trans 'Admins' %} ({{ users|length }})
             </div>
           {% endif %}
+          {% if user.is_staff %}
+            <div class="_cls-minorInfo">
+              <div>Admin emails:</div>
+              <div>
+                {% for admin in admins %}
+                  {{ admin.email }}{% if not forloop.last %},{% endif %}
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %}
           {% if is_admin %}
             <div class="_cls-infoSpaced">
               <a class="_cls-action" href="{% url "organizations:manage-members" organization.slug %}">

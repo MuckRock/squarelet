@@ -287,6 +287,19 @@ class TestOrganization:
         organization.set_receipt_emails(emails)
         assert set(emails) == set(r.email for r in organization.receipt_emails.all())
 
+    @pytest.mark.django_db()
+    def test_subscribe(self, organization_factory, user_factory, mocker):
+        mocked = mocker.patch(
+            "squarelet.organizations.models.organization.mailchimp_subscribe"
+        )
+        users = user_factory.create_batch(4)
+        org = organization_factory(verified_journalist=False, users=users)
+        organization_factory(verified_journalist=True, users=users[2:])
+        # users 1 and 2 should be subscribed.  3 and 4 should not be, since they
+        # are alreay verified via the second organization
+        org.subscribe()
+        mocked.assert_called_with([u.email for u in users[:2]])
+
 
 class TestCustomer:
     """Unit tests for Customer model"""
@@ -655,6 +668,38 @@ class TestInvitation:
         invitation.accept()
         assert invitation.organization.has_member(invitation.user)
         assert invitation.accepted_at == timezone.now()
+
+    @pytest.mark.freeze_time
+    @pytest.mark.django_db()
+    def test_accept_verified(self, invitation_factory, user_factory, mocker):
+        mocked = mocker.patch(
+            "squarelet.organizations.models.organization.mailchimp_subscribe"
+        )
+        mocker.patch("stripe.Plan.create")
+        invitation = invitation_factory(organization__verified_journalist=True)
+        invitation.user = user_factory()
+        assert not invitation.organization.has_member(invitation.user)
+        invitation.accept()
+        assert invitation.organization.has_member(invitation.user)
+        assert invitation.accepted_at == timezone.now()
+        mocked.assert_called_with([invitation.user.email])
+
+    @pytest.mark.freeze_time
+    @pytest.mark.django_db()
+    def test_accept_verified_verified(self, invitation_factory, user_factory, mocker):
+        mocked = mocker.patch(
+            "squarelet.organizations.models.organization.mailchimp_subscribe"
+        )
+        mocker.patch("stripe.Plan.create")
+        invitation = invitation_factory(organization__verified_journalist=True)
+        invitation.user = user_factory(
+            individual_organization__verified_journalist=True
+        )
+        assert not invitation.organization.has_member(invitation.user)
+        invitation.accept()
+        assert invitation.organization.has_member(invitation.user)
+        assert invitation.accepted_at == timezone.now()
+        mocked.assert_not_called()
 
     @pytest.mark.freeze_time
     @pytest.mark.django_db()

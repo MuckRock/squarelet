@@ -17,7 +17,7 @@ from sorl.thumbnail import ImageField
 from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
 from squarelet.core.mail import ORG_TO_ADMINS, send_mail
 from squarelet.core.mixins import AvatarMixin
-from squarelet.core.utils import file_path
+from squarelet.core.utils import file_path, mailchimp_subscribe
 from squarelet.oidc.middleware import send_cache_invalidations
 from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.models.payment import Charge
@@ -34,6 +34,8 @@ def organization_file_path(instance, filename):
 
 class Organization(AvatarMixin, models.Model):
     """Orginization to allow pooled requests and collaboration"""
+
+    # pylint: disable=too-many-public-methods
 
     objects = OrganizationQuerySet.as_manager()
 
@@ -341,7 +343,7 @@ class Organization(AvatarMixin, models.Model):
     def set_subscription(self, token, plan, max_users, user):
         if self.individual:
             max_users = 1
-        if token and plan:
+        if token:
             self.save_card(token)
 
         # store so we can log
@@ -406,6 +408,20 @@ class Organization(AvatarMixin, models.Model):
         ReceiptEmail.objects.bulk_create(
             [ReceiptEmail(organization=self, email=e) for e in new_emails - old_emails]
         )
+
+    def subscribe(self):
+        """
+        When an organization is first verified, subscribe all previous unverified
+        members to the DocumentCloud onboarding journey via MailChimp
+        """
+        # pylint: disable=import-outside-toplevel
+        from squarelet.users.models import User
+
+        users = User.objects.filter(organizations=self).exclude(
+            organizations__verified_journalist=True
+        )
+        subscribe_emails = [u.email for u in users]
+        mailchimp_subscribe(subscribe_emails)
 
 
 class Membership(models.Model):
@@ -557,6 +573,11 @@ class Invitation(models.Model):
             self.user = user
         self.accepted_at = timezone.now()
         self.save()
+        if (
+            self.organization.verified_journalist
+            and not self.user.verified_journalist()
+        ):
+            mailchimp_subscribe([self.user.email])
         if not self.organization.has_member(self.user):
             Membership.objects.create(organization=self.organization, user=self.user)
 
