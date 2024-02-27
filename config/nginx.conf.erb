@@ -126,7 +126,7 @@ http {
 			proxy_pass http://app_server;
 		}
 
-		error_page 403 /403.html;
+		error_page 403 /403_nginx.html;
 		location = /403.html {
 			root /app/squarelet/templates/;
 			allow all;
