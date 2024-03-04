@@ -113,10 +113,16 @@ class ChargeSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         """Create the charge object locally and on stripe"""
         organization = validated_data["organization"]
+        request = self.context.get("request")
+        if request:
+            user = request.user
+        else:
+            user = None
         try:
             charge = organization.charge(
                 validated_data["amount"],
                 validated_data["description"],
+                user,
                 validated_data.get("fee_amount", 0),
                 validated_data.get("token"),
                 validated_data.get("save_card"),
