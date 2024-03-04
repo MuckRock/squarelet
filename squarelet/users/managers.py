@@ -51,7 +51,7 @@ class UserManager(AuthUserManager):
                 # to load the organization
                 transaction.on_commit(
                     lambda: user.individual_organization.create_subscription(
-                        user_data.get("stripe_token"), plan
+                        user_data.get("stripe_token"), plan, user
                     )
                 )
 
@@ -68,7 +68,7 @@ class UserManager(AuthUserManager):
                 )
                 transaction.on_commit(
                     lambda: group_organization.create_subscription(
-                        user_data.get("stripe_token"), plan
+                        user_data.get("stripe_token"), plan, user
                     )
                 )
             else:

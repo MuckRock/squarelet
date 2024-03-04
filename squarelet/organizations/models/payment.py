@@ -101,7 +101,7 @@ class Customer(models.Model):
     def card_display(self):
         # pylint: disable=using-constant-test
         if self.card:
-            return f"{self.card.brand}: {self.card.last4}"
+            return f"{self.card.brand}: x{self.card.last4}"
         else:
             return ""
 

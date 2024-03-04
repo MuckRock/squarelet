@@ -145,23 +145,21 @@ class TestOrganization:
         organization = organization_factory()
         assert organization.subscription is None
 
-    def test_save_card(self, organization_factory, mocker):
+    @pytest.mark.django_db()
+    def test_save_card(self, organization_factory, mocker, user_factory):
         token = "token"
-        customer = Mock()
+        user = user_factory()
+        customer = Mock(card_display="Visa: x4242")
         mocker.patch(
             "squarelet.organizations.models.Organization.customer",
             return_value=customer,
-        )
-        mocked_save = mocker.patch(
-            "squarelet.organizations.models.organization.Organization.save"
         )
         mocked_sci = mocker.patch(
             "squarelet.organizations.models.organization.send_cache_invalidations"
         )
         organization = organization_factory.build()
-        organization.save_card(token)
+        organization.save_card(token, user)
         assert not organization.payment_failed
-        mocked_save.assert_called_once()
         customer.save_card.assert_called_with(token)
         mocked_sci.assert_called_with("organization", organization.uuid)
 
@@ -195,8 +193,8 @@ class TestOrganization:
             "squarelet.organizations.models.Organization.subscriptions"
         )
         token = "token"
-        organization.create_subscription(token, plan)
-        mocked_save_card.assert_called_with(token)
+        organization.create_subscription(token, plan, user)
+        mocked_save_card.assert_called_with(token, user)
         assert mocked_customer.email == organization.email
         mocked_customer.save.assert_called()
         mocked_subscriptions.start.assert_called_with(
@@ -219,7 +217,7 @@ class TestOrganization:
         max_users = 10
         token = "token"
         organization.set_subscription(token, plan, max_users, user)
-        mocked.assert_called_with(token, plan)
+        mocked.assert_called_with(token, plan, user)
 
     @pytest.mark.django_db
     def test_set_subscription_cancel(
@@ -367,7 +365,7 @@ class TestCustomer:
             "squarelet.organizations.models.Customer.card", brand=brand, last4=last4
         )
         customer = customer_factory.build(customer_id="customer_id")
-        assert customer.card_display == f"{brand}: {last4}"
+        assert customer.card_display == f"{brand}: x{last4}"
 
     def test_card_display_empty(self, customer_factory, mocker):
         mocker.patch(

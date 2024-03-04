@@ -9,3 +9,4 @@ class ChangeLogReason(DjangoChoices):
     created = ChoiceItem(0, _("Created"))
     updated = ChoiceItem(1, _("Updated"))
     failed = ChoiceItem(2, _("Failed"))
+    credit_card = ChoiceItem(3, _("Credit Card"))

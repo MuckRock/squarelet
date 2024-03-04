@@ -311,11 +311,18 @@ class Organization(AvatarMixin, models.Model):
         customer, _ = self.customers.get_or_create()
         return customer
 
-    def save_card(self, token):
+    def save_card(self, token, user):
         self.payment_failed = False
         self.save()
         self.customer().save_card(token)
         send_cache_invalidations("organization", self.uuid)
+
+        self.change_logs.create(
+            user=user,
+            reason=ChangeLogReason.credit_card,
+            credit_card=self.customer().card_display,
+            to_max_users=self.max_users,
+        )
 
     def remove_card(self):
         self.customer().remove_card()
@@ -329,9 +336,9 @@ class Organization(AvatarMixin, models.Model):
     def subscription(self):
         return self.subscriptions.first()
 
-    def create_subscription(self, token, plan):
+    def create_subscription(self, token, plan, user):
         if token:
-            self.save_card(token)
+            self.save_card(token, user)
 
         customer = self.customer().stripe_customer
         if not customer.email:
@@ -344,7 +351,7 @@ class Organization(AvatarMixin, models.Model):
         if self.individual:
             max_users = 1
         if token:
-            self.save_card(token)
+            self.save_card(token, user)
 
         # store so we can log
         from_plan, from_max_users = (self.plan, self.max_users)
@@ -354,7 +361,7 @@ class Organization(AvatarMixin, models.Model):
 
         if not self.plan and plan:
             # create a subscription going from no plan to plan
-            self.create_subscription(token, plan)
+            self.create_subscription(token, plan, user)
         elif self.plan and not plan:
             # cancel a subscription going from plan to no plan
             self.subscription.cancel()
@@ -385,6 +392,7 @@ class Organization(AvatarMixin, models.Model):
         self,
         amount,
         description,
+        user,
         fee_amount=0,
         token=None,
         save_card=False,
@@ -392,7 +400,7 @@ class Organization(AvatarMixin, models.Model):
     ):
         """Charge the organization and optionally save their credit card"""
         if save_card:
-            self.save_card(token)
+            self.save_card(token, user)
             token = None
         if metadata is None:
             metadata = {}
@@ -699,6 +707,12 @@ class OrganizationChangeLog(models.Model):
     to_max_users = models.IntegerField(
         _("maximum users"),
         help_text=_("The organization's max_users after the change occurred"),
+    )
+    credit_card = models.CharField(
+        _("credit card"),
+        max_length=255,
+        default="",
+        help_text=_("The updated credit card number"),
     )
 
     def describe(self):
