@@ -290,6 +290,16 @@ export class PlansView {
         const useCardOnFile = ucofInput != null && ucofInput.value == 'True';
         const plan = this.getPlan();
 
+        const ccEmpty = (
+          document.querySelector('#card-element').classList.contains(
+            "StripeElement--empty")
+        );
+        if (isFree(plan) && ccEmpty) {
+          // if we are on a free plan, and no credit card is provided, do not try to
+          // handle the CC
+          return;
+        }
+
         if (!useCardOnFile) {
           event.preventDefault();
 
