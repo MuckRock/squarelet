@@ -165,7 +165,7 @@ class Organization(AvatarMixin, models.Model):
     verified_journalist = models.BooleanField(
         _("verified journalist"),
         default=False,
-        help_text=_("This organization is a verified jorunalistic organization"),
+        help_text=_("This organization is a verified journalistic organization"),
     )
 
     # Book keeping
