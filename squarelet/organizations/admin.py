@@ -219,6 +219,7 @@ class OrganizationChangeLogAdmin(VersionAdmin):
         "to_plan",
         "to_next_plan",
         "to_max_users",
+        "credit_card",
     )
     search_fields = ("organization__name",)
     list_filter = (

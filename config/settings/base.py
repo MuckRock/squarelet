@@ -96,6 +96,7 @@ LOCAL_APPS = [
     "squarelet.oidc",
     "squarelet.organizations.apps.OrganizationsConfig",
     "squarelet.statistics",
+    "squarelet.elections",
     "squarelet.users.apps.UsersConfig",
     "squarelet.providers.github_app",
 ]
@@ -402,6 +403,7 @@ MAILGUN_ACCESS_KEY = env("MAILGUN_ACCESS_KEY")
 # ------------------------------------------------------------------------------
 SESAME_MAX_AGE = 60 * 60 * 24 * 2  # 2 days
 SESAME_ONE_TIME = True
+
 
 # django-debug-toolbar
 # ------------------------------------------------------------------------------

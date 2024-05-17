@@ -15,9 +15,10 @@
       <input type="hidden" name="action" value="managemembers">
       <div class="_cls-manageTable">
         <div class="_cls-manageRow _cls-manageHeader">
-          <div class="_cls-manageCell">{% trans 'User' %}</div>
-          <div class="_cls-manageCell">{% trans 'Admin' %}</div>
-          <div class="_cls-manageCell">{% trans 'Action' %}</div>
+          <div class="_cls-manageCell" style="width: 35%">{% trans 'User' %}</div>
+          <div class="_cls-manageCell" style="width: 40%">{% trans 'Email' %}</div>
+          <div class="_cls-manageCell" style="width: 5%">{% trans 'Admin' %}</div>
+          <div class="_cls-manageCell" style="width: 20%">{% trans 'Action' %}</div>
           </div>
         {% for member in members %}
           <div class="_cls-manageRow">
@@ -28,6 +29,9 @@
                 </div>
                 {{ member.user.safe_name }}
               </a>
+            </div>
+            <div class="_cls-manageCell">
+              <a href="mailto:{{ member.user.email }}">{{ member.user.email }}</a>
             </div>
             {% if member.user == admin %}
               <div class="_cls-manageCell">{% trans 'Yes' %}</div>
