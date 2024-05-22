@@ -92,6 +92,9 @@ class OrganizationAdmin(VersionAdmin):
         "members",
         "parent",
         "wikidata_id",
+        "city",
+        "state",
+        "country",
     )
     readonly_fields = (
         "uuid",
