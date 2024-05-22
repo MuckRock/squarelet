@@ -33,6 +33,7 @@ djangorestframework_simplejwt
 dogslow
 drf-nested-routers
 furl
+fuzzywuzzy
 html2text
 ipdb
 memoize

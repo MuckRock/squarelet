@@ -233,6 +233,8 @@ future==0.16.0
     # via
     #   -r requirements/base.txt
     #   pyjwkest
+fuzzywuzzy==0.18.0
+    # via -r requirements/base.txt
 gunicorn==19.8.1
     # via -r requirements/production.in
 html2text==2018.1.9
