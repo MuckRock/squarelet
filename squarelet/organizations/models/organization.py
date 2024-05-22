@@ -784,6 +784,9 @@ class OrganizationSubtype(models.Model):
         help_text=_("The parent type for this subtype"),
     )
 
+    class Meta:
+        ordering = ("type",)
+
     def __str__(self):
         return f"{self.type.name} - {self.name}"
 
