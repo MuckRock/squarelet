@@ -423,6 +423,7 @@ class Organization(AvatarMixin, models.Model):
         members to the DocumentCloud onboarding journey via MailChimp
         """
         # pylint: disable=import-outside-toplevel
+        # Squarelet
         from squarelet.users.models import User
 
         users = User.objects.filter(organizations=self).exclude(
@@ -762,7 +763,7 @@ class OrganizationSubtype(models.Model):
     )
 
     def __str__(self):
-        return self.name
+        return f"{self.type.name} - {self.name}"
 
 
 class OrganizationUrl(models.Model):
