@@ -60,13 +60,26 @@ class Command(BaseCommand):
         ) as outfile:
             reader = csv.reader(infile)
             writer = csv.writer(outfile)
-            writer.writerow(["lion org", "squarelet org", "squarelet link"])
+            writer.writerow(["lion org", "squarelet org", "squarelet link", "score"])
             next(reader)  # discard headers
             for name, website, state, city, country in reader:
                 total += 1
-                try:
-                    organization = Organization.objects.get(name=name)
-                except Organization.DoesNotExist:
+                organizations = Organization.objects.filter(name=name)
+                if len(organizations) == 1:
+                    organization = organizations[0]
+                elif len(organizations) > 1:
+                    for organization in organizations:
+                        writer.writerow(
+                            [
+                                name,
+                                organization.name,
+                                organization.get_absolute_url(),
+                                "multiple match",
+                            ]
+                        )
+                    multiple += 1
+                    continue
+                elif len(organizations) == 0:
                     match = process.extractOne(
                         name,
                         {o: o.name for o in organizations},
@@ -75,8 +88,10 @@ class Command(BaseCommand):
                     )
                     if match:
                         fuzzy += 1
-                        org_name, _score, match_org = match
-                        writer.writerow([name, org_name, match_org.get_absolute_url()])
+                        org_name, score, match_org = match
+                        writer.writerow(
+                            [name, org_name, match_org.get_absolute_url(), score]
+                        )
                     continue
 
                 exact += 1
@@ -112,5 +127,5 @@ class Command(BaseCommand):
 
         print(
             f"End Org Import {timezone.now()} - Total: {total} "
-            f"Exact: {exact} Fuzzy: {fuzzy}"
+            f"Exact: {exact} Fuzzy: {fuzzy} Multiple: {multiple}"
         )
