@@ -153,6 +153,8 @@ furl==2.1.3
     # via -r requirements/base.in
 future==0.16.0
     # via pyjwkest
+fuzzywuzzy==0.18.0
+    # via -r requirements/base.in
 html2text==2018.1.9
     # via -r requirements/base.in
 html5lib==1.1

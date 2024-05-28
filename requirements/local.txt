@@ -235,6 +235,8 @@ future==0.16.0
     # via
     #   -r requirements/base.txt
     #   pyjwkest
+fuzzywuzzy==0.18.0
+    # via -r requirements/base.txt
 html2text==2018.1.9
     # via -r requirements/base.txt
 html5lib==1.1

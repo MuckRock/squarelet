@@ -19,7 +19,11 @@ from squarelet.core.mail import ORG_TO_ADMINS, send_mail
 from squarelet.core.mixins import AvatarMixin
 from squarelet.core.utils import file_path, mailchimp_subscribe
 from squarelet.oidc.middleware import send_cache_invalidations
-from squarelet.organizations.choices import ChangeLogReason
+from squarelet.organizations.choices import (
+    COUNTRY_CHOICES,
+    STATE_CHOICES,
+    ChangeLogReason,
+)
 from squarelet.organizations.models.payment import Charge
 from squarelet.organizations.querysets import (
     InvitationQuerySet,
@@ -113,6 +117,24 @@ class Organization(AvatarMixin, models.Model):
         max_length=255,
         blank=True,
         help_text=_("The wikidata identifier"),
+    )
+
+    city = models.CharField(
+        _("city"),
+        max_length=100,
+        blank=True,
+    )
+    state = models.CharField(
+        _("state"),
+        max_length=2,
+        blank=True,
+        choices=STATE_CHOICES,
+    )
+    country = models.CharField(
+        _("country"),
+        max_length=2,
+        blank=True,
+        choices=COUNTRY_CHOICES,
     )
 
     # remove these
@@ -423,6 +445,7 @@ class Organization(AvatarMixin, models.Model):
         members to the DocumentCloud onboarding journey via MailChimp
         """
         # pylint: disable=import-outside-toplevel
+        # Squarelet
         from squarelet.users.models import User
 
         users = User.objects.filter(organizations=self).exclude(
@@ -761,8 +784,11 @@ class OrganizationSubtype(models.Model):
         help_text=_("The parent type for this subtype"),
     )
 
+    class Meta:
+        ordering = ("type",)
+
     def __str__(self):
-        return self.name
+        return f"{self.type.name} - {self.name}"
 
 
 class OrganizationUrl(models.Model):
