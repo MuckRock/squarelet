@@ -278,6 +278,10 @@ kombu==4.6.11
     #   celery
 lazy-object-proxy==1.7.1
     # via astroid
+levenshtein==0.25.1
+    # via
+    #   -r requirements/base.txt
+    #   python-levenshtein
 lxml==4.9.1
     # via
     #   -r requirements/base.txt
@@ -437,6 +441,8 @@ python-dateutil==2.7.4
     #   botocore
     #   faker
     #   freezegun
+python-levenshtein==0.25.1
+    # via -r requirements/base.txt
 python-slugify==1.2.5
     # via -r requirements/base.txt
 python3-openid==3.1.0
@@ -449,6 +455,10 @@ pytz==2018.4
     #   babel
     #   celery
     #   djangorestframework
+rapidfuzz==3.9.1
+    # via
+    #   -r requirements/base.txt
+    #   levenshtein
 rcssmin==1.1.1
     # via
     #   -r requirements/base.txt
