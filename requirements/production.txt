@@ -245,6 +245,10 @@ kombu==4.6.11
     # via
     #   -r requirements/base.txt
     #   celery
+levenshtein==0.25.1
+    # via
+    #   -r requirements/base.txt
+    #   python-levenshtein
 lxml==4.9.1
     # via
     #   -r requirements/base.txt
@@ -343,6 +347,8 @@ python-dateutil==2.7.4
     # via
     #   -r requirements/base.txt
     #   botocore
+python-levenshtein==0.25.1
+    # via -r requirements/base.txt
 python-slugify==1.2.5
     # via -r requirements/base.txt
 python3-openid==3.1.0
@@ -354,6 +360,10 @@ pytz==2018.4
     #   -r requirements/base.txt
     #   celery
     #   djangorestframework
+rapidfuzz==3.9.1
+    # via
+    #   -r requirements/base.txt
+    #   levenshtein
 rcssmin==1.1.1
     # via
     #   -r requirements/base.txt
