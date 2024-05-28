@@ -55,44 +55,57 @@ class Command(BaseCommand):
         total = 0
         exact = 0
         fuzzy = 0
+        multiple = 0
 
         with smart_open(f"s3://{BUCKET}/elections/inn.csv", "r") as infile, smart_open(
             f"s3://{BUCKET}/elections/inn_fuzzy.csv", "w"
         ) as outfile:
             reader = csv.reader(infile)
             writer = csv.writer(outfile)
-            writer.writerow(["inn org", "squarelet org", "squarelet link"])
+            writer.writerow(["inn org", "squarelet org", "squarelet link", "score"])
             next(reader)  # discard headers
             for co_name, pub_name, website, reach, city, state in reader:
                 total += 1
-                try:
-                    organization = Organization.objects.get(name=co_name)
-                except Organization.DoesNotExist:
-                    try:
-                        organization = Organization.objects.get(name=pub_name)
-                    except Organization.DoesNotExist:
-                        co_match = process.extractOne(
-                            co_name,
-                            {o: o.name for o in organizations},
-                            scorer=fuzz.partial_ratio,
-                            score_cutoff=83,
+                organizations = Organization.objects.filter(
+                    name__in=[co_name, pub_name]
+                )
+                if len(organizations) == 1:
+                    organization = organizations[0]
+                elif len(organizations) > 1:
+                    for organization in organizations:
+                        writer.writerow(
+                            [
+                                co_name,
+                                organization.name,
+                                organization.get_absolute_url(),
+                                "multiple match",
+                            ]
                         )
-                        pub_match = process.extractOne(
-                            pub_name,
-                            {o: o.name for o in organizations},
-                            scorer=fuzz.partial_ratio,
-                            score_cutoff=83,
+                    multiple += 1
+                    continue
+                elif len(organizations) == 0:
+                    co_match = process.extractOne(
+                        co_name,
+                        {o: o.name for o in organizations},
+                        scorer=fuzz.partial_ratio,
+                        score_cutoff=83,
+                    )
+                    pub_match = process.extractOne(
+                        pub_name,
+                        {o: o.name for o in organizations},
+                        scorer=fuzz.partial_ratio,
+                        score_cutoff=83,
+                    )
+                    matches = [m for m in [co_match, pub_match] if m is not None]
+                    if matches:
+                        # get the higher match
+                        matches.sort(key=lambda x: x[1], reverse=True)
+                        fuzzy += 1
+                        org_name, score, match_org = matches[0]
+                        writer.writerow(
+                            [co_name, org_name, match_org.get_absolute_url(), score]
                         )
-                        matches = [m for m in [co_match, pub_match] if m is not None]
-                        if matches:
-                            # get the higher match
-                            matches.sort(key=lambda x: x[1], reverse=True)
-                            fuzzy += 1
-                            org_name, _score, match_org = matches[0]
-                            writer.writerow(
-                                [co_name, org_name, match_org.get_absolute_url()]
-                            )
-                        continue
+                    continue
 
                 exact += 1
 
@@ -114,5 +127,5 @@ class Command(BaseCommand):
 
         print(
             f"End Org Import {timezone.now()} - Total: {total} "
-            f"Exact: {exact} Fuzzy: {fuzzy}"
+            f"Exact: {exact} Fuzzy: {fuzzy} Multiple: {multiple}"
         )
