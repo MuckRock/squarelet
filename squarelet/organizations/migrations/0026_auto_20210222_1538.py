@@ -4,7 +4,7 @@
 from django.db import migrations
 
 TYPES = {
-    "Newsrooms": ["Print", "Online", "Radio", "Television", "Newsletter", "Book"],
+    "Newsroom": ["Print", "Online", "Radio", "Television", "Newsletter", "Book"],
     "NGO": ["Advocacy Organization"],
     "GLAM": ["Libraries and Archives", "Museums and Galleries"],
     "Academic": [
