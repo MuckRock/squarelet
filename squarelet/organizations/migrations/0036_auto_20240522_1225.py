@@ -9,7 +9,7 @@ def make_types(apps, schema_editor):
     OrganizationType = apps.get_model("organizations", "OrganizationType")
     OrganizationSubtype = apps.get_model("organizations", "OrganizationSubtype")
 
-    newsrooms = OrganizationType.objects.get(name="Newsrooms")
+    newsrooms = OrganizationType.objects.get(name="Newsroom")
     OrganizationSubtype.objects.create(name="Nonprofit", type=newsrooms)
 
     reach = OrganizationType.objects.create(name="Reach")
