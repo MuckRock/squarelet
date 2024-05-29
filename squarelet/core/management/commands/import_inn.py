@@ -87,13 +87,13 @@ class Command(BaseCommand):
                     co_match = process.extractOne(
                         co_name,
                         {o: o.name for o in all_organizations},
-                        scorer=fuzz.partial_ratio,
+                        scorer=fuzz.ratio,
                         score_cutoff=83,
                     )
                     pub_match = process.extractOne(
                         pub_name,
                         {o: o.name for o in organizations},
-                        scorer=fuzz.partial_ratio,
+                        scorer=fuzz.ratio,
                         score_cutoff=83,
                     )
                     matches = [m for m in [co_match, pub_match] if m is not None]
