@@ -74,7 +74,8 @@ class Command(BaseCommand):
                             [
                                 name,
                                 organization.name,
-                                organization.get_absolute_url(),
+                                "https://accounts.muckrock.com"
+                                + organization.get_absolute_url(),
                                 "multiple match",
                             ]
                         )
@@ -91,7 +92,13 @@ class Command(BaseCommand):
                         fuzzy += 1
                         org_name, score, match_org = match
                         writer.writerow(
-                            [name, org_name, match_org.get_absolute_url(), score]
+                            [
+                                name,
+                                org_name,
+                                "https://accounts.muckrock.com"
+                                + match_org.get_absolute_url(),
+                                score,
+                            ]
                         )
                     continue
 
