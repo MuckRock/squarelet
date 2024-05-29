@@ -50,7 +50,7 @@ class Command(BaseCommand):
         reaches = ["Local", "State", "Regional", "National", "Global"]
         reach_map = {r: OrganizationSubtype.objects.get(name=r) for r in reaches}
 
-        organizations = Organization.objects.filter(individual=False)
+        all_organizations = Organization.objects.filter(individual=False)
 
         total = 0
         exact = 0
@@ -67,7 +67,7 @@ class Command(BaseCommand):
             for co_name, pub_name, website, reach, city, state in reader:
                 total += 1
                 organizations = Organization.objects.filter(
-                    name__in=[co_name, pub_name]
+                    individual=False, name__in=[co_name, pub_name]
                 )
                 if len(organizations) == 1:
                     organization = organizations[0]
@@ -86,7 +86,7 @@ class Command(BaseCommand):
                 elif len(organizations) == 0:
                     co_match = process.extractOne(
                         co_name,
-                        {o: o.name for o in organizations},
+                        {o: o.name for o in all_organizations},
                         scorer=fuzz.partial_ratio,
                         score_cutoff=83,
                     )
