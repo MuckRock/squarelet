@@ -103,6 +103,8 @@ class Command(BaseCommand):
                 organization.city = city
                 # get the state abbreviation
                 states = [s[0] for s in STATE_CHOICES if s[1] == state]
+                if state == "DC":  # only this one is abbreviated
+                    states = ["DC"]
                 if len(states) == 0:
                     print(f"State not found: {state}")
                     continue
