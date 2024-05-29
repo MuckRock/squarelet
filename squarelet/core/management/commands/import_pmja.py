@@ -83,7 +83,7 @@ class Command(BaseCommand):
                     match = process.extractOne(
                         name,
                         {o: o.name for o in all_organizations},
-                        scorer=fuzz.partial_ratio,
+                        scorer=fuzz.ratio,
                         score_cutoff=83,
                     )
                     if match:
