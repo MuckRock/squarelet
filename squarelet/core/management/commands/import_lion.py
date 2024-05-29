@@ -49,11 +49,12 @@ class Command(BaseCommand):
         lion = Organization.objects.get(name="LION")
         local = OrganizationSubtype.objects.get(name="Local")
         online = OrganizationSubtype.objects.get(name="Online")
-        organizations = Organization.objects.filter(individual=False)
+        all_organizations = Organization.objects.filter(individual=False)
 
         total = 0
         exact = 0
         fuzzy = 0
+        multiple = 0
 
         with smart_open(f"s3://{BUCKET}/elections/lion.csv", "r") as infile, smart_open(
             f"s3://{BUCKET}/elections/lion_fuzzy.csv", "w"
@@ -64,7 +65,7 @@ class Command(BaseCommand):
             next(reader)  # discard headers
             for name, website, state, city, country in reader:
                 total += 1
-                organizations = Organization.objects.filter(name=name)
+                organizations = Organization.objects.filter(individual=False, name=name)
                 if len(organizations) == 1:
                     organization = organizations[0]
                 elif len(organizations) > 1:
@@ -82,7 +83,7 @@ class Command(BaseCommand):
                 elif len(organizations) == 0:
                     match = process.extractOne(
                         name,
-                        {o: o.name for o in organizations},
+                        {o: o.name for o in all_organizations},
                         scorer=fuzz.partial_ratio,
                         score_cutoff=83,
                     )
