@@ -56,6 +56,15 @@ class Command(BaseCommand):
         exact = 0
         fuzzy = 0
         multiple = 0
+        mapped = 0
+
+        org_map = {}
+
+        with smart_open(f"s3://{BUCKET}/elections/inn_map.csv", "r") as infile:
+            reader = csv.reader(infile)
+            next(reader)
+            for inn_name, sq_name in reader:
+                org_map[inn_name] = sq_name
 
         with smart_open(f"s3://{BUCKET}/elections/inn.csv", "r") as infile, smart_open(
             f"s3://{BUCKET}/elections/inn_fuzzy.csv", "w"
@@ -71,7 +80,9 @@ class Command(BaseCommand):
                 )
                 if len(organizations) == 1:
                     organization = organizations[0]
+                    exact += 1
                 elif len(organizations) > 1:
+                    print(f"Multiple matches: {co_name}")
                     for organization in organizations:
                         writer.writerow(
                             [
@@ -85,36 +96,38 @@ class Command(BaseCommand):
                     multiple += 1
                     continue
                 elif len(organizations) == 0:
-                    co_match = process.extractOne(
-                        co_name,
-                        {o: o.name for o in all_organizations},
-                        scorer=fuzz.ratio,
-                        score_cutoff=83,
-                    )
-                    pub_match = process.extractOne(
-                        pub_name,
-                        {o: o.name for o in organizations},
-                        scorer=fuzz.ratio,
-                        score_cutoff=83,
-                    )
-                    matches = [m for m in [co_match, pub_match] if m is not None]
-                    if matches:
-                        # get the higher match
-                        matches.sort(key=lambda x: x[1], reverse=True)
-                        fuzzy += 1
-                        org_name, score, match_org = matches[0]
-                        writer.writerow(
-                            [
-                                co_name,
-                                org_name,
-                                "https://accounts.muckrock.com"
-                                + match_org.get_absolute_url(),
-                                score,
-                            ]
+                    if co_name in org_map:
+                        organization = Organization.objects.get(name=org_map[co_name])
+                        mapped += 1
+                    else:
+                        co_match = process.extractOne(
+                            co_name,
+                            {o: o.name for o in all_organizations},
+                            scorer=fuzz.ratio,
+                            score_cutoff=83,
                         )
-                    continue
-
-                exact += 1
+                        pub_match = process.extractOne(
+                            pub_name,
+                            {o: o.name for o in organizations},
+                            scorer=fuzz.ratio,
+                            score_cutoff=83,
+                        )
+                        matches = [m for m in [co_match, pub_match] if m is not None]
+                        if matches:
+                            # get the higher match
+                            matches.sort(key=lambda x: x[1], reverse=True)
+                            fuzzy += 1
+                            org_name, score, match_org = matches[0]
+                            writer.writerow(
+                                [
+                                    co_name,
+                                    org_name,
+                                    "https://accounts.muckrock.com"
+                                    + match_org.get_absolute_url(),
+                                    score,
+                                ]
+                            )
+                        continue
 
                 # add to lion
                 inn.members.add(organization)

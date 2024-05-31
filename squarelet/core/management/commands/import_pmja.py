@@ -54,6 +54,15 @@ class Command(BaseCommand):
         exact = 0
         fuzzy = 0
         multiple = 0
+        mapped = 0
+
+        org_map = {}
+
+        with smart_open(f"s3://{BUCKET}/elections/pmja_map.csv", "r") as infile:
+            reader = csv.reader(infile)
+            next(reader)
+            for pmja_name, sq_name in reader:
+                org_map[pmja_name] = sq_name
 
         with smart_open(f"s3://{BUCKET}/elections/pmja.csv", "r") as infile, smart_open(
             f"s3://{BUCKET}/elections/pmja_fuzzy.csv", "w"
@@ -67,6 +76,7 @@ class Command(BaseCommand):
                 organizations = Organization.objects.filter(individual=False, name=name)
                 if len(organizations) == 1:
                     organization = organizations[0]
+                    exact += 1
                 elif len(organizations) > 1:
                     for organization in organizations:
                         writer.writerow(
@@ -81,27 +91,29 @@ class Command(BaseCommand):
                     multiple += 1
                     continue
                 elif len(organizations) == 0:
-                    match = process.extractOne(
-                        name,
-                        {o: o.name for o in all_organizations},
-                        scorer=fuzz.ratio,
-                        score_cutoff=83,
-                    )
-                    if match:
-                        fuzzy += 1
-                        org_name, score, match_org = match
-                        writer.writerow(
-                            [
-                                name,
-                                org_name,
-                                "https://accounts.muckrock.com"
-                                + match_org.get_absolute_url(),
-                                score,
-                            ]
+                    if name in org_map:
+                        organization = Organization.objects.get(name=org_map[name])
+                        mapped += 1
+                    else:
+                        match = process.extractOne(
+                            name,
+                            {o: o.name for o in all_organizations},
+                            scorer=fuzz.ratio,
+                            score_cutoff=83,
                         )
-                    continue
-
-                exact += 1
+                        if match:
+                            fuzzy += 1
+                            org_name, score, match_org = match
+                            writer.writerow(
+                                [
+                                    name,
+                                    org_name,
+                                    "https://accounts.muckrock.com"
+                                    + match_org.get_absolute_url(),
+                                    score,
+                                ]
+                            )
+                        continue
 
                 # add to pmja
                 pmja.members.add(organization)
