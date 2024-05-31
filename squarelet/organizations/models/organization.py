@@ -136,6 +136,14 @@ class Organization(AvatarMixin, models.Model):
         blank=True,
         choices=COUNTRY_CHOICES,
     )
+    hub_eligible = models.BooleanField(
+        _("hub eligible"),
+        blank=True,
+        default=False,
+        help_text=_(
+            "This org and its members and children may access the resource hub"
+        ),
+    )
 
     # remove these
     _plan = models.ForeignKey(
