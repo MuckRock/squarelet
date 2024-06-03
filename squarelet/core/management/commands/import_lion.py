@@ -94,7 +94,10 @@ class Command(BaseCommand):
                 elif len(organizations) == 0:
                     if name in org_map:
                         try:
-                            organization = Organization.objects.get(name=org_map[name])
+                            organization = Organization.objects.get(
+                                individual=False,
+                                name=org_map[name],
+                            )
                         except (
                             Organization.DoesNotExist,
                             Organization.MultipleObjectsReturned,
