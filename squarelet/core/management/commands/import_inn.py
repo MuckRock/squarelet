@@ -97,7 +97,14 @@ class Command(BaseCommand):
                     continue
                 elif len(organizations) == 0:
                     if co_name in org_map:
-                        organization = Organization.objects.get(name=org_map[co_name])
+                        try:
+                            organization = Organization.objects.get(name=org_map[name])
+                        except (
+                            Organization.DoesNotExist,
+                            Organization.MultipleObjectsReturned,
+                        ) as exc:
+                            print(f"Error: {exc} - {co_name} - {org_map[co_name]}")
+                            continue
                         mapped += 1
                     else:
                         co_match = process.extractOne(
