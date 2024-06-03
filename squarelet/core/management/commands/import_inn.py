@@ -99,7 +99,8 @@ class Command(BaseCommand):
                     if co_name in org_map:
                         try:
                             organization = Organization.objects.get(
-                                name=org_map[co_name]
+                                individual=False,
+                                name=org_map[co_name],
                             )
                         except (
                             Organization.DoesNotExist,
