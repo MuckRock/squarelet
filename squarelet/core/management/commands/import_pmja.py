@@ -42,7 +42,7 @@ class Command(BaseCommand):
                 transaction.savepoint_rollback(sid)
 
     def import_orgs(self):
-        # pylint: disable=too-many-locals
+        # pylint: disable=too-many-locals, too-many-statements
         print(f"Begin Org Import {timezone.now()}")
 
         pmja = Organization.objects.get(name="PMJA")

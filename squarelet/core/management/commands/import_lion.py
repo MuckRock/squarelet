@@ -43,7 +43,7 @@ class Command(BaseCommand):
                 transaction.savepoint_rollback(sid)
 
     def import_orgs(self):
-        # pylint: disable=too-many-locals, too-many-statements
+        # pylint: disable=too-many-locals, too-many-statements, too-many-branches
         print(f"Begin Org Import {timezone.now()}")
 
         lion = Organization.objects.get(name="LION")
