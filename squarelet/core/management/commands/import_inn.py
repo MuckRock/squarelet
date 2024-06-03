@@ -147,7 +147,8 @@ class Command(BaseCommand):
                 organization.country = "US"
 
                 organization.subtypes.add(nonprofit)
-                organization.subtypes.add(reach_map[reach])
+                if reach:
+                    organization.subtypes.add(reach_map[reach])
 
                 if not website.startswith("http"):
                     website = "https://" + website
