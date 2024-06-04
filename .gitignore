@@ -53,6 +53,7 @@ coverage.xml
 # Django stuff:
 staticfiles/
 
+
 # Sphinx documentation
 docs/_build/
 
@@ -69,6 +70,7 @@ celerybeat-schedule
 .venv
 venv/
 ENV/
+.envrc
 
 # Rope project settings
 .ropeproject
@@ -284,6 +286,7 @@ squarelet/media/
 js_build
 
 config/certs/
+squarelet/config/
 
 ### IDEs/Editors
 
