@@ -60,8 +60,14 @@ MIXPANEL_CUSTOM_LIB_URL:"file:"===c.location.protocol&&"//cdn4.mxpnl.com/libs/mi
         </a>
       </nav>
       <nav class="_cls-navItems _cls-domainItems">
-        <a href="/elections" class="_cls-navItem">Knight Election Resource Hub</a>
-        <a href="{% url 'organizations:list' %}" class="_cls-navItem">Organizations</a>
+        <a href="/elections" class="_cls-navItem">
+          <img src="{% static 'icons/erh.svg' %}">
+          Election Resources
+        </a>
+        <a href="{% url 'organizations:list' %}" class="_cls-navItem">
+          <img src="{% static 'icons/org.svg' %}">
+          Organizations
+        </a>
       </nav>
       </nav>
       {% if request.user.is_authenticated %}
