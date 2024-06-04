@@ -22,11 +22,21 @@ a._cls-nostyle {
 }
 
 ._cls-heading {
-  padding: 1.2em 2em;
+  padding: 5px 10px;
   box-shadow: 0 0 8px #0000005c;
   background: white;
   position: relative;
-  border-top: solid 7px #168ee5;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+._cls-domainItems {
+  flex: 1 1 auto;
+}
+
+._cls-accountItems {
+  flex: 0 1 auto;
 }
 
 ._cls-intent {
@@ -407,20 +417,10 @@ nav a:hover ._cls-serviceName {
   color: #00000091;
 }
 
-._cls-headingContent {
-  max-width: 900px;
-  margin: -0.5em auto 0 auto;
-}
-
-@media only screen and (max-width: 1000px) {
-  ._cls-headingContent ._cls-serviceInfo {
-    display: none;
-  }
-}
-
 ._cls-mainLogo {
-  margin-right: 2em;
-  vertical-align: middle;
+  display: block;
+  height: 1.125em;
+  width: auto;
 }
 
 ._cls-main {
@@ -1074,6 +1074,35 @@ a._cls-dropdownItem {
   border-bottom: none;
 }
 
+._cls-navItem, a._cls-navItem {
+  display: flex;
+  padding: 4px 8px;
+  border-radius: 4px;
+  align-items: center;
+  gap: 8px;
+  border-bottom: none;
+  color: var(--gray-5, #233944);  
+  font-feature-settings: 'ss04' on;
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-size: var(--font-md, 16px);
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+  text-align: center;
+}
+
+a._cls-navItem:hover {
+  color: var(--blue-5, #053775);
+  background: var(--blue-2, #B5CEED);
+}
+
+._cls-navItems {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
 ._cls-profDropdown._cls-active ._cls-avatar {
   background: #f1f1f1;
   border-bottom: solid 2px transparent;
@@ -1305,4 +1334,8 @@ textarea {
 #hint_id_max_users {
   display: block;
   margin-top: 0.5em;
+}
+
+.cls-header {
+
 }
