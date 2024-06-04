@@ -9,9 +9,9 @@ User account service for MuckRock and DocumentCloud
 ### Software required
 
 1. [docker][docker-install]
-3. [python][python-install]
-4. [invoke][invoke-install]
-5. [mkcert][mkcert-install]
+2. [python][python-install]
+3. [invoke][invoke-install]
+4. [mkcert][mkcert-install]
 
 ### Installation Steps
 
@@ -77,20 +77,20 @@ If you are developing on any of our other projects. Follow the following integra
     1. Create a client called `MuckRock Dev` <br/>
     2. Make sure the fields have the following values: <br/>
 
-    | Field                                                         | Value                                                                                                      |
-    | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-    | Owner                                                         | blank/your user account                                                                                    |
-    | Client Type                                                   | Confidential                                                                                               |
-    | Response Types                                                | code (Authorization Code Flow)                                                                             |
+    | Field                                                         | Value                                                                                                        |
+    | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+    | Owner                                                         | blank/your user account                                                                                      |
+    | Client Type                                                   | Confidential                                                                                                 |
+    | Response Types                                                | code (Authorization Code Flow)                                                                               |
     | Redirect URIs (on separate lines)                             | https://dev.muckrock.com/accounts/complete/squarelet https://dev.foiamachine.org/accounts/complete/squarelet |
-    | JWT Algorithm                                                 | RS256                                                                                                      |
-    | Require Consent?                                              | Unchecked                                                                                                  |
-    | Reuse Consent                                                 | Checked                                                                                                    |
-    | Client ID                                                     | This will be filled in automatically upon saving                                                           |
-    | Client SECRET                                                 | This will be filled in automatically upon saving                                                           |
-    | Scopes (separated by whitespace)                                    | read_user write_user read_organization write_charge read_auth_token                                        |
+    | JWT Algorithm                                                 | RS256                                                                                                        |
+    | Require Consent?                                              | Unchecked                                                                                                    |
+    | Reuse Consent                                                 | Checked                                                                                                      |
+    | Client ID                                                     | This will be filled in automatically upon saving                                                             |
+    | Client SECRET                                                 | This will be filled in automatically upon saving                                                             |
+    | Scopes (separated by whitespace)                              | read_user write_user read_organization write_charge read_auth_token                                          |
     | Post Logout Redirect URIs (on separate lines)                 | https://dev.muckrock.com/ https://dev.foiamachine.org/                                                       |
-    | Webhook URL (To make this field appear, Add a client profile) | https://dev.muckrock.com/squarelet/webhook/                                                                 |
+    | Webhook URL (To make this field appear, Add a client profile) | https://dev.muckrock.com/squarelet/webhook/                                                                  |
 
     <br/>
     </details>
@@ -99,23 +99,25 @@ If you are developing on any of our other projects. Follow the following integra
     1. Create a client called `DocumentCloud Dev` <br/>
     2. Make sure the fields have the following values: <br/>
 
-    |Field| Value |
-    |--|--|
-    | Owner | blank/your user account |
-    |Client Type|Confidential|
-    |Response Types|code (Authorization Code Flow)|
-    |Redirect URIs (on separate lines)|https://api.dev.documentcloud.org/accounts/complete/squarelet https://minio.documentcloud.org/accounts/complete/squarelet|
-    |JWT Algorithm|RS256|
-    |Require Consent?|Unchecked|
-    |Reuse Consent|Checked|
-    |Client ID|This will be filled in automatically upon saving|
-    |Client SECRET|This will be filled in automatically upon saving|
-    |Scopes (separated by whitespace)|read_user read_organization read_auth_token|
-    |Post Logout Redirect URIs|https://dev.documentcloud.org|
-    |Webhook URL (To make this field appear, Add a client profile)|https://api.dev.documentcloud.org/squarelet/webhook/|
+    | Field                                                         | Value                                                                                                                     |
+    | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+    | Owner                                                         | blank/your user account                                                                                                   |
+    | Client Type                                                   | Confidential                                                                                                              |
+    | Response Types                                                | code (Authorization Code Flow)                                                                                            |
+    | Redirect URIs (on separate lines)                             | https://api.dev.documentcloud.org/accounts/complete/squarelet https://minio.documentcloud.org/accounts/complete/squarelet |
+    | JWT Algorithm                                                 | RS256                                                                                                                     |
+    | Require Consent?                                              | Unchecked                                                                                                                 |
+    | Reuse Consent                                                 | Checked                                                                                                                   |
+    | Client ID                                                     | This will be filled in automatically upon saving                                                                          |
+    | Client SECRET                                                 | This will be filled in automatically upon saving                                                                          |
+    | Scopes (separated by whitespace)                              | read_user read_organization read_auth_token                                                                               |
+    | Post Logout Redirect URIs                                     | https://dev.documentcloud.org                                                                                             |
+    | Webhook URL (To make this field appear, Add a client profile) | https://api.dev.documentcloud.org/squarelet/webhook/                                                                      |
+
     </details>
-8. Click save and continue editing. Note down the `Client ID` and `Client SECRET` values. You will need these later.
-9. Make sure in your `.envs/.local/.django` file, there exist values for: `STRIPE_PUB_KEY`, `STRIPE_SECRET_KEY`, and `STRIPE_WEBHOOK_SECRET`.
+
+8.  Click save and continue editing. Note down the `Client ID` and `Client SECRET` values. You will need these later.
+9.  Make sure in your `.envs/.local/.django` file, there exist values for: `STRIPE_PUB_KEY`, `STRIPE_SECRET_KEY`, and `STRIPE_WEBHOOK_SECRET`.
 10. You must restart the Docker Compose session (via the command `docker compose down` followed by `docker compose up`) each time you change a `.django` file for it to take effect.
 
 ## Docker info
@@ -152,13 +154,11 @@ All systems can be brought up using `inv up`. You can rebuild all images using `
 
 Be sure to stop (if needed) all the docker compose sessions from the different integrations (Ctrl-C, or `docker compose down`) and Squarelet (`docker compose down` in Squarelet folder). Then run the Squarelet session using `inv up` in the squarelet folder. **Finally, run `docker compose up` in the integration's folder to begin using the new dotfiles.**
 
--   This will build and start all of the integration docker images using docker compose. It will attach to the Squarelet network which must be already running. You can connect to Squarelet nginx on port 80 and it will serve the appropriate dependent http service, such as DocumentCloud, based on domain as a virtual host. The `local.yml` configuration file has the docker compose details.
+- This will build and start all of the integration docker images using docker compose. It will attach to the Squarelet network which must be already running. You can connect to Squarelet nginx on port 80 and it will serve the appropriate dependent http service, such as DocumentCloud, based on domain as a virtual host. The `local.yml` configuration file has the docker compose details.
 - If you do `docker compose down` on Squarelet when none of the other dependent docker compose sessions (such as DocumentCloud) are running, `docker compose down` will delete the Squarelet network. You will have to explicitly bring the whole squarelet docker compose session back up to recreate it and nginx before being able to start a dependent docker compose session (such as DocumentCloud).
 - Using `docker compose up -d` rather than `docker compose up` will make a daemon for DocumentCloud as Squarelet defaults to.
 
 </details>
-
-
 
 ### Networking Setup
 

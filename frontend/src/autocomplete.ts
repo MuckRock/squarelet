@@ -66,7 +66,7 @@ export class AutocompleteView {
     text: string,
     link: string,
     avatarUrl: string,
-    highlight: string = ""
+    highlight: string = "",
   ) {
     const a = document.createElement("a");
     a.href = link;
@@ -136,7 +136,7 @@ export class AutocompleteView {
           this.render(results, append, term);
           this.async = null;
         }
-      }
+      },
     );
   }
 
