@@ -1081,7 +1081,8 @@ a._cls-dropdownItem {
   align-items: center;
   gap: 8px;
   border-bottom: none;
-  color: var(--gray-5, #233944);  
+  color: var(--gray-5, #233944);
+  fill: var(--gray-5, #233944);  
   font-feature-settings: 'ss04' on;
   font-family: var(--font-sans, "Source Sans Pro");
   font-size: var(--font-md, 16px);
@@ -1093,6 +1094,7 @@ a._cls-dropdownItem {
 
 a._cls-navItem:hover {
   color: var(--blue-5, #053775);
+  fill: var(--blue-5, #053775);
   background: var(--blue-2, #B5CEED);
 }
 
