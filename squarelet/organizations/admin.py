@@ -86,6 +86,7 @@ class OrganizationAdmin(VersionAdmin):
         "individual",
         "private",
         "verified_journalist",
+        "hub_eligible",
         "max_users",
         "payment_failed",
         "subtypes",
