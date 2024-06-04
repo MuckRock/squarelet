@@ -630,7 +630,7 @@ class Invitation(models.Model):
     def get_name(self):
         """Returns the name or email if no name is set"""
         if self.user is not None and self.user.name:
-            return self.user.name
+            return f"{self.user.name} ({self.email})"
         else:
             return self.email
 
