@@ -719,7 +719,7 @@ class TestInvitation:
     def test_get_name_user(self, invitation_factory, user_factory):
         invitation = invitation_factory.build()
         invitation.user = user_factory.build()
-        assert invitation.get_name() == invitation.user.name
+        assert invitation.get_name() == f"{invitation.user.name} ({invitation.email})"
 
 
 class TestReceiptEmail:
