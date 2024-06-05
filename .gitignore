@@ -292,3 +292,4 @@ squarelet/config/
 
 .vscode/
 scratch/
+*.js.map

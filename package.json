@@ -1,33 +1,23 @@
 {
-  "name": "squarelet",
-  "version": "0.1",
-  "dependencies": {},
-  "devDependencies": {
-    
-    
-    "browser-sync": "^2.14.0",
-    "del": "^2.2.2",
-    "gulp": "^3.9.1",
-    "gulp-autoprefixer": "^5.0.0",
-    
-    "gulp-cssnano": "^2.1.2",
-    "gulp-imagemin": "^4.1.0",
-    "gulp-pixrem": "^1.0.0",
-    "gulp-plumber": "^1.1.0",
-    "gulp-rename": "^1.2.2",
-    "gulp-sass": "^3.1.0",
-    "gulp-uglify": "^3.0.0",
-    "gulp-util": "^3.0.7",
-    
-    "run-sequence": "^2.1.1"
-    
-  },
-  "engines": {
-    "node": ">=0.8.0"
-  },
+  "name": "squarelet-frontend",
+  "version": "0.0.1",
+  "description": "Squarelet frontend code",
+  "main": "index.ts",
+  "type": "module",
   "scripts": {
-    
-    "dev": "gulp"
-    
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "format": "prettier --write .",
+    "format:check": "prettier --check src"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.14.1",
+    "@types/stripe-v3": "^3.0.9",
+    "prettier": "^3.3.0",
+    "typescript": "^3.3.3333",
+    "vite": "^5.2.12"
   }
 }
