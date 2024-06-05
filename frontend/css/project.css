@@ -1,0 +1,22 @@
+/* Alert colors */
+:root {
+  --white: #fff;
+  --mint-green: #d6e9c6;
+  --black: #000;
+  --pink: #f2dede;
+  --dark-pink: #eed3d7;
+  --red: #b94a48;
+}
+
+/* bootstrap alert CSS, translated to the django-standard levels of debug, info, success, warning, error */
+.alert-debug {
+  background-color: var(--white);
+  border-color: var(--mint-green);
+  color: var(--black);
+}
+
+.alert-error {
+  background-color: var(--pink);
+  border-color: var(--dark-pink);
+  color: var(--red);
+}

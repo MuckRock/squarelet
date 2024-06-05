@@ -148,35 +148,35 @@ form,
 }
 
 ._cls-nameInput {
-  background-image: url(/static/assets/name_icon.svg);
+  background-image: url(../assets/name_icon.svg);
   background-position-x: 14px;
   background-position-y: 16px;
   background-size: 14px;
 }
 
 ._cls-usernameInput {
-  background-image: url(/static/assets/username_icon.svg);
+  background-image: url(../assets/username_icon.svg);
   background-position-x: 13px;
   background-position-y: 13px;
   background-size: 15px;
 }
 
 ._cls-emailInput {
-  background-image: url(/static/assets/email_icon.svg);
+  background-image: url(../assets/email_icon.svg);
   background-position-x: 11px;
   background-position-y: 16px;
   background-size: 22px;
 }
 
 ._cls-passwordInput {
-  background-image: url(/static/assets/password_icon.svg);
+  background-image: url(../assets/password_icon.svg);
   background-position-x: 14px;
   background-position-y: 11px;
   background-size: 17px;
 }
 
 ._cls-organizationInput {
-  background-image: url(/static/assets/organization_icon.svg);
+  background-image: url(../assets/organization_icon.svg);
   background-position-x: 13px;
   background-position-y: 13px;
   background-size: 19px;
@@ -355,7 +355,9 @@ button {
 
 button:hover {
   background: #3a8fefe3;
-  box-shadow: 0 3px 0px #c2d8ff, 0 2px 3px #00000052;
+  box-shadow:
+    0 3px 0px #c2d8ff,
+    0 2px 3px #00000052;
 }
 
 button:active {
@@ -712,7 +714,6 @@ nav a:hover ._cls-serviceName {
   border: solid 3px #7b0202;
 }
 
-
 .alert-warning {
   background: #dedea5f2;
   color: #8b8000;
@@ -759,7 +760,9 @@ nav a:hover ._cls-serviceName {
   margin: 0.8em 0;
   background: white;
   border-radius: 5px;
-  box-shadow: 0 0 2px #0000001c, 0 1px 3px #00000021;
+  box-shadow:
+    0 0 2px #0000001c,
+    0 1px 3px #00000021;
   padding: 0.5em 1em;
   transition: all 0.2s ease;
 }

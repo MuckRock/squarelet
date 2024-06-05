@@ -5,9 +5,10 @@ export default defineConfig({
   base: "/static/",
   build: {
     manifest: "manifest.json",
+    outDir: resolve("frontend/dist"),
     rollupOptions: {
       input: {
-        main: resolve("src/main.ts"),
+        main: resolve("frontend/main.ts"),
       },
     },
   },
