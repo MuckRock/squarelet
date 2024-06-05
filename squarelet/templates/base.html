@@ -1,6 +1,7 @@
 {% load static i18n compress%}<!DOCTYPE html>
 {% load avatar %}
 {% load hijack_tags %}
+{% load django_vite %}
 <html lang="en">
   <head>
     <meta charset="utf-8">
@@ -45,6 +46,10 @@ MIXPANEL_CUSTOM_LIB_URL:"file:"===c.location.protocol&&"//cdn4.mxpnl.com/libs/mi
     {% if settings.USE_PLAUSIBLE %}
       <script defer data-domain="accounts.muckrock.com" src="https://plausible.io/js/script.js"></script>
     {% endif %}
+
+    {% vite_hmr_client %}
+
+    {% vite_asset 'src/main.ts' %}
 
   </head>
 
@@ -232,10 +237,12 @@ MIXPANEL_CUSTOM_LIB_URL:"file:"===c.location.protocol&&"//cdn4.mxpnl.com/libs/mi
       {% block extra_javascript %}{% endblock extra_javascript %}
 
       <!-- place project specific Javascript in this file -->
+      {% comment %}
       {% compress js %}
-         <script src="{% static 'js/main.js' %}"></script> 
+      <script src="{% static 'js/main.js' %}"></script> 
       {% endcompress %}
-
+      {% endcomment %}
+      
     {% endblock javascript %}
     <script>
       {% if request.user.is_authenticated %}
