@@ -84,6 +84,7 @@ THIRD_PARTY_APPS = [
     "sorl.thumbnail",
     "corsheaders",
     "django_filters",
+    "django_vite",
 ]
 LOCAL_APPS = [
     "squarelet.core",
@@ -173,12 +174,24 @@ STATIC_ROOT = str(ROOT_DIR("staticfiles"))
 # https://docs.djangoproject.com/en/dev/ref/settings/#static-url
 STATIC_URL = "/static/"
 # https://docs.djangoproject.com/en/dev/ref/contrib/staticfiles/#std:setting-STATICFILES_DIRS
-STATICFILES_DIRS = [str(APPS_DIR.path("static"))]
+STATICFILES_DIRS = [
+    str(APPS_DIR.path("static")),
+    str(ROOT_DIR.path("frontend/dist")),
+]
+
+
 # https://docs.djangoproject.com/en/dev/ref/contrib/staticfiles/#staticfiles-finders
 STATICFILES_FINDERS = [
     "django.contrib.staticfiles.finders.FileSystemFinder",
     "django.contrib.staticfiles.finders.AppDirectoriesFinder",
 ]
+
+DJANGO_VITE = {
+    "default": {
+        "dev_mode": DEBUG,
+        "manifest_path": str(ROOT_DIR.path("frontend/dist/manifest.json")),
+    }
+}
 
 # MEDIA
 # ------------------------------------------------------------------------------
@@ -395,6 +408,7 @@ MAILGUN_ACCESS_KEY = env("MAILGUN_ACCESS_KEY")
 # ------------------------------------------------------------------------------
 SESAME_MAX_AGE = 60 * 60 * 24 * 2  # 2 days
 SESAME_ONE_TIME = True
+
 
 # django-debug-toolbar
 # ------------------------------------------------------------------------------

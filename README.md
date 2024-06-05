@@ -197,7 +197,7 @@ Both linting and formatting are checked on CodeShip. Please ensure your code is 
 `inv up` will start all containers in the background.
 `inv runserver` will run the Django server in the foreground. Be careful to not have multiple Django servers running at once. Running the server in the foreground is mainly useful for situations where you would like to use an interactive debugger within your application code.
 `inv shell` will run an interactive python shell within the Django environment.
-`inv sh` will run a bash shell within the Django docker comtainer.
+`inv sh` will run a bash shell within the Django docker container.
 `inv dbshell` will run a postgresql shell.
 `inv manage` will allow you to easily run Django manage.py commands.
 `inv npm` will allow you to run NPM commands. `inv npm "run build"` should be run to rebuild assets if any javascript or CSS is changed. If you will be editing a lot of javascript or CSS, you can run `inv npm "run dev"`.

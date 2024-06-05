@@ -24,6 +24,7 @@ django-request-token
 django-reversion
 django-sesame
 django-storages[boto3]
+django-vite
 django-weasyprint
 django<5.0
 djangorestframework
