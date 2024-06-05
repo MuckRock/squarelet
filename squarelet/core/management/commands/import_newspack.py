@@ -8,6 +8,7 @@ import csv
 import os
 
 # Third Party
+import botocore.exceptions
 from fuzzywuzzy import fuzz, process
 from smart_open.smart_open_lib import smart_open
 
@@ -62,7 +63,7 @@ class Command(BaseCommand):
                 next(reader)
                 for newspack_name, sq_name in reader:
                     org_map[newspack_name] = sq_name
-        except ValueError:
+        except botocore.exceptions.ClientError:
             pass
 
         with smart_open(
