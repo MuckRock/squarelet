@@ -1,3 +1,4 @@
+import "vite/modulepreload-polyfill";
 import { AutocompleteView } from "./autocomplete";
 import { exists } from "./util";
 import { DropdownView } from "./dropdown";

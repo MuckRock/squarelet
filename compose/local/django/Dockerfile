@@ -27,7 +27,7 @@ RUN update-ca-certificates
 
 # install NVM
 ENV NVM_DIR /usr/local/nvm
-ENV NODE_VERSION 10.15.3
+ENV NODE_VERSION 22.2.0
 
 RUN mkdir $NVM_DIR
 RUN curl https://raw.githubusercontent.com/creationix/nvm/v0.34.0/install.sh | sh \
@@ -40,7 +40,7 @@ ENV NODE_PATH $NVM_DIR/v$NODE_VERSION/lib/node_modules
 ENV PATH      $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
 
 # heroku cli
-RUN curl https://cli-assets.heroku.com/install.sh | sh
+# RUN curl https://cli-assets.heroku.com/install.sh | sh
 
 # Requirements are installed here to ensure they will be cached.
 COPY ./requirements /requirements
