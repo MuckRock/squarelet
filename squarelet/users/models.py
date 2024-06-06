@@ -2,6 +2,7 @@
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.models import PermissionsMixin
 from django.db import models, transaction
+from django.db.models import Q
 from django.http.request import urlencode
 from django.templatetags.static import static
 from django.urls import reverse
@@ -208,3 +209,10 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
 
     def verified_journalist(self):
         return self.organizations.filter(verified_journalist=True).exists()
+
+    def is_hub_eligible(self):
+        return self.organizations.filter(
+            Q(hub_eligible=True)
+            | Q(groups__hub_eligible=True)
+            | Q(parent__hub_eligible=True)
+        ).exists()
