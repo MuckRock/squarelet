@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}Election Resource Hub{% endblock %}
+
+{% block content %}
+  <div class="_cls-largeContent">
+    <h1>Election Resource Hub Landing Page</h1>
+
+    <p>You are logged in as: {{ request.user.username }}</p>
+    <p>
+      Do you have access to the Election Resource Hub:
+      {{ request.user.is_hub_eligible }}
+    </p>
+    <p>Organizations:</p>
+    <ul>
+      {% for org in request.user.organizations.all %}
+        <li>
+          {{ org.name }} - {{ org.is_hub_eligible }}
+          <ul>
+            {% if org.groups.all %}
+              <li>
+                Member of:
+                <ul>
+                  {% for group in org.groups.all %}
+                    <li>{{ group.name }} - {{ group.is_hub_eligible }}</li>
+                  {% endfor %}
+                </ul>
+              </li>
+            {% endif %}
+            {% if org.parent %}
+              <li>
+                Child of:
+                <ul>
+                  <li>{{ org.parent.name }} - {{ org.parent.is_hub_eligible }}</li>
+                </ul>
+              </li>
+            {% endif %}
+          </ul>
+        </li>
+      {% endfor %}
+    </ul>
+
+{% endblock %}
+

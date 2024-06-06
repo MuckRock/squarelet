@@ -12,7 +12,7 @@ from rest_framework_nested import routers
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 # Squarelet
-from squarelet.core.views import HomeView
+from squarelet.core.views import ERHLandingView, HomeView
 from squarelet.oidc.views import token_view
 from squarelet.organizations.viewsets import ChargeViewSet, OrganizationViewSet
 from squarelet.users.views import LoginView
@@ -32,6 +32,7 @@ router.register("charges", ChargeViewSet)
 
 urlpatterns = [
     path("", HomeView.as_view(), name="home"),
+    path("erh/", ERHLandingView.as_view(), name="erh_landing"),
     path(
         "selectplan/",
         TemplateView.as_view(template_name="pages/selectplan.html"),

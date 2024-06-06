@@ -1,6 +1,6 @@
 # Django
 from django.urls import reverse
-from django.views.generic.base import RedirectView
+from django.views.generic.base import RedirectView, TemplateView
 
 
 class HomeView(RedirectView):
@@ -13,3 +13,12 @@ class HomeView(RedirectView):
             )
         else:
             return reverse("select_plan")
+
+
+class ERHLandingView(TemplateView):
+
+    template_name = "core/erh_landing.html"
+
+    def get_context_date(self, **kwargs):
+        context = super().get_context_data()
+        return context
