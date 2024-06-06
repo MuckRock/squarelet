@@ -22,13 +22,19 @@ a._cls-nostyle {
 }
 
 ._cls-heading {
+  position: relative;
   padding: 5px 10px;
   box-shadow: 0 0 8px #0000005c;
   background: white;
-  position: relative;
+}
+
+._cls-headingContainer {
+  max-width: 1000px;
+  margin: 0 auto;
   display: flex;
   align-items: center;
   gap: 15px;
+  overflow-x: auto;
 }
 
 ._cls-domainItems {
@@ -488,10 +494,7 @@ nav a:hover ._cls-serviceName {
   user-select: none;
   cursor: pointer;
   transition: all 0.2s ease;
-  padding: 5px 10px;
-  border-radius: 6px;
-  border-left: solid 1px transparent;
-  border-bottom: solid 2px transparent;
+  border-radius: 0.375em;
 }
 
 ._cls-profileAvatar {
@@ -1090,6 +1093,7 @@ a._cls-dropdownItem {
   font-weight: 600;
   line-height: normal;
   text-align: center;
+  white-space: nowrap;
 }
 
 a._cls-navItem:hover {
