@@ -12,6 +12,7 @@ ROOT_DIR = (
     environ.Path(__file__) - 3
 )  # (squarelet/config/settings/base.py - 3 = squarelet/)
 APPS_DIR = ROOT_DIR.path("squarelet")
+FRONTEND = ROOT_DIR.path("frontend")
 
 env = environ.Env()
 
@@ -175,7 +176,8 @@ STATIC_ROOT = str(ROOT_DIR("staticfiles"))
 STATIC_URL = "/static/"
 # https://docs.djangoproject.com/en/dev/ref/contrib/staticfiles/#std:setting-STATICFILES_DIRS
 STATICFILES_DIRS = [
-    str(ROOT_DIR.path("frontend/dist")),
+    str(FRONTEND),
+    str(FRONTEND.path("dist")),
 ]
 
 # https://docs.djangoproject.com/en/dev/ref/contrib/staticfiles/#staticfiles-finders
