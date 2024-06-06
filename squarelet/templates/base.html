@@ -1,7 +1,5 @@
-{% load static i18n compress%}<!DOCTYPE html>
-{% load avatar %}
-{% load hijack_tags %}
-{% load django_vite %}
+{% load static i18n compress avatar hijack_tags django_vite %}
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
@@ -30,9 +28,6 @@
     {% block css %}
     <!-- Your stuff: Third-party CSS libraries go here -->
     {% compress css %}
-    <!-- This file stores project-specific CSS -->
-    {# <link href="{% static 'css/main.css' %}" rel="stylesheet"> #}
-    {# <link href="{% static 'css/autocomplete.css' %}" rel="stylesheet"> #}
     <link href="{% static 'hijack/hijack-styles.css' %}" rel="stylesheet">
     {% endcompress %}
     {% endblock %}
@@ -49,6 +44,7 @@ MIXPANEL_CUSTOM_LIB_URL:"file:"===c.location.protocol&&"//cdn4.mxpnl.com/libs/mi
 
     {% vite_hmr_client %}
 
+    {# this will inject both main.ts and main.css #}
     {% vite_asset 'frontend/main.ts' %}
 
   </head>
