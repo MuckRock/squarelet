@@ -1,6 +1,5 @@
-{% load static i18n compress%}<!DOCTYPE html>
-{% load avatar %}
-{% load hijack_tags %}
+{% load static i18n compress avatar hijack_tags django_vite %}
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
@@ -27,13 +26,10 @@
 
     <link href="https://fonts.googleapis.com/css?family=Lato:400,700" rel="stylesheet">
     {% block css %}
-      <!-- Your stuff: Third-party CSS libraries go here -->
-      {% compress css %}
-        <!-- This file stores project-specific CSS -->
-        <link href="{% static 'css/main.css' %}" rel="stylesheet">
-        <link href="{% static 'css/autocomplete.css' %}" rel="stylesheet">
-        <link href="{% static 'hijack/hijack-styles.css' %}" rel="stylesheet">
-      {% endcompress %}
+    <!-- Your stuff: Third-party CSS libraries go here -->
+    {% compress css %}
+    <link href="{% static 'hijack/hijack-styles.css' %}" rel="stylesheet">
+    {% endcompress %}
     {% endblock %}
 
 <!-- start Mixpanel --><script type="text/javascript">(function(c,a){if(!a.__SV){var b=window;try{var d,m,j,k=b.location,f=k.hash;d=function(a,b){return(m=a.match(RegExp(b+"=([^&]*)")))?m[1]:null};f&&d(f,"state")&&(j=JSON.parse(decodeURIComponent(d(f,"state"))),"mpeditor"===j.action&&(b.sessionStorage.setItem("_mpcehash",f),history.replaceState(j.desiredHash||"",c.title,k.pathname+k.search)))}catch(n){}var l,h;window.mixpanel=a;a._i=[];a.init=function(b,d,g){function c(b,i){var a=i.split(".");2==a.length&&(b=b[a[0]],i=a[1]);b[i]=function(){b.push([i].concat(Array.prototype.slice.call(arguments,
@@ -45,6 +41,11 @@ MIXPANEL_CUSTOM_LIB_URL:"file:"===c.location.protocol&&"//cdn4.mxpnl.com/libs/mi
     {% if settings.USE_PLAUSIBLE %}
       <script defer data-domain="accounts.muckrock.com" src="https://plausible.io/js/script.js"></script>
     {% endif %}
+
+    {% vite_hmr_client %}
+
+    {# this will inject both main.ts and main.css #}
+    {% vite_asset 'frontend/main.ts' %}
 
   </head>
 
@@ -232,10 +233,12 @@ MIXPANEL_CUSTOM_LIB_URL:"file:"===c.location.protocol&&"//cdn4.mxpnl.com/libs/mi
       {% block extra_javascript %}{% endblock extra_javascript %}
 
       <!-- place project specific Javascript in this file -->
+      {% comment %}
       {% compress js %}
-         <script src="{% static 'js/main.js' %}"></script> 
+      <script src="{% static 'js/main.js' %}"></script> 
       {% endcompress %}
-
+      {% endcomment %}
+      
     {% endblock javascript %}
     <script>
       {% if request.user.is_authenticated %}

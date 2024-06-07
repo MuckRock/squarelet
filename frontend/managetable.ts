@@ -1,19 +1,19 @@
-import {d, show, hide, on} from './util';
+import { d, show, hide, on } from "./util";
 
 export class ManageTableView {
-  readonly shim = d('_id-shim');
+  readonly shim = d("_id-shim");
   readonly selects = Array.from(
-    document.getElementsByClassName('_cls-roleSelect')
+    document.getElementsByClassName("_cls-roleSelect"),
   ) as HTMLElement[];
   readonly dropdowns = this.selects.map(
-    select => select.nextElementSibling
+    (select) => select.nextElementSibling,
   ) as HTMLElement[];
   public hideAction: () => void | null = null;
 
   constructor() {
     this.selects.forEach((select, i) => {
       const dropdown = this.dropdowns[i];
-      on(select, 'click', () => {
+      on(select, "click", () => {
         show(dropdown);
         show(this.shim);
         this.hideAction = () => {
@@ -21,12 +21,12 @@ export class ManageTableView {
           hide(this.shim);
         };
       });
-      on(dropdown.querySelector('._cls-selected'), 'click', () => {
+      on(dropdown.querySelector("._cls-selected"), "click", () => {
         this.hide();
       });
     });
 
-    on(this.shim, 'click', () => {
+    on(this.shim, "click", () => {
       this.hide();
     });
   }
