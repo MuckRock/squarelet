@@ -29,7 +29,10 @@ body {
   font-family: "Source Sans Pro";
   margin: 0;
   padding: 0;
-  background: #333c47;
+  background: #fafafa;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
 a {
@@ -365,6 +368,8 @@ form,
 }
 
 ._cls-footer {
+  flex: 0 1 auto;
+  padding: 3rem 0;
   background: #333c47;
   color: #ffffff9a;
 }
@@ -534,9 +539,9 @@ nav a:hover ._cls-serviceName {
 }
 
 ._cls-main {
+  flex: 1 1 auto;
   padding-top: 1.5em;
   padding-bottom: 2.5em;
-  background: #fafafa;
 }
 
 ._cls-fieldInput {
