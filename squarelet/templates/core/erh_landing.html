@@ -16,6 +16,7 @@
     font-weight: 700;
     font-weight: 600;
     font-family: var(--font-sans, "Source Sans Pro");
+    border-radius: 8px;
     border: 1px solid var(--blue-4, #1367D0);
     background: var(--blue-3, #4294F0);
     box-shadow: 0px 2px 0px 0px var(--blue-4, #1367D0);
@@ -140,6 +141,52 @@
     height: 60vw;
     width: 60vw;
   }
+
+  ._cls-button {
+    display: inline-block;
+    font-weight: 700;
+    font-weight: 600;
+    font-family: var(--font-sans, "Source Sans Pro");
+    color: var(--white, #ffffff);
+    padding: 6px var(--font-xs, 12px);
+    border-radius: 8px;
+    font-size: 14px;
+    border: 1px solid var(--blue-4, #1367D0);
+    background: var(--blue-3, #4294F0);
+    box-shadow: 0px 2px 0px 0px var(--blue-4, #1367D0);
+    transition: all .2s linear;
+    white-space: nowrap;
+    text-transform: capitalize;
+  }
+
+  ._cls-button:hover {
+    background: var(--blue-3, #4294F0);
+    filter: brightness(1.25);
+  }
+
+  ._cls-erh--access {
+    padding: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  ._cls-erh--access p {
+    margin: 0;
+    flex: 1 1 auto;
+    text-align: center;
+  }
+
+  ._cls-erh--flex100 {
+    flex: 1 1 100%;
+  }
+
+  ._cls-or {
+    padding: 0 .5em;
+    font-variant: small-caps;
+  }
 </style>
 {% endblock %}
 
@@ -180,14 +227,22 @@
           <img src="{% static '/icons/checkmark.svg' %}" />
           <p>You belong to an eligible organization and will be able to access the hub here once it&rsquo;s launched. Make sure to subscribe for our launch notification!</p>
         </div>
-        {% else %}
+        {% elif request.user.is_authenticated %}
           {% if in_group_org %}
-          <p>You will need to apply for your organization to access the Resource Hub.</p>
           <a href="#" class="_cls-button">Apply for Access</a>
+          <p>You will need to apply for your organization to access the Resource Hub.</p>
           {% else %}
+          <p class=".cls-erh--flex100"><a class="_cls-button" href="{% url 'organizations:list' %}">Find your organization</a> <span class="_cls-or">or</span> <a class="_cls-button" href="{% url 'organizations:create' %}">create an organization</a></p>
           <p>You need to belong to an eligible organization to access the Resource Hub.</p>
-          <a href="/organizations">Find your organization</a> or <a href="/organizations/~create">create an organization</a>.
           {% endif %}
+        {% else %}
+        <a title="{% trans 'Sign Up' %}" class="_cls-button" href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'squarelet' %}">
+          {% trans "Sign Up" %}
+        </a>
+        <a title="{% trans 'Sign In' %}" class="_cls-button" href="{% url 'account_login' %}">
+          {% trans "Sign In" %}
+        </a>
+        <p>You will need to create a MuckRock account to access the Resource Hub.</p>
         {% endif %}
       </div>
     </div>
