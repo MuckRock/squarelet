@@ -190,7 +190,7 @@ def npm(c, cmd):
     """Run an NPM command"""
     c.run(
         DOCKER_COMPOSE_RUN_OPT.format(
-            opt="--workdir /app/frontend", service="squarelet_django", cmd=f"npm {cmd}"
+            opt="--workdir /app", service="squarelet_django", cmd=f"npm {cmd}"
         )
     )
 
