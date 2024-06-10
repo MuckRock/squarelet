@@ -58,3 +58,11 @@ CELERY_ALWAYS_EAGER = False
 # Note that Django says that this is NOT a security vulnerability,
 # and setting this to True would not have any meaningful security benefit.
 CSRF_COOKIE_HTTPONLY = False
+
+DJANGO_VITE = {
+    "default": {
+        "dev_mode": DEBUG,
+        "dev_server_port": 4200,
+        "manifest_path": str(ROOT_DIR.path("frontend/dist/manifest.json")),
+    }
+}
