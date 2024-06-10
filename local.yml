@@ -1,11 +1,10 @@
-version: '2.4'
+version: "2.4"
 
 volumes:
   postgres15_data_local: {}
   postgres15_backup_local: {}
 
 services:
-
   squarelet_nginx:
     image: nginx:latest
     depends_on:
@@ -53,6 +52,26 @@ services:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
     command: /start
+    networks:
+      default:
+        aliases:
+          - internal.dev.squarelet.com
+          - internal.dev.presspass.com
+
+  squarelet_vite:
+    build:
+      context: .
+      dockerfile: ./compose/local/vite.Dockerfile
+    image: squarelet_local_vite
+    restart: always
+    ports:
+      - "4200:4200"
+      # - "5173:5173"
+    command: "npm run dev"
+    env_file:
+      - "./.envs/.local/.vite"
+    volumes:
+      - ".:/app"
     networks:
       default:
         aliases:
