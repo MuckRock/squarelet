@@ -30,5 +30,5 @@ class ERHLandingView(TemplateView):
                  | Q(groups__hub_eligible=True)
                  | Q(parent__hub_eligible=True))
             )
-            context["in_group_org"] = self.request.user.organizations.filter(individual=False).exists()
+            context["group_orgs"] = self.request.user.organizations.filter(individual=False)
         return context
