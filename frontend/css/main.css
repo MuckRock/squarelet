@@ -87,6 +87,7 @@ a._cls-nostyle {
     appearance: none;
     background: none;
     border: none;
+    width: 2rem;
     height: 2rem;
     font-family: var(--font-sans, "Source Sans Pro");
     
