@@ -1,0 +1,12 @@
+{% extends "admin/change_list.html" %}
+
+{% block content %}
+  {% if module_name == "users" %}
+    <ul>
+      <li>
+        <a href="{% url "admin:users-admin-user-export" %}">Export User CSV</a>
+      </li>
+    </ul>
+  {% endif %}
+  {{ block.super }}
+{% endblock %}

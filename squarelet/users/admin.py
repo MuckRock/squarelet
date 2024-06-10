@@ -2,10 +2,17 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as AuthUserAdmin
 from django.contrib.auth.forms import UserCreationForm
+from django.contrib.postgres.aggregates.general import StringAgg
+from django.db.models.expressions import Exists, OuterRef
 from django.db.models.functions.comparison import Collate
+from django.http.response import HttpResponse
 from django.urls import reverse
+from django.urls.conf import re_path
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
+
+# Standard Library
+import csv
 
 # Third Party
 from allauth.account.models import EmailAddress
@@ -140,3 +147,67 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
         return ", ".join(f'<a href="{link}">{name}</a>' for link, name in links)
 
     all_org_links.short_description = "All Organizations"
+
+    def get_urls(self):
+        """Add custom URLs here"""
+        urls = super().get_urls()
+        my_urls = [
+            re_path(
+                r"^export/$",
+                self.admin_site.admin_view(self.user_export),
+                name="users-admin-user-export",
+            ),
+        ]
+        return my_urls + urls
+
+    def user_export(self, request):
+        response = HttpResponse(
+            content_type="text/csv",
+            headers={
+                "Content-Disposition": 'attachment; filename="squarelet_users.csv"'
+            },
+        )
+        writer = csv.writer(response)
+
+        def format_date(date):
+            if date is not None:
+                return date.strftime("%Y-%m-%d")
+            else:
+                return ""
+
+        writer.writerow(
+            [
+                "username",
+                "name",
+                "email",
+                "last_login",
+                "date_joined",
+                "verified",
+                "orgs",
+            ]
+        )
+        for user in (
+            User.objects.only("username", "name", "email", "last_login", "created_at")
+            .annotate(
+                verified=Exists(
+                    Organization.objects.filter(
+                        verified_journalist=True, users=OuterRef("pk")
+                    )
+                ),
+                org_names=StringAgg("organizations__name", ", "),
+            )
+            .iterator(chunk_size=2000)
+        ):
+            writer.writerow(
+                [
+                    user.username,
+                    user.name,
+                    user.email,
+                    format_date(user.last_login),
+                    format_date(user.created_at),
+                    user.verified,
+                    user.org_names,
+                ]
+            )
+
+        return response
