@@ -37,6 +37,7 @@ html2text
 ipdb
 memoize
 psycopg2 --no-binary psycopg2
+pyairtable
 python-Levenshtein
 python-slugify
 pytz
