@@ -1,0 +1,238 @@
+:root {
+  --max-width: 1000px;
+  --padding: 1rem;
+}
+
+/* ERH LANDING PAGE STYLES */
+._cls-erh--interactive {
+  font-size: 1rem;
+  font-family: var(--font-sans, "Source Sans Pro");
+  background: var(--white, #ffffff);
+  border: 1px solid var(--gray-2, #D8DEE2);
+  border-radius: .5rem;
+  padding: 0 1rem;
+  box-shadow: 0px 2px 4px 2px var(--shadow, rgba(30, 48, 56, 0.15));
+}
+
+._cls-erh--container {
+  min-height: 50vh;
+  margin: 0 auto;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+}
+
+._cls-body {
+  color: var(--black, #0C1E27);
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-size: var(--font-md, 16px);
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+  font-feature-settings: 'clig' off, 'liga' off;
+}
+
+._cls-title {
+  color: var(--black, #0C1E27);
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-size: var(--font-xl, 24px);
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+  font-feature-settings: 'ss04' on, 'clig' off, 'liga' off;
+  text-align: center;
+}
+
+._cls-erh--logo {
+  display: inline-block;
+  height: 3rem;
+  width: 3rem;
+  margin-right: .5rem;
+  transform: translateY(.5rem);
+}
+
+._cls-erh--title {
+  font-size: 3rem;
+}
+
+._cls-erh--description {
+  font-size: 1.25rem;
+  line-height: 1.5;
+  max-width: 70ch;
+  color: var(--gray-5, #233944);
+}
+
+._cls-debug {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  margin: 2rem auto;
+  padding: 1rem 2rem;
+  border-radius: .5rem;
+  background: var(--black, #0C1E27);
+  color: var(--white, #FFFFFF);
+  font-family: var(--font-code, "Source Code Pro");
+  overflow: hidden;
+}
+
+._cls-erh--container mark {
+  padding: .125em 0;
+  background-color: var(--yellow-2, #FFE5BA);
+}
+
+._cls-erh--eligible {
+  display: flex;
+  gap: 1rem;
+}
+
+._cls-erh--backdrop {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: -1;
+  opacity: 0.05;
+}
+
+._cls-erh--backdrop img {
+  height: 60vw;
+  width: 60vw;
+}
+
+._cls-button {
+  display: inline-block;
+  font-weight: 700;
+  font-weight: 600;
+  font-family: var(--font-sans, "Source Sans Pro");
+  color: var(--white, #ffffff);
+  padding: 6px var(--font-xs, 12px);
+  border-radius: 8px;
+  font-size: 14px;
+  border: 1px solid var(--blue-4, #1367D0);
+  background: var(--blue-3, #4294F0);
+  box-shadow: 0px 2px 0px 0px var(--blue-4, #1367D0);
+  transition: all .2s linear;
+  white-space: nowrap;
+  text-transform: capitalize;
+}
+
+._cls-button:hover {
+  background: var(--blue-3, #4294F0);
+  filter: brightness(1.25);
+}
+
+._cls-erh--access {
+  padding: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+._cls-erh--access p {
+  margin: 0;
+  flex: 1 1 auto;
+  text-align: center;
+}
+
+._cls-erh--flex100 {
+  flex: 1 1 100%;
+}
+
+._cls-or {
+  padding: 0 .5em;
+  font-variant: small-caps;
+}
+
+._cls-erh--category {
+  margin: 2rem 0;
+}
+
+._cls-erh--category header {
+  max-width: var(--max-width);
+  padding: 0 var(--padding);
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+._cls-erh--category h2 {
+  font-weight: 400;
+  font-size: 1.8rem;
+  margin: 0;
+}
+
+._cls-erh--resourceList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 25rem);
+  grid-auto-flow: column;
+  grid-auto-columns: 25rem;
+  gap: 1rem;
+  overflow-x: auto;
+  list-style-type: none;
+  padding: 0 max(calc((100vw - var(--max-width))/2), var(--padding)) 2rem;
+}
+
+._cls-erh--resource {
+  display: flex;
+  width: 25rem;
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: var(--font-md, 16px);
+  border-radius: 8px;
+  border: 1px solid var(--gray-2, #D8DEE2);
+  background: var(--white, #FFF);
+  align-items: flex-start;
+  gap: var(--font-md, 16px);
+}
+
+._cls-erh--resourceName {
+  color: var(--gray-5, #233944);
+  font-family: "Source Sans Pro";
+  font-size: var(--font-lg, 20px);
+  font-style: normal;
+  font-weight: 600;
+  line-height: 24px;
+  font-feature-settings: 'ss04' on;
+  margin: 0;
+}
+
+._cls-erh--resourceDescription {
+  margin: 0;
+  flex: 1 1 auto;
+  align-self: stretch;
+  color: var(--gray-4, #5C717C);
+  font-family: "Source Sans Pro";
+  font-size: var(--font-sm, 14px);
+  font-style: normal;
+  font-weight: 400;
+  line-height: 17px;
+}
+
+._cls-erh--resourceDetail {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+._cls-erh--resourceProvider {
+  flex: 0;
+  align-self: flex-end;
+  color: var(--gray-4, #5C717C);
+  font-family: "Source Sans Pro";
+  font-size: var(--font-xs, 12px);
+  font-style: normal;
+  font-weight: 400;
+  line-height: 17px;
+  border-bottom: none;
+}
+
+._cls-erh--resourceLogo {
+  flex: 0 0 auto;
+  display: block;
+  height: 3rem;
+  width: 3rem;
+  object-fit: contain;
+  border-radius: .5rem;
+  overflow: hidden;
+}
