@@ -68,8 +68,6 @@ services:
       - "4200:4200"
       # - "5173:5173"
     command: "npm run dev"
-    env_file:
-      - "./.envs/.local/.vite"
     volumes:
       - ".:/app"
     networks:
