@@ -2,7 +2,8 @@
 from django.db.models import Q
 from django.urls import reverse
 from django.views.generic.base import RedirectView, TemplateView
-
+from squarelet.core.models import Resource
+from squarelet.core.utils import resource_categories
 
 class HomeView(RedirectView):
     permanent = False
@@ -35,4 +36,10 @@ class ERHLandingView(TemplateView):
             context["group_orgs"] = self.request.user.organizations.filter(
                 individual=False
             )
+            if self.request.user.is_hub_eligible:
+                # TODO cache these context values so that we're not making
+                # a roundtrip to Airtable every time we render the template
+                resources = Resource.all()
+                context["resources"] = resources
+                context["categories"] = resource_categories(resources)
         return context
