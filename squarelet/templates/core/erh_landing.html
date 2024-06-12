@@ -1,4 +1,3 @@
-
 {% extends "base.html" %}
 {% load static i18n %}
 
@@ -9,9 +8,10 @@
 <link href="//cdn-images.mailchimp.com/embedcode/classic-061523.css" rel="stylesheet" type="text/css">
 <style type="text/css">
   /* MAILCHIMP EMBED STYLES */
-  #mc_embed_signup{
+  #mc_embed_signup {
     clear: left;
   }
+
   #mc_embed_signup .button {
     font-weight: 700;
     font-weight: 600;
@@ -21,20 +21,24 @@
     background: var(--blue-3, #4294F0);
     box-shadow: 0px 2px 0px 0px var(--blue-4, #1367D0);
   }
+
   #mc_embed_signup .button:hover {
     background: var(--blue-3, #4294F0);
     filter: brightness(1.25);
   }
+
   #mc_embed_signup .mc-field-group {
     width: auto;
     padding-bottom: 0;
     flex: 1 1 auto;
   }
+
   #mc_embed_signup_scroll {
     display: flex;
     flex-direction: column;
     gap: 1rem;
   }
+
   .mc-name-field-group {
     display: flex;
     flex-wrap: wrap;
@@ -42,150 +46,9 @@
     align-items: center;
     width: 100%;
   }
+
   #mc_embed_signup #mc-embedded-subscribe-form div.mce_inline_error {
     background-color: transparent;
-  }
-
-  /* ERH LANDING PAGE STYLES */
-  ._cls-erh--interactive {
-    font-size: 1rem;
-    font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
-    background: var(--white, #ffffff);
-    border: 1px solid var(--gray-2, #D8DEE2);
-    border-radius: .5rem;
-    padding: 0 1rem;
-    box-shadow: 0px 2px 4px 2px var(--shadow, rgba(30, 48, 56, 0.15));
-  }
-
-  ._cls-erh--container {
-    min-height: 50vh;
-    max-width: 1000px;
-    margin: 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-  }
-
-  ._cls-body {
-    color: var(--black, #0C1E27);
-    font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
-    font-size: var(--font-md, 16px);
-    font-style: normal;
-    font-weight: 400;
-    line-height: normal;
-    font-feature-settings: 'clig' off, 'liga' off;
-  }
-
-  ._cls-title {
-    color: var(--black, #0C1E27);
-    font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
-    font-size: var(--font-xl, 24px);
-    font-style: normal;
-    font-weight: 600;
-    line-height: normal;
-    font-feature-settings: 'ss04' on, 'clig' off, 'liga' off;
-    text-align: center;
-  }
-
-  ._cls-erh--logo {
-    display: inline-block;
-    height: 3rem;
-    width: 3rem;
-    margin-right: .5rem;
-    transform: translateY(.5rem);
-  }
-
-  ._cls-erh--title {
-    font-size: 3rem;
-  }
-
-  ._cls-erh--description {
-    font-size: 1.25rem;
-    line-height: 1.5;
-    max-width: 70ch;
-    color: var(--gray-5, #233944);
-  }
-
-  ._cls-debug {
-    position: relative;
-    width: 100%;
-    max-width: 720px;
-    margin: 2rem auto;
-    padding: 1rem 2rem;
-    border-radius: .5rem;
-    background: var(--black, #0C1E27);
-    color: var(--white, #FFFFFF);
-    font-family: var(--font-code, "Source Sans 3", "Source Code Pro");
-  }
-
-  ._cls-erh--container mark {
-    padding: .125em 0;
-    background-color: var(--yellow-2, #FFE5BA);
-  }
-
-  ._cls-erh--eligible {
-    display: flex;
-    gap: 1rem;
-  }
-
-  ._cls-erh--backdrop {
-    position: absolute;
-    top: -10vw;
-    right: -10vw;
-    z-index: -1;
-    opacity: 0.05;
-  }
-
-  ._cls-erh--backdrop img {
-    height: 60vw;
-    width: 60vw;
-  }
-
-  ._cls-button {
-    display: inline-block;
-    font-weight: 700;
-    font-weight: 600;
-    font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
-    color: var(--white, #ffffff);
-    padding: 6px var(--font-xs, 12px);
-    border-radius: 8px;
-    font-size: 14px;
-    border: 1px solid var(--blue-4, #1367D0);
-    background: var(--blue-3, #4294F0);
-    box-shadow: 0px 2px 0px 0px var(--blue-4, #1367D0);
-    transition: all .2s linear;
-    white-space: nowrap;
-    text-transform: capitalize;
-  }
-
-  ._cls-button:hover {
-    background: var(--blue-3, #4294F0);
-    filter: brightness(1.25);
-  }
-
-  ._cls-erh--access {
-    padding: 1rem;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 1rem;
-  }
-
-  ._cls-erh--access p {
-    margin: 0;
-    flex: 1 1 auto;
-    text-align: center;
-  }
-
-  ._cls-erh--flex100 {
-    flex: 1 1 100%;
-  }
-
-  ._cls-or {
-    padding: 0 .5em;
-    font-variant: small-caps;
   }
 </style>
 {% endblock %}
@@ -193,6 +56,35 @@
 {% block content %}
   <div class="_cls-erh--container _cls-largeContent">
     <h1 class="_cls-title _cls-erh--title"><img class="_cls-erh--logo" src="{% static 'icons/erh.svg' %}"/> Knight Election Resource Hub</h1>
+    {% if can_access_hub and categories %}
+    <div class="_class-erh--catalog">
+      {% for category, category_resources in categories.items %}
+      <section class="_cls-erh--category" id="{{category|slugify}}">
+        <header>
+          <h2>{{category}}</h2>
+        </header>
+        <main>
+          <ul class="_cls-erh--resourceList">
+            {% for resource in category_resources %}
+            <li class="_cls-erh--resource">
+              <img class="_cls-erh--resourceLogo" src="{{resource.logo.0.thumbnails.large.url}}" />
+              <div class="_cls-erh--resourceDetail">
+                <h3 class="_cls-erh--resourceName">{{resource.name}}</h3>
+                {% if resource.shortDescription %}
+                <p class="_cls-erh--resourceDescription">{{resource.shortDescription}}</p>
+                {% else %}
+                <div class="_cls-erh--resourceDescription"></div>
+                {% endif %}
+                <a class="_cls-erh--resourceProvider" href="{{resource.provider.0.url}}">{{resource.provider.0.name}}</a>
+              </div>
+            </li>
+            {% endfor %}
+          </ul>
+        </main>
+      </section>
+      {% endfor %}
+    </div>
+    {% else %}
     <div class="_cls-body _cls-erh--description">
       <p>Local newsrooms that are doing innovative work informing and connecting with communities often don&rsquo;t have access to the services that newsrooms in earlier times took for granted. Small newsrooms are often so busy with daily coverage they don&rsquo;t even know about all the resources available to answer their community&rsquo;s hardest questions.</p>
       <p><strong>That&rsquo;s why we created the Resource Hub, and why we&rsquo;re picking up the check.</strong> <mark>It&rsquo;s a collection of more than 100 selected products and services that will help you cover the election better than you thought possible.</mark></p>
@@ -257,6 +149,62 @@
         <!-- END MAILCHIMP -->
       </div>
     </div>
+    {% endif %}
     <div class="_cls-erh--backdrop"><img src="{% static 'icons/erh.svg' %}" /></div>
   </div>
+  <div class="_cls-debug">
+    <header>
+      <p>// DEBUG -- WILL BE REMOVED BEFORE PUBLISHING</p>
+    </header>
+    <p>You are logged in as: {{ request.user.username }}</p>
+    <p>
+      Do you have access to the Election Resource Hub:
+      {{ can_access_hub }}
+    </p>
+    {% if eligible_orgs.exists %}
+    <h3>Eligible orgs</h3>
+    <ul>
+      {% for org in eligible_orgs.all %}
+      <li><a href="/organizations/{{org.slug}}">{{org.name}}</a></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% if resources %}
+    <h3>Resources</h3>
+    <ul>
+    {% for resource in resources %}
+      <li>
+        <ul>
+          <li>{{resource.id}}</li>
+          <li>{{resource.name}}</li>
+          <li>{{resource.logo.0.thumbnails.small.url}}</li>
+          <li>{{resource.provider.0.name}}</li>
+        </ul>
+      </li>
+    {% endfor %}
+    </ul>
+    {% endif %}
+    {% if categories %}
+    <h3>Categories</h3>
+    <ul>
+    {% for category, category_resources in categories.items %}
+      <li>
+        <h4>{{category}}</h4>
+        <ul>
+          {% for resource in category_resources %}
+          <li><ul>
+          <li>{{resource.id}}</li>
+          <li>{{resource.name}}</li>
+          <li>{{resource.logo.0.thumbnails.small.url}}</li>
+          <li>{{resource.provider.0.name}}</li>
+          </ul></li>
+          {% endfor %}
+        </ul>
+      </li>
+    {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+  <div class="_cls-erh--backdrop"><img src="{% static 'icons/erh.svg' %}" /></div>
+</div>
 {% endblock %}
