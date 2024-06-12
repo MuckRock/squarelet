@@ -62,7 +62,6 @@ CONFIG = [
                 "envvars": [
                     ("AIRTABLE_ACCESS_TOKEN", ""),
                     ("AIRTABLE_ERH_BASE_ID", ""),
-                    ("AIRTABLE_ERH_TABLE_ID", "")
                 ],
             },
         ],
