@@ -2,6 +2,7 @@ import "vite/modulepreload-polyfill";
 import "./css/autocomplete.css";
 import "./css/project.css";
 import "./css/main.css";
+import "./css/erh.css";
 
 import { AutocompleteView } from "./autocomplete";
 import { exists } from "./util";
