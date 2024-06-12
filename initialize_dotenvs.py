@@ -55,6 +55,16 @@ CONFIG = [
                     ("STRIPE_WEBHOOK_SECRET", "wh_muckrock"),
                 ],
             },
+            {
+                "name": "Airtable",
+                "url": "https://airtable.com",
+                "description": "Airtable provides data for the Election Resource Hub",
+                "envvars": [
+                    ("AIRTABLE_ACCESS_TOKEN", ""),
+                    ("AIRTABLE_ERH_BASE_ID", ""),
+                    ("AIRTABLE_ERH_TABLE_ID", "")
+                ],
+            },
         ],
     },
     {
