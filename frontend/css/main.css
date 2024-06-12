@@ -1,5 +1,32 @@
+/* Source Sans Pro Regular (weight 400) */
+@font-face {
+  font-family: 'Source Sans Pro';
+  font-style: normal;
+  font-weight: 400;
+  src: local('Source Sans Pro Regular'), local('SourceSansPro-Regular'),
+       url('/static/fonts/SourceSansPro-Regular.otf') format('opentype'),
+}
+
+/* Source Sans Pro Semibold (weight 600) */
+@font-face {
+  font-family: 'Source Sans Pro';
+  font-style: normal;
+  font-weight: 600;
+  src: local('Source Sans Pro Semibold'), local('SourceSansPro-Semibold'),
+       url('/static/fonts/SourceSansPro-Semibold.otf') format('opentype');
+}
+
+/* Source Sans Pro Bold (weight 700) */
+@font-face {
+  font-family: 'Source Sans Pro';
+  font-style: normal;
+  font-weight: 700;
+  src: local('Source Sans Pro Bold'), local('SourceSansPro-Bold'),
+       url('/static/fonts/SourceSansPro-Bold.otf') format('opentype');
+}
+
 body {
-  font-family: Lato;
+  font-family: "Source Sans Pro";
   margin: 0;
   padding: 0;
   background: #333c47;
@@ -181,7 +208,7 @@ a._cls-nostyle {
 }
 
 ._cls-action {
-  font-weight: bold;
+  font-weight: 600;
   font-size: 11px;
   letter-spacing: 0.08em;
   color: #168ee5;
@@ -207,7 +234,7 @@ a._cls-nostyle {
 }
 
 ._cls-intentTitle {
-  font-weight: bold;
+  font-weight: 600;
   font-size: 22px;
   color: #3f3f3f;
 }
@@ -387,8 +414,8 @@ form,
 ._cls-cardAction button {
   background: #3a8fef;
   color: white;
-  font-family: Lato;
-  font-weight: bold;
+  font-family: "Source Sans Pro";
+  font-weight: 600;
   padding: 1em 2em;
   font-size: 1em;
   width: 90%;
@@ -481,7 +508,7 @@ nav {
 nav a ._cls-serviceName {
   color: #2b2b2b;
   text-decoration: inherit;
-  font-weight: bold;
+  font-weight: 600;
   transition: all 0.2s;
 }
 
@@ -492,7 +519,7 @@ nav a:hover ._cls-serviceName {
 ._cls-services a ._cls-serviceName {
   color: #2b2b2b;
   text-decoration: inherit;
-  font-weight: bold;
+  font-weight: 600;
   transition: all 0.2s;
 }
 
@@ -647,7 +674,7 @@ nav a:hover ._cls-serviceName {
 ._cls-mediumHeader {
   font-size: 17px;
   color: #3f3f3f;
-  font-weight: bold;
+  font-weight: 600;
 }
 
 ._cls-services {
@@ -668,7 +695,7 @@ nav a:hover ._cls-serviceName {
 
 ._cls-serviceName {
   color: #3f3f3f;
-  font-weight: bold;
+  font-weight: 600;
 }
 
 ._cls-serviceDescription {
@@ -727,7 +754,7 @@ nav a:hover ._cls-serviceName {
 ._cls-close {
   text-decoration: underline;
   margin-left: 0.25em;
-  font-weight: bold;
+  font-weight: 600;
   cursor: pointer;
   vertical-align: middle;
 }
@@ -756,7 +783,7 @@ nav a:hover ._cls-serviceName {
 }
 
 ._cls-alertIcon {
-  font-weight: bold;
+  font-weight: 600;
   border: solid 3px darkgreen;
   width: 18px;
   height: 18px;
@@ -771,7 +798,7 @@ nav a:hover ._cls-serviceName {
 }
 
 ._cls-alert ._cls-alertIcon::before {
-  font-weight: bold;
+  font-weight: 600;
 }
 
 .alert-success ._cls-alertIcon::before {
@@ -908,7 +935,7 @@ nav a:hover ._cls-serviceName {
 }
 
 ._cls-manageHeader ._cls-manageCell {
-  font-weight: bold;
+  font-weight: 600;
   background: #515867;
   color: white;
 }
@@ -924,7 +951,7 @@ nav a:hover ._cls-serviceName {
 
 ._cls-organizationInfo ._cls-profileName {
   font-size: 1.5em;
-  font-weight: bold;
+  font-weight: 600;
 }
 
 h2 {
@@ -941,7 +968,7 @@ h3 {
 
 ._cls-manageCell a {
   color: #555e65;
-  font-weight: bold;
+  font-weight: 600;
 }
 
 ._cls-manageCell a:hover {
@@ -972,7 +999,7 @@ h3 {
 }
 
 ._cls-tableHeading {
-  font-weight: bold;
+  font-weight: 600;
   margin-top: 2.5em;
 }
 
@@ -1267,7 +1294,7 @@ a._cls-navItem:hover {
 
 ._cls-breakdown::before {
   content: "* ";
-  font-weight: bold;
+  font-weight: 600;
 }
 
 ._cls-planProjection {
