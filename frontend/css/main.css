@@ -1,8 +1,38 @@
+/* Source Sans Pro Regular (weight 400) */
+@font-face {
+  font-family: 'Source Sans Pro';
+  font-style: normal;
+  font-weight: 400;
+  src: local('Source Sans Pro Regular'), local('SourceSansPro-Regular'),
+       url('/static/fonts/SourceSansPro-Regular.otf') format('opentype'),
+}
+
+/* Source Sans Pro Semibold (weight 600) */
+@font-face {
+  font-family: 'Source Sans Pro';
+  font-style: normal;
+  font-weight: 600;
+  src: local('Source Sans Pro Semibold'), local('SourceSansPro-Semibold'),
+       url('/static/fonts/SourceSansPro-Semibold.otf') format('opentype');
+}
+
+/* Source Sans Pro Bold (weight 700) */
+@font-face {
+  font-family: 'Source Sans Pro';
+  font-style: normal;
+  font-weight: 700;
+  src: local('Source Sans Pro Bold'), local('SourceSansPro-Bold'),
+       url('/static/fonts/SourceSansPro-Bold.otf') format('opentype');
+}
+
 body {
-  font-family: Lato;
+  font-family: "Source Sans Pro";
   margin: 0;
   padding: 0;
-  background: #333c47;
+  background: #fafafa;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
 a {
@@ -22,11 +52,104 @@ a._cls-nostyle {
 }
 
 ._cls-heading {
-  padding: 1.2em 2em;
+  position: relative;
+  padding: 5px 10px;
   box-shadow: 0 0 8px #0000005c;
   background: white;
-  position: relative;
-  border-top: solid 7px #168ee5;
+}
+
+._cls-headingContainer {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+._cls-navMenu {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+._cls-navMenuButton {
+  display: none;
+}
+
+@media (max-width: 52.5rem) {
+  ._cls-navMenu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    min-height: min-content;
+    background: white;
+    padding: 1rem;
+    border-radius: 0px 0px 10px 10px;
+    box-shadow: 0px 2px 4px 2px var(--shadow, rgba(30, 48, 56, 0.15));
+  }
+
+  ._cls-navMenuMobile {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    justify-content: space-between;
+  }
+
+  ._cls-navMenu ._cls-domainItems {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  ._cls-navMenu ._cls-accountItems {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  ._cls-navMenuButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    appearance: none;
+    background: none;
+    border: none;
+    width: 2rem;
+    height: 2rem;
+    font-family: var(--font-sans, "Source Sans Pro");
+    
+  }
+
+  ._cls-navMenuButton:hover,
+  ._cls-navMenuButton:active {
+    background: none;
+    box-shadow: none;
+  }
+
+  ._cls-navMenuButton[data-menu-open="false"] #closeMenu {
+    display: none;
+  }
+
+  ._cls-navMenuButton[data-menu-open="true"] #openMenu {
+    display: none;
+  }
+
+  ._cls-navMenu[data-menu-open="true"] {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+}
+
+._cls-domainItems {
+  flex: 1 1 auto;
+}
+
+._cls-accountItems {
+  flex: 0 1 auto;
 }
 
 ._cls-intent {
@@ -88,7 +211,7 @@ a._cls-nostyle {
 }
 
 ._cls-action {
-  font-weight: bold;
+  font-weight: 600;
   font-size: 11px;
   letter-spacing: 0.08em;
   color: #168ee5;
@@ -114,7 +237,7 @@ a._cls-nostyle {
 }
 
 ._cls-intentTitle {
-  font-weight: bold;
+  font-weight: 600;
   font-size: 22px;
   color: #3f3f3f;
 }
@@ -148,35 +271,35 @@ form,
 }
 
 ._cls-nameInput {
-  background-image: url(/static/assets/name_icon.svg);
+  background-image: url(../assets/name_icon.svg);
   background-position-x: 14px;
   background-position-y: 16px;
   background-size: 14px;
 }
 
 ._cls-usernameInput {
-  background-image: url(/static/assets/username_icon.svg);
+  background-image: url(../assets/username_icon.svg);
   background-position-x: 13px;
   background-position-y: 13px;
   background-size: 15px;
 }
 
 ._cls-emailInput {
-  background-image: url(/static/assets/email_icon.svg);
+  background-image: url(../assets/email_icon.svg);
   background-position-x: 11px;
   background-position-y: 16px;
   background-size: 22px;
 }
 
 ._cls-passwordInput {
-  background-image: url(/static/assets/password_icon.svg);
+  background-image: url(../assets/password_icon.svg);
   background-position-x: 14px;
   background-position-y: 11px;
   background-size: 17px;
 }
 
 ._cls-organizationInput {
-  background-image: url(/static/assets/organization_icon.svg);
+  background-image: url(../assets/organization_icon.svg);
   background-position-x: 13px;
   background-position-y: 13px;
   background-size: 19px;
@@ -245,6 +368,8 @@ form,
 }
 
 ._cls-footer {
+  flex: 0 1 auto;
+  padding: 3rem 0;
   background: #333c47;
   color: #ffffff9a;
 }
@@ -294,8 +419,8 @@ form,
 ._cls-cardAction button {
   background: #3a8fef;
   color: white;
-  font-family: Lato;
-  font-weight: bold;
+  font-family: "Source Sans Pro";
+  font-weight: 600;
   padding: 1em 2em;
   font-size: 1em;
   width: 90%;
@@ -355,7 +480,9 @@ button {
 
 button:hover {
   background: #3a8fefe3;
-  box-shadow: 0 3px 0px #c2d8ff, 0 2px 3px #00000052;
+  box-shadow:
+    0 3px 0px #c2d8ff,
+    0 2px 3px #00000052;
 }
 
 button:active {
@@ -386,7 +513,7 @@ nav {
 nav a ._cls-serviceName {
   color: #2b2b2b;
   text-decoration: inherit;
-  font-weight: bold;
+  font-weight: 600;
   transition: all 0.2s;
 }
 
@@ -397,7 +524,7 @@ nav a:hover ._cls-serviceName {
 ._cls-services a ._cls-serviceName {
   color: #2b2b2b;
   text-decoration: inherit;
-  font-weight: bold;
+  font-weight: 600;
   transition: all 0.2s;
 }
 
@@ -405,26 +532,16 @@ nav a:hover ._cls-serviceName {
   color: #00000091;
 }
 
-._cls-headingContent {
-  max-width: 900px;
-  margin: -0.5em auto 0 auto;
-}
-
-@media only screen and (max-width: 1000px) {
-  ._cls-headingContent ._cls-serviceInfo {
-    display: none;
-  }
-}
-
 ._cls-mainLogo {
-  margin-right: 2em;
-  vertical-align: middle;
+  display: block;
+  height: 1.125em;
+  width: auto;
 }
 
 ._cls-main {
+  flex: 1 1 auto;
   padding-top: 1.5em;
   padding-bottom: 2.5em;
-  background: #fafafa;
 }
 
 ._cls-fieldInput {
@@ -486,10 +603,7 @@ nav a:hover ._cls-serviceName {
   user-select: none;
   cursor: pointer;
   transition: all 0.2s ease;
-  padding: 5px 10px;
-  border-radius: 6px;
-  border-left: solid 1px transparent;
-  border-bottom: solid 2px transparent;
+  border-radius: 0.375em;
 }
 
 ._cls-profileAvatar {
@@ -565,7 +679,7 @@ nav a:hover ._cls-serviceName {
 ._cls-mediumHeader {
   font-size: 17px;
   color: #3f3f3f;
-  font-weight: bold;
+  font-weight: 600;
 }
 
 ._cls-services {
@@ -586,7 +700,7 @@ nav a:hover ._cls-serviceName {
 
 ._cls-serviceName {
   color: #3f3f3f;
-  font-weight: bold;
+  font-weight: 600;
 }
 
 ._cls-serviceDescription {
@@ -645,7 +759,7 @@ nav a:hover ._cls-serviceName {
 ._cls-close {
   text-decoration: underline;
   margin-left: 0.25em;
-  font-weight: bold;
+  font-weight: 600;
   cursor: pointer;
   vertical-align: middle;
 }
@@ -674,7 +788,7 @@ nav a:hover ._cls-serviceName {
 }
 
 ._cls-alertIcon {
-  font-weight: bold;
+  font-weight: 600;
   border: solid 3px darkgreen;
   width: 18px;
   height: 18px;
@@ -689,7 +803,7 @@ nav a:hover ._cls-serviceName {
 }
 
 ._cls-alert ._cls-alertIcon::before {
-  font-weight: bold;
+  font-weight: 600;
 }
 
 .alert-success ._cls-alertIcon::before {
@@ -711,7 +825,6 @@ nav a:hover ._cls-serviceName {
 .alert-error ._cls-alertIcon {
   border: solid 3px #7b0202;
 }
-
 
 .alert-warning {
   background: #dedea5f2;
@@ -759,7 +872,9 @@ nav a:hover ._cls-serviceName {
   margin: 0.8em 0;
   background: white;
   border-radius: 5px;
-  box-shadow: 0 0 2px #0000001c, 0 1px 3px #00000021;
+  box-shadow:
+    0 0 2px #0000001c,
+    0 1px 3px #00000021;
   padding: 0.5em 1em;
   transition: all 0.2s ease;
 }
@@ -825,7 +940,7 @@ nav a:hover ._cls-serviceName {
 }
 
 ._cls-manageHeader ._cls-manageCell {
-  font-weight: bold;
+  font-weight: 600;
   background: #515867;
   color: white;
 }
@@ -841,7 +956,7 @@ nav a:hover ._cls-serviceName {
 
 ._cls-organizationInfo ._cls-profileName {
   font-size: 1.5em;
-  font-weight: bold;
+  font-weight: 600;
 }
 
 h2 {
@@ -858,7 +973,7 @@ h3 {
 
 ._cls-manageCell a {
   color: #555e65;
-  font-weight: bold;
+  font-weight: 600;
 }
 
 ._cls-manageCell a:hover {
@@ -889,7 +1004,7 @@ h3 {
 }
 
 ._cls-tableHeading {
-  font-weight: bold;
+  font-weight: 600;
   margin-top: 2.5em;
 }
 
@@ -1071,6 +1186,38 @@ a._cls-dropdownItem {
   border-bottom: none;
 }
 
+._cls-navItem, a._cls-navItem {
+  display: flex;
+  padding: 4px 8px;
+  border-radius: 4px;
+  align-items: center;
+  gap: 8px;
+  border-bottom: none;
+  color: var(--gray-5, #233944);
+  fill: var(--gray-5, #233944);  
+  font-feature-settings: 'ss04' on;
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-size: var(--font-md, 16px);
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+  text-align: center;
+  white-space: nowrap;
+}
+
+a._cls-navItem:hover {
+  color: var(--blue-5, #053775);
+  fill: var(--blue-5, #053775);
+  background: var(--blue-2, #B5CEED);
+}
+
+._cls-navItems {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
 ._cls-profDropdown._cls-active ._cls-avatar {
   background: #f1f1f1;
   border-bottom: solid 2px transparent;
@@ -1152,7 +1299,7 @@ a._cls-dropdownItem {
 
 ._cls-breakdown::before {
   content: "* ";
-  font-weight: bold;
+  font-weight: 600;
 }
 
 ._cls-planProjection {
@@ -1302,4 +1449,8 @@ textarea {
 #hint_id_max_users {
   display: block;
   margin-top: 0.5em;
+}
+
+.cls-header {
+
 }

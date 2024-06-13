@@ -3,7 +3,7 @@ FROM python:3.10
 ENV PYTHONUNBUFFERED 1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    postgresql-client
+  postgresql-client
 
 #RUN apk update \
 #  # psycopg2 dependencies
@@ -27,20 +27,20 @@ RUN update-ca-certificates
 
 # install NVM
 ENV NVM_DIR /usr/local/nvm
-ENV NODE_VERSION 10.15.3
+ENV NODE_VERSION 22.2.0
 
 RUN mkdir $NVM_DIR
 RUN curl https://raw.githubusercontent.com/creationix/nvm/v0.34.0/install.sh | sh \
-    && . $NVM_DIR/nvm.sh \
-    && nvm install $NODE_VERSION \
-    && nvm alias default $NODE_VERSION \
-    && nvm use default
+  && . $NVM_DIR/nvm.sh \
+  && nvm install $NODE_VERSION \
+  && nvm alias default $NODE_VERSION \
+  && nvm use default
 
 ENV NODE_PATH $NVM_DIR/v$NODE_VERSION/lib/node_modules
 ENV PATH      $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
 
 # heroku cli
-RUN curl https://cli-assets.heroku.com/install.sh | sh
+# RUN curl https://cli-assets.heroku.com/install.sh | sh
 
 # Requirements are installed here to ensure they will be cached.
 COPY ./requirements /requirements
@@ -63,5 +63,8 @@ RUN sed -i 's/\r//' /start-celerybeat
 RUN chmod +x /start-celerybeat
 
 WORKDIR /app
+
+COPY package*.json ./
+RUN npm install
 
 ENTRYPOINT ["/entrypoint"]

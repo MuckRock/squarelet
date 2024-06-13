@@ -1,0 +1,70 @@
+{% load static i18n avatar %}
+
+<header class="_cls-heading">
+  <div class="_cls-headingContainer">
+    <nav class="_cls-navItems _cls-navMenuMobile">
+      <a class="_cls-navItem" href="{% url 'home' %}">
+        <img class="_cls-mainLogo" src="{% static 'assets/muckrock_accounts.svg' %}">
+      </a>
+      <button data-menu-open="false" class="_cls-navMenuButton _cls-nostyle">
+        <img id="openMenu" title="Open Menu" src="{% static 'icons/three-bars.svg' %}" />
+        <img id="closeMenu" title="Close Menu" src="{% static 'icons/x.svg' %}" />
+      </button>
+    </nav>
+    <div class="_cls-navMenu">
+      <nav class="_cls-navItems _cls-domainItems">
+        <a href="/erh" class="_cls-navItem">
+          <img src="{% static 'icons/erh.svg' %}">
+          Knight Election Hub
+        </a>
+        <a href="{% url 'organizations:list' %}" class="_cls-navItem">
+          <img src="{% static 'icons/org.svg' %}">
+          Organizations
+        </a>
+      </nav>
+      </nav>
+      {% if request.user.is_authenticated %}
+      <nav class="_cls-navItems _cls-accountItems">
+        {% if request.user.is_staff %}
+          {% if admin_link %}
+            <a title="{% trans 'Admin' %}" href="{{ admin_link }}" class="_cls-navItem">
+              {% trans "Admin" %}
+            </a>
+          {% else %}
+            <a title="{% trans 'Admin' %}" href="{% url 'admin:index' %}" class="_cls-navItem">
+              {% trans "Admin" %}
+            </a>
+          {% endif %}
+        {% endif %}
+        <a title="{% trans 'View Profile' %}" class="_cls-navItem" href="{% url 'users:detail' user.username %}">
+          {% avatar request.user 25 %}
+          {{ request.user.username }}
+        </a>
+        <a href="{% url 'account_logout' %}" class="_cls-navItem">
+          {% trans "Sign Out" %}
+        </a>
+      </nav>
+      {% else %}
+      <nav class="_cls-navItems _cls-accountItems _cls-anonymous">
+        <a title="{% trans 'Sign Up' %}" class="_cls-navItem" href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'squarelet' %}">
+          {% trans "Sign Up" %}
+        </a>
+        <a title="{% trans 'Sign In' %}" class="_cls-navItem" href="{% url 'account_login' %}">
+          {% trans "Sign In" %}
+        </a>
+      </nav>
+      {% endif %}
+    </div>
+  </div>
+</header>
+<script>
+  let menuOpen = false;
+  const menuButton = document.querySelector('._cls-navMenuButton');
+  const menu = document.querySelector('._cls-navMenu');
+  function toggleMenu() {
+    menuOpen = !menuOpen;
+    menuButton.dataset.menuOpen = String(menuOpen);
+    menu.dataset.menuOpen = String(menuOpen);
+  }
+  menuButton.addEventListener('click', toggleMenu);
+</script>

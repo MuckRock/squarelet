@@ -26,6 +26,7 @@ django-reversion
 django-sesame
 django-storages[boto3]
 django-two-factor-auth[phonenumberslite]
+django-vite
 django-weasyprint
 django<5.0
 djangorestframework
@@ -38,6 +39,7 @@ html2text
 ipdb
 memoize
 psycopg2 --no-binary psycopg2
+pyairtable
 python-Levenshtein
 python-slugify
 pytz

@@ -11,7 +11,7 @@ export function exists(id: string): boolean {
 export function on(
   element: HTMLElement,
   event: keyof HTMLElementEventMap | (keyof HTMLElementEventMap)[],
-  fn: (e: Event) => void
+  fn: (e: Event) => void,
 ) {
   if (Array.isArray(event)) {
     event.forEach((evt) => element.addEventListener(evt, fn, false));

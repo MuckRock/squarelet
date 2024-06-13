@@ -1,5 +1,6 @@
 # Django
 from django.db import models, transaction
+from django.db.models import Q
 from django.templatetags.static import static
 from django.urls import reverse
 from django.utils import timezone
@@ -448,6 +449,13 @@ class Organization(AvatarMixin, models.Model):
         )
         subscribe_emails = [u.email for u in users]
         mailchimp_subscribe(subscribe_emails)
+
+    def is_hub_eligible(self):
+        return bool(
+            self.hub_eligible
+            or self.groups.filter(hub_eligible=True).exists()
+            or (self.parent and self.parent.is_hub_eligible)
+        )
 
 
 class Membership(models.Model):
