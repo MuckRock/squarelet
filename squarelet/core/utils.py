@@ -4,6 +4,7 @@ from django.conf import settings
 # Standard Library
 import json
 import logging
+import os
 import os.path
 import sys
 import uuid
@@ -11,6 +12,7 @@ import uuid
 # Third Party
 import requests
 import stripe
+from pyairtable import Api as AirtableApi
 
 logger = logging.getLogger(__name__)
 
@@ -109,3 +111,8 @@ def resource_categories(resources):
             else:
                 category_list[category] = [resource]
     return category_list
+
+def get_category_choices():
+    base = AirtableApi(os.environ['AIRTABLE_ACCESS_TOKEN']).base(os.environ['AIRTABLE_ERH_BASE_ID'])
+    categories = base.table("Resources").schema().field('flds89Q9yTw7KGQTe')
+    return categories.options.choices
