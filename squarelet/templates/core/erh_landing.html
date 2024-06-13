@@ -57,10 +57,25 @@
 <div class="_cls-erh--container">
   <h1 class="_cls-title _cls-erh--title">
     <img class="_cls-erh--logo" src="{% static 'icons/erh.svg' %}" />
-    Knight Election Resource Hub
+    Knight Election Hub
   </h1>
-  {% if can_access_hub and categories %}
-  <div class="_class-erh--catalog">
+  {% if can_access_hub %}
+  <div class="_cls-erh--catalog">
+    <header class="_cls-erh--catalogSearchFilter">
+      <form method="GET">
+        <input type="search" name="query" value="{{search.query}}" placeholder="Search" />
+        <select name="category">
+          <option value="" {% if not search.category %}selected{% endif %}>All Categories</option>
+          {% for category in search.category_choices %}
+          <option value="{{category.name}}" {% if category.name == search.category %}selected{% endif %}>{{category.name}}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="_cls-button">Search</button>
+        {% if search.query or search.category %}
+        <a href="{% url 'erh_landing' %}" class="_cls-button">Reset</a>
+        {% endif %}
+      </form>
+    </header>
     {% for category, category_resources in categories.items %}
     <section class="_cls-erh--category" id="{{category|slugify}}">
       <header>
@@ -167,7 +182,7 @@
       {% endif %}
     </div>
   </div>
-  <div class="_cls-debug">
+  <!-- <div class="_cls-debug">
     <header>
       <p>// DEBUG -- WILL BE REMOVED BEFORE PUBLISHING</p>
     </header>
@@ -219,7 +234,7 @@
     {% endfor %}
     </ul>
     {% endif %}
-  </div>
+  </div> -->
   <div class="_cls-erh--backdrop"><img src="{% static 'icons/erh.svg' %}" /></div>
 </div>
 {% endblock %}

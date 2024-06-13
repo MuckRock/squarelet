@@ -4,7 +4,7 @@ from django.urls import reverse
 from django.db.models import Q
 from django.views.generic.base import RedirectView, TemplateView
 from squarelet.core.models import Resource
-from squarelet.core.utils import resource_categories
+from squarelet.core.utils import resource_categories, get_category_choices
 
 class HomeView(RedirectView):
     permanent = False
@@ -22,6 +22,21 @@ class ERHLandingView(TemplateView):
 
     template_name = "core/erh_landing.html"
 
+    def create_search_formula(self, query, category):
+        params = []
+        if query:
+            searchFields = [
+                'SEARCH(LOWER("{query}"), LOWER({{Name}}))'.format(query=query),
+                'SEARCH(LOWER("{query}"), LOWER({{Short Description}}))'.format(query=query),
+                'SEARCH(LOWER("{query}"), LOWER({{Category}}))'.format(query=query),
+            ]
+            params += ['OR({})'.format(', '.join(searchFields))]
+        if category:
+            params += ['FIND("{category}", {{Category}})'.format(category=category)]
+        formula = 'AND({})'.format(', '.join(params))
+        print(formula)
+        return formula
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data()
         if self.request.user.is_authenticated:
@@ -34,9 +49,19 @@ class ERHLandingView(TemplateView):
             )
             context["group_orgs"] = self.request.user.organizations.filter(individual=False)
             if self.request.user.is_hub_eligible:
-                # TODO cache these context values so that we're not making
-                # a roundtrip to Airtable every time we render the template
-                resources = cache.get_or_set("erh_resources", Resource.all(), 100)
-                context["resources"] = resources
+                # handle searching of resources
+                query = self.request.GET.get("query")
+                category = self.request.GET.get("category")
+                if query or category:
+                  # don't cache search results — they're too variable, and they return subsets
+                  resources = Resource.all(formula=self.create_search_formula(query, category))
+                else:
+                  # cache the full resource list
+                  resources = cache.get_or_set("erh_resources", Resource.all(), 100)
+                context["search"] = {
+                    'query': query or "",
+                    'category': category or "",
+                    'category_choices': cache.get_or_set("erh_categories", get_category_choices(), 1000)
+                }
                 context["categories"] = resource_categories(resources)
         return context
