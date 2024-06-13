@@ -64,40 +64,64 @@
     <header class="_cls-erh--catalogSearchFilter">
       {% include 'core/component/erh/catalogSearch.html' %}
     </header>
-    {% for category, category_resources in categories.items %}
-    <section class="_cls-erh--category" id="{{category|slugify}}">
-      <header>
-        <h2>{{category}}</h2>
-      </header>
-      <main>
-        <ul class="_cls-erh--resourceList">
-          {% for resource in category_resources %}
-          <li class="_cls-erh--resource">
-            <img class="_cls-erh--resourceLogo" src="{{resource.logo.0.thumbnails.large.url}}" />
-            <div class="_cls-erh--resourceDetail">
-              <h3 class="_cls-erh--resourceName">{{resource.name}}</h3>
-              {% if resource.shortDescription %}
-              <p class="_cls-erh--resourceDescription">{{resource.shortDescription}}</p>
-              {% else %}
-              <div class="_cls-erh--resourceDescription"></div>
-              {% endif %}
-              <a class="_cls-erh--resourceProvider" href="{{resource.provider.0.url}}">{{resource.provider.0.name}}</a>
-            </div>
-          </li>
-          {% endfor %}
-        </ul>
-      </main>
-    </section>
-    {% endfor %}
+    {% if search.query or search.category or search.provider %}
+    <div class="_cls-erh--searchResults">
+      <ul class="_cls-erh--resourceGrid">
+        {% for resource in resources %}
+        <li class="_cls-erh--resource">
+          <img class="_cls-erh--resourceLogo" src="{{resource.logo.0.thumbnails.large.url}}" />
+          <div class="_cls-erh--resourceDetail">
+            <h3 class="_cls-erh--resourceName">{{resource.name}}</h3>
+            {% if resource.shortDescription %}
+            <p class="_cls-erh--resourceDescription">{{resource.shortDescription}}</p>
+            {% else %}
+            <div class="_cls-erh--resourceDescription"></div>
+            {% endif %}
+            <a class="_cls-erh--resourceProvider" href="{{resource.provider.0.url}}">{{resource.provider.0.name}}</a>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% else %}
+    <div class="_csl-erh--categories">
+      {% for category, category_resources in categories.items %}
+      <section class="_cls-erh--category" id="{{category|slugify}}">
+        <header>
+          <h2>{{category}}</h2>
+        </header>
+        <main>
+          <ul class="_cls-erh--resourceList">
+            {% for resource in category_resources %}
+            <li class="_cls-erh--resource">
+              <img class="_cls-erh--resourceLogo" src="{{resource.logo.0.thumbnails.large.url}}" />
+              <div class="_cls-erh--resourceDetail">
+                <h3 class="_cls-erh--resourceName">{{resource.name}}</h3>
+                {% if resource.shortDescription %}
+                <p class="_cls-erh--resourceDescription">{{resource.shortDescription}}</p>
+                {% else %}
+                <div class="_cls-erh--resourceDescription"></div>
+                {% endif %}
+                <a class="_cls-erh--resourceProvider" href="{{resource.provider.0.url}}">{{resource.provider.0.name}}</a>
+              </div>
+            </li>
+            {% endfor %}
+          </ul>
+        </main>
+      </section>
+      {% endfor %}
+    </div>
+    {% endif %}
   </div>
-  {% endif %}
+  {% else %}
   <div class="_cls-body _cls-erh--description">
     <p>Local newsrooms that are doing innovative work informing and connecting with communities often don&rsquo;t have
       access to the services that newsrooms in earlier times took for granted. Small newsrooms are often so busy with
       daily coverage they don&rsquo;t even know about all the resources available to answer their community&rsquo;s
       hardest questions.</p>
     <p><strong>That&rsquo;s why we created the Resource Hub, and why we&rsquo;re picking up the check.</strong>
-      <mark>It&rsquo;s a collection of more than 100 selected products and services that will help you cover the        election better than you thought possible.</mark></p>
+      <mark>It&rsquo;s a collection of more than 100 selected products and services that will help you cover the
+        election better than you thought possible.</mark></p>
     <p>The Hub will open later this month, and we&rsquo;ll add services throughout the summer. Sign up for updates so we
       can be sure to alert you when the hub is updated.</p>
     <!-- BEGIN MAILCHIMP -->
@@ -169,59 +193,7 @@
       {% endif %}
     </div>
   </div>
-  <!-- <div class="_cls-debug">
-    <header>
-      <p>// DEBUG -- WILL BE REMOVED BEFORE PUBLISHING</p>
-    </header>
-    <p>You are logged in as: {{ request.user.username }}</p>
-    <p>
-      Do you have access to the Election Resource Hub:
-      {{ can_access_hub }}
-    </p>
-    {% if eligible_orgs.exists %}
-    <h3>Eligible orgs</h3>
-    <ul>
-      {% for org in eligible_orgs.all %}
-      <li><a href="/organizations/{{org.slug}}">{{org.name}}</a></li>
-      {% endfor %}
-    </ul>
-    {% endif %}
-    {% if resources %}
-    <h3>Resources</h3>
-    <ul>
-    {% for resource in resources %}
-      <li>
-        <ul>
-          <li>{{resource.id}}</li>
-          <li>{{resource.name}}</li>
-          <li>{{resource.logo.0.thumbnails.small.url}}</li>
-          <li>{{resource.provider.0.name}}</li>
-        </ul>
-      </li>
-    {% endfor %}
-    </ul>
-    {% endif %}
-    {% if categories %}
-    <h3>Categories</h3>
-    <ul>
-    {% for category, category_resources in categories.items %}
-      <li>
-        <h4>{{category}}</h4>
-        <ul>
-          {% for resource in category_resources %}
-          <li><ul>
-          <li>{{resource.id}}</li>
-          <li>{{resource.name}}</li>
-          <li>{{resource.logo.0.thumbnails.small.url}}</li>
-          <li>{{resource.provider.0.name}}</li>
-          </ul></li>
-          {% endfor %}
-        </ul>
-      </li>
-    {% endfor %}
-    </ul>
-    {% endif %}
-  </div> -->
+  {% endif %}
   <div class="_cls-erh--backdrop"><img src="{% static 'icons/erh.svg' %}" /></div>
 </div>
 {% endblock %}
