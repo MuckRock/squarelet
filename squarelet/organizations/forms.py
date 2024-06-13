@@ -51,7 +51,9 @@ class PaymentForm(StripeForm):
             Field("stripe_token"),
             Fieldset("Plan", Field("plan"), css_class="_cls-compactField"),
             (
-                Fieldset("Max Users", Field("max_users"), css_class="_cls-compactField")
+                Fieldset(
+                    "Resource Blocks", Field("max_users"), css_class="_cls-compactField"
+                )
                 if "max_users" in self.fields
                 else None
             ),
