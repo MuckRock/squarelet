@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static i18n %}
 
-{% block title %}Election Resource Hub{% endblock %}
+{% block title %}Knight Election Hub{% endblock %}
 
 {% block css %}
 {{ block.super }}
@@ -67,18 +67,20 @@
   <div class="_cls-erh--search">
     <ul class="_cls-erh--resultGrid">
       {% for resource in resources %}
-      <li class="_cls-erh--resource _cls-erh--result">
-        <img class="_cls-erh--resourceLogo" src="{{resource.logo.0.thumbnails.large.url}}" />
-        <div class="_cls-erh--resourceDetail">
-          <h3 class="_cls-erh--resourceName">{{resource.name}}</h3>
-          {% if resource.shortDescription %}
-          <p class="_cls-erh--resourceDescription">{{resource.shortDescription}}</p>
-          {% else %}
-          <div class="_cls-erh--resourceDescription"></div>
-          {% endif %}
-          <span class="_cls-erh--resourceProvider">{{resource.provider.0.name}}</span>
-        </div>
-      </li>
+      <a class="_cls-erh--resourceLink _cls-nostyle" href="{% url 'erh_resource' id=resource.id %}">
+        <li class="_cls-erh--resource _cls-erh--result" tabindex="0">
+          <img class="_cls-erh--resourceLogo" src="{{resource.logo.0.thumbnails.large.url}}" />
+          <div class="_cls-erh--resourceDetail">
+            <h3 class="_cls-erh--resourceName">{{resource.name}}</h3>
+            {% if resource.shortDescription %}
+            <p class="_cls-erh--resourceDescription">{{resource.shortDescription}}</p>
+            {% else %}
+            <div class="_cls-erh--resourceDescription"></div>
+            {% endif %}
+            <span class="_cls-erh--resourceProvider">{{resource.provider.0.name}}</span>
+          </div>
+        </li>
+      </a>
       {% endfor %}
     </ul>
   </div>
@@ -92,18 +94,20 @@
       <main>
         <ul class="_cls-erh--resourceList">
           {% for resource in category_resources %}
-          <li class="_cls-erh--resource">
-            <img class="_cls-erh--resourceLogo" src="{{resource.logo.0.thumbnails.large.url}}" />
-            <div class="_cls-erh--resourceDetail">
-              <h3 class="_cls-erh--resourceName">{{resource.name}}</h3>
-              {% if resource.shortDescription %}
-              <p class="_cls-erh--resourceDescription">{{resource.shortDescription}}</p>
-              {% else %}
-              <div class="_cls-erh--resourceDescription"></div>
-              {% endif %}
-              <span class="_cls-erh--resourceProvider">{{resource.provider.0.name}}</span>
-            </div>
-          </li>
+          <a class="_cls-erh--resourceLink _cls-nostyle" href="{% url 'erh_resource' id=resource.id %}">
+            <li class="_cls-erh--resource" tabindex="0">
+              <img class="_cls-erh--resourceLogo" src="{{resource.logo.0.thumbnails.large.url}}" />
+              <div class="_cls-erh--resourceDetail">
+                <h3 class="_cls-erh--resourceName">{{resource.name}}</h3>
+                {% if resource.shortDescription %}
+                <p class="_cls-erh--resourceDescription">{{resource.shortDescription}}</p>
+                {% else %}
+                <div class="_cls-erh--resourceDescription"></div>
+                {% endif %}
+                <span class="_cls-erh--resourceProvider">{{resource.provider.0.name}}</span>
+              </div>
+            </li>
+          </a>
           {% endfor %}
         </ul>
       </main>
