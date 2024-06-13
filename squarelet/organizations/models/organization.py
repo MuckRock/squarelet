@@ -1,6 +1,5 @@
 # Django
 from django.db import models, transaction
-from django.db.models import Q
 from django.templatetags.static import static
 from django.urls import reverse
 from django.utils import timezone
