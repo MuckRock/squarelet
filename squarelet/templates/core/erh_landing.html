@@ -62,19 +62,7 @@
   {% if can_access_hub %}
   <div class="_cls-erh--catalog">
     <header class="_cls-erh--catalogSearchFilter">
-      <form method="GET">
-        <input type="search" name="query" value="{{search.query}}" placeholder="Search" />
-        <select name="category">
-          <option value="" {% if not search.category %}selected{% endif %}>All Categories</option>
-          {% for category in search.category_choices %}
-          <option value="{{category.name}}" {% if category.name == search.category %}selected{% endif %}>{{category.name}}</option>
-          {% endfor %}
-        </select>
-        <button type="submit" class="_cls-button">Search</button>
-        {% if search.query or search.category %}
-        <a href="{% url 'erh_landing' %}" class="_cls-button">Reset</a>
-        {% endif %}
-      </form>
+      {% include 'core/component/erh/catalogSearch.html' %}
     </header>
     {% for category, category_resources in categories.items %}
     <section class="_cls-erh--category" id="{{category|slugify}}">
@@ -109,8 +97,7 @@
       daily coverage they don&rsquo;t even know about all the resources available to answer their community&rsquo;s
       hardest questions.</p>
     <p><strong>That&rsquo;s why we created the Resource Hub, and why we&rsquo;re picking up the check.</strong>
-      <mark>It&rsquo;s a collection of more than 100 selected products and services that will help you cover the
-        election better than you thought possible.</mark></p>
+      <mark>It&rsquo;s a collection of more than 100 selected products and services that will help you cover the        election better than you thought possible.</mark></p>
     <p>The Hub will open later this month, and we&rsquo;ll add services throughout the summer. Sign up for updates so we
       can be sure to alert you when the hub is updated.</p>
     <!-- BEGIN MAILCHIMP -->
