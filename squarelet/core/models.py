@@ -1,12 +1,14 @@
 """Misc database utilities"""
-import os
-
-# Airtable Models
-from pyairtable.orm import Model, fields as F
-
 # Django
 from django.db.models import Func
 from django.db.models.expressions import Value
+
+# Standard Library
+import os
+
+# Third Party
+# Airtable Models
+from pyairtable.orm import Model, fields as F
 
 
 class Interval(Func):
