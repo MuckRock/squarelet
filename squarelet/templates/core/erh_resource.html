@@ -4,16 +4,33 @@
 {% block title %}Knight Election Hub{% endblock %}
 
 {% block content %}
-<li class="_cls-erh--resource _cls-erh--result">
-  <img class="_cls-erh--resourceLogo" src="{{resource.logo.0.thumbnails.large.url}}" />
-  <div class="_cls-erh--resourceDetail">
-    <h3 class="_cls-erh--resourceName">{{resource.name}}</h3>
-    {% if resource.shortDescription %}
-    <p class="_cls-erh--resourceDescription">{{resource.shortDescription}}</p>
-    {% else %}
-    <div class="_cls-erh--resourceDescription"></div>
-    {% endif %}
-    <span class="_cls-erh--resourceProvider">{{resource.provider.0.name}}</span>
-  </div>
-</li>
+<div class="_cls-erh--container _cls-erh--resourcePage">
+  <header class="_cls-erh--header">
+    <a href="{% url 'erh_landing' %}" class="_cls-nostyle">
+      {% include "core/component/erh/logo.html" %}
+    </a>
+    <a href="{% url 'erh_landing' %}" class="_cls-button _cls-button--large _cls-button--outline">
+      &larr; Back to Catalog
+    </a>
+  </header>
+  <main class="_cls-erh--resourceBody">
+    <header class="_cls-erh--resourceHeader">
+      <img class="_cls-erh--resourceLogo" src="{{resource.logo.0.thumbnails.large.url}}" />
+      <div class="_cls-erh--resourceDetail">
+        <h1 class="_cls-erh--resourceName">{{resource.name}}</h3>
+        <span class="_cls-erh--resourceProvider">{{resource.provider.0.name}}</span>
+      </div>
+      <div class="_cls-erh--resourceActions">
+        <a class="_cls-button _cls-button--xlarge" id="accessResource" href="{% firstof resource.accessUrl resource.homepageUrl %}" target="_blank">Access</a>
+      </div>
+    </header>
+    <div class="_cls-erh--resourceDescription">
+      {% if resource.longDescription %}
+      {{resource.longDescription}}
+      {% else %}
+      <p>{{resource.shortDescription}}</p>
+      {% endif %}
+    </div>
+  </main>
+</div>
 {% endblock %}
