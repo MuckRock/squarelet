@@ -1,6 +1,9 @@
 """Misc database utilities"""
 import os
 
+# Airtable Models
+from pyairtable.orm import Model, fields as F
+
 # Django
 from django.db.models import Func
 from django.db.models.expressions import Value
@@ -16,8 +19,6 @@ class Interval(Func):
     def __init__(self, expression, **extra):
         super().__init__(Value(expression), **extra)
 
-# Airtable Models
-from pyairtable.orm import Model, fields as F
 
 class Provider(Model):
     name = F.TextField("Name")
@@ -26,9 +27,10 @@ class Provider(Model):
     verified = F.CheckboxField("Verified")
 
     class Meta:
-      api_key = os.environ['AIRTABLE_ACCESS_TOKEN']
-      base_id = os.environ['AIRTABLE_ERH_BASE_ID']
-      table_name = "Providers"
+        api_key = os.environ["AIRTABLE_ACCESS_TOKEN"]
+        base_id = os.environ["AIRTABLE_ERH_BASE_ID"]
+        table_name = "Providers"
+
 
 class Resource(Model):
     uid = F.AutoNumberField("ID")
@@ -44,6 +46,6 @@ class Resource(Model):
     category = F.MultipleSelectField("Category")
 
     class Meta:
-      api_key = os.environ['AIRTABLE_ACCESS_TOKEN']
-      base_id = os.environ['AIRTABLE_ERH_BASE_ID']
-      table_name = "Resources"
+        api_key = os.environ["AIRTABLE_ACCESS_TOKEN"]
+        base_id = os.environ["AIRTABLE_ERH_BASE_ID"]
+        table_name = "Resources"
