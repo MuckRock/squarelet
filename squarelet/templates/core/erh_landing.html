@@ -54,13 +54,11 @@
 {% endblock %}
 
 {% block content %}
-<div class="_cls-erh--container">
-  <h1 class="_cls-title _cls-erh--title">
-    <img class="_cls-erh--logo" src="{% static 'icons/erh.svg' %}" />
-    Knight Election Hub
-  </h1>
-{% if can_access_hub %}
-<div class="_cls-erh--hub">
+<div class="_cls-erh--container _cls-erh--landing">
+  <a href="{% url 'erh_landing' %}" class="_cls-nostyle">
+    {% include 'core/component/erh/logo.html' %}
+  </a>
+  {% if can_access_hub %}
   <header class="_cls-erh--header">
     {% include 'core/component/erh/catalogSearch.html' %}
   </header>
@@ -116,7 +114,6 @@
     {% endfor %}
   </div>
   {% endif %}
-</div>
 {% else %}
 <div class="_cls-body _cls-erh--description">
   <p>Local newsrooms that are doing innovative work informing and connecting with communities often don&rsquo;t have
