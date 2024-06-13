@@ -4,7 +4,7 @@ from django.urls import reverse
 from django.db.models import Q
 from django.urls import reverse
 from django.views.generic.base import RedirectView, TemplateView
-from squarelet.core.models import Resource
+from squarelet.core.models import Resource, Provider
 from squarelet.core.utils import resource_categories, get_category_choices
 
 class HomeView(RedirectView):
@@ -23,7 +23,7 @@ class ERHLandingView(TemplateView):
 
     template_name = "core/erh_landing.html"
 
-    def create_search_formula(self, query, category):
+    def create_search_formula(self, query, category, provider):
         params = []
         if query:
             searchFields = [
@@ -34,6 +34,8 @@ class ERHLandingView(TemplateView):
             params += ['OR({})'.format(', '.join(searchFields))]
         if category:
             params += ['FIND("{category}", {{Category}})'.format(category=category)]
+        if provider:
+            params += ['FIND("{provider}", {{Provider ID}})'.format(provider=provider)]
         formula = 'AND({})'.format(', '.join(params))
         print(formula)
         return formula
@@ -57,16 +59,20 @@ class ERHLandingView(TemplateView):
                 # handle searching of resources
                 query = self.request.GET.get("query")
                 category = self.request.GET.get("category")
-                if query or category:
+                provider = self.request.GET.get("provider")
+                if query or category or provider:
                   # don't cache search results — they're too variable, and they return subsets
-                  resources = Resource.all(formula=self.create_search_formula(query, category))
+                  resources = Resource.all(formula=self.create_search_formula(query, category, provider))
                 else:
                   # cache the full resource list
                   resources = cache.get_or_set("erh_resources", Resource.all(), 100)
                 context["search"] = {
                     'query': query or "",
                     'category': category or "",
-                    'category_choices': cache.get_or_set("erh_categories", get_category_choices(), 1000)
+                    'provider': provider or "",
+                    'category_choices': cache.get_or_set("erh_categories", get_category_choices(), 1000),
+                    'provider_choices': cache.get_or_set("erh_providers", Provider.all(), 100)
                 }
+                context["resources"] = resources
                 context["categories"] = resource_categories(resources)
         return context
