@@ -52,15 +52,6 @@ class OrganizationQuerySet(models.QuerySet):
         )
         return user.individual_organization
 
-    def get_max_user_notifications(self, user):
-        """Get organizations which could have their max users reduced"""
-        admin_orgs = user.organizations.filter(memberships__admin=True)
-        max_user_orgs = []
-        for org in admin_orgs:
-            if org.check_max_users():
-                max_user_orgs.append(org)
-        return max_user_orgs
-
 
 class MembershipQuerySet(models.QuerySet):
     def get_viewable(self, user):

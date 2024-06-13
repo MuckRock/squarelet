@@ -105,18 +105,18 @@ export class PlansView {
     let costBreakdownFormatted = `$${plan.base_price} (base price)`;
     if (this.maxUsers != 0) {
       if (this.maxUsers - plan.minimum_users == 0) {
-        costBreakdownFormatted += ` with ${plan.minimum_users} user${
-          plan.minimum_users != 1 ? "s" : ""
+        costBreakdownFormatted += ` with ${plan.minimum_users} resource block${
+          plan.minimum_users != 1 ? 's' : ''
         } included`;
         if (plan.price_per_user != 0) {
-          costBreakdownFormatted += ` ($${plan.price_per_user} per additional user)`;
+          costBreakdownFormatted +=
+            ` ($${plan.price_per_user} per additional resouece block)`;
         }
       } else {
-        costBreakdownFormatted += ` with ${plan.minimum_users} user${
-          plan.minimum_users != 1 ? "s" : ""
-        } included and ${this.maxUsers - plan.minimum_users} extra users at $${
-          plan.price_per_user
-        } each`;
+        costBreakdownFormatted += ` with ${plan.minimum_users} resource block${
+          plan.minimum_users != 1 ? 's' : ''
+        } included and ${this.maxUsers - plan.minimum_users} extra resource blocks
+          at $${plan.price_per_user} each`;
       }
     }
     this.costBreakdown.textContent = costBreakdownFormatted;
