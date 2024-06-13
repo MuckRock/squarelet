@@ -303,7 +303,7 @@ class TestManageMembers(ViewTestMixin):
         self.assert_message(messages.ERROR, "Enter a valid email address.")
 
     def test_add_member_good_user_limit(self, rf, organization_factory, user_factory):
-        """Test automatic max user increase"""
+        """Test having more users than max_users"""
         user = user_factory()
         members = user_factory.create_batch(4)
         organization = organization_factory(admins=[user], users=members, max_users=5)
@@ -312,7 +312,7 @@ class TestManageMembers(ViewTestMixin):
         self.call_view(rf, user, data, slug=organization.slug)
         self.assert_message(messages.SUCCESS, "Invitations sent")
         organization.refresh_from_db()
-        assert organization.max_users == 6
+        assert organization.max_users == 5
 
     def test_revoke_invite(
         self, rf, organization_factory, user_factory, invitation_factory

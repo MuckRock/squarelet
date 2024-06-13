@@ -37,7 +37,7 @@ from crispy_forms.layout import Fieldset, Layout
 from squarelet.core.forms import ImagePreviewWidget
 from squarelet.core.layout import Field
 from squarelet.core.mixins import AdminLinkMixin
-from squarelet.organizations.models import Invitation, Organization, ReceiptEmail
+from squarelet.organizations.models import Invitation, ReceiptEmail
 
 # Local
 from .models import User
@@ -78,10 +78,6 @@ class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
             .organizations.filter(individual=False)
             .get_viewable(self.request.user)
         )
-        if context["user"] == self.request.user:
-            context[
-                "max_user_organizations"
-            ] = Organization.objects.get_max_user_notifications(self.request.user)
         return context
 
 
@@ -109,9 +105,11 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
         form.helper = FormHelper()
         form.helper.layout = Layout(
             Fieldset("Name", Field("name")),
-            Fieldset("Username", Field("username"))
-            if "username" in form.fields
-            else None,
+            (
+                Fieldset("Username", Field("username"))
+                if "username" in form.fields
+                else None
+            ),
             Fieldset("Avatar image", Field("avatar"), css_class="_cls-compactField"),
             Fieldset(
                 "Autologin", Field("use_autologin"), css_class="_cls-compactField"
