@@ -2,7 +2,10 @@
 from django.core.cache import cache
 from django.urls import reverse
 from django.db.models import Q
-from django.urls import reverse
+from django.shortcuts import redirect
+from django.http.response import (
+    Http404
+)
 from django.views.generic.base import RedirectView, TemplateView
 from squarelet.core.models import Resource, Provider
 from squarelet.core.utils import resource_categories, get_category_choices
@@ -43,7 +46,7 @@ class ERHLandingView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data()
         if self.request.user.is_authenticated:
-            context["can_access_hub"] = self.request.user.is_hub_eligible
+            context["can_access_hub"] = self.request.user.is_hub_eligible()
             context["eligible_orgs"] = self.request.user.organizations.filter(
                 Q(individual=False)
                 & (
@@ -55,7 +58,7 @@ class ERHLandingView(TemplateView):
             context["group_orgs"] = self.request.user.organizations.filter(
                 individual=False
             )
-            if self.request.user.is_hub_eligible:
+            if self.request.user.is_hub_eligible():
                 # handle searching of resources
                 query = self.request.GET.get("query")
                 category = self.request.GET.get("category")
@@ -81,23 +84,25 @@ class ERHResourceView(TemplateView):
 
     template_name = "core/erh_resource.html"
 
+    def get(self, request, *args, **kwargs):
+        can_view = self.request.user.is_authenticated and self.request.user.is_hub_eligible()
+        print(can_view)
+        if can_view:
+            return super().get(request, *args, **kwargs)
+        else:
+            return redirect('erh_landing')
+
     def get_context_data(self, **kwargs):
+        """Get the resource based on the ID in the url path. Return 404 if not found."""
         context = super().get_context_data()
-        if self.request.user.is_authenticated:
-            context["can_access_hub"] = self.request.user.is_hub_eligible
-            context["eligible_orgs"] = self.request.user.organizations.filter(
-                Q(individual=False) &
-                (Q(hub_eligible=True)
-                 | Q(groups__hub_eligible=True)
-                 | Q(parent__hub_eligible=True))
-            )
-            context["group_orgs"] = self.request.user.organizations.filter(individual=False)
-            
-            if self.request.user.is_hub_eligible and 'id' in kwargs:
-                # get the resource
-                cache_key = 'erh_resource/{id}'.format(id=kwargs['id'])
-                resource = cache.get_or_set(cache_key, Resource.from_id(kwargs['id']), 300)
-                context['resource'] = resource
-                print(resource)
+
+        try:
+            # get the resource
+            cache_key = 'erh_resource/{id}'.format(id=kwargs['id'])
+            resource = cache.get_or_set(cache_key, Resource.from_id(kwargs['id']), 300)
+            context['resource'] = resource
+        except: 
+            raise Http404
+        
         return context
             

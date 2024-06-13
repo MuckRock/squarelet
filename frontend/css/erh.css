@@ -69,6 +69,8 @@
   line-height: 1.5;
   max-width: 70ch;
   color: var(--gray-5, #233944);
+  margin: 2rem auto;
+  padding: 1rem;
 }
 
 ._cls-debug {
