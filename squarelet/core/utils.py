@@ -100,6 +100,7 @@ def mailchimp_subscribe(emails, list_=settings.MAILCHIMP_LIST_DEFAULT):
     )
     return response
 
+
 def resource_categories(resources):
     """Maps the listed resources into a record keyed by category"""
     category_list = {}
@@ -112,7 +113,10 @@ def resource_categories(resources):
                 category_list[category] = [resource]
     return category_list
 
+
 def get_category_choices():
-    base = AirtableApi(os.environ['AIRTABLE_ACCESS_TOKEN']).base(os.environ['AIRTABLE_ERH_BASE_ID'])
-    categories = base.table("Resources").schema().field('flds89Q9yTw7KGQTe')
+    base = AirtableApi(os.environ["AIRTABLE_ACCESS_TOKEN"]).base(
+        os.environ["AIRTABLE_ERH_BASE_ID"]
+    )
+    categories = base.table("Resources").schema().field("flds89Q9yTw7KGQTe")
     return categories.options.choices
