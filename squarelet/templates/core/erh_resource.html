@@ -18,19 +18,26 @@
       <img class="_cls-erh--resourceLogo" src="{{resource.logo.0.thumbnails.large.url}}" />
       <div class="_cls-erh--resourceDetail">
         <h1 class="_cls-erh--resourceName">{{resource.name}}</h3>
-        <span class="_cls-erh--resourceProvider">{{resource.provider.0.name}}</span>
+        <a href="{% url 'erh_landing' %}?provider={{resource.provider.0.id}}" class="_cls-erh--resourceProvider">{{resource.provider.0.name}}</a>
       </div>
       <div class="_cls-erh--resourceActions">
         <a class="_cls-button _cls-button--xlarge" id="accessResource" href="{% firstof resource.accessUrl resource.homepageUrl %}" target="_blank">Access</a>
       </div>
-    </header>
-    <div class="_cls-erh--resourceDescription">
+      </header>
+      <div class="_cls-erh--resourceDescription">
       {% if resource.longDescription %}
-      {{resource.longDescription}}
-      {% else %}
+      {{ resource.longDescription }}
+      {% elif resource.shortDescription %}
       <p>{{resource.shortDescription}}</p>
+      {% else %}
       {% endif %}
-    </div>
+      </div>
+      <footer><ul class="_cls-erh--resourceCategories">
+        {% for category in resource.category %}
+        <li><a class="_cls-button _cls-button--small _cls-button--outline" href="{% url 'erh_landing' %}?category={{category|urlencode}}">{{category}}</a></li>
+        {% endfor %}
+      </ul>
+    </footer>
   </main>
 </div>
 {% endblock %}
