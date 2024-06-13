@@ -39,8 +39,6 @@ def organization_file_path(instance, filename):
 class Organization(AvatarMixin, models.Model):
     """Orginization to allow pooled requests and collaboration"""
 
-    # pylint: disable=too-many-public-methods
-
     objects = OrganizationQuerySet.as_manager()
 
     uuid = models.UUIDField(
@@ -200,9 +198,9 @@ class Organization(AvatarMixin, models.Model):
 
     # Book keeping
     max_users = models.IntegerField(
-        _("maximum users"),
+        _("resource blocks"),
         default=5,
-        help_text=_("The maximum number of users in this organization"),
+        help_text=_("The number of resource blocks this organization receives monthly"),
     )
     # this moved to subscription, remove
     update_on = models.DateField(
@@ -307,17 +305,6 @@ class Organization(AvatarMixin, models.Model):
     def user_count(self):
         """Count the number of users, including pending invitations"""
         return self.users.count() + self.invitations.get_pending().count()
-
-    def check_max_users(self):
-        """Could the max users be reduced for cost savings?"""
-        if self.plan is None:
-            return False
-        paid_plan = self.plan.price_per_user > 0
-        max_users_high = (
-            self.plan.minimum_users < self.max_users
-            and self.user_count() < self.max_users
-        )
-        return paid_plan and max_users_high
 
     def add_creator(self, user):
         """Add user as the creator of the organization"""
