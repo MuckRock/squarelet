@@ -1,12 +1,14 @@
 # Django
 from django.core.cache import cache
-from django.urls import reverse
 from django.db.models import Q
-from django.shortcuts import redirect
 from django.http.response import Http404
+from django.shortcuts import redirect
+from django.urls import reverse
 from django.views.generic.base import RedirectView, TemplateView
-from squarelet.core.models import Resource, Provider
-from squarelet.core.utils import resource_categories, get_category_choices
+
+# Squarelet
+from squarelet.core.models import Provider, Resource
+from squarelet.core.utils import get_category_choices, resource_categories
 
 
 class HomeView(RedirectView):
