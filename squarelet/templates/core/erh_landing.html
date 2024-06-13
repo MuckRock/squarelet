@@ -54,13 +54,37 @@
 {% endblock %}
 
 {% block content %}
-  <div class="_cls-erh--container _cls-largeContent">
-    <h1 class="_cls-title _cls-erh--title"><img class="_cls-erh--logo" src="{% static 'icons/erh.svg' %}"/> Knight Election Hub</h1>
-    {% if can_access_hub %}
-    <div class="_cls-erh--catalog">
-      <header class="_cls-erh--catalogSearchFilter">
-        {% include 'core/component/erh/catalogSearch.html' %}
-      </header>
+<div class="_cls-erh--container">
+  <h1 class="_cls-title _cls-erh--title">
+    <img class="_cls-erh--logo" src="{% static 'icons/erh.svg' %}" />
+    Knight Election Hub
+  </h1>
+  {% if can_access_hub %}
+  <div class="_cls-erh--catalog">
+    <header class="_cls-erh--catalogSearchFilter">
+      {% include 'core/component/erh/catalogSearch.html' %}
+    </header>
+    {% if search.query or search.category or search.provider %}
+    <div class="_cls-erh--searchResults">
+      <ul class="_cls-erh--resourceGrid">
+        {% for resource in resources %}
+        <li class="_cls-erh--resource">
+          <img class="_cls-erh--resourceLogo" src="{{resource.logo.0.thumbnails.large.url}}" />
+          <div class="_cls-erh--resourceDetail">
+            <h3 class="_cls-erh--resourceName">{{resource.name}}</h3>
+            {% if resource.shortDescription %}
+            <p class="_cls-erh--resourceDescription">{{resource.shortDescription}}</p>
+            {% else %}
+            <div class="_cls-erh--resourceDescription"></div>
+            {% endif %}
+            <a class="_cls-erh--resourceProvider" href="{{resource.provider.0.url}}">{{resource.provider.0.name}}</a>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% else %}
+    <div class="_csl-erh--categories">
       {% for category, category_resources in categories.items %}
       <section class="_cls-erh--category" id="{{category|slugify}}">
         <header>
@@ -155,59 +179,7 @@
     {% endif %}
     <div class="_cls-erh--backdrop"><img src="{% static 'icons/erh.svg' %}" /></div>
   </div>
-  <!-- <div class="_cls-debug">
-    <header>
-      <p>// DEBUG -- WILL BE REMOVED BEFORE PUBLISHING</p>
-    </header>
-    <p>You are logged in as: {{ request.user.username }}</p>
-    <p>
-      Do you have access to the Election Resource Hub:
-      {{ can_access_hub }}
-    </p>
-    {% if eligible_orgs.exists %}
-    <h3>Eligible orgs</h3>
-    <ul>
-      {% for org in eligible_orgs.all %}
-      <li><a href="/organizations/{{org.slug}}">{{org.name}}</a></li>
-      {% endfor %}
-    </ul>
-    {% endif %}
-    {% if resources %}
-    <h3>Resources</h3>
-    <ul>
-    {% for resource in resources %}
-      <li>
-        <ul>
-          <li>{{resource.id}}</li>
-          <li>{{resource.name}}</li>
-          <li>{{resource.logo.0.thumbnails.small.url}}</li>
-          <li>{{resource.provider.0.name}}</li>
-        </ul>
-      </li>
-    {% endfor %}
-    </ul>
-    {% endif %}
-    {% if categories %}
-    <h3>Categories</h3>
-    <ul>
-    {% for category, category_resources in categories.items %}
-      <li>
-        <h4>{{category}}</h4>
-        <ul>
-          {% for resource in category_resources %}
-          <li><ul>
-          <li>{{resource.id}}</li>
-          <li>{{resource.name}}</li>
-          <li>{{resource.logo.0.thumbnails.small.url}}</li>
-          <li>{{resource.provider.0.name}}</li>
-          </ul></li>
-          {% endfor %}
-        </ul>
-      </li>
-    {% endfor %}
-    </ul>
-    {% endif %}
-  </div> -->
+  {% endif %}
   <div class="_cls-erh--backdrop"><img src="{% static 'icons/erh.svg' %}" /></div>
 </div>
 {% endblock %}
