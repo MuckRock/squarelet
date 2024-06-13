@@ -396,6 +396,7 @@ MAILGUN_ACCESS_KEY = env("MAILGUN_ACCESS_KEY")
 SESAME_MAX_AGE = 60 * 60 * 24 * 2  # 2 days
 SESAME_ONE_TIME = True
 
+
 # django-debug-toolbar
 # ------------------------------------------------------------------------------
 def show_toolbar(request):
