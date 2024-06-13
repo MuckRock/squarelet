@@ -346,6 +346,19 @@
   width: auto;
 }
 
+._cls-erh--resourceLink {
+  display: contents;
+}
+
+._cls-erh--resourceLink ._cls-erh--resource {
+  cursor: pointer;
+  transition: background .1s linear;
+}
+
+._cls-erh--resourceLink:hover ._cls-erh--resource, ._cls-erh--resourceLink ._cls-erh--resource:focus {
+  background: var(--blue-1, #EEF3F9);
+}
+
 @media (max-width: 48rem) {
   ._cls-erh--searchForm {
     flex-wrap: wrap;
