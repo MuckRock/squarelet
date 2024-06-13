@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}Knight Election Hub{% endblock %}
+
+{% block content %}
+<li class="_cls-erh--resource _cls-erh--result">
+  <img class="_cls-erh--resourceLogo" src="{{resource.logo.0.thumbnails.large.url}}" />
+  <div class="_cls-erh--resourceDetail">
+    <h3 class="_cls-erh--resourceName">{{resource.name}}</h3>
+    {% if resource.shortDescription %}
+    <p class="_cls-erh--resourceDescription">{{resource.shortDescription}}</p>
+    {% else %}
+    <div class="_cls-erh--resourceDescription"></div>
+    {% endif %}
+    <span class="_cls-erh--resourceProvider">{{resource.provider.0.name}}</span>
+  </div>
+</li>
+{% endblock %}
