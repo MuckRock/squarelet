@@ -1,4 +1,5 @@
 # Django
+from django.core.cache import cache
 from django.urls import reverse
 from django.db.models import Q
 from django.views.generic.base import RedirectView, TemplateView
@@ -35,7 +36,7 @@ class ERHLandingView(TemplateView):
             if self.request.user.is_hub_eligible:
                 # TODO cache these context values so that we're not making
                 # a roundtrip to Airtable every time we render the template
-                resources = Resource.all()
+                resources = cache.get_or_set("erh_resources", Resource.all(), 100)
                 context["resources"] = resources
                 context["categories"] = resource_categories(resources)
         return context
