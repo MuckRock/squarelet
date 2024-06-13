@@ -42,6 +42,12 @@ class ERHLandingView(TemplateView):
         formula = 'AND({})'.format(', '.join(params))
         print(formula)
         return formula
+    
+    def get_all_resources(self):
+        return Resource.all()
+    
+    def get_all_providers(self):
+        return Provider.all()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data()
@@ -64,13 +70,13 @@ class ERHLandingView(TemplateView):
                   resources = Resource.all(formula=self.create_search_formula(query, category, provider))
                 else:
                   # cache the full resource list
-                  resources = cache.get_or_set("erh_resources", Resource.all(), 100)
+                  resources = cache.get_or_set("erh_resources", lambda: self.get_all_resources(), 1000)
                 context["search"] = {
                     'query': query or "",
                     'category': category or "",
                     'provider': provider or "",
-                    'category_choices': cache.get_or_set("erh_categories", get_category_choices(), 1000),
-                    'provider_choices': cache.get_or_set("erh_providers", Provider.all(), 100)
+                    'category_choices': cache.get_or_set("erh_categories", lambda: get_category_choices(), 1000),
+                    'provider_choices': cache.get_or_set("erh_providers", lambda: self.get_all_providers(), 1000)
                 }
                 context["resources"] = resources
                 context["categories"] = resource_categories(resources)
