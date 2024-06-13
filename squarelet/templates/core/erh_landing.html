@@ -60,55 +60,25 @@
     Knight Election Hub
   </h1>
   {% if can_access_hub %}
-  <div class="_cls-erh--catalog">
-    <header class="_cls-erh--catalogSearchFilter">
-      {% include 'core/component/erh/catalogSearch.html' %}
-    </header>
-    {% if search.query or search.category or search.provider %}
-    <div class="_cls-erh--searchResults">
-      <ul class="_cls-erh--resourceGrid">
-        {% for resource in resources %}
-        <li class="_cls-erh--resource">
-          <img class="_cls-erh--resourceLogo" src="{{resource.logo.0.thumbnails.large.url}}" />
-          <div class="_cls-erh--resourceDetail">
-            <h3 class="_cls-erh--resourceName">{{resource.name}}</h3>
-            {% if resource.shortDescription %}
-            <p class="_cls-erh--resourceDescription">{{resource.shortDescription}}</p>
-            {% else %}
-            <div class="_cls-erh--resourceDescription"></div>
-            {% endif %}
-            <a class="_cls-erh--resourceProvider" href="{{resource.provider.0.url}}">{{resource.provider.0.name}}</a>
-          </div>
-        </li>
-        {% endfor %}
-      </ul>
-    </div>
-    {% else %}
-    <div class="_csl-erh--categories">
-      {% for category, category_resources in categories.items %}
-      <section class="_cls-erh--category" id="{{category|slugify}}">
-        <header>
-          <h2>{{category}}</h2>
-        </header>
-        <main>
-          <ul class="_cls-erh--resourceList">
-            {% for resource in category_resources %}
-            <li class="_cls-erh--resource">
-              <img class="_cls-erh--resourceLogo" src="{{resource.logo.0.thumbnails.large.url}}" />
-              <div class="_cls-erh--resourceDetail">
-                <h3 class="_cls-erh--resourceName">{{resource.name}}</h3>
-                {% if resource.shortDescription %}
-                <p class="_cls-erh--resourceDescription">{{resource.shortDescription}}</p>
-                {% else %}
-                <div class="_cls-erh--resourceDescription"></div>
-                {% endif %}
-                <a class="_cls-erh--resourceProvider" href="{{resource.provider.0.url}}">{{resource.provider.0.name}}</a>
-              </div>
-            </li>
-            {% endfor %}
-          </ul>
-        </main>
-      </section>
+  <header class="_cls-erh--header">
+    {% include 'core/component/erh/catalogSearch.html' %}
+  </header>
+  {% if search.query or search.category or search.provider %}
+  <div class="_cls-erh--search">
+    <ul class="_cls-erh--resultGrid">
+      {% for resource in resources %}
+      <li class="_cls-erh--resource _cls-erh--result">
+        <img class="_cls-erh--resourceLogo" src="{{resource.logo.0.thumbnails.large.url}}" />
+        <div class="_cls-erh--resourceDetail">
+          <h3 class="_cls-erh--resourceName">{{resource.name}}</h3>
+          {% if resource.shortDescription %}
+          <p class="_cls-erh--resourceDescription">{{resource.shortDescription}}</p>
+          {% else %}
+          <div class="_cls-erh--resourceDescription"></div>
+          {% endif %}
+          <span class="_cls-erh--resourceProvider">{{resource.provider.0.name}}</span>
+        </div>
+      </li>
       {% endfor %}
     </div>
     {% else %}
