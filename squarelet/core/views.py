@@ -1,3 +1,5 @@
+import os
+
 # Django
 from django.core.cache import cache
 from django.db.models import Q
@@ -6,10 +8,12 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from django.views.generic.base import RedirectView, TemplateView
 
+from pyairtable import Api as AirtableApi
+
 # Squarelet
 from squarelet.core.models import Provider, Resource
-from squarelet.core.utils import get_category_choices, resource_categories
 
+AIRTABLE_CACHE_TTL = 120
 
 class HomeView(RedirectView):
     permanent = False
@@ -44,10 +48,40 @@ class ERHLandingView(TemplateView):
         return formula
 
     def get_all_resources(self):
-        return Resource.all()
+        resources = cache.get('erh_resources')
+        if not resources:
+            resources = Resource.all()
+            cache.set('erh_resources', resources, AIRTABLE_CACHE_TTL)
+        return resources
 
     def get_all_providers(self):
-        return Provider.all()
+        providers = cache.get('erh_providers')
+        if not providers:
+            providers = Provider.all()
+            cache.set('erh_providers', providers, AIRTABLE_CACHE_TTL)
+        return providers
+    
+    def get_categories(self):
+        categories = cache.get('erh_categories')
+        if not categories:
+          api = AirtableApi(os.environ["AIRTABLE_ACCESS_TOKEN"])
+          base = api.base(os.environ["AIRTABLE_ERH_BASE_ID"])
+          table_schema = base.table("Resources").schema()
+          categories = table_schema.field("flds89Q9yTw7KGQTe")
+          cache.set('erh_categories', categories, AIRTABLE_CACHE_TTL)
+        return categories.options.choices
+
+
+    def resources_by_category(self, resources):
+        """Maps the listed resources into a record keyed by category"""
+        categories = self.get_categories()
+        category_list = {}
+        for category in categories:
+            category_resources = [resource for resource in resources if category.name in resource.category]
+            print(category, category_resources)
+            if category_resources:
+              category_list[category.name] = category_resources
+        return category_list
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data()
@@ -83,15 +117,13 @@ class ERHLandingView(TemplateView):
                     "query": query or "",
                     "category": category or "",
                     "provider": provider or "",
-                    "category_choices": cache.get_or_set(
-                        "erh_categories", get_category_choices(), 1000
-                    ),
+                    "category_choices": self.get_categories(),
                     "provider_choices": cache.get_or_set(
                         "erh_providers", self.get_all_providers(), 1000
                     ),
                 }
                 context["resources"] = resources
-                context["categories"] = resource_categories(resources)
+                context["categories"] = self.resources_by_category(resources)
         return context
 
 
