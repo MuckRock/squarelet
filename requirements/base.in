@@ -1,6 +1,7 @@
 Pillow
 argon2-cffi
 bcrypt
+bleach
 celery<5.0
 cryptography
 django-allauth
@@ -37,6 +38,7 @@ furl
 fuzzywuzzy
 html2text
 ipdb
+markdown
 memoize
 psycopg2 --no-binary psycopg2
 pyairtable

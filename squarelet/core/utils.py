@@ -4,7 +4,6 @@ from django.conf import settings
 # Standard Library
 import json
 import logging
-import os
 import os.path
 import sys
 import uuid
@@ -12,7 +11,6 @@ import uuid
 # Third Party
 import requests
 import stripe
-from pyairtable import Api as AirtableApi
 
 logger = logging.getLogger(__name__)
 
@@ -99,24 +97,3 @@ def mailchimp_subscribe(emails, list_=settings.MAILCHIMP_LIST_DEFAULT):
         requests.ConnectionError, requests.post, api_url, json=data, headers=headers
     )
     return response
-
-
-def resource_categories(resources):
-    """Maps the listed resources into a record keyed by category"""
-    category_list = {}
-    for resource in resources:
-        categories = resource.category
-        for category in categories:
-            if category in category_list:
-                category_list[category] = category_list[category] + [resource]
-            else:
-                category_list[category] = [resource]
-    return category_list
-
-
-def get_category_choices():
-    base = AirtableApi(os.environ["AIRTABLE_ACCESS_TOKEN"]).base(
-        os.environ["AIRTABLE_ERH_BASE_ID"]
-    )
-    categories = base.table("Resources").schema().field("flds89Q9yTw7KGQTe")
-    return categories.options.choices
