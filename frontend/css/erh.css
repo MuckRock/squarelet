@@ -64,6 +64,16 @@
   margin: 1rem 0 0;
 }
 
+@media(max-width: 34rem) {
+  ._cls-erh--title {
+    font-size: 2rem;
+  }
+  ._cls-erh--logo {
+    height: 2rem;
+    width: 2rem;
+  }
+}
+
 ._cls-erh--description {
   font-size: 1.25rem;
   line-height: 1.5;
@@ -236,6 +246,7 @@
   overflow-x: auto;
   list-style-type: none;
   padding: 0 max(calc((100vw - var(--max-width))/2), var(--padding)) 2rem;
+  scroll-snap-type: x mandatory;
 }
 
 ._cls-erh--resource {
@@ -249,6 +260,7 @@
   background: var(--white, #FFF);
   align-items: flex-start;
   gap: var(--font-md, 16px);
+  scroll-snap-align: center;
 }
 
 ._cls-erh--resourceName {
@@ -451,12 +463,12 @@
 }
 
 ._cls-erh--resourcePage ._cls-erh--logo {
-  height: 1.5rem;
-  width: 1.5rem;
+  height: 2rem;
+  width: 2rem;
 }
 
 ._cls-erh--resourcePage ._cls-erh--title {
-  font-size: 1.5rem;
+  font-size: 2rem;
   text-align: left;
   margin: 1rem 0;
 }
@@ -575,6 +587,11 @@
 }
 
 @media (max-width: 32rem) {
+  ._cls-erh--resourcePage ._cls-erh--header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+  }
   ._cls-erh--resourcePage ._cls-erh--resourceBody ._cls-erh--resourceHeader {
     flex-wrap: wrap;
     justify-content: space-between;
