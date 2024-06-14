@@ -1,0 +1,11 @@
+{
+  "frontend/main.ts": {
+    "file": "assets/main-CjrjjA20.js",
+    "name": "main",
+    "src": "frontend/main.ts",
+    "isEntry": true,
+    "css": [
+      "assets/main-BQSi4c1c.css"
+    ]
+  }
+}
