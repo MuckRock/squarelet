@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static i18n %}
+{% load markdown static i18n %}
 
 {% block title %}Knight Election Hub{% endblock %}
 
@@ -23,23 +23,24 @@
       <div class="_cls-erh--resourceActions">
         <a class="_cls-button _cls-button--xlarge" id="accessResource" href="{% firstof resource.accessUrl resource.homepageUrl %}" target="_blank">Access</a>
       </div>
-      </header>
-      {% if resource.screenshots %}
-      <div class="_cls-erh--resourceScreenshots">
-        {% for screenshot in resource.screenshots %}
-        <img src="{{screenshot.thumbnails.large.url}}" class="_cls-erh--resourceScreenshot" />
-        {% endfor %}
-      </div>
-      {% endif %}
-      <div class="_cls-erh--resourceDescription">
-      {% if resource.longDescription %}
-      {{ resource.longDescription }}
-      {% elif resource.shortDescription %}
-      <p>{{resource.shortDescription}}</p>
-      {% else %}
-      {% endif %}
-      </div>
-      <footer><ul class="_cls-erh--resourceCategories">
+    </header>
+    {% if resource.screenshots %}
+    <div class="_cls-erh--resourceScreenshots">
+      {% for screenshot in resource.screenshots %}
+      <img src="{{screenshot.thumbnails.large.url}}" class="_cls-erh--resourceScreenshot" />
+      {% endfor %}
+    </div>
+    {% endif %}
+    <div class="_cls-erh--resourceDescription">
+    {% if resource.longDescription %}
+    {{ resource.longDescription|markdown }}
+    {% elif resource.shortDescription %}
+    <p>{{resource.shortDescription}}</p>
+    {% else %}
+    {% endif %}
+    </div>
+    <footer>
+      <ul class="_cls-erh--resourceCategories">
         {% for category in resource.category %}
         <li><a class="_cls-button _cls-button--small _cls-button--outline" href="{% url 'erh_landing' %}?category={{category|urlencode}}">{{category}}</a></li>
         {% endfor %}
