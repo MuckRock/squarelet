@@ -39,7 +39,7 @@ class ERHLandingView(TemplateView):
                 f'SEARCH(LOWER("{query}"), LOWER({{Short Description}}))',
                 f'SEARCH(LOWER("{query}"), LOWER({{Category}}))',
             ]
-            params += [f"OR({', '.join(search_fields)}"]
+            params += [f"OR({', '.join(search_fields)})"]
         if category:
             params += [f'FIND("{category}", {{Category}})']
         if provider:
