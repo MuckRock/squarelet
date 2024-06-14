@@ -80,6 +80,11 @@
           </div>
         </li>
       </a>
+      {% empty %}
+      <div class="_cls-erh--empty">
+        <p>No resources found matching your search terms</p>
+        <p>Try another search, or <a href="{% url 'erh_landing' %}">return to the catalog</a></p>
+      </div>
       {% endfor %}
     </ul>
   </div>
