@@ -293,3 +293,6 @@ squarelet/config/
 .vscode/
 scratch/
 *.js.map
+
+# keep built frontend files for now
+!frontend/dist
