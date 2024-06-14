@@ -1,6 +1,7 @@
 import os
 
 # Django
+from django.conf import settings
 from django.core.cache import cache
 from django.db.models import Q
 from django.http.response import Http404
@@ -31,8 +32,12 @@ class ERHLandingView(TemplateView):
 
     template_name = "core/erh_landing.html"
 
-    def create_search_formula(self, query, category, provider):
+    def create_search_formula(self, query=None, category=None, provider=None):
         params = []
+        if not settings.DEBUG:
+            status = '{Status} = "Approved"'
+            show = '{Show?} = "Ready"'
+            params += [f"AND({status}, {show})"]
         if query:
             search_fields = [
                 f'SEARCH(LOWER("{query}"), LOWER({{Name}}))',
@@ -50,7 +55,7 @@ class ERHLandingView(TemplateView):
     def get_all_resources(self):
         resources = cache.get('erh_resources')
         if not resources:
-            resources = Resource.all()
+            resources = Resource.all(formula=self.create_search_formula())
             cache.set('erh_resources', resources, AIRTABLE_CACHE_TTL)
         return resources
 
@@ -61,7 +66,7 @@ class ERHLandingView(TemplateView):
             cache.set('erh_providers', providers, AIRTABLE_CACHE_TTL)
         return providers
     
-    def get_categories(self):
+    def get_all_categories(self):
         categories = cache.get('erh_categories')
         if not categories:
           api = AirtableApi(os.environ["AIRTABLE_ACCESS_TOKEN"])
@@ -74,7 +79,7 @@ class ERHLandingView(TemplateView):
 
     def resources_by_category(self, resources):
         """Maps the listed resources into a record keyed by category"""
-        categories = self.get_categories()
+        categories = self.get_all_categories()
         category_list = {}
         for category in categories:
             category_resources = [resource for resource in resources if category.name in resource.category]
@@ -110,17 +115,13 @@ class ERHLandingView(TemplateView):
                     )
                 else:
                     # cache the full resource list
-                    resources = cache.get_or_set(
-                        "erh_resources", self.get_all_resources(), 1000
-                    )
+                    resources = self.get_all_resources()
                 context["search"] = {
                     "query": query or "",
                     "category": category or "",
                     "provider": provider or "",
-                    "category_choices": self.get_categories(),
-                    "provider_choices": cache.get_or_set(
-                        "erh_providers", self.get_all_providers(), 1000
-                    ),
+                    "category_choices": self.get_all_categories(),
+                    "provider_choices": self.get_all_providers()
                 }
                 context["resources"] = resources
                 context["categories"] = self.resources_by_category(resources)
