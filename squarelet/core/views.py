@@ -16,7 +16,7 @@ from pyairtable import Api as AirtableApi
 # Squarelet
 from squarelet.core.models import Provider, Resource
 
-AIRTABLE_CACHE_TTL = 120
+AIRTABLE_CACHE_TTL = 600 # 10 minutes
 
 
 class HomeView(RedirectView):
@@ -58,6 +58,7 @@ class ERHLandingView(TemplateView):
     def get_all_resources(self):
         resources = cache.get("erh_resources")
         if not resources:
+            print('Cache miss. Fetching resources…')
             resources = Resource.all(formula=self.create_search_formula())
             cache.set("erh_resources", resources, AIRTABLE_CACHE_TTL)
         return resources
@@ -65,6 +66,7 @@ class ERHLandingView(TemplateView):
     def get_all_providers(self):
         providers = cache.get("erh_providers")
         if not providers:
+            print('Cache miss. Fetching providers…')
             providers = Provider.all()
             cache.set("erh_providers", providers, AIRTABLE_CACHE_TTL)
         return providers
@@ -72,6 +74,7 @@ class ERHLandingView(TemplateView):
     def get_all_categories(self):
         categories = cache.get("erh_categories")
         if not categories:
+            print('Cache miss. Fetching categories…')
             api = AirtableApi(os.environ["AIRTABLE_ACCESS_TOKEN"])
             base = api.base(os.environ["AIRTABLE_ERH_BASE_ID"])
             table_schema = base.table("Resources").schema()
@@ -89,7 +92,6 @@ class ERHLandingView(TemplateView):
                 for resource in resources
                 if (category.name in resource.category)
             ]
-            print(category, category_resources)
             if category_resources:
                 category_list[category.name] = category_resources
         return category_list
@@ -142,7 +144,6 @@ class ERHResourceView(TemplateView):
         can_view = (
             self.request.user.is_authenticated and self.request.user.is_hub_eligible()
         )
-        print(can_view)
         if can_view:
             return super().get(request, *args, **kwargs)
         else:
@@ -151,11 +152,16 @@ class ERHResourceView(TemplateView):
     def get_context_data(self, **kwargs):
         """Get the resource based on the ID in the url path. Return 404 if not found."""
         context = super().get_context_data()
+        q_cache = self.request.GET.get("cache")
 
         try:
             # get the resource
             cache_key = f"erh_resource/{kwargs['id']}"
-            resource = cache.get_or_set(cache_key, Resource.from_id(kwargs["id"]), 300)
+            resource = cache.get(cache_key)
+            if not resource or q_cache == '0':
+                print('Cache miss. Fetching resource…')
+                resource = Resource.from_id(kwargs["id"])
+                cache.set(cache_key, resource, AIRTABLE_CACHE_TTL)
             context["resource"] = resource
         except:
             raise Http404
