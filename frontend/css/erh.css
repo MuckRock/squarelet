@@ -399,6 +399,17 @@
   grid-template-columns: repeat(auto-fill, minmax(25rem, 1fr));
 }
 
+._cls-erh--empty {
+  width: 100%;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 1.125em;
+  color: var(--gray-4, #5C717C);
+  grid-column: -1/1;
+}
+
 ._cls-erh--result {
   width: auto;
 }
