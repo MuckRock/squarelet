@@ -46,6 +46,7 @@ class Resource(Model):
     homepageUrl = F.UrlField("Homepage URL")
     accessUrl = F.UrlField("Access URL")
     category = F.MultipleSelectField("Category")
+    screenshots = F.AttachmentsField("Screenshots")
 
     class Meta:
         api_key = os.environ["AIRTABLE_ACCESS_TOKEN"]
