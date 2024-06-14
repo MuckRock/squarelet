@@ -97,5 +97,3 @@ def mailchimp_subscribe(emails, list_=settings.MAILCHIMP_LIST_DEFAULT):
         requests.ConnectionError, requests.post, api_url, json=data, headers=headers
     )
     return response
-
-

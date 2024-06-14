@@ -16,6 +16,7 @@ from squarelet.core.models import Provider, Resource
 
 AIRTABLE_CACHE_TTL = 120
 
+
 class HomeView(RedirectView):
     permanent = False
 
@@ -53,39 +54,42 @@ class ERHLandingView(TemplateView):
         return formula
 
     def get_all_resources(self):
-        resources = cache.get('erh_resources')
+        resources = cache.get("erh_resources")
         if not resources:
             resources = Resource.all(formula=self.create_search_formula())
-            cache.set('erh_resources', resources, AIRTABLE_CACHE_TTL)
+            cache.set("erh_resources", resources, AIRTABLE_CACHE_TTL)
         return resources
 
     def get_all_providers(self):
-        providers = cache.get('erh_providers')
+        providers = cache.get("erh_providers")
         if not providers:
             providers = Provider.all()
-            cache.set('erh_providers', providers, AIRTABLE_CACHE_TTL)
+            cache.set("erh_providers", providers, AIRTABLE_CACHE_TTL)
         return providers
-    
-    def get_all_categories(self):
-        categories = cache.get('erh_categories')
-        if not categories:
-          api = AirtableApi(os.environ["AIRTABLE_ACCESS_TOKEN"])
-          base = api.base(os.environ["AIRTABLE_ERH_BASE_ID"])
-          table_schema = base.table("Resources").schema()
-          categories = table_schema.field("flds89Q9yTw7KGQTe")
-          cache.set('erh_categories', categories, AIRTABLE_CACHE_TTL)
-        return categories.options.choices
 
+    def get_all_categories(self):
+        categories = cache.get("erh_categories")
+        if not categories:
+            api = AirtableApi(os.environ["AIRTABLE_ACCESS_TOKEN"])
+            base = api.base(os.environ["AIRTABLE_ERH_BASE_ID"])
+            table_schema = base.table("Resources").schema()
+            categories = table_schema.field("flds89Q9yTw7KGQTe")
+            cache.set("erh_categories", categories, AIRTABLE_CACHE_TTL)
+        return categories.options.choices
 
     def resources_by_category(self, resources):
         """Maps the listed resources into a record keyed by category"""
         categories = self.get_all_categories()
         category_list = {}
         for category in categories:
-            category_resources = [resource for resource in resources if category.name in resource.category]
+            category_resources = [
+                resource
+                for resource in resources
+                if (category.name in resource.category)
+            ]
             print(category, category_resources)
             if category_resources:
-              category_list[category.name] = category_resources
+                category_list[category.name] = category_resources
         return category_list
 
     def get_context_data(self, **kwargs):
@@ -121,7 +125,7 @@ class ERHLandingView(TemplateView):
                     "category": category or "",
                     "provider": provider or "",
                     "category_choices": self.get_all_categories(),
-                    "provider_choices": self.get_all_providers()
+                    "provider_choices": self.get_all_providers(),
                 }
                 context["resources"] = resources
                 context["categories"] = self.resources_by_category(resources)
