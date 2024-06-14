@@ -298,7 +298,7 @@ orderedmultidict==1.0.1
     # via
     #   -r requirements/base.txt
     #   furl
-packaging==21.3
+packaging==24.1
     # via
     #   -r requirements/base.txt
     #   redis
@@ -384,10 +384,6 @@ pyjwt[crypto]==2.4.0
     #   django-allauth
     #   django-request-token
     #   djangorestframework-simplejwt
-pyparsing==2.4.5
-    # via
-    #   -r requirements/base.txt
-    #   packaging
 pyphen==0.13.2
     # via
     #   -r requirements/base.txt

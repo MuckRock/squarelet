@@ -207,7 +207,7 @@ oauthlib==2.1.0
     # via requests-oauthlib
 orderedmultidict==1.0.1
     # via furl
-packaging==21.3
+packaging==24.1
     # via redis
 parso==0.8.3
     # via jedi
@@ -256,8 +256,6 @@ pyjwt[crypto]==2.4.0
     #   django-allauth
     #   django-request-token
     #   djangorestframework-simplejwt
-pyparsing==2.4.5
-    # via packaging
 pyphen==0.13.2
     # via weasyprint
 pypng==0.20220715.0
