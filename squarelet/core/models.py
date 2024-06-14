@@ -46,6 +46,7 @@ class Resource(Model):
     homepageUrl = F.UrlField("Homepage URL")
     accessUrl = F.UrlField("Access URL")
     category = F.MultipleSelectField("Category")
+    longDescription = F.RichTextField("Long Description")
     screenshots = F.AttachmentsField("Screenshots")
 
     class Meta:
