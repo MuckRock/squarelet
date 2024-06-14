@@ -108,9 +108,11 @@ class SignupForm(allauth.SignupForm, StripeForm):
                 {
                     "Name": group_organization.name,
                     "UUID": str(group_organization.uuid),
-                    "Plan": group_organization.plan.name
-                    if group_organization.plan
-                    else "Free",
+                    "Plan": (
+                        group_organization.plan.name
+                        if group_organization.plan
+                        else "Free"
+                    ),
                     "Max Users": group_organization.max_users,
                     "Sign Up": True,
                 },
