@@ -24,6 +24,13 @@
         <a class="_cls-button _cls-button--xlarge" id="accessResource" href="{% firstof resource.accessUrl resource.homepageUrl %}" target="_blank">Access</a>
       </div>
       </header>
+      {% if resource.screenshots %}
+      <div class="_cls-erh--resourceScreenshots">
+        {% for screenshot in resource.screenshots %}
+        <img src="{{screenshot.thumbnails.large.url}}" class="_cls-erh--resourceScreenshot" />
+        {% endfor %}
+      </div>
+      {% endif %}
       <div class="_cls-erh--resourceDescription">
       {% if resource.longDescription %}
       {{ resource.longDescription }}

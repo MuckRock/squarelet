@@ -545,6 +545,22 @@
   list-style-type: none;
 }
 
+._cls-erh--resourcePage ._cls-erh--resourceScreenshots {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  margin: 0 calc(-2*var(--padding));
+  padding: 1rem calc(2*var(--padding));
+}
+
+._cls-erh--resourcePage ._cls-erh--resourceScreenshot {
+  display: block;
+  border-radius: .25rem;
+  height: 24rem;
+  width: auto;
+  border: 1px solid var(--gray-2, #D8DEE2);
+}
+
 ._cls-erh--resourcePage ._cls-erh--resourceDescription {
   align-self: stretch;
   color: var(--gray-5, #233944);
