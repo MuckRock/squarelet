@@ -26,7 +26,7 @@
 }
 
 body {
-  font-family: "Source Sans Pro";
+  font-family: "Source Sans 3", "Source Sans Pro", "Lato", "Helvetica Neue", sans-serif;
   margin: 0;
   padding: 0;
   background: #fafafa;
@@ -419,7 +419,7 @@ form,
 ._cls-cardAction button {
   background: #3a8fef;
   color: white;
-  font-family: "Source Sans Pro";
+  font-family: "Source Sans 3", "Source Sans Pro";
   font-weight: 600;
   padding: 1em 2em;
   font-size: 1em;
@@ -1196,7 +1196,7 @@ a._cls-dropdownItem {
   color: var(--gray-5, #233944);
   fill: var(--gray-5, #233944);  
   font-feature-settings: 'ss04' on;
-  font-family: var(--font-sans, "Source Sans Pro");
+  font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
   font-size: var(--font-md, 16px);
   font-style: normal;
   font-weight: 600;
