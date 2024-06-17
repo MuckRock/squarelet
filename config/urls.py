@@ -32,8 +32,8 @@ router.register("charges", ChargeViewSet)
 
 urlpatterns = [
     path("", HomeView.as_view(), name="home"),
-    path("erh/", ERHLandingView.as_view(), name="erh_landing"),
-    path("erh/<str:id>", ERHResourceView.as_view(), name="erh_resource"),
+    path("election-hub/", ERHLandingView.as_view(), name="erh_landing"),
+    path("election-hub/<str:id>", ERHResourceView.as_view(), name="erh_resource"),
     path(
         "selectplan/",
         TemplateView.as_view(template_name="pages/selectplan.html"),
