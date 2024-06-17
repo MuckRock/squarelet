@@ -16,7 +16,7 @@ from pyairtable import Api as AirtableApi
 # Squarelet
 from squarelet.core.models import Provider, Resource
 
-AIRTABLE_CACHE_TTL = 600 # 10 minutes
+AIRTABLE_CACHE_TTL = 600  # 10 minutes
 
 
 class HomeView(RedirectView):
@@ -58,7 +58,7 @@ class ERHLandingView(TemplateView):
     def get_all_resources(self):
         resources = cache.get("erh_resources")
         if not resources:
-            print('Cache miss. Fetching resources…')
+            print("Cache miss. Fetching resources…")
             resources = Resource.all(formula=self.create_search_formula())
             cache.set("erh_resources", resources, AIRTABLE_CACHE_TTL)
         return resources
@@ -66,7 +66,7 @@ class ERHLandingView(TemplateView):
     def get_all_providers(self):
         providers = cache.get("erh_providers")
         if not providers:
-            print('Cache miss. Fetching providers…')
+            print("Cache miss. Fetching providers…")
             providers = Provider.all()
             cache.set("erh_providers", providers, AIRTABLE_CACHE_TTL)
         return providers
@@ -74,7 +74,7 @@ class ERHLandingView(TemplateView):
     def get_all_categories(self):
         categories = cache.get("erh_categories")
         if not categories:
-            print('Cache miss. Fetching categories…')
+            print("Cache miss. Fetching categories…")
             api = AirtableApi(os.environ["AIRTABLE_ACCESS_TOKEN"])
             base = api.base(os.environ["AIRTABLE_ERH_BASE_ID"])
             table_schema = base.table("Resources").schema()
@@ -158,8 +158,8 @@ class ERHResourceView(TemplateView):
             # get the resource
             cache_key = f"erh_resource/{kwargs['id']}"
             resource = cache.get(cache_key)
-            if not resource or q_cache == '0':
-                print('Cache miss. Fetching resource…')
+            if not resource or q_cache == "0":
+                print("Cache miss. Fetching resource…")
                 resource = Resource.from_id(kwargs["id"])
                 cache.set(cache_key, resource, AIRTABLE_CACHE_TTL)
             context["resource"] = resource
