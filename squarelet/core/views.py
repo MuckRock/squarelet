@@ -1,6 +1,6 @@
 # Django
-from django.urls import reverse
 from django.db.models import Q
+from django.urls import reverse
 from django.views.generic.base import RedirectView, TemplateView
 
 
@@ -25,10 +25,14 @@ class ERHLandingView(TemplateView):
         if self.request.user.is_authenticated:
             context["can_access_hub"] = self.request.user.is_hub_eligible
             context["eligible_orgs"] = self.request.user.organizations.filter(
-                Q(individual=False) &
-                (Q(hub_eligible=True)
-                 | Q(groups__hub_eligible=True)
-                 | Q(parent__hub_eligible=True))
+                Q(individual=False)
+                & (
+                    Q(hub_eligible=True)
+                    | Q(groups__hub_eligible=True)
+                    | Q(parent__hub_eligible=True)
+                )
             )
-            context["group_orgs"] = self.request.user.organizations.filter(individual=False)
+            context["group_orgs"] = self.request.user.organizations.filter(
+                individual=False
+            )
         return context
