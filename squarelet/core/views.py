@@ -75,8 +75,8 @@ class ERHLandingView(TemplateView):
         categories = cache.get("erh_categories")
         if not categories:
             print("Cache miss. Fetching categories…")
-            api = AirtableApi(os.environ["AIRTABLE_ACCESS_TOKEN"])
-            base = api.base(os.environ["AIRTABLE_ERH_BASE_ID"])
+            api = AirtableApi(settings.AIRTABLE_ACCESS_TOKEN)
+            base = api.base(settings.AIRTABLE_ERH_BASE_ID)
             table_schema = base.table("Resources").schema()
             categories = table_schema.field("flds89Q9yTw7KGQTe")
             cache.set("erh_categories", categories, AIRTABLE_CACHE_TTL)
