@@ -32,7 +32,7 @@ router.register("charges", ChargeViewSet)
 
 urlpatterns = [
     path("", HomeView.as_view(), name="home"),
-    path("erh/", ERHLandingView.as_view(), name="erh_landing"),
+    path("election-hub/", ERHLandingView.as_view(), name="erh_landing"),
     path(
         "selectplan/",
         TemplateView.as_view(template_name="pages/selectplan.html"),
