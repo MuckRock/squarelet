@@ -1,45 +1,262 @@
+
 {% extends "base.html" %}
-{% load i18n %}
+{% load static i18n %}
 
 {% block title %}Election Resource Hub{% endblock %}
 
-{% block content %}
-  <div class="_cls-largeContent">
-    <h1>Election Resource Hub Landing Page</h1>
+{% block css %}
+{{ block.super }}
+<link href="//cdn-images.mailchimp.com/embedcode/classic-061523.css" rel="stylesheet" type="text/css">
+<style type="text/css">
+  /* MAILCHIMP EMBED STYLES */
+  #mc_embed_signup{
+    clear: left;
+  }
+  #mc_embed_signup .button {
+    font-weight: 700;
+    font-weight: 600;
+    font-family: var(--font-sans, "Source Sans Pro");
+    border-radius: 8px;
+    border: 1px solid var(--blue-4, #1367D0);
+    background: var(--blue-3, #4294F0);
+    box-shadow: 0px 2px 0px 0px var(--blue-4, #1367D0);
+  }
+  #mc_embed_signup .button:hover {
+    background: var(--blue-3, #4294F0);
+    filter: brightness(1.25);
+  }
+  #mc_embed_signup .mc-field-group {
+    width: auto;
+    padding-bottom: 0;
+    flex: 1 1 auto;
+  }
+  #mc_embed_signup_scroll {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .mc-name-field-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    width: 100%;
+  }
+  #mc_embed_signup #mc-embedded-subscribe-form div.mce_inline_error {
+    background-color: transparent;
+  }
 
-    <p>You are logged in as: {{ request.user.username }}</p>
-    <p>
-      Do you have access to the Election Resource Hub:
-      {{ request.user.is_hub_eligible }}
-    </p>
-    <p>Organizations:</p>
-    <ul>
-      {% for org in request.user.organizations.all %}
-        <li>
-          {{ org.name }} - {{ org.is_hub_eligible }}
-          <ul>
-            {% if org.groups.all %}
-              <li>
-                Member of:
-                <ul>
-                  {% for group in org.groups.all %}
-                    <li>{{ group.name }} - {{ group.is_hub_eligible }}</li>
-                  {% endfor %}
-                </ul>
-              </li>
-            {% endif %}
-            {% if org.parent %}
-              <li>
-                Child of:
-                <ul>
-                  <li>{{ org.parent.name }} - {{ org.parent.is_hub_eligible }}</li>
-                </ul>
-              </li>
-            {% endif %}
-          </ul>
-        </li>
-      {% endfor %}
-    </ul>
+  /* ERH LANDING PAGE STYLES */
+  ._cls-erh--interactive {
+    font-size: 1rem;
+    font-family: var(--font-sans, "Source Sans Pro");
+    background: var(--white, #ffffff);
+    border: 1px solid var(--gray-2, #D8DEE2);
+    border-radius: .5rem;
+    padding: 0 1rem;
+    box-shadow: 0px 2px 4px 2px var(--shadow, rgba(30, 48, 56, 0.15));
+  }
 
+  ._cls-erh--container {
+    min-height: 50vh;
+    max-width: 1000px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+  }
+
+  ._cls-body {
+    color: var(--black, #0C1E27);
+    font-family: var(--font-sans, "Source Sans Pro");
+    font-size: var(--font-md, 16px);
+    font-style: normal;
+    font-weight: 400;
+    line-height: normal;
+    font-feature-settings: 'clig' off, 'liga' off;
+  }
+
+  ._cls-title {
+    color: var(--black, #0C1E27);
+    font-family: var(--font-sans, "Source Sans Pro");
+    font-size: var(--font-xl, 24px);
+    font-style: normal;
+    font-weight: 600;
+    line-height: normal;
+    font-feature-settings: 'ss04' on, 'clig' off, 'liga' off;
+    text-align: center;
+  }
+
+  ._cls-erh--logo {
+    display: inline-block;
+    height: 3rem;
+    width: 3rem;
+    margin-right: .5rem;
+    transform: translateY(.5rem);
+  }
+
+  ._cls-erh--title {
+    font-size: 3rem;
+  }
+
+  ._cls-erh--description {
+    font-size: 1.25rem;
+    line-height: 1.5;
+    max-width: 70ch;
+    color: var(--gray-5, #233944);
+  }
+
+  ._cls-debug {
+    position: relative;
+    width: 100%;
+    max-width: 720px;
+    margin: 2rem auto;
+    padding: 1rem 2rem;
+    border-radius: .5rem;
+    background: var(--black, #0C1E27);
+    color: var(--white, #FFFFFF);
+    font-family: var(--font-code, "Source Code Pro");
+  }
+
+  ._cls-erh--container mark {
+    padding: .125em 0;
+    background-color: var(--yellow-2, #FFE5BA);
+  }
+
+  ._cls-erh--eligible {
+    display: flex;
+    gap: 1rem;
+  }
+
+  ._cls-erh--backdrop {
+    position: absolute;
+    top: -10vw;
+    right: -10vw;
+    z-index: -1;
+    opacity: 0.05;
+  }
+
+  ._cls-erh--backdrop img {
+    height: 60vw;
+    width: 60vw;
+  }
+
+  ._cls-button {
+    display: inline-block;
+    font-weight: 700;
+    font-weight: 600;
+    font-family: var(--font-sans, "Source Sans Pro");
+    color: var(--white, #ffffff);
+    padding: 6px var(--font-xs, 12px);
+    border-radius: 8px;
+    font-size: 14px;
+    border: 1px solid var(--blue-4, #1367D0);
+    background: var(--blue-3, #4294F0);
+    box-shadow: 0px 2px 0px 0px var(--blue-4, #1367D0);
+    transition: all .2s linear;
+    white-space: nowrap;
+    text-transform: capitalize;
+  }
+
+  ._cls-button:hover {
+    background: var(--blue-3, #4294F0);
+    filter: brightness(1.25);
+  }
+
+  ._cls-erh--access {
+    padding: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+  }
+
+  ._cls-erh--access p {
+    margin: 0;
+    flex: 1 1 auto;
+    text-align: center;
+  }
+
+  ._cls-erh--flex100 {
+    flex: 1 1 100%;
+  }
+
+  ._cls-or {
+    padding: 0 .5em;
+    font-variant: small-caps;
+  }
+</style>
 {% endblock %}
 
+{% block content %}
+  <div class="_cls-erh--container _cls-largeContent">
+    <h1 class="_cls-title _cls-erh--title"><img class="_cls-erh--logo" src="{% static 'icons/erh.svg' %}"/> Knight Election Resource Hub</h1>
+    <div class="_cls-body _cls-erh--description">
+      <p>Local newsrooms that are doing innovative work informing and connecting with communities often don&rsquo;t have access to the services that newsrooms in earlier times took for granted. Small newsrooms are often so busy with daily coverage they don&rsquo;t even know about all the resources available to answer their community&rsquo;s hardest questions.</p>
+      <p><strong>That&rsquo;s why we created the Resource Hub, and why we&rsquo;re picking up the check.</strong> <mark>It&rsquo;s a collection of more than 100 selected products and services that will help you cover the election better than you thought possible.</mark></p>
+      <p>Any U.S. news organization covering the 2024 elections can get access.</p>
+      <div class="_cls-erh--access _cls-erh--interactive">
+        {% if can_access_hub %}
+        <div class="_cls-erh--eligible">
+          <img src="{% static '/icons/checkmark.svg' %}" />
+          <p>You belong to an eligible organization (<a
+              href="{{eligible_orgs.first.slug}}">{{eligible_orgs.first.name}}</a>) and will be able to access the hub
+            here once it&rsquo;s launched. Make sure to subscribe for our launch notification!</p>
+        </div>
+        {% elif request.user.is_authenticated %}
+        {% if group_orgs.exists %}
+        {% url 'users:detail' request.user.username as user_account_url %}
+        {% url 'organizations:detail' group_orgs.first.slug as organization_account_url %}
+        <a href="https://airtable.com/app93Yt5cwdVWTnqn/pagGarPPmVmWpU6d5/form?prefill_MR+User+Email={{request.user.email | iriencode}}&prefill_MR+User+Name={{request.user.safe_name|iriencode}}&prefill_MR+User+Account+URL={{ user_account_url | urlencode }}&prefill_MR+Organization+Name={{group_orgs.first.name}}&prefill_MR+Organization+Account+URL={{ organization_account_url | urlencode }}"
+          class="_cls-button">Apply for Access</a>
+        <p>You will need to apply for your organization (<a
+            href="{{organization_account_url}}">{{group_orgs.first.name}}</a>) to access the Resource Hub.</p>
+        {% else %}
+        <p class=".cls-erh--flex100"><a class="_cls-button" href="{% url 'organizations:list' %}">Find your
+            organization</a> <span class="_cls-or">or</span> <a class="_cls-button"
+            href="{% url 'organizations:create' %}">create an organization</a></p>
+        <p>You need to belong to an eligible organization to access the Resource Hub.</p>
+        {% endif %}
+        {% else %}
+        <a title="{% trans 'Sign Up' %}" class="_cls-button"
+          href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'squarelet' %}">
+          {% trans "Sign Up" %}
+        </a>
+        <a title="{% trans 'Sign In' %}" class="_cls-button" href="{% url 'account_login' %}">
+          {% trans "Sign In" %}
+        </a>
+        <p>You will need to create a MuckRock account to access the Resource Hub.</p>
+        {% endif %}
+      </div>
+      <p>The Hub will open later this month, and we&rsquo;ll add services throughout the summer. Sign up for updates so we
+      can be sure to alert you when the hub is updated.</p>
+      <!-- BEGIN MAILCHIMP -->
+      <div id="mc_embed_shell">
+        <div class="_cls-erh--interactive" id="mc_embed_signup">
+          <form
+            action="https://muckrock.us2.list-manage.com/subscribe/post?u=74862d74361490eca930f4384&amp;id=64f4342878&amp;f_id=00ebc0e1f0"
+            method="post" id="mc-embedded-subscribe-form" name="mc-embedded-subscribe-form" class="validate"
+            target="_blank">
+            <div id="mc_embed_signup_scroll">
+              <div class="mc-field-group"><label for="mce-EMAIL">Email Address <span
+                    class="asterisk">*</span></label><input type="email" name="EMAIL" class="required email"
+                  id="mce-EMAIL" required="" value=""></div>
+              <div class="mc-name-field-group">
+                <div class="mc-field-group"><label for="mce-FNAME">First Name </label><input type="text" name="FNAME"
+                    class=" text" id="mce-FNAME" value=""></div>
+                <div class="mc-field-group"><label for="mce-LNAME">Last Name </label><input type="text" name="LNAME"
+                    class=" text" id="mce-LNAME" value=""></div>
+              </div>
+            </div>
+          </form>
+        </div>
+        <script type="text/javascript" src="//s3.amazonaws.com/downloads.mailchimp.com/js/mc-validate.js"></script>
+        <script type="text/javascript">(function($) {window.fnames = new Array(); window.ftypes = new Array();fnames[0]='EMAIL';ftypes[0]='email';fnames[1]='FNAME';ftypes[1]='text';fnames[2]='LNAME';ftypes[2]='text';fnames[3]='ADDRESS';ftypes[3]='address';fnames[4]='PHONE';ftypes[4]='phone';fnames[5]='MMERGE5';ftypes[5]='text';fnames[6]='MMERGE6';ftypes[6]='text';}(jQuery));var $mcj = jQuery.noConflict(true);</script>
+        <!-- END MAILCHIMP -->
+      </div>
+    </div>
+    <div class="_cls-erh--backdrop"><img src="{% static 'icons/erh.svg' %}" /></div>
+  </div>
+{% endblock %}
