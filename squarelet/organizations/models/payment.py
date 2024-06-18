@@ -189,9 +189,9 @@ class Subscription(models.Model):
                             "quantity": self.organization.max_users,
                         }
                     ],
-                    billing="send_invoice"
-                    if self.plan.annual
-                    else "charge_automatically",
+                    billing=(
+                        "send_invoice" if self.plan.annual else "charge_automatically"
+                    ),
                     metadata={"action": f"Subscription ({self.plan})"},
                     days_until_due=30 if self.plan.annual else None,
                 )
