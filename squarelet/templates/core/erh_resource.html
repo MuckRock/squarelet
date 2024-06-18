@@ -18,7 +18,7 @@
       <img class="_cls-erh--resourceLogo" src="{{resource.logo.0.thumbnails.large.url}}" />
       <div class="_cls-erh--resourceDetail">
         <h1 class="_cls-erh--resourceName">{{resource.name}}</h3>
-        <a href="{% url 'erh_landing' %}?provider={{resource.provider.0.id}}" class="_cls-erh--resourceProvider">{{resource.provider.0.name}}</a>
+        <a href="{% url 'erh_landing' %}?provider={{resource.provider_id.0}}" class="_cls-erh--resourceProvider">{{resource.provider_name.0}}</a>
       </div>
       <div class="_cls-erh--resourceActions">
         <a class="_cls-button _cls-button--xlarge" id="accessResource" href="{% firstof resource.accessUrl resource.homepageUrl %}" target="_blank">{{access_text}}</a>
