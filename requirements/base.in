@@ -28,6 +28,7 @@ django-sesame
 django-storages[boto3]
 django-two-factor-auth[phonenumberslite]
 django-vite
+django-vite
 django-weasyprint
 django<5.0
 djangorestframework
