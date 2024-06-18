@@ -62,9 +62,9 @@ class Detail(AdminLinkMixin, DetailView):
                 organization=self.object
             ).get_requested()
             if context["is_admin"]:
-                context[
-                    "invite_count"
-                ] = self.object.invitations.get_requested().count()
+                context["invite_count"] = (
+                    self.object.invitations.get_requested().count()
+                )
         users = self.object.users.all()
         admins = users.filter(memberships__admin=True)
         if context.get("is_member"):
@@ -178,9 +178,11 @@ class UpdateSubscription(OrganizationAdminMixin, UpdateView):
             else:
                 messages.success(
                     self.request,
-                    _("Plan Updated")
-                    if organization.individual
-                    else _("Organization Updated"),
+                    (
+                        _("Plan Updated")
+                        if organization.individual
+                        else _("Organization Updated")
+                    ),
                 )
             mixpanel_event(
                 self.request,
