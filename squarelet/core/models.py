@@ -38,7 +38,7 @@ class Resource(Model):
     name = F.TextField("Name")
     shortDescription = F.TextField("Short Description")
     logo = F.AttachmentsField("Logo")
-    provider = F.LinkField("Provider", Provider)
+    provider_name = F.TextField("Provider Name")
     status = F.SelectField("Status")
     visible = F.SelectField("Show?")
     cost = F.SelectField("Cost")
