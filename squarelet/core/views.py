@@ -37,7 +37,7 @@ class ERHLandingView(TemplateView):
 
     def create_search_formula(self, query=None, category=None, provider=None):
         params = []
-        if not settings.DEBUG:
+        if settings.ENV == 'production':
             status = '{Status} = "Approved"'
             show = '{Show?} = "Ready"'
             params += [f"AND({status}, {show})"]

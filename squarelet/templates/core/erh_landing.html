@@ -58,10 +58,12 @@
   <a href="{% url 'erh_landing' %}" class="_cls-nostyle">
     {% include 'core/component/erh/logo.html' %}
   </a>
-  {% if can_access_hub %}
+  {% if can_access_hub and settings.ERH_CATALOG_ENABLED %}
+  {% if settings.ERH_SEARCH_ENABLED %}
   <header class="_cls-erh--header">
     {% include 'core/component/erh/catalogSearch.html' %}
   </header>
+  {% endif %}
   {% if search.query or search.category or search.provider %}
   <div class="_cls-erh--search">
     <ul class="_cls-erh--resultGrid">
