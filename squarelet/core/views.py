@@ -7,16 +7,13 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from django.views.generic.base import RedirectView, TemplateView
 
-# Standard Library
-import os
-
 # Third Party
 from pyairtable import Api as AirtableApi
 
 # Squarelet
 from squarelet.core.models import Provider, Resource
 
-AIRTABLE_CACHE_TTL = 120
+AIRTABLE_CACHE_TTL = 30  # 30 seconds -- increase after launch
 
 
 class HomeView(RedirectView):
@@ -37,7 +34,7 @@ class ERHLandingView(TemplateView):
 
     def create_search_formula(self, query=None, category=None, provider=None):
         params = []
-        if not settings.DEBUG:
+        if settings.ENV == "prod":
             status = '{Status} = "Approved"'
             show = '{Show?} = "Ready"'
             params += [f"AND({status}, {show})"]
@@ -58,6 +55,7 @@ class ERHLandingView(TemplateView):
     def get_all_resources(self):
         resources = cache.get("erh_resources")
         if not resources:
+            print("Cache miss. Fetching resources…")
             resources = Resource.all(formula=self.create_search_formula())
             cache.set("erh_resources", resources, AIRTABLE_CACHE_TTL)
         return resources
@@ -65,6 +63,7 @@ class ERHLandingView(TemplateView):
     def get_all_providers(self):
         providers = cache.get("erh_providers")
         if not providers:
+            print("Cache miss. Fetching providers…")
             providers = Provider.all()
             cache.set("erh_providers", providers, AIRTABLE_CACHE_TTL)
         return providers
@@ -72,8 +71,9 @@ class ERHLandingView(TemplateView):
     def get_all_categories(self):
         categories = cache.get("erh_categories")
         if not categories:
-            api = AirtableApi(os.environ["AIRTABLE_ACCESS_TOKEN"])
-            base = api.base(os.environ["AIRTABLE_ERH_BASE_ID"])
+            print("Cache miss. Fetching categories…")
+            api = AirtableApi(settings.AIRTABLE_ACCESS_TOKEN)
+            base = api.base(settings.AIRTABLE_ERH_BASE_ID)
             table_schema = base.table("Resources").schema()
             categories = table_schema.field("flds89Q9yTw7KGQTe")
             cache.set("erh_categories", categories, AIRTABLE_CACHE_TTL)
@@ -89,7 +89,6 @@ class ERHLandingView(TemplateView):
                 for resource in resources
                 if (category.name in resource.category)
             ]
-            print(category, category_resources)
             if category_resources:
                 category_list[category.name] = category_resources
         return category_list
@@ -97,7 +96,9 @@ class ERHLandingView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data()
         if self.request.user.is_authenticated:
-            context["can_access_hub"] = self.request.user.is_hub_eligible()
+            context["can_access_hub"] = (
+                self.request.user.is_hub_eligible() and settings.ERH_CATALOG_ENABLED
+            )
             context["eligible_orgs"] = self.request.user.organizations.filter(
                 Q(individual=False)
                 & (
@@ -109,26 +110,31 @@ class ERHLandingView(TemplateView):
             context["group_orgs"] = self.request.user.organizations.filter(
                 individual=False
             )
-            if self.request.user.is_hub_eligible():
+            if self.request.user.is_hub_eligible() and settings.ERH_CATALOG_ENABLED:
                 # handle searching of resources
-                query = self.request.GET.get("query")
-                category = self.request.GET.get("category")
-                provider = self.request.GET.get("provider")
-                if query or category or provider:
-                    # not caching search results — they're too variable
-                    resources = Resource.all(
-                        formula=self.create_search_formula(query, category, provider)
-                    )
+                if settings.ERH_SEARCH_ENABLED:
+                    query = self.request.GET.get("query")
+                    category = self.request.GET.get("category")
+                    provider = self.request.GET.get("provider")
+                    if query or category or provider:
+                        # not caching search results — they're too variable
+                        resources = Resource.all(
+                            formula=self.create_search_formula(
+                                query, category, provider
+                            )
+                        )
+                    else:
+                        # cache the full resource list
+                        resources = self.get_all_resources()
+                    context["search"] = {
+                        "query": query or "",
+                        "category": category or "",
+                        "provider": provider or "",
+                        "category_choices": self.get_all_categories(),
+                        "provider_choices": self.get_all_providers(),
+                    }
                 else:
-                    # cache the full resource list
                     resources = self.get_all_resources()
-                context["search"] = {
-                    "query": query or "",
-                    "category": category or "",
-                    "provider": provider or "",
-                    "category_choices": self.get_all_categories(),
-                    "provider_choices": self.get_all_providers(),
-                }
                 context["resources"] = resources
                 context["categories"] = self.resources_by_category(resources)
         return context
@@ -142,21 +148,38 @@ class ERHResourceView(TemplateView):
         can_view = (
             self.request.user.is_authenticated and self.request.user.is_hub_eligible()
         )
-        print(can_view)
         if can_view:
             return super().get(request, *args, **kwargs)
         else:
             return redirect("erh_landing")
 
+    def get_access_text(self, cost):
+        print(cost)
+        if cost == "Free":
+            return "Access for Free"
+        elif cost == "Gated":
+            return "Apply for Access"
+        elif cost == "Paid":
+            return "Access (Paid)"
+        else:
+            return "Access"
+
     def get_context_data(self, **kwargs):
         """Get the resource based on the ID in the url path. Return 404 if not found."""
         context = super().get_context_data()
+        q_cache = self.request.GET.get("cache")
 
         try:
             # get the resource
             cache_key = f"erh_resource/{kwargs['id']}"
-            resource = cache.get_or_set(cache_key, Resource.from_id(kwargs["id"]), 300)
+            resource = cache.get(cache_key)
+            if not resource or q_cache == "0":
+                print("Cache miss. Fetching resource…")
+                resource = Resource.from_id(kwargs["id"])
+                cache.set(cache_key, resource, AIRTABLE_CACHE_TTL)
             context["resource"] = resource
+            print(resource.cost)
+            context["access_text"] = self.get_access_text(resource.cost)
         except:
             raise Http404
 

@@ -13,10 +13,12 @@
     </nav>
     <div class="_cls-navMenu">
       <nav class="_cls-navItems _cls-domainItems">
-        <!-- <a href="/erh" class="_cls-navItem">
+        {% if settings.ERH_CATALOG_ENABLED %}
+        <a href="{% url 'erh_landing' %}" class="_cls-navItem">
           <img src="{% static 'icons/erh.svg' %}">
           Knight Election Hub
-        </a> -->
+        </a>
+        {% endif %}
         <a href="{% url 'organizations:list' %}" class="_cls-navItem">
           <img src="{% static 'icons/org.svg' %}">
           Organizations

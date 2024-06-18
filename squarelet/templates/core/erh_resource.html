@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static i18n %}
+{% load markdown static i18n %}
 
 {% block title %}Knight Election Hub{% endblock %}
 
@@ -21,23 +21,36 @@
         <a href="{% url 'erh_landing' %}?provider={{resource.provider.0.id}}" class="_cls-erh--resourceProvider">{{resource.provider.0.name}}</a>
       </div>
       <div class="_cls-erh--resourceActions">
-        <a class="_cls-button _cls-button--xlarge" id="accessResource" href="{% firstof resource.accessUrl resource.homepageUrl %}" target="_blank">Access</a>
+        <a class="_cls-button _cls-button--xlarge" id="accessResource" href="{% firstof resource.accessUrl resource.homepageUrl %}" target="_blank">{{access_text}}</a>
       </div>
-      </header>
-      <div class="_cls-erh--resourceDescription">
-      {% if resource.longDescription %}
-      {{ resource.longDescription }}
-      {% elif resource.shortDescription %}
-      <p>{{resource.shortDescription}}</p>
+    </header>
+    {% if resource.screenshots %}
+    {% if resource.screenshots|length > 1 %}
+      <div class="_cls-erh--resourceScreenshots">
+        {% for screenshot in resource.screenshots %}
+        <img src="{{screenshot.thumbnails.large.url}}" class="_cls-erh--resourceScreenshot" />
+        {% endfor %}
+      </div>
       {% else %}
-      {% endif %}
-      </div>
-      <footer><ul class="_cls-erh--resourceCategories">
+      <img src="{{resource.screenshots.0.thumbnails.large.url}}" class="_cls-erh--resourceScreenshot _cls-erh--resourceScreenshot--single" />
+    {% endif %}
+    {% endif %}
+    <div class="_cls-erh--resourceDescription">
+    {% if resource.longDescription %}
+    {{ resource.longDescription|markdown }}
+    {% elif resource.shortDescription %}
+    <p>{{resource.shortDescription}}</p>
+    {% else %}
+    {% endif %}
+    </div>
+    <footer>
+      <ul class="_cls-erh--resourceCategories">
         {% for category in resource.category %}
         <li><a class="_cls-button _cls-button--small _cls-button--outline" href="{% url 'erh_landing' %}?category={{category|urlencode}}">{{category}}</a></li>
         {% endfor %}
       </ul>
     </footer>
   </main>
+  <div class="_cls-erh--backdrop"><img src="{% static 'icons/erh.svg' %}" /></div>
 </div>
 {% endblock %}

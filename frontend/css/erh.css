@@ -6,7 +6,7 @@
 /* ERH LANDING PAGE STYLES */
 ._cls-erh--interactive {
   font-size: 1rem;
-  font-family: var(--font-sans, "Source Sans Pro");
+  font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
   background: var(--white, #ffffff);
   border: 1px solid var(--gray-2, #D8DEE2);
   border-radius: .5rem;
@@ -32,7 +32,7 @@
 
 ._cls-body {
   color: var(--black, #0C1E27);
-  font-family: var(--font-sans, "Source Sans Pro");
+  font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
   font-size: var(--font-md, 16px);
   font-style: normal;
   font-weight: 400;
@@ -42,7 +42,7 @@
 
 ._cls-title {
   color: var(--black, #0C1E27);
-  font-family: var(--font-sans, "Source Sans Pro");
+  font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
   font-size: var(--font-xl, 24px);
   font-style: normal;
   font-weight: 600;
@@ -62,6 +62,21 @@
 ._cls-erh--title {
   font-size: 3rem;
   margin: 1rem 0 0;
+}
+
+@media(max-width: 34rem) {
+  ._cls-erh--title {
+    font-size: 2rem;
+  }
+  ._cls-erh--logo {
+    height: 2rem;
+    width: 2rem;
+  }
+  ._cls-erh--category h2 {
+    font-weight: 400;
+    font-size: 1.4rem;
+    margin: 0;
+  }
 }
 
 ._cls-erh--description {
@@ -113,7 +128,7 @@
   display: inline-block;
   font-weight: 700;
   font-weight: 600;
-  font-family: var(--font-sans, "Source Sans Pro");
+  font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
   color: var(--white, #ffffff);
   padding: 6px var(--font-xs, 12px);
   border-radius: 8px;
@@ -219,12 +234,76 @@
   padding: 0 var(--padding);
   margin: 0 auto;
   box-sizing: border-box;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+._cls-erh--categoryHeader-text {
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .5rem 1.5rem;
+}
+
+._cls-erh--categoryHeader-text p {
+  margin: 0;
+}
+
+._cls-definition {
+  color: var(--gray-4, #5C717C);
+  font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
+  font-size: var(--font-xs, 12px);
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-feature-settings: 'ss04' on;
 }
 
 ._cls-erh--category h2 {
   font-weight: 400;
   font-size: 1.8rem;
+  line-height: 1.2;
   margin: 0;
+}
+
+._cls-scroll-controls {
+  display: flex;
+  gap: .5rem;
+  align-items: center;
+  margin-bottom: .325rem;
+}
+
+._cls-scroll-control {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  height: 2rem;
+  appearance: none;
+  background: transparent;
+  border: none;
+  border-radius: .5rem;
+  box-shadow: none;
+  color: var(--blue-3, #4294F0);
+  fill: var(--blue-3, #4294F0);
+}
+
+._cls-scroll-control:hover, ._cls-scroll-control:focus {
+  background: var(--blue-2, #B5CEED);
+  box-shadow: none;
+  border: none;
+  color: var(--blue-5, #053775);
+  fill: var(--blue-5, #053775);
+}
+
+._cls-scroll-control:disabled {
+  pointer-events: none;
+  color: var(--gray-3, #99A8B3);
+  fill: var(--gray-3, #99A8B3);
 }
 
 ._cls-erh--resourceList {
@@ -236,6 +315,16 @@
   overflow-x: auto;
   list-style-type: none;
   padding: 0 max(calc((100vw - var(--max-width))/2), var(--padding)) 2rem;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  /* Hide horizontal scrollbars */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+._cls-erh--resourceList::-webkit-scrollbar {
+  /* Hide horizontal scrollbars */
+  display: none;
 }
 
 ._cls-erh--resource {
@@ -249,11 +338,12 @@
   background: var(--white, #FFF);
   align-items: flex-start;
   gap: var(--font-md, 16px);
+  scroll-snap-align: center;
 }
 
 ._cls-erh--resourceName {
   color: var(--gray-5, #233944);
-  font-family: "Source Sans Pro";
+  font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
   font-size: var(--font-lg, 20px);
   font-style: normal;
   font-weight: 600;
@@ -267,7 +357,7 @@
   flex: 1 1 auto;
   align-self: stretch;
   color: var(--gray-4, #5C717C);
-  font-family: "Source Sans Pro";
+  font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
   font-size: var(--font-sm, 14px);
   font-style: normal;
   font-weight: 400;
@@ -285,7 +375,7 @@
   flex: 0;
   align-self: flex-end;
   color: var(--gray-4, #5C717C);
-  font-family: "Source Sans Pro";
+  font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
   font-size: var(--font-xs, 12px);
   font-style: normal;
   font-weight: 400;
@@ -346,7 +436,7 @@
   border-radius: 8px;
   border: 1px solid var(--gray-2, #D8DEE2);
   background: var(--white, #FFF);
-  font-family: var(--font-sans, "Source Sans Pro");
+  font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
   font-size: var(--font-md, 16px);
   font-style: normal;
   font-weight: 400;
@@ -370,7 +460,7 @@
   border-radius: 8px;
   border: 1px solid var(--gray-2, #D8DEE2);
   background: var(--white, #FFF);
-  font-family: var(--font-sans, "Source Sans Pro");
+  font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
   font-size: var(--font-md, 16px);
   font-style: normal;
   font-weight: 400;
@@ -385,6 +475,17 @@
   display: grid;
   gap: 1rem; 
   grid-template-columns: repeat(auto-fill, minmax(25rem, 1fr));
+}
+
+._cls-erh--empty {
+  width: 100%;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 1.125em;
+  color: var(--gray-4, #5C717C);
+  grid-column: -1/1;
 }
 
 ._cls-erh--result {
@@ -451,12 +552,12 @@
 }
 
 ._cls-erh--resourcePage ._cls-erh--logo {
-  height: 1.5rem;
-  width: 1.5rem;
+  height: 2rem;
+  width: 2rem;
 }
 
 ._cls-erh--resourcePage ._cls-erh--title {
-  font-size: 1.5rem;
+  font-size: 2rem;
   text-align: left;
   margin: 1rem 0;
 }
@@ -513,7 +614,7 @@
 ._cls-erh--resourcePage ._cls-erh--resourceName {
   align-self: stretch;
   color: var(--gray-5, #233944);
-  font-family: var(--font-sans, "Source Sans Pro");
+  font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
   font-size: var(--font-xl, 24px);
   font-style: normal;
   font-weight: 600;
@@ -524,7 +625,7 @@
 ._cls-erh--resourcePage ._cls-erh--resourceProvider {
   align-self: flex-start;
   color: var(--gray-4, #5C717C);
-  font-family: "Source Sans Pro";
+  font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
   font-size: var(--font-sm, 14px);
   font-style: normal;
   font-weight: 400;
@@ -545,20 +646,46 @@
   list-style-type: none;
 }
 
+._cls-erh--resourcePage ._cls-erh--resourceScreenshots {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  margin: 0 calc(-2*var(--padding));
+  padding: 1rem calc(2*var(--padding));
+}
+
+._cls-erh--resourcePage ._cls-erh--resourceScreenshot {
+  display: block;
+  border-radius: .25rem;
+  height: 24rem;
+  width: auto;
+  border: 1px solid var(--gray-2, #D8DEE2);
+}
+
+._cls-erh--resourceScreenshot._cls-erh--resourceScreenshot--single {
+  width: 100%;
+  height: auto;
+}
+
 ._cls-erh--resourcePage ._cls-erh--resourceDescription {
   align-self: stretch;
   color: var(--gray-5, #233944);
-  font-family: var(--font-sans, "Source Sans Pro");
+  font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
   font-size: var(--font-lg, 18px);
   font-style: normal;
   font-weight: 400;
   line-height: 1.5;
   max-width: 48rem;
-  margin: 0 auto;
+  margin: 0 auto 1rem;
   font-feature-settings: 'clig' off, 'liga' off;
 }
 
 @media (max-width: 32rem) {
+  ._cls-erh--resourcePage ._cls-erh--header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+  }
   ._cls-erh--resourcePage ._cls-erh--resourceBody ._cls-erh--resourceHeader {
     flex-wrap: wrap;
     justify-content: space-between;

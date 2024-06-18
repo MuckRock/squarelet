@@ -38,6 +38,7 @@ SITE_ID = 1
 USE_I18N = True
 # https://docs.djangoproject.com/en/dev/ref/settings/#use-tz
 USE_TZ = True
+ENV = env("DJANGO_ENV", default="dev")
 
 # DATABASES
 # ------------------------------------------------------------------------------
@@ -487,3 +488,10 @@ USE_PLAUSIBLE = env.bool("USE_PLAUSIBLE", default=True)
 MAILCHIMP_API_KEY = env("MAILCHIMP_API_KEY", default="")
 MAILCHIMP_API_ROOT = "https://us2.api.mailchimp.com/3.0"
 MAILCHIMP_LIST_DEFAULT = "a34d93cbe8"
+
+# Election Hub
+# ------------------------------------------------------------------------------
+ERH_CATALOG_ENABLED = env.bool("ERH_CATALOG_ENABLED", default=False)
+ERH_SEARCH_ENABLED = env.bool("ERH_SEARCH_ENABLED", default=False)
+AIRTABLE_ACCESS_TOKEN = env("AIRTABLE_ACCESS_TOKEN", default="")
+AIRTABLE_ERH_BASE_ID = env("AIRTABLE_ERH_BASE_ID", default="")

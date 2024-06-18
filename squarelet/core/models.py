@@ -1,11 +1,9 @@
 """Misc database utilities"""
 
 # Django
+from django.conf import settings
 from django.db.models import Func
 from django.db.models.expressions import Value
-
-# Standard Library
-import os
 
 # Third Party
 # Airtable Models
@@ -30,8 +28,8 @@ class Provider(Model):
     verified = F.CheckboxField("Verified")
 
     class Meta:
-        api_key = os.environ["AIRTABLE_ACCESS_TOKEN"]
-        base_id = os.environ["AIRTABLE_ERH_BASE_ID"]
+        api_key = settings.AIRTABLE_ACCESS_TOKEN
+        base_id = settings.AIRTABLE_ERH_BASE_ID
         table_name = "Providers"
 
 
@@ -47,8 +45,10 @@ class Resource(Model):
     homepageUrl = F.UrlField("Homepage URL")
     accessUrl = F.UrlField("Access URL")
     category = F.MultipleSelectField("Category")
+    longDescription = F.RichTextField("Long Description")
+    screenshots = F.AttachmentsField("Screenshots")
 
     class Meta:
-        api_key = os.environ["AIRTABLE_ACCESS_TOKEN"]
-        base_id = os.environ["AIRTABLE_ERH_BASE_ID"]
+        api_key = settings.AIRTABLE_ACCESS_TOKEN
+        base_id = settings.AIRTABLE_ERH_BASE_ID
         table_name = "Resources"
