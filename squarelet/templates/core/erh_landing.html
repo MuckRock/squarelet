@@ -98,7 +98,11 @@
     <section class="_cls-erh--category" id="{{category|slugify}}">
       <header>
         <div class="_cls-erh--categoryHeader-text">
+          {% if settings.ERH_SEARCH_ENABLED %}
           <h2><a class="_cls-nostyle" href="?category={{category|urlencode}}">{{category}}</a></h2>
+          {% else %}
+          <h2>{{category}}</h2>
+          {% endif %}
           <p class="_cls-definition">{{category_resources|length}} resource{{category_resources|length|pluralize}}</p>
         </div>
         <div class="_cls-scroll-controls">
