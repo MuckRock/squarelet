@@ -1,0 +1,21 @@
+<form method="GET" class="_cls-erh--searchForm">
+    <input type="search" name="query" value="{{search.query}}" placeholder="Search" />
+    <select name="category">
+      <option value="" {% if not search.category %}selected{% endif %}>All Categories</option>
+      {% for category in search.category_choices %}
+      <option value="{{category.name}}" {% if category.name == search.category %}selected{% endif %}>{{category.name}}</option>
+      {% endfor %}
+    </select>
+    <select name="provider">
+      <option value="" {% if not search.provider %}selected{% endif %}>All Providers</option>
+      {% for provider in search.provider_choices %}
+      <option value="{{provider.id}}" {% if provider.id == search.provider %}selected{% endif %}>{{provider.name}}</option>
+      {% endfor %}
+    </select>
+  <div class="_cls-erh--searchFormActions">
+    <button type="submit" class="_cls-button">Search</button>
+    {% if search.query or search.category or search.provider %}
+    <a href="{% url 'erh_landing' %}" class="_cls-button _cls-button--common">Clear</a>
+    {% endif %}
+  </div>
+</form>

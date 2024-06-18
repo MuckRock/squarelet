@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% load markdown static i18n %}
+
+{% block title %}Knight Election Hub{% endblock %}
+
+{% block content %}
+<div class="_cls-erh--container _cls-erh--resourcePage">
+  <header class="_cls-erh--header">
+    <a href="{% url 'erh_landing' %}" class="_cls-nostyle">
+      {% include "core/component/erh/logo.html" %}
+    </a>
+    <a href="{% url 'erh_landing' %}" class="_cls-button _cls-button--large _cls-button--outline">
+      &larr; Back to Catalog
+    </a>
+  </header>
+  <main class="_cls-erh--resourceBody">
+    <header class="_cls-erh--resourceHeader">
+      <img class="_cls-erh--resourceLogo" src="{{resource.logo.0.thumbnails.large.url}}" />
+      <div class="_cls-erh--resourceDetail">
+        <h1 class="_cls-erh--resourceName">{{resource.name}}</h3>
+        <a href="{% url 'erh_landing' %}?provider={{resource.provider.0.id}}" class="_cls-erh--resourceProvider">{{resource.provider.0.name}}</a>
+      </div>
+      <div class="_cls-erh--resourceActions">
+        <a class="_cls-button _cls-button--xlarge" id="accessResource" href="{% firstof resource.accessUrl resource.homepageUrl %}" target="_blank">Access</a>
+      </div>
+    </header>
+    {% if resource.screenshots %}
+    <div class="_cls-erh--resourceScreenshots">
+      {% for screenshot in resource.screenshots %}
+      <img src="{{screenshot.thumbnails.large.url}}" class="_cls-erh--resourceScreenshot" />
+      {% endfor %}
+    </div>
+    {% endif %}
+    <div class="_cls-erh--resourceDescription">
+    {% if resource.longDescription %}
+    {{ resource.longDescription|markdown }}
+    {% elif resource.shortDescription %}
+    <p>{{resource.shortDescription}}</p>
+    {% else %}
+    {% endif %}
+    </div>
+    <footer>
+      <ul class="_cls-erh--resourceCategories">
+        {% for category in resource.category %}
+        <li><a class="_cls-button _cls-button--small _cls-button--outline" href="{% url 'erh_landing' %}?category={{category|urlencode}}">{{category}}</a></li>
+        {% endfor %}
+      </ul>
+    </footer>
+  </main>
+  <div class="_cls-erh--backdrop"><img src="{% static 'icons/erh.svg' %}" /></div>
+</div>
+{% endblock %}
