@@ -72,6 +72,11 @@
     height: 2rem;
     width: 2rem;
   }
+  ._cls-erh--category h2 {
+    font-weight: 400;
+    font-size: 1.4rem;
+    margin: 0;
+  }
 }
 
 ._cls-erh--description {
@@ -229,12 +234,76 @@
   padding: 0 var(--padding);
   margin: 0 auto;
   box-sizing: border-box;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+._cls-erh--categoryHeader-text {
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .5rem 1.5rem;
+}
+
+._cls-erh--categoryHeader-text p {
+  margin: 0;
+}
+
+._cls-definition {
+  color: var(--gray-4, #5C717C);
+  font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
+  font-size: var(--font-xs, 12px);
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-feature-settings: 'ss04' on;
 }
 
 ._cls-erh--category h2 {
   font-weight: 400;
   font-size: 1.8rem;
+  line-height: 1.2;
   margin: 0;
+}
+
+._cls-scroll-controls {
+  display: flex;
+  gap: .5rem;
+  align-items: center;
+  margin-bottom: .325rem;
+}
+
+._cls-scroll-control {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  height: 2rem;
+  appearance: none;
+  background: transparent;
+  border: none;
+  border-radius: .5rem;
+  box-shadow: none;
+  color: var(--blue-3, #4294F0);
+  fill: var(--blue-3, #4294F0);
+}
+
+._cls-scroll-control:hover, ._cls-scroll-control:focus {
+  background: var(--blue-2, #B5CEED);
+  box-shadow: none;
+  border: none;
+  color: var(--blue-5, #053775);
+  fill: var(--blue-5, #053775);
+}
+
+._cls-scroll-control:disabled {
+  pointer-events: none;
+  color: var(--gray-3, #99A8B3);
+  fill: var(--gray-3, #99A8B3);
 }
 
 ._cls-erh--resourceList {
@@ -247,6 +316,15 @@
   list-style-type: none;
   padding: 0 max(calc((100vw - var(--max-width))/2), var(--padding)) 2rem;
   scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  /* Hide horizontal scrollbars */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+._cls-erh--resourceList::-webkit-scrollbar {
+  /* Hide horizontal scrollbars */
+  display: none;
 }
 
 ._cls-erh--resource {
