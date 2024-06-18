@@ -74,7 +74,13 @@ class OrganizationAdmin(VersionAdmin):
         "verified_journalist",
         "get_subtypes",
     )
-    list_filter = ("individual", "private", "verified_journalist", "subtypes")
+    list_filter = (
+        "individual",
+        "private",
+        "verified_journalist",
+        "hub_eligible",
+        "subtypes",
+    )
     search_fields = ("name",)
     fields = (
         "uuid",
