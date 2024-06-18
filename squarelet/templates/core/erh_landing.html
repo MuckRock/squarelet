@@ -63,8 +63,10 @@
   <header class="_cls-erh--header">
     {% include 'core/component/erh/catalogSearch.html' %}
   </header>
+  {% else %}
+  <div class="_cls-spacer"></div>
   {% endif %}
-  {% if search.query or search.category or search.provider %}
+  {% if settings.ERH_SEARCH_ENABLED and search.query or search.category or search.provider %}
   <div class="_cls-erh--search">
     <ul class="_cls-erh--resultGrid">
       {% for resource in resources %}
