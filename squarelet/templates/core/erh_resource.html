@@ -21,15 +21,19 @@
         <a href="{% url 'erh_landing' %}?provider={{resource.provider.0.id}}" class="_cls-erh--resourceProvider">{{resource.provider.0.name}}</a>
       </div>
       <div class="_cls-erh--resourceActions">
-        <a class="_cls-button _cls-button--xlarge" id="accessResource" href="{% firstof resource.accessUrl resource.homepageUrl %}" target="_blank">Access</a>
+        <a class="_cls-button _cls-button--xlarge" id="accessResource" href="{% firstof resource.accessUrl resource.homepageUrl %}" target="_blank">{{access_text}}</a>
       </div>
     </header>
     {% if resource.screenshots %}
-    <div class="_cls-erh--resourceScreenshots">
-      {% for screenshot in resource.screenshots %}
-      <img src="{{screenshot.thumbnails.large.url}}" class="_cls-erh--resourceScreenshot" />
-      {% endfor %}
-    </div>
+    {% if resource.screenshots|length > 1 %}
+      <div class="_cls-erh--resourceScreenshots">
+        {% for screenshot in resource.screenshots %}
+        <img src="{{screenshot.thumbnails.large.url}}" class="_cls-erh--resourceScreenshot" />
+        {% endfor %}
+      </div>
+      {% else %}
+      <img src="{{resource.screenshots.0.thumbnails.large.url}}" class="_cls-erh--resourceScreenshot _cls-erh--resourceScreenshot--single" />
+    {% endif %}
     {% endif %}
     <div class="_cls-erh--resourceDescription">
     {% if resource.longDescription %}
