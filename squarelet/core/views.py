@@ -13,8 +13,6 @@ from pyairtable import Api as AirtableApi
 # Squarelet
 from squarelet.core.models import Provider, Resource
 
-AIRTABLE_CACHE_TTL = 30  # 30 seconds -- increase after launch
-
 
 class HomeView(RedirectView):
     permanent = False
@@ -57,7 +55,7 @@ class ERHLandingView(TemplateView):
         if not resources:
             print("Cache miss. Fetching resources…")
             resources = Resource.all(formula=self.create_search_formula())
-            cache.set("erh_resources", resources, AIRTABLE_CACHE_TTL)
+            cache.set("erh_resources", resources, settings.AIRTABLE_CACHE_TTL)
         return resources
 
     def get_all_providers(self):
@@ -65,7 +63,7 @@ class ERHLandingView(TemplateView):
         if not providers:
             print("Cache miss. Fetching providers…")
             providers = Provider.all()
-            cache.set("erh_providers", providers, AIRTABLE_CACHE_TTL)
+            cache.set("erh_providers", providers, settings.AIRTABLE_CACHE_TTL)
         return providers
 
     def get_all_categories(self):
@@ -76,7 +74,7 @@ class ERHLandingView(TemplateView):
             base = api.base(settings.AIRTABLE_ERH_BASE_ID)
             table_schema = base.table("Resources").schema()
             categories = table_schema.field("flds89Q9yTw7KGQTe")
-            cache.set("erh_categories", categories, AIRTABLE_CACHE_TTL)
+            cache.set("erh_categories", categories, settings.AIRTABLE_CACHE_TTL)
         return categories.options.choices
 
     def resources_by_category(self, resources):
@@ -176,7 +174,7 @@ class ERHResourceView(TemplateView):
             if not resource or q_cache == "0":
                 print("Cache miss. Fetching resource…")
                 resource = Resource.from_id(kwargs["id"])
-                cache.set(cache_key, resource, AIRTABLE_CACHE_TTL)
+                cache.set(cache_key, resource, settings.AIRTABLE_CACHE_TTL)
             context["resource"] = resource
             print(resource.cost)
             context["access_text"] = self.get_access_text(resource.cost)
