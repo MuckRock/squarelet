@@ -3,56 +3,6 @@
 
 {% block title %}Knight Election Hub{% endblock %}
 
-{% block css %}
-{{ block.super }}
-<link href="//cdn-images.mailchimp.com/embedcode/classic-061523.css" rel="stylesheet" type="text/css">
-<style type="text/css">
-  /* MAILCHIMP EMBED STYLES */
-  #mc_embed_signup {
-    clear: left;
-  }
-
-  #mc_embed_signup .button {
-    font-weight: 700;
-    font-weight: 600;
-    font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
-    border-radius: 8px;
-    border: 1px solid var(--blue-4, #1367D0);
-    background: var(--blue-3, #4294F0);
-    box-shadow: 0px 2px 0px 0px var(--blue-4, #1367D0);
-  }
-
-  #mc_embed_signup .button:hover {
-    background: var(--blue-3, #4294F0);
-    filter: brightness(1.25);
-  }
-
-  #mc_embed_signup .mc-field-group {
-    width: auto;
-    padding-bottom: 0;
-    flex: 1 1 auto;
-  }
-
-  #mc_embed_signup_scroll {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .mc-name-field-group {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-    align-items: center;
-    width: 100%;
-  }
-
-  #mc_embed_signup #mc-embedded-subscribe-form div.mce_inline_error {
-    background-color: transparent;
-  }
-</style>
-{% endblock %}
-
 {% block content %}
 <div class="_cls-erh--container _cls-erh--landing">
   <a href="{% url 'erh_landing' %}" class="_cls-nostyle">
