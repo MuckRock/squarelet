@@ -10,6 +10,7 @@ import { DropdownView } from "./dropdown";
 import { EmailAddressView } from "./emailaddress";
 import { ReceiptsView } from "./receipts";
 import { PlansView } from "./plans";
+import { scrollControl } from "./scroll-controller";
 // import {ManageTableView} from './managetable';
 
 if (exists("_id-profDropdown")) {
@@ -41,4 +42,8 @@ if (exists("_id-receiptsTable")) {
 if (exists("id_stripe_pk")) {
   // Stripe and plans pages.
   new PlansView();
+}
+
+if (exists("_id-erh-catalog")) {
+  scrollControl();
 }
