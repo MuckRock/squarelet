@@ -7,9 +7,6 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from django.views.generic.base import RedirectView, TemplateView
 
-# Standard Library
-import os
-
 # Third Party
 from pyairtable import Api as AirtableApi
 
@@ -37,7 +34,7 @@ class ERHLandingView(TemplateView):
 
     def create_search_formula(self, query=None, category=None, provider=None):
         params = []
-        if settings.ENV == 'production':
+        if settings.ENV == "production":
             status = '{Status} = "Approved"'
             show = '{Show?} = "Ready"'
             params += [f"AND({status}, {show})"]
