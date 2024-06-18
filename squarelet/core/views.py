@@ -13,7 +13,7 @@ from pyairtable import Api as AirtableApi
 # Squarelet
 from squarelet.core.models import Provider, Resource
 
-AIRTABLE_CACHE_TTL = 600  # 10 minutes
+AIRTABLE_CACHE_TTL = 30  # 30 seconds -- increase after launch
 
 
 class HomeView(RedirectView):
@@ -96,7 +96,9 @@ class ERHLandingView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data()
         if self.request.user.is_authenticated:
-            context["can_access_hub"] = self.request.user.is_hub_eligible()
+            context["can_access_hub"] = (
+                self.request.user.is_hub_eligible() and settings.ERH_CATALOG_ENABLED
+            )
             context["eligible_orgs"] = self.request.user.organizations.filter(
                 Q(individual=False)
                 & (
@@ -108,26 +110,31 @@ class ERHLandingView(TemplateView):
             context["group_orgs"] = self.request.user.organizations.filter(
                 individual=False
             )
-            if self.request.user.is_hub_eligible():
+            if self.request.user.is_hub_eligible() and settings.ERH_CATALOG_ENABLED:
                 # handle searching of resources
-                query = self.request.GET.get("query")
-                category = self.request.GET.get("category")
-                provider = self.request.GET.get("provider")
-                if query or category or provider:
-                    # not caching search results — they're too variable
-                    resources = Resource.all(
-                        formula=self.create_search_formula(query, category, provider)
-                    )
+                if settings.ERH_SEARCH_ENABLED:
+                    query = self.request.GET.get("query")
+                    category = self.request.GET.get("category")
+                    provider = self.request.GET.get("provider")
+                    if query or category or provider:
+                        # not caching search results — they're too variable
+                        resources = Resource.all(
+                            formula=self.create_search_formula(
+                                query, category, provider
+                            )
+                        )
+                    else:
+                        # cache the full resource list
+                        resources = self.get_all_resources()
+                    context["search"] = {
+                        "query": query or "",
+                        "category": category or "",
+                        "provider": provider or "",
+                        "category_choices": self.get_all_categories(),
+                        "provider_choices": self.get_all_providers(),
+                    }
                 else:
-                    # cache the full resource list
                     resources = self.get_all_resources()
-                context["search"] = {
-                    "query": query or "",
-                    "category": category or "",
-                    "provider": provider or "",
-                    "category_choices": self.get_all_categories(),
-                    "provider_choices": self.get_all_providers(),
-                }
                 context["resources"] = resources
                 context["categories"] = self.resources_by_category(resources)
         return context
