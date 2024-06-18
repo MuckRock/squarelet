@@ -483,7 +483,7 @@ MAILCHIMP_LIST_DEFAULT = "a34d93cbe8"
 
 # Election Hub
 # ------------------------------------------------------------------------------
-ERH_CATALOG_ENABLED = env.bool("ERH_CATALOG_ENABLED", default=False)
+ERH_CATALOG_ENABLED = env.bool("ERH_CATALOG_ENABLED", default=True)
 ERH_SEARCH_ENABLED = env.bool("ERH_SEARCH_ENABLED", default=False)
 AIRTABLE_ACCESS_TOKEN = env("AIRTABLE_ACCESS_TOKEN", default="")
 AIRTABLE_ERH_BASE_ID = env("AIRTABLE_ERH_BASE_ID", default="")

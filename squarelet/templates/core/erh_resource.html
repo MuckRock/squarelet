@@ -46,7 +46,15 @@
     <footer>
       <ul class="_cls-erh--resourceCategories">
         {% for category in resource.category %}
-        <li><a class="_cls-button _cls-button--small _cls-button--outline" href="{% url 'erh_landing' %}?category={{category|urlencode}}">{{category}}</a></li>
+          <li>
+            {% if settings.ERH_SEARCH_ENABLED %}
+              <a class="_cls-button _cls-button--small _cls-button--outline" href="{% url 'erh_landing' %}?category={{category|urlencode}}">{{category}}</a>
+            {% else %}
+              <span class="_cls-button _cls-button--small _cls-button--outline">
+                {{category}}
+              </span>
+            {% endif %}
+          </li>
         {% endfor %}
       </ul>
     </footer>
