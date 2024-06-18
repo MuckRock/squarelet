@@ -153,6 +153,17 @@ class ERHResourceView(TemplateView):
         else:
             return redirect("erh_landing")
 
+    def get_access_text(self, cost):
+        print(cost)
+        if cost == "Free":
+            return "Access for Free"
+        elif cost == "Gated":
+            return "Apply for Access"
+        elif cost == "Paid":
+            return "Access (Paid)"
+        else:
+            return "Access"
+
     def get_context_data(self, **kwargs):
         """Get the resource based on the ID in the url path. Return 404 if not found."""
         context = super().get_context_data()
@@ -167,6 +178,8 @@ class ERHResourceView(TemplateView):
                 resource = Resource.from_id(kwargs["id"])
                 cache.set(cache_key, resource, AIRTABLE_CACHE_TTL)
             context["resource"] = resource
+            print(resource.cost)
+            context["access_text"] = self.get_access_text(resource.cost)
         except:
             raise Http404
 
