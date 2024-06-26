@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}About the Knight Election Hub{% endblock %}
+
+{% block content %}
+<div class="_cls-erh--container _cls-erh--landing">
+  <header class="_cls-erh--header">
+    <div class="_cls-erh--header-side">
+      <a href="{% url 'erh_landing' %}" class="_cls-button _cls-button--large _cls-button--outline">
+        &larr; Back to Catalog
+      </a>
+    </div>
+    <a href="{% url 'erh_landing' %}" class="_cls-nostyle _cls-erh--home">
+      {% include "core/component/erh/logo.html" %}
+    </a>
+    <div class="_cls-erh--header-side"></div>
+  </header>
+  <div class="_cls-body _cls-erh--description">
+    {% include 'core/component/erh/logged-out-copy.html' %}
+  </div>
+  <div class="_cls-erh--backdrop"><img src="{% static 'icons/erh.svg' %}" /></div>
+</div>
+{% endblock %}

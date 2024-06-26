@@ -23,10 +23,24 @@
 }
 
 ._cls-erh--header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  justify-content: center;
   box-sizing: border-box;
   width: 100%;
   max-width: var(--max-width);
   padding: var(--padding);
+  margin: 0 auto;
+}
+
+._cls-erh--header-side {
+  flex: 1 1 4rem;
+}
+
+._cls-erh--home {
+  flex: 1 1 auto;
   margin: 0 auto;
 }
 
@@ -56,16 +70,22 @@
   height: 3rem;
   width: 3rem;
   margin-right: .5rem;
-  transform: translateY(.5rem);
 }
 
 ._cls-erh--title {
   font-size: 3rem;
-  margin: 1rem 0 0;
+  line-height: 1.2;
+  margin: 0;
+  text-align: center;
+  white-space: nowrap;
 }
 
 @media(max-width: 34rem) {
+  ._cls-erh--header-side {
+    flex: 1 1 auto;
+  }
   ._cls-erh--title {
+    margin: 1rem 0;
     font-size: 2rem;
   }
   ._cls-erh--logo {
@@ -401,6 +421,7 @@
   display: flex;
   align-items: center;
   gap: .5rem;
+  margin-top: 0;
   box-sizing: border-box;
   padding: var(--padding);
   background: var(--white, #ffffff);
@@ -508,6 +529,16 @@
 }
 
 @media (max-width: 48rem) {
+  ._cls-erh--home {
+    order: -1;
+    flex: 1 1 100%;
+  }
+  ._cls-erh--header-side {
+    flex: 0
+  }
+  ._cls-erh--header-side:empty {
+    display: none;
+  }
   ._cls-erh--searchForm {
     flex-wrap: wrap;
   }
@@ -547,21 +578,9 @@
   justify-content: flex-start;
 }
 
-._cls-erh--resourcePage ._cls-erh--header {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-}
-
 ._cls-erh--resourcePage ._cls-erh--logo {
   height: 2rem;
   width: 2rem;
-}
-
-._cls-erh--resourcePage ._cls-erh--title {
-  font-size: 2rem;
-  text-align: left;
-  margin: 1rem 0;
 }
 
 ._cls-erh--resourcePage ._cls-erh--resourceBody {
@@ -683,10 +702,14 @@
 }
 
 @media (max-width: 32rem) {
-  ._cls-erh--resourcePage ._cls-erh--header {
-    flex-direction: column;
+  ._cls-erh--home {
+    flex: 1 1 100%;
+    order: -1;
+  }
+  ._cls-erh--header {
+    flex-wrap: wrap;
     align-items: flex-start;
-    gap: 0;
+    gap: 0 1rem;
   }
   ._cls-erh--resourcePage ._cls-erh--resourceBody ._cls-erh--resourceHeader {
     flex-wrap: wrap;

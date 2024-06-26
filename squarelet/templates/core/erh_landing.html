@@ -5,9 +5,19 @@
 
 {% block content %}
 <div class="_cls-erh--container _cls-erh--landing">
-  <a href="{% url 'erh_landing' %}" class="_cls-nostyle">
-    {% include 'core/component/erh/logo.html' %}
-  </a>
+  <header class="_cls-erh--header">
+    <div class="_cls-erh--header-side"></div>
+    <a href="{% url 'erh_landing' %}" class="_cls-nostyle _cls-erh--home">
+      {% include "core/component/erh/logo.html" %}
+    </a>
+    {% if can_access_hub and settings.ERH_CATALOG_ENABLED %}
+    <div class="_cls-erh--header-side">
+      <a href="{% url 'erh_about' %}" class="_cls-button _cls-button--large _cls-button--outline">
+        About the Hub
+      </a>
+    </div>
+    {% endif %}
+  </header>
   {% if can_access_hub and settings.ERH_CATALOG_ENABLED %}
   {% if settings.ERH_SEARCH_ENABLED %}
   <header class="_cls-erh--header">
