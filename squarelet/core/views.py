@@ -182,3 +182,7 @@ class ERHResourceView(TemplateView):
             raise Http404
 
         return context
+
+class ERHAboutView(TemplateView):
+    
+    template_name = "core/erh_about.html"

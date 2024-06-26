@@ -401,6 +401,7 @@
   display: flex;
   align-items: center;
   gap: .5rem;
+  margin-top: 0;
   box-sizing: border-box;
   padding: var(--padding);
   background: var(--white, #ffffff);
@@ -547,10 +548,17 @@
   justify-content: flex-start;
 }
 
-._cls-erh--resourcePage ._cls-erh--header {
+._cls-erh--header {
   display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
   align-items: center;
+  justify-content: center;
+}
+
+._cls-erh--home {
+  flex: 1 1 100%;
+  text-align: center;
 }
 
 ._cls-erh--resourcePage ._cls-erh--logo {
