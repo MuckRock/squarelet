@@ -383,7 +383,7 @@
   margin: 0;
   flex: 1 1 auto;
   align-self: stretch;
-  color: var(--gray-4, #5C717C);
+  color: #45545E;
   font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
   font-size: var(--font-sm, 14px);
   font-style: normal;
@@ -403,18 +403,20 @@
   align-items: baseline;
   justify-content: space-between;
   flex-direction: row-reverse;
+  gap: 1rem;
 }
 
 ._cls-erh--limitedAvailability {
   color: var(--white, #ffffff);
-  background-color: var(--purple-3, #744AF0);
+  background-color: var(--purple-4, #343BA6);
   padding: .25em 1em;
   border-radius: 2em;
+  white-space: nowrap;
 }
 
 ._cls-erh--resourceProvider {
   flex: 0 0 auto;
-  color: var(--gray-4, #5C717C);
+  color: #45545E;
   font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
   font-size: var(--font-xs, 12px);
   font-style: normal;
