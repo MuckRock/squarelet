@@ -26,7 +26,11 @@ class PaymentForm(StripeForm):
         empty_label="Free",
         required=False,
     )
-    max_users = forms.IntegerField(label=_("Number of Resource Blocks"), min_value=1)
+    max_users = forms.IntegerField(
+        label=_("Number of Resource Blocks"),
+        min_value=1,
+        help_text=_(" "),
+    )
     receipt_emails = forms.CharField(
         label=_("Receipt Emails"),
         widget=forms.Textarea(),
