@@ -47,6 +47,11 @@ function scrollList(listElement: Maybe<HTMLElement>, direction: 'left' | 'right'
 
 export function scrollControl() {
   const catalogSections = document.querySelectorAll<HTMLElement>('section._cls-erh--category')
+  const resizeObserver = new ResizeObserver(entries => {
+    for (const entry of entries) {
+      updateState(entry.target as HTMLElement);
+    }
+  });
   catalogSections.forEach(catalogSection => {
     const [list, leftButton, rightButton] = getScrollElements(catalogSection);
     const averageWidth = getListItemAverageWidth(list);
@@ -54,5 +59,6 @@ export function scrollControl() {
     list?.addEventListener('scroll', () => updateState(catalogSection));
     leftButton?.addEventListener('click', () => scrollList(list, 'left', averageWidth));
     rightButton?.addEventListener('click', () => scrollList(list, 'right', averageWidth));
+    resizeObserver.observe(catalogSection);
   });
 }
