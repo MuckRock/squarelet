@@ -31,7 +31,7 @@
     <ul class="_cls-erh--resultGrid">
       {% for resource in resources %}
       <a class="_cls-erh--resourceLink _cls-nostyle" href="{% url 'erh_resource' id=resource.id %}">
-        <li class="_cls-erh--resource _cls-erh--result" tabindex="0">
+        <li class="_cls-erh--resource _cls-erh--result {% if resource.cost == 'Gated' %}_cls-erh--resource--gated{% endif %}" tabindex="0">
           <img class="_cls-erh--resourceLogo" src="{{resource.logo.0.thumbnails.large.url}}" />
           <div class="_cls-erh--resourceDetail">
             <h3 class="_cls-erh--resourceName">{{resource.name}}</h3>
@@ -40,7 +40,12 @@
             {% else %}
             <div class="_cls-erh--resourceDescription"></div>
             {% endif %}
-            <span class="_cls-erh--resourceProvider">{{resource.provider_name.0}}</span>
+            <footer class="_cls-erh--footer">
+              <span class="_cls-erh--resourceProvider">{{resource.provider_name.0}}</span>
+              {% if resource.cost == "Gated" %}
+              <span class="_cls-erh--limitedAvailability _cls-definition">Limited Availability</span>
+              {% endif %}
+            </footer>
           </div>
         </li>
       </a>
@@ -78,7 +83,7 @@
         <ul class="_cls-erh--resourceList">
           {% for resource in category_resources %}
           <a class="_cls-erh--resourceLink _cls-nostyle" href="{% url 'erh_resource' id=resource.id %}">
-            <li class="_cls-erh--resource" tabindex="0">
+            <li class="_cls-erh--resource {% if resource.cost == 'Gated' %}_cls-erh--resource--gated{% endif %}" tabindex="0">
               <img class="_cls-erh--resourceLogo" src="{{resource.logo.0.thumbnails.large.url}}" />
               <div class="_cls-erh--resourceDetail">
                 <h3 class="_cls-erh--resourceName">{{resource.name}}</h3>
@@ -87,7 +92,12 @@
                 {% else %}
                 <div class="_cls-erh--resourceDescription"></div>
                 {% endif %}
-                <span class="_cls-erh--resourceProvider">{{resource.provider_name.0}}</span>
+                <footer class="_cls-erh--footer">
+                  <span class="_cls-erh--resourceProvider">{{resource.provider_name.0}}</span>
+                  {% if resource.cost == "Gated" %}
+                  <span class="_cls-erh--limitedAvailability _cls-definition">Limited Availability</span>
+                  {% endif %}
+                </footer>
               </div>
             </li>
           </a>

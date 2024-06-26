@@ -363,6 +363,11 @@
   scroll-snap-align: center;
 }
 
+._cls-erh--resource--gated {
+  background: var(--purple-1, #F4F1FE);
+  border-color: var(--purple-2, #DFD5FA);
+}
+
 ._cls-erh--resourceName {
   color: var(--gray-5, #233944);
   font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
@@ -393,9 +398,22 @@
   gap: .5rem;
 }
 
+._cls-erh--footer {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-direction: row-reverse;
+}
+
+._cls-erh--limitedAvailability {
+  color: var(--white, #ffffff);
+  background-color: var(--purple-3, #744AF0);
+  padding: .25em 1em;
+  border-radius: 2em;
+}
+
 ._cls-erh--resourceProvider {
-  flex: 0;
-  align-self: flex-end;
+  flex: 0 0 auto;
   color: var(--gray-4, #5C717C);
   font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
   font-size: var(--font-xs, 12px);
