@@ -697,3 +697,32 @@
     order: 1;
   }
 }
+
+/* About Page */
+
+._cls-erh--logoGarden {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12em, 1fr));
+  gap: 1rem;
+  align-items: center;
+  justify-content: center;
+  margin: 3rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+._cls-erh--logoGarden #knight_foundation {
+  grid-column: -1/1;
+}
+
+._cls-erh--logoGarden #knight_foundation img {
+  width: 50%;
+  margin: 0 auto;
+}
+
+._cls-erh--logoGarden img {
+  display: block;
+  height: auto;
+  width: 80%;
+  margin: 0 auto;
+}
