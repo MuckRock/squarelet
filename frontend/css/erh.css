@@ -290,6 +290,7 @@
   box-shadow: none;
   color: var(--blue-3, #4294F0);
   fill: var(--blue-3, #4294F0);
+  transition: all .2s linear;
 }
 
 ._cls-scroll-control:hover, ._cls-scroll-control:focus {
@@ -302,6 +303,7 @@
 
 ._cls-scroll-control:disabled {
   pointer-events: none;
+  opacity: 0;
   color: var(--gray-3, #99A8B3);
   fill: var(--gray-3, #99A8B3);
 }
