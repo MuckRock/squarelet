@@ -183,6 +183,7 @@ class ERHResourceView(TemplateView):
 
         return context
 
+
 class ERHAboutView(TemplateView):
-    
+
     template_name = "core/erh_about.html"
