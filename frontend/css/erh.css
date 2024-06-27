@@ -363,6 +363,11 @@
   scroll-snap-align: center;
 }
 
+._cls-erh--resource--gated {
+  background: var(--purple-1, #F4F1FE);
+  border-color: var(--purple-2, #DFD5FA);
+}
+
 ._cls-erh--resourceName {
   color: var(--gray-5, #233944);
   font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
@@ -378,7 +383,7 @@
   margin: 0;
   flex: 1 1 auto;
   align-self: stretch;
-  color: var(--gray-4, #5C717C);
+  color: #45545E;
   font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
   font-size: var(--font-sm, 14px);
   font-style: normal;
@@ -393,10 +398,25 @@
   gap: .5rem;
 }
 
+._cls-erh--footer {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-direction: row-reverse;
+  gap: 1rem;
+}
+
+._cls-erh--limitedAvailability {
+  color: var(--white, #ffffff);
+  background-color: var(--purple-4, #343BA6);
+  padding: .25em 1em;
+  border-radius: 2em;
+  white-space: nowrap;
+}
+
 ._cls-erh--resourceProvider {
-  flex: 0;
-  align-self: flex-end;
-  color: var(--gray-4, #5C717C);
+  flex: 0 0 auto;
+  color: #45545E;
   font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
   font-size: var(--font-xs, 12px);
   font-style: normal;
