@@ -5,9 +5,19 @@
 
 {% block content %}
 <div class="_cls-erh--container _cls-erh--landing">
-  <a href="{% url 'erh_landing' %}" class="_cls-nostyle">
-    {% include 'core/component/erh/logo.html' %}
-  </a>
+  <header class="_cls-erh--header">
+    <div class="_cls-erh--header-side"></div>
+    <a href="{% url 'erh_landing' %}" class="_cls-nostyle _cls-erh--home">
+      {% include "core/component/erh/logo.html" %}
+    </a>
+    {% if can_access_hub and settings.ERH_CATALOG_ENABLED %}
+    <div class="_cls-erh--header-side">
+      <a href="{% url 'erh_about' %}" class="_cls-button _cls-button--large _cls-button--outline">
+        About the Hub
+      </a>
+    </div>
+    {% endif %}
+  </header>
   {% if can_access_hub and settings.ERH_CATALOG_ENABLED %}
   {% if settings.ERH_SEARCH_ENABLED %}
   <header class="_cls-erh--header">
@@ -21,7 +31,7 @@
     <ul class="_cls-erh--resultGrid">
       {% for resource in resources %}
       <a class="_cls-erh--resourceLink _cls-nostyle" href="{% url 'erh_resource' id=resource.id %}">
-        <li class="_cls-erh--resource _cls-erh--result" tabindex="0">
+        <li class="_cls-erh--resource _cls-erh--result {% if resource.cost == 'Gated' %}_cls-erh--resource--gated{% endif %}" tabindex="0">
           <img class="_cls-erh--resourceLogo" src="{{resource.logo.0.thumbnails.large.url}}" />
           <div class="_cls-erh--resourceDetail">
             <h3 class="_cls-erh--resourceName">{{resource.name}}</h3>
@@ -30,7 +40,12 @@
             {% else %}
             <div class="_cls-erh--resourceDescription"></div>
             {% endif %}
-            <span class="_cls-erh--resourceProvider">{{resource.provider_name.0}}</span>
+            <footer class="_cls-erh--footer">
+              <span class="_cls-erh--resourceProvider">{{resource.provider_name.0}}</span>
+              {% if resource.cost == "Gated" %}
+              <span class="_cls-erh--limitedAvailability _cls-definition">Premium</span>
+              {% endif %}
+            </footer>
           </div>
         </li>
       </a>
@@ -68,7 +83,7 @@
         <ul class="_cls-erh--resourceList">
           {% for resource in category_resources %}
           <a class="_cls-erh--resourceLink _cls-nostyle" href="{% url 'erh_resource' id=resource.id %}">
-            <li class="_cls-erh--resource" tabindex="0">
+            <li class="_cls-erh--resource {% if resource.cost == 'Gated' %}_cls-erh--resource--gated{% endif %}" tabindex="0">
               <img class="_cls-erh--resourceLogo" src="{{resource.logo.0.thumbnails.large.url}}" />
               <div class="_cls-erh--resourceDetail">
                 <h3 class="_cls-erh--resourceName">{{resource.name}}</h3>
@@ -77,7 +92,12 @@
                 {% else %}
                 <div class="_cls-erh--resourceDescription"></div>
                 {% endif %}
-                <span class="_cls-erh--resourceProvider">{{resource.provider_name.0}}</span>
+                <footer class="_cls-erh--footer">
+                  <span class="_cls-erh--resourceProvider">{{resource.provider_name.0}}</span>
+                  {% if resource.cost == "Gated" %}
+                  <span class="_cls-erh--limitedAvailability _cls-definition">Premium</span>
+                  {% endif %}
+                </footer>
               </div>
             </li>
           </a>
