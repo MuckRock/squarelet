@@ -25,7 +25,7 @@
       </div>
       <div class="_cls-erh--resourceActions">
         {% if resource.cost == "Free" or can_access_hub %}
-        <a class="_cls-button _cls-button--xlarge" id="accessResource" href="{% firstof resource.accessUrl resource.homepageUrl %}" target="_blank">{{access_text}}</a>
+        <a class="_cls-button _cls-button--xlarge plausible-event-name=KEH+Resource+Access" id="accessResource" href="{% firstof resource.accessUrl resource.homepageUrl %}" target="_blank">{{access_text}}</a>
         {% else %}
           <div>
             {% if request.user.is_authenticated %}
