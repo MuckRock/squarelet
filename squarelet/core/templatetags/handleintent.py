@@ -1,6 +1,7 @@
 # Django
 from django import template
 from django.conf import settings
+from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
 # Standard Library
@@ -10,6 +11,9 @@ from urllib.parse import parse_qs, urlparse
 register = template.Library()
 
 # Service names and assets pointing to their logos
+KEH_SERVICE = "Knight Election Hub"
+KEH_ASSET = "icons/erh.svg"
+
 MUCKROCK_SERVICE = "MuckRock"
 MUCKROCK_ASSET = "assets/muckrock.svg"
 
@@ -41,6 +45,10 @@ def handleintent(context, header, message):
 
     intent_lookup = OrderedDict(
         [
+            (
+                "election-hub",
+                (KEH_SERVICE, KEH_ASSET, reverse('erh_landing')),
+            ),
             (
                 "muckrock",
                 (MUCKROCK_SERVICE, MUCKROCK_ASSET, settings.MUCKROCK_URL),
