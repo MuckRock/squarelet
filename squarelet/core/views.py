@@ -3,7 +3,6 @@ from django.conf import settings
 from django.core.cache import cache
 from django.db.models import Q
 from django.http.response import Http404
-from django.shortcuts import redirect
 from django.urls import reverse
 from django.views.generic.base import RedirectView, TemplateView
 
@@ -115,9 +114,7 @@ class ERHLandingView(TemplateView):
                 if query or category or provider:
                     # not caching search results — they're too variable
                     resources = Resource.all(
-                        formula=self.create_search_formula(
-                            query, category, provider
-                        )
+                        formula=self.create_search_formula(query, category, provider)
                     )
                 else:
                     # cache the full resource list
