@@ -47,7 +47,7 @@ def handleintent(context, header, message):
         [
             (
                 "election-hub",
-                (KEH_SERVICE, KEH_ASSET, reverse('erh_landing')),
+                (KEH_SERVICE, KEH_ASSET, reverse("erh_landing")),
             ),
             (
                 "muckrock",
