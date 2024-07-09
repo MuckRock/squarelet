@@ -42,7 +42,7 @@ MIXPANEL_CUSTOM_LIB_URL:"file:"===c.location.protocol&&"//cdn4.mxpnl.com/libs/mi
   mixpanel.init("{{ mp_token }}");</script><!-- end Mixpanel -->
 
     {% if settings.USE_PLAUSIBLE %}
-      <script defer data-domain="accounts.muckrock.com" src="https://plausible.io/js/script.js"></script>
+      <script defer data-domain="accounts.muckrock.com" src="https://plausible.io/js/script.tagged-events.js"></script>
     {% endif %}
 
     {% vite_hmr_client %}
