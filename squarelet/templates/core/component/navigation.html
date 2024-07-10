@@ -48,10 +48,10 @@
       </nav>
       {% else %}
       <nav class="_cls-navItems _cls-accountItems _cls-anonymous">
-        <a title="{% trans 'Sign Up' %}" class="_cls-navItem" href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'squarelet' %}">
+        <a title="{% trans 'Sign Up' %}" class="_cls-navItem" href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'squarelet' %}&next={{ request.get_full_path }}">
           {% trans "Sign Up" %}
         </a>
-        <a title="{% trans 'Sign In' %}" class="_cls-navItem" href="{% url 'account_login' %}">
+        <a title="{% trans 'Sign In' %}" class="_cls-navItem" href="{% url 'account_login' %}?next={{ request.get_full_path }}">
           {% trans "Sign In" %}
         </a>
       </nav>

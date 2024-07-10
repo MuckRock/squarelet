@@ -12,7 +12,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from two_factor.urls import urlpatterns as tf_urls
 
 # Squarelet
-from squarelet.core.views import ERHLandingView, ERHResourceView, HomeView
+from squarelet.core.views import ERHLandingView, ERHResourceView, ERHAboutView, HomeView
 from squarelet.oidc.views import token_view
 from squarelet.organizations.viewsets import ChargeViewSet, OrganizationViewSet
 from squarelet.users.views import LoginView
@@ -33,6 +33,7 @@ router.register("charges", ChargeViewSet)
 urlpatterns = [
     path("", HomeView.as_view(), name="home"),
     path("election-hub/", ERHLandingView.as_view(), name="erh_landing"),
+    path("election-hub/about", ERHAboutView.as_view(), name="erh_about"),
     path("election-hub/<str:id>", ERHResourceView.as_view(), name="erh_resource"),
     path(
         "selectplan/",
