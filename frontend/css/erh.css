@@ -39,6 +39,11 @@
   flex: 1 1 4rem;
 }
 
+._cls-erh--searchTerm {
+  font-size: 2rem;
+  font-weight: var(--font-semibold, 600);
+}
+
 ._cls-erh--home {
   flex: 1 1 auto;
   margin: 0 auto;
@@ -389,6 +394,16 @@
   font-style: normal;
   font-weight: 400;
   line-height: 17px;
+}
+
+._cls-erh--resourceActions {
+  flex: 1 1 16rem;
+  text-align: right;
+}
+
+._cls-erh--resourceActions p {
+  font-size: var(--font-s, 14px);
+  color: var(--gray-4, #5C717C);
 }
 
 ._cls-erh--resourceDetail {
