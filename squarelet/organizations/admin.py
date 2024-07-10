@@ -111,8 +111,7 @@ class OrganizationAdmin(VersionAdmin):
         "updated_at",
         "individual",
     )
-    filter_horizontal = ("subtypes",)
-    autocomplete_fields = ("members", "parent")
+    autocomplete_fields = ("members", "parent", "subtypes")
     save_on_top = True
     inlines = (
         OrganizationUrlInline,
@@ -251,3 +250,9 @@ class OrganizationSubtypeInline(admin.TabularInline):
 class OrganizationTypeAdmin(VersionAdmin):
     list_display = ("name",)
     inlines = (OrganizationSubtypeInline,)
+
+
+@admin.register(OrganizationSubtype)
+class OrganizationSubtypeAdmin(VersionAdmin):
+    list_display = ("name", "type")
+    search_fields = ("name", "type__name")
