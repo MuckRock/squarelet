@@ -72,13 +72,14 @@
 
 ._cls-erh--logo {
   display: inline-block;
-  height: 3rem;
-  width: 3rem;
+  height: 2.5rem;
+  width: 2.5rem;
   margin-right: .5rem;
+  transform: translateY(.25rem);
 }
 
 ._cls-erh--title {
-  font-size: 3rem;
+  font-size: 2.5rem;
   line-height: 1.2;
   margin: 0;
   text-align: center;
@@ -613,11 +614,6 @@
   justify-content: flex-start;
 }
 
-._cls-erh--resourcePage ._cls-erh--logo {
-  height: 2rem;
-  width: 2rem;
-}
-
 ._cls-erh--resourcePage ._cls-erh--resourceBody {
   box-sizing: border-box;
   width: 100%;
@@ -758,6 +754,24 @@
 
 /* About Page */
 
+._cls-erh--about h1 {
+  text-align: center;
+}
+
+._cls-erh--about h2 {
+  margin-top: 2em;
+}
+
+._cls-nextStep {
+  text-align: right;
+}
+
+._cls-nextStep a {
+  font-weight: 600;
+  font-size: .875em;
+  color: var(--blue-3, #4294F0);
+}
+
 ._cls-erh--logoGarden {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(12em, 1fr));
@@ -783,4 +797,22 @@
   height: auto;
   width: 80%;
   margin: 0 auto;
+}
+
+ul._cls-checklist {
+  list-style-type: none;
+  padding: 0;
+}
+
+ul._cls-checklist li {
+  padding: 0 0 0 1.5rem;
+  position: relative;
+  margin-bottom: .25rem;
+}
+
+ul._cls-checklist li:before {
+  position: absolute;
+  left: 0;
+  content: "\2714";
+  color: var(--green-3, #27C6A2);
 }
