@@ -22,15 +22,19 @@
 {% block content %}
 <div class="_cls-erh--container _cls-erh--resourcePage">
   <header class="_cls-erh--header">
-    <a href="{% url 'erh_landing' %}" class="_cls-button _cls-button--large _cls-button--outline">
-      &larr; Back to Catalog
-    </a>
+    <div class="_cls-erh--header-side">
+      <a href="{% url 'erh_landing' %}" class="_cls-button _cls-button--large _cls-button--outline">
+        &larr; Back to Catalog
+      </a>
+    </div>
     <a href="{% url 'erh_landing' %}" class="_cls-nostyle _cls-erh--home">
       {% include "core/component/erh/logo.html" %}
     </a>
-    <a href="{% url 'erh_about' %}" class="_cls-button _cls-button--large _cls-button--outline">
-      About the Hub
-    </a>
+    <div class="_cls-erh--header-side">
+      <a href="{% url 'erh_about' %}" class="_cls-button _cls-button--large _cls-button--outline">
+        About the Hub
+      </a>
+    </div>
   </header>
   <main class="_cls-erh--resourceBody">
     <header class="_cls-erh--resourceHeader">
@@ -52,22 +56,22 @@
               class="_cls-button _cls-button--xlarge">Apply to join the hub</a>
             <p>It looks like you’re currently a member of <a
               href="{{organization_account_url}}">{{group_orgs.first.name}}</a>. You will need to apply for access before <a
-              href="{{organization_account_url}}">{{group_orgs.first.name}}</a> can access the Knight Election Hub.</p>
+              href="{{organization_account_url}}">{{group_orgs.first.name}}</a> can access this resource.</p>
             {% else %}
             <p class=".cls-erh--flex100"><a class="_cls-button" href="{% url 'organizations:list' %}">Find your
                 organization</a> <span class="_cls-or">or</span> <a class="_cls-button"
                 href="{% url 'organizations:create' %}">create an organization</a></p>
-            <p>You need to belong to an eligible organization to access the Knight Election Hub. </p>
+            <p>You need to belong to an eligible organization to access this resource. </p>
             {% endif %}
             {% else %}
             <a title="{% trans 'Sign Up' %}" class="_cls-button _cls-button--xlarge"
-              href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'squarelet' %}&next={{ request.get_full_path }}">
+              href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'election-hub' %}&next={{ request.get_full_path }}">
               {% trans "Sign Up" %}
             </a>
-            <a title="{% trans 'Sign In' %}" class="_cls-button _cls-button--xlarge" href="{% url 'account_login' %}?next={{ request.get_full_path }}">
+            <a title="{% trans 'Sign In' %}" class="_cls-button _cls-button--xlarge" href="{% url 'account_login' %}?intent={% firstof request.GET.intent 'election-hub' %}&next={{ request.get_full_path }}">
               {% trans "Sign In" %}
             </a>
-            <p>You will need to create a MuckRock account to access the Knight Election Hub</p>
+            <p>You will need to create a MuckRock account to access this resource</p>
             {% endif %}
           </div>
         {% endif %}

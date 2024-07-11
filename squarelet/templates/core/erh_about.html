@@ -20,7 +20,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="_cls-erh--container _cls-erh--landing">
+<div class="_cls-erh--container _cls-erh--landing _cls-erh--about">
   <header class="_cls-erh--header">
     <div class="_cls-erh--header-side">
       <a href="{% url 'erh_landing' %}" class="_cls-button _cls-button--large _cls-button--outline">
@@ -33,7 +33,49 @@
     <div class="_cls-erh--header-side"></div>
   </header>
   <div class="_cls-body _cls-erh--description">
-    {% include 'core/component/erh/logged-out-copy.html' %}
+    <h1>About the Knight Election Hub</h1>
+    <p>The Knight Election Hub provides free or reduced-price resources and services to U.S. newsrooms covering the 2024 elections at the federal, state, and local levels. These resources help publishers serve their audiences by giving them the information they need to make informed voting decisions, have confidence in the election process and results, and understand the role newsrooms play in providing reliable civic information.</p>
+    <ul class="_cls-checklist">
+      <li><a href="#newsrooms"><strong>For newsrooms:</strong></a> free or subsidized access to practical resources, such as data, software, polling, training, and access to expertise that enables you to do deeper, more data-rich coverage.</li>
+      <li><a href="#providers"><strong>For resource providers:</strong></a> connections with newsrooms that need your services, and financial subsidies that help you help them.</li>
+      <li><a href="#journalists"><strong>For journalists:</strong></a> a network of peer support that shares knowledge and tests ideas to make election reporting better and more collaborative.</li>
+    </ul>
+    <p>Covering this election will be a huge undertaking. That&rsquo;s why we&rsquo;re not going it alone. We&rsquo;re working with the Center for Journalism & Democracy, Hearken, the Institute for Nonprofit News, The Elections Group, LION Publishers, Newspack, OpenNews, ElectionSOS, Democracy Day, MuckRock, and others to build a network of organizations supporting newsrooms at this unprecedented moment in American history.</p>
+    <h2 id="newsrooms">For newsrooms: Resources to strengthen your election coverage capacity</h2>
+    <p>Local newsrooms that are doing innovative work informing and connecting with communities often don&rsquo;t have access to the services that newsrooms in earlier times took for granted. Small newsrooms are often so busy with daily coverage they don&rsquo;t have time to search for all the resources available to answer their community&rsquo;s most important questions. That&rsquo;s why we created the Election Hub.</p>
+    <p>The Hub is a collection of carefully selected products and services that will help you cover the election better than you thought possible. Many services are already freely available to newsrooms—for the ones that incur costs, we are picking up the check.</p>
+    <p>Access to the Knight Election Hub is restricted to U.S. news organizations that:</p>
+    <ul>
+      <li>Are substantially engaged in original news gathering. Projects must have a place-based focus.</li>
+      <li>Are clearly non-partisan and do not regularly publish work that would cause a reasonable person to doubt their ability to report the news fairly.</li>
+      <li>Have a published ethics policy.</li>
+      <li>Are a nonprofit newsroom of any size or are a for-profit newsroom under $5m in revenue (parent company / subsidiaries included).</li>
+    </ul>
+    <p>The Hub is open, and we&rsquo;ll continue to add services throughout the summer. Newsrooms covering the 2024 elections who meet our eligibility criteria can get access. All you&rsquo;ll need is a newsroom MuckRock account. If you don&rsquo;t have an account yet, <a href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'election-hub' %}&next={% url 'erh_landing' %}">create a free one right here</a>.</p>
+    <p class="_cls-nextStep"><a href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'election-hub' %}&next={% url 'erh_landing' %}">Sign up or log into the Resource Hub →</a></p>
+    <h2 id="providers">For resource providers: Connections with newsrooms that need your help</h2>
+    <p>Many nonprofit groups, for-profit companies, and academics have stepped up to provide data, software, research, and other services around elections. Their customers are often campaign professionals, advocates, and other academics. If you&rsquo;ve created a resource related to elections, we can hook you up with a network of more than 1,000 verified newsrooms that serve millions of Americans. If your service usually comes at a cost, we can provide subsidies to let you make them available for free or at a reduced cost.</p>
+    <p>If your organization offers a product or service that would help newsrooms better cover local elections, <strong>we want to hear from you.</strong></p>
+    <p class="_cls-nextStep"><a href="https://airtable.com/appHxLbwbkzVZO9vj/pagkvRcAkOu9l3YRd/form" target="_blank" rel="noopener">Fill out our provider interest form →</a></p>
+    <h2 id="journalists">For journalists: Peer connections and knowledge sharing</h2>
+    <p>Our communities of practice connect you with other journalists to talk about the on-the-ground work of making your newsroom&rsquo;s election coverage better. <strong>Join us to share the ideas you&rsquo;re excited to try out</strong>—or the problems you&rsquo;re trying to solve—and hear what&rsquo;s working in other places. We&rsquo;re partnering with many support organizations to build communities of practice around election coverage.</p>
+    <p><a href="https://opennews.org/" target="_blank" rel="noopener">OpenNews</a> is hosting weekly conversations on key topics:</p>
+    <ul>
+      <li>Audience & community engagement</li>
+      <li>Building better voter guides</li>
+      <li>Election data & dataviz</li>
+    </ul>
+    <p>These group calls are short, informal, and designed to help peers learn from each other. Any journalist working on election coverage is welcome to join.</p>
+    <p class="_cls-nextStep"><a href="https://docs.google.com/forms/d/e/1FAIpQLSf_GZxz7ctjv5Tasox0GMWCP8CTax0sh7GUgppVUQhmolLVJA/viewform"  target="_blank" rel="noopener">Sign up for one (or more!) of our communities of practice →</a></p>
+    <ul class="_cls-erh--logoGarden">
+      <li id="knight_foundation"><a href="https://knightfoundation.org/" target="_blank" rel="noopener"><img src="{% static 'assets/erh/knight_foundation.png' %}" /></a></li>
+      <li id="newspack"><a href="https://newspack.com/" target="_blank" rel="noopener"><img src="{% static 'assets/erh/newspack.png' %}" /></a></li>
+      <li id="hearken"><a href="https://www.wearehearken.com/" target="_blank" rel="noopener"><img src="{% static 'assets/erh/hearken.png' %}" /></a></li>
+      <li id="muckrock"><a href="https://www.muckrock.com/" target="_blank" rel="noopener"><img src="{% static 'assets/erh/muckrock.png' %}" /></a></li>
+      <li id="opennews"><a href="https://www.opennews.org/" target="_blank" rel="noopener"><img src="{% static 'assets/erh/opennews.png' %}" /></a></li>
+    </ul>
+    <p>The Knight Election Hub was made in collaboration with <a href="https://www.muckrock.com/" target="_blank" rel="noopener">MuckRock</a>, <a href="https://www.opennews.org/" target="_blank" rel="noopener">OpenNews</a>, <a href="https://newspack.com/" target="_blank" rel="noopener">Newspack</a> and <a href="https://www.wearehearken.com/" target="_blank" rel="noopener">Hearken</a>. Some of the free resources in the Hub are pulled from The Election Group&rsquo;s <a href="https://electionsgroup.com/resource/covering-elections-and-voting-in-2024/">Covering Elections and Voting in 2024: A Media Guide.</a></p>
+    <p>Do you know about an election-related resource that should be listed in the Knight Election Hub? <a href="mailto:elections24@kf.org">Let us know!</a></p>
   </div>
   <div class="_cls-erh--backdrop"><img src="{% static 'icons/erh.svg' %}" /></div>
 </div>
