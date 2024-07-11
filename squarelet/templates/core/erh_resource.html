@@ -1,7 +1,23 @@
 {% extends "base.html" %}
 {% load markdown static i18n %}
 
-{% block title %}Knight Election Hub{% endblock %}
+{% block title %}{{resource.name}} in the Knight Election Hub{% endblock %}
+
+{% block sharing %}
+<!-- OpenGraph Meta Tags -->
+<meta property="og:title" content="{{resource.name}} in the Knight Election Hub">
+<meta property="og:description" content="{{resource.shortDescription}}">
+<meta property="og:image" content="{{resource.logo.0.thumbnails.large.url}}">
+<meta property="og:url" content="{{request.build_absolute_uri}}">
+<meta property="og:type" content="website">
+
+<!-- Twitter Card Meta Tags -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{resource.name}} in the Knight Election Hub">
+<meta name="twitter:description" content="{{resource.shortDescription}}">
+<meta name="twitter:image" content="{{resource.logo.0.thumbnails.large.url}}">
+<meta name="twitter:url" content="{{request.build_absolute_uri}}">
+{% endblock %}
 
 {% block content %}
 <div class="_cls-erh--container _cls-erh--resourcePage">
