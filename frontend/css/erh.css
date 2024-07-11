@@ -72,13 +72,14 @@
 
 ._cls-erh--logo {
   display: inline-block;
-  height: 3rem;
-  width: 3rem;
+  height: 2.5rem;
+  width: 2.5rem;
   margin-right: .5rem;
+  transform: translateY(.25rem);
 }
 
 ._cls-erh--title {
-  font-size: 3rem;
+  font-size: 2.5rem;
   line-height: 1.2;
   margin: 0;
   text-align: center;
@@ -611,11 +612,6 @@
 
 ._cls-erh--resourcePage._cls-erh--container {
   justify-content: flex-start;
-}
-
-._cls-erh--resourcePage ._cls-erh--logo {
-  height: 2rem;
-  width: 2rem;
 }
 
 ._cls-erh--resourcePage ._cls-erh--resourceBody {

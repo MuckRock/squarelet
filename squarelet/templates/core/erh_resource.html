@@ -6,15 +6,19 @@
 {% block content %}
 <div class="_cls-erh--container _cls-erh--resourcePage">
   <header class="_cls-erh--header">
-    <a href="{% url 'erh_landing' %}" class="_cls-button _cls-button--large _cls-button--outline">
-      &larr; Back to Catalog
-    </a>
+    <div class="_cls-erh--header-side">
+      <a href="{% url 'erh_landing' %}" class="_cls-button _cls-button--large _cls-button--outline">
+        &larr; Back to Catalog
+      </a>
+    </div>
     <a href="{% url 'erh_landing' %}" class="_cls-nostyle _cls-erh--home">
       {% include "core/component/erh/logo.html" %}
     </a>
-    <a href="{% url 'erh_about' %}" class="_cls-button _cls-button--large _cls-button--outline">
-      About the Hub
-    </a>
+    <div class="_cls-erh--header-side">
+      <a href="{% url 'erh_about' %}" class="_cls-button _cls-button--large _cls-button--outline">
+        About the Hub
+      </a>
+    </div>
   </header>
   <main class="_cls-erh--resourceBody">
     <header class="_cls-erh--resourceHeader">
