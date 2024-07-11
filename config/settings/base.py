@@ -232,7 +232,6 @@ TEMPLATES = [
                 "squarelet.core.context_processors.settings",
                 "squarelet.core.context_processors.payment_failed",
                 "squarelet.core.context_processors.payment_failed",
-                "squarelet.core.context_processors.mixpanel",
             ],
         },
     }
@@ -440,10 +439,6 @@ DOGSLOW_LOGGER = "dogslow"  # can be anything, but must match `logger` below
 DOGSLOW_LOG_TO_SENTRY = True
 
 FORM_RENDERER = "django.forms.renderers.TemplatesSetting"
-
-# mixpanel
-# ------------------------------------------------------------------------------
-MIXPANEL_TOKEN = env("MIXPANEL_TOKEN")
 
 # simplejwt
 # ------------------------------------------------------------------------------

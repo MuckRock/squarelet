@@ -40,12 +40,6 @@ CONFIG = [
                 "envvars": [("MAILGUN_ACCESS_KEY", "")],
             },
             {
-                "name": "Mixpanel",
-                "url": "https://mixpanel.com",
-                "description": "Mixpanel is used for analytics",
-                "envvars": [("MIXPANEL_TOKEN", "")],
-            },
-            {
                 "name": "Stripe",
                 "url": "https://stripe.com",
                 "description": "Stripe is used for payment processing",
