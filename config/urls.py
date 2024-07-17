@@ -12,7 +12,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from two_factor.urls import urlpatterns as tf_urls
 
 # Squarelet
-from squarelet.core.views import ERHLandingView, ERHResourceView, ERHAboutView, HomeView
+from squarelet.core.views import ERHAboutView, ERHLandingView, ERHResourceView, HomeView
 from squarelet.oidc.views import token_view
 from squarelet.organizations.viewsets import ChargeViewSet, OrganizationViewSet
 from squarelet.users.views import LoginView
