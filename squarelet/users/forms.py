@@ -16,7 +16,6 @@ from crispy_forms.layout import Layout
 # Squarelet
 from squarelet.core.forms import StripeForm
 from squarelet.core.layout import Field
-from squarelet.core.utils import mixpanel_event
 from squarelet.organizations.models import Plan
 from squarelet.users.models import User
 
@@ -94,29 +93,10 @@ class SignupForm(allauth.SignupForm, StripeForm):
         }
         user_data.update(self.cleaned_data)
 
-        user, group_organization, error = User.objects.register_user(user_data)
+        user, _, error = User.objects.register_user(user_data)
 
         setup_user_email(request, user, [])
-        mixpanel_event(
-            request, "Sign Up", {"Source": f"Squarelet: {user.source}"}, signup=True
-        )
 
-        if group_organization is not None:
-            mixpanel_event(
-                request,
-                "Create Organization",
-                {
-                    "Name": group_organization.name,
-                    "UUID": str(group_organization.uuid),
-                    "Plan": (
-                        group_organization.plan.name
-                        if group_organization.plan
-                        else "Free"
-                    ),
-                    "Max Users": group_organization.max_users,
-                    "Sign Up": True,
-                },
-            )
         if error:
             messages.error(request, error)
 
