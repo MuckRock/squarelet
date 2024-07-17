@@ -20,7 +20,7 @@ from allauth.account.utils import setup_user_email, sync_user_email_addresses
 from reversion.admin import VersionAdmin
 
 # Squarelet
-from squarelet.organizations.models import Organization
+from squarelet.organizations.models import Invitation, Organization
 
 # Local
 from .models import User
@@ -36,6 +36,12 @@ class MyUserCreationForm(UserCreationForm):
     class Meta(UserCreationForm.Meta):
         model = User
         fields = ("username", "email")
+
+
+class InvitationInline(admin.TabularInline):
+    model = Invitation
+    readonly_fields = ("organization", "email", "request", "accepted_at", "rejected_at")
+    extra = 0
 
 
 @admin.register(User)
@@ -95,7 +101,7 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
         "is_active",
     )
     search_fields = ("username_deterministic", "name", "email_deterministic")
-    inlines = [EmailInline]
+    inlines = [EmailInline, InvitationInline]
 
     def get_queryset(self, request):
         """Add deterministic fields for username and email so they
