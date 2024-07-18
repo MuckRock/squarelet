@@ -33,7 +33,6 @@ from django_weasyprint import WeasyTemplateResponseMixin
 
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
-from squarelet.core.utils import mixpanel_event
 from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.forms import AddMemberForm, PaymentForm, UpdateForm
 from squarelet.organizations.mixins import IndividualMixin, OrganizationAdminMixin
@@ -104,11 +103,6 @@ class Detail(AdminLinkMixin, DetailView):
                 organization=self.organization
             ).delete()
             messages.success(request, _("You have left the organization"))
-            mixpanel_event(
-                request,
-                "Left Organization",
-                {"Name": self.organization.name, "UUID": str(self.organization.uuid)},
-            )
         return redirect(self.organization)
 
 
@@ -158,8 +152,6 @@ class UpdateSubscription(OrganizationAdminMixin, UpdateView):
 
     def form_valid(self, form):
         organization = self.object
-        old_plan = organization.plan
-        old_users = organization.max_users
         new_plan = form.cleaned_data.get("plan")
         try:
             organization.set_subscription(
@@ -184,18 +176,6 @@ class UpdateSubscription(OrganizationAdminMixin, UpdateView):
                         else _("Organization Updated")
                     ),
                 )
-            mixpanel_event(
-                self.request,
-                "Organization Subscription Changed",
-                {
-                    "Name": organization.name,
-                    "UUID": str(organization.uuid),
-                    "Old Plan": old_plan.name if old_plan else "Free",
-                    "New Plan": new_plan.name if new_plan else "Free",
-                    "Old Users": old_users,
-                    "New Users": form.cleaned_data.get("max_users", 1),
-                },
-            )
         return redirect(organization)
 
     def get_context_data(self, **kwargs):
@@ -255,17 +235,6 @@ class Create(LoginRequiredMixin, CreateView):
             user=self.request.user,
             to_plan=organization.plan,
             to_max_users=organization.max_users,
-        )
-        mixpanel_event(
-            self.request,
-            "Create Organization",
-            {
-                "Name": organization.name,
-                "UUID": str(organization.uuid),
-                "Plan": organization.plan.name if organization.plan else "Free",
-                "Max Users": organization.max_users,
-                "Sign Up": False,
-            },
         )
         return redirect(organization)
 
@@ -367,18 +336,6 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
         def accept_invite(invite):
             self._org_capacity(1, request)
             invite.accept()
-            mixpanel_event(
-                request,
-                "Invitation Accepted by Admin",
-                {
-                    "Organization Name": invite.organization.name,
-                    "Organization UUID": str(invite.organization.uuid),
-                    "User UUID": str(invite.user.uuid),
-                    "User Username": invite.user.username,
-                    "User Name": invite.user.name,
-                    "User Email": invite.user.email,
-                },
-            )
 
         return self._handle_invite(request, accept_invite, "Invitation accepted")
 
@@ -419,18 +376,6 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
     def _handle_remove_user(self, request):
         def remove_user(membership):
             membership.delete()
-            mixpanel_event(
-                request,
-                "User Removed",
-                {
-                    "Organization Name": membership.organization.name,
-                    "Organization UUID": str(membership.organization.uuid),
-                    "User UUID": str(membership.user.uuid),
-                    "User Username": membership.user.username,
-                    "User Name": membership.user.name,
-                    "User Email": membership.user.email,
-                },
-            )
 
         return self._handle_user(request, remove_user, "Removed user")
 
@@ -477,14 +422,6 @@ class InvitationAccept(DetailView):
         if action == "accept":
             invitation.accept(request.user)
             messages.success(request, "Invitation accepted")
-            mixpanel_event(
-                request,
-                "Invitation Accepted",
-                {
-                    "Name": invitation.organization.name,
-                    "UUID": str(invitation.organization.uuid),
-                },
-            )
             return redirect(invitation.organization)
         elif action == "reject":
             invitation.reject()

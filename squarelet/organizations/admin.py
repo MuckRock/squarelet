@@ -65,6 +65,27 @@ class InvitationInline(admin.TabularInline):
     extra = 0
 
 
+class ChildrenInline(admin.TabularInline):
+    model = Organization
+    fk_name = "parent"
+    fields = ("name",)
+    readonly_fields = ("name",)
+    verbose_name = "Child"
+    verbose_name_plural = "Children"
+    can_delete = False
+    show_change_link = True
+    max_num = 0
+    extra = 0
+
+
+class MembershipsInline(admin.TabularInline):
+    model = Organization.members.through
+    fk_name = "to_organization"
+    verbose_name = "Membership"
+    verbose_name_plural = "Memberships"
+    autocomplete_fields = ("from_organization",)
+
+
 @admin.register(Organization)
 class OrganizationAdmin(VersionAdmin):
     list_display = (
@@ -96,12 +117,12 @@ class OrganizationAdmin(VersionAdmin):
         "max_users",
         "payment_failed",
         "subtypes",
-        "members",
-        "parent",
         "wikidata_id",
         "city",
         "state",
         "country",
+        "parent",
+        "members",
     )
     readonly_fields = (
         "uuid",
@@ -114,6 +135,8 @@ class OrganizationAdmin(VersionAdmin):
     autocomplete_fields = ("members", "parent", "subtypes")
     save_on_top = True
     inlines = (
+        ChildrenInline,
+        MembershipsInline,
         OrganizationUrlInline,
         OrganizationEmailDomainInline,
         SubscriptionInline,
