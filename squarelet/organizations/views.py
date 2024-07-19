@@ -30,6 +30,7 @@ import stripe
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Field, Layout
 from django_weasyprint import WeasyTemplateResponseMixin
+from fuzzywuzzy import fuzz, process
 
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
@@ -228,6 +229,27 @@ class Create(LoginRequiredMixin, CreateView):
     def form_valid(self, form):
         """The organization creator is automatically a member and admin of the
         organization"""
+
+        # looking for matching organizations first
+        if not self.request.POST.get("force"):
+            name = form.cleaned_data["name"]
+
+            all_organizations = Organization.objects.filter(individual=False)
+            matching_orgs = process.extractBests(
+                name,
+                {o: o.name for o in all_organizations},
+                limit=10,
+                scorer=fuzz.partial_ratio,
+                score_cutoff=83,
+            )
+            matching_orgs = [org for _, _, org in matching_orgs]
+
+            if matching_orgs:
+                return self.render_to_response(
+                    self.get_context_data(matching_orgs=matching_orgs)
+                )
+
+        # no matching orgs, just create
         organization = form.save()
         organization.add_creator(self.request.user)
         organization.change_logs.create(

@@ -5,13 +5,44 @@
 {% block content %}
 
 <div class="_cls-content">
-  <form id="login_form" method="POST" action="{% url 'organizations:create' %}">
-    {% crispy form form.helper %}
+  {% if matching_orgs %}
+    <p>
+      {% blocktrans %}
+        We found some organizations with a similar name.  If your organization
+        already exists, please join the existing one instead of creating a new
+        one.
+      {% endblocktrans %}
+    </p>
+    <ul>
+      {% for org in matching_orgs %}
+        <li>
+          <a href="{{ org.get_absolute_url }}">
+            {{ org.name }}
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
 
-    <div class="_cls-actionBig">
-      <button type="submit">{% trans 'Create organization' %}</button>
-    </div>
-  </form>
+    <br><br>
+    <p>My organizations is not one of the ones listed above:</p>
+    <form id="login_form" method="POST" action="{% url 'organizations:create' %}">
+      {% csrf_token %}
+      <input type="hidden" name="name" value="{{ form.data.name }}">
+      <input type="hidden" name="force" value="true">
+      <div class="_cls-actionBig">
+        <button type="submit">{% trans 'Create' %} {{ form.data.name }}</button>
+      </div>
+    </form>
+
+  {% else %}
+    <form id="login_form" method="POST" action="{% url 'organizations:create' %}">
+      {% crispy form form.helper %}
+
+      <div class="_cls-actionBig">
+        <button type="submit">{% trans 'Create organization' %}</button>
+      </div>
+    </form>
+  {% endif %}
 </div>
 
 {% endblock %}
