@@ -61,9 +61,9 @@ class Detail(AdminLinkMixin, DetailView):
                 organization=self.object
             ).get_requested()
             if context["is_admin"]:
-                context["invite_count"] = (
-                    self.object.invitations.get_requested().count()
-                )
+                context[
+                    "invite_count"
+                ] = self.object.invitations.get_requested().count()
         users = self.object.users.all()
         admins = users.filter(memberships__admin=True)
         if context.get("is_member"):
@@ -71,8 +71,6 @@ class Detail(AdminLinkMixin, DetailView):
         else:
             context["users"] = admins
         context["admins"] = admins
-        if context.get("is_admin") and self.object.check_max_users():
-            context["max_user_organization"] = True
 
         return context
 
@@ -261,33 +259,12 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
         except KeyError:
             return self._bad_call(request)
 
-    def _org_capacity(self, amount, request):
-        """Handle increasing organization capacity if necessary"""
-        if self.organization.user_count() + amount > self.organization.max_users:
-            new_max_users = self.organization.user_count() + amount
-            user_increase = new_max_users - self.organization.max_users
-            if self.organization.plan and not self.organization.plan.free:
-                price_increase = user_increase * self.organization.plan.price_per_user
-                self.organization.set_subscription(
-                    None, self.organization.plan, new_max_users, request.user
-                )
-                messages.info(
-                    request,
-                    "Your organization max users has been increased by "
-                    f"{user_increase} user(s).  This will add ${price_increase} "
-                    "to your monthly bill.",
-                )
-            else:
-                self.organization.max_users = new_max_users
-                self.organization.save()
-
     def _handle_add_member(self, request):
         addmember_form = AddMemberForm(request.POST)
         if not addmember_form.is_valid():
             messages.error(request, addmember_form.errors["emails"][0])
         else:
             emails = addmember_form.cleaned_data["emails"]
-            self._org_capacity(len(emails), request)
 
             # Create an invitation and send it to the given email addresses
             for email in emails:
@@ -300,8 +277,6 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
         return redirect("organizations:manage-members", slug=self.organization.slug)
 
     def _handle_add_member_link(self, request):
-        self._org_capacity(1, request)
-
         # Create an invitation and display it to the admin
         invitation = Invitation.objects.create(
             organization=self.organization,
@@ -334,7 +309,6 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
 
     def _handle_accept_invite(self, request):
         def accept_invite(invite):
-            self._org_capacity(1, request)
             invite.accept()
 
         return self._handle_invite(request, accept_invite, "Invitation accepted")
@@ -391,7 +365,6 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
         )
         context["requested_invitations"] = self.object.invitations.get_requested()
         context["pending_invitations"] = self.object.invitations.get_pending()
-        context["available_seats"] = self.object.max_users - self.object.user_count()
         return context
 
 

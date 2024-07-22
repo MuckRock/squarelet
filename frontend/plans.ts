@@ -9,6 +9,7 @@ const Stripe = window["Stripe"] as any;
  */
 interface Plan {
   pk: number;
+  slug: string;
   base_price: number;
   price_per_user: number;
   minimum_users: number;
@@ -105,18 +106,18 @@ export class PlansView {
     let costBreakdownFormatted = `$${plan.base_price} (base price)`;
     if (this.maxUsers != 0) {
       if (this.maxUsers - plan.minimum_users == 0) {
-        costBreakdownFormatted += ` with ${plan.minimum_users} user${
-          plan.minimum_users != 1 ? "s" : ""
+        costBreakdownFormatted += ` with ${plan.minimum_users} resource block${
+          plan.minimum_users != 1 ? 's' : ''
         } included`;
         if (plan.price_per_user != 0) {
-          costBreakdownFormatted += ` ($${plan.price_per_user} per additional user)`;
+          costBreakdownFormatted +=
+            ` ($${plan.price_per_user} per additional resouece block)`;
         }
       } else {
-        costBreakdownFormatted += ` with ${plan.minimum_users} user${
-          plan.minimum_users != 1 ? "s" : ""
-        } included and ${this.maxUsers - plan.minimum_users} extra users at $${
-          plan.price_per_user
-        } each`;
+        costBreakdownFormatted += ` with ${plan.minimum_users} resource block${
+          plan.minimum_users != 1 ? 's' : ''
+        } included and ${this.maxUsers - plan.minimum_users} extra resource blocks
+          at $${plan.price_per_user} each`;
       }
     }
     this.costBreakdown.textContent = costBreakdownFormatted;
@@ -159,7 +160,39 @@ export class PlansView {
         this.planProjection.style.display = "";
       }
     }
+
+    const maxUsers = document.querySelector("#id_max_users");
+    if (maxUsers) {
+      const fieldset = maxUsers.closest("fieldset");
+      const hint = document.querySelector("#hint_id_max_users");
+      if (plan.slug === "") {
+        // The canonical free plan assigns no resources, so do not show the resource
+        // blocks field
+        fieldset.style.display = 'none';
+      } else if (plan.slug == "organization") {
+        // The normal organization plan does show the resource block
+        // Add specific help text for it as well
+        fieldset.style.display = '';
+        hint.textContent = (
+          `Your plan covers unlimited users.  By default, this organization plan
+          includes 50 requests on MuckRock as well as 5,000 credits for
+          DocumentCloud premium features, both renewed monthly on your billing
+          date.  Each additional resource block above 5 will grant you another 10
+          requests and 500 premium credits.`
+        );
+      } else {
+        // Custom plans show the resource block field and have generic help
+        fieldset.style.display = '';
+        hint.textContent = (
+          `You have selected a custom plan.  Please contact a staff member for
+          specific details on how many resources each resource block will
+          provide.`
+        );
+      }
+    };
+
     this.updateAll(false);
+
   }
 
   /**

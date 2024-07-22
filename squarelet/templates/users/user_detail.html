@@ -115,28 +115,6 @@
             <button type="submit">Hijack {{ user.username }}</button>
           </form>
         {% endif %}
-        {% if max_user_organizations %}
-          <div class="_cls-alert inline">
-            <div class="alert-warning">
-              <span class="_cls-alertIcon"></span>
-              {% for organization in max_user_organizations %}
-                <span class="_cls-middleAlign">
-                  You are paying for {{ organization.max_users }} max users,
-                  but there are currently only {{ organization.user_count }}
-                  seats taken in {{ organization.name }}
-                  ({{ organization.users.count }} users and
-                  {{ organization.invitations.get_pending.count }} pending
-                  invitations).
-                  <p>
-                    <a href="{% url "organizations:payment" slug=organization.slug %}">
-                      Update the billing info for {{ organization.name }}.
-                    </a>
-                  </p>
-                </span>
-              {% endfor %}
-            </div>
-          </div>
-        {% endif %}
         {% include "core/component/services.html" %}
       </div>
     </div>

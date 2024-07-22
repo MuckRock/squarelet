@@ -26,7 +26,11 @@ class PaymentForm(StripeForm):
         empty_label="Free",
         required=False,
     )
-    max_users = forms.IntegerField(label=_("Number of Users"), min_value=1)
+    max_users = forms.IntegerField(
+        label=_("Number of Resource Blocks"),
+        min_value=1,
+        help_text=_(" "),
+    )
     receipt_emails = forms.CharField(
         label=_("Receipt Emails"),
         widget=forms.Textarea(),
@@ -47,7 +51,9 @@ class PaymentForm(StripeForm):
             Field("stripe_token"),
             Fieldset("Plan", Field("plan"), css_class="_cls-compactField"),
             (
-                Fieldset("Max Users", Field("max_users"), css_class="_cls-compactField")
+                Fieldset(
+                    "Resource Blocks", Field("max_users"), css_class="_cls-compactField"
+                )
                 if "max_users" in self.fields
                 else None
             ),
@@ -88,20 +94,12 @@ class PaymentForm(StripeForm):
         if self.organization.individual:
             del self.fields["max_users"]
         else:
-            seat_count = self.organization.user_count()
             plan_minimum = plans.aggregate(minimum=Min("minimum_users"))["minimum"]
-            limit_value = max(plan_minimum, seat_count)
-            self.fields["max_users"].validators[0].limit_value = limit_value
-            self.fields["max_users"].widget.attrs["min"] = limit_value
-            self.fields["max_users"].initial = limit_value
-            if limit_value > plan_minimum:
-                self.fields["max_users"].help_text = (
-                    "You currently have "
-                    f"{self.organization.users.count()} users and "
-                    f"{self.organization.invitations.get_pending().count()} pending "
-                    f"invitations for this organization, for a total of "
-                    f"{seat_count}.  You may not set this value lower than that."
-                )
+            if plan_minimum is None:
+                plan_minimum = 1
+            self.fields["max_users"].validators[0].limit_value = plan_minimum
+            self.fields["max_users"].widget.attrs["min"] = plan_minimum
+            self.fields["max_users"].initial = plan_minimum
 
     def clean_receipt_emails(self):
         """Make sure each line is a valid email"""
