@@ -39,6 +39,8 @@ def organization_file_path(instance, filename):
 class Organization(AvatarMixin, models.Model):
     """Orginization to allow pooled requests and collaboration"""
 
+    # pylint: disable=too-many-public-methods
+
     objects = OrganizationQuerySet.as_manager()
 
     uuid = models.UUIDField(
