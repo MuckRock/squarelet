@@ -8,9 +8,8 @@
   {% if matching_orgs %}
     <p>
       {% blocktrans %}
-        We found some organizations with a similar name.  If your organization
-        already exists, please join the existing one instead of creating a new
-        one.
+        It looks like one or more organizations with similar names are already
+        up and running on MuckRock:
       {% endblocktrans %}
     </p>
     <ul>
@@ -19,18 +18,27 @@
           <a href="{{ org.get_absolute_url }}">
             {{ org.name }}
           </a>
+          {% if org.verified_journalist %}(Verified){% endif %}
         </li>
       {% endfor %}
     </ul>
 
     <br><br>
-    <p>My organizations is not one of the ones listed above:</p>
+    <p>
+      {% blocktrans %}
+        If the organization you're trying to create is already set up on
+        MuckRock, please look for the "Request to Join" option on the
+        organization's profile page. Please contact support if you the admins
+        listed have left the organization.
+      {% endblocktrans %}
+    </p>
+    <p>{% trans "My organization is not shown:" %}</p>
     <form id="login_form" method="POST" action="{% url 'organizations:create' %}">
       {% csrf_token %}
       <input type="hidden" name="name" value="{{ form.data.name }}">
       <input type="hidden" name="force" value="true">
       <div class="_cls-actionBig">
-        <button type="submit">{% trans 'Create' %} {{ form.data.name }}</button>
+        <button type="submit">{% trans "Create Organization" %}</button>
       </div>
     </form>
 
