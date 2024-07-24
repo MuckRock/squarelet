@@ -5,13 +5,51 @@
 {% block content %}
 
 <div class="_cls-content">
-  <form id="login_form" method="POST" action="{% url 'organizations:create' %}">
-    {% crispy form form.helper %}
+  {% if matching_orgs %}
+    <p>
+      {% blocktrans %}
+        It looks like one or more organizations with similar names are already
+        up and running on MuckRock:
+      {% endblocktrans %}
+    </p>
+    <ul>
+      {% for org in matching_orgs %}
+        <li>
+          <a href="{{ org.get_absolute_url }}">
+            {{ org.name }}
+          </a>
+          {% if org.verified_journalist %}(Verified){% endif %}
+        </li>
+      {% endfor %}
+    </ul>
 
-    <div class="_cls-actionBig">
-      <button type="submit">{% trans 'Create organization' %}</button>
-    </div>
-  </form>
+    <br><br>
+    <p>
+      {% blocktrans %}
+        If the organization you're trying to create is already set up on
+        MuckRock, please look for the "Request to Join" option on the
+        organization's profile page. Please contact support if you the admins
+        listed have left the organization.
+      {% endblocktrans %}
+    </p>
+    <p>{% trans "My organization is not shown:" %}</p>
+    <form id="login_form" method="POST" action="{% url 'organizations:create' %}">
+      {% crispy form form.helper %}
+      <input type="hidden" name="force" value="true">
+      <div class="_cls-actionBig">
+        <button type="submit">{% trans "Create Organization" %}</button>
+      </div>
+    </form>
+
+  {% else %}
+    <form id="login_form" method="POST" action="{% url 'organizations:create' %}">
+      {% crispy form form.helper %}
+
+      <div class="_cls-actionBig">
+        <button type="submit">{% trans "Create organization" %}</button>
+      </div>
+    </form>
+  {% endif %}
 </div>
 
 {% endblock %}
