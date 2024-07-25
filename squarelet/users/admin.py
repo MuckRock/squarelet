@@ -67,10 +67,14 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
                     "individual_org_link",
                     "all_org_links",
                     "can_change_username",
+                    "source",
                 )
             },
         ),
-        (_("Personal info"), {"fields": ("name", "email", "email_failed", "bio")}),
+        (
+            _("Personal info"),
+            {"fields": ("name", "email", "email_failed", "bio")},
+        ),
         (
             _("Permissions"),
             {
@@ -83,7 +87,10 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
                 )
             },
         ),
-        (_("Important dates"), {"fields": ("last_login", "created_at", "updated_at")}),
+        (
+            _("Important dates"),
+            {"fields": ("last_login", "created_at", "updated_at")},
+        ),
     )
     readonly_fields = (
         "uuid",
@@ -91,6 +98,7 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
         "all_org_links",
         "created_at",
         "updated_at",
+        "source",
     )
     list_display = (
         "username",
