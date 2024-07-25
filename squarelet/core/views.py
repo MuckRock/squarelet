@@ -172,7 +172,7 @@ class ERHResourceView(TemplateView):
                 "prefill_Contact Name": user.safe_name(),
                 "prefill_Email address": user.email,
                 "prefill_News organization": org.name,
-                "prefill_Website": f'https://{self.request.get_host()}{org_url}',
+                "prefill_Website": f"https://{self.request.get_host()}{org_url}",
             }
         )
         # Encode the updated query parameters
