@@ -100,7 +100,7 @@
               <span class="_cls-middleAlign">{{ message|safe }}</span>
               <span
                 class="_cls-close"
-                onclick="event.target.parentElement.classList.add('_cls-dismiss')"
+                onclick="dismissAlert(this)"
               >
                 Dismiss
               </span>
@@ -109,6 +109,21 @@
         {% endfor %}
         {% endif %}
       </div>
+
+      <script>
+        function dismissAlert(target) {
+            const alert = target.parentElement;
+            const container = alert.parentElement;
+
+            // Remove the alert from the container
+            alert.remove();
+
+            // Check if the container has no more alerts
+            if (container.children.length === 0) {
+                container.remove();
+            }
+        }
+      </script>
 
       {% block content %}
         <div class="_cls-content">

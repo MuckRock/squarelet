@@ -731,7 +731,7 @@ nav a:hover ._cls-serviceName {
 }
 
 ._cls-alert {
-  margin: 0.8em auto;
+  margin: 0 auto;
   width: 90%;
   max-width: 500px;
 }
