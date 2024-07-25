@@ -6,6 +6,9 @@ from django.http.response import Http404
 from django.urls import reverse
 from django.views.generic.base import RedirectView, TemplateView
 
+# Standard Library
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
+
 # Third Party
 from pyairtable import Api as AirtableApi
 
@@ -150,6 +153,34 @@ class ERHResourceView(TemplateView):
         else:
             return "Access"
 
+    def get_access_url(self, resource, user):
+        url = resource.accessUrl or resource.homepageUrl
+        if not url:
+            return ""
+        # Parse the URL into components
+        url_parts = list(urlparse(url))
+        org = user.organizations.filter(individual=False).first()
+        org_url = reverse("organizations:detail", kwargs={"slug": org.slug})
+        # Check if the host is 'airtable.com'.
+        # If it isn't, don't apply prefill arguments.
+        if url_parts[1] != "airtable.com":
+            return url
+        # Get existing query parameters and update them with the record's parameters
+        query = parse_qs(url_parts[4])
+        query.update(
+            {
+                "prefill_Contact Name": user.safe_name(),
+                "prefill_Email address": user.email,
+                "prefill_News organization": org.name,
+                "prefill_Website": f"https://{self.request.get_host()}{org_url}",
+            }
+        )
+        # Encode the updated query parameters
+        url_parts[4] = urlencode(query, doseq=True)
+        # Reconstruct the final URL
+        final_url = urlunparse(url_parts)
+        return final_url
+
     def get_context_data(self, **kwargs):
         """Get the resource based on the ID in the url path. Return 404 if not found."""
         context = super().get_context_data()
@@ -180,9 +211,11 @@ class ERHResourceView(TemplateView):
                 resource = Resource.from_id(kwargs["id"])
                 cache.set(cache_key, resource, settings.AIRTABLE_CACHE_TTL)
             context["resource"] = resource
-            context["access_text"] = self.get_access_text(resource.cost)
         except:
             raise Http404
+
+        context["access_text"] = self.get_access_text(resource.cost)
+        context["access_url"] = self.get_access_url(resource, self.request.user)
 
         return context
 
