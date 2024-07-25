@@ -26,9 +26,17 @@
             <a href="{% url "organizations:update" organization.slug %}"><div class="_cls-action">{% trans 'Edit organization' %}</div></a>
           {% endif %}
         </div>
-        {% if organization.verified_journalist %}
+        {% if organization.verified_journalist and organization.is_hub_eligible %}
+          <div class="_cls-orgStatus _cls-verified">
+            Verified - Hub Eligible
+          </div>
+        {% elif organization.verified_journalist %}
           <div class="_cls-orgStatus _cls-verified">
             Verified
+          </div>
+        {% elif organization.is_hub_eligible %}
+          <div class="_cls-orgStatus _cls-verified">
+            Hub Eligible
           </div>
         {% endif %}
         <div class="_cls-organizationSection">
