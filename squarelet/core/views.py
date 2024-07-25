@@ -1,4 +1,5 @@
 # Django
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 from django.conf import settings
 from django.core.cache import cache
 from django.db.models import Q
@@ -150,6 +151,33 @@ class ERHResourceView(TemplateView):
         else:
             return "Access"
 
+    def get_access_url(self, resource, user):
+        # {% firstof resource.accessUrl resource.homepageUrl %}prefill_Email+address={{request.user.email | iriencode}}&prefill_News+organization={{group_orgs.first.name | iriencode}}&prefill_Website={{ request.get_host }}{{ organization_account_url | urlencode }}{% endif %}
+        url = resource.accessUrl or resource.homepageUrl
+        if not url:
+            return ""
+        # Parse the URL into components
+        url_parts = list(urlparse(url))
+        org = user.organizations.filter(individual=False).first()
+        # Check if the host is 'airtable.com'. If it is not, don't apply prefill arguments.
+        if url_parts[1] != "airtable.com":
+            return url
+        # Get the existing query parameters and update them with the record's parameters
+        query = parse_qs(url_parts[4])
+        query.update(
+            {
+                "prefill_Contact Name": user.safe_name(),
+                "prefill_Email address": user.email,
+                "prefill_News organization": org.name,
+                "prefill_Website": f'{self.request.get_host()}{reverse("organizations:detail", kwargs={"slug": org.slug})}',
+            }
+        )
+        # Encode the updated query parameters
+        url_parts[4] = urlencode(query, doseq=True)
+        # Reconstruct the final URL
+        final_url = urlunparse(url_parts)
+        return final_url
+
     def get_context_data(self, **kwargs):
         """Get the resource based on the ID in the url path. Return 404 if not found."""
         context = super().get_context_data()
@@ -180,9 +208,11 @@ class ERHResourceView(TemplateView):
                 resource = Resource.from_id(kwargs["id"])
                 cache.set(cache_key, resource, settings.AIRTABLE_CACHE_TTL)
             context["resource"] = resource
-            context["access_text"] = self.get_access_text(resource.cost)
         except:
             raise Http404
+
+        context["access_text"] = self.get_access_text(resource.cost)
+        context["access_url"] = self.get_access_url(resource, self.request.user)
 
         return context
 
