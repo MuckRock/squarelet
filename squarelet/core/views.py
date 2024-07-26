@@ -157,6 +157,8 @@ class ERHResourceView(TemplateView):
         url = resource.accessUrl or resource.homepageUrl
         if not url:
             return ""
+        if not user.is_authenticated:
+            return url
         # Parse the URL into components
         url_parts = list(urlparse(url))
         org = user.organizations.filter(individual=False).first()
