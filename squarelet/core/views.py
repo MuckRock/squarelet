@@ -157,24 +157,34 @@ class ERHResourceView(TemplateView):
         url = resource.accessUrl or resource.homepageUrl
         if not url:
             return ""
+        if not user.is_authenticated:
+            return url
         # Parse the URL into components
         url_parts = list(urlparse(url))
         org = user.organizations.filter(individual=False).first()
-        org_url = reverse("organizations:detail", kwargs={"slug": org.slug})
         # Check if the host is 'airtable.com'.
         # If it isn't, don't apply prefill arguments.
         if url_parts[1] != "airtable.com":
             return url
         # Get existing query parameters and update them with the record's parameters
         query = parse_qs(url_parts[4])
-        query.update(
-            {
-                "prefill_Contact Name": user.safe_name(),
-                "prefill_Email address": user.email,
-                "prefill_News organization": org.name,
-                "prefill_Website": f"https://{self.request.get_host()}{org_url}",
-            }
-        )
+        if not org:
+            query.update(
+                {
+                    "prefill_Contact Name": user.safe_name(),
+                    "prefill_Email address": user.email,
+                }
+            )
+        else:
+            query.update(
+                {
+                    "prefill_Contact Name": user.safe_name(),
+                    "prefill_Email address": user.email,
+                    "prefill_News organization": org.name,
+                }
+            )
+            if org.urls.first():
+                query.update({"prefill_Website": org.urls.first().url})
         # Encode the updated query parameters
         url_parts[4] = urlencode(query, doseq=True)
         # Reconstruct the final URL
