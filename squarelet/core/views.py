@@ -169,22 +169,22 @@ class ERHResourceView(TemplateView):
         # Get existing query parameters and update them with the record's parameters
         query = parse_qs(url_parts[4])
         if not org:
-          query.update(
-              {
-                  "prefill_Contact Name": user.safe_name(),
-                  "prefill_Email address": user.email,
-              }
-          )
+            query.update(
+                {
+                    "prefill_Contact Name": user.safe_name(),
+                    "prefill_Email address": user.email,
+                }
+            )
         else:
-          query.update(
-              {
-                  "prefill_Contact Name": user.safe_name(),
-                  "prefill_Email address": user.email,
-                  "prefill_News organization": org.name
-              }
-          )
-          if org.urls.first():
-              query.update({"prefill_Website": org.urls.first().url})
+            query.update(
+                {
+                    "prefill_Contact Name": user.safe_name(),
+                    "prefill_Email address": user.email,
+                    "prefill_News organization": org.name,
+                }
+            )
+            if org.urls.first():
+                query.update({"prefill_Website": org.urls.first().url})
         # Encode the updated query parameters
         url_parts[4] = urlencode(query, doseq=True)
         # Reconstruct the final URL
