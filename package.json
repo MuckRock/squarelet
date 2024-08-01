@@ -17,6 +17,6 @@
     "@types/stripe-v3": "^3.0.9",
     "prettier": "^3.3.0",
     "typescript": "^3.3.3333",
-    "vite": "^5.2.12"
+    "vite": "^5.3.5"
   }
 }
