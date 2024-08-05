@@ -8,7 +8,7 @@
       <div class="purchase-data">
         <p>{{ charge.created_at|date:"m/d/Y" }}</p>
         <p>{% trans "Order" %} {{ charge.charge_id }}</p>
-        {% with charge.charge_.source as card %}
+        {% with charge.charge.source as card %}
           {% if card %}
             <p>{{ card.brand }} **** **** **** {{ card.last4 }}</p>
           {% endif %}
