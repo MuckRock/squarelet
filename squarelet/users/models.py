@@ -127,6 +127,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
             ("documentcloud", _("DocumentCloud")),
             ("foiamachine", _("FOIA Machine")),
             ("squarelet", _("Squarelet")),
+            ("election-hub", _("Election Hub")),
             ("biglocalnews", _("Big Local News")),
             ("agendawatch", _("Agenda Watch")),
         ),
