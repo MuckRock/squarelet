@@ -12,14 +12,17 @@
   {% autologin activate_url user as activate_url_ %}
   {% blocktrans with username=user.username %}
     <p>
-    Just a reminder, your username is
+    Thank you for creating an account on MuckRock.
+    </p>
+    <p>
+    Your username is
     <a href="{{ url_user_ }}">
       {{ username }}
     </a>.
     </p>
     <p>
-    We ask that you please
-    <a href="{{ activate_url_ }}">verify your email</a>.
+    You will need to 
+    <a href="{{ activate_url_ }}">verify your email address</a> before you can start using our tools. 
     You can also verify your email from your
     <a href="{{ url_email_ }}">account email settings</a>.
     </p>
@@ -31,7 +34,7 @@
       <a href="{{ url_password_ }}">
         set your password
       </a>.
-      <p>
+      </p>
     {% endblocktrans %}
   {% endif %}
   {% blocktrans %}
@@ -41,9 +44,8 @@
       <a href="mailto:info@muckrock.com">Email us</a>.
     </strong>
     </p>
-    <p><a href="https://www.twitter.com/muckrock/">Tweet at us</a>.</p>
     <p>
-    Once again, welcome to the MuckRock community. We're excited to see what you
+    Welcome to the MuckRock community. We're excited to see what you
     do with the tools we've built.
     </p>
     <p>Sincerely,<br/>The MuckRock Team</p>
