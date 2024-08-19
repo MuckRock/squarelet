@@ -523,7 +523,9 @@ class Invitation(models.Model):
         help_text=_("This UUID serves as a secret token for this invitation in URLs"),
     )
     email = models.EmailField(
-        _("email"), help_text=_("The email address to send this invitation to")
+        _("email"),
+        blank=True,
+        help_text=_("The email address to send this invitation to"),
     )
     user = models.ForeignKey(
         verbose_name=_("user"),
