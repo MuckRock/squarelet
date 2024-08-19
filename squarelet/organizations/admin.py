@@ -1,6 +1,5 @@
 # Django
 from django.contrib import admin
-from django.db.models.query import Prefetch
 from django.forms.models import BaseInlineFormSet
 from django.urls import reverse
 from django.utils.safestring import mark_safe
