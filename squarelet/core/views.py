@@ -4,6 +4,7 @@ from django.core.cache import cache
 from django.db.models import Q
 from django.http.response import Http404
 from django.urls import reverse
+from django.utils import timezone
 from django.views.generic.base import RedirectView, TemplateView
 
 # Standard Library
@@ -142,9 +143,10 @@ class ERHResourceView(TemplateView):
 
     template_name = "core/erh_resource.html"
 
-    def get_access_text(self, cost):
-        print(cost)
-        if cost == "Free":
+    def get_access_text(self, cost, is_expired):
+        if is_expired:
+            return "Expired"
+        elif cost == "Free":
             return "Access for Free"
         elif cost == "Gated":
             return "Apply for Access"
@@ -224,8 +226,12 @@ class ERHResourceView(TemplateView):
         except:
             raise Http404
 
-        context["access_text"] = self.get_access_text(resource.cost)
+        now = timezone.now()
+        is_expired = resource.expiration_date is not None and resource.expiration_date < now
+
+        context["access_text"] = self.get_access_text(resource.cost, is_expired)
         context["access_url"] = self.get_access_url(resource, self.request.user)
+        context["is_expired"] = is_expired
 
         return context
 

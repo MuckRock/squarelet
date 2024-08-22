@@ -227,6 +227,11 @@
   padding: 4px 12px;
 }
 
+._cls-button--disabled {
+  pointer-events: none;
+  opacity: .5;
+}
+
 ._cls-erh--access {
   padding: 1rem;
   display: flex;
