@@ -227,7 +227,9 @@ class ERHResourceView(TemplateView):
             raise Http404
 
         now = timezone.now()
-        is_expired = resource.expiration_date is not None and resource.expiration_date < now
+        is_expired = (
+            resource.expiration_date is not None and resource.expiration_date < now
+        )
 
         context["access_text"] = self.get_access_text(resource.cost, is_expired)
         context["access_url"] = self.get_access_url(resource, self.request.user)
