@@ -64,7 +64,9 @@ class ERHLandingView(TemplateView):
         providers = cache.get("erh_providers")
         if not providers:
             print("Cache miss. Fetching providers…")
-            providers = Provider.all(sort=["Name"], formula="{Has Live Resource} = 'Accepted'")
+            providers = Provider.all(
+                sort=["Name"], formula="{Has Live Resource} = 'Accepted'"
+            )
             cache.set("erh_providers", providers, settings.AIRTABLE_CACHE_TTL)
         return providers
 
