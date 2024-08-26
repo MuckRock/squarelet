@@ -17,7 +17,7 @@ from sorl.thumbnail import ImageField
 from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
 from squarelet.core.mail import ORG_TO_ADMINS, send_mail
 from squarelet.core.mixins import AvatarMixin
-from squarelet.core.utils import file_path, mailchimp_subscribe
+from squarelet.core.utils import file_path, mailchimp_journey
 from squarelet.oidc.middleware import send_cache_invalidations
 from squarelet.organizations.choices import (
     COUNTRY_CHOICES,
@@ -449,7 +449,8 @@ class Organization(AvatarMixin, models.Model):
             organizations__verified_journalist=True
         )
         subscribe_emails = [u.email for u in users]
-        mailchimp_subscribe(subscribe_emails)
+        for email in subscribe_emails:
+            mailchimp_journey(email, "verified")
 
     def is_hub_eligible(self):
         return bool(
@@ -614,7 +615,7 @@ class Invitation(models.Model):
             self.organization.verified_journalist
             and not self.user.verified_journalist()
         ):
-            mailchimp_subscribe([self.user.email])
+            mailchimp_journey(self.user.email, "verified")
         if not self.organization.has_member(self.user):
             Membership.objects.create(organization=self.organization, user=self.user)
 
