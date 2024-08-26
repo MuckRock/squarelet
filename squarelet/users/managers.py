@@ -6,6 +6,7 @@ from django.db import transaction
 import stripe
 
 # Squarelet
+from squarelet.core.utils import mailchimp_journey
 from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.models import Organization
 
@@ -42,6 +43,9 @@ class UserManager(AuthUserManager):
             name=user_data.get("name"),
             source=user_data.get("source"),
         )
+
+        if user.source == "election-hub":
+            mailchimp_journey(user.email, "keh")
 
         plan = user_data.get("plan")
         try:

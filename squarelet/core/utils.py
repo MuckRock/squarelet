@@ -6,6 +6,7 @@ import logging
 import os.path
 import sys
 import uuid
+from hashlib import md5
 
 # Third Party
 import requests
@@ -79,4 +80,45 @@ def mailchimp_subscribe(emails, list_=settings.MAILCHIMP_LIST_DEFAULT):
     response = retry_on_error(
         requests.ConnectionError, requests.post, api_url, json=data, headers=headers
     )
+    return response
+
+
+def mailchimp_journey(email, journey):
+    """Trigger a mailchimp journey for the given email address"""
+
+    # IDs for our journeys
+    journey_map = {
+        "keh": (12, 68, "64f4342878"),
+        "verified": (4, 72, "a34d93cbe8"),
+    }
+    journey_id, step_id, list_id = journey_map[journey]
+
+    subscriber_hash = md5(email.lower().encode()).hexdigest()
+
+    # first ensure they are in the proper audience
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"apikey {settings.MAILCHIMP_API_KEY}",
+    }
+    api_url = f"{settings.MAILCHIMP_API_ROOT}/lists/{list_id}/members/{subscriber_hash}"
+    data = {
+        "email_address": email,
+        "status_if_new": "unsubscribed",
+    }
+    response = retry_on_error(
+        requests.ConnectionError, requests.put, api_url, json=data, headers=headers
+    )
+    if response.status_code >= 400:
+        logger.warning("[JOURNEY] Error adding to audience", exc_info=sys.exc_info())
+
+    api_url = (
+        f"{settings.MAILCHIMP_API_ROOT}/customer-journeys/journeys/"
+        f"{journey_id}/steps/{step_id}/actions/trigger"
+    )
+    data = {"email_address": email}
+    response = retry_on_error(
+        requests.ConnectionError, requests.post, api_url, json=data, headers=headers
+    )
+    if response.status_code >= 400:
+        logger.warning("[JOURNEY] Error starting journey", exc_info=sys.exc_info())
     return response
