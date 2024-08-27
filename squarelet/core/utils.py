@@ -103,7 +103,7 @@ def mailchimp_journey(email, journey):
     api_url = f"{settings.MAILCHIMP_API_ROOT}/lists/{list_id}/members/{subscriber_hash}"
     data = {
         "email_address": email,
-        "status_if_new": "unsubscribed",
+        "status": "subscribed",
     }
     response = retry_on_error(
         requests.ConnectionError, requests.put, api_url, json=data, headers=headers
