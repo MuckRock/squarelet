@@ -78,21 +78,18 @@
   <header class="_cls-erh--header">
     {% include 'core/component/erh/catalogSearch.html' %}
   </header>
-  {% else %}
+  {% endif %}
   {% if search.query or search.category or search.provider %}
   <h2 class="_cls-erh--header _cls-erh--searchTerm">
   {% if search.query %}
   <span>&ldquo;{{search.query}}&rdquo;</span>
-  {% endif %}
-  {% if search.category %}
+  {% elif search.category %}
   <span>{{search.category}}</span>
-  {% endif %}
-  {% if search.provider %}
+  {% elif search.provider %}
   <span>{{search.provider_name}}</span>
   {% endif %}
   </h2>
   <div class="_cls-spacer"></div>
-  {% endif %}
   {% endif %}
   {% if settings.ERH_SEARCH_ENABLED and search.query or search.category or search.provider %}
   <div class="_cls-erh--search">

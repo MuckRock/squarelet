@@ -1,5 +1,6 @@
 # Django
 from django.contrib import admin
+from django.forms.models import BaseInlineFormSet
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 
@@ -38,10 +39,18 @@ class CustomerInline(admin.TabularInline):
     extra = 0
 
 
+class MembershipFormset(BaseInlineFormSet):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.queryset = self.queryset.select_related("user", "organization")
+
+
 class MembershipInline(admin.TabularInline):
     model = Membership
-    autocomplete_fields = ("user",)
+    readonly_fields = ("user",)
+    fields = ["user", "admin"]
     extra = 0
+    formset = MembershipFormset
 
 
 class ReceiptEmailInline(admin.TabularInline):
@@ -59,10 +68,18 @@ class OrganizationUrlInline(admin.TabularInline):
     extra = 1
 
 
+class InvitationFormset(BaseInlineFormSet):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.queryset = self.queryset.select_related("user", "organization")
+
+
 class InvitationInline(admin.TabularInline):
     model = Invitation
-    autocomplete_fields = ("user",)
+    readonly_fields = ("user",)
+    fields = ["email", "user", "request", "accepted_at", "rejected_at"]
     extra = 0
+    formset = InvitationFormset
 
 
 class ChildrenInline(admin.TabularInline):

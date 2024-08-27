@@ -89,7 +89,7 @@ class SignupForm(allauth.SignupForm, StripeForm):
     def save(self, request):
 
         user_data = {
-            "source": request.GET.get("intent", "squarelet").lower().strip()[:11]
+            "source": request.GET.get("intent", "squarelet").lower().strip()[:13]
         }
         user_data.update(self.cleaned_data)
 
