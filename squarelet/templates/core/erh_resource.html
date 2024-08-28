@@ -45,6 +45,9 @@
         <a href="{% url 'erh_landing' %}?provider={{resource.provider_id.0}}" class="_cls-erh--resourceProvider">{{resource.provider_name.0}}</a>
       </div>
       <div class="_cls-erh--resourceActions">
+        {% if is_expired %}
+        <span class="_cls-button _cls-button--xlarge _cls-button--disabled">{{access_text}}</span>
+        {% else %}
         {% if resource.cost == "Free" or can_access_hub %}
         <a class="_cls-button _cls-button--xlarge plausible-event-name=KEH+Resource+Access" id="accessResource" href="{{access_url}}" target="_blank">{{access_text}}</a>
         {% else %}
@@ -75,6 +78,7 @@
             <p>You will need to create a MuckRock account to access this resource</p>
             {% endif %}
           </div>
+        {% endif %}
         {% endif %}
       </div>
     </header>

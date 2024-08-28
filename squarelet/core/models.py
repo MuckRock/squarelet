@@ -43,6 +43,7 @@ class Resource(Model):
     status = F.SelectField("Status")
     visible = F.SelectField("Show?")
     cost = F.SelectField("Cost")
+    expiration_date = F.DatetimeField("Expiration Date")
     homepageUrl = F.UrlField("Homepage URL")
     accessUrl = F.UrlField("Access URL")
     category = F.MultipleSelectField("Category")
