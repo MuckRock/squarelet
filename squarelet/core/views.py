@@ -14,7 +14,7 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 from pyairtable import Api as AirtableApi
 
 # Squarelet
-from squarelet.core.models import Provider, Resource, Alert
+from squarelet.core.models import Alert, Provider, Resource
 
 
 class HomeView(RedirectView):
