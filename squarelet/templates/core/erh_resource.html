@@ -36,6 +36,9 @@
       </a>
     </div>
   </header>
+  <header class="_cls-erh--header">
+    {% include "core/component/alerts.html" %}
+  </header>
   {% url 'organizations:detail' group_orgs.first.slug as organization_account_url %}
   <main class="_cls-erh--resourceBody">
     <header class="_cls-erh--resourceHeader">
