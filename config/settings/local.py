@@ -57,6 +57,7 @@ CELERY_ALWAYS_EAGER = False
 # This potentially will be necessary in prod as well
 # Note that Django says that this is NOT a security vulnerability,
 # and setting this to True would not have any meaningful security benefit.
+CSRF_TRUSTED_ORIGINS = ["http://dev.squarelet.com"]
 CSRF_COOKIE_HTTPONLY = False
 
 DJANGO_VITE = {
