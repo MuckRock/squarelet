@@ -78,7 +78,7 @@
 
 <aside class="newsletter popup" id="erh-newsletter">
   <header>
-    <p class="callToAction">Stay up to date!</p>
+    <p class="callToAction">Subscribe now to get updates about the Hub and essential tools to help you cover the 2024 elections.</p>
     <button class="close button" onclick="hideNewsletter(0, 'dismissed')">
       <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none">
           <path d="M6.03033 4.96967C5.73744 4.67678 5.26256 4.67678 4.96967 4.96967C4.67678 5.26256 4.67678 5.73744 4.96967 6.03033L6.93934 8L4.96967 9.96967C4.67678 10.2626 4.67678 10.7374 4.96967 11.0303C5.26256 11.3232 5.73744 11.3232 6.03033 11.0303L8 9.06066L9.96967 11.0303C10.2626 11.3232 10.7374 11.3232 11.0303 11.0303C11.3232 10.7374 11.3232 10.2626 11.0303 9.96967L9.06066 8L11.0303 6.03034C11.3232 5.73744 11.3232 5.26257 11.0303 4.96968C10.7374 4.67678 10.2626 4.67678 9.96967 4.96968L8 6.93934L6.03033 4.96967Z" />
@@ -87,7 +87,6 @@
       Decline
     </button>
   </header>
-  <p class="description">Subscribe now to ensure that you'll get updates about the hub and essential tools to help you cover the 2024 elections.</p>
   <form id="newsletter-subscription-form" class="email-form" method="POST" action="{% url 'newsletter_subscription' %}">
     {% csrf_token %}
     <label class="field">
