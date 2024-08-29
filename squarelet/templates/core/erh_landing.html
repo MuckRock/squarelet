@@ -20,6 +20,7 @@
 {% endblock %}
 
 {% block content %}
+{% include "core/component/newsletter.html" with user=request.user %}
 <div class="_cls-erh--container _cls-erh--landing">
   <header class="_cls-erh--header">
     {% if settings.ERH_SEARCH_ENABLED and search.query or search.category or search.provider %}
@@ -78,7 +79,7 @@
   </div>
   {% endif %}
   {% if can_access_hub and settings.ERH_SEARCH_ENABLED %}
-  <header class="_cls-erh--header">
+  <header class="_cls-erh--header _cls-erh--catalog-search">
     {% include 'core/component/erh/catalogSearch.html' %}
   </header>
   {% endif %}

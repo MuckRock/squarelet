@@ -35,6 +35,12 @@
   margin: 0 auto;
 }
 
+._cls-erh--catalog-search {
+  position: sticky;
+  top: 1rem;
+  z-index: 1;
+}
+
 ._cls-erh--header-side {
   flex: 1 1 4rem;
 }
