@@ -53,6 +53,7 @@
     })
     .then(response => response.json())
     .then(data => {
+        if (data.status === 'error') throw new Error(data.message);
         el.classList.add('success');
         document.getElementById('result').innerText = data.message;
         setTimeout(hideNewsletter, 5000);

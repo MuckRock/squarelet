@@ -2,7 +2,7 @@
 from django.conf import settings
 from django.core.cache import cache
 from django.db.models import Q
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, HttpResponseServerError
 from django.http.response import Http404
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -10,13 +10,14 @@ from django.utils import timezone
 from django.views.generic.base import RedirectView, TemplateView
 
 # Standard Library
+import json
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 # Third Party
 from pyairtable import Api as AirtableApi
 
 # Squarelet
-from squarelet.core.models import Alert, Provider, Resource
+from squarelet.core.models import Alert, Provider, Resource, NewsletterSignup
 
 
 class HomeView(RedirectView):
@@ -62,11 +63,11 @@ class ERHLandingView(TemplateView):
             view = "Logged In"
             if user.is_hub_eligible():
                 view = "Hub Eligible"
-        alerts = cache.get(f"erh_alerts/{view}")
+        alerts = cache.get(f"erh_alerts_{view}")
         if not alerts:
             print("Cache miss. Fetching alerts…")
             alerts = Alert.all(view=view)
-            cache.set(f"erh_alerts/{view}", alerts, settings.AIRTABLE_CACHE_TTL)
+            cache.set(f"erh_alerts_{view}", alerts, settings.AIRTABLE_CACHE_TTL)
         return alerts
 
     def get_all_resources(self):
@@ -169,11 +170,11 @@ class ERHResourceView(TemplateView):
             view = "Logged In"
             if user.is_hub_eligible():
                 view = "Hub Eligible"
-        alerts = cache.get(f"erh_alerts/{view}")
+        alerts = cache.get(f"erh_alerts_{view}")
         if not alerts:
             print("Cache miss. Fetching alerts…")
             alerts = Alert.all(view=view)
-            cache.set(f"erh_alerts/{view}", alerts, settings.AIRTABLE_CACHE_TTL)
+            cache.set(f"erh_alerts_{view}", alerts, settings.AIRTABLE_CACHE_TTL)
         return alerts
 
     def get_access_text(self, cost, is_expired):
@@ -279,19 +280,43 @@ class ERHAboutView(TemplateView):
 
 def newsletter_subscription(request):
     if request.method == 'POST':
-        name = request.POST.get('name')
-        email = request.POST.get('email')
-
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            # Return JSON response for AJAX request
-            data = {
-                'message': 'Thanks for subscribing!',
-                'name': name,
-                'email': email
-            }
-            return JsonResponse(data)
-        else:
-            # Handle non-AJAX request (normal form submission)
-            return HttpResponse(f"Form submitted successfully! Name: {name}, Email: {email}")
-
+        try:
+            # Get the JSON data from the payload
+            data = json.loads(request.body)
+            name = data.get('name')
+            email = data.get('email')
+            organization = data.get('organization')
+            # Create the record in Airtable
+            signup = NewsletterSignup(email=email, name=name, organization=organization)
+            signup.save()
+            # Send a successful response
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                # Return JSON response for AJAX request
+                data = {
+                    'status': 'success',
+                    'message': 'Thanks for subscribing!',
+                    'name': name,
+                    'email': email,
+                    'organization': organization
+                }
+                return JsonResponse(data)
+            else:
+                # Handle non-AJAX request (normal form submission)
+                return HttpResponse(f"Form submitted successfully! Name: {name}, Email: {email}")
+        except Exception as e:
+            # Send an error response
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                # Return JSON response for AJAX request
+                data = {
+                    'status': 'error',
+                    'message': f'An error occurred during signup. {e}',
+                    'name': name,
+                    'email': email,
+                    'organization': organization
+                }
+                return JsonResponse(data)
+            else:
+                # Handle non-AJAX request (normal form submission)
+                return HttpResponseServerError(f"An error occurred during signup. Name: {name}, Email: {email}, Organization: {organization}")
+    # For all other request types, redirect to the landing page
     return redirect("erh_landing")
