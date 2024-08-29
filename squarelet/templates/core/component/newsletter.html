@@ -18,19 +18,23 @@
   }
 
   function showNewsletter() {
-    el = document.getElementById('erh-newsletter');
-    console.log('Show newsletter', window.location.pathname, el);
-    if (window.location.pathname.startsWith('/election-hub')) {
-      el.classList.add('visible');
+    const hide = localStorage.getItem("hideNewsletterPopup");
+    if (!hide) {
+      el = document.getElementById('erh-newsletter');
+      console.log('Show newsletter', window.location.pathname, el);
+      if (window.location.pathname.startsWith('/election-hub')) {
+        el.classList.add('visible');
+      }
     }
   }
 
-  function hideNewsletter() {
+  function hideNewsletter(delay = 0, reason = "unknown") {
     if (!el) {
       el = document.getElementById('erh-newsletter');
     }
     console.log('Hide newsletter', el);
-    el.classList.remove("visible");
+    localStorage.setItem("hideNewsletterPopup", reason)
+    setTimeout(() => el.classList.remove("visible"), delay);
   }
 
   function submitForm(event) {
@@ -56,7 +60,7 @@
         if (data.status === 'error') throw new Error(data.message);
         el.classList.add('success');
         document.getElementById('result').innerText = data.message;
-        setTimeout(hideNewsletter, 5000);
+        hideNewsletter(5000, "subscribed");
     })
     .catch(error => {
       el.classList.add('error');
@@ -75,7 +79,7 @@
 <aside class="newsletter popup" id="erh-newsletter">
   <header>
     <p class="callToAction">Keep up with the latest from MuckRock, the Knight Election Hub, and ElectionSOS</p>
-    <button class="close button" onclick="hideNewsletter()">
+    <button class="close button" onclick="hideNewsletter(0, 'dismissed')">
       <svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none">
           <path d="M6.03033 4.96967C5.73744 4.67678 5.26256 4.67678 4.96967 4.96967C4.67678 5.26256 4.67678 5.73744 4.96967 6.03033L6.93934 8L4.96967 9.96967C4.67678 10.2626 4.67678 10.7374 4.96967 11.0303C5.26256 11.3232 5.73744 11.3232 6.03033 11.0303L8 9.06066L9.96967 11.0303C10.2626 11.3232 10.7374 11.3232 11.0303 11.0303C11.3232 10.7374 11.3232 10.2626 11.0303 9.96967L9.06066 8L11.0303 6.03034C11.3232 5.73744 11.3232 5.26257 11.0303 4.96968C10.7374 4.67678 10.2626 4.67678 9.96967 4.96968L8 6.93934L6.03033 4.96967Z" />
           <path fill-rule="evenodd" clip-rule="evenodd" d="M2.34315 2.34315C-0.781049 5.46734 -0.781049 10.5327 2.34315 13.6569C5.46734 16.781 10.5327 16.781 13.6569 13.6569C16.781 10.5327 16.781 5.46734 13.6569 2.34315C10.5327 -0.781049 5.46734 -0.781049 2.34315 2.34315ZM3.40381 12.5962C0.865398 10.0578 0.865398 5.94221 3.40381 3.40381C5.94221 0.865398 10.0578 0.865398 12.5962 3.40381C15.1346 5.94221 15.1346 10.0578 12.5962 12.5962C10.0578 15.1346 5.94221 15.1346 3.40381 12.5962Z" />
