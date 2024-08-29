@@ -76,5 +76,5 @@ class NewsletterSignup(Model):
 
     class Meta:
         api_key = settings.AIRTABLE_ACCESS_TOKEN
-        base_id = 'appMhNUZlHMCis47k'
+        base_id = "appMhNUZlHMCis47k"
         table_name = "Email Subscribers"

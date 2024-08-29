@@ -2,7 +2,7 @@
 from django.conf import settings
 from django.core.cache import cache
 from django.db.models import Q
-from django.http import JsonResponse, HttpResponse, HttpResponseServerError
+from django.http import HttpResponse, HttpResponseServerError, JsonResponse
 from django.http.response import Http404
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -17,7 +17,7 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 from pyairtable import Api as AirtableApi
 
 # Squarelet
-from squarelet.core.models import Alert, Provider, Resource, NewsletterSignup
+from squarelet.core.models import Alert, NewsletterSignup, Provider, Resource
 
 
 class HomeView(RedirectView):
@@ -279,44 +279,53 @@ class ERHAboutView(TemplateView):
 
 
 def newsletter_subscription(request):
-    if request.method == 'POST':
+    if request.method == "POST":
         try:
             # Get the JSON data from the payload
             data = json.loads(request.body)
-            name = data.get('name')
-            email = data.get('email')
-            organization = data.get('organization')
+            name = data.get("name")
+            email = data.get("email")
+            organization = data.get("organization")
             # Create the record in Airtable
             signup = NewsletterSignup(email=email, name=name, organization=organization)
             signup.save()
             # Send a successful response
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
                 # Return JSON response for AJAX request
                 data = {
-                    'status': 'success',
-                    'message': 'Thanks for subscribing!',
-                    'name': name,
-                    'email': email,
-                    'organization': organization
+                    "status": "success",
+                    "message": "Thanks for subscribing!",
+                    "name": name,
+                    "email": email,
+                    "organization": organization,
                 }
                 return JsonResponse(data)
             else:
                 # Handle non-AJAX request (normal form submission)
-                return HttpResponse(f"Form submitted successfully! Name: {name}, Email: {email}")
-        except Exception as e:
+                return HttpResponse(
+                    f"Form submitted successfully! Name: {name}, Email: {email}"
+                )
+        except json.JSONDecodeError as exception:
             # Send an error response
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
                 # Return JSON response for AJAX request
                 data = {
-                    'status': 'error',
-                    'message': f'An error occurred during signup. {e}',
-                    'name': name,
-                    'email': email,
-                    'organization': organization
+                    "status": "error",
+                    "message": f"An error occurred during signup. {exception}",
+                    "name": name,
+                    "email": email,
+                    "organization": organization,
                 }
                 return JsonResponse(data)
             else:
                 # Handle non-AJAX request (normal form submission)
-                return HttpResponseServerError(f"An error occurred during signup. Name: {name}, Email: {email}, Organization: {organization}")
+                return HttpResponseServerError(
+                    f"""
+                      An error occurred during signup.
+                      Name: {name}
+                      Email: {email}
+                      Organization: {organization}
+                    """
+                )
     # For all other request types, redirect to the landing page
     return redirect("erh_landing")
