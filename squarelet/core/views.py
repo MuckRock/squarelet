@@ -285,7 +285,7 @@ def newsletter_subscription(request):
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             # Return JSON response for AJAX request
             data = {
-                'message': 'Form submitted successfully!',
+                'message': 'Thanks for subscribing!',
                 'name': name,
                 'email': email
             }
