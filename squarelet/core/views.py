@@ -2,7 +2,9 @@
 from django.conf import settings
 from django.core.cache import cache
 from django.db.models import Q
+from django.http import JsonResponse, HttpResponse
 from django.http.response import Http404
+from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import timezone
 from django.views.generic.base import RedirectView, TemplateView
@@ -273,3 +275,23 @@ class ERHResourceView(TemplateView):
 class ERHAboutView(TemplateView):
 
     template_name = "core/erh_about.html"
+
+
+def newsletter_subscription(request):
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        email = request.POST.get('email')
+
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            # Return JSON response for AJAX request
+            data = {
+                'message': 'Form submitted successfully!',
+                'name': name,
+                'email': email
+            }
+            return JsonResponse(data)
+        else:
+            # Handle non-AJAX request (normal form submission)
+            return HttpResponse(f"Form submitted successfully! Name: {name}, Email: {email}")
+
+    return redirect("erh_landing")

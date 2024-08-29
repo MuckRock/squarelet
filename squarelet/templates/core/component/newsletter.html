@@ -16,9 +16,43 @@
     el.classList.remove("visible");
   }
 
+  function submitForm(event) {
+    event.preventDefault();
+    const form = event.target;
+    const formData = new FormData(form);
+    el = document.getElementById('erh-newsletter');
+    let body = {};
+    formData.forEach((value, key) => body[key] = value);
+    let jsonBody = JSON.stringify(body);
+    console.log(jsonBody);
+    fetch(form.action, {
+        method: form.method,
+        body: jsonBody,
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': jsonBody.csrfmiddlewaretoken
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        el.classList.add('success');
+        document.getElementById('result').innerText = data.message;
+        console.log('Form submitted successfully:', data);
+        setTimeout(hideNewsletter, 5000);
+    })
+    .catch(error => {
+      el.classList.add('error');
+      document.getElementById('result').innerText = error;
+      console.error('Error submitting form:', error)
+    });
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
     showNewsletter();
+    document.getElementById("newsletter-subscription-form").addEventListener('submit', submitForm);
   })
+  
 </script>
 
 <aside class="newsletter popup" id="erh-newsletter">
@@ -33,15 +67,17 @@
     </button>
   </header>
   <p class="description">Subscribe to our email newsletter to learn about new resources for newsrooms this election season.</p>
-  <form class="email-form" action="/subscribe">
+  <form id="newsletter-subscription-form" class="email-form" method="POST" action="{% url 'newsletter_subscription' %}">
+    {% csrf_token %}
     <label class="field">
       <span class="label">Your Email Address <small class="required">Required</small></span>
-      <input type="email" placeholder="hello@muckrock.com" {% if user.email %}value="{{user.email}}"{% endif %} />
+      <input name="email" type="email" placeholder="hello@muckrock.com" {% if user.email %}value="{{user.email}}"{% endif %} />
     </label>
     <label class="field">
       <span class="label">Your Name</span>
-      <input type="text" placeholder="Jane Appleseed" {% if user.name %}value="{{user.name}}"{% endif %} />
+      <input name="name" type="text" placeholder="Jane Appleseed" {% if user.name %}value="{{user.name}}"{% endif %} />
     </label>
+    <input name="organization" type="hidden" value="{{user.organization.name}}" />
     <button class="_cls-button" type="submit">
       <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="17" height="16" viewBox="0 0 17 16" fill="none">
         <g clip-path="url(#clip0_99_3278)">
@@ -56,6 +92,7 @@
       Subscribe
     </button>
   </form>
+  <footer class="info" id="result"></footer>
 </aside>
 
 <style>
@@ -227,5 +264,23 @@
     max-width: 11rem;
     flex: 1 0 0;
     justify-content: center;
+  }
+  .info {
+    width: 100%;
+    font-weight: 600;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    box-sizing: border-box;
+  }
+  .info:empty {
+    display: none;
+  }
+  .success .info {
+    background: var(--green-1, #EBF9F6);
+    color: var(--green-4, #117383);
+  }
+  .error .info {
+    background: var(--red-1, #FAE8EE);
+    color: var(--red-4, #5D275F);
   }
 </style>

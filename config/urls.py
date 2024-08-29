@@ -12,7 +12,7 @@ from rest_framework_nested import routers
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 # Squarelet
-from squarelet.core.views import ERHAboutView, ERHLandingView, ERHResourceView, HomeView
+from squarelet.core.views import ERHAboutView, ERHLandingView, ERHResourceView, HomeView, newsletter_subscription
 from squarelet.oidc.views import token_view
 from squarelet.organizations.viewsets import ChargeViewSet, OrganizationViewSet
 from squarelet.users.views import LoginView
@@ -35,6 +35,7 @@ urlpatterns = [
     path("election-hub/", ERHLandingView.as_view(), name="erh_landing"),
     path("election-hub/about", ERHAboutView.as_view(), name="erh_about"),
     path("election-hub/<str:id>", ERHResourceView.as_view(), name="erh_resource"),
+    path("election-hub/subscribe", newsletter_subscription, name="newsletter_subscription"),
     path(
         "selectplan/",
         TemplateView.as_view(template_name="pages/selectplan.html"),
