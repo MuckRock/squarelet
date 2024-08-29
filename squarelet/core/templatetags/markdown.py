@@ -39,6 +39,7 @@ def markdown_filter(text, _safe=None):
         "img",
         "iframe",
         "a",
+        "br",
     ]
     allowed_attributes = bleach.ALLOWED_ATTRIBUTES.copy()
     allowed_attributes.update(

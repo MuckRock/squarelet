@@ -2,19 +2,22 @@
 from django.conf import settings
 from django.core.cache import cache
 from django.db.models import Q
+from django.http import HttpResponse, HttpResponseServerError, JsonResponse
 from django.http.response import Http404
+from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import timezone
 from django.views.generic.base import RedirectView, TemplateView
 
 # Standard Library
+import json
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 # Third Party
 from pyairtable import Api as AirtableApi
 
 # Squarelet
-from squarelet.core.models import Provider, Resource
+from squarelet.core.models import Alert, NewsletterSignup, Provider, Resource
 
 
 class HomeView(RedirectView):
@@ -52,6 +55,20 @@ class ERHLandingView(TemplateView):
             params += [f'FIND("{provider}", {{Provider ID}})']
         formula = f"AND({', '.join(params)})"
         return formula
+
+    def get_alerts(self, user):
+        """Fetch relevant alert messages"""
+        view = "Logged Out"
+        if user.is_authenticated:
+            view = "Logged In"
+            if user.is_hub_eligible():
+                view = "Hub Eligible"
+        alerts = cache.get(f"erh_alerts_{view}")
+        if not alerts:
+            print("Cache miss. Fetching alerts…")
+            alerts = Alert.all(view=view)
+            cache.set(f"erh_alerts_{view}", alerts, settings.AIRTABLE_CACHE_TTL)
+        return alerts
 
     def get_all_resources(self):
         resources = cache.get("erh_resources")
@@ -138,12 +155,27 @@ class ERHLandingView(TemplateView):
                 resources = self.get_all_resources()
             context["resources"] = resources
             context["categories"] = self.resources_by_category(resources)
+            context["alerts"] = self.get_alerts(self.request.user)
         return context
 
 
 class ERHResourceView(TemplateView):
 
     template_name = "core/erh_resource.html"
+
+    def get_alerts(self, user):
+        """Fetch relevant alert messages"""
+        view = "Logged Out"
+        if user.is_authenticated:
+            view = "Logged In"
+            if user.is_hub_eligible():
+                view = "Hub Eligible"
+        alerts = cache.get(f"erh_alerts_{view}")
+        if not alerts:
+            print("Cache miss. Fetching alerts…")
+            alerts = Alert.all(view=view)
+            cache.set(f"erh_alerts_{view}", alerts, settings.AIRTABLE_CACHE_TTL)
+        return alerts
 
     def get_access_text(self, cost, is_expired):
         if is_expired:
@@ -236,6 +268,7 @@ class ERHResourceView(TemplateView):
         context["access_text"] = self.get_access_text(resource.cost, is_expired)
         context["access_url"] = self.get_access_url(resource, self.request.user)
         context["is_expired"] = is_expired
+        context["alerts"] = self.get_alerts(self.request.user)
 
         return context
 
@@ -243,3 +276,56 @@ class ERHResourceView(TemplateView):
 class ERHAboutView(TemplateView):
 
     template_name = "core/erh_about.html"
+
+
+def newsletter_subscription(request):
+    if request.method == "POST":
+        try:
+            # Get the JSON data from the payload
+            data = json.loads(request.body)
+            name = data.get("name")
+            email = data.get("email")
+            organization = data.get("organization")
+            # Create the record in Airtable
+            signup = NewsletterSignup(email=email, name=name, organization=organization)
+            signup.save()
+            # Send a successful response
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                # Return JSON response for AJAX request
+                data = {
+                    "status": "success",
+                    "message": "Thanks for subscribing!",
+                    "name": name,
+                    "email": email,
+                    "organization": organization,
+                }
+                return JsonResponse(data)
+            else:
+                # Handle non-AJAX request (normal form submission)
+                return HttpResponse(
+                    f"Form submitted successfully! Name: {name}, Email: {email}"
+                )
+        except json.JSONDecodeError as exception:
+            # Send an error response
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                # Return JSON response for AJAX request
+                data = {
+                    "status": "error",
+                    "message": f"An error occurred during signup. {exception}",
+                    "name": name,
+                    "email": email,
+                    "organization": organization,
+                }
+                return JsonResponse(data)
+            else:
+                # Handle non-AJAX request (normal form submission)
+                return HttpResponseServerError(
+                    f"""
+                      An error occurred during signup.
+                      Name: {name}
+                      Email: {email}
+                      Organization: {organization}
+                    """
+                )
+    # For all other request types, redirect to the landing page
+    return redirect("erh_landing")

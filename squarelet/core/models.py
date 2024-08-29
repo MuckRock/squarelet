@@ -21,6 +21,19 @@ class Interval(Func):
         super().__init__(Value(expression), **extra)
 
 
+class Alert(Model):
+    uid = F.AutoNumberField("ID")
+    message = F.RichTextField("Message")
+    expiration_date = F.DatetimeField("Expiration Date")
+    segment = F.SelectField("Segment")
+    status = F.SelectField("Status")
+
+    class Meta:
+        api_key = settings.AIRTABLE_ACCESS_TOKEN
+        base_id = settings.AIRTABLE_ERH_BASE_ID
+        table_name = "Alerts"
+
+
 class Provider(Model):
     name = F.TextField("Name")
     logo = F.AttachmentsField("Logo")
@@ -54,3 +67,14 @@ class Resource(Model):
         api_key = settings.AIRTABLE_ACCESS_TOKEN
         base_id = settings.AIRTABLE_ERH_BASE_ID
         table_name = "Resources"
+
+
+class NewsletterSignup(Model):
+    email = F.EmailField("Email")
+    name = F.TextField("Name")
+    organization = F.TextField("Organization")
+
+    class Meta:
+        api_key = settings.AIRTABLE_ACCESS_TOKEN
+        base_id = "appMhNUZlHMCis47k"
+        table_name = "Email Subscribers"
