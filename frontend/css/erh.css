@@ -43,6 +43,10 @@
   left: 1rem;
   top: 25%;
   transform: translateY(-25%);
+  padding: 1rem;
+  background: rgba(250, 250, 250, .6);
+  border-radius: 1rem;
+  backdrop-filter: blur(10px);
 }
 
 ._cls-erh--toc a {
@@ -291,6 +295,7 @@
 
 ._cls-erh--category {
   margin: 2rem 0;
+  scroll-margin-top: 8rem;
 }
 
 ._cls-erh--category header {
