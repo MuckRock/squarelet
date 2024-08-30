@@ -1,0 +1,17 @@
+<li class="_cls-erh--resource {% if resource.cost == 'Gated' %}_cls-erh--resource--gated{% endif %}" tabindex="0">
+  <img class="_cls-erh--resourceLogo" src="{{resource.logo.0.thumbnails.large.url}}" />
+  <div class="_cls-erh--resourceDetail">
+    <h3 class="_cls-erh--resourceName">{{resource.name}}</h3>
+    {% if resource.shortDescription %}
+    <p class="_cls-erh--resourceDescription">{{resource.shortDescription}}</p>
+    {% else %}
+    <div class="_cls-erh--resourceDescription"></div>
+    {% endif %}
+    <footer class="_cls-erh--footer">
+      <span class="_cls-erh--resourceProvider">{{resource.provider_name.0}}</span>
+      {% if resource.cost == "Gated" %}
+      <span class="_cls-erh--limitedAvailability _cls-definition">Application Required</span>
+      {% endif %}
+    </footer>
+  </div>
+</li>

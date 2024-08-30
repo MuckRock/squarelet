@@ -60,6 +60,7 @@ class Resource(Model):
     homepageUrl = F.UrlField("Homepage URL")
     accessUrl = F.UrlField("Access URL")
     category = F.MultipleSelectField("Category")
+    categories = F.LinkField("Categories", "Category")
     longDescription = F.RichTextField("Long Description")
     screenshots = F.AttachmentsField("Screenshots")
 
@@ -67,6 +68,17 @@ class Resource(Model):
         api_key = settings.AIRTABLE_ACCESS_TOKEN
         base_id = settings.AIRTABLE_ERH_BASE_ID
         table_name = "Resources"
+
+
+class Category(Model):
+    name = F.TextField("Name")
+    description = F.TextField("Description")
+    resources = F.LinkField("Resources", Resource)
+
+    class Meta:
+        api_key = settings.AIRTABLE_ACCESS_TOKEN
+        base_id = settings.AIRTABLE_ERH_BASE_ID
+        table_name = "Categories"
 
 
 class NewsletterSignup(Model):
