@@ -14,10 +14,10 @@ import json
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 # Third Party
-from pyairtable import Api as AirtableApi
+from pyairtable.formulas import match
 
 # Squarelet
-from squarelet.core.models import Alert, NewsletterSignup, Provider, Resource
+from squarelet.core.models import Alert, Category, NewsletterSignup, Provider, Resource
 
 
 class HomeView(RedirectView):
@@ -92,26 +92,24 @@ class ERHLandingView(TemplateView):
         categories = cache.get("erh_categories")
         if not categories:
             print("Cache miss. Fetching categories…")
-            api = AirtableApi(settings.AIRTABLE_ACCESS_TOKEN)
-            base = api.base(settings.AIRTABLE_ERH_BASE_ID)
-            table_schema = base.table("Resources").schema()
-            categories = table_schema.field("flds89Q9yTw7KGQTe")
+            categories = Category.all(
+                view="All Categories", formula=match({"Status": "Published"})
+            )
             cache.set("erh_categories", categories, settings.AIRTABLE_CACHE_TTL)
-        return categories.options.choices
+        return categories
 
-    def resources_by_category(self, resources):
-        """Maps the listed resources into a record keyed by category"""
-        categories = self.get_all_categories()
-        category_list = {}
-        for category in categories:
-            category_resources = [
-                resource
-                for resource in resources
-                if (category.name in resource.category)
-            ]
-            if category_resources:
-                category_list[category.name] = category_resources
-        return category_list
+    def get_homepage_categories(self):
+        categories = cache.get("erh_homepage_categories")
+        if not categories:
+            print("Cache miss. Fetching categories…")
+            categories = Category.all(
+                view="All Categories",
+                formula=match({"Status": "Published", "Show on Homepage": True}),
+            )
+            cache.set(
+                "erh_homepage_categories", categories, settings.AIRTABLE_CACHE_TTL
+            )
+        return categories
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data()
@@ -129,6 +127,7 @@ class ERHLandingView(TemplateView):
                 individual=False
             )
         if settings.ERH_CATALOG_ENABLED:
+            resources = None
             # handle searching of resources
             if settings.ERH_SEARCH_ENABLED:
                 query = self.request.GET.get("query")
@@ -139,9 +138,6 @@ class ERHLandingView(TemplateView):
                     resources = Resource.all(
                         formula=self.create_search_formula(query, category, provider)
                     )
-                else:
-                    # cache the full resource list
-                    resources = self.get_all_resources()
                 context["search"] = {
                     "query": query or "",
                     "category": category or "",
@@ -151,11 +147,11 @@ class ERHLandingView(TemplateView):
                 }
                 if provider:
                     context["search"]["provider_name"] = Provider.from_id(provider).name
-            else:
-                resources = self.get_all_resources()
+
             context["resources"] = resources
-            context["categories"] = self.resources_by_category(resources)
+            context["categories"] = self.get_homepage_categories()
             context["alerts"] = self.get_alerts(self.request.user)
+
         return context
 
 
