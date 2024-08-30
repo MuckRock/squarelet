@@ -81,6 +81,11 @@
   </div>
   {% else %}
   <div class="_cls-erh--catalog" id="_id-erh-catalog">
+    <ul class="_cls-erh--toc">
+      {% for category in categories %}
+      <li><a href="#{{category.name|slugify}}">{{category.name}}</a></li>
+      {% endfor %}
+    </ul>
     {% for category in categories %}
       {% include "core/component/category.html" %}
     {% endfor %}
