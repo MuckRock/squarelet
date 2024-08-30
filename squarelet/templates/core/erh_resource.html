@@ -106,13 +106,13 @@
     </div>
     <footer>
       <ul class="_cls-erh--resourceCategories">
-        {% for category in resource.category %}
+        {% for category in resource.categories %}
           <li>
             {% if settings.ERH_SEARCH_ENABLED %}
-              <a class="_cls-button _cls-button--small _cls-button--outline" href="{% url 'erh_landing' %}?category={{category|urlencode}}">{{category}}</a>
+              <a class="_cls-button _cls-button--small _cls-button--outline" href="{% url 'erh_landing' %}?category={{category.name|urlencode}}">{{category.name}}</a>
             {% else %}
               <span class="_cls-button _cls-button--small _cls-button--outline">
-                {{category}}
+                {{category.name}}
               </span>
             {% endif %}
           </li>

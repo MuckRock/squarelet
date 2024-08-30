@@ -1,0 +1,32 @@
+<div class="_cls-body _cls-erh--description">
+  <p>The Knight Election Hub is a collection of curated products and services that will help you cover the election better than you thought possible. And in cases where a resource costs money, Knight Foundation is picking up the check.</p>
+  <p>Interested in accessing limited or premium resources? <a href="{% url 'account_login' %}?intent={% firstof request.GET.intent 'election-hub' %}&next={{ request.get_full_path }}">Log in using your Muckrock or DocumentCloud account</a> or <a href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'election-hub' %}?next={{ request.get_full_path }}">create one if you don’t have one</a>. <a href="{% url 'erh_about' %}">Read more about the hub, including eligibility requirements.</a></p>
+  <p>Do you know about an election-related resource that should be listed in the Knight Election Hub? <a href="{% url 'erh_about' %}">Let us know!</a></p>
+  <div class="_cls-erh--access _cls-erh--interactive">
+    {% if request.user.is_authenticated %}
+    {% if group_orgs.exists %}
+    {% url 'users:detail' request.user.username as user_account_url %}
+    {% url 'organizations:detail' group_orgs.first.slug as organization_account_url %}
+    <a href="https://airtable.com/app93Yt5cwdVWTnqn/pagGarPPmVmWpU6d5/form?prefill_MR+User+Email={{request.user.email | iriencode}}&prefill_MR+User+Name={{request.user.safe_name|iriencode}}&prefill_MR+User+Account+URL={{ user_account_url | urlencode }}&prefill_MR+Organization+Name={{group_orgs.first.name}}&prefill_MR+Organization+Account+URL={{ organization_account_url | urlencode }}"
+      class="_cls-button">Apply for Access</a>
+    <p>It looks like you’re currently a member of <a
+      href="{{organization_account_url}}">{{group_orgs.first.name}}</a>. You will need to apply for access before <a
+      href="{{organization_account_url}}">{{group_orgs.first.name}}</a> can access the Knight Election Hub.</p>
+    {% else %}
+    <p class=".cls-erh--flex100"><a class="_cls-button" href="{% url 'organizations:list' %}">Find your
+        organization</a> <span class="_cls-or">or</span> <a class="_cls-button"
+        href="{% url 'organizations:create' %}">create an organization</a></p>
+    <p>You need to belong to an eligible organization to access the Knight Election Hub. </p>
+    {% endif %}
+    {% else %}
+    <a title="{% trans 'Sign Up' %}" class="_cls-button"
+      href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'election-hub' %}?next={{ request.get_full_path }}">
+      {% trans "Sign Up" %}
+    </a>
+    <a title="{% trans 'Sign In' %}" class="_cls-button" href="{% url 'account_login' %}?intent={% firstof request.GET.intent 'election-hub' %}&next={{ request.get_full_path }}">
+      {% trans "Sign In" %}
+    </a>
+    <p>You will need to create a MuckRock account to access the Knight Election Hub</p>
+    {% endif %}
+  </div>
+</div>
