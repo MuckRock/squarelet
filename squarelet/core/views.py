@@ -14,7 +14,6 @@ import json
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 # Third Party
-from pyairtable import Api as AirtableApi
 from pyairtable.formulas import match
 
 # Squarelet
@@ -93,7 +92,9 @@ class ERHLandingView(TemplateView):
         categories = cache.get("erh_categories")
         if not categories:
             print("Cache miss. Fetching categories…")
-            categories = Category.all(view="All Categories", formula=match({"Status": "Published"}))
+            categories = Category.all(
+                view="All Categories", formula=match({"Status": "Published"})
+            )
             cache.set("erh_categories", categories, settings.AIRTABLE_CACHE_TTL)
         return categories
 
@@ -101,9 +102,13 @@ class ERHLandingView(TemplateView):
         categories = cache.get("erh_homepage_categories")
         if not categories:
             print("Cache miss. Fetching categories…")
-            categories = Category.all(view="All Categories", formula=match(
-                {"Status": "Published", "Show on Homepage": True}))
-            cache.set("erh_homepage_categories", categories, settings.AIRTABLE_CACHE_TTL)
+            categories = Category.all(
+                view="All Categories",
+                formula=match({"Status": "Published", "Show on Homepage": True}),
+            )
+            cache.set(
+                "erh_homepage_categories", categories, settings.AIRTABLE_CACHE_TTL
+            )
         return categories
 
     def get_context_data(self, **kwargs):
