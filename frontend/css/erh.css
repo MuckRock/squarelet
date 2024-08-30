@@ -366,9 +366,18 @@
   display: none;
 }
 
+._cls-erh--categoryDescription {
+  font-size: var(--font-lg, 1.125rem);
+  color: var(--gray-4, #5C717C);
+}
+
+._cls-erh--categoryDescription p {
+  margin: 0;
+}
+
 ._cls-erh--resource {
   display: flex;
-  width: 25rem;
+  width: 100%;
   box-sizing: border-box;
   overflow: hidden;
   padding: var(--font-md, 16px);
