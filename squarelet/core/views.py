@@ -17,7 +17,7 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 from pyairtable.formulas import match
 
 # Squarelet
-from squarelet.core.models import Alert, NewsletterSignup, Provider, Resource, Category
+from squarelet.core.models import Alert, Category, NewsletterSignup, Provider, Resource
 
 
 class HomeView(RedirectView):
