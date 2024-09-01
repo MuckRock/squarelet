@@ -1,3 +1,5 @@
+{% load i18n %}
+
 <div class="_cls-body _cls-erh--description">
   <p>The Knight Election Hub is a collection of curated products and services that will help you cover the election better than you thought possible. And in cases where a resource costs money, Knight Foundation is picking up the check.</p>
   <p>Interested in accessing limited or premium resources? <a href="{% url 'account_login' %}?intent={% firstof request.GET.intent 'election-hub' %}&next={{ request.get_full_path }}">Log in using your Muckrock or DocumentCloud account</a> or <a href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'election-hub' %}?next={{ request.get_full_path }}">create one if you don’t have one</a>. <a href="{% url 'erh_about' %}">Read more about the hub, including eligibility requirements.</a></p>
