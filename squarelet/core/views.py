@@ -40,7 +40,7 @@ class ERHLandingView(TemplateView):
         params = []
         if settings.ENV == "prod":
             status = '{Status} = "Accepted"'
-            show = '{Show?} = "Ready"'
+            show = 'OR({Show?} = "Ready", {Show?} = "Kondo")'
             params += [f"AND({status}, {show})"]
         if query:
             search_fields = [
