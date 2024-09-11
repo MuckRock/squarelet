@@ -21,6 +21,7 @@ from reversion.admin import VersionAdmin
 
 # Squarelet
 from squarelet.organizations.models import Invitation, Organization
+from squarelet.organizations.models.organization import Membership
 
 # Local
 from .models import User
@@ -41,6 +42,13 @@ class MyUserCreationForm(UserCreationForm):
 class InvitationInline(admin.TabularInline):
     model = Invitation
     readonly_fields = ("organization", "email", "request", "accepted_at", "rejected_at")
+    extra = 0
+
+
+class MembershipInline(admin.TabularInline):
+    model = Membership
+    fields = ["organization", "admin"]
+    autocomplete_fields = ("organization",)
     extra = 0
 
 
@@ -109,7 +117,7 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
         "is_active",
     )
     search_fields = ("username_deterministic", "name", "email_deterministic")
-    inlines = [EmailInline, InvitationInline]
+    inlines = [EmailInline, InvitationInline, MembershipInline]
 
     def get_queryset(self, request):
         """Add deterministic fields for username and email so they
