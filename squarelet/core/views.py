@@ -40,7 +40,7 @@ class ERHLandingView(TemplateView):
         params = []
         if settings.ENV == "prod":
             status = '{Status} = "Accepted"'
-            show = '{Show?} = "Ready"'
+            show = 'OR({Show?} = "Ready", {Show?} = "Kondo")'
             params += [f"AND({status}, {show})"]
         if query:
             search_fields = [
@@ -106,6 +106,13 @@ class ERHLandingView(TemplateView):
                 view="All Categories",
                 formula=match({"Status": "Published", "Show on Homepage": True}),
             )
+            # only include Accepted and Ready resources in the category
+            for category in categories:
+                category.resources = [
+                    resource
+                    for resource in category.resources
+                    if (resource.status == "Accepted" and resource.visible == "Ready")
+                ]
             cache.set(
                 "erh_homepage_categories", categories, settings.AIRTABLE_CACHE_TTL
             )
@@ -252,6 +259,13 @@ class ERHResourceView(TemplateView):
                 print("Cache miss. Fetching resource…")
                 resource = Resource.from_id(kwargs["id"])
                 cache.set(cache_key, resource, settings.AIRTABLE_CACHE_TTL)
+            # show the resource page if the status is accepted
+            # and the visibility is "Ready" or "Kondo"
+            show = resource.status == "Accepted" and (
+                resource.visible in ["Ready", "Kondo"]
+            )
+            if not show:
+                raise Http404
             context["resource"] = resource
         except:
             raise Http404
