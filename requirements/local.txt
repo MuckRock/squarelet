@@ -95,7 +95,7 @@ click==8.0.3
     # via
     #   black
     #   pip-tools
-coverage==4.5.1
+coverage==7.6.1
     # via
     #   -r requirements/local.in
     #   django-coverage-plugin
@@ -612,9 +612,11 @@ traitlets==5.3.0
     # via
     #   -r requirements/base.txt
     #   ipython
+    #   matplotlib-inline
 typing-extensions==4.12.2
     # via
     #   -r requirements/base.txt
+    #   black
     #   pyairtable
     #   pydantic
     #   pydantic-core

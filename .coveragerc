@@ -1,6 +1,8 @@
 [run]
 branch = False
 include = squarelet/*
-omit = *migrations*, *tests*
+omit = 
+    */migrations/*
+    */tests/*
 plugins =
 #    django_coverage_plugin
