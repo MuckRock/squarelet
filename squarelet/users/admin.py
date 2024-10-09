@@ -24,7 +24,7 @@ from squarelet.organizations.models import Invitation, Organization
 from squarelet.organizations.models.organization import Membership
 
 # Local
-from .models import User
+from .models import LoginLog, User
 
 
 class EmailInline(admin.TabularInline):
@@ -233,3 +233,12 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
             )
 
         return response
+
+
+@admin.register(LoginLog)
+class LoginLogAdmin(admin.ModelAdmin):
+    readonly_fields = ("user", "client", "organization", "plan", "created_at")
+    list_display = ("user", "client", "organization", "plan", "created_at")
+    date_hierarchy = "created_at"
+    list_filter = ("client", "plan")
+    list_select_related = ("user", "client", "organization", "plan")

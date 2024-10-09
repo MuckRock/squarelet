@@ -217,3 +217,38 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
             | Q(groups__hub_eligible=True)
             | Q(parent__hub_eligible=True)
         ).exists()
+
+
+class LoginLog(models.Model):
+    """Log when a user users Squarelet to log in to another service"""
+
+    user = models.ForeignKey(
+        verbose_name=_("user"),
+        to="users.User",
+        on_delete=models.PROTECT,
+        related_name="logins",
+    )
+    organization = models.ForeignKey(
+        verbose_name=_("organization"),
+        to="organizations.Organization",
+        on_delete=models.CASCADE,
+        related_name="logins",
+    )
+    plan = models.ForeignKey(
+        verbose_name=_("plan"),
+        to="organizations.Plan",
+        on_delete=models.PROTECT,
+        related_name="logins",
+        blank=True,
+        null=True,
+    )
+    client = models.ForeignKey(
+        verbose_name=_("client"),
+        to="oidc_provider.Client",
+        on_delete=models.PROTECT,
+        related_name="logins",
+    )
+    created_at = AutoCreatedField(_("created at"))
+
+    class Meta:
+        ordering = ("created_at",)
