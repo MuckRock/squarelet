@@ -73,7 +73,7 @@ def coverage(c):
         DOCKER_COMPOSE_RUN_OPT_USER.format(
             opt="-e DJANGO_SETTINGS_MODULE=config.settings.test",
             service="squarelet_django",
-            cmd=f"coverage run --source squarelet -m py.test",
+            cmd=f"coverage run -m py.test squarelet",
         )
     )
     c.run(
