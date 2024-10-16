@@ -1,8 +1,12 @@
 # Django
 from django.contrib import admin
 from django.forms.models import BaseInlineFormSet
+from django.http.response import HttpResponse
 from django.urls import reverse
 from django.utils.safestring import mark_safe
+
+# Standard Library
+import csv
 
 # Third Party
 from reversion.admin import VersionAdmin
@@ -225,6 +229,32 @@ class EntitlementAdmin(VersionAdmin):
     autocomplete_fields = ("client",)
 
 
+def make_metadata_filter(field):
+    """Make a dynamic filter class"""
+
+    class MetadataFilter(admin.SimpleListFilter):
+        title = field
+        parameter_name = field
+
+        def lookups(self, request, model_admin):
+            return [
+                (v, v)
+                for v in Charge.objects.order_by()
+                .values_list(f"metadata__{field}", flat=True)
+                .exclude(**{f"metadata__{field}": None})
+                .distinct()
+            ]
+
+        def queryset(self, request, queryset):
+
+            if self.value():
+                return queryset.filter(**{f"metadata__{field}": self.value()})
+
+            return queryset
+
+    return MetadataFilter
+
+
 @admin.register(Charge)
 class ChargeAdmin(VersionAdmin):
     list_display = ("organization", "amount", "created_at", "description")
@@ -232,6 +262,50 @@ class ChargeAdmin(VersionAdmin):
     search_fields = ("organization__name", "description")
     date_hierarchy = "created_at"
     readonly_fields = ("organization", "amount", "created_at", "charge_id")
+    actions = ["export_as_csv"]
+    list_filter = [
+        "organization__individual",
+        make_metadata_filter("action"),
+        make_metadata_filter("plan"),
+    ]
+
+    def export_as_csv(self, request, queryset):
+        """Export charges"""
+
+        meta = self.model._meta
+        field_names = [
+            "amount",
+            "fee_amount",
+            "organization",
+            "created_at",
+            "charge_id",
+            "description",
+        ]
+        other_fields = [
+            ("organization_id", lambda x: x.organization.uuid),
+            (
+                "type",
+                lambda x: "individual" if x.organization.individual else "organization",
+            ),
+        ]
+        metadata_fields = ["action", "plan"]
+
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = f"attachment; filename={meta}.csv"
+        writer = csv.writer(response)
+
+        headers = field_names + [n for n, _ in other_fields] + metadata_fields
+        writer.writerow(headers)
+        for obj in queryset:
+            writer.writerow(
+                [getattr(obj, field) for field in field_names]
+                + [func(obj) for _, func in other_fields]
+                + [obj.metadata.get(field) for field in metadata_fields]
+            )
+
+        return response
+
+    export_as_csv.short_description = "Export Selected"
 
 
 @admin.register(OrganizationChangeLog)

@@ -192,7 +192,7 @@ class ChargeQuerySet(models.QuerySet):
                     stripe_charge.created, tz=get_current_timezone()
                 ),
                 "description": description,
-                "metadata": metadata,
+                "metadata": default_metadata,
             },
         )
         return charge
