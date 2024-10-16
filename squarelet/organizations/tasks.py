@@ -63,8 +63,8 @@ def handle_charge_succeeded(charge_data):
         invoice = stripe.Invoice.retrieve(charge_data["invoice"])
         invoice_line = invoice["lines"]["data"][0]
 
-    def get_description():
-        """Get the description from the charge data"""
+    def get_plan_name():
+        """Get the plan name if this is a subscription payment"""
         if charge_data["invoice"]:
             # depends on new or old version of API - MuckRock still uses old,
             # Squarelet uses new
@@ -72,6 +72,13 @@ def handle_charge_succeeded(charge_data):
                 return invoice_line["plan"]["name"]
             else:
                 return stripe.Product.retrieve(invoice_line["plan"]["product"])["name"]
+        else:
+            return None
+
+    def get_description():
+        """Get the description from the charge data"""
+        if charge_data["invoice"]:
+            return "Subscription Payment"
         else:
             return charge_data["description"]
 
@@ -85,6 +92,11 @@ def handle_charge_succeeded(charge_data):
     ).lower() in ["donation", "crowdfund-payment"]:
         return
 
+    metadata = charge_data["metadata"]
+    plan_name = get_plan_name()
+    if plan_name is not None:
+        metadata["plan"] = plan_name
+
     charge, _ = Charge.objects.get_or_create(
         charge_id=charge_data["id"],
         defaults={
@@ -97,6 +109,7 @@ def handle_charge_succeeded(charge_data):
                 charge_data["created"], tz=get_current_timezone()
             ),
             "description": get_description,
+            "metadata": metadata,
         },
     )
 
