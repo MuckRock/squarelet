@@ -62,25 +62,14 @@ def handle_charge_succeeded(charge_data):
         # fetch the invoice from stripe if one associated with the charge
         invoice = stripe.Invoice.retrieve(charge_data["invoice"])
         invoice_line = invoice["lines"]["data"][0]
-
-    def get_plan_name():
-        """Get the plan name if this is a subscription payment"""
-        if charge_data["invoice"]:
-            # depends on new or old version of API - MuckRock still uses old,
-            # Squarelet uses new
-            if "name" in invoice_line["plan"]:
-                return invoice_line["plan"]["name"]
-            else:
-                return stripe.Product.retrieve(invoice_line["plan"]["product"])["name"]
+        if "name" in invoice_line["plan"]:
+            plan_name = invoice_line["plan"]["name"]
+            action = "Subscription Payment"
+            description = f"Subscription Payment for {plan_name} plan"
         else:
-            return None
-
-    def get_description():
-        """Get the description from the charge data"""
-        if charge_data["invoice"]:
-            return "Subscription Payment"
-        else:
-            return charge_data["description"]
+            plan_name = stripe.Product.retrieve(invoice_line["plan"]["product"])["name"]
+            action = None
+            description = charge_data["description"]
 
     # do not send receipts for MuckRock donations and crowdfunds
     if charge_data["invoice"] and invoice_line["plan"]["id"].lower().startswith(
@@ -93,9 +82,10 @@ def handle_charge_succeeded(charge_data):
         return
 
     metadata = charge_data["metadata"]
-    plan_name = get_plan_name()
     if plan_name is not None:
         metadata["plan"] = plan_name
+    if action is not None:
+        metadata["action"] = action
 
     charge, _ = Charge.objects.get_or_create(
         charge_id=charge_data["id"],
@@ -108,7 +98,7 @@ def handle_charge_succeeded(charge_data):
             "created_at": datetime.fromtimestamp(
                 charge_data["created"], tz=get_current_timezone()
             ),
-            "description": get_description,
+            "description": description,
             "metadata": metadata,
         },
     )
