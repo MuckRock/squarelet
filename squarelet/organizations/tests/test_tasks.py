@@ -100,7 +100,7 @@ class TestHandleChargeSucceeded:
         assert charge.fee_amount == 0
         assert charge.organization == organization
         assert charge.created_at == timestamp
-        assert charge.description == product["name"]
+        assert charge.description == f"Subscription Payment for {product['name']} plan"
         mocked.assert_called_once()
 
     @pytest.mark.django_db()
@@ -187,6 +187,10 @@ class TestHandleChargeSucceeded:
         mocker.patch(
             "squarelet.organizations.tasks.stripe.Invoice.retrieve",
             return_value=invoice,
+        )
+        mocker.patch(
+            "squarelet.organizations.tasks.stripe.Product.retrieve",
+            return_value={"name": "Professional"},
         )
 
         tasks.handle_charge_succeeded(charge_data)
