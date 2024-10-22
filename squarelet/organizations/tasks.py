@@ -2,6 +2,7 @@
 from celery.schedules import crontab
 from celery.task import periodic_task, task
 from django.conf import settings
+from django.core.cache import cache
 from django.utils.timezone import get_current_timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -62,18 +63,16 @@ def handle_charge_succeeded(charge_data):
         # fetch the invoice from stripe if one associated with the charge
         invoice = stripe.Invoice.retrieve(charge_data["invoice"])
         invoice_line = invoice["lines"]["data"][0]
-
-    def get_description():
-        """Get the description from the charge data"""
-        if charge_data["invoice"]:
-            # depends on new or old version of API - MuckRock still uses old,
-            # Squarelet uses new
-            if "name" in invoice_line["plan"]:
-                return invoice_line["plan"]["name"]
-            else:
-                return stripe.Product.retrieve(invoice_line["plan"]["product"])["name"]
+        if "name" in invoice_line["plan"]:
+            plan_name = invoice_line["plan"]["name"]
         else:
-            return charge_data["description"]
+            plan_name = stripe.Product.retrieve(invoice_line["plan"]["product"])["name"]
+        action = "Subscription Payment"
+        description = f"Subscription Payment for {plan_name} plan"
+    else:
+        plan_name = None
+        action = None
+        description = charge_data["description"]
 
     # do not send receipts for MuckRock donations and crowdfunds
     if charge_data["invoice"] and invoice_line["plan"]["id"].lower().startswith(
@@ -84,6 +83,12 @@ def handle_charge_succeeded(charge_data):
         "action", ""
     ).lower() in ["donation", "crowdfund-payment"]:
         return
+
+    metadata = charge_data["metadata"]
+    if plan_name is not None:
+        metadata["plan"] = plan_name
+    if action is not None:
+        metadata["action"] = action
 
     charge, _ = Charge.objects.get_or_create(
         charge_id=charge_data["id"],
@@ -96,7 +101,8 @@ def handle_charge_succeeded(charge_data):
             "created_at": datetime.fromtimestamp(
                 charge_data["created"], tz=get_current_timezone()
             ),
-            "description": get_description,
+            "description": description,
+            "metadata": metadata,
         },
     )
 
@@ -140,3 +146,63 @@ def handle_invoice_failed(invoice_data):
         organization_to=ORG_TO_ADMINS,
         extra_context={"attempt": "final" if attempt == 4 else attempt},
     )
+
+
+@task(
+    name="squarelet.organizations.tasks.backfill_charge_metadata",
+    autoretry_for=(stripe.error.RateLimitError,),
+)
+def backfill_charge_metadata(starting_after=None, keep_running=True):
+    """This task for for backfilling in charge metadata.
+    It is only meant to be run once upon release, then can be safely removed.
+    """
+    logger.info("[BCM] Running: starting_after %s", starting_after)
+    limit = 25
+    # cache product ID/name mapping to reduce API calls
+    products = cache.get_or_set(
+        "backfill_product_mapping",
+        lambda: {p.id: p.name for p in stripe.Product.list().auto_paging_iter()},
+    )
+    stripe_charges = stripe.Charge.list(limit=limit, starting_after=starting_after)
+    last_id = stripe_charges["data"][-1]["id"]
+    has_more = stripe_charges["has_more"]
+
+    # we only need to backfill data for recurring charges, which will have an invoice
+    stripe_charges = [c for c in stripe_charges["data"] if c["invoice"]]
+    charges = Charge.objects.in_bulk(
+        [c["id"] for c in stripe_charges], field_name="charge_id"
+    )
+    logger.info(
+        "[BCM] Charges with invoice: %d Charges found: %d",
+        len(stripe_charges),
+        len(charges),
+    )
+
+    for stripe_charge in stripe_charges:
+        logger.warning("[BCM] Charge ID: %s", stripe_charge["id"])
+        if stripe_charge["id"] not in charges:
+            logger.warning("[BCM] Charge ID not found: %s", stripe_charge["id"])
+            continue
+        charge = charges[stripe_charge["id"]]
+        charge.metadata["action"] = "Subscription Payment"
+
+        invoice = stripe.Invoice.retrieve(stripe_charge["invoice"])
+        invoice_line = invoice["lines"]["data"][0]
+        if "name" in invoice_line["plan"]:
+            charge.metadata["plan"] = invoice_line["plan"]["name"]
+        else:
+            charge.metadata["plan"] = products[invoice_line["plan"]["product"]]
+
+        charge.description = f"Subscription Payment for {charge.metadata['plan']} plan"
+
+    logger.warning("[BCM] bulk updating")
+    Charge.objects.bulk_update(charges.values(), ["metadata", "description"])
+
+    logger.warning(
+        "[BCM] last_id %s - keep_running %s and has_more %s",
+        last_id,
+        keep_running,
+        has_more,
+    )
+    if keep_running and has_more:
+        backfill_charge_metadata.delay(last_id)

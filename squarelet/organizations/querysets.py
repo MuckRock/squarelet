@@ -161,7 +161,7 @@ class ChargeQuerySet(models.QuerySet):
 
         default_metadata = {
             "organization": organization.name,
-            "organization id": organization.uuid,
+            "organization id": str(organization.uuid),
             "fee amount": fee_amount,
             **metadata,
         }
@@ -192,7 +192,7 @@ class ChargeQuerySet(models.QuerySet):
                     stripe_charge.created, tz=get_current_timezone()
                 ),
                 "description": description,
-                "metadata": metadata,
+                "metadata": default_metadata,
             },
         )
         return charge
