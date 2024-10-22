@@ -161,7 +161,7 @@ class ChargeQuerySet(models.QuerySet):
 
         default_metadata = {
             "organization": organization.name,
-            "organization id": organization.uuid,
+            "organization id": str(organization.uuid),
             "fee amount": fee_amount,
             **metadata,
         }
