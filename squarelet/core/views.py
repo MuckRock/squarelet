@@ -195,7 +195,7 @@ class ERHResourceView(TemplateView):
         url = resource.accessUrl or resource.homepageUrl
         if not url:
             return ""
-        if (user.is_authenticated):
+        if user.is_authenticated:
             # Parse the URL into components
             # to prefill field names
             url_parts = list(urlparse(url))
