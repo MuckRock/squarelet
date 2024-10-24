@@ -19,3 +19,15 @@ def send_cache_invalidations(model, uuids):
         logger.info("Sending cache invalidations for: %s %s", model, uuids)
         for client_profile in ClientProfile.objects.exclude(webhook_url=""):
             tasks.send_cache_invalidation.delay(client_profile.pk, model, uuids)
+
+
+def oidc_login_hook(request, user, client):
+    """Log which client users login to"""
+    # take an arbitrary non-individual organization, since most users will have one org
+    organization = user.organizations.filter(individual=False).first()
+    plan = None if organization is None else organization.plan
+    user.logins.create(
+        organization=organization,
+        plan=plan,
+        client=client,
+    )
