@@ -39,7 +39,6 @@
   <header class="_cls-erh--header">
     {% include "core/component/alerts.html" %}
   </header>
-  {% url 'organizations:detail' group_orgs.first.slug as organization_account_url %}
   <main class="_cls-erh--resourceBody">
     <header class="_cls-erh--resourceHeader">
       <img class="_cls-erh--resourceLogo" src="{{resource.logo.0.thumbnails.large.url}}" />
@@ -51,37 +50,7 @@
         {% if is_expired %}
         <span class="_cls-button _cls-button--xlarge _cls-button--disabled">{{access_text}}</span>
         {% else %}
-        {% if resource.cost == "Free" or can_access_hub %}
         <a class="_cls-button _cls-button--xlarge plausible-event-name=KEH+Resource+Access" id="accessResource" href="{{access_url}}" target="_blank">{{access_text}}</a>
-        {% else %}
-          <div>
-            {% if request.user.is_authenticated %}
-            {% if group_orgs.exists %}
-            {% url 'users:detail' request.user.username as user_account_url %}
-            {% url 'organizations:detail' group_orgs.first.slug as organization_account_url %}
-            <a href="https://airtable.com/app93Yt5cwdVWTnqn/pagGarPPmVmWpU6d5/form?prefill_MR+User+Email={{request.user.email | iriencode}}&prefill_MR+User+Name={{request.user.safe_name|iriencode}}&prefill_MR+User+Account+URL={{ user_account_url | urlencode }}&prefill_MR+Organization+Name={{group_orgs.first.name}}&prefill_MR+Organization+Account+URL={{ request.get_host }}{{ organization_account_url | urlencode }}"
-              class="_cls-button _cls-button--xlarge">Apply to join the hub</a>
-            <p>It looks like you’re currently a member of <a
-              href="{{organization_account_url}}">{{group_orgs.first.name}}</a>. You will need to apply for access before <a
-              href="{{organization_account_url}}">{{group_orgs.first.name}}</a> can access this resource.</p>
-            {% else %}
-            <p class=".cls-erh--flex100"><a class="_cls-button" href="{% url 'organizations:list' %}">Find your
-                organization</a> <span class="_cls-or">or</span> <a class="_cls-button"
-                href="{% url 'organizations:create' %}">create an organization</a></p>
-            <p>You need to belong to an eligible organization to access this resource. </p>
-            {% endif %}
-            {% else %}
-            <a title="{% trans 'Sign Up' %}" class="_cls-button _cls-button--xlarge"
-              href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'election-hub' %}&next={{ request.get_full_path }}">
-              {% trans "Sign Up" %}
-            </a>
-            <a title="{% trans 'Sign In' %}" class="_cls-button _cls-button--xlarge" href="{% url 'account_login' %}?intent={% firstof request.GET.intent 'election-hub' %}&next={{ request.get_full_path }}">
-              {% trans "Sign In" %}
-            </a>
-            <p>You will need to create a MuckRock account to access this resource</p>
-            {% endif %}
-          </div>
-        {% endif %}
         {% endif %}
       </div>
     </header>
@@ -108,13 +77,7 @@
       <ul class="_cls-erh--resourceCategories">
         {% for category in resource.categories %}
           <li>
-            {% if settings.ERH_SEARCH_ENABLED %}
-              <a class="_cls-button _cls-button--small _cls-button--outline" href="{% url 'erh_landing' %}?category={{category.name|urlencode}}">{{category.name}}</a>
-            {% else %}
-              <span class="_cls-button _cls-button--small _cls-button--outline">
-                {{category.name}}
-              </span>
-            {% endif %}
+            <a class="_cls-button _cls-button--small _cls-button--outline" href="{% url 'erh_landing' %}?category={{category.name|urlencode}}">{{category.name}}</a>
           </li>
         {% endfor %}
       </ul>

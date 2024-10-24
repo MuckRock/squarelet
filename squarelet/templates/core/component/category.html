@@ -1,11 +1,7 @@
 <section class="_cls-erh--category" id="{{category.name|slugify}}">
   <header>
     <div class="_cls-erh--categoryHeader-text">
-      {% if settings.ERH_SEARCH_ENABLED %}
       <h2><a class="_cls-nostyle" href="?category={{category.name|urlencode}}">{{category.name}}</a></h2>
-      {% else %}
-      <h2 class="_cls-erh--categoryName">{{category.name}}</h2>
-      {% endif %}
       {% if category.description %}
       <div class="_cls-erh--categoryDescription">
         <p>{{category.description}}</p>
