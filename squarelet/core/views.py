@@ -136,24 +136,23 @@ class ERHLandingView(TemplateView):
         if settings.ERH_CATALOG_ENABLED:
             resources = None
             # handle searching of resources
-            if settings.ERH_SEARCH_ENABLED:
-                query = self.request.GET.get("query")
-                category = self.request.GET.get("category")
-                provider = self.request.GET.get("provider")
-                if query or category or provider:
-                    # not caching search results — they're too variable
-                    resources = Resource.all(
-                        formula=self.create_search_formula(query, category, provider)
-                    )
-                context["search"] = {
-                    "query": query or "",
-                    "category": category or "",
-                    "provider": provider or "",
-                    "category_choices": self.get_all_categories(),
-                    "provider_choices": self.get_all_providers(),
-                }
-                if provider:
-                    context["search"]["provider_name"] = Provider.from_id(provider).name
+            query = self.request.GET.get("query")
+            category = self.request.GET.get("category")
+            provider = self.request.GET.get("provider")
+            if query or category or provider:
+                # not caching search results — they're too variable
+                resources = Resource.all(
+                    formula=self.create_search_formula(query, category, provider)
+                )
+            context["search"] = {
+                "query": query or "",
+                "category": category or "",
+                "provider": provider or "",
+                "category_choices": self.get_all_categories(),
+                "provider_choices": self.get_all_providers(),
+            }
+            if provider:
+                context["search"]["provider_name"] = Provider.from_id(provider).name
 
             context["resources"] = resources
             context["categories"] = self.get_homepage_categories()
@@ -196,39 +195,40 @@ class ERHResourceView(TemplateView):
         url = resource.accessUrl or resource.homepageUrl
         if not url:
             return ""
-        if not user.is_authenticated:
-            return url
-        # Parse the URL into components
-        url_parts = list(urlparse(url))
-        org = user.organizations.filter(individual=False).first()
-        # Check if the host is 'airtable.com'.
-        # If it isn't, don't apply prefill arguments.
-        if url_parts[1] != "airtable.com":
-            return url
-        # Get existing query parameters and update them with the record's parameters
-        query = parse_qs(url_parts[4])
-        if not org:
-            query.update(
-                {
-                    "prefill_Contact Name": user.safe_name(),
-                    "prefill_Email address": user.email,
-                }
-            )
-        else:
-            query.update(
-                {
-                    "prefill_Contact Name": user.safe_name(),
-                    "prefill_Email address": user.email,
-                    "prefill_News organization": org.name,
-                }
-            )
-            if org.urls.first():
-                query.update({"prefill_Website": org.urls.first().url})
-        # Encode the updated query parameters
-        url_parts[4] = urlencode(query, doseq=True)
-        # Reconstruct the final URL
-        final_url = urlunparse(url_parts)
-        return final_url
+        if user.is_authenticated:
+            # Parse the URL into components
+            # to prefill field names
+            url_parts = list(urlparse(url))
+            org = user.organizations.filter(individual=False).first()
+            # Check if the host is 'airtable.com'.
+            # If it isn't, don't apply prefill arguments.
+            if url_parts[1] != "airtable.com":
+                return url
+            # Get existing query parameters and update them with the record's parameters
+            query = parse_qs(url_parts[4])
+            if not org:
+                query.update(
+                    {
+                        "prefill_Contact Name": user.safe_name(),
+                        "prefill_Email address": user.email,
+                    }
+                )
+            else:
+                query.update(
+                    {
+                        "prefill_Contact Name": user.safe_name(),
+                        "prefill_Email address": user.email,
+                        "prefill_News organization": org.name,
+                    }
+                )
+                if org.urls.first():
+                    query.update({"prefill_Website": org.urls.first().url})
+            # Encode the updated query parameters
+            url_parts[4] = urlencode(query, doseq=True)
+            # Reconstruct the final URL
+            final_url = urlunparse(url_parts)
+            return final_url
+        return url
 
     def get_context_data(self, **kwargs):
         """Get the resource based on the ID in the url path. Return 404 if not found."""
