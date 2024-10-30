@@ -23,7 +23,7 @@
 {% include "core/component/newsletter.html" with user=request.user %}
 <div class="_cls-erh--container _cls-erh--landing">
   <header class="_cls-erh--header">
-    {% if settings.ERH_SEARCH_ENABLED and search.query or search.category or search.provider %}
+    {% if search.query or search.category or search.provider %}
     <div class="_cls-erh--header-side">
       <a href="{% url 'erh_landing' %}" class="_cls-button _cls-button--large _cls-button--outline">
         &larr; Back to Catalog
@@ -44,14 +44,9 @@
   <header class="_cls-erh--header">
     {% include "core/component/alerts.html" %}
   </header>
-  {% if not can_access_hub %}
-  {% include "core/component/hub_intro.html" %}
-  {% endif %}
-  {% if can_access_hub and settings.ERH_SEARCH_ENABLED %}
   <header class="_cls-erh--header _cls-erh--catalog-search">
     {% include 'core/component/erh/catalogSearch.html' %}
   </header>
-  {% endif %}
   {% if search.query or search.category or search.provider %}
   <h2 class="_cls-erh--header _cls-erh--searchTerm">
   {% if search.query %}
@@ -64,7 +59,7 @@
   </h2>
   <div class="_cls-spacer"></div>
   {% endif %}
-  {% if settings.ERH_SEARCH_ENABLED and search.query or search.category or search.provider %}
+  {% if search.query or search.category or search.provider %}
   <div class="_cls-erh--search">
     <ul class="_cls-erh--resultGrid">
       {% for resource in resources %}
