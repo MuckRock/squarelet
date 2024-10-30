@@ -44,6 +44,9 @@
   <header class="_cls-erh--header">
     {% include "core/component/alerts.html" %}
   </header>
+  {% if not search.query and not search.category and not search.provider %}
+  {% include "core/component/erh/urgentCareIntro.html" %}
+  {% endif %}
   <header class="_cls-erh--header _cls-erh--catalog-search">
     {% include 'core/component/erh/catalogSearch.html' %}
   </header>

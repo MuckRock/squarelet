@@ -3,7 +3,6 @@ from django.conf import settings
 from django.core.cache import cache
 from django.db.models import Q
 from django.http import HttpResponse, HttpResponseServerError, JsonResponse
-from django.http.response import Http404
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import timezone
@@ -231,7 +230,7 @@ class ERHResourceView(TemplateView):
         return url
 
     def get_context_data(self, **kwargs):
-        """Get the resource based on the ID in the url path. Return 404 if not found."""
+        """Get the resource based on the ID in the url path. Redirect to landing page if not found."""
         context = super().get_context_data()
         q_cache = self.request.GET.get("cache")
 
@@ -265,10 +264,10 @@ class ERHResourceView(TemplateView):
                 resource.visible in ["Ready", "Kondo"]
             )
             if not show:
-                raise Http404
+                return redirect("erh_landing")
             context["resource"] = resource
         except:
-            raise Http404
+            return redirect("erh_landing")
 
         now = timezone.now()
         is_expired = (
