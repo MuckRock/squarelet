@@ -164,6 +164,37 @@ class ERHResourceView(TemplateView):
 
     template_name = "core/erh_resource.html"
 
+    def dispatch(self, request, *args, **kwargs):
+        q_cache = self.request.GET.get("cache")
+
+        try:
+            # get the resource
+            cache_key = f"erh_resource/{kwargs['id']}"
+            resource = cache.get(cache_key)
+            if not resource or q_cache == "0":
+                print("Cache miss. Fetching resource…")
+                resource = Resource.from_id(kwargs["id"])
+                cache.set(cache_key, resource, settings.AIRTABLE_CACHE_TTL)
+            # show the resource page if the status is accepted
+            # and the visibility is "Ready" or "Kondo"
+            show = resource.status == "Accepted" and (
+                resource.visible in ["Ready", "Kondo"]
+            )
+            if not show:
+                return redirect("erh_landing")
+        except Resource.DoesNotExist:
+            return redirect("erh_landing")
+
+        now = timezone.now()
+        is_expired = (
+            resource.expiration_date is not None and resource.expiration_date < now
+        )
+
+        request.resource = resource
+        request.is_expired = is_expired
+
+        return super().dispatch(request, *args, **kwargs)
+
     def get_alerts(self, user):
         """Fetch relevant alert messages"""
         view = "Logged Out"
@@ -230,14 +261,13 @@ class ERHResourceView(TemplateView):
         return url
 
     def get_context_data(self, **kwargs):
-        """Get the resource based on the ID in the url path. Redirect to landing page if not found."""
+        """
+        Get the resource based on the ID in the url path.
+        Redirect to landing page if not found.
+        """
         context = super().get_context_data()
-        q_cache = self.request.GET.get("cache")
 
         if self.request.user.is_authenticated:
-            context["can_access_hub"] = (
-                self.request.user.is_hub_eligible() and settings.ERH_CATALOG_ENABLED
-            )
             context["eligible_orgs"] = self.request.user.organizations.filter(
                 Q(individual=False)
                 & (
@@ -250,33 +280,13 @@ class ERHResourceView(TemplateView):
                 individual=False
             )
 
-        try:
-            # get the resource
-            cache_key = f"erh_resource/{kwargs['id']}"
-            resource = cache.get(cache_key)
-            if not resource or q_cache == "0":
-                print("Cache miss. Fetching resource…")
-                resource = Resource.from_id(kwargs["id"])
-                cache.set(cache_key, resource, settings.AIRTABLE_CACHE_TTL)
-            # show the resource page if the status is accepted
-            # and the visibility is "Ready" or "Kondo"
-            show = resource.status == "Accepted" and (
-                resource.visible in ["Ready", "Kondo"]
-            )
-            if not show:
-                return redirect("erh_landing")
-            context["resource"] = resource
-        except:
-            return redirect("erh_landing")
+        resource = self.request.resource
+        is_expired = self.request.is_expired
 
-        now = timezone.now()
-        is_expired = (
-            resource.expiration_date is not None and resource.expiration_date < now
-        )
-
+        context["resource"] = resource
+        context["is_expired"] = is_expired
         context["access_text"] = self.get_access_text(resource.cost, is_expired)
         context["access_url"] = self.get_access_url(resource, self.request.user)
-        context["is_expired"] = is_expired
         context["alerts"] = self.get_alerts(self.request.user)
 
         return context
