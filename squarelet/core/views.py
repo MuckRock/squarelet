@@ -182,7 +182,7 @@ class ERHResourceView(TemplateView):
             )
             if not show:
                 return redirect("erh_landing")
-        except Resource.DoesNotExist:
+        except:  # pylint: disable=bare-except
             return redirect("erh_landing")
 
         now = timezone.now()
