@@ -228,25 +228,15 @@ class LoginLog(models.Model):
         on_delete=models.PROTECT,
         related_name="logins",
     )
-    organization = models.ForeignKey(
-        verbose_name=_("organization"),
-        to="organizations.Organization",
-        on_delete=models.CASCADE,
-        related_name="logins",
-    )
-    plan = models.ForeignKey(
-        verbose_name=_("plan"),
-        to="organizations.Plan",
-        on_delete=models.PROTECT,
-        related_name="logins",
-        blank=True,
-        null=True,
-    )
     client = models.ForeignKey(
         verbose_name=_("client"),
         to="oidc_provider.Client",
         on_delete=models.PROTECT,
         related_name="logins",
+    )
+    metadata = models.JSONField(
+        _("metadata"),
+        default=dict,
     )
     created_at = AutoCreatedField(_("created at"))
 
