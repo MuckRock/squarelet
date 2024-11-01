@@ -13,6 +13,7 @@ from django.utils.translation import gettext_lazy as _
 
 # Standard Library
 import csv
+import json
 
 # Third Party
 from allauth.account.models import EmailAddress
@@ -237,8 +238,15 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
 
 @admin.register(LoginLog)
 class LoginLogAdmin(admin.ModelAdmin):
-    readonly_fields = ("user", "client", "organization", "plan", "created_at")
-    list_display = ("user", "client", "organization", "plan", "created_at")
+    readonly_fields = ("user", "client", "formatted_metadata", "created_at")
+    fields = ("user", "client", "formatted_metadata", "created_at")
+    list_display = ("user", "client", "created_at")
     date_hierarchy = "created_at"
-    list_filter = ("client", "plan")
-    list_select_related = ("user", "client", "organization", "plan")
+    list_filter = ("client",)
+    list_select_related = ("user", "client")
+
+    def formatted_metadata(self, obj):
+        json_data = json.dumps(obj.metadata, indent=4)
+        return mark_safe(f"<pre>{json_data}</pre>")
+
+    formatted_metadata.short_description = "Metadata"

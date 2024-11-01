@@ -2,6 +2,7 @@
 
 # Django
 from django.conf import settings
+from django.db.models.expressions import F
 
 # Standard Library
 import logging
@@ -24,10 +25,10 @@ def send_cache_invalidations(model, uuids):
 def oidc_login_hook(request, user, client):
     """Log which client users login to"""
     # take an arbitrary non-individual organization, since most users will have one org
-    organization = user.organizations.filter(individual=False).first()
-    plan = None if organization is None else organization.plan
+    organizations = list(user.organizations.values("id", "name", plan=F("plans__name")))
     user.logins.create(
-        organization=organization,
-        plan=plan,
         client=client,
+        metadata={
+            "organizations": organizations,
+        },
     )
