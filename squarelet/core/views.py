@@ -182,7 +182,7 @@ class ERHResourceView(TemplateView):
             )
             if not show:
                 return redirect("erh_landing")
-        except:
+        except Resource.DoesNotExist:
             return redirect("erh_landing")
 
         now = timezone.now()
@@ -261,7 +261,10 @@ class ERHResourceView(TemplateView):
         return url
 
     def get_context_data(self, **kwargs):
-        """Get the resource based on the ID in the url path. Redirect to landing page if not found."""
+        """
+        Get the resource based on the ID in the url path.
+        Redirect to landing page if not found.
+        """
         context = super().get_context_data()
 
         if self.request.user.is_authenticated:
