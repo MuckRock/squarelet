@@ -14,6 +14,7 @@ from django.utils.translation import gettext_lazy as _
 # Standard Library
 import csv
 import json
+from itertools import chain
 
 # Third Party
 from allauth.account.models import EmailAddress
@@ -244,9 +245,42 @@ class LoginLogAdmin(admin.ModelAdmin):
     date_hierarchy = "created_at"
     list_filter = ("client",)
     list_select_related = ("user", "client")
+    actions = ["export_as_csv"]
 
     def formatted_metadata(self, obj):
         json_data = json.dumps(obj.metadata, indent=4)
         return mark_safe(f"<pre>{json_data}</pre>")
 
     formatted_metadata.short_description = "Metadata"
+
+    def export_as_csv(self, request, queryset):
+        """Export login logs"""
+
+        meta = self.model._meta
+        field_names = [
+            "user",
+            "client",
+            "created_at",
+        ]
+
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = f"attachment; filename={meta}.csv"
+        writer = csv.writer(response)
+
+        writer.writerow(field_names)
+        for obj in queryset:
+            writer.writerow(
+                [getattr(obj, field) for field in field_names]
+                + list(
+                    chain(
+                        *[
+                            [m["name"], "Free" if m["plan"] is None else m["plan"]]
+                            for m in obj.metadata["organizations"]
+                        ]
+                    )
+                )
+            )
+
+        return response
+
+    export_as_csv.short_description = "Export Selected"
