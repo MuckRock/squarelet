@@ -13,6 +13,7 @@ from django.utils.translation import gettext_lazy as _
 
 # Standard Library
 import csv
+import json
 
 # Third Party
 from allauth.account.models import EmailAddress
@@ -24,7 +25,7 @@ from squarelet.organizations.models import Invitation, Organization
 from squarelet.organizations.models.organization import Membership
 
 # Local
-from .models import User
+from .models import LoginLog, User
 
 
 class EmailInline(admin.TabularInline):
@@ -233,3 +234,19 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
             )
 
         return response
+
+
+@admin.register(LoginLog)
+class LoginLogAdmin(admin.ModelAdmin):
+    readonly_fields = ("user", "client", "formatted_metadata", "created_at")
+    fields = ("user", "client", "formatted_metadata", "created_at")
+    list_display = ("user", "client", "created_at")
+    date_hierarchy = "created_at"
+    list_filter = ("client",)
+    list_select_related = ("user", "client")
+
+    def formatted_metadata(self, obj):
+        json_data = json.dumps(obj.metadata, indent=4)
+        return mark_safe(f"<pre>{json_data}</pre>")
+
+    formatted_metadata.short_description = "Metadata"
