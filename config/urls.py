@@ -12,7 +12,13 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from two_factor.urls import urlpatterns as tf_urls
 
 # Squarelet
-from squarelet.core.views import ERHAboutView, ERHLandingView, ERHResourceView, HomeView, newsletter_subscription
+from squarelet.core.views import (
+    ERHAboutView,
+    ERHLandingView,
+    ERHResourceView,
+    HomeView,
+    newsletter_subscription,
+)
 from squarelet.oidc.views import token_view
 from squarelet.organizations.viewsets import ChargeViewSet, OrganizationViewSet
 from squarelet.users.views import LoginView
@@ -34,7 +40,11 @@ urlpatterns = [
     path("", HomeView.as_view(), name="home"),
     path("election-hub/", ERHLandingView.as_view(), name="erh_landing"),
     path("election-hub/about", ERHAboutView.as_view(), name="erh_about"),
-    path("election-hub/subscribe/", newsletter_subscription, name="newsletter_subscription"),
+    path(
+        "election-hub/subscribe/",
+        newsletter_subscription,
+        name="newsletter_subscription",
+    ),
     path("election-hub/<str:id>", ERHResourceView.as_view(), name="erh_resource"),
     path(
         "selectplan/",
@@ -61,6 +71,7 @@ urlpatterns = [
     path("hijack/", include("hijack.urls", namespace="hijack")),
     # Two-factor URLs
     path("", include(tf_urls)),
+    re_path(r"^robots\.txt", include("robots.urls")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:

@@ -93,6 +93,7 @@ THIRD_PARTY_APPS = [
     "two_factor",
     "two_factor.plugins.yubikey",
     "django_vite",
+    "robots",
 ]
 LOCAL_APPS = [
     "squarelet.core",
@@ -492,3 +493,7 @@ ERH_NAV_ENABLED = env.bool("ERH_NAV_ENABLED", default=False)
 AIRTABLE_ACCESS_TOKEN = env("AIRTABLE_ACCESS_TOKEN", default="")
 AIRTABLE_ERH_BASE_ID = env("AIRTABLE_ERH_BASE_ID", default="")
 AIRTABLE_CACHE_TTL = env.int("AIRTABLE_CACHE_TTL", default=30)
+
+# Robots.txt
+# ------------------------------------------------------------------------------
+ROBOTS_CACHE_TIMEOUT = 60 * 60 * 24
