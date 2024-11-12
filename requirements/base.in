@@ -23,6 +23,7 @@ django-premailer
 django-redis
 django-request-token
 django-reversion
+django-robots
 django-sesame
 django-storages[boto3]
 django-vite
