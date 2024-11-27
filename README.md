@@ -67,7 +67,7 @@ If you are developing on any of our other projects. Follow the following integra
 
 1.  With the Squarelet containers running, in your terminal within the Squarelet folder, open up the bash shell with `inv sh`
 2.  Within the bash shell, utilize this command to create your RSA key `./manage.py creatersakey`
-3.  Then create a superuser utilizing the following command: `./manage.py createsuperuser`.
+3.  Then create a superuser utilizing the following command: `./manage.py createsuperuser`
 4.  Exit the bash shell with the command `exit`
 5.  In a browser navigate to the admin portal. You can find this portal by using the base Squarelet URL, and appending /admin to the end of it.
 6.  Navigate to [Clients](https://dev.squarelet.com/admin/oidc_provider/client/)
