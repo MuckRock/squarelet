@@ -1,0 +1,30 @@
+name: Test
+
+on:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip" # caching pip dependencies
+
+      - name: Install
+        run: pip install -r requirements/local.txt
+
+      - name: Pytest
+        run: pytest squarelet
+
+      - name: Lint
+        run: pylint squarelet
+
+      - name: Isort
+        run: isort --check-only -rc squarelet
+
+      - name: Formatting
+        run: black --check squarelet --exclude migrations
