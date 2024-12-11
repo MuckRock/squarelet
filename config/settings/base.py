@@ -2,6 +2,9 @@
 Base settings to build other settings files upon.
 """
 
+# Django
+from celery.schedules import crontab
+
 # Standard Library
 from datetime import timedelta
 
@@ -328,6 +331,27 @@ CELERY_TASK_SERIALIZER = "json"
 # http://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-result_serializer
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_REDIS_MAX_CONNECTIONS = env.int("CELERY_REDIS_MAX_CONNECTIONS", default=10)
+
+
+CELERY_BEAT_SCHEDULE = {
+    "db_cleanup": {
+        "task": "squarelet.core.tasks.db_cleanup",
+        "schedule": crontab(day_of_week="sun", hour=1, minute=0),
+    },
+    "restore_organization": {
+        "task": "squarelet.organizations.tasks.restore_organization",
+        "schedule": crontab(hour=0, minute=5),
+    },
+    "store_statistics": {
+        "task": "squarelet.statistics.tasks.store_statistics",
+        "schedule": crontab(hour=5, minute=30),
+    },
+    "send_digest": {
+        "task": "squarelet.statistics.tasks.send_digest",
+        "schedule": crontab(hour=7, minute=0),
+    },
+}
+
 # django-allauth
 # ------------------------------------------------------------------------------
 # https://django-allauth.readthedocs.io/en/latest/configuration.html
