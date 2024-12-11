@@ -2,7 +2,7 @@ Pillow
 argon2-cffi
 bcrypt
 bleach
-celery<5.0
+celery
 cryptography
 django-allauth
 django-autocomplete-light

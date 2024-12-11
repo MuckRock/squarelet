@@ -1,6 +1,5 @@
 # Django
-from celery.schedules import crontab
-from celery.task import periodic_task, task
+from celery import shared_task
 from django.conf import settings
 from django.core.cache import cache
 from django.utils.timezone import get_current_timezone
@@ -24,10 +23,7 @@ stripe.api_version = "2018-09-24"
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
-@periodic_task(
-    run_every=crontab(hour=0, minute=5),
-    name="squarelet.organizations.tasks.restore_organizations",
-)
+@shared_task
 def restore_organization():
     """Monthly update of organizations subscriptions"""
     subscriptions = Subscription.objects.filter(update_on__lte=date.today())
@@ -42,7 +38,7 @@ def restore_organization():
     send_cache_invalidations("organization", uuids)
 
 
-@task(
+@shared_task(
     name="squarelet.organizations.tasks.handle_charge_succeeded",
     autoretry_for=(Organization.DoesNotExist, stripe.error.RateLimitError),
 )
@@ -109,7 +105,7 @@ def handle_charge_succeeded(charge_data):
     charge.send_receipt()
 
 
-@task(name="squarelet.organizations.tasks.handle_invoice_failed")
+@shared_task(name="squarelet.organizations.tasks.handle_invoice_failed")
 def handle_invoice_failed(invoice_data):
     """Handle receiving a invoice.payment_failed event from the Stripe webhook"""
     try:
@@ -148,7 +144,7 @@ def handle_invoice_failed(invoice_data):
     )
 
 
-@task(
+@shared_task(
     name="squarelet.organizations.tasks.backfill_charge_metadata",
     autoretry_for=(stripe.error.RateLimitError,),
 )
