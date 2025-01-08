@@ -169,6 +169,7 @@ MIDDLEWARE = [
     "squarelet.oidc.middleware.CacheInvalidationSenderMiddleware",
     "debug_toolbar.middleware.DebugToolbarMiddleware",
     "reversion.middleware.RevisionMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
 ]
 
 # FOR PRESSPASS FRONTEND
