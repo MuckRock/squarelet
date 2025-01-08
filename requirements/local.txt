@@ -170,7 +170,7 @@ django==4.2
     #   djangorestframework-simplejwt
     #   dogslow
     #   drf-nested-routers
-django-allauth==0.47.0
+django-allauth==0.52.0
     # via -r requirements/base.txt
 django-appconf==1.0.5
     # via

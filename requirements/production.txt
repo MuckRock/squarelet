@@ -158,7 +158,7 @@ django==4.2
     #   djangorestframework-simplejwt
     #   dogslow
     #   drf-nested-routers
-django-allauth==0.47.0
+django-allauth==0.52.0
     # via -r requirements/base.txt
 django-anymail[mailgun]==8.6
     # via -r requirements/production.in
