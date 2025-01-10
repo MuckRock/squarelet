@@ -354,6 +354,7 @@ ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_EMAIL_VERIFICATION = "optional"
 ACCOUNT_ADAPTER = "squarelet.users.adapters.AccountAdapter"
 SOCIALACCOUNT_ADAPTER = "squarelet.users.adapters.SocialAccountAdapter"
+SOCIALACCOUNT_STORE_TOKENS = True
 ACCOUNT_FORMS = {
     "signup": "squarelet.users.forms.SignupForm",
     "login": "squarelet.users.forms.LoginForm",
