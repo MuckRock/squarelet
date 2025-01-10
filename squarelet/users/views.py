@@ -147,12 +147,7 @@ class UserListView(LoginRequiredMixin, ListView):
     model = User
 
 
-class LoginView(RedirectView):
-    permanent = False
-    pattern_name = "two_factor:login"
-
-
-class LoginView_(AllAuthLoginView):
+class LoginView(AllAuthLoginView):
     """Subclass of All Auth Login View to add redirect ability for failed auth tokens
 
     If the url_auth_token parameter is still present, it means the auth token failed

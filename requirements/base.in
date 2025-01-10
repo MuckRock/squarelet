@@ -19,7 +19,6 @@ django-filter
 django-hijack<3
 django-model-utils
 django-oidc-provider
-django-otp-yubikey
 django-premailer
 django-redis
 django-request-token
@@ -27,7 +26,6 @@ django-reversion
 django-robots
 django-sesame
 django-storages[boto3]
-django-two-factor-auth[phonenumberslite]
 django-vite
 django-vite
 django-weasyprint
