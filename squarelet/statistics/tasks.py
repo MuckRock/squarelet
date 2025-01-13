@@ -1,6 +1,5 @@
 # Django
-from celery.schedules import crontab
-from celery.task import periodic_task
+from celery import shared_task
 from django.utils import timezone
 
 # Standard Library
@@ -13,11 +12,7 @@ from squarelet.statistics.models import Statistics
 from squarelet.users.models import User
 
 
-# This is using UTC time instead of the local timezone
-@periodic_task(
-    run_every=crontab(hour=5, minute=30),
-    name="squarelet.statistics.tasks.store_statistics",
-)
+@shared_task
 def store_statistics():
     """Store the daily statistics"""
     midnight = time(tzinfo=timezone.get_current_timezone())
@@ -53,9 +48,6 @@ def store_statistics():
     stats.save()
 
 
-# This is using UTC time instead of the local timezone
-@periodic_task(
-    run_every=crontab(hour=7, minute=0), name="squarelet.statistics.tasks.send_digest"
-)
+@shared_task
 def send_digest():
     Digest().send()
