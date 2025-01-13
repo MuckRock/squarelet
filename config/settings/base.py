@@ -98,7 +98,7 @@ LOCAL_APPS = [
     "squarelet.organizations.apps.OrganizationsConfig",
     "squarelet.statistics",
     "squarelet.users.apps.UsersConfig",
-    "squarelet.providers.github_app",
+    "allauth.socialaccount.providers.github",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -161,6 +161,7 @@ MIDDLEWARE = [
     "squarelet.oidc.middleware.CacheInvalidationSenderMiddleware",
     "debug_toolbar.middleware.DebugToolbarMiddleware",
     "reversion.middleware.RevisionMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
 ]
 
 # FOR PRESSPASS FRONTEND
@@ -353,6 +354,7 @@ ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_EMAIL_VERIFICATION = "optional"
 ACCOUNT_ADAPTER = "squarelet.users.adapters.AccountAdapter"
 SOCIALACCOUNT_ADAPTER = "squarelet.users.adapters.SocialAccountAdapter"
+SOCIALACCOUNT_STORE_TOKENS = True
 ACCOUNT_FORMS = {
     "signup": "squarelet.users.forms.SignupForm",
     "login": "squarelet.users.forms.LoginForm",

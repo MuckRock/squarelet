@@ -137,10 +137,6 @@ decorator==4.3.2
     #   -r requirements/base.txt
     #   ipdb
     #   ipython
-defusedxml==0.5.0
-    # via
-    #   -r requirements/base.txt
-    #   python3-openid
 deprecated==1.2.13
     # via
     #   -r requirements/base.txt
@@ -170,7 +166,7 @@ django==4.2
     #   djangorestframework-simplejwt
     #   dogslow
     #   drf-nested-routers
-django-allauth==0.47.0
+django-allauth[socialaccount]==65.0.2
     # via -r requirements/base.txt
 django-appconf==1.0.5
     # via
@@ -333,7 +329,7 @@ memoize==1.0.0
     # via -r requirements/base.txt
 mypy-extensions==0.4.3
     # via black
-oauthlib==2.1.0
+oauthlib==3.2.2
     # via
     #   -r requirements/base.txt
     #   requests-oauthlib
@@ -487,10 +483,6 @@ python-levenshtein==0.25.1
     # via -r requirements/base.txt
 python-slugify==1.2.5
     # via -r requirements/base.txt
-python3-openid==3.1.0
-    # via
-    #   -r requirements/base.txt
-    #   django-allauth
 pytz==2024.2
     # via
     #   -r requirements/base.txt
@@ -519,7 +511,7 @@ requests==2.28.1
     #   smart-open
     #   sphinx
     #   stripe
-requests-oauthlib==1.0.0
+requests-oauthlib==2.0.0
     # via
     #   -r requirements/base.txt
     #   django-allauth
