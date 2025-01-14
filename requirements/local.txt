@@ -70,6 +70,8 @@ brotli==1.0.9
     # via
     #   -r requirements/base.txt
     #   fonttools
+build==1.2.2.post1
+    # via pip-tools
 bz2file==0.98
     # via
     #   -r requirements/base.txt
@@ -341,6 +343,7 @@ packaging==24.1
     # via
     #   -r requirements/base.txt
     #   black
+    #   build
     #   pytest
     #   redis
     #   sphinx
@@ -362,7 +365,7 @@ pillow==9.2.0
     # via
     #   -r requirements/base.txt
     #   weasyprint
-pip-tools==3.6.1
+pip-tools==7.4.1
     # via -r requirements/local.in
 platformdirs==2.4.0
     # via
@@ -454,6 +457,10 @@ pyphen==0.13.2
     # via
     #   -r requirements/base.txt
     #   weasyprint
+pyproject-hooks==1.2.0
+    # via
+    #   build
+    #   pip-tools
 pytest==6.2.5
     # via
     #   -r requirements/local.in
@@ -539,7 +546,6 @@ six==1.16.0
     #   furl
     #   html5lib
     #   orderedmultidict
-    #   pip-tools
     #   pyjwkest
     #   python-dateutil
     #   sphinx
@@ -582,6 +588,8 @@ toml==0.10.2
 tomli==2.0.1
     # via
     #   black
+    #   build
+    #   pip-tools
     #   pylint
 tomlkit==0.11.4
     # via pylint
@@ -635,6 +643,8 @@ webencodings==0.5.1
     #   tinycss2
 werkzeug==2.1.2
     # via -r requirements/local.in
+wheel==0.45.1
+    # via pip-tools
 wrapt==1.11.2
     # via
     #   -r requirements/base.txt
@@ -646,4 +656,5 @@ zopfli==0.2.2
     #   fonttools
 
 # The following packages are considered to be unsafe in a requirements file:
+# pip
 # setuptools
