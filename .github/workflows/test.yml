@@ -22,7 +22,6 @@ jobs:
 
       - name: Install
         run: |
-          pip install pip<24.1
           pip install -r requirements/local.txt
 
       - name: Pytest
