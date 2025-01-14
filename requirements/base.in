@@ -4,7 +4,7 @@ bcrypt
 bleach
 celery
 cryptography
-django-allauth
+django-allauth[socialaccount]
 django-autocomplete-light
 django-autoslug
 django-choices

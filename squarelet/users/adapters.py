@@ -25,7 +25,7 @@ class AccountAdapter(DefaultAccountAdapter):
     def is_open_for_signup(self, request):
         return getattr(settings, "ACCOUNT_ALLOW_REGISTRATION", True)
 
-    def render_mail(self, template_prefix, email, context):
+    def render_mail(self, template_prefix, email, context, headers=None):
         """
         Renders an e-mail to `email`.  `template_prefix` identifies the
         e-mail that is to be sent, e.g. "account/email/email_confirmation"
@@ -52,6 +52,7 @@ class AccountAdapter(DefaultAccountAdapter):
             to=[email],
             extra_context=context,
             source=source,
+            headers=headers,
         )
 
     def is_safe_url(self, url):
