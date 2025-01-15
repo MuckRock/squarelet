@@ -8,6 +8,7 @@ django-test-plus
 factory-boy
 flake8
 pip-tools
+pip-audit
 pylint
 pylint_celery
 pylint_django
