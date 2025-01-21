@@ -290,7 +290,6 @@ squarelet/config/
 
 ### IDEs/Editors
 
-.vscode/
 scratch/
 *.js.map
 
