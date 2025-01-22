@@ -46,6 +46,10 @@ class UserManager(AuthUserManager):
 
         if user.source == "election-hub":
             mailchimp_journey(user.email, "keh")
+        elif user.source == "muckrock":
+            mailchimp_journey(user.email, "welcome_mr")
+        elif user.source in ["squarelet", "foiamachine"]:
+            mailchimp_journey(user.email, "welcome_sq")
 
         plan = user_data.get("plan")
         try:
