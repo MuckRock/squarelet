@@ -17,7 +17,9 @@ jobs:
       postgres:
         image: postgres
         env:
+          POSTGRES_USER: test
           POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: squarelet
         # Set health checks to wait until postgres has started
         options: >-
           --health-cmd pg_isready
@@ -42,10 +44,8 @@ jobs:
       - name: Pytest
         run: pytest squarelet
         env:
-          # The hostname used to communicate with the PostgreSQL service container
-          POSTGRES_HOST: localhost
-          # The default PostgreSQL port
-          POSTGRES_PORT: 5432
+          # use the credentials for the service container
+          DATABASE_URL: postgresql://test:postgres@localhost:5432/squarelet
 
       - name: Lint
         run: pylint squarelet
