@@ -98,6 +98,7 @@ LOCAL_APPS = [
     "squarelet.organizations.apps.OrganizationsConfig",
     "squarelet.statistics",
     "squarelet.users.apps.UsersConfig",
+    "squarelet.services.apps.ServicesConfig",
     "allauth.socialaccount.providers.github",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
