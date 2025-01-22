@@ -219,6 +219,12 @@
     flex-flow: row-reverse wrap;
   }
 
+  .login-layout h2 {
+    font-weight: 600;
+    text-align: center;
+    font-size: var(--font-lg, 1.25rem);
+  }
+
   .login-layout>* {
     flex: 1 1 28rem;
   }
@@ -241,10 +247,12 @@
     flex-direction: column;
     justify-content: center;
     align-items: center;
+
+    color: var(--blue-1, #EEF3F9);
   }
 
   .service-gallery h2 {
-    margin: 0;
+    margin: 0 auto;
     color: var(--blue-1, #EEF3F9);
     text-align: center;
     font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
@@ -253,6 +261,7 @@
     font-style: normal;
     font-weight: 600;
     line-height: 2.25rem;
+    max-width: 28rem;
   }
 </style>
 {% endblock %}
@@ -261,9 +270,7 @@
 <div class="flex login-layout">
   <div class="form-wrapper">
     <form class="login-form" id="login_form" method="POST">
-      <header>
-        <h2 class="instruction">Sign in to your MuckRock account to manage your organizations and plans</h2>
-      </header>
+      {% sign_in_message %}
 
       <main class="fields">
         {% csrf_token %}
@@ -282,7 +289,7 @@
           <div class="flex row wrap align-center password-help">
             <label class="remember checkbox field inline-field">
               {{form.remember}}
-              Remember Me
+              Remember me
             </label>
             <a class="button primary small ghost" href="{% url 'account_reset_password' %}">
               {% blocktrans %}
@@ -296,7 +303,7 @@
       <footer class="flex row wrap">
         <button class="button primary">{% trans 'Sign in' %}</button>
         <a class="button primary ghost" href="{% url 'select_plan' %}">
-          {% blocktrans %}Create an Account{% endblocktrans %}
+          {% blocktrans %}Create an account{% endblocktrans %}
         </a>
       </footer>
     </form>
@@ -304,6 +311,7 @@
   <div class="service-gallery-wrapper">
     <div class="service-gallery">
       <h2>Access award-winning collaborative reporting tools and resources with a MuckRock account</h2>
+      {% services_list %}
     </div>
   </div>
 </div>
