@@ -257,11 +257,6 @@ class LoginLogAdmin(admin.ModelAdmin):
         """Export login logs"""
 
         meta = self.model._meta
-        field_names = [
-            "user",
-            "client",
-            "created_at",
-        ]
         fields = [
             ("user", lambda x: x.user.username),
             ("email", lambda x: x.user.email),
