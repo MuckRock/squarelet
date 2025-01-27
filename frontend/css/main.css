@@ -1,38 +1,46 @@
 /* Source Sans Pro Regular (weight 400) */
 @font-face {
-  font-family: 'Source Sans Pro';
+  font-family: "Source Sans Pro";
   font-style: normal;
   font-weight: 400;
-  src: local('Source Sans Pro Regular'), local('SourceSansPro-Regular'),
-       url('/static/fonts/SourceSansPro-Regular.otf') format('opentype'),
+  src:
+    local("Source Sans Pro Regular"),
+    local("SourceSansPro-Regular"),
+    url("/static/fonts/SourceSansPro-Regular.otf") format("opentype");
 }
 
 /* Source Sans Pro Semibold (weight 600) */
 @font-face {
-  font-family: 'Source Sans Pro';
+  font-family: "Source Sans Pro";
   font-style: normal;
   font-weight: 600;
-  src: local('Source Sans Pro Semibold'), local('SourceSansPro-Semibold'),
-       url('/static/fonts/SourceSansPro-Semibold.otf') format('opentype');
+  src:
+    local("Source Sans Pro Semibold"),
+    local("SourceSansPro-Semibold"),
+    url("/static/fonts/SourceSansPro-Semibold.otf") format("opentype");
 }
 
 /* Source Sans Pro Bold (weight 700) */
 @font-face {
-  font-family: 'Source Sans Pro';
+  font-family: "Source Sans Pro";
   font-style: normal;
   font-weight: 700;
-  src: local('Source Sans Pro Bold'), local('SourceSansPro-Bold'),
-       url('/static/fonts/SourceSansPro-Bold.otf') format('opentype');
+  src:
+    local("Source Sans Pro Bold"),
+    local("SourceSansPro-Bold"),
+    url("/static/fonts/SourceSansPro-Bold.otf") format("opentype");
 }
 
 body {
-  font-family: "Source Sans 3", "Source Sans Pro", "Lato", "Helvetica Neue", sans-serif;
+  font-family: "Source Sans 3", "Source Sans Pro", "Lato", "Helvetica Neue",
+    sans-serif;
   margin: 0;
   padding: 0;
   background: #fafafa;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
 }
 
 a {
@@ -46,9 +54,10 @@ a._cls-nostyle {
 }
 
 ._cls-content {
+  width: 100%;
   max-width: 480px;
   margin: 0 auto;
-  padding: 0 1em;
+  padding: 1em;
 }
 
 ._cls-heading {
@@ -109,7 +118,7 @@ a._cls-nostyle {
     width: 100%;
     justify-content: space-between;
   }
-  
+
   ._cls-navMenuButton {
     display: flex;
     align-items: center;
@@ -120,7 +129,6 @@ a._cls-nostyle {
     width: 2rem;
     height: 2rem;
     font-family: var(--font-sans, "Source Sans Pro");
-    
   }
 
   ._cls-navMenuButton:hover,
@@ -539,9 +547,9 @@ nav a:hover ._cls-serviceName {
 }
 
 ._cls-main {
+  display: flex;
+  flex-direction: column;
   flex: 1 1 auto;
-  padding-top: 1.5em;
-  padding-bottom: 2.5em;
 }
 
 ._cls-fieldInput {
@@ -1186,7 +1194,8 @@ a._cls-dropdownItem {
   border-bottom: none;
 }
 
-._cls-navItem, a._cls-navItem {
+._cls-navItem,
+a._cls-navItem {
   display: flex;
   padding: 4px 8px;
   border-radius: 4px;
@@ -1194,8 +1203,8 @@ a._cls-dropdownItem {
   gap: 8px;
   border-bottom: none;
   color: var(--gray-5, #233944);
-  fill: var(--gray-5, #233944);  
-  font-feature-settings: 'ss04' on;
+  fill: var(--gray-5, #233944);
+  font-feature-settings: "ss04" on;
   font-family: var(--font-sans, "Source Sans 3", "Source Sans Pro");
   font-size: var(--font-md, 16px);
   font-style: normal;
@@ -1208,7 +1217,7 @@ a._cls-dropdownItem {
 a._cls-navItem:hover {
   color: var(--blue-5, #053775);
   fill: var(--blue-5, #053775);
-  background: var(--blue-2, #B5CEED);
+  background: var(--blue-2, #b5ceed);
 }
 
 ._cls-navItems {
