@@ -55,9 +55,10 @@ a._cls-nostyle {
 }
 
 ._cls-content {
+  width: 100%;
   max-width: 480px;
   margin: 0 auto;
-  padding: 0 1em;
+  padding: 1em;
 }
 
 ._cls-heading {
@@ -547,9 +548,9 @@ nav a:hover ._cls-serviceName {
 }
 
 ._cls-main {
+  display: flex;
+  flex-direction: column;
   flex: 1 1 auto;
-  padding-top: 1.5em;
-  padding-bottom: 2.5em;
 }
 
 ._cls-fieldInput {
