@@ -34,13 +34,7 @@ class AccountAdapter(DefaultAccountAdapter):
         # we need to prefix the subject template here because it's getting
         # rendered here; the actual email body template is rendered in the
         # Email class, which also fixes the template prefix
-        #
-        # if we were to add "presspass/" to the template_prefix here, the message
-        # body template would become "presspass/presspass/etc/etc.html" in Email()
         subject_template = f"{template_prefix}_subject.txt"
-        source = context.get("source") or "muckrock"
-        if source == "presspass":
-            subject_template = "presspass/" + subject_template
 
         subject = render_to_string(subject_template, context)
         # remove superfluous line breaks
@@ -51,7 +45,6 @@ class AccountAdapter(DefaultAccountAdapter):
             template=f"{template_prefix}_message.html",
             to=[email],
             extra_context=context,
-            source=source,
             headers=headers,
         )
 

@@ -257,20 +257,21 @@ class LoginLogAdmin(admin.ModelAdmin):
         """Export login logs"""
 
         meta = self.model._meta
-        field_names = [
-            "user",
-            "client",
-            "created_at",
+        fields = [
+            ("user", lambda x: x.user.username),
+            ("email", lambda x: x.user.email),
+            ("client", lambda x: x.client),
+            ("created_at", lambda x: x.created_at),
         ]
 
         response = HttpResponse(content_type="text/csv")
         response["Content-Disposition"] = f"attachment; filename={meta}.csv"
         writer = csv.writer(response)
 
-        writer.writerow(field_names)
+        writer.writerow(name for name, _ in fields)
         for obj in queryset:
             writer.writerow(
-                [getattr(obj, field) for field in field_names]
+                [func(obj) for _, func in fields]
                 + list(
                     chain(
                         *[

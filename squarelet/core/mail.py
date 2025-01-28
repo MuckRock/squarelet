@@ -1,6 +1,7 @@
 # Django
 from django.conf import settings
 from django.core.mail.message import EmailMultiAlternatives
+from django.template.exceptions import TemplateDoesNotExist
 from django.template.loader import render_to_string
 
 # Standard Library
@@ -27,7 +28,6 @@ class Email(EmailMultiAlternatives):
         organization_to = kwargs.pop("organization_to", ORG_TO_ALL)
         extra_context = kwargs.pop("extra_context", {})
         template = kwargs.pop("template", self.template)
-        source = kwargs.pop("source", "muckrock")
         super().__init__(**kwargs)
         # set up who we are sending the email to
         if user and organization:
@@ -60,11 +60,6 @@ class Email(EmailMultiAlternatives):
         # always BCC diagnostics
         self.bcc.append("diagnostics@muckrock.com")
 
-        if source == "presspass":
-            self.from_email = settings.PRESSPASS_FROM_EMAIL
-            template = "presspass/" + template
-            extra_context["presspass_url"] = settings.PRESSPASS_URL
-
         context = {
             "base_url": settings.SQUARELET_URL,
             "subject": self.subject,
@@ -72,10 +67,15 @@ class Email(EmailMultiAlternatives):
             "organization": organization,
         }
         context.update(extra_context)
-        html = render_to_string(template, context)
-        plain = html2text(html)
-        self.body = plain
-        self.attach_alternative(html, "text/html")
+        try:
+            html = render_to_string(template, context)
+            plain = html2text(html)
+            self.body = plain
+            self.attach_alternative(html, "text/html")
+        except TemplateDoesNotExist:
+            template = template.replace(".html", ".txt")
+            plain = render_to_string(template, context)
+            self.body = plain
 
     def send(self, fail_silently=False):
         if self.to:

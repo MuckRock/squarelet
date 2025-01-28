@@ -228,6 +228,19 @@ def pip_compile(c, upgrade=False, package=None):
         )
     )
 
+@task(name="pip-audit")
+def pip_audit(c):
+    """Run pip-audit"""
+    c.run(
+        DJANGO_RUN_USER.format(
+            cmd='sh -c "'
+            f"pip-audit -r requirements/base.txt && "
+            f"pip-audit -r requirements/local.txt && "
+            f"pip-audit -r requirements/production.txt"
+            '"'
+        )
+    )
+
 
 @task
 def build(c):

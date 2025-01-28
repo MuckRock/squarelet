@@ -35,7 +35,6 @@ def email_changed(request, user, from_email_address, to_email_address, **kwargs)
         subject=_("Changed email address"),
         template="users/email/email_change.html",
         to=[from_email_address.email],
-        source=user.source,
         extra_context={
             "from_email_address": from_email_address.email,
             "to_email_address": to_email_address.email,

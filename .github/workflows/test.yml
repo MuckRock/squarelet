@@ -1,0 +1,64 @@
+name: Test
+
+on:
+  pull_request:
+
+env:
+  DJANGO_SETTINGS_MODULE: config.settings.test
+  USE_DOCKER: false
+  MUCKROCK_TOKEN: token
+  SECRET_KEY: ${{secrets.DJANGO_SECRET_KEY}}
+  STRIPE_SECRET_KEY: ${{secrets.STRIPE_SECRET_KEY}}
+  STRIPE_PUB_KEY: ${{secrets.STRIPE_PUB_KEY}}
+  STRIPE_WEBHOOK_SECRET: ${{secrets.STRIPE_WEBHOOK_SECRET}}
+  AIRTABLE_ACCESS_TOKEN: ${{secrets.AIRTABLE_ACCESS_TOKEN}}
+  AIRTABLE_ERH_BASE_ID: ${{secrets.AIRTABLE_ERH_BASE_ID}}
+  AIRTABLE_ERH_TABLE_ID: ${{secrets.AIRTABLE_ERH_TABLE_ID}}
+  MAILGUN_ACCESS_KEY: ""
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: squarelet
+        # Set health checks to wait until postgres has started
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          # Maps tcp port 5432 on service container to the host
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip" # caching pip dependencies
+
+      - name: Install
+        run: |
+          pip install -r requirements/local.txt
+
+      - name: Pytest
+        run: pytest squarelet
+        env:
+          # use the credentials for the service container
+          DATABASE_URL: postgresql://test:postgres@localhost:5432/squarelet
+
+      - name: Lint
+        run: pylint squarelet
+
+      - name: Isort
+        run: isort --check-only -rc squarelet
+
+      - name: Formatting
+        run: black --check squarelet --exclude migrations
