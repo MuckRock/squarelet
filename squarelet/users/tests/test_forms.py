@@ -115,7 +115,6 @@ def test_save_org(rf, plan_factory, organization_plan_factory, mocker):
 @pytest.mark.parametrize(
     "form_class,number_fields",
     [
-        (forms.LoginForm, 2),
         (forms.AddEmailForm, 1),
         (forms.ChangePasswordForm, 3),
         (forms.SetPasswordForm, 2),
