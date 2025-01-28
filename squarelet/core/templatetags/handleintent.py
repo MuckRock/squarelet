@@ -12,24 +12,24 @@ from squarelet.services.models import Service
 register = template.Library()
 
 
-@register.inclusion_tag('templatetags/services_list.html')
+@register.inclusion_tag("templatetags/services_list.html")
 def services_list():
-    providers = Service.objects.all().order_by(
-        '-provider_name__exact', 'name'
-    ).extra(
-        select={'provider_name_is_muckrock': "provider_name = 'MuckRock'"},
-        order_by=['-provider_name_is_muckrock', 'name']
+    providers = (
+        Service.objects.all()
+        .order_by("-provider_name__exact", "name")
+        .extra(
+            select={"provider_name_is_muckrock": "provider_name = 'MuckRock'"},
+            order_by=["-provider_name_is_muckrock", "name"],
+        )
     )
-    return {
-        "service_providers": providers
-    }
+    return {"service_providers": providers}
 
 
 @register.inclusion_tag("templatetags/sign_in_message.html", takes_context=True)
 def sign_in_message(context):
     no_match = {
         "header": "Sign in to your MuckRock account to manage your organizations and plans",
-        "service": None
+        "service": None,
     }
 
     # Find the service provider based on the intent

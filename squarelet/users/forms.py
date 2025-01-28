@@ -120,6 +120,7 @@ class LoginForm(allauth.LoginForm):
         self.fields["login"].widget.attrs.pop("autofocus", None)
         self.fields["password"].widget.attrs["placeholder"] = ""
 
+
 class AddEmailForm(allauth.AddEmailForm):
     """Customize the add email form layout"""
 
