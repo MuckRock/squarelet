@@ -1,0 +1,10 @@
+<h2>{{ header }}</h2>
+{% if service %}
+<div class="intent-container">
+  <div class="service-info">
+    <img src="{{ service.icon.url }}" alt="{{ service.name }}">
+    <h3>{{ service.name }}</h3>
+    <p class="service-owner">by {{ service.provider_name }}</p>
+  </div>
+</div>
+{% endif %}
