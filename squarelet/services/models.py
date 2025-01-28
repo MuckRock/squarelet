@@ -1,4 +1,7 @@
+# Django
 from django.db import models
+
+# Squarelet
 from squarelet.core.utils import file_path
 
 

@@ -1,4 +1,7 @@
+# Django
 from django.contrib import admin
+
+# Squarelet
 from squarelet.services.models import Service
 
 
