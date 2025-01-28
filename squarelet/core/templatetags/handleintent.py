@@ -7,6 +7,7 @@ from django.utils.translation import gettext_lazy as _
 from collections import OrderedDict
 from urllib.parse import parse_qs, urlparse
 
+# Squarelet
 from squarelet.services.models import Service
 
 register = template.Library()
