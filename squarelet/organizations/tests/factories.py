@@ -2,6 +2,7 @@
 from django.utils import timezone
 
 # Standard Library
+import uuid
 from datetime import date
 
 # Third Party
@@ -10,11 +11,8 @@ from autoslug.utils import slugify
 
 
 class OrganizationFactory(factory.django.DjangoModelFactory):
-    name = factory.Sequence(lambda n: f"org-{n}")
+    name = factory.Sequence(lambda n: f"org-{uuid.uuid4().hex[:8]}")
     slug = factory.LazyAttribute(lambda obj: slugify(obj.name))
-    customer = factory.RelatedFactory(
-        "squarelet.organizations.tests.factories.CustomerFactory", "organization"
-    )
 
     class Meta:
         model = "organizations.Organization"
@@ -24,13 +22,17 @@ class OrganizationFactory(factory.django.DjangoModelFactory):
     def users(self, create, extracted, **kwargs):
         if create and extracted:
             for user in extracted:
-                MembershipFactory(user=user, organization=self, admin=False)
+                # Add unique_together check
+                if not self.memberships.filter(user=user).exists():
+                    MembershipFactory(user=user, organization=self, admin=False)
 
     @factory.post_generation
     def admins(self, create, extracted, **kwargs):
         if create and extracted:
             for user in extracted:
-                MembershipFactory(user=user, organization=self, admin=True)
+                # Add unique_together check
+                if not self.memberships.filter(user=user).exists():
+                    MembershipFactory(user=user, organization=self, admin=True)
 
     @factory.post_generation
     def plans(self, create, extracted, **kwargs):
@@ -47,10 +49,11 @@ class IndividualOrganizationFactory(OrganizationFactory):
 
 class CustomerFactory(factory.django.DjangoModelFactory):
     organization = factory.SubFactory(
-        "squarelet.organizations.tests.factories.OrganizationFactory",
-        customer=factory.SelfAttribute("."),
+        "squarelet.organizations.tests.factories.OrganizationFactory"
     )
-    customer_id = factory.Sequence(lambda n: f"customer-{n}")
+    customer_id = factory.LazyFunction(
+        lambda: f"cus_{uuid.uuid4().hex[:8]}"
+    )
 
     class Meta:
         model = "organizations.Customer"
@@ -58,13 +61,12 @@ class CustomerFactory(factory.django.DjangoModelFactory):
 
 class MembershipFactory(factory.django.DjangoModelFactory):
     user = factory.SubFactory("squarelet.users.tests.factories.UserFactory")
-    organization = factory.SubFactory(
-        "squarelet.organizations.tests.factories.OrganizationFactory"
-    )
+    organization = factory.SubFactory(OrganizationFactory)
     admin = True
 
     class Meta:
         model = "organizations.Membership"
+        django_get_or_create = ("user", "organization")
 
 
 class SubscriptionFactory(factory.django.DjangoModelFactory):
@@ -140,6 +142,7 @@ class ChargeFactory(factory.django.DjangoModelFactory):
     description = factory.Sequence(lambda n: f"Description {n}")
     created_at = factory.LazyFunction(timezone.now)
     amount = 350
+    charge_id = factory.Sequence(lambda n: f"ch_{n:06d}")
 
     class Meta:
         model = "organizations.Charge"

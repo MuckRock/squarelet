@@ -14,6 +14,10 @@ class UserFactory(factory.django.DjangoModelFactory):
     name = factory.Faker("name")
     individual_organization = factory.SubFactory(IndividualOrganizationFactory)
 
+    class Meta:
+        model = "users.User"
+        django_get_or_create = ("username",)
+
     @factory.post_generation
     def password(self, create, extracted, **kwargs):
         """Sets password"""
@@ -22,13 +26,10 @@ class UserFactory(factory.django.DjangoModelFactory):
             if create:
                 self.save()
 
+    # Remove or modify membership creation to prevent duplicates
     @factory.post_generation
     def membership(self, create, extracted, **kwargs):
         """Create individual organization membership"""
         # pylint: disable=unused-argument
         if create:
-            MembershipFactory(user=self, organization=self.individual_organization)
-
-    class Meta:
-        model = "users.User"
-        django_get_or_create = ("username",)
+            MembershipFactory(user=self, organization=self.individual_organization, admin=True)
