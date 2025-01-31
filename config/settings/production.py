@@ -20,6 +20,10 @@ from .base import env
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 # https://docs.djangoproject.com/en/dev/ref/settings/#allowed-hosts
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["accounts.muckrock.com"])
+# Add support for Heroku Review Apps with randomly-generated names.
+# The HEROKU_APP_NAME environment variable is injected by Heroku.
+if ENV == "staging" and env("HEROKU_APP_NAME", default=""):
+    ALLOWED_HOSTS.append(f"{env('HEROKU_APP_NAME')}.herokuapp.com")
 
 # DATABASES
 # ------------------------------------------------------------------------------
