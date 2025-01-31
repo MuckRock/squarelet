@@ -1,4 +1,4 @@
-FROM node:22 as base
+FROM --platform=linux/arm64 node:22 as base
 
 # Set working directory
 WORKDIR /app
