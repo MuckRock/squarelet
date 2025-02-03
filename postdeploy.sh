@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "Build static files to be collected"
-npm ci
+npm ci --include dev
 npm run build
 
 echo "Setup Django database and static files"
