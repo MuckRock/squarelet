@@ -27,10 +27,10 @@
       "url": "https://buildpack-registry.s3.amazonaws.com/buildpacks/heroku-community/nginx.tgz"
     },
     {
-      "url": "heroku/python"
+      "url": "heroku/nodejs"
     },
     {
-      "url": "heroku/nodejs"
+      "url": "heroku/python"
     }
   ],
   "scripts": {

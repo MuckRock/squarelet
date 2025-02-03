@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Build static files to be collected
-npm install
+echo "Build static files to be collected"
+npm ci
 npm run build
 
-# Setup Django database and static files
+echo "Setup Django database and static files"
 python manage.py migrate --noinput
 python manage.py collectstatic --noinput
