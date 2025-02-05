@@ -5,7 +5,7 @@ on:
 
 env:
   DJANGO_SECRET_KEY: ${{secrets.DJANGO_SECRET_KEY}}
-  DJANGO_SETTINGS_MODULE: config.settings.production
+  DJANGO_SETTINGS_MODULE: config.settings.test
   MUCKROCK_TOKEN: token
   STRIPE_SECRET_KEY: ${{secrets.STRIPE_SECRET_KEY}}
   STRIPE_PUB_KEY: ${{secrets.STRIPE_PUB_KEY}}
