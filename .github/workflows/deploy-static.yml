@@ -6,10 +6,9 @@ on:
   pull_request:
 
 env:
+  DJANGO_SECRET_KEY: ${{secrets.DJANGO_SECRET_KEY}}
   DJANGO_SETTINGS_MODULE: config.settings.production
-  USE_DOCKER: false
   MUCKROCK_TOKEN: token
-  SECRET_KEY: ${{secrets.DJANGO_SECRET_KEY}}
   STRIPE_SECRET_KEY: ${{secrets.STRIPE_SECRET_KEY}}
   STRIPE_PUB_KEY: ${{secrets.STRIPE_PUB_KEY}}
   STRIPE_WEBHOOK_SECRET: ${{secrets.STRIPE_WEBHOOK_SECRET}}
@@ -17,6 +16,7 @@ env:
   AIRTABLE_ERH_BASE_ID: ${{secrets.AIRTABLE_ERH_BASE_ID}}
   AIRTABLE_ERH_TABLE_ID: ${{secrets.AIRTABLE_ERH_TABLE_ID}}
   MAILGUN_ACCESS_KEY: ""
+  USE_DOCKER: false
 
 jobs:
   deploy:
