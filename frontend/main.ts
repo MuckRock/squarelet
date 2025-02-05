@@ -2,7 +2,6 @@ import "vite/modulepreload-polyfill";
 import "./css/autocomplete.css";
 import "./css/project.css";
 import "./css/main.css";
-import "./css/erh.css";
 
 import { AutocompleteView } from "./autocomplete";
 import { exists } from "./util";
@@ -42,8 +41,4 @@ if (exists("_id-receiptsTable")) {
 if (exists("id_stripe_pk")) {
   // Stripe and plans pages.
   new PlansView();
-}
-
-if (exists("_id-erh-catalog")) {
-  scrollControl();
 }
