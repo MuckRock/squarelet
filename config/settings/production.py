@@ -112,6 +112,10 @@ if AWS_S3_CUSTOM_DOMAIN:
 else:
     STATIC_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/static/"
 
+if GIT_BRANCH:
+    # the b/ prefix is here for easier cleanup later
+    STATIC_URL += f"b/{GIT_BRANCH}/"
+
 # MEDIA
 # ------------------------------------------------------------------------------
 
