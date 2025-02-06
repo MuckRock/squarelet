@@ -131,7 +131,7 @@ STORAGES = {
     "staticfiles": {
         "BACKEND": "squarelet.core.storage.CachedS3Boto3Storage",
         "OPTIONS": {
-            "location": f"b/{GIT_BRANCH}/" if GIT_BRANCH else "",
+            "location": f"/b/{GIT_BRANCH}/" if GIT_BRANCH else "",
         },
     },
     "compressor": {
