@@ -205,7 +205,7 @@ django-robots==6.1
     # via -r requirements/base.txt
 django-sesame==1.5
     # via -r requirements/base.txt
-django-storages[boto3]==1.12.3
+django-storages[boto3]==1.14.4
     # via
     #   -r requirements/base.txt
     #   collectfast

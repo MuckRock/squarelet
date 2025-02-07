@@ -515,3 +515,8 @@ AIRTABLE_CACHE_TTL = env.int("AIRTABLE_CACHE_TTL", default=30)
 # Robots.txt
 # ------------------------------------------------------------------------------
 ROBOTS_CACHE_TIMEOUT = 60 * 60 * 24
+
+# pick up branch name variable depending on where it's set
+# GITHUB_REF_NAME is set by GitHub Actions
+# HEROKU_BRANCH is set by Heroku
+CI_GIT_BRANCH = env.str("GITHUB_REF_NAME", None) or env.str("HEROKU_BRANCH", None)

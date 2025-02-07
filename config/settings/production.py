@@ -20,6 +20,10 @@ from .base import env
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 # https://docs.djangoproject.com/en/dev/ref/settings/#allowed-hosts
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["accounts.muckrock.com"])
+# Add support for Heroku Review Apps with randomly-generated names.
+# The HEROKU_APP_NAME environment variable is injected by Heroku.
+if ENV == "staging" and env("HEROKU_APP_NAME", default=""):
+    ALLOWED_HOSTS.append(f"{env('HEROKU_APP_NAME')}.herokuapp.com")
 
 # DATABASES
 # ------------------------------------------------------------------------------
@@ -103,8 +107,11 @@ AWS_DEFAULT_ACL = "public-read"
 # ------------------------
 
 AWS_S3_CUSTOM_DOMAIN = env("CLOUDFRONT_DOMAIN", default="")
+
 if AWS_S3_CUSTOM_DOMAIN:
     STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/static/"
+elif CI_GIT_BRANCH:
+    STATIC_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/b/{CI_GIT_BRANCH}/"
 else:
     STATIC_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/static/"
 
@@ -122,6 +129,10 @@ STORAGES = {
     },
     "staticfiles": {
         "BACKEND": "squarelet.core.storage.CachedS3Boto3Storage",
+        "OPTIONS": {
+            "bucket_name": AWS_STORAGE_BUCKET_NAME,
+            "location": f"b/{CI_GIT_BRANCH}" if CI_GIT_BRANCH else "static",
+        },
     },
     "compressor": {
         "BACKEND": "compressor.storage.CompressorFileStorage",

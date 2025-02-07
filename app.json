@@ -1,0 +1,36 @@
+{
+  "name": "squarelet",
+  "description": "User and organization management for MuckRock",
+  "repository": "https://github.com/muckrock/squarelet",
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "standard-1x"
+    },
+    "beat": {
+      "quantity": 1,
+      "size": "standard-1x"
+    },
+    "worker": {
+      "quantity": 1,
+      "size": "standard-1x"
+    }
+  },
+  "addons": [
+    "heroku-postgresql:essential-1",
+    "heroku-redis:mini",
+    "papertrail:choklad",
+    "fixie:cruiser"
+  ],
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    },
+    {
+      "url": "https://buildpack-registry.s3.amazonaws.com/buildpacks/heroku-community/nginx.tgz"
+    },
+    {
+      "url": "heroku/python"
+    }
+  ]
+}
