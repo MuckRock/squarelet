@@ -110,6 +110,8 @@ AWS_S3_CUSTOM_DOMAIN = env("CLOUDFRONT_DOMAIN", default="")
 
 if AWS_S3_CUSTOM_DOMAIN:
     STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/static/"
+elif CI_GIT_BRANCH:
+    STATIC_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/b/{CI_GIT_BRANCH}"
 else:
     STATIC_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/static/"
 
@@ -132,8 +134,8 @@ STORAGES = {
     "staticfiles": {
         "BACKEND": "squarelet.core.storage.CachedS3Boto3Storage",
         "OPTIONS": {
-            "AWS_STORAGE_BUCKET_NAME": AWS_STORAGE_BUCKET_NAME,
-            "AWS_LOCATION": f"b/{CI_GIT_BRANCH}/" if CI_GIT_BRANCH else "static/",
+            "bucket_name": AWS_STORAGE_BUCKET_NAME,
+            "location": f"b/{CI_GIT_BRANCH}" if CI_GIT_BRANCH else "static",
         },
     },
     "compressor": {
