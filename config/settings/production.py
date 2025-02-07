@@ -107,14 +107,15 @@ AWS_DEFAULT_ACL = "public-read"
 # ------------------------
 
 AWS_S3_CUSTOM_DOMAIN = env("CLOUDFRONT_DOMAIN", default="")
+
 if AWS_S3_CUSTOM_DOMAIN:
     STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/static/"
 else:
     STATIC_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/static/"
 
-if GIT_BRANCH:
+if CI_GIT_BRANCH:
     # the b/ prefix is here for easier cleanup later
-    STATIC_URL += f"b/{GIT_BRANCH}/"
+    STATIC_URL += f"b/{CI_GIT_BRANCH}/"
 
 # MEDIA
 # ------------------------------------------------------------------------------
@@ -131,7 +132,8 @@ STORAGES = {
     "staticfiles": {
         "BACKEND": "squarelet.core.storage.CachedS3Boto3Storage",
         "OPTIONS": {
-            "location": f"static/b/{GIT_BRANCH}/" if GIT_BRANCH else "static/",
+            "AWS_STORAGE_BUCKET_NAME": AWS_STORAGE_BUCKET_NAME,
+            "AWS_LOCATION": f"b/{CI_GIT_BRANCH}/" if CI_GIT_BRANCH else "static/",
         },
     },
     "compressor": {

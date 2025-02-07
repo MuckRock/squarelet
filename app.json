@@ -24,10 +24,10 @@
   ],
   "buildpacks": [
     {
-      "url": "https://buildpack-registry.s3.amazonaws.com/buildpacks/heroku-community/nginx.tgz"
+      "url": "heroku/nodejs"
     },
     {
-      "url": "heroku/nodejs"
+      "url": "https://buildpack-registry.s3.amazonaws.com/buildpacks/heroku-community/nginx.tgz"
     },
     {
       "url": "heroku/python"
