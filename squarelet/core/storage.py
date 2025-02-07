@@ -12,7 +12,7 @@ class CachedS3Boto3Storage(S3Boto3Storage):
     S3 storage backend that saves the files locally, too.
     """
 
-    # location = "static"
+    location = "static"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

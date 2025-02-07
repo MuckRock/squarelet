@@ -129,7 +129,7 @@ STORAGES = {
         "BACKEND": "squarelet.core.storage.MediaRootS3BotoStorage",
     },
     "staticfiles": {
-        "BACKEND": "storages.backends.s3.S3Storage",
+        "BACKEND": "squarelet.core.storage.CachedS3Boto3Storage",
         "OPTIONS": {
             "location": f"static/b/{GIT_BRANCH}/" if GIT_BRANCH else "static/",
         },
@@ -209,7 +209,7 @@ INSTALLED_APPS += ["gunicorn"]  # noqa F405
 # django-compressor
 # ------------------------------------------------------------------------------
 # https://django-compressor.readthedocs.io/en/latest/settings/#django.conf.settings.COMPRESS_ENABLED
-COMPRESS_ENABLED = env.bool("COMPRESS_ENABLED", default=False)
+COMPRESS_ENABLED = env.bool("COMPRESS_ENABLED", default=True)
 # https://django-compressor.readthedocs.io/en/latest/settings/#django.conf.settings.COMPRESS_STORAGE
 COMPRESS_STORAGE = STORAGES["staticfiles"]["BACKEND"]
 COMPRESS_OFFLINE_MANIFEST_STORAGE = STORAGES["staticfiles"]["BACKEND"]
