@@ -115,10 +115,6 @@ elif CI_GIT_BRANCH:
 else:
     STATIC_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/static/"
 
-if CI_GIT_BRANCH:
-    # the b/ prefix is here for easier cleanup later
-    STATIC_URL += f"b/{CI_GIT_BRANCH}/"
-
 # MEDIA
 # ------------------------------------------------------------------------------
 
