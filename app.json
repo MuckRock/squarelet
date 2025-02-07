@@ -32,5 +32,8 @@
     {
       "url": "heroku/python"
     }
-  ]
+  ],
+  "scripts": {
+    "postdeploy": "./postdeploy.sh"
+  }
 }
