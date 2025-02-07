@@ -10,6 +10,7 @@
 if [ -n "$HEROKU_APP_NAME" ] && [ "$DJANGO_ENV" = "staging" ]; then
   # Copy the data from the staging app database to the review app database.
   heroku pg:copy squarelet-staging::DATABASE_URL DATABASE_URL --app $HEROKU_APP_NAME --confirm $HEROKU_APP_NAME
-  # Migrate the review app database.
-  heroku run "python manage.py migrate" -a $HEROKU_APP_NAME
 fi
+
+# No matter what environment we're in, ensure we run any Django migrations.
+python manage.py migrate --noinput
