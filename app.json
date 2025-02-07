@@ -31,6 +31,9 @@
     },
     {
       "url": "heroku/python"
+    },
+    {
+      "url": "heroku-community/cli"
     }
   ],
   "scripts": {
