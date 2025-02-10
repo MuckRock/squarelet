@@ -106,13 +106,6 @@ class SignupForm(allauth.SignupForm, StripeForm):
 class LoginForm(allauth.LoginForm):
     """Customize the login form layout"""
 
-    """
-    Three fields:
-    - login
-    - password
-    - remember
-    """
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
