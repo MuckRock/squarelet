@@ -39,6 +39,13 @@ Set an environment variable that directs `docker compose` to use the `local.yml`
 export COMPOSE_FILE=local.yml
 ```
 
+> A command-line tool like [`direnv`](https://direnv.net/) can load this setting when you enter the project directory. With `direnv` installed, run:
+> ```bash
+> direnv allow .
+> echo export COMPOSE_FILE=local.yml > .envrc
+> ```
+> `.envrc` is omitted from version control.
+
 Generate local certificates for SSL support.
 
 ```bash
@@ -126,26 +133,30 @@ The development environment is managed via [docker][docker] and docker compose. 
 
 The containers which are run include the following:
 
-- Nginx
+- **Nginx**  
   [Nginx][nginx] is a HTTP server which acts as a reverse proxy for the Django application, and allows development of both squarelet and client applications that depend on it (such as MuckRock and DocumentCloud) in parallel. This system is described in more detail in a later section.
 
-- MailHog
+- **MailHog**  
   [MailHog][mailhog] is an email testing tool used for development. All emails in development are sent to MailHog, where you can view them in a web based email viewer. To use mailhog, add the following line to your `/etc/hosts`: `127.0.0.1 dev.mailhog.com`. Now navigating your browser to `dev.mailhog.com` will show the mailhog interface, where you can view all the mail sent from the development environment.
 
-- Django
+- **Django**  
   This is the [Django][django] application
 
-- PostgreSQL
+- **PostgreSQL**  
   [PostgreSQL][postgres] is the relational database used to store the data for the Django application
 
-- Redis
+- **Redis**  
   [Redis][redis] is an in-memory datastore, used as a message broker for Celery as well as a cache backend for Django.
 
-- Celery Worker
+- **Celery Worker**  
   [Celery][celery] is a distrubuted task queue for Python, used to run background tasks from Django. The worker is responsible for running the tasks.
 
-- Celery Beat
+- **Celery Beat**  
   The celery beat image is responsible for queueing up periodic celery tasks.
+
+- **Vite**  
+  [Vite][vite] builds and bundles static assets for production.
+  During development, it provides a server to update and serve assets.
 
 All systems can be brought up using `inv up`. You can rebuild all images using `inv build`. There are various other invoke commands for common tasks interacting with docker, which you can view in the `tasks.py` file.
 
@@ -217,6 +228,7 @@ Running `inv pip-compile` will compile the `.in` files to the corresponding `.tx
 [django]: https://www.djangoproject.com/
 [postgres]: https://www.postgresql.org/
 [redis]: https://redis.io/
+[vite]: https://vite.dev/
 [celery]: https://docs.celeryproject.org/en/latest/
 [invoke]: http://www.pyinvoke.org/
 [docker-install]: https://docs.docker.com/install/

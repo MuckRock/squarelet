@@ -15,6 +15,7 @@ export default defineConfig({
   server: {
     port: 4200, // must be a port other than 5173
     host: true,
+    cors: true,
     watch: {
       usePolling: true,
     },
