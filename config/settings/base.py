@@ -504,14 +504,6 @@ MAILCHIMP_API_KEY = env("MAILCHIMP_API_KEY", default="")
 MAILCHIMP_API_ROOT = "https://us2.api.mailchimp.com/3.0"
 MAILCHIMP_LIST_DEFAULT = "a34d93cbe8"
 
-# Election Hub
-# ------------------------------------------------------------------------------
-ERH_CATALOG_ENABLED = env.bool("ERH_CATALOG_ENABLED", default=False)
-ERH_NAV_ENABLED = env.bool("ERH_NAV_ENABLED", default=False)
-AIRTABLE_ACCESS_TOKEN = env("AIRTABLE_ACCESS_TOKEN", default="")
-AIRTABLE_ERH_BASE_ID = env("AIRTABLE_ERH_BASE_ID", default="")
-AIRTABLE_CACHE_TTL = env.int("AIRTABLE_CACHE_TTL", default=30)
-
 # Robots.txt
 # ------------------------------------------------------------------------------
 ROBOTS_CACHE_TIMEOUT = 60 * 60 * 24

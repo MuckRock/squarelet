@@ -2,6 +2,7 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
+from django.shortcuts import redirect
 from django.urls import include, path, re_path
 from django.views import defaults as default_views
 from django.views.generic import TemplateView
@@ -12,13 +13,7 @@ from rest_framework_nested import routers
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 # Squarelet
-from squarelet.core.views import (
-    ERHAboutView,
-    ERHLandingView,
-    ERHResourceView,
-    HomeView,
-    newsletter_subscription,
-)
+from squarelet.core.views import HomeView
 from squarelet.oidc.views import token_view
 from squarelet.organizations.viewsets import ChargeViewSet, OrganizationViewSet
 from squarelet.users.views import LoginView
@@ -36,16 +31,12 @@ router.register("organizations", OrganizationViewSet)
 router.register("charges", ChargeViewSet)
 
 
+def redirect_erh(request, path=''):
+    return redirect('https://www.muckrock.com/project/elections-2024-1169/', permanent=True)
+
+
 urlpatterns = [
     path("", HomeView.as_view(), name="home"),
-    path("election-hub/", ERHLandingView.as_view(), name="erh_landing"),
-    path("election-hub/about", ERHAboutView.as_view(), name="erh_about"),
-    path(
-        "election-hub/subscribe/",
-        newsletter_subscription,
-        name="newsletter_subscription",
-    ),
-    path("election-hub/<str:id>", ERHResourceView.as_view(), name="erh_resource"),
     path(
         "selectplan/",
         TemplateView.as_view(template_name="pages/selectplan.html"),
@@ -69,6 +60,10 @@ urlpatterns = [
     path("openid/jwt", token_view, name="oidc_jwt"),
     path("hijack/", include("hijack.urls", namespace="hijack")),
     re_path(r"^robots\.txt", include("robots.urls")),
+    re_path(
+        r"^election-hub/(?P<path>.*)?$",
+        redirect_erh,
+    ),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:
