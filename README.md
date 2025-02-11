@@ -39,6 +39,13 @@ Set an environment variable that directs `docker compose` to use the `local.yml`
 export COMPOSE_FILE=local.yml
 ```
 
+> A command-line tool like [`direnv`](https://direnv.net/) can load this setting when you enter the project directory. With `direnv` installed, run:
+> ```bash
+> direnv allow .
+> echo export COMPOSE_FILE=local.yml > .envrc
+> ```
+> `.envrc` is omitted from version control.
+
 Generate local certificates for SSL support.
 
 ```bash
@@ -147,6 +154,10 @@ The containers which are run include the following:
 - Celery Beat
   The celery beat image is responsible for queueing up periodic celery tasks.
 
+- Vite
+  [Vite][vite] builds and bundles static assets for production.
+  During development, it provides a server to update and serve assets.
+
 All systems can be brought up using `inv up`. You can rebuild all images using `inv build`. There are various other invoke commands for common tasks interacting with docker, which you can view in the `tasks.py` file.
 
 <details>
@@ -217,6 +228,7 @@ Running `inv pip-compile` will compile the `.in` files to the corresponding `.tx
 [django]: https://www.djangoproject.com/
 [postgres]: https://www.postgresql.org/
 [redis]: https://redis.io/
+[vite]: https://vite.dev/
 [celery]: https://docs.celeryproject.org/en/latest/
 [invoke]: http://www.pyinvoke.org/
 [docker-install]: https://docs.docker.com/install/
