@@ -29,9 +29,10 @@ def services_list():
 @register.inclusion_tag("templatetags/sign_in_message.html", takes_context=True)
 def sign_in_message(context):
     no_match = {
-        "header": (
-            "Sign in to your MuckRock account to manage your organizations and plans",
-        ),
+        "header": """
+          Sign in with your MuckRock account
+          to access our suite of tools and resources.
+          """.strip(),
         "service": None,
     }
 
@@ -52,6 +53,9 @@ def sign_in_message(context):
         return no_match
 
     return {
-        "header": "Sign in with your MuckRock account",
+        "header": f"""
+            Sign in with your MuckRock account 
+            to access {service.name} and other tools.
+            """.strip(),
         "service": service,
     }

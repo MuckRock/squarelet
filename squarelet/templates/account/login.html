@@ -243,6 +243,7 @@
   .service-gallery {
     display: flex;
     max-width: 40rem;
+    margin: 0 auto;
     padding: 3rem 4rem;
     flex-direction: column;
     justify-content: center;
@@ -257,11 +258,11 @@
     text-align: center;
     font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
     font-family: var(--font-sans, "Source Sans Pro");
-    font-size: var(--font-xl, 1.5rem);
+    font-size: var(--font-lg, 1.25rem);
     font-style: normal;
     font-weight: 600;
-    line-height: 2.25rem;
-    max-width: 28rem;
+    line-height: 2rem;
+    max-width: 33rem;
   }
 </style>
 {% endblock %}
@@ -276,20 +277,20 @@
         {% csrf_token %}
         {{form.non_field_errors}}
         <label class="login text field">
-          Username or e-mail
+          {% trans 'Username or email' %}
           {{form.login}}
           {{form.login.errors}}
         </label>
         <div class="field">
           <label class="password password field">
-            Password
+            {% trans 'Password' %}
             {{form.password}}
             {{form.password.errors}}
           </label>
           <div class="flex row wrap align-center password-help">
             <label class="remember checkbox field inline-field">
               {{form.remember}}
-              Remember me
+              {% trans 'Remember me' %}
             </label>
             <a class="button primary small ghost" href="{% url 'account_reset_password' %}">
               {% blocktrans %}
@@ -310,7 +311,11 @@
   </div>
   <div class="service-gallery-wrapper">
     <div class="service-gallery">
-      <h2>Access award-winning collaborative reporting tools and resources with a MuckRock account</h2>
+      <h2>
+        {% blocktrans %}
+        Your MuckRock account is a passport to essential services that support research, reporting, collaboration and civic engagement. Your MuckRock account gives you access to tools and resources from MuckRock and our trusted partners.
+        {% endblocktrans %}
+      </h2>
       {% services_list %}
     </div>
   </div>
