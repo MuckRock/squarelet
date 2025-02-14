@@ -37,7 +37,7 @@ def organization_file_path(instance, filename):
 
 
 class Organization(AvatarMixin, models.Model):
-    """Orginization to allow pooled requests and collaboration"""
+    """Organizations allow collaboration and resource sharing"""
 
     # pylint: disable=too-many-public-methods
 
@@ -136,6 +136,8 @@ class Organization(AvatarMixin, models.Model):
         blank=True,
         choices=COUNTRY_CHOICES,
     )
+
+    # TODO: remove after retiring Election Hub (#229)
     hub_eligible = models.BooleanField(
         _("hub eligible"),
         blank=True,
@@ -145,7 +147,7 @@ class Organization(AvatarMixin, models.Model):
         ),
     )
 
-    # remove these
+    # TODO: remove these
     _plan = models.ForeignKey(
         verbose_name=_("plan"),
         to="organizations.Plan",
@@ -180,6 +182,9 @@ class Organization(AvatarMixin, models.Model):
         blank=True,
     )
 
+    # Every user has an individual organization 
+    # created when creating an account. Its UUID
+    # is used to identify the user across services.
     individual = models.BooleanField(
         _("individual organization"),
         default=False,
@@ -204,7 +209,7 @@ class Organization(AvatarMixin, models.Model):
         default=5,
         help_text=_("The number of resource blocks this organization receives monthly"),
     )
-    # this moved to subscription, remove
+    # TODO: this moved to subscription, remove
     update_on = models.DateField(
         _("date update"),
         null=True,
@@ -212,7 +217,7 @@ class Organization(AvatarMixin, models.Model):
         help_text=_("Date when monthly requests are restored"),
     )
 
-    # stripe
+    # TODO: remove stripe properties that moved to other models
     # moved to customer, remove
     customer_id = models.CharField(
         _("customer id"),
@@ -241,6 +246,7 @@ class Organization(AvatarMixin, models.Model):
         ),
     )
 
+    # TODO: Remove default avatar
     default_avatar = static("images/avatars/organization.png")
 
     class Meta:
@@ -271,14 +277,18 @@ class Organization(AvatarMixin, models.Model):
     def email(self):
         """Get an email for this organization"""
         if self.individual:
+            # Why not primary email?
             return self.user.email
 
+        # If a group organization, first try to get a receipt email
         receipt_email = self.receipt_emails.first()
         if receipt_email:
             return receipt_email.email
 
+        # If no receipt email, get an admin user's email
         user = self.users.filter(memberships__admin=True).first()
         if user:
+            # Again, why not primary email?
             return user.email
 
         return None

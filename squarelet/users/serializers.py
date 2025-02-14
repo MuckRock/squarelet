@@ -44,6 +44,7 @@ class UserBaseSerializer(serializers.ModelSerializer):
             email = obj.primary_emails[0]
             return getattr(email, field, default)
         elif not hasattr(obj, "primary_emails"):
+            # TODO: Replace with user.email or user.primary_email
             email = obj.emailaddress_set.filter(primary=True).first()
             if email:
                 return getattr(email, field, default)
