@@ -53,22 +53,26 @@ class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
             raise Http404
         return super().dispatch(request, *args, **kwargs)
 
-    def get(self, request, *args, **kwargs):
+    def get_invitations(self, user):
         """Check if the user has any pending invitations"""
+        invitations = Invitation.objects.get_pending().filter(user=user)
+        for invitation in invitations:
+            url = reverse("organizations:invitation", args=(invitation.uuid,))
+            # TODO: move this to context data instead of displaying a success toast
+            messages.success(
+                self.request,
+                format_html(
+                    '<a href="{}">'
+                    "Click here to view your invitation for {}"
+                    "</a>&nbsp;&nbsp",
+                    url,
+                    invitation.organization,
+                ),
+            )
+
+    def get(self, request, *args, **kwargs):
         if kwargs["username"] == request.user.username:
-            invitations = Invitation.objects.get_pending().filter(user=request.user)
-            for invitation in invitations:
-                url = reverse("organizations:invitation", args=(invitation.uuid,))
-                messages.success(
-                    request,
-                    format_html(
-                        '<a href="{}">'
-                        "Click here to view your invitation for {}"
-                        "</a>&nbsp;&nbsp",
-                        url,
-                        invitation.organization,
-                    ),
-                )
+            self.get_invitations(request.user)
         return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
