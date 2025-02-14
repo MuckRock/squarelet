@@ -29,7 +29,16 @@ import time
 from urllib.parse import parse_qs, urlparse
 
 # Third Party
-from allauth.account.views import LoginView as AllAuthLoginView
+from allauth.account.views import (
+    LoginView as AllAuthLoginView,
+    ConfirmEmailView as AllAuthConfirmEmailView,
+)
+from allauth.account.mixins import NextRedirectMixin
+from allauth.account.utils import (
+    get_next_redirect_url,
+    has_verified_email,
+    send_email_confirmation
+)
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Fieldset, Layout
 
@@ -38,6 +47,7 @@ from squarelet.core.forms import ImagePreviewWidget
 from squarelet.core.layout import Field
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.organizations.models import Invitation, ReceiptEmail
+from squarelet.services.models import Service
 
 # Local
 from .models import User
@@ -152,20 +162,48 @@ class UserListView(LoginRequiredMixin, ListView):
 
 
 class LoginView(AllAuthLoginView):
-    """Subclass of All Auth Login View to add redirect ability for failed auth tokens
-
-    If the url_auth_token parameter is still present, it means the auth token failed
-    to authenticate the user.  Redirect them to the nested next parameter instead of
-    asking them to login
-    """
+    def form_valid(self, form):
+        """Override form_valid to check email verification status"""
+        response = super().form_valid(form)
+        user = form.user
+        next_url = self.get_success_url()
+        if not has_verified_email(user):
+            send_email_confirmation(self.request, user, False, user.email)
+            return redirect(
+                reverse('login_confirm_email') +
+                f"?next={next_url}"
+            )
+        return response
 
     def get(self, request, *args, **kwargs):
-        if "url_auth_token" in request.GET and "next" in request.GET:
-            parsed = urlparse(request.GET["next"])
-            params = parse_qs(parsed.query)
-            if "next" in params:
-                return redirect(f"{settings.MUCKROCK_URL}{params['next'][0]}")
+        """
+        If the url_auth_token parameter is still present, it means the auth token failed
+        to authenticate the user.  Redirect them to the nested next parameter instead of
+        asking them to login
+        """
+        next = get_next_redirect_url(request)
+        if "url_auth_token" in request.GET and next:
+            return redirect(f"{settings.MUCKROCK_URL}{next}")
         return super().get(request, *args, **kwargs)
+
+
+class EmailConfirmationView(NextRedirectMixin, TemplateView):
+    template_name = "account/login_verification_sent.html"
+    
+    def get(self, request, *args, **kwargs):
+        """If the user has a verified email, skip this page."""
+        next_url = self.get_next_url()
+        if (self.request.user.is_authenticated and has_verified_email(self.request.user)):
+            return redirect(next_url)
+        return super().get(request, args, kwargs)
+
+    def get_context_data(self, **kwargs):
+        """Add the intent, corresponding service, and next_url to the context."""
+        context = super().get_context_data()
+        context["intent"] = self.request.GET.get("intent")
+        context["service"] = Service.objects.filter(slug=context["intent"]).first()
+        context["next_url"] = self.get_next_url()
+        return context
 
 
 def mailgun_webhook(request):
