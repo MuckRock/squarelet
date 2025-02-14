@@ -17,6 +17,7 @@ def userinfo(claims, user):
     claims["bio"] = user.bio
 
     try:
+        # TODO: Replace with user.email or user.primary_email
         email = user.emailaddress_set.get(primary=True)
     except (ObjectDoesNotExist, MultipleObjectsReturned):
         claims["email"] = ""
