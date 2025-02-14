@@ -1,45 +1,323 @@
-{% extends "account/base.html" %}
+{% extends "base.html" %}
 
 {% load i18n %}
 {% load account socialaccount %}
-{% load crispy_forms_tags %}
 {% load handleintent %}
 
-{% block head_title %}{% trans "Sign In" %}{% endblock %}
+{% block title %}{% trans "Sign In" %}{% endblock %}
 
-{% block inner %}
-  {% trans "Sign in for" as intent_header %}
-  {% trans "You’ll also be able to log into" as intent_text %}
-  {% handleintent intent_header intent_text %}
+{% block css %}
+{{ block.super }}
+<style>
+  .flex {
+    display: flex;
+    gap: 0.5rem;
+  }
 
-  <!-- Start form -->
-  <form id="login_form" method="POST">
-    {% crispy form form.helper %}
-    <div class="_cls-actionBig">
-      <button>{% trans 'Log in' %}</button>
-    </div>
-    <div class="_cls-center">
-      <div class="_cls-minorInfo">
-        {% blocktrans %}
-          Forgot your password?
-        {% endblocktrans %}
-        <a href="{% url 'account_reset_password' %}">
-          <span class="_cls-action">
-            {% blocktrans %}Reset&nbsp;It{% endblocktrans %}
-          </span>
-        </a>
-      </div>
-      <div class="_cls-minorInfo">
-        {% blocktrans %}
-          Don’t have an account?
-        {% endblocktrans %}
-        <a href="{% url 'select_plan' %}">
-          <span class="_cls-action">
-            {% blocktrans %}Sign&nbsp;Up{% endblocktrans %}
-          </span>
-        </a>
-      </div>
-    </div>
-  </form>
+  .flex.row {
+    flex-direction: row;
+  }
+
+  .flex.wrap {
+    flex-wrap: wrap;
+  }
+
+  .flex.space-between {
+    justify-content: space-between;
+  }
+
+  .flex.space-between>* {
+    flex: 0 1 auto;
+  }
+
+  .flex.align-center {
+    align-items: center;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    font-weight: 600;
+    font-size: 1rem;
+    line-height: normal;
+    color: var(--black, #0c1e27);
+    font-feature-settings: "ss04" on;
+  }
+
+  .field input[type="text"],
+  .field input[type="email"],
+  .field input[type="password"] {
+    display: flex;
+    padding: 0.375rem 0.75rem;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    align-self: stretch;
+
+    border-radius: 0.5rem;
+    border: 1px solid var(--gray-3, #99a8b3);
+    background: var(--white, #fff);
+    box-shadow: 0px 2px 2px 0px #d8dee2 inset;
+
+    color: var(--black, #0c1e27);
+    font-feature-settings: "ss04" on;
+
+    /* Label */
+    font-family: var(--font-sans, "Source Sans Pro");
+    font-size: var(--font-md, 1rem);
+    font-style: normal;
+    font-weight: 400;
+    line-height: normal;
+  }
+
+  .inline-field {
+    flex-direction: row;
+    font-weight: 400;
+  }
+
+  .login-form {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3rem;
+    max-width: 24rem;
+    margin: 0 auto;
+    padding: 3rem;
+  }
+
+  .login-form .instruction {
+    margin: 0 auto;
+    text-align: center;
+    font-weight: 600;
+    max-width: 25rem;
+  }
+
+  .login-form .fields {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .password-help {
+    justify-content: space-between;
+  }
+
+  .password-help>* {
+    flex: 0 1 8rem;
+  }
+
+  @media (max-width: 24.125em) {
+    .password-help {
+      justify-content: center;
+    }
+  }
+
+  .login-form footer .button {
+    flex-basis: 8rem;
+  }
+
+  .login-form footer>* {
+    flex: 1 0 0;
+  }
+
+  .button {
+    display: flex;
+    padding: 0.375em 0.75em;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 0 0 auto;
+    border-radius: 0.5rem;
+
+    font-size: var(--font-md, 1rem);
+    color: var(--gray-1, #F5F6F7);
+    white-space: nowrap;
+    text-align: center;
+    font-feature-settings: 'ss04' on;
+
+    /* Label */
+    font-family: var(--font-sans, "Source Sans Pro");
+    font-size: var(--font-md, 1rem);
+    font-style: normal;
+    font-weight: 600;
+    line-height: normal;
+  }
+
+  .button.primary {
+    border: 1px solid var(--blue-4, #1367D0);
+    background: var(--blue-3, #4294F0);
+  }
+
+  .button.primary.elevated {
+    box-shadow: 0px 2px 0px 0px var(--blue-4, #1367D0);
+  }
+
+  .button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0px 2px 0px 0px var(--blue-4, #1367D0);
+  }
+
+  .button:active {
+    box-shadow: none;
+    transform: translateY(0);
+  }
+
+  .ghost.button {
+    display: flex;
+    overflow: hidden;
+    padding: 0.375eem 0.75eem;
+    border: none;
+    border-radius: 0.5rem;
+    justify-content: center;
+    align-items: center;
+    gap: 0.375rem;
+
+    background: transparent;
+    color: var(--blue-3, #4294F0);
+    text-align: center;
+    text-decoration: none;
+    font-feature-settings: 'ss04' on;
+
+    /* Label */
+    font-family: var(--font-sans, "Source Sans Pro");
+    font-size: var(--font-md, 1rem);
+    font-style: normal;
+    font-weight: 600;
+    line-height: normal;
+
+    transition: all 0.2s linear;
+  }
+
+
+  .ghost.button.small {
+    font-size: var(--font-sm, 0.875rem);
+  }
+
+  .button.ghost:hover,
+  .button.ghost:focus {
+    color: var(--blue-4, #1367D0);
+    background-color: var(--blue-2, #B5CEED);
+    transform: none;
+    box-shadow: none;
+    transition: all 0.2s linear;
+  }
+
+  .errorlist {
+    color: var(--red-4, #5D275F);
+    background: var(--red-1, #FAE8EE);
+    list-style-type: none;
+    padding: 0.5rem 1rem;
+    border-radius: 0.25rem;
+    font-weight: 600;
+  }
+
+  .login-layout {
+    flex: 1;
+    gap: 0;
+    display: flex;
+    flex-flow: row-reverse wrap;
+  }
+
+  .login-layout h2 {
+    font-weight: 600;
+    text-align: center;
+    font-size: var(--font-lg, 1.25rem);
+  }
+
+  .login-layout>* {
+    flex: 1 1 28rem;
+  }
+
+  .form-wrapper {
+    display: flex;
+    align-items: center;
+  }
+
+  .service-gallery-wrapper {
+    max-height: 90vh;
+    overflow-y: auto;
+    background: linear-gradient(180deg, #1367D0 0%, #4294F0 100%);
+  }
+
+  .service-gallery {
+    display: flex;
+    max-width: 40rem;
+    margin: 0 auto;
+    padding: 3rem 4rem;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    color: var(--blue-1, #EEF3F9);
+  }
+
+  .service-gallery h2 {
+    margin: 0 auto;
+    color: var(--blue-1, #EEF3F9);
+    text-align: center;
+    font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
+    font-family: var(--font-sans, "Source Sans Pro");
+    font-size: var(--font-lg, 1.25rem);
+    font-style: normal;
+    font-weight: 600;
+    line-height: 2rem;
+    max-width: 33rem;
+  }
+</style>
 {% endblock %}
 
+{% block content %}
+<div class="flex login-layout">
+  <div class="form-wrapper">
+    <form class="login-form" id="login_form" method="POST">
+      {% sign_in_message %}
+
+      <main class="fields">
+        {% csrf_token %}
+        {{form.non_field_errors}}
+        <label class="login text field">
+          {% trans 'Username or email' %}
+          {{form.login}}
+          {{form.login.errors}}
+        </label>
+        <div class="field">
+          <label class="password password field">
+            {% trans 'Password' %}
+            {{form.password}}
+            {{form.password.errors}}
+          </label>
+          <div class="flex row wrap align-center password-help">
+            <label class="remember checkbox field inline-field">
+              {{form.remember}}
+              {% trans 'Remember me' %}
+            </label>
+            <a class="button primary small ghost" href="{% url 'account_reset_password' %}">
+              {% blocktrans %}
+              Forgot your password?
+              {% endblocktrans %}
+            </a>
+          </div>
+        </div>
+      </main>
+
+      <footer class="flex row wrap">
+        <button class="button primary">{% trans 'Sign in' %}</button>
+        <a class="button primary ghost" href="{% url 'select_plan' %}">
+          {% blocktrans %}Create an account{% endblocktrans %}
+        </a>
+      </footer>
+    </form>
+  </div>
+  <div class="service-gallery-wrapper">
+    <div class="service-gallery">
+      <h2>
+        {% blocktrans %}
+        Your MuckRock account is a passport to essential services that support research, reporting, collaboration and civic engagement. Your MuckRock account gives you access to tools and resources from MuckRock and our trusted partners.
+        {% endblocktrans %}
+      </h2>
+      {% services_list %}
+    </div>
+  </div>
+</div>
+{% endblock %}

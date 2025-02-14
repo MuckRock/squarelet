@@ -1,0 +1,7 @@
+{
+  "python.analysis.extraPaths": ["/app"],
+  "python.defaultInterpreterPath": "/usr/local/bin/python",
+  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.autoImportCompletions": true,
+  "python.REPL.enableREPLSmartSend": false
+}

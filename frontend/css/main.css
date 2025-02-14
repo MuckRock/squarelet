@@ -55,9 +55,10 @@ a._cls-nostyle {
 }
 
 ._cls-content {
+  width: 100%;
   max-width: 480px;
   margin: 0 auto;
-  padding: 0 1em;
+  padding: 1em;
 }
 
 ._cls-heading {
@@ -547,9 +548,9 @@ nav a:hover ._cls-serviceName {
 }
 
 ._cls-main {
+  display: flex;
+  flex-direction: column;
   flex: 1 1 auto;
-  padding-top: 1.5em;
-  padding-bottom: 2.5em;
 }
 
 ._cls-fieldInput {
@@ -1462,4 +1463,119 @@ textarea {
 
 ._cls-spacer {
   margin: 1rem 0;
+}
+
+.intent-container {
+
+}
+
+.intent-container h2 {
+  font-weight: 600;
+  text-align: center;
+  font-size: var(--font-lg, 1.25rem);
+
+}
+
+.service-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.service-info h3 {
+  margin: 0;
+  color: #000;
+  text-align: center;
+  font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
+
+  /* Title */
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-size: var(--font-xl, 1.5rem);
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+}
+
+.service-info img {
+  height: 5.25rem;
+  width: 5.25rem;
+  border-radius: 25%;
+  border: 2px solid var(--white, #ffffff);
+  box-shadow: 0px 2px 4px 2px var(--shadow, rgba(30, 48, 56, 0.15));
+}
+
+.service-info .service-owner {
+  margin: 0;
+
+  color: var(--gray-4, #5C717C);
+  text-align: center;
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-size: var(--font-md, 1rem);
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+}
+
+.service-providers {
+  width: 100%;
+  margin: 3rem 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 3rem;
+}
+
+.service-provider {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.service-provider * {
+  margin: 0;
+}
+
+.service-provider img {
+  display: block;
+  width: 2.625rem;
+  height: 2.625rem;
+  border: 2px solid #fff;
+  border-radius: 25%;
+  box-shadow: 0px 2px 4px var(--shadow, rgba(30, 48, 56, 0.15));
+  background: #fff;
+  opacity: .95;
+}
+
+.service-provider-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  align-self: stretch;
+}
+
+.service-provider h3 {
+  color: currentcolor;
+  align-self: stretch;
+  font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
+
+  /* Title */
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-size: var(--font-xl, 1.5rem);
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+}
+
+.service-provider p {
+  color: currentcolor;
+  opacity: 0.7;
+
+  /* Small Label */
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-size: var(--font-sm, 0.875rem);
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
 }
