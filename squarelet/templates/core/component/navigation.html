@@ -13,12 +13,6 @@
     </nav>
     <div class="_cls-navMenu">
       <nav class="_cls-navItems _cls-domainItems">
-        {% if settings.ERH_NAV_ENABLED %}
-        <a href="{% url 'erh_landing' %}" class="_cls-navItem">
-          <img src="{% static 'icons/erh.svg' %}">
-          Knight Election Hub
-        </a>
-        {% endif %}
         <a href="{% url 'organizations:list' %}" class="_cls-navItem">
           <img src="{% static 'icons/org.svg' %}">
           Organizations
