@@ -103,9 +103,10 @@ click-repl==0.2.0
     #   celery
 collectfast==2.2.0
     # via -r requirements/production.in
-cryptography==3.4.8
+cryptography==44.0.1
     # via
     #   -r requirements/base.txt
+    #   fido2
     #   pyjwt
 cssselect==1.0.3
     # via
@@ -154,7 +155,7 @@ django==4.2
     #   djangorestframework-simplejwt
     #   dogslow
     #   drf-nested-routers
-django-allauth[socialaccount]==65.0.2
+django-allauth[mfa,socialaccount]==65.0.2
     # via -r requirements/base.txt
 django-anymail[mailgun]==8.6
     # via -r requirements/production.in
@@ -223,6 +224,10 @@ executing==0.9.1
     # via
     #   -r requirements/base.txt
     #   stack-data
+fido2==1.2.0
+    # via
+    #   -r requirements/base.txt
+    #   django-allauth
 fonttools[woff]==4.38.0
     # via
     #   -r requirements/base.txt
@@ -390,6 +395,10 @@ pytz==2024.2
     # via
     #   -r requirements/base.txt
     #   djangorestframework
+qrcode==8.0
+    # via
+    #   -r requirements/base.txt
+    #   django-allauth
 rapidfuzz==3.9.1
     # via
     #   -r requirements/base.txt

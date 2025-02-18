@@ -74,6 +74,7 @@ THIRD_PARTY_APPS = [
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
+    "allauth.mfa",
     "crispy_forms",
     "dal",
     "dal_select2",
@@ -367,6 +368,8 @@ ACCOUNT_FORMS = {
 }
 ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = False
 ACCOUNT_SESSION_REMEMBER = None
+
+MFA_ADAPTER = "allauth.mfa.adapter.DefaultMFAAdapter"
 
 DIGEST_EMAILS = env.list("DIGEST_EMAILS", default=[])
 
