@@ -7,7 +7,7 @@ from django.views import defaults as default_views
 from django.views.generic import TemplateView
 
 # Third Party
-from rest_framework import permissions
+from allauth.account.decorators import secure_admin_login
 from rest_framework_nested import routers
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
@@ -27,6 +27,9 @@ from squarelet.users.viewsets import (
     UrlAuthTokenViewSet,
     UserViewSet,
 )
+
+admin.autodiscover()
+admin.site.login = secure_admin_login(admin.site.login)
 
 router = routers.DefaultRouter()
 router.register("users", UserViewSet)
