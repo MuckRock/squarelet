@@ -332,10 +332,11 @@ a._cls-nostyle {
 
 ._cls-action {
   font-weight: 600;
-  font-size: 11px;
+  font-size: var(--font-xs, 12px);
   letter-spacing: 0.08em;
-  color: #168ee5;
+  color: var(--blue-4);
   text-transform: uppercase;
+  text-decoration: none;
   border: none;
   background: none;
   padding: 0;
@@ -490,8 +491,18 @@ form,
 ._cls-footer {
   flex: 0 1 auto;
   padding: 3rem 0;
-  background: #333c47;
-  color: #ffffff9a;
+  background: var(--gray-5);
+  color: var(--gray-2);
+}
+
+._cls-footer a {
+  color: currentColor;
+  text-decoration-color: var(--gray-3);
+}
+
+._cls-footer a:hover {
+  color: currentColor;
+  background: var(--gray-4);
 }
 
 ._cls-rightBump {
@@ -537,9 +548,9 @@ form,
 }
 
 ._cls-cardAction button {
-  background: #3a8fef;
-  color: white;
-  font-family: "Source Sans 3", "Source Sans Pro";
+  background: var(--blue-3);
+  color: var(--white);
+  font-family: var(--font-sans);
   font-weight: 600;
   padding: 1em 2em;
   font-size: 1em;
@@ -547,8 +558,12 @@ form,
   border-radius: 100px;
   outline: none;
   border: none;
-  box-shadow: 0 3px 0px #b2ceff;
+  box-shadow: 0 3px 0px var(--blue-2);
   max-width: 300px;
+}
+
+._cls-cardAction button:hover {
+  background: var(--blue-4);
 }
 
 ._cls-expandedContent {
@@ -567,13 +582,13 @@ form,
 }
 
 ._cls-actionBig button {
-  background: #3a8fef;
+  background: var(--blue-3);
   border-radius: 8px;
   font-weight: 600;
   font-size: 15px;
   text-align: center;
   letter-spacing: 0.14em;
-  color: #ffffff;
+  color: var(--white);
   text-transform: uppercase;
   border: none;
   width: 80%;
@@ -582,6 +597,10 @@ form,
   margin: 1.5em 0 2em 0;
   box-shadow: 0 3px 0px #b2ceff;
   outline: none;
+}
+
+._cls-actionBig button:hover {
+  background: var(--blue-4);
 }
 
 ._cls-actionBig {
@@ -596,13 +615,12 @@ form,
 button {
   cursor: pointer;
   transition: all 0.2s;
+  font-weight: inherit;
+  font-family: var(--font-sans);
 }
 
 button:hover {
-  background: #3a8fefe3;
-  box-shadow:
-    0 3px 0px #c2d8ff,
-    0 2px 3px #00000052;
+  background: var(--blue-1);
 }
 
 button:active {
@@ -774,18 +792,22 @@ nav a:hover ._cls-serviceName {
 }
 
 ._cls-actionSmall button {
-  background: #3a8fef;
+  background: var(--blue-3);
   border-radius: 4px;
   font-weight: 600;
   font-size: 14px;
   text-align: center;
-  color: #ffffff;
+  color: var(--white);
   border: none;
   width: 160px;
   line-height: 2.5em;
   height: 2.5em;
-  box-shadow: 0 3px 0px #b2ceff;
+  box-shadow: 0 3px 0px var(--blue-2);
   outline: none;
+}
+
+._cls-actionSmall button:hover {
+  background: var(--blue-4);
 }
 
 ._cls-actionSmall._cls-actionSmaller button {
@@ -806,16 +828,24 @@ nav a:hover ._cls-serviceName {
   margin-top: 1em;
 }
 
-._cls-services li {
+.cls-services li {
   display: flex;
-  margin: 0.6em 0 0.6em 0.3em;
+  
 }
+
+._cls-services li a {
+  display: flex;
+  gap: 0.5em;
+  padding: 0.6em 0 0.6em 0.3em;
+}
+
 
 ._cls-services ul {
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
+  list-style-type: none;
 }
 
 ._cls-serviceName {
@@ -830,7 +860,7 @@ nav a:hover ._cls-serviceName {
 
 ._cls-largeContent {
   max-width: 1000px;
-  margin: auto;
+  margin: 2em auto;
   padding: 1em;
 }
 
@@ -978,9 +1008,8 @@ nav a:hover ._cls-serviceName {
 }
 
 ._cls-inlineAvatar {
-  display: inline-block;
-  vertical-align: middle;
-  margin-right: 0.5em;
+  display: inline-flex;
+  align-items: center;
 }
 
 ._cls-profList {
@@ -997,11 +1026,18 @@ nav a:hover ._cls-serviceName {
     0 1px 3px #00000021;
   padding: 0.5em 1em;
   transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
 }
 
 ._cls-profList li:hover {
   background: #e6eaec;
   box-shadow: 0 2px 3px #00000036;
+}
+
+._cls-profList a {
+  text-decoration: none;
 }
 
 ._cls-infoPreSpaced {
@@ -1018,11 +1054,6 @@ nav a:hover ._cls-serviceName {
 
 ._cls-inlineInlineForm {
   display: inline;
-}
-
-._cls-action:hover {
-  background: none;
-  box-shadow: none;
 }
 
 ._cls-profList li._cls-pendingInvite {
@@ -1070,7 +1101,6 @@ nav a:hover ._cls-serviceName {
 }
 
 ._cls-altAction {
-  border-bottom: dashed 1px #888888 !important;
   margin-left: 1em;
 }
 
@@ -1169,6 +1199,7 @@ h3 {
 
 ._cls-inlineAvatar img,
 ._cls-avatar img {
+  display: block;
   border-radius: 18%;
   box-shadow: 0 0 2px #0000005e;
   vertical-align: middle;
@@ -1259,7 +1290,6 @@ button._cls-altAction {
   background: none;
   box-shadow: none;
   border-radius: 0;
-  color: #464646;
   padding: 2px !important;
   margin-left: 0.6em;
 }
