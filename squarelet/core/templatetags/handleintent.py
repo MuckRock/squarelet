@@ -1,10 +1,7 @@
 # Django
 from django import template
-from django.conf import settings
-from django.utils.translation import gettext_lazy as _
 
 # Standard Library
-from collections import OrderedDict
 from urllib.parse import parse_qs, urlparse
 
 # Squarelet

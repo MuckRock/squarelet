@@ -220,13 +220,6 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         """A user's primary email object"""
         return self.emailaddress_set.filter(primary=True).first()
 
-    # This memoized property will only query for
-    # the primary email address once per request
-    @mproperty
-    def is_email_verified(self):
-        """Is user.email a verified address?"""
-        return EmailAddress.objects.filter(user=self, email=user.email, verified=True).exists()
-
     def wrap_url(self, url, **extra):
         """Wrap a URL for autologin"""
         if self.use_autologin:

@@ -26,13 +26,9 @@ import hashlib
 import hmac
 import json
 import time
-from urllib.parse import parse_qs, urlparse
 
 # Third Party
-from allauth.account.views import (
-    LoginView as AllAuthLoginView,
-    ConfirmEmailView as AllAuthConfirmEmailView,
-)
+from allauth.account.views import LoginView as AllAuthLoginView
 from allauth.account.mixins import NextRedirectMixin
 from allauth.account.utils import (
     get_next_redirect_url,
@@ -181,19 +177,22 @@ class LoginView(AllAuthLoginView):
         to authenticate the user.  Redirect them to the nested next parameter instead of
         asking them to login
         """
-        next = get_next_redirect_url(request)
-        if "url_auth_token" in request.GET and next:
-            return redirect(f"{settings.MUCKROCK_URL}{next}")
+        next_url = get_next_redirect_url(request)
+        if "url_auth_token" in request.GET and next_url:
+            return redirect(f"{settings.MUCKROCK_URL}{next_url}")
         return super().get(request, *args, **kwargs)
 
 
 class EmailConfirmationView(NextRedirectMixin, TemplateView):
     template_name = "account/login_verification_sent.html"
-    
+
     def get(self, request, *args, **kwargs):
         """If the user has a verified email, skip this page."""
         next_url = self.get_next_url()
-        if (self.request.user.is_authenticated and has_verified_email(self.request.user)):
+        if (
+            self.request.user.is_authenticated and
+            has_verified_email(self.request.user)
+        ):
             return redirect(next_url)
         return super().get(request, args, kwargs)
 

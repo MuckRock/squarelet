@@ -182,7 +182,7 @@ class Organization(AvatarMixin, models.Model):
         blank=True,
     )
 
-    # Every user has an individual organization 
+    # Every user has an individual organization
     # created when creating an account. Its UUID
     # is used to identify the user across services.
     individual = models.BooleanField(
