@@ -28,13 +28,13 @@ import json
 import time
 
 # Third Party
-from allauth.account.views import LoginView as AllAuthLoginView
 from allauth.account.mixins import NextRedirectMixin
 from allauth.account.utils import (
     get_next_redirect_url,
     has_verified_email,
     send_email_confirmation,
 )
+from allauth.account.views import LoginView as AllAuthLoginView
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Fieldset, Layout
 
