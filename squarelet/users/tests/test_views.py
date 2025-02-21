@@ -174,7 +174,7 @@ class TestLoginView(ViewTestMixin):
         # Call view and confirm response
         response = self.view.as_view()(request)
         assert response.status_code == 302
-        assert response.url == f"/accounts/login/confirm-email/"
+        assert response.url == "/accounts/login/confirm-email/"
         mock_send.assert_called_once_with(request, user, False, user.email)
 
     def test_verified_email(self, rf, user_factory):
