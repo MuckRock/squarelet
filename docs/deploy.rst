@@ -28,10 +28,6 @@ Many settings are controlled through environment variables, as well as confident
 
     This is used on staging to specify where all outgoing emails should be sent.  See :envvar:`USE_BANDIT` for more information.
 
-.. envvar:: COMPRESS_ENABLED
-
-    Enables `django compressor <https://django-compressor.readthedocs.io/en/latest/settings/#django.conf.settings.COMPRESS_ENABLED>`_.  This should generally be set to ``True``.
-
 .. envvar:: DATABASE_URL
 
     This is set by the :ref:`Heroku Postgres <heroku postgres>` add on and should not be edited.
