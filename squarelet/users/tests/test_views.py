@@ -122,12 +122,12 @@ class TestLoginView(ViewTestMixin):
         # Create user and confirm their email is unverified
         user = user_factory(password="password", email_verified=False)
         assert not has_verified_email(user)
-        
+
         # Set up request
         data = {"login": user.email, "password": "password"}
         request = rf.post(f"{self.url}?next={next_url}&intent={intent}", data)
         request.user = user
-        
+
         # Mock email confirmation
         mock_send = mocker.patch("squarelet.users.views.send_email_confirmation")
 
