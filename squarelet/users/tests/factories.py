@@ -35,10 +35,7 @@ class UserFactory(factory.django.DjangoModelFactory):
         """Creates and verifies EmailAddress for user"""
         if create:
             email_address = EmailAddress.objects.create(
-                user=self,
-                email=self.email,
-                primary=True,
-                verified=bool(extracted)
+                user=self, email=self.email, primary=True, verified=bool(extracted)
             )
             self.email = email_address.email
 

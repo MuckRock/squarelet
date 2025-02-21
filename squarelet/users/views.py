@@ -33,7 +33,7 @@ from allauth.account.mixins import NextRedirectMixin
 from allauth.account.utils import (
     get_next_redirect_url,
     has_verified_email,
-    send_email_confirmation
+    send_email_confirmation,
 )
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Fieldset, Layout
@@ -158,18 +158,28 @@ class UserListView(LoginRequiredMixin, ListView):
 
 
 class LoginView(AllAuthLoginView):
-    def form_valid(self, form):
-        """Override form_valid to check email verification status"""
-        response = super().form_valid(form)
-        user = form.user
-        next_url = self.get_success_url()
-        if not has_verified_email(user):
-            send_email_confirmation(self.request, user, False, user.email)
-            return redirect(
-                reverse('login_confirm_email') +
-                f"?next={next_url}"
-            )
-        return response
+    def dispatch(self, request, *args, **kwargs):
+        """Override form_valid to provide onboarding steps, if needed"""
+        is_post = request.method == "POST"  # when logging in, a POST is sent
+        user = request.user
+        if is_post and user.is_authenticated:
+            # Check the user's account status before redirecting
+            next_url = self.get_success_url()
+            intent = request.GET.get("intent")
+            if not has_verified_email(user):
+                # If the user has not verified their email,
+                # send a new confirmation email
+                send_email_confirmation(request, user, False, user.email)
+                url = (
+                    reverse("login_confirm_email") + f"?next={next_url}"
+                    if next_url
+                    else reverse("login_confirm_email")
+                )
+                if intent:
+                    url += f"&intent={intent}"
+                return redirect(url)
+            # provide other onboarding checks and handlers here
+        return super().dispatch(request, *args, **kwargs)
 
     def get(self, request, *args, **kwargs):
         """
@@ -189,10 +199,7 @@ class EmailConfirmationView(NextRedirectMixin, TemplateView):
     def get(self, request, *args, **kwargs):
         """If the user has a verified email, skip this page."""
         next_url = self.get_next_url()
-        if (
-            self.request.user.is_authenticated and
-            has_verified_email(self.request.user)
-        ):
+        if self.request.user.is_authenticated and has_verified_email(self.request.user):
             return redirect(next_url)
         return super().get(request, args, kwargs)
 
