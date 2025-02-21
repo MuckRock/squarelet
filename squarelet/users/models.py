@@ -78,7 +78,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(
         _("email"),
         unique=True,  # All non-NULL values must be unique
-        null=True,    # PostgresQL treats each NULL as unique
+        null=True,  # PostgresQL treats each NULL as unique
         help_text=_("The user's email address"),
         db_collation="case_insensitive",
     )
