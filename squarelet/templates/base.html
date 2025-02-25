@@ -2,170 +2,170 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<head>
-  <meta charset="utf-8">
-  <meta http-equiv="x-ua-compatible" content="ie=edge">
-  <title>{% block title %}MuckRock accounts{% endblock title %}</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="">
-  <meta name="author" content="">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <title>{% block title %}MuckRock accounts{% endblock title %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
 
-  <!-- HTML5 shim, for IE6-8 support of HTML5 elements -->
-  <!--[if lt IE 9]>
-      <script src="https://cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.min.js"></script>
-    <![endif]-->
+    <!-- HTML5 shim, for IE6-8 support of HTML5 elements -->
+    <!--[if lt IE 9]>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.min.js"></script>
+      <![endif]-->
 
-  {% block sharing %}
-  {% endblock %}
+    {% block sharing %}
+    {% endblock %}
 
-  <link rel="apple-touch-icon" sizes="180x180" href="{% static 'images/favicons/apple-touch-icon.png' %}">
-  <link rel="icon" type="image/png" sizes="32x32" href="{% static 'images/favicons/favicon-32x32.png' %}">
-  <link rel="icon" type="image/png" sizes="16x16" href="{% static 'images/favicons/favicon-16x16.png' %}">
-  <link rel="manifest" href="{% static 'images/favicons/site.webmanifest' %}">
-  <link rel="mask-icon" href="{% static 'images/favicons/safari-pinned-tab.svg' %}" color="#168ee5">
-  <link rel="shortcut icon" href="{% static 'images/favicons/favicon.ico' %}">
-  <meta name="msapplication-TileColor" content="#da532c">
-  <meta name="msapplication-config" content="{% static 'images/favicons/browserconfig.xml' %}">
-  <meta name="theme-color" content="#ffffff">
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'images/favicons/apple-touch-icon.png' %}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'images/favicons/favicon-32x32.png' %}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{% static 'images/favicons/favicon-16x16.png' %}">
+    <link rel="manifest" href="{% static 'images/favicons/site.webmanifest' %}">
+    <link rel="mask-icon" href="{% static 'images/favicons/safari-pinned-tab.svg' %}" color="#168ee5">
+    <link rel="shortcut icon" href="{% static 'images/favicons/favicon.ico' %}">
+    <meta name="msapplication-TileColor" content="#da532c">
+    <meta name="msapplication-config" content="{% static 'images/favicons/browserconfig.xml' %}">
+    <meta name="theme-color" content="#ffffff">
 
-  <link href="https://fonts.googleapis.com/css?family=Lato:400,700" rel="stylesheet">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,200..900;1,200..900&display=swap"
-    rel="stylesheet">
-  {% block css %}
-  <!-- Your stuff: Third-party CSS libraries go here -->
-  <link href="{% static 'hijack/hijack-styles.css' %}" rel="stylesheet">
-  {% endblock %}
+    <link href="https://fonts.googleapis.com/css?family=Lato:400,700" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,200..900;1,200..900&display=swap"
+      rel="stylesheet">
+    {% block css %}
+    <!-- Your stuff: Third-party CSS libraries go here -->
+    <link href="{% static 'hijack/hijack-styles.css' %}" rel="stylesheet">
+    {% endblock %}
 
-  {% if settings.USE_PLAUSIBLE %}
-  <script defer data-domain="accounts.muckrock.com" src="https://plausible.io/js/script.tagged-events.js"></script>
-  {% endif %}
+    {% if settings.USE_PLAUSIBLE %}
+    <script defer data-domain="accounts.muckrock.com" src="https://plausible.io/js/script.tagged-events.js"></script>
+    {% endif %}
 
-  {% vite_hmr_client %}
+    {% vite_hmr_client %}
 
-  {# this will inject both main.ts and main.css #}
-  {% vite_asset 'frontend/main.ts' %}
+    {# this will inject both main.ts and main.css #}
+    {% vite_asset 'frontend/main.ts' %}
 
-</head>
+  </head>
 
-<body>
+  <body>
 
-  {% hijack_notification %}
+    {% hijack_notification %}
 
-  {% include "core/component/navigation.html" %}
+    {% include "core/component/navigation.html" %}
 
-  <div class="_cls-main">
+    <div class="_cls-main">
 
 
-    <div class="_cls-alerts">
-      {% if payment_failed_organizations %}
-      <div class="_cls-alert">
-        <div class="alert-error">
-          <span class="_cls-alertIcon"></span>
-          <span class="_cls-middleAlign">
-            A recent charge made to your credit card has failed.
-            {% for organization in payment_failed_organizations %}
-            <p>
-              {% if organization.individual %}
-              <a href="{% url " users:payment" %}">Update your billing info.</a>
-              {% else %}
-              <a href="{% url " organizations:payment" slug=organization.slug %}">
-                Update the billing info for {{ organization.name }}.
-              </a>
-              {% endif %}
-            </p>
-            {% endfor %}
-          </span>
-          <span class="_cls-close" onclick="dismissAlert(this)">
-            Dismiss
-          </span>
+      <div class="_cls-alerts">
+        {% if payment_failed_organizations %}
+        <div class="_cls-alert">
+          <div class="alert-error">
+            <span class="_cls-alertIcon"></span>
+            <span class="_cls-middleAlign">
+              A recent charge made to your credit card has failed.
+              {% for organization in payment_failed_organizations %}
+              <p>
+                {% if organization.individual %}
+                <a href="{% url " users:payment" %}">Update your billing info.</a>
+                {% else %}
+                <a href="{% url " organizations:payment" slug=organization.slug %}">
+                  Update the billing info for {{ organization.name }}.
+                </a>
+                {% endif %}
+              </p>
+              {% endfor %}
+            </span>
+            <span class="_cls-close" onclick="dismissAlert(this)">
+              Dismiss
+            </span>
+          </div>
         </div>
-      </div>
-      {% endif %}
-      {% if request.user.email_failed %}
-      <div class="_cls-alert">
-        <div class="alert-error">
-          <span class="_cls-alertIcon"></span>
-          <span class="_cls-middleAlign">
-            We received an error trying to email you, please
-            <a href="{% url " account_email" %}">update your email.</a>
-          </span>
+        {% endif %}
+        {% if request.user.email_failed %}
+        <div class="_cls-alert">
+          <div class="alert-error">
+            <span class="_cls-alertIcon"></span>
+            <span class="_cls-middleAlign">
+              We received an error trying to email you, please
+              <a href="{% url " account_email" %}">update your email.</a>
+            </span>
+          </div>
         </div>
-      </div>
-      {% endif %}
+        {% endif %}
 
-      {% if messages %}
-      {% for message in messages %}
-      <div class="_cls-alert">
-        <div class="{% if message.tags %}alert-{{ message.tags }}{% endif %}">
-          <span class="_cls-alertIcon"></span>
-          <span class="_cls-middleAlign">{{ message|safe }}</span>
-          <span class="_cls-close" onclick="dismissAlert(this)">
-            Dismiss
-          </span>
+        {% if messages %}
+        {% for message in messages %}
+        <div class="_cls-alert">
+          <div class="{% if message.tags %}alert-{{ message.tags }}{% endif %}">
+            <span class="_cls-alertIcon"></span>
+            <span class="_cls-middleAlign">{{ message|safe }}</span>
+            <span class="_cls-close" onclick="dismissAlert(this)">
+              Dismiss
+            </span>
+          </div>
         </div>
+        {% endfor %}
+        {% endif %}
       </div>
-      {% endfor %}
-      {% endif %}
-    </div>
 
-    <script>
-      function dismissAlert(target) {
-        const alert = target.parentElement;
-        const container = alert.parentElement;
+      <script>
+        function dismissAlert(target) {
+          const alert = target.parentElement;
+          const container = alert.parentElement;
 
-        // Remove the alert from the container
-        alert.remove();
+          // Remove the alert from the container
+          alert.remove();
 
-        // Check if the container has no more alerts
-        if (container.children.length === 0) {
-          container.remove();
+          // Check if the container has no more alerts
+          if (container.children.length === 0) {
+            container.remove();
+          }
         }
-      }
-    </script>
+      </script>
 
-    {% block content %}
-    <div class="_cls-content">
-      <h1>Welcome to MuckRock Accounts</h1>
+      {% block content %}
+      <div class="_cls-content">
+        <h1>Welcome to MuckRock Accounts</h1>
+      </div>
+      {% endblock content %}
+
+    </div> <!-- /container -->
+
+    <div class="_cls-footer">
+      <p>
+        MuckRock Accounts let you log in and manage users, payments, and
+        organizations for MuckRock, DocumentCloud, FOIAMachine, Big Local News, and Agenda Watch.
+      </p>
+      <ul>
+        <li>
+          <a href="{{ settings.MUCKROCK_URL }}/privacy-policy/">
+            Privacy Policy
+          </a>
+        </li>
+        <li><a href="{{ settings.MUCKROCK_URL }}/tos/">Terms of Services</a></li>
     </div>
-    {% endblock content %}
 
-  </div> <!-- /container -->
+    {% block modal %}{% endblock modal %}
 
-  <div class="_cls-footer">
-    <p>
-      MuckRock Accounts let you log in and manage users, payments, and
-      organizations for MuckRock, DocumentCloud, FOIAMachine, Big Local News, and Agenda Watch.
-    </p>
-    <ul>
-      <li>
-        <a href="{{ settings.MUCKROCK_URL }}/privacy-policy/">
-          Privacy Policy
-        </a>
-      </li>
-      <li><a href="{{ settings.MUCKROCK_URL }}/tos/">Terms of Services</a></li>
-  </div>
+    <!-- Javascript -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    {% block javascript %}
 
-  {% block modal %}{% endblock modal %}
+    <!-- Your stuff: Third-party javascript libraries go here -->
+    <script src="https://js.stripe.com/v3/"></script>
 
-  <!-- Javascript -->
-  <!-- Placed at the end of the document so the pages load faster -->
-  {% block javascript %}
+    {% block extra_javascript %}{% endblock extra_javascript %}
 
-  <!-- Your stuff: Third-party javascript libraries go here -->
-  <script src="https://js.stripe.com/v3/"></script>
+    <!-- place project specific Javascript in this file -->
+    {% comment %}
+    {% compress js %}
+    <script src="{% static 'js/main.js' %}"></script>
+    {% endcompress %}
+    {% endcomment %}
 
-  {% block extra_javascript %}{% endblock extra_javascript %}
-
-  <!-- place project specific Javascript in this file -->
-  {% comment %}
-  {% compress js %}
-  <script src="{% static 'js/main.js' %}"></script>
-  {% endcompress %}
-  {% endcomment %}
-
-  {% endblock javascript %}
-</body>
+    {% endblock javascript %}
+  </body>
 
 </html>
