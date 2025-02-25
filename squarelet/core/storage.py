@@ -1,10 +1,8 @@
-# Django
-from django.core.files.storage import storages
-
 # Third Party
 from storages.backends.s3boto3 import S3Boto3Storage
 
 # pylint: disable=abstract-method
+
 
 class MediaRootS3BotoStorage(S3Boto3Storage):
     location = "media"
