@@ -128,14 +128,11 @@ STORAGES = {
         "BACKEND": "squarelet.core.storage.MediaRootS3BotoStorage",
     },
     "staticfiles": {
-        "BACKEND": "squarelet.core.storage.CachedS3Boto3Storage",
+        "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
         "OPTIONS": {
             "bucket_name": AWS_STORAGE_BUCKET_NAME,
             "location": f"b/{CI_GIT_BRANCH}" if CI_GIT_BRANCH else "static",
         },
-    },
-    "compressor": {
-        "BACKEND": "compressor.storage.CompressorFileStorage",
     },
 }
 
