@@ -11,7 +11,6 @@
 <div class="_cls-content">
   {% trans "Create an account for" as intent_header %}
   {% trans "You’ll also be able to sign into" as intent_text %}
-  {% handleintent intent_header intent_text %}
   <p class="_cls-info">
     {% trans "Already have an account?" %}
     <a href="{% url "account_login" %}">
