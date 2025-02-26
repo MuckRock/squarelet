@@ -160,15 +160,19 @@ class UserListView(LoginRequiredMixin, ListView):
 class LoginView(AllAuthLoginView):
     def dispatch(self, request, *args, **kwargs):
         """Override form_valid to provide onboarding steps, if needed"""
-        is_post = request.method == "POST"  # when logging in, a POST is sent
-        user = request.user
+        # handle the request as usual, but hold onto the response
+        response = super().dispatch(request, *args, **kwargs)
+        # when logging in, a POST is sent
+        is_post = request.method == "POST"
+        # if the login succeeded, then the user is authenticated
+        user = self.request.user
         if is_post and user.is_authenticated:
-            # Check the user's account status before redirecting
             next_url = self.get_success_url()
             intent = request.GET.get("intent")
+            # Check the user's account status
             if not has_verified_email(user):
                 # If the user has not verified their email,
-                # send a new confirmation email
+                # send a new confirmation email and redirect
                 send_email_confirmation(request, user, False, user.email)
                 url = (
                     reverse("login_confirm_email") + f"?next={next_url}"
@@ -179,7 +183,8 @@ class LoginView(AllAuthLoginView):
                     url += f"&intent={intent}"
                 return redirect(url)
             # provide other onboarding checks and handlers here
-        return super().dispatch(request, *args, **kwargs)
+        # return the default response
+        return response
 
     def get(self, request, *args, **kwargs):
         """
