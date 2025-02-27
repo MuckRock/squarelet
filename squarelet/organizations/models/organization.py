@@ -137,7 +137,7 @@ class Organization(AvatarMixin, models.Model):
         choices=COUNTRY_CHOICES,
     )
 
-    # TODO: remove after retiring Election Hub (#229)
+    # originally for the Election Resources hub, now keeping for posterity
     hub_eligible = models.BooleanField(
         _("hub eligible"),
         blank=True,
@@ -277,7 +277,6 @@ class Organization(AvatarMixin, models.Model):
     def email(self):
         """Get an email for this organization"""
         if self.individual:
-            # Why not primary email?
             return self.user.email
 
         # If a group organization, first try to get a receipt email
