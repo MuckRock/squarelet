@@ -26,6 +26,7 @@ import hashlib
 import hmac
 import json
 import time
+from urllib.parse import urlencode
 
 # Third Party
 from allauth.account.mixins import NextRedirectMixin
@@ -157,9 +158,9 @@ class UserListView(LoginRequiredMixin, ListView):
     model = User
 
 
-class LoginView(AllAuthLoginView):
+class LoginView(AllAuthLoginView):        
     def dispatch(self, request, *args, **kwargs):
-        """Override form_valid to provide onboarding steps, if needed"""
+        """Override dispatch to provide onboarding steps, if needed"""
         # handle the request as usual, but hold onto the response
         response = super().dispatch(request, *args, **kwargs)
         # when logging in, a POST is sent
@@ -174,13 +175,14 @@ class LoginView(AllAuthLoginView):
                 # If the user has not verified their email,
                 # send a new confirmation email and redirect
                 send_email_confirmation(request, user, False, user.email)
-                url = (
-                    reverse("login_confirm_email") + f"?next={next_url}"
-                    if next_url
-                    else reverse("login_confirm_email")
-                )
+                url = reverse("login_confirm_email")
+                params = {}
+                if next_url:
+                    params['next'] = next_url
                 if intent:
-                    url += f"&intent={intent}"
+                    params['intent'] = intent
+                if params:
+                    url += '?' + urlencode(params)
                 return redirect(url)
             # provide other onboarding checks and handlers here
         # return the default response
