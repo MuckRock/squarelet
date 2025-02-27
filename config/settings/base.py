@@ -370,6 +370,11 @@ ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = False
 ACCOUNT_SESSION_REMEMBER = None
 
 MFA_ADAPTER = "allauth.mfa.adapter.DefaultMFAAdapter"
+# Enable passkey support
+MFA_SUPPORTED_TYPES = ["recovery_codes", "totp", "webauthn"]
+MFA_PASSKEY_LOGIN_ENABLED = True
+# Only allow insecure origins in development
+MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = ENV == "dev"
 
 DIGEST_EMAILS = env.list("DIGEST_EMAILS", default=[])
 
