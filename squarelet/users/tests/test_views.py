@@ -8,6 +8,7 @@ import hashlib
 import hmac
 import json
 import time
+from urllib.parse import urlencode
 
 # Third Party
 import pytest
@@ -145,9 +146,10 @@ class TestLoginView(ViewTestMixin):
         # Call view and confirm response
         response = self.view.as_view()(request)
         assert response.status_code == 302
+        # pylint: disable=line-too-long
         assert (
             response.url
-            == f"/accounts/login/confirm-email/?next={next_url}&intent={intent}"
+            == f"/accounts/login/confirm-email/?{urlencode({'next': next_url, 'intent': intent})}"
         )
         mock_send.assert_called_once_with(request, user, False, user.email)
 
@@ -187,7 +189,7 @@ class TestLoginView(ViewTestMixin):
 
         # Set up request
         data = {"login": user.email, "password": "password"}
-        request = rf.post(f"{self.url}?next={next_url}", data)
+        request = rf.post(f"{self.url}?{urlencode({'next': next_url})}", data)
         request.user = user
 
         # Call view and confirm
