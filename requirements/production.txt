@@ -159,10 +159,7 @@ django-allauth[socialaccount]==65.0.2
 django-anymail[mailgun]==8.6
     # via -r requirements/production.in
 django-appconf==1.0.5
-    # via
-    #   -r requirements/base.txt
-    #   django-celery-email
-    #   django-compressor
+    # via django-celery-email
 django-autocomplete-light==3.8.2
     # via -r requirements/base.txt
 django-autoslug==1.9.8
@@ -170,8 +167,6 @@ django-autoslug==1.9.8
 django-celery-email==3.0.0
     # via -r requirements/production.in
 django-choices==1.7.2
-    # via -r requirements/base.txt
-django-compressor==4.3.1
     # via -r requirements/base.txt
 django-cors-headers==3.10.1
     # via -r requirements/base.txt
@@ -205,7 +200,7 @@ django-robots==6.1
     # via -r requirements/base.txt
 django-sesame==1.5
     # via -r requirements/base.txt
-django-storages[boto3]==1.14.4
+django-storages[boto3]==1.12.3
     # via
     #   -r requirements/base.txt
     #   collectfast
@@ -400,9 +395,7 @@ rapidfuzz==3.9.1
     #   -r requirements/base.txt
     #   levenshtein
 rcssmin==1.1.1
-    # via
-    #   -r requirements/base.txt
-    #   django-compressor
+    # via -r requirements/base.txt
 redis==4.1.0
     # via
     #   -r requirements/base.txt
@@ -422,10 +415,6 @@ requests-oauthlib==2.0.0
     # via
     #   -r requirements/base.txt
     #   django-allauth
-rjsmin==1.2.1
-    # via
-    #   -r requirements/base.txt
-    #   django-compressor
 rules==2.1
     # via -r requirements/base.txt
 s3transfer==0.5.2

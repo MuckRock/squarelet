@@ -128,14 +128,11 @@ STORAGES = {
         "BACKEND": "squarelet.core.storage.MediaRootS3BotoStorage",
     },
     "staticfiles": {
-        "BACKEND": "squarelet.core.storage.CachedS3Boto3Storage",
+        "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
         "OPTIONS": {
             "bucket_name": AWS_STORAGE_BUCKET_NAME,
             "location": f"b/{CI_GIT_BRANCH}" if CI_GIT_BRANCH else "static",
         },
-    },
-    "compressor": {
-        "BACKEND": "compressor.storage.CompressorFileStorage",
     },
 }
 
@@ -205,24 +202,6 @@ if env.bool("USE_CELERY_EMAIL", default=True):
 # Gunicorn
 # ------------------------------------------------------------------------------
 INSTALLED_APPS += ["gunicorn"]  # noqa F405
-
-# django-compressor
-# ------------------------------------------------------------------------------
-# https://django-compressor.readthedocs.io/en/latest/settings/#django.conf.settings.COMPRESS_ENABLED
-COMPRESS_ENABLED = env.bool("COMPRESS_ENABLED", default=True)
-# https://django-compressor.readthedocs.io/en/latest/settings/#django.conf.settings.COMPRESS_STORAGE
-COMPRESS_STORAGE = STORAGES["staticfiles"]["BACKEND"]
-COMPRESS_OFFLINE_MANIFEST_STORAGE = STORAGES["staticfiles"]["BACKEND"]
-# https://django-compressor.readthedocs.io/en/latest/settings/#django.conf.settings.COMPRESS_URL
-COMPRESS_URL = STATIC_URL
-COMPRESS_OFFLINE = True
-COMPRESS_ROOT = STATIC_ROOT
-COMPRESS_CSS_FILTERS = [
-    "compressor.filters.css_default.CssAbsoluteFilter",
-    "compressor.filters.cssmin.CSSMinFilter",
-]
-# Don't do any JS compression here, we compress it during rollup build process
-COMPRESS_JS_FILTERS = []
 
 # Collectfast
 # ------------------------------------------------------------------------------

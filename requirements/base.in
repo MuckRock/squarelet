@@ -8,7 +8,6 @@ django-allauth[socialaccount]
 django-autocomplete-light
 django-autoslug
 django-choices
-django-compressor
 django-cors-headers
 django-crispy-forms
 django-debug-toolbar
