@@ -60,8 +60,6 @@ services:
     build:
       context: .
       dockerfile: ./compose/local/vite.Dockerfile
-      platforms:
-        - linux/arm64
     image: squarelet_local_vite
     restart: always
     ports:
