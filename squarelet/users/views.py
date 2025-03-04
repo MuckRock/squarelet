@@ -26,9 +26,15 @@ import hashlib
 import hmac
 import json
 import time
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import urlencode
 
 # Third Party
+from allauth.account.mixins import NextRedirectMixin
+from allauth.account.utils import (
+    get_next_redirect_url,
+    has_verified_email,
+    send_email_confirmation,
+)
 from allauth.account.views import LoginView as AllAuthLoginView
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Fieldset, Layout
@@ -38,6 +44,7 @@ from squarelet.core.forms import ImagePreviewWidget
 from squarelet.core.layout import Field
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.organizations.models import Invitation, ReceiptEmail
+from squarelet.services.models import Service
 
 # Local
 from .models import User
@@ -53,22 +60,26 @@ class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
             raise Http404
         return super().dispatch(request, *args, **kwargs)
 
-    def get(self, request, *args, **kwargs):
+    def get_invitations(self, user):
         """Check if the user has any pending invitations"""
+        invitations = Invitation.objects.get_pending().filter(user=user)
+        for invitation in invitations:
+            url = reverse("organizations:invitation", args=(invitation.uuid,))
+            # TODO: move this to context data instead of displaying a success toast
+            messages.success(
+                self.request,
+                format_html(
+                    '<a href="{}">'
+                    "Click here to view your invitation for {}"
+                    "</a>&nbsp;&nbsp",
+                    url,
+                    invitation.organization,
+                ),
+            )
+
+    def get(self, request, *args, **kwargs):
         if kwargs["username"] == request.user.username:
-            invitations = Invitation.objects.get_pending().filter(user=request.user)
-            for invitation in invitations:
-                url = reverse("organizations:invitation", args=(invitation.uuid,))
-                messages.success(
-                    request,
-                    format_html(
-                        '<a href="{}">'
-                        "Click here to view your invitation for {}"
-                        "</a>&nbsp;&nbsp",
-                        url,
-                        invitation.organization,
-                    ),
-                )
+            self.get_invitations(request.user)
         return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
@@ -148,20 +159,64 @@ class UserListView(LoginRequiredMixin, ListView):
 
 
 class LoginView(AllAuthLoginView):
-    """Subclass of All Auth Login View to add redirect ability for failed auth tokens
-
-    If the url_auth_token parameter is still present, it means the auth token failed
-    to authenticate the user.  Redirect them to the nested next parameter instead of
-    asking them to login
-    """
+    def dispatch(self, request, *args, **kwargs):
+        """Override dispatch to provide onboarding steps, if needed"""
+        # handle the request as usual, but hold onto the response
+        response = super().dispatch(request, *args, **kwargs)
+        # when logging in, a POST is sent
+        is_post = request.method == "POST"
+        # if the login succeeded, then the user is authenticated
+        user = self.request.user
+        if is_post and user.is_authenticated:
+            intent = request.GET.get("intent")
+            next_url = self.get_success_url()
+            # Check the user's account status
+            if not has_verified_email(user):
+                # If the user has not verified their email,
+                # send a new confirmation email and redirect
+                send_email_confirmation(request, user, False, user.email)
+                url = reverse("login_confirm_email")
+                params = {}
+                if next_url:
+                    params["next"] = next_url
+                if intent:
+                    params["intent"] = intent
+                if params:
+                    url += "?" + urlencode(params)
+                return redirect(url)
+            # provide other onboarding checks and handlers here
+        # return the default response
+        return response
 
     def get(self, request, *args, **kwargs):
-        if "url_auth_token" in request.GET and "next" in request.GET:
-            parsed = urlparse(request.GET["next"])
-            params = parse_qs(parsed.query)
-            if "next" in params:
-                return redirect(f"{settings.MUCKROCK_URL}{params['next'][0]}")
+        """
+        If the url_auth_token parameter is still present, it means the auth token failed
+        to authenticate the user.  Redirect them to the nested next parameter instead of
+        asking them to login
+        """
+        next_url = get_next_redirect_url(request)
+        if "url_auth_token" in request.GET and next_url:
+            return redirect(f"{settings.MUCKROCK_URL}{next_url}")
         return super().get(request, *args, **kwargs)
+
+
+class EmailConfirmationView(NextRedirectMixin, TemplateView):
+    template_name = "account/login_verification_sent.html"
+
+    def get(self, request, *args, **kwargs):
+        """If the user has a verified email, skip this page."""
+        next_url = self.get_next_url()
+        if self.request.user.is_authenticated and has_verified_email(self.request.user):
+            return redirect(next_url)
+        return super().get(request, args, kwargs)
+
+    def get_context_data(self, **kwargs):
+        """Add the intent, corresponding service, and next_url to the context."""
+        context = super().get_context_data()
+        context["intent"] = self.request.GET.get("intent")
+        context["service"] = Service.objects.filter(slug=context["intent"]).first()
+        context["next_url"] = self.get_next_url()
+        return context
 
 
 def mailgun_webhook(request):

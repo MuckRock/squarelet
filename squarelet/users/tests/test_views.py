@@ -1,5 +1,6 @@
 # Django
 from django.conf import settings
+from django.contrib.auth.models import AnonymousUser
 from django.http.response import Http404
 
 # Standard Library
@@ -11,6 +12,7 @@ from urllib.parse import urlencode
 
 # Third Party
 import pytest
+from allauth.account.utils import has_verified_email
 
 # Squarelet
 from squarelet.core.tests.mixins import ViewTestMixin
@@ -106,13 +108,94 @@ class TestLoginView(ViewTestMixin):
     view = views.LoginView
     url = "/accounts/login/"
 
-    def test_get(self, rf):
-        url = "/target/url/"
-        next_url = f"{settings.MUCKROCK_URL}?{urlencode({'next': url})}"
+    # pylint: disable=protected-access, invalid-name
+
+    def test_get_url_auth_token(self, rf, mocker):
+        """Test handling of lingering url_auth_token parameter"""
+        next_url = "/target/url/"
         params = {"url_auth_token": "token", "next": next_url}
-        response = self.call_view(rf, params=params)
+        request = rf.get(self.url, params)
+        request.user = AnonymousUser()
+        request.session = mocker.MagicMock()
+        response = self.view.as_view()(request)
         assert response.status_code == 302
-        assert response.url == f"{settings.MUCKROCK_URL}{url}"
+        assert response.url == f"{settings.MUCKROCK_URL}{next_url}"
+
+    def test_unverified_email(self, rf, user_factory, mocker):
+        """
+        Test login with unverified email redirects to confirmation.
+        It should forward the `next` and `intent` URL params
+        """
+        next_url = "/next/path/"
+        intent = "documentcloud"
+
+        # Create user and confirm their email is unverified
+        user = user_factory(password="password", email_verified=False)
+        assert not has_verified_email(user)
+
+        # Set up request
+        data = {"login": user.email, "password": "password"}
+        request = rf.post(f"{self.url}?next={next_url}&intent={intent}", data)
+        request.user = user
+        request._messages = mocker.MagicMock()
+        request.session = mocker.MagicMock()
+
+        # Mock email confirmation
+        mock_send = mocker.patch("squarelet.users.views.send_email_confirmation")
+
+        # Call view and confirm response
+        response = self.view.as_view()(request)
+        assert response.status_code == 302
+        # pylint: disable=line-too-long
+        assert (
+            response.url
+            == f"/accounts/login/confirm-email/?{urlencode({'next': next_url, 'intent': intent})}"
+        )
+        mock_send.assert_called_once_with(request, user, False, user.email)
+
+    def test_unverified_email_without_next(self, rf, user_factory, mocker):
+        """
+        Test login with unverified email redirects to confirmation.
+        If there's no `next` URL, it should redirect to the default.
+        """
+
+        # Create user and confirm their email is unverified
+        user = user_factory(password="password", email_verified=False)
+        assert not has_verified_email(user)
+
+        # Set up request
+        data = {"login": user.email, "password": "password"}
+        request = rf.post(self.url, data)
+        request.user = user
+        request._messages = mocker.MagicMock()
+        request.session = mocker.MagicMock()
+
+        # Mock email confirmation
+        mock_send = mocker.patch("squarelet.users.views.send_email_confirmation")
+
+        # Call view and confirm response
+        response = self.view.as_view()(request)
+        assert response.status_code == 302
+        assert response.url == "/accounts/login/confirm-email/"
+        mock_send.assert_called_once_with(request, user, False, user.email)
+
+    def test_verified_email(self, rf, user_factory):
+        """Test login with verified email proceeds normally"""
+        next_url = "/next/path/"
+
+        # Create user and confirm their email is verified
+        user = user_factory(password="password", email_verified=True)
+        assert has_verified_email(user)
+
+        # Set up request
+        data = {"login": user.email, "password": "password"}
+        request = rf.post(f"{self.url}?{urlencode({'next': next_url})}", data)
+        request.user = user
+
+        # Call view and confirm
+        response = self.view.as_view()(request)
+        assert response.status_code == 302
+        assert response.url == next_url
 
 
 class TestMailgunWebhook:

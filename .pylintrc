@@ -9,7 +9,7 @@ max-line-length=88
 
 [MESSAGES CONTROL]
 enable=useless-suppression
-disable=missing-docstring,too-many-ancestors,too-few-public-methods,no-else-return,no-member,attribute-defined-outside-init,too-many-instance-attributes,similarities,raise-missing-from,django-not-configured,wrong-import-order,cyclic-import
+disable=fixme,missing-docstring,too-many-ancestors,too-few-public-methods,no-else-return,no-member,attribute-defined-outside-init,too-many-instance-attributes,similarities,raise-missing-from,django-not-configured,wrong-import-order,cyclic-import
 
 [TYPECHECK]
 generated-members=REQUEST,acl_users,aq_parent,"[a-zA-Z]+_set{1,2}",save,delete,objects

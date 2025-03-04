@@ -1,5 +1,6 @@
 # Third Party
 import factory
+from allauth.account.models import EmailAddress
 
 # Squarelet
 from squarelet.organizations.tests.factories import (
@@ -28,6 +29,15 @@ class UserFactory(factory.django.DjangoModelFactory):
         # pylint: disable=unused-argument
         if create:
             MembershipFactory(user=self, organization=self.individual_organization)
+
+    @factory.post_generation
+    def email_verified(self, create, extracted, **kwargs):
+        """Creates and verifies EmailAddress for user"""
+        if create:
+            email_address = EmailAddress.objects.create(
+                user=self, email=self.email, primary=True, verified=bool(extracted)
+            )
+            self.email = email_address.email
 
     class Meta:
         model = "users.User"

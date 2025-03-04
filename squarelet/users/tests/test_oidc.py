@@ -19,7 +19,7 @@ def test_userinfo(user_factory):
     assert claims["preferred_username"] == user.username
     assert claims["updated_at"] == user.updated_at
     assert claims["picture"] == user.avatar_url
-    assert claims["email"] == ""
+    assert claims["email"] == user.email
     assert not claims["email_verified"]
 
 

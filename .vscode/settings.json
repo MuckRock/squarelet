@@ -3,5 +3,9 @@
   "python.defaultInterpreterPath": "/usr/local/bin/python",
   "python.analysis.typeCheckingMode": "basic",
   "python.analysis.autoImportCompletions": true,
-  "python.REPL.enableREPLSmartSend": false
+  "python.REPL.enableREPLSmartSend": false,
+  "editor.insertSpaces": true,
+  "[python]": {
+    "editor.tabSize": 4
+  }
 }
