@@ -68,9 +68,9 @@
               {% for organization in payment_failed_organizations %}
               <p>
                 {% if organization.individual %}
-                <a href="{% url " users:payment" %}">Update your billing info.</a>
+                <a href="{% url "users:payment" %}">Update your billing info.</a>
                 {% else %}
-                <a href="{% url " organizations:payment" slug=organization.slug %}">
+                <a href="{% url "organizations:payment" slug=organization.slug %}">
                   Update the billing info for {{ organization.name }}.
                 </a>
                 {% endif %}
@@ -89,7 +89,7 @@
             <span class="_cls-alertIcon"></span>
             <span class="_cls-middleAlign">
               We received an error trying to email you, please
-              <a href="{% url " account_email" %}">update your email.</a>
+              <a href="{% url "account_email" %}">update your email.</a>
             </span>
           </div>
         </div>
