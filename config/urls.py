@@ -31,8 +31,10 @@ router.register("organizations", OrganizationViewSet)
 router.register("charges", ChargeViewSet)
 
 
-def redirect_erh(request, path=''):
-    return redirect('https://www.muckrock.com/project/elections-2024-1169/', permanent=True)
+def redirect_erh(request, path=""):
+    return redirect(
+        "https://www.muckrock.com/project/elections-2024-1169/", permanent=True
+    )
 
 
 urlpatterns = [
@@ -53,6 +55,7 @@ urlpatterns = [
     # override the accounts login with our version
     re_path("accounts/login/$", LoginView.as_view(), name="account_login"),
     path("accounts/", include("allauth.urls")),
+    path("accounts/", include("allauth.socialaccount.urls")),
     path("api/", include(router.urls)),
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
