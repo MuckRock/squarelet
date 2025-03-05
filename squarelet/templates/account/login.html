@@ -266,6 +266,16 @@
         <a class="button primary ghost" href="{% url 'account_signup' %}{% pass_query %}">
           {% blocktrans %}Create an account{% endblocktrans %}
         </a>
+        <p>
+          <a href="{% provider_login_url "github" %}">
+            Log in with GitHub
+          </a>
+        </p>
+        <p>
+          <a href="{% provider_login_url "google" %}">
+            Log in with Google
+          </a>
+        </p>
       </footer>
     </form>
   </div>
