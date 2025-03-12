@@ -10,45 +10,66 @@
   {% url "account_set_password" as url_password %}
   {% autologin url_password user as url_password_ %}
   {% autologin activate_url user as activate_url_ %}
-  {% blocktrans with username=user.username %}
-    <p>
-    Thank you for creating an account on MuckRock.
-    </p>
-    <p>
-    Your username is
-    <a href="{{ url_user_ }}">
-      {{ username }}
-    </a>.
-    </p>
-    <p>
-    You will need to 
-    <a href="{{ activate_url_ }}">verify your email address</a> before you can start using our tools. 
-    You can also verify your email from your
-    <a href="{{ url_email_ }}">account email settings</a>.
-    </p>
+
+  {% blocktrans with full_name=user.full_name %}
+    <p>Welcome to your MuckRock account, {{ full_name }}!</p>
   {% endblocktrans %}
-  {% if minireg %}
+
+  {% if user.source == "squarelet" %}
     {% blocktrans %}
       <p>
-      You should also
-      <a href="{{ url_password_ }}">
-        set your password
-      </a>.
+        Your MuckRock account is your passport to
+        <a href="https://accounts.muckrock.com/">all the services and tools</a>
+        offered by MuckRock and our trusted partners.
+      </p>
+    {% endblocktrans %}
+  {% else %}
+    {% blocktrans with source=user.get_source_display %}
+      <p>
+        Your MuckRock account is your passport to {{ source }}
+        and other services offered by MuckRock and our trusted partners.
       </p>
     {% endblocktrans %}
   {% endif %}
-  {% blocktrans %}
+
+  {% blocktrans with activate_url=activate_url_ %}
     <p>
-    <strong>
-      Have a technical support or customer service issue?
-      <a href="mailto:info@muckrock.com">Email us</a>.
-    </strong>
+      Before continuing, please
+      <a href="{{ activate_url }}">verify your email</a>.
+      You can also verify your email from your
+      <a href="https://accounts.muckrock.com/">account page</a>.
     </p>
-    <p>
-    Welcome to the MuckRock community. We're excited to see what you
-    do with the tools we've built.
-    </p>
-    <p>Sincerely,<br/>The MuckRock Team</p>
   {% endblocktrans %}
+
+  {% if minireg %}
+    {% blocktrans with url_password=url_password_ %}
+      <p>
+        You should also
+        <a href="{{ url_password }}">set your password</a>.
+      </p>
+    {% endblocktrans %}
+  {% endif %}
+
+  {% blocktrans %}
+    <ul>
+      <li>
+        Bookmark our
+        <a href="https://help.muckrock.com/">User Guide</a>
+        to learn more about MuckRock and our services.
+      </li>
+      <li>
+        For technical support and customer service,
+        <a href="mailto:info@muckrock.com">email us</a>.
+      </li>
+    </ul>
+  {% endblocktrans %}
+
+  {% blocktrans with full_name=user.full_name username=user.username %}
+    <p>
+      Once again, welcome to the MuckRock community,
+      {{ full_name|default:username }}. We're excited to see what you do with the tools we offer.
+    </p>
+  {% endblocktrans %}
+
 {% endblock %}
 
