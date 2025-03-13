@@ -370,14 +370,6 @@ ACCOUNT_SESSION_REMEMBER = None
 
 DIGEST_EMAILS = env.list("DIGEST_EMAILS", default=[])
 
-# django-compressor
-# ------------------------------------------------------------------------------
-# https://django-compressor.readthedocs.io/en/latest/quickstart/#installation
-INSTALLED_APPS += ["compressor"]
-STATICFILES_FINDERS += ["compressor.finders.CompressorFinder"]
-# Your stuff...
-# ------------------------------------------------------------------------------
-
 # oidc
 # ------------------------------------------------------------------------------
 OIDC_USERINFO = "squarelet.users.oidc.userinfo"

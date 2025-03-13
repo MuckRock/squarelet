@@ -1,6 +1,7 @@
-{% load static i18n compress avatar hijack_tags django_vite %}
+{% load static i18n avatar hijack_tags django_vite %}
 <!DOCTYPE html>
 <html lang="en">
+
   <head>
     <meta charset="utf-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
@@ -11,8 +12,8 @@
 
     <!-- HTML5 shim, for IE6-8 support of HTML5 elements -->
     <!--[if lt IE 9]>
-      <script src="https://cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.min.js"></script>
-    <![endif]-->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.min.js"></script>
+      <![endif]-->
 
     {% block sharing %}
     {% endblock %}
@@ -30,16 +31,15 @@
     <link href="https://fonts.googleapis.com/css?family=Lato:400,700" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,200..900;1,200..900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,200..900;1,200..900&display=swap"
+      rel="stylesheet">
     {% block css %}
     <!-- Your stuff: Third-party CSS libraries go here -->
-    {% compress css %}
     <link href="{% static 'hijack/hijack-styles.css' %}" rel="stylesheet">
-    {% endcompress %}
     {% endblock %}
 
     {% if settings.USE_PLAUSIBLE %}
-      <script defer data-domain="accounts.muckrock.com" src="https://plausible.io/js/script.tagged-events.js"></script>
+    <script defer data-domain="accounts.muckrock.com" src="https://plausible.io/js/script.tagged-events.js"></script>
     {% endif %}
 
     {% vite_hmr_client %}
@@ -60,81 +60,75 @@
 
       <div class="_cls-alerts">
         {% if payment_failed_organizations %}
-          <div class="_cls-alert">
-            <div class="alert-error">
-              <span class="_cls-alertIcon"></span>
-              <span class="_cls-middleAlign">
-                A recent charge made to your credit card has failed.
-                {% for organization in payment_failed_organizations %}
-                  <p>
-                    {% if organization.individual %}
-                      <a href="{% url "users:payment" %}">Update your billing info.</a>
-                    {% else %}
-                      <a href="{% url "organizations:payment" slug=organization.slug %}">
-                        Update the billing info for {{ organization.name }}.
-                      </a>
-                    {% endif %}
-                  </p>
-                {% endfor %}
-              </span>
-              <span
-                class="_cls-close"
-                onclick="dismissAlert(this)"
-              >
-                Dismiss
-              </span>
-            </div>
+        <div class="_cls-alert">
+          <div class="alert-error">
+            <span class="_cls-alertIcon"></span>
+            <span class="_cls-middleAlign">
+              A recent charge made to your credit card has failed.
+              {% for organization in payment_failed_organizations %}
+              <p>
+                {% if organization.individual %}
+                <a href="{% url "users:payment" %}">Update your billing info.</a>
+                {% else %}
+                <a href="{% url "organizations:payment" slug=organization.slug %}">
+                  Update the billing info for {{ organization.name }}.
+                </a>
+                {% endif %}
+              </p>
+              {% endfor %}
+            </span>
+            <span class="_cls-close" onclick="dismissAlert(this)">
+              Dismiss
+            </span>
           </div>
+        </div>
         {% endif %}
         {% if request.user.email_failed %}
-          <div class="_cls-alert">
-            <div class="alert-error">
-              <span class="_cls-alertIcon"></span>
-              <span class="_cls-middleAlign">
-                We received an error trying to email you, please
-                <a href="{% url "account_email" %}">update your email.</a>
-              </span>
-            </div>
+        <div class="_cls-alert">
+          <div class="alert-error">
+            <span class="_cls-alertIcon"></span>
+            <span class="_cls-middleAlign">
+              We received an error trying to email you, please
+              <a href="{% url "account_email" %}">update your email.</a>
+            </span>
           </div>
+        </div>
         {% endif %}
 
         {% if messages %}
         {% for message in messages %}
-          <div class="_cls-alert">
-            <div class="{% if message.tags %}alert-{{ message.tags }}{% endif %}">
-              <span class="_cls-alertIcon"></span>
-              <span class="_cls-middleAlign">{{ message|safe }}</span>
-              <span
-                class="_cls-close"
-                onclick="dismissAlert(this)"
-              >
-                Dismiss
-              </span>
-            </div>
+        <div class="_cls-alert">
+          <div class="{% if message.tags %}alert-{{ message.tags }}{% endif %}">
+            <span class="_cls-alertIcon"></span>
+            <span class="_cls-middleAlign">{{ message|safe }}</span>
+            <span class="_cls-close" onclick="dismissAlert(this)">
+              Dismiss
+            </span>
           </div>
+        </div>
         {% endfor %}
         {% endif %}
       </div>
 
       <script>
         function dismissAlert(target) {
-            const alert = target.parentElement;
-            const container = alert.parentElement;
+          const alert = target.parentElement;
+          const container = alert.parentElement;
 
-            // Remove the alert from the container
-            alert.remove();
+          // Remove the alert from the container
+          alert.remove();
 
-            // Check if the container has no more alerts
-            if (container.children.length === 0) {
-                container.remove();
-            }
+          // Check if the container has no more alerts
+          if (container.children.length === 0) {
+            container.remove();
+          }
         }
       </script>
 
       {% block content %}
-        <div class="_cls-content">
-          <h1>Welcome to MuckRock Accounts</h1>
-        </div>
+      <div class="_cls-content">
+        <h1>Welcome to MuckRock Accounts</h1>
+      </div>
       {% endblock content %}
 
     </div> <!-- /container -->
@@ -159,19 +153,19 @@
     <!-- Placed at the end of the document so the pages load faster -->
     {% block javascript %}
 
-      <!-- Your stuff: Third-party javascript libraries go here -->
-      <script src="https://js.stripe.com/v3/"></script>
+    <!-- Your stuff: Third-party javascript libraries go here -->
+    <script src="https://js.stripe.com/v3/"></script>
 
-      {% block extra_javascript %}{% endblock extra_javascript %}
+    {% block extra_javascript %}{% endblock extra_javascript %}
 
-      <!-- place project specific Javascript in this file -->
-      {% comment %}
-      {% compress js %}
-      <script src="{% static 'js/main.js' %}"></script> 
-      {% endcompress %}
-      {% endcomment %}
-      
+    <!-- place project specific Javascript in this file -->
+    {% comment %}
+    {% compress js %}
+    <script src="{% static 'js/main.js' %}"></script>
+    {% endcompress %}
+    {% endcomment %}
+
     {% endblock javascript %}
   </body>
-</html>
 
+</html>

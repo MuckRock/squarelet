@@ -96,6 +96,9 @@ class AccountAdapter(DefaultAccountAdapter):
         if invitation_uuid is not None and request.user.is_authenticated:
             Invitation.objects.filter(uuid=invitation_uuid).update(user=request.user)
 
+    def get_user_search_fields(self):
+        return []
+
 
 class SocialAccountAdapter(DefaultSocialAccountAdapter):
     def is_open_for_signup(self, request, sociallogin):
