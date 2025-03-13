@@ -11,8 +11,8 @@
   {% autologin url_password user as url_password_ %}
   {% autologin activate_url user as activate_url_ %}
 
-  {% blocktrans with full_name=user.name username=user.username %}
-    <p>Welcome to your MuckRock account, {{ full_name|default:username }}!</p>
+  {% blocktrans with username=user.username %}
+    <p>Welcome to your MuckRock account, {{ username }}!</p>
   {% endblocktrans %}
 
   {% if user.source == "squarelet" %}
@@ -64,10 +64,10 @@
     </ul>
   {% endblocktrans %}
 
-  {% blocktrans with full_name=user.name username=user.username %}
+  {% blocktrans with username=user.username %}
     <p>
       Once again, welcome to the MuckRock community,
-      {{ full_name|default:username }}. We're excited to see what you do with the tools we offer.
+      {{ username }}. We're excited to see what you do with the tools we offer.
     </p>
   {% endblocktrans %}
 
