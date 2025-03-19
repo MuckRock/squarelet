@@ -26,10 +26,8 @@ import hashlib
 import hmac
 import json
 import time
-from urllib.parse import urlencode
 
 # Third Party
-from allauth.account.mixins import NextRedirectMixin
 from allauth.account.utils import (
     get_next_redirect_url,
     has_verified_email,
@@ -158,36 +156,103 @@ class UserListView(LoginRequiredMixin, ListView):
     model = User
 
 
-class LoginView(AllAuthLoginView):
-    def dispatch(self, request, *args, **kwargs):
-        """Override dispatch to provide onboarding steps, if needed"""
-        # handle the request as usual, but hold onto the response
-        response = super().dispatch(request, *args, **kwargs)
-        # when logging in, a POST is sent
-        is_post = request.method == "POST"
-        # if the login succeeded, then the user is authenticated
-        user = self.request.user
-        if is_post and user.is_authenticated:
-            intent = request.GET.get("intent")
-            next_url = self.get_success_url()
-            # Check the user's account status
-            if not has_verified_email(user):
-                # If the user has not verified their email,
-                # send a new confirmation email and redirect
-                send_email_confirmation(request, user, False, user.email)
-                url = reverse("login_confirm_email")
-                params = {}
-                if next_url:
-                    params["next"] = next_url
-                if intent:
-                    params["intent"] = intent
-                if params:
-                    url += "?" + urlencode(params)
-                return redirect(url)
-            # provide other onboarding checks and handlers here
-        # return the default response
-        return response
+class UserOnboardingView(TemplateView):
+    """Show onboarding steps for new or existing users after they log in"""
+    template_name = "account/onboarding/base.html"  # Base template with includes
+    
+    def get_onboarding_step(self, request):
+        """
+        Check user account status and return the appropriate onboarding step
+        Returns: (step_name, context_data)
+        """
+        user = request.user
+        session = request.session
+        checkFor = session.get('checkFor', [])
 
+        # Initialize onboarding session if it doesn't exist
+        if 'onboarding' not in session:
+            session['onboarding'] = {
+                'email_check_completed': False,
+                'mfa_step': 'not_started' # Options: not_started, opted_in, code_submitted, completed
+            }
+        # Onboarding progress state is tracked in the session
+        onboarding = session['onboarding']
+        print(onboarding)
+        if has_verified_email(user):
+            onboarding['email_check_completed'] = True
+            session.modified = True
+        elif not onboarding['email_check_completed']:
+            return "confirm_email", {}
+        
+        # TODO: Verification check
+
+        # TODO: Organization check
+        
+        # If all checks pass, user has completed onboarding
+        return None, {}
+
+    def get_template_names(self):
+        """Return the appropriate template based on onboarding step"""
+        step, _ = self.get_onboarding_step(self.request)
+        
+        if step:
+            return [f"account/onboarding/{step}.html"]
+        
+        return [self.template_name]
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Add the onboarding step to context
+        step, step_context = self.get_onboarding_step(self.request)
+        context['onboarding_step'] = step
+        context.update(step_context)
+        
+        # Add the session params from login
+        context['next_url'] = self.request.session.get('next_url', '/')
+        context['intent'] = self.request.session.get('intent', None)
+        context['service'] = Service.objects.filter(slug=context["intent"]).first()
+        
+        return context
+    
+    def get(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('account_login')
+            
+        # Check if onboarding is complete
+        step, _ = self.get_onboarding_step(request)
+
+        if step == "confirm_email":
+            # If the user has not verified their email,
+            # send a new confirmation message
+            send_email_confirmation(request, request.user, False, request.user.email)
+        
+        if not step and 'next_url' in request.session:
+            # Onboarding complete, redirect to original destination
+            next_url = request.session.pop('next_url')
+            return redirect(next_url)
+            
+        # Otherwise, show the appropriate onboarding step
+        return super().get(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('account_login')
+        
+        # Handle any form submissions for the current onboarding step
+        step = request.POST.get('step')
+        print(request.POST)
+        if step == "confirm_email":
+            # User has confirmed their email, mark as completed
+            request.session['onboarding']['email_check_completed'] = True
+            request.session.modified = True
+            print('confirm email', request.session['onboarding']['email_check_completed'])
+        
+        # Redirect back to the same view to check the next step
+        return redirect('account_onboarding')
+
+
+class LoginView(AllAuthLoginView):
     def get(self, request, *args, **kwargs):
         """
         If the url_auth_token parameter is still present, it means the auth token failed
@@ -198,25 +263,6 @@ class LoginView(AllAuthLoginView):
         if "url_auth_token" in request.GET and next_url:
             return redirect(f"{settings.MUCKROCK_URL}{next_url}")
         return super().get(request, *args, **kwargs)
-
-
-class EmailConfirmationView(NextRedirectMixin, TemplateView):
-    template_name = "account/login_verification_sent.html"
-
-    def get(self, request, *args, **kwargs):
-        """If the user has a verified email, skip this page."""
-        next_url = self.get_next_url()
-        if self.request.user.is_authenticated and has_verified_email(self.request.user):
-            return redirect(next_url)
-        return super().get(request, args, kwargs)
-
-    def get_context_data(self, **kwargs):
-        """Add the intent, corresponding service, and next_url to the context."""
-        context = super().get_context_data()
-        context["intent"] = self.request.GET.get("intent")
-        context["service"] = Service.objects.filter(slug=context["intent"]).first()
-        context["next_url"] = self.get_next_url()
-        return context
 
 
 def mailgun_webhook(request):
