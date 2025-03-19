@@ -18,6 +18,7 @@ from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
 from squarelet.core.mixins import AvatarMixin
 from squarelet.core.utils import file_path
 from squarelet.oidc.middleware import send_cache_invalidations
+from squarelet.organizations.models import Organization
 
 # Local
 from .managers import UserManager
@@ -237,6 +238,16 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
             | Q(groups__hub_eligible=True)
             | Q(parent__hub_eligible=True)
         ).exists()
+
+    def get_potential_organizations(self):
+        # Get all verified email addresses for the user
+        emails = self.emailaddress_set.filter(verified=True)
+
+        # Extract the domains from the verified emails
+        domains = [email.email.split('@')[1].lower() for email in emails]
+
+        # Find organizations matching any of the domains
+        return Organization.objects.filter(domains__domain__in=domains).distinct()
 
 
 class LoginLog(models.Model):
