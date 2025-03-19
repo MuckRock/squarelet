@@ -4,10 +4,18 @@ from django.utils.translation import gettext_lazy as _
 
 # Third Party
 from allauth.account import signals
+from urllib.parse import urlencode
 
 # Squarelet
 from squarelet.core.mail import send_mail
 from squarelet.oidc.middleware import send_cache_invalidations
+
+def user_logged_in(request, user, **kwargs):
+    """The user has logged in"""
+    # perform onboarding checks
+    print("User logged in:", user)
+    print("Login request:", request)
+    pass
 
 
 def email_confirmed(request, email_address, **kwargs):
@@ -47,4 +55,7 @@ signals.email_confirmed.connect(
 )
 signals.email_changed.connect(
     email_changed, dispatch_uid="squarelet.users.signals.email_changed"
+)
+signals.user_logged_in.connect(
+    user_logged_in, dispatch_uid="squarelet.users.signals.user_logged_in"
 )
