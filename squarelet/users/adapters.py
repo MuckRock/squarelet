@@ -10,7 +10,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 # Third Party
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.account.models import EmailAddress
-from allauth.exceptions import ImmediateHttpResponse
+from allauth.core.exceptions import ImmediateHttpResponse
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from furl import furl
 
