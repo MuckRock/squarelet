@@ -112,8 +112,10 @@ AWS_LOCATION = "static"
 if AWS_S3_CUSTOM_DOMAIN:
     STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/static/"
 elif CI_GIT_BRANCH:
-    STATIC_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/b/{CI_GIT_BRANCH}/"
     AWS_LOCATION = f"b/{CI_GIT_BRANCH}"
+    STATIC_URL = (
+        f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/b/{CI_GIT_BRANCH}/"
+    )
 else:
     STATIC_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/static/"
 

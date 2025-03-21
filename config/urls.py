@@ -34,8 +34,10 @@ router.register("organizations", OrganizationViewSet)
 router.register("charges", ChargeViewSet)
 
 
-def redirect_erh(request, path=''):
-    return redirect('https://www.muckrock.com/project/elections-2024-1169/', permanent=True)
+def redirect_erh(request, path=""):
+    return redirect(
+        "https://www.muckrock.com/project/elections-2024-1169/", permanent=True
+    )
 
 
 urlpatterns = [
