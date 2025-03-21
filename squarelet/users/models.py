@@ -247,7 +247,23 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         domains = [email.email.split("@")[1].lower() for email in emails]
 
         # Find organizations matching any of the domains
-        return Organization.objects.filter(domains__domain__in=domains).distinct()
+        return (
+            Organization.objects.filter(domains__domain__in=domains)
+            .distinct()
+            .exclude(users=self)
+        )
+
+    def can_auto_join(self, organization):
+        """Check if the user can auto-join an organization."""
+        # Get the verified email addresses for the user
+        user_emails = self.emailaddress_set.filter(verified=True)
+        user_domains = [email.email.split("@")[1].lower() for email in user_emails]
+
+        # Get the organization's verified domains
+        org_domains = [domain.domain.lower() for domain in organization.domains.all()]
+
+        # Check if any of the user's domains match the organization's domains
+        return any(domain in org_domains for domain in user_domains)
 
 
 class LoginLog(models.Model):
