@@ -246,6 +246,8 @@ class Subscription(models.Model):
                 metadata={"action": f"Subscription ({self.plan})"},
                 days_until_due=30 if self.plan.annual else None,
             )
+            self.cancelled = False
+            self.save()
 
 
 class Plan(models.Model):
