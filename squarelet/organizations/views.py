@@ -66,22 +66,11 @@ class Detail(AdminLinkMixin, DetailView):
                     self.object.invitations.get_requested().count()
                 )
 
-            # Check if the user can auto-join based on their verified email domains
-            can_auto_join = False
-            user_emails = self.request.user.emailaddress_set.filter(verified=True)
-            user_domains = [email.email.split("@")[1].lower() for email in user_emails]
-
-            # Match user's email domains with the organization's verified domains
-            org_domains = [
-                domain.domain.lower() for domain in self.object.domains.all()
-            ]
-            if (
-                any(domain in org_domains for domain in user_domains)
+            context["can_auto_join"] = (
+                self.request.user.can_auto_join(self.object)
                 and not context["is_member"]
-            ):
-                can_auto_join = True
+            )
 
-            context["can_auto_join"] = can_auto_join
         users = self.object.users.all()
         admins = users.filter(memberships__admin=True)
         if context.get("is_member"):
@@ -95,23 +84,11 @@ class Detail(AdminLinkMixin, DetailView):
     def post(self, request, *args, **kwargs):
         self.organization = self.get_object()
 
-        # Check if the user can auto-join based on their email domain
-        can_auto_join = False
-        if self.request.user.is_authenticated:
-            user_emails = self.request.user.emailaddress_set.filter(verified=True)
-            user_domains = [email.email.split("@")[1].lower() for email in user_emails]
-            org_domains = [
-                domain.domain.lower() for domain in self.organization.domains.all()
-            ]
-
-            if any(domain in org_domains for domain in user_domains):
-                can_auto_join = True
-
         if not self.request.user.is_authenticated:
             return redirect(self.organization)
         is_member = self.organization.has_member(self.request.user)
         if request.POST.get("action") == "join" and not is_member:
-            if can_auto_join:
+            if self.request.user.can_auto_join(self.organization):
                 # Auto-join the user to the organization (no invitation needed)
                 self.organization.memberships.create(user=self.request.user)
                 messages.success(
