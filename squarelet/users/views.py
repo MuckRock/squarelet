@@ -72,7 +72,7 @@ class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
         return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
-        user=self.object
+        user = self.object
         context = super().get_context_data(**kwargs)
         context["other_orgs"] = (
             context["user"]

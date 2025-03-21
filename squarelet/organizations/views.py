@@ -65,6 +65,23 @@ class Detail(AdminLinkMixin, DetailView):
                 context["invite_count"] = (
                     self.object.invitations.get_requested().count()
                 )
+
+            # Check if the user can auto-join based on their verified email domains
+            can_auto_join = False
+            user_emails = self.request.user.emailaddress_set.filter(verified=True)
+            user_domains = [email.email.split("@")[1].lower() for email in user_emails]
+
+            # Match user's email domains with the organization's verified domains
+            org_domains = [
+                domain.domain.lower() for domain in self.object.domains.all()
+            ]
+            if (
+                any(domain in org_domains for domain in user_domains)
+                and not context["is_member"]
+            ):
+                can_auto_join = True
+
+            context["can_auto_join"] = can_auto_join
         users = self.object.users.all()
         admins = users.filter(memberships__admin=True)
         if context.get("is_member"):
@@ -77,26 +94,46 @@ class Detail(AdminLinkMixin, DetailView):
 
     def post(self, request, *args, **kwargs):
         self.organization = self.get_object()
+
+        # Check if the user can auto-join based on their email domain
+        can_auto_join = False
+        if self.request.user.is_authenticated:
+            user_emails = self.request.user.emailaddress_set.filter(verified=True)
+            user_domains = [email.email.split("@")[1].lower() for email in user_emails]
+            org_domains = [
+                domain.domain.lower() for domain in self.organization.domains.all()
+            ]
+
+            if any(domain in org_domains for domain in user_domains):
+                can_auto_join = True
+
         if not self.request.user.is_authenticated:
             return redirect(self.organization)
         is_member = self.organization.has_member(self.request.user)
         if request.POST.get("action") == "join" and not is_member:
-            invitation = self.organization.invitations.create(
-                email=request.user.email, user=request.user, request=True
-            )
-            messages.success(
-                request,
-                _(
-                    "Request to join the organization sent!<br><br>"
-                    "We strongly recommend reaching out directly to one or all of "
-                    "the admins listed below to ensure your request is approved "
-                    "quickly. If all of the admins shown below have left the "
-                    "organization, please "
-                    '<a href="mailto:info@muckrock.com">contact support</a> '
-                    "for assistance.<br><br>"
-                ),
-            )
-            invitation.send()
+            if can_auto_join:
+                # Auto-join the user to the organization (no invitation needed)
+                self.organization.memberships.create(user=self.request.user)
+                messages.success(
+                    request, _("You have successfully joined the organization!")
+                )
+            else:
+                invitation = self.organization.invitations.create(
+                    email=request.user.email, user=request.user, request=True
+                )
+                messages.success(
+                    request,
+                    _(
+                        "Request to join the organization sent!<br><br>"
+                        "We strongly recommend reaching out directly to one or all of "
+                        "the admins listed below to ensure your request is approved "
+                        "quickly. If all of the admins shown below have left the "
+                        "organization, please "
+                        '<a href="mailto:info@muckrock.com">contact support</a> '
+                        "for assistance.<br><br>"
+                    ),
+                )
+                invitation.send()
         elif request.POST.get("action") == "leave" and is_member:
             self.request.user.memberships.filter(
                 organization=self.organization

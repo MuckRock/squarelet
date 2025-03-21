@@ -224,7 +224,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         emails = self.emailaddress_set.filter(verified=True)
 
         # Extract the domains from the verified emails
-        domains = [email.email.split('@')[1].lower() for email in emails]
+        domains = [email.email.split("@")[1].lower() for email in emails]
 
         # Find organizations matching any of the domains
         return Organization.objects.filter(domains__domain__in=domains).distinct()
