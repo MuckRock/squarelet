@@ -2,19 +2,15 @@
 from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
 from django.http.response import Http404
-from django.test import TestCase, Client
 
 # Standard Library
 import hashlib
 import hmac
 import json
 import time
-from urllib.parse import urlencode
 
 # Third Party
-from django.urls import reverse
 import pytest
-from allauth.account.utils import has_verified_email
 
 # Squarelet
 from squarelet.core.tests.mixins import ViewTestMixin
@@ -104,13 +100,13 @@ class TestUserUpdateView(ViewTestMixin):
 
 
 @pytest.mark.django_db()
-class TestLoginView(ViewTestMixin, TestCase):
+class TestLoginView(ViewTestMixin):
     """Test the User Redirect view"""
 
     view = views.LoginView
     url = "/accounts/login/"
 
-    # pylint: disable=protected-access, invalid-name
+    # pylint: disable=invalid-name
 
     def test_get_url_auth_token(self, rf, mocker):
         """Test handling of lingering url_auth_token parameter"""
