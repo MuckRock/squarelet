@@ -28,6 +28,7 @@ class AccountAdapter(DefaultAccountAdapter):
     """
     Custom account adapter for allauth
     """
+
     def is_open_for_signup(self, request):
         return getattr(settings, "ACCOUNT_ALLOW_REGISTRATION", True)
 
