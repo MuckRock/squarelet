@@ -7,8 +7,6 @@ from django.http.response import HttpResponseRedirect
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.utils.translation import gettext, gettext_lazy as _
-
 
 # Third Party
 from allauth.account.adapter import DefaultAccountAdapter
@@ -25,10 +23,11 @@ from squarelet.organizations.models import Invitation
 from squarelet.users.models import User
 from squarelet.users.serializers import UserWriteSerializer
 
-"""
-Custom account adapter for allauth
-"""
+
 class AccountAdapter(DefaultAccountAdapter):
+    """
+    Custom account adapter for allauth
+    """
     def is_open_for_signup(self, request):
         return getattr(settings, "ACCOUNT_ALLOW_REGISTRATION", True)
 
@@ -102,7 +101,7 @@ class AccountAdapter(DefaultAccountAdapter):
         super().login(request, user)
         if invitation_uuid is not None and request.user.is_authenticated:
             Invitation.objects.filter(uuid=invitation_uuid).update(user=request.user)
-    
+
     def post_login(
         self,
         request,
@@ -112,7 +111,7 @@ class AccountAdapter(DefaultAccountAdapter):
         signal_kwargs,
         email,
         signup,
-        redirect_url
+        redirect_url,
     ):
         """
         Extend the post_login method to perform onboarding checks
@@ -120,18 +119,18 @@ class AccountAdapter(DefaultAccountAdapter):
 
         # Get the default redirect URL (which honors the 'next' parameter)
         original_redirect = get_login_redirect_url(request, redirect_url, signup=signup)
-        
+
         # Store the redirect URL and other params in the session for later use
-        request.session['next_url'] = original_redirect
-        request.session['checkFor'] = request.GET.get("checkFor")
-        request.session['intent'] = request.GET.get("intent")
+        request.session["next_url"] = original_redirect
+        request.session["checkFor"] = request.GET.get("checkFor")
+        request.session["intent"] = request.GET.get("intent")
 
         # Check if we need user to go through onboarding
         requires_onboarding = True  # TODO: Actually check lol
-        
+
         if requires_onboarding:
             # Pass the user to the onboarding view
-            response = HttpResponseRedirect(reverse('account_onboarding'))
+            response = HttpResponseRedirect(reverse("account_onboarding"))
         else:
             # Use the original redirect
             response = HttpResponseRedirect(original_redirect)
@@ -154,7 +153,6 @@ class AccountAdapter(DefaultAccountAdapter):
             {"user": user},
         )
         return response
-
 
     def get_user_search_fields(self):
         return []

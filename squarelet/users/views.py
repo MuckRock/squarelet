@@ -158,8 +158,9 @@ class UserListView(LoginRequiredMixin, ListView):
 
 class UserOnboardingView(TemplateView):
     """Show onboarding steps for new or existing users after they log in"""
+
     template_name = "account/onboarding/base.html"  # Base template with includes
-    
+
     def get_onboarding_step(self, request):
         """
         Check user account status and return the appropriate onboarding step
@@ -167,58 +168,57 @@ class UserOnboardingView(TemplateView):
         """
         user = request.user
         session = request.session
-        checkFor = session.get('checkFor', [])
+        # check_for = session.get("checkFor", [])
 
         # Initialize onboarding session if it doesn't exist
-        if 'onboarding' not in session:
-            session['onboarding'] = {
-                'email_check_completed': False,
-                'mfa_step': 'not_started' # Options: not_started, opted_in, code_submitted, completed
+        if "onboarding" not in session:
+            session["onboarding"] = {
+                "email_check_completed": False,
             }
         # Onboarding progress state is tracked in the session
-        onboarding = session['onboarding']
+        onboarding = session["onboarding"]
         print(onboarding)
         if has_verified_email(user):
-            onboarding['email_check_completed'] = True
+            onboarding["email_check_completed"] = True
             session.modified = True
-        elif not onboarding['email_check_completed']:
+        elif not onboarding["email_check_completed"]:
             return "confirm_email", {}
-        
+
         # TODO: Verification check
 
         # TODO: Organization check
-        
+
         # If all checks pass, user has completed onboarding
         return None, {}
 
     def get_template_names(self):
         """Return the appropriate template based on onboarding step"""
         step, _ = self.get_onboarding_step(self.request)
-        
+
         if step:
             return [f"account/onboarding/{step}.html"]
-        
+
         return [self.template_name]
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
+
         # Add the onboarding step to context
         step, step_context = self.get_onboarding_step(self.request)
-        context['onboarding_step'] = step
+        context["onboarding_step"] = step
         context.update(step_context)
-        
+
         # Add the session params from login
-        context['next_url'] = self.request.session.get('next_url', '/')
-        context['intent'] = self.request.session.get('intent', None)
-        context['service'] = Service.objects.filter(slug=context["intent"]).first()
-        
+        context["next_url"] = self.request.session.get("next_url", "/")
+        context["intent"] = self.request.session.get("intent", None)
+        context["service"] = Service.objects.filter(slug=context["intent"]).first()
+
         return context
-    
+
     def get(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
-            return redirect('account_login')
-            
+            return redirect("account_login")
+
         # Check if onboarding is complete
         step, _ = self.get_onboarding_step(request)
 
@@ -226,30 +226,32 @@ class UserOnboardingView(TemplateView):
             # If the user has not verified their email,
             # send a new confirmation message
             send_email_confirmation(request, request.user, False, request.user.email)
-        
-        if not step and 'next_url' in request.session:
+
+        if not step and "next_url" in request.session:
             # Onboarding complete, redirect to original destination
-            next_url = request.session.pop('next_url')
+            next_url = request.session.pop("next_url")
             return redirect(next_url)
-            
+
         # Otherwise, show the appropriate onboarding step
         return super().get(request, *args, **kwargs)
 
     def post(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
-            return redirect('account_login')
-        
+            return redirect("account_login")
+
         # Handle any form submissions for the current onboarding step
-        step = request.POST.get('step')
+        step = request.POST.get("step")
         print(request.POST)
         if step == "confirm_email":
             # User has confirmed their email, mark as completed
-            request.session['onboarding']['email_check_completed'] = True
+            request.session["onboarding"]["email_check_completed"] = True
             request.session.modified = True
-            print('confirm email', request.session['onboarding']['email_check_completed'])
-        
+            print(
+                "confirm email", request.session["onboarding"]["email_check_completed"]
+            )
+
         # Redirect back to the same view to check the next step
-        return redirect('account_onboarding')
+        return redirect("account_onboarding")
 
 
 class LoginView(AllAuthLoginView):
