@@ -1,35 +1,55 @@
-{% extends "mfa/base_entrance.html" %}
+{% extends "account/login.html" %}
 {% load i18n %}
 {% load allauth %}
 {% load allauth static %}
 {% block head_title %}
     {% trans "Sign In" %}
 {% endblock head_title %}
-{% block content %}
-    {% element h1 %}
-        {% trans "Two-Factor Authentication" %}
-    {% endelement %}
-    {% element p %}
+{% block css %}
+{{ block.super }}
+<style>
+  .container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem;
+  }
+  .container h1,
+  .container p {
+    width: 100%;
+    text-align: center;
+  }
+</style>
+{% endblock %}
+{% block login_step %}
+<div class="container">
+    <div class="icon">
+      <img src="{% static 'icons/security.svg' %}" />
+    </div>
+    <h1>{% trans "Two-Factor Authentication" %}</h1>
+    <p>
         {% blocktranslate %}Your account is protected by two-factor authentication. Please enter an authenticator code:{% endblocktranslate %}
-    {% endelement %}
+    </p>
     {% url 'mfa_authenticate' as action_url %}
-    {% element form form=form method="post" action=action_url %}
-        {% slot body %}
-            {% csrf_token %}
-            {% element fields form=form unlabeled=True %}
-            {% endelement %}
-        {% endslot %}
-        {% slot actions %}
-            {% element button type="submit" tags="primary,mfa,login" %}
-                {% trans "Sign In" %}
-            {% endelement %}
-            {% if "webauthn" not in MFA_SUPPORTED_TYPES %}
-                {% element button type="submit" form="logout-from-stage" tags="link,mfa,cancel" %}
-                    {% trans "Cancel" %}
-                {% endelement %}
-            {% endif %}
-        {% endslot %}
-    {% endelement %}
+    <form method="post" action="{{action_url}}">
+        {% csrf_token %}
+            {{form.non_field_errors}}
+        <label class="login text field">
+          {% trans 'Enter Code' %}
+          {{form.code}}
+          {{form.code.errors}}
+        </label>
+      <footer>
+      {% element button type="submit" tags="primary,mfa,login" %}
+          {% trans "Sign In" %}
+      {% endelement %}
+      {% if "webauthn" not in MFA_SUPPORTED_TYPES %}
+          {% element button type="submit" form="logout-from-stage" tags="link,mfa,cancel" %}
+              {% trans "Cancel" %}
+          {% endelement %}
+      {% endif %}
+      </footer>
+    </form>
     {% if "webauthn" in MFA_SUPPORTED_TYPES %}
         {% element hr %}
         {% endelement %}
@@ -70,4 +90,5 @@
         <input type="hidden" name="next" value="{% url 'account_login' %}">
         {% csrf_token %}
     </form>
-{% endblock content %}
+</div>
+{% endblock login_step %}

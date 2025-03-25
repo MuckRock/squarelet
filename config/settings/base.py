@@ -369,7 +369,9 @@ ACCOUNT_FORMS = {
 ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = False
 ACCOUNT_SESSION_REMEMBER = None
 
-MFA_ADAPTER = "allauth.mfa.adapter.DefaultMFAAdapter"
+MFA_ADAPTER = "squarelet.users.adapters.MfaAdapter"
+# Only allow insecure origins in development
+MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = ENV == "dev"
 
 DIGEST_EMAILS = env.list("DIGEST_EMAILS", default=[])
 
