@@ -189,7 +189,22 @@ class UserOnboardingView(TemplateView):
         # TODO: Verification check
 
         # TODO: Organization check
-
+        
+        # MFA check
+        # Check if this is user's first login (date_joined and last_login are the same day)
+        is_first_login = user.last_login is None or user.date_joined.date() == user.last_login.date()
+        mfa_step = onboarding['mfa_step']
+        if is_mfa_enabled(user) or is_first_login:
+            # If the user has MFA enabled, mark step as checked
+            onboarding['mfa_step'] = 'completed'
+            session.modified = True
+        elif mfa_step == 'not_started':
+            return "mfa_opt_in", {}
+        elif mfa_step == 'opted_in':
+            return "mfa_setup", {}
+        elif mfa_step == 'code_submitted':
+            return "mfa_confirmation", {}
+        
         # If all checks pass, user has completed onboarding
         return None, {}
 
@@ -255,6 +270,38 @@ class UserOnboardingView(TemplateView):
                 "confirm email", request.session["onboarding"]["email_check_completed"]
             )
 
+        
+        elif step == 'mfa_opt_in':
+            choice = request.POST.get('enable_mfa')
+            print(choice)
+            if choice == 'yes':
+                # User opted-in for MFA, move to next step
+                request.session['onboarding']['mfa_step'] = 'opted_in'
+            else:
+                # User skipped MFA, mark as completed
+                request.session['onboarding']['mfa_step'] = 'completed'
+            request.session.modified = True
+        
+        elif step == 'mfa_setup':
+            # Process MFA setup - validate the code
+            code = request.POST.get('verification_code')
+            
+            # Your code validation logic here
+            is_valid = True # validate_mfa_code(request.user, code)
+            
+            if is_valid:
+                # Code validated successfully
+                request.session['onboarding']['mfa_step'] = 'code_submitted'
+                request.session.modified = True
+            else:
+                # Show error message but stay on same step
+                messages.error(request, "Invalid verification code. Please try again.")
+        
+        elif step == 'mfa_confirmation':
+            # User has seen the confirmation screen, mark MFA as completed
+            request.session['onboarding']['mfa_step'] = 'completed'
+            request.session.modified = True
+        
         # Redirect back to the same view to check the next step
         return redirect("account_onboarding")
 
