@@ -232,6 +232,9 @@ class UserOnboardingView(TemplateView):
             next_url = request.session.pop("next_url")
             return redirect(next_url)
 
+        if not step:
+            return redirect("users:detail", username=request.user.username)
+
         # Otherwise, show the appropriate onboarding step
         return super().get(request, *args, **kwargs)
 
