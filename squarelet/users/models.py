@@ -1,6 +1,8 @@
 # Django
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.models import PermissionsMixin
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.db import models, transaction
 from django.db.models import Q
 from django.http.request import urlencode
@@ -223,8 +225,14 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         # Get all verified email addresses for the user
         emails = self.emailaddress_set.filter(verified=True)
 
-        # Extract the domains from the verified emails
-        domains = [email.email.split("@")[1].lower() for email in emails]
+        # Extract and validate domains from verified emails
+        domains = []
+        for email in emails:
+            try:
+                validate_email(email.email)  # Ensure the email is valid
+                domains.append(email.email.split("@")[1].lower())
+            except ValidationError:
+                continue  # Skip invalid emails
 
         # Find organizations matching any of the domains
         return (
@@ -235,15 +243,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
 
     def can_auto_join(self, organization):
         """Check if the user can auto-join an organization."""
-        # Get the verified email addresses for the user
-        user_emails = self.emailaddress_set.filter(verified=True)
-        user_domains = [email.email.split("@")[1].lower() for email in user_emails]
-
-        # Get the organization's verified domains
-        org_domains = [domain.domain.lower() for domain in organization.domains.all()]
-
-        # Check if any of the user's domains match the organization's domains
-        return any(domain in org_domains for domain in user_domains)
+        return organization in self.get_potential_organizations()
 
 
 class LoginLog(models.Model):
