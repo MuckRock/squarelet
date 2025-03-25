@@ -7,8 +7,7 @@ from django.http.response import HttpResponseRedirect
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.utils.translation import gettext, gettext_lazy as _
-
+from django.utils.translation import gettext_lazy as _
 
 # Third Party
 from allauth.account.adapter import DefaultAccountAdapter
@@ -221,7 +220,9 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
         sociallogin.save(request)
         return user
 
+
 class MfaAdapter(DefaultMFAAdapter):
+    # pylint: disable=line-too-long
     error_messages = {
         "add_email_blocked": _(
             "You cannot add an email address to an account protected by two-factor authentication."
