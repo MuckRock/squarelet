@@ -4,6 +4,12 @@ from urllib.parse import parse_qs, urlsplit
 # Third Party
 import pytest
 
+# Squarelet
+from squarelet.organizations.tests.factories import (
+    EmailDomainFactory,
+    OrganizationFactory,
+)
+
 
 def test_str(user_factory):
     user = user_factory.build()
@@ -68,3 +74,84 @@ def test_wrap_url_off(user_factory):
     query = parse_qs(parse.query)
     assert "url_auth_token" not in query
     assert query["a"] == ["1"]
+
+
+@pytest.mark.django_db
+def test_can_auto_join(user_factory):
+    # Create a user with a verified email address
+    user = user_factory()
+    user.emailaddress_set.create(email="user@example.com", verified=True)
+
+    # Create organizations using the factory
+    # and assign matching domains via EmailDomainFactory
+    org1 = OrganizationFactory(name="Org 1")
+    domain1 = EmailDomainFactory.create(organization=org1, domain="example.com")
+    org1.domains.set([domain1])
+
+    org2 = OrganizationFactory(name="Org 2")
+    domain2 = EmailDomainFactory.create(organization=org2, domain="anotherdomain.com")
+    org2.domains.set([domain2])
+
+    # Test that the user can auto-join org1, but not org2
+    assert user.can_auto_join(org1) is True
+    assert user.can_auto_join(org2) is False
+
+
+@pytest.mark.django_db
+def test_can_auto_join_with_multiple_emails(user_factory):
+    # Create a user with multiple verified email addresses
+    user = user_factory()
+    user.emailaddress_set.create(email="user@example.com", verified=True)
+    user.emailaddress_set.create(email="user@anotherdomain.com", verified=True)
+
+    # Create organizations using the factory with domains
+    # that match and don't match the user's emails
+    org1 = OrganizationFactory(name="Org 1")
+    domain1 = EmailDomainFactory.create(organization=org1, domain="example.com")
+    org1.domains.set([domain1])
+
+    org2 = OrganizationFactory(name="Org 2")
+    domain2 = EmailDomainFactory.create(organization=org2, domain="anotherdomain.com")
+    org2.domains.set([domain2])
+
+    org3 = OrganizationFactory(name="Org 3")
+    domain3 = EmailDomainFactory.create(
+        organization=org3, domain="nonmatchingdomain.com"
+    )
+    org3.domains.set([domain3])  # Doesn't match either email
+
+    # Test that the user can auto-join organizations with matching domains
+    assert user.can_auto_join(org1) is True
+    assert user.can_auto_join(org2) is True
+
+    # Test that the user cannot auto-join an organization with a non-matching domain
+    assert user.can_auto_join(org3) is False
+
+
+@pytest.mark.django_db
+def test_get_potential_organizations_with_multiple_emails(user_factory):
+    # Create a user with multiple verified email addresses
+    user = user_factory()
+    user.emailaddress_set.create(email="user@example.com", verified=True)
+    user.emailaddress_set.create(email="user@anotherdomain.com", verified=True)
+
+    # Create organizations using the factory
+    org1 = OrganizationFactory(name="Org 1")
+    domain1 = EmailDomainFactory.create(organization=org1, domain="example.com")
+    org1.domains.set([domain1])
+
+    org2 = OrganizationFactory(name="Org 2")
+    domain2 = EmailDomainFactory.create(organization=org2, domain="anotherdomain.com")
+    org2.domains.set([domain2])
+
+    org3 = OrganizationFactory(name="Org 3")
+    domain3 = EmailDomainFactory.create(
+        organization=org3, domain="nonmatchingdomain.com"
+    )
+    org3.domains.set([domain3])
+
+    # Test that the user can get the correct potential orgs
+    potential_orgs = user.get_potential_organizations()
+    assert org1 in potential_orgs
+    assert org2 in potential_orgs
+    assert org3 not in potential_orgs

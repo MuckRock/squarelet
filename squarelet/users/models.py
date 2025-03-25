@@ -1,6 +1,8 @@
 # Django
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.models import PermissionsMixin
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.db import models, transaction
 from django.db.models import Q
 from django.http.request import urlencode
@@ -18,6 +20,7 @@ from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
 from squarelet.core.mixins import AvatarMixin
 from squarelet.core.utils import file_path
 from squarelet.oidc.middleware import send_cache_invalidations
+from squarelet.organizations.models import Organization
 
 # Local
 from .managers import UserManager
@@ -237,6 +240,30 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
             | Q(groups__hub_eligible=True)
             | Q(parent__hub_eligible=True)
         ).exists()
+
+    def get_potential_organizations(self):
+        # Get all verified email addresses for the user
+        emails = self.emailaddress_set.filter(verified=True)
+
+        # Extract and validate domains from verified emails
+        domains = []
+        for email in emails:
+            try:
+                validate_email(email.email)  # Ensure the email is valid
+                domains.append(email.email.split("@")[1].lower())
+            except ValidationError:
+                continue  # Skip invalid emails
+
+        # Find organizations matching any of the domains
+        return (
+            Organization.objects.filter(domains__domain__in=domains)
+            .distinct()
+            .exclude(users=self)
+        )
+
+    def can_auto_join(self, organization):
+        """Check if the user can auto-join an organization."""
+        return organization in self.get_potential_organizations()
 
 
 class LoginLog(models.Model):

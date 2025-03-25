@@ -153,3 +153,14 @@ class EntitlementFactory(factory.django.DjangoModelFactory):
 
     class Meta:
         model = "organizations.Entitlement"
+
+
+class EmailDomainFactory(factory.django.DjangoModelFactory):
+    organization = factory.SubFactory(
+        "squarelet.organizations.tests.factories.OrganizationFactory"
+    )
+    domain = factory.Sequence(lambda n: f"example{n}.com")
+
+    class Meta:
+        model = "organizations.OrganizationEmailDomain"
+        django_get_or_create = ("domain",)

@@ -81,12 +81,14 @@ class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
         return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
+        user = self.object
         context = super().get_context_data(**kwargs)
         context["other_orgs"] = (
             context["user"]
             .organizations.filter(individual=False)
             .get_viewable(self.request.user)
         )
+        context["potential_organizations"] = user.get_potential_organizations()
         return context
 
 
