@@ -35,10 +35,10 @@ from allauth.account.utils import (
     send_email_confirmation,
 )
 from allauth.account.views import LoginView as AllAuthLoginView
-from allauth.mfa.utils import is_mfa_enabled
 from allauth.mfa.adapter import get_adapter
 from allauth.mfa.totp.forms import ActivateTOTPForm
 from allauth.mfa.totp.internal.flows import activate_totp
+from allauth.mfa.utils import is_mfa_enabled
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Fieldset, Layout
 
@@ -181,7 +181,7 @@ class UserOnboardingView(TemplateView):
         if "onboarding" not in session:
             session["onboarding"] = {
                 "email_check_completed": False,
-                "mfa_step": "not_started"
+                "mfa_step": "not_started",
             }
         # Onboarding progress state is tracked in the session
         onboarding = session["onboarding"]
@@ -195,30 +195,29 @@ class UserOnboardingView(TemplateView):
         # TODO: Verification check
 
         # TODO: Organization check
-        
+
         # MFA check
         # Check if this is user's first login
         is_first_login = (
-            user.last_login is None or
-            user.date_joined.date() == user.last_login.date()
+            user.last_login is None or user.date_joined.date() == user.last_login.date()
         )
-        mfa_step = onboarding.get('mfa_step', None)
+        mfa_step = onboarding.get("mfa_step", None)
         # Check for the "code_submitted" step first, since
         # is_mfa_enabled will be true when the step is active
-        if mfa_step == 'code_submitted':
+        if mfa_step == "code_submitted":
             return "mfa_confirm", {}
-        # Otherwise, if the user has MFA enabled, or if it's 
+        # Otherwise, if the user has MFA enabled, or if it's
         # not the right time to prompt, mark step as checked
         elif is_mfa_enabled(user) or is_first_login or not has_verified_email(user):
-            onboarding['mfa_step'] = 'completed'
+            onboarding["mfa_step"] = "completed"
             session.modified = True
         # Finally, if the user doesn't have MFA enabled,
         # ask if they want to opt-in, or show them setup
-        elif mfa_step == 'not_started':
+        elif mfa_step == "not_started":
             return "mfa_opt_in", {}
-        elif mfa_step == 'opted_in':
+        elif mfa_step == "opted_in":
             return "mfa_setup", {}
-        
+
         # If all checks pass, user has completed onboarding
         return None, {}
 
@@ -245,9 +244,9 @@ class UserOnboardingView(TemplateView):
         context["service"] = Service.objects.filter(slug=context["intent"]).first()
 
         # For MFA setup, initialize the form and generate the SVG
-        if step == 'mfa_setup':
+        if step == "mfa_setup":
             activate_totp_form = ActivateTOTPForm(user=self.request.user)
-            context['form'] = activate_totp_form
+            context["form"] = activate_totp_form
             adapter = get_adapter()
             totp_url = adapter.build_totp_url(
                 self.request.user,
@@ -304,23 +303,22 @@ class UserOnboardingView(TemplateView):
                 "confirm email", request.session["onboarding"]["email_check_completed"]
             )
 
-        
-        elif step == 'mfa_opt_in':
-            choice = request.POST.get('enable_mfa')
+        elif step == "mfa_opt_in":
+            choice = request.POST.get("enable_mfa")
             print(choice)
-            if choice == 'yes':
+            if choice == "yes":
                 # User opted-in for MFA, move to next step
-                request.session['onboarding']['mfa_step'] = 'opted_in'
+                request.session["onboarding"]["mfa_step"] = "opted_in"
             else:
                 # User skipped MFA, mark as completed
                 messages.info(request, "Two-factor authentication skipped.")
-                request.session['onboarding']['mfa_step'] = 'completed'
+                request.session["onboarding"]["mfa_step"] = "completed"
             request.session.modified = True
-        
-        elif step == 'mfa_setup':
+
+        elif step == "mfa_setup":
             # Check if the user skipped the MFA setup step
-            if request.POST.get('mfa_setup') == 'skip':
-                request.session['onboarding']['mfa_step'] = 'completed'
+            if request.POST.get("mfa_setup") == "skip":
+                request.session["onboarding"]["mfa_step"] = "completed"
                 request.session.modified = True
                 messages.info(request, "Two-factor authentication skipped.")
                 return redirect("account_onboarding")
@@ -328,22 +326,22 @@ class UserOnboardingView(TemplateView):
             form = ActivateTOTPForm(user=request.user, data=request.POST)
             if form.is_valid():
                 # Code validated successfully
-                totp_auth, rc_auth = activate_totp(self.request, form)
-                request.session['onboarding']['mfa_step'] = 'code_submitted'
+                activate_totp(self.request, form)
+                request.session["onboarding"]["mfa_step"] = "code_submitted"
                 request.session.modified = True
                 messages.success(request, "Two-factor authentication enabled.")
             else:
                 # Rerender form with errors
                 context = self.get_context_data(**kwargs)
-                context['form'] = form
+                context["form"] = form
                 messages.error(request, "Invalid verification code. Please try again.")
                 return self.render_to_response(context)
-        
-        elif step == 'mfa_confirm':
+
+        elif step == "mfa_confirm":
             # User has seen the confirmation screen, mark MFA as completed
-            request.session['onboarding']['mfa_step'] = 'completed'
+            request.session["onboarding"]["mfa_step"] = "completed"
             request.session.modified = True
-        
+
         # Redirect back to the same view to check the next step
         return redirect("account_onboarding")
 
