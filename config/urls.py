@@ -18,7 +18,7 @@ from squarelet.oidc.views import token_view
 from squarelet.organizations.viewsets import ChargeViewSet, OrganizationViewSet
 from squarelet.users.views import (
     LoginView,
-    EmailConfirmationView
+    UserOnboardingView,
 )
 from squarelet.users.viewsets import (
     RefreshTokenViewSet,
@@ -55,7 +55,7 @@ urlpatterns = [
     ),
     # override the accounts login with our version
     re_path("accounts/login/$", LoginView.as_view(), name="account_login"),
-    re_path("accounts/login/confirm-email/$", EmailConfirmationView.as_view(), name="login_confirm_email"),
+    re_path("accounts/onboard/$", UserOnboardingView.as_view(), name="account_onboarding"),
     path("accounts/", include("allauth.urls")),
     path("api/", include(router.urls)),
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
