@@ -12,12 +12,34 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     padding: 1rem;
   }
   .container h1,
   .container p {
     width: 100%;
     text-align: center;
+  }
+  h1 {
+    color: var(--gray-5, #233944);
+    text-align: center;
+    font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
+
+    /* Title */
+    font-family: var(--font-sans, "Source Sans Pro");
+    font-size: var(--font-xl, 1.5rem);
+    font-style: normal;
+    font-weight: 600;
+    line-height: normal;
+  }
+  .flex {
+    display: flex;
+  }
+  .gap-1 {
+    gap: 1rem;
+  }
+  .align-end {
+    align-items: flex-end;
   }
 </style>
 {% endblock %}
@@ -31,59 +53,21 @@
         {% blocktranslate %}Your account is protected by two-factor authentication. Please enter an authenticator code:{% endblocktranslate %}
     </p>
     {% url 'mfa_authenticate' as action_url %}
-    <form method="post" action="{{action_url}}">
+    <form class="flex gap-1 align-end" method="post" action="{{action_url}}">
         {% csrf_token %}
-            {{form.non_field_errors}}
+        {{form.non_field_errors}}
         <label class="login text field">
           {% trans 'Enter Code' %}
           {{form.code}}
           {{form.code.errors}}
         </label>
-      <footer>
-      {% element button type="submit" tags="primary,mfa,login" %}
-          {% trans "Sign In" %}
-      {% endelement %}
-      {% if "webauthn" not in MFA_SUPPORTED_TYPES %}
-          {% element button type="submit" form="logout-from-stage" tags="link,mfa,cancel" %}
-              {% trans "Cancel" %}
-          {% endelement %}
-      {% endif %}
-      </footer>
+      <button type="submit" class="button primary">
+        {% trans "Sign In" %}
+      </button>
+      <button type="submit" class="button ghost" form="logout-from-stage">
+        {% trans "Cancel" %}
+      </button>
     </form>
-    {% if "webauthn" in MFA_SUPPORTED_TYPES %}
-        {% element hr %}
-        {% endelement %}
-        {% element h2 %}
-            {% translate "Alternative options" %}
-        {% endelement %}
-        {% element button_group vertical=True %}
-            {% element button form="webauthn_form" id="mfa_webauthn_authenticate" type="button" tags="outline,primary" %}
-                {% trans "Use a security key" %}
-            {% endelement %}
-            {% element button type="submit" form="logout-from-stage" tags="outline,primary,mfa,cancel" %}
-                {% trans "Cancel" %}
-            {% endelement %}
-        {% endelement %}
-        {% if "webauthn" in MFA_SUPPORTED_TYPES %}
-            {% element form id="webauthn_form" form=webauthn_form method="post" action=action_url no_visible_fields=True %}
-                {% slot body %}
-                    {% csrf_token %}
-                    {% element fields form=webauthn_form %}
-                    {% endelement %}
-                {% endslot %}
-            {% endelement %}
-            {{ js_data|json_script:"js_data" }}
-            {% include "mfa/webauthn/snippets/scripts.html" %}
-            <script data-allauth-onload="allauth.webauthn.forms.authenticateForm" type="application/json">{
-    "ids": {
-        "authenticate": "mfa_webauthn_authenticate",
-        "credential": "{{ webauthn_form.credential.auto_id }}",
-        "data": "js_data"
-    }
-}
-            </script>
-        {% endif %}
-    {% endif %}
     <form id="logout-from-stage"
           method="post"
           action="{% url 'account_logout' %}">
