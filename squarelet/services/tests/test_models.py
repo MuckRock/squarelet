@@ -1,5 +1,5 @@
 # Django
-from django.test import TestCase
+from django.test import TransactionTestCase
 
 # Squarelet
 from squarelet.services.models import Service
@@ -8,7 +8,9 @@ from squarelet.services.models import Service
 from .factories import ServiceFactory
 
 
-class ServiceModelTest(TestCase):
+class ServiceModelTest(TransactionTestCase):
+    reset_sequences = True
+
     def setUp(self):
         self.service = ServiceFactory()
 
@@ -17,8 +19,8 @@ class ServiceModelTest(TestCase):
         self.assertEqual(str(self.service), self.service.name)
 
     def test_service_fields(self):
-        self.assertEqual(self.service.name, f"Service {self.service.pk - 1}")
-        self.assertEqual(self.service.slug, f"service-{self.service.pk - 1}")
+        self.assertEqual(self.service.name, f"Service {self.service.pk}")
+        self.assertEqual(self.service.slug, f"service-{self.service.pk}")
         self.assertTrue(self.service.description)
         self.assertTrue(self.service.provider_name)
         self.assertTrue(self.service.base_url)

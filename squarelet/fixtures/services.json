@@ -1,0 +1,72 @@
+[
+{
+  "model": "services.service",
+  "pk": 1,
+  "fields": {
+    "slug": "muckrock",
+    "name": "MuckRock",
+    "icon": "service_icons/MuckRock2x_ojnsvTF.png",
+    "description": "Compose, file, and track public records requests",
+    "provider_name": "MuckRock",
+    "base_url": "https://www.muckrock.com/",
+    "created_at": "2025-01-27T23:12:39.644Z",
+    "updated_at": "2025-01-27T23:12:39.644Z"
+  }
+},
+{
+  "model": "services.service",
+  "pk": 2,
+  "fields": {
+    "slug": "foiamachine",
+    "name": "FOIA Machine",
+    "icon": "service_icons/FOIA_Machine2x_veBtFvL.png",
+    "description": "Compose, organize, and track public records requests.",
+    "provider_name": "MuckRock",
+    "base_url": "https://foiamachine.org",
+    "created_at": "2025-01-27T23:13:18.535Z",
+    "updated_at": "2025-01-27T23:13:18.535Z"
+  }
+},
+{
+  "model": "services.service",
+  "pk": 3,
+  "fields": {
+    "slug": "documentcloud",
+    "name": "DocumentCloud",
+    "icon": "service_icons/DocumentCloud2x_kQvKtJQ.png",
+    "description": "Upload, annotate, and embed primary source documents",
+    "provider_name": "MuckRock",
+    "base_url": "https://documentcloud.org",
+    "created_at": "2025-01-27T23:13:51.720Z",
+    "updated_at": "2025-01-27T23:13:51.720Z"
+  }
+},
+{
+  "model": "services.service",
+  "pk": 4,
+  "fields": {
+    "slug": "agendawatch",
+    "name": "Agenda Watch",
+    "icon": "service_icons/Agenda_Watch2x_fiOy2dO.png",
+    "description": "Track local organizations, search past agendas and minutes",
+    "provider_name": "Big Local News",
+    "base_url": "https://agendawatch.org/",
+    "created_at": "2025-01-27T23:14:35.647Z",
+    "updated_at": "2025-01-27T23:14:35.647Z"
+  }
+},
+{
+  "model": "services.service",
+  "pk": 5,
+  "fields": {
+    "slug": "biglocalnews",
+    "name": "Big Local News",
+    "icon": "service_icons/Big_Local_News2x_gRutHe4.png",
+    "description": "Empowering journalists with data, tools and collaborations",
+    "provider_name": "Big Local News",
+    "base_url": "https://biglocalnews.org",
+    "created_at": "2025-01-27T23:15:02.919Z",
+    "updated_at": "2025-01-27T23:15:02.919Z"
+  }
+}
+]
