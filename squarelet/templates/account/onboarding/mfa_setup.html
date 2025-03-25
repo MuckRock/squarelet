@@ -15,7 +15,6 @@
   h1,
   p {
     width: 100%;
-    text-align: center;
     text-wrap: balance;
     margin: 0;
   }
@@ -45,12 +44,23 @@
   .align-end {
     align-items: flex-end;
   }
+  .align-center {
+    align-items: center;
+  }
   .m-0 {
     margin: 0;
   }
   .field {
     display: flex;
     flex-direction: column;
+  }
+  .help.text {
+    font-weight: var(--font-regular, 400);
+    font-size: var(--font-sm, 0.875em);
+    color: var(--gray-4);
+  }
+  .errorlist {
+    margin: 0;
   }
 </style>
 {% endblock %}
@@ -59,27 +69,29 @@
   <header>
     <h1>{% trans "Enable two-factor authentication" %}</h1>
   </header>
-  <div class="flex gap-1">
+  <div class="flex gap-1 align-center">
     <div class="code">
-      {# QR CODE #}
+      <img src="{{ totp_svg_data_uri }}" alt="QR code for enabling two-factor authentication" />
     </div>
     <div class="instructions">
       <p>{% blocktrans %}First, scan this code using an iOS or Android app like:{% endblocktrans %}</p>
-      <p>
-        <ul>
-          <li><a href="https://2fas.com">2FAS</a></li>
-          <li><a href="https://support.google.com/accounts/answer/1066447">Google Authenticator</a></li>
-        </ul>
-      </p>
+      <ul>
+        <li><a href="https://2fas.com" target="_blank" rel="nofollow noreferrer">2FAS</a></li>
+        <li><a href="https://support.google.com/accounts/answer/1066447" target="_blank" rel="nofollow noreferrer">Google Authenticator</a></li>
+      </ul>
       <p>{% blocktrans %}Then, enter the generated 6-digit code below.{% endblocktrans %}</p>
     </div>
   </div>
+  {% if form.code.errors %}
+    {{ form.code.errors }}
+  {% endif %}
   <form class="flex gap-1 align-end m-0" method="post" action="{% url 'account_onboarding' %}">
     {% csrf_token %}
     <input type="hidden" name="step" value="mfa_setup" />
+    <input type="hidden" name="secret" value="{{ form.secret }}" />
     <label class="field">
       {% trans "Enter your 6-digit code" %}
-      <input type="text" name="mfa_code" placeholder="{% trans "######" %}" required />
+      <input type="text" name="code" placeholder="{% trans "######" %}" required />
     </label>
     <button class="button primary" type="submit" name="mfa_setup" value="code">{% trans "Submit" %}</button>
     <button class="button primary ghost" type="submit" name="mfa_setup" value="skip">{% trans "Skip" %}</button>
