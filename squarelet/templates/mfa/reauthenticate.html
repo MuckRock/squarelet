@@ -2,21 +2,19 @@
 {% load i18n %}
 {% load allauth %}
 {% block reauthenticate_content %}
-    {% element p %}
+    <p>
         {% blocktranslate %}Enter an authenticator code:{% endblocktranslate %}
-    {% endelement %}
+    </p>
     {% url 'mfa_reauthenticate' as action_url %}
-    {% element form form=form method="post" action=action_url %}
-        {% slot body %}
-            {% csrf_token %}
-            {% element fields form=form unlabeled=True %}
-            {% endelement %}
-            {{ redirect_field }}
-        {% endslot %}
-        {% slot actions %}
-            {% element button type="submit" tags="primary,mfa,login" %}
-                {% trans "Confirm" %}
-            {% endelement %}
-        {% endslot %}
-    {% endelement %}
+    <form class="flex row gap-1 align-end" method="post" action="{% url 'mfa_reauthenticate' %}">
+      {% csrf_token %}
+      {% for field in form %}
+        <label class="field">
+          {{ field.label }}
+          {{ field }}
+        </label>
+      {% endfor %}      
+      {{ redirect_field }}
+        <button class="primary button" type="submit">{% trans "Confirm" %}</button>
+    </form>
 {% endblock %}
