@@ -11,6 +11,7 @@
 
     <p><a class="_cls-nostyle" href="{% url "account_email" %}"><div class="_cls-action">{% trans 'Edit email' %}</div></a></p>
     <p><a class="_cls-nostyle" href="{% url "account_change_password" %}"><div class="_cls-action">{% trans 'Edit password' %}</div></a></p>
+    <p><a class="_cls-nostyle" href="{% url "mfa_index" %}"><div class="_cls-action">{% trans 'Edit two-factor authentication' %}</div></a></p>
     <form class="form-horizontal" method="post" enctype="multipart/form-data" action="{% url 'users:update' %}">
       {% csrf_token %}
       {% crispy form form.helper %}

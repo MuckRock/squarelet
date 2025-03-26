@@ -53,13 +53,15 @@
         {% blocktranslate %}Your account is protected by two-factor authentication. Please enter an authenticator code:{% endblocktranslate %}
     </p>
     {% url 'mfa_authenticate' as action_url %}
+    <div>
+      {{form.code.errors}}
+      {{form.non_field_errors}}
+    </div>
     <form class="flex gap-1 align-end" method="post" action="{{action_url}}">
         {% csrf_token %}
-        {{form.non_field_errors}}
         <label class="login text field">
           {% trans 'Enter Code' %}
           {{form.code}}
-          {{form.code.errors}}
         </label>
       <button type="submit" class="button primary">
         {% trans "Sign In" %}
