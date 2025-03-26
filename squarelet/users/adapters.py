@@ -7,6 +7,7 @@ from django.http.response import HttpResponseRedirect
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.translation import gettext_lazy as _
 
 # Third Party
 from allauth.account.adapter import DefaultAccountAdapter
@@ -14,6 +15,7 @@ from allauth.account.models import EmailAddress
 from allauth.account.signals import user_logged_in
 from allauth.account.utils import get_login_redirect_url
 from allauth.core.exceptions import ImmediateHttpResponse
+from allauth.mfa.adapter import DefaultMFAAdapter
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from furl import furl
 
@@ -217,3 +219,22 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
         sociallogin.user = user
         sociallogin.save(request)
         return user
+
+
+class MfaAdapter(DefaultMFAAdapter):
+    # pylint: disable=line-too-long
+    error_messages = {
+        "add_email_blocked": _(
+            "You cannot add an email address to an account protected by two-factor authentication."
+        ),
+        "cannot_delete_authenticator": _(
+            "You cannot deactivate two-factor authentication."
+        ),
+        "cannot_generate_recovery_codes": _(
+            "You cannot generate recovery codes without having two-factor authentication enabled."
+        ),
+        "incorrect_code": _("Incorrect code."),
+        "unverified_email": _(
+            "You cannot activate two-factor authentication until you have verified your email address."
+        ),
+    }
