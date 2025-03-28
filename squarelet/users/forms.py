@@ -25,7 +25,9 @@ class SignupForm(allauth.SignupForm):
     """Add a name field to the sign up form"""
 
     name = forms.CharField(
-        label=_("Full name"), max_length=255, widget=forms.TextInput(attrs={"placeholder": "Full name"})
+        label=_("Full name"),
+        max_length=255,
+        widget=forms.TextInput(attrs={"placeholder": "Full name"}),
     )
 
     plan = forms.ModelChoiceField(
@@ -73,10 +75,6 @@ class SignupForm(allauth.SignupForm):
             log_data = self.data.copy()
             log_data.pop("password1", None)
             logger.warning("Failed signup attempt:\n\t%r\n\t%s", self.errors, log_data)
-        plan = data.get("plan")
-        # Save the plan in session storage for future onboarding step #267
-        if plan and plan.requires_payment():
-            self.request.session["plan"] = plan.slug
         return data
 
     @transaction.atomic()
@@ -88,6 +86,11 @@ class SignupForm(allauth.SignupForm):
         user_data.update(self.cleaned_data)
 
         user, _, error = User.objects.register_user(user_data)
+
+        plan = self.cleaned_data.get("plan")
+        # Save the plan in session storage for future onboarding step #267
+        if plan and plan.requires_payment():
+            request.session["plan"] = plan.slug
 
         setup_user_email(request, user, [])
 

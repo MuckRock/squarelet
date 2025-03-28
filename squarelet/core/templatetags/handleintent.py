@@ -40,6 +40,7 @@ def match_service_to_intent(context):
     except Service.DoesNotExist:
         return None
 
+
 @register.inclusion_tag("templatetags/sign_in_message.html", takes_context=True)
 def sign_in_message(context):
     no_match = {
@@ -51,10 +52,10 @@ def sign_in_message(context):
     }
 
     service = match_service_to_intent(context)
-    
+
     if not service:
         return no_match
-    
+
     return {
         "header": f"""
             Sign in with your MuckRock account 
@@ -62,6 +63,7 @@ def sign_in_message(context):
             """.strip(),
         "service": service,
     }
+
 
 @register.inclusion_tag("templatetags/sign_up_message.html", takes_context=True)
 def sign_up_message(context):
@@ -71,10 +73,10 @@ def sign_up_message(context):
     }
 
     service = match_service_to_intent(context)
-    
+
     if not service:
         return no_match
-    
+
     return {
         "header": "Access this and other services by creating a MuckRock account",
         "service": service,
