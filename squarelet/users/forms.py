@@ -74,22 +74,9 @@ class SignupForm(allauth.SignupForm):
             log_data.pop("password1", None)
             logger.warning("Failed signup attempt:\n\t%r\n\t%s", self.errors, log_data)
         plan = data.get("plan")
-        if plan and plan.requires_payment() and not data.get("stripe_token"):
-            self.add_error(
-                "plan",
-                _(
-                    "You must supply a credit card number to sign up for a "
-                    "non-free plan"
-                ),
-            )
-        if plan and not plan.for_individuals and not data.get("organization_name"):
-            self.add_error(
-                "organization_name",
-                _(
-                    "Organization name is required if registering an "
-                    "organizational account"
-                ),
-            )
+        # Save the plan in session storage for future onboarding step #267
+        if plan and plan.requires_payment():
+            self.request.session["plan"] = plan.slug
         return data
 
     @transaction.atomic()
