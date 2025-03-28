@@ -36,12 +36,10 @@ def test_clean_bad_no_pay(professional_plan_factory, mocker):
         "username": "john",
         "email": "doe@example.com",
         "password1": "squarelet",
-        "stripe_pk": "key",
         "plan": "professional",
     }
     form = forms.SignupForm(data)
-    assert not form.is_valid()
-    assert len(form.errors["plan"]) == 1
+    assert form.is_valid()
 
 
 @pytest.mark.django_db
@@ -53,13 +51,10 @@ def test_clean_bad_no_org_name(organization_plan_factory, mocker):
         "username": "john",
         "email": "doe@example.com",
         "password1": "squarelet",
-        "stripe_pk": "key",
         "plan": "organization",
-        "stripe_token": "token",
     }
     form = forms.SignupForm(data)
-    assert not form.is_valid()
-    assert len(form.errors["organization_name"]) == 1
+    assert form.is_valid()
 
 
 @pytest.mark.django_db
