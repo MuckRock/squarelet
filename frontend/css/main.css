@@ -1729,6 +1729,7 @@ textarea {
 }
 
 .button {
+  box-sizing: border-box;
   display: flex;
   padding: 0.375em 0.75em;
   justify-content: center;
