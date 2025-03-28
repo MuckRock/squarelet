@@ -465,146 +465,6 @@ form,
   text-align: center;
 }
 
-.website-footer {
-  background: #333c47;
-  color: #b5bdc7;
-  padding: 3rem 5%;
-  display: block;
-  width: 100%;
-  margin: 0;
-  overflow: hidden;
-}
-
-.website-footer .footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  padding: 1.1875rem 0;
-}
-
-.website-footer .brand {
-  flex: 1 1 20em;
-  max-width: 20em;
-  padding: 0 1.1875rem;
-}
-
-.website-footer .brand p {
-  font-size: 1rem;
-  margin-bottom: 1rem;
-  line-height: 1.4375em;
-}
-
-.website-footer .logo {
-  display: inline-block;
-  margin-bottom: 1.1875rem;
-  text-decoration: none;
-}
-
-.website-footer .logo svg {
-  fill: #ffffff;
-  height: 2rem;
-  width: 2rem;
-}
-
-.website-footer .logo:hover svg {
-  fill: #4582cc;
-}
-
-.website-footer .blue.button {
-  display: inline-block;
-  background: #4582cc;
-  color: #ffffff;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  text-decoration: none;
-}
-
-.website-footer .blue.button:hover {
-  background: #294366;
-}
-
-.website-footer .links {
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
-  flex-wrap: nowrap;
-  max-width: 100%;
-  padding-right: 8rem;
-}
-
-.website-footer .link-group {
-  flex: 1 1 10em;
-  text-align: left;
-  margin-bottom: 0;
-  padding: 0 0.5rem;
-}
-
-.website-footer dfn {
-  display: block;
-  font-family: 'Source Sans Pro', -apple-system, BlinkMacSystemFont, "Segoe UI", 
-                "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", 
-                "Droid Sans", "Helvetica Neue", sans-serif;
-  text-transform: uppercase;
-  color: #ffffff;
-  margin-bottom: 0.5rem;
-  letter-spacing: 0.05em;
-  font-size: 11px;
-  font-weight: 500;
-  font-style: normal;
-}
-
-.website-footer ul {
-  list-style-type: none;
-  padding-left: 0;
-  margin: 0;
-}
-
-.website-footer li {
-  font-size: 1rem;
-  line-height: 1.4375em;
-  margin-bottom: 0.5rem;
-}
-
-.website-footer a {
-  color: #b5bdc7;
-  text-decoration: none;
-}
-
-.website-footer a:hover {
-  color: #4582cc;
-}
-
-/* Mobile Responsive Fix */
-@media (max-width: 768px) {
-  .website-footer .footer {
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-  }
-
-  .website-footer .brand {
-    max-width: 100%;
-    margin-bottom: 2rem;
-  }
-
-  .website-footer .links {
-    display: flex;
-    justify-content: flex-end;
-    gap: 1rem;
-    flex-wrap: wrap;
-    max-width: 60%;
-    padding-right: 1rem;
-    margin-left: -20%;
-  }
-
-  .website-footer .link-group {
-    width: 80%;
-    text-align: center;
-    margin-bottom: 1rem;
-  }
-}
-
 ._cls-minorInfo {
   line-height: 20px;
   font-size: 15px;
@@ -1936,4 +1796,136 @@ textarea {
   display: inline-block;
   vertical-align: text-top;
   fill: currentColor;
+}
+
+/* Footer */
+
+.website-footer {
+  box-sizing: border-box;
+  background: var(--gray-5);
+  color: var(--gray-2);
+  padding: 3rem 5%;
+  display: block;
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+.website-footer .footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 1.1875rem 0;
+  gap: 1.1875rem;
+}
+
+.website-footer .brand {
+  flex: 1 1 20em;
+  max-width: 27em;
+}
+
+.website-footer .brand p {
+  font-size: 1rem;
+  margin-bottom: 1rem;
+  line-height: 1.4375em;
+}
+
+.website-footer .logo {
+  display: inline-block;
+  margin-bottom: 1.1875rem;
+  text-decoration: none;
+}
+
+.website-footer .logo svg {
+  fill: var(--gray-1);
+  height: 2rem;
+  width: 2rem;
+}
+
+.website-footer .logo:hover {
+  background: transparent;
+}
+
+.website-footer .logo:hover svg {
+  fill: var(--primary);
+}
+
+.website-footer .primary.button {
+  display: inline-block;
+  color: var(--white);
+}
+
+.website-footer .links {
+  flex: 1 1 16rem;
+  display: flex;
+  align-self: flex-end;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: nowrap;
+  gap: 1.1875rem;
+}
+
+.website-footer .link-group {
+  flex: 1 1 6rem;
+  max-width: 12rem;
+  text-align: left;
+  margin-bottom: 0;
+}
+
+.website-footer dfn {
+  display: block;
+  font-family: 'Source Sans Pro', -apple-system, BlinkMacSystemFont, "Segoe UI", 
+                "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", 
+                "Droid Sans", "Helvetica Neue", sans-serif;
+  text-transform: uppercase;
+  color: var(--gray-1);
+  margin-bottom: 0.5rem;
+  letter-spacing: 0.05em;
+  font-size: 11px;
+  font-weight: var(--font-semibold, 600);
+  font-style: normal;
+}
+
+.website-footer ul {
+  list-style-type: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.website-footer li {
+  font-size: 1rem;
+  line-height: 1.4375em;
+  margin-bottom: 0.5rem;
+}
+
+.website-footer a {
+  color: var(--gray-2);
+  text-decoration: none;
+}
+
+.website-footer a:hover {
+  color: var(--blue-4);
+  background: var(--blue-2);
+}
+
+@media (max-width: 50rem) {
+
+  .website-footer .footer {
+    flex-direction: column;
+  }
+
+  .website-footer .brand {
+    margin: 0 auto 2rem;
+  }
+
+  .website-footer .links {
+    display: flex;
+    flex-wrap: wrap;
+    align-self: center;
+  }
+
+  .website-footer .link-group {
+    margin-bottom: 1rem;
+  }
 }
