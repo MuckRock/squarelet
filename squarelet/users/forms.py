@@ -83,7 +83,7 @@ class SignupForm(allauth.SignupForm):
     def save(self, request):
 
         user_data = {
-            "source": request.GET.get("intent", "squarelet").lower().strip()[:13]
+            "source": request.GET.get("intent", "squarelet").lower().strip()[:255]
         }
         user_data.update(self.cleaned_data)
 
