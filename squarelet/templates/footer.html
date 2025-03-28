@@ -1,3 +1,5 @@
+{% load i18n %}
+
 {% with base_url="https://www.muckrock.com" %}
 <footer class="website-footer">
     <div class="footer">
@@ -12,41 +14,41 @@
             <p>MuckRock is a non-profit collaborative news site that gives you the tools to keep our government transparent and accountable.</p>
             <p>
             MuckRock Accounts manages access to essential services provided by MuckRock and our trusted partners. Sign in to manage your account, access receipts, make payments, and manage organizational affiliations. </p>
-            <p><a class="blue button" href="{{ base_url }}/donate/">Make a Donation</a></p>
+            <p><a class="primary button" href="{{ base_url }}/donate/">Make a Donation</a></p>
             <p class="copyright">&copy; 2010&ndash;{% now "Y" %} Muckrock</p>
         </div>
         <div class="links">
             <div class="link-group sitemap">
                 <dfn>Sections</dfn>
                 <ul>
-                    <li><a href="{{ base_url }}/news/">News</a></li>
-                    <li><a href="{{ base_url }}/projects/">Projects</a></li>
-                    <li><a href="{{ base_url }}/foia/">Requests</a></li>
-                    <li><a href="{{ base_url }}/agency/">Agencies</a></li>
-                    <li><a href="{{ base_url }}/jurisdiction/">Jurisdictions</a></li>
-                    <li><a href="{{ base_url }}/newsletters/">Newsletters</a></li>
+                    <li><a href="{{ base_url }}/news/">{% trans "News" %}</a></li>
+                    <li><a href="{{ base_url }}/projects/">{% trans "Projects" %}</a></li>
+                    <li><a href="{{ base_url }}/foia/">{% trans "Requests" %}</a></li>
+                    <li><a href="{{ base_url }}/agency/">{% trans "Agencies" %}</a></li>
+                    <li><a href="{{ base_url }}/jurisdiction/">{% trans "Jurisdictions" %}</a></li>
+                    <li><a href="{{ base_url }}/newsletters/">{% trans "Newsletters" %}</a></li>
                 </ul>
             </div>
             <div class="link-group about">
                 <dfn>About</dfn>
                 <ul>
-                    <li><a href="{{ base_url }}/about/">About Us</a></li>
-                    <li><a href="{{ base_url }}/staff/">Staff</a></li>
-                    <li><a href="{{ base_url }}/faq/">FAQ</a></li>
-                    <li><a href="{{ base_url }}/news/editorial-policy/">Editorial Policy</a></li>
-                    <li><a href="{{ base_url }}/api/">API</a></li>
-                    <li><a href="{{ base_url }}/privacy-policy/">Privacy Policy</a></li>
-                    <li><a href="{{ base_url }}/tos/">Terms of Service</a></li>
-                    <li><a href="{{ base_url }}/financial/">Financials</a></li>
+                    <li><a href="{{ base_url }}/about/">{% trans "About Us" %}</a></li>
+                    <li><a href="{{ base_url }}/staff/">{% trans "Staff" %}</a></li>
+                    <li><a href="{{ base_url }}/faq/">{% trans "FAQ" %}</a></li>
+                    <li><a href="{{ base_url }}/news/editorial-policy/">{% trans "Editorial Policy" %}</a></li>
+                    <li><a href="{{ base_url }}/api/">{% trans "API" %}</a></li>
+                    <li><a href="{{ base_url }}/privacy-policy/">{% trans "Privacy Policy" %}</a></li>
+                    <li><a href="{{ base_url }}/tos/">{% trans "Terms of Service" %}</a></li>
+                    <li><a href="{{ base_url }}/financial/">{% trans "Financials" %}</a></li>
                 </ul>
             </div>
             <div class="link-group feeds">
                 <dfn>Feeds</dfn>
                 <ul>
-                    <li><a href="{{ base_url }}/news/feeds/">Latest Reporting</a></li>
-                    <li><a href="{{ base_url }}/questions/feed/">Latest Questions</a></li>
-                    <li><a href="{{ base_url }}/foi/feeds/submitted/">Recently Filed Requests</a></li>
-                    <li><a href="{{ base_url }}/foi/feeds/completed/">Recently Completed Requests</a></li>
+                    <li><a href="{{ base_url }}/news/feeds/">{% trans "Latest Reporting" %}</a></li>
+                    <li><a href="{{ base_url }}/questions/feed/">{% trans "Latest Questions" %}</a></li>
+                    <li><a href="{{ base_url }}/foi/feeds/submitted/">{% trans "Recently Filed Requests" %}</a></li>
+                    <li><a href="{{ base_url }}/foi/feeds/completed/">{% trans "Recently Completed Requests" %}</a></li>
                 </ul>
             </div>
         </div>
