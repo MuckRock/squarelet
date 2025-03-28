@@ -23,6 +23,23 @@ def services_list():
     return {"service_providers": providers}
 
 
+def match_service_to_intent(context):
+    # Find the service provider based on the intent
+    intent = context.request.GET.get("intent")
+    if not intent:
+        next_ = context.request.GET.get("next")
+        if next_:
+            url = urlparse(next_)
+            params = parse_qs(url.query)
+            intent = params.get("intent", [None])[0]
+    if not intent:
+        return None
+    intent = intent.lower().strip()
+    try:
+        return Service.objects.get(slug=intent)
+    except Service.DoesNotExist:
+        return None
+
 @register.inclusion_tag("templatetags/sign_in_message.html", takes_context=True)
 def sign_in_message(context):
     no_match = {
@@ -33,26 +50,32 @@ def sign_in_message(context):
         "service": None,
     }
 
-    # Find the service provider based on the intent
-    intent = context.request.GET.get("intent")
-    if not intent:
-        next_ = context.request.GET.get("next")
-        if next_:
-            url = urlparse(next_)
-            params = parse_qs(url.query)
-            intent = params.get("intent", [None])[0]
-    if not intent:
+    service = match_service_to_intent(context)
+    
+    if not service:
         return no_match
-    intent = intent.lower().strip()
-    try:
-        service = Service.objects.get(slug=intent)
-    except Service.DoesNotExist:
-        return no_match
-
+    
     return {
         "header": f"""
             Sign in with your MuckRock account 
             to access {service.name} and other tools.
             """.strip(),
+        "service": service,
+    }
+
+@register.inclusion_tag("templatetags/sign_up_message.html", takes_context=True)
+def sign_up_message(context):
+    no_match = {
+        "header": "Create a MuckRock account",
+        "service": None,
+    }
+
+    service = match_service_to_intent(context)
+    
+    if not service:
+        return no_match
+    
+    return {
+        "header": "Access this and other services by creating a MuckRock account",
         "service": service,
     }
