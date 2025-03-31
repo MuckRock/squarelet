@@ -123,7 +123,8 @@ def test_can_auto_join_with_multiple_emails(user_factory):
     # Test that the user can auto-join organizations with matching domains
     assert user.can_auto_join(org1) is True
 
-    # Test that the user cannot auto-join organization even if matching domain if allow_auto_join is False
+    # Test that the user cannot auto-join org
+    # even if they have a matching domain if allow_auto_join is False
     assert user.can_auto_join(org2) is False
 
     # Test that the user cannot auto-join an organization with a non-matching domain
