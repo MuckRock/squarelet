@@ -159,10 +159,18 @@ class UpdateForm(forms.ModelForm):
         required=False,
         help_text=_("Only members of this organization will be able to view it"),
     )
+    allow_auto_join = forms.BooleanField(
+        label=_("Allow Auto Join"),
+        required=False,
+        help_text=_(
+            "Enable users to join an organization automatically"
+            " if one of their verified emails matches the organization's email domain."
+        ),
+    )
 
     class Meta:
         model = Organization
-        fields = ["avatar", "private"]
+        fields = ["avatar", "private", "allow_auto_join"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -171,6 +179,9 @@ class UpdateForm(forms.ModelForm):
         self.helper.layout = Layout(
             Fieldset("Avatar", Field("avatar"), css_class="_cls-compactField"),
             Fieldset("Private", Field("private"), css_class="_cls-compactField"),
+            Fieldset(
+                "Auto Join", Field("allow_auto_join"), css_class="_cls-compactField"
+            ),
         )
         self.helper.form_tag = False
 

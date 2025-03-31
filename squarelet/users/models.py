@@ -243,7 +243,10 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
 
     def can_auto_join(self, organization):
         """Check if the user can auto-join an organization."""
-        return organization in self.get_potential_organizations()
+        return (
+            organization.allow_auto_join
+            and organization in self.get_potential_organizations()
+        )
 
 
 class LoginLog(models.Model):

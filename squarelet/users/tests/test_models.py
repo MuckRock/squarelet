@@ -84,7 +84,7 @@ def test_can_auto_join(user_factory):
 
     # Create organizations using the factory
     # and assign matching domains via EmailDomainFactory
-    org1 = OrganizationFactory(name="Org 1")
+    org1 = OrganizationFactory(name="Org 1", allow_auto_join=True)
     domain1 = EmailDomainFactory.create(organization=org1, domain="example.com")
     org1.domains.set([domain1])
 
@@ -106,7 +106,7 @@ def test_can_auto_join_with_multiple_emails(user_factory):
 
     # Create organizations using the factory with domains
     # that match and don't match the user's emails
-    org1 = OrganizationFactory(name="Org 1")
+    org1 = OrganizationFactory(name="Org 1", allow_auto_join=True)
     domain1 = EmailDomainFactory.create(organization=org1, domain="example.com")
     org1.domains.set([domain1])
 
@@ -122,7 +122,9 @@ def test_can_auto_join_with_multiple_emails(user_factory):
 
     # Test that the user can auto-join organizations with matching domains
     assert user.can_auto_join(org1) is True
-    assert user.can_auto_join(org2) is True
+
+    # Test that the user cannot auto-join organization even if matching domain if allow_auto_join is False
+    assert user.can_auto_join(org2) is False
 
     # Test that the user cannot auto-join an organization with a non-matching domain
     assert user.can_auto_join(org3) is False
