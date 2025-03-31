@@ -249,6 +249,14 @@ class Organization(AvatarMixin, models.Model):
     # TODO: Remove default avatar
     default_avatar = static("images/avatars/organization.png")
 
+    allow_auto_join = models.BooleanField(
+        default=False,
+        help_text=(
+            "Allow users to join automatically if one "
+            "of their verified emails matches the email domain for this organization."
+        ),
+    )
+
     class Meta:
         ordering = ("slug",)
 
