@@ -114,7 +114,7 @@ def test_can_auto_join_with_multiple_emails(user_factory):
     domain2 = EmailDomainFactory.create(organization=org2, domain="anotherdomain.com")
     org2.domains.set([domain2])
 
-    org3 = OrganizationFactory(name="Org 3")
+    org3 = OrganizationFactory(name="Org 3", allow_auto_join=True)
     domain3 = EmailDomainFactory.create(
         organization=org3, domain="nonmatchingdomain.com"
     )
