@@ -163,7 +163,7 @@ class UpdateForm(forms.ModelForm):
         label=_("Allow Auto Join"),
         required=False,
         help_text=_(
-            "Enable users to join an organization automatically"
+            "Allow users to join this organization automatically"
             " if one of their verified emails matches the organization's email domain."
         ),
     )
