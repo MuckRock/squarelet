@@ -91,6 +91,7 @@ THIRD_PARTY_APPS = [
     "django_filters",
     "django_vite",
     "robots",
+    "rest_framework_simplejwt.token_blacklist",
 ]
 LOCAL_APPS = [
     "squarelet.core",
@@ -469,7 +470,7 @@ SIMPLE_JWT = {
     "ALGORITHM": "RS256",
     "AUDIENCE": ["squarelet", "muckrock", "documentcloud"],
     "ISSUER": ["squarelet"],
-    "USER_ID_FIELD": "uuid",
+    "USER_ID_FIELD": "individual_organization_id",
     # These are set in `users/apps.py` as they need to fetch from the database
     "SIGNING_KEY": "",
     "VERIFYING_KEY": "",
