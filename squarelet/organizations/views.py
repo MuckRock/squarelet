@@ -338,7 +338,7 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
                 )
                 invitation.send()
 
-                messages.success(self.request, f"Invitations sent")
+                messages.success(self.request, "Invitations sent")
 
         return redirect("organizations:manage-members", slug=self.organization.slug)
 
