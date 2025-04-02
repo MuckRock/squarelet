@@ -121,14 +121,14 @@ def test_can_auto_join_with_multiple_emails(user_factory):
     org3.domains.set([domain3])  # Doesn't match either email
 
     # Test that the user can auto-join organizations with matching domains
-    assert user.can_auto_join(org1) is True
+    assert user.can_auto_join(org1)
 
     # Test that the user cannot auto-join org
     # even if they have a matching domain if allow_auto_join is False
-    assert user.can_auto_join(org2) is False
+    assert not user.can_auto_join(org2)
 
     # Test that the user cannot auto-join an organization with a non-matching domain
-    assert user.can_auto_join(org3) is False
+    assert not user.can_auto_join(org3)
 
 
 @pytest.mark.django_db
