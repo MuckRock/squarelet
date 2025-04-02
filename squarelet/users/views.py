@@ -20,14 +20,23 @@ from django.views.generic import (
 )
 
 # Standard Library
+import base64
 import hashlib
 import hmac
 import json
 import time
-from urllib.parse import parse_qs, urlparse
 
 # Third Party
+from allauth.account.utils import (
+    get_next_redirect_url,
+    has_verified_email,
+    send_email_confirmation,
+)
 from allauth.account.views import LoginView as AllAuthLoginView
+from allauth.mfa.adapter import get_adapter
+from allauth.mfa.totp.forms import ActivateTOTPForm
+from allauth.mfa.totp.internal.flows import activate_totp
+from allauth.mfa.utils import is_mfa_enabled
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Fieldset, Layout
 
@@ -130,20 +139,199 @@ class UserListView(LoginRequiredMixin, ListView):
     model = User
 
 
-class LoginView(AllAuthLoginView):
-    """Subclass of All Auth Login View to add redirect ability for failed auth tokens
+class UserOnboardingView(TemplateView):
+    """Show onboarding steps for new or existing users after they log in"""
 
-    If the url_auth_token parameter is still present, it means the auth token failed
-    to authenticate the user.  Redirect them to the nested next parameter instead of
-    asking them to login
-    """
+    template_name = "account/onboarding/base.html"  # Base template with includes
+
+    def get_onboarding_step(self, request):
+        """
+        Check user account status and return the appropriate onboarding step
+        Returns: (step_name, context_data)
+        """
+        user = request.user
+        session = request.session
+        # check_for = session.get("checkFor", [])
+
+        # Initialize onboarding session if it doesn't exist
+        if "onboarding" not in session:
+            session["onboarding"] = {
+                "email_check_completed": False,
+                "mfa_step": "not_started",
+            }
+        # Onboarding progress state is tracked in the session
+        onboarding = session["onboarding"]
+        print(onboarding)
+        if has_verified_email(user):
+            onboarding["email_check_completed"] = True
+            session.modified = True
+        elif not onboarding["email_check_completed"]:
+            return "confirm_email", {}
+
+        # TODO: Verification check
+
+        # TODO: Organization check
+
+        # MFA check
+        # Check if this is user's first login
+        is_first_login = (
+            user.last_login is None or user.date_joined.date() == user.last_login.date()
+        )
+        mfa_step = onboarding.get("mfa_step", None)
+        # Check for the "code_submitted" step first, since
+        # is_mfa_enabled will be true when the step is active
+        if mfa_step == "code_submitted":
+            return "mfa_confirm", {}
+        # Otherwise, if the user has MFA enabled, or if it's
+        # not the right time to prompt, mark step as checked
+        elif is_mfa_enabled(user) or is_first_login or not has_verified_email(user):
+            onboarding["mfa_step"] = "completed"
+            session.modified = True
+        # Finally, if the user doesn't have MFA enabled,
+        # ask if they want to opt-in, or show them setup
+        elif mfa_step == "not_started":
+            return "mfa_opt_in", {}
+        elif mfa_step == "opted_in":
+            return "mfa_setup", {}
+
+        # If all checks pass, user has completed onboarding
+        return None, {}
+
+    def get_template_names(self):
+        """Return the appropriate template based on onboarding step"""
+        step, _ = self.get_onboarding_step(self.request)
+
+        if step:
+            return [f"account/onboarding/{step}.html"]
+
+        return [self.template_name]
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Add the onboarding step to context
+        step, step_context = self.get_onboarding_step(self.request)
+        context["onboarding_step"] = step
+        context.update(step_context)
+
+        # Add the session params from login
+        context["next_url"] = self.request.session.get("next_url", "/")
+        context["intent"] = self.request.session.get("intent", None)
+        context["service"] = Service.objects.filter(slug=context["intent"]).first()
+
+        # For MFA setup, initialize the form and generate the SVG
+        if step == "mfa_setup":
+            activate_totp_form = ActivateTOTPForm(user=self.request.user)
+            context["form"] = activate_totp_form
+            adapter = get_adapter()
+            totp_url = adapter.build_totp_url(
+                self.request.user,
+                context["form"].secret,
+            )
+            totp_svg = adapter.build_totp_svg(totp_url)
+            base64_data = base64.b64encode(totp_svg.encode("utf8")).decode("utf-8")
+            totp_data_uri = f"data:image/svg+xml;base64,{base64_data}"
+            context.update(
+                {
+                    "totp_svg": totp_svg,
+                    "totp_svg_data_uri": totp_data_uri,
+                    "totp_url": totp_url,
+                }
+            )
+
+        return context
 
     def get(self, request, *args, **kwargs):
-        if "url_auth_token" in request.GET and "next" in request.GET:
-            parsed = urlparse(request.GET["next"])
-            params = parse_qs(parsed.query)
-            if "next" in params:
-                return redirect(f"{settings.MUCKROCK_URL}{params['next'][0]}")
+        if not request.user.is_authenticated:
+            return redirect("account_login")
+
+        # Check if onboarding is complete
+        step, _ = self.get_onboarding_step(request)
+
+        if step == "confirm_email":
+            # If the user has not verified their email,
+            # send a new confirmation message
+            send_email_confirmation(request, request.user, False, request.user.email)
+
+        if not step and "next_url" in request.session:
+            # Onboarding complete, redirect to original destination
+            next_url = request.session.pop("next_url")
+            return redirect(next_url)
+
+        if not step:
+            return redirect("users:detail", username=request.user.username)
+
+        # Otherwise, show the appropriate onboarding step
+        return super().get(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect("account_login")
+
+        # Handle any form submissions for the current onboarding step
+        step = request.POST.get("step")
+        print(request.POST)
+        if step == "confirm_email":
+            # User has confirmed their email, mark as completed
+            request.session["onboarding"]["email_check_completed"] = True
+            request.session.modified = True
+            print(
+                "confirm email", request.session["onboarding"]["email_check_completed"]
+            )
+
+        elif step == "mfa_opt_in":
+            choice = request.POST.get("enable_mfa")
+            print(choice)
+            if choice == "yes":
+                # User opted-in for MFA, move to next step
+                request.session["onboarding"]["mfa_step"] = "opted_in"
+            else:
+                # User skipped MFA, mark as completed
+                messages.info(request, "Two-factor authentication skipped.")
+                request.session["onboarding"]["mfa_step"] = "completed"
+            request.session.modified = True
+
+        elif step == "mfa_setup":
+            # Check if the user skipped the MFA setup step
+            if request.POST.get("mfa_setup") == "skip":
+                request.session["onboarding"]["mfa_step"] = "completed"
+                request.session.modified = True
+                messages.info(request, "Two-factor authentication skipped.")
+                return redirect("account_onboarding")
+            # Process MFA setup - validate the code
+            form = ActivateTOTPForm(user=request.user, data=request.POST)
+            if form.is_valid():
+                # Code validated successfully
+                activate_totp(self.request, form)
+                request.session["onboarding"]["mfa_step"] = "code_submitted"
+                request.session.modified = True
+                messages.success(request, "Two-factor authentication enabled.")
+            else:
+                # Rerender form with errors
+                context = self.get_context_data(**kwargs)
+                context["form"] = form
+                messages.error(request, "Invalid verification code. Please try again.")
+                return self.render_to_response(context)
+
+        elif step == "mfa_confirm":
+            # User has seen the confirmation screen, mark MFA as completed
+            request.session["onboarding"]["mfa_step"] = "completed"
+            request.session.modified = True
+
+        # Redirect back to the same view to check the next step
+        return redirect("account_onboarding")
+
+
+class LoginView(AllAuthLoginView):
+    def get(self, request, *args, **kwargs):
+        """
+        If the url_auth_token parameter is still present, it means the auth token failed
+        to authenticate the user.  Redirect them to the nested next parameter instead of
+        asking them to login
+        """
+        next_url = get_next_redirect_url(request)
+        if "url_auth_token" in request.GET and next_url:
+            return redirect(f"{settings.MUCKROCK_URL}{next_url}")
         return super().get(request, *args, **kwargs)
 
 

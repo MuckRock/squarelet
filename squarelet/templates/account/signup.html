@@ -7,59 +7,65 @@
 
 {% block head_title %}{% trans "Signup" %}{% endblock %}
 
+{% block css %}
+{{block.super}}
+<style>
+  .pad-b-3 {
+    padding-bottom: 3rem;
+  }
+</style>
+{% endblock %}
+
 {% block inner %}
 
-  {% trans "Create an account for" as intent_header %}
-  {% trans "You’ll also be able to sign into" as intent_text %}
-  {% handleintent intent_header intent_text %}
+{% trans "Create an account for" as intent_header %}
+{% trans "You’ll also be able to sign into" as intent_text %}
+{% handleintent intent_header intent_text %}
 
-  <!-- Start form -->
-  <form id="stripe-form" method="post">
+<!-- Start form -->
+<form id="stripe-form" class="pad-b-3" method="post">
 
-    {# this field is explicit so we can grab the plan from the get parameter #}
-    <input type="hidden" name="plan" id="id_plan" value="{{ request.GET.plan|default:"" }}">
+  {# this field is explicit so we can grab the plan from the get parameter #}
+  <input type="hidden" name="plan" id="id_plan" value="{{ request.GET.plan|default:"" }}">
 
-    {% if form.errors.plan %}
-      <span class="invalid-feedback">
-        <strong>Something went wrong.  Please contact <a href="mailto:info@muckrock.com">info@muckrock.com</a>.</strong>
-      </span>
-    {% endif %}
-    {% crispy form form.helper %}
+  {% if form.errors.plan %}
+  <span class="invalid-feedback">
+    <strong>Something went wrong. Please contact <a href="mailto:info@muckrock.com">info@muckrock.com</a>.</strong>
+  </span>
+  {% endif %}
+  {% crispy form form.helper %}
 
-    {% if request.GET.plan == "organization" or request.GET.plan == "organization-plus" %}
-      <div class="_cls-field">
-        <input
-           class="_cls-organizationInput form-control"
-           placeholder="Organization name"
-           name="organization_name"
-           max_length="255"
-           type="text"
-           >
-      </div>
-    {% endif %}
+  {% if request.GET.plan == "organization" or request.GET.plan == "organization-plus" %}
+  <div class="_cls-field">
+    <input class="_cls-organizationInput form-control" placeholder="Organization name" name="organization_name"
+      max_length="255" type="text">
+  </div>
+  {% endif %}
 
-    {% if request.GET.plan %}
-        <div id="_id-planProjection" class="_cls-planProjection">
-          <b>Cost: <span id="_id-totalCost"></span></b>
-          <div class="_cls-breakdown" id="_id-costBreakdown"></div>
-        </div>
-        <div id="card-container">
-          <h3 class="_cls-smallHeading">{% blocktrans %}Billing information{% endblocktrans %}</h3>
-          <div class="_cls-field">
-            <div id="card-element" class="_cls-fieldInput"></div>
-          </div>
-          <!-- Used to display Element errors. -->
-          <div id="card-errors" role="alert"></div>
-        </div>
-    {% endif %}
-
-    <div class="_cls-actionBig">
-      <button>{% trans 'Sign Up' %}</button>
+  {% if request.GET.plan %}
+  <div id="_id-planProjection" class="_cls-planProjection">
+    <b>Cost: <span id="_id-totalCost"></span></b>
+    <div class="_cls-breakdown" id="_id-costBreakdown"></div>
+  </div>
+  <div id="card-container">
+    <h3 class="_cls-smallHeading">{% blocktrans %}Billing information{% endblocktrans %}</h3>
+    <div class="_cls-field">
+      <div id="card-element" class="_cls-fieldInput"></div>
     </div>
-    <div class="_cls-center">
-      <div class="_cls-minorInfo">{% blocktrans %}Already have an account?{% endblocktrans %}</div>
-      <a href="{% url 'account_login' %}"><div class="_cls-action">{% blocktrans %}Log&nbsp;In{% endblocktrans %}</div></a>
-    </div>
-  </form>
-  {% planinfo field="slug" %}
+    <!-- Used to display Element errors. -->
+    <div id="card-errors" role="alert"></div>
+  </div>
+  {% endif %}
+
+  <div class="_cls-actionBig">
+    <button>{% trans 'Sign Up' %}</button>
+  </div>
+  <div class="_cls-center">
+    <div class="_cls-minorInfo">{% blocktrans %}Already have an account?{% endblocktrans %}</div>
+    <a href="{% url 'account_login' %}">
+      <div class="_cls-action">{% blocktrans %}Log&nbsp;In{% endblocktrans %}</div>
+    </a>
+  </div>
+</form>
+{% planinfo field="slug" %}
 {% endblock %}

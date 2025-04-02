@@ -109,13 +109,9 @@ class LoginForm(allauth.LoginForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.helper = FormHelper()
-        self.helper.layout = Layout(
-            Field("login", css_class="_cls-usernameInput"),
-            Field("password", type="password"),
-        )
+        self.fields["login"].widget.attrs["placeholder"] = ""
         self.fields["login"].widget.attrs.pop("autofocus", None)
-        self.helper.form_tag = False
+        self.fields["password"].widget.attrs["placeholder"] = ""
 
 
 class AddEmailForm(allauth.AddEmailForm):

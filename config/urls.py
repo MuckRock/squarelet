@@ -8,7 +8,7 @@ from django.views import defaults as default_views
 from django.views.generic import TemplateView
 
 # Third Party
-from rest_framework import permissions
+from allauth.account.decorators import secure_admin_login
 from rest_framework_nested import routers
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
@@ -16,12 +16,18 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from squarelet.core.views import HomeView
 from squarelet.oidc.views import token_view
 from squarelet.organizations.viewsets import ChargeViewSet, OrganizationViewSet
-from squarelet.users.views import LoginView
+from squarelet.users.views import (
+    LoginView,
+    UserOnboardingView,
+)
 from squarelet.users.viewsets import (
     RefreshTokenViewSet,
     UrlAuthTokenViewSet,
     UserViewSet,
 )
+
+admin.autodiscover()
+admin.site.login = secure_admin_login(admin.site.login)
 
 router = routers.DefaultRouter()
 router.register("users", UserViewSet)
@@ -54,6 +60,7 @@ urlpatterns = [
     ),
     # override the accounts login with our version
     re_path("accounts/login/$", LoginView.as_view(), name="account_login"),
+    re_path("accounts/onboard/$", UserOnboardingView.as_view(), name="account_onboarding"),
     path("accounts/", include("allauth.urls")),
     path("api/", include(router.urls)),
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),

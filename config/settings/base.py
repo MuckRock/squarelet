@@ -74,6 +74,7 @@ THIRD_PARTY_APPS = [
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
+    "allauth.mfa",
     "crispy_forms",
     "dal",
     "dal_select2",
@@ -98,6 +99,7 @@ LOCAL_APPS = [
     "squarelet.organizations.apps.OrganizationsConfig",
     "squarelet.statistics",
     "squarelet.users.apps.UsersConfig",
+    "squarelet.services.apps.ServicesConfig",
     "allauth.socialaccount.providers.github",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
@@ -347,7 +349,7 @@ CELERY_BEAT_SCHEDULE = {
 
 # django-allauth
 # ------------------------------------------------------------------------------
-# https://django-allauth.readthedocs.io/en/latest/configuration.html
+# https://django-allauth.readthedocs.io/en/stable/account/configuration.html
 ACCOUNT_ALLOW_REGISTRATION = env.bool("DJANGO_ACCOUNT_ALLOW_REGISTRATION", True)
 ACCOUNT_AUTHENTICATION_METHOD = "username_email"
 ACCOUNT_EMAIL_REQUIRED = True
@@ -365,7 +367,11 @@ ACCOUNT_FORMS = {
     "reset_password_from_key": "squarelet.users.forms.ResetPasswordKeyForm",
 }
 ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = False
-ACCOUNT_SESSION_REMEMBER = True
+ACCOUNT_SESSION_REMEMBER = None
+
+MFA_ADAPTER = "squarelet.users.adapters.MfaAdapter"
+# Only allow insecure origins in development
+MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = ENV == "dev"
 
 DIGEST_EMAILS = env.list("DIGEST_EMAILS", default=[])
 

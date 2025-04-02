@@ -1,0 +1,92 @@
+{% extends "account/login.html" %}
+{% load allauth %}
+{% load i18n static %}
+
+{% block head_title %}
+  {% trans "Confirm Access" %}
+{% endblock head_title %}
+
+{% block css %}
+{{ block.super }}
+<style>
+  .container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 1rem;
+    gap: 2rem;
+  }
+  header, main, form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+  h1,
+  p {
+    width: 100%;
+    text-align: center;
+    text-wrap: balance;
+    margin: 0;
+  }
+  h1 {
+    color: var(--gray-5, #233944);
+    text-align: center;
+    font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
+
+    /* Title */
+    font-family: var(--font-sans, "Source Sans Pro");
+    font-size: var(--font-xl, 1.5rem);
+    font-style: normal;
+    font-weight: 600;
+    line-height: normal;
+  }
+  .help.link {
+    font-size: var(--font-md, 1rem);
+    font-weight: var(--font-semibold, 600);
+    color: var(--primary);
+  }
+  .flex {
+    display: flex;
+  }
+  .row {
+    flex-direction: row;
+  }
+  .gap-1 {
+    gap: 1rem;
+  }
+  .align-end {
+    align-items: flex-end;
+  }
+</style>
+{% endblock %}
+
+{% block login_step %}
+<div class="container">
+  <header>
+    <div class="icon">
+      <img src="{% static 'icons/security.svg' %}" />
+    </div>
+    <h1>{% trans "Confirm Access" %}</h1>
+    <p>{% blocktrans %}Please reauthenticate to safeguard your account.{% endblocktrans %}</p>
+  </header>
+  <main>
+  {% block reauthenticate_content %}{% endblock %}
+  {% if reauthentication_alternatives %}
+    {% element hr %}
+    {% endelement %}
+    {% element h2 %}
+      {% translate "Alternative options" %}
+    {% endelement %}
+    {% element button_group %}
+      {% for alt in reauthentication_alternatives %}
+        {% element button href=alt.url tags="primary,outline" %}
+          {{ alt.description }}
+        {% endelement %}
+      {% endfor %}
+    {% endelement %}
+  {% endif %}
+  </main>
+</div>
+{% endblock %}

@@ -1,32 +1,39 @@
 # Django
 from django import template
-from django.conf import settings
-from django.utils.translation import gettext_lazy as _
 
 # Standard Library
-from collections import OrderedDict
 from urllib.parse import parse_qs, urlparse
+
+# Squarelet
+from squarelet.services.models import Service
 
 register = template.Library()
 
-MUCKROCK_SERVICE = "MuckRock"
-MUCKROCK_ASSET = "assets/muckrock.svg"
 
-DOCUMENTCLOUD_SERVICE = "DocumentCloud"
-DOCUMENTCLOUD_ASSET = "assets/documentcloud.svg"
-
-FOIAMACHINE_SERVICE = "FOIA Machine"
-FOIAMACHINE_ASSET = "assets/foiamachine.svg"
-
-BIGLOCALNEWS_SERVICE = "Big Local News"
-BIGLOCALNEWS_ASSET = "assets/biglocalnews.svg"
-
-AGENDAWATCH_SERVICE = "Agenda Watch"
-AGENDAWATCH_ASSET = "assets/agendawatch.png"
+@register.inclusion_tag("templatetags/services_list.html")
+def services_list():
+    providers = (
+        Service.objects.all()
+        .order_by("-provider_name__exact", "name")
+        .extra(
+            select={"provider_name_is_muckrock": "provider_name = 'MuckRock'"},
+            order_by=["-provider_name_is_muckrock", "name"],
+        )
+    )
+    return {"service_providers": providers}
 
 
-@register.inclusion_tag("templatetags/intent.html", takes_context=True)
-def handleintent(context, header, message):
+@register.inclusion_tag("templatetags/sign_in_message.html", takes_context=True)
+def sign_in_message(context):
+    no_match = {
+        "header": """
+          Sign in with your MuckRock account
+          to access our suite of tools and resources.
+          """.strip(),
+        "service": None,
+    }
+
+    # Find the service provider based on the intent
     intent = context.request.GET.get("intent")
     if not intent:
         next_ = context.request.GET.get("next")
@@ -35,53 +42,17 @@ def handleintent(context, header, message):
             params = parse_qs(url.query)
             intent = params.get("intent", [None])[0]
     if not intent:
-        intent = "muckrock"
+        return no_match
     intent = intent.lower().strip()
-
-    intent_lookup = OrderedDict(
-        [
-            (
-                "muckrock",
-                (MUCKROCK_SERVICE, MUCKROCK_ASSET, settings.MUCKROCK_URL),
-            ),
-            (
-                "documentcloud",
-                (DOCUMENTCLOUD_SERVICE, DOCUMENTCLOUD_ASSET, settings.DOCCLOUD_URL),
-            ),
-            (
-                "foiamachine",
-                (FOIAMACHINE_SERVICE, FOIAMACHINE_ASSET, settings.FOIAMACHINE_URL),
-            ),
-            (
-                "biglocalnews",
-                (BIGLOCALNEWS_SERVICE, BIGLOCALNEWS_ASSET, settings.BIGLOCALNEWS_URL),
-            ),
-            (
-                "agendawatch",
-                (AGENDAWATCH_SERVICE, AGENDAWATCH_ASSET, settings.AGENDAWATCH_URL),
-            ),
-        ]
-    )
-
-    # default to 'muckrock'
-    intent_service, intent_asset, _intent_url = intent_lookup.get(
-        intent, intent_lookup["muckrock"]
-    )
-
-    other_services = [s for s, a, u in intent_lookup.values() if s != intent_service]
-    other_assets = [(a, u) for s, a, u in intent_lookup.values() if a != intent_asset]
-
-    if len(other_services) == 1:
-        service_message = other_services[0]
-    else:
-        service_message = _("{} and {}").format(
-            ", ".join(other_services[:-1]), other_services[-1]
-        )
+    try:
+        service = Service.objects.get(slug=intent)
+    except Service.DoesNotExist:
+        return no_match
 
     return {
-        "header": header,
-        "message": f"{message} {service_message}",
-        "intent_service": intent_service,
-        "intent_asset": intent_asset,
-        "other_assets": other_assets,
+        "header": f"""
+            Sign in with your MuckRock account 
+            to access {service.name} and other tools.
+            """.strip(),
+        "service": service,
     }

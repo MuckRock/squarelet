@@ -1,0 +1,64 @@
+{% extends "account/onboarding/base.html" %}
+
+{% load i18n static %}
+{% load account socialaccount %}
+
+{% block css %}
+{{ block.super }}
+<style>
+  header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+  h1,
+  p {
+    width: 100%;
+    text-align: center;
+    text-wrap: balance;
+    margin: 0;
+  }
+  h1 {
+    color: var(--gray-5, #233944);
+    text-align: center;
+    font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
+
+    /* Title */
+    font-family: var(--font-sans, "Source Sans Pro");
+    font-size: var(--font-xl, 1.5rem);
+    font-style: normal;
+    font-weight: 600;
+    line-height: normal;
+  }
+  .help.link {
+    font-size: var(--font-md, 1rem);
+    font-weight: var(--font-semibold, 600);
+    color: var(--primary);
+  }
+  .flex {
+    display: flex;
+  }
+  .gap-1 {
+    gap: 1rem;
+  }
+</style>
+{% endblock %}
+
+{% block onboarding_step %}
+  <header>
+    <div class="icon">
+      <img src="{% static 'icons/security.svg' %}" />
+    </div>
+    <h1>{% trans "MuckRock Accounts now support two-factor authentication for enhanced security" %}</h1>
+    <p>{% blocktrans %}Would you like to enable two-factor authentication on your account? You will need a second device.{% endblocktrans %}</p>
+    <p>{% blocktrans %}If you skip now, you can always enable two-factor later from your account page.{% endblocktrans %}</p>
+  </header>
+  <form class="flex gap-1" method="post" action="{% url 'account_onboarding' %}">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="mfa_opt_in" />
+    <button class="button primary" type="submit" name="enable_mfa" value="yes">{% trans "Enable Two-Factor Authentication" %}</button>
+    <button class="button primary ghost" type="submit" name="enable_mfa" value="skip">{% trans "Skip" %}</button>
+  </form>
+  <a class="help link" target="_blank" href="">{% trans "What is two-factor authentication?" %}</a>
+{% endblock %}

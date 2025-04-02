@@ -50,6 +50,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         user_permissions (ManyToManyField): permissions for this user
     """
 
+    # TODO: Rename to "profile" or similar
     individual_organization = models.OneToOneField(
         verbose_name=_("individual organization"),
         to="organizations.Organization",
@@ -65,10 +66,22 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
     name = models.CharField(
         _("name of user"), max_length=255, help_text=_("The user's full name")
     )
+
+    """
+    `allauth` automatically updates `user.email` whenever the primary email changes.
+
+    In users.admin.MyUserAdmin, we call the `allauth` utility function
+    `sync_user_email_addresses` to ensure our email address table is
+    kept updated whenever users are manually created.
+
+    The only active use for secondary emails is authentication,
+    otherwise they're passively used to dedupe accounts and
+    to be available as options to set as primary.
+    """
     email = models.EmailField(
         _("email"),
-        unique=True,
-        null=True,
+        unique=True,  # All non-NULL values must be unique
+        null=True,  # PostgresQL treats each NULL as unique
         help_text=_("The user's email address"),
         db_collation="case_insensitive",
     )
@@ -91,6 +104,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         max_length=255,
         help_text=_("An image to represent the user"),
     )
+    # TODO: Move this field to the user's profile / individual_organization
     bio = models.TextField(
         _("bio"), blank=True, help_text=_("Public bio for the user, in Markdown")
     )
@@ -122,6 +136,8 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
             "This is an account used for allowing agencies to log in to the site"
         ),
     )
+    # TODO: Update this to be a many-to-one relation
+    # to a Service (#227) or an oidc_provider.Client
     source = models.CharField(
         _("source"),
         max_length=13,
@@ -164,6 +180,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
     EMAIL_FIELD = "email"
     REQUIRED_FIELDS = ["email"]
 
+    # TODO: Replace default avatar
     default_avatar = static("images/avatars/profile.png")
 
     objects = UserManager()
@@ -199,6 +216,8 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
             return self.name
         return self.username
 
+    # This memoized property will only query for
+    # the primary email address once per request
     @mproperty
     def primary_email(self):
         """A user's primary email object"""
@@ -214,6 +233,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
     def verified_journalist(self):
         return self.organizations.filter(verified_journalist=True).exists()
 
+    # TODO: remove after retiring Election Hub (#229)
     def is_hub_eligible(self):
         return self.organizations.filter(
             Q(hub_eligible=True)
@@ -272,7 +292,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
 
 
 class LoginLog(models.Model):
-    """Log when a user users Squarelet to log in to another service"""
+    """Record when a user authenticates with another service using Squarelet"""
 
     user = models.ForeignKey(
         verbose_name=_("user"),

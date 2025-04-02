@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% load i18n static %}
+
+{% block title %}
+    {% block head_title %}
+    {% endblock head_title %}
+{% endblock title %}
+
+{% block css %}
+{{ block.super }}
+<style>
+  .container {
+    max-width: 96rem;
+    margin: 0 auto;
+    padding: 4rem 1rem;
+  }
+</style>
+{% endblock css %}
+
+
+{% block container %}
+  <div class="container">
+    <header>
+      <a href="{% url 'users:detail' user.username %}">{% trans "&larr; Return to account" %}</a>
+    </header>
+    {% block content %}
+    {% endblock content %}
+  </div>
+{% endblock container %}

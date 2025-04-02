@@ -125,26 +125,18 @@
         }
       </script>
 
+      {% block container %}
       {% block content %}
       <div class="_cls-content">
         <h1>Welcome to MuckRock Accounts</h1>
       </div>
       {% endblock content %}
+      {% endblock container %}
 
     </div> <!-- /container -->
 
     <div class="_cls-footer">
-      <p>
-        MuckRock Accounts let you log in and manage users, payments, and
-        organizations for MuckRock, DocumentCloud, FOIAMachine, Big Local News, and Agenda Watch.
-      </p>
-      <ul>
-        <li>
-          <a href="{{ settings.MUCKROCK_URL }}/privacy-policy/">
-            Privacy Policy
-          </a>
-        </li>
-        <li><a href="{{ settings.MUCKROCK_URL }}/tos/">Terms of Services</a></li>
+      {% include "footer.html" %}
     </div>
 
     {% block modal %}{% endblock modal %}
