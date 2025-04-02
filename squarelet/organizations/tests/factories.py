@@ -15,6 +15,7 @@ class OrganizationFactory(factory.django.DjangoModelFactory):
     customer = factory.RelatedFactory(
         "squarelet.organizations.tests.factories.CustomerFactory", "organization"
     )
+    allow_auto_join = False
 
     class Meta:
         model = "organizations.Organization"
