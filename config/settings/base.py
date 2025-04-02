@@ -74,6 +74,8 @@ THIRD_PARTY_APPS = [
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
+    "allauth.socialaccount.providers.github",
+    "allauth.socialaccount.providers.google",
     "crispy_forms",
     "dal",
     "dal_select2",
@@ -99,7 +101,6 @@ LOCAL_APPS = [
     "squarelet.organizations.apps.OrganizationsConfig",
     "squarelet.statistics",
     "squarelet.users.apps.UsersConfig",
-    "allauth.socialaccount.providers.github",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
