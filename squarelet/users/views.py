@@ -1,6 +1,5 @@
 # Django
 from django.conf import settings
-from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http.response import (
     Http404,
@@ -12,7 +11,6 @@ from django.http.response import (
 )
 from django.shortcuts import redirect
 from django.urls import reverse
-from django.utils.html import format_html
 from django.views.generic import (
     DetailView,
     ListView,
@@ -37,7 +35,7 @@ from crispy_forms.layout import Fieldset, Layout
 from squarelet.core.forms import ImagePreviewWidget
 from squarelet.core.layout import Field
 from squarelet.core.mixins import AdminLinkMixin
-from squarelet.organizations.models import Invitation, ReceiptEmail
+from squarelet.organizations.models import ReceiptEmail
 
 # Local
 from .models import User
@@ -53,24 +51,6 @@ class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
             raise Http404
         return super().dispatch(request, *args, **kwargs)
 
-    def get(self, request, *args, **kwargs):
-        """Check if the user has any pending invitations"""
-        if kwargs["username"] == request.user.username:
-            invitations = Invitation.objects.get_pending().filter(user=request.user)
-            for invitation in invitations:
-                url = reverse("organizations:invitation", args=(invitation.uuid,))
-                messages.success(
-                    request,
-                    format_html(
-                        '<a href="{}">'
-                        "Click here to view your invitation for {}"
-                        "</a>&nbsp;&nbsp",
-                        url,
-                        invitation.organization,
-                    ),
-                )
-        return super().get(request, *args, **kwargs)
-
     def get_context_data(self, **kwargs):
         user = self.object
         context = super().get_context_data(**kwargs)
@@ -80,6 +60,7 @@ class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
             .get_viewable(self.request.user)
         )
         context["potential_organizations"] = user.get_potential_organizations()
+        context["pending_invitations"] = user.get_pending_invitations()
         return context
 
 

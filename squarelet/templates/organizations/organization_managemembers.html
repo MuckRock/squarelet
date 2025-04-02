@@ -137,6 +137,12 @@
               <input type="hidden" name="inviteid" value="{{ invite.id }}">
               <button type="submit" class="_cls-compactButton">{% trans 'Revoke' %}</button>
             </form>
+            <form method="POST" class="_cls-inlineForm _cls-inlineInlineForm"> {# Added _cls-inlineInlineForm #}
+              {% csrf_token %}
+              <input type="hidden" name="action" value="resendinvite"> {# Action value matches view #}
+              <input type="hidden" name="inviteid" value="{{ invite.id }}"> {# Same invite ID #}
+              <button type="submit" class="_cls-compactButton">{% trans 'Resend' %}</button> {# Button text #}
+            </form>
           </div>
           <div class="_cls-manageCell">
             <input

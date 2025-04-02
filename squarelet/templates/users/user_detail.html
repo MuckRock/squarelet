@@ -94,6 +94,24 @@
           {% endif %}
         </div>
 
+      {% if pending_invitations %}
+        <div class="_cls-organizationSection">
+          <div class="_cls-mediumHeader">{% trans 'Pending Invitations' %}</div>
+          <ul class="_cls-profList">
+            {% for invite in pending_invitations %}
+              <li>
+                <a href="{% url 'organizations:invitation' invite.uuid %}">
+                    {% blocktrans with org_name=invite.organization.name %}
+                      Invite to join <strong>{{ org_name }}</strong>
+                    {% endblocktrans %}
+                </a>
+                <span class="_cls-info" style="margin-left: 10px;">({{ invite.created_at|date:"Y-m-d" }})</span>
+                </li>
+              {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
       </div>
 
       <div class="_cls-planColumn">
