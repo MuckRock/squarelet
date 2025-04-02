@@ -1,5 +1,6 @@
 # Django
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http.response import (
     Http404,
@@ -45,6 +46,7 @@ from squarelet.core.forms import ImagePreviewWidget
 from squarelet.core.layout import Field
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.organizations.models import ReceiptEmail
+from squarelet.services.models import Service
 
 # Local
 from .models import User
