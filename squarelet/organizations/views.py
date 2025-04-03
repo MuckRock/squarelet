@@ -306,23 +306,14 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
             emails = addmember_form.cleaned_data["emails"]
 
             for email in emails:
-                is_already_member = Membership.objects.filter(
-                    organization=self.organization, user__email__iexact=email
-                ).exists()
-
+                is_already_member = self.organization.has_member_by_email(email)
+                existing_open_invite = self.organization.get_existing_open_invite(email)
                 if is_already_member:
                     messages.info(
                         self.request,
                         f"{email} is already a member of this organization.",
                     )
                     continue
-
-                existing_open_invite = Invitation.objects.filter(
-                    organization=self.organization,
-                    email__iexact=email,
-                    accepted_at__isnull=True,
-                    rejected_at__isnull=True,
-                ).first()
 
                 if existing_open_invite:
                     existing_open_invite.send()
