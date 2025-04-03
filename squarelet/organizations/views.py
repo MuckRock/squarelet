@@ -322,13 +322,13 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
                     email__iexact=email,
                     accepted_at__isnull=True,
                     rejected_at__isnull=True,
-                ).exists()
+                ).first()
 
                 if existing_open_invite:
-                    messages.warning(
+                    existing_open_invite.send()
+                    messages.success(
                         self.request,
-                        f"An open invitation already exists for {email}."
-                        " Use 'Resend' if needed. Skipped creating new invite.",
+                        f"Resent invitation to {email}.",
                     )
                     continue
 
