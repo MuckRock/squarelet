@@ -476,6 +476,21 @@ class Organization(AvatarMixin, models.Model):
             or (self.parent and self.parent.is_hub_eligible)
         )
 
+    def has_member_by_email(self, email):
+        """Check if a user with an email is already a member of the organization."""
+        return Membership.objects.filter(
+            organization=self, user__email__iexact=email
+        ).exists()
+
+    def get_existing_open_invite(self, email):
+        """Retrieve an open invitation (if any) for the given email."""
+        return Invitation.objects.filter(
+            organization=self,
+            email__iexact=email,
+            accepted_at__isnull=True,
+            rejected_at__isnull=True,
+        ).first()
+
 
 class Membership(models.Model):
     """Through table for organization membership"""

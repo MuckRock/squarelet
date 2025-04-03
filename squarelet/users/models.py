@@ -20,7 +20,7 @@ from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
 from squarelet.core.mixins import AvatarMixin
 from squarelet.core.utils import file_path
 from squarelet.oidc.middleware import send_cache_invalidations
-from squarelet.organizations.models import Organization
+from squarelet.organizations.models import Invitation, Organization
 
 # Local
 from .managers import UserManager
@@ -267,6 +267,28 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
             organization.allow_auto_join
             and organization in self.get_potential_organizations()
         )
+
+    def get_pending_invitations(self):
+        verified_email_qs = self.emailaddress_set.filter(verified=True)
+        verified_emails = list(verified_email_qs.values_list("email", flat=True))
+
+        if not verified_emails:
+            # If the user has no verified emails, they cannot have pending invites
+            return Invitation.objects.none()
+
+        # Query for Invitations matching any verified email
+        # that are not accepted or rejected
+        pending_invites = (
+            Invitation.objects.filter(
+                email__in=verified_emails,
+                accepted_at__isnull=True,
+                rejected_at__isnull=True,
+            )
+            .select_related("organization")
+            .order_by("-created_at")
+        )
+
+        return pending_invites
 
 
 class LoginLog(models.Model):
