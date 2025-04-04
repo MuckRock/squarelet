@@ -515,6 +515,13 @@ class Membership(models.Model):
         help_text=_("This user has administrative rights for this organization"),
     )
 
+    created_at = AutoCreatedField(
+        _("created_at"),
+        null=True,
+        blank=True,
+        help_text=_("When this organization was created"),
+    )
+
     class Meta:
         unique_together = ("user", "organization")
         ordering = ("user_id",)
