@@ -1,7 +1,9 @@
 # Django
+from operator import is_
 from django import forms
 from django.contrib import messages
 from django.db import transaction
+from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
 # Standard Library
@@ -12,10 +14,13 @@ from allauth.account import forms as allauth
 from allauth.account.utils import setup_user_email
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout
+import stripe
 
 # Squarelet
+from squarelet.core.forms import StripeForm
 from squarelet.core.layout import Field
 from squarelet.organizations.models import Plan
+from squarelet.organizations.models.organization import Organization
 from squarelet.users.models import User
 
 logger = logging.getLogger(__name__)
@@ -41,12 +46,24 @@ class SignupForm(allauth.SignupForm):
     organization_name = forms.CharField(max_length=255, required=False)
 
     def __init__(self, *args, **kwargs):
+        # Extract request from kwargs if present
+        self.request = kwargs.pop('request', None)
+
         # set free to blank in case people have old links
         if "data" in kwargs and kwargs["data"].get("plan") == "free":
             data = kwargs["data"].copy()
             data["plan"] = ""
             kwargs["data"] = data
         super().__init__(*args, **kwargs)
+
+        # set the plan field using the value in GET
+        if self.request and 'plan' in self.request.GET:
+            plan_slug = self.request.GET.get("plan")
+            try:
+                plan = Plan.objects.filter(public=True).get(slug=plan_slug)
+                self.initial['plan'] = plan.slug
+            except Plan.DoesNotExist:
+                pass
 
         self.helper = FormHelper()
         self.helper.layout = Layout(
@@ -85,7 +102,7 @@ class SignupForm(allauth.SignupForm):
         }
         user_data.update(self.cleaned_data)
 
-        user, _, error = User.objects.register_user(user_data)
+        user = User.objects.register_user(user_data)
 
         plan = self.cleaned_data.get("plan")
         # Save the plan in session storage for future onboarding step #267
@@ -93,9 +110,6 @@ class SignupForm(allauth.SignupForm):
             request.session["plan"] = plan.slug
 
         setup_user_email(request, user, [])
-
-        if error:
-            messages.error(request, error)
 
         return user
 
@@ -109,6 +123,74 @@ class LoginForm(allauth.LoginForm):
         self.fields["login"].widget.attrs["placeholder"] = ""
         self.fields["login"].widget.attrs.pop("autofocus", None)
         self.fields["password"].widget.attrs["placeholder"] = ""
+
+
+class PremiumSubscriptionForm(StripeForm):
+    """Create a subscription form for premium plans"""
+    
+    organization = forms.ModelChoiceField(
+        label=_("Organization"),
+        queryset=None,  # Will be set in __init__
+        required=False,
+        help_text=_("Select the organization for this subscription"),
+    )
+    plan = forms.ModelChoiceField(
+        label=_("Plan"),
+        queryset=Plan.objects.all(),
+        empty_label=None,
+        required=True,
+    )
+
+    def __init__(self, *args, plan=None, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['stripe_token'].required = False
+
+        if user:
+            # Filter for organizations where the user is an admin or their individual organization
+            self.fields['organization'].queryset = Organization.objects.filter(
+                Q(memberships__user=user, memberships__admin=True) | 
+                Q(pk=user.individual_organization.pk)
+            ).distinct()
+        else:
+            self.fields['organization'].queryset = Organization.objects.none()
+        
+        # Set the plan if provided
+        if plan is not None:
+            self.fields['plan'].initial = plan
+            self.fields['plan'].queryset = Plan.objects.filter(pk=plan.pk)
+            self.fields['plan'].widget = forms.HiddenInput()
+        
+    def clean(self):
+        data = super().clean()
+        plan = data.get('plan')
+        if not plan:
+            self.add_error(
+                "plan",
+                _("A plan is required"),
+            )
+        stripe_token = data.get('stripe_token')
+        if not stripe_token:
+            self.add_error(
+                "stripe_token",
+                _("Payment information is missing"),
+            )
+        return data
+    
+    def save(self, user):
+        """Create a subscription for the organization with the selected plan"""
+        cleaned_data = self.cleaned_data
+        plan: Plan | None = cleaned_data.get('plan')
+        organization: Organization | None = cleaned_data.get('organization')
+        stripe_token = cleaned_data.get('stripe_token')
+        
+        try:
+            if organization is not None:
+                organization.create_subscription(stripe_token, plan, user)
+        except stripe.error.StripeError as exc:
+            logger.error("Error updating subscription: %s", exc)
+            raise forms.ValidationError(
+                _("Error processing payment. Please try again or contact support.")
+            )
 
 
 class AddEmailForm(allauth.AddEmailForm):

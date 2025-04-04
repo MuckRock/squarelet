@@ -35,7 +35,7 @@ from allauth.account.utils import (
     has_verified_email,
     send_email_confirmation,
 )
-from allauth.account.views import LoginView as AllAuthLoginView
+from allauth.account.views import LoginView as AllAuthLoginView, SignupView as AllAuthSignupView
 from allauth.mfa.adapter import get_adapter
 from allauth.mfa.totp.forms import ActivateTOTPForm
 from allauth.mfa.totp.internal.flows import activate_totp
@@ -47,8 +47,10 @@ from crispy_forms.layout import Fieldset, Layout
 from squarelet.core.forms import ImagePreviewWidget
 from squarelet.core.layout import Field
 from squarelet.core.mixins import AdminLinkMixin
-from squarelet.organizations.models import ReceiptEmail
+from squarelet.organizations.models import Invitation, ReceiptEmail
+from squarelet.organizations.models.payment import Plan
 from squarelet.services.models import Service
+from squarelet.users.forms import SignupForm, PremiumSubscriptionForm
 
 # Local
 from .models import User
@@ -195,6 +197,19 @@ class UserOnboardingView(TemplateView):
                 "joinable_orgs_count": len(invitations + potential_orgs),
             }
 
+        # Subscription check
+        # If the user is signing up for a plan, the "plan" session variable
+        # will be set to the plan slug. If not, it will be None.
+        plan = session.get("plan", None)
+        if plan:
+            # Check if the plan is valid
+            try:
+                plan = Plan.objects.get(slug=plan)
+                return "subscribe", {"plan": plan}
+            except Plan.DoesNotExist:
+                print('Invalid plan slug:', plan)
+                pass
+
         # MFA check
         # Check if this is user's first login
         is_first_login = user.last_login is None
@@ -251,6 +266,20 @@ class UserOnboardingView(TemplateView):
         context["next_url"] = self.request.session.get("next_url", "/")
         context["intent"] = self.request.session.get("intent", None)
         context["service"] = Service.objects.filter(slug=context["intent"]).first()
+
+        # For Subscription, initialize the form and get the user's organizations
+        if step == "subscribe":
+            context.update(
+                {
+                    "form": PremiumSubscriptionForm(),
+                    "individual_org": self.request.user.individual_organization,
+                    "group_orgs": (
+                        self.request.user.organizations
+                        .filter(individual=False, memberships__user=self.request.user, memberships__admin=True)
+                        .order_by('name')
+                    )
+                }
+            )
 
         # For MFA setup, initialize the form and generate the SVG
         if step == "mfa_setup":
@@ -374,6 +403,15 @@ class LoginView(AllAuthLoginView):
             return redirect(f"{settings.MUCKROCK_URL}{next_url}")
         return super().get(request, *args, **kwargs)
 
+
+class SignupView(AllAuthSignupView):
+    """Pass the request to the form"""
+    form_class = SignupForm
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['request'] = self.request
+        return kwargs
 
 def mailgun_webhook(request):
     """Handle mailgun webhooks to keep track of user emails that have failed"""

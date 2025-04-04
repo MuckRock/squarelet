@@ -2,9 +2,6 @@
 from django.contrib.auth.models import UserManager as AuthUserManager
 from django.db import transaction
 
-# Third Party
-import stripe
-
 # Squarelet
 from squarelet.core.utils import mailchimp_journey
 from squarelet.organizations.choices import ChangeLogReason
@@ -51,39 +48,4 @@ class UserManager(AuthUserManager):
         elif user.source in ["squarelet", "foiamachine"]:
             mailchimp_journey(user.email, "welcome_sq")
 
-        plan = user_data.get("plan")
-        try:
-            if plan and plan.for_individuals:
-                # Ensure organization is in the database before start subscription
-                # on stripe, so that the stripe call back will definitely be able
-                # to load the organization
-                transaction.on_commit(
-                    lambda: user.individual_organization.create_subscription(
-                        user_data.get("stripe_token"), plan, user
-                    )
-                )
-
-            if plan and plan.for_groups:
-                group_organization = Organization.objects.create(
-                    name=user_data["organization_name"]
-                )
-                group_organization.add_creator(user)
-                group_organization.change_logs.create(
-                    reason=ChangeLogReason.created,
-                    user=user,
-                    to_plan=plan,
-                    to_max_users=group_organization.max_users,
-                )
-                transaction.on_commit(
-                    lambda: group_organization.create_subscription(
-                        user_data.get("stripe_token"), plan, user
-                    )
-                )
-            else:
-                group_organization = None
-        except stripe.error.StripeError as exc:
-            error = f"Payment error: {exc.user_message}"
-        else:
-            error = None
-
-        return user, group_organization, error
+        return user
