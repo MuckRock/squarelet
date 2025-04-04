@@ -459,6 +459,23 @@ class Organization(AvatarMixin, models.Model):
             or (self.parent and self.parent.is_hub_eligible)
         )
 
+    @transaction.atomic
+    def merge(self, org):
+        """Merge another organization into this one"""
+        # XXX what to do with customer / subscription ?
+        replace_relations = [
+            "customers",
+            "subscriptions",
+            "private_plans",
+            "charges",
+            "invitations",
+            "receipt_emails",  # check for dupes
+        ]
+
+        replace_self_relations = [
+            "children",
+        ]
+
 
 class Membership(models.Model):
     """Through table for organization membership"""
