@@ -215,7 +215,7 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
             "name": account.extra_data["name"],
             "source": "github",
         }
-        user, _, _ = User.objects.register_user(user_data)
+        user = User.objects.register_user(user_data)
         sociallogin.user = user
         sociallogin.save(request)
         return user
