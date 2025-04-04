@@ -514,9 +514,12 @@ class Membership(models.Model):
         default=False,
         help_text=_("This user has administrative rights for this organization"),
     )
-    created_at = models.DateTimeField(
+
+    created_at = AutoCreatedField(
+        _("created_at"),
         null=True,
-        help_text=_("When the user joined the organization"),
+        blank=True,
+        help_text=_("When this organization was created"),
     )
 
     class Meta:
@@ -527,8 +530,6 @@ class Membership(models.Model):
         return f"Membership: {self.user} in {self.organization}"
 
     def save(self, *args, **kwargs):
-        if self.pk is None and self.created_at is None:
-            self.created_at = timezone.now()
         with transaction.atomic():
             super().save(*args, **kwargs)
             transaction.on_commit(
