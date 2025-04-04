@@ -1,7 +1,11 @@
 # Django
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.contrib.auth.mixins import (
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    UserPassesTestMixin,
+)
 from django.db import transaction
 from django.db.models import Value as V
 from django.db.models.functions import Lower, StrIndex
@@ -19,6 +23,7 @@ from django.utils.translation import gettext_lazy as _
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
+from django.views.generic.edit import FormView
 
 # Standard Library
 import json
@@ -37,7 +42,12 @@ from fuzzywuzzy import fuzz, process
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.denylist_domains import DENYLIST_DOMAINS
-from squarelet.organizations.forms import AddMemberForm, PaymentForm, UpdateForm
+from squarelet.organizations.forms import (
+    AddMemberForm,
+    MergeForm,
+    PaymentForm,
+    UpdateForm,
+)
 from squarelet.organizations.mixins import (
     IndividualMixin,
     OrganizationAdminMixin,
@@ -639,3 +649,49 @@ class ManageDomains(VerifiedJournalistMixin, DetailView):
         # Handle unexpected actions
         messages.error(request, "An unexpected error occurred.")
         return redirect("organizations:manage-domains", slug=self.organization.slug)
+
+
+class Merge(PermissionRequiredMixin, FormView):
+    """View to merge agencies together"""
+
+    form_class = MergeForm
+    template_name = "organizations/organization_merge.html"
+    permission_required = "organization.merge_organization"
+
+    def get_initial(self):
+        """Set initial choice based on get parameter"""
+        initial = super().get_initial()
+        if "bad_org" in self.request.GET:
+            initial["bad_org"] = self.request.GET["bad_org"]
+        return initial
+
+    def form_valid(self, form):
+        """Confirm and merge"""
+        if form.cleaned_data["confirmed"]:
+            good = form.cleaned_data["good_organization"]
+            bad = form.cleaned_data["bad_organization"]
+            try:
+                good.merge(bad, self.request.user)
+            except ValueError:
+                messages.error(self.request, "There was an error")
+                return redirect("organizations:merge")
+
+            messages.success(self.request, f"Merged {bad} into {good}!")
+            return redirect("organizations:merge")
+        else:
+            initial = {
+                "good_organization": form.cleaned_data["good_organization"],
+                "bad_organization": form.cleaned_data["bad_organization"],
+            }
+            form = self.form_class(confirmed=True, initial=initial)
+            return self.render_to_response(self.get_context_data(form=form))
+
+    def form_invalid(self, form):
+        """Something went wrong"""
+        messages.error(self.request, form.errors)
+        return redirect("organizations:merge")
+
+    def handle_no_permission(self):
+        """What to do if the user does not have permisson to view this page"""
+        messages.error(self.request, "You do not have permission to view this page")
+        return redirect("index")

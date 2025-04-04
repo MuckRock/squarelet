@@ -9,6 +9,7 @@ urlpatterns = [
     path("", view=views.List.as_view(), name="list"),
     path("autocomplete", views.autocomplete, name="autocomplete"),
     path("~create", view=views.Create.as_view(), name="create"),
+    path("~merge", view=views.Merge.as_view(), name="merge"),
     path("~stripe_webhook/", view=views.stripe_webhook, name="stripe-webhook"),
     path("~charge/<int:pk>/", view=views.ChargeDetail.as_view(), name="charge"),
     path(

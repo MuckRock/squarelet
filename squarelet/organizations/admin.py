@@ -145,6 +145,9 @@ class OrganizationAdmin(VersionAdmin):
         "country",
         "parent",
         "members",
+        "merged",
+        "merged_at",
+        "merged_by",
     )
     readonly_fields = (
         "uuid",
@@ -153,6 +156,9 @@ class OrganizationAdmin(VersionAdmin):
         "created_at",
         "updated_at",
         "individual",
+        "merged",
+        "merged_at",
+        "merged_by",
     )
     autocomplete_fields = ("members", "parent", "subtypes")
     save_on_top = True
