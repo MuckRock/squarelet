@@ -483,6 +483,13 @@ class Membership(models.Model):
         help_text=_("This user has administrative rights for this organization"),
     )
 
+    created_at = models.DateTimeField(
+        _("created_at"),
+        default=None,
+        null=True,
+        blank=True,
+    )
+
     class Meta:
         unique_together = ("user", "organization")
         ordering = ("user_id",)
