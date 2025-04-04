@@ -1,0 +1,246 @@
+{% extends "account/onboarding/base.html" %}
+
+{% load i18n static %}
+
+{% block javascript %}
+  {{ block.super }}
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const individualTab = document.querySelector(".tab.individual");
+      const groupTab = document.querySelector(".tab.group");
+      const individualContent = document.querySelector(".tab-content.individual");
+      const groupContent = document.querySelector(".tab-content.group");
+
+      individualTab.addEventListener("click", function () {
+        individualTab.classList.add("active");
+        groupTab.classList.remove("active");
+        individualContent.style.display = "flex";
+        groupContent.style.display = "none";
+      });
+
+      groupTab.addEventListener("click", function () {
+        groupTab.classList.add("active");
+        individualTab.classList.remove("active");
+        groupContent.style.display = "flex";
+        individualContent.style.display = "none";
+      });
+
+      individualTab.click(); // Trigger click to show individual tab by default
+    });
+  </script>
+{% endblock %}
+
+{% block css %}
+  {{ block.super }}
+  <style>
+    .step {
+      display: flex;
+      width: 29.5rem;
+      padding: 1rem 1.5rem;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 1.5rem;
+    }
+    header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+      align-self: stretch;
+    }
+    header .icon {
+      display: flex;
+      width: 3rem;
+      height: 3rem;
+      justify-content: center;
+      align-items: center;
+    }
+    header .title {
+      color: var(--gray-5, #233944);
+      text-align: center;
+      font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
+
+      /* Title */
+      font-family: var(--font-sans, "Source Sans Pro");
+      font-size: var(--font-xl, 1.5rem);
+      font-style: normal;
+      font-weight: 600;
+      line-height: normal;
+    }
+    .icon {
+      display: flex !important;
+      align-items: center;
+      fill: currentColor;
+    }
+    .tab-group {
+      width: 100%;
+      font-feature-settings: 'ss04' on;
+    }
+    .tabs {
+      display: flex;
+    }
+    .tab {
+      display: flex;
+      padding: 0.5rem 0.75rem;
+      align-items: center;
+      flex: 1 0 0;
+      gap: 0.5rem;
+      border-radius: 0.5rem 0.5rem 0rem 0rem;
+
+      /* Label */
+      font-family: var(--font-sans, "Source Sans Pro");
+      font-size: var(--font-md, 1rem);
+      font-style: normal;
+      font-weight: 600;
+      line-height: normal;
+    }
+
+    .tab-content {
+      display: flex;
+      padding: 1rem 0.75rem;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1rem;
+      align-self: stretch;
+      border-radius: 0 0 0.5rem 0.5rem;
+    }
+    
+    .individual {
+      background: var(--blue-1, #EEF3F9);
+      fill: var(--blue-3, #1367D0);
+      color: var(--blue-4, #1367D0);
+    }
+    
+    .group {
+      background: var(--purple-1, #EEF3F9);
+      fill: var(--purple-3, #1367D0);
+      color: var(--purple-4, #1367D0);
+    }
+
+    .benefits-list {
+      margin: 0;
+      padding: 0;
+      list-style-type: none;
+    }
+
+    .benefits-list li {
+      display: flex;
+      padding: 0.25rem 0.5rem;
+      align-items: center;
+      gap: 0.5rem;
+      align-self: stretch;
+
+      font-weight: 600;
+      line-height: normal;
+    }
+
+    .benefits-list .benefit-text {
+      color: var(--gray-5, #233944);
+      font-family: var(--font-sans, "Source Sans Pro");
+      font-size: var(--font-sm, 0.875em);
+      font-style: normal;
+      font-weight: 600;
+      line-height: normal;
+    }
+  </style>
+{% endblock %}
+
+{% block onboarding_step %}
+  <div class="step">
+    <header>
+      <div class="icon"><img src="{% static "icons/premium.svg" %}" /></div>
+      <h1 class="title">{% blocktrans %}Subscribe to MuckRock Premium for advanced features and discount rates{% endblocktrans %}</h1>
+    </header>
+    <div class="tab-group">
+      <div class="tabs">
+        <div class="tab individual">
+          <span class="icon">{% include 'core/icons/person.svg' %}</span>
+          {% trans "For you" %}
+        </div>
+        <div class="tab group">
+          <span class="icon">{% include 'core/icons/organization.svg' %}</span>
+          {% trans "For your organization" %}
+        </div>
+      </div>
+      <div class="individual tab-content" id="individual">
+        <ul class="individual benefits-list">
+          <li>
+            <span class="checkmark icon">{% include "core/icons/checkmark.svg" %}</span>
+            <span class="benefit-text">
+              {% blocktrans %}20 requests per month on MuckRock{% endblocktrans %}
+            </span>
+          </li>
+          <li>
+            <span class="checkmark icon">{% include "core/icons/checkmark.svg" %}</span>
+            <span class="benefit-text">
+              {% blocktrans %}Embargo requests for up to 30 days after completion{% endblocktrans %}
+            </span>
+          </li>
+          <li>
+            <span class="checkmark icon">{% include "core/icons/checkmark.svg" %}</span>
+            <span class="benefit-text">
+              {% blocktrans %}2,000 AI Credits per month on DocumentCloud{% endblocktrans %}
+            </span>
+          </li>
+          <li>
+            <span class="checkmark icon">{% include "core/icons/checkmark.svg" %}</span>
+            <span class="benefit-text">
+              {% blocktrans %}Search your private notes on DocumentCloud{% endblocktrans %}
+            </span>
+          </li>
+        </ul>
+        <form method="POST" action="{% url 'account_onboarding' %}">
+          {% csrf_token %}
+          <input type="hidden" name="step" value="subscribe">
+          <input type="hidden" name="organization" value={{ individual_org.id }}>
+          {{form.plan}}
+          {{form.stripe_pk}}
+          {{form.stripe_token}}
+        </form>
+      </div>
+      <div class="group tab-content" id="group">
+        <ul class="group benefits-list">
+          <li>
+            <span class="checkmark icon">{% include "core/icons/checkmark.svg" %}</span>
+            <span class="benefit-text">
+              {% blocktrans %}Share resources with unlimited members{% endblocktrans %}
+            </span>
+          </li>
+          <li>
+            <span class="checkmark icon">{% include "core/icons/checkmark.svg" %}</span>
+            <span class="benefit-text">
+              {% blocktrans %}50 requests per month on MuckRock{% endblocktrans %}
+            </span>
+          </li>
+          <li>
+            <span class="checkmark icon">{% include "core/icons/checkmark.svg" %}</span>
+            <span class="benefit-text">
+              {% blocktrans %}Permanently embargo requests{% endblocktrans %}
+            </span>
+          </li>
+          <li>
+            <span class="checkmark icon">{% include "core/icons/checkmark.svg" %}</span>
+            <span class="benefit-text">
+              {% blocktrans %}5,000 AI Credits per month on DocumentCloud{% endblocktrans %}
+            </span>
+          </li>
+          <li>
+            <span class="checkmark icon">{% include "core/icons/checkmark.svg" %}</span>
+            <span class="benefit-text">
+              {% blocktrans %}Search your organization’s notes on DocumentCloud{% endblocktrans %}
+            </span>
+          </li>
+        </ul>
+        <form method="POST" action="{% url 'account_onboarding' %}">
+          {% csrf_token %}
+          <input type="hidden" name="step" value="subscribe">
+          {{form.organization}}
+          {{form.plan}}
+          {{form.stripe_pk}}
+          {{form.stripe_token}}
+        </form>
+      </div>
+    </div>
+  </div>
+{% endblock %}
