@@ -76,6 +76,39 @@
     font-weight: 400;
   }
 
+  .login-layout {
+    flex: 1;
+    gap: 0;
+    display: flex;
+    flex-flow: row-reverse wrap;
+    align-items: stretch;
+  }
+
+  .login-layout h2 {
+    font-weight: 600;
+    text-align: center;
+    font-size: var(--font-lg, 1.25rem);
+  }
+
+  .login-layout > .form-wrapper,
+  .login-layout > .service-gallery-wrapper {
+    flex: 1 1 28rem;
+    min-height: 0;
+  }
+
+  .form-wrapper {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .service-gallery-wrapper {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    background: linear-gradient(180deg, #1367D0 0%, #4294F0 100%);
+  }
+
   .login-form {
     display: flex;
     flex-direction: column;
@@ -128,34 +161,6 @@
     padding: 0.5rem 1rem;
     border-radius: 0.25rem;
     font-weight: 600;
-  }
-
-  .login-layout {
-    flex: 1;
-    gap: 0;
-    display: flex;
-    flex-flow: row-reverse wrap;
-  }
-
-  .login-layout h2 {
-    font-weight: 600;
-    text-align: center;
-    font-size: var(--font-lg, 1.25rem);
-  }
-
-  .login-layout>* {
-    flex: 1 1 28rem;
-  }
-
-  .form-wrapper {
-    display: flex;
-    align-items: center;
-  }
-
-  .service-gallery-wrapper {
-    max-height: 90vh;
-    overflow-y: auto;
-    background: linear-gradient(180deg, #1367D0 0%, #4294F0 100%);
   }
 
   .service-gallery {
