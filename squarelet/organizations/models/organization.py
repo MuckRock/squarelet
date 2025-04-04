@@ -514,6 +514,10 @@ class Membership(models.Model):
         default=False,
         help_text=_("This user has administrative rights for this organization"),
     )
+    created_at = models.DateTimeField(
+        null=True,
+        help_text=_("When the user joined the organization"),
+    )
 
     class Meta:
         unique_together = ("user", "organization")
@@ -530,6 +534,8 @@ class Membership(models.Model):
             )
 
     def delete(self, *args, **kwargs):
+        if self.pk is None and self.created_at is None:
+            self.created_at = timezone.now()
         with transaction.atomic():
             super().delete(*args, **kwargs)
             transaction.on_commit(
