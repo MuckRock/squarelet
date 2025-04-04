@@ -483,9 +483,8 @@ class Membership(models.Model):
         help_text=_("This user has administrative rights for this organization"),
     )
 
-    created_at = models.DateTimeField(
+    created_at = AutoCreatedField(
         _("created_at"),
-        default=None,
         null=True,
         blank=True,
     )
