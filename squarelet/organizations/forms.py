@@ -222,3 +222,36 @@ class AddMemberForm(forms.Form):
     """Add a member to the organization"""
 
     emails = EmailsListField()
+
+
+class MergeForm(forms.Form):
+    """A form to merge two organizations"""
+
+    good_organization = forms.ModelChoiceField(
+        queryset=Organization.objects.filter(individual=False, merged=None),
+    )
+    bad_organization = forms.ModelChoiceField(
+        queryset=Organization.objects.filter(individual=False, merged=None),
+    )
+    confirmed = forms.BooleanField(
+        initial=False, widget=forms.HiddenInput(), required=False
+    )
+
+    def __init__(self, *args, **kwargs):
+        confirmed = kwargs.pop("confirmed", False)
+        super().__init__(*args, **kwargs)
+        if confirmed:
+            self.fields["confirmed"].initial = True
+            self.fields["good_organization"].widget = forms.HiddenInput()
+            self.fields["bad_organization"].widget = forms.HiddenInput()
+
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        good_organization = cleaned_data.get("good_organization")
+        bad_organization = cleaned_data.get("bad_organization")
+        if good_organization and good_organization == bad_organization:
+            raise forms.ValidationError("Cannot merge an organization into itself")
+        return cleaned_data

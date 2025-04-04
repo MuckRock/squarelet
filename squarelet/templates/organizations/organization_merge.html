@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% load crispy_forms_tags %}
+{% load avatar %}
+{% load i18n %}
+{% block title %}Merge Organizations{% endblock %}
+
+
+{% block content %}
+  <div class="_cls-content">
+    <h1>Merge Organizations</h1>
+    {% if form.fields.confirmed.initial %}
+      <p>
+        {% with good=form.initial.good_organization bad=form.initial.bad_organization %}
+          <p>
+            Please review the two organizations you are about to merge before you
+            confirm this submission.  Be sure to manually reconcile any data if
+            necessary.
+          </p>
+          <table>
+            <tr>
+              <th>&nbsp;</th>
+              <th>Good (This one will be kept)</th>
+              <th>Bad (This one will be rejected)</th>
+            </tr>
+            <tr>
+              <th>ID</th>
+              <td>
+                <a href="{% url "admin:organizations_organization_change" good.pk %}">
+                  {{ good.pk }}
+                </a>
+              </td>
+              <td>
+                <a href="{% url "admin:organizations_organization_change" bad.pk %}">
+                  {{ bad.pk }}
+                </a>
+              </td>
+            </tr>
+            <tr>
+              <th>Name</th>
+              <td><a href="{{ good.get_absolute_url }}">{{ good.name }}</a></td>
+              <td><a href="{{ bad.get_absolute_url }}">{{ bad.name }}</a></td>
+            </tr>
+            <tr>
+              <th>Image</th>
+              <td>{% avatar good %}</td>
+              <td>{% avatar bad %}</td>
+            </tr>
+            <tr>
+              <th>Parent</th>
+              <td>{{ good.parent }}</td>
+              <td>{{ bad.parent }}</td>
+            </tr>
+            <tr>
+              <th>Charges</th>
+              <td></td>
+              <td></td>
+            </tr>
+            <tr>
+              <th>Users</th>
+              <td>
+                <ul>
+                  {% for user in good.users.all %}
+                    <li>{{ user }}</li>
+                  {% endfor %}
+                </ul>
+              </td>
+              <td>
+                <ul>
+                  {% for user in bad.users.all %}
+                    <li>{{ user }}</li>
+                  {% endfor %}
+                </ul>
+              </td>
+            </tr>
+            <tr>
+              <th>Receipt Emails</th>
+              <td>
+                <ul>
+                  {% for email in good.receipt_emails.all %}
+                    <li>{{ email.email }}</li>
+                  {% endfor %}
+                </ul>
+              </td>
+              <td>
+                <ul>
+                  {% for email in bad.receipt_emails.all %}
+                    <li>{{ email.email }}</li>
+                  {% endfor %}
+                </ul>
+              </td>
+            </tr>
+            <tr>
+              <th>URLs</th>
+              <td>
+                <ul>
+                  {% for url in good.urls.all %}
+                    <li>{{ url }}</li>
+                  {% endfor %}
+                </ul>
+              </td>
+              <td>
+                <ul>
+                  {% for url in bad.urls.all %}
+                    <li>{{ url }}</li>
+                  {% endfor %}
+                </ul>
+              </td>
+            </tr>
+            <tr>
+              <th>Email Domains</th>
+              <td>
+                <ul>
+                  {% for domain in good.domains.all %}
+                    <li>{{ domain }}</li>
+                  {% endfor %}
+                </ul>
+              </td>
+              <td>
+                <ul>
+                  {% for domain in bad.domains.all %}
+                    <li>{{ domain }}</li>
+                  {% endfor %}
+                </ul>
+              </td>
+            </tr>
+            <tr>
+              <th>Private Plans</th>
+              <td>
+                <ul>
+                  {% for plan in good.private_plans.all %}
+                    <li>{{ plan }}</li>
+                  {% endfor %}
+                </ul>
+              </td>
+              <td>
+                <ul>
+                  {% for plan in bad.private_plans.all %}
+                    <li>{{ plan }}</li>
+                  {% endfor %}
+                </ul>
+              </td>
+            </tr>
+            <tr>
+              <th>Children</th>
+              <td>
+                <ul>
+                  {% for child in good.children.all %}
+                    <li>{{ child }}</li>
+                  {% endfor %}
+                </ul>
+              </td>
+              <td>
+                <ul>
+                  {% for child in bad.children.all %}
+                    <li>{{ child }}</li>
+                  {% endfor %}
+                </ul>
+              </td>
+            </tr>
+            <tr>
+              <th>Groups</th>
+              <td>
+                <ul>
+                  {% for group in good.groups.all %}
+                    <li>{{ group }}</li>
+                  {% endfor %}
+                </ul>
+              </td>
+              <td>
+                <ul>
+                  {% for group in bad.groups.all %}
+                    <li>{{ group }}</li>
+                  {% endfor %}
+                </ul>
+              </td>
+            </tr>
+            <tr>
+              <th>Members (Orgs)</th>
+              <td>
+                <ul>
+                  {% for member in good.members.all %}
+                    <li>{{ member }}</li>
+                  {% endfor %}
+                </ul>
+              </td>
+              <td>
+                <ul>
+                  {% for member in bad.members.all %}
+                    <li>{{ member }}</li>
+                  {% endfor %}
+                </ul>
+              </td>
+            </tr>
+            <tr>
+              <th>Subtypes</th>
+              <td>
+                <ul>
+                  {% for subtype in good.subtypes.all %}
+                    <li>{{ subtype }}</li>
+                  {% endfor %}
+                </ul>
+              </td>
+              <td>
+                <ul>
+                  {% for subtype in bad.subtypes.all %}
+                    <li>{{ subtype }}</li>
+                  {% endfor %}
+                </ul>
+              </td>
+            </tr>
+          </table>
+        {% endwith %}
+      </p>
+    {% else %}
+      <p>
+        Select two organizations to merge.  The bad organization will be marked
+        as rejected, and all records pointing to it will now point to the good
+        organization. You should only be using this tool if you know what you are
+        doing - if you have any doubts, ask somebody first!  After selecting two
+        organizations on this page, you will see a page with a table of the data
+        for the selected organizations, which you can review before you confirm
+        the merger.
+      </p>
+    {% endif %}
+
+    <form class="form-horizontal" method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      {% crispy form %}
+      <div class="control-group" style="margin-top: 2em;">
+        <div class="_cls-actionSmall">
+          <button type="submit" class="btn">{% trans "Merge" %}</button>
+        </div>
+      </div>
+    </form>
+  </div>
+{% endblock %}

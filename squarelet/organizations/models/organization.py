@@ -246,6 +246,30 @@ class Organization(AvatarMixin, models.Model):
         ),
     )
 
+    merged = models.ForeignKey(
+        verbose_name=_("merged into"),
+        to="self",
+        on_delete=models.PROTECT,
+        related_name="+",
+        help_text=_("The agency this agency was merged in to"),
+        blank=True,
+        null=True,
+    )
+    merged_at = models.DateTimeField(
+        _("merged at"),
+        blank=True,
+        null=True,
+        help_text=_("When this organization was merged"),
+    )
+    merged_by = models.ForeignKey(
+        verbose_name=_("merged by"),
+        to="users.User",
+        on_delete=models.PROTECT,
+        related_name="+",
+        blank=True,
+        null=True,
+    )
+
     # TODO: Remove default avatar
     default_avatar = static("images/avatars/organization.png")
 
@@ -495,6 +519,56 @@ class Organization(AvatarMixin, models.Model):
             accepted_at__isnull=True,
             rejected_at__isnull=True,
         ).first()
+
+    @transaction.atomic
+    def merge(self, org, user):
+        """Merge another organization into this one"""
+
+        if (
+            org.subscriptions.exists()
+            or org.merged is not None
+            or self.merged is not None
+            or org.individual
+            or self.individual
+        ):
+            raise ValueError()
+
+        org.charges.update(organization=self)
+
+        org.memberships.exclude(user__in=self.users.all()).update(organization=self)
+        org.memberships.all().delete()
+
+        org.invitations.update(organization=self)
+
+        org.receipt_emails.exclude(
+            email__in=self.receipt_emails.values("email")
+        ).update(organization=self)
+        org.receipt_emails.all().delete()
+
+        org.urls.exclude(url__in=self.urls.values("url")).update(organization=self)
+        org.urls.all().delete()
+
+        org.domains.exclude(domain__in=self.domains.values("domain")).update(
+            organization=self
+        )
+        org.domains.all().delete()
+
+        # only take other orgs parent if we do not have one
+        if self.parent is None:
+            self.parent = org.parent
+
+        m2m_relations = ["private_plans", "children", "groups", "members", "subtypes"]
+        for m2m in m2m_relations:
+            getattr(self, m2m).add(*getattr(org, m2m).all())
+            getattr(org, m2m).clear()
+
+        org.merged = self
+        org.merged_at = timezone.now()
+        org.merged_by = user
+        org.private = True
+
+        org.save()
+        self.save()
 
 
 class Membership(models.Model):
