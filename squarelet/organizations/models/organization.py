@@ -527,6 +527,8 @@ class Membership(models.Model):
         return f"Membership: {self.user} in {self.organization}"
 
     def save(self, *args, **kwargs):
+        if self.pk is None and self.created_at is None:
+            self.created_at = timezone.now()
         with transaction.atomic():
             super().save(*args, **kwargs)
             transaction.on_commit(
@@ -534,8 +536,6 @@ class Membership(models.Model):
             )
 
     def delete(self, *args, **kwargs):
-        if self.pk is None and self.created_at is None:
-            self.created_at = timezone.now()
         with transaction.atomic():
             super().delete(*args, **kwargs)
             transaction.on_commit(
