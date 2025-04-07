@@ -285,6 +285,7 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
             "addmember": self._handle_add_member,
             "addmember_link": self._handle_add_member_link,
             "revokeinvite": self._handle_revoke_invite,
+            "resendinvite": self._handle_resend_invite,
             "acceptinvite": self._handle_accept_invite,
             "rejectinvite": self._handle_reject_invite,
             "makeadmin": self._handle_makeadmin_user,
@@ -298,18 +299,38 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
     def _handle_add_member(self, request):
         addmember_form = AddMemberForm(request.POST)
         if not addmember_form.is_valid():
-            messages.error(request, addmember_form.errors["emails"][0])
+            messages.error(
+                request, addmember_form.errors.get("emails", ["Invalid input."])[0]
+            )
         else:
             emails = addmember_form.cleaned_data["emails"]
 
-            # Create an invitation and send it to the given email addresses
             for email in emails:
+                is_already_member = self.organization.has_member_by_email(email)
+                existing_open_invite = self.organization.get_existing_open_invite(email)
+                if is_already_member:
+                    messages.info(
+                        self.request,
+                        f"{email} is already a member of this organization.",
+                    )
+                    continue
+
+                if existing_open_invite:
+                    existing_open_invite.send()
+                    messages.success(
+                        self.request,
+                        f"Resent invitation to {email}.",
+                    )
+                    continue
+
                 invitation = Invitation.objects.create(
                     organization=self.organization,
                     email=email,
                 )
                 invitation.send()
-            messages.success(self.request, "Invitations sent")
+
+                messages.success(self.request, "Invitations sent")
+
         return redirect("organizations:manage-members", slug=self.organization.slug)
 
     def _handle_add_member_link(self, request):
@@ -341,6 +362,13 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
     def _handle_revoke_invite(self, request):
         return self._handle_invite(
             request, lambda invite: invite.reject(), "Invitation revoked"
+        )
+
+    def _handle_resend_invite(self, request):
+        return self._handle_invite(
+            request,
+            lambda invite: invite.send(),
+            "Invitation resent successfully.",
         )
 
     def _handle_accept_invite(self, request):
