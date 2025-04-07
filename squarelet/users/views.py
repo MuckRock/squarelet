@@ -23,6 +23,7 @@ from django.views.generic import (
 
 # Standard Library
 import base64
+import enum
 import hashlib
 import hmac
 import json
@@ -51,6 +52,14 @@ from squarelet.services.models import Service
 
 # Local
 from .models import User
+
+
+# todo: move step definition to a more appropriate place
+# todo: switch to StrEnum once we're on Python >=3.11
+class OnboardingStep(enum.Enum):
+    confirm_email = "Confirm email"
+    join_org = "Join organizations"
+    mfa = "Multi-factor authentication"
 
 
 class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
@@ -194,7 +203,13 @@ class UserOnboardingView(TemplateView):
 
         # TODO: Verification check
 
-        # TODO: Organization check
+        # Organization check
+        orgs = list(user.organizations.filter(individual=False))
+        if len(orgs) == 0:
+            return OnboardingStep.join_org.name, {
+                "orgs": orgs,
+                "invitations": user.invitations.get_pending(),
+            }
 
         # MFA check
         # Check if this is user's first login

@@ -1,6 +1,6 @@
 {
   "python.defaultInterpreterPath": ".venv/bin/python3.10",
-  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.typeCheckingMode": "off",
   "python.analysis.autoImportCompletions": true,
   "python.REPL.enableREPLSmartSend": false,
   "python.testing.pytestEnabled": true,
@@ -11,6 +11,6 @@
     "editor.tabSize": 4
   },
   "files.associations": {
-    "*.html": "nunjucks"
+    "*.html": "django-html"
   }
 }

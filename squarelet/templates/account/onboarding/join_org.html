@@ -1,0 +1,128 @@
+{% extends "account/onboarding/base.html" %}
+
+{% load i18n static %}
+
+{% block title %}{% trans "Join an organization" %}{% endblock title %}
+
+{% block css %}
+{{ block.super }}
+<style>
+.message {
+  display: flex;
+  width: 29.5rem;
+  padding: 1.5rem 2rem;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+}
+
+.message header {
+  display: flex;
+  padding-left: 2rem;
+  align-items: center;
+  gap: 2rem;
+  align-self: stretch;
+}
+
+.message header h1 {
+  max-width: 17.5rem;
+  flex: 1 0 0;
+  color: var(--gray-5, #233944);
+  text-align: center;
+  font-feature-settings: 'liga' off, 'clig' off;
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-size: var(--font-lg, 1.25rem);
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+}
+
+.icon img {
+  width: 3rem;
+  height: 3rem;
+}
+
+.org-search {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  align-self: stretch;
+}
+
+.org-search input {
+  display: flex;
+  height: 1.875rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  align-self: stretch;
+  border-radius: 0.5rem;
+  border: 1px solid var(--gray-2, #D8DEE2);
+  background: var(--white, #FFF);
+}
+
+.org-search input::placeholder {
+  color: var(--gray-4, #5C717C);
+  font-feature-settings: 'ss04' on;
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-size: var(--font-md, 1rem);
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1.375rem; /* 137.5% */
+}
+
+h2 {
+  color: var(--gray-5, #233944);
+  font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-size: var(--font-lg, 1.25rem);
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+}
+
+.pending {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  align-self: stretch;
+}
+</style>
+{% endblock css %}
+
+{% block onboarding_step %}
+  <div class="message">
+    <header>
+      <div class="icon">
+        <img src="{% static 'icons/people.svg' %}" />
+      </div>
+      <h1>{% trans "Join your team on MuckRock to access collaboration, advanced features, and shared resources" %}</h1>
+    </header>
+    <label class="org-search">
+      <span class="sr-only">{% trans "Search public teams" %}</span>
+      <input type="search" placeholder="{% trans "Search public teams" %} ..." name="q" />
+    </label>
+    <div class="pending">
+      <h2>Pending requests</h2>
+
+      <div class="orgs">
+        
+        {% for invite in invitations %}
+        <div class="invite">
+          <div class="team">
+            <img src="">
+            <div class="info">
+              <h4>{{ invite.organization.name }}</h4>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+{% endblock %}
