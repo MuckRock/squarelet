@@ -163,8 +163,9 @@ class UpdateForm(forms.ModelForm):
         label=_("Allow Auto Join"),
         required=False,
         help_text=_(
-            "Allow users to join this organization automatically"
-            " if one of their verified emails matches the organization's email domain."
+            "Allow users to join this organization without an invite"
+            "if one of their verified emails matches "
+            "one of the organization's email domains."
         ),
     )
 
@@ -174,6 +175,26 @@ class UpdateForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        domains = self.instance.domains.values_list("domain", flat=True)
+        domain_list = ", ".join(f"<b> {d}</b>" for d in domains)
+        if domain_list:
+            self.fields["allow_auto_join"].help_text = _(
+                "<br> Allow users to join this organization without an invite "
+                "if one of their verified emails matches one of the organization's "
+                "email domains. This organization"
+                f" has the following email domains set: {domain_list}."
+                "<br>To modify this list, please contact our support team"
+                " at <b>info@muckrock.com<b/>."
+            )
+        else:
+            self.fields["allow_auto_join"].help_text = _(
+                "<br>Allow users to join this organization without requesting "
+                "an invite if one of their verified emails matches one of the "
+                " organization's email domains. This organization does not "
+                "currently have any email domains set. "
+                "To add one, please contact our support team at "
+                "<b>info@muckrock.com</b>."
+            )
 
         self.helper = FormHelper()
         self.helper.layout = Layout(
