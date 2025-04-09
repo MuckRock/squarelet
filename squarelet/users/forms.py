@@ -14,7 +14,6 @@ from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout
 
 # Squarelet
-from squarelet.core.forms import StripeForm
 from squarelet.core.layout import Field
 from squarelet.organizations.models import Plan
 from squarelet.users.models import User
@@ -22,11 +21,13 @@ from squarelet.users.models import User
 logger = logging.getLogger(__name__)
 
 
-class SignupForm(allauth.SignupForm, StripeForm):
+class SignupForm(allauth.SignupForm):
     """Add a name field to the sign up form"""
 
     name = forms.CharField(
-        max_length=255, widget=forms.TextInput(attrs={"placeholder": "Full name"})
+        label=_("Full name"),
+        max_length=255,
+        widget=forms.TextInput(attrs={"placeholder": "Full name"}),
     )
 
     plan = forms.ModelChoiceField(
@@ -46,12 +47,9 @@ class SignupForm(allauth.SignupForm, StripeForm):
             data["plan"] = ""
             kwargs["data"] = data
         super().__init__(*args, **kwargs)
-        self.fields["stripe_token"].required = False
 
         self.helper = FormHelper()
         self.helper.layout = Layout(
-            Field("stripe_token"),
-            Field("stripe_pk"),
             Field("name"),
             Field("username"),
             Field("email", type="email"),
@@ -59,6 +57,17 @@ class SignupForm(allauth.SignupForm, StripeForm):
         )
         self.fields["username"].widget.attrs.pop("autofocus", None)
         self.helper.form_tag = False
+        self.fields["username"].widget.attrs["placeholder"] = ""
+        self.fields["username"].help_text = _(
+            "Your username must be unique; it will be used in URLs."
+        )
+        self.fields["name"].widget.attrs["placeholder"] = ""
+        self.fields["name"].help_text = _(
+            """Your full name will be displayed on your profile
+            and used to identify you within organizations."""
+        )
+        self.fields["email"].widget.attrs["placeholder"] = ""
+        self.fields["password1"].widget.attrs["placeholder"] = ""
 
     def clean(self):
         data = super().clean()
@@ -66,34 +75,22 @@ class SignupForm(allauth.SignupForm, StripeForm):
             log_data = self.data.copy()
             log_data.pop("password1", None)
             logger.warning("Failed signup attempt:\n\t%r\n\t%s", self.errors, log_data)
-        plan = data.get("plan")
-        if plan and plan.requires_payment() and not data.get("stripe_token"):
-            self.add_error(
-                "plan",
-                _(
-                    "You must supply a credit card number to sign up for a "
-                    "non-free plan"
-                ),
-            )
-        if plan and not plan.for_individuals and not data.get("organization_name"):
-            self.add_error(
-                "organization_name",
-                _(
-                    "Organization name is required if registering an "
-                    "organizational account"
-                ),
-            )
         return data
 
     @transaction.atomic()
     def save(self, request):
 
         user_data = {
-            "source": request.GET.get("intent", "squarelet").lower().strip()[:13]
+            "source": request.GET.get("intent", "squarelet").lower().strip()[:255]
         }
         user_data.update(self.cleaned_data)
 
         user, _, error = User.objects.register_user(user_data)
+
+        plan = self.cleaned_data.get("plan")
+        # Save the plan in session storage for future onboarding step #267
+        if plan and plan.requires_payment():
+            request.session["plan"] = plan.slug
 
         setup_user_email(request, user, [])
 

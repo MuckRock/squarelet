@@ -47,7 +47,7 @@
             {% trans "Sign Up" %}
           </a>
         {% else %}
-          <a title="{% trans 'Sign Up' %}" class="_cls-navItem" href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'squarelet' %}&next={{ request.get_full_path }}">
+          <a title="{% trans 'Sign Up' %}" class="_cls-navItem" href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'squarelet' %}&next={% firstof request.GET.next request.get_full_path %}">
             {% trans "Sign Up" %}
           </a>
         {% endif %}
