@@ -1,0 +1,249 @@
+:root {
+  /* Font Families */
+  --font-sans: "Source Sans Pro", sans-serif;
+  --font-mono: "Source Code Pro", monospace;
+
+  /* Font Sizes */
+  --font-xs: 0.75em;
+  --font-sm: 0.875em;
+  --font-md: 1em;
+  --font-lg: 1.25em;
+  --font-xl: 1.5em;
+
+  /* Font Weights */
+  --font-regular: 400;
+  --font-semibold: 600;
+  --font-bold: 700;
+
+  /* Colors */
+  --white: #ffffff;
+  --black: #0c1e27;
+
+  --gray-5: #233944;
+  --gray-4: #5c717c;
+  --gray-3: #99a8b3;
+  --gray-2: #d8dee2;
+  --gray-1: #f5f6f7;
+
+  --blue-5: #053775;
+  --blue-4: #1367d0;
+  --blue-3: #4294f0;
+  --blue-2: #b5ceed;
+  --blue-1: #eef3f9;
+
+  --red-5: #302240;
+  --red-4: #5d275f;
+  --red-3: #e1275f;
+  --red-2: #eaa4bb;
+  --red-1: #fae8ee;
+
+  --orange-5: #36353f;
+  --orange-4: #69515c;
+  --orange-3: #ec7b6b;
+  --orange-2: #ffc2ba;
+  --orange-1: #fff0ee;
+
+  --yellow-5: #36453f;
+  --yellow-4: #69755c;
+  --yellow-3: #eccb6b;
+  --yellow-2: #ffe5ba;
+  --yellow-1: #fff9ee;
+
+  --green-5: #0e4450;
+  --green-4: #117383;
+  --green-3: #27c6a2;
+  --green-2: #9de3d3;
+  --green-1: #ebf9f6;
+
+  --purple-5: #1e2b60;
+  --purple-4: #343ba6;
+  --purple-3: #744af0;
+  --purple-2: #dfd5fa;
+  --purple-1: #f4f1fe;
+
+  /* semantic aliases */
+  --primary: var(--blue-3);
+  --premium: var(--green-3);
+  --error: var(--red-3);
+  --caution: var(--orange-3);
+
+  /* Effect styles */
+  --radius: 0.5rem;
+  --border: #d9d9d9;
+  --glare: inset 8px 8px 16px rgba(255, 255, 255, 0.25);
+
+  /* Shadows */
+  --shadow-1: 0 2px 4px 2px rgba(30 48 56 / 0.15);
+  --shadow-2: 0 6px 8px 0px rgba(30 48 56 / 0.1);
+  --shadow-3: 0 2px 16px 2px rgba(30 48 56 / 0.075);
+}
+
+.badge {
+  display: flex;
+  padding: 0.1875rem 0.375rem;
+  align-items: center;
+  gap: 0.375rem;
+
+  border-radius: 0.25rem;
+  border: 1px solid var(--gray-2, #d8dee2);
+  background: var(--gray-1, #f5f6f7);
+
+  color: var(--gray-5, #233944);
+  font-family: "Source Sans Pro";
+  font-size: var(--font-xs, 0.75rem);
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+}
+
+.badge.verified {
+  border: 1px solid var(--green-2, #9de3d3);
+  background: var(--green-1, #ebf9f6);
+
+  color: var(--green-5, #0e4450);
+  font-family: "Source Sans Pro";
+  font-size: var(--font-xs, 0.75rem);
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+}
+
+button {
+  display: inline-flex;
+  padding: 0.375rem 0.75rem;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+
+  border-radius: 0.5rem;
+  border: 1px solid var(--gray-4, #5c717c);
+  background: var(--gray-3, #99a8b3);
+  box-shadow: 0px 2px 0px 0px var(--gray-4, #5c717c);
+
+  color: var(--gray-1, #f5f6f7);
+  text-align: center;
+  font-feature-settings: "ss04" on;
+
+  /* Label */
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-size: var(--font-md, 1rem);
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+}
+
+button.small {
+  padding: 0.25rem 0.625rem;
+  gap: 0.375rem;
+}
+
+button.primary {
+  border: 1px solid var(--blue-4, #1367d0);
+  background: var(--blue-3, #4294f0);
+  box-shadow: 0px 2px 0px 0px var(--blue-4, #1367d0);
+}
+
+button.premium {
+  border: 1px solid var(--green-4, #117383);
+  background: var(--green-3, #27c6a2);
+  box-shadow: 0px 2px 0px 0px var(--green-4, #117383);
+}
+
+button.caution {
+  border: 1px solid var(--orange-4, #69515c);
+  background: var(--orange-3, #ec7b6b);
+  box-shadow: 0px 2px 0px 0px var(--orange-4, #69515c);
+}
+
+button.ghost {
+  align-items: center;
+  background: none;
+  border: none;
+  border-radius: 0.5rem;
+  box-shadow: none;
+  display: inline-flex;
+  gap: 0.5rem;
+  justify-content: center;
+  padding: 0.375rem 0.75rem;
+}
+
+button.ghost:hover {
+  background: var(--gray-1, #eef3f9);
+}
+
+button.ghost.primary {
+  color: var(--blue-3, #1367d0);
+  fill: var(--blue-3, #1367d0);
+}
+
+button.ghost.primary:hover {
+  background: var(--blue-1, #eef3f9);
+}
+
+button.ghost.danger {
+  color: var(--orange-3, #ec7b6b);
+  fill: var(--orange-3, #ec7b6b);
+}
+
+button.ghost.danger:hover {
+  background: var(--orange-1, #fff0ee);
+}
+
+button.ghost.premium,
+button.ghost.success {
+  color: var(--green-3, #27c6a2);
+  fill: var(--green-3, #27c6a2);
+}
+
+button.ghost.premium:hover,
+button.ghost.success:hover {
+  background: var(--green-1, #ebf9f6);
+}
+
+button.ghost.small {
+  box-shadow: none;
+}
+
+button.ghost:hover {
+  background: var(--blue-1, #eef3f9);
+}
+
+button.small {
+  font-size: var(--font-sm, 0.875rem);
+  padding: 0.25rem 0.5rem;
+  box-shadow: inset var(--shadow-3);
+}
+
+button.small:hover {
+  box-shadow: none;
+}
+
+button.small.danger {
+  border-color: var(--orange-3);
+}
+
+@media (hover: none) {
+  button.ghost:hover {
+    background: transparent;
+  }
+}
+
+button:disabled,
+button.disabled {
+  opacity: 0.5;
+  cursor: initial;
+}
+
+button.ghost:disabled {
+  color: var(--gray-4, #5c717c);
+  fill: var(--gray-4, #5c717c);
+}
+
+button.ghost:disabled:hover {
+  background: transparent;
+}
+
+button.full {
+  display: flex;
+  width: 100%;
+}

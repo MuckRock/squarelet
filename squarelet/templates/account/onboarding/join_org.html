@@ -6,6 +6,7 @@
 
 {% block css %}
 {{ block.super }}
+<link rel="stylesheet" href="{% static "css/gps.css" %}" />
 <style>
 .message {
   display: flex;
@@ -84,6 +85,16 @@ h2 {
   line-height: normal;
 }
 
+h3 {
+  color: var(--gray-5, #233944);
+  font-feature-settings: 'ss04' on;
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-size: var(--font-md, 1rem);
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+}
+
 .pending {
   display: flex;
   flex-direction: column;
@@ -91,6 +102,66 @@ h2 {
   gap: 0.5rem;
   align-self: stretch;
 }
+
+.pre-approved header {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  align-self: stretch;
+}
+
+header p {
+  color: var(--gray-4, #5C717C);
+
+  /* Caption */
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-size: var(--font-xs, 0.75rem);
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+}
+
+.orgs {
+  display: flex;
+  padding: 1rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+  align-self: stretch;
+
+  border-radius: 0.5rem;
+  border: 1px solid var(--gray-2, #D8DEE2);
+  background: var(--white, #FFF);
+
+  /* shadow-1 */
+  box-shadow: 0px 2px 4px 2px var(--shadow, rgba(30, 48, 56, 0.15));
+}
+
+.invite {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  align-self: stretch;
+}
+
+.team .info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.membership {
+  color: var(--gray-5, #233944);
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-size: var(--font-xs, 0.75rem);
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1rem; /* 133.333% */
+}
+
 </style>
 {% endblock css %}
 
@@ -110,17 +181,56 @@ h2 {
       <h2>Pending requests</h2>
 
       <div class="orgs">
-        
         {% for invite in invitations %}
+        {% with organization=invite.organization count=invite.organization.memberships.count %}
         <div class="invite">
+          <div class="team">
+            {% if invite.organization.avatar %}
+            <img src="{{ invite.organization.avatar.url }}">
+            {% else %}
+            <img src="{% static "assets/organization_icon.svg" %}">
+            {% endif %}
+            <div class="info">
+              <h4>{{ invite.organization.name }}</h4>
+              {% if invite.organization.verified %}
+              <div class="badge verified">
+                <img src="{% static "icons/verified.svg" %}">
+                Verified
+              </div>
+              {% else %}
+              <div class="badge">
+                <img src="{% static "icons/unverified.svg" %}">
+                Unverified
+              </div>
+              <span class="membership">{{ count }} member{{ count|pluralize }}</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="actions">
+            <img src="{% static "icons/check.svg" %}">
+            <button class="primary">Join</button>
+          </div>
+        </div>
+        {% endwith %}
+        {% endfor %}
+      </div>
+
+      <div class="pre-approved">
+        <header>
+          <h2>Pre-approved</h2>
+          <p>Based on your email address, you're pre-approved to join:</p>
+        </header>
+        <div class="orgs">
+          {% for organization in potential_orgs %}
           <div class="team">
             <img src="">
             <div class="info">
-              <h4>{{ invite.organization.name }}</h4>
+              <h4>{{ organization.name }}</h4>
             </div>
           </div>
+          {% endfor %}
         </div>
-        {% endfor %}
       </div>
     </div>
 

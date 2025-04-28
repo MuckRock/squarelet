@@ -135,6 +135,7 @@ class OrganizationAdmin(VersionAdmin):
         "private",
         "verified_journalist",
         "hub_eligible",
+        "allow_auto_join",
         "max_users",
         "payment_failed",
         "subtypes",
