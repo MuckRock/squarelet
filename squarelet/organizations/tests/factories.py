@@ -16,6 +16,7 @@ class OrganizationFactory(factory.django.DjangoModelFactory):
         "squarelet.organizations.tests.factories.CustomerFactory", "organization"
     )
     allow_auto_join = False
+    verified_journalist = False
 
     class Meta:
         model = "organizations.Organization"
