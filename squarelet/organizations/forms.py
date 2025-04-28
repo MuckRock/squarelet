@@ -2,6 +2,7 @@
 from django import forms
 from django.core.validators import validate_email
 from django.db.models.aggregates import Min
+from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
 # Third Party
@@ -178,22 +179,19 @@ class UpdateForm(forms.ModelForm):
         domains = self.instance.domains.values_list("domain", flat=True)
         domain_list = ", ".join(f"<b> {d}</b>" for d in domains)
         if domain_list:
+            # pylint:disable=line-too-long
             self.fields["allow_auto_join"].help_text = _(
-                "<br> Allow users to join this organization without an invite "
+                "<br> Allow users to join without an invite "
                 "if one of their verified emails matches one of the organization's "
-                "email domains. This organization"
-                f" has the following email domains set: {domain_list}."
-                "<br>To modify this list, please contact our support team"
-                " at <b>info@muckrock.com<b/>."
+                f"email domains. <a href='{reverse('organizations:manage-domains', kwargs={'slug': self.instance.slug})}'>View and edit your list of email domains</a>."
             )
         else:
+            # pylint:disable=line-too-long
             self.fields["allow_auto_join"].help_text = _(
-                "<br>Allow users to join this organization without requesting "
+                "<br>Allow users to join without requesting "
                 "an invite if one of their verified emails matches one of the "
-                " organization's email domains. This organization does not "
-                "currently have any email domains set. "
-                "To add one, please contact our support team at "
-                "<b>info@muckrock.com</b>."
+                "organization's email domains. No email domains currently set. "
+                f"<a href='{reverse('organizations:manage-domains', kwargs={'slug': self.instance.slug})}'>Add one now</a>."
             )
 
         self.helper = FormHelper()
