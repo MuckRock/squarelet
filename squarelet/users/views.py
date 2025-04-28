@@ -269,9 +269,11 @@ class UserOnboardingView(TemplateView):
 
         # For Subscription, initialize the form and get the user's organizations
         if step == "subscribe":
+            plan = step_context.get("plan")
             context.update(
                 {
-                    "form": PremiumSubscriptionForm(),
+                    "form": PremiumSubscriptionForm(plan=plan),
+                    "plan": plan,
                     "individual_org": self.request.user.individual_organization,
                     "group_orgs": (
                         self.request.user.organizations

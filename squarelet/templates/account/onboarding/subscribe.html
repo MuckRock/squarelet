@@ -5,13 +5,16 @@
 {% block javascript %}
   {{ block.super }}
   <script>
+    // Tab controller
     document.addEventListener("DOMContentLoaded", function () {
+      const tabContainer = document.querySelector(".tab-group");
       const individualTab = document.querySelector(".tab.individual");
       const groupTab = document.querySelector(".tab.group");
       const individualContent = document.querySelector(".tab-content.individual");
       const groupContent = document.querySelector(".tab-content.group");
 
       individualTab.addEventListener("click", function () {
+        tabContainer.dataset.activeTab = "individual";
         individualTab.classList.add("active");
         groupTab.classList.remove("active");
         individualContent.style.display = "flex";
@@ -19,6 +22,7 @@
       });
 
       groupTab.addEventListener("click", function () {
+        tabContainer.dataset.activeTab = "group";
         groupTab.classList.add("active");
         individualTab.classList.remove("active");
         groupContent.style.display = "flex";
@@ -26,6 +30,45 @@
       });
 
       individualTab.click(); // Trigger click to show individual tab by default
+    });
+    // Stripe input
+    var cardInputStyle = {
+      base: {
+        color: '#3F3F3F',
+        fontSize: '16px',
+        fontFamily: '"Source Sans 3", "Source Sans Pro", system-ui, sans-serif',
+        fontSmoothing: 'antialiased',
+        '::placeholder': {
+          color: '#899194',
+        },
+      },
+      invalid: {
+        color: '#e5424d',
+        ':focus': {
+          color: '#303238',
+        },
+      },
+    };
+    document.addEventListener("DOMContentLoaded", function () {
+      const cardFields = document.querySelectorAll(".card-field");
+      cardFields.forEach((cardField) => {
+        const form = cardField.closest('form');
+        const stripePk = form.querySelector('#id_stripe_pk').value;
+        console.log(stripePk);
+        const stripe = Stripe(stripePk);
+        const elements = stripe.elements();
+        const cardElement = elements.create("card", {style: cardInputStyle });
+        const cardElementMount = cardField.querySelector(".card-element");
+        cardElement.mount(cardElementMount);
+        cardElement.on("change", function (event) {
+          const displayError = cardField.querySelector(".card-element-errors");
+          if (event.error) {
+            displayError.textContent = event.error.message;
+          } else {
+            displayError.textContent = "";
+          }
+        });
+      });
     });
   </script>
 {% endblock %}
@@ -81,12 +124,15 @@
       display: flex;
     }
     .tab {
+      box-sizing: border-box;
       display: flex;
       padding: 0.5rem 0.75rem;
       align-items: center;
       flex: 1 0 0;
       gap: 0.5rem;
       border-radius: 0.5rem 0.5rem 0rem 0rem;
+      border: 1px solid inherit;
+      cursor: pointer;
 
       /* Label */
       font-family: var(--font-sans, "Source Sans Pro");
@@ -143,6 +189,40 @@
       font-weight: 600;
       line-height: normal;
     }
+
+    .tab-group[data-active-tab="individual"] {
+      & .tab.individual {
+        border: 1px solid var(--blue-2);
+        border-bottom-color: var(--blue-1);
+      }
+      & .tab.group {
+        border: 1px solid var(--purple-1);
+        border-bottom: 1px solid var(--blue-2);
+      }
+      & .tab-content.individual {
+        border: 1px solid var(--blue-2);
+        border-top: none;
+      }
+    }
+
+    .tab-group[data-active-tab="group"] {
+      & .tab.group {
+        border: 1px solid var(--purple-2);
+        border-bottom-color: var(--purple-1); 
+      }
+      & .tab.individual {
+        border: 1px solid var(--blue-1);
+        border-bottom: 1px solid var(--purple-2);
+      }
+      & .tab-content.group {
+        border: 1px solid var(--purple-2);
+        border-top: none;
+      }
+    }
+
+    .tab-content form {
+      width: 100%;
+    }
   </style>
 {% endblock %}
 
@@ -156,7 +236,7 @@
       <div class="tabs">
         <div class="tab individual">
           <span class="icon">{% include 'core/icons/person.svg' %}</span>
-          {% trans "For you" %}
+          {% trans "For yourself" %}
         </div>
         <div class="tab group">
           <span class="icon">{% include 'core/icons/organization.svg' %}</span>
@@ -197,6 +277,12 @@
           {{form.plan}}
           {{form.stripe_pk}}
           {{form.stripe_token}}
+          <div class="card-field">
+            <div class="card-element"></div>
+            <!-- Used to display Element errors. -->
+            <div class="card-element-errors" role="alert"></div>
+          </div>
+          {{plan.base_price}}
         </form>
       </div>
       <div class="group tab-content" id="group">
@@ -225,12 +311,6 @@
               {% blocktrans %}5,000 AI Credits per month on DocumentCloud{% endblocktrans %}
             </span>
           </li>
-          <li>
-            <span class="checkmark icon">{% include "core/icons/checkmark.svg" %}</span>
-            <span class="benefit-text">
-              {% blocktrans %}Search your organization’s notes on DocumentCloud{% endblocktrans %}
-            </span>
-          </li>
         </ul>
         <form method="POST" action="{% url 'account_onboarding' %}">
           {% csrf_token %}
@@ -239,6 +319,12 @@
           {{form.plan}}
           {{form.stripe_pk}}
           {{form.stripe_token}}
+          <div class="card-field">
+            <div class="card-element"></div>
+            <!-- Used to display Element errors. -->
+            <div class="card-element-errors" role="alert"></div>
+          </div>
+          {{plan.base_price}}
         </form>
       </div>
     </div>
