@@ -182,11 +182,13 @@ class UserOnboardingView(TemplateView):
         # TODO: Verification check
 
         # Organization check
-        orgs = list(user.organizations.filter(individual=False))
-        if len(orgs) == 0:
+        has_orgs = user.organizations.filter(individual=False).exists()
+        if not has_orgs:
             return OnboardingStep.join_org.name, {
-                "orgs": orgs,
-                "invitations": user.invitations.get_pending(),
+                "invitations": user.get_pending_invitations(),
+                "potential_orgs": user.get_potential_organizations().filter(
+                    allow_auto_join=True
+                ),
             }
 
         # MFA check

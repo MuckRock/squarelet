@@ -600,9 +600,9 @@ button {
   font-family: var(--font-sans);
 }
 
-button:hover {
+/* button:hover {
   background: var(--blue-1);
-}
+} */
 
 button:active {
   box-shadow: 0 0 3px #687998;
