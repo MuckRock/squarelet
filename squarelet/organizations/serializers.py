@@ -18,6 +18,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
     update_on = serializers.SerializerMethodField()
     entitlements = serializers.SerializerMethodField()
     card = serializers.SerializerMethodField()
+    merged = serializers.SlugRelatedField(read_only=True, slug_field="uuid")
 
     class Meta:
         model = Organization
@@ -36,6 +37,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "payment_failed",
             "avatar_url",
             "update_on",
+            "merged",
         )
 
     def get_plan(self, obj):
