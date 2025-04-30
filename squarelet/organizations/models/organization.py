@@ -524,14 +524,24 @@ class Organization(AvatarMixin, models.Model):
     def merge(self, org, user):
         """Merge another organization into this one"""
 
-        if (
-            org.subscriptions.exists()
-            or org.merged is not None
-            or self.merged is not None
-            or org.individual
-            or self.individual
-        ):
-            raise ValueError()
+        if org.subscriptions.exists():
+            raise ValueError(f"{org} has an active subscription and may not be merged")
+        if org.merged is not None:
+            raise ValueError(
+                f"{org} has already been merged, and may not be merged again"
+            )
+        if self.merged is not None:
+            raise ValueError(
+                f"{self} has already been merged, and may not be merged again"
+            )
+        if org.individual:
+            raise ValueError(
+                f"{org} is an individual organization and may not be merged"
+            )
+        if self.individual:
+            raise ValueError(
+                f"{self} is an individual organization and may not be merged"
+            )
 
         org.charges.update(organization=self)
 

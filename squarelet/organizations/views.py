@@ -672,8 +672,8 @@ class Merge(PermissionRequiredMixin, FormView):
             bad = form.cleaned_data["bad_organization"]
             try:
                 good.merge(bad, self.request.user)
-            except ValueError:
-                messages.error(self.request, "There was an error")
+            except ValueError as exc:
+                messages.error(self.request, f"There was an error: {exc.args[0]}")
                 return redirect("organizations:merge")
 
             messages.success(self.request, f"Merged {bad} into {good}!")
