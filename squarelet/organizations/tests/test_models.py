@@ -9,7 +9,7 @@ import pytest
 
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason
-from squarelet.organizations.models import ReceiptEmail
+from squarelet.organizations.models import Organization, ReceiptEmail
 from squarelet.organizations.tests.factories import EntitlementFactory, PlanFactory
 
 # pylint: disable=too-many-public-methods
@@ -298,6 +298,71 @@ class TestOrganization:
         org.subscribe()
         for user in users[:2]:
             mocked.assert_any_call(user.email, "verified")
+
+    @pytest.mark.django_db()
+    def test_merge(self, organization_factory, user_factory, plan_factory):
+
+        users = user_factory.create_batch(4)
+
+        # user 0 and 1 in org
+        org = organization_factory(users=users[0:2])
+        # user 1 and 2 in dupe org
+        dupe_org = organization_factory(users=users[1:3])
+
+        plan = plan_factory(public=False)
+        plan.private_organizations.add(dupe_org)
+
+        org.merge(dupe_org, users[0])
+
+        # user 0, 1 and 2 in org
+        for user_id in range(3):
+            assert org.has_member(users[user_id])
+        # user 3 not in org
+        assert not org.has_member(users[3])
+
+        # no users in dupe_org
+        assert dupe_org.users.count() == 0
+        assert dupe_org.private
+
+        # private plan has moved to org
+        assert plan.private_organizations.filter(pk=org.pk)
+        assert not plan.private_organizations.filter(pk=dupe_org.pk)
+
+    @pytest.mark.django_db()
+    def test_merge_bad(self, organization_factory, user_factory):
+
+        user = user_factory()
+        org = organization_factory()
+        dupe_org = organization_factory(merged=org)
+
+        error_msg = f"{dupe_org} has already been merged, and may not be merged again"
+        with pytest.raises(ValueError, match=error_msg):
+            org.merge(dupe_org, user)
+
+    @pytest.mark.django_db()
+    def test_merge_fks(self):
+        # Relations pointing to the Organization model
+        assert (
+            len(
+                [
+                    f
+                    for f in Organization._meta.get_fields()
+                    if f.is_relation and f.auto_created
+                ]
+            )
+            == 13
+        )
+        # Many to many relations defined on the Organization model
+        assert (
+            len(
+                [
+                    f
+                    for f in Organization._meta.get_fields()
+                    if f.many_to_many and not f.auto_created
+                ]
+            )
+            == 4
+        )
 
 
 class TestCustomer:
