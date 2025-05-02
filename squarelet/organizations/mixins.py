@@ -32,5 +32,5 @@ class VerifiedJournalistMixin(UserPassesTestMixin):
         return (
             self.request.user.is_authenticated
             and organization.verified_journalist
-            and self.get_object().has_admin(self.request.user)
+            and organization.has_admin(self.request.user)
         )
