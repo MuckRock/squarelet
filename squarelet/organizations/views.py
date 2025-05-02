@@ -36,6 +36,7 @@ from fuzzywuzzy import fuzz, process
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.organizations.choices import ChangeLogReason
+from squarelet.organizations.denylist_domains import DENYLIST_DOMAINS
 from squarelet.organizations.forms import AddMemberForm, PaymentForm, UpdateForm
 from squarelet.organizations.mixins import (
     IndividualMixin,
@@ -553,62 +554,6 @@ def stripe_webhook(request):
     elif event_type == "invoice.payment_failed":
         handle_invoice_failed.delay(event["data"]["object"])
     return HttpResponse()
-
-
-DENYLIST_DOMAINS = {
-    "gmail.com",
-    "yahoo.com",
-    "hotmail.com",
-    "outlook.com",
-    "aol.com",
-    "icloud.com",
-    "msn.com",
-    "live.com",
-    "protonmail.com",
-    "proton.me",
-    "zoho.com",
-    "gmx.com",
-    "mail.com",
-    "me.com",
-    "mac.com",
-    "comcast.net",
-    "verizon.net",
-    "att.net",
-    "sbcglobal.net",
-    "cox.net",
-    "charter.net",
-    "ymail.com",
-    "rocketmail.com",
-    "hotmail.co.uk",
-    "live.co.uk",
-    "btinternet.com",
-    "bellsouth.net",
-    "shaw.ca",
-    "earthlink.net",
-    "optonline.net",
-    "web.de",
-    "t-online.de",
-    "orange.fr",
-    "wanadoo.fr",
-    "free.fr",
-    "libero.it",
-    "virgilio.it",
-    "alice.it",
-    "mail.ru",
-    "yandex.ru",
-    "inbox.ru",
-    "bk.ru",
-    "list.ru",
-    "rediffmail.com",
-    "naver.com",
-    "hanmail.net",
-    "daum.net",
-    "163.com",
-    "126.com",
-    "qq.com",
-    "yeah.net",
-    "seznam.cz",
-}
 
 
 class ManageDomains(VerifiedJournalistMixin, DetailView):
