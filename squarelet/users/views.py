@@ -12,6 +12,7 @@ from django.http.response import (
 )
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils import timezone
 from django.views.generic import (
     DetailView,
     ListView,
@@ -49,6 +50,7 @@ from squarelet.organizations.models import ReceiptEmail
 from squarelet.services.models import Service
 
 # Local
+from .constants import MFA_PROMPT_SNOOZE_DURATION
 from .models import User
 
 
@@ -186,7 +188,15 @@ class UserOnboardingView(TemplateView):
             return "mfa_confirm", {}
         # Otherwise, if the user has MFA enabled, or if it's
         # not the right time to prompt, mark step as checked
-        elif is_mfa_enabled(user) or is_first_login or not has_verified_email(user):
+        elif (
+            is_mfa_enabled(user)
+            or is_first_login
+            or not has_verified_email(user)
+            or (
+                user.last_mfa_prompt
+                and timezone.now() - user.last_mfa_prompt < MFA_PROMPT_SNOOZE_DURATION
+            )
+        ):
             onboarding["mfa_step"] = "completed"
             session.modified = True
         # Finally, if the user doesn't have MFA enabled,
@@ -291,6 +301,10 @@ class UserOnboardingView(TemplateView):
                 # User skipped MFA, mark as completed
                 messages.info(request, "Two-factor authentication skipped.")
                 request.session["onboarding"]["mfa_step"] = "completed"
+
+                # Update last_mfa_prompt to now
+                request.user.last_mfa_prompt = timezone.now()
+                request.user.save(update_fields=["last_mfa_prompt"])
             request.session.modified = True
 
         elif step == "mfa_setup":
