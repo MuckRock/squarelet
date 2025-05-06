@@ -166,6 +166,8 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         _("updated at"), help_text=_("When this user was last updated")
     )
 
+    last_mfa_prompt = models.DateTimeField(null=True, blank=True)
+
     # preferences
     use_autologin = models.BooleanField(
         _("use autologin"),
