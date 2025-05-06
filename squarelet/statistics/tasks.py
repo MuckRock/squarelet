@@ -5,6 +5,9 @@ from django.utils import timezone
 # Standard Library
 from datetime import date, datetime, time, timedelta
 
+# Third Party
+from allauth.mfa.models import Authenticator
+
 # Squarelet
 from squarelet.organizations.models import Organization
 from squarelet.statistics.mail import Digest
@@ -32,6 +35,7 @@ def store_statistics():
     kwargs["total_users_org"] = User.objects.filter(
         organizations__plans__slug="organization"
     ).count()
+    kwargs["total_users_mfa"] = Authenticator.objects.distinct("user").count()
     kwargs["total_orgs"] = Organization.objects.exclude(
         individual=True, plans=None
     ).count()
