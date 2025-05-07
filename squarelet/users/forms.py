@@ -1,7 +1,9 @@
 # Django
+from hmac import new
 from operator import is_
 from django import forms
 from django.contrib import messages
+from django.core.validators import validate_email
 from django.db import transaction
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
@@ -127,13 +129,21 @@ class LoginForm(allauth.LoginForm):
 
 class PremiumSubscriptionForm(StripeForm):
     """Create a subscription form for premium plans"""
+    # TODO: Support creating a new organization
     
     organization = forms.ModelChoiceField(
-        label=_("Organization"),
+        label=_("Select an organization"),
         queryset=None,  # Will be set in __init__
         required=False,
-        help_text=_("Select the organization for this subscription"),
     )
+
+    new_organization_name = forms.CharField(
+        label=_("Name your new organization"),
+        required=False,
+        max_length=100,
+        widget=forms.TextInput(),
+    )
+    
     plan = forms.ModelChoiceField(
         label=_("Plan"),
         queryset=Plan.objects.all(),
@@ -141,11 +151,20 @@ class PremiumSubscriptionForm(StripeForm):
         required=True,
     )
 
+    receipt_emails = forms.CharField(
+        label=_("Send receipts to"),
+        widget=forms.TextInput(),
+        required=False,
+        help_text=_("Separate multiple emails with commas"),
+    )
+
     def __init__(self, *args, plan=None, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['stripe_token'].required = False
 
-        if user:
+        if user and not user.is_anonymous:
+            # Set default email for receipt_emails
+            self.fields['receipt_emails'].initial = user.email
             # Filter for organizations where the user is an admin or their individual organization
             self.fields['organization'].queryset = Organization.objects.filter(
                 Q(memberships__user=user, memberships__admin=True) | 
@@ -153,12 +172,27 @@ class PremiumSubscriptionForm(StripeForm):
             ).distinct()
         else:
             self.fields['organization'].queryset = Organization.objects.none()
-        
+
         # Set the plan if provided
         if plan is not None:
             self.fields['plan'].initial = plan
             self.fields['plan'].queryset = Plan.objects.filter(pk=plan.pk)
             self.fields['plan'].widget = forms.HiddenInput()
+
+    def clean_receipt_emails(self):
+        """Make sure each line is a valid email"""
+        emails = self.cleaned_data["receipt_emails"].split(",")
+        emails = [e.strip() for e in emails if e.strip()]
+        bad_emails = []
+        for email in emails:
+            try:
+                validate_email(email.strip())
+            except forms.ValidationError:
+                bad_emails.append(email)
+        if bad_emails:
+            bad_emails_str = ", ".join(bad_emails)
+            raise forms.ValidationError(f"Invalid email: {bad_emails_str}")
+        return emails
         
     def clean(self):
         data = super().clean()
@@ -174,6 +208,12 @@ class PremiumSubscriptionForm(StripeForm):
                 "stripe_token",
                 _("Payment information is missing"),
             )
+        organization = data.get('organization')
+        new_organization_name = data.get('new_organization_name')
+        # If "new" is selected, require a name
+        if organization == 'new' and not new_organization_name:
+            self.add_error('new_organization_name', _("Please provide a name for the new organization"))
+        
         return data
     
     def save(self, user):
@@ -181,7 +221,21 @@ class PremiumSubscriptionForm(StripeForm):
         cleaned_data = self.cleaned_data
         plan: Plan | None = cleaned_data.get('plan')
         organization: Organization | None = cleaned_data.get('organization')
+        new_organization_name = cleaned_data.get('new_organization_name')
         stripe_token = cleaned_data.get('stripe_token')
+        # When the data is submitted, no matter how the form was initialized:
+        # - the plan will be either "professional" or "organization"
+        # - the org will either be the user's individual org, an existing group org,
+        #   or a new group org
+        # - the stripe_token will be for the user's payment method
+        if organization == 'new' and new_organization_name:
+            # Create a new organization
+            organization = Organization.objects.create(
+                name=new_organization_name,
+                owner=user,
+            )
+            # Add the user as an admin
+            organization.memberships.create(user=user, admin=True)
         
         try:
             if organization is not None:

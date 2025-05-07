@@ -6,6 +6,7 @@
   {{ block.super }}
   <script>
     // Tab controller
+    const selectedPlan = '{{ plans.selected.slug }}';
     document.addEventListener("DOMContentLoaded", function () {
       const tabContainer = document.querySelector(".tab-group");
       const individualTab = document.querySelector(".tab.individual");
@@ -27,13 +28,19 @@
         individualTab.classList.remove("active");
         groupContent.style.display = "flex";
         individualContent.style.display = "none";
+        listenForNewOrg();
       });
-
-      individualTab.click(); // Trigger click to show individual tab by default
+      console.log('selectedPlan', selectedPlan);
+      if (selectedPlan === 'organization') {
+        groupTab.click(); // Trigger click to show group tab
+      } else {
+        individualTab.click(); // Show individual tab by default
+      }
     });
     // Stripe input
     var cardInputStyle = {
       base: {
+        backgroundColor: '#FFFFFF',
         color: '#3F3F3F',
         fontSize: '16px',
         fontFamily: '"Source Sans 3", "Source Sans Pro", system-ui, sans-serif',
@@ -41,6 +48,7 @@
         '::placeholder': {
           color: '#899194',
         },
+        padding: '0.25rem 0.5rem',
       },
       invalid: {
         color: '#e5424d',
@@ -70,6 +78,31 @@
         });
       });
     });
+
+    function toggleNewOrgField(value) {
+        const newOrgField = document.getElementById('{{ forms.group.new_organization_name.id_for_label }}');
+        const newOrgLabel = newOrgField.closest('label');
+        if (value === 'new') {
+            newOrgLabel.style.display = 'block';
+            newOrgField.style.display = 'block';
+        } else {
+            newOrgLabel.style.display = 'none';
+            newOrgField.style.display = 'none';
+        }
+    }
+
+    function listenForNewOrg() {
+      console.log('{{ forms.group.organization.id_for_label }}');
+        const orgSelect = document.getElementById('{{ forms.group.organization.id_for_label }}');
+        console.log(orgSelect, '{{ forms.group.organization.id_for_label }}');
+        toggleNewOrgField(orgSelect.value);
+        orgSelect.addEventListener('change', function(event) {
+            toggleNewOrgField(event.currentTarget.value);
+        });
+    }
+    
+    document.addEventListener('DOMContentLoaded', listenForNewOrg);
+
   </script>
 {% endblock %}
 
@@ -223,6 +256,91 @@
     .tab-content form {
       width: 100%;
     }
+
+    .card-field {
+      padding: 0.5rem;
+      background: #FFFFFF;
+      border-radius: 0.25rem;
+      border: 1px solid var(--gray-2, #D7D9DB);
+    }
+
+    .card-element-errors {
+      color: var(--red-3, #E5424D);
+      margin-top: 0.5rem;
+      font-size: var(--font-sm, 0.875em);
+      font-weight: 400;
+    }
+    .card-element-errors:empty {
+      display: none;
+    }
+
+    .plan-price {
+      margin: 0;
+      color: var(--purple-5, #1E2B60);
+      font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
+
+      /* Heading */
+      font-family: var(--font-sans, "Source Sans Pro");
+      font-size: var(--font-lg, 1.25rem);
+      font-style: normal;
+      font-weight: 600;
+      line-height: normal;
+    }
+
+    .form {
+      margin-top: 0;
+      border-top: 1px solid var(--blue-2, #B5CEED);
+      padding-top: 1rem;
+    }
+
+    label, .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      width: 100%;
+      margin-bottom: 1rem;
+      font-weight: 600;
+      color: var(--gray-5, #233944);
+    }
+
+    label input, label select {
+      width: 100%;
+      box-sizing: border-box;
+      font-family: var(--font-sans, "Source Sans Pro");
+      font-size: var(--font-md, 1em);
+      font-style: normal;
+      font-weight: 400;
+      line-height: normal;
+      border-radius: 0.25rem;
+      border: 1px solid var(--gray-2, #D7D9DB);
+      padding: 0.375rem 0.5rem;
+    }
+
+    .help-text {
+      margin: 0;
+      color: var(--gray-4, #899194);
+      font-family: var(--font-sans, "Source Sans Pro");
+      font-size: var(--font-sm, 0.875em);
+      font-style: normal;
+      font-weight: 400;
+      line-height: normal;
+    }
+
+    footer {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      width: 100%;
+    }
+
+    footer form {
+      margin: 0;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
   </style>
 {% endblock %}
 
@@ -270,20 +388,39 @@
             </span>
           </li>
         </ul>
-        <form method="POST" action="{% url 'account_onboarding' %}">
+        {% with forms.individual as form %}
+        <form id="individual-org" method="POST" class="form" action="{% url 'account_onboarding' %}">
           {% csrf_token %}
           <input type="hidden" name="step" value="subscribe">
-          <input type="hidden" name="organization" value={{ individual_org.id }}>
+          <input type="hidden" name="organization" value={{ form.organization.value }}>
           {{form.plan}}
           {{form.stripe_pk}}
           {{form.stripe_token}}
-          <div class="card-field">
-            <div class="card-element"></div>
-            <!-- Used to display Element errors. -->
-            <div class="card-element-errors" role="alert"></div>
-          </div>
-          {{plan.base_price}}
+          <label>
+            {% blocktrans %}Provide a credit card{% endblocktrans %}
+            <div class="card-field">
+              <div class="card-element"></div>
+              <!-- Used to display Element errors. -->
+              <div class="card-element-errors" role="alert"></div>
+            </div>
+          </label>
+          <label>
+            {{form.receipt_emails.label}}
+            {{form.receipt_emails}}
+            <p class="help-text">
+              {{form.receipt_emails.help_text}}
+            </p>
+          </label>
+          <footer>
+            <p class="plan-price">
+              ${{plans.individual.base_price}}/{% trans "month" %}
+            </p>
+            <button type="submit" class="button premium" name="submit-type" value="individual">
+              {% blocktrans %}Subscribe to Premium{% endblocktrans %}
+            </button>
+          </footer>
         </form>
+        {% endwith %}
       </div>
       <div class="group tab-content" id="group">
         <ul class="group benefits-list">
@@ -312,21 +449,79 @@
             </span>
           </li>
         </ul>
-        <form method="POST" action="{% url 'account_onboarding' %}">
+        {% with forms.group as form %}
+        <form class="form" id="group-org" method="POST" action="{% url 'account_onboarding' %}">
           {% csrf_token %}
           <input type="hidden" name="step" value="subscribe">
-          {{form.organization}}
           {{form.plan}}
           {{form.stripe_pk}}
           {{form.stripe_token}}
-          <div class="card-field">
-            <div class="card-element"></div>
-            <!-- Used to display Element errors. -->
-            <div class="card-element-errors" role="alert"></div>
-          </div>
-          {{plan.base_price}}
+          <label for="{{ form.organization.id_for_label }}">
+            {{ form.organization.label }}
+            <select name="{{ form.organization.html_name }}" id="{{ form.organization.id_for_label }}" class="form-control">
+              <option value="" disabled selected>{% translate "Select an organization" %}</option>
+              {% for org in form.organization.field.queryset %}
+                {% if not org.individual %}
+                  <option value="{{ org.pk }}" {% if form.organization.value == org.pk|stringformat:"s" %}selected{% endif %}>
+                    {{ org }}
+                  </option>
+                {% endif %}
+              {% endfor %}
+                <option value="new">{% translate "Create new organization" %}</option>
+            </select>
+            {% if form.organization.errors %}
+              <div class="invalid-feedback">
+                {{ form.organization.errors }}
+              </div>
+            {% endif %}
+            {% if form.organization.help_text %}
+              <p class="help-text">{{ form.organization.help_text }}</p>
+            {% endif %}
+          </label>
+          <label for="{{ form.new_organization_name.id_for_label }}" style="display:none;">
+            {{ form.new_organization_name.label }}
+            {{ form.new_organization_name }}
+            {% if form.new_organization_name.errors %}
+              <div class="invalid-feedback">
+                {{ form.new_organization_name.errors }}
+              </div>
+            {% endif %}
+          </label>
+          <label>
+            {% blocktrans %}Provide a credit card{% endblocktrans %}
+            <div class="card-field">
+              <div class="card-element"></div>
+              <!-- Used to display Element errors. -->
+              <div class="card-element-errors" role="alert"></div>
+            </div>
+          </label>
+          <label>
+            {{form.receipt_emails.label}}
+            {{form.receipt_emails}}
+            <p class="help-text">
+              {{form.receipt_emails.help_text}}
+            </p>
+          </label>
+          <footer>
+            <p class="plan-price">
+              ${{plans.group.base_price}}/{% trans "month" %}
+            </p>
+            <button type="submit" class="button premium" name="submit-type" value="group">
+              {% blocktrans %}Subscribe to Premium{% endblocktrans %}
+            </button>
+          </footer>
         </form>
+        {% endwith %}
       </div>
     </div>
+    <footer>
+      <form action="{% url 'account_onboarding' %}" method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="subscribe" />
+        <button class="button ghost" type="submit" name="submit-type" value="skip">
+          {% blocktrans %}Subscribe later{% endblocktrans %}
+        </button>
+      </form>
+    </footer>
   </div>
 {% endblock %}

@@ -1752,9 +1752,23 @@ a.service-provider:focus {
   box-shadow: 0px 2px 0px 0px var(--blue-4, #1367d0);
 }
 
-.button:hover {
+.button.primary:hover {
   transform: translateY(-2px);
   box-shadow: 0px 2px 0px 0px var(--blue-4, #1367d0);
+}
+
+.button.premium {
+  border: 1px solid var(--green-4, #1367D0);
+  background: var(--green-3, #4294F0);
+}
+
+.button.premium.elevated {
+  box-shadow: 0px 2px 0px 0px var(--green-4, #1367D0);
+}
+
+.button.premium:hover {
+  transform: translateY(-2px);
+  box-shadow: 0px 2px 0px 0px var(--green-4, #1367D0);
 }
 
 .button:active {
