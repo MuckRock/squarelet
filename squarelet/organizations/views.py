@@ -656,7 +656,7 @@ class Merge(PermissionRequiredMixin, FormView):
 
     form_class = MergeForm
     template_name = "organizations/organization_merge.html"
-    permission_required = "organization.merge_organization"
+    permission_required = "organizations.merge_organization"
 
     def get_initial(self):
         """Set initial choice based on get parameter"""
