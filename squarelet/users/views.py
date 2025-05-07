@@ -1,4 +1,5 @@
 # Django
+from click import group
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -200,12 +201,20 @@ class UserOnboardingView(TemplateView):
         # Subscription check
         # If the user is signing up for a plan, the "plan" session variable
         # will be set to the plan slug. If not, it will be None.
+        # We want to load both the individual and organization plans,
+        # and then pass through the "active" plan based on the user's choice.
         plan = session.get("plan", None)
         if plan:
             # Check if the plan is valid
             try:
-                plan = Plan.objects.get(slug=plan)
-                return "subscribe", {"plan": plan}
+                individual_plan = Plan.objects.get(slug='professional')
+                group_plan = Plan.objects.get(slug='organization')
+                selected_plan = Plan.objects.get(slug=plan)
+                return "subscribe", {"plans": {
+                    "individual": individual_plan,
+                    "group": group_plan,
+                    "selected": selected_plan,
+                }}
             except Plan.DoesNotExist:
                 print('Invalid plan slug:', plan)
                 pass
@@ -269,11 +278,16 @@ class UserOnboardingView(TemplateView):
 
         # For Subscription, initialize the form and get the user's organizations
         if step == "subscribe":
-            plan = step_context.get("plan")
+            plans = step_context.get("plans")
+            if plans:
+                individual_form = PremiumSubscriptionForm(plan=plans["individual"], user=self.request.user)
+                group_form = PremiumSubscriptionForm(plan=plans["group"], user=self.request.user)
             context.update(
                 {
-                    "form": PremiumSubscriptionForm(plan=plan),
-                    "plan": plan,
+                    "forms": {
+                        "individual": individual_form,
+                        "group": group_form,
+                    },
                     "individual_org": self.request.user.individual_organization,
                     "group_orgs": (
                         self.request.user.organizations
@@ -384,6 +398,35 @@ class UserOnboardingView(TemplateView):
             # User has seen the confirmation screen, mark MFA as completed
             request.session["onboarding"]["mfa_step"] = "completed"
             request.session.modified = True
+        
+        elif step == "subscribe":
+            # Handle subscription form submission
+            # the form will have the plan, the organization, and the Stripe token
+            # ---
+            # First, check if the user skipped this step
+            if (request.POST.get("submit-type") == "skip"):
+                request.session["onboarding"]["subscription_completed"] = "completed"
+                request.session.modified = True
+                messages.info(request, "Subscription skipped.")
+                return redirect("account_onboarding")
+            # Otherwise, initialize the form with the submitted data,
+            # validate it, and save it if valid. If invalid, rerender
+            # the page with the form errors.
+            form = PremiumSubscriptionForm(data=request.POST)
+            if form.is_valid():
+                # Create a subscription for the selected organization
+                form.save(request.user)
+                messages.success(request, "Subscription created successfully.")
+                request.session["onboarding"]["subscription_completed"] = "completed"
+                request.session.modified = True
+            else:
+                context = self.get_context_data(**kwargs)
+                if form.cleaned_data.get("organization") == request.user.individual_organization.pk:
+                    context["forms"]["individual"] = form
+                else:
+                    context["forms"]["group"] = form
+                messages.error(request, "Error creating subscription. Please try again.")
+                return self.render_to_response(context)
 
         elif step == "join_org" and request.POST.get("join_org") == "skip":
             request.session["onboarding"]["join_org"] = True
