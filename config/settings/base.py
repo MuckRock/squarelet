@@ -376,6 +376,8 @@ MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = ENV == "dev"
 
 DIGEST_EMAILS = env.list("DIGEST_EMAILS", default=[])
 
+MFA_PROMPT_SNOOZE_DURATION = timedelta(weeks=2)
+
 # oidc
 # ------------------------------------------------------------------------------
 OIDC_USERINFO = "squarelet.users.oidc.userinfo"
