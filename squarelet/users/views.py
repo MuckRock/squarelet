@@ -50,7 +50,6 @@ from squarelet.organizations.models import ReceiptEmail
 from squarelet.services.models import Service
 
 # Local
-from .constants import MFA_PROMPT_SNOOZE_DURATION
 from .models import User
 
 
@@ -194,7 +193,8 @@ class UserOnboardingView(TemplateView):
             or not has_verified_email(user)
             or (
                 user.last_mfa_prompt
-                and timezone.now() - user.last_mfa_prompt < MFA_PROMPT_SNOOZE_DURATION
+                and timezone.now() - user.last_mfa_prompt
+                < settings.MFA_PROMPT_SNOOZE_DURATION
             )
         ):
             onboarding["mfa_step"] = "completed"
