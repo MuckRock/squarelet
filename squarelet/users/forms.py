@@ -128,11 +128,24 @@ class LoginForm(allauth.LoginForm):
         self.fields["password"].widget.attrs["placeholder"] = ""
 
 
+class NewOrganizationModelChoiceField(forms.ModelChoiceField):
+    """Custom ModelChoiceField to allow creating a new organization"""
+    
+    def to_python(self, value):
+        if value == 'new':
+            return value
+        return super().to_python(value)
+    
+    def validate(self, value):
+        if value == 'new':
+            return
+        return super().validate(value)
+
 class PremiumSubscriptionForm(StripeForm):
     """Create a subscription form for premium plans"""
     # TODO: Support creating a new organization
     
-    organization = forms.ModelChoiceField(
+    organization = NewOrganizationModelChoiceField(
         label=_("Select an organization"),
         queryset=None,  # Will be set in __init__
         required=False,
@@ -239,14 +252,15 @@ class PremiumSubscriptionForm(StripeForm):
             organization = Organization.objects.create(
                 name=new_organization_name,
                 private=True,
-                owner=user,
             )
             # Add the user as an admin
             organization.add_creator(user)
             # Add receipt emails to the organization
             if receipt_emails:
                 for email in receipt_emails:
-                    organization.receipt_emails.create(email=email)
+                    # Check if email is already a receipt email for this organization
+                    if not organization.receipt_emails.filter(email=email).exists():
+                        organization.receipt_emails.create(email=email)
         try:
             if organization is not None:
                 organization.create_subscription(stripe_token, plan, user)
