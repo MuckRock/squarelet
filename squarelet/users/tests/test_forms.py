@@ -1,8 +1,10 @@
 # Standard Library
+# Django
+from django.forms import HiddenInput, ValidationError
+
 from unittest.mock import MagicMock
 
 # Third Party
-from django.forms import HiddenInput, ValidationError
 import pytest
 import stripe
 
@@ -123,12 +125,13 @@ def test_other_forms(form_class, number_fields):
     form = form_class()
     assert len(form.helper.layout) == number_fields
 
+
 @pytest.mark.django_db
 def test_premium_subscription_form_init_no_params():
     """Test PremiumSubscriptionForm initialization with no parameters"""
     form = forms.PremiumSubscriptionForm()
-    assert form.fields['organization'].queryset.count() == 0
-    assert not form.fields['stripe_token'].required
+    assert form.fields["organization"].queryset.count() == 0
+    assert not form.fields["stripe_token"].required
 
 
 @pytest.mark.django_db
@@ -137,11 +140,13 @@ def test_premium_subscription_form_init_with_user(user):
     # Create an organization where the user is an admin
     org = Organization.objects.create(name="Test Org")
     org.add_creator(user)
-    
+
     form = forms.PremiumSubscriptionForm(user=user)
-    assert form.fields['organization'].queryset.count() == 2  # Individual org + created org
-    assert user.individual_organization in form.fields['organization'].queryset
-    assert org in form.fields['organization'].queryset
+    assert (
+        form.fields["organization"].queryset.count() == 2
+    )  # Individual org + created org
+    assert user.individual_organization in form.fields["organization"].queryset
+    assert org in form.fields["organization"].queryset
 
 
 @pytest.mark.django_db
@@ -149,9 +154,9 @@ def test_premium_subscription_form_init_with_plan(plan_factory):
     """Test PremiumSubscriptionForm initialization with a plan parameter"""
     plan = plan_factory()
     form = forms.PremiumSubscriptionForm(plan=plan)
-    assert form.fields['plan'].initial == plan
-    assert form.fields['plan'].queryset.count() == 1
-    assert isinstance(form.fields['plan'].widget, HiddenInput)
+    assert form.fields["plan"].initial == plan
+    assert form.fields["plan"].queryset.count() == 1
+    assert isinstance(form.fields["plan"].widget, HiddenInput)
 
 
 @pytest.mark.django_db
@@ -159,12 +164,12 @@ def test_premium_subscription_form_clean_valid(plan_factory, user):
     """Test clean method with valid data"""
     plan = plan_factory()
     data = {
-        'organization': user.individual_organization.pk,
-        'plan': plan.pk,
-        'stripe_token': 'tok_visa',
-        'stripe_pk': 'pk_test_123',
+        "organization": user.individual_organization.pk,
+        "plan": plan.pk,
+        "stripe_token": "tok_visa",
+        "stripe_pk": "pk_test_123",
     }
-    
+
     form = forms.PremiumSubscriptionForm(data, user=user)
     if not form.is_valid():
         print("Form errors:", form.errors)
@@ -175,10 +180,10 @@ def test_premium_subscription_form_clean_valid(plan_factory, user):
 def test_premium_subscription_form_clean_missing_plan(user):
     """Test clean method with missing plan"""
     data = {
-        'organization': user.individual_organization.pk,
-        'stripe_token': 'tok_visa',
+        "organization": user.individual_organization.pk,
+        "stripe_token": "tok_visa",
     }
-    
+
     form = forms.PremiumSubscriptionForm(data)
     assert not form.is_valid()
     assert "plan" in form.errors
@@ -189,11 +194,11 @@ def test_premium_subscription_form_clean_missing_stripe_token(plan_factory, user
     """Test clean method with missing stripe token"""
     plan = plan_factory()
     data = {
-        'organization': user.individual_organization.pk,
-        'plan': plan.pk,
-        'stripe_pk': 'pk_test_123',
+        "organization": user.individual_organization.pk,
+        "plan": plan.pk,
+        "stripe_pk": "pk_test_123",
     }
-    
+
     form = forms.PremiumSubscriptionForm(data)
     assert not form.is_valid()
     assert "stripe_token" in form.errors
@@ -204,23 +209,23 @@ def test_premium_subscription_form_save(plan_factory, user, mocker):
     """Test save method successfully creating a subscription"""
     plan = plan_factory()
     create_sub_mock = mocker.patch.object(
-        Organization, 'create_subscription', return_value=None
+        Organization, "create_subscription", return_value=None
     )
-    
+
     data = {
-        'organization': user.individual_organization.pk,
-        'plan': plan.pk,
-        'stripe_token': 'tok_visa',
-        'stripe_pk': 'pk_test_123',
+        "organization": user.individual_organization.pk,
+        "plan": plan.pk,
+        "stripe_token": "tok_visa",
+        "stripe_pk": "pk_test_123",
     }
-    
+
     form = forms.PremiumSubscriptionForm(data, user=user)
     if not form.is_valid():
         print("Form errors:", form.errors)
     assert form.is_valid()
     form.save(user)
-    
-    create_sub_mock.assert_called_once_with('tok_visa', plan, user)
+
+    create_sub_mock.assert_called_once_with("tok_visa", plan, user)
 
 
 @pytest.mark.django_db
@@ -228,24 +233,24 @@ def test_premium_subscription_form_save_stripe_error(plan_factory, user, mocker)
     """Test save method handling Stripe errors"""
     plan = plan_factory()
     mocker.patch.object(
-        Organization, 
-        'create_subscription', 
-        side_effect=stripe.error.StripeError("Payment failed")
+        Organization,
+        "create_subscription",
+        side_effect=stripe.error.StripeError("Payment failed"),
     )
-    
+
     data = {
-        'organization': user.individual_organization.pk,
-        'plan': plan.pk,
-        'stripe_token': 'tok_visa',
-        'stripe_pk': 'pk_test_123',
+        "organization": user.individual_organization.pk,
+        "plan": plan.pk,
+        "stripe_token": "tok_visa",
+        "stripe_pk": "pk_test_123",
     }
-    
+
     form = forms.PremiumSubscriptionForm(data, user=user)
     if not form.is_valid():
         print("Form errors:", form.errors)
     assert form.is_valid()
-    
+
     with pytest.raises(ValidationError) as excinfo:
         form.save(user)
-    
+
     assert "Error processing payment" in str(excinfo.value)

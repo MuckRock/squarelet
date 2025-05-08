@@ -1,5 +1,4 @@
 # Django
-from click import group
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -36,11 +35,15 @@ from allauth.account.utils import (
     has_verified_email,
     send_email_confirmation,
 )
-from allauth.account.views import LoginView as AllAuthLoginView, SignupView as AllAuthSignupView
+from allauth.account.views import (
+    LoginView as AllAuthLoginView,
+    SignupView as AllAuthSignupView,
+)
 from allauth.mfa.adapter import get_adapter
 from allauth.mfa.totp.forms import ActivateTOTPForm
 from allauth.mfa.totp.internal.flows import activate_totp
 from allauth.mfa.utils import is_mfa_enabled
+from click import group
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Fieldset, Layout
 
@@ -51,7 +54,7 @@ from squarelet.core.mixins import AdminLinkMixin
 from squarelet.organizations.models import Invitation, ReceiptEmail
 from squarelet.organizations.models.payment import Plan
 from squarelet.services.models import Service
-from squarelet.users.forms import SignupForm, PremiumSubscriptionForm
+from squarelet.users.forms import PremiumSubscriptionForm, SignupForm
 
 # Local
 from .models import User
@@ -209,26 +212,28 @@ class UserOnboardingView(TemplateView):
         # 3. that the subscription step state is `not_started`
         plan = session.get("plan", None)
         if (
-            plan == "professional" and
-            user.individual_organization.has_active_subscription() and
-            onboarding["subscription"] == "not_started"
+            plan == "professional"
+            and user.individual_organization.has_active_subscription()
+            and onboarding["subscription"] == "not_started"
         ):
             # User is already subscribed to the professional plan
             onboarding["subscription"] = "completed"
-            session['plan'] = None
+            session["plan"] = None
             session.modified = True
         if plan and onboarding["subscription"] == "not_started":
             try:
-                individual_plan = Plan.objects.get(slug='professional')
-                group_plan = Plan.objects.get(slug='organization')
+                individual_plan = Plan.objects.get(slug="professional")
+                group_plan = Plan.objects.get(slug="organization")
                 selected_plan = Plan.objects.get(slug=plan)
-                return "subscribe", {"plans": {
-                    "individual": individual_plan,
-                    "group": group_plan,
-                    "selected": selected_plan,
-                }}
+                return "subscribe", {
+                    "plans": {
+                        "individual": individual_plan,
+                        "group": group_plan,
+                        "selected": selected_plan,
+                    }
+                }
             except Plan.DoesNotExist:
-                print('Invalid plan slug:', plan)
+                print("Invalid plan slug:", plan)
                 pass
         # MFA check
         # Check if this is user's first login
@@ -291,8 +296,12 @@ class UserOnboardingView(TemplateView):
         if step == "subscribe":
             plans = step_context.get("plans")
             if plans:
-                individual_form = PremiumSubscriptionForm(plan=plans["individual"], user=self.request.user)
-                group_form = PremiumSubscriptionForm(plan=plans["group"], user=self.request.user)
+                individual_form = PremiumSubscriptionForm(
+                    plan=plans["individual"], user=self.request.user
+                )
+                group_form = PremiumSubscriptionForm(
+                    plan=plans["group"], user=self.request.user
+                )
             context.update(
                 {
                     "forms": {
@@ -301,10 +310,12 @@ class UserOnboardingView(TemplateView):
                     },
                     "individual_org": self.request.user.individual_organization,
                     "group_orgs": (
-                        self.request.user.organizations
-                        .filter(individual=False, memberships__user=self.request.user, memberships__admin=True)
-                        .order_by('name')
-                    )
+                        self.request.user.organizations.filter(
+                            individual=False,
+                            memberships__user=self.request.user,
+                            memberships__admin=True,
+                        ).order_by("name")
+                    ),
                 }
             )
 
@@ -409,13 +420,13 @@ class UserOnboardingView(TemplateView):
             # User has seen the confirmation screen, mark MFA as completed
             request.session["onboarding"]["mfa_step"] = "completed"
             request.session.modified = True
-        
+
         elif step == "subscribe":
             # Handle subscription form submission
             # the form will have the plan, the organization, and the Stripe token
             # ---
             # First, check if the user skipped this step
-            if (request.POST.get("submit-type") == "skip"):
+            if request.POST.get("submit-type") == "skip":
                 request.session["onboarding"]["subscription"] = "completed"
                 request.session.modified = True
                 messages.info(request, "Subscription skipped.")
@@ -439,7 +450,9 @@ class UserOnboardingView(TemplateView):
                     context["forms"]["individual"] = form
                 else:
                     context["forms"]["group"] = form
-                messages.error(request, "Error creating subscription. Please try again.")
+                messages.error(
+                    request, "Error creating subscription. Please try again."
+                )
                 return self.render_to_response(context)
 
         elif step == "join_org" and request.POST.get("join_org") == "skip":
@@ -465,12 +478,14 @@ class LoginView(AllAuthLoginView):
 
 class SignupView(AllAuthSignupView):
     """Pass the request to the form"""
+
     form_class = SignupForm
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        kwargs['request'] = self.request
+        kwargs["request"] = self.request
         return kwargs
+
 
 def mailgun_webhook(request):
     """Handle mailgun webhooks to keep track of user emails that have failed"""

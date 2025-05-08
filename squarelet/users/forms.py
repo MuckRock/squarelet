@@ -1,6 +1,4 @@
 # Django
-from hmac import new
-from operator import is_
 from django import forms
 from django.contrib import messages
 from django.core.validators import validate_email
@@ -10,14 +8,16 @@ from django.utils.translation import gettext_lazy as _
 
 # Standard Library
 import logging
+from hmac import new
+from operator import is_
 
 # Third Party
+import stripe
 from allauth.account import forms as allauth
 from allauth.account.utils import setup_user_email
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout
 from psycopg2.errors import UniqueViolation
-import stripe
 
 # Squarelet
 from squarelet.core.forms import StripeForm
@@ -50,7 +50,7 @@ class SignupForm(allauth.SignupForm):
 
     def __init__(self, *args, **kwargs):
         # Extract request from kwargs if present
-        self.request = kwargs.pop('request', None)
+        self.request = kwargs.pop("request", None)
 
         # set free to blank in case people have old links
         if "data" in kwargs and kwargs["data"].get("plan") == "free":
@@ -60,11 +60,11 @@ class SignupForm(allauth.SignupForm):
         super().__init__(*args, **kwargs)
 
         # set the plan field using the value in GET
-        if self.request and 'plan' in self.request.GET:
+        if self.request and "plan" in self.request.GET:
             plan_slug = self.request.GET.get("plan")
             try:
                 plan = Plan.objects.filter(public=True).get(slug=plan_slug)
-                self.initial['plan'] = plan.slug
+                self.initial["plan"] = plan.slug
             except Plan.DoesNotExist:
                 pass
 
@@ -130,21 +130,23 @@ class LoginForm(allauth.LoginForm):
 
 class NewOrganizationModelChoiceField(forms.ModelChoiceField):
     """Custom ModelChoiceField to allow creating a new organization"""
-    
+
     def to_python(self, value):
-        if value == 'new':
+        if value == "new":
             return value
         return super().to_python(value)
-    
+
     def validate(self, value):
-        if value == 'new':
+        if value == "new":
             return
         return super().validate(value)
 
+
 class PremiumSubscriptionForm(StripeForm):
     """Create a subscription form for premium plans"""
+
     # TODO: Support creating a new organization
-    
+
     organization = NewOrganizationModelChoiceField(
         label=_("Select an organization"),
         queryset=None,  # Will be set in __init__
@@ -157,7 +159,7 @@ class PremiumSubscriptionForm(StripeForm):
         max_length=100,
         widget=forms.TextInput(),
     )
-    
+
     plan = forms.ModelChoiceField(
         label=_("Plan"),
         queryset=Plan.objects.all(),
@@ -174,28 +176,28 @@ class PremiumSubscriptionForm(StripeForm):
 
     def __init__(self, *args, plan=None, user=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['stripe_token'].required = False
+        self.fields["stripe_token"].required = False
 
         if user and not user.is_anonymous:
             # Set default email for receipt_emails
-            self.fields['receipt_emails'].initial = user.email
+            self.fields["receipt_emails"].initial = user.email
             # Filter for organizations where the user is an admin or their individual organization
-            self.fields['organization'].queryset = Organization.objects.filter(
-                Q(memberships__user=user, memberships__admin=True) | 
-                Q(pk=user.individual_organization.pk)
+            self.fields["organization"].queryset = Organization.objects.filter(
+                Q(memberships__user=user, memberships__admin=True)
+                | Q(pk=user.individual_organization.pk)
             ).distinct()
         else:
-            self.fields['organization'].queryset = Organization.objects.none()
+            self.fields["organization"].queryset = Organization.objects.none()
 
         # Set the plan if provided
         if plan is not None:
-            self.fields['plan'].initial = plan
-            self.fields['plan'].queryset = Plan.objects.filter(pk=plan.pk)
-            self.fields['plan'].widget = forms.HiddenInput()
+            self.fields["plan"].initial = plan
+            self.fields["plan"].queryset = Plan.objects.filter(pk=plan.pk)
+            self.fields["plan"].widget = forms.HiddenInput()
             if plan.slug == "professional":
-                self.fields['organization'].initial = user.individual_organization
-                self.fields['organization'].disabled = True
-                self.fields['organization'].widget = forms.HiddenInput()
+                self.fields["organization"].initial = user.individual_organization
+                self.fields["organization"].disabled = True
+                self.fields["organization"].widget = forms.HiddenInput()
 
     def clean_receipt_emails(self):
         """Make sure each line is a valid email"""
@@ -211,43 +213,46 @@ class PremiumSubscriptionForm(StripeForm):
             bad_emails_str = ", ".join(bad_emails)
             raise forms.ValidationError(f"Invalid email: {bad_emails_str}")
         return emails
-        
+
     def clean(self):
         data = super().clean()
-        plan = data.get('plan')
+        plan = data.get("plan")
         if not plan:
             self.add_error(
                 "plan",
                 _("A plan is required"),
             )
-        stripe_token = data.get('stripe_token')
+        stripe_token = data.get("stripe_token")
         if not stripe_token:
             self.add_error(
                 "stripe_token",
                 _("Payment information is missing"),
             )
-        organization = data.get('organization')
-        new_organization_name = data.get('new_organization_name')
+        organization = data.get("organization")
+        new_organization_name = data.get("new_organization_name")
         # If "new" is selected, require a name
-        if organization == 'new' and not new_organization_name:
-            self.add_error('new_organization_name', _("Please provide a name for the new organization"))
-        
+        if organization == "new" and not new_organization_name:
+            self.add_error(
+                "new_organization_name",
+                _("Please provide a name for the new organization"),
+            )
+
         return data
-    
+
     def save(self, user):
         """Create a subscription for the organization with the selected plan"""
         cleaned_data = self.cleaned_data
-        plan: Plan | None = cleaned_data.get('plan')
-        organization: Organization | None = cleaned_data.get('organization')
-        new_organization_name = cleaned_data.get('new_organization_name')
-        receipt_emails = cleaned_data.get('receipt_emails')
-        stripe_token = cleaned_data.get('stripe_token')
+        plan: Plan | None = cleaned_data.get("plan")
+        organization: Organization | None = cleaned_data.get("organization")
+        new_organization_name = cleaned_data.get("new_organization_name")
+        receipt_emails = cleaned_data.get("receipt_emails")
+        stripe_token = cleaned_data.get("stripe_token")
         # When the data is submitted, no matter how the form was initialized:
         # - the plan will be either "professional" or "organization"
         # - the org will either be the user's individual org, an existing group org,
         #   or a new group org
         # - the stripe_token will be for the user's payment method
-        if organization == 'new' and new_organization_name:
+        if organization == "new" and new_organization_name:
             # Create a new organization
             organization = Organization.objects.create(
                 name=new_organization_name,

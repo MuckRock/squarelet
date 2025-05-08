@@ -6,8 +6,8 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 # Standard Library
-from datetime import date
 import uuid
+from datetime import date
 
 # Third Party
 from autoslug import AutoSlugField
@@ -425,7 +425,7 @@ class Organization(AvatarMixin, models.Model):
             to_max_users=self.max_users,
         )
         self.subscription.delete()
-    
+
     def has_active_subscription(self):
         """Check if the organization has an active subscription"""
         subscription = self.subscription
