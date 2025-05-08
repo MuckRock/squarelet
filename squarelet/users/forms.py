@@ -16,6 +16,7 @@ from allauth.account import forms as allauth
 from allauth.account.utils import setup_user_email
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout
+from psycopg2.errors import UniqueViolation
 import stripe
 
 # Squarelet
@@ -178,6 +179,10 @@ class PremiumSubscriptionForm(StripeForm):
             self.fields['plan'].initial = plan
             self.fields['plan'].queryset = Plan.objects.filter(pk=plan.pk)
             self.fields['plan'].widget = forms.HiddenInput()
+            if plan.slug == "professional":
+                self.fields['organization'].initial = user.individual_organization
+                self.fields['organization'].disabled = True
+                self.fields['organization'].widget = forms.HiddenInput()
 
     def clean_receipt_emails(self):
         """Make sure each line is a valid email"""
@@ -222,6 +227,7 @@ class PremiumSubscriptionForm(StripeForm):
         plan: Plan | None = cleaned_data.get('plan')
         organization: Organization | None = cleaned_data.get('organization')
         new_organization_name = cleaned_data.get('new_organization_name')
+        receipt_emails = cleaned_data.get('receipt_emails')
         stripe_token = cleaned_data.get('stripe_token')
         # When the data is submitted, no matter how the form was initialized:
         # - the plan will be either "professional" or "organization"
@@ -232,11 +238,15 @@ class PremiumSubscriptionForm(StripeForm):
             # Create a new organization
             organization = Organization.objects.create(
                 name=new_organization_name,
+                private=True,
                 owner=user,
             )
             # Add the user as an admin
-            organization.memberships.create(user=user, admin=True)
-        
+            organization.add_creator(user)
+            # Add receipt emails to the organization
+            if receipt_emails:
+                for email in receipt_emails:
+                    organization.receipt_emails.create(email=email)
         try:
             if organization is not None:
                 organization.create_subscription(stripe_token, plan, user)
@@ -244,6 +254,12 @@ class PremiumSubscriptionForm(StripeForm):
             logger.error("Error updating subscription: %s", exc)
             raise forms.ValidationError(
                 _("Error processing payment. Please try again or contact support.")
+            )
+        except UniqueViolation as exc:
+            # Organizations can only have one subscription
+            logger.error("Error creating subscription: %s", exc)
+            raise forms.ValidationError(
+                _("This organization already has a subscription.")
             )
 
 
