@@ -60,6 +60,7 @@ ONBOARDING_SESSION_DEFAULTS = (
     ("email_check_completed", False),
     ("mfa_step", "not_started"),
     ("join_org", False),
+    ("subscription", "not_started")
 )
 
 
@@ -175,7 +176,6 @@ class UserOnboardingView(TemplateView):
 
         # Onboarding progress state is tracked in the session
         onboarding = session["onboarding"]
-        print(onboarding)
         if has_verified_email(user):
             onboarding["email_check_completed"] = True
             session.modified = True
@@ -203,9 +203,21 @@ class UserOnboardingView(TemplateView):
         # will be set to the plan slug. If not, it will be None.
         # We want to load both the individual and organization plans,
         # and then pass through the "active" plan based on the user's choice.
+        # In order to enter the step, we need to check:
+        # 1. if the plan is valid
+        # 2. if the plan is professional, that the user is not already subscribed
+        # 3. that the subscription step state is `not_started`
         plan = session.get("plan", None)
-        if plan:
-            # Check if the plan is valid
+        if (
+            plan == "professional" and
+            user.individual_organization.has_active_subscription() and
+            onboarding["subscription"] == "not_started"
+        ):
+            # User is already subscribed to the professional plan
+            onboarding["subscription"] = "completed"
+            session['plan'] = None
+            session.modified = True
+        if plan and onboarding["subscription"] == "not_started":
             try:
                 individual_plan = Plan.objects.get(slug='professional')
                 group_plan = Plan.objects.get(slug='organization')
@@ -218,7 +230,6 @@ class UserOnboardingView(TemplateView):
             except Plan.DoesNotExist:
                 print('Invalid plan slug:', plan)
                 pass
-
         # MFA check
         # Check if this is user's first login
         is_first_login = user.last_login is None
@@ -405,23 +416,26 @@ class UserOnboardingView(TemplateView):
             # ---
             # First, check if the user skipped this step
             if (request.POST.get("submit-type") == "skip"):
-                request.session["onboarding"]["subscription_completed"] = "completed"
+                request.session["onboarding"]["subscription"] = "completed"
                 request.session.modified = True
                 messages.info(request, "Subscription skipped.")
                 return redirect("account_onboarding")
             # Otherwise, initialize the form with the submitted data,
             # validate it, and save it if valid. If invalid, rerender
             # the page with the form errors.
-            form = PremiumSubscriptionForm(data=request.POST)
+            plan_id = request.POST.get("plan")
+            org_id = request.POST.get("organization")
+            plan = Plan.objects.get(pk=plan_id)
+            form = PremiumSubscriptionForm(request.POST, plan=plan, user=request.user)
             if form.is_valid():
                 # Create a subscription for the selected organization
                 form.save(request.user)
                 messages.success(request, "Subscription created successfully.")
-                request.session["onboarding"]["subscription_completed"] = "completed"
+                request.session["onboarding"]["subscription"] = "completed"
                 request.session.modified = True
             else:
                 context = self.get_context_data(**kwargs)
-                if form.cleaned_data.get("organization") == request.user.individual_organization.pk:
+                if org_id == request.user.individual_organization.pk:
                     context["forms"]["individual"] = form
                 else:
                     context["forms"]["group"] = form
