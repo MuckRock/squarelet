@@ -6,6 +6,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 # Standard Library
+from datetime import date
 import uuid
 
 # Third Party
@@ -423,6 +424,16 @@ class Organization(AvatarMixin, models.Model):
             to_max_users=self.max_users,
         )
         self.subscription.delete()
+    
+    def has_active_subscription(self):
+        """Check if the organization has an active subscription"""
+        subscription = self.subscription
+        if not subscription:
+            return False
+        is_expired = subscription.update_on < date.today()
+        if subscription.cancelled and is_expired:
+            return False
+        return True
 
     def charge(
         self,
