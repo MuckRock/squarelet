@@ -110,6 +110,7 @@
     function toggleNewOrgField(value) {
         const newOrgField = document.getElementById('{{ forms.group.new_organization_name.id_for_label }}');
         const newOrgLabel = newOrgField.closest('label');
+        console.log(newOrgField, newOrgLabel);
         if (value === 'new') {
             newOrgLabel.style.display = 'block';
             newOrgField.style.display = 'block';
@@ -120,13 +121,15 @@
     }
 
     function listenForNewOrg() {
-      console.log('{{ forms.group.organization.id_for_label }}');
-        const orgSelect = document.getElementById('{{ forms.group.organization.id_for_label }}');
-        console.log(orgSelect, '{{ forms.group.organization.id_for_label }}');
-        toggleNewOrgField(orgSelect.value);
-        orgSelect.addEventListener('change', function(event) {
-            toggleNewOrgField(event.currentTarget.value);
-        });
+      const newOrgField = document.getElementById('{{ forms.group.new_organization_name.id_for_label }}');
+      const form = newOrgField.closest('form');
+      const orgSelect = form.querySelector('#{{ forms.group.organization.id_for_label }}');
+      console.log('orgSelect', orgSelect, '{{ forms.group.organization.id_for_label }}');
+      toggleNewOrgField(orgSelect.value);
+      orgSelect.addEventListener('change', function(event) {
+        console.log('change', event.currentTarget.value);
+        toggleNewOrgField(event.currentTarget.value);
+      });
     }
     
     document.addEventListener('DOMContentLoaded', listenForNewOrg);
