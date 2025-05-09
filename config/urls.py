@@ -16,11 +16,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from squarelet.core.views import HomeView
 from squarelet.oidc.views import token_view
 from squarelet.organizations.viewsets import ChargeViewSet, OrganizationViewSet
-from squarelet.users.views import (
-    LoginView,
-    SignupView,
-    UserOnboardingView,
-)
+from squarelet.users.views import LoginView, SignupView, UserOnboardingView
 from squarelet.users.viewsets import (
     RefreshTokenViewSet,
     UrlAuthTokenViewSet,

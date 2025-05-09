@@ -4,7 +4,6 @@ from django.db import transaction
 
 # Squarelet
 from squarelet.core.utils import mailchimp_journey
-from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.models import Organization
 
 
