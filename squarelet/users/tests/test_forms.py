@@ -382,6 +382,7 @@ def test_premium_subscription_form_save_new_organization(plan_factory, user, moc
 @pytest.mark.django_db
 def test_premium_subscription_form_save_unique_violation(plan_factory, user, mocker):
     """Test handling unique violation errors (organization already has subscription)"""
+
     class MockUniqueViolation(errors.lookup(UNIQUE_VIOLATION)):
         pass
 
