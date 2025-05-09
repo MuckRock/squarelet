@@ -43,7 +43,6 @@ from allauth.mfa.adapter import get_adapter
 from allauth.mfa.totp.forms import ActivateTOTPForm
 from allauth.mfa.totp.internal.flows import activate_totp
 from allauth.mfa.utils import is_mfa_enabled
-from click import group
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Fieldset, Layout
 
@@ -51,7 +50,7 @@ from crispy_forms.layout import Fieldset, Layout
 from squarelet.core.forms import ImagePreviewWidget
 from squarelet.core.layout import Field
 from squarelet.core.mixins import AdminLinkMixin
-from squarelet.organizations.models import Invitation, ReceiptEmail
+from squarelet.organizations.models import ReceiptEmail
 from squarelet.organizations.models.payment import Plan
 from squarelet.services.models import Service
 from squarelet.users.forms import PremiumSubscriptionForm, SignupForm
@@ -234,7 +233,6 @@ class UserOnboardingView(TemplateView):
                 }
             except Plan.DoesNotExist:
                 print("Invalid plan slug:", plan)
-                pass
         # MFA check
         # Check if this is user's first login
         is_first_login = user.last_login is None
@@ -364,6 +362,9 @@ class UserOnboardingView(TemplateView):
         # Otherwise, show the appropriate onboarding step
         return super().get(request, *args, **kwargs)
 
+    # TODO: Refactor the UserOnboardingView to reduce branches and statements,
+    # perhaps using a dictionary to map steps to their respective handlers.
+    # pylint: disable=too-many-branches, too-many-statements
     def post(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect("account_login")

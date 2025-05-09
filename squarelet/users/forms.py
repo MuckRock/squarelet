@@ -1,6 +1,5 @@
 # Django
 from django import forms
-from django.contrib import messages
 from django.core.validators import validate_email
 from django.db import transaction
 from django.db.models import Q
@@ -8,8 +7,6 @@ from django.utils.translation import gettext_lazy as _
 
 # Standard Library
 import logging
-from hmac import new
-from operator import is_
 
 # Third Party
 import stripe
@@ -17,7 +14,8 @@ from allauth.account import forms as allauth
 from allauth.account.utils import setup_user_email
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout
-from psycopg2.errors import UniqueViolation
+from psycopg2 import errors
+from psycopg2.errorcodes import UNIQUE_VIOLATION
 
 # Squarelet
 from squarelet.core.forms import StripeForm
@@ -139,7 +137,7 @@ class NewOrganizationModelChoiceField(forms.ModelChoiceField):
     def validate(self, value):
         if value == "new":
             return
-        return super().validate(value)
+        super().validate(value)
 
 
 class PremiumSubscriptionForm(StripeForm):
@@ -181,7 +179,8 @@ class PremiumSubscriptionForm(StripeForm):
         if user and not user.is_anonymous:
             # Set default email for receipt_emails
             self.fields["receipt_emails"].initial = user.email
-            # Filter for organizations where the user is an admin or their individual organization
+            # Filter for organizations where the user
+            # is an admin or their individual organization
             self.fields["organization"].queryset = Organization.objects.filter(
                 Q(memberships__user=user, memberships__admin=True)
                 | Q(pk=user.individual_organization.pk)
@@ -274,7 +273,7 @@ class PremiumSubscriptionForm(StripeForm):
             raise forms.ValidationError(
                 _("Error processing payment. Please try again or contact support.")
             )
-        except UniqueViolation as exc:
+        except errors.lookup(UNIQUE_VIOLATION) as exc:
             # Organizations can only have one subscription
             logger.error("Error creating subscription: %s", exc)
             raise forms.ValidationError(
