@@ -150,7 +150,7 @@ class PremiumSubscriptionForm(StripeForm):
     organization = NewOrganizationModelChoiceField(
         label=_("Select an organization"),
         queryset=None,  # Will be set in __init__
-        required=False,
+        required=True,
     )
 
     new_organization_name = forms.CharField(
