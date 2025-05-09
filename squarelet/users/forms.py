@@ -143,8 +143,6 @@ class NewOrganizationModelChoiceField(forms.ModelChoiceField):
 class PremiumSubscriptionForm(StripeForm):
     """Create a subscription form for premium plans"""
 
-    # TODO: Support creating a new organization
-
     organization = NewOrganizationModelChoiceField(
         label=_("Select an organization"),
         queryset=None,  # Will be set in __init__
