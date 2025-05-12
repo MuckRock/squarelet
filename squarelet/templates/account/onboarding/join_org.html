@@ -59,11 +59,13 @@
         <div class="invite">
           {% include "account/team_list_item.html" with organization=invite.organization %}
 
-          <form method="post" action="{% url "organizations:detail" slug=invite.organization.slug %}" name="action" value="leave" class="actions cancel">
+          <form method="post" action="{% url "organizations:invitation" uuid=invite.uuid %}" class="actions">
             {% csrf_token %}
-            <button class="btn danger ghost">
-              <img src="{% static "icons/x.svg" %}">
-              Withdraw
+            <button class="btn primary ghost" type="submit" name="action" value="accept">
+              {% trans "Accept" %}
+            </button>
+            <button class="btn danger ghost" type="submit" name="action" value="reject">
+              {% trans "Reject" %}
             </button>
           </form>
         </div>
@@ -72,7 +74,7 @@
     </div>
     <form class="flex gap-1" method="post" action="{% url 'account_onboarding' %}">
     {% csrf_token %}
-    <input type="hidden" name="step" value="join_org" />
+    <input type="hidden" name="step" value="" />
     <button class="button primary ghost" type="submit" name="join_org" value="skip">{% trans "Skip" %}</button>
   </form>
 

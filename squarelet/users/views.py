@@ -52,13 +52,11 @@ from squarelet.services.models import Service
 # Local
 from .models import User
 
-
-# todo: move step definition to a more appropriate place
-# todo: switch to StrEnum once we're on Python >=3.11
-class OnboardingStep(enum.Enum):
-    confirm_email = "Confirm email"
-    join_org = "Join organizations"
-    mfa = "Multi-factor authentication"
+ONBOARDING_SESSION_DEFAULTS = (
+    ("email_check_completed", False),
+    ("mfa_step", "not_started"),
+    ("join_org", False),
+)
 
 
 class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
@@ -166,10 +164,11 @@ class UserOnboardingView(TemplateView):
 
         # Initialize onboarding session if it doesn't exist
         if "onboarding" not in session:
-            session["onboarding"] = {
-                "email_check_completed": False,
-                "mfa_step": "not_started",
-            }
+            session["onboarding"] = {}
+
+        for k, v in ONBOARDING_SESSION_DEFAULTS:
+            session["onboarding"].setdefault(k, v)
+
         # Onboarding progress state is tracked in the session
         onboarding = session["onboarding"]
         print(onboarding)
@@ -183,8 +182,8 @@ class UserOnboardingView(TemplateView):
 
         # Organization check
         has_orgs = user.organizations.filter(individual=False).exists()
-        if not has_orgs:
-            return OnboardingStep.join_org.name, {
+        if not has_orgs or onboarding["join_org"]:
+            return "join_org", {
                 "invitations": user.get_pending_invitations(),
                 "potential_orgs": user.get_potential_organizations().filter(
                     allow_auto_join=True
@@ -335,6 +334,10 @@ class UserOnboardingView(TemplateView):
         elif step == "mfa_confirm":
             # User has seen the confirmation screen, mark MFA as completed
             request.session["onboarding"]["mfa_step"] = "completed"
+            request.session.modified = True
+
+        elif step == "join_org":
+            request.session["onboarding"]["join_org"] = True
             request.session.modified = True
 
         # Redirect back to the same view to check the next step
