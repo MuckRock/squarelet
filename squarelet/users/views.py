@@ -22,7 +22,6 @@ from django.views.generic import (
 
 # Standard Library
 import base64
-import enum
 import hashlib
 import hmac
 import json
@@ -166,8 +165,8 @@ class UserOnboardingView(TemplateView):
         if "onboarding" not in session:
             session["onboarding"] = {}
 
-        for k, v in ONBOARDING_SESSION_DEFAULTS:
-            session["onboarding"].setdefault(k, v)
+        for key, value in ONBOARDING_SESSION_DEFAULTS:
+            session["onboarding"].setdefault(key, value)
 
         # Onboarding progress state is tracked in the session
         onboarding = session["onboarding"]
