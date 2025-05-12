@@ -18,7 +18,7 @@ from squarelet.core.tests.mixins import ViewTestMixin
 
 # Local
 from .. import views
-from ..models import ReceiptEmail
+from ..models import OrganizationEmailDomain, ReceiptEmail
 
 # pylint: disable=invalid-name
 
@@ -520,3 +520,101 @@ class TestStripeWebhook:
         event = {"type": "test"}
         response = self.call_view(rf, event)
         assert response.status_code == 400
+
+
+@pytest.mark.django_db()
+class TestManageDomains(ViewTestMixin):
+    """Test the ManageDomains View"""
+
+    view = views.ManageDomains
+    url = "/organizations/{slug}/manage-domains/"
+
+    def test_get(self, rf, organization_factory, user_factory):
+        user = user_factory()
+        organization = organization_factory(admins=[user], verified_journalist=True)
+        response = self.call_view(rf, user, slug=organization.slug)
+        assert response.status_code == 200
+        assert response.context_data["admin"] == user
+
+    def test_add_domain_good(self, rf, organization_factory, user_factory):
+        user = user_factory()
+        organization = organization_factory(admins=[user], verified_journalist=True)
+        domain = "newdomain.com"
+        data = {"action": "adddomain", "domain": domain}
+        self.call_view(rf, user, data, slug=organization.slug)
+        assert OrganizationEmailDomain.objects.filter(
+            organization=organization, domain=domain
+        ).exists()
+        self.assert_message(
+            messages.SUCCESS, f"The domain {domain} was added successfully."
+        )
+
+    def test_add_domain_invalid_format(self, rf, organization_factory, user_factory):
+        user = user_factory()
+        organization = organization_factory(admins=[user], verified_journalist=True)
+        domain = "invalid_domain"
+        data = {"action": "adddomain", "domain": domain}
+        self.call_view(rf, user, data, slug=organization.slug)
+        self.assert_message(
+            messages.ERROR, "Invalid domain format. Please enter a valid domain."
+        )
+
+    def test_add_domain_blacklisted(self, rf, organization_factory, user_factory):
+        user = user_factory()
+        organization = organization_factory(admins=[user], verified_journalist=True)
+        domain = "gmail.com"
+        data = {"action": "adddomain", "domain": domain}
+        self.call_view(rf, user, data, slug=organization.slug)
+        self.assert_message(messages.ERROR, f"The domain {domain} is not allowed.")
+
+    def test_add_domain_duplicate(self, rf, organization_factory, user_factory):
+        user = user_factory()
+        organization = organization_factory(admins=[user], verified_journalist=True)
+        domain = "existingdomain.com"
+        # Adding the domain once
+        OrganizationEmailDomain.objects.create(organization=organization, domain=domain)
+        data = {"action": "adddomain", "domain": domain}
+        self.call_view(rf, user, data, slug=organization.slug)
+        self.assert_message(messages.ERROR, f"The domain {domain} is already added.")
+
+    def test_remove_domain(self, rf, organization_factory, user_factory):
+        user = user_factory()
+        organization = organization_factory(admins=[user], verified_journalist=True)
+        domain = "removabledomain.com"
+        # Adding the domain first
+        OrganizationEmailDomain.objects.create(organization=organization, domain=domain)
+        data = {"action": "removedomain", "domain": domain}
+        self.call_view(rf, user, data, slug=organization.slug)
+        assert not OrganizationEmailDomain.objects.filter(
+            organization=organization, domain=domain
+        ).exists()
+        self.assert_message(
+            messages.SUCCESS, f"The domain {domain} was removed successfully."
+        )
+
+    def test_bad_action(self, rf, organization_factory, user_factory):
+        user = user_factory()
+        organization = organization_factory(admins=[user], verified_journalist=True)
+        data = {"action": "fakeaction"}
+        self.call_view(rf, user, data, slug=organization.slug)
+        self.assert_message(messages.ERROR, "An unexpected error occurred.")
+
+    def test_add_domain_non_admin(self, rf, organization_factory, user_factory):
+        # Create a regular user and a non-admin organization
+        user = user_factory()
+        organization = organization_factory(admins=[])  # No admins
+        data = {"action": "adddomain", "domain": "example.com"}
+
+        # Call the view with the non-admin user and ensure PermissionDenied is raised
+        with pytest.raises(PermissionDenied):
+            self.call_view(rf, user, data, slug=organization.slug)
+
+    def test_add_domain_non_verified_org(self, rf, organization_factory, user_factory):
+        # Create a user and a non-verified organization
+        user = user_factory()
+        organization = organization_factory(admins=[user], verified_journalist=False)
+        data = {"action": "adddomain", "domain": "example.com"}
+
+        # Call the view with the user and ensure PermissionDenied is raised
+        with pytest.raises(PermissionDenied):
+            self.call_view(rf, user, data, slug=organization.slug)

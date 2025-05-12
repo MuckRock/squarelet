@@ -2,6 +2,7 @@
 from django import forms
 from django.core.validators import validate_email
 from django.db.models.aggregates import Min
+from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
 # Third Party
@@ -163,8 +164,9 @@ class UpdateForm(forms.ModelForm):
         label=_("Allow Auto Join"),
         required=False,
         help_text=_(
-            "Allow users to join this organization automatically"
-            " if one of their verified emails matches the organization's email domain."
+            "Allow users to join this organization without an invite"
+            "if one of their verified emails matches "
+            "one of the organization's email domains."
         ),
     )
 
@@ -175,14 +177,44 @@ class UpdateForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        if self.instance.verified_journalist:
+            domains = self.instance.domains.values_list("domain", flat=True)
+            domain_list = ", ".join(f"<b> {d}</b>" for d in domains)
+            manage_domains_url = reverse(
+                "organizations:manage-domains", kwargs={"slug": self.instance.slug}
+            )
+            if domain_list:
+                self.fields["allow_auto_join"].help_text = _(
+                    "<br> Allow users to join without an invite "
+                    "if one of their verified emails matches one of "
+                    "the organization's email domains. "
+                    "This organization has the following email domains set:"
+                    f"{domain_list}. "
+                    f"<a href='{manage_domains_url}'>"
+                    " Edit this list of email domains</a>."
+                )
+            else:
+                self.fields["allow_auto_join"].help_text = _(
+                    "<br>Allow users to join without requesting "
+                    "an invite if one of their verified emails matches one of the "
+                    "organization's email domains. No email domains currently set. "
+                    f"<a href='{manage_domains_url}'>Add one now</a>."
+                )
+        else:
+            self.fields.pop("allow_auto_join", None)
+
         self.helper = FormHelper()
         self.helper.layout = Layout(
             Fieldset("Avatar", Field("avatar"), css_class="_cls-compactField"),
             Fieldset("Private", Field("private"), css_class="_cls-compactField"),
-            Fieldset(
-                "Auto Join", Field("allow_auto_join"), css_class="_cls-compactField"
-            ),
         )
+
+        if "allow_auto_join" in self.fields:
+            self.helper.layout.fields.append(
+                Fieldset(
+                    "Auto Join", Field("allow_auto_join"), css_class="_cls-compactField"
+                )
+            )
         self.helper.form_tag = False
 
 
