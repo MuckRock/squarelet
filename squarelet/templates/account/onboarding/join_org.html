@@ -36,7 +36,17 @@
       </header>
       <div class="orgs">
         {% for organization in potential_orgs %}
-        {% include "account/team_list_item.html" %}
+        <div class="invite">
+          {% include "account/team_list_item.html" %}
+          
+          <form method="post" action="{% url "organizations:detail" slug=organization.slug %}" class="actions join">
+            {% csrf_token %}
+            <button class="btn primary" name="action" value="join">
+              <img src="{% static "icons/check.svg" %}">
+              Join
+            </button>
+          </form>
+        </div>
         {% endfor %}
       </div>
     </div>
@@ -49,15 +59,22 @@
         <div class="invite">
           {% include "account/team_list_item.html" with organization=invite.organization %}
 
-          <div class="actions">
-            <img src="{% static "icons/check.svg" %}">
-            <button class="primary">Join</button>
-          </div>
+          <form method="post" action="{% url "organizations:detail" slug=invite.organization.slug %}" name="action" value="leave" class="actions cancel">
+            {% csrf_token %}
+            <button class="btn danger ghost">
+              <img src="{% static "icons/x.svg" %}">
+              Withdraw
+            </button>
+          </form>
         </div>
         {% endfor %}
       </div>
-
     </div>
+    <form class="flex gap-1" method="post" action="{% url 'account_onboarding' %}">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="join_org" />
+    <button class="button primary ghost" type="submit" name="join_org" value="skip">{% trans "Skip" %}</button>
+  </form>
 
   </div>
 {% endblock %}
