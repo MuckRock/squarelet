@@ -25,6 +25,7 @@ import base64
 import hashlib
 import hmac
 import json
+from pprint import pprint
 import time
 
 # Third Party
@@ -181,7 +182,7 @@ class UserOnboardingView(TemplateView):
 
         # Organization check
         has_orgs = user.organizations.filter(individual=False).exists()
-        if not has_orgs or onboarding["join_org"]:
+        if not has_orgs and not onboarding["join_org"]:
             return "join_org", {
                 "invitations": user.get_pending_invitations(),
                 "potential_orgs": user.get_potential_organizations().filter(
@@ -287,7 +288,7 @@ class UserOnboardingView(TemplateView):
 
         # Handle any form submissions for the current onboarding step
         step = request.POST.get("step")
-        print(request.POST)
+        pprint(request.POST)
         if step == "confirm_email":
             # User has confirmed their email, mark as completed
             request.session["onboarding"]["email_check_completed"] = True
@@ -335,7 +336,7 @@ class UserOnboardingView(TemplateView):
             request.session["onboarding"]["mfa_step"] = "completed"
             request.session.modified = True
 
-        elif step == "join_org":
+        elif step == "join_org" and request.POST.get("join_org") == "skip":
             request.session["onboarding"]["join_org"] = True
             request.session.modified = True
 
