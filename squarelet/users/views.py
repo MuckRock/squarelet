@@ -25,7 +25,6 @@ import base64
 import hashlib
 import hmac
 import json
-from pprint import pprint
 import time
 
 # Third Party
@@ -288,7 +287,6 @@ class UserOnboardingView(TemplateView):
 
         # Handle any form submissions for the current onboarding step
         step = request.POST.get("step")
-        pprint(request.POST)
         if step == "confirm_email":
             # User has confirmed their email, mark as completed
             request.session["onboarding"]["email_check_completed"] = True
