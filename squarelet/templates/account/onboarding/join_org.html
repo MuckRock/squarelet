@@ -74,7 +74,7 @@
     </div>
     <form class="flex gap-1" method="post" action="{% url 'account_onboarding' %}">
     {% csrf_token %}
-    <input type="hidden" name="step" value="" />
+    <input type="hidden" name="step" value="join_org" />
     <button class="button primary ghost" type="submit" name="join_org" value="skip">{% trans "Skip" %}</button>
   </form>
 
