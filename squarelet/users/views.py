@@ -46,7 +46,6 @@ from squarelet.core.forms import ImagePreviewWidget
 from squarelet.core.layout import Field
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.organizations.models import ReceiptEmail
-from squarelet.organizations.rules import invitations
 from squarelet.services.models import Service
 
 # Local
