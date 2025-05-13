@@ -182,11 +182,12 @@ class UserOnboardingView(TemplateView):
 
         # Organization check
         has_orgs = user.organizations.filter(individual=False).exists()
-        if not has_orgs and not onboarding["join_org"]:
-            invitations = list(user.get_pending_invitations())
-            potential_orgs = list(
-                user.get_potential_organizations().filter(allow_auto_join=True)
-            )
+        invitations = list(user.get_pending_invitations())
+        potential_orgs = list(
+            user.get_potential_organizations().filter(allow_auto_join=True)
+        )
+        joinable_orgs_count = len(invitations + potential_orgs)
+        if not has_orgs and not onboarding["join_org"] and joinable_orgs_count > 0:
             return "join_org", {
                 "invitations": invitations,
                 "potential_orgs": potential_orgs,
