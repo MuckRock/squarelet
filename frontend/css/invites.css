@@ -6,6 +6,15 @@
   align-self: stretch;
 }
 
+.invite h4 {
+  margin: 0;
+  font-weight: var(--font-semibold, 600);
+}
+
+.invite form {
+  margin-top: 0;
+}
+
 /* team_list_item */
 .team {
   display: flex;
@@ -28,6 +37,32 @@
   gap: 0.5rem;
 }
 
+.org-avatar {
+  width: 3.125rem;
+  height: 3.125rem;
+  aspect-ratio: 1/1;
+  border-radius: 0.3125rem;
+  border: 1px solid var(--gray-2, #D8DEE2);
+  background: var(--gray-2, #D8DEE2);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.org-avatar svg {
+  display: block;
+  fill: var(--gray-4, #D8DEE2);
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.org-avatar img {
+  display: block;
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+}
+
 .membership {
   color: var(--gray-5, #233944);
   font-family: var(--font-sans, "Source Sans Pro");
@@ -41,8 +76,4 @@
   width: 3.125rem;
   height: 3.125rem;
   aspect-ratio: 1/1;
-
-  border-radius: 0.3125rem;
-  border: 1px solid var(--gray-2, #d8dee2);
-  background: var(--gray-2, #d8dee2);
 }

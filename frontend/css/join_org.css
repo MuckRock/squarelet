@@ -10,10 +10,14 @@
 
 .message header {
   display: flex;
-  padding-left: 2rem;
   align-items: center;
-  gap: 2rem;
+  justify-content: center;
+  gap: 0.5rem 2rem;
   align-self: stretch;
+}
+
+.message header svg {
+  fill: var(--blue-3, #1367d0);
 }
 
 .message header h1 {
@@ -29,6 +33,14 @@
   font-style: normal;
   font-weight: 600;
   line-height: normal;
+}
+
+.message h2 {
+  margin: 0;
+}
+
+.message header p {
+  margin: 0;
 }
 
 .org-search {
@@ -85,29 +97,18 @@ h3 {
   line-height: normal;
 }
 
-.pending {
+.pending, .pre-approved {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 0.5rem;
   align-self: stretch;
-}
-
-.pre-approved {
-  display: flex;
   padding: 1rem;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1rem;
-  align-self: stretch;
 }
 
-.pre-approved header {
-  display: flex;
+.pending header, .pre-approved header {
   flex-direction: column;
-  justify-content: center;
   align-items: flex-start;
-  align-self: stretch;
 }
 
 header p {
