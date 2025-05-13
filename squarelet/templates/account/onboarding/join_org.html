@@ -17,10 +17,10 @@
 {% endblock css %}
 
 {% block onboarding_step %}
-  <div class="message">
+<div class="message">
     <header>
       <div class="icon">
-        <img src="{% static 'icons/people.svg' %}" />
+        {% include 'core/component/people.svg' %}
       </div>
       <h1>{% trans "Join your team on MuckRock to access collaboration, advanced features, and shared resources" %}</h1>
     </header>
@@ -37,7 +37,7 @@
           
           <form method="post" action="{% url "organizations:detail" slug=organization.slug %}" class="actions join">
             {% csrf_token %}
-            <button class="btn primary" name="action" value="join">
+            <button class="button primary" name="action" value="join">
               <img src="{% static "icons/check.svg" %}">
               Join
             </button>
@@ -86,5 +86,5 @@
     <button class="button primary ghost" type="submit" name="join_org" value="skip">{% trans "Skip" %}</button>
   </form>
 
-  </div>
+</div>
 {% endblock %}
