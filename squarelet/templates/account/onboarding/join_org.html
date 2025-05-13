@@ -24,15 +24,10 @@
       </div>
       <h1>{% trans "Join your team on MuckRock to access collaboration, advanced features, and shared resources" %}</h1>
     </header>
-    <label class="org-search">
-      <span class="sr-only">{% trans "Search public teams" %}</span>
-      <input type="search" placeholder="{% trans "Search public teams" %} ..." name="q" />
-    </label>
-
     <div class="pre-approved">
       <header>
-        <h2>Pre-approved</h2>
-        <p>Based on your email address, you're pre-approved to join:</p>
+        <h2>{% trans "Pre-approved" %}</h2>
+        <p>{% trans "Based on your email address, you're pre-approved to join:" %}</p>
       </header>
       <div class="orgs">
         {% for organization in potential_orgs %}
@@ -52,7 +47,7 @@
     </div>
 
     <div class="pending">
-      <h2>Pending requests</h2>
+      <h2>{% trans "Pending requests" %}</h2>
 
       <div class="orgs">
         {% for invite in invitations %}
@@ -71,6 +66,11 @@
         </div>
         {% endfor %}
       </div>
+    </div>
+    <div class="flex column">
+      <p>
+        {% trans "Don't see your team?" %} <a target="_blank" href="{% url "organizations:list" %}">{% trans "Search public teams" %}</a>
+      </p>
     </div>
     <form class="flex gap-1" method="post" action="{% url 'account_onboarding' %}">
     {% csrf_token %}
