@@ -24,6 +24,7 @@
       </div>
       <h1>{% trans "Join your team on MuckRock to access collaboration, advanced features, and shared resources" %}</h1>
     </header>
+    {% if potential_orgs %}
     <div class="pre-approved">
       <header>
         <h2>{% trans "Pre-approved" %}</h2>
@@ -45,15 +46,17 @@
         {% endfor %}
       </div>
     </div>
+    {% endif %}
 
+    {% if invitations %}
     <div class="pending">
       <h2>{% trans "Pending requests" %}</h2>
-
+      
       <div class="orgs">
         {% for invite in invitations %}
         <div class="invite">
           {% include "account/team_list_item.html" with organization=invite.organization %}
-
+          
           <form method="post" action="{% url "organizations:invitation" uuid=invite.uuid %}" class="actions">
             {% csrf_token %}
             <button class="btn primary ghost" type="submit" name="action" value="accept">
@@ -67,9 +70,14 @@
         {% endfor %}
       </div>
     </div>
+    {% endif %}
+
     <div class="flex column">
       <p>
-        {% trans "Don't see your team?" %} <a target="_blank" href="{% url "organizations:list" %}">{% trans "Search public teams" %}</a>
+        {% if joinable_orgs_count > 0 %}
+        {% trans "Don't see your team?" %} 
+        {% endif %}
+        <a target="_blank" href="{% url "organizations:list" %}">{% trans "Search public teams" %}</a>
       </p>
     </div>
     <form class="flex gap-1" method="post" action="{% url 'account_onboarding' %}">
