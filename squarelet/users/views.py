@@ -46,6 +46,7 @@ from squarelet.core.forms import ImagePreviewWidget
 from squarelet.core.layout import Field
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.organizations.models import ReceiptEmail
+from squarelet.organizations.rules import invitations
 from squarelet.services.models import Service
 
 # Local
@@ -182,11 +183,14 @@ class UserOnboardingView(TemplateView):
         # Organization check
         has_orgs = user.organizations.filter(individual=False).exists()
         if not has_orgs and not onboarding["join_org"]:
+            invitations = list(user.get_pending_invitations())
+            potential_orgs = list(
+                user.get_potential_organizations().filter(allow_auto_join=True)
+            )
             return "join_org", {
-                "invitations": user.get_pending_invitations(),
-                "potential_orgs": user.get_potential_organizations().filter(
-                    allow_auto_join=True
-                ),
+                "invitations": invitations,
+                "potential_orgs": potential_orgs,
+                "joinable_orgs_count": len(invitations + potential_orgs),
             }
 
         # MFA check
