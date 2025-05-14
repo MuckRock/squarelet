@@ -29,12 +29,12 @@ import json
 import time
 
 # Third Party
+from allauth.account.models import EmailAddress
 from allauth.account.utils import (
     get_next_redirect_url,
     has_verified_email,
     send_email_confirmation,
 )
-from allauth.account.models import EmailAddress
 from allauth.account.views import LoginView as AllAuthLoginView
 from allauth.mfa.adapter import get_adapter
 from allauth.mfa.totp.forms import ActivateTOTPForm
