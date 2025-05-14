@@ -222,19 +222,21 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
 
 
 class MfaAdapter(DefaultMFAAdapter):
-    # pylint: disable=line-too-long
     error_messages = {
         "add_email_blocked": _(
-            "You cannot add an email address to an account protected by two-factor authentication."
+            "You cannot add an email address to an account "
+            "protected by two-factor authentication."
         ),
         "cannot_delete_authenticator": _(
             "You cannot deactivate two-factor authentication."
         ),
         "cannot_generate_recovery_codes": _(
-            "You cannot generate recovery codes without having two-factor authentication enabled."
+            "You cannot generate recovery codes without "
+            "having two-factor authentication enabled."
+        ),
+        "unverified_email": _(
+            "All email addresses associated with your account "
+            "must be confirmed before enabling two-factor authentication."
         ),
         "incorrect_code": _("Incorrect code."),
-        "unverified_email": _(
-            "You cannot activate two-factor authentication until you have verified your email address."
-        ),
     }
