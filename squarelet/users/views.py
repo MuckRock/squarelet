@@ -34,6 +34,7 @@ from allauth.account.utils import (
     has_verified_email,
     send_email_confirmation,
 )
+from allauth.account.models import EmailAddress
 from allauth.account.views import LoginView as AllAuthLoginView
 from allauth.mfa.adapter import get_adapter
 from allauth.mfa.totp.forms import ActivateTOTPForm
@@ -199,6 +200,9 @@ class UserOnboardingView(TemplateView):
         is_first_login = (
             user.last_login is None or user.date_joined.date() == user.last_login.date()
         )
+        # 2FA setup will fail if the user has any unverified emails,
+        # even if they are not the primary email
+        has_unverified_email = EmailAddress.objects.filter(user=user, verified=False).exists()
         mfa_step = onboarding.get("mfa_step", None)
         # Check for the "code_submitted" step first, since
         # is_mfa_enabled will be true when the step is active
@@ -209,6 +213,7 @@ class UserOnboardingView(TemplateView):
         elif (
             is_mfa_enabled(user)
             or is_first_login
+            or has_unverified_email
             or not has_verified_email(user)
             or (
                 user.last_mfa_prompt
