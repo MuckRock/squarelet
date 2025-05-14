@@ -7,7 +7,7 @@
 {% block inner %}
     <h1>{% trans "Sign Out" %}</h1>
 
-    <p>{% trans 'Are you sure you want to sign out?' %} <a onclick="back()">{% trans 'Go back.' %}</a></p>
+    <p>{% trans 'Are you sure you want to sign out?' %} <a onclick="history.back()">{% trans 'Go back.' %}</a></p>
 
     <form method="post" action="{% url 'account_logout' %}">
       {% csrf_token %}
