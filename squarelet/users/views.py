@@ -216,10 +216,7 @@ class UserOnboardingView(TemplateView):
         # Otherwise, if the user has MFA enabled, or if it's
         # not the right time to prompt, mark step as checked
         elif (
-            is_mfa_enabled(user)
-            or is_first_login
-            or is_snoozed
-            or has_unverified_email
+            is_mfa_enabled(user) or is_first_login or is_snoozed or has_unverified_email
         ):
             onboarding["mfa_step"] = "completed"
             session.modified = True
