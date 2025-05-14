@@ -328,8 +328,12 @@ class UserOnboardingView(TemplateView):
         elif step == "mfa_setup":
             # Check if the user skipped the MFA setup step
             if request.POST.get("mfa_setup") == "skip":
+                # User skipped MFA, mark as completed
                 request.session["onboarding"]["mfa_step"] = "completed"
                 request.session.modified = True
+                # Update last_mfa_prompt to now
+                request.user.last_mfa_prompt = timezone.now()
+                request.user.save(update_fields=["last_mfa_prompt"])
                 messages.info(request, "Two-factor authentication skipped.")
                 return redirect("account_onboarding")
             # Process MFA setup - validate the code
