@@ -380,7 +380,8 @@ class Organization(AvatarMixin, models.Model):
 
         if not self.plan and plan:
             # create a subscription going from no plan to plan
-            self.create_subscription(token, plan, user)
+            # Don't pass the token in here, as we already saved it above
+            self.create_subscription(None, plan, user)
         elif self.plan and not plan:
             # cancel a subscription going from plan to no plan
             self.subscription.cancel()
