@@ -1317,14 +1317,17 @@ a._cls-dropdownItem {
 }
 
 ._cls-navItem,
-a._cls-navItem {
+a._cls-navItem,
+button._cls-navItem {
   display: flex;
   padding: 4px 8px;
   border-radius: 4px;
   align-items: center;
   text-decoration: none;
   gap: 8px;
+  border: none;
   border-bottom: none;
+  background: transparent;
   color: var(--gray-5, #233944);
   fill: var(--gray-5, #233944);
   font-feature-settings: "ss04" on;
@@ -1337,7 +1340,8 @@ a._cls-navItem {
   white-space: nowrap;
 }
 
-a._cls-navItem:hover {
+a._cls-navItem:hover,
+button._cls-navItem:hover {
   text-decoration: none;
   color: var(--blue-5, #053775);
   fill: var(--blue-5, #053775);
@@ -1949,4 +1953,8 @@ textarea {
   .website-footer .link-group {
     margin-bottom: 1rem;
   }
+}
+
+.m-0 {
+  margin: 0;
 }
