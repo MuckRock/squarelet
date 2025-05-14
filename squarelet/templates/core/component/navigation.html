@@ -36,9 +36,10 @@
           {% avatar request.user 25 %}
           {{ request.user.username }}
         </a>
-        <a href="{% url 'account_logout' %}" class="_cls-navItem">
-          {% trans "Sign Out" %}
-        </a>
+        <form class="m-0" method="post" action="{% url 'account_logout' %}">
+          {% csrf_token %}
+          <button class="_cls-navItem">{% trans 'Sign Out' %}</button>
+        </form>
       </nav>
       {% else %}
       <nav class="_cls-navItems _cls-accountItems _cls-anonymous">
