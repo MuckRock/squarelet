@@ -292,13 +292,9 @@ class UserOnboardingView(TemplateView):
             # User has confirmed their email, mark as completed
             request.session["onboarding"]["email_check_completed"] = True
             request.session.modified = True
-            print(
-                "confirm email", request.session["onboarding"]["email_check_completed"]
-            )
 
         elif step == "mfa_opt_in":
             choice = request.POST.get("enable_mfa")
-            print(choice)
             if choice == "yes":
                 # User opted-in for MFA, move to next step
                 request.session["onboarding"]["mfa_step"] = "opted_in"
