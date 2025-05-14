@@ -179,11 +179,19 @@ class UserOnboardingView(TemplateView):
         # MFA check
         # Check if this is user's first login
         is_first_login = (
-            user.last_login is None or user.date_joined.date() == user.last_login.date()
+            user.last_login is None
+            or user.date_joined.date() == user.last_login.date()
+        )
+        is_snoozed = (
+            user.last_mfa_prompt
+            and timezone.now() - user.last_mfa_prompt
+            < settings.MFA_PROMPT_SNOOZE_DURATION
         )
         # 2FA setup will fail if the user has any unverified emails,
         # even if they are not the primary email
-        has_unverified_email = EmailAddress.objects.filter(user=user, verified=False).exists()
+        has_unverified_email = not has_verified_email(user) or (
+            EmailAddress.objects.filter(user=user, verified=False).exists()
+        )
         mfa_step = onboarding.get("mfa_step", None)
         # Check for the "code_submitted" step first, since
         # is_mfa_enabled will be true when the step is active
@@ -194,13 +202,8 @@ class UserOnboardingView(TemplateView):
         elif (
             is_mfa_enabled(user)
             or is_first_login
+            or is_snoozed
             or has_unverified_email
-            or not has_verified_email(user)
-            or (
-                user.last_mfa_prompt
-                and timezone.now() - user.last_mfa_prompt
-                < settings.MFA_PROMPT_SNOOZE_DURATION
-            )
         ):
             onboarding["mfa_step"] = "completed"
             session.modified = True
