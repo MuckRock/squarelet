@@ -178,10 +178,7 @@ class UserOnboardingView(TemplateView):
 
         # MFA check
         # Check if this is user's first login
-        is_first_login = (
-            user.last_login is None
-            or user.date_joined.date() == user.last_login.date()
-        )
+        is_first_login = user.last_login is None
         is_snoozed = (
             user.last_mfa_prompt
             and timezone.now() - user.last_mfa_prompt
