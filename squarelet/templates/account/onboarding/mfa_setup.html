@@ -91,7 +91,7 @@
     <input type="hidden" name="secret" value="{{ form.secret }}" />
     <label class="field">
       {% trans "Enter your 6-digit code" %}
-      <input type="text" name="code" placeholder="{% trans "######" %}" required />
+      <input type="text" name="code" placeholder="{% trans "######" %}" />
     </label>
     <button class="button primary" type="submit" name="mfa_setup" value="code">{% trans "Submit" %}</button>
     <button class="button primary ghost" type="submit" name="mfa_setup" value="skip">{% trans "Skip" %}</button>
