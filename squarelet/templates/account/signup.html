@@ -13,20 +13,15 @@
   .pad-b-3 {
     padding-bottom: 3rem;
   }
-  .form-wrapper, .signup-form, header {
+  .wrapper#form, .signup-form, header {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 3rem;
   }
-  .form-wrapper {
-    box-sizing: border-box;
-    padding: 4rem;
-  }
   .signup-form {
     margin-top: 0;
-    width: 100%;
     max-width: 24rem;
   }
   header {
@@ -88,11 +83,11 @@
 {% endblock %}
 
 {% block login_step %}
-  <div class="form-wrapper">
-    <header>
-      {% sign_up_message %}
-    </header>
+  <div class="wrapper" id="form">
     <form class="signup-form m-0" id="signup_form" method="POST">
+      <header>
+        {% sign_up_message %}
+      </header>
       <main class="fields">
         {% csrf_token %}
         {{form.non_field_errors}}
