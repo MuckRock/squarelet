@@ -72,6 +72,8 @@ export class AutocompleteView {
     a.href = link;
     const div = document.createElement("div");
     div.className = "_cls-result";
+    const span = document.createElement("span");
+    span.className = "_cls-inlineText";
 
     const avatar = document.createElement("div");
     avatar.className = "_cls-inlineAvatar";
@@ -81,11 +83,10 @@ export class AutocompleteView {
     avatarImg.height = 22;
     avatar.appendChild(avatarImg);
     div.appendChild(avatar);
+    div.appendChild(span);
 
     if (highlight == "") {
-      const span = document.createElement("span");
       span.textContent = text;
-      div.appendChild(span);
     } else {
       const lowerHighlight = highlight.toLowerCase();
       let lowerText = text.toLowerCase();
@@ -93,9 +94,9 @@ export class AutocompleteView {
         let i = lowerText.indexOf(lowerHighlight);
         if (i != -1) {
           const normal = document.createElement("span");
-          normal.textContent = text.substring(0, i);
+          normal.textContent = text.substr(0, i);
 
-          div.appendChild(normal);
+          span.appendChild(normal);
 
           const bold = document.createElement("b");
           bold.textContent = text.substr(i, highlight.length);
@@ -103,12 +104,12 @@ export class AutocompleteView {
           text = text.substr(i + highlight.length);
           lowerText = lowerText.substr(i + highlight.length);
 
-          div.appendChild(bold);
+          span.appendChild(bold);
         } else {
           const normal = document.createElement("span");
           normal.textContent = text;
 
-          div.appendChild(normal);
+          span.appendChild(normal);
           break;
         }
       }
