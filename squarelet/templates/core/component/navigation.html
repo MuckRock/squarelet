@@ -1,4 +1,4 @@
-{% load static i18n avatar %}
+{% load static i18n avatar pass_query %}
 
 <header class="_cls-heading">
   <div class="_cls-headingContainer">
@@ -43,10 +43,10 @@
       </nav>
       {% else %}
       <nav class="_cls-navItems _cls-accountItems _cls-anonymous">
-        <a title="{% trans 'Sign Up' %}" class="_cls-navItem" href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'squarelet' %}{% if request.GET.plan %}&plan={{request.GET.plan }}{% endif %}{% if request.GET.next %}&next={{request.GET.next }}{% endif %}">
+        <a title="{% trans 'Sign Up' %}" class="_cls-navItem" href="{% url 'account_signup' %}{% pass_query %}">
           {% trans "Sign Up" %}
         </a>
-        <a title="{% trans 'Sign In' %}" class="_cls-navItem" href="{% url 'account_login' %}?intent={% firstof request.GET.intent 'squarelet' %}{% if request.GET.plan %}&plan={{request.GET.plan }}{% endif %}{% if request.GET.next %}&next={{request.GET.next }}{% endif %}">
+        <a title="{% trans 'Sign In' %}" class="_cls-navItem" href="{% url 'account_login' %}{% pass_query %}">
           {% trans "Sign In" %}
         </a>
       </nav>
