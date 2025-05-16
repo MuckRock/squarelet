@@ -2,7 +2,7 @@
 
 {% load i18n static %}
 {% load crispy_forms_tags %}
-{% load handleintent %}
+{% load handleintent pass_query %}
 {% load planinfo %}
 
 {% block head_title %}{% trans "Signup" %}{% endblock %}
@@ -140,7 +140,7 @@
 
       <footer>
         <button class="button primary">{% trans 'Sign up' %}</button>
-        <a class="button primary ghost" href="{% url 'account_login' %}">
+        <a class="button primary ghost" href="{% url 'account_login' %}{% pass_query %}">
           {% blocktrans %}Already have an account? Sign in{% endblocktrans %}
         </a>
       </footer>
