@@ -43,16 +43,10 @@
       </nav>
       {% else %}
       <nav class="_cls-navItems _cls-accountItems _cls-anonymous">
-        {% if request.get_full_path == "/election-hub/" %}
-          <a title="{% trans 'Sign Up' %}" class="_cls-navItem" href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'election-hub' %}&next={{ request.get_full_path }}">
-            {% trans "Sign Up" %}
-          </a>
-        {% else %}
-          <a title="{% trans 'Sign Up' %}" class="_cls-navItem" href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'squarelet' %}&next={% firstof request.GET.next request.get_full_path %}">
-            {% trans "Sign Up" %}
-          </a>
-        {% endif %}
-        <a title="{% trans 'Sign In' %}" class="_cls-navItem" href="{% url 'account_login' %}?next={{ request.get_full_path }}">
+        <a title="{% trans 'Sign Up' %}" class="_cls-navItem" href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'squarelet' %}{% if request.GET.plan %}&plan={{request.GET.plan }}{% endif %}{% if request.GET.next %}&next={{request.GET.next }}{% endif %}">
+          {% trans "Sign Up" %}
+        </a>
+        <a title="{% trans 'Sign In' %}" class="_cls-navItem" href="{% url 'account_login' %}?intent={% firstof request.GET.intent 'squarelet' %}{% if request.GET.plan %}&plan={{request.GET.plan }}{% endif %}{% if request.GET.next %}&next={{request.GET.next }}{% endif %}">
           {% trans "Sign In" %}
         </a>
       </nav>

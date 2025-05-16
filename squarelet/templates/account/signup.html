@@ -140,7 +140,7 @@
 
       <footer>
         <button class="button primary">{% trans 'Sign up' %}</button>
-        <a class="button primary ghost" href="{% url 'account_login' %}">
+        <a class="button primary ghost" href="{% url 'account_login' %}?intent={% firstof request.GET.intent 'squarelet' %}{% if request.GET.plan %}&plan={{request.GET.plan }}{% endif %}{% if request.GET.next %}&next={{request.GET.next }}{% endif %}">
           {% blocktrans %}Already have an account? Sign in{% endblocktrans %}
         </a>
       </footer>
