@@ -2,7 +2,7 @@
 
 {% load i18n %}
 {% load account socialaccount %}
-{% load handleintent %}
+{% load handleintent pass_query %}
 
 {% block title %}{% trans "Sign In" %}{% endblock %}
 
@@ -262,7 +262,7 @@
 
       <footer class="flex row wrap">
         <button class="button primary">{% trans 'Sign in' %}</button>
-        <a class="button primary ghost" href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'squarelet' %}{% if request.GET.plan %}&plan={{request.GET.plan }}{% endif %}{% if request.GET.next %}&next={{request.GET.next }}{% endif %}">
+        <a class="button primary ghost" href="{% url 'account_signup' %}{% pass_query %}">
           {% blocktrans %}Create an account{% endblocktrans %}
         </a>
       </footer>
