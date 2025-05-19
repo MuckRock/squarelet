@@ -12,6 +12,7 @@ from django.http.response import (
 )
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils import timezone
 from django.views.generic import (
     DetailView,
     ListView,
@@ -28,6 +29,7 @@ import json
 import time
 
 # Third Party
+from allauth.account.models import EmailAddress
 from allauth.account.utils import (
     get_next_redirect_url,
     has_verified_email,
@@ -195,8 +197,16 @@ class UserOnboardingView(TemplateView):
 
         # MFA check
         # Check if this is user's first login
-        is_first_login = (
-            user.last_login is None or user.date_joined.date() == user.last_login.date()
+        is_first_login = user.last_login is None
+        is_snoozed = (
+            user.last_mfa_prompt
+            and timezone.now() - user.last_mfa_prompt
+            < settings.MFA_PROMPT_SNOOZE_DURATION
+        )
+        # 2FA setup will fail if the user has any unverified emails,
+        # even if they are not the primary email
+        has_unverified_email = not has_verified_email(user) or (
+            EmailAddress.objects.filter(user=user, verified=False).exists()
         )
         mfa_step = onboarding.get("mfa_step", None)
         # Check for the "code_submitted" step first, since
@@ -205,7 +215,9 @@ class UserOnboardingView(TemplateView):
             return "mfa_confirm", {}
         # Otherwise, if the user has MFA enabled, or if it's
         # not the right time to prompt, mark step as checked
-        elif is_mfa_enabled(user) or is_first_login or not has_verified_email(user):
+        elif (
+            is_mfa_enabled(user) or is_first_login or is_snoozed or has_unverified_email
+        ):
             onboarding["mfa_step"] = "completed"
             session.modified = True
         # Finally, if the user doesn't have MFA enabled,
@@ -295,13 +307,9 @@ class UserOnboardingView(TemplateView):
             # User has confirmed their email, mark as completed
             request.session["onboarding"]["email_check_completed"] = True
             request.session.modified = True
-            print(
-                "confirm email", request.session["onboarding"]["email_check_completed"]
-            )
 
         elif step == "mfa_opt_in":
             choice = request.POST.get("enable_mfa")
-            print(choice)
             if choice == "yes":
                 # User opted-in for MFA, move to next step
                 request.session["onboarding"]["mfa_step"] = "opted_in"
@@ -309,13 +317,21 @@ class UserOnboardingView(TemplateView):
                 # User skipped MFA, mark as completed
                 messages.info(request, "Two-factor authentication skipped.")
                 request.session["onboarding"]["mfa_step"] = "completed"
+
+                # Update last_mfa_prompt to now
+                request.user.last_mfa_prompt = timezone.now()
+                request.user.save(update_fields=["last_mfa_prompt"])
             request.session.modified = True
 
         elif step == "mfa_setup":
             # Check if the user skipped the MFA setup step
             if request.POST.get("mfa_setup") == "skip":
+                # User skipped MFA, mark as completed
                 request.session["onboarding"]["mfa_step"] = "completed"
                 request.session.modified = True
+                # Update last_mfa_prompt to now
+                request.user.last_mfa_prompt = timezone.now()
+                request.user.save(update_fields=["last_mfa_prompt"])
                 messages.info(request, "Two-factor authentication skipped.")
                 return redirect("account_onboarding")
             # Process MFA setup - validate the code

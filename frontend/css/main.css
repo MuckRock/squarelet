@@ -1317,14 +1317,17 @@ a._cls-dropdownItem {
 }
 
 ._cls-navItem,
-a._cls-navItem {
+a._cls-navItem,
+button._cls-navItem {
   display: flex;
   padding: 4px 8px;
   border-radius: 4px;
   align-items: center;
   text-decoration: none;
   gap: 8px;
+  border: none;
   border-bottom: none;
+  background: transparent;
   color: var(--gray-5, #233944);
   fill: var(--gray-5, #233944);
   font-feature-settings: "ss04" on;
@@ -1337,7 +1340,8 @@ a._cls-navItem {
   white-space: nowrap;
 }
 
-a._cls-navItem:hover {
+a._cls-navItem:hover,
+button._cls-navItem:hover {
   text-decoration: none;
   color: var(--blue-5, #053775);
   fill: var(--blue-5, #053775);
@@ -1640,19 +1644,26 @@ textarea {
   line-height: normal;
 }
 
-.service-providers {
-  width: 100%;
-  margin: 3rem 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 3rem;
-}
-
 .service-provider {
   display: flex;
   flex-direction: column;
   gap: 1rem;
   align-items: flex-start;
+  padding: 0.75rem;
+}
+
+a.service-provider {
+  color: currentColor;
+  text-decoration: none;
+  border-radius: 0.5rem;
+  transition: background 0.2s ease;
+  background: transparent;
+}
+
+a.service-provider:hover,
+a.service-provider:focus {
+  background: rgba(255, 255, 255, 0.15);
+  text-shadow: 0px 1px 4px var(--shadow, rgba(30, 48, 56, 0.15));
 }
 
 .service-provider * {
@@ -1688,7 +1699,7 @@ textarea {
 
   /* Title */
   font-family: var(--font-sans, "Source Sans Pro");
-  font-size: var(--font-xl, 1.5rem);
+  font-size: var(--font-l, 1.25rem);
   font-style: normal;
   font-weight: 600;
   line-height: normal;
@@ -1696,11 +1707,11 @@ textarea {
 
 .service-provider p {
   color: currentcolor;
-  opacity: 0.7;
+  opacity: 0.9;
 
   /* Small Label */
   font-family: var(--font-sans, "Source Sans Pro");
-  font-size: var(--font-sm, 0.875rem);
+  font-size: var(--font-md, 0.875rem);
   font-style: normal;
   font-weight: 400;
   line-height: normal;
@@ -1949,4 +1960,8 @@ textarea {
   .website-footer .link-group {
     margin-bottom: 1rem;
   }
+}
+
+.m-0 {
+  margin: 0;
 }

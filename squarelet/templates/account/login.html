@@ -2,7 +2,7 @@
 
 {% load i18n %}
 {% load account socialaccount %}
-{% load handleintent %}
+{% load handleintent pass_query %}
 
 {% block title %}{% trans "Sign In" %}{% endblock %}
 
@@ -90,26 +90,11 @@
     font-size: var(--font-lg, 1.25rem);
   }
 
-  .login-layout > .form-wrapper,
-  .login-layout > .service-gallery-wrapper {
-    flex: 1 1 28rem;
-    min-height: 0;
+  .login-layout > * {
+    flex: 1 1 36rem;
   }
 
-  .form-wrapper {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
-
-  .service-gallery-wrapper {
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-    background: linear-gradient(180deg, #1367D0 0%, #4294F0 100%);
-  }
-
-  .login-form {
+  .login-form, .signup-form {
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -163,16 +148,65 @@
     font-weight: 600;
   }
 
-  .service-gallery {
+  .wrapper#form {
+    box-sizing: border-box;
+  }
+
+  /* Gives the form a little breathing room
+  when it is side-by-side with the service gallery */
+  @media (min-width: 72rem) {
+    .wrapper#form {
+      padding-top: 2rem;
+    }
+  }
+
+  .wrapper#service-gallery {
+    background: linear-gradient(180deg, #1367D0 0%, #4294F0 100%);
     display: flex;
-    max-width: 40rem;
-    margin: 0 auto;
-    padding: 3rem 4rem;
     flex-direction: column;
     justify-content: center;
-    align-items: center;
+    /*
+    These rules allow the service gallery to overflow smoothly,
+    in case we ever want to restore that functionality:
+    overflow-y: auto;
+    min-height: 70vh;
+    */
+  }
 
+  .service-gallery {
+    flex: 1 1 0;
+    max-height: 100%;
+    padding: 3rem 4rem;
     color: var(--blue-1, #EEF3F9);
+    /* If the service gallery wrapper is set to overflow,
+    the gallery needs to set its own minimum height. */ 
+    /* min-height: 70vh; */
+  }
+
+  .service-gallery header {
+    max-width: 32rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin: 0 auto 2rem;
+  }
+
+  .service-gallery .service-providers {
+    max-width: 32rem;
+    margin: 0 auto;
+    padding-bottom: 3rem;
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+    justify-content: center;
+    align-content: flex-start;
+    gap: 1.5rem;
+  }
+
+  .service-provider {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
   }
 
   .service-gallery h2 {
@@ -184,8 +218,9 @@
     font-size: var(--font-lg, 1.25rem);
     font-style: normal;
     font-weight: 600;
-    line-height: 2rem;
-    max-width: 33rem;
+    line-height: 1.75rem; /* 140% */
+    max-width: 28.75rem;
+    width: 100%;
   }
 </style>
 {% endblock %}
@@ -193,7 +228,7 @@
 {% block content %}
 <div class="flex login-layout">
   {% block login_step %}
-  <div class="form-wrapper">
+  <div class="wrapper" id="form">
     <form class="login-form" id="login_form" method="POST">
       {% sign_in_message %}
 
@@ -227,7 +262,7 @@
 
       <footer class="flex row wrap">
         <button class="button primary">{% trans 'Sign in' %}</button>
-        <a class="button primary ghost" href="{% url 'select_plan' %}">
+        <a class="button primary ghost" href="{% url 'account_signup' %}{% pass_query %}">
           {% blocktrans %}Create an account{% endblocktrans %}
         </a>
       </footer>
@@ -235,15 +270,22 @@
   </div>
   {% endblock %}
   {% block login_promo %}
-  <div class="service-gallery-wrapper">
+  <div class="wrapper" id="service-gallery">
     <div class="service-gallery">
-      <h2>
-        {% blocktrans %}
-        Your MuckRock account is a passport to essential services that support research, reporting, collaboration and
-        civic engagement. Your MuckRock account gives you access to tools and resources from MuckRock and our trusted
-        partners.
-        {% endblocktrans %}
-      </h2>
+      <header>
+        <h2>
+          {% blocktrans %}
+          Your MuckRock account is a passport to essential services that support research, reporting, collaboration and
+          civic engagement.
+          {% endblocktrans %}
+        </h2>
+        <h2 class="secondary-heading">
+          {% blocktrans %}
+          Your MuckRock account gives you access to tools and resources from MuckRock and our trusted
+          partners:
+          {% endblocktrans %}
+        </h2>
+      </header>
       {% services_list %}
     </div>
   </div>
