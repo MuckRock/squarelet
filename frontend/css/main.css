@@ -154,11 +154,25 @@ a {
   color: var(--blue-4);
   text-decoration: underline;
   text-decoration-thickness: 1px;
-  text-decoration-color:  var(--blue-3);
+  text-decoration-color: var(--blue-3);
   border-radius: 2px;
 }
 a:hover {
   background: var(--blue-1);
+}
+
+/* https://css-tricks.com/inclusively-hidden/
+ * Hiding class, making content visible only to screen readers but not visually
+ * "sr" meaning "screen-reader" 
+ */
+.sr-only:not(:focus):not(:active) {
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
 }
 
 a._cls-nostyle {
@@ -586,9 +600,9 @@ button {
   font-family: var(--font-sans);
 }
 
-button:hover {
+/* button:hover {
   background: var(--blue-1);
-}
+} */
 
 button:active {
   box-shadow: 0 0 3px #687998;
@@ -797,7 +811,6 @@ nav a:hover ._cls-serviceName {
 
 .cls-services li {
   display: flex;
-  
 }
 
 ._cls-services li a {
@@ -805,7 +818,6 @@ nav a:hover ._cls-serviceName {
   gap: 0.5em;
   padding: 0.6em 0 0.6em 0.3em;
 }
-
 
 ._cls-services ul {
   margin: 0;
@@ -1637,7 +1649,7 @@ textarea {
   flex-direction: column;
   gap: 1rem;
   align-items: flex-start;
-  padding: .75rem;
+  padding: 0.75rem;
 }
 
 a.service-provider {
@@ -1648,8 +1660,9 @@ a.service-provider {
   background: transparent;
 }
 
-a.service-provider:hover, a.service-provider:focus {
-  background: rgba(255, 255, 255, .15);
+a.service-provider:hover,
+a.service-provider:focus {
+  background: rgba(255, 255, 255, 0.15);
   text-shadow: 0px 1px 4px var(--shadow, rgba(30, 48, 56, 0.15));
 }
 
@@ -1715,10 +1728,10 @@ a.service-provider:hover, a.service-provider:focus {
   border-radius: 0.5rem;
 
   font-size: var(--font-md, 1rem);
-  color: var(--gray-1, #F5F6F7);
+  color: var(--gray-1, #f5f6f7);
   white-space: nowrap;
   text-align: center;
-  font-feature-settings: 'ss04' on;
+  font-feature-settings: "ss04" on;
 
   /* Label */
   font-family: var(--font-sans, "Source Sans Pro");
@@ -1731,17 +1744,17 @@ a.service-provider:hover, a.service-provider:focus {
 }
 
 .button.primary {
-  border: 1px solid var(--blue-4, #1367D0);
-  background: var(--blue-3, #4294F0);
+  border: 1px solid var(--blue-4, #1367d0);
+  background: var(--blue-3, #4294f0);
 }
 
 .button.primary.elevated {
-  box-shadow: 0px 2px 0px 0px var(--blue-4, #1367D0);
+  box-shadow: 0px 2px 0px 0px var(--blue-4, #1367d0);
 }
 
 .button:hover {
   transform: translateY(-2px);
-  box-shadow: 0px 2px 0px 0px var(--blue-4, #1367D0);
+  box-shadow: 0px 2px 0px 0px var(--blue-4, #1367d0);
 }
 
 .button:active {
@@ -1760,10 +1773,10 @@ a.service-provider:hover, a.service-provider:focus {
   gap: 0.375rem;
 
   background: transparent;
-  color: var(--blue-3, #4294F0);
+  color: var(--blue-3, #4294f0);
   text-align: center;
   text-decoration: none;
-  font-feature-settings: 'ss04' on;
+  font-feature-settings: "ss04" on;
 
   /* Label */
   font-family: var(--font-sans, "Source Sans Pro");
@@ -1775,7 +1788,6 @@ a.service-provider:hover, a.service-provider:focus {
   transition: all 0.1s linear;
 }
 
-
 .ghost.button.small {
   font-size: var(--font-sm, 0.875rem);
 }
@@ -1786,8 +1798,8 @@ a.service-provider:hover, a.service-provider:focus {
 
 .button.ghost:hover,
 .button.ghost:focus {
-  color: var(--blue-4, #1367D0);
-  background-color: var(--blue-2, #B5CEED);
+  color: var(--blue-4, #1367d0);
+  background-color: var(--blue-2, #b5ceed);
   transform: none;
   box-shadow: none;
   transition: all 0.2s linear;
@@ -1886,9 +1898,19 @@ a.service-provider:hover, a.service-provider:focus {
 
 .website-footer dfn {
   display: block;
-  font-family: 'Source Sans Pro', -apple-system, BlinkMacSystemFont, "Segoe UI", 
-                "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", 
-                "Droid Sans", "Helvetica Neue", sans-serif;
+  font-family:
+    "Source Sans Pro",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Roboto",
+    "Oxygen",
+    "Ubuntu",
+    "Cantarell",
+    "Fira Sans",
+    "Droid Sans",
+    "Helvetica Neue",
+    sans-serif;
   text-transform: uppercase;
   color: var(--gray-1);
   margin-bottom: 0.5rem;
@@ -1921,7 +1943,6 @@ a.service-provider:hover, a.service-provider:focus {
 }
 
 @media (max-width: 50rem) {
-
   .website-footer .footer {
     flex-direction: column;
   }

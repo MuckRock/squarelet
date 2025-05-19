@@ -53,6 +53,12 @@ from squarelet.services.models import Service
 # Local
 from .models import User
 
+ONBOARDING_SESSION_DEFAULTS = (
+    ("email_check_completed", False),
+    ("mfa_step", "not_started"),
+    ("join_org", False),
+)
+
 
 class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
     model = User
@@ -159,10 +165,11 @@ class UserOnboardingView(TemplateView):
 
         # Initialize onboarding session if it doesn't exist
         if "onboarding" not in session:
-            session["onboarding"] = {
-                "email_check_completed": False,
-                "mfa_step": "not_started",
-            }
+            session["onboarding"] = {}
+
+        for key, value in ONBOARDING_SESSION_DEFAULTS:
+            session["onboarding"].setdefault(key, value)
+
         # Onboarding progress state is tracked in the session
         onboarding = session["onboarding"]
         print(onboarding)
@@ -174,7 +181,19 @@ class UserOnboardingView(TemplateView):
 
         # TODO: Verification check
 
-        # TODO: Organization check
+        # Organization check
+        has_orgs = user.organizations.filter(individual=False).exists()
+        invitations = list(user.get_pending_invitations())
+        potential_orgs = list(
+            user.get_potential_organizations().filter(allow_auto_join=True)
+        )
+        joinable_orgs_count = len(invitations + potential_orgs)
+        if not has_orgs and not onboarding["join_org"] and joinable_orgs_count > 0:
+            return "join_org", {
+                "invitations": invitations,
+                "potential_orgs": potential_orgs,
+                "joinable_orgs_count": len(invitations + potential_orgs),
+            }
 
         # MFA check
         # Check if this is user's first login
@@ -284,7 +303,6 @@ class UserOnboardingView(TemplateView):
 
         # Handle any form submissions for the current onboarding step
         step = request.POST.get("step")
-        print(request.POST)
         if step == "confirm_email":
             # User has confirmed their email, mark as completed
             request.session["onboarding"]["email_check_completed"] = True
@@ -334,6 +352,10 @@ class UserOnboardingView(TemplateView):
         elif step == "mfa_confirm":
             # User has seen the confirmation screen, mark MFA as completed
             request.session["onboarding"]["mfa_step"] = "completed"
+            request.session.modified = True
+
+        elif step == "join_org" and request.POST.get("join_org") == "skip":
+            request.session["onboarding"]["join_org"] = True
             request.session.modified = True
 
         # Redirect back to the same view to check the next step

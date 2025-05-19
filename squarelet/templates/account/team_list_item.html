@@ -1,0 +1,32 @@
+{# required css: css/invites.css #}
+{% load static %}
+{% with count=organization.memberships.count avatar=organization.avatar %}
+<div class="team">
+    {% if avatar %}
+    <div class="org-avatar">
+      <img src="{{ avatar.url }}" />
+    </div>
+    {% else %}
+    <div class="org-avatar">
+      {% include 'core/component/people.svg' %}
+    </div>
+    {% endif %}
+    <div class="info">
+        <h4>{{ organization.name }}</h4>
+        <div class="status">
+            {% if organization.verified %}
+            <div class="badge verified">
+                <img src="{% static "icons/verified.svg" %}">
+                Verified
+            </div>
+            {% else %}
+            <div class="badge">
+                <img src="{% static "icons/unverified.svg" %}">
+                Unverified
+            </div>
+            <span class="membership">{{ count }} member{{ count|pluralize }}</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endwith %}
