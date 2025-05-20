@@ -16,6 +16,9 @@ def user_logged_in(request, user, **kwargs):
     print("User logged in:", user)
     print("Login request:", request)
 
+def user_signed_up(request, user, **kwargs):
+    """The user has signed up in this session"""
+    request.session['first_login'] = True
 
 def email_confirmed(request, email_address, **kwargs):
     if email_address.primary:
@@ -57,4 +60,7 @@ signals.email_changed.connect(
 )
 signals.user_logged_in.connect(
     user_logged_in, dispatch_uid="squarelet.users.signals.user_logged_in"
+)
+signals.user_signed_up.connect(
+    user_signed_up, dispatch_uid="squarelet.users.signals.user_signed_up"
 )
