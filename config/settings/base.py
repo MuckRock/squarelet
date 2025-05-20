@@ -356,6 +356,7 @@ ACCOUNT_AUTHENTICATION_METHOD = "username_email"
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_EMAIL_VERIFICATION = "optional"
 ACCOUNT_ADAPTER = "squarelet.users.adapters.AccountAdapter"
+ACCOUNT_PREVENT_ENUMERATION = False
 SOCIALACCOUNT_ADAPTER = "squarelet.users.adapters.SocialAccountAdapter"
 SOCIALACCOUNT_STORE_TOKENS = True
 ACCOUNT_FORMS = {
