@@ -235,7 +235,7 @@ class UserOnboardingView(TemplateView):
                 print("Invalid plan slug:", plan)
         # MFA check
         # Check if this is user's first login
-        is_first_login = user.last_login is None
+        is_first_login = request.session.get("first_login", False)
         is_snoozed = (
             user.last_mfa_prompt
             and timezone.now() - user.last_mfa_prompt
@@ -347,12 +347,8 @@ class UserOnboardingView(TemplateView):
         step, _ = self.get_onboarding_step(request)
 
         if step == "confirm_email":
-            is_first_login = (
-                request.user.last_login is None or 
-                request.user.date_joined.date() == request.user.last_login.date()
-            )
             # If the user just signed up, they are already sent the confirmation.
-            if not is_first_login:
+            if not request.session.get("first_login", False):
                 send_email_confirmation(request, request.user, False, request.user.email)
 
         if not step and "next_url" in request.session:
