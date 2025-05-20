@@ -42,7 +42,7 @@ Many settings are controlled through environment variables, as well as confident
 
 .. envvar:: DJANGO_ALLOWED_HOSTS
 
-    This sets the Django settings :setting:`ALLOWED_HOSTS`.  It specifies which domains you may use to access this site.  For staging, it is set to ``squarelet-staging.herokuapp.com``.  For production it will be set to ``accounts.muckrock.com``.
+    This sets the Django settings :setting:`ALLOWED_HOSTS`.  It specifies which domains you may use to access this site.  For staging, it is set to ``$HEROKU_APP.herokuapp.com`` (using the environment variable ``$HEROKU_APP``).  For production it will be set to ``accounts.muckrock.com``.
 
 .. envvar:: DJANGO_AWS_ACCESS_KEY_ID
 
