@@ -7,7 +7,7 @@ from rest_framework import serializers, status
 from rest_framework.exceptions import APIException
 
 # Squarelet
-from squarelet.organizations.models import Charge, Membership, Organization, Invitation
+from squarelet.organizations.models import Charge, Invitation, Membership, Organization
 
 
 class OrganizationSerializer(serializers.ModelSerializer):

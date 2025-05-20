@@ -15,7 +15,11 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 # Squarelet
 from squarelet.core.views import HomeView
 from squarelet.oidc.views import token_view
-from squarelet.organizations.viewsets import ChargeViewSet, OrganizationViewSet, InvitationViewSet
+from squarelet.organizations.viewsets import (
+    ChargeViewSet,
+    InvitationViewSet,
+    OrganizationViewSet,
+)
 from squarelet.users.views import LoginView
 from squarelet.users.viewsets import (
     RefreshTokenViewSet,
@@ -29,11 +33,13 @@ router.register("url_auth_tokens", UrlAuthTokenViewSet, basename="url_auth_token
 router.register("refresh_tokens", RefreshTokenViewSet, basename="refresh_token")
 router.register("organizations", OrganizationViewSet)
 router.register("charges", ChargeViewSet)
-router.register(r'invitations', InvitationViewSet)
+router.register(r"invitations", InvitationViewSet)
 
 
-def redirect_erh(request, path=''):
-    return redirect('https://www.muckrock.com/project/elections-2024-1169/', permanent=True)
+def redirect_erh(request, path=""):
+    return redirect(
+        "https://www.muckrock.com/project/elections-2024-1169/", permanent=True
+    )
 
 
 urlpatterns = [

@@ -1,4 +1,6 @@
+# Third Party
 from rest_framework.permissions import BasePermission
+
 
 class IsInvitationTarget(BasePermission):
     """
@@ -12,7 +14,9 @@ class IsInvitationTarget(BasePermission):
 
     def has_object_permission(self, request, view, obj):
         user = request.user
-        verified_emails = user.emailaddress_set.filter(verified=True).values_list("email", flat=True)
+        verified_emails = user.emailaddress_set.filter(verified=True).values_list(
+            "email", flat=True
+        )
 
         if view.action == "accept":
             return not obj.request and obj.email in verified_emails
@@ -25,20 +29,24 @@ class IsInvitationTarget(BasePermission):
 
 class CanAcceptOrRejectInvitation(BasePermission):
     """
-        Invites can only be accepted or rejected 
-        - If the user is the subject of the invitation and it isn't a request to join.
-          We don't want users accepting their own request to joins. 
+    Invites can only be accepted or rejected
+    - If the user is the subject of the invitation and it isn't a request to join.
+      We don't want users accepting their own request to joins.
 
 
     """
+
     def has_object_permission(self, request, view, obj):
         user = request.user
-        user_verified_emails = user.emailaddress_set.filter(verified=True).values_list("email", flat=True)
+        user_verified_emails = user.emailaddress_set.filter(verified=True).values_list(
+            "email", flat=True
+        )
         is_target = obj.email in user_verified_emails and not obj.request
         is_admin = obj.organization.has_admin(user)
         is_request = obj.request
 
         return (is_target) or (is_admin and is_request)
+
 
 class CanRevokeInvitation(BasePermission):
     """
@@ -50,7 +58,6 @@ class CanRevokeInvitation(BasePermission):
 
     def has_object_permission(self, request, view, obj):
         user = request.user
-        return (
-            (obj.request and obj.user == user) or
-            (not obj.request and obj.organization.has_admin(user))
+        return (obj.request and obj.user == user) or (
+            not obj.request and obj.organization.has_admin(user)
         )
