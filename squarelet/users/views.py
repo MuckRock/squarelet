@@ -62,7 +62,7 @@ ONBOARDING_SESSION_DEFAULTS = (
     ("email_check_completed", False),
     ("mfa_step", "not_started"),
     ("join_org", False),
-    ("subscription", "not_started")
+    ("subscription", "not_started"),
 )
 
 
@@ -161,6 +161,7 @@ class UserOnboardingView(TemplateView):
     template_name = "account/onboarding/base.html"  # Base template with includes
 
     def get_onboarding_step(self, request):
+        # pylint: disable=too-many-locals, too-many-return-statements
         """
         Check user account status and return the appropriate onboarding step
         Returns: (step_name, context_data)
@@ -346,10 +347,10 @@ class UserOnboardingView(TemplateView):
         # Check if onboarding is complete
         step, _ = self.get_onboarding_step(request)
 
-        if step == "confirm_email":
+        is_first_login = request.session.get("first_login", False)
+        if step == "confirm_email" and not is_first_login:
             # If the user just signed up, they are already sent the confirmation.
-            if not request.session.get("first_login", False):
-                send_email_confirmation(request, request.user, False, request.user.email)
+            send_email_confirmation(request, request.user, False, request.user.email)
 
         if not step and "next_url" in request.session:
             # Onboarding complete, redirect to original destination

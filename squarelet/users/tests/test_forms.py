@@ -284,9 +284,7 @@ def test_new_organization_model_choice_field(organization_factory):
 
 @pytest.mark.django_db
 def test_premium_subscription_form_init_with_professional_plan(
-    professional_plan_factory,
-    user_factory,
-    mocker
+    professional_plan_factory, user_factory, mocker
 ):
     """Test form initialization with professional plan"""
     # Create professional plan
