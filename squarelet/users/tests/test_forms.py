@@ -283,10 +283,16 @@ def test_new_organization_model_choice_field(organization_factory):
 
 
 @pytest.mark.django_db
-def test_premium_subscription_form_init_with_professional_plan(plan_factory, user):
+def test_premium_subscription_form_init_with_professional_plan(
+    professional_plan_factory,
+    user_factory,
+    mocker
+):
     """Test form initialization with professional plan"""
     # Create professional plan
-    plan = plan_factory(slug="professional")
+    user = user_factory()
+    mocker.patch("stripe.Plan.create")
+    plan = professional_plan_factory()
 
     form = forms.PremiumSubscriptionForm(plan=plan, user=user)
 
