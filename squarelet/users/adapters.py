@@ -31,6 +31,12 @@ class AccountAdapter(DefaultAccountAdapter):
     Custom account adapter for allauth
     """
 
+    def can_delete_email(self, email_address):
+        """Do not allow somone to delete their primary email address"""
+        if email_address.primary:
+            return False
+        return super().can_delete_email(email_address)
+
     def is_open_for_signup(self, request):
         return getattr(settings, "ACCOUNT_ALLOW_REGISTRATION", True)
 
