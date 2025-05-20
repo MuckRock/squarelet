@@ -14,7 +14,7 @@ from squarelet.oidc.permissions import ScopePermission
 from squarelet.organizations.models import Charge, Invitation, Organization
 from squarelet.organizations.permissions import (
     CanAcceptOrRejectInvitation,
-    CanRevokeInvitation,
+    CanWithdrawInvitation,
 )
 from squarelet.organizations.serializers import (
     ChargeSerializer,
@@ -105,8 +105,8 @@ class InvitationViewSet(viewsets.ModelViewSet):
         except ValueError as error:
             return Response({"detail": str(error)}, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=["post"], permission_classes=[CanRevokeInvitation])
-    def revoke(self, request):
+    @action(detail=True, methods=["post"], permission_classes=[CanWithdrawInvitation])
+    def withdraw(self, request):
         """
         Used to revoke a request to join an organization by a user
         or revoke a pending invite sent by an admin
@@ -114,7 +114,7 @@ class InvitationViewSet(viewsets.ModelViewSet):
         invitation = self.get_object()
         try:
             invitation.reject()
-            return Response({"status": "Invitation revoked"})
+            return Response({"status": "Invitation withdrawn."})
         except ValueError as error:
             return Response({"detail": str(error)}, status=status.HTTP_400_BAD_REQUEST)
         else:
