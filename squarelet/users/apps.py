@@ -31,3 +31,8 @@ class UsersConfig(AppConfig):
         except ProgrammingError:
             # skip if RSA Key is not found for some reason
             pass
+
+        from allauth.account import signals as account_signals
+        from allauth.mfa import signals as mfa_signals
+
+        account_signals._add_email.disconnect(mfa_signals.on_add_email)
