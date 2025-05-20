@@ -347,9 +347,13 @@ class UserOnboardingView(TemplateView):
         step, _ = self.get_onboarding_step(request)
 
         if step == "confirm_email":
-            # If the user has not verified their email,
-            # send a new confirmation message
-            send_email_confirmation(request, request.user, False, request.user.email)
+            is_first_login = (
+                request.user.last_login is None or 
+                request.user.date_joined.date() == request.user.last_login.date()
+            )
+            # If the user just signed up, they are already sent the confirmation.
+            if not is_first_login:
+                send_email_confirmation(request, request.user, False, request.user.email)
 
         if not step and "next_url" in request.session:
             # Onboarding complete, redirect to original destination
