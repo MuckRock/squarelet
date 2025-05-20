@@ -1,12 +1,24 @@
 # Third Party
-from rest_framework import viewsets
+from django.db.models import Q
+import django_filters
+from rest_framework import viewsets, filters
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAdminUser
+from rest_framework.response import Response
+from django_filters.rest_framework import DjangoFilterBackend
 
 # Squarelet
 from squarelet.oidc.permissions import ScopePermission
-from squarelet.organizations.models import Charge, Organization
-from squarelet.organizations.serializers import ChargeSerializer, OrganizationSerializer
+from squarelet.organizations.models import Charge, Organization, Invitation
+from squarelet.organizations.serializers import ChargeSerializer, OrganizationSerializer, InvitationSerializer
+from squarelet.organizations.permissions import CanRevokeInvitation, CanAcceptOrRejectInvitation
 
+class OrganizationFilter(django_filters.FilterSet):
+    verified_journalist = django_filters.BooleanFilter()
+
+    class Meta:
+        model = Organization
+        fields = ["verified_journalist"]
 
 class OrganizationViewSet(viewsets.ModelViewSet):
     # remove _plan after clients are updated
@@ -18,6 +30,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
     lookup_field = "uuid"
     swagger_schema = None
 
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = OrganizationFilter
+    search_fields = ["name"]
+    ordering_fields = ["name"]
+
 
 class ChargeViewSet(viewsets.ModelViewSet):
     queryset = Charge.objects.all()
@@ -26,3 +43,58 @@ class ChargeViewSet(viewsets.ModelViewSet):
     read_scopes = ("read_charge",)
     write_scopes = ("write_charge",)
     swagger_schema = None
+
+class InvitationViewSet(viewsets.ModelViewSet):
+    queryset = Invitation.objects.all()
+    serializer_class = InvitationSerializer
+    permission_classes = [IsAdminUser]  # restrict to staff users only
+    lookup_field = "uuid"
+    def get_queryset(self):
+        user = self.request.user
+        verified_emails = user.emailaddress_set.filter(verified=True).values_list("email", flat=True)
+
+        return Invitation.objects.filter(
+            accepted_at__isnull=True,
+            rejected_at__isnull=True
+        ).filter(
+            Q(user=user) |
+            Q(email__in=verified_emails) |
+            Q(
+                organization__memberships__user=user,
+                organization__memberships__admin=True
+            )
+        )
+
+
+    @action(detail=True, methods=["post"], permission_classes=[CanAcceptOrRejectInvitation])
+    def accept(self, request, uuid):
+        invitation = self.get_object()
+        try:
+            invitation.accept(user=request.user)
+            return Response({"status": "invitation accepted"})
+        except ValueError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=["post"], permission_classes=[CanAcceptOrRejectInvitation])
+    def reject(self, request, uuid):
+        invitation = self.get_object()
+        try:
+            invitation.reject()
+            return Response({"status": "invitation rejected"})
+        except ValueError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=["post"], permission_classes=[CanRevokeInvitation])
+    def revoke(self, request, uuid):
+        """ 
+            Used to revoke a request to join an organization by a user
+            or revoke a pending invite sent by an admin
+        """
+        invitation = self.get_object()
+        try:
+            invitation.reject()
+            return Response({"status": "Invitation revoked"})
+        except ValueError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)

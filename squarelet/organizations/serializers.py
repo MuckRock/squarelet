@@ -7,7 +7,7 @@ from rest_framework import serializers, status
 from rest_framework.exceptions import APIException
 
 # Squarelet
-from squarelet.organizations.models import Charge, Membership, Organization
+from squarelet.organizations.models import Charge, Membership, Organization, Invitation
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
@@ -144,3 +144,10 @@ class ChargeSerializer(serializers.ModelSerializer):
                 "Must supply a token if save card is true"
             )
         return attrs
+
+
+class InvitationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Invitation
+        fields = "__all__"
+        read_only_fields = ("accepted_at", "rejected_at", "created_at")
