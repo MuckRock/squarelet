@@ -16,9 +16,11 @@ def user_logged_in(request, user, **kwargs):
     print("User logged in:", user)
     print("Login request:", request)
 
-def user_signed_up(request, user, **kwargs):
+
+def user_signed_up(request, **kwargs):
     """The user has signed up in this session"""
-    request.session['first_login'] = True
+    request.session["first_login"] = True
+
 
 def email_confirmed(request, email_address, **kwargs):
     if email_address.primary:
