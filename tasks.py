@@ -1,4 +1,5 @@
 # Standard Library
+import os
 from pathlib import Path
 
 # Third Party
@@ -43,7 +44,14 @@ def staging(c):
 
 
 @task
-def test(c, path="squarelet", create_db=False, ipdb=False, warnings=False, capture_output=False):
+def test(
+    c,
+    path="squarelet",
+    create_db=False,
+    ipdb=False,
+    warnings=False,
+    capture_output=False,
+):
     """Run the test suite"""
     create_switch = "--create-db" if create_db else ""
     capture_switch = "-s" if capture_output else ""
@@ -200,7 +208,7 @@ def npm(c, cmd):
 def heroku(c, staging=False):
     """Run commands on heroku"""
     if staging:
-        app = "squarelet-staging"
+        app = os.environ.get("HEROKU_APP", "squarelet-staging")
     else:
         app = "squarelet"
     c.run(f"heroku run --app {app} python manage.py shell_plus", pty=True)
@@ -228,6 +236,7 @@ def pip_compile(c, upgrade=False, package=None):
             '"'
         )
     )
+
 
 @task(name="pip-audit")
 def pip_audit(c):

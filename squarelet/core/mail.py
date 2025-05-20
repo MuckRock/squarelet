@@ -31,7 +31,7 @@ class Email(EmailMultiAlternatives):
         super().__init__(**kwargs)
         # set up who we are sending the email to
         if user and organization:
-            raise ValueError("Supply only one of userand organization")
+            raise ValueError("Supply only one of user and organization")
         if user:
             self.to.append(user.email)
         if organization and organization_to == ORG_TO_ADMINS:

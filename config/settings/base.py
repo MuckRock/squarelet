@@ -408,6 +408,12 @@ REST_FRAMEWORK = {
 # first party urls
 # ------------------------------------------------------------------------------
 SQUARELET_URL = env("SQUARELET_URL", default="https://dev.squarelet.com")
+
+# handle preview deploys
+HEROKU_APP_NAME = env("HEROKU_APP_NAME", default="")
+if ENV == "staging" and HEROKU_APP_NAME:
+    SQUARELET_URL = f"https://{HEROKU_APP_NAME}.herokuapp.com"
+
 MUCKROCK_URL = env("MUCKROCK_URL", default="https://dev.muckrock.com")
 FOIAMACHINE_URL = env("FOIAMACHINE_URL", default="https://dev.foiamachine.org")
 DOCCLOUD_URL = env("DOCCLOUD_URL", default="https://www.dev.documentcloud.org")
