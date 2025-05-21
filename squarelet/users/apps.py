@@ -35,4 +35,9 @@ class UsersConfig(AppConfig):
         from allauth.account import signals as account_signals
         from allauth.mfa import signals as mfa_signals
 
+        # pylint-disable: protected-access
+        # We are disconnecting the built in signal for MFA here, as it prevents
+        # adding an email address if you have MFA turned on.  We have determined
+        # this to be undesirable.
+        # See https://github.com/MuckRock/squarelet/issues/290
         account_signals._add_email.disconnect(mfa_signals.on_add_email)
