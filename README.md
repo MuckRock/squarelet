@@ -40,10 +40,12 @@ export COMPOSE_FILE=local.yml
 ```
 
 > A command-line tool like [`direnv`](https://direnv.net/) can load this setting when you enter the project directory. With `direnv` installed, run:
+>
 > ```bash
 > direnv allow .
 > echo export COMPOSE_FILE=local.yml > .envrc
 > ```
+>
 > `.envrc` is omitted from version control.
 
 Generate local certificates for SSL support.
