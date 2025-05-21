@@ -40,6 +40,13 @@ class SignupForm(allauth.SignupForm):
     )
     organization_name = forms.CharField(max_length=255, required=False)
 
+    tos = forms.BooleanField(
+        required=True,
+        widget=forms.CheckboxInput(),
+        label="Terms of service",
+        help_text="You must agree to MuckRock's terms of service",
+    )
+
     def __init__(self, *args, **kwargs):
         # set free to blank in case people have old links
         if "data" in kwargs and kwargs["data"].get("plan") == "free":
@@ -54,6 +61,7 @@ class SignupForm(allauth.SignupForm):
             Field("username"),
             Field("email", type="email"),
             Field("password1", type="password", css_class="_cls-passwordInput"),
+            Field("tos", type="checkbox"),
         )
         self.fields["username"].widget.attrs.pop("autofocus", None)
         self.helper.form_tag = False
