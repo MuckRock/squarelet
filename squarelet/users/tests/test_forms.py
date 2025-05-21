@@ -22,6 +22,7 @@ def test_clean_good(plan_factory):
         "password1": "squarelet",
         "stripe_pk": "key",
         "plan": plan.slug,
+        "tos": True,
     }
     form = forms.SignupForm(data)
     assert form.is_valid()
@@ -37,6 +38,7 @@ def test_clean_bad_no_pay(professional_plan_factory, mocker):
         "email": "doe@example.com",
         "password1": "squarelet",
         "plan": "professional",
+        "tos": True,
     }
     form = forms.SignupForm(data)
     assert form.is_valid()
@@ -52,6 +54,7 @@ def test_clean_bad_no_org_name(organization_plan_factory, mocker):
         "email": "doe@example.com",
         "password1": "squarelet",
         "plan": "organization",
+        "tos": True,
     }
     form = forms.SignupForm(data)
     assert form.is_valid()
@@ -67,6 +70,7 @@ def test_save(rf, plan_factory):
         "password1": "squarelet",
         "stripe_pk": "key",
         "plan": plan.slug,
+        "tos": True,
     }
     request = rf.post("/accounts/signup/", data)
     request.session = MagicMock()
@@ -94,6 +98,7 @@ def test_save_org(rf, plan_factory, organization_plan_factory, mocker):
         "stripe_token": "token",
         "plan": "organization",
         "organization_name": "my organization",
+        "tos": True,
     }
     request = rf.post("/accounts/signup/", data)
     request.session = {}  # MagicMock()
