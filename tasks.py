@@ -208,7 +208,7 @@ def npm(c, cmd):
 def heroku(c, staging=False):
     """Run commands on heroku"""
     if staging:
-        app = os.environ.get("HEROKU_APP", "squarelet-staging")
+        app = os.environ.get("HEROKU_APP_NAME", "squarelet-staging")
     else:
         app = "squarelet"
     c.run(f"heroku run --app {app} python manage.py shell_plus", pty=True)
