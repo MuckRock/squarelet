@@ -89,7 +89,7 @@
     width: 100%;
     max-width: 20rem;
   }
-  .plan-feature-list {
+  .checklist {
     list-style-type: none;
     margin: 0;
     padding: 0;
@@ -99,14 +99,14 @@
     align-items: flex-start;
     gap: 0.5rem;
   }
-  .plan-feature {
+  .checklist-item {
     display: flex;
     align-items: flex-start;
     padding: 0.25rem 0.5rem;
     gap: 0.5rem;
     align-self: stretch;
   }
-  .plan-feature .text {
+  .checklist-item .text {
     flex: 1 0 0;
     color: var(--gray-5, #233944);
     font-feature-settings: 'ss04' on;
@@ -116,11 +116,11 @@
     font-weight: 600;
     line-height: normal;
   }
-  .plan-feature .icon {
+  .checklist-item .icon {
     display: flex;
     align-items: center;
   }
-  .plan-feature .icon svg {
+  .checklist-item .icon svg {
     width: var(--font-md, 1rem);
     height: var(--font-md, 1rem);
   }
@@ -213,6 +213,79 @@
   .organization.plan .price {
     color: var(--purple-5);
   }
+
+  .verified {
+    margin-bottom: 2rem;
+  }
+
+  .verified header {
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .verified header p {
+    color: var(--gray-4, #5C717C);
+    text-align: center;
+    font-feature-settings: 'ss04' on;
+
+    /* Label */
+    font-family: var(--font-sans, "Source Sans Pro");
+    font-size: var(--font-md, 1rem);
+    font-style: normal;
+    font-weight: 600;
+    line-height: normal;
+  }
+
+  .services-list {
+    margin: 0;
+    padding: 0;
+    flex: 1 0 0;
+    list-style-type: none;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 1.5rem;
+    align-self: stretch;
+  }
+
+  .service {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: stretch;
+    gap: 1.5rem;
+    align-self: stretch;
+  }
+
+  .service .identity {
+    display: flex;
+    width: 12.5625rem;
+    padding: 1.1875rem 1.3125rem;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.625rem;
+  }
+
+  .service .checklist {
+    display: flex;
+    padding: 1rem;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-content: center;
+    gap: 0.5rem 1rem;
+    flex: 1 0 0;
+    align-self: stretch;
+    flex-wrap: wrap;
+
+    border-radius: 0.5rem;
+    border: 1px solid var(--gray-2, #D8DEE2);
+  }
+
+  .service .checkmark svg {
+    fill: var(--blue-3);
+  }
 </style>
 {% endblock %}
 
@@ -235,8 +308,8 @@
           {% trans "Already have an account? Sign in" %}
         </a>
       </div>
-      <ul class="plan-feature-list">
-        <li class="plan-feature">
+      <ul class="checklist">
+        <li class="checklist-item">
           <span class="checkmark icon">
             {% include "core/icons/checkmark.svg" %}
           </span>
@@ -244,7 +317,7 @@
             {% trans "Sign in to services and tools with your MuckRock account" %}
           </span>
         </li>
-        <li class="plan-feature">
+        <li class="checklist-item">
           <span class="checkmark icon">
             {% include "core/icons/checkmark.svg" %}
           </span>
@@ -252,7 +325,7 @@
             {% trans "Create and file public records requests with MuckRock Requests" %}
           </span>
         </li>
-        <li class="plan-feature">
+        <li class="checklist-item">
           <span class="checkmark icon">
             {% include "core/icons/checkmark.svg" %}
           </span>
@@ -280,8 +353,8 @@
           <h3>{% trans "Premium for professionals" %}</h3>
         </header>
         <main>
-          <ul class="plan-feature-list">
-            <li class="plan-feature">
+          <ul class="checklist">
+            <li class="checklist-item">
               <span class="checkmark icon">
                 {% include "core/icons/checkmark.svg" %}
               </span>
@@ -289,7 +362,7 @@
                 {% trans "Includes 20 requests per month on MuckRock" %}
               </span>
             </li>
-            <li class="plan-feature">
+            <li class="checklist-item">
               <span class="checkmark icon">
                 {% include "core/icons/checkmark.svg" %}
               </span>
@@ -297,20 +370,20 @@
                 {% trans "Embargo requests for up to 30 days after completion " %}
               </span>
             </li>
-            <li class="plan-feature">
-              <span class="checkmark icon">
-                {% include "core/icons/checkmark.svg" %}
-              </span>
-              <span class="text">
-                {% trans "Includes 2,000 AI Credits per month on DocumentCloud for advanced OCR and premium add-ons" %}
-              </span>
-            </li>
-            <li class="plan-feature">
+            <li class="checklist-item">
               <span class="checkmark icon">
                 {% include "core/icons/checkmark.svg" %}
               </span>
               <span class="text">
                 {% trans "Search your private notes on DocumentCloud" %}
+              </span>
+            </li>
+            <li class="checklist-item">
+              <span class="checkmark icon">
+                {% include "core/icons/checkmark.svg" %}
+              </span>
+              <span class="text">
+                {% trans "Includes 2,000 AI Credits per month on DocumentCloud for advanced OCR and premium add-ons" %}
               </span>
             </li>
           </ul>
@@ -319,7 +392,7 @@
           <div class="price">
             $40/month
           </div>
-          <a class="button premium" href="{% url "account_signup" %}{% pass_query %}&plan=professional">Subscribe</a>
+          <a class="button premium" href="{% url "account_signup" %}{% pass_query %}&plan=professional">Sign up & subscribe</a>
         </footer>
       </div>
       <div class="plan organization">
@@ -330,8 +403,8 @@
           <h3>{% trans "Premium for organizations" %}</h3>
         </header>
         <main>
-          <ul class="plan-feature-list">
-            <li class="plan-feature">
+          <ul class="checklist">
+            <li class="checklist-item">
               <span class="checkmark icon">
                 {% include "core/icons/checkmark.svg" %}
               </span>
@@ -339,7 +412,7 @@
                 {% trans "Share resources with unlimited members" %}
               </span>
             </li>
-            <li class="plan-feature">
+            <li class="checklist-item">
               <span class="checkmark icon">
                 {% include "core/icons/checkmark.svg" %}
               </span>
@@ -347,7 +420,7 @@
                 {% trans "Includes 50 requests per month on MuckRock" %}
               </span>
             </li>
-            <li class="plan-feature">
+            <li class="checklist-item">
               <span class="checkmark icon">
                 {% include "core/icons/checkmark.svg" %}
               </span>
@@ -355,7 +428,7 @@
                 {% trans "Permanently embargo requests" %}
               </span>
             </li>
-            <li class="plan-feature">
+            <li class="checklist-item">
               <span class="checkmark icon">
                 {% include "core/icons/checkmark.svg" %}
               </span>
@@ -369,8 +442,45 @@
           <div class="price">
             $100/month
           </div>
-          <a class="button premium" href="{% url "account_signup" %}{% pass_query %}&plan=organization">Subscribe</a>
+          <a class="button premium" href="{% url "account_signup" %}{% pass_query %}&plan=organization">Sign up & subscribe</a>
         </footer>
+      </div>
+      <div class="verified plan">
+        <header>
+          <h2 class="header-display">
+            {% blocktrans %}
+            Verified newsrooms, journalists, researchers, and educators have access to additional reporting and publishing tools
+            {% endblocktrans %}
+          </h2>
+          <p>Apply to verify your organization after signing up or signing in</p>
+        </header>
+        <main>
+          <ul class="services-list">
+            <li class="service">
+              <div class="identity">
+                {% include "core/logos/documentcloud.svg" %}
+              </div>
+              <ul class="checklist">
+                <li class="checklist-item">
+                  <span class="checkmark icon">
+                    {% include "core/icons/checkmark.svg" %}
+                  </span>
+                  <span class="text">
+                    {% trans "Upload to DocumentCloud" %}
+                  </span>
+                </li>
+                <li class="checklist-item">
+                  <span class="checkmark icon">
+                    {% include "core/icons/checkmark.svg" %}
+                  </span>
+                  <span class="text">
+                    {% trans "Publish and embed documents" %}
+                  </span>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </main>
       </div>
     </main>
   </section>
