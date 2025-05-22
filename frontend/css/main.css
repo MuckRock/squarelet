@@ -1732,6 +1732,7 @@ a.service-provider:focus {
   white-space: nowrap;
   text-align: center;
   font-feature-settings: "ss04" on;
+  text-decoration: none;
 
   /* Label */
   font-family: var(--font-sans, "Source Sans Pro");
