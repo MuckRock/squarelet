@@ -8,6 +8,7 @@ from squarelet.oidc.tests.factories import ClientFactory
 from squarelet.organizations.tests.factories import (
     ChargeFactory,
     CustomerFactory,
+    EmailAddressFactory,
     EntitlementFactory,
     IndividualOrganizationFactory,
     InvitationFactory,
@@ -30,7 +31,7 @@ register(OrganizationPlanFactory)
 register(ProfessionalPlanFactory)
 register(SubscriptionFactory)
 register(CustomerFactory)
-
+register(EmailAddressFactory)
 register(UserFactory)
 
 

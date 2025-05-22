@@ -6,6 +6,7 @@ from datetime import date
 
 # Third Party
 import factory
+from allauth.account.models import EmailAddress
 from autoslug.utils import slugify
 
 
@@ -153,3 +154,12 @@ class EntitlementFactory(factory.django.DjangoModelFactory):
 
     class Meta:
         model = "organizations.Entitlement"
+
+
+class EmailAddressFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = EmailAddress
+
+    user = factory.SubFactory("squarelet.users.tests.factories.UserFactory")
+    email = factory.SelfAttribute("user.email")
+    verified = True
