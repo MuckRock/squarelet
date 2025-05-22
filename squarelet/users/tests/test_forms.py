@@ -110,7 +110,6 @@ def test_save_org(rf, plan_factory, organization_plan_factory, mocker):
     assert User.objects.filter(
         username=data["username"], email=data["email"], name=data["name"]
     ).exists()
-    # assert Organization.objects.filter(name=data["organization_name"]).exists()
 
 
 @pytest.mark.parametrize(
@@ -165,6 +164,8 @@ def test_premium_subscription_form_init_with_plan(plan_factory):
 def test_premium_subscription_form_clean_valid(plan_factory, user):
     """Test clean method with valid data"""
     plan = plan_factory()
+    plan.slug = "professional"
+    plan.save()
     data = {
         "organization": user.individual_organization.pk,
         "plan": plan.pk,
@@ -195,6 +196,8 @@ def test_premium_subscription_form_clean_missing_plan(user):
 def test_premium_subscription_form_clean_missing_stripe_token(plan_factory, user):
     """Test clean method with missing stripe token"""
     plan = plan_factory()
+    plan.slug = "professional"
+    plan.save()
     data = {
         "organization": user.individual_organization.pk,
         "plan": plan.pk,
@@ -210,6 +213,8 @@ def test_premium_subscription_form_clean_missing_stripe_token(plan_factory, user
 def test_premium_subscription_form_save(plan_factory, user, mocker):
     """Test save method successfully creating a subscription"""
     plan = plan_factory()
+    plan.slug = "professional"
+    plan.save()
     create_sub_mock = mocker.patch.object(
         Organization, "create_subscription", return_value=None
     )
@@ -234,6 +239,8 @@ def test_premium_subscription_form_save(plan_factory, user, mocker):
 def test_premium_subscription_form_save_stripe_error(plan_factory, user, mocker):
     """Test save method handling Stripe errors"""
     plan = plan_factory()
+    plan.slug = "professional"
+    plan.save()
     mocker.patch.object(
         Organization,
         "create_subscription",
@@ -291,6 +298,8 @@ def test_premium_subscription_form_init_with_professional_plan(
     user = user_factory()
     mocker.patch("stripe.Plan.create")
     plan = professional_plan_factory()
+    plan.slug = "professional"
+    plan.save()
 
     form = forms.PremiumSubscriptionForm(plan=plan, user=user)
 
@@ -304,6 +313,8 @@ def test_premium_subscription_form_init_with_professional_plan(
 def test_premium_subscription_form_clean_receipt_emails_valid(plan_factory):
     """Test valid receipt emails validation"""
     plan = plan_factory()
+    plan.slug = "professional"
+    plan.save()
     data = {
         "organization": "new",
         "new_organization_name": "New Test Organization",
@@ -351,6 +362,8 @@ def test_premium_subscription_form_clean_new_org_missing_name():
 def test_premium_subscription_form_save_new_organization(plan_factory, user, mocker):
     """Test creating a new organization during subscription"""
     plan = plan_factory()
+    plan.slug = "professional"
+    plan.save()
     create_sub_mock = mocker.patch.object(
         Organization, "create_subscription", return_value=None
     )
@@ -391,6 +404,8 @@ def test_premium_subscription_form_save_unique_violation(plan_factory, user, moc
         pass
 
     plan = plan_factory()
+    plan.slug = "professional"
+    plan.save()
     mocker.patch.object(
         Organization,
         "create_subscription",
