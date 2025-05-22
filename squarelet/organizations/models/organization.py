@@ -7,7 +7,6 @@ from django.utils.translation import gettext_lazy as _
 
 # Standard Library
 import uuid
-from datetime import date
 
 # Third Party
 from autoslug import AutoSlugField
