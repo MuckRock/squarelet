@@ -158,7 +158,7 @@ class PremiumSubscriptionForm(StripeForm):
 
     plan = forms.ModelChoiceField(
         label=_("Plan"),
-        queryset=Plan.objects.all(),
+        queryset=Plan.objects.filter(slug__in=["organization", "professional"]),
         empty_label=None,
         required=True,
     )
@@ -213,12 +213,6 @@ class PremiumSubscriptionForm(StripeForm):
 
     def clean(self):
         data = super().clean()
-        plan = data.get("plan")
-        if not plan:
-            self.add_error(
-                "plan",
-                _("A plan is required"),
-            )
         stripe_token = data.get("stripe_token")
         if not stripe_token:
             self.add_error(
@@ -253,7 +247,7 @@ class PremiumSubscriptionForm(StripeForm):
             # Create a new organization
             organization = Organization.objects.create(
                 name=new_organization_name,
-                private=True,
+                private=False,
             )
             # Add the user as an admin
             organization.add_creator(user)
