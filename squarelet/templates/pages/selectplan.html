@@ -1,233 +1,106 @@
 {% extends "account/base.html" %}
 
 {% load i18n static %}
-{% load crispy_forms_tags %}
-{% load handleintent %}
+{% load handleintent pass_query %}
 
 {% block head_title %}{% trans "Select plan" %}{% endblock %}
 
 {% block css %}
 {{ block.super }}
 <style>
-  
+  .container {
+    display: flex;
+    width: 50.5625rem;
+    flex-direction: column;
+    align-items: center;
+    gap: 4rem;
+  }
+  .plan {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+    align-self: stretch;
+  }
+  .plan header {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex: 1 0 0;
+    align-self: stretch;
+  }
+  .plan main {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.5rem;
+    align-self: stretch;
+  }
+  .free.plan main {
+    padding: 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--gray-2, #D8DEE2);
+    background: var(--white, #FFF);
+  }
+  .header-display {
+    text-align: center;
+    color: var(--gray-5, #233944);
+    font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
+    font-family: var(--font-sans, "Source Sans Pro");
+    font-size: var(--font-xl, 1.5rem);
+    font-style: normal;
+    font-weight: 600;
+    line-height: 2.25rem;
+  }
+  .heavy-underline {
+    text-decoration-line: underline;
+    text-decoration-style: solid;
+    text-decoration-skip-ink: none;
+    text-decoration-color: var(--gray-3, #4294F0);
+    text-decoration-thickness: 10%;
+    text-underline-offset: 25%;
+    text-underline-position: from-font;
+  }
+  .heavy-underline.primary {
+    text-decoration-color: var(--blue-3, #4294F0);
+  }
+  .heavy-underline.secondary {
+    text-decoration-color: var(--purple-3, #A0A0A0);
+  }
+  .heavy-underline.premium {
+    text-decoration-color: var(--green-3, #A0A0A0);
+  }
+  .plan-actions {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 0.625rem;
+    flex: 1 0 0;
+    align-self: stretch;
+  }
 </style>
 {% endblock %}
 
 {% block content %}
-
-<div class="_cls-content">
-  {% trans "Create an account for" as intent_header %}
-  {% trans "You’ll also be able to sign into" as intent_text %}
-  <p class="_cls-info">
-    {% trans "Already have an account?" %}
-    <a href="{% url "account_login" %}">
-      <span class="_cls-action">
-        {% trans "Login now" %}
-      </span>
-    </a>
-  </p>
-</div>
-
-<div class="_cls-form">
-  <div class="_cls-expandedContent">
-    <div class="_cls-cardContainer">
-      <div class="_cls-cards">
-        <div class="_cls-card">
-          <div class="_cls-cardHeader">
-            <h1>{% trans 'Free' %}</h1>
-          </div>
-          <div class="_cls-cardContent">
-            <ul>
-              <li>
-                {% blocktrans %}
-                  Sign up for free, no credit card required.
-                {% endblocktrans %}
-              </li>
-              {% if request.GET.intent == "documentcloud" %}
-                <li>
-                  {% blocktrans %}
-                    Upload, share, annotate and embed documents after account
-                    verification on DocumentCloud.
-                  {% endblocktrans %}
-                </li>
-                <li>
-                  {% blocktrans %}
-                    Use Add-Ons for additional features, such as scraping and
-                    audio transcriptions, or write your own.
-                  {% endblocktrans %}
-                </li>
-              {% else %}
-                <li>
-                  {% blocktrans %}
-                    Purchase bundles of 4 requests for $20 on MuckRock.
-                  {% endblocktrans %}
-                </li>
-                <li>
-                  {% blocktrans %}
-                    Bulk rate of $4/request on purchases of 20 or more
-                    additional requests.
-                  {% endblocktrans %}
-                </li>
-              {% endif %}
-            </ul>
-          </div>
-          <div class="_cls-cardAction">
-            <a class="_cls-nostyle" href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'squarelet' %}">
-              <button>{% blocktrans %}Sign up for free{% endblocktrans %}</button>
-            </a>
-          </div>
-        </div>
-        <div class="_cls-card">
-          <div class="_cls-cardHeader">
-            <h1>{% trans 'Professional' %}</h1>
-          </div>
-          <div class="_cls-cardContent">
-            {% if request.GET.intent == "documentcloud" %}
-              <ul>
-                <li>
-                  {% blocktrans %}
-                    Use advanced OCR powered by AWS Textract for the most
-                    accurate text extraction on up to 2,000 pages per month on
-                    DocumentCloud.
-                  {% endblocktrans %}
-                </li>
-                <li>
-                  {% blocktrans %}
-                    Ability to search through the notes on your documents.
-                  {% endblocktrans %}
-                </li>
-              </ul>
-              <em class="_cls-plus">Plus access to MuckRock Pro Features:</em>
-              <ul>
-                <li>
-                  {% blocktrans %}
-                    Receive 20 requests per month on MuckRock.
-                  {% endblocktrans %}
-                </li>
-                <li>
-                  {% blocktrans %}
-                    Embargo requests for up to 30 days after completion.
-                  {% endblocktrans %}
-                </li>
-              </ul>
-            {% else %}
-              <ul>
-                <li>
-                  {% blocktrans %}
-                    Receive 20 requests per month on MuckRock.
-                  {% endblocktrans %}
-                </li>
-                <li>
-                  {% blocktrans %}
-                    Embargo requests for up to 30 days after completion.
-                  {% endblocktrans %}
-                </li>
-                <li>
-                  {% blocktrans %}
-                    Bulk rate of $3/request on purchases of 20 or more
-                    additional requests.
-                  {% endblocktrans %}
-                </li>
-              </ul>
-              <em class="_cls-plus">Plus access to DocumentCloud Pro Features:</em>
-              <ul>
-                <li>
-                  {% blocktrans %}
-                    Use Textract advanced OCR on up to 2,000 pages per month on
-                    DocumentCloud.
-                  {% endblocktrans %}
-                </li>
-                <li>
-                  {% blocktrans %}
-                    Ability to search through notes.
-                  {% endblocktrans %}
-                </li>
-              </ul>
-            {% endif %}
-          </div>
-          <div class="_cls-cardAction">
-            <a class="_cls-nostyle" href="{% url 'account_signup' %}?plan=professional&intent={% firstof request.GET.intent 'squarelet' %}">
-              <button>
-                {% blocktrans %}Subscribe for $40/month{% endblocktrans %}
-              </button>
-            </a>
-          </div>
-          <em class="_cls-verify">DocumentCloud features require user verification</em>
-        </div>
-        <div class="_cls-card">
-          <div class="_cls-cardHeader">
-            <h1>{% trans 'Organization' %}</h1>
-          </div>
-          <div class="_cls-cardContent">
-            {% if request.GET.intent == "documentcloud" %}
-              <ul>
-                <li>
-                  {% blocktrans %}
-                    This plan has unlimited members and 5,000 credits usable
-                    for advanced OCR and premium add-ons on DocumentCloud.
-                  {% endblocktrans %}
-                </li>
-                <li>
-                  {% blocktrans %}
-                    Add additional blocks of 500 credits for $10 per month.
-                  {% endblocktrans %}
-                </li>
-              </ul>
-              <em class="_cls-plus">Plus access to MuckRock Organization Features:</em>
-              <ul>
-                <li>
-                  {% blocktrans %}
-                    50 collective requests per month on MuckRock.
-                  {% endblocktrans %}
-                </li>
-                <li>
-                  {% blocktrans %}
-                    Members can make embargoes permanent.
-                  {% endblocktrans %}
-                </li>
-              </ul>
-            {% else %}
-              <ul>
-                <li>
-                  {% blocktrans %}
-                    This plan has unlimited users and 50 collective requests per month
-                    on MuckRock.
-                  {% endblocktrans %}
-                </li>
-                <li>
-                  {% blocktrans %}
-                    Add additional blocks of 5 requests for $10 per month.
-                  {% endblocktrans %}
-                </li>
-                <li>
-                  {% blocktrans %}
-                    Members can make embargoes permanent.
-                  {% endblocktrans %}
-                </li>
-              </ul>
-              <em class="_cls-plus">Plus access to DocumentCloud Organization Features:</em>
-              <ul>
-                <li>
-                  {% blocktrans %}
-                    Use Textract advanced OCR on up to 5,000 pages per month
-                    and premium add-ons on DocumentCloud.
-                  {% endblocktrans %}
-                </li>
-              </ul>
-            {% endif %}
-          </div>
-          <div class="_cls-cardAction">
-            <a class="_cls-nostyle" href="{% url 'account_signup' %}?plan=organization&intent={% firstof request.GET.intent 'squarelet' %}">
-              <button>
-                {% blocktrans %}Subscribe from $100/month{% endblocktrans %}
-              </button>
-            </a>
-          </div>
-          <em class="_cls-verify">DocumentCloud features require user verification</em>
-        </div>
+<article class="container">
+  <section class="plan free">
+    <header>
+      <h1 class="header-display">
+        {% blocktrans %}
+        Create your <span class="heavy-underline primary">MuckRock account</a> for free, no credit-card required
+        {% endblocktrans %}
+      </h1>
+    </header>
+    <main>
+      <div class="plan-actions">
+        <a href="{% url 'account_signup' %}{% pass_query %}" class="button primary">
+          {% trans  "Sign up for free" %}
+        </a>
+        <a href="{% url 'account_login' %}{% pass_query %}" class="button primary ghost">
+          {% trans "Already have an account? Sign in" %}
+        </a>
       </div>
-    </div>
-  </div>
-</div>
-
+    </main>
+  </section>
+</article>
 {% endblock %}
