@@ -427,13 +427,7 @@ class Organization(AvatarMixin, models.Model):
 
     def has_active_subscription(self):
         """Check if the organization has an active subscription"""
-        subscription = self.subscription
-        if not subscription:
-            return False
-        is_expired = subscription.update_on < date.today()
-        if subscription.cancelled and is_expired:
-            return False
-        return True
+        return bool(self.subscription)
 
     def charge(
         self,
