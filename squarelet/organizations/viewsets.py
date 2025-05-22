@@ -4,7 +4,7 @@ from django.db.models import Q
 
 import django_filters
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters, status, viewsets, mixins
+from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
@@ -61,9 +61,7 @@ class ChargeViewSet(viewsets.ModelViewSet):
 
 
 class InvitationViewSet(
-    mixins.ListModelMixin,
-    mixins.RetrieveModelMixin,
-    viewsets.GenericViewSet
+    mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet
 ):
     queryset = Invitation.objects.all()
     serializer_class = InvitationSerializer

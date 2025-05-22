@@ -6,8 +6,8 @@ from datetime import date
 
 # Third Party
 import factory
-from autoslug.utils import slugify
 from allauth.account.models import EmailAddress
+from autoslug.utils import slugify
 
 
 class OrganizationFactory(factory.django.DjangoModelFactory):

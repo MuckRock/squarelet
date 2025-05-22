@@ -1,11 +1,12 @@
 # Django
 from django.contrib.auth.models import AnonymousUser
 
-# Rest Framework
-from rest_framework.test import force_authenticate
-
 # Standard Library
 from unittest.mock import MagicMock
+
+# Third Party
+# Rest Framework
+from rest_framework.test import force_authenticate
 
 
 class ViewTestMixin:
@@ -32,10 +33,14 @@ class ViewTestMixin:
         """Assert a message was added"""
         self.request._messages.add.assert_called_with(level, message, "")
 
+
 class ViewSetTestMixin:
     """Test mixin to help call ViewSet endpoints from tests"""
 
-    def call_action(self, rf, action, method="get", user=None, data=None, params=None, **kwargs):
+    # pylint: disable=protected-access, invalid-name
+    def call_action(
+        self, rf, action, method="get", user=None, data=None, params=None, **kwargs
+    ):
         if params is None:
             params = {}
         if user is None:
@@ -45,7 +50,7 @@ class ViewSetTestMixin:
 
         method = method.lower()
 
-        # Dynamically get the corresponding rf method: get, post, put, patch, delete, etc.
+        # Dynamically get the corresponding methods
         rf_method = getattr(rf, method)
 
         # For GET send params as query string
