@@ -15,7 +15,7 @@
     flex-direction: column;
     align-items: center;
     align-self: center;
-    gap: 4rem;
+    gap: 2rem;
   }
   .plan {
     display: flex;
@@ -26,10 +26,12 @@
   }
   .plan header {
     display: flex;
-    flex-direction: column;
-    justify-content: center;
     flex: 1 0 0;
     align-self: stretch;
+  }
+  .plan header h2 {
+    flex: 1 1 100%;
+    text-align: center;
   }
   .plan main {
     display: flex;
@@ -98,8 +100,8 @@
   }
   .plan-feature {
     display: flex;
+    align-items: flex-start;
     padding: 0.25rem 0.5rem;
-    align-items: center;
     gap: 0.5rem;
     align-self: stretch;
   }
@@ -124,8 +126,71 @@
   .free.plan .checkmark {
     fill: var(--blue-3);
   }
-  .premium.individual.plan .checkmark {
+  .professional.plan .checkmark {
     fill: var(--green-3);
+  }
+
+  .professional.plan {
+    display: flex;
+    padding: 1rem 0.75rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    flex: 1 0 0;
+    align-self: stretch;
+    border-radius: 0.5rem;
+    border: 1px solid var(--green-2);
+    background: var(--green-1);
+  }
+  .professional.plan main {
+    justify-content: flex-start;
+  }
+  .professional.plan .icon {
+    fill: var(--green-3);
+  }
+
+  .plan header {
+    display: flex;
+    padding: 0.25rem 0.5rem;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .plan header .icon {
+    display: flex;
+    align-items: center;
+    width: var(--font-md, 1rem);
+    height: var(--font-md, 1rem);
+  }
+  .plan header h3 {
+    margin: 0;
+    font-family: var(--font-sans, "Source Sans Pro");
+    font-size: var(--font-md, 1rem);
+    font-style: normal;
+    font-feature-settings: 'ss04' on;
+    font-weight: 600;
+    line-height: normal;
+  }
+  .professional.plan h3 {
+    color: var(--green-4);
+  }
+
+  .plan footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    align-self: stretch;
+  }
+  .plan .price {
+    font-family: var(--font-sans, "Source Sans Pro");
+    font-size: var(--font-lg, 1.25rem);
+    font-style: normal;
+    font-weight: 600;
+    line-height: normal;
+    text-align: center;
+    font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
+  }
+  .professional.plan .price {
+    color: var(--green-5, #1E2B60);
   }
 </style>
 {% endblock %}
@@ -134,11 +199,11 @@
 <article class="container">
   <section class="plan free">
     <header>
-      <h1 class="header-display">
+      <h2 class="header-display">
         {% blocktrans %}
         Create your <span class="heavy-underline primary">MuckRock account</span> for free, no credit-card required
         {% endblocktrans %}
-      </h1>
+      </h2>
     </header>
     <main>
       <div class="plan-actions">
@@ -175,6 +240,68 @@
           </span>
         </li>
       </ul>
+    </main>
+  </section>
+  <section class="plan premium">
+    <header>
+      <h2 class="header-display">
+        {% blocktrans %}
+        Subscribe to a <span class="heavy-underline premium">Premium plan</span> for advanced features and discounts 
+        {% endblocktrans %}
+      </h2>
+    </header>
+    <main>
+      <div class="plan professional">
+        <header>
+          <span class="person icon">
+            {% include "core/icons/person.svg" %}
+          </span>
+          <h3>{% trans "Premium for professionals" %}</h3>
+        </header>
+        <main>
+          <ul class="plan-feature-list">
+            <li class="plan-feature">
+              <span class="checkmark icon">
+                {% include "core/icons/checkmark.svg" %}
+              </span>
+              <span class="text">
+                {% trans "Includes 20 requests per month on MuckRock" %}
+              </span>
+            </li>
+            <li class="plan-feature">
+              <span class="checkmark icon">
+                {% include "core/icons/checkmark.svg" %}
+              </span>
+              <span class="text">
+                {% trans "Embargo requests for up to 30 days after completion " %}
+              </span>
+            </li>
+            <li class="plan-feature">
+              <span class="checkmark icon">
+                {% include "core/icons/checkmark.svg" %}
+              </span>
+              <span class="text">
+                {% trans "Includes 2,000 AI Credits per month on DocumentCloud for advanced OCR and premium add-ons" %}
+              </span>
+            </li>
+            <li class="plan-feature">
+              <span class="checkmark icon">
+                {% include "core/icons/checkmark.svg" %}
+              </span>
+              <span class="text">
+                {% trans "Search your private notes on DocumentCloud" %}
+              </span>
+            </li>
+          </ul>
+        </main>
+        <footer>
+          <div class="price">
+            $40/month
+          </div>
+          <a class="button premium" href="{% url "account_signup" %}{% pass_query %}&plan=professional">Subscribe</a>
+        </footer>
+      </div>
+      
     </main>
   </section>
 </article>
