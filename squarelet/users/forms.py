@@ -233,8 +233,8 @@ class PremiumSubscriptionForm(StripeForm):
     def save(self, user):
         """Create a subscription for the organization with the selected plan"""
         cleaned_data = self.cleaned_data
-        plan: Plan | None = cleaned_data.get("plan")
-        organization: Organization | None = cleaned_data.get("organization")
+        plan: Plan = cleaned_data["plan"]
+        organization: Organization = cleaned_data["organization"]
         new_organization_name = cleaned_data.get("new_organization_name")
         receipt_emails = cleaned_data.get("receipt_emails")
         stripe_token = cleaned_data.get("stripe_token")
@@ -258,8 +258,7 @@ class PremiumSubscriptionForm(StripeForm):
                     if not organization.receipt_emails.filter(email=email).exists():
                         organization.receipt_emails.create(email=email)
         try:
-            if organization is not None:
-                organization.create_subscription(stripe_token, plan, user)
+            organization.create_subscription(stripe_token, plan, user)
         except stripe.error.StripeError as exc:
             logger.error("Error updating subscription: %s", exc)
             raise forms.ValidationError(
