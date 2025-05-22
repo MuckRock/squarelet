@@ -163,9 +163,7 @@ def test_premium_subscription_form_init_with_plan(plan_factory):
 @pytest.mark.django_db
 def test_premium_subscription_form_clean_valid(plan_factory, user):
     """Test clean method with valid data"""
-    plan = plan_factory()
-    plan.slug = "professional"
-    plan.save()
+    plan = plan_factory(slug="professional")
     data = {
         "organization": user.individual_organization.pk,
         "plan": plan.pk,
@@ -173,7 +171,7 @@ def test_premium_subscription_form_clean_valid(plan_factory, user):
         "stripe_pk": "pk_test_123",
     }
 
-    form = forms.PremiumSubscriptionForm(data, user=user)
+    form = forms.PremiumSubscriptionForm(data, plan=plan, user=user)
     if not form.is_valid():
         print("Form errors:", form.errors)
     assert form.is_valid()
@@ -195,16 +193,14 @@ def test_premium_subscription_form_clean_missing_plan(user):
 @pytest.mark.django_db
 def test_premium_subscription_form_clean_missing_stripe_token(plan_factory, user):
     """Test clean method with missing stripe token"""
-    plan = plan_factory()
-    plan.slug = "professional"
-    plan.save()
+    plan = plan_factory(slug="professional")
     data = {
         "organization": user.individual_organization.pk,
         "plan": plan.pk,
         "stripe_pk": "pk_test_123",
     }
 
-    form = forms.PremiumSubscriptionForm(data)
+    form = forms.PremiumSubscriptionForm(data, plan=plan)
     assert not form.is_valid()
     assert "stripe_token" in form.errors
 
@@ -212,9 +208,7 @@ def test_premium_subscription_form_clean_missing_stripe_token(plan_factory, user
 @pytest.mark.django_db
 def test_premium_subscription_form_save(plan_factory, user, mocker):
     """Test save method successfully creating a subscription"""
-    plan = plan_factory()
-    plan.slug = "professional"
-    plan.save()
+    plan = plan_factory(slug="professional")
     create_sub_mock = mocker.patch.object(
         Organization, "create_subscription", return_value=None
     )
@@ -226,7 +220,7 @@ def test_premium_subscription_form_save(plan_factory, user, mocker):
         "stripe_pk": "pk_test_123",
     }
 
-    form = forms.PremiumSubscriptionForm(data, user=user)
+    form = forms.PremiumSubscriptionForm(data, plan=plan, user=user)
     if not form.is_valid():
         print("Form errors:", form.errors)
     assert form.is_valid()
@@ -238,9 +232,7 @@ def test_premium_subscription_form_save(plan_factory, user, mocker):
 @pytest.mark.django_db
 def test_premium_subscription_form_save_stripe_error(plan_factory, user, mocker):
     """Test save method handling Stripe errors"""
-    plan = plan_factory()
-    plan.slug = "professional"
-    plan.save()
+    plan = plan_factory(slug="professional")
     mocker.patch.object(
         Organization,
         "create_subscription",
@@ -254,7 +246,7 @@ def test_premium_subscription_form_save_stripe_error(plan_factory, user, mocker)
         "stripe_pk": "pk_test_123",
     }
 
-    form = forms.PremiumSubscriptionForm(data, user=user)
+    form = forms.PremiumSubscriptionForm(data, plan=plan, user=user)
     if not form.is_valid():
         print("Form errors:", form.errors)
     assert form.is_valid()
@@ -312,9 +304,7 @@ def test_premium_subscription_form_init_with_professional_plan(
 @pytest.mark.django_db
 def test_premium_subscription_form_clean_receipt_emails_valid(plan_factory):
     """Test valid receipt emails validation"""
-    plan = plan_factory()
-    plan.slug = "professional"
-    plan.save()
+    plan = plan_factory(slug="professional")
     data = {
         "organization": "new",
         "new_organization_name": "New Test Organization",
@@ -324,7 +314,7 @@ def test_premium_subscription_form_clean_receipt_emails_valid(plan_factory):
         "receipt_emails": "test@example.com, another@test.com",
     }
 
-    form = forms.PremiumSubscriptionForm(data)
+    form = forms.PremiumSubscriptionForm(data, plan=plan)
     assert form.is_valid()
     cleaned_emails = form.cleaned_data.get("receipt_emails")
 
@@ -361,9 +351,7 @@ def test_premium_subscription_form_clean_new_org_missing_name():
 @pytest.mark.django_db
 def test_premium_subscription_form_save_new_organization(plan_factory, user, mocker):
     """Test creating a new organization during subscription"""
-    plan = plan_factory()
-    plan.slug = "professional"
-    plan.save()
+    plan = plan_factory(slug="professional")
     create_sub_mock = mocker.patch.object(
         Organization, "create_subscription", return_value=None
     )
@@ -377,7 +365,7 @@ def test_premium_subscription_form_save_new_organization(plan_factory, user, moc
         "receipt_emails": "billing@example.com, finance@example.com",
     }
 
-    form = forms.PremiumSubscriptionForm(data, user=user)
+    form = forms.PremiumSubscriptionForm(data, plan=plan, user=user)
     assert form.is_valid(), f"Form errors: {form.errors}"
     form.save(user)
 
@@ -403,9 +391,7 @@ def test_premium_subscription_form_save_unique_violation(plan_factory, user, moc
     class MockUniqueViolation(errors.lookup(UNIQUE_VIOLATION)):
         pass
 
-    plan = plan_factory()
-    plan.slug = "professional"
-    plan.save()
+    plan = plan_factory(slug="professional")
     mocker.patch.object(
         Organization,
         "create_subscription",
@@ -421,7 +407,7 @@ def test_premium_subscription_form_save_unique_violation(plan_factory, user, moc
         "stripe_pk": "pk_test_123",
     }
 
-    form = forms.PremiumSubscriptionForm(data, user=user)
+    form = forms.PremiumSubscriptionForm(data, plan=plan, user=user)
     assert form.is_valid()
 
     with pytest.raises(ValidationError) as excinfo:
