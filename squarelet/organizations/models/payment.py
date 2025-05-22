@@ -151,6 +151,9 @@ class Subscription(models.Model):
         _("date update"), help_text=_("Date when monthly resources are restored")
     )
 
+    # The cancelled flag is used to mark subscriptions that are ready for cancellation.
+    # Cancellation happens at the end of the billing period; at that point,
+    # the subscription is deleted from the database.
     cancelled = models.BooleanField(default=False)
 
     class Meta:
