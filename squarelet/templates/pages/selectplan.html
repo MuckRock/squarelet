@@ -10,9 +10,11 @@
 <style>
   .container {
     display: flex;
-    width: 50.5625rem;
+    max-width: 72rem;
+    padding: 3rem;
     flex-direction: column;
     align-items: center;
+    align-self: center;
     gap: 4rem;
   }
   .plan {
@@ -32,6 +34,8 @@
   .plan main {
     display: flex;
     align-items: flex-start;
+    justify-content: center;
+    flex-wrap: wrap;
     gap: 1.5rem;
     align-self: stretch;
   }
@@ -78,6 +82,51 @@
     flex: 1 0 0;
     align-self: stretch;
   }
+  .plan-actions .button {
+    width: 100%;
+    max-width: 20rem;
+  }
+  .plan-feature-list {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  .plan-feature {
+    display: flex;
+    padding: 0.25rem 0.5rem;
+    align-items: center;
+    gap: 0.5rem;
+    align-self: stretch;
+  }
+  .plan-feature .text {
+    flex: 1 0 0;
+    color: var(--gray-5, #233944);
+    font-feature-settings: 'ss04' on;
+    font-family: var(--font-sans, "Source Sans Pro");
+    font-size: var(--font-sm, 0.825rem);
+    font-style: normal;
+    font-weight: 600;
+    line-height: normal;
+  }
+  .plan-feature .icon {
+    display: flex;
+    align-items: center;
+  }
+  .plan-feature .icon svg {
+    width: var(--font-md, 1rem);
+    height: var(--font-md, 1rem);
+  }
+  .free.plan .checkmark {
+    fill: var(--blue-3);
+  }
+  .premium.individual.plan .checkmark {
+    fill: var(--green-3);
+  }
 </style>
 {% endblock %}
 
@@ -87,7 +136,7 @@
     <header>
       <h1 class="header-display">
         {% blocktrans %}
-        Create your <span class="heavy-underline primary">MuckRock account</a> for free, no credit-card required
+        Create your <span class="heavy-underline primary">MuckRock account</span> for free, no credit-card required
         {% endblocktrans %}
       </h1>
     </header>
@@ -100,6 +149,32 @@
           {% trans "Already have an account? Sign in" %}
         </a>
       </div>
+      <ul class="plan-feature-list">
+        <li class="plan-feature">
+          <span class="checkmark icon">
+            {% include "core/icons/checkmark.svg" %}
+          </span>
+          <span class="text">
+            {% trans "Sign in to services and tools with your MuckRock account" %}
+          </span>
+        </li>
+        <li class="plan-feature">
+          <span class="checkmark icon">
+            {% include "core/icons/checkmark.svg" %}
+          </span>
+          <span class="text">
+            {% trans "Create and file public records requests with MuckRock Requests" %}
+          </span>
+        </li>
+        <li class="plan-feature">
+          <span class="checkmark icon">
+            {% include "core/icons/checkmark.svg" %}
+          </span>
+          <span class="text">
+            {% trans "Search documents and create projects with DocumentCloud" %}
+          </span>
+        </li>
+      </ul>
     </main>
   </section>
 </article>
