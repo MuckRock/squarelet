@@ -1,4 +1,5 @@
 # Django
+from django.db import transaction
 from django.contrib import messages
 from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import PermissionDenied
@@ -14,10 +15,10 @@ import pytest
 import stripe
 
 # Squarelet
-from squarelet.core.tests.mixins import ViewTestMixin
+from squarelet.core.tests.mixins import ViewTestMixin, ViewSetTestMixin
 
 # Local
-from .. import views
+from .. import views, viewsets
 from ..models import ReceiptEmail
 
 # pylint: disable=invalid-name
@@ -520,3 +521,152 @@ class TestStripeWebhook:
         event = {"type": "test"}
         response = self.call_view(rf, event)
         assert response.status_code == 400
+
+@pytest.mark.django_db
+class TestInvitationViewSet(ViewSetTestMixin):
+    view = viewsets.InvitationViewSet
+    url = "/invitations/"
+
+    def test_list_invitations_for_user(self, rf, invitation_factory, user_factory):
+        user = user_factory()
+        user2 = user_factory()
+        visible_invite = invitation_factory(user=user)
+        invisible_invite = invitation_factory(user=user2)
+
+        response = self.call_action(rf, action="list", user=user)
+        assert response.status_code == 200
+        assert any(inv["id"] == visible_invite.id for inv in response.data["results"])
+        assert not any(inv["id"] == invisible_invite.id for inv in response.data["results"])
+
+
+    @transaction.atomic
+    def test_accept_invitation(self, rf, invitation_factory, user_factory, email_address_factory):
+
+        email = "user@example.com"
+        user = user_factory(email=email)
+        email_address_factory(user=user, email=email, verified=True)
+        invitation = invitation_factory(email=email, request=False)
+        print(invitation.uuid)
+        self.url = "/invitations/{uuid}/accept/"
+        response = self.call_action(
+            rf,
+            action="accept",
+            method="post",
+            user=user,
+            data={},
+            uuid=invitation.uuid
+        )
+
+        assert response.status_code == 200
+        invitation.refresh_from_db()
+        assert invitation.accepted_at is not None
+        assert response.data["status"] == "invitation accepted"
+    
+    @transaction.atomic
+    def test_reject_invitation(self, rf, invitation_factory, user_factory):
+        user = user_factory()
+        invitation = invitation_factory(user=user)
+        self.url = f"/invitations/{invitation.uuid}/reject/"
+
+        response = self.call_action(
+            rf,
+            action="reject",
+            method="post",
+            user=user,
+            data={},
+            uuid=invitation.uuid
+        )
+
+        assert response.status_code == 200
+        invitation.refresh_from_db() 
+        assert invitation.rejected_at is not None
+        assert response.data["status"] == "invitation rejected"
+
+    @transaction.atomic
+    def test_withdraw_invitation_as_admin(self, rf, invitation_factory, organization_factory, user_factory):
+        admin = user_factory()
+        org = organization_factory(admins=[admin])
+        invitation = invitation_factory(organization=org)
+        self.url = f"/invitations/{invitation.uuid}/withdraw/"
+
+        response = self.call_action(
+            rf,
+            action="withdraw",
+            method="post",
+            user=admin,
+            data={},
+            uuid=invitation.uuid
+        )
+
+        assert response.status_code == 200
+        invitation.refresh_from_db()
+        assert invitation.rejected_at is not None
+        assert response.data["status"] == "Invitation withdrawn."
+
+    def test_reject_already_rejected_invitation(self, rf, invitation_factory, user_factory):
+        user = user_factory()
+        invitation = invitation_factory(user=user, rejected_at=timezone.now())
+        self.url = f"/invitations/{invitation.uuid}/reject/"
+
+        response = self.call_action(
+            rf,
+            action="reject",
+            method="post",
+            user=user,
+            data={},
+            uuid=invitation.uuid
+        )
+
+        assert response.status_code == 404
+        assert "detail" in response.data
+
+    def test_accept_already_accepted_invitation(self, rf, invitation_factory, user_factory):
+        user = user_factory()
+        invitation = invitation_factory(user=user, accepted_at=timezone.now())
+        self.url = f"/invitations/{invitation.uuid}/accept/"
+
+        response = self.call_action(
+            rf,
+            action="accept",
+            method="post",
+            user=user,
+            data={},
+            uuid=invitation.uuid
+        )
+
+        assert response.status_code == 404
+        assert "detail" in response.data
+
+    def test_user_cannot_accept_others_invitation(self, rf, invitation_factory, user_factory):
+        user = user_factory()
+        other_user = user_factory()
+        invitation = invitation_factory(user=other_user)
+        self.url = f"/invitations/{invitation.uuid}/accept/"
+
+        response = self.call_action(
+            rf,
+            action="accept",
+            method="post",
+            user=user,
+            data={},
+            uuid=invitation.uuid
+        )
+
+        assert response.status_code == 404
+
+    def test_non_admin_cannot_withdraw_invitation(self, rf, invitation_factory, organization_factory, user_factory):
+        user = user_factory()
+        org = organization_factory()
+        invitation = invitation_factory(organization=org)
+        self.url = f"/invitations/{invitation.uuid}/withdraw/"
+
+        response = self.call_action(
+            rf,
+            action="withdraw",
+            method="post",
+            user=user,
+            data={},
+            uuid=invitation.uuid
+        )
+
+        assert response.status_code in (403, 404)

@@ -4,9 +4,9 @@ from django.db.models import Q
 
 import django_filters
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters, status, viewsets
+from rest_framework import filters, status, viewsets, mixins
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAdminUser
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 
 # Squarelet
@@ -60,10 +60,14 @@ class ChargeViewSet(viewsets.ModelViewSet):
     swagger_schema = None
 
 
-class InvitationViewSet(viewsets.ModelViewSet):
+class InvitationViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    viewsets.GenericViewSet
+):
     queryset = Invitation.objects.all()
     serializer_class = InvitationSerializer
-    permission_classes = [IsAdminUser]  # restrict to staff users only
+    permission_classes = [IsAuthenticated]
     lookup_field = "uuid"
 
     def get_queryset(self):
@@ -86,7 +90,7 @@ class InvitationViewSet(viewsets.ModelViewSet):
     @action(
         detail=True, methods=["post"], permission_classes=[CanAcceptOrRejectInvitation]
     )
-    def accept(self, request):
+    def accept(self, request, *args, **kwargs):
         invitation = self.get_object()
         try:
             invitation.accept(user=request.user)
@@ -97,7 +101,7 @@ class InvitationViewSet(viewsets.ModelViewSet):
     @action(
         detail=True, methods=["post"], permission_classes=[CanAcceptOrRejectInvitation]
     )
-    def reject(self, request):
+    def reject(self, request, *args, **kwargs):
         invitation = self.get_object()
         try:
             invitation.reject()
@@ -106,7 +110,7 @@ class InvitationViewSet(viewsets.ModelViewSet):
             return Response({"detail": str(error)}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=["post"], permission_classes=[CanWithdrawInvitation])
-    def withdraw(self, request):
+    def withdraw(self, request, *args, **kwargs):
         """
         Used to revoke a request to join an organization by a user
         or revoke a pending invite sent by an admin
