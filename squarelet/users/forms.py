@@ -12,8 +12,10 @@ import logging
 import stripe
 from allauth.account import forms as allauth
 from allauth.account.utils import setup_user_email
+from allauth.mfa.base import forms as mfa
+from allauth.mfa.utils import is_mfa_enabled
 from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Layout
+from crispy_forms.layout import HTML, Layout
 from psycopg2 import errors
 from psycopg2.errorcodes import UNIQUE_VIOLATION
 
@@ -333,15 +335,36 @@ class ResetPasswordForm(allauth.ResetPasswordForm):
         self.helper.form_tag = False
 
 
-class ResetPasswordKeyForm(allauth.ResetPasswordKeyForm):
+class ResetPasswordKeyForm(mfa.BaseAuthenticateForm, allauth.ResetPasswordKeyForm):
     """Customize the reset password key form layout"""
 
     def __init__(self, *args, **kwargs):
+        # save user here as it can be overridden in the parent class
+        user = kwargs["user"]
+        mfa_enabled = is_mfa_enabled(user)
         super().__init__(*args, **kwargs)
+        # restore user here
+        self.user = user
+
+        # remove the code field if 2FA is not enabled
+        if not mfa_enabled:
+            self.fields.pop("code")
 
         self.helper = FormHelper()
-        self.helper.layout = Layout(
+        fields = [
             Field("password1", type="password", css_class="_cls-passwordInput"),
             Field("password2", type="password", css_class="_cls-passwordInput"),
-        )
+        ]
+        if mfa_enabled:
+            fields.extend(
+                [
+                    HTML(
+                        "<p>Your account is protected by two-factor authentication. "
+                        "Please enter an authenticator code:</p>"
+                    ),
+                    Field("code", type="text"),
+                ]
+            )
+
+        self.helper.layout = Layout(*fields)
         self.helper.form_tag = False
