@@ -251,7 +251,7 @@ class Organization(AvatarMixin, models.Model):
         to="self",
         on_delete=models.PROTECT,
         related_name="+",
-        help_text=_("The agency this agency was merged in to"),
+        help_text=_("The organization this organization was merged in to"),
         blank=True,
         null=True,
     )
@@ -549,7 +549,10 @@ class Organization(AvatarMixin, models.Model):
         org.memberships.exclude(user__in=self.users.all()).update(organization=self)
         org.memberships.all().delete()
 
-        org.invitations.update(organization=self)
+        org.invitations.exclude(user__in=self.invitations.values("user")).update(
+            organization=self
+        )
+        org.invitations.all().delete()
 
         org.receipt_emails.exclude(
             email__in=self.receipt_emails.values("email")
