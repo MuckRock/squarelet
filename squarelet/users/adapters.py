@@ -97,6 +97,13 @@ class AccountAdapter(DefaultAccountAdapter):
 
         self.send_mail(email_template, emailconfirmation.email_address.email, ctx)
 
+    def get_email_verification_redirect_url(self, email_address):
+        """
+        Return the user to the onboarding flow if they are partway through it.
+        Return to the default URL otherwise.
+        """
+        return reverse("account_onboarding")
+
     def login(self, request, user):
         """Check the session for a pending invitation before logging in,
         and if found assign it to the newly logged in user"""
@@ -215,7 +222,7 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
             "name": account.extra_data["name"],
             "source": "github",
         }
-        user, _, _ = User.objects.register_user(user_data)
+        user = User.objects.register_user(user_data)
         sociallogin.user = user
         sociallogin.save(request)
         return user

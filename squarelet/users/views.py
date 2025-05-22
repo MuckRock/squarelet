@@ -35,7 +35,10 @@ from allauth.account.utils import (
     has_verified_email,
     send_email_confirmation,
 )
-from allauth.account.views import LoginView as AllAuthLoginView
+from allauth.account.views import (
+    LoginView as AllAuthLoginView,
+    SignupView as AllAuthSignupView,
+)
 from allauth.mfa.adapter import get_adapter
 from allauth.mfa.totp.forms import ActivateTOTPForm
 from allauth.mfa.totp.internal.flows import activate_totp
@@ -48,7 +51,9 @@ from squarelet.core.forms import ImagePreviewWidget
 from squarelet.core.layout import Field
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.organizations.models import ReceiptEmail
+from squarelet.organizations.models.payment import Plan
 from squarelet.services.models import Service
+from squarelet.users.forms import PremiumSubscriptionForm, SignupForm
 
 # Local
 from .models import User
@@ -57,6 +62,7 @@ ONBOARDING_SESSION_DEFAULTS = (
     ("email_check_completed", False),
     ("mfa_step", "not_started"),
     ("join_org", False),
+    ("subscription", "not_started"),
 )
 
 
@@ -155,6 +161,7 @@ class UserOnboardingView(TemplateView):
     template_name = "account/onboarding/base.html"  # Base template with includes
 
     def get_onboarding_step(self, request):
+        # pylint: disable=too-many-locals, too-many-return-statements
         """
         Check user account status and return the appropriate onboarding step
         Returns: (step_name, context_data)
@@ -172,7 +179,6 @@ class UserOnboardingView(TemplateView):
 
         # Onboarding progress state is tracked in the session
         onboarding = session["onboarding"]
-        print(onboarding)
         if has_verified_email(user):
             onboarding["email_check_completed"] = True
             session.modified = True
@@ -195,9 +201,42 @@ class UserOnboardingView(TemplateView):
                 "joinable_orgs_count": len(invitations + potential_orgs),
             }
 
+        # Subscription check
+        # If the user is signing up for a plan, the "plan" session variable
+        # will be set to the plan slug. If not, it will be None.
+        # We want to load both the individual and organization plans,
+        # and then pass through the "active" plan based on the user's choice.
+        # In order to enter the step, we need to check:
+        # 1. if the plan is valid
+        # 2. if the plan is professional, that the user is not already subscribed
+        # 3. that the subscription step state is `not_started`
+        plan = session.get("plan", None)
+        if (
+            plan == "professional"
+            and user.individual_organization.has_active_subscription()
+            and onboarding["subscription"] == "not_started"
+        ):
+            # User is already subscribed to the professional plan
+            onboarding["subscription"] = "completed"
+            session["plan"] = None
+            session.modified = True
+        if plan and onboarding["subscription"] == "not_started":
+            try:
+                individual_plan = Plan.objects.get(slug="professional")
+                group_plan = Plan.objects.get(slug="organization")
+                selected_plan = Plan.objects.get(slug=plan)
+                return "subscribe", {
+                    "plans": {
+                        "individual": individual_plan,
+                        "group": group_plan,
+                        "selected": selected_plan,
+                    }
+                }
+            except Plan.DoesNotExist:
+                print("Invalid plan slug:", plan)
         # MFA check
         # Check if this is user's first login
-        is_first_login = user.last_login is None
+        is_first_login = request.session.get("first_login", False)
         is_snoozed = (
             user.last_mfa_prompt
             and timezone.now() - user.last_mfa_prompt
@@ -252,6 +291,33 @@ class UserOnboardingView(TemplateView):
         context["intent"] = self.request.session.get("intent", None)
         context["service"] = Service.objects.filter(slug=context["intent"]).first()
 
+        # For Subscription, initialize the form and get the user's organizations
+        if step == "subscribe":
+            plans = step_context.get("plans")
+            if plans:
+                individual_form = PremiumSubscriptionForm(
+                    plan=plans["individual"], user=self.request.user
+                )
+                group_form = PremiumSubscriptionForm(
+                    plan=plans["group"], user=self.request.user
+                )
+            context.update(
+                {
+                    "forms": {
+                        "individual": individual_form,
+                        "group": group_form,
+                    },
+                    "individual_org": self.request.user.individual_organization,
+                    "group_orgs": (
+                        self.request.user.organizations.filter(
+                            individual=False,
+                            memberships__user=self.request.user,
+                            memberships__admin=True,
+                        ).order_by("name")
+                    ),
+                }
+            )
+
         # For MFA setup, initialize the form and generate the SVG
         if step == "mfa_setup":
             activate_totp_form = ActivateTOTPForm(user=self.request.user)
@@ -281,9 +347,9 @@ class UserOnboardingView(TemplateView):
         # Check if onboarding is complete
         step, _ = self.get_onboarding_step(request)
 
-        if step == "confirm_email":
-            # If the user has not verified their email,
-            # send a new confirmation message
+        is_first_login = request.session.get("first_login", False)
+        if step == "confirm_email" and not is_first_login:
+            # If the user just signed up, they are already sent the confirmation.
             send_email_confirmation(request, request.user, False, request.user.email)
 
         if not step and "next_url" in request.session:
@@ -297,6 +363,9 @@ class UserOnboardingView(TemplateView):
         # Otherwise, show the appropriate onboarding step
         return super().get(request, *args, **kwargs)
 
+    # TODO: Refactor the UserOnboardingView to reduce branches and statements,
+    # perhaps using a dictionary to map steps to their respective handlers.
+    # pylint: disable=too-many-branches, too-many-statements
     def post(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect("account_login")
@@ -354,6 +423,40 @@ class UserOnboardingView(TemplateView):
             request.session["onboarding"]["mfa_step"] = "completed"
             request.session.modified = True
 
+        elif step == "subscribe":
+            # Handle subscription form submission
+            # the form will have the plan, the organization, and the Stripe token
+            # ---
+            # First, check if the user skipped this step
+            if request.POST.get("submit-type") == "skip":
+                request.session["onboarding"]["subscription"] = "completed"
+                request.session.modified = True
+                messages.info(request, "Subscription skipped.")
+                return redirect("account_onboarding")
+            # Otherwise, initialize the form with the submitted data,
+            # validate it, and save it if valid. If invalid, rerender
+            # the page with the form errors.
+            plan_id = request.POST.get("plan")
+            org_id = request.POST.get("organization")
+            plan = Plan.objects.get(pk=plan_id)
+            form = PremiumSubscriptionForm(request.POST, plan=plan, user=request.user)
+            if form.is_valid():
+                # Create a subscription for the selected organization
+                form.save(request.user)
+                messages.success(request, "Subscription created successfully.")
+                request.session["onboarding"]["subscription"] = "completed"
+                request.session.modified = True
+            else:
+                context = self.get_context_data(**kwargs)
+                if org_id == request.user.individual_organization.pk:
+                    context["forms"]["individual"] = form
+                else:
+                    context["forms"]["group"] = form
+                messages.error(
+                    request, "Error creating subscription. Please try again."
+                )
+                return self.render_to_response(context)
+
         elif step == "join_org" and request.POST.get("join_org") == "skip":
             request.session["onboarding"]["join_org"] = True
             request.session.modified = True
@@ -373,6 +476,17 @@ class LoginView(AllAuthLoginView):
         if "url_auth_token" in request.GET and next_url:
             return redirect(f"{settings.MUCKROCK_URL}{next_url}")
         return super().get(request, *args, **kwargs)
+
+
+class SignupView(AllAuthSignupView):
+    """Pass the request to the form"""
+
+    form_class = SignupForm
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["request"] = self.request
+        return kwargs
 
 
 def mailgun_webhook(request):

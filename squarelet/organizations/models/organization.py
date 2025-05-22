@@ -424,6 +424,10 @@ class Organization(AvatarMixin, models.Model):
         )
         self.subscription.delete()
 
+    def has_active_subscription(self):
+        """Check if the organization has an active subscription"""
+        return bool(self.subscription)
+
     def charge(
         self,
         amount,

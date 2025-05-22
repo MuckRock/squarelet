@@ -1,0 +1,569 @@
+{% extends "account/onboarding/base.html" %}
+
+{% load i18n static %}
+
+{% block javascript %}
+  {{ block.super }}
+  <script>
+    // Tab controller
+    const selectedPlan = '{{ plans.selected.slug }}';
+    document.addEventListener("DOMContentLoaded", function () {
+      const tabContainer = document.querySelector(".tab-group");
+      const individualTab = document.querySelector(".tab.individual");
+      const groupTab = document.querySelector(".tab.group");
+      const individualContent = document.querySelector(".tab-content.individual");
+      const groupContent = document.querySelector(".tab-content.group");
+      // Handle clicks on each tab
+      individualTab.addEventListener("click", function () {
+        tabContainer.dataset.activeTab = "individual";
+        individualTab.classList.add("active");
+        groupTab.classList.remove("active");
+        individualContent.style.display = "flex";
+        groupContent.style.display = "none";
+      });
+      groupTab.addEventListener("click", function () {
+        tabContainer.dataset.activeTab = "group";
+        groupTab.classList.add("active");
+        individualTab.classList.remove("active");
+        groupContent.style.display = "flex";
+        individualContent.style.display = "none";
+        listenForNewOrg();
+      });
+      // Initialize the correct tab based on the selected plan
+      if (selectedPlan === 'organization') {
+        groupTab.click(); // Trigger click to show group tab
+      } else {
+        individualTab.click(); // Show individual tab by default
+      }
+    });
+    // Stripe input
+    var cardInputStyle = {
+      base: {
+        backgroundColor: '#FFFFFF',
+        color: '#3F3F3F',
+        fontSize: '16px',
+        fontFamily: '"Source Sans 3", "Source Sans Pro", system-ui, sans-serif',
+        fontSmoothing: 'antialiased',
+        '::placeholder': {
+          color: '#899194',
+        },
+        padding: '0.25rem 0.5rem',
+      },
+      invalid: {
+        color: '#e5424d',
+        ':focus': {
+          color: '#303238',
+        },
+      },
+    };
+    /*
+      We wait for the DOM to load before using the Stripe.js library.
+      After it loads, we mount the card element into the form.
+      When the form is submitted, we use the Stripe library to create
+      a token from the card element, then set the token in the form.
+    */
+    document.addEventListener("DOMContentLoaded", function () {
+      const cardFields = document.querySelectorAll(".card-field");
+      cardFields.forEach((cardField) => {
+        const form = cardField.closest('form');
+        const stripePk = form.querySelector('#id_stripe_pk').value;
+        const tokenInput = form.querySelector("#id_stripe_token");
+        // Create the card element using the Stripe public key
+        const stripe = Stripe(stripePk);
+        const elements = stripe.elements();
+        const cardElement = elements.create("card", {style: cardInputStyle });
+        const cardElementMount = cardField.querySelector(".card-element");
+        cardElement.mount(cardElementMount);
+        // Handle real-time validation errors from the card element
+        cardElement.on("change", function (event) {
+          const displayError = cardField.querySelector(".card-element-errors");
+          if (event.error) {
+            displayError.textContent = event.error.message;
+          } else {
+            displayError.textContent = "";
+          }
+        });
+        // We don't want the browser to fill this in with old values
+        tokenInput.value = "";
+        // Create a token or display an error when submitting the form
+        form.addEventListener("submit", function(event) {
+          event.preventDefault();
+          if (tokenInput.value) {
+            // Token already exists, continue with normal submission
+            return true;
+          }
+          stripe.createToken(cardElement).then(function(result) {
+            if (result.error) {
+              // Inform the customer that there was an error
+              const displayError = cardField.querySelector(".card-element-errors");
+              displayError.textContent = result.error.message;
+            } else {
+              // Set the token value and submit the form
+              tokenInput.value = result.token.id;
+              form.submit();
+            }
+          });
+        });
+      });
+    });
+
+    function toggleNewOrgField(value) {
+        const newOrgField = document.getElementById('{{ forms.group.new_organization_name.id_for_label }}');
+        const newOrgLabel = newOrgField.closest('label');
+        console.log(newOrgField, newOrgLabel);
+        if (value === 'new') {
+            newOrgLabel.style.display = 'block';
+            newOrgField.style.display = 'block';
+        } else {
+            newOrgLabel.style.display = 'none';
+            newOrgField.style.display = 'none';
+        }
+    }
+
+    function listenForNewOrg() {
+      const newOrgField = document.getElementById('{{ forms.group.new_organization_name.id_for_label }}');
+      const form = newOrgField.closest('form');
+      const orgSelect = form.querySelector('#{{ forms.group.organization.id_for_label }}');
+      console.log('orgSelect', orgSelect, '{{ forms.group.organization.id_for_label }}');
+      toggleNewOrgField(orgSelect.value);
+      orgSelect.addEventListener('change', function(event) {
+        console.log('change', event.currentTarget.value);
+        toggleNewOrgField(event.currentTarget.value);
+      });
+    }
+    
+    document.addEventListener('DOMContentLoaded', listenForNewOrg);
+
+  </script>
+{% endblock %}
+
+{% block css %}
+  {{ block.super }}
+  <style>
+    .step {
+      display: flex;
+      width: 29.5rem;
+      padding: 1rem 1.5rem;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 1.5rem;
+    }
+    header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+      align-self: stretch;
+    }
+    header .icon {
+      display: flex;
+      width: 3rem;
+      height: 3rem;
+      justify-content: center;
+      align-items: center;
+    }
+    header .title {
+      color: var(--gray-5, #233944);
+      text-align: center;
+      font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
+
+      /* Title */
+      font-family: var(--font-sans, "Source Sans Pro");
+      font-size: var(--font-xl, 1.5rem);
+      font-style: normal;
+      font-weight: 600;
+      line-height: normal;
+    }
+    .icon {
+      display: flex !important;
+      align-items: center;
+      fill: currentColor;
+    }
+    .tab-group {
+      width: 100%;
+      font-feature-settings: 'ss04' on;
+    }
+    .tabs {
+      display: flex;
+    }
+    .tab {
+      box-sizing: border-box;
+      display: flex;
+      padding: 0.5rem 0.75rem;
+      align-items: center;
+      flex: 1 0 0;
+      gap: 0.5rem;
+      border-radius: 0.5rem 0.5rem 0rem 0rem;
+      border: 1px solid inherit;
+      cursor: pointer;
+
+      /* Label */
+      font-family: var(--font-sans, "Source Sans Pro");
+      font-size: var(--font-md, 1rem);
+      font-style: normal;
+      font-weight: 600;
+      line-height: normal;
+    }
+
+    .tab-content {
+      display: flex;
+      padding: 1rem 0.75rem;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1rem;
+      align-self: stretch;
+      border-radius: 0 0 0.5rem 0.5rem;
+    }
+    
+    .individual {
+      background: var(--blue-1, #EEF3F9);
+      fill: var(--blue-3, #1367D0);
+      color: var(--blue-4, #1367D0);
+    }
+    
+    .group {
+      background: var(--purple-1, #EEF3F9);
+      fill: var(--purple-3, #1367D0);
+      color: var(--purple-4, #1367D0);
+    }
+
+    .benefits-list {
+      margin: 0;
+      padding: 0;
+      list-style-type: none;
+    }
+
+    .benefits-list li {
+      display: flex;
+      padding: 0.25rem 0.5rem;
+      align-items: center;
+      gap: 0.5rem;
+      align-self: stretch;
+
+      font-weight: 600;
+      line-height: normal;
+    }
+
+    .benefits-list .benefit-text {
+      color: var(--gray-5, #233944);
+      font-family: var(--font-sans, "Source Sans Pro");
+      font-size: var(--font-md, 1em);
+      font-style: normal;
+      font-weight: 600;
+      line-height: normal;
+    }
+
+    .tab-group[data-active-tab="individual"] {
+      & .tab.individual {
+        border: 1px solid var(--blue-2);
+        border-bottom-color: var(--blue-1);
+      }
+      & .tab.group {
+        border: 1px solid var(--purple-1);
+        border-bottom: 1px solid var(--blue-2);
+      }
+      & .tab-content.individual {
+        border: 1px solid var(--blue-2);
+        border-top: none;
+      }
+    }
+
+    .tab-group[data-active-tab="group"] {
+      & .tab.group {
+        border: 1px solid var(--purple-2);
+        border-bottom-color: var(--purple-1); 
+      }
+      & .tab.individual {
+        border: 1px solid var(--blue-1);
+        border-bottom: 1px solid var(--purple-2);
+      }
+      & .tab-content.group {
+        border: 1px solid var(--purple-2);
+        border-top: none;
+      }
+    }
+
+    .tab-content form {
+      width: 100%;
+    }
+
+    .card-field {
+      padding: 0.5rem;
+      background: #FFFFFF;
+      border-radius: 0.25rem;
+      border: 1px solid var(--gray-2, #D7D9DB);
+    }
+
+    .card-element-errors {
+      color: var(--red-3, #E5424D);
+      margin-top: 0.5rem;
+      font-size: var(--font-sm, 0.875em);
+      font-weight: 400;
+    }
+    .card-element-errors:empty {
+      display: none;
+    }
+
+    .plan-price {
+      margin: 0;
+      color: var(--purple-5, #1E2B60);
+      font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
+
+      /* Heading */
+      font-family: var(--font-sans, "Source Sans Pro");
+      font-size: var(--font-lg, 1.25rem);
+      font-style: normal;
+      font-weight: 600;
+      line-height: normal;
+    }
+
+    .form {
+      margin-top: 0;
+      border-top: 1px solid var(--blue-2, #B5CEED);
+      padding-top: 1rem;
+    }
+
+    #group-org.form {
+      border-top: 1px solid var(--purple-2, #D7D9DB);
+    }
+
+    .checkmark svg {
+      width: 1.125rem;
+      height: 1.125rem;
+      opacity: 0.85;
+    }
+
+    label, .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      width: 100%;
+      margin-bottom: 1rem;
+      font-weight: 600;
+      color: var(--gray-5, #233944);
+    }
+
+    label input, label select {
+      width: 100%;
+      box-sizing: border-box;
+      font-family: var(--font-sans, "Source Sans Pro");
+      font-size: var(--font-md, 1em);
+      font-style: normal;
+      font-weight: 400;
+      line-height: normal;
+      border-radius: 0.25rem;
+      border: 1px solid var(--gray-2, #D7D9DB);
+      padding: 0.375rem 0.5rem;
+    }
+
+    .help-text {
+      margin: 0;
+      color: var(--gray-4, #899194);
+      font-family: var(--font-sans, "Source Sans Pro");
+      font-size: var(--font-sm, 0.875em);
+      font-style: normal;
+      font-weight: 400;
+      line-height: normal;
+    }
+
+    footer {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      width: 100%;
+    }
+
+    footer form {
+      margin: 0;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+  </style>
+{% endblock %}
+
+{% block onboarding_step %}
+  <div class="step">
+    <header>
+      <div class="icon"><img src="{% static "icons/premium.svg" %}" /></div>
+      <h1 class="title">{% blocktrans %}Subscribe to MuckRock Premium for advanced features and discount rates{% endblocktrans %}</h1>
+    </header>
+    <div class="tab-group">
+      <div class="tabs">
+        <div class="tab individual">
+          <span class="icon">{% include 'core/icons/person.svg' %}</span>
+          {% trans "For yourself" %}
+        </div>
+        <div class="tab group">
+          <span class="icon">{% include 'core/icons/organization.svg' %}</span>
+          {% trans "For your organization" %}
+        </div>
+      </div>
+      <div class="individual tab-content" id="individual">
+        <ul class="individual benefits-list">
+          <li>
+            <span class="checkmark icon">{% include "core/icons/checkmark.svg" %}</span>
+            <span class="benefit-text">
+              {% blocktrans %}20 requests per month on MuckRock{% endblocktrans %}
+            </span>
+          </li>
+          <li>
+            <span class="checkmark icon">{% include "core/icons/checkmark.svg" %}</span>
+            <span class="benefit-text">
+              {% blocktrans %}Embargo requests for up to 30 days after completion{% endblocktrans %}
+            </span>
+          </li>
+          <li>
+            <span class="checkmark icon">{% include "core/icons/checkmark.svg" %}</span>
+            <span class="benefit-text">
+              {% blocktrans %}2,000 AI Credits per month on DocumentCloud{% endblocktrans %}
+            </span>
+          </li>
+          <li>
+            <span class="checkmark icon">{% include "core/icons/checkmark.svg" %}</span>
+            <span class="benefit-text">
+              {% blocktrans %}Search your private notes on DocumentCloud{% endblocktrans %}
+            </span>
+          </li>
+        </ul>
+        {% with forms.individual as form %}
+        <form id="individual-org" method="POST" class="form" action="{% url 'account_onboarding' %}">
+          {% csrf_token %}
+          <input type="hidden" name="step" value="subscribe">
+          <input type="hidden" name="organization" value={{ form.organization.value }}>
+          {{form.plan}}
+          {{form.stripe_pk}}
+          {{form.stripe_token}}
+          {{form.organization}}
+          <label>
+            {% blocktrans %}Provide a credit card{% endblocktrans %}
+            <div class="card-field">
+              <div class="card-element"></div>
+              <!-- Used to display Element errors. -->
+              <div class="card-element-errors" role="alert"></div>
+            </div>
+          </label>
+          <label>
+            {{form.receipt_emails.label}}
+            {{form.receipt_emails}}
+            <p class="help-text">
+              {{form.receipt_emails.help_text}}
+            </p>
+          </label>
+          <footer>
+            <p class="plan-price">
+              ${{plans.individual.base_price}}/{% trans "month" %}
+            </p>
+            <button type="submit" class="button premium" name="submit-type" value="individual">
+              {% blocktrans %}Subscribe to Premium{% endblocktrans %}
+            </button>
+          </footer>
+        </form>
+        {% endwith %}
+      </div>
+      <div class="group tab-content" id="group">
+        <ul class="group benefits-list">
+          <li>
+            <span class="checkmark icon">{% include "core/icons/checkmark.svg" %}</span>
+            <span class="benefit-text">
+              {% blocktrans %}Share resources with unlimited members{% endblocktrans %}
+            </span>
+          </li>
+          <li>
+            <span class="checkmark icon">{% include "core/icons/checkmark.svg" %}</span>
+            <span class="benefit-text">
+              {% blocktrans %}50 requests per month on MuckRock{% endblocktrans %}
+            </span>
+          </li>
+          <li>
+            <span class="checkmark icon">{% include "core/icons/checkmark.svg" %}</span>
+            <span class="benefit-text">
+              {% blocktrans %}Permanently embargo requests{% endblocktrans %}
+            </span>
+          </li>
+          <li>
+            <span class="checkmark icon">{% include "core/icons/checkmark.svg" %}</span>
+            <span class="benefit-text">
+              {% blocktrans %}5,000 AI Credits per month on DocumentCloud{% endblocktrans %}
+            </span>
+          </li>
+        </ul>
+        {% with forms.group as form %}
+        <form class="form" id="group-org" method="POST" action="{% url 'account_onboarding' %}">
+          {% csrf_token %}
+          <input type="hidden" name="step" value="subscribe">
+          {{form.plan}}
+          {{form.stripe_pk}}
+          {{form.stripe_token}}
+          <label for="{{ form.organization.id_for_label }}">
+            {{ form.organization.label }}
+            <select name="{{ form.organization.html_name }}" id="{{ form.organization.id_for_label }}" class="form-control">
+              <option value="" disabled selected>{% translate "Select an organization" %}</option>
+              {% for org in form.organization.field.queryset %}
+                {% if not org.individual %}
+                  <option value="{{ org.pk }}" {% if form.organization.value == org.pk|stringformat:"s" %}selected{% endif %}>
+                    {{ org }}
+                  </option>
+                {% endif %}
+              {% endfor %}
+                <option value="new">{% translate "Create new organization" %}</option>
+            </select>
+            {% if form.organization.errors %}
+              <div class="invalid-feedback">
+                {{ form.organization.errors }}
+              </div>
+            {% endif %}
+            {% if form.organization.help_text %}
+              <p class="help-text">{{ form.organization.help_text }}</p>
+            {% endif %}
+          </label>
+          <label for="{{ form.new_organization_name.id_for_label }}" style="display:none;">
+            {{ form.new_organization_name.label }}
+            {{ form.new_organization_name }}
+            {% if form.new_organization_name.errors %}
+              <div class="invalid-feedback">
+                {{ form.new_organization_name.errors }}
+              </div>
+            {% endif %}
+          </label>
+          <label>
+            {% blocktrans %}Provide a credit card{% endblocktrans %}
+            <div class="card-field">
+              <div class="card-element"></div>
+              <!-- Used to display Element errors. -->
+              <div class="card-element-errors" role="alert"></div>
+            </div>
+          </label>
+          <label>
+            {{form.receipt_emails.label}}
+            {{form.receipt_emails}}
+            <p class="help-text">
+              {{form.receipt_emails.help_text}}
+            </p>
+          </label>
+          <footer>
+            <p class="plan-price">
+              ${{plans.group.base_price}}/{% trans "month" %}
+            </p>
+            <button type="submit" class="button premium" name="submit-type" value="group">
+              {% blocktrans %}Subscribe to Premium{% endblocktrans %}
+            </button>
+          </footer>
+        </form>
+        {% endwith %}
+      </div>
+    </div>
+    <footer>
+      <form action="{% url 'account_onboarding' %}" method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="subscribe" />
+        <button class="button ghost" type="submit" name="submit-type" value="skip">
+          {% blocktrans %}Subscribe later{% endblocktrans %}
+        </button>
+      </form>
+    </footer>
+  </div>
+{% endblock %}
