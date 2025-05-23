@@ -13,7 +13,7 @@ from rest_framework_nested import routers
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 # Squarelet
-from squarelet.core.views import HomeView
+from squarelet.core.views import HomeView, SelectPlanView
 from squarelet.oidc.views import token_view
 from squarelet.organizations.viewsets import ChargeViewSet, OrganizationViewSet
 from squarelet.users.views import LoginView, SignupView, UserOnboardingView
@@ -42,11 +42,7 @@ def redirect_erh(request, path=""):
 
 urlpatterns = [
     path("", HomeView.as_view(), name="home"),
-    path(
-        "selectplan/",
-        TemplateView.as_view(template_name="pages/selectplan.html"),
-        name="select_plan",
-    ),
+    path("selectplan/", SelectPlanView.as_view(), name="select_plan"),
     # Django Admin, use {% url 'admin:index' %}
     path(settings.ADMIN_URL, admin.site.urls),
     # User management
