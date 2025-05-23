@@ -7,6 +7,8 @@
 
 {% block css %}
 {{ block.super }}
+<link rel="stylesheet" href="{% static "css/gps.css" %}" />
+<link rel="stylesheet" href="{% static "css/invites.css" %}" />
 <style>
   .container {
     display: flex;
@@ -32,6 +34,10 @@
   .plan header h2 {
     flex: 1 1 100%;
     text-align: center;
+  }
+  .premium.plan > header {
+    flex-direction: column;
+    justify-content: center;
   }
   .plan main {
     display: flex;
@@ -214,6 +220,30 @@
     color: var(--purple-5);
   }
 
+  .org-list {
+    list-style-type: none;
+    display: flex;
+    gap: 1rem;
+  }
+
+  .org a {
+    display: block;
+    padding: .5rem;
+    border-radius: .25rem;
+    border: 1px solid var(--gray-2);
+    text-decoration: none;
+    color: currentColor;
+    background-color: var(--white);
+  }
+  .org a:hover {
+    background-color: var(--blue-1);
+  }
+
+  .team h4 {
+    margin: 0;
+    font-weight: 600;
+  }
+
   .verified {
     margin-bottom: 2rem;
   }
@@ -303,7 +333,7 @@
       <h2 class="header-display">
         {% trans "Your MuckRock account is on our" %}
         {% if pro_plan %}
-        <span class="heavy-underline premium">Premium for professionals plan</span>.
+        <span class="heavy-underline premium">Premium plan</span>.
         {% else %}
         <span class="heavy-underline primary">free plan</span>.
         {% endif %}
@@ -354,9 +384,18 @@
       <header>
         <h2 class="header-display">
           {% blocktrans %}
-          You belong to an organization subscribed to a <span class="heavy-underline premium">Premium plan</span>.
+          You belong to an organization subscribed to a <span class="heavy-underline premium">Premium plan</span>:
           {% endblocktrans %}
         </h2>
+        <ul class="org-list">
+          {% for org in org_plans %}
+          <li class="org">
+            <a href="{% url "organizations:detail" slug=org.slug %}">
+              {% include "account/team_list_item.html" with organization=org %}
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
       </header>
     {% elif not pro_plan %}
       <header>
@@ -418,7 +457,7 @@
           {% if user.is_anonymous %}
           <a class="button premium" href="{% url "account_signup" %}{% pass_query %}&plan=professional">Sign up & subscribe</a>
           {% elif pro_plan %}
-          <a class="button caution" href="{% url "users:payment" %}">Cancel</a>
+          <a class="button" href="{% url "users:payment" %}">Manage</a>
           {% else %}
           <a class="button premium" href="{% url "account_onboarding" %}{% pass_query %}&plan=professional">Upgrade</a>
           {% endif %}
@@ -474,7 +513,7 @@
           {% if user.is_anonymous %}
           <a class="button premium" href="{% url "account_signup" %}{% pass_query %}&plan=organization">Sign up & subscribe</a>
           {% elif org_plans %}
-          <a class="button caution" href="{% url "users:detail" username=user.username %}{% pass_query %}&plan=organization">Manage</a>
+          <a class="button" href="{% url "users:detail" username=user.username %}{% pass_query %}&plan=organization">Manage</a>
           {% else %}
           <a class="button premium" href="{% url "account_onboarding" %}{% pass_query %}&plan=organization">Subscribe</a>
           {% endif %}
