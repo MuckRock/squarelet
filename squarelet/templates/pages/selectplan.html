@@ -293,13 +293,25 @@
 <article class="container">
   <section class="plan free">
     <header>
+    {% if user.is_anonymous %}
       <h2 class="header-display">
         {% blocktrans %}
         <span class="heavy-underline primary">Create your MuckRock account</span> for free, no credit-card required
         {% endblocktrans %}
       </h2>
+    {% else %}
+      <h2 class="header-display">
+        {% trans "Your MuckRock account is on our" %}
+        {% if pro_plan %}
+        <span class="heavy-underline premium">Premium for professionals plan</span>.
+        {% else %}
+        <span class="heavy-underline primary">free plan</span>.
+        {% endif %}
+      </h2>
+    {% endif %}
     </header>
     <main>
+      {% if user.is_anonymous %}
       <div class="plan-actions">
         <a href="{% url 'account_signup' %}{% pass_query %}" class="button primary">
           {% trans  "Sign up for free" %}
@@ -308,6 +320,7 @@
           {% trans "Already have an account? Sign in" %}
         </a>
       </div>
+      {% endif %}
       <ul class="checklist">
         <li class="checklist-item">
           <span class="checkmark icon">
@@ -337,13 +350,23 @@
     </main>
   </section>
   <section class="plan premium">
-    <header>
-      <h2 class="header-display">
-        {% blocktrans %}
-        <span class="heavy-underline premium">Subscribe to a Premium plan</span> for advanced features and discounts 
-        {% endblocktrans %}
-      </h2>
-    </header>
+    {% if org_plans %}
+      <header>
+        <h2 class="header-display">
+          {% blocktrans %}
+          You belong to an organization subscribed to a <span class="heavy-underline premium">Premium plan</span>.
+          {% endblocktrans %}
+        </h2>
+      </header>
+    {% elif not pro_plan %}
+      <header>
+        <h2 class="header-display">
+          {% blocktrans %}
+          <span class="heavy-underline premium">Subscribe to a Premium plan</span> for advanced features and discounts 
+          {% endblocktrans %}
+        </h2>
+      </header>
+    {% endif %}
     <main>
       <div class="plan professional">
         <header>
@@ -392,7 +415,13 @@
           <div class="price">
             $40/month
           </div>
+          {% if user.is_anonymous %}
           <a class="button premium" href="{% url "account_signup" %}{% pass_query %}&plan=professional">Sign up & subscribe</a>
+          {% elif pro_plan %}
+          <a class="button caution" href="{% url "users:payment" %}">Cancel</a>
+          {% else %}
+          <a class="button premium" href="{% url "account_onboarding" %}{% pass_query %}&plan=professional">Upgrade</a>
+          {% endif %}
         </footer>
       </div>
       <div class="plan organization">
@@ -442,7 +471,13 @@
           <div class="price">
             $100/month
           </div>
+          {% if user.is_anonymous %}
           <a class="button premium" href="{% url "account_signup" %}{% pass_query %}&plan=organization">Sign up & subscribe</a>
+          {% elif org_plans %}
+          <a class="button caution" href="{% url "users:detail" username=user.username %}{% pass_query %}&plan=organization">Manage</a>
+          {% else %}
+          <a class="button premium" href="{% url "account_onboarding" %}{% pass_query %}&plan=organization">Subscribe</a>
+          {% endif %}
         </footer>
       </div>
       <div class="verified plan">
@@ -452,7 +487,11 @@
             Verified newsrooms, journalists, researchers, and educators have access to additional reporting and publishing tools
             {% endblocktrans %}
           </h2>
+          {% if user.is_anonymous %}
           <p>Apply to verify your organization after signing up or signing in</p>
+          {% else %}
+          <p><a href="https://help.muckrock.com/19ef8892696381dba944e17e14938433?pvs=4">Learn more about verification</a></p>
+          {% endif %}
         </header>
         <main>
           <ul class="services-list">

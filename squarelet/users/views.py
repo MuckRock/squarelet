@@ -210,7 +210,7 @@ class UserOnboardingView(TemplateView):
         # 1. if the plan is valid
         # 2. if the plan is professional, that the user is not already subscribed
         # 3. that the subscription step state is `not_started`
-        plan = session.get("plan", None)
+        plan = session.get("plan", None) or request.GET.get("plan", None)
         if (
             plan == "professional"
             and user.individual_organization.has_active_subscription()
