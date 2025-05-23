@@ -190,7 +190,7 @@ django-coverage-plugin==1.6.0
     # via -r requirements/local.in
 django-crispy-forms==1.13.0
     # via -r requirements/base.txt
-django-debug-toolbar==3.2.2
+django-debug-toolbar==4.3.0
     # via -r requirements/base.txt
 django-email-bandit==1.5
     # via -r requirements/base.txt
@@ -251,12 +251,12 @@ factory-boy==3.2.1
     #   pytest-factoryboy
 faker==11.3.0
     # via factory-boy
-filelock==3.16.1
-    # via cachecontrol
 fido2==1.2.0
     # via
     #   -r requirements/base.txt
     #   django-allauth
+filelock==3.16.1
+    # via cachecontrol
 flake8==3.5.0
     # via -r requirements/local.in
 fonttools[woff]==4.43.0

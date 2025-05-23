@@ -173,7 +173,7 @@ django-cors-headers==3.10.1
     # via -r requirements/base.txt
 django-crispy-forms==1.13.0
     # via -r requirements/base.txt
-django-debug-toolbar==3.2.2
+django-debug-toolbar==4.3.0
     # via -r requirements/base.txt
 django-email-bandit==1.5
     # via -r requirements/base.txt
