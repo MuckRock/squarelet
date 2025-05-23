@@ -14,6 +14,7 @@ class HomeView(RedirectView):
         else:
             return reverse("select_plan")
 
+
 class SelectPlanView(TemplateView):
     template_name = "pages/selectplan.html"
 
