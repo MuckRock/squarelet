@@ -50,8 +50,8 @@
     <div class="icon">
       <img src="{% static 'icons/security.svg' %}" />
     </div>
-    <h1>{% trans "MuckRock Accounts now support two-factor authentication for enhanced security" %}</h1>
-    <p>{% blocktrans %}Would you like to enable two-factor authentication on your account? You will need a second device.{% endblocktrans %}</p>
+    <h1>{% trans "MuckRock Accounts now supports two-factor authentication for enhanced security." %}</h1>
+    <p>{% blocktrans %}Would you like to enable two-factor authentication on your account?{% endblocktrans %}</p>
     <p>{% blocktrans %}If you skip now, you can always enable two-factor later from your account page.{% endblocktrans %}</p>
   </header>
   <form class="flex gap-1" method="post" action="{% url 'account_onboarding' %}">
