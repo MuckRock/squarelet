@@ -440,9 +440,8 @@ class UserOnboardingView(TemplateView):
             org_id = request.POST.get("organization")
             plan = Plan.objects.get(pk=plan_id)
             form = PremiumSubscriptionForm(request.POST, plan=plan, user=request.user)
-            if form.is_valid():
+            if form.is_valid() and form.save(request.user):
                 # Create a subscription for the selected organization
-                form.save(request.user)
                 messages.success(request, "Subscription created successfully.")
                 request.session["onboarding"]["subscription"] = "completed"
                 request.session.modified = True
