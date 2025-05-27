@@ -124,12 +124,17 @@ def test_save_org(rf, plan_factory, organization_plan_factory, mocker):
         (forms.ChangePasswordForm, 3),
         (forms.SetPasswordForm, 2),
         (forms.ResetPasswordForm, 1),
-        (forms.ResetPasswordKeyForm, 2),
     ],
 )
 def test_other_forms(form_class, number_fields):
     form = form_class()
     assert len(form.helper.layout) == number_fields
+
+
+@pytest.mark.django_db
+def test_reset_password_key_form(user):
+    form = forms.ResetPasswordKeyForm(user=user)
+    assert len(form.helper.layout) == 2
 
 
 @pytest.mark.django_db
