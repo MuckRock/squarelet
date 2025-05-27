@@ -396,7 +396,7 @@ def test_premium_subscription_form_save_new_organization(plan_factory, user, moc
 
     assert form.save(user)
 
-    # Since we're mocking Organization.objects.create, we don't directly test 
+    # Since we're mocking Organization.objects.create, we don't directly test
     # the database. Instead, check that it was called with the right parameters.
     org_create_mock.assert_called_once_with(name="New Test Organization", private=False)
     add_creator_mock.assert_called_once_with(user)
