@@ -1,16 +1,21 @@
 # Django
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.sites.shortcuts import get_current_site
 from django.http.response import HttpResponseRedirect
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.translation import gettext_lazy as _
 
 # Third Party
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.account.models import EmailAddress
-from allauth.exceptions import ImmediateHttpResponse
+from allauth.account.signals import user_logged_in
+from allauth.account.utils import get_login_redirect_url
+from allauth.core.exceptions import ImmediateHttpResponse
+from allauth.mfa.adapter import DefaultMFAAdapter
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from furl import furl
 
@@ -22,6 +27,16 @@ from squarelet.users.serializers import UserWriteSerializer
 
 
 class AccountAdapter(DefaultAccountAdapter):
+    """
+    Custom account adapter for allauth
+    """
+
+    def can_delete_email(self, email_address):
+        """Do not allow somone to delete their primary email address"""
+        if email_address.primary:
+            return False
+        return super().can_delete_email(email_address)
+
     def is_open_for_signup(self, request):
         return getattr(settings, "ACCOUNT_ALLOW_REGISTRATION", True)
 
@@ -88,6 +103,13 @@ class AccountAdapter(DefaultAccountAdapter):
 
         self.send_mail(email_template, emailconfirmation.email_address.email, ctx)
 
+    def get_email_verification_redirect_url(self, email_address):
+        """
+        Return the user to the onboarding flow if they are partway through it.
+        Return to the default URL otherwise.
+        """
+        return reverse("account_onboarding")
+
     def login(self, request, user):
         """Check the session for a pending invitation before logging in,
         and if found assign it to the newly logged in user"""
@@ -95,6 +117,58 @@ class AccountAdapter(DefaultAccountAdapter):
         super().login(request, user)
         if invitation_uuid is not None and request.user.is_authenticated:
             Invitation.objects.filter(uuid=invitation_uuid).update(user=request.user)
+
+    def post_login(
+        self,
+        request,
+        user,
+        *,
+        email_verification,
+        signal_kwargs,
+        email,
+        signup,
+        redirect_url,
+    ):
+        """
+        Extend the post_login method to perform onboarding checks
+        """
+
+        # Get the default redirect URL (which honors the 'next' parameter)
+        original_redirect = get_login_redirect_url(request, redirect_url, signup=signup)
+
+        # Store the redirect URL and other params in the session for later use
+        request.session["next_url"] = original_redirect
+        request.session["checkFor"] = request.GET.get("checkFor")
+        request.session["intent"] = request.GET.get("intent")
+
+        # Check if we need user to go through onboarding
+        requires_onboarding = True  # TODO: Actually check lol
+
+        if requires_onboarding:
+            # Pass the user to the onboarding view
+            response = HttpResponseRedirect(reverse("account_onboarding"))
+        else:
+            # Use the original redirect
+            response = HttpResponseRedirect(original_redirect)
+
+        if signal_kwargs is None:
+            signal_kwargs = {}
+        # Send the user_logged_in signal
+        user_logged_in.send(
+            sender=user.__class__,
+            request=request,
+            response=response,
+            user=user,
+            **signal_kwargs,
+        )
+        # Add a success message
+        self.add_message(
+            request,
+            messages.SUCCESS,
+            "account/messages/logged_in.txt",
+            {"user": user},
+        )
+        return response
 
     def get_user_search_fields(self):
         return []
@@ -154,7 +228,28 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
             "name": account.extra_data["name"],
             "source": "github",
         }
-        user, _, _ = User.objects.register_user(user_data)
+        user = User.objects.register_user(user_data)
         sociallogin.user = user
         sociallogin.save(request)
         return user
+
+
+class MfaAdapter(DefaultMFAAdapter):
+    error_messages = {
+        "add_email_blocked": _(
+            "You cannot add an email address to an account "
+            "protected by two-factor authentication."
+        ),
+        "cannot_delete_authenticator": _(
+            "You cannot deactivate two-factor authentication."
+        ),
+        "cannot_generate_recovery_codes": _(
+            "You cannot generate recovery codes without "
+            "having two-factor authentication enabled."
+        ),
+        "unverified_email": _(
+            "All email addresses associated with your account "
+            "must be confirmed before enabling two-factor authentication."
+        ),
+        "incorrect_code": _("Incorrect code."),
+    }

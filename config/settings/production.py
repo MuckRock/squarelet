@@ -22,7 +22,7 @@ SECRET_KEY = env("DJANGO_SECRET_KEY")
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["accounts.muckrock.com"])
 # Add support for Heroku Review Apps with randomly-generated names.
 # The HEROKU_APP_NAME environment variable is injected by Heroku.
-if ENV == "staging" and env("HEROKU_APP_NAME", default=""):
+if ENV == "staging" and HEROKU_APP_NAME:
     ALLOWED_HOSTS.append(f"{env('HEROKU_APP_NAME')}.herokuapp.com")
 
 # DATABASES
@@ -112,8 +112,10 @@ AWS_LOCATION = "static"
 if AWS_S3_CUSTOM_DOMAIN:
     STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/static/"
 elif CI_GIT_BRANCH:
-    STATIC_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/b/{CI_GIT_BRANCH}/"
     AWS_LOCATION = f"b/{CI_GIT_BRANCH}"
+    STATIC_URL = (
+        f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/b/{CI_GIT_BRANCH}/"
+    )
 else:
     STATIC_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/static/"
 

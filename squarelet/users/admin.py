@@ -99,7 +99,7 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
         ),
         (
             _("Important dates"),
-            {"fields": ("last_login", "created_at", "updated_at")},
+            {"fields": ("last_login", "last_mfa_prompt", "created_at", "updated_at")},
         ),
     )
     readonly_fields = (

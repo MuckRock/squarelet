@@ -23,6 +23,7 @@ from django.views.generic import CreateView, DetailView, ListView, UpdateView
 # Standard Library
 import json
 import logging
+import re
 import sys
 
 # Third Party
@@ -35,9 +36,20 @@ from fuzzywuzzy import fuzz, process
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.organizations.choices import ChangeLogReason
+from squarelet.organizations.denylist_domains import DENYLIST_DOMAINS
 from squarelet.organizations.forms import AddMemberForm, PaymentForm, UpdateForm
-from squarelet.organizations.mixins import IndividualMixin, OrganizationAdminMixin
-from squarelet.organizations.models import Charge, Invitation, Membership, Organization
+from squarelet.organizations.mixins import (
+    IndividualMixin,
+    OrganizationAdminMixin,
+    VerifiedJournalistMixin,
+)
+from squarelet.organizations.models import (
+    Charge,
+    Invitation,
+    Membership,
+    Organization,
+    OrganizationEmailDomain,
+)
 from squarelet.organizations.tasks import handle_charge_succeeded, handle_invoice_failed
 
 # How much to paginate organizations list by
@@ -65,6 +77,12 @@ class Detail(AdminLinkMixin, DetailView):
                 context["invite_count"] = (
                     self.object.invitations.get_requested().count()
                 )
+
+            context["can_auto_join"] = (
+                self.request.user.can_auto_join(self.object)
+                and not context["is_member"]
+            )
+
         users = self.object.users.all()
         admins = users.filter(memberships__admin=True)
         if context.get("is_member"):
@@ -77,26 +95,34 @@ class Detail(AdminLinkMixin, DetailView):
 
     def post(self, request, *args, **kwargs):
         self.organization = self.get_object()
+
         if not self.request.user.is_authenticated:
             return redirect(self.organization)
         is_member = self.organization.has_member(self.request.user)
         if request.POST.get("action") == "join" and not is_member:
-            invitation = self.organization.invitations.create(
-                email=request.user.email, user=request.user, request=True
-            )
-            messages.success(
-                request,
-                _(
-                    "Request to join the organization sent!<br><br>"
-                    "We strongly recommend reaching out directly to one or all of "
-                    "the admins listed below to ensure your request is approved "
-                    "quickly. If all of the admins shown below have left the "
-                    "organization, please "
-                    '<a href="mailto:info@muckrock.com">contact support</a> '
-                    "for assistance.<br><br>"
-                ),
-            )
-            invitation.send()
+            if self.request.user.can_auto_join(self.organization):
+                # Auto-join the user to the organization (no invitation needed)
+                self.organization.memberships.create(user=self.request.user)
+                messages.success(
+                    request, _("You have successfully joined the organization!")
+                )
+            else:
+                invitation = self.organization.invitations.create(
+                    email=request.user.email, user=request.user, request=True
+                )
+                messages.success(
+                    request,
+                    _(
+                        "Request to join the organization sent!<br><br>"
+                        "We strongly recommend reaching out directly to one or all of "
+                        "the admins listed below to ensure your request is approved "
+                        "quickly. If all of the admins shown below have left the "
+                        "organization, please "
+                        '<a href="mailto:info@muckrock.com">contact support</a> '
+                        "for assistance.<br><br>"
+                    ),
+                )
+                invitation.send()
         elif request.POST.get("action") == "leave" and is_member:
             self.request.user.memberships.filter(
                 organization=self.organization
@@ -271,6 +297,7 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
             "addmember": self._handle_add_member,
             "addmember_link": self._handle_add_member_link,
             "revokeinvite": self._handle_revoke_invite,
+            "resendinvite": self._handle_resend_invite,
             "acceptinvite": self._handle_accept_invite,
             "rejectinvite": self._handle_reject_invite,
             "makeadmin": self._handle_makeadmin_user,
@@ -284,18 +311,38 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
     def _handle_add_member(self, request):
         addmember_form = AddMemberForm(request.POST)
         if not addmember_form.is_valid():
-            messages.error(request, addmember_form.errors["emails"][0])
+            messages.error(
+                request, addmember_form.errors.get("emails", ["Invalid input."])[0]
+            )
         else:
             emails = addmember_form.cleaned_data["emails"]
 
-            # Create an invitation and send it to the given email addresses
             for email in emails:
+                is_already_member = self.organization.has_member_by_email(email)
+                existing_open_invite = self.organization.get_existing_open_invite(email)
+                if is_already_member:
+                    messages.info(
+                        self.request,
+                        f"{email} is already a member of this organization.",
+                    )
+                    continue
+
+                if existing_open_invite:
+                    existing_open_invite.send()
+                    messages.success(
+                        self.request,
+                        f"Resent invitation to {email}.",
+                    )
+                    continue
+
                 invitation = Invitation.objects.create(
                     organization=self.organization,
                     email=email,
                 )
                 invitation.send()
-            messages.success(self.request, "Invitations sent")
+
+                messages.success(self.request, "Invitations sent")
+
         return redirect("organizations:manage-members", slug=self.organization.slug)
 
     def _handle_add_member_link(self, request):
@@ -327,6 +374,13 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
     def _handle_revoke_invite(self, request):
         return self._handle_invite(
             request, lambda invite: invite.reject(), "Invitation revoked"
+        )
+
+    def _handle_resend_invite(self, request):
+        return self._handle_invite(
+            request,
+            lambda invite: invite.send(),
+            "Invitation resent successfully.",
         )
 
     def _handle_accept_invite(self, request):
@@ -500,3 +554,88 @@ def stripe_webhook(request):
     elif event_type == "invoice.payment_failed":
         handle_invoice_failed.delay(event["data"]["object"])
     return HttpResponse()
+
+
+class ManageDomains(VerifiedJournalistMixin, DetailView):
+    queryset = Organization.objects.filter(individual=False)
+    template_name = "organizations/organization_managedomains.html"
+
+    def post(self, request, *args, **kwargs):
+        """Handle form processing"""
+        self.organization = self.get_object()
+
+        actions = {
+            "adddomain": self._handle_add_domain,
+            "removedomain": self._handle_remove_domain,
+        }
+        action = request.POST.get("action")
+        if action in actions:
+            return actions[action](request)
+        return self._bad_call(request)
+
+    def _handle_add_domain(self, request):
+        domain = request.POST.get("domain", "").strip().lower()
+
+        # Validate domain format
+        if not re.match(r"^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}$", domain):
+            messages.error(
+                request, "Invalid domain format. Please enter a valid domain."
+            )
+            return redirect("organizations:manage-domains", slug=self.organization.slug)
+
+        # Check for blacklisted domain
+        if domain in DENYLIST_DOMAINS:
+            messages.error(request, f"The domain {domain} is not allowed.")
+            return redirect("organizations:manage-domains", slug=self.organization.slug)
+
+        # Prevent duplicates
+        if OrganizationEmailDomain.objects.filter(
+            organization=self.organization, domain=domain
+        ).exists():
+            messages.error(request, f"The domain {domain} is already added.")
+            return redirect("organizations:manage-domains", slug=self.organization.slug)
+
+        # Add the domain
+        OrganizationEmailDomain.objects.create(
+            organization=self.organization, domain=domain
+        )
+        messages.success(request, f"The domain {domain} was added successfully.")
+        return redirect("organizations:manage-domains", slug=self.organization.slug)
+
+    def _handle_remove_domain(self, request):
+        domain = request.POST.get("domain", "").strip().lower()
+
+        # Check if domain exists
+        try:
+            domain_entry = OrganizationEmailDomain.objects.get(
+                organization=self.organization, domain=domain
+            )
+
+            # Only delete if domain exists
+            domain_entry.delete()
+            messages.success(request, f"The domain {domain} was removed successfully.")
+        except OrganizationEmailDomain.DoesNotExist:
+            # Provide a more detailed message in case the domain doesn't exist
+            messages.error(
+                request,
+                f"The domain {domain} was not found or has already been removed.",
+            )
+
+        return redirect("organizations:manage-domains", slug=self.organization.slug)
+
+    def get_context_data(self, **kwargs):
+        self.organization = self.get_object()
+
+        context = super().get_context_data(**kwargs)
+        context["admin"] = self.request.user
+
+        # Use 'domains' related_name for your OrganizationEmailDomain model
+        context["domains"] = (
+            self.organization.domains.all()
+        )  # Corrected field to 'domains'
+        return context
+
+    def _bad_call(self, request):
+        # Handle unexpected actions
+        messages.error(request, "An unexpected error occurred.")
+        return redirect("organizations:manage-domains", slug=self.organization.slug)

@@ -1,5 +1,6 @@
 # Django
 from django.conf import settings
+from django.contrib.auth.models import AnonymousUser
 from django.http.response import Http404
 
 # Standard Library
@@ -7,7 +8,6 @@ import hashlib
 import hmac
 import json
 import time
-from urllib.parse import urlencode
 
 # Third Party
 import pytest
@@ -106,13 +106,18 @@ class TestLoginView(ViewTestMixin):
     view = views.LoginView
     url = "/accounts/login/"
 
-    def test_get(self, rf):
-        url = "/target/url/"
-        next_url = f"{settings.MUCKROCK_URL}?{urlencode({'next': url})}"
+    # pylint: disable=invalid-name
+
+    def test_get_url_auth_token(self, rf, mocker):
+        """Test handling of lingering url_auth_token parameter"""
+        next_url = "/target/url/"
         params = {"url_auth_token": "token", "next": next_url}
-        response = self.call_view(rf, params=params)
+        request = rf.get(self.url, params)
+        request.user = AnonymousUser()
+        request.session = mocker.MagicMock()
+        response = self.view.as_view()(request)
         assert response.status_code == 302
-        assert response.url == f"{settings.MUCKROCK_URL}{url}"
+        assert response.url == f"{settings.MUCKROCK_URL}{next_url}"
 
 
 class TestMailgunWebhook:

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% load avatar %}
+{% load i18n %}
+{% block title %}{{ organization.name }} | Manage Domains{% endblock %}
+
+{% block content %}
+  <div class="_cls-largeContent">
+    <h2>Manage domains</h2>
+    <h3>{{ organization.name }}</h3>
+
+    <div class="_cls-tableHeading">{% trans 'Manage domains' %}</div>
+    <div class="_cls-tableInfo">{% trans 'Domains associated with the organization' %}</div>
+    <form class="_cls-inlineForm" method="post" enctype="multipart/form-data" id="org-form">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="managedomains">
+      <div class="_cls-manageTable">
+        <div class="_cls-manageRow _cls-manageHeader">
+          <div class="_cls-manageCell" style="width: 50%">{% trans 'Domain' %}</div>
+          <div class="_cls-manageCell" style="width: 40%">{% trans 'Action' %}</div>
+        </div>
+
+        {% for domain in domains %}
+          <div class="_cls-manageRow">
+            <div class="_cls-manageCell">
+              {{ domain.domain }}
+            </div>
+            <div class="_cls-manageCell">
+              <form method="POST" class="_cls-inlineForm">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="removedomain">
+                <input type="hidden" name="domain" value="{{ domain.domain }}">
+                <button type="submit" class="_cls-compactButton">{% trans 'Remove' %}</button>
+              </form>
+            </div>
+          </div>
+        {% empty %}
+          <div class="_cls-manageRow">
+            <div class="_cls-manageCell" colspan="2">
+              {% trans 'No domains added yet.' %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </form>
+
+    <div class="_cls-tableHeading">{% trans 'Add new domain' %}</div>
+    <div class="_cls-tableInfo">
+      {% blocktrans %}
+        Add a new domain to associate with the organization.
+      {% endblocktrans %}
+    </div>
+    <form class="_cls-inlineForm" method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="adddomain">
+      <div class="_cls-inviteUsers _cls-actionSmall _cls-actionSmaller">
+        <input
+          type="text"
+          name="domain"
+          placeholder="Enter domain (e.g., example.com)"
+          required
+          style="width: 100%"
+        />
+        <button type="submit" name="adddomain">
+          + {% trans 'Add domain' %}
+        </button>
+      </div>
+    </form>
+
+    <p class="_cls-spaced"><a href="{{ organization.get_absolute_url }}" class="_cls-altAction">
+      {% trans 'Go back' %}
+    </a></p>
+  </div>
+{% endblock %}

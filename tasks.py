@@ -1,4 +1,5 @@
 # Standard Library
+import os
 from pathlib import Path
 
 # Third Party
@@ -43,9 +44,17 @@ def staging(c):
 
 
 @task
-def test(c, path="squarelet", create_db=False, ipdb=False, warnings=False):
+def test(
+    c,
+    path="squarelet",
+    create_db=False,
+    ipdb=False,
+    warnings=False,
+    capture_output=False,
+):
     """Run the test suite"""
     create_switch = "--create-db" if create_db else ""
+    capture_switch = "-s" if capture_output else ""
     ipdb_switch = "--pdb --pdbcls=IPython.terminal.debugger:Pdb" if ipdb else ""
     warnings = "-e PYTHONWARNINGS=always" if warnings else ""
 
@@ -53,7 +62,7 @@ def test(c, path="squarelet", create_db=False, ipdb=False, warnings=False):
         DOCKER_COMPOSE_RUN_OPT_USER.format(
             opt=f"-e DJANGO_SETTINGS_MODULE=config.settings.test {warnings}",
             service="squarelet_django",
-            cmd=f"pytest {create_switch} {ipdb_switch} {path}",
+            cmd=f"pytest {create_switch} {capture_switch} {ipdb_switch} {path}",
         ),
         pty=True,
     )
@@ -199,7 +208,7 @@ def npm(c, cmd):
 def heroku(c, staging=False):
     """Run commands on heroku"""
     if staging:
-        app = "squarelet-staging"
+        app = os.environ.get("HEROKU_APP_NAME", "squarelet-staging")
     else:
         app = "squarelet"
     c.run(f"heroku run --app {app} python manage.py shell_plus", pty=True)
@@ -227,6 +236,7 @@ def pip_compile(c, upgrade=False, package=None):
             '"'
         )
     )
+
 
 @task(name="pip-audit")
 def pip_audit(c):

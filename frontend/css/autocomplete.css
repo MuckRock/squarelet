@@ -35,6 +35,10 @@
 }
 
 ._cls-result {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  font-family: var(--font-sans);
   padding: 0.8em 0.8em;
   margin: 0.7em 0;
   background: white;

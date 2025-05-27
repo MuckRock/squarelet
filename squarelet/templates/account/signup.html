@@ -1,65 +1,157 @@
-{% extends "account/base.html" %}
+{% extends "account/login.html" %}
 
 {% load i18n static %}
 {% load crispy_forms_tags %}
-{% load handleintent %}
+{% load handleintent pass_query %}
 {% load planinfo %}
 
 {% block head_title %}{% trans "Signup" %}{% endblock %}
 
-{% block inner %}
+{% block css %}
+{{block.super}}
+<style>
+  .pad-b-3 {
+    padding-bottom: 3rem;
+  }
+  .wrapper#form, .signup-form, header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3rem;
+  }
+  .signup-form {
+    margin-top: 0;
+    max-width: 24rem;
+  }
+  header {
+    text-align: center;
+  }
+  header h2 {
+    max-width: 18rem;
+  }
+  .help.link {
+    font-size: var(--font-md, 1rem);
+    font-weight: var(--font-semibold, 600);
+    color: var(--primary);
+    text-decoration: none;
+  }
+  .help.text {
+    font-size: var(--font-sm, 0.875rem);
+    line-height: 1.4;
+    color: var(--gray-4);
+    font-weight: var(--font-regular, 400);
+  }
+  .help.text ul {
+    margin: .5em 0;
+    padding-left: 2em;
+  }
+  .help.text li {
+    margin-bottom: 0.25em;
+  }
+  .label {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+  .required {
+    font-size: var(--font-xs, 0.75rem);
+    font-weight: var(--font-semibold, 600);
+    color: var(--orange-3);
+  }
+  .fields {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    width: 100%;
+  }
+  footer {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+  footer .button {
+    display: block;
+    width: 100%;
+  }
+  .errorlist {
+    margin: 0;
+  }
+</style>
+{% endblock %}
 
-  {% trans "Create an account for" as intent_header %}
-  {% trans "You’ll also be able to sign into" as intent_text %}
-  {% handleintent intent_header intent_text %}
-
-  <!-- Start form -->
-  <form id="stripe-form" method="post">
-
-    {# this field is explicit so we can grab the plan from the get parameter #}
-    <input type="hidden" name="plan" id="id_plan" value="{{ request.GET.plan|default:"" }}">
-
-    {% if form.errors.plan %}
-      <span class="invalid-feedback">
-        <strong>Something went wrong.  Please contact <a href="mailto:info@muckrock.com">info@muckrock.com</a>.</strong>
-      </span>
-    {% endif %}
-    {% crispy form form.helper %}
-
-    {% if request.GET.plan == "organization" or request.GET.plan == "organization-plus" %}
-      <div class="_cls-field">
-        <input
-           class="_cls-organizationInput form-control"
-           placeholder="Organization name"
-           name="organization_name"
-           max_length="255"
-           type="text"
-           >
-      </div>
-    {% endif %}
-
-    {% if request.GET.plan %}
-        <div id="_id-planProjection" class="_cls-planProjection">
-          <b>Cost: <span id="_id-totalCost"></span></b>
-          <div class="_cls-breakdown" id="_id-costBreakdown"></div>
-        </div>
-        <div id="card-container">
-          <h3 class="_cls-smallHeading">{% blocktrans %}Billing information{% endblocktrans %}</h3>
-          <div class="_cls-field">
-            <div id="card-element" class="_cls-fieldInput"></div>
+{% block login_step %}
+  <div class="wrapper" id="form">
+    <form class="signup-form m-0" id="signup_form" method="POST">
+      <header>
+        {% sign_up_message %}
+      </header>
+      <main class="fields">
+        {% csrf_token %}
+        {{form.non_field_errors}}
+        {{form.plan}}
+        <label class="field">
+          <span class="label">
+            {{form.email.label}}
+            {% if form.email.field.required %}<span class="required">Required</span>{% endif %}
+          </span>
+          {{form.email}}
+          {{form.email.errors}}
+          <div class="help text">
+            {{ form.email.help_text }}
           </div>
-          <!-- Used to display Element errors. -->
-          <div id="card-errors" role="alert"></div>
-        </div>
-    {% endif %}
+        </label>
+        <label class="field">
+          <span class="label">
+            {{form.name.label}}
+            {% if form.name.field.required %}<span class="required">Required</span>{% endif %}
+          </span>
+          {{form.name}}
+          {{form.name.errors}}
+          <div class="help text">
+            {{ form.name.help_text }}
+          </div>
+        </label>
+        <label class="field">
+          <span class="label">
+            {{form.username.label}}
+            {% if form.username.field.required %}<span class="required">Required</span>{% endif %}
+          </span>
+          {{form.username}}
+          {{form.username.errors}}
+          <div class="help text">
+            {{ form.username.help_text }}
+          </div>
+        </label>
+        <label class="field">
+          <span class="label">
+            {{form.password1.label}}
+            {% if form.password1.field.required %}<span class="required">Required</span>{% endif %}
+          </span>
+          {{form.password1}}
+          {{form.password1.errors}}
+          <div class="help text">
+            {{ form.password1.help_text }}
+          </div>
+        </label>
+        <label class="field">
+          <span class="label">
+          {{ form.tos }}
+          <span>I accept MuckRock&rsquo;s <a target="_blank" rel="noopener noreferer" href="https://www.muckrock.com/tos/">Terms of Service</a> and <a target="_blank" rel="noopener noreferer" href="https://www.muckrock.com/privacy-policy/">Privacy Policy</a>.</span>
+          {% if form.tos.field.required %}<span class="required">Required</span>{% endif %}
+          </span>
+          {{ form.tos.errors }}
+        </label>
+      </main>
 
-    <div class="_cls-actionBig">
-      <button>{% trans 'Sign Up' %}</button>
-    </div>
-    <div class="_cls-center">
-      <div class="_cls-minorInfo">{% blocktrans %}Already have an account?{% endblocktrans %}</div>
-      <a href="{% url 'account_login' %}"><div class="_cls-action">{% blocktrans %}Log&nbsp;In{% endblocktrans %}</div></a>
-    </div>
-  </form>
-  {% planinfo field="slug" %}
+      <footer>
+        <button class="button primary">{% trans 'Sign up' %}</button>
+        <a class="button primary ghost" href="{% url 'account_login' %}{% pass_query %}">
+          {% blocktrans %}Already have an account? Sign in{% endblocktrans %}
+        </a>
+      </footer>
+    </form>
+  </div>
 {% endblock %}

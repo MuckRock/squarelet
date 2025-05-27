@@ -74,6 +74,7 @@ THIRD_PARTY_APPS = [
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
+    "allauth.mfa",
     "crispy_forms",
     "dal",
     "dal_select2",
@@ -99,6 +100,7 @@ LOCAL_APPS = [
     "squarelet.organizations.apps.OrganizationsConfig",
     "squarelet.statistics",
     "squarelet.users.apps.UsersConfig",
+    "squarelet.services.apps.ServicesConfig",
     "allauth.socialaccount.providers.github",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
@@ -136,7 +138,10 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation."
         "UserAttributeSimilarityValidator",
-        "OPTIONS": {"user_attributes": ["username", "name", "email"]},
+        "OPTIONS": {
+            "user_attributes": ["username", "name", "email"],
+            "max_similarity": 0.6,
+        },
     },
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
@@ -348,12 +353,13 @@ CELERY_BEAT_SCHEDULE = {
 
 # django-allauth
 # ------------------------------------------------------------------------------
-# https://django-allauth.readthedocs.io/en/latest/configuration.html
+# https://django-allauth.readthedocs.io/en/stable/account/configuration.html
 ACCOUNT_ALLOW_REGISTRATION = env.bool("DJANGO_ACCOUNT_ALLOW_REGISTRATION", True)
 ACCOUNT_AUTHENTICATION_METHOD = "username_email"
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_EMAIL_VERIFICATION = "optional"
 ACCOUNT_ADAPTER = "squarelet.users.adapters.AccountAdapter"
+ACCOUNT_PREVENT_ENUMERATION = False
 SOCIALACCOUNT_ADAPTER = "squarelet.users.adapters.SocialAccountAdapter"
 SOCIALACCOUNT_STORE_TOKENS = True
 ACCOUNT_FORMS = {
@@ -366,9 +372,15 @@ ACCOUNT_FORMS = {
     "reset_password_from_key": "squarelet.users.forms.ResetPasswordKeyForm",
 }
 ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = False
-ACCOUNT_SESSION_REMEMBER = True
+ACCOUNT_SESSION_REMEMBER = None
+
+MFA_ADAPTER = "squarelet.users.adapters.MfaAdapter"
+# Only allow insecure origins in development
+MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = ENV == "dev"
 
 DIGEST_EMAILS = env.list("DIGEST_EMAILS", default=[])
+
+MFA_PROMPT_SNOOZE_DURATION = timedelta(weeks=2)
 
 # oidc
 # ------------------------------------------------------------------------------
@@ -400,6 +412,12 @@ REST_FRAMEWORK = {
 # first party urls
 # ------------------------------------------------------------------------------
 SQUARELET_URL = env("SQUARELET_URL", default="https://dev.squarelet.com")
+
+# handle preview deploys
+HEROKU_APP_NAME = env("HEROKU_APP_NAME", default="")
+if ENV == "staging" and HEROKU_APP_NAME:
+    SQUARELET_URL = f"https://{HEROKU_APP_NAME}.herokuapp.com"
+
 MUCKROCK_URL = env("MUCKROCK_URL", default="https://dev.muckrock.com")
 FOIAMACHINE_URL = env("FOIAMACHINE_URL", default="https://dev.foiamachine.org")
 DOCCLOUD_URL = env("DOCCLOUD_URL", default="https://www.dev.documentcloud.org")

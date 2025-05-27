@@ -1,4 +1,4 @@
-{% load static i18n avatar %}
+{% load static i18n avatar pass_query %}
 
 <header class="_cls-heading">
   <div class="_cls-headingContainer">
@@ -36,22 +36,17 @@
           {% avatar request.user 25 %}
           {{ request.user.username }}
         </a>
-        <a href="{% url 'account_logout' %}" class="_cls-navItem">
-          {% trans "Sign Out" %}
-        </a>
+        <form class="m-0" method="post" action="{% url 'account_logout' %}">
+          {% csrf_token %}
+          <button class="_cls-navItem">{% trans 'Sign Out' %}</button>
+        </form>
       </nav>
       {% else %}
       <nav class="_cls-navItems _cls-accountItems _cls-anonymous">
-        {% if request.get_full_path == "/election-hub/" %}
-          <a title="{% trans 'Sign Up' %}" class="_cls-navItem" href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'election-hub' %}&next={{ request.get_full_path }}">
-            {% trans "Sign Up" %}
-          </a>
-        {% else %}
-          <a title="{% trans 'Sign Up' %}" class="_cls-navItem" href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'squarelet' %}&next={{ request.get_full_path }}">
-            {% trans "Sign Up" %}
-          </a>
-        {% endif %}
-        <a title="{% trans 'Sign In' %}" class="_cls-navItem" href="{% url 'account_login' %}?next={{ request.get_full_path }}">
+        <a title="{% trans 'Sign Up' %}" class="_cls-navItem" href="{% url 'account_signup' %}{% pass_query %}">
+          {% trans "Sign Up" %}
+        </a>
+        <a title="{% trans 'Sign In' %}" class="_cls-navItem" href="{% url 'account_login' %}{% pass_query %}">
           {% trans "Sign In" %}
         </a>
       </nav>

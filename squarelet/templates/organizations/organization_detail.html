@@ -7,7 +7,6 @@
 {% block title %}{% trans 'Organization' %}: {{ organization.name }}{% endblock %}
 
 {% block content %}
-
   <div class="_cls-largeContent">
     <div class="_cls-profileColumns">
       <div class="_cls-profileColumn">
@@ -23,7 +22,7 @@
             </div>
           </div>
           {% if is_admin %}
-            <a href="{% url "organizations:update" organization.slug %}"><div class="_cls-action">{% trans 'Edit organization' %}</div></a>
+            <a href="{% url 'organizations:update' organization.slug %}"><div class="_cls-action">{% trans 'Edit organization' %}</div></a>
           {% endif %}
         </div>
         {% if organization.verified_journalist %}
@@ -56,13 +55,13 @@
           {% endif %}
           {% if is_admin %}
             <div class="_cls-infoSpaced">
-              <a class="_cls-action" href="{% url "organizations:manage-members" organization.slug %}">
+              <a class="_cls-action" href="{% url 'organizations:manage-members' organization.slug %}">
                 {% if invite_count == 0 %}
                   Manage members
                 {% else %}
                   {% blocktrans count invite_count=invite_count %}
                     Manage (1 join request)
-                  {% plural%}
+                  {% plural %}
                     Manage ({{ invite_count }} join requests)
                   {% endblocktrans %}
                 {% endif %}
@@ -78,13 +77,17 @@
           {% else %}
             <form class="_cls-infoSpaced" method="post">
               {% csrf_token %}
-              <button class="_cls-action" name="action" value="join">{% trans 'Request to join' %}</button>
+              {% if can_auto_join %}
+                <button class="_cls-action" name="action" value="join">{% trans 'Join' %}</button>
+              {% else %}
+                <button class="_cls-action" name="action" value="join">{% trans 'Request to join' %}</button>
+              {% endif %}
             </form>
           {% endif %}
           {% if users|length > 0 %}
             <ul class="_cls-profList">
               {% for user in users %}
-                <a href="{% url "users:detail" user.username %}">
+                <a href="{% url 'users:detail' user.username %}">
                   <li>
                     <div class="_cls-inlineAvatar">
                       {% avatar user 15 %}
@@ -105,7 +108,6 @@
       <div class="_cls-planColumn">
         {% if is_admin %}
           <div class="_cls-currentPlan">
-
             {% with subscription=organization.subscription %}
               {% if subscription %}
                 <div class="_cls-planInfo">
@@ -119,7 +121,7 @@
                   {% endif %}
                 </div>
                 <p>
-                  <a class="_cls-nostyle" href="{% url "organizations:payment" organization.slug %}">
+                  <a class="_cls-nostyle" href="{% url 'organizations:payment' organization.slug %}">
                     <div class="_cls-action">{% trans 'Edit plans and payment' %}</div>
                   </a>
                 </p>
@@ -128,21 +130,20 @@
                   {% trans "Current plan" %}: <b>{% trans "Free" %}</b>
                 </div>
                 <div class="_cls-actionSmall">
-                  <a href="{% url "organizations:payment" organization.slug %}">
+                  <a href="{% url 'organizations:payment' organization.slug %}">
                     <button>{% trans 'Upgrade' %}</button>
                   </a>
                 </div>
               {% endif %}
             {% endwith %}
-
             <p>
-              <a class="_cls-nostyle" href="{% url "users:receipts" %}">
+              <a class="_cls-nostyle" href="{% url 'users:receipts' %}">
                 <div class="_cls-action">{% trans 'View receipts' %}</div>
               </a>
             </p>
           </div>
         {% endif %}
-        {% include "core/component/services.html" %}
+        {% include 'core/component/services.html' %}
       </div>
     </div>
   </div>

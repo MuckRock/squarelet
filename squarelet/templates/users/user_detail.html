@@ -43,6 +43,7 @@
             Verified
           </div>
         {% endif %}
+
         <div class="_cls-organizationSection">
           <div class="_cls-mediumHeader">{% trans 'Organizations' %}</div>
           <div>
@@ -52,16 +53,16 @@
           </div>
           {% if other_orgs.count > 0 %}
             <ul class="_cls-profList">
-            {% for org in other_orgs.all %}
-              <a href="{% url "organizations:detail" org.slug %}">
-                <li>
-                  <div class="_cls-inlineAvatar">
-                    {% avatar org 15 %}
-                  </div>
-                  {{ org.name }}
-                </li>
-              </a>
-            {% endfor %}
+              {% for org in other_orgs.all %}
+                <a href="{% url "organizations:detail" org.slug %}">
+                  <li>
+                    <div class="_cls-inlineAvatar">
+                      {% avatar org 15 %}
+                    </div>
+                    {{ org.name }}
+                  </li>
+                </a>
+              {% endfor %}
             </ul>
           {% else %}
             <div class="_cls-info">
@@ -69,7 +70,50 @@
             </div>
           {% endif %}
         </div>
+
+        <!-- Organizations you can join -->
+        <div class="_cls-organizationSection" {% if not potential_organizations %} style="display: none;" {% endif %}>
+          <div class="_cls-mediumHeader">{% trans 'Organizations you can join' %}</div>
+          {% if potential_organizations %}
+            <ul class="_cls-profList">
+              {% for org in potential_organizations %}
+                <a href="{% url "organizations:detail" org.slug %}">
+                  <li>
+                    <div class="_cls-inlineAvatar">
+                      {% avatar org 15 %}
+                    </div>
+                    {{ org.name }}
+                  </li>
+                </a>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <div class="_cls-info">
+              <p>{% trans 'No organizations available to join at the moment.' %}</p>
+            </div>
+          {% endif %}
+        </div>
+
+      {% if pending_invitations %}
+        <div class="_cls-organizationSection">
+          <div class="_cls-mediumHeader">{% trans 'Pending Invitations' %}</div>
+          <ul class="_cls-profList">
+            {% for invite in pending_invitations %}
+              <li>
+                <a href="{% url 'organizations:invitation' invite.uuid %}">
+                    {% blocktrans with org_name=invite.organization.name %}
+                      Invite to join <strong>{{ org_name }}</strong>
+                    {% endblocktrans %}
+                </a>
+                <span class="_cls-info" style="margin-left: 10px;">({{ invite.created_at|date:"Y-m-d" }})</span>
+                </li>
+              {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
       </div>
+
       <div class="_cls-planColumn">
         {% if user == request.user %}
           <div class="_cls-currentPlan">
@@ -102,6 +146,7 @@
                 </div>
               {% endif %}
             {% endwith %}
+
             <p>
               <a class="_cls-nostyle" href="{% url "users:receipts" %}">
                 <div class="_cls-action">{% trans 'View receipts' %}</div>
@@ -109,14 +154,18 @@
             </p>
           </div>
         {% endif %}
+
         {% if request.user.is_staff and request.user != user %}
           <form action="{% url "hijack:login_with_username" user.username %}" method="post" class="_cls-actionSmall">
             {% csrf_token %}
             <button type="submit">Hijack {{ user.username }}</button>
           </form>
         {% endif %}
+
         {% include "core/component/services.html" %}
       </div>
+
     </div>
   </div>
+
 {% endblock content %}

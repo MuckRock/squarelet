@@ -37,7 +37,7 @@ def organization_file_path(instance, filename):
 
 
 class Organization(AvatarMixin, models.Model):
-    """Orginization to allow pooled requests and collaboration"""
+    """Organizations allow collaboration and resource sharing"""
 
     # pylint: disable=too-many-public-methods
 
@@ -136,6 +136,8 @@ class Organization(AvatarMixin, models.Model):
         blank=True,
         choices=COUNTRY_CHOICES,
     )
+
+    # originally for the Election Resources hub, now keeping for posterity
     hub_eligible = models.BooleanField(
         _("hub eligible"),
         blank=True,
@@ -145,7 +147,7 @@ class Organization(AvatarMixin, models.Model):
         ),
     )
 
-    # remove these
+    # TODO: remove these
     _plan = models.ForeignKey(
         verbose_name=_("plan"),
         to="organizations.Plan",
@@ -180,6 +182,9 @@ class Organization(AvatarMixin, models.Model):
         blank=True,
     )
 
+    # Every user has an individual organization
+    # created when creating an account. Its UUID
+    # is used to identify the user across services.
     individual = models.BooleanField(
         _("individual organization"),
         default=False,
@@ -204,7 +209,7 @@ class Organization(AvatarMixin, models.Model):
         default=5,
         help_text=_("The number of resource blocks this organization receives monthly"),
     )
-    # this moved to subscription, remove
+    # TODO: this moved to subscription, remove
     update_on = models.DateField(
         _("date update"),
         null=True,
@@ -212,7 +217,7 @@ class Organization(AvatarMixin, models.Model):
         help_text=_("Date when monthly requests are restored"),
     )
 
-    # stripe
+    # TODO: remove stripe properties that moved to other models
     # moved to customer, remove
     customer_id = models.CharField(
         _("customer id"),
@@ -241,7 +246,16 @@ class Organization(AvatarMixin, models.Model):
         ),
     )
 
+    # TODO: Remove default avatar
     default_avatar = static("images/avatars/organization.png")
+
+    allow_auto_join = models.BooleanField(
+        default=False,
+        help_text=(
+            "Allow users to join automatically if one "
+            "of their verified emails matches the email domain for this organization."
+        ),
+    )
 
     class Meta:
         ordering = ("slug",)
@@ -273,12 +287,15 @@ class Organization(AvatarMixin, models.Model):
         if self.individual:
             return self.user.email
 
+        # If a group organization, first try to get a receipt email
         receipt_email = self.receipt_emails.first()
         if receipt_email:
             return receipt_email.email
 
+        # If no receipt email, get an admin user's email
         user = self.users.filter(memberships__admin=True).first()
         if user:
+            # Again, why not primary email?
             return user.email
 
         return None
@@ -408,6 +425,10 @@ class Organization(AvatarMixin, models.Model):
         )
         self.subscription.delete()
 
+    def has_active_subscription(self):
+        """Check if the organization has an active subscription"""
+        return bool(self.subscription)
+
     def charge(
         self,
         amount,
@@ -460,6 +481,21 @@ class Organization(AvatarMixin, models.Model):
             or (self.parent and self.parent.is_hub_eligible)
         )
 
+    def has_member_by_email(self, email):
+        """Check if a user with an email is already a member of the organization."""
+        return Membership.objects.filter(
+            organization=self, user__email__iexact=email
+        ).exists()
+
+    def get_existing_open_invite(self, email):
+        """Retrieve an open invitation (if any) for the given email."""
+        return Invitation.objects.filter(
+            organization=self,
+            email__iexact=email,
+            accepted_at__isnull=True,
+            rejected_at__isnull=True,
+        ).first()
+
 
 class Membership(models.Model):
     """Through table for organization membership"""
@@ -482,6 +518,13 @@ class Membership(models.Model):
         _("admin"),
         default=False,
         help_text=_("This user has administrative rights for this organization"),
+    )
+
+    created_at = AutoCreatedField(
+        _("created_at"),
+        null=True,
+        blank=True,
+        help_text=_("When this organization was created"),
     )
 
     class Meta:

@@ -31,3 +31,13 @@ class UsersConfig(AppConfig):
         except ProgrammingError:
             # skip if RSA Key is not found for some reason
             pass
+
+        from allauth.account import signals as account_signals
+        from allauth.mfa import signals as mfa_signals
+
+        # We are disconnecting the built in signal for MFA here, as it prevents
+        # adding an email address if you have MFA turned on.  We have determined
+        # this to be undesirable.
+        # See https://github.com/MuckRock/squarelet/issues/290
+        # pylint: disable=protected-access
+        account_signals._add_email.disconnect(mfa_signals.on_add_email)

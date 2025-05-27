@@ -1,0 +1,21 @@
+<div class="service-providers">
+  {% for provider in service_providers %}
+    {% if provider.base_url %}
+      <a href="{{provider.base_url}}" target="_blank" class="service-provider">
+        <img src="{{ provider.icon.url }}" alt="{{ provider.name }}">
+        <div class="service-provider-text">
+          <h3>{{ provider.name }}</h3>
+          <p>{{ provider.description }}</p>
+        </div>
+      </a>
+    {% else %}
+      <div class="service-provider">
+        <img src="{{ provider.icon.url }}" alt="{{ provider.name }}">
+        <div class="service-provider-text">
+          <h3>{{ provider.name }}</h3>
+          <p>{{ provider.description }}</p>
+        </div>
+      </div>
+    {% endif %}
+  {% endfor %}
+</div>

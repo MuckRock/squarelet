@@ -1,227 +1,574 @@
 {% extends "account/base.html" %}
 
 {% load i18n static %}
-{% load crispy_forms_tags %}
-{% load handleintent %}
+{% load handleintent pass_query %}
 
 {% block head_title %}{% trans "Select plan" %}{% endblock %}
 
+{% block css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static "css/gps.css" %}" />
+<link rel="stylesheet" href="{% static "css/invites.css" %}" />
+<style>
+  .container {
+    display: flex;
+    max-width: 50rem;
+    padding: 3rem;
+    flex-direction: column;
+    align-items: center;
+    align-self: center;
+    gap: 2rem;
+  }
+  .plan {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+    align-self: stretch;
+  }
+  .plan header {
+    display: flex;
+    flex: 0 0 auto;
+    align-self: stretch;
+  }
+  .plan header h2 {
+    flex: 1 1 100%;
+    text-align: center;
+  }
+  .premium.plan > header {
+    flex-direction: column;
+    justify-content: center;
+  }
+  .plan main {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    align-self: stretch;
+  }
+  .free.plan main {
+    flex-direction: row-reverse;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--gray-2, #D8DEE2);
+    background: var(--white, #FFF);
+  }
+  .header-display {
+    text-align: center;
+    color: var(--gray-5, #233944);
+    font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
+    font-family: var(--font-sans, "Source Sans Pro");
+    font-size: var(--font-xl, 1.5rem);
+    font-style: normal;
+    font-weight: 600;
+    line-height: 2.25rem;
+  }
+  .heavy-underline {
+    text-decoration-line: underline;
+    text-decoration-style: solid;
+    text-decoration-skip-ink: none;
+    text-decoration-color: var(--gray-3, #4294F0);
+    text-decoration-thickness: 10%;
+    text-underline-offset: 25%;
+    text-underline-position: from-font;
+  }
+  .heavy-underline.primary {
+    text-decoration-color: var(--blue-3, #4294F0);
+  }
+  .heavy-underline.secondary {
+    text-decoration-color: var(--purple-3, #A0A0A0);
+  }
+  .heavy-underline.premium {
+    text-decoration-color: var(--green-3, #A0A0A0);
+  }
+  .plan-actions {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 0.625rem;
+    flex: 1 0 0;
+    align-self: stretch;
+  }
+  .plan-actions .button {
+    width: 100%;
+    max-width: 20rem;
+  }
+  .checklist {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  .checklist-item {
+    display: flex;
+    align-items: flex-start;
+    padding: 0.25rem 0.5rem;
+    gap: 0.5rem;
+    align-self: stretch;
+  }
+  .checklist-item .text {
+    flex: 1 0 0;
+    color: var(--gray-5, #233944);
+    font-feature-settings: 'ss04' on;
+    font-family: var(--font-sans, "Source Sans Pro");
+    font-size: var(--font-sm, 0.825rem);
+    font-style: normal;
+    font-weight: 600;
+    line-height: normal;
+  }
+  .checklist-item .icon {
+    display: flex;
+    align-items: center;
+  }
+  .checklist-item .icon svg {
+    width: var(--font-md, 1rem);
+    height: var(--font-md, 1rem);
+  }
+  .free.plan .checkmark {
+    fill: var(--blue-3);
+  }
+  .professional.plan .checkmark {
+    fill: var(--green-3);
+  }
+
+  .professional.plan,
+  .organization.plan {
+    display: flex;
+    padding: 1rem 0.75rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    flex: 1 0 18rem;
+    align-self: stretch;
+    border-radius: 0.5rem;
+  }
+  .professional.plan {
+    border: 1px solid var(--blue-2);
+    background: var(--blue-1);
+  }
+  .organization.plan {
+    border: 1px solid var(--purple-2);
+    background: var(--purple-1, #F4F1FE);
+  }
+  
+  .professional.plan main,
+  .organization.plan main {
+    justify-content: flex-start;
+    flex: 1 0 0;
+  }
+  .professional.plan .icon {
+    fill: var(--blue-3);
+  }
+  .organization.plan .icon {
+    fill: var(--purple-3);
+  }
+
+  .plan header {
+    display: flex;
+    padding: 0.25rem 0.5rem;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .plan header .icon {
+    display: flex;
+    align-items: center;
+    width: var(--font-md, 1rem);
+    height: var(--font-md, 1rem);
+  }
+  .plan header h3 {
+    margin: 0;
+    font-family: var(--font-sans, "Source Sans Pro");
+    font-size: var(--font-md, 1rem);
+    font-style: normal;
+    font-feature-settings: 'ss04' on;
+    font-weight: 600;
+    line-height: normal;
+  }
+  .professional.plan h3 {
+    color: var(--blue-4);
+  }
+  .organization.plan h3 {
+    color: var(--purple-4);
+  }
+
+  .plan footer {
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    align-items: center;
+    align-self: stretch;
+  }
+  .plan .price {
+    font-family: var(--font-sans, "Source Sans Pro");
+    font-size: var(--font-lg, 1.25rem);
+    font-style: normal;
+    font-weight: 600;
+    line-height: normal;
+    text-align: center;
+    font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
+  }
+  .professional.plan .price {
+    color: var(--blue-5, #1E2B60);
+  }
+  .organization.plan .price {
+    color: var(--purple-5);
+  }
+
+  .org-list {
+    list-style-type: none;
+    display: flex;
+    gap: 1rem;
+  }
+
+  .org a {
+    display: block;
+    padding: .5rem;
+    border-radius: .25rem;
+    border: 1px solid var(--gray-2);
+    text-decoration: none;
+    color: currentColor;
+    background-color: var(--white);
+  }
+  .org a:hover {
+    background-color: var(--blue-1);
+  }
+
+  .team h4 {
+    margin: 0;
+    font-weight: 600;
+  }
+
+  .verified {
+    margin-bottom: 2rem;
+  }
+
+  .verified header {
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .verified header p {
+    color: var(--gray-4, #5C717C);
+    text-align: center;
+    font-feature-settings: 'ss04' on;
+
+    /* Label */
+    font-family: var(--font-sans, "Source Sans Pro");
+    font-size: var(--font-md, 1rem);
+    font-style: normal;
+    font-weight: 600;
+    line-height: normal;
+  }
+
+  .services-list {
+    margin: 0;
+    padding: 0;
+    flex: 1 0 0;
+    list-style-type: none;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 1.5rem;
+    align-self: stretch;
+  }
+
+  .service {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: stretch;
+    gap: 1.5rem;
+    align-self: stretch;
+  }
+
+  .service .identity {
+    display: flex;
+    width: 12.5625rem;
+    padding: 1.1875rem 1.3125rem;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.625rem;
+  }
+
+  .service .checklist {
+    display: flex;
+    padding: 1rem;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-content: center;
+    gap: 0.5rem 1rem;
+    flex: 1 0 0;
+    align-self: stretch;
+    flex-wrap: wrap;
+
+    border-radius: 0.5rem;
+    border: 1px solid var(--gray-2, #D8DEE2);
+  }
+
+  .service .checkmark svg {
+    fill: var(--blue-3);
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-
-<div class="_cls-content">
-  {% trans "Create an account for" as intent_header %}
-  {% trans "You’ll also be able to sign into" as intent_text %}
-  {% handleintent intent_header intent_text %}
-  <p class="_cls-info">
-    {% trans "Already have an account?" %}
-    <a href="{% url "account_login" %}">
-      <span class="_cls-action">
-        {% trans "Login now" %}
-      </span>
-    </a>
-  </p>
-</div>
-
-<div class="_cls-form">
-  <div class="_cls-expandedContent">
-    <div class="_cls-cardContainer">
-      <div class="_cls-cards">
-        <div class="_cls-card">
-          <div class="_cls-cardHeader">
-            <h1>{% trans 'Free' %}</h1>
-          </div>
-          <div class="_cls-cardContent">
-            <ul>
-              <li>
-                {% blocktrans %}
-                  Sign up for free, no credit card required.
-                {% endblocktrans %}
-              </li>
-              {% if request.GET.intent == "documentcloud" %}
-                <li>
-                  {% blocktrans %}
-                    Upload, share, annotate and embed documents after account
-                    verification on DocumentCloud.
-                  {% endblocktrans %}
-                </li>
-                <li>
-                  {% blocktrans %}
-                    Use Add-Ons for additional features, such as scraping and
-                    audio transcriptions, or write your own.
-                  {% endblocktrans %}
-                </li>
-              {% else %}
-                <li>
-                  {% blocktrans %}
-                    Purchase bundles of 4 requests for $20 on MuckRock.
-                  {% endblocktrans %}
-                </li>
-                <li>
-                  {% blocktrans %}
-                    Bulk rate of $4/request on purchases of 20 or more
-                    additional requests.
-                  {% endblocktrans %}
-                </li>
-              {% endif %}
-            </ul>
-          </div>
-          <div class="_cls-cardAction">
-            <a class="_cls-nostyle" href="{% url 'account_signup' %}?intent={% firstof request.GET.intent 'squarelet' %}">
-              <button>{% blocktrans %}Sign up for free{% endblocktrans %}</button>
-            </a>
-          </div>
-        </div>
-        <div class="_cls-card">
-          <div class="_cls-cardHeader">
-            <h1>{% trans 'Professional' %}</h1>
-          </div>
-          <div class="_cls-cardContent">
-            {% if request.GET.intent == "documentcloud" %}
-              <ul>
-                <li>
-                  {% blocktrans %}
-                    Use advanced OCR powered by AWS Textract for the most
-                    accurate text extraction on up to 2,000 pages per month on
-                    DocumentCloud.
-                  {% endblocktrans %}
-                </li>
-                <li>
-                  {% blocktrans %}
-                    Ability to search through the notes on your documents.
-                  {% endblocktrans %}
-                </li>
-              </ul>
-              <em class="_cls-plus">Plus access to MuckRock Pro Features:</em>
-              <ul>
-                <li>
-                  {% blocktrans %}
-                    Receive 20 requests per month on MuckRock.
-                  {% endblocktrans %}
-                </li>
-                <li>
-                  {% blocktrans %}
-                    Embargo requests for up to 30 days after completion.
-                  {% endblocktrans %}
-                </li>
-              </ul>
-            {% else %}
-              <ul>
-                <li>
-                  {% blocktrans %}
-                    Receive 20 requests per month on MuckRock.
-                  {% endblocktrans %}
-                </li>
-                <li>
-                  {% blocktrans %}
-                    Embargo requests for up to 30 days after completion.
-                  {% endblocktrans %}
-                </li>
-                <li>
-                  {% blocktrans %}
-                    Bulk rate of $3/request on purchases of 20 or more
-                    additional requests.
-                  {% endblocktrans %}
-                </li>
-              </ul>
-              <em class="_cls-plus">Plus access to DocumentCloud Pro Features:</em>
-              <ul>
-                <li>
-                  {% blocktrans %}
-                    Use Textract advanced OCR on up to 2,000 pages per month on
-                    DocumentCloud.
-                  {% endblocktrans %}
-                </li>
-                <li>
-                  {% blocktrans %}
-                    Ability to search through notes.
-                  {% endblocktrans %}
-                </li>
-              </ul>
-            {% endif %}
-          </div>
-          <div class="_cls-cardAction">
-            <a class="_cls-nostyle" href="{% url 'account_signup' %}?plan=professional&intent={% firstof request.GET.intent 'squarelet' %}">
-              <button>
-                {% blocktrans %}Subscribe for $40/month{% endblocktrans %}
-              </button>
-            </a>
-          </div>
-          <em class="_cls-verify">DocumentCloud features require user verification</em>
-        </div>
-        <div class="_cls-card">
-          <div class="_cls-cardHeader">
-            <h1>{% trans 'Organization' %}</h1>
-          </div>
-          <div class="_cls-cardContent">
-            {% if request.GET.intent == "documentcloud" %}
-              <ul>
-                <li>
-                  {% blocktrans %}
-                    This plan has unlimited members and 5,000 credits usable
-                    for advanced OCR and premium add-ons on DocumentCloud.
-                  {% endblocktrans %}
-                </li>
-                <li>
-                  {% blocktrans %}
-                    Add additional blocks of 500 credits for $10 per month.
-                  {% endblocktrans %}
-                </li>
-              </ul>
-              <em class="_cls-plus">Plus access to MuckRock Organization Features:</em>
-              <ul>
-                <li>
-                  {% blocktrans %}
-                    50 collective requests per month on MuckRock.
-                  {% endblocktrans %}
-                </li>
-                <li>
-                  {% blocktrans %}
-                    Members can make embargoes permanent.
-                  {% endblocktrans %}
-                </li>
-              </ul>
-            {% else %}
-              <ul>
-                <li>
-                  {% blocktrans %}
-                    This plan has unlimited users and 50 collective requests per month
-                    on MuckRock.
-                  {% endblocktrans %}
-                </li>
-                <li>
-                  {% blocktrans %}
-                    Add additional blocks of 5 requests for $10 per month.
-                  {% endblocktrans %}
-                </li>
-                <li>
-                  {% blocktrans %}
-                    Members can make embargoes permanent.
-                  {% endblocktrans %}
-                </li>
-              </ul>
-              <em class="_cls-plus">Plus access to DocumentCloud Organization Features:</em>
-              <ul>
-                <li>
-                  {% blocktrans %}
-                    Use Textract advanced OCR on up to 5,000 pages per month
-                    and premium add-ons on DocumentCloud.
-                  {% endblocktrans %}
-                </li>
-              </ul>
-            {% endif %}
-          </div>
-          <div class="_cls-cardAction">
-            <a class="_cls-nostyle" href="{% url 'account_signup' %}?plan=organization&intent={% firstof request.GET.intent 'squarelet' %}">
-              <button>
-                {% blocktrans %}Subscribe from $100/month{% endblocktrans %}
-              </button>
-            </a>
-          </div>
-          <em class="_cls-verify">DocumentCloud features require user verification</em>
-        </div>
+<article class="container">
+  <section class="plan free">
+    <header>
+    {% if user.is_anonymous %}
+      <h2 class="header-display">
+        {% blocktrans %}
+        <span class="heavy-underline primary">Create your MuckRock account</span> for free, no credit-card required
+        {% endblocktrans %}
+      </h2>
+    {% else %}
+      <h2 class="header-display">
+        {% trans "Your MuckRock account is on our" %}
+        {% if pro_plan %}
+        <span class="heavy-underline premium">Premium plan</span>.
+        {% else %}
+        <span class="heavy-underline primary">free plan</span>.
+        {% endif %}
+      </h2>
+    {% endif %}
+    </header>
+    <main>
+      {% if user.is_anonymous %}
+      <div class="plan-actions">
+        <a href="{% url 'account_signup' %}{% pass_query %}" class="button primary">
+          {% trans  "Sign up for free" %}
+        </a>
+        <a href="{% url 'account_login' %}{% pass_query %}" class="button primary ghost">
+          {% trans "Already have an account? Sign in" %}
+        </a>
       </div>
-    </div>
-  </div>
-</div>
-
+      {% endif %}
+      <ul class="checklist">
+        <li class="checklist-item">
+          <span class="checkmark icon">
+            {% include "core/icons/checkmark.svg" %}
+          </span>
+          <span class="text">
+            {% trans "Sign in to services and tools with your MuckRock account" %}
+          </span>
+        </li>
+        <li class="checklist-item">
+          <span class="checkmark icon">
+            {% include "core/icons/checkmark.svg" %}
+          </span>
+          <span class="text">
+            {% trans "Join and create organizations to collaborate with others" %}
+          </span>
+        </li>
+        <li class="checklist-item">
+          <span class="checkmark icon">
+            {% include "core/icons/checkmark.svg" %}
+          </span>
+          <span class="text">
+            {% trans "Create and file public records requests with MuckRock Requests" %}
+          </span>
+        </li>
+        <li class="checklist-item">
+          <span class="checkmark icon">
+            {% include "core/icons/checkmark.svg" %}
+          </span>
+          <span class="text">
+            {% trans "Search documents and create projects with DocumentCloud" %}
+          </span>
+        </li>
+      </ul>
+    </main>
+  </section>
+  <section class="plan premium">
+    {% if org_plans %}
+      <header>
+        <h2 class="header-display">
+          {% blocktrans %}
+          You belong to an organization subscribed to a <span class="heavy-underline premium">Premium plan</span>:
+          {% endblocktrans %}
+        </h2>
+        <ul class="org-list">
+          {% for org in org_plans %}
+          <li class="org">
+            <a href="{% url "organizations:detail" slug=org.slug %}">
+              {% include "account/team_list_item.html" with organization=org %}
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+      </header>
+    {% elif not pro_plan %}
+      <header>
+        <h2 class="header-display">
+          {% blocktrans %}
+          <span class="heavy-underline premium">Subscribe to a Premium plan</span> for advanced features and discounts 
+          {% endblocktrans %}
+        </h2>
+      </header>
+    {% endif %}
+    <main>
+      <div class="plan professional">
+        <header>
+          <span class="person icon">
+            {% include "core/icons/person.svg" %}
+          </span>
+          <h3>{% trans "Premium for professionals" %}</h3>
+        </header>
+        <main>
+          <ul class="checklist">
+            <li class="checklist-item">
+              <span class="checkmark icon">
+                {% include "core/icons/checkmark.svg" %}
+              </span>
+              <span class="text">
+                {% trans "Includes 20 requests per month on MuckRock" %}
+              </span>
+            </li>
+            <li class="checklist-item">
+              <span class="checkmark icon">
+                {% include "core/icons/checkmark.svg" %}
+              </span>
+              <span class="text">
+                {% trans "Embargo requests for up to 30 days after completion " %}
+              </span>
+            </li>
+            <li class="checklist-item">
+              <span class="checkmark icon">
+                {% include "core/icons/checkmark.svg" %}
+              </span>
+              <span class="text">
+                {% trans "Search your private notes on DocumentCloud" %}
+              </span>
+            </li>
+            <li class="checklist-item">
+              <span class="checkmark icon">
+                {% include "core/icons/checkmark.svg" %}
+              </span>
+              <span class="text">
+                {% trans "Includes 2,000 AI Credits per month on DocumentCloud for advanced OCR and premium Add-Ons" %}
+              </span>
+            </li>
+          </ul>
+        </main>
+        <footer>
+          <div class="price">
+            $40/month
+          </div>
+          {% if user.is_anonymous %}
+          <a class="button premium" href="{% url "account_signup" %}{% pass_query %}&plan=professional">Sign up & subscribe</a>
+          {% elif pro_plan %}
+          <a class="button" href="{% url "users:payment" %}">Manage</a>
+          {% else %}
+          <a class="button premium" href="{% url "account_onboarding" %}{% pass_query %}&plan=professional">Upgrade</a>
+          {% endif %}
+        </footer>
+      </div>
+      <div class="plan organization">
+        <header>
+          <span class="organization icon">
+            {% include "core/icons/organization.svg" %}
+          </span>
+          <h3>{% trans "Premium for organizations" %}</h3>
+        </header>
+        <main>
+          <ul class="checklist">
+            <li class="checklist-item">
+              <span class="checkmark icon">
+                {% include "core/icons/checkmark.svg" %}
+              </span>
+              <span class="text">
+                {% trans "Share resources with unlimited members" %}
+              </span>
+            </li>
+            <li class="checklist-item">
+              <span class="checkmark icon">
+                {% include "core/icons/checkmark.svg" %}
+              </span>
+              <span class="text">
+                {% trans "Includes 50 requests per month on MuckRock" %}
+              </span>
+            </li>
+            <li class="checklist-item">
+              <span class="checkmark icon">
+                {% include "core/icons/checkmark.svg" %}
+              </span>
+              <span class="text">
+                {% trans "Permanently embargo requests" %}
+              </span>
+            </li>
+            <li class="checklist-item">
+              <span class="checkmark icon">
+                {% include "core/icons/checkmark.svg" %}
+              </span>
+              <span class="text">
+                {% trans "Includes 5,000 AI Credits per month on DocumentCloud for advanced OCR and premium Add-Ons" %}
+              </span>
+            </li>
+          </ul>
+        </main>
+        <footer>
+          <div class="price">
+            $100/month
+          </div>
+          {% if user.is_anonymous %}
+          <a class="button premium" href="{% url "account_signup" %}{% pass_query %}&plan=organization">Sign up & subscribe</a>
+          {% elif org_plans %}
+          <a class="button" href="{% url "users:detail" username=user.username %}{% pass_query %}&plan=organization">Manage</a>
+          {% else %}
+          <a class="button premium" href="{% url "account_onboarding" %}{% pass_query %}&plan=organization">Subscribe</a>
+          {% endif %}
+        </footer>
+      </div>
+      <div class="verified plan">
+        <header>
+          <h2 class="header-display">
+            {% blocktrans %}
+            Verified newsrooms, journalists, researchers and educators have access to additional reporting and publishing tools
+            {% endblocktrans %}
+          </h2>
+          {% if user.is_anonymous %}
+          <p>Apply to verify your organization after signing up or signing in</p>
+          {% else %}
+          <p><a href="https://help.muckrock.com/19ef8892696381dba944e17e14938433?pvs=4">Learn more about verification</a></p>
+          {% endif %}
+        </header>
+        <main>
+          <ul class="services-list">
+            <li class="service">
+              <div class="identity">
+                {% include "core/logos/documentcloud.svg" %}
+              </div>
+              <ul class="checklist">
+                <li class="checklist-item">
+                  <span class="checkmark icon">
+                    {% include "core/icons/checkmark.svg" %}
+                  </span>
+                  <span class="text">
+                    {% trans "Upload to DocumentCloud" %}
+                  </span>
+                </li>
+                <li class="checklist-item">
+                  <span class="checkmark icon">
+                    {% include "core/icons/checkmark.svg" %}
+                  </span>
+                  <span class="text">
+                    {% trans "Publish and embed documents" %}
+                  </span>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </main>
+      </div>
+    </main>
+  </section>
+</article>
 {% endblock %}

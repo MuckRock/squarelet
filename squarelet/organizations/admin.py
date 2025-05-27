@@ -51,8 +51,8 @@ class MembershipFormset(BaseInlineFormSet):
 
 class MembershipInline(admin.TabularInline):
     model = Membership
-    readonly_fields = ("user",)
-    fields = ["user", "admin"]
+    readonly_fields = ("user", "created_at")
+    fields = ["user", "admin", "created_at"]
     extra = 0
     formset = MembershipFormset
 
@@ -135,6 +135,7 @@ class OrganizationAdmin(VersionAdmin):
         "private",
         "verified_journalist",
         "hub_eligible",
+        "allow_auto_join",
         "max_users",
         "payment_failed",
         "subtypes",

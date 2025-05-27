@@ -1,0 +1,20 @@
+{% extends "account/base_reauthenticate.html" %}
+{% load i18n %}
+{% load allauth %}
+{% block reauthenticate_content %}
+    <p>
+        {% blocktranslate %}Enter an authenticator code:{% endblocktranslate %}
+    </p>
+    {% url 'mfa_reauthenticate' as action_url %}
+    <form class="flex row gap-1 align-end" method="post" action="{% url 'mfa_reauthenticate' %}">
+      {% csrf_token %}
+      {% for field in form %}
+        <label class="field">
+          {{ field.label }}
+          {{ field }}
+        </label>
+      {% endfor %}      
+      {{ redirect_field }}
+        <button class="primary button" type="submit">{% trans "Confirm" %}</button>
+    </form>
+{% endblock %}

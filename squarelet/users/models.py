@@ -1,6 +1,8 @@
 # Django
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.contrib.auth.models import PermissionsMixin
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.db import models, transaction
 from django.db.models import Q
 from django.http.request import urlencode
@@ -18,6 +20,7 @@ from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
 from squarelet.core.mixins import AvatarMixin
 from squarelet.core.utils import file_path
 from squarelet.oidc.middleware import send_cache_invalidations
+from squarelet.organizations.models import Invitation, Organization
 
 # Local
 from .managers import UserManager
@@ -47,6 +50,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         user_permissions (ManyToManyField): permissions for this user
     """
 
+    # TODO: Rename to "profile" or similar
     individual_organization = models.OneToOneField(
         verbose_name=_("individual organization"),
         to="organizations.Organization",
@@ -62,10 +66,22 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
     name = models.CharField(
         _("name of user"), max_length=255, help_text=_("The user's full name")
     )
+
+    """
+    `allauth` automatically updates `user.email` whenever the primary email changes.
+
+    In users.admin.MyUserAdmin, we call the `allauth` utility function
+    `sync_user_email_addresses` to ensure our email address table is
+    kept updated whenever users are manually created.
+
+    The only active use for secondary emails is authentication,
+    otherwise they're passively used to dedupe accounts and
+    to be available as options to set as primary.
+    """
     email = models.EmailField(
         _("email"),
-        unique=True,
-        null=True,
+        unique=True,  # All non-NULL values must be unique
+        null=True,  # PostgresQL treats each NULL as unique
         help_text=_("The user's email address"),
         db_collation="case_insensitive",
     )
@@ -88,6 +104,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         max_length=255,
         help_text=_("An image to represent the user"),
     )
+    # TODO: Move this field to the user's profile / individual_organization
     bio = models.TextField(
         _("bio"), blank=True, help_text=_("Public bio for the user, in Markdown")
     )
@@ -119,6 +136,8 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
             "This is an account used for allowing agencies to log in to the site"
         ),
     )
+    # TODO: Update this to be a many-to-one relation
+    # to a Service (#227) or an oidc_provider.Client
     source = models.CharField(
         _("source"),
         max_length=13,
@@ -147,6 +166,8 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         _("updated at"), help_text=_("When this user was last updated")
     )
 
+    last_mfa_prompt = models.DateTimeField(null=True, blank=True)
+
     # preferences
     use_autologin = models.BooleanField(
         _("use autologin"),
@@ -161,6 +182,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
     EMAIL_FIELD = "email"
     REQUIRED_FIELDS = ["email"]
 
+    # TODO: Replace default avatar
     default_avatar = static("images/avatars/profile.png")
 
     objects = UserManager()
@@ -196,6 +218,8 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
             return self.name
         return self.username
 
+    # This memoized property will only query for
+    # the primary email address once per request
     @mproperty
     def primary_email(self):
         """A user's primary email object"""
@@ -211,6 +235,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
     def verified_journalist(self):
         return self.organizations.filter(verified_journalist=True).exists()
 
+    # TODO: remove after retiring Election Hub (#229)
     def is_hub_eligible(self):
         return self.organizations.filter(
             Q(hub_eligible=True)
@@ -218,9 +243,58 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
             | Q(parent__hub_eligible=True)
         ).exists()
 
+    def get_potential_organizations(self):
+        # Get all verified email addresses for the user
+        emails = self.emailaddress_set.filter(verified=True)
+
+        # Extract and validate domains from verified emails
+        domains = []
+        for email in emails:
+            try:
+                validate_email(email.email)  # Ensure the email is valid
+                domains.append(email.email.split("@")[1].lower())
+            except ValidationError:
+                continue  # Skip invalid emails
+
+        # Find organizations matching any of the domains
+        return (
+            Organization.objects.filter(domains__domain__in=domains)
+            .distinct()
+            .exclude(users=self)
+        )
+
+    def can_auto_join(self, organization):
+        """Check if the user can auto-join an organization."""
+        return (
+            organization.allow_auto_join
+            and organization in self.get_potential_organizations()
+        )
+
+    def get_pending_invitations(self):
+        verified_email_qs = self.emailaddress_set.filter(verified=True)
+        verified_emails = list(verified_email_qs.values_list("email", flat=True))
+
+        if not verified_emails:
+            # If the user has no verified emails, they cannot have pending invites
+            return Invitation.objects.none()
+
+        # Query for Invitations matching any verified email
+        # that are not accepted or rejected
+        pending_invites = (
+            Invitation.objects.filter(
+                email__in=verified_emails,
+                accepted_at__isnull=True,
+                rejected_at__isnull=True,
+            )
+            .select_related("organization")
+            .order_by("-created_at")
+        )
+
+        return pending_invites
+
 
 class LoginLog(models.Model):
-    """Log when a user users Squarelet to log in to another service"""
+    """Record when a user authenticates with another service using Squarelet"""
 
     user = models.ForeignKey(
         verbose_name=_("user"),

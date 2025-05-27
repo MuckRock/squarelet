@@ -1,6 +1,6 @@
 # Django
 from django.urls import reverse
-from django.views.generic.base import RedirectView
+from django.views.generic.base import RedirectView, TemplateView
 
 
 class HomeView(RedirectView):
@@ -13,3 +13,23 @@ class HomeView(RedirectView):
             )
         else:
             return reverse("select_plan")
+
+
+class SelectPlanView(TemplateView):
+    template_name = "pages/selectplan.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        pro_plan = None
+        org_plans = None
+        if not user.is_anonymous:
+            pro_plan = user.individual_organization.subscription
+            org_plans = user.organizations.filter(
+                subscriptions__isnull=False,
+                individual=False,
+            ).distinct()
+        context["user"] = user
+        context["pro_plan"] = pro_plan
+        context["org_plans"] = org_plans
+        return context

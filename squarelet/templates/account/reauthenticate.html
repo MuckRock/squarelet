@@ -1,0 +1,75 @@
+{% extends "account/base_reauthenticate.html" %}
+{% load allauth %}
+{% load i18n %}
+
+{% block css %}
+{{ block.super }}
+<style>
+  .container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 1rem;
+    gap: 2rem;
+  }
+  header, main, form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+  h1,
+  p {
+    width: 100%;
+    text-align: center;
+    text-wrap: balance;
+    margin: 0;
+  }
+  h1 {
+    color: var(--gray-5, #233944);
+    text-align: center;
+    font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
+
+    /* Title */
+    font-family: var(--font-sans, "Source Sans Pro");
+    font-size: var(--font-xl, 1.5rem);
+    font-style: normal;
+    font-weight: 600;
+    line-height: normal;
+  }
+  .help.link {
+    font-size: var(--font-md, 1rem);
+    font-weight: var(--font-semibold, 600);
+    color: var(--primary);
+  }
+  .flex {
+    display: flex;
+  }
+  .gap-1 {
+    gap: 1rem;
+  }
+  .m-0 {
+    margin: 0;
+  }
+  .field {
+    flex: 1 1 auto;
+    width: 20rem;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+</style>
+{% endblock %}
+
+{% block reauthenticate_content %}
+  <form class="m-0" method="post" action="{% url 'account_reauthenticate' %}">
+    {% csrf_token %}
+    <label class="field">
+      {% trans "Password" %}
+      <input type="password" name="password" />
+    </label>
+    {{ redirect_field }}
+    <button type="submit" class="button primary">{% trans "Confirm" %}</button>
+  </form>
+{% endblock %}

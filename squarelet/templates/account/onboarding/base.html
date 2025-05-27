@@ -1,0 +1,30 @@
+{% extends "account/login.html" %}
+
+{% load i18n %}
+{% load account socialaccount %}
+{% load handleintent %}
+
+{% block title %}{% endblock %}
+
+{% block css %}
+  {{ block.super }}
+  <style>
+    .container {
+      flex: 1 1 28em;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0 auto;
+      padding: 4rem 1rem;
+      gap: 2rem;
+    }
+  </style>
+{% endblock %}
+
+{% block login_step %}
+  <div class="container">
+    {% block onboarding_step %}
+    {% endblock %}
+  </div>
+{% endblock %}
+

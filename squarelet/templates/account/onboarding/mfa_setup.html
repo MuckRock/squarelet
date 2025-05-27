@@ -1,0 +1,100 @@
+{% extends "account/onboarding/base.html" %}
+
+{% load i18n static %}
+{% load account socialaccount %}
+
+{% block css %}
+{{ block.super }}
+<style>
+  header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+  h1,
+  p {
+    width: 100%;
+    text-wrap: balance;
+    margin: 0;
+  }
+  h1 {
+    color: var(--gray-5, #233944);
+    text-align: center;
+    font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
+
+    /* Title */
+    font-family: var(--font-sans, "Source Sans Pro");
+    font-size: var(--font-xl, 1.5rem);
+    font-style: normal;
+    font-weight: 600;
+    line-height: normal;
+  }
+  .help.link {
+    font-size: var(--font-md, 1rem);
+    font-weight: var(--font-semibold, 600);
+    color: var(--primary);
+  }
+  .flex {
+    display: flex;
+  }
+  .gap-1 {
+    gap: 1rem;
+  }
+  .align-end {
+    align-items: flex-end;
+  }
+  .align-center {
+    align-items: center;
+  }
+  .m-0 {
+    margin: 0;
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+  }
+  .help.text {
+    font-weight: var(--font-regular, 400);
+    font-size: var(--font-sm, 0.875em);
+    color: var(--gray-4);
+  }
+  .errorlist {
+    margin: 0;
+  }
+</style>
+{% endblock %}
+
+{% block onboarding_step %}
+  <header>
+    <h1>{% trans "Enable two-factor authentication" %}</h1>
+  </header>
+  <div class="flex gap-1 align-center">
+    <div class="code">
+      <img src="{{ totp_svg_data_uri }}" alt="QR code for enabling two-factor authentication" />
+    </div>
+    <div class="instructions">
+      <p>{% blocktrans %}First, scan this code using an iOS or Android app like:{% endblocktrans %}</p>
+      <ul>
+        <li><a href="https://2fas.com" target="_blank" rel="nofollow noreferrer">2FAS</a></li>
+        <li><a href="https://support.google.com/accounts/answer/1066447" target="_blank" rel="nofollow noreferrer">Google Authenticator</a></li>
+      </ul>
+      <p>{% blocktrans %}Then, enter the generated 6-digit code below.{% endblocktrans %}</p>
+    </div>
+  </div>
+  {% if form.code.errors %}
+    {{ form.code.errors }}
+  {% endif %}
+  <form class="flex gap-1 align-end m-0" method="post" action="{% url 'account_onboarding' %}">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="mfa_setup" />
+    <input type="hidden" name="secret" value="{{ form.secret }}" />
+    <label class="field">
+      {% trans "Enter your 6-digit code" %}
+      <input type="text" name="code" placeholder="{% trans "######" %}" />
+    </label>
+    <button class="button primary" type="submit" name="mfa_setup" value="code">{% trans "Submit" %}</button>
+    <button class="button primary ghost" type="submit" name="mfa_setup" value="skip">{% trans "Skip" %}</button>
+  </form>
+  <a class="help link" target="_blank" href="https://help.muckrock.com/1c4f889269638026b507dc08b6561335?pvs=4#1c4f8892696380ccbbe7d6194a1dbe57">{% trans "What is two-factor authentication?" %}</a>
+{% endblock %}

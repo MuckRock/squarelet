@@ -24,6 +24,10 @@ class Statistics(models.Model):
         help_text=_("Total users who have an organizational subscription")
     )
 
+    total_users_mfa = models.IntegerField(
+        help_text=_("Total users who have enabled MFA")
+    )
+
     total_orgs = models.IntegerField(
         help_text=_(
             "The total number of organizations in the database excluding free "

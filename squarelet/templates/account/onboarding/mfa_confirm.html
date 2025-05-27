@@ -1,0 +1,46 @@
+{% extends "account/onboarding/base.html" %}
+
+{% load i18n static %}
+{% load account socialaccount %}
+
+{% block css %}
+{{ block.super }}
+<style>
+  header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  h1 {
+    color: var(--gray-5, #233944);
+    text-align: center;
+    font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
+
+    /* Title */
+    font-family: var(--font-sans, "Source Sans Pro");
+    font-size: var(--font-xl, 1.5rem);
+    font-style: normal;
+    font-weight: 600;
+    line-height: normal;
+  }
+</style>
+{% endblock css %}
+
+{% block onboarding_step %}
+  <header>
+    <div class="icon">
+      <img src="{% static 'icons/checkmark-outline.svg' %}" />
+    </div>
+    <h1 class="title">{% trans "Two-factor authentication enabled" %}</h1>
+    <p>{% blocktrans %}Download your secret backup codes in case your device is lost or stolen:{% endblocktrans %}</p>
+  </header>
+  <a href="{% url 'mfa_download_recovery_codes' %}" class="button primary" target="download"><img src="{% static 'icons/download.svg' %}" /> {% trans "Download your backup codes" %}</a>
+  <p>{% blocktrans %}Always store your backup codes in a secure location!{% endblocktrans %}</p>
+  <form method="post" action="{% url 'account_onboarding' %}">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="mfa_confirm" />
+    <button type="submit" class="button primary ghost">Continue Signing In</button>
+  </form>
+{% endblock %}
+  
