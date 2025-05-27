@@ -365,6 +365,14 @@
             {% include "core/icons/checkmark.svg" %}
           </span>
           <span class="text">
+            {% trans "Join and create organizations to collaborate with others" %}
+          </span>
+        </li>
+        <li class="checklist-item">
+          <span class="checkmark icon">
+            {% include "core/icons/checkmark.svg" %}
+          </span>
+          <span class="text">
             {% trans "Create and file public records requests with MuckRock Requests" %}
           </span>
         </li>
@@ -445,7 +453,7 @@
                 {% include "core/icons/checkmark.svg" %}
               </span>
               <span class="text">
-                {% trans "Includes 2,000 AI Credits per month on DocumentCloud for advanced OCR and premium add-ons" %}
+                {% trans "Includes 2,000 AI Credits per month on DocumentCloud for advanced OCR and premium Add-Ons" %}
               </span>
             </li>
           </ul>
@@ -501,7 +509,7 @@
                 {% include "core/icons/checkmark.svg" %}
               </span>
               <span class="text">
-                {% trans "Includes 5,000 AI Credits per month on DocumentCloud for advanced OCR and premium add-ons" %}
+                {% trans "Includes 5,000 AI Credits per month on DocumentCloud for advanced OCR and premium Add-Ons" %}
               </span>
             </li>
           </ul>
@@ -523,7 +531,7 @@
         <header>
           <h2 class="header-display">
             {% blocktrans %}
-            Verified newsrooms, journalists, researchers, and educators have access to additional reporting and publishing tools
+            Verified newsrooms, journalists, researchers and educators have access to additional reporting and publishing tools
             {% endblocktrans %}
           </h2>
           {% if user.is_anonymous %}
