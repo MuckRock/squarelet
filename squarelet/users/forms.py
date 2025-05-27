@@ -267,17 +267,22 @@ class PremiumSubscriptionForm(StripeForm):
                         organization.receipt_emails.create(email=email)
         try:
             organization.create_subscription(stripe_token, plan, user)
+            return True
         except stripe.error.StripeError as exc:
             logger.error("Error updating subscription: %s", exc)
-            raise forms.ValidationError(
+            self.add_error(
+                None,
                 _("Error processing payment. Please try again or contact support.")
             )
+            return False
         except errors.lookup(UNIQUE_VIOLATION) as exc:
             # Organizations can only have one subscription
             logger.error("Error creating subscription: %s", exc)
-            raise forms.ValidationError(
+            self.add_error(
+                None,
                 _("This organization already has a subscription.")
             )
+            return False
 
 
 class AddEmailForm(allauth.AddEmailForm):
