@@ -108,6 +108,7 @@ def mailchimp_journey(email, journey):
         "email_address": email,
         "status": "subscribed",
     }
+    response = None
     try:
         response = retry_on_error(
             requests.ConnectionError, requests.put, api_url, json=data, headers=headers
