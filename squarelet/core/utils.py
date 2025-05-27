@@ -14,6 +14,8 @@ import stripe
 
 logger = logging.getLogger(__name__)
 
+MAX_RETRIES = 10
+
 
 def file_path(base, _instance, filename):
     """Create a file path that fits within the 100 character limit"""
@@ -34,12 +36,11 @@ def file_path(base, _instance, filename):
 
 def retry_on_error(errors, func, *args, **kwargs):
     """Retry a function on error"""
-    max_retries = 10
     times = kwargs.pop("times", 0) + 1
     try:
         return func(*args, **kwargs)
     except errors as exc:
-        if times > max_retries:
+        if times > MAX_RETRIES:
             raise exc
         logger.warning(
             "Error, retrying #%d:\n\n%s", times, exc, exc_info=sys.exc_info()
@@ -107,20 +108,32 @@ def mailchimp_journey(email, journey):
         "email_address": email,
         "status": "subscribed",
     }
-    response = retry_on_error(
-        requests.ConnectionError, requests.put, api_url, json=data, headers=headers
-    )
-    if response.status_code >= 400:
-        logger.warning("[JOURNEY] Error adding to audience", exc_info=sys.exc_info())
+    try:
+        response = retry_on_error(
+            requests.ConnectionError, requests.put, api_url, json=data, headers=headers
+        )
+        if response.status_code >= 400:
+            raise ValueError(
+                f"Error adding {email} to audience: "
+                f"{response.status_code} {response.text}"
+            )
+    except (requests.ConnectionError, ValueError):
+        logger.error("[JOURNEY] Error adding to audience", exc_info=sys.exc_info())
 
     api_url = (
         f"{settings.MAILCHIMP_API_ROOT}/customer-journeys/journeys/"
         f"{journey_id}/steps/{step_id}/actions/trigger"
     )
     data = {"email_address": email}
-    response = retry_on_error(
-        requests.ConnectionError, requests.post, api_url, json=data, headers=headers
-    )
-    if response.status_code >= 400:
-        logger.warning("[JOURNEY] Error starting journey", exc_info=sys.exc_info())
+    try:
+        response = retry_on_error(
+            requests.ConnectionError, requests.post, api_url, json=data, headers=headers
+        )
+        if response.status_code >= 400:
+            raise ValueError(
+                f"Error starting journey for {email}: "
+                f"{response.status_code} {response.text}"
+            )
+    except (requests.ConnectionError, ValueError):
+        logger.error("[JOURNEY] Error starting journey", exc_info=sys.exc_info())
     return response
