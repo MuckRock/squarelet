@@ -2,7 +2,7 @@
 
 {% load i18n static %}
 
-{% block title %}{% trans "Verify Your E-mail Address" %}{% endblock %}
+{% block title %}{% trans "Confirm Your Email Address" %}{% endblock %}
 
 {% block css %}
 {{ block.super }}
@@ -49,6 +49,12 @@
     justify-content: center;
     align-items: center;
   }
+
+  .email-address {
+    font-family: "Source Code Pro", "Monaco", monospace;
+    font-size: var(--font-sm);
+    text-decoration: underline;
+  }
 </style>
 {% endblock %}
 
@@ -60,8 +66,8 @@
     <h1>{% trans "One-Time Email Confirmation" %}</h1>
     <p>
       {% blocktrans %}
-      We&rsquo;ve sent a one-time email confirmation code to the address associated with your account.
-      Please click the link in the email to confirm your identity.
+      We&rsquo;ve sent an email to <span class="email-address">{{email}}</span>.
+      Please open it and click the one-time link to confirm this email address belongs to you.
       {% endblocktrans %}
     </p>
   <form method="post" action="{% url 'account_onboarding' %}">
