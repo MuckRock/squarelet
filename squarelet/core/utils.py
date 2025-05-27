@@ -118,7 +118,7 @@ def mailchimp_journey(email, journey):
                 f"{response.status_code} {response.text}"
             )
     except (requests.ConnectionError, ValueError):
-        logger.warning("[JOURNEY] Error adding to audience", exc_info=sys.exc_info())
+        logger.error("[JOURNEY] Error adding to audience", exc_info=sys.exc_info())
 
     api_url = (
         f"{settings.MAILCHIMP_API_ROOT}/customer-journeys/journeys/"
@@ -135,5 +135,5 @@ def mailchimp_journey(email, journey):
                 f"{response.status_code} {response.text}"
             )
     except (requests.ConnectionError, ValueError):
-        logger.warning("[JOURNEY] Error starting journey", exc_info=sys.exc_info())
+        logger.error("[JOURNEY] Error starting journey", exc_info=sys.exc_info())
     return response

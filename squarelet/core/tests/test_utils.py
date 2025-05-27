@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import requests
 
 # Squarelet
-from squarelet.core.utils import MAX_RETRIES, file_path, mailchimp_journey
+from squarelet.core.utils import file_path, mailchimp_journey
 
 
 def test_file_path_normal():
@@ -70,7 +70,7 @@ class TestMailchimpJourney:
 
     @patch("squarelet.core.utils.requests.put")
     @patch("squarelet.core.utils.requests.post")
-    @patch("squarelet.core.utils.logger.warning")
+    @patch("squarelet.core.utils.logger.error")
     def test_audience_error(self, mock_logger, mock_post, mock_put):
         # Mocks an audience error
         mock_put_response = MagicMock()
@@ -91,7 +91,7 @@ class TestMailchimpJourney:
 
     @patch("squarelet.core.utils.requests.put")
     @patch("squarelet.core.utils.requests.post")
-    @patch("squarelet.core.utils.logger.warning")
+    @patch("squarelet.core.utils.logger.error")
     def test_journey_error(self, mock_logger, mock_post, mock_put):
         # Mock an audience success
         mock_put_response = MagicMock()
@@ -111,7 +111,7 @@ class TestMailchimpJourney:
 
     @patch("squarelet.core.utils.requests.put")
     @patch("squarelet.core.utils.requests.post")
-    @patch("squarelet.core.utils.logger.warning")
+    @patch("squarelet.core.utils.logger.error")
     def test_connection_error_audience(self, mock_logger, mock_post, mock_put):
         # Mock an audience connection error
         mock_put.side_effect = requests.ConnectionError("Connection error")
@@ -121,15 +121,13 @@ class TestMailchimpJourney:
         mock_post_response.status_code = 200
         mock_post.return_value = mock_post_response
 
-        # Call the function and verify logger is called 11 times
-        # - 10 times from retry_on_error (MAX_RETRIES)
-        # - 1 time from the final exception handler in mailchimp_journey
+        # Call the function and verify logger is called
         mailchimp_journey(self.email, self.journey)
-        assert mock_logger.call_count == MAX_RETRIES + 1
+        assert mock_logger.call_count == 1
 
     @patch("squarelet.core.utils.requests.put")
     @patch("squarelet.core.utils.requests.post")
-    @patch("squarelet.core.utils.logger.warning")
+    @patch("squarelet.core.utils.logger.error")
     def test_connection_error_journey(self, mock_logger, mock_post, mock_put):
         # Mock an audience success
         mock_put_response = MagicMock()
@@ -139,8 +137,6 @@ class TestMailchimpJourney:
         # Mock a connection error for the journey
         mock_post.side_effect = requests.ConnectionError("Connection error")
 
-        # Call the function and verify logger is called 11 times
-        # - 10 times from retry_on_error (MAX_RETRIES)
-        # - 1 time from the final exception handler in mailchimp_journey
+        # Call the function and verify logger is called
         mailchimp_journey(self.email, self.journey)
-        assert mock_logger.call_count == MAX_RETRIES + 1
+        assert mock_logger.call_count == 1
