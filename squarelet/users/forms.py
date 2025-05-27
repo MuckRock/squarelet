@@ -272,16 +272,13 @@ class PremiumSubscriptionForm(StripeForm):
             logger.error("Error updating subscription: %s", exc)
             self.add_error(
                 None,
-                _("Error processing payment. Please try again or contact support.")
+                _("Error processing payment. Please try again or contact support."),
             )
             return False
         except errors.lookup(UNIQUE_VIOLATION) as exc:
             # Organizations can only have one subscription
             logger.error("Error creating subscription: %s", exc)
-            self.add_error(
-                None,
-                _("This organization already has a subscription.")
-            )
+            self.add_error(None, _("This organization already has a subscription."))
             return False
 
 
