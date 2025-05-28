@@ -228,10 +228,19 @@ class MergeForm(forms.Form):
     """A form to merge two organizations"""
 
     good_organization = forms.ModelChoiceField(
-        queryset=Organization.objects.filter(individual=False, merged=None),
+        queryset=Organization.objects.filter(
+            individual=False,
+            merged=None
+        ),
+        label=_("\"Good\" organization to keep"),
     )
     bad_organization = forms.ModelChoiceField(
-        queryset=Organization.objects.filter(individual=False, merged=None),
+        queryset=Organization.objects.filter(
+            subscriptions__isnull=True,
+            individual=False,
+            merged=None,
+        ),
+        label=_("\"Bad\" organization to reject"),
     )
     confirmed = forms.BooleanField(
         initial=False, widget=forms.HiddenInput(), required=False
