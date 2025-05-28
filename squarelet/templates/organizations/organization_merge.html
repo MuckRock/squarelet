@@ -4,9 +4,71 @@
 {% load i18n %}
 {% block title %}Merge Organizations{% endblock %}
 
+{% block css %}
+{{ block.super }}
+<style>
+  .container {
+    max-width: var(--max-width, 62rem);
+    margin: 3rem auto;
+  }
+  .form-horizontal {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+  .form-horizontal > * {
+    flex: 1 1 auto;
+  }
+  .form-horizontal select {
+    width: 100%;
+    font-size: var(--font-md, 1rem);
+    font-family: var(--font-sans);
+  }
+  .form-horizontal .control-group {
+    flex: 1 1 100%;
+  }
+  table {
+    background: var(--white);
+    width: 100%;
+    border-collapse: collapse;
+  }
+  td, th {
+    padding: .25rem .5rem;
+    border: 1px solid var(--gray-2);
+    vertical-align: top;
+  }
+  th {
+    background-color: var(--gray-1);
+    font-weight: var(--semibold, 600);
+  }
+  .column-header {
+    text-align: left;
+  }
+  .row-header {
+    text-align: right;
+  }
+  table ul {
+    margin: 0;
+    padding-left: 1rem;
+  }
+  .empty {
+    color: var(--gray-4);
+    list-style-type: none;
+  }
+  li.empty {
+    margin-left: -1rem;
+  }
+  p.caution {
+    color: var(--orange-4);
+    background: var(--orange-2);
+    padding: .25rem .5rem;
+    border-radius: .25rem;
+  }
+</style>
+{% endblock %}
 
 {% block content %}
-  <div class="_cls-content">
+  <div class="container">
     <h1>Merge Organizations</h1>
     {% if form.fields.confirmed.initial %}
       <p>
@@ -18,12 +80,12 @@
           </p>
           <table>
             <tr>
-              <th>&nbsp;</th>
-              <th>Good (This one will be kept)</th>
-              <th>Bad (This one will be rejected)</th>
+              <th class="column-header">&nbsp;</th>
+              <th class="column-header">{% trans "Organization to keep" %}</th>
+              <th class="column-header">{% trans "Organization to reject" %}</th>
             </tr>
             <tr>
-              <th>ID</th>
+              <th class="row-header">ID</th>
               <td>
                 <a href="{% url "admin:organizations_organization_change" good.pk %}">
                   {{ good.pk }}
@@ -36,31 +98,45 @@
               </td>
             </tr>
             <tr>
-              <th>Name</th>
+              <th class="row-header">Name</th>
               <td><a href="{{ good.get_absolute_url }}">{{ good.name }}</a></td>
               <td><a href="{{ bad.get_absolute_url }}">{{ bad.name }}</a></td>
             </tr>
             <tr>
-              <th>Image</th>
+              <th class="row-header">Image</th>
               <td>{% avatar good %}</td>
               <td>{% avatar bad %}</td>
             </tr>
             <tr>
-              <th>Parent</th>
-              <td>{{ good.parent }}</td>
-              <td>{{ bad.parent }}</td>
+              <th class="row-header">Parent</th>
+              <td>
+                {% if good.parent %}
+                  {{ good.parent }}
+                {% else %}
+                  <span class="empty">None</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if bad.parent %}
+                  {{ bad.parent }}
+                {% else %}
+                  <span class="empty">None</span>
+                {% endif %}
+              </td>
             </tr>
             <tr>
-              <th>Charges</th>
+              <th class="row-header">Charges</th>
               <td></td>
               <td></td>
             </tr>
             <tr>
-              <th>Users</th>
+              <th class="row-header">Users</th>
               <td>
                 <ul>
                   {% for user in good.users.all %}
                     <li>{{ user }}</li>
+                  {% empty %}
+                    <li class="empty">None</li>
                   {% endfor %}
                 </ul>
               </td>
@@ -68,16 +144,20 @@
                 <ul>
                   {% for user in bad.users.all %}
                     <li>{{ user }}</li>
+                  {% empty %}
+                    <li class="empty">None</li>
                   {% endfor %}
                 </ul>
               </td>
             </tr>
             <tr>
-              <th>Receipt Emails</th>
+              <th class="row-header">Receipt Emails</th>
               <td>
                 <ul>
                   {% for email in good.receipt_emails.all %}
                     <li>{{ email.email }}</li>
+                  {% empty %}
+                    <li class="empty">None</li>
                   {% endfor %}
                 </ul>
               </td>
@@ -85,50 +165,62 @@
                 <ul>
                   {% for email in bad.receipt_emails.all %}
                     <li>{{ email.email }}</li>
+                  {% empty %}
+                    <li class="empty">None</li>
                   {% endfor %}
                 </ul>
               </td>
             </tr>
             <tr>
-              <th>URLs</th>
+              <th class="row-header">URLs</th>
               <td>
                 <ul>
                   {% for url in good.urls.all %}
-                    <li>{{ url }}</li>
+                    <li>{{ url.url }}</li>
+                  {% empty %}
+                    <li class="empty">None</li>
                   {% endfor %}
                 </ul>
               </td>
               <td>
                 <ul>
                   {% for url in bad.urls.all %}
-                    <li>{{ url }}</li>
+                    <li>{{ url.url }}</li>
+                  {% empty %}
+                    <li class="empty">None</li>
                   {% endfor %}
                 </ul>
               </td>
             </tr>
             <tr>
-              <th>Email Domains</th>
+              <th class="row-header">Email Domains</th>
               <td>
                 <ul>
                   {% for domain in good.domains.all %}
-                    <li>{{ domain }}</li>
+                    <li>{{ domain.domain }}</li>
+                  {% empty %}
+                    <li class="empty">None</li>
                   {% endfor %}
                 </ul>
               </td>
               <td>
                 <ul>
                   {% for domain in bad.domains.all %}
-                    <li>{{ domain }}</li>
+                    <li>{{ domain.domain }}</li>
+                  {% empty %}
+                    <li class="empty">None</li>
                   {% endfor %}
                 </ul>
               </td>
             </tr>
             <tr>
-              <th>Private Plans</th>
+              <th class="row-header">Private Plans</th>
               <td>
                 <ul>
                   {% for plan in good.private_plans.all %}
                     <li>{{ plan }}</li>
+                  {% empty %}
+                    <li class="empty">None</li>
                   {% endfor %}
                 </ul>
               </td>
@@ -136,16 +228,20 @@
                 <ul>
                   {% for plan in bad.private_plans.all %}
                     <li>{{ plan }}</li>
+                  {% empty %}
+                    <li class="empty">None</li>
                   {% endfor %}
                 </ul>
               </td>
             </tr>
             <tr>
-              <th>Children</th>
+              <th class="row-header">Children</th>
               <td>
                 <ul>
                   {% for child in good.children.all %}
                     <li>{{ child }}</li>
+                  {% empty %}
+                    <li class="empty">None</li>
                   {% endfor %}
                 </ul>
               </td>
@@ -153,16 +249,20 @@
                 <ul>
                   {% for child in bad.children.all %}
                     <li>{{ child }}</li>
+                  {% empty %}
+                    <li class="empty">None</li>
                   {% endfor %}
                 </ul>
               </td>
             </tr>
             <tr>
-              <th>Groups</th>
+              <th class="row-header">Groups</th>
               <td>
                 <ul>
                   {% for group in good.groups.all %}
                     <li>{{ group }}</li>
+                  {% empty %}
+                    <li class="empty">None</li>
                   {% endfor %}
                 </ul>
               </td>
@@ -170,16 +270,20 @@
                 <ul>
                   {% for group in bad.groups.all %}
                     <li>{{ group }}</li>
+                  {% empty %}
+                    <li class="empty">None</li>
                   {% endfor %}
                 </ul>
               </td>
             </tr>
             <tr>
-              <th>Members (Orgs)</th>
+              <th class="row-header">Members (Orgs)</th>
               <td>
                 <ul>
                   {% for member in good.members.all %}
                     <li>{{ member }}</li>
+                  {% empty %}
+                    <li class="empty">None</li>
                   {% endfor %}
                 </ul>
               </td>
@@ -187,16 +291,20 @@
                 <ul>
                   {% for member in bad.members.all %}
                     <li>{{ member }}</li>
+                  {% empty %}
+                    <li class="empty">None</li>
                   {% endfor %}
                 </ul>
               </td>
             </tr>
             <tr>
-              <th>Subtypes</th>
+              <th class="row-header">Subtypes</th>
               <td>
                 <ul>
                   {% for subtype in good.subtypes.all %}
                     <li>{{ subtype }}</li>
+                  {% empty %}
+                    <li class="empty">None</li>
                   {% endfor %}
                 </ul>
               </td>
@@ -204,6 +312,8 @@
                 <ul>
                   {% for subtype in bad.subtypes.all %}
                     <li>{{ subtype }}</li>
+                    {% empty %}
+                    <li class="empty">None</li>
                   {% endfor %}
                 </ul>
               </td>
@@ -212,11 +322,15 @@
         {% endwith %}
       </p>
     {% else %}
+      <p class="caution"><strong>You should only be using this tool if you know what you are
+        doing &mdash; if you have any doubts, ask somebody first!</strong></p>
       <p>
-        Select two organizations to merge.  The bad organization will be marked
-        as rejected, and all records pointing to it will now point to the good
-        organization. You should only be using this tool if you know what you are
-        doing - if you have any doubts, ask somebody first!  After selecting two
+        Select two organizations to merge. The "bad" organization will be marked
+        as rejected, and all records pointing to it will now point to the "good"
+        organization.
+      </p>
+      <p>Only organizations without active subscriptions may be merged. If an organization has an active subscription, it must be cancelled before it can be merged.</p>
+      <p>After selecting two
         organizations on this page, you will see a page with a table of the data
         for the selected organizations, which you can review before you confirm
         the merger.
@@ -226,10 +340,16 @@
     <form class="form-horizontal" method="post" enctype="multipart/form-data">
       {% csrf_token %}
       {% crispy form %}
-      <div class="control-group" style="margin-top: 2em;">
-        <div class="_cls-actionSmall">
-          <button type="submit" class="btn">{% trans "Merge" %}</button>
-        </div>
+      <div class="control-group">
+        {% if form.fields.confirmed.initial %}
+        <button type="submit" class="button primary">
+          {% trans "Execute Merge" %}
+        </button>
+        {% else %}
+        <button type="submit" class="button primary">
+          {% trans "Review Merge" %}
+        </button>
+        {% endif %}
       </div>
     </form>
   </div>
