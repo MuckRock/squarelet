@@ -74,12 +74,12 @@
       <img src="{{ totp_svg_data_uri }}" alt="QR code for enabling two-factor authentication" />
     </div>
     <div class="instructions">
-      <p>{% blocktrans %}First, scan this code using an iOS or Android app like:{% endblocktrans %}</p>
+      <p>{% blocktrans %}Scan this code using an iOS or Android app like:{% endblocktrans %}</p>
       <ul>
         <li><a href="https://2fas.com" target="_blank" rel="nofollow noreferrer">2FAS</a></li>
         <li><a href="https://support.google.com/accounts/answer/1066447" target="_blank" rel="nofollow noreferrer">Google Authenticator</a></li>
       </ul>
-      <p>{% blocktrans %}Then, enter the generated 6-digit code below.{% endblocktrans %}</p>
+      <p>{% blocktrans %}Then, enter the the code provided by your authenticator app.{% endblocktrans %}</p>
     </div>
   </div>
   {% if form.code.errors %}

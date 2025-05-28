@@ -224,6 +224,7 @@
     list-style-type: none;
     display: flex;
     gap: 1rem;
+    align-items: flex-start;
   }
 
   .org a {
@@ -248,6 +249,10 @@
     margin-bottom: 2rem;
   }
 
+  .verified.badge {
+    margin-bottom: 0;
+  }
+
   .verified header {
     flex-direction: column;
     justify-content: center;
@@ -264,6 +269,10 @@
     font-style: normal;
     font-weight: 600;
     line-height: normal;
+  }
+
+  .membership {
+    word-break: 
   }
 
   .services-list {
@@ -391,9 +400,15 @@
     {% if org_plans %}
       <header>
         <h2 class="header-display">
-          {% blocktrans %}
-          You belong to an organization subscribed to a <span class="heavy-underline premium">Premium plan</span>:
-          {% endblocktrans %}
+          {% if org_plans.length == 1 %}
+            {% blocktrans %}
+              You belong to an organization subscribed to a <span class="heavy-underline premium">Premium plan</span>:
+            {% endblocktrans %}
+          {% else %}
+            {% blocktrans %}
+              You belong to multiple organizations subscribed to <span class="heavy-underline premium">Premium plans</span>:
+            {% endblocktrans %}
+          {% endif %}
         </h2>
         <ul class="org-list">
           {% for org in org_plans %}
@@ -437,7 +452,7 @@
                 {% include "core/icons/checkmark.svg" %}
               </span>
               <span class="text">
-                {% trans "Embargo requests for up to 30 days after completion " %}
+                {% trans "Embargo requests for up to 30 days after completion" %}
               </span>
             </li>
             <li class="checklist-item">
@@ -453,7 +468,9 @@
                 {% include "core/icons/checkmark.svg" %}
               </span>
               <span class="text">
-                {% trans "Includes 2,000 AI Credits per month on DocumentCloud for advanced OCR and premium Add-Ons" %}
+                {% blocktrans %}
+                Includes 2,000 AI Credits per month on DocumentCloud for advanced OCR and <a href="https://help.muckrock.com/19ef88926963810c9df9e46762194322?pvs=4#19ef8892696381fa8ec6d1bc0c4b5f6a" target="_blank">premium Add-Ons</a>
+                {% endblocktrans %}
               </span>
             </li>
           </ul>
@@ -509,7 +526,9 @@
                 {% include "core/icons/checkmark.svg" %}
               </span>
               <span class="text">
-                {% trans "Includes 5,000 AI Credits per month on DocumentCloud for advanced OCR and premium Add-Ons" %}
+                {% blocktrans %}
+                Includes 5,000 AI Credits per month on DocumentCloud for advanced OCR and <a href="https://help.muckrock.com/19ef88926963810c9df9e46762194322?pvs=4#19ef8892696381fa8ec6d1bc0c4b5f6a" target="_blank">premium Add-Ons</a>
+                {% endblocktrans %}
               </span>
             </li>
           </ul>

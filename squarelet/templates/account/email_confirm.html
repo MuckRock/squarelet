@@ -3,8 +3,7 @@
 {% load i18n static %}
 {% load account %}
 
-{% block head_title %}{% trans "Confirm E-mail Address" %}{% endblock %}
-
+{% block head_title %}{% trans "Confirm Email Address" %}{% endblock %}
 
 {% block content %}
   <div class="container">
@@ -31,8 +30,8 @@
 
       {% url 'account_email' as email_url %}
 
-      <p>{% blocktrans %}This e-mail confirmation link expired or is invalid. Please <a href="{{ email_url }}">issue a new
-          e-mail confirmation request</a>.{% endblocktrans %}</p>
+      <p>{% blocktrans %}This email confirmation link expired or is invalid. Please <a href="{{ email_url }}">issue a new
+          email confirmation request</a>.{% endblocktrans %}</p>
 
       {% endif %}
 
@@ -48,10 +47,12 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
+      padding: 4rem;
     }
 
     .card {
-      min-width: 32rem;
+      width: 100%;
+      box-sizing: border-box;
       text-align: center;
     }
 
@@ -66,9 +67,14 @@
       margin: 1em auto;
     }
 
+    .card a {
+      word-break: break-word;
+    }
+
     form.confirm-email .button {
       margin: 0 auto;
-      min-width: 24rem;
+      width: 100%;
+      max-width: 24rem;
     }
   </style>
 {% endblock %}

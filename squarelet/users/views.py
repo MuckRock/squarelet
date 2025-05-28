@@ -183,7 +183,9 @@ class UserOnboardingView(TemplateView):
             onboarding["email_check_completed"] = True
             session.modified = True
         elif not onboarding["email_check_completed"]:
-            return "confirm_email", {}
+            return "confirm_email", {
+                "email": user.email,
+            }
 
         # TODO: Verification check
 

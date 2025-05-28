@@ -85,6 +85,7 @@ class AccountAdapter(DefaultAccountAdapter):
 
         ctx = {
             "user": emailconfirmation.email_address.user,
+            "email": emailconfirmation.email_address.email,
             "activate_url": activate_url,
             "current_site": current_site,
             "key": emailconfirmation.key,

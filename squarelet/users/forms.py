@@ -85,7 +85,7 @@ class SignupForm(allauth.SignupForm):
         self.helper.form_tag = False
         self.fields["username"].widget.attrs["placeholder"] = ""
         self.fields["username"].help_text = _(
-            "Your username must be unique; it will be used in URLs."
+            "Your username must be unique; it may appear in URLs."
         )
         self.fields["name"].widget.attrs["placeholder"] = ""
         self.fields["name"].help_text = _(
