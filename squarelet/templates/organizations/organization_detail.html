@@ -24,6 +24,9 @@
           {% if is_admin %}
             <a href="{% url 'organizations:update' organization.slug %}"><div class="_cls-action">{% trans 'Edit organization' %}</div></a>
           {% endif %}
+          {% if user.is_staff %}
+            <a href="{% url 'organizations:merge' %}"><div class="_cls-action">{% trans 'Merge organization' %}</div></a>
+          {% endif %}
         </div>
         {% if organization.verified_journalist %}
           <div class="_cls-orgStatus _cls-verified">
