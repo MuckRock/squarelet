@@ -12,7 +12,7 @@ from django.http.response import (
 )
 from django.shortcuts import redirect
 from django.urls import reverse
-from django.utils import timezone
+from django.utils import safestring, timezone
 from django.views.generic import (
     DetailView,
     ListView,
@@ -86,6 +86,15 @@ class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
         )
         context["potential_organizations"] = user.get_potential_organizations()
         context["pending_invitations"] = user.get_pending_invitations()
+        if user.email_failed:
+            messages.warning(
+                self.request,
+                safestring.mark_safe(
+                    "Your primary email address is undeliverable. "
+                    '<a href="https://accounts.muckrock.com/accounts/email/">'
+                    "Please update your email</a>."
+                ),
+            )
         return context
 
 
