@@ -5,26 +5,64 @@
 
 {% block title %}Organization: {{ invitation.organization.name }}{% endblock %}
 
-{% block content %}
-  <div class="_cls-content">
+{% block css %}
+  {{block.super}}
+  <style>
+    .container {
+      max-width: 32rem;
+      margin: 3rem auto;
+    }
+    h2 {
+      font-weight: var(--font-semibold, 600);
+      font-size: var(--font-xl);
+    }
+    .control-group {
+      margin-top: 2rem;
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+  </style>
+{% endblock %}
 
-    <h1>
-      {% trans "Invitation to" %}
+{% block content %}
+  <div class="container">
+    <h2>
+      {% trans "You have been invited to join" %}
       <a href="{{ invitation.organization.get_absolute_url }}">
         {{ invitation.organization.name}}
       </a>
-      {% trans "on MuckRock." %}
-    </h1>
+      {% trans "on MuckRock" %}
+    </h2>
 
     <form method="post">
       {% csrf_token %}
       <p>
         {% blocktrans with name=invitation.organization.name %}
-          You have been invited you to join the {{ name }}’s organization
-          account on MuckRock, a non-profit organization that builds
-          transparency tools for journalists, researchers and the public. If
-          you have questions or think this might malicious, please reach out to
-          them directly to confirm.
+          You have been invited you to join {{ name }}, an organization
+          account on MuckRock. If you have questions or think this might malicious,
+          please reach out to the organization directly to confirm.
+        {% endblocktrans %}
+      </p>
+      {% if request.user.is_authenticated %}
+      <p>
+        {% blocktrans with name=request.user.name email=request.user.email %}
+          You're currently logged in as {{ name }} with {{ email }}. If you'd
+          like to associate this invitation with another account, please sign
+          out and sign back in with the account you'd like to use.
+        {% endblocktrans %}
+      </p>
+      {% else %}
+      <p>
+        {% blocktrans %}
+        MuckRock is a non-profit organization that builds transparency tools
+        for journalists, researchers and the public.
+        {% endblocktrans %}
+      </p>
+      <p>
+        {% blocktrans %}
+          Before you can accept this account, you need to either create a new
+          account or log in with the account you'd like to join.
         {% endblocktrans %}
       </p>
       <p>
@@ -34,44 +72,25 @@
           easier to collaborate with your colleagues there.
         {% endblocktrans %}
       </p>
-      <p>
-        {% if request.user.is_authenticated %}
-          {% blocktrans with name=request.user.name email=request.user.email %}
-            You're currently logged in as {{ name }} at {{ email }}. If you'd
-            like to associate this invitation with another account, please sign
-            out and sign back in with the account you'd like to use.
-          {% endblocktrans %}
-        {% else %}
-          {% blocktrans %}
-            Before you can accept this account, you need to either create a new
-            account or log in with the account you'd like to join.
-          {% endblocktrans %}
-        {% endif %}
-      </p>
+      {% endif %}
 
       {% if request.user.is_authenticated %}
         <div class="control-group">
-          <div class="_cls-actionSmall">
-            <button type="submit" name="action" value="accept">
+            <button class="button primary" type="submit" name="action" value="accept">
               {% trans "Accept" %}
             </button>
-            <button type="submit" class="_cls-altAction" name="action" value="reject">
+            <button class="button caution" type="submit" name="action" value="reject">
               {% trans "Reject" %}
             </button>
           </div>
         </div>
       {% else %}
         <div class="control-group">
-          <div class="_cls-actionSmall">
-            <a href="{% url "account_signup" %}" class="_cls-nostyle">
-              <button type="button">
-                {% trans "Sign Up" %}
-              </button>
+            <a href="{% url "account_signup" %}?next={{request.path}}" class="button primary">
+              {% trans "Sign Up" %}
             </a>
-            <a href="{% url "account_login" %}" class="_cls-nostyle">
-              <button type="button">
-                {% trans "Log In" %}
-              </button>
+            <a href="{% url "account_login" %}?next={{request.path}}" class="button primary ghost">
+              {% trans "Log In" %}
             </a>
           </div>
         </div>
