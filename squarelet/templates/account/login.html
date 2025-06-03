@@ -223,6 +223,36 @@
     max-width: 28.75rem;
     width: 100%;
   }
+
+  .social-login {
+    box-sizing: border-box;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    max-width: 28rem;
+    margin: 0 auto;
+    padding: 2rem 0;
+    border-top: 1px solid var(--gray-2);
+  }
+
+  .social-login > * {
+    with: min-content;
+  }
+
+  .social-login .ghost.button {
+    gap: 0.5rem;
+  }
+
+  .social-login .social-icon {
+    display: flex;
+    align-items: center;
+  }
+
+  .social-login form {
+    margin-top: 0;
+  }
 </style>
 {% endblock %}
 
@@ -266,16 +296,26 @@
         <a class="button primary ghost" href="{% url 'account_signup' %}{% pass_query %}">
           {% blocktrans %}Create an account{% endblocktrans %}
         </a>
-        {% get_providers as socialaccount_providers %}
-        {% for provider in socialaccount_providers %}
-          <p>
-            <a href="{% provider_login_url provider.id %}">
-              Log in with {{ provider.name }}
-            </a>
-          </p>
-        {% endfor %}
       </footer>
     </form>
+    <div class="social-login">
+      {% get_providers as socialaccount_providers %}
+      {% for provider in socialaccount_providers %}
+      <form method="POST" action="{% provider_login_url provider.id %}">
+        {% csrf_token %}
+        <button class="ghost button" type="submit>
+          <span class="social-icon">
+            {% if provider.name == "Google" %}
+            {% include "core/icons/google.svg" %}
+            {% elif provider.name == "GitHub" %}
+            {% include "core/icons/github.svg" %}
+            {% endif %}
+          </span>
+          <span class="text">Sign in with {{ provider.name }}</span>
+        </button>
+      </form>
+      {% endfor %}
+    </div>
   </div>
   {% endblock %}
   {% block login_promo %}
