@@ -171,7 +171,7 @@ class UserOnboardingView(TemplateView):
         # check_for = session.get("checkFor", [])
 
         # Initialize onboarding session if it doesn't exist
-        if "onboarding" not in session:
+        if "onboarding" not in session or not isinstance(session["onboarding"], dict):
             session["onboarding"] = {}
 
         for key, value in ONBOARDING_SESSION_DEFAULTS:
@@ -440,7 +440,13 @@ class UserOnboardingView(TemplateView):
             # the page with the form errors.
             plan_id = request.POST.get("plan")
             org_id = request.POST.get("organization")
-            plan = Plan.objects.get(pk=plan_id)
+            try: 
+                plan_id = int(plan_id)
+                plan = Plan.objects.get(pk=plan_id)
+            except (ValueError, TypeError, Plan.DoesNotExist) as e:
+                messages.error(request, "Invalid plan selected.")
+                context = self.get_context_data(**kwargs)
+                return self.render_to_response(context)
             form = PremiumSubscriptionForm(request.POST, plan=plan, user=request.user)
             if form.is_valid() and form.save(request.user):
                 # Create a subscription for the selected organization
