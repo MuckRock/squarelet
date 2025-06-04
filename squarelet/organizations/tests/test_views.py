@@ -550,7 +550,6 @@ class TestInvitationViewSet(ViewSetTestMixin):
         user = user_factory(email=email)
         email_address_factory(user=user, email=email, verified=True)
         invitation = invitation_factory(email=email, request=False)
-        print(invitation.uuid)
         self.url = "/invitations/{uuid}/accept/"
         response = self.call_action(
             rf, action="accept", method="post", user=user, data={}, uuid=invitation.uuid
