@@ -1,5 +1,4 @@
 # Django
-from click import group
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -46,7 +45,6 @@ from allauth.mfa.totp.internal.flows import activate_totp
 from allauth.mfa.utils import is_mfa_enabled
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Fieldset, Layout
-from requests import session
 
 # Squarelet
 from squarelet.core.forms import ImagePreviewWidget
@@ -174,10 +172,12 @@ class OnboardingStep:
     def handle_post(self, request):
         """Handle POST requests for the step"""
         return None
-    
+
     def get_template_name(self):
         """Return the template name for the step"""
-        return self.template_name or f"account/onboarding/{self.name}.html"
+        if self.template_name:
+            return self.template_name
+        return f"account/onboarding/{self.name}.html"
 
 
 class EmailConfirmationStep(OnboardingStep):
@@ -195,11 +195,11 @@ class EmailConfirmationStep(OnboardingStep):
             onboarding["email_check_completed"] = True
             session.modified = True
             return False
-        
+
         return not onboarding.get("email_check_completed", False)
 
     def get_context_data(self, request):
-        return { "email": request.user.email }
+        return {"email": request.user.email}
 
     def handle_post(self, request):
         """Mark email confirmation as completed"""
@@ -211,7 +211,7 @@ class EmailConfirmationStep(OnboardingStep):
 
 class OrganizationJoinStep(OnboardingStep):
     """Prompt users to join an organization"""
-    
+
     name = "join_org"
 
     def _get_joinable_orgs(self, user):
@@ -231,7 +231,7 @@ class OrganizationJoinStep(OnboardingStep):
         has_orgs = user.organizations.filter(individual=False).exists()
         if has_orgs or onboarding.get("join_org", False):
             return False
-        
+
         invitations, potential_orgs = self._get_joinable_orgs(user)
         return len(invitations + potential_orgs) > 0
 
@@ -243,27 +243,28 @@ class OrganizationJoinStep(OnboardingStep):
             "potential_orgs": potential_orgs,
             "joinable_orgs_count": len(invitations + potential_orgs),
         }
-    
+
     def handle_post(self, request):
         """Handle organization joining form submission"""
         if request.POST.get("step") != self.name:
             return None
-            
+
         # Handle skip action
         if request.POST.get("join_org") == "skip":
             request.session["onboarding"]["join_org"] = True
             request.session.modified = True
             return True
-            
+
         # TODO: Add handling for actual organization joining
         # This would involve processing invitation acceptances or
         # automatic organization joining based on the form data
-        
+
         return None
 
 
 class SubscriptionStep(OnboardingStep):
     """Handle subscription onboarding step"""
+
     # If the user is signing up for a plan, the "plan" session variable
     # will be set to the plan slug. If not, it will be None.
     # We want to load both the individual and organization plans,
@@ -277,7 +278,6 @@ class SubscriptionStep(OnboardingStep):
 
     def _get_subscription_plans(self, request):
         """Get subscription data for the step"""
-        user = request.user
         session = request.session
         plan_slug = session.get("plan", None) or request.GET.get("plan", None)
 
@@ -298,7 +298,7 @@ class SubscriptionStep(OnboardingStep):
         except Plan.DoesNotExist:
             print("Invalid plan slug:", plan_slug)
             return plans
-    
+
     def should_execute(self, request):
         """Show this step if the user has no active subscription"""
         user = request.user
@@ -326,7 +326,7 @@ class SubscriptionStep(OnboardingStep):
         # We have ruled out the negative cases,
         # so we can show the subscription step
         return True
-    
+
     def get_context_data(self, request):
         """Return context data for the subscription step"""
         user = request.user
@@ -335,7 +335,7 @@ class SubscriptionStep(OnboardingStep):
             return {}
 
         # Check for a form with errors from a failed POST
-        error_form = getattr(request.session, '_subscription_form_errors', None)
+        error_form = getattr(request, "_subscription_form_errors", None)
         if error_form:
             if error_form.plan == plans["individual"]:
                 individual_form = error_form
@@ -352,9 +352,7 @@ class SubscriptionStep(OnboardingStep):
             individual_form = PremiumSubscriptionForm(
                 plan=plans["individual"], user=request.user
             )
-            group_form = PremiumSubscriptionForm(
-                plan=plans["group"], user=request.user
-            )
+            group_form = PremiumSubscriptionForm(plan=plans["group"], user=request.user)
 
         # Get organizations for the user
         individual_org = user.individual_organization
@@ -380,25 +378,24 @@ class SubscriptionStep(OnboardingStep):
         # First, check for a step mismatch:
         if request.POST.get("step") != self.name:
             return False
-        
+
         # Then, check if the user skipped this step:
         if request.POST.get("submit-type") == "skip":
             request.session["onboarding"]["subscription"] = "completed"
             request.session.modified = True
             messages.info(request, "Subscription skipped.")
             return True
-        
+
         # Finally, initialize the form with the submitted data, validate it, and
         # save it if valid. If invalid, rerender the page with the form errors.
         plan_id = request.POST.get("plan")
-        org_id = request.POST.get("organization")
-        
-        try: 
+
+        try:
             plan_id = int(plan_id)
             plan = Plan.objects.get(pk=plan_id)
-        except (ValueError, TypeError, Plan.DoesNotExist) as e:
+        except (ValueError, TypeError, Plan.DoesNotExist):
             messages.error(request, "Invalid plan selected.")
-            return False # Let the view re-render with the error
+            return False  # Let the view re-render with the error
 
         form = PremiumSubscriptionForm(request.POST, plan=plan, user=request.user)
         if form.is_valid() and form.save(request.user):
@@ -409,10 +406,8 @@ class SubscriptionStep(OnboardingStep):
             return True
         else:
             # Store the form with errors for re-rendering
-            setattr(request.session, '_subscription_form_errors', form)
-            messages.error(
-                request, "Error creating subscription. Please try again."
-            )
+            setattr(request, "_subscription_form_errors", form)
+            messages.error(request, "Error creating subscription. Please try again.")
             return False
 
 
@@ -431,7 +426,7 @@ class MFAOptInStep(OnboardingStep):
         # If the user has already opted in or completed MFA, skip this step
         if mfa_step != "not_started":
             return False
-        
+
         # If the user has MFA enabled, skip this step
         if is_mfa_enabled(user):
             onboarding["mfa_step"] = "completed"
@@ -455,9 +450,9 @@ class MFAOptInStep(OnboardingStep):
             onboarding["mfa_step"] = "completed"
             session.modified = True
             return False
-        
+
         return True
-    
+
     def handle_post(self, request):
         """Handle the user's choice to enable or skip MFA"""
         if request.POST.get("step") != self.name:
@@ -482,7 +477,7 @@ class MFAOptInStep(OnboardingStep):
 
 class MFASetupStep(OnboardingStep):
     """Show QR code and collect TOTP code"""
-    
+
     name = "mfa_setup"
 
     def should_execute(self, request):
@@ -491,18 +486,18 @@ class MFASetupStep(OnboardingStep):
         onboarding = session.get("onboarding", {})
         mfa_step = onboarding.get("mfa_step", "not_started")
         return mfa_step == "opted_in"
-    
+
     def get_context_data(self, request):
         """Return MFA setup form and QR code"""
         # First check if we have a form with errors from a previous POST
-        error_form = getattr(request.session, '_mfa_setup_form_errors', None)
+        error_form = getattr(request, "_mfa_setup_form_errors", None)
         if error_form:
             # If we have an error form, use it
             form = error_form
         else:
             # Otherwise, create a new form
             form = ActivateTOTPForm(user=request.user)
-        
+
         # Generate the TOTP URL and SVG
         adapter = get_adapter()
         totp_url = adapter.build_totp_url(request.user, form.secret)
@@ -516,12 +511,12 @@ class MFASetupStep(OnboardingStep):
             "totp_svg_data_uri": totp_data_uri,
             "totp_url": totp_url,
         }
-    
+
     def handle_post(self, request):
         """Handle MFA setup form submission"""
         if request.POST.get("step") != self.name:
             return None
-        
+
         # Check if the user skipped the MFA setup step
         if request.POST.get("mfa_setup") == "skip":
             # User skipped MFA, mark as completed
@@ -543,7 +538,7 @@ class MFASetupStep(OnboardingStep):
             return True
         else:
             # Rerender form with errors
-            setattr(request.session, '_mfa_setup_form_errors', form)
+            setattr(request, "_mfa_setup_form_errors", form)
             messages.error(request, "Invalid verification code. Please try again.")
             return False
 
@@ -559,7 +554,7 @@ class MFAConfirmStep(OnboardingStep):
         onboarding = session.get("onboarding", {})
         mfa_step = onboarding.get("mfa_step", "not_started")
         return mfa_step == "code_submitted"
-    
+
     def handle_post(self, request):
         """Mark MFA as completed"""
         if request.POST.get("step") == self.name:
@@ -572,7 +567,7 @@ class MFAConfirmStep(OnboardingStep):
 
 class OnboardingStepRegistry:
     """Registry for managing onboarding steps"""
-    
+
     def __init__(self):
         self.steps = [
             EmailConfirmationStep(),
@@ -584,21 +579,21 @@ class OnboardingStepRegistry:
             # More steps will be added here as we migrate them
             # TODO: Verification check
         ]
-    
+
     def get_current_step(self, request):
         """Find the first step that should be executed"""
         for step in self.steps:
             if step.should_execute(request):
                 return step.name, step.get_context_data(request)
         return None, {}
-    
+
     def get_step_by_name(self, name):
         """Get a specific step by name"""
         for step in self.steps:
             if step.name == name:
                 return step
         return None
-    
+
     def handle_post(self, request, step_name):
         """Handle POST request for a specific step"""
         step = self.get_step_by_name(step_name)
@@ -612,6 +607,7 @@ class OnboardingStepRegistry:
         if step:
             return [step.get_template_name()]
         return []
+
 
 class UserOnboardingView(TemplateView):
     """Show onboarding steps for new or existing users after they log in"""
@@ -631,7 +627,6 @@ class UserOnboardingView(TemplateView):
             session["onboarding"].setdefault(key, value)
 
     def get_onboarding_step(self, request):
-        # pylint: disable=too-many-locals, too-many-return-statements
         """
         Check user account status and return the appropriate onboarding step
         Returns: (step_name, context_data)
@@ -698,7 +693,7 @@ class UserOnboardingView(TemplateView):
     def post(self, request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect("account_login")
-        
+
         self._initialize_onboarding_session(request)
 
         # Handle any form submissions for the current onboarding step
@@ -707,14 +702,15 @@ class UserOnboardingView(TemplateView):
 
         # Try registry steps first
         success = self.step_registry.handle_post(request, step)
-        if success == False and step == current_step_name:
+        if success is False and step == current_step_name:
             # If registry step returned False, it means there was a validation error
             # and we need to re-render the current step with errors
             context = self.get_context_data(**kwargs)
             return self.render_to_response(context)
-        
+
         # Otherwise, reload the pipeline to get the next step
         return redirect("account_onboarding")
+
 
 class LoginView(AllAuthLoginView):
     def get(self, request, *args, **kwargs):
