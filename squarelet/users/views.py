@@ -635,9 +635,6 @@ class UserOnboardingView(TemplateView):
         Returns: (step_name, context_data)
         """
         self._initialize_onboarding_session(request)
-
-        # Check registry steps
-        # check_for = session.get("checkFor", [])
         step_name, context = self.step_registry.get_current_step(request)
         if step_name:
             # If a step is found, return it immediately
