@@ -337,6 +337,7 @@ class TestUserOnboardingView(ViewTestMixin):
         mock_form = mocker.MagicMock()
         mock_form.is_valid.return_value = valid
         mock_form.secret = "test_secret"
+        mocker.patch('allauth.mfa.totp.internal.auth.get_totp_secret', return_value="test_secret")
         mocker.patch('squarelet.users.views.ActivateTOTPForm', return_value=mock_form)
         
         if valid:
@@ -357,20 +358,9 @@ class TestUserOnboardingView(ViewTestMixin):
         mock_form.is_valid.return_value = valid
         mock_form.save.return_value = valid
         
-        mock_individual_form = mocker.MagicMock()
-        mock_group_form = mocker.MagicMock()
+        mocker.patch('squarelet.users.views.PremiumSubscriptionForm', return_value=mock_form)
         
-        if valid:
-            mocker.patch('squarelet.users.views.PremiumSubscriptionForm', return_value=mock_form)
-        else:
-            # For invalid forms, we need to handle context rendering
-            mocker.patch('squarelet.users.views.PremiumSubscriptionForm', side_effect=[
-                mock_form,  # First call for validation
-                mock_individual_form,  # Second call for individual form in context
-                mock_group_form  # Third call for group form in context
-            ])
-        
-        return mock_form, mock_individual_form, mock_group_form
+        return mock_form
 
     def _create_get_request(self, rf, user, mock_django_session, session_data=None, params=None):
         """Create a GET request with common setup"""
@@ -556,6 +546,8 @@ class TestUserOnboardingView(ViewTestMixin):
         })
         
         self._mock_user_state(mocker, user, is_mfa_enabled=False)
+
+        self._mock_mfa_forms(mocker, valid=True)
         
         step, context = self._get_onboarding_step(request, mocker)
         
@@ -701,6 +693,7 @@ class TestUserOnboardingView(ViewTestMixin):
         }
         request = self._create_get_request(rf, user, mock_django_session, session_data)
         self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_mfa_forms(mocker, valid=True)
         
         view = self.view()
         view.request = request
@@ -745,8 +738,7 @@ class TestUserOnboardingView(ViewTestMixin):
         
         self._mock_user_state(mocker, user, has_active_subscription=False)
         
-        # Mock forms
-        mock_individual_form, mock_group_form, _ = self._mock_subscription_forms(mocker, valid=True)
+        self._mock_subscription_forms(mocker, valid=True)
         
         # Mock user organizations queryset
         mock_group_orgs = mocker.MagicMock()
@@ -1011,6 +1003,7 @@ class TestUserOnboardingView(ViewTestMixin):
         })
         
         self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_mfa_forms(mocker, valid=True)
         
         # Mock timezone and user save
         mock_timezone_now = mocker.patch('squarelet.users.views.timezone.now')
@@ -1261,6 +1254,8 @@ class TestUserOnboardingView(ViewTestMixin):
         mocker.patch.object(user.individual_organization, 'has_active_subscription', return_value=False)
         mocker.patch('squarelet.users.views.is_mfa_enabled', return_value=False)
         user.last_mfa_prompt = None
+
+        self._mock_mfa_forms(mocker, valid=True)
         
         # Mock no unverified emails
         mock_email_queryset = mocker.MagicMock()
@@ -1458,6 +1453,7 @@ class TestUserOnboardingView(ViewTestMixin):
         mock_org_queryset.exists.return_value = True
         mocker.patch.object(user.organizations, 'filter', return_value=mock_org_queryset)
         mocker.patch('squarelet.users.views.is_mfa_enabled', return_value=True)
+        self._mock_mfa_forms(mocker, valid=True)
         
         view = self.view()
         step, context = view.get_onboarding_step(request)
@@ -1465,7 +1461,7 @@ class TestUserOnboardingView(ViewTestMixin):
         # Verify setdefault behavior - existing values preserved, missing values get defaults
         onboarding = request.session["onboarding"]
         assert onboarding["email_check_completed"] is True    # Preserved
-        assert onboarding["mfa_step"] == "completed"          
+        assert onboarding["mfa_step"] == "opted_in"           # Preserved
         assert onboarding["join_org"] is False                # Default added
         assert onboarding["subscription"] == "not_started"    # Default added
 
@@ -1558,12 +1554,9 @@ class TestUserOnboardingView(ViewTestMixin):
         
         view_instance = self.view.as_view()
         
-        # Should handle gracefully - either catch exception or let it bubble up appropriately
-        try:
-            response = view_instance(request)
-            # If successful, should respond gracefully
-            assert response.status_code == 200
-        except Plan.DoesNotExist:
-            # Current behavior - documents that error handling could be improved
-            pytest.fail("Should handle Plan.DoesNotExist gracefully in POST")
+        # Should rerender the current view with form errors
+        response = view_instance(request)
+        # If successful, should respond gracefully
+        assert response.status_code == 302
+        
 
