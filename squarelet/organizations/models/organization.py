@@ -519,6 +519,7 @@ class Organization(AvatarMixin, models.Model):
             email__iexact=email,
             accepted_at__isnull=True,
             rejected_at__isnull=True,
+            request=False,
         ).first()
 
     @transaction.atomic
