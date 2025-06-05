@@ -26,6 +26,8 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
+import sys
 import time
 
 # Third Party
@@ -57,6 +59,8 @@ from squarelet.users.forms import PremiumSubscriptionForm, SignupForm
 
 # Local
 from .models import User
+
+logger = logging.getLogger(__name__)
 
 ONBOARDING_SESSION_DEFAULTS = (
     ("email_check_completed", False),
@@ -573,11 +577,10 @@ class OnboardingStepRegistry:
             EmailConfirmationStep(),
             OrganizationJoinStep(),
             SubscriptionStep(),
+            # TODO: Verification check
             MFAOptInStep(),
             MFASetupStep(),
             MFAConfirmStep(),
-            # More steps will be added here as we migrate them
-            # TODO: Verification check
         ]
 
     def get_current_step(self, request):
@@ -691,22 +694,27 @@ class UserOnboardingView(TemplateView):
         return super().get(request, *args, **kwargs)
 
     def post(self, request, *args, **kwargs):
+        """Handle POST requests for onboarding steps"""
         if not request.user.is_authenticated:
             return redirect("account_login")
 
         self._initialize_onboarding_session(request)
 
-        # Handle any form submissions for the current onboarding step
         step = request.POST.get("step")
         current_step_name, _ = self.get_onboarding_step(request)
-
-        # Try registry steps first
-        success = self.step_registry.handle_post(request, step)
-        if success is False and step == current_step_name:
-            # If registry step returned False, it means there was a validation error
-            # and we need to re-render the current step with errors
-            context = self.get_context_data(**kwargs)
-            return self.render_to_response(context)
+        # Make sure the form data matches the session state
+        if step and step == current_step_name:
+            # If registry step returns False, it means there was a validation
+            # error and we need to re-render the current step with errors
+            success = self.step_registry.handle_post(request, step)
+            if success is False:
+                context = self.get_context_data(**kwargs)
+                return self.render_to_response(context)
+        else:
+            logger.error(
+                "[ONBOARDING] Onboarding step mismatch",
+                exc_info=sys.exc_info()
+            )
 
         # Otherwise, reload the pipeline to get the next step
         return redirect("account_onboarding")
