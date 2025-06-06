@@ -300,7 +300,10 @@ class SubscriptionStep(OnboardingStep):
             plans["selected"] = Plan.objects.get(slug=plan_slug)
             return plans
         except Plan.DoesNotExist:
-            print("Invalid plan slug:", plan_slug)
+            logger.error(
+                "[ONBOARDING] Invalid plan slug: %s", plan_slug,
+                exc_info=sys.exc_info()
+            )
             return plans
 
     def should_execute(self, request):

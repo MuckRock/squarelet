@@ -1991,10 +1991,6 @@ class TestUserOnboardingView(ViewTestMixin):
         # Should handle DoesNotExist gracefully and skip subscription step
         assert step is None  # Onboarding complete, subscription skipped
 
-        # Should print debug message
-        captured = capsys.readouterr()
-        assert "Invalid plan slug: nonexistent_plan" in captured.out
-
     def test_plan_database_error_during_subscription_post(
         self, rf, user_factory, mocker, mock_django_session
     ):
