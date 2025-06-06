@@ -342,8 +342,9 @@ class SubscriptionStep(OnboardingStep):
 
         # Check for a form with errors from a failed POST
         error_form = getattr(request, "_subscription_form_errors", None)
-        if error_form:
-            if error_form.plan == plans["individual"]:
+        error_form_plan = getattr(request, "_subscription_form_plan", None)
+        if error_form and error_form_plan:
+            if error_form_plan.pk == plans["individual"].pk:
                 individual_form = error_form
                 group_form = PremiumSubscriptionForm(
                     plan=plans["group"], user=request.user
@@ -413,6 +414,7 @@ class SubscriptionStep(OnboardingStep):
         else:
             # Store the form with errors for re-rendering
             setattr(request, "_subscription_form_errors", form)
+            setattr(request, "_subscription_form_plan", plan)
             messages.error(request, "Error creating subscription. Please try again.")
             return False
 
