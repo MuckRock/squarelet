@@ -1364,9 +1364,8 @@ class TestUserOnboardingView(ViewTestMixin):
         mocker.patch("squarelet.users.views.base64.b64encode", return_value=b"dGVzdA==")
 
         # Create a real form that generates a secret
-        original_secret = "TESTSECRETKEY123"
         mock_form = mocker.MagicMock()
-        mock_form.secret = original_secret
+        mock_form.secret = "TESTSECRETKEY123"
         mock_form.is_valid.return_value = True
 
         mocker.patch("squarelet.users.views.ActivateTOTPForm", return_value=mock_form)
@@ -1378,7 +1377,7 @@ class TestUserOnboardingView(ViewTestMixin):
         assert step == "mfa_setup"
         assert context["form"] == mock_form
         # Secret should be stored in session
-        assert get_request.session["totp_secret"] == original_secret
+        assert get_request.session["totp_secret"] == "TESTSECRETKEY123"
         assert get_request.session.modified is True
 
         # Step 2: POST request with TOTP code - should use same secret from session
@@ -1406,7 +1405,7 @@ class TestUserOnboardingView(ViewTestMixin):
         # The critical assertion: form.secret should be set to the session secret
         # This ensures the same secret is used for validation
         assert (
-            post_mock_form.secret == original_secret
+            post_mock_form.secret == "TESTSECRETKEY123"
         )  # Should be overridden from session
         assert (
             post_mock_form.secret != "DIFFERENTSECRET456"
@@ -1421,7 +1420,8 @@ class TestUserOnboardingView(ViewTestMixin):
     def test_mfa_setup_secret_reused_on_form_error(
         self, rf, user_factory, mocker, mock_django_session
     ):
-        """TOTP secret should be reused when form validation fails and page re-renders"""
+        """TOTP secret should be reused when form validation
+        fails and page re-renders"""
         user = user_factory()
 
         # Set up initial session with stored secret (from previous GET)
