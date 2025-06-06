@@ -502,7 +502,17 @@ class MFASetupStep(OnboardingStep):
             form = error_form
         else:
             # Otherwise, create a new form
-            form = ActivateTOTPForm(user=request.user)
+            # Check if there's a TOTP secret in the session
+            secret = request.session.get("totp_secret", None)
+            if secret:
+                # If we have a secret, use it to initialize the form
+                form = ActivateTOTPForm(user=request.user)
+                form.secret = secret
+            else:
+                # Store the form secret in the session
+                form = ActivateTOTPForm(user=request.user)
+                request.session["totp_secret"] = form.secret
+                request.session.modified = True
 
         # Generate the TOTP URL and SVG
         adapter = get_adapter()
@@ -525,6 +535,8 @@ class MFASetupStep(OnboardingStep):
 
         # Check if the user skipped the MFA setup step
         if request.POST.get("mfa_setup") == "skip":
+            # Clear the secret from session when skipping
+            request.session.pop("totp_secret", None)
             # User skipped MFA, mark as completed
             request.session["onboarding"]["mfa_step"] = "completed"
             request.session.modified = True
@@ -535,9 +547,15 @@ class MFASetupStep(OnboardingStep):
             return True
         # Process MFA setup - validate the code
         form = ActivateTOTPForm(user=request.user, data=request.POST)
+        if "totp_secret" in request.session:
+            # If we have a secret in the session, set it on the form
+            form.secret = request.session["totp_secret"]
+
         if form.is_valid():
             # Code validated successfully
             activate_totp(request, form)
+            # Clear the TOTP secret from the session
+            request.session.pop("totp_secret", None)
             request.session["onboarding"]["mfa_step"] = "code_submitted"
             request.session.modified = True
             messages.success(request, "Two-factor authentication enabled.")

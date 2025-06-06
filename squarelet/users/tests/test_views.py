@@ -1337,6 +1337,172 @@ class TestUserOnboardingView(ViewTestMixin):
         self._assert_redirect_to_onboard(response)
         self._assert_session_updated(request.session, "mfa_step", "completed")
 
+    def test_mfa_setup_secret_persistence_between_requests(
+        self, rf, user_factory, mocker, mock_django_session
+    ):
+        """TOTP secret should persist between GET and POST requests for validation"""
+        user = user_factory()
+
+        # Step 1: Initial GET request - should generate and store secret
+        get_request = self._create_get_request(
+            rf,
+            user,
+            mock_django_session,
+            {
+                "first_login": False,
+                "onboarding": {"email_check_completed": True, "mfa_step": "opted_in"},
+            },
+        )
+
+        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+
+        # Mock the adapter for TOTP generation
+        mock_adapter = mocker.MagicMock()
+        mock_adapter.build_totp_url.return_value = "otpauth://test"
+        mock_adapter.build_totp_svg.return_value = "<svg>test</svg>"
+        mocker.patch("squarelet.users.views.get_adapter", return_value=mock_adapter)
+        mocker.patch("squarelet.users.views.base64.b64encode", return_value=b"dGVzdA==")
+
+        # Create a real form that generates a secret
+        original_secret = "TESTSECRETKEY123"
+        mock_form = mocker.MagicMock()
+        mock_form.secret = original_secret
+        mock_form.is_valid.return_value = True
+
+        mocker.patch("squarelet.users.views.ActivateTOTPForm", return_value=mock_form)
+        mocker.patch("squarelet.users.views.activate_totp")
+
+        # Make GET request to render form
+        step, context = self._get_onboarding_step(get_request, mocker)
+
+        assert step == "mfa_setup"
+        assert context["form"] == mock_form
+        # Secret should be stored in session
+        assert get_request.session["totp_secret"] == original_secret
+        assert get_request.session.modified is True
+
+        # Step 2: POST request with TOTP code - should use same secret from session
+        post_data = {"step": "mfa_setup", "token": "123456"}
+        post_request = self._create_post_request(
+            rf,
+            user,
+            mock_django_session,
+            post_data,
+            get_request.session,  # Use session from GET request
+        )
+
+        # Create a new mock form for POST with a different initial secret
+        post_mock_form = mocker.MagicMock()
+        post_mock_form.is_valid.return_value = True
+        post_mock_form.secret = "DIFFERENTSECRET456"
+
+        # Reset the mock to return the new form for POST
+        mocker.patch(
+            "squarelet.users.views.ActivateTOTPForm", return_value=post_mock_form
+        )
+
+        response = self._call_view_post(post_request, mocker)
+
+        # The critical assertion: form.secret should be set to the session secret
+        # This ensures the same secret is used for validation
+        assert (
+            post_mock_form.secret == original_secret
+        )  # Should be overridden from session
+        assert (
+            post_mock_form.secret != "DIFFERENTSECRET456"
+        )  # Should NOT be the new secret
+
+        # Verify successful completion
+        self._assert_redirect_to_onboard(response)
+        self._assert_session_updated(post_request.session, "mfa_step", "code_submitted")
+        # Secret should be cleared from session after successful activation
+        assert "totp_secret" not in post_request.session
+
+    def test_mfa_setup_secret_reused_on_form_error(
+        self, rf, user_factory, mocker, mock_django_session
+    ):
+        """TOTP secret should be reused when form validation fails and page re-renders"""
+        user = user_factory()
+
+        # Set up initial session with stored secret (from previous GET)
+        session_data = {
+            "totp_secret": "ORIGINALSECRET123",
+            "first_login": False,
+            "onboarding": {"email_check_completed": True, "mfa_step": "opted_in"},
+        }
+
+        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+
+        # Mock adapter
+        mock_adapter = mocker.MagicMock()
+        mock_adapter.build_totp_url.return_value = "otpauth://test"
+        mock_adapter.build_totp_svg.return_value = "<svg>test</svg>"
+        mocker.patch("squarelet.users.views.get_adapter", return_value=mock_adapter)
+        mocker.patch("squarelet.users.views.base64.b64encode", return_value=b"dGVzdA==")
+
+        # POST with invalid TOTP code
+        post_data = {"step": "mfa_setup", "token": "invalid"}
+        request = self._create_post_request(
+            rf, user, mock_django_session, post_data, session_data
+        )
+
+        # Mock form that fails validation
+        mock_form = mocker.MagicMock()
+        mock_form.is_valid.return_value = False
+        mock_form.secret = "NEWSECRET456"  # Form initially has different secret
+
+        mocker.patch("squarelet.users.views.ActivateTOTPForm", return_value=mock_form)
+
+        response = self._call_view_post(request, mocker)
+
+        # Form should be re-rendered with errors (not redirected)
+        self._assert_template(response, "account/onboarding/mfa_setup.html")
+
+        # Critical assertion: form should use the original secret from session
+        assert mock_form.secret == "ORIGINALSECRET123"
+        assert mock_form.secret != "NEWSECRET456"
+
+        # Secret should remain in session for next attempt
+        assert request.session["totp_secret"] == "ORIGINALSECRET123"
+
+    def test_mfa_setup_secret_cleared_on_skip(
+        self, rf, user_factory, mocker, mock_django_session
+    ):
+        """TOTP secret should be cleared from session when user skips MFA setup"""
+        user = user_factory()
+
+        # Session with stored secret
+        session_data = {
+            "totp_secret": "TESTSECRET123",
+            "first_login": False,
+            "onboarding": {"email_check_completed": True, "mfa_step": "opted_in"},
+        }
+
+        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_mfa_forms(mocker, valid=True)
+
+        # Mock timezone for user save
+        mock_timezone_now = mocker.patch("squarelet.users.views.timezone.now")
+        mock_timezone_now.return_value = "2023-01-01"
+        mocker.patch.object(user, "save")
+
+        # POST to skip MFA
+        post_data = {"step": "mfa_setup", "mfa_setup": "skip"}
+        request = self._create_post_request(
+            rf, user, mock_django_session, post_data, session_data
+        )
+
+        response = self._call_view_post(request, mocker)
+
+        self._assert_redirect_to_onboard(response)
+        self._assert_session_updated(request.session, "mfa_step", "completed")
+
+        # Secret should be cleared from session when skipping
+        # Note: The current implementation doesn't clear on skip,
+        # but it should for security
+        # This test documents the expected behavior
+        assert "totp_secret" not in request.session
+
     def test_post_subscribe_valid_individual_form(
         self, rf, user_factory, subscription_plans, mocker, mock_django_session
     ):
