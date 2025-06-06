@@ -301,8 +301,7 @@ class SubscriptionStep(OnboardingStep):
             return plans
         except Plan.DoesNotExist:
             logger.error(
-                "[ONBOARDING] Invalid plan slug: %s", plan_slug,
-                exc_info=sys.exc_info()
+                "[ONBOARDING] Invalid plan slug: %s", plan_slug, exc_info=sys.exc_info()
             )
             return plans
 
@@ -712,8 +711,7 @@ class UserOnboardingView(TemplateView):
                 return self.render_to_response(context)
         else:
             logger.error(
-                "[ONBOARDING] Onboarding step mismatch",
-                exc_info=sys.exc_info()
+                "[ONBOARDING] Onboarding step mismatch", exc_info=sys.exc_info()
             )
 
         # Otherwise, reload the pipeline to get the next step
