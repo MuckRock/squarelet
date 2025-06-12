@@ -32,6 +32,19 @@
   gap: 0.25rem;
 }
 
+.team .info h4 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: var(--font-semibold, 600);
+  color: var(--gray-5, #233944);
+}
+
+.team .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+}
+
 .team .status {
   display: flex;
   align-items: center;

@@ -22,6 +22,14 @@ from squarelet.users.forms import PremiumSubscriptionForm
 
 logger = logging.getLogger(__name__)
 
+def onboarding_check(request):
+    """
+    Checks for onboarding-related GET parameters and stores them in session.
+    The value of the "check" parameter should correspond to a step name.
+    """
+    request.session["onboarding_check"] = request.GET.getlist("check")
+    request.session.modified = True
+
 
 class OnboardingStep:
     """Base class for onboarding steps"""
@@ -75,6 +83,54 @@ class EmailConfirmationStep(OnboardingStep):
             request.session["onboarding"]["email_check_completed"] = True
             request.session.modified = True
         return True
+
+
+class VerificationStep(OnboardingStep):
+    """Prompt users to apply for newsroom verification"""
+    name = "verification"
+    template_name = "account/onboarding/verification.html"
+
+    def should_execute(self, request):
+        """As a new user, I’ll enter the verification onboarding flow if I'm
+        neither individually verified nor a member of a verified organization,
+        and I'm taking an action that requires verification."""
+        user = request.user
+        done = self.name in request.session.get("onboarding", {})
+        check = self.name in request.session.get("onboarding_check", [])
+        individually_verified = user.individual_organization.verified_journalist
+        org_verified = user.organizations.filter(
+            individual=False,
+            memberships__user=user,
+            verified_journalist=True,
+        ).exists()
+        # if we are checking, we only show if the user is not verified
+        return not done and check and (not individually_verified or not org_verified)
+
+    def get_context_data(self, request):
+        """Return unverified organizations and individual verification status"""
+        user = request.user
+        unverified_orgs = user.organizations.filter(
+            individual=False,
+            memberships__user=user,
+            verified_journalist=False,
+        ).order_by("name")
+        individually_verified = user.individual_organization.verified_journalist
+        return {
+            "unverified_orgs": unverified_orgs,
+            "individually_verified": individually_verified,
+        }
+
+    def handle_post(self, request):
+        if request.POST.get("step") != self.name:
+            return False
+        
+        # Handle skip action
+        if request.POST.get("verification") == "skip":
+            request.session["onboarding"]["verification"] = True
+            request.session.modified = True
+            return True
+        
+        return None
 
 
 class OrganizationJoinStep(OnboardingStep):
@@ -463,7 +519,7 @@ class OnboardingStepRegistry:
             EmailConfirmationStep(),
             OrganizationJoinStep(),
             SubscriptionStep(),
-            # TODO: Verification check
+            VerificationStep(),
             MFAOptInStep(),
             MFASetupStep(),
             MFAConfirmStep(),

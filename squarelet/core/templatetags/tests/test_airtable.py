@@ -9,6 +9,7 @@ from django.test import RequestFactory
 
 # Squarelet
 from squarelet.core.templatetags.airtable import airtable_form_url, airtable_verification_url
+from squarelet.organizations.models.organization import OrganizationUrl
 
 
 class TestAirtableFormUrl:
@@ -96,9 +97,9 @@ class TestAirtableFormUrl:
         query_params = parse_qs(parsed.query)
         
         # None should be filtered out, empty string should be included
-        assert "prefill_email" not in query_params
+        assert "prefill_email" not in result
         assert query_params["prefill_name"] == ["John Doe"]
-        assert query_params["prefill_company"] == [""]
+        assert "prefill_company=" in result
 
     def test_special_characters_encoded(self):
         """Should properly URL encode special characters"""
@@ -126,7 +127,8 @@ class TestAirtableFormUrl:
         parsed = urlparse(result)
         query_params = parse_qs(parsed.query)
         
-        assert query_params["prefill_tags"] == [""]
+        assert "prefill_tags" not in query_params
+        assert "prefill_tags=" in result
 
     def test_numeric_params(self):
         """Should convert numeric parameters to strings"""
@@ -164,7 +166,6 @@ class TestAirtableVerificationUrl:
         """Create a mock organization with required attributes"""
         org = mocker.MagicMock()
         org.name = "Acme Corporation"
-        org.url = "https://acme.com"
         org.get_absolute_url.return_value = "/organizations/acme/"
         return org
 
@@ -176,9 +177,15 @@ class TestAirtableVerificationUrl:
         request.user = mock_user
         return {"request": request}
 
-    def test_complete_data(self, mock_context, mock_organization):
+    @pytest.mark.django_db(transaction=True)
+    def test_complete_data(self, mock_context, organization_factory):
         """Should generate URL with all user and organization data"""
-        result = airtable_verification_url(mock_context, mock_organization)
+        org = organization_factory(name="Acme Corporation", slug="acme")
+        OrganizationUrl.objects.create(
+            organization=org,
+            url="https://acme.com"
+        )
+        result = airtable_verification_url(mock_context, org)
         
         parsed = urlparse(result)
         query_params = parse_qs(parsed.query)
@@ -223,7 +230,7 @@ class TestAirtableVerificationUrl:
     def test_organization_without_url(self, mock_context, mock_organization):
         """Should handle organization without URL"""
         # Mock organization without URL
-        mock_organization.url = None
+        mock_organization.urls = OrganizationUrl.objects.none()
         
         result = airtable_verification_url(mock_context, mock_organization)
         
@@ -239,7 +246,7 @@ class TestAirtableVerificationUrl:
     def test_organization_with_empty_url(self, mock_context, mock_organization):
         """Should handle organization with empty URL"""
         # Mock organization with empty URL
-        mock_organization.url = ""
+        mock_organization.urls = OrganizationUrl.objects.none()
         
         result = airtable_verification_url(mock_context, mock_organization)
         
@@ -303,10 +310,10 @@ class TestAirtableTemplateTagsInTemplate:
         
         parsed = urlparse(result)
         query_params = parse_qs(parsed.query)
-        
         assert query_params["prefill_name"] == ["John"]
         assert query_params["prefill_email"] == ["john@example.com"]
 
+    @pytest.mark.django_db(transaction=True)
     def test_airtable_verification_url_in_template(self, user_factory, organization_factory):
         """Should work correctly when used in a Django template with real models"""
         user = user_factory(name="Jane Doe", email="jane@example.com")
