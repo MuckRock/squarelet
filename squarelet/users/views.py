@@ -28,10 +28,7 @@ import sys
 import time
 
 # Third Party
-from allauth.account.utils import (
-    get_next_redirect_url,
-    send_email_confirmation,
-)
+from allauth.account.utils import get_next_redirect_url, send_email_confirmation
 from allauth.account.views import (
     LoginView as AllAuthLoginView,
     SignupView as AllAuthSignupView,

@@ -3,7 +3,6 @@ from django.conf import settings
 from django.contrib import messages
 from django.utils import timezone
 
-
 # Standard Library
 import base64
 import logging
