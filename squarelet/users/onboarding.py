@@ -22,6 +22,7 @@ from squarelet.users.forms import PremiumSubscriptionForm
 
 logger = logging.getLogger(__name__)
 
+
 class OnboardingStep:
     """Base class for onboarding steps"""
 

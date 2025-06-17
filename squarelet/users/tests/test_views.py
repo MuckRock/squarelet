@@ -264,8 +264,7 @@ class TestUserOnboardingView(ViewTestMixin):
                 raise Plan.DoesNotExist()
 
         mocker.patch(
-            "squarelet.users.onboarding.Plan.objects.get",
-            side_effect=get_plan
+            "squarelet.users.onboarding.Plan.objects.get", side_effect=get_plan
         )
         return {"individual": individual_plan, "group": group_plan}
 
@@ -361,12 +360,10 @@ class TestUserOnboardingView(ViewTestMixin):
         mock_form.is_valid.return_value = valid
         mock_form.secret = "test_secret"
         mocker.patch(
-            "allauth.mfa.totp.internal.auth.get_totp_secret",
-            return_value="test_secret"
+            "allauth.mfa.totp.internal.auth.get_totp_secret", return_value="test_secret"
         )
         mocker.patch(
-            "squarelet.users.onboarding.ActivateTOTPForm",
-            return_value=mock_form
+            "squarelet.users.onboarding.ActivateTOTPForm", return_value=mock_form
         )
 
         if valid:
@@ -377,12 +374,10 @@ class TestUserOnboardingView(ViewTestMixin):
         mock_adapter.build_totp_url.return_value = "otpauth://test"
         mock_adapter.build_totp_svg.return_value = "<svg>test</svg>"
         mocker.patch(
-            "squarelet.users.onboarding.get_adapter",
-            return_value=mock_adapter
+            "squarelet.users.onboarding.get_adapter", return_value=mock_adapter
         )
         mocker.patch(
-            "squarelet.users.onboarding.base64.b64encode",
-            return_value=b"dGVzdA=="
+            "squarelet.users.onboarding.base64.b64encode", return_value=b"dGVzdA=="
         )
 
         return mock_form
@@ -1374,12 +1369,10 @@ class TestUserOnboardingView(ViewTestMixin):
         mock_adapter.build_totp_url.return_value = "otpauth://test"
         mock_adapter.build_totp_svg.return_value = "<svg>test</svg>"
         mocker.patch(
-            "squarelet.users.onboarding.get_adapter",
-            return_value=mock_adapter
+            "squarelet.users.onboarding.get_adapter", return_value=mock_adapter
         )
         mocker.patch(
-            "squarelet.users.onboarding.base64.b64encode",
-            return_value=b"dGVzdA=="
+            "squarelet.users.onboarding.base64.b64encode", return_value=b"dGVzdA=="
         )
 
         # Create a real form that generates a secret
@@ -1388,8 +1381,7 @@ class TestUserOnboardingView(ViewTestMixin):
         mock_form.is_valid.return_value = True
 
         mocker.patch(
-            "squarelet.users.onboarding.ActivateTOTPForm",
-            return_value=mock_form
+            "squarelet.users.onboarding.ActivateTOTPForm", return_value=mock_form
         )
         mocker.patch("squarelet.users.onboarding.activate_totp")
 
@@ -1450,10 +1442,7 @@ class TestUserOnboardingView(ViewTestMixin):
         session_data = {
             "totp_secret": "ORIGINALSECRET123",
             "first_login": False,
-            "onboarding": {
-                "email_check_completed": True,
-                "mfa_step": "opted_in"
-            },
+            "onboarding": {"email_check_completed": True, "mfa_step": "opted_in"},
         }
 
         self._mock_user_state(mocker, user, is_mfa_enabled=False)
@@ -1463,12 +1452,10 @@ class TestUserOnboardingView(ViewTestMixin):
         mock_adapter.build_totp_url.return_value = "otpauth://test"
         mock_adapter.build_totp_svg.return_value = "<svg>test</svg>"
         mocker.patch(
-            "squarelet.users.onboarding.get_adapter",
-            return_value=mock_adapter
+            "squarelet.users.onboarding.get_adapter", return_value=mock_adapter
         )
         mocker.patch(
-            "squarelet.users.onboarding.base64.b64encode",
-            return_value=b"dGVzdA=="
+            "squarelet.users.onboarding.base64.b64encode", return_value=b"dGVzdA=="
         )
 
         # POST with invalid TOTP code
@@ -1483,8 +1470,7 @@ class TestUserOnboardingView(ViewTestMixin):
         mock_form.secret = "NEWSECRET456"  # Form initially has different secret
 
         mocker.patch(
-            "squarelet.users.onboarding.ActivateTOTPForm",
-            return_value=mock_form
+            "squarelet.users.onboarding.ActivateTOTPForm", return_value=mock_form
         )
 
         response = self._call_view_post(request, mocker)
@@ -2119,10 +2105,7 @@ class TestUserOnboardingView(ViewTestMixin):
         )
 
         # Mock has_verified_email to return True (email is actually verified)
-        mocker.patch(
-            "squarelet.users.onboarding.has_verified_email",
-            return_value=True
-        )
+        mocker.patch("squarelet.users.onboarding.has_verified_email", return_value=True)
         mock_org_queryset = mocker.MagicMock()
         mock_org_queryset.exists.return_value = True
         mocker.patch.object(
@@ -2185,7 +2168,7 @@ class TestUserOnboardingView(ViewTestMixin):
         # Mock Plan.DoesNotExist for any plan lookup
         mocker.patch(
             "squarelet.users.onboarding.Plan.objects.get",
-            side_effect=Plan.DoesNotExist()
+            side_effect=Plan.DoesNotExist(),
         )
 
         request = self._create_get_request(rf, user, mock_django_session, session_data)
@@ -2218,7 +2201,7 @@ class TestUserOnboardingView(ViewTestMixin):
         # Mock Plan.DoesNotExist on pk lookup
         mocker.patch(
             "squarelet.users.onboarding.Plan.objects.get",
-            side_effect=Plan.DoesNotExist()
+            side_effect=Plan.DoesNotExist(),
         )
 
         mocker.patch("squarelet.users.onboarding.messages.error")
