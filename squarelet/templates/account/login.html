@@ -298,24 +298,26 @@
         </a>
       </footer>
     </form>
-    <div class="social-login">
-      {% get_providers as socialaccount_providers %}
-      {% for provider in socialaccount_providers %}
-      <form method="POST" action="{% provider_login_url provider.id %}">
-        {% csrf_token %}
-        <button class="ghost button" type="submit>
-          <span class="social-icon">
-            {% if provider.name == "Google" %}
-            {% include "core/icons/google.svg" %}
-            {% elif provider.name == "GitHub" %}
-            {% include "core/icons/github.svg" %}
-            {% endif %}
-          </span>
-          <span class="text">Sign in with {{ provider.name }}</span>
-        </button>
-      </form>
-      {% endfor %}
-    </div>
+    {% if settings.ENABLE_SOCIAL_LOGINS %}
+      <div class="social-login">
+        {% get_providers as socialaccount_providers %}
+        {% for provider in socialaccount_providers %}
+        <form method="POST" action="{% provider_login_url provider.id %}">
+          {% csrf_token %}
+          <button class="ghost button" type="submit">
+            <span class="social-icon">
+              {% if provider.name == "Google" %}
+              {% include "core/icons/google.svg" %}
+              {% elif provider.name == "GitHub" %}
+              {% include "core/icons/github.svg" %}
+              {% endif %}
+            </span>
+            <span class="text">Sign in with {{ provider.name }}</span>
+          </button>
+        </form>
+        {% endfor %}
+      </div>
+    {% endif %}
   </div>
   {% endblock %}
   {% block login_promo %}
