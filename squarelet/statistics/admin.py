@@ -24,7 +24,7 @@ def export_statistics_as_csv(request, queryset):
     ]
 
     response = HttpResponse(content_type="text/csv")
-    response["Content-Disposition"] = "attachment; filename=statistics.csv"
+    response["Content-Disposition"] = "attachment; filename=squarelet_statistics.csv"
 
     writer = csv.writer(response)
     writer.writerow(field_names)
