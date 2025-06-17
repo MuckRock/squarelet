@@ -375,6 +375,8 @@ ACCOUNT_FORMS = {
 ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE = False
 ACCOUNT_SESSION_REMEMBER = None
 
+ENABLE_SOCIAL_LOGINS = env.bool("ENABLE_SOCIAL_LOGINS", False)
+
 MFA_ADAPTER = "squarelet.users.adapters.MfaAdapter"
 # Only allow insecure origins in development
 MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = ENV == "dev"
