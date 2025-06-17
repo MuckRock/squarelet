@@ -1,8 +1,9 @@
-import csv
-
 # Django
-from django.http import HttpResponse
 from django.contrib import admin
+from django.http import HttpResponse
+
+# Standard Library
+import csv
 
 # Third Party
 from reversion.admin import VersionAdmin
@@ -10,7 +11,8 @@ from reversion.admin import VersionAdmin
 # Local
 from .models import Statistics
 
-def export_statistics_as_csv(modeladmin, request, queryset):
+
+def export_statistics_as_csv(request, queryset):
     """Export selected Statistics records to CSV."""
     field_names = [
         "date",
@@ -28,14 +30,16 @@ def export_statistics_as_csv(modeladmin, request, queryset):
     writer.writerow(field_names)
 
     for obj in queryset:
-        writer.writerow([
-            obj.date.isoformat(),
-            obj.total_users,
-            obj.total_users_excluding_agencies,
-            obj.total_users_pro,
-            obj.total_users_org,
-            obj.total_orgs,
-        ])
+        writer.writerow(
+            [
+                obj.date.isoformat(),
+                obj.total_users,
+                obj.total_users_excluding_agencies,
+                obj.total_users_pro,
+                obj.total_users_org,
+                obj.total_orgs,
+            ]
+        )
 
     return response
 
@@ -64,4 +68,4 @@ class StatisticsAdmin(VersionAdmin):
         "pro_users",
         "verified_orgs",
     )
-    actions = [export_statistics_as_csv] 
+    actions = [export_statistics_as_csv]
