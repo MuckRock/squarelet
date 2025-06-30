@@ -22,7 +22,11 @@ class StatisticsAdmin(VersionAdmin):
             "total_users_excluding_agencies",
             "total_users_pro",
             "total_users_org",
+            "total_users_mfa",
             "total_orgs",
+            "users_today",
+            "pro_users",
+            "verified_orgs",
         ]
 
         response = HttpResponse(content_type="text/csv")
@@ -41,7 +45,11 @@ class StatisticsAdmin(VersionAdmin):
                     obj.total_users_excluding_agencies,
                     obj.total_users_pro,
                     obj.total_users_org,
+                    obj.total_users_mfa,
                     obj.total_orgs,
+                    obj.users_today,
+                    obj.pro_users,
+                    obj.verified_orgs,
                 ]
             )
 
