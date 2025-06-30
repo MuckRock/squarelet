@@ -109,6 +109,45 @@ class MembershipsInline(admin.TabularInline):
 
 @admin.register(Organization)
 class OrganizationAdmin(VersionAdmin):
+    def export_organizations_as_csv(self, request, queryset):
+        """Export selected organizations records to CSV."""
+        field_names = [
+            "uuid",
+            "name",
+            "slug",
+            "individual",
+            "private",
+            "verified_journalist",
+            "email_domains",
+        ]
+
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = (
+            "attachment; filename=accounts_organization_statistics.csv"
+        )
+
+        writer = csv.writer(response)
+        writer.writerow(field_names)
+
+        for obj in queryset:
+            writer.writerow(
+                [
+                    obj.uuid,
+                    obj.name,
+                    obj.slug,
+                    obj.individual,
+                    obj.private,
+                    obj.verified_journalist,
+                    self.get_email_domains(obj),
+                ]
+            )
+
+        return response
+
+    export_organizations_as_csv.short_description = (
+        "Export selected organizations to CSV"
+    )
+
     list_display = (
         "name",
         "individual",
@@ -160,6 +199,7 @@ class OrganizationAdmin(VersionAdmin):
         "merged_at",
         "merged_by",
     )
+    actions = [export_organizations_as_csv]
     autocomplete_fields = ("members", "parent", "subtypes")
     save_on_top = True
     inlines = (
@@ -175,7 +215,7 @@ class OrganizationAdmin(VersionAdmin):
     )
 
     def get_queryset(self, request):
-        return super().get_queryset(request).prefetch_related("subtypes")
+        return super().get_queryset(request).prefetch_related("subtypes", "domains")
 
     def save_model(self, request, obj, form, change):
         if obj.verified_journalist and "verified_journalist" in form.changed_data:
@@ -209,6 +249,11 @@ class OrganizationAdmin(VersionAdmin):
         return ", ".join(s.name for s in obj.subtypes.all())
 
     get_subtypes.short_description = "Subtypes"
+
+    def get_email_domains(self, obj):
+        return ", ".join(domain.domain for domain in obj.domains.all())
+
+    get_email_domains.short_description = "Email Domains"
 
 
 @admin.register(Plan)
