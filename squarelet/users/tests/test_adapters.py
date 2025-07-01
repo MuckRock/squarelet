@@ -5,6 +5,9 @@ from django.contrib.sessions.middleware import SessionMiddleware
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 
+# Standard Library
+from datetime import timedelta
+
 # Third Party
 from allauth.account.models import EmailAddress
 
@@ -82,9 +85,7 @@ class AdapterRedirectTests(TestCase):
         # Set up a condition that would NOT trigger onboarding
         # For example, make this NOT the first login and have MFA set up
         self.user.last_login = self.user.date_joined
-        self.user.last_login = self.user.last_login.replace(
-            day=self.user.last_login.day - 1
-        )  # Previous day
+        self.user.last_login = self.user.last_login - timedelta(days=1)
         self.user.save()
 
         # Mock that MFA is set up
