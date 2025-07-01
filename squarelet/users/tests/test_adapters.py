@@ -1,11 +1,12 @@
-from datetime import  timedelta
-
 # Django
 from django.contrib.auth import get_user_model
 from django.contrib.messages.middleware import MessageMiddleware
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
+
+# Standard Library
+from datetime import timedelta
 
 # Third Party
 from allauth.account.models import EmailAddress
