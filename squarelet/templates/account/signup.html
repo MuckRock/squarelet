@@ -24,6 +24,10 @@
     margin-top: 0;
     max-width: 24rem;
   }
+  .social-account {
+    margin: 2rem;
+    max-width: 32rem;
+  }
   header {
     text-align: center;
   }
@@ -85,23 +89,21 @@
 {% block login_step %}
   {% if confirm_sociallogin %}
     <div class="wrapper" id="form">
-      <div class="signup-form m-0">
-        <header>
-          <div>
-            <h2>Please confirm</h2>
-            <p>
-              We don't see an existing account with that email address. If you
-              already have an account with MuckRock or DocumentCloud, please
-              log in and add {{ sociallogin_email }} to your account. If you are new
-              to our services, create an account now.
-            </p>
-            <a class="help link" href="{% url "account_login" %}">
-              Sign in to an existing account
-            </a>
-            <br>
-            <a class="help link" href="?confirm=1">Create a new account</a>
-          </div>
-        </header>
+      <div class="social-account">
+        <h2>Account not found</h2>
+        <p>
+          We don't see an existing account for the email address
+          {{ sociallogin_email|default:"you used" }}.
+        </p>
+        <p>
+          If you already have an account with MuckRock or DocumentCloud,
+          please sign in and add this email address to your account:
+        </p>
+        <a class="button primary" href="{% url "account_login" %}">
+          Sign in to an existing account
+        </a>
+        <p>If you are new to our services, you can create an account now:</p>
+        <a class="ghost button primary" href="?confirm=1">Create a new account</a>
       </div>
     </div>
   {% else %}
