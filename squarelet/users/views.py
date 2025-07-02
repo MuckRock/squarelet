@@ -33,6 +33,8 @@ from allauth.account.views import (
     LoginView as AllAuthLoginView,
     SignupView as AllAuthSignupView,
 )
+from allauth.socialaccount.adapter import get_adapter as get_social_adapter
+from allauth.socialaccount.internal import flows
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Fieldset, Layout
 
@@ -273,6 +275,38 @@ class SignupView(AllAuthSignupView):
         kwargs = super().get_form_kwargs()
         kwargs["request"] = self.request
         return kwargs
+
+    def get_initial(self):
+        initial = super().get_initial()
+        sociallogin = flows.signup.get_pending_signup(self.request)
+        if sociallogin:
+            # pre-fill the form with the data the social provider returns
+            initial = get_social_adapter().get_signup_form_initial_data(sociallogin)
+        return initial
+
+    def form_valid(self, form):
+        sociallogin = flows.signup.get_pending_signup(self.request)
+        if sociallogin:
+            flows.signup.clear_pending_signup(self.request)
+            # do not setup email here, as it will be set up when completing
+            # the social signup flow
+            user = form.save(self.request, setup_email=False)
+            sociallogin.user = user
+            sociallogin.save(self.request)
+            return flows.signup.complete_social_signup(self.request, sociallogin)
+        else:
+            return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # if this is an attempted social login, make them confirm if they
+        # want to create a new account or log in to an existing one
+        sociallogin = flows.signup.get_pending_signup(self.request)
+        confirm_sociallogin = self.request.GET.get("confirm")
+        context["confirm_sociallogin"] = sociallogin and not confirm_sociallogin
+        if sociallogin and not confirm_sociallogin:
+            context["sociallogin_email"] = sociallogin.user.email
+        return context
 
 
 def mailgun_webhook(request):
