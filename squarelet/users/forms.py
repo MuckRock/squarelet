@@ -106,7 +106,7 @@ class SignupForm(allauth.SignupForm):
         return data
 
     @transaction.atomic()
-    def save(self, request):
+    def save(self, request, setup_email=True):
 
         user_data = {
             "source": request.GET.get("intent", "squarelet").lower().strip()[:255]
@@ -120,7 +120,8 @@ class SignupForm(allauth.SignupForm):
         if plan and plan.requires_payment():
             request.session["plan"] = plan.slug
 
-        setup_user_email(request, user, [])
+        if setup_email:
+            setup_user_email(request, user, [])
 
         return user
 
