@@ -27,7 +27,7 @@
   header {
     text-align: center;
   }
-  header h2 {
+  header h2, p {
     max-width: 18rem;
   }
   .help.link {
@@ -83,75 +83,98 @@
 {% endblock %}
 
 {% block login_step %}
-  <div class="wrapper" id="form">
-    <form class="signup-form m-0" id="signup_form" method="POST">
-      <header>
-        {% sign_up_message %}
-      </header>
-      <main class="fields">
-        {% csrf_token %}
-        {{form.non_field_errors}}
-        {{form.plan}}
-        <label class="field">
-          <span class="label">
-            {{form.email.label}}
-            {% if form.email.field.required %}<span class="required">Required</span>{% endif %}
-          </span>
-          {{form.email}}
-          {{form.email.errors}}
-          <div class="help text">
-            {{ form.email.help_text }}
+  {% if confirm_sociallogin %}
+    <div class="wrapper" id="form">
+      <div class="signup-form m-0">
+        <header>
+          <div>
+            <h2>Please confirm</h2>
+            <p>
+              We don't see an existing account with that email address. If you
+              already have an account with MuckRock or DocumentCloud, please
+              log in and add {{ sociallogin_email }} to your account. If you are new
+              to our services, create an account now.
+            </p>
+            <a class="help link" href="{% url "account_login" %}">
+              Sign in to an existing account
+            </a>
+            <br>
+            <a class="help link" href="?confirm=1">Create a new account</a>
           </div>
-        </label>
-        <label class="field">
-          <span class="label">
-            {{form.name.label}}
-            {% if form.name.field.required %}<span class="required">Required</span>{% endif %}
-          </span>
-          {{form.name}}
-          {{form.name.errors}}
-          <div class="help text">
-            {{ form.name.help_text }}
-          </div>
-        </label>
-        <label class="field">
-          <span class="label">
-            {{form.username.label}}
-            {% if form.username.field.required %}<span class="required">Required</span>{% endif %}
-          </span>
-          {{form.username}}
-          {{form.username.errors}}
-          <div class="help text">
-            {{ form.username.help_text }}
-          </div>
-        </label>
-        <label class="field">
-          <span class="label">
-            {{form.password1.label}}
-            {% if form.password1.field.required %}<span class="required">Required</span>{% endif %}
-          </span>
-          {{form.password1}}
-          {{form.password1.errors}}
-          <div class="help text">
-            {{ form.password1.help_text }}
-          </div>
-        </label>
-        <label class="field">
-          <span class="label">
-          {{ form.tos }}
-          <span>I accept MuckRock&rsquo;s <a target="_blank" rel="noopener noreferer" href="https://www.muckrock.com/tos/">Terms of Service</a> and <a target="_blank" rel="noopener noreferer" href="https://www.muckrock.com/privacy-policy/">Privacy Policy</a>.</span>
-          {% if form.tos.field.required %}<span class="required">Required</span>{% endif %}
-          </span>
-          {{ form.tos.errors }}
-        </label>
-      </main>
+        </header>
+      </div>
+    </div>
+  {% else %}
+    <div class="wrapper" id="form">
+      <form class="signup-form m-0" id="signup_form" method="POST">
+        <header>
+          {% sign_up_message %}
+        </header>
+        <main class="fields">
+          {% csrf_token %}
+          {{form.non_field_errors}}
+          {{form.plan}}
+          <label class="field">
+            <span class="label">
+              {{form.email.label}}
+              {% if form.email.field.required %}<span class="required">Required</span>{% endif %}
+            </span>
+            {{form.email}}
+            {{form.email.errors}}
+            <div class="help text">
+              {{ form.email.help_text }}
+            </div>
+          </label>
+          <label class="field">
+            <span class="label">
+              {{form.name.label}}
+              {% if form.name.field.required %}<span class="required">Required</span>{% endif %}
+            </span>
+            {{form.name}}
+            {{form.name.errors}}
+            <div class="help text">
+              {{ form.name.help_text }}
+            </div>
+          </label>
+          <label class="field">
+            <span class="label">
+              {{form.username.label}}
+              {% if form.username.field.required %}<span class="required">Required</span>{% endif %}
+            </span>
+            {{form.username}}
+            {{form.username.errors}}
+            <div class="help text">
+              {{ form.username.help_text }}
+            </div>
+          </label>
+          <label class="field">
+            <span class="label">
+              {{form.password1.label}}
+              {% if form.password1.field.required %}<span class="required">Required</span>{% endif %}
+            </span>
+            {{form.password1}}
+            {{form.password1.errors}}
+            <div class="help text">
+              {{ form.password1.help_text }}
+            </div>
+          </label>
+          <label class="field">
+            <span class="label">
+            {{ form.tos }}
+            <span>I accept MuckRock&rsquo;s <a target="_blank" rel="noopener noreferer" href="https://www.muckrock.com/tos/">Terms of Service</a> and <a target="_blank" rel="noopener noreferer" href="https://www.muckrock.com/privacy-policy/">Privacy Policy</a>.</span>
+            {% if form.tos.field.required %}<span class="required">Required</span>{% endif %}
+            </span>
+            {{ form.tos.errors }}
+          </label>
+        </main>
 
-      <footer>
-        <button class="button primary">{% trans 'Sign up' %}</button>
-        <a class="button primary ghost" href="{% url 'account_login' %}{% pass_query %}">
-          {% blocktrans %}Already have an account? Sign in{% endblocktrans %}
-        </a>
-      </footer>
-    </form>
-  </div>
+        <footer>
+          <button class="button primary">{% trans 'Sign up' %}</button>
+          <a class="button primary ghost" href="{% url 'account_login' %}{% pass_query %}">
+            {% blocktrans %}Already have an account? Sign in{% endblocktrans %}
+          </a>
+        </footer>
+      </form>
+    </div>
+  {% endif %}
 {% endblock %}

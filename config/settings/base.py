@@ -363,6 +363,12 @@ ACCOUNT_ADAPTER = "squarelet.users.adapters.AccountAdapter"
 ACCOUNT_PREVENT_ENUMERATION = False
 SOCIALACCOUNT_ADAPTER = "squarelet.users.adapters.SocialAccountAdapter"
 SOCIALACCOUNT_STORE_TOKENS = True
+SOCIALACCOUNT_AUTO_SIGNUP = False
+SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
+SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
+SOCIALACCOUNT_EMAIL_REQUIRED = True
+SOCIALACCOUNT_QUERY_EMAIL = True
+
 ACCOUNT_FORMS = {
     "signup": "squarelet.users.forms.SignupForm",
     "login": "squarelet.users.forms.LoginForm",

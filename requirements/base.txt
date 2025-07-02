@@ -121,7 +121,7 @@ django-email-bandit==1.5
     # via -r requirements/base.in
 django-environ==0.4.4
     # via -r requirements/base.in
-django-extensions==3.2.3
+django-extensions==4.1
     # via -r requirements/base.in
 django-filter==21.1
     # via -r requirements/base.in
@@ -264,9 +264,7 @@ python-levenshtein==0.25.1
 python-slugify==1.2.5
     # via -r requirements/base.in
 pytz==2024.2
-    # via
-    #   -r requirements/base.in
-    #   djangorestframework
+    # via -r requirements/base.in
 qrcode==8.0
     # via django-allauth
 rapidfuzz==3.9.1

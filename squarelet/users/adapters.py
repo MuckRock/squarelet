@@ -194,45 +194,21 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
             },
         )
 
-    def pre_social_login(self, request, sociallogin):
-        if sociallogin.is_existing:
-            return
-        # connect social account to currently logged in account
-        if request.user.is_authenticated:
-            user = request.user
-        else:
-            try:
-                # if not logged in, try matching account based on email
-                email = EmailAddress.objects.get(email=sociallogin.user.email)
-                user = email.user
-            except EmailAddress.DoesNotExist:
-                return
-
-        sociallogin.connect(request, user)
-        login(
-            request, user, backend="allauth.account.auth_backends.AuthenticationBackend"
-        )
-        response = HttpResponseRedirect(reverse("socialaccount_connections"))
-        raise ImmediateHttpResponse(response)
-
     def save_user(self, request, sociallogin, form=None):
         """
         Saves a newly signed up social login. In case of auto-signup,
         the signup form is not available.
         """
-        account = sociallogin.account
-        user_data = {
-            "username": UserWriteSerializer.unique_username(
-                account.extra_data["login"]
-            ),
-            "email": account.extra_data["email"],
-            "name": account.extra_data["name"],
-            "source": "github",
-        }
-        user = User.objects.register_user(user_data)
+        # we do not allow auto-signup so form should be present
+        user = form.save(request, setup_email=False)
         sociallogin.user = user
         sociallogin.save(request)
         return user
+
+    def get_signup_form_initial_data(self, sociallogin):
+        initial = super().get_signup_form_initial_data(sociallogin)
+        initial["name"] = f"{initial['first_name']} {initial['last_name']}"
+        return initial
 
 
 class MfaAdapter(DefaultMFAAdapter):
