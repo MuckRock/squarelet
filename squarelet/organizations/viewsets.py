@@ -6,6 +6,7 @@ from rest_framework.permissions import IsAdminUser
 from squarelet.oidc.permissions import ScopePermission
 from squarelet.organizations.models import Charge, Organization
 from squarelet.organizations.serializers import ChargeSerializer, OrganizationSerializer
+from squarelet.organizations.filters import OrganizationFilter
 
 
 class OrganizationViewSet(viewsets.ModelViewSet):
@@ -17,6 +18,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
     write_scopes = ("write_organization",)
     lookup_field = "uuid"
     swagger_schema = None
+    filterset_class = OrganizationFilter
 
 
 class ChargeViewSet(viewsets.ModelViewSet):
