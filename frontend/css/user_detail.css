@@ -91,6 +91,14 @@ main#user_detail {
   align-self: stretch;
 }
 
+.content section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.875rem;
+  align-self: stretch;
+}
+
 .content .profile {
   display: flex;
   align-items: center;
@@ -143,4 +151,61 @@ main#user_detail {
   gap: 0.5rem;
   align-self: stretch;
   flex-wrap: wrap;
+}
+
+.verification-status {
+  display: flex;
+  padding: 1rem;
+  align-items: flex-end;
+  gap: 0.75rem;
+
+  border-radius: 0.5rem;
+  border: 1px solid var(--gray-2, #d8dee2);
+  background: var(--white, #fff);
+  box-shadow: var(--shadow-1);
+}
+
+.verification-status .status {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 0.75rem;
+  flex: 1 0 0;
+}
+
+.verification-status svg {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+.verification-status .verified svg path {
+  fill: var(--green-3);
+}
+
+.verification-status .features {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.checklist-item {
+  display: flex;
+  padding: 0.25rem 0.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  border-radius: 0.25rem;
+
+  color: var(--gray-5, #233944);
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-size: var(--font-s, 0.875rem);
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+}
+
+.checklist-item svg {
+  width: var(--font-sm, 0.875rem);
+  height: var(--font-sm, 0.875rem);
 }
