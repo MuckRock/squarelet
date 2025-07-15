@@ -15,7 +15,12 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 # Squarelet
 from squarelet.core.views import HomeView, SelectPlanView
 from squarelet.oidc.views import token_view
+from squarelet.organizations.fe_api.viewsets import (
+    InvitationViewSet as FEInvitationViewSet,
+    OrganizationViewSet as FEOrganizationViewSet,
+)
 from squarelet.organizations.viewsets import ChargeViewSet, OrganizationViewSet
+from squarelet.users.fe_api.viewsets import UserViewSet as FEUserViewSet
 from squarelet.users.views import LoginView, SignupView, UserOnboardingView
 from squarelet.users.viewsets import (
     RefreshTokenViewSet,
@@ -32,6 +37,14 @@ router.register("url_auth_tokens", UrlAuthTokenViewSet, basename="url_auth_token
 router.register("refresh_tokens", RefreshTokenViewSet, basename="refresh_token")
 router.register("organizations", OrganizationViewSet)
 router.register("charges", ChargeViewSet)
+
+
+fe_api_router = routers.DefaultRouter()
+fe_api_router.register(
+    r"organizations", FEOrganizationViewSet, basename="fe-organizations"
+)
+fe_api_router.register(r"invitations", FEInvitationViewSet, basename="fe-invitations")
+fe_api_router.register(r"users", FEUserViewSet, basename="fe-users")
 
 
 def redirect_erh(request, path=""):
@@ -60,6 +73,7 @@ urlpatterns = [
     path("accounts/", include("allauth.urls")),
     path("accounts/", include("allauth.socialaccount.urls")),
     path("api/", include(router.urls)),
+    path("fe_api/", include((fe_api_router.urls, "fe_api"), namespace="fe_api")),
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("openid/", include("oidc_provider.urls", namespace="oidc_provider")),
