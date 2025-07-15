@@ -39,7 +39,7 @@
             {% csrf_token %}
             <button class="button primary" name="action" value="join">
               <img src="{% static "icons/check.svg" %}">
-              Join
+              {% trans "Join" %}
             </button>
           </form>
         </div>
