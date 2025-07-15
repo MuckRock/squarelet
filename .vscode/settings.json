@@ -11,6 +11,7 @@
     "editor.tabSize": 4
   },
   "files.associations": {
-    "*.html": "django-html"
+    "*.html": "django-html",
+    "*.xvg": "xml"
   }
 }
