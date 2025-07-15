@@ -26,5 +26,11 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = UserSerializer
     permission_classes = (IsAuthenticated,)
     lookup_field = "individual_organization_id"
-    lookup_url_kwarg = "uuid"
     swagger_schema = None
+
+    def get_queryset(self):
+        # Use the get_viewable() method from MembershipQuerySet
+        visible_memberships = Membership.objects.get_viewable(self.request.user)
+
+        # Fetch users from those memberships and return them
+        return User.objects.filter(memberships__in=visible_memberships).distinct()

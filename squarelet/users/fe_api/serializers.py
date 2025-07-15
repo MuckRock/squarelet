@@ -24,30 +24,29 @@ class SocialAccountSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     uuid = serializers.UUIDField(read_only=True)
-    preferred_username = serializers.CharField(source="username", read_only=True)
+    username = serializers.CharField(read_only=True)
     picture = serializers.CharField(source="avatar_url", read_only=True)
     email_verified = serializers.SerializerMethodField()
     email = serializers.SerializerMethodField()
-    organizations = MembershipSerializer(
-        many=True, read_only=True, source="memberships"
-    )
+    organizations = serializers.SerializerMethodField()
     social_accounts = SocialAccountSerializer(many=True, source="socialaccount_set")
 
     class Meta:
         model = User
         fields = (
-            "bio",
+            "id",
+            "uuid",
+            "username",
+            "name",
             "email",
             "email_failed",
             "email_verified",
             "is_agency",
-            "name",
             "organizations",
+            "bio",
             "picture",
-            "preferred_username",
             "updated_at",
             "use_autologin",
-            "uuid",
             "social_accounts",
         )
         read_only_fields = fields
@@ -67,3 +66,31 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_email(self, obj):
         return self.get_primary_email_field(obj, "email", "")
+
+    def get_organizations(self, obj):
+        # Return list of organization IDs user is a member of
+        return [m.organization_id for m in obj.memberships.all()]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+
+        if request and request.user.is_authenticated:
+            # Fetch the requesting user's orgs
+            requester_org_ids = set(
+                request.user.memberships.values_list("organization_id", flat=True)
+            )
+            target_org_ids = set(
+                instance.memberships.values_list("organization_id", flat=True)
+            )
+
+            if not requester_org_ids.intersection(target_org_ids):
+                # No shared orgs: remove sensitive fields
+                data.pop("email", None)
+                data.pop("email_verified", None)
+        else:
+            # Anonymous user
+            data.pop("email", None)
+            data.pop("email_verified", None)
+
+        return data
