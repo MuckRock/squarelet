@@ -78,6 +78,7 @@ class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
         )
         context["potential_organizations"] = list(user.get_potential_organizations())
         context["pending_invitations"] = list(user.get_pending_invitations())
+        context["verified"] = user.verified_journalist()
         return context
 
 

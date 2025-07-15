@@ -94,17 +94,41 @@
 
     <section id="verification">
       <h2>{% trans "Your Verification" %}</h2>
-      <a href="" class="btn ghost">{% trans "Learn about verification" %}</a>
+      <a href="#" class="btn ghost">{% trans "Learn about verification" %}</a>
 
-      <div class="verification-status"></div>
+      <div class="verification-status">
+        {% if verified %}
+        <div class="status verified">
+          {% include "core/icons/verification.svg" %}
+          <h3>{% trans "You are a verified journalist." %}</h3>
+        </div>
+        <dl class="features">
+          <dt class="checklist-item">{% include "core/icons/unlock.svg" %}{% trans "Unlocked features:" %}</dt>
+          <dd class="checklist-item">{% include "core/icons/check-circle-fill.svg" %}{% trans "Upload to DocumentCloud" %}</dd>
+          <dd class="checklist-item">{% include "core/icons/check-circle-fill.svg" %}{% trans "Publish documents" %}</dd>
+        </dl>
+        {% else %}
+        <div class="status unverified">
+          {% include "core/icons/unverified.svg" %}
+          <h3>{% trans "You are not a verified journalist, yet. Some features are restricted." %}</h3>
+        </div>
+        <dl class="features">
+          <dt class="checklist-item">{% include "core/icons/lock.svg" %}{% trans "Locked features:" %}</dt>
+          <dd class="checklist-item">{% include "core/icons/x-circle-fill.svg" %}{% trans "Upload to DocumentCloud" %}</dd>
+          <dd class="checklist-item">{% include "core/icons/x-circle-fill.svg" %}{% trans "Publish documents" %}</dd>
+        </dl>
+        {% endif %}
+      </div>
+      {% if not verified %}
       <p class="info"><a href="#">Request individual verification</a> to publish your own documents.</p>
+      {% endif %}
     </section>
 
     <section id="organizations">
       <header>
         <h2>{% trans "Your Organizations" %}</h2>
-        <a href="" class="btn ghost">{% trans "Join an organization" %}</a>
-        <a href="" class="btn ghost">{% trans "Start an organization" %}</a>
+        <a href="#" class="btn ghost">{% trans "Join an organization" %}</a>
+        <a href="#" class="btn ghost">{% trans "Start an organization" %}</a>
       </header>
 
       {% if potential_organizations %}
