@@ -1,7 +1,6 @@
 # Django
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import login
 from django.contrib.sites.shortcuts import get_current_site
 from django.http.response import HttpResponseRedirect
 from django.template.loader import render_to_string
@@ -11,10 +10,8 @@ from django.utils.translation import gettext_lazy as _
 
 # Third Party
 from allauth.account.adapter import DefaultAccountAdapter
-from allauth.account.models import EmailAddress
 from allauth.account.signals import user_logged_in
 from allauth.account.utils import get_login_redirect_url
-from allauth.core.exceptions import ImmediateHttpResponse
 from allauth.mfa.adapter import DefaultMFAAdapter
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from furl import furl
@@ -22,8 +19,6 @@ from furl import furl
 # Squarelet
 from squarelet.core.mail import Email
 from squarelet.organizations.models import Invitation
-from squarelet.users.models import User
-from squarelet.users.serializers import UserWriteSerializer
 
 
 class AccountAdapter(DefaultAccountAdapter):
