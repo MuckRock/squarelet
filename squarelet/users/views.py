@@ -276,12 +276,19 @@ class SignupView(AllAuthSignupView):
         kwargs["request"] = self.request
         return kwargs
 
+    def get(self, request, *args, **kwargs):
+        if self.request.session.get("socialaccount_sociallogin_clear"):
+            flows.signup.clear_pending_signup(self.request)
+            self.request.session.pop("socialaccount_sociallogin_clear")
+        return super().get(request, *args, **kwargs)
+
     def get_initial(self):
         initial = super().get_initial()
         sociallogin = flows.signup.get_pending_signup(self.request)
         if sociallogin:
             # pre-fill the form with the data the social provider returns
             initial = get_social_adapter().get_signup_form_initial_data(sociallogin)
+            self.request.session["socialaccount_sociallogin_clear"] = True
         return initial
 
     def form_valid(self, form):
