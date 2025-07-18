@@ -209,3 +209,27 @@ main#user_detail {
   width: var(--font-sm, 0.875rem);
   height: var(--font-sm, 0.875rem);
 }
+
+.orgs {
+  display: flex;
+  padding: 1rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+  align-self: stretch;
+
+  border-radius: 0.5rem;
+  border: 1px solid var(--gray-2, #d8dee2);
+  background: var(--white, #fff);
+
+  /* shadow-1 */
+  box-shadow: var(--shadow-1);
+}
+
+.list-header {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  align-self: stretch;
+}

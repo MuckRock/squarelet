@@ -76,6 +76,9 @@ class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
         context["other_orgs"] = list(
             user.organizations.filter(individual=False).get_viewable(self.request.user)
         )
+        context["admin_orgs"] = list(
+            user.organizations.filter(individual=False, memberships__admin=True)
+        )
         context["potential_organizations"] = list(user.get_potential_organizations())
         context["pending_invitations"] = list(user.get_pending_invitations())
         context["verified"] = user.verified_journalist()

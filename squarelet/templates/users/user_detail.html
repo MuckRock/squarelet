@@ -127,10 +127,16 @@
     <section id="organizations">
       <header>
         <h2>{% trans "Your Organizations" %}</h2>
-        <a href="#" class="btn ghost">{% trans "Join an organization" %}</a>
-        <a href="#" class="btn ghost">{% trans "Start an organization" %}</a>
+        <a href="{% url "organizations:list" %}" class="btn ghost">
+          {% include "core/icons/organizations.svg" %}
+          {% trans "Join an organization" %}
+        </a>
+        <a href="{% url "organizations:create" %}" class="btn ghost">
+          {% include "core/icons/plus-circle.svg" %}
+          {% trans "Start an organization" %}
+        </a>
       </header>
-
+      <div class="orgs">
       {% if potential_organizations %}
       <div class="list-header">
         <h3>{% trans "Pre-approved" %}</h3>
@@ -176,14 +182,44 @@
       {% if other_orgs %}
       <div class="list-header">
         <h3>{% trans "Membership" %}</h3>
-        <p>{% trans "Organizations you've joined" %}</p>
+        <p>{% trans "Organizations you've joined:" %}</p>
       </div>
         {% for org in other_orgs %}
         <div class="org">
-          {% include "account/team_list_item.html" %}
-
+          {% include "account/team_list_item.html" with organization=org %}
+          <form method="post" action="{% url "organizations:detail" slug=org.slug %}" class="actions">
+            {% csrf_token %}
+            <button class="btn danger ghost" type="submit" name="action" value="leave">
+              {% include "core/icons/sign-out.svg" %}
+              {% trans "leave" %}
+            </button>
+          </form>
         </div>
         {% endfor %}
+      {% endif %}
+      </div>
+
+      {% if admin_orgs %}
+      <div class="list-header">
+        <h3>{% trans "Admin" %}</h3>
+        <p>{% trans "Organizations you manage:" %}</p>
+      </div>
+      {% for org in admin_orgs %}
+        <div class="org">
+          {% include "account/team_list_item.html" with organization=org %}
+          <div class="actions">
+            {% if not org.verified_journalist %}
+            <a class="btn primary" href="#">
+              {% trans "Request verification" %}
+            </a>
+            {% endif %}
+            <a class="btn ghost" href="{% url "organizations:manage-members" slug=org.slug %}">
+              {% include "core/icons/gear.svg" %}
+              {% trans "Manage" %}
+            </a>
+          </div>
+        </div>
+      {% endfor %}
       {% endif %}
 
     </section>
