@@ -1,5 +1,4 @@
 {% extends "account/onboarding/base.html" %}
-
 {% load i18n static %}
 {% load account socialaccount %}
 
@@ -24,6 +23,23 @@
     font-weight: 600;
     line-height: normal;
   }
+
+  /* Initially disable the continue button */
+  .continue-btn:disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .continue-form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .help-text {
+    font-size: var(--font-sm, .875rem);
+    opacity: .7;
+  }
 </style>
 {% endblock css %}
 
@@ -35,12 +51,46 @@
     <h1 class="title">{% trans "Two-factor authentication enabled" %}</h1>
     <p>{% blocktrans %}Download your secret recovery codes in case your device is lost or stolen:{% endblocktrans %}</p>
   </header>
-  <a href="{% url 'mfa_download_recovery_codes' %}" class="button primary" target="download"><img src="{% static 'icons/download.svg' %}" /> {% trans "Download your recovery codes" %}</a>
-  <p>{% blocktrans %}Always store your recovery codes in a secure location!{% endblocktrans %}</p>
-  <form method="post" action="{% url 'account_onboarding' %}">
+  
+  <!-- Download backup codes button -->
+  <a href="{% url 'mfa_download_recovery_codes' %}" class="button primary" target="download" id="download-codes-btn">
+    <img src="{% static 'icons/download.svg' %}" /> {% trans "Download your backup codes" %}
+  </a>
+  
+  <p>{% blocktrans %}Always store your backup codes in a secure location!{% endblocktrans %}</p>
+  
+  <!-- Continue Signing In button, initially disabled -->
+  <form method="post" action="{% url 'account_onboarding' %}" class="continue-form">
     {% csrf_token %}
     <input type="hidden" name="step" value="mfa_confirm" />
-    <button type="submit" class="button primary ghost">Continue Signing In</button>
+    <p class="help-text" id="continue-help">{% trans "You may continue after downloading your backup codes." %}</p>
+    <button type="submit" class="button primary ghost continue-btn" id="continue-btn" disabled>
+      {% trans "Continue Signing In" %}
+    </button>
   </form>
+
 {% endblock %}
+
+{% block javascript %}
+<script>
+  // Get elements
+  const downloadButton = document.getElementById('download-codes-btn');
+  const continueButton = document.getElementById('continue-btn');
+  const continueHelpText = document.getElementById('continue-help');
+
+  // Flag to track if the download button has been clicked
+  let downloadClicked = false;
+
+  // Watch for click on the download button
+  downloadButton.addEventListener('click', () => {
+    downloadClicked = true;
+    // Enable the continue button once the download has been clicked
+    continueButton.disabled = false;
+    // Hide the help text after the download has been clicked
+    continueHelpText.style.display = 'none';
+  });
+
+</script>
+{% endblock javascript %}
+
   
