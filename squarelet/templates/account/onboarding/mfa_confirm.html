@@ -33,10 +33,10 @@
       <img src="{% static 'icons/checkmark-outline.svg' %}" />
     </div>
     <h1 class="title">{% trans "Two-factor authentication enabled" %}</h1>
-    <p>{% blocktrans %}Download your secret backup codes in case your device is lost or stolen:{% endblocktrans %}</p>
+    <p>{% blocktrans %}Download your secret recovery codes in case your device is lost or stolen:{% endblocktrans %}</p>
   </header>
-  <a href="{% url 'mfa_download_recovery_codes' %}" class="button primary" target="download"><img src="{% static 'icons/download.svg' %}" /> {% trans "Download your backup codes" %}</a>
-  <p>{% blocktrans %}Always store your backup codes in a secure location!{% endblocktrans %}</p>
+  <a href="{% url 'mfa_download_recovery_codes' %}" class="button primary" target="download"><img src="{% static 'icons/download.svg' %}" /> {% trans "Download your recovery codes" %}</a>
+  <p>{% blocktrans %}Always store your recovery codes in a secure location!{% endblocktrans %}</p>
   <form method="post" action="{% url 'account_onboarding' %}">
     {% csrf_token %}
     <input type="hidden" name="step" value="mfa_confirm" />
