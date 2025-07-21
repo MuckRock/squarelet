@@ -76,5 +76,16 @@
         <input type="hidden" name="next" value="{% url 'account_login' %}">
         {% csrf_token %}
     </form>
+    <div style="max-width: 600px; font-size: 0.875rem; color: #555;">
+      <p><strong>Don't have a code?</strong></p>
+      <p>
+        If you can't provide an authentication code from your second device,
+        you can provide a recovery code in its place. Recovery codes are
+        one-time use and will not work on subsequent logins.
+        <a href="https://help.muckrock.com/Two-Factor-Authentication-1f9f8892696380e59857c19341a324af?source=copy_link#207f889269638028a939c82281c5c6f3" target="_blank" rel="noopener noreferrer">
+          Learn more
+        </a>
+      </p>
+    </div>
 </div>
 {% endblock login_step %}
