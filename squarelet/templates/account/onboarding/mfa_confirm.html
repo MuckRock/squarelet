@@ -72,25 +72,26 @@
 {% endblock %}
 
 {% block javascript %}
-<script>
-  // Get elements
-  const downloadButton = document.getElementById('download-codes-btn');
-  const continueButton = document.getElementById('continue-btn');
-  const continueHelpText = document.getElementById('continue-help');
+  {{block.super}}
+  <script>
+    // Get elements
+    const downloadButton = document.getElementById('download-codes-btn');
+    const continueButton = document.getElementById('continue-btn');
+    const continueHelpText = document.getElementById('continue-help');
 
-  // Flag to track if the download button has been clicked
-  let downloadClicked = false;
+    // Flag to track if the download button has been clicked
+    let downloadClicked = false;
 
-  // Watch for click on the download button
-  downloadButton.addEventListener('click', () => {
-    downloadClicked = true;
-    // Enable the continue button once the download has been clicked
-    continueButton.disabled = false;
-    // Hide the help text after the download has been clicked
-    continueHelpText.style.display = 'none';
-  });
+    // Watch for click on the download button
+    downloadButton.addEventListener('click', () => {
+      downloadClicked = true;
+      // Enable the continue button once the download has been clicked
+      continueButton.disabled = false;
+      // Hide the help text after the download has been clicked
+      continueHelpText.style.display = 'none';
+    });
 
-</script>
+  </script>
 {% endblock javascript %}
 
   
