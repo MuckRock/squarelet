@@ -93,8 +93,13 @@
     </section>
 
     <section id="verification">
-      <h2>{% trans "Your Verification" %}</h2>
-      <a href="#" class="btn ghost">{% trans "Learn about verification" %}</a>
+      <header>
+        <h2>{% trans "Your Verification" %}</h2>
+        <a href="#" class="btn ghost">
+          {% include "core/icons/book.svg" %}
+          {% trans "Learn about verification" %}
+        </a>
+      </header>
 
       <div class="verification-status">
         {% if verified %}
@@ -197,7 +202,6 @@
         </div>
         {% endfor %}
       {% endif %}
-      </div>
 
       {% if admin_orgs %}
       <div class="list-header">
@@ -221,11 +225,45 @@
         </div>
       {% endfor %}
       {% endif %}
+      </div>
 
     </section>
 
     <section id="accounts">
-      <h2>{% trans "Your Connected Accounts" %}</h2>
+      <header>
+        <h2>{% trans "Your Connected Accounts" %}</h2>
+        <a class="btn primary ghost" href="{% url "account_email" %}">
+          {% include "core/icons/plus-circle.svg" %}
+          {% trans "Connect an account" %}
+        </a>
+      </header>
+      <div class="accounts">
+        {% for email in emails %}
+        <form class="email" action="{% url "account_email" %}" method="post">
+          {% csrf_token %}
+          <input type="hidden" name="email" value="{{email.email}}" />
+          {% include "core/icons/mail.svg" %}
+          <span class="address">{{email.email}}</span>
+          {% if not email.verified %}
+          <button class="btn primary small" type="submit" name="action_send">
+            {% trans "Confirm this email" %}
+          </button>
+          {% else %}
+          <span class="badge verified">{% trans "Confirmed" %}</span>
+          {% endif %}
+          {% if email.primary %}
+          <span class="badge">{% trans "Primary" %}</span>
+          {% else %}
+          <button class="btn small" type="submit" name="action_primary" {% if not email.verified %}disabled{% endif %}>
+            {% trans "Make primary" %}
+          </button>
+          {% endif %}
+          <button {% if email.primary %}disabled{% endif %} class="btn ghost danger" type="submit" name="action_remove">
+            {% include "core/icons/trashcan.svg" %}
+          </button>
+        </form>
+        {% endfor %}
+      </div>
     </section>
 
     <section id="security">

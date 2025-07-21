@@ -74,12 +74,23 @@ main#user_detail {
 .content section header {
   display: flex;
   align-items: flex-end;
-  gap: 0.625rem;
+  gap: 0.9375rem;
   align-self: stretch;
 }
 
 .content section header h2 {
   flex: 1 0 0;
+  margin-bottom: 0;
+}
+
+.content section > div {
+  width: 100%;
+
+  border-radius: 0.5rem;
+  border: 1px solid var(--gray-2, #d8dee2);
+  background: var(--white, #fff);
+
+  box-shadow: var(--shadow-1);
 }
 
 #profile {
@@ -103,13 +114,6 @@ main#user_detail {
   display: flex;
   align-items: center;
   align-self: stretch;
-
-  border-radius: 0.5rem;
-  border: 1px solid var(--gray-2, #d8dee2);
-  background: var(--white, #fff);
-
-  /* shadow-1 */
-  box-shadow: 0px 2px 4px 2px var(--shadow, rgba(30, 48, 56, 0.15));
 }
 
 .content .profile .icon {
@@ -158,11 +162,6 @@ main#user_detail {
   padding: 1rem;
   align-items: flex-end;
   gap: 0.75rem;
-
-  border-radius: 0.5rem;
-  border: 1px solid var(--gray-2, #d8dee2);
-  background: var(--white, #fff);
-  box-shadow: var(--shadow-1);
 }
 
 .verification-status .status {
@@ -217,13 +216,6 @@ main#user_detail {
   align-items: flex-start;
   gap: 1rem;
   align-self: stretch;
-
-  border-radius: 0.5rem;
-  border: 1px solid var(--gray-2, #d8dee2);
-  background: var(--white, #fff);
-
-  /* shadow-1 */
-  box-shadow: var(--shadow-1);
 }
 
 .list-header {
@@ -232,4 +224,31 @@ main#user_detail {
   justify-content: center;
   align-items: flex-start;
   align-self: stretch;
+}
+
+.accounts {
+  display: flex;
+  padding: 1rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1.5rem;
+  align-self: stretch;
+}
+
+.accounts .email {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  align-self: stretch;
+}
+
+.accounts .email .address {
+  flex: 1 0 0;
+  color: var(--gray-5, #233944);
+  font-feature-settings: "ss04" on;
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-size: var(--font-md, 1rem);
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
 }
