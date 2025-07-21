@@ -4,9 +4,9 @@ from rest_framework.permissions import IsAdminUser
 
 # Squarelet
 from squarelet.oidc.permissions import ScopePermission
+from squarelet.organizations.filters import OrganizationFilter
 from squarelet.organizations.models import Charge, Organization
 from squarelet.organizations.serializers import ChargeSerializer, OrganizationSerializer
-from squarelet.organizations.filters import OrganizationFilter
 
 
 class OrganizationViewSet(viewsets.ModelViewSet):
