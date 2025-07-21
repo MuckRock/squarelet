@@ -29,6 +29,17 @@
     opacity: 0.5;
     pointer-events: none;
   }
+
+  .continue-form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .help-text {
+    font-size: var(--font-sm, .875rem);
+    opacity: .7;
+  }
 </style>
 {% endblock css %}
 
@@ -49,9 +60,10 @@
   <p>{% blocktrans %}Always store your backup codes in a secure location!{% endblocktrans %}</p>
   
   <!-- Continue Signing In button, initially disabled -->
-  <form method="post" action="{% url 'account_onboarding' %}">
+  <form method="post" action="{% url 'account_onboarding' %}" class="continue-form">
     {% csrf_token %}
     <input type="hidden" name="step" value="mfa_confirm" />
+    <p class="help-text" id="continue-help">{% trans "You may continue after downloading your backup codes." %}</p>
     <button type="submit" class="button primary ghost continue-btn" id="continue-btn" disabled>
       {% trans "Continue Signing In" %}
     </button>
@@ -64,6 +76,7 @@
   // Get elements
   const downloadButton = document.getElementById('download-codes-btn');
   const continueButton = document.getElementById('continue-btn');
+  const continueHelpText = document.getElementById('continue-help');
 
   // Flag to track if the download button has been clicked
   let downloadClicked = false;
@@ -73,6 +86,8 @@
     downloadClicked = true;
     // Enable the continue button once the download has been clicked
     continueButton.disabled = false;
+    // Hide the help text after the download has been clicked
+    continueHelpText.style.display = 'none';
   });
 
 </script>
