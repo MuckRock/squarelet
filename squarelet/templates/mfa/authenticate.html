@@ -41,6 +41,20 @@
   .align-end {
     align-items: flex-end;
   }
+  .help-box {
+    margin: 3rem auto;
+    padding: .5rem 1rem;
+    max-width: 24rem;
+    font-size: var(--font-sm, 0.875rem);
+    opacity: .7;
+    text-align: center;
+    border: 1px solid var(--gray-2);
+    border-radius: .5rem;
+  }
+  .help-box h4 {
+    font-size: 1em;
+    font-weight: var(--font-semibold, 600);
+  }
 </style>
 {% endblock %}
 {% block login_step %}
@@ -50,7 +64,7 @@
     </div>
     <h1>{% trans "Two-Factor Authentication" %}</h1>
     <p>
-        {% blocktranslate %}Your account is protected by two-factor authentication. Please enter an authenticator code:{% endblocktranslate %}
+        {% blocktranslate %}Your account is protected by two-factor authentication.<br> Please enter an authenticator code:{% endblocktranslate %}
     </p>
     {% url 'mfa_authenticate' as action_url %}
     <div>
@@ -76,5 +90,18 @@
         <input type="hidden" name="next" value="{% url 'account_login' %}">
         {% csrf_token %}
     </form>
+    <div class="help-box">
+      <h4>{% trans "Don't have a code?" %}</h4>
+      <p>
+        {% blocktrans %}
+        If you can't provide an authentication code from your second device,
+        you can provide a recovery code in its place. Recovery codes are
+        one-time use and will not work on subsequent logins.
+        <a href="https://help.muckrock.com/Two-Factor-Authentication-1f9f8892696380e59857c19341a324af?source=copy_link#207f889269638028a939c82281c5c6f3" target="_blank" rel="noopener noreferrer">
+          Learn more
+        </a>
+        {% endblocktrans %}
+      </p>
+    </div>
 </div>
 {% endblock login_step %}
