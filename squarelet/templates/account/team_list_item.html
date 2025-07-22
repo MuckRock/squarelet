@@ -13,7 +13,7 @@
     {% endif %}
     <div class="info">
         <h4>
-            <a href="{% url "organizations:detail" slug=org.slug %}">{{ organization.name }}</a>
+            <a href="{% url "organizations:detail" slug=organization.slug %}">{{ organization.name }}</a>
         </h4>
         <div class="status">
             {% if organization.verified_journalist %}
