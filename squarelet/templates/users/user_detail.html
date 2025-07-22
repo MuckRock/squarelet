@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% load static %}
-{% load thumbnail %}
 {% load avatar %}
 {% load i18n %}
+{% load static %}
+{% load thumbnail %}
 
 {% block title %}{% trans 'User' %}: {{ user.username }}{% endblock %}
 
@@ -84,7 +84,7 @@
         </div>
 
         <div class="details">
-          <h3>{{ user.name }}</h3>
+          <h3>{% firstof user.name user.username %}</h3>
           <div class="reputation">
             {# need to add an active org setting #}
           </div>
@@ -95,7 +95,7 @@
     <section id="verification">
       <header>
         <h2>{% trans "Your Verification" %}</h2>
-        <a href="#" class="btn ghost">
+        <a href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433" class="btn ghost" target="_blank" rel="noopener noreferer">
           {% include "core/icons/book.svg" %}
           {% trans "Learn about verification" %}
         </a>
@@ -149,7 +149,7 @@
       </div>
         {% for organization in potential_orgs %}
         <div class="invite">
-          {% include "account/team_list_item.html" %}
+          {% include "account/team_list_item.html" with organization=organization %}
           
           <form method="post" action="{% url "organizations:detail" slug=organization.slug %}" class="actions join">
             {% csrf_token %}
@@ -184,25 +184,6 @@
         {% endfor %}
       {% endif %}
 
-      {% if other_orgs %}
-      <div class="list-header">
-        <h3>{% trans "Membership" %}</h3>
-        <p>{% trans "Organizations you've joined:" %}</p>
-      </div>
-        {% for org in other_orgs %}
-        <div class="org">
-          {% include "account/team_list_item.html" with organization=org %}
-          <form method="post" action="{% url "organizations:detail" slug=org.slug %}" class="actions">
-            {% csrf_token %}
-            <button class="btn danger ghost" type="submit" name="action" value="leave">
-              {% include "core/icons/sign-out.svg" %}
-              {% trans "leave" %}
-            </button>
-          </form>
-        </div>
-        {% endfor %}
-      {% endif %}
-
       {% if admin_orgs %}
       <div class="list-header">
         <h3>{% trans "Admin" %}</h3>
@@ -213,17 +194,36 @@
           {% include "account/team_list_item.html" with organization=org %}
           <div class="actions">
             {% if not org.verified_journalist %}
-            <a class="btn primary" href="#">
+            <a class="btn primary small" href="#">
               {% trans "Request verification" %}
             </a>
             {% endif %}
-            <a class="btn ghost" href="{% url "organizations:manage-members" slug=org.slug %}">
+            <a class="btn ghost small" href="{% url "organizations:manage-members" slug=org.slug %}">
               {% include "core/icons/gear.svg" %}
               {% trans "Manage" %}
             </a>
           </div>
         </div>
       {% endfor %}
+      {% endif %}
+
+      {% if other_orgs %}
+      <div class="list-header">
+        <h3>{% trans "Membership" %}</h3>
+        <p>{% trans "Organizations you've joined:" %}</p>
+      </div>
+        {% for org in other_orgs %}
+        <div class="org">
+          {% include "account/team_list_item.html" with organization=org %}
+          <form method="post" action="{% url "organizations:detail" slug=org.slug %}" class="actions">
+            {% csrf_token %}
+            <button class="btn danger ghost small" type="submit" name="action" value="leave">
+              {% include "core/icons/sign-out.svg" %}
+              {% trans "Leave" %}
+            </button>
+          </form>
+        </div>
+        {% endfor %}
       {% endif %}
       </div>
 
@@ -267,171 +267,54 @@
     </section>
 
     <section id="security">
-      <h2>{% trans "Your Security Settings" %}</h2>
+      <header>
+        <h2>{% trans "Your Security Settings" %}</h2>
+        <a class="btn primary ghost" href="https://help.muckrock.com/Two-Factor-Authentication-1f9f8892696380e59857c19341a324af" target="_blank" rel="noopener noreferer">
+          {% include "core/icons/book.svg" %}
+          {% trans "Security best practices" %}
+        </a>
+      </header>
+      <div class="security">
+        <div class="password">
+          <span>{% trans "Password" %}</span>
+          <a href="{% url "account_change_password" %}" class="btn ghost primary">{% trans "Change password" %}</a>
+        </div>
+        <div class="mfa">
+          <span>{% trans "Two-factor authentication" %}</span>
+          {% if is_mfa_enabled %}
+          <span class="badge verified">{% trans "Enabled" %}</span>
+          <a class="btn ghost" href="{% url "mfa_deactivate_totp" %}">{% trans "Disable two-factor auth" %}</a>
+          {% else %}
+          <a class="btn ghost" href="{% url "mfa_activate_totp" %}">{% trans "Enable two-factor auth" %}</a>
+          {% endif %}
+        </div>
+
+        {% if is_mfa_enabled %}
+        <div class="recovery-codes">
+          <dl class="status">
+            <dt>{% trans "Recovery codes" %}</dt>
+            <dd>
+              There {{unused_code_count|pluralize:"is,are"}} {{ unused_code_count }} out of {{ RECOVERY_CODE_COUNT }} recovery codes available.
+            </dd>
+          </dl>
+          <div class="actions">
+            <a href="{% url "mfa_view_recovery_codes" %}" class="btn ghost">
+              {% include "core/icons/eye.svg" %}
+              {% trans "View" %}
+            </a>
+            <a href="{% url "mfa_generate_recovery_codes" %}" class="btn ghost">
+              {% include "core/icons/sync.svg" %}
+              {% trans "Generate" %}
+            </a>
+            <a href="{% url "mfa_download_recovery_codes" %}" class="btn ghost">
+              {% include "core/icons/download.svg" %}
+              {% trans "Download" %}
+            </a>
+          </div>
+        </div>
+        {% endif %}
+      </div>
     </section>
   </div>
 </main>
-
-
-{% comment "delete this" %}
-  <div class="_cls-largeContent">
-    <div class="_cls-profileColumns">
-      <div class="_cls-profileColumn">
-        <div class="_cls-profileSection">
-          <div class="_cls-profileInfo">
-            <div class="_cls-profileAvatar">
-              {% avatar user 37 %}
-            </div>
-            <div class="_cls-profileNames">
-              <div class="_cls-profileName">
-                {{ user.name }}
-              </div>
-              <div class="_cls-info">
-                {{ user.username }}
-              </div>
-            </div>
-          </div>
-          {% if user == request.user %}
-            <p>
-              <a class="_cls-nostyle" href="{% url "users:update" %}">
-                <div class="_cls-action">{% trans 'Edit profile' %}</div>
-              </a>
-            </p>
-            <p>
-              <a class="_cls-nostyle" href="{% url "socialaccount_connections" %}">
-                <div class="_cls-action">{% trans 'Edit connected accounts' %}</div>
-              </a>
-            </p>
-          {% endif %}
-        </div>
-        {% if user.individual_organization.verified_journalist %}
-          <div class="_cls-orgStatus _cls-verified">
-            Verified
-          </div>
-        {% endif %}
-
-        <div class="_cls-organizationSection">
-          <div class="_cls-mediumHeader">{% trans 'Organizations' %}</div>
-          <div>
-            <a class="_cls-action" href="{% url "organizations:list" %}">
-              {% trans "View all organizations" %}
-            </a>
-          </div>
-          {% if other_orgs.count > 0 %}
-            <ul class="_cls-profList">
-              {% for org in other_orgs.all %}
-                <a href="{% url "organizations:detail" org.slug %}">
-                  <li>
-                    <div class="_cls-inlineAvatar">
-                      {% avatar org 15 %}
-                    </div>
-                    {{ org.name }}
-                  </li>
-                </a>
-              {% endfor %}
-            </ul>
-          {% else %}
-            <div class="_cls-info">
-              <p>{% trans 'You are not a member of any organization.' %}</p>
-            </div>
-          {% endif %}
-        </div>
-
-        <!-- Organizations you can join -->
-        <div class="_cls-organizationSection" {% if not potential_organizations %} style="display: none;" {% endif %}>
-          <div class="_cls-mediumHeader">{% trans 'Organizations you can join' %}</div>
-          {% if potential_organizations %}
-            <ul class="_cls-profList">
-              {% for org in potential_organizations %}
-                <a href="{% url "organizations:detail" org.slug %}">
-                  <li>
-                    <div class="_cls-inlineAvatar">
-                      {% avatar org 15 %}
-                    </div>
-                    {{ org.name }}
-                  </li>
-                </a>
-              {% endfor %}
-            </ul>
-          {% else %}
-            <div class="_cls-info">
-              <p>{% trans 'No organizations available to join at the moment.' %}</p>
-            </div>
-          {% endif %}
-        </div>
-
-      {% if pending_invitations %}
-        <div class="_cls-organizationSection">
-          <div class="_cls-mediumHeader">{% trans 'Pending Invitations' %}</div>
-          <ul class="_cls-profList">
-            {% for invite in pending_invitations %}
-              <li>
-                <a href="{% url 'organizations:invitation' invite.uuid %}">
-                    {% blocktrans with org_name=invite.organization.name %}
-                      Invite to join <strong>{{ org_name }}</strong>
-                    {% endblocktrans %}
-                </a>
-                <span class="_cls-info" style="margin-left: 10px;">({{ invite.created_at|date:"Y-m-d" }})</span>
-                </li>
-              {% endfor %}
-          </ul>
-        </div>
-      {% endif %}
-
-      </div>
-
-      <div class="_cls-planColumn">
-        {% if user == request.user %}
-          <div class="_cls-currentPlan">
-
-            {% with subscription=user.individual_organization.subscription %}
-              {% if subscription %}
-                <div class="_cls-planInfo">
-                  {% trans "Current plan" %}: <b>{{ subscription.plan.name }}</b>
-                  {% if subscription.cancelled %}
-                    <div class="_cls-info _cls-infoSpaced">
-                      {% blocktrans with update_on=subscription.update_on|date:"m/d/Y" %}
-                        Subscription ends on {{ update_on }}
-                      {% endblocktrans %}
-                    </div>
-                  {% endif %}
-                </div>
-                <p>
-                  <a class="_cls-nostyle" href="{% url "users:payment" %}">
-                    <div class="_cls-action">{% trans 'Edit plans and payment' %}</div>
-                  </a>
-                </p>
-              {% else %}
-                <div class="_cls-planInfo">
-                  {% trans "Current plan" %}: <b>{% trans "Free" %}</b>
-                </div>
-                <div class="_cls-actionSmall">
-                  <a href="{% url "users:payment" %}">
-                    <button>{% trans 'Upgrade' %}</button>
-                  </a>
-                </div>
-              {% endif %}
-            {% endwith %}
-
-            <p>
-              <a class="_cls-nostyle" href="{% url "users:receipts" %}">
-                <div class="_cls-action">{% trans 'View receipts' %}</div>
-              </a>
-            </p>
-          </div>
-        {% endif %}
-
-        {% if request.user.is_staff and request.user != user %}
-          <form action="{% url "hijack:login_with_username" user.username %}" method="post" class="_cls-actionSmall">
-            {% csrf_token %}
-            <button type="submit">Hijack {{ user.username }}</button>
-          </form>
-        {% endif %}
-
-        {% include "core/component/services.html" %}
-      </div>
-
-    </div>
-  </div>
-{% endcomment %}
 {% endblock content %}
