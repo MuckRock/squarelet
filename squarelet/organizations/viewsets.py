@@ -1,12 +1,13 @@
 # Third Party
 from rest_framework import viewsets
+from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
 
 # Squarelet
 from squarelet.oidc.permissions import ScopePermission
 from squarelet.organizations.filters import OrganizationFilter
 from squarelet.organizations.models import Charge, Organization
-from squarelet.organizations.serializers import ChargeSerializer, OrganizationSerializer
+from squarelet.organizations.serializers import ChargeSerializer, OrganizationSerializer, OrganizationDetailSerializer
 
 
 class OrganizationViewSet(viewsets.ModelViewSet):
@@ -19,6 +20,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
     lookup_field = "uuid"
     swagger_schema = None
     filterset_class = OrganizationFilter
+
+    def retrieve(self, request, uuid=None):
+        serializer = OrganizationDetailSerializer(self.get_object(), many=False)
+        return Response(serializer.data)
+
 
 
 class ChargeViewSet(viewsets.ModelViewSet):

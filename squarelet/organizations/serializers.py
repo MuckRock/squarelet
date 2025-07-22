@@ -12,12 +12,6 @@ from squarelet.organizations.models import Charge, Membership, Organization
 
 class OrganizationSerializer(serializers.ModelSerializer):
     uuid = serializers.UUIDField(required=False)
-    # remove plan once all clients are updated to handle entitlements
-    plan = serializers.SerializerMethodField()
-    # remove update_on once all clients are updated to handle entitlements
-    update_on = serializers.SerializerMethodField()
-    entitlements = serializers.SerializerMethodField()
-    card = serializers.SerializerMethodField()
     merged = serializers.SlugRelatedField(read_only=True, slug_field="uuid")
 
     class Meta:
@@ -26,18 +20,31 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "uuid",
             "name",
             "slug",
-            "plan",
-            "entitlements",
-            "card",
             "max_users",
+            "avatar_url",
             "individual",
             "private",
             "verified_journalist",
-            "updated_at",
             "payment_failed",
-            "avatar_url",
-            "update_on",
+            "updated_at",
             "merged",
+        )
+
+
+class OrganizationDetailSerializer(OrganizationSerializer):
+    # remove plan once all clients are updated to handle entitlements
+    plan = serializers.SerializerMethodField()
+    update_on = serializers.SerializerMethodField()
+    entitlements = serializers.SerializerMethodField()
+    card = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Organization
+        fields = OrganizationSerializer.Meta.fields + (
+            "plan",
+            "entitlements",
+            "card",
+            "update_on",
         )
 
     def get_plan(self, obj):
