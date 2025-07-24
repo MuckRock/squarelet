@@ -215,7 +215,7 @@ class UserOnboardingView(TemplateView):
         if step == "confirm_email" and not is_first_login:
             # If the user just signed up, they are already sent the confirmation.
             send_email_confirmation(request, request.user, False, request.user.email)
-        
+
         if not step:
             # Onboarding is complete, clear the session store
             request.session.pop("onboarding_check", None)

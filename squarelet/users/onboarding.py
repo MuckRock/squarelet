@@ -22,6 +22,7 @@ from squarelet.users.forms import PremiumSubscriptionForm
 
 logger = logging.getLogger(__name__)
 
+
 def onboarding_check(request):
     """
     Checks for onboarding-related GET parameters and stores them in session.
@@ -87,6 +88,7 @@ class EmailConfirmationStep(OnboardingStep):
 
 class VerificationStep(OnboardingStep):
     """Prompt users to apply for newsroom verification"""
+
     name = "verification"
     template_name = "account/onboarding/verification.html"
 
@@ -123,13 +125,13 @@ class VerificationStep(OnboardingStep):
     def handle_post(self, request):
         if request.POST.get("step") != self.name:
             return False
-        
+
         # Handle skip action
         if request.POST.get("verification") == "skip":
             request.session["onboarding"]["verification"] = True
             request.session.modified = True
             return True
-        
+
         return None
 
 
