@@ -74,7 +74,7 @@ class OrganizationDetailSerializer(OrganizationSerializer):
 
 
 class MembershipSerializer(serializers.ModelSerializer):
-    organization = OrganizationSerializer()
+    organization = OrganizationDetailSerializer()
 
     class Meta:
         model = Membership
