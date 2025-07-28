@@ -25,7 +25,7 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
     ).order_by("created_at")
     serializer_class = UserSerializer
     permission_classes = (IsAuthenticated,)
-    lookup_field = "individual_organization_id"
+    lookup_field = "id"
     swagger_schema = None
 
     def get_queryset(self):
