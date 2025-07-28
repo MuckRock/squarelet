@@ -1,11 +1,12 @@
-# Third Party
 # Django
 from django.db.models import Q
 
+# Third Party
 import django_filters
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -84,26 +85,53 @@ class InvitationViewSet(
             .distinct()
         )
 
-    @action(detail=True, methods=["post"], permission_classes=[CanAcceptInvitation])
-    def accept(self, request, *args, **kwargs):
+    def partial_update(self, request, *args, **kwargs):
         invitation = self.get_object()
-        try:
-            invitation.accept(user=request.user)
-            return Response({"status": "invitation accepted"})
-        except ValueError as error:
-            return Response({"detail": str(error)}, status=status.HTTP_400_BAD_REQUEST)
+        action = request.data.get("action")
+        user = request.user
 
-    @action(detail=True, methods=["post"], permission_classes=[CanRejectInvitation])
-    def reject(self, request, *args, **kwargs):
-        invitation = self.get_object()
-        try:
-            invitation.reject()
-            return Response({"status": "invitation rejected"})
-        except ValueError as error:
-            return Response({"detail": str(error)}, status=status.HTTP_400_BAD_REQUEST)
+        if action == "accept":
+            # Check permission
+            if not CanAcceptInvitation().has_object_permission(
+                request, self, invitation
+            ):
+                raise PermissionDenied(
+                    "You do not have permission to accept this invitation."
+                )
 
-    @action(detail=True, methods=["post"], permission_classes=[CanResendInvitation])
-    def resend(self, request, *args, **kwargs):
-        invitation = self.get_object()
-        invitation.send()
-        return Response({"status": "invitation resent"})
+            try:
+                invitation.accept(user=user)
+                return Response({"status": "invitation accepted"})
+            except ValueError as error:
+                return Response({"detail": str(error)}, status=400)
+
+        elif action == "reject":
+            if not CanRejectInvitation().has_object_permission(
+                request, self, invitation
+            ):
+                raise PermissionDenied(
+                    "You do not have permission to reject this invitation."
+                )
+
+            try:
+                invitation.reject()
+                return Response({"status": "invitation rejected"})
+            except ValueError as error:
+                return Response({"detail": str(error)}, status=400)
+
+        elif action == "resend":
+            if not CanResendInvitation().has_object_permission(
+                request, self, invitation
+            ):
+                raise PermissionDenied(
+                    "You do not have permission to resend this invitation."
+                )
+
+            invitation.send()
+            return Response({"status": "invitation resent"})
+
+        else:
+            return Response(
+                {"detail": "Invalid action. Must be one of: accept, reject, resend."},
+                status=400,
+            )

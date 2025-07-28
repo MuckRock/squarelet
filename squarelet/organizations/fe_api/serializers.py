@@ -12,13 +12,13 @@ from squarelet.organizations.models import Invitation, Membership, Organization
 
 class OrganizationSerializer(serializers.ModelSerializer):
     uuid = serializers.UUIDField(required=False)
-    # remove plan once all clients are updated to handle entitlements
-    plan = serializers.SerializerMethodField()
-    entitlements = serializers.SerializerMethodField()
     merged = serializers.SlugRelatedField(read_only=True, slug_field="uuid")
     member_count = serializers.SerializerMethodField()
+    users = serializers.PrimaryKeyRelatedField(
+        many=True,
+        read_only=True,
+    )
     admins = serializers.SerializerMethodField()
-    members = serializers.SerializerMethodField()
 
     class Meta:
         model = Organization
@@ -27,11 +27,9 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "uuid",
             "admins",
             "member_count",
-            "members",
+            "users",
             "name",
             "slug",
-            "plan",
-            "entitlements",
             "max_users",
             "individual",
             "private",
@@ -42,34 +40,13 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "merged",
         )
 
-    def get_plan(self, obj):
-        return obj.plan.slug if obj.plan else "free"
-
-    def get_entitlements(self, obj):
-        client = self.context.get("client")
-        if not client:
-            request = self.context.get("request")
-            if request and hasattr(request, "auth") and request.auth:
-                client = request.auth.client
-
-        if client:
-            return list(
-                client.entitlements.filter(plans__organizations=obj)
-                .annotate(update_on=F("plans__subscriptions__update_on"))
-                .values("name", "slug", "description", "resources", "update_on")
-            )
-        return []
-
-    def get_member_count(self, obj):
-        return obj.memberships.count()
-
     def get_admins(self, obj):
         return list(
             obj.memberships.filter(admin=True).values_list("user_id", flat=True)
         )
 
-    def get_members(self, obj):
-        return list(obj.memberships.values_list("user_id", flat=True))
+    def get_member_count(self, obj):
+        return obj.memberships.count()
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
@@ -91,24 +68,6 @@ class OrganizationSerializer(serializers.ModelSerializer):
                 rep.pop("members", None)
 
         return rep
-
-
-class MembershipSerializer(serializers.ModelSerializer):
-    organization = OrganizationSerializer()
-
-    class Meta:
-        model = Membership
-        fields = ("organization", "admin")
-
-    def to_representation(self, instance):
-        """Move fields from organization to membership representation."""
-        # https://stackoverflow.com/questions/21381700/django-rest-framework-how-do-you-flatten-nested-data
-        representation = super().to_representation(instance)
-        organization_representation = representation.pop("organization")
-        for key in organization_representation:
-            representation[key] = organization_representation[key]
-
-        return representation
 
 
 class InvitationSerializer(serializers.ModelSerializer):
