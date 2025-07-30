@@ -45,7 +45,7 @@ from squarelet.core.mixins import AdminLinkMixin
 from squarelet.organizations.models import ReceiptEmail
 from squarelet.services.models import Service
 from squarelet.users.forms import SignupForm
-from squarelet.users.onboarding import OnboardingStepRegistry
+from squarelet.users.onboarding import OnboardingStepRegistry, onboarding_check
 
 # Local
 from .models import User
@@ -216,6 +216,11 @@ class UserOnboardingView(TemplateView):
             # If the user just signed up, they are already sent the confirmation.
             send_email_confirmation(request, request.user, False, request.user.email)
 
+        if not step:
+            # Onboarding is complete, clear the session store
+            request.session.pop("onboarding_check", None)
+            request.session.modified = True
+
         if not step and "next_url" in request.session:
             # Onboarding complete, redirect to original destination
             next_url = request.session.pop("next_url")
@@ -260,6 +265,7 @@ class LoginView(AllAuthLoginView):
         to authenticate the user.  Redirect them to the nested next parameter instead of
         asking them to login
         """
+        onboarding_check(request)
         next_url = get_next_redirect_url(request)
         if "url_auth_token" in request.GET and next_url:
             return redirect(f"{settings.MUCKROCK_URL}{next_url}")
@@ -277,6 +283,7 @@ class SignupView(AllAuthSignupView):
         return kwargs
 
     def get(self, request, *args, **kwargs):
+        onboarding_check(request)
         if self.request.session.get("socialaccount_sociallogin_clear"):
             flows.signup.clear_pending_signup(self.request)
             self.request.session.pop("socialaccount_sociallogin_clear")
