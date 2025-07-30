@@ -20,38 +20,38 @@
 {% endblock css %}
 
 {% block content %}
-<main id="user_detail">
+<article id="user_detail">
   <aside class="sidebar">
     <div class="account">
       <h2>{% trans "Your Account" %}</h2>
       <nav>
         <ul>
-          <li class="profile nav-item">
-            <a href="#profile">
+          <li>
+            <a href="#profile" class="profile nav-item">
               {% include "core/icons/person.svg" %}
               {% trans "Profile" %}
             </a>
           </li>
-          <li class="verification nav-item">
-            <a href="#verification">
+          <li>
+            <a href="#verification" class="verification nav-item">
               {% include "core/icons/verification.svg" %}
               {% trans "Verification" %}
             </a>
           </li>
-          <li class="organization nav-item">
-            <a href="#organizations">
+          <li>
+            <a href="#organizations" class="organization nav-item">
               {% include "core/icons/organization.svg" %}
               {% trans "Organizations" %}
             </a>
           </li>
-          <li class="accounts nav-item">
-            <a href="#accounts">
+          <li>
+            <a href="#accounts" class="accounts nav-item">
               {% include "core/icons/mention.svg" %}
               {% trans "Accounts" %}
             </a>
           </li>
-          <li class="security nav-item">
-            <a href="#security">
+          <li>
+            <a href="#security" class="security nav-item">
               {% include "core/icons/shield-lock.svg" %}
               {% trans "Security" %}
             </a>
@@ -65,16 +65,18 @@
     <section id="profile">
       <header>
         <h2>{% trans "Your Profile" %}</h2>
-        <a href="?public" class="btn ghost">
-          {% include "core/icons/eye.svg" %}
-          {% trans "View profile" %}
-        </a>
-        <a href="{% url "users:update" %}" class="btn ghost">
-          {% include "core/icons/pencil.svg" %}
-          {% trans "Edit profile" %}
-        </a>
+        <div class="header-actions">
+          <a href="?public" class="btn ghost">
+            {% include "core/icons/eye.svg" %}
+            {% trans "View profile" %}
+          </a>
+          <a href="{% url "users:update" %}" class="btn ghost">
+            {% include "core/icons/pencil.svg" %}
+            {% trans "Edit profile" %}
+          </a>
+        </div>
       </header>
-      <div class="profile">
+      <main class="profile">
         <div class="icon">
         {% if user.avatar %}
           <img src="{{ user.avatar.url }}" alt="{{user.name}}" />
@@ -85,11 +87,8 @@
 
         <div class="details">
           <h3>{% firstof user.name user.username %}</h3>
-          <div class="reputation">
-            {# need to add an active org setting #}
-          </div>
         </div>
-      </div>
+      </main>
     </section>
 
     <section id="verification">
@@ -101,13 +100,13 @@
         </a>
       </header>
 
-      <div class="verification-status">
+      <main class="verification-status">
         {% if verified %}
         <div class="status verified">
           {% include "core/icons/verification.svg" %}
           <h3>{% trans "You are a verified journalist." %}</h3>
         </div>
-        <dl class="features">
+        <dl class="unlocked features">
           <dt class="checklist-item">{% include "core/icons/unlock.svg" %}{% trans "Unlocked features:" %}</dt>
           <dd class="checklist-item">{% include "core/icons/check-circle-fill.svg" %}{% trans "Upload to DocumentCloud" %}</dd>
           <dd class="checklist-item">{% include "core/icons/check-circle-fill.svg" %}{% trans "Publish documents" %}</dd>
@@ -115,118 +114,123 @@
         {% else %}
         <div class="status unverified">
           {% include "core/icons/unverified.svg" %}
-          <h3>{% trans "You are not a verified journalist, yet. Some features are restricted." %}</h3>
+          <h3>{% trans "You are not a verified journalist. Some features are restricted." %}</h3>
+          <p class="help-text">Request newsroom verification for one of your organizations, or <a href="#">request journalist verification for yourself</a>, to upload and publish documents.</p>
         </div>
-        <dl class="features">
+        <dl class="locked features">
           <dt class="checklist-item">{% include "core/icons/lock.svg" %}{% trans "Locked features:" %}</dt>
           <dd class="checklist-item">{% include "core/icons/x-circle-fill.svg" %}{% trans "Upload to DocumentCloud" %}</dd>
           <dd class="checklist-item">{% include "core/icons/x-circle-fill.svg" %}{% trans "Publish documents" %}</dd>
         </dl>
         {% endif %}
-      </div>
-      {% if not verified %}
-      <p class="info"><a href="#">Request individual verification</a> to publish your own documents.</p>
-      {% endif %}
+      </main>
     </section>
 
     <section id="organizations">
       <header>
         <h2>{% trans "Your Organizations" %}</h2>
-        <a href="{% url "organizations:list" %}" class="btn ghost">
-          {% include "core/icons/organizations.svg" %}
-          {% trans "Join an organization" %}
-        </a>
-        <a href="{% url "organizations:create" %}" class="btn ghost">
-          {% include "core/icons/plus-circle.svg" %}
-          {% trans "Start an organization" %}
-        </a>
+        <div class="header-actions">
+          <a href="{% url "organizations:list" %}" class="btn ghost">
+            {% include "core/icons/organizations.svg" %}
+            {% trans "Join an organization" %}
+          </a>
+          <a href="{% url "organizations:create" %}" class="btn ghost">
+            {% include "core/icons/plus-circle.svg" %}
+            {% trans "Start an organization" %}
+          </a>
+        </div>
       </header>
-      <div class="orgs">
-      {% if potential_organizations %}
-      <div class="list-header">
-        <h3>{% trans "Pre-approved" %}</h3>
-        <p>{% trans "Based on your email address, you're pre-approved to join:" %}</p>
-      </div>
-        {% for organization in potential_orgs %}
-        <div class="invite">
-          {% include "account/team_list_item.html" with organization=organization %}
-          
-          <form method="post" action="{% url "organizations:detail" slug=organization.slug %}" class="actions join">
-            {% csrf_token %}
-            <button class="button primary" name="action" value="join">
-              <img src="{% static "icons/check.svg" %}">
-              {% trans "Join" %}
-            </button>
-          </form>
+      <main class="orgs">
+        {% if potential_organizations %}
+        <div class="org-list">
+          <header class="org-list-header">
+            <h3>{% trans "Pre-approved" %}</h3>
+            <p>{% trans "Based on your email address, you're pre-approved to join:" %}</p>
+          </header>
+          {% for organization in potential_organizations %}
+            <div class="invite">
+              {% include "account/team_list_item.html" with organization=organization %}
+              <form method="post" action="{% url "organizations:detail" slug=organization.slug %}" class="actions join">
+                {% csrf_token %}
+                <button class="small btn primary" name="action" value="join">
+                  <img src="{% static "icons/check.svg" %}">
+                  {% trans "Join" %}
+                </button>
+              </form>
+            </div>
+          {% endfor %}
         </div>
-        {% endfor %}
-      {% endif %}
+        {% endif %}
 
-      {% if pending_invitations %}
-      <div class="list-header">
-        <h3>{% trans "Open invitations" %}</h3>
-        <p>{% trans "Organizations you’ve been invited to join:" %}</p>
-      </div>
-        {% for invite in invitations %}
-        <div class="invite">
-          {% include "account/team_list_item.html" with organization=invite.organization %}
-          
-          <form method="post" action="{% url "organizations:invitation" uuid=invite.uuid %}" class="actions">
-            {% csrf_token %}
-            <button class="btn primary ghost" type="submit" name="action" value="accept">
-              {% trans "Accept" %}
-            </button>
-            <button class="btn danger ghost" type="submit" name="action" value="reject">
-              {% trans "Reject" %}
-            </button>
-          </form>
+        {% if pending_invitations %}
+        <div class="org-list">
+          <header class="org-list-header">
+            <h3>{% trans "Open invitations" %}</h3>
+            <p>{% trans "Organizations you’ve been invited to join:" %}</p>
+          </header>
+          {% for invite in invitations %}
+            <div class="invite">
+              {% include "account/team_list_item.html" with organization=invite.organization %}
+              <form method="post" action="{% url "organizations:invitation" uuid=invite.uuid %}" class="actions">
+                {% csrf_token %}
+                <button class="small btn primary" type="submit" name="action" value="accept">
+                  {% trans "Accept" %}
+                </button>
+                <button class="small btn danger ghost" type="submit" name="action" value="reject">
+                  {% trans "Reject" %}
+                </button>
+              </form>
+            </div>
+          {% endfor %}
         </div>
-        {% endfor %}
-      {% endif %}
+        {% endif %}
 
-      {% if admin_orgs %}
-      <div class="list-header">
-        <h3>{% trans "Admin" %}</h3>
-        <p>{% trans "Organizations you manage:" %}</p>
-      </div>
-      {% for org in admin_orgs %}
-        <div class="org">
-          {% include "account/team_list_item.html" with organization=org %}
-          <div class="actions">
-            {% if not org.verified_journalist %}
-            <a class="btn primary small" href="#">
-              {% trans "Request verification" %}
-            </a>
-            {% endif %}
-            <a class="btn ghost small" href="{% url "organizations:manage-members" slug=org.slug %}">
-              {% include "core/icons/gear.svg" %}
-              {% trans "Manage" %}
-            </a>
-          </div>
+        {% if admin_orgs %}
+        <div class="org-list">
+          <header class="org-list-header">
+            <h3>{% trans "Admin" %}</h3>
+            <p>{% trans "Organizations you manage:" %}</p>
+          </header>
+          {% for org in admin_orgs %}
+            <div class="org">
+              {% include "account/team_list_item.html" with organization=org %}
+              <div class="actions">
+                {% if not org.verified_journalist %}
+                <a class="btn ghost small" href="#">
+                  {% trans "Request verification" %}
+                </a>
+                {% endif %}
+                <a class="btn ghost small" href="{% url "organizations:manage-members" slug=org.slug %}">
+                  {% include "core/icons/gear.svg" %}
+                  {% trans "Manage" %}
+                </a>
+              </div>
+            </div>
+          {% endfor %}
         </div>
-      {% endfor %}
-      {% endif %}
+        {% endif %}
 
-      {% if other_orgs %}
-      <div class="list-header">
-        <h3>{% trans "Membership" %}</h3>
-        <p>{% trans "Organizations you've joined:" %}</p>
-      </div>
-        {% for org in other_orgs %}
-        <div class="org">
-          {% include "account/team_list_item.html" with organization=org %}
-          <form method="post" action="{% url "organizations:detail" slug=org.slug %}" class="actions">
-            {% csrf_token %}
-            <button class="btn danger ghost small" type="submit" name="action" value="leave">
-              {% include "core/icons/sign-out.svg" %}
-              {% trans "Leave" %}
-            </button>
-          </form>
+        {% if other_orgs %}
+        <div class="org-list">
+          <header class="org-list-header">
+            <h3>{% trans "Membership" %}</h3>
+            <p>{% trans "Organizations you've joined:" %}</p>
+          </header>
+          {% for org in other_orgs %}
+            <div class="org">
+              {% include "account/team_list_item.html" with organization=org %}
+              <form method="post" action="{% url "organizations:detail" slug=org.slug %}" class="actions">
+                {% csrf_token %}
+                <button class="btn danger ghost small" type="submit" name="action" value="leave">
+                  {% include "core/icons/sign-out.svg" %}
+                  {% trans "Leave" %}
+                </button>
+              </form>
+            </div>
+          {% endfor %}
         </div>
-        {% endfor %}
-      {% endif %}
-      </div>
-
+        {% endif %}
+      </main>
     </section>
 
     <section id="accounts">
@@ -237,33 +241,37 @@
           {% trans "Connect an account" %}
         </a>
       </header>
-      <div class="accounts">
+      <main class="accounts">
         {% for email in emails %}
-        <form class="email" action="{% url "account_email" %}" method="post">
-          {% csrf_token %}
-          <input type="hidden" name="email" value="{{email.email}}" />
-          {% include "core/icons/mail.svg" %}
-          <span class="address">{{email.email}}</span>
-          {% if not email.verified %}
-          <button class="btn primary small" type="submit" name="action_send">
-            {% trans "Confirm this email" %}
-          </button>
-          {% else %}
-          <span class="badge verified">{% trans "Confirmed" %}</span>
-          {% endif %}
-          {% if email.primary %}
-          <span class="badge">{% trans "Primary" %}</span>
-          {% else %}
-          <button class="btn small" type="submit" name="action_primary" {% if not email.verified %}disabled{% endif %}>
-            {% trans "Make primary" %}
-          </button>
-          {% endif %}
-          <button {% if email.primary %}disabled{% endif %} class="btn ghost danger" type="submit" name="action_remove">
-            {% include "core/icons/trashcan.svg" %}
-          </button>
-        </form>
+        <div class="email account">
+          <div class="account-detail">
+            <span class="icon">{% include "core/icons/mail.svg" %}</span>
+            <h3 class="label">{{email.email}}</h3>
+          </div>
+          <form class="email-actions" action="{% url "account_email" %}" method="post">
+            {% csrf_token %}
+            <input type="hidden" name="email" value="{{email.email}}" />
+            {% if not email.verified %}
+            <button class="btn primary small" type="submit" name="action_send">
+              {% trans "Confirm this email" %}
+            </button>
+            {% else %}
+            <span class="badge verified">{% trans "Confirmed" %}</span>
+            {% endif %}
+            {% if email.primary %}
+            <span class="badge">{% trans "Primary" %}</span>
+            {% else %}
+            <button class="btn small" type="submit" name="action_primary" {% if not email.verified %}disabled{% endif %}>
+              {% trans "Make primary" %}
+            </button>
+            {% endif %}
+            <button {% if email.primary %}disabled{% endif %} class="btn ghost danger" type="submit" name="action_remove">
+              {% include "core/icons/trashcan.svg" %}
+            </button>
+          </form>
+        </div>
         {% endfor %}
-      </div>
+      </main>
     </section>
 
     <section id="security">
@@ -274,47 +282,52 @@
           {% trans "Security best practices" %}
         </a>
       </header>
-      <div class="security">
+      <main class="security">
         <div class="password">
-          <span>{% trans "Password" %}</span>
-          <a href="{% url "account_change_password" %}" class="btn ghost primary">{% trans "Change password" %}</a>
+          <h3>{% trans "Password" %}</h3>
+          <a href="{% url "account_change_password" %}" class="small btn ghost primary">{% trans "Change password" %}</a>
         </div>
         <div class="mfa">
-          <span>{% trans "Two-factor authentication" %}</span>
+          <div class="mfa-overview">
+            <h3>{% trans "Two-factor authentication" %}</h3>
+            <div class="mfa-active">
+              {% if is_mfa_enabled %}
+              <span class="badge verified">{% trans "Enabled" %}</span>
+              <a class="small btn ghost" href="{% url "mfa_deactivate_totp" %}">{% trans "Disable two-factor auth" %}</a>
+              {% else %}
+              <a class="small btn ghost" href="{% url "mfa_activate_totp" %}">{% trans "Enable two-factor auth" %}</a>
+              {% endif %}
+            </div>
+          </div>
           {% if is_mfa_enabled %}
-          <span class="badge verified">{% trans "Enabled" %}</span>
-          <a class="btn ghost" href="{% url "mfa_deactivate_totp" %}">{% trans "Disable two-factor auth" %}</a>
-          {% else %}
-          <a class="btn ghost" href="{% url "mfa_activate_totp" %}">{% trans "Enable two-factor auth" %}</a>
-          {% endif %}
+            <div class="recovery-codes">
+              <dl class="status">
+                <dt>{% trans "Recovery codes" %}</dt>
+                <dd>
+                  There {{unused_code_count|pluralize:"is,are"}} {{ unused_code_count }} out of {{ RECOVERY_CODE_COUNT }} recovery codes available.
+                </dd>
+              </dl>
+              <div class="actions">
+                <a href="{% url "mfa_view_recovery_codes" %}" class="btn ghost small">
+                  {% include "core/icons/eye.svg" %}
+                  {% trans "View" %}
+                </a>
+                <a href="{% url "mfa_generate_recovery_codes" %}" class="btn ghost small">
+                  {% include "core/icons/sync.svg" %}
+                  {% trans "Generate" %}
+                </a>
+                <a href="{% url "mfa_download_recovery_codes" %}" class="btn ghost small">
+                  {% include "core/icons/download.svg" %}
+                  {% trans "Download" %}
+                </a>
+              </div>
+            </div>
+            {% endif %}
         </div>
 
-        {% if is_mfa_enabled %}
-        <div class="recovery-codes">
-          <dl class="status">
-            <dt>{% trans "Recovery codes" %}</dt>
-            <dd>
-              There {{unused_code_count|pluralize:"is,are"}} {{ unused_code_count }} out of {{ RECOVERY_CODE_COUNT }} recovery codes available.
-            </dd>
-          </dl>
-          <div class="actions">
-            <a href="{% url "mfa_view_recovery_codes" %}" class="btn ghost">
-              {% include "core/icons/eye.svg" %}
-              {% trans "View" %}
-            </a>
-            <a href="{% url "mfa_generate_recovery_codes" %}" class="btn ghost">
-              {% include "core/icons/sync.svg" %}
-              {% trans "Generate" %}
-            </a>
-            <a href="{% url "mfa_download_recovery_codes" %}" class="btn ghost">
-              {% include "core/icons/download.svg" %}
-              {% trans "Download" %}
-            </a>
-          </div>
-        </div>
-        {% endif %}
-      </div>
+        
+      </main>
     </section>
   </div>
-</main>
+</article>
 {% endblock content %}
