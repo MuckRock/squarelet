@@ -3,13 +3,13 @@
 {% with count=organization.memberships.count avatar=organization.avatar %}
 <div class="team">
     {% if avatar %}
-    <div class="org-avatar">
+    <a class="org-avatar" href="{% url "organizations:detail" slug=organization.slug %}">
       <img src="{{ avatar.url }}" />
-    </div>
+    </a>
     {% else %}
-    <div class="org-avatar">
+    <a class="org-avatar" href="{% url "organizations:detail" slug=organization.slug %}">
       {% include 'core/component/people.svg' %}
-    </div>
+    </a>
     {% endif %}
     <div class="info">
         <h4>
