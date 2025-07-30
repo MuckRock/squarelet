@@ -36,6 +36,15 @@
       font-weight: 600;
       line-height: normal;
     }
+    header .detail {
+      max-width: 32rem;
+      margin: 0 auto 1rem;
+      color: var(--gray-4);
+    }
+    header .detail a {
+      white-space: pre;
+    }
+
     .icon {
       display: flex !important;
       align-items: center;
@@ -82,15 +91,21 @@
 <div class="step">
     <header>
       <div class="icon">{% include "core/icons/verified.svg" %}</div>
-      <h2 class="title">{% blocktrans %}Verified newsrooms, journalists, researchers and educators have access to additional reporting and publishing tools{% endblocktrans %}</h2>
+      <h2 class="title">{% blocktrans %}Verified newsrooms have access to additional reporting and publishing tools.{% endblocktrans %}</h2>
+      <p class="detail">
+        {% blocktrans %}
+        We are currently exploring a pilot program to verify academic researchers, archives and museums, and legal organizations in addition to newsrooms.
+        Our help pages include an <a href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433" target="_blank">in-depth guide to verification</a>.
+        {% endblocktrans %}
+      </p>
     </header>
     <main>
       <div class="verification card">
         {% for organization in unverified_orgs %}
           <div class="unverified org">
             {% include "account/team_list_item.html" %}
-            <a class="small primary button" href="{% airtable_verification_url organization %}" target="_blank">
-              Verify organization
+            <a class="ghost button" href="{% airtable_verification_url organization %}" target="_blank">
+              Request verification
             </a>
           </div>
         {% endfor %}
@@ -99,7 +114,7 @@
             <p>
               {% blocktrans %}
               Freelance journalists and independent researchers may qualify for verification,
-              although we <em>strongly</em> encourage verification through an affiliated organization.
+              although we <em>strongly</em> encourage verification through a newsroom or other affiliated organization.
               {% endblocktrans %}
             </p>
             <a class="ghost primary button" href="{% airtable_verification_url organization %}" target="_blank">
@@ -115,7 +130,6 @@
         <input type="hidden" name="step" value="verification" />
         <button type="submit" name="verification" value="skip" class="primary button">{% trans "Continue signing in" %}</button>
       </form>
-      <a class="small ghost button" href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433" target="_blank">{% trans "How does verification work?" %}</a>
     </footer>
 </div>
 {% endblock %}
