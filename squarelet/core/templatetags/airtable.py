@@ -8,6 +8,7 @@ from urllib.parse import urlencode
 
 register = template.Library()
 
+
 @register.simple_tag
 def airtable_form_url(base_url, **kwargs):
     """
