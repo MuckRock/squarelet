@@ -32,8 +32,6 @@ class OrganizationSerializer(serializers.ModelSerializer):
 
 
 class OrganizationDetailSerializer(OrganizationSerializer):
-    # remove plan once all clients are updated to handle entitlements
-    plan = serializers.SerializerMethodField()
     update_on = serializers.SerializerMethodField()
     entitlements = serializers.SerializerMethodField()
     card = serializers.SerializerMethodField()
@@ -41,14 +39,10 @@ class OrganizationDetailSerializer(OrganizationSerializer):
     class Meta:
         model = Organization
         fields = OrganizationSerializer.Meta.fields + (
-            "plan",
             "entitlements",
             "card",
             "update_on",
         )
-
-    def get_plan(self, obj):
-        return obj.plan.slug if obj.plan else "free"
 
     def get_update_on(self, _obj):
         return None
