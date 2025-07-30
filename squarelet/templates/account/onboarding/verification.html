@@ -38,8 +38,8 @@
     }
     header .detail {
       max-width: 32rem;
-      margin: 0 auto 1rem;
-      color: var(--gray-4);
+      margin: 0 auto 0.5rem;
+      color: var(--gray-5, #233944);
     }
     header .detail a {
       white-space: pre;
@@ -91,11 +91,15 @@
 <div class="step">
     <header>
       <div class="icon">{% include "core/icons/verified.svg" %}</div>
-      <h2 class="title">{% blocktrans %}Verified newsrooms have access to additional reporting and publishing tools.{% endblocktrans %}</h2>
+      <h2 class="title">{% blocktrans %}Request Verification{% endblocktrans %}</h2>
       <p class="detail">
         {% blocktrans %}
-        We are currently exploring a pilot program to verify academic researchers, archives and museums, and legal organizations in addition to newsrooms.
-        Our help pages include an <a href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433" target="_blank">in-depth guide to verification</a>.
+        Verified newsrooms have access to additional reporting and publishing tools. Before you can upload documents to DocumentCloud, or access other advanced features, you may need to be in a verified newsroom.
+        {% endblocktrans %}
+      </p>
+      <p class="detail">
+        {% blocktrans %}
+        Our help pages include an in-depth <a href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433" target="_blank">guide to verification</a> and guidance on everything you can do in DocumentCloud without verification. 
         {% endblocktrans %}
       </p>
     </header>
