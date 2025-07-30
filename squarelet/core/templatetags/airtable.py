@@ -1,14 +1,12 @@
 # Django
 from django import template
+from django.conf import settings
 from django.utils.safestring import mark_safe
 
 # Standard Library
 from urllib.parse import urlencode
 
 register = template.Library()
-
-VERIFICATION_FORM_URL = "https://airtable.com/app93Yt5cwdVWTnqn/pagogIhgB1jZTzq00/form"
-
 
 @register.simple_tag
 def airtable_form_url(base_url, **kwargs):
@@ -56,4 +54,4 @@ def airtable_verification_url(context, organization):
         )
     filtered_data = {k: v for k, v in prefill_data.items() if v}
 
-    return airtable_form_url(VERIFICATION_FORM_URL, **filtered_data)
+    return airtable_form_url(settings.VERIFICATION_FORM_URL, **filtered_data)
