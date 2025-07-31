@@ -35,7 +35,7 @@ def airtable_form_url(base_url, **kwargs):
 
 
 @register.simple_tag(takes_context=True)
-def airtable_verification_url(context, organization):
+def airtable_verification_url(context, organization=None):
     """Generate a verification form URL with a user and an organization."""
     user = context["request"].user
     org_urls = organization.urls.all() if organization else []
