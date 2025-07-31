@@ -13,12 +13,98 @@
 <link rel="stylesheet" href="{% static "css/invites.css" %}" />
 
 
-{# include any style tags in parent tempaltes #}
+{# include any style tags in parent templates #}
 {{ block.super }}
 
 {# page-specific styles #}
 <link rel="stylesheet" href="{% static "css/user_detail.css" %}" />
 {% endblock css %}
+
+{% block javascript %}
+{# include scripts in parent templates #}
+{{ block.super }}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    function closeDropdown(container) {
+      container.classList.remove('dropdown-open');
+      container.setAttribute('data-dropdown-open', 'false');
+    }
+
+    var containers = document.querySelectorAll('.dropdown-container');
+    containers.forEach(function(container) {
+      var anchor = container.querySelector('.dropdown-anchor');
+      if (anchor) {
+        anchor.addEventListener('click', function(e) {
+          e.preventDefault();
+          var open = container.classList.contains('dropdown-open');
+          if (open) {
+            closeDropdown(container);
+          } else {
+            // Close all other dropdowns first
+            containers.forEach(function(other) {
+              if (other !== container) {
+                closeDropdown(other);
+              }
+            });
+            container.classList.add('dropdown-open');
+            container.setAttribute('data-dropdown-open', 'true');
+          }
+        });
+        // Ensure closed by default
+        closeDropdown(container);
+      }
+    });
+
+    // Close dropdown if clicking outside
+    document.addEventListener('click', function(e) {
+      containers.forEach(function(container) {
+        if (!container.contains(e.target)) {
+          closeDropdown(container);
+        }
+      });
+    });
+  });
+
+  // Tab controller/Tab container logic
+  document.querySelectorAll('.tab-controller').forEach(function(controller) {
+    var container = controller.closest('.dropdown').querySelector('.tab-container');
+    if (!container) return;
+
+    function activateTab(tabName) {
+      // Update controller tabs
+      controller.querySelectorAll('.tab').forEach(function(tab) {
+        var isActive = tab.getAttribute('data-tab') === tabName;
+        tab.setAttribute('data-tab-active', isActive);
+        tab.classList.toggle('tab-active', isActive);
+      });
+      // Update container tabs
+      container.querySelectorAll('.tab').forEach(function(tab) {
+        var isActive = tab.getAttribute('data-tab') === tabName;
+        tab.setAttribute('data-tab-active', isActive);
+        tab.classList.toggle('tab-active', isActive);
+      });
+    }
+
+    // Click handler for controller tabs
+    controller.querySelectorAll('.tab').forEach(function(tab) {
+      tab.addEventListener('click', function(e) {
+        e.preventDefault();
+        var tabName = tab.getAttribute('data-tab');
+        activateTab(tabName);
+      });
+    });
+
+    // Initialize to first active tab
+    var initial = controller.querySelector('.tab[data-tab-active="true"]');
+    if (initial) {
+      activateTab(initial.getAttribute('data-tab'));
+    }
+  });
+
+  
+</script>
+{% endblock %}
+
 
 {% block content %}
 <article id="user_detail">
@@ -255,10 +341,63 @@
     <section id="accounts">
       <header>
         <h2>{% trans "Your Connected Accounts" %}</h2>
-        <a class="btn primary ghost" href="{% url "account_email" %}">
-          {% include "core/icons/plus-circle.svg" %}
-          {% trans "Connect an account" %}
-        </a>
+        <div class="dropdown-container" data-dropdown-open="false" >
+          <a class="btn primary ghost dropdown-anchor" href="{% url "account_email" %}">
+            {% include "core/icons/plus-circle.svg" %}
+            {% trans "Connect an account" %}
+          </a>
+          <div class="dropdown">
+            <div class="connect-account-dropdown card">
+              <header>
+                <ul class="tab-controller">
+                  <li class="tab tab-active" data-tab="email" data-tab-active="true">
+                    Email
+                  </li>
+                  <li class="tab" data-tab="google" data-tab-active="false">
+                    Google
+                  </li>
+                  <li class="tab" data-tab="github" data-tab-active="false">
+                    GitHub
+                  </li>
+                </ul>
+              </header>
+              <div class="tab-container">
+                <div class="tab tab-active" data-tab="email" data-tab-active="true">
+                  <form class="connect-account-form" method="POST" action="{# AllAuth URL #}">
+                    {% csrf_token %}
+                    <input class="email-input" type="email" placeholder="Enter your email" class="email-field" />
+                    <button type=submit" class="primary btn">Add Email</button>
+                    <p class="help-text">
+                      {% blocktrans %}
+                      When you connect an email address, you can use it as a sign-in method, receive notifications to it, and use it to auto-join organizations that share your domain.
+                      {% endblocktrans %}
+                    </p>
+                  </form>
+                </div>
+                <div class="tab" data-tab="google" data-tab-active="false">
+                  <form class="connect-account-form" method="POST" action="{# AllAuth URL #}">
+                    <button type=submit" class="primary btn">Connect with Google</button>
+                    <p class="help-text">
+                      {% blocktrans %}
+                      When you connect a Google account, you can use your account as a sign-in method.
+                      {% endblocktrans %}                      
+                    </p>
+                  </form>
+                </div>
+                <div class="tab" data-tab="github" data-tab-active="false">
+                  <form class="connect-account-form" method="POST" action="{# AllAuth URL #}">
+                    <button type=submit" class="primary btn">Connect with GitHub</button>
+                    <p class="help-text">
+                      {% blocktrans %}
+                      When you connect a GitHub account, you can use your account as a sign-in method.
+                      {% endblocktrans %}                      
+                    </p>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </header>
       <main class="accounts">
         {% for email in emails %}
