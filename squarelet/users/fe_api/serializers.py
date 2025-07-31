@@ -36,20 +36,17 @@ class UserSerializer(serializers.ModelSerializer):
 
         if request and request.user.is_authenticated:
             # Fetch the requesting user's orgs
-            requester_org_ids = set(
-                request.user.memberships.values_list("organization_id", flat=True)
-            )
-            target_org_ids = set(
-                instance.memberships.values_list("organization_id", flat=True)
-            )
+            if not hasattr(self, "_cache_requester_org_ids"):
+                self._cache_requester_org_ids = set(
+                    request.user.memberships.values_list("organization_id", flat=True)
+                )
+            target_org_ids = set(o.pk for o in instance.organizations.all())
 
-            if not requester_org_ids.intersection(target_org_ids):
+            if not self._cache_requester_org_ids.intersection(target_org_ids):
                 # No shared orgs: remove sensitive fields
                 data.pop("email", None)
-                data.pop("email_verified", None)
         else:
             # Anonymous user
             data.pop("email", None)
-            data.pop("email_verified", None)
 
         return data
