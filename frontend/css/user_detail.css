@@ -398,6 +398,46 @@ a.nav-item {
   gap: 0.5rem;
 }
 
+.social.account .account-detail {
+  display: flex;
+  align-items: stretch;
+  gap: 1rem;
+}
+
+.social.account .account-detail .icon {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.social.account .account-detail-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  flex: 1 0 auto;
+}
+
+.social.account .account-status {
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+.social.account .provider-label {
+  margin: 0;
+  font-size: var(--font-md, 1rem);
+  font-weight: var(--font-semibold, 600);
+  color: var(--gray-5, #233944);
+}
+
+.social.account .provider-account {
+  margin: 0;
+  font-size: var(--font-sm, 0.875rem);
+  color: var(--gray-5, #233944);
+}
+
 .connect-account-dropdown.card {
   padding: 0;
   overflow: hidden;
@@ -418,6 +458,7 @@ a.nav-item {
 .connect-account-form .help-text {
   margin: 0;
   text-align: center;
+  text-wrap: pretty;
   font-size: var(--font-sm, 1rem);
   color: var(--gray-5, #233944);
 }
@@ -567,7 +608,7 @@ a.nav-item {
   opacity: 0;
   transition: visibility 0s, opacity 0.2s ease-in-out;
   z-index: 1000;
-  display: flex;
+  display: none;
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
@@ -576,6 +617,7 @@ a.nav-item {
   width: 20rem;
 }
 .dropdown-container.dropdown-open .dropdown {
+  display: flex;
   visibility: visible;
   opacity: 1;
 }
