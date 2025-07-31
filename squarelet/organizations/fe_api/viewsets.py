@@ -1,5 +1,8 @@
 # Django
 from django.db.models import Q
+from django.db.models.aggregates import Count
+from django.db.models.expressions import F
+from django.db.models.query import Prefetch
 
 # Third Party
 import django_filters
@@ -23,6 +26,7 @@ from squarelet.organizations.fe_api.serializers import (
     OrganizationSerializer,
 )
 from squarelet.organizations.models import Invitation, Organization
+from squarelet.users.models import User
 
 
 class OrganizationFilter(django_filters.FilterSet):
@@ -35,8 +39,10 @@ class OrganizationFilter(django_filters.FilterSet):
 
 class OrganizationViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
-        return Organization.objects.select_related("_plan").get_viewable(
-            self.request.user
+        return (
+            Organization.objects.get_viewable(self.request.user)
+            .prefetch_related("users__memberships")
+            .annotate(member_count=Count("users"))
         )
 
     serializer_class = OrganizationSerializer
