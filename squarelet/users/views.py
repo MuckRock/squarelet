@@ -21,13 +21,13 @@ from django.views.generic import (
 )
 
 # Standard Library
-from datetime import datetime
 import hashlib
 import hmac
 import json
 import logging
 import sys
 import time
+from datetime import datetime
 
 # Third Party
 from allauth.account.utils import get_next_redirect_url, send_email_confirmation
@@ -112,10 +112,12 @@ class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
             stripe_sub = getattr(subscription, "stripe_subscription", None)
             if stripe_sub:
                 # Try to get next charge date from Stripe subscription
-                ts = getattr(stripe_sub, "current_period_end", None)
-                if ts:
-                    dt = datetime.fromtimestamp(ts, tz=timezone.get_current_timezone())
-                    context["current_plan_next_charge_date"] = dt.date()
+                time_stamp = getattr(stripe_sub, "current_period_end", None)
+                if time_stamp:
+                    tz_datetime = datetime.fromtimestamp(
+                        time_stamp, tz=timezone.get_current_timezone()
+                    )
+                    context["current_plan_next_charge_date"] = tz_datetime.date()
             # Check if the plan is cancelled
             context["current_plan_cancelled"] = getattr(subscription, "cancelled", None)
         return context
