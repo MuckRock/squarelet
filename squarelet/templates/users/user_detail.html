@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load account socialaccount %}
 {% load airtable %}
 {% load avatar %}
 {% load i18n %}
@@ -388,10 +389,12 @@
       <header>
         <h2>{% trans "Your Connected Accounts" %}</h2>
         <div class="dropdown-container" data-dropdown-open="false" >
-          <a class="btn primary ghost dropdown-anchor" href="{% url "account_email" %}">
+          <a class="btn primary ghost {% if settings.ENABLE_SOCIAL_LOGINS %}dropdown-anchor{% endif %}" href="{% url "account_email" %}">
             {% include "core/icons/plus-circle.svg" %}
             {% trans "Connect an account" %}
           </a>
+          {% if settings.ENABLE_SOCIAL_LOGINS %}
+          {% get_providers as socialaccount_providers %}
           <div class="dropdown">
             <div class="connect-account-dropdown card">
               <header>
@@ -399,19 +402,18 @@
                   <li class="tab tab-active" data-tab="email" data-tab-active="true">
                     Email
                   </li>
-                  <li class="tab" data-tab="google" data-tab-active="false">
-                    Google
+                  {% for provider in socialaccount_providers %}
+                  <li class="tab" data-tab="{{provider.id}}" data-tab-active="false">
+                    {{provider.name}}
                   </li>
-                  <li class="tab" data-tab="github" data-tab-active="false">
-                    GitHub
-                  </li>
+                  {% endfor %}
                 </ul>
               </header>
               <div class="tab-container">
                 <div class="tab tab-active" data-tab="email" data-tab-active="true">
                   <form class="connect-account-form" method="POST" action="{# AllAuth URL #}">
                     {% csrf_token %}
-                    <input class="email-input" type="email" placeholder="Enter your email" class="email-field" />
+                    <input class="email-input" type="email" name="email" placeholder="Enter your email" class="email-field" />
                     <button type=submit" class="primary btn">Add Email</button>
                     <p class="help-text">
                       {% blocktrans %}
@@ -420,29 +422,23 @@
                     </p>
                   </form>
                 </div>
-                <div class="tab" data-tab="google" data-tab-active="false">
-                  <form class="connect-account-form" method="POST" action="{# AllAuth URL #}">
-                    <button type=submit" class="primary btn">Connect with Google</button>
+                {% for provider in socialaccount_providers %}
+                <div class="tab" data-tab="{{provider.id}}" data-tab-active="false">
+                  <form class="connect-account-form" method="POST" action="{% provider_login_url provider.id process="connect" %}">
+                    {% csrf_token %}
+                    <button type=submit" class="primary btn">Connect with {{provider.name}}</button>
                     <p class="help-text">
                       {% blocktrans %}
-                      When you connect a Google account, you can use your account as a sign-in method.
+                      When you connect a {{provider.name}} account, you can use your account as a sign-in method.
                       {% endblocktrans %}                      
                     </p>
                   </form>
                 </div>
-                <div class="tab" data-tab="github" data-tab-active="false">
-                  <form class="connect-account-form" method="POST" action="{# AllAuth URL #}">
-                    <button type=submit" class="primary btn">Connect with GitHub</button>
-                    <p class="help-text">
-                      {% blocktrans %}
-                      When you connect a GitHub account, you can use your account as a sign-in method.
-                      {% endblocktrans %}                      
-                    </p>
-                  </form>
-                </div>
+                {% endfor %}
               </div>
             </div>
           </div>
+          {% endif %}
         </div>
       </header>
       <main class="accounts">
@@ -460,10 +456,10 @@
               {% trans "Confirm this email" %}
             </button>
             {% else %}
-            <span class="badge verified">{% trans "Confirmed" %}</span>
+            <span class="badge green">{% trans "Confirmed" %}</span>
             {% endif %}
             {% if email.primary %}
-            <span class="badge">{% trans "Primary" %}</span>
+            <span class="badge blue">{% trans "Primary" %}</span>
             {% else %}
             <button class="btn small" type="submit" name="action_primary" {% if not email.verified %}disabled{% endif %}>
               {% trans "Make primary" %}
@@ -475,6 +471,55 @@
           </form>
         </div>
         {% endfor %}
+        {% if settings.ENABLE_SOCIAL_LOGINS %}
+        {% get_social_accounts user as accounts %}
+        {% for google_account in accounts.google %}
+          <div class="social account">
+            <div class="account-detail">
+              <div class="icon">{% include "core/icons/google.svg" %}</div>
+              <div class="account-detail-text">
+                <h3 class="provider-label">{{google_account.get_provider}}</h3>
+                <p class="provider-account">{{google_account.get_provider_account}}</p>
+              </div>
+              <div class="account-status">
+                <span class="badge green">{% trans "Connected" %}</span>
+              </div>
+            </div>
+            <div class="account-actions">
+              <form method="POST" action="{% url 'socialaccount_connections' %}">
+                {% csrf_token %}
+                <input type="hidden" name="account" value="{{google_account.pk}}" />
+                <button type="submit" class="ghost danger btn" title="Disconnect {{google_account.provider}} account">
+                  {% include "core/icons/trashcan.svg" %}
+                </button>
+              </form>
+            </div>
+          </div>
+        {% endfor %}
+        {% for github_account in accounts.github %}
+          <div class="social account">
+            <div class="account-detail">
+              <div class="icon">{% include "core/icons/github.svg" %}</div>
+              <div class="account-detail-text">
+                <h3 class="provider-label">{{github_account.get_provider}}</h3>
+                <p class="provider-account">{{github_account.get_provider_account}}</p>
+              </div>
+              <div class="account-status">
+                <span class="badge green">{% trans "Connected" %}</span>
+              </div>
+            </div>
+            <div class="account-actions">
+              <form method="POST" action="{% url 'socialaccount_connections' %}">
+                {% csrf_token %}
+                <input type="hidden" name="account" value="{{github_account.pk}}" />
+                <button type="submit" class="ghost danger btn" title="Disconnect {{github_account.provider}} account">
+                  {% include "core/icons/trashcan.svg" %}
+                </button>
+              </form>
+            </div>
+          </div>
+        {% endfor %}
+        {% endif %}
       </main>
     </section>
 
@@ -496,7 +541,7 @@
             <h3>{% trans "Two-factor authentication" %}</h3>
             <div class="mfa-active">
               {% if is_mfa_enabled %}
-              <span class="badge verified">{% trans "Enabled" %}</span>
+              <span class="badge green">{% trans "Enabled" %}</span>
               <a class="small btn ghost" href="{% url "mfa_deactivate_totp" %}">{% trans "Disable two-factor auth" %}</a>
               {% else %}
               <a class="small btn ghost" href="{% url "mfa_activate_totp" %}">{% trans "Enable two-factor auth" %}</a>
