@@ -114,12 +114,13 @@ a.nav-item {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
+  justify-content: space-between;
   gap: 0.5rem;
   align-self: stretch;
 }
 
 .content section > header h2 {
-  flex: 1 0 0;
+  flex: 0 0 auto;
   margin: 0;
   white-space: nowrap;
 }
@@ -180,17 +181,25 @@ a.nav-item {
 
 .content .profile .details {
   display: flex;
+  flex-wrap: wrap;
   padding: 0rem 0.75rem;
-  flex-direction: column;
-  justify-content: center;
+  justify-content: space-between;
   align-items: flex-start;
   gap: 0.5rem;
   flex: 1 0 0;
-  align-self: stretch;
+  align-self: center;
 }
 
 .content .profile .details h3 {
+  flex: 1 1 100%;
   align-self: stretch;
+  margin: 0;
+}
+
+.content .profile .user-detail {
+  font-size: var(--font-sm, 0.875rem);
+  color: var(--gray-4, #5C717C);
+  margin: 0;
 }
 
 /* Verification */
@@ -433,6 +442,7 @@ a.nav-item {
 }
 
 .content .security .recovery-codes {
+  margin-top: 0.5rem;
   display: flex;
   flex-wrap: wrap;
   padding: 0.5rem;
