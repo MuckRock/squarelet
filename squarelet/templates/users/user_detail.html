@@ -34,6 +34,12 @@
             </a>
           </li>
           <li>
+            <a href="#plan" class="plan nav-item">
+              {% include "core/icons/credit-card.svg" %}
+              {% trans "Plan" %}
+            </a>
+          </li>
+          <li>
             <a href="#verification" class="verification nav-item">
               {% if verified %}
               {% include "core/icons/verification.svg" %}
@@ -95,8 +101,48 @@
         <div class="details">
           <h3>{% firstof user.name user.username %}</h3>
           {% if user.name %}<p class="user-detail">{{user.username}}</p>{% endif %}
-          <p class="user-detail">Joined <time datetime="{{user.created_at|date}}">{{user.created_at|date:"F j, Y"}}</time></p>
+          <p class="user-detail">Joined <time title="{{user.created_at|date:"c"}}" datetime="{{user.created_at|date:"c"}}">{{user.created_at|date:"F j, Y"}}</time></p>
         </div>
+      </main>
+    </section>
+
+    <section id="plan">
+      <header>
+        <h2>{% trans "Your Plan" %}</h2>
+        <div class="header-actions">
+          <a href="{% url "users:receipts" %}" class="btn ghost">
+            {% include "core/icons/log.svg" %}
+            {% trans "View receipts" %}
+          </a>
+        </div>
+      </header>
+      <main class="plan">
+        <div class="plan-overview">
+          {% if not current_plan %}
+            <p>You are using MuckRock&rsquo;s <span class="plan-name" id="free">Free</span> plan.</p>
+            <a class="btn premium" href="{% url "users:payment" %}">Upgrade</a>
+          {% else %}
+            <p>You are subscribed to MuckRock&rsquo;s <span class="plan-name" id="{{current_plan.slug}}">{{current_plan.name}}</span> plan.</p>
+            <a class="btn ghost" href="{% url "users:payment" %}">Change plan</a>
+          {% endif %}
+        </div>
+        {% if current_plan %}
+        <ul class="plan-details">
+          {% if current_plan_next_charge_date %}
+          <li class="plan-detail plan-next-charge">
+            <span class="icon">{% include "core/icons/calendar.svg" %}</span>
+            <span class="label">
+              Subscription {% if current_plan_cancelled %}ends{% else %}renews{% endif %} on <time title="{{current_plan_next_charge_date|date:"c"}}" datetime="{{current_plan_next_charge_date|date:"c"}}">{{current_plan_next_charge_date|date:"F j, Y"}}</time></span>
+          </li>
+          {% endif %}
+          {% if current_plan_card %}
+          <li class="plan-detail plan-card">
+            <span class="icon">{% include "core/icons/credit-card.svg" %}</span>
+            <span class="label">{{current_plan_card.brand}} ending in {{current_plan_card.last4}}</span>
+          </li>
+          {% endif %}
+        </ul>
+        {% endif %}
       </main>
     </section>
 

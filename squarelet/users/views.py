@@ -11,6 +11,7 @@ from django.http.response import (
 )
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils import timezone
 from django.views.generic import (
     DetailView,
     ListView,
@@ -20,6 +21,7 @@ from django.views.generic import (
 )
 
 # Standard Library
+from datetime import datetime
 import hashlib
 import hmac
 import json
@@ -91,6 +93,29 @@ class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
         context["is_mfa_enabled"] = is_mfa_enabled(user)
         context["RECOVERY_CODE_COUNT"] = app_settings.RECOVERY_CODE_COUNT
         context["unused_code_count"] = len(self.get_recovery_codes())
+        # Get the current plan and subscription, if any
+        individual_org = user.individual_organization
+        current_plan = None
+        subscription = None
+        if hasattr(individual_org, "subscriptions"):
+            subscription = individual_org.subscriptions.first()
+            if subscription and hasattr(subscription, "plan"):
+                current_plan = subscription.plan
+        context["current_plan"] = current_plan
+        # Get card, next charge date, and cancelled status for active subscription
+        if current_plan and subscription:
+            customer = getattr(individual_org, "customer", None)
+            context["current_plan_card"] = getattr(customer, "card", None)
+            # Stripe subscription may have next charge date
+            stripe_sub = getattr(subscription, "stripe_subscription", None)
+            if stripe_sub:
+                # Try to get next charge date from Stripe subscription
+                ts = getattr(stripe_sub, "current_period_end", None)
+                if ts:
+                    dt = datetime.fromtimestamp(ts, tz=timezone.get_current_timezone())
+                    context["current_plan_next_charge_date"] = dt.date()
+            # Check if the plan is cancelled
+            context["current_plan_cancelled"] = getattr(subscription, "cancelled", None)
         return context
 
     def get_recovery_codes(self):
