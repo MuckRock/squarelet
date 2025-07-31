@@ -33,6 +33,9 @@ from allauth.account.views import (
     LoginView as AllAuthLoginView,
     SignupView as AllAuthSignupView,
 )
+from allauth.mfa import app_settings
+from allauth.mfa.models import Authenticator
+from allauth.mfa.utils import is_mfa_enabled
 from allauth.socialaccount.adapter import get_adapter as get_social_adapter
 from allauth.socialaccount.internal import flows
 from crispy_forms.helper import FormHelper
@@ -73,14 +76,34 @@ class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
     def get_context_data(self, **kwargs):
         user = self.object
         context = super().get_context_data(**kwargs)
-        context["other_orgs"] = (
-            context["user"]
-            .organizations.filter(individual=False)
-            .get_viewable(self.request.user)
+        context["admin_orgs"] = list(
+            user.organizations.filter(individual=False, memberships__admin=True)
         )
-        context["potential_organizations"] = user.get_potential_organizations()
-        context["pending_invitations"] = user.get_pending_invitations()
+        context["other_orgs"] = list(
+            user.organizations.filter(
+                individual=False, memberships__admin=False
+            ).get_viewable(self.request.user)
+        )
+        context["potential_organizations"] = list(user.get_potential_organizations())
+        context["pending_invitations"] = list(user.get_pending_invitations())
+        context["verified"] = user.verified_journalist()
+        context["emails"] = user.emailaddress_set.all()
+        context["is_mfa_enabled"] = is_mfa_enabled(user)
+        context["RECOVERY_CODE_COUNT"] = app_settings.RECOVERY_CODE_COUNT
+        context["unused_code_count"] = len(self.get_recovery_codes())
         return context
+
+    def get_recovery_codes(self):
+        "Get unused recovery codes"
+        authenticator = Authenticator.objects.filter(
+            user=self.request.user,
+            type=Authenticator.Type.RECOVERY_CODES,
+        ).first()
+
+        if not authenticator:
+            return []
+
+        return authenticator.wrap().get_unused_codes()
 
 
 class UserRedirectView(LoginRequiredMixin, RedirectView):
