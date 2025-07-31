@@ -35,7 +35,11 @@
           </li>
           <li>
             <a href="#verification" class="verification nav-item">
+              {% if verified %}
               {% include "core/icons/verification.svg" %}
+              {% else %}
+              {% include "core/icons/unverified.svg" %}
+              {% endif %}
               {% trans "Verification" %}
             </a>
           </li>
@@ -108,7 +112,7 @@
       <main class="verification-status">
         {% if verified %}
         <div class="status verified">
-          {% include "core/icons/verification.svg" %}
+          {% include "core/icons/verified-24.svg" %}
           <h3>{% trans "You are a verified journalist." %}</h3>
         </div>
         <dl class="unlocked features">
@@ -118,7 +122,7 @@
         </dl>
         {% else %}
         <div class="status unverified">
-          {% include "core/icons/unverified.svg" %}
+          {% include "core/icons/unverified-24.svg" %}
           <h3>{% trans "You are not a verified journalist. Some features are restricted." %}</h3>
           <p class="help-text">Request newsroom verification for one of your organizations, or <a href="{% airtable_verification_url %}">request journalist verification for yourself</a>, to upload and publish documents.</p>
         </div>
