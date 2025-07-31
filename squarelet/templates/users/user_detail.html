@@ -136,12 +136,12 @@
         <h2>{% trans "Your Organizations" %}</h2>
         <div class="header-actions">
           <a href="{% url "organizations:list" %}" class="btn ghost">
-            {% include "core/icons/organizations.svg" %}
-            {% trans "Join an organization" %}
+            {% include "core/icons/search.svg" %}
+            {% trans "Search organizations" %}
           </a>
           <a href="{% url "organizations:create" %}" class="btn ghost">
             {% include "core/icons/plus-circle.svg" %}
-            {% trans "Start an organization" %}
+            {% trans "Create organization" %}
           </a>
         </div>
       </header>
@@ -233,6 +233,16 @@
               </form>
             </div>
           {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if not other_orgs and not admin_orgs and not pending_invitations and not potential_organizations %}
+        <div class="org-empty">
+          <p>
+            {% blocktrans %}
+            Create or join an organization to collaborate with other MuckRock users
+            {% endblocktrans %}
+          </p>
         </div>
         {% endif %}
       </main>
