@@ -105,6 +105,8 @@ class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
         # Get card, next charge date, and cancelled status for active subscription
         if current_plan and subscription:
             customer = getattr(individual_org, "customer", None)
+            if callable(customer):
+                customer = customer()
             context["current_plan_card"] = getattr(customer, "card", None)
             # Stripe subscription may have next charge date
             stripe_sub = getattr(subscription, "stripe_subscription", None)
