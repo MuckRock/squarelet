@@ -169,7 +169,7 @@ a.nav-item {
   width: 3rem;
   height: 3rem;
   flex-shrink: 0;
-  fill: var(--gray-4, #5C717C);
+  fill: var(--gray-2, #d8dee2);
 }
 
 .content .profile .icon img {
@@ -274,11 +274,11 @@ a.nav-item {
   fill: var(--gray-4, #5C717C);
 }
 
-.locked .checklist-item dd svg {
+.locked dd.checklist-item svg {
   fill: var(--orange-3, #EC7B6B);
 }
 
-.unlocked .checklist-item dd svg {
+.unlocked dd.checklist-item svg {
   fill: var(--green-3, #27C6A2);
 }
 
