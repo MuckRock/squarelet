@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load airtable %}
 {% load avatar %}
 {% load i18n %}
 {% load static %}
@@ -115,7 +116,7 @@
         <div class="status unverified">
           {% include "core/icons/unverified.svg" %}
           <h3>{% trans "You are not a verified journalist. Some features are restricted." %}</h3>
-          <p class="help-text">Request newsroom verification for one of your organizations, or <a href="#">request journalist verification for yourself</a>, to upload and publish documents.</p>
+          <p class="help-text">Request newsroom verification for one of your organizations, or <a href="{% airtable_verification_url %}">request journalist verification for yourself</a>, to upload and publish documents.</p>
         </div>
         <dl class="locked features">
           <dt class="checklist-item">{% include "core/icons/lock.svg" %}{% trans "Locked features:" %}</dt>
@@ -196,7 +197,7 @@
               {% include "account/team_list_item.html" with organization=org %}
               <div class="actions">
                 {% if not org.verified_journalist %}
-                <a class="btn ghost small" href="#">
+                <a class="btn ghost small" href="{% airtable_verification_url org %}">
                   {% trans "Request verification" %}
                 </a>
                 {% endif %}
