@@ -1,6 +1,12 @@
 {% extends "base.html" %}
-{% load static i18n avatar %}
+{% load static i18n avatar django_vite %}
 {% block title %}Organizations{% endblock %}
+
+
+{% block vite %}
+{{ block.super }}
+{% vite_asset 'frontend/views/organization_list.ts' %}
+{% endblock vite %}
 
 {% block content %}
   <div class="_cls-content">
@@ -11,7 +17,14 @@
       </a>
     </div>
   </div>
-  
+
+  <div id="org_search">
+    <form>
+      <input type="search" name="q" placeholder="{% trans "Search organizations" %} ..." />
+    </form>
+  </div>
+
+  {% comment "delete me" %}
   <div class="_cls-expandedContent">
     <div id="_id-autocomplete" class="_cls-autocomplete">
       <div class="_cls-inputSection">
@@ -47,4 +60,9 @@
       </div>
     </div>
   </div>
+  {% endcomment %}
 {% endblock content %}
+
+{% block extra_javascript %}
+
+{% endblock extra_javascript %}
