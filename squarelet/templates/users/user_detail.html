@@ -365,10 +365,10 @@
               </header>
               <div class="tab-container">
                 <div class="tab tab-active" data-tab="email" data-tab-active="true">
-                  <form class="connect-account-form" method="POST" action="{# AllAuth URL #}">
+                  <form class="connect-account-form" method="POST" action="{% url 'account_email' %}">
                     {% csrf_token %}
-                    <input class="email-input" type="email" name="email" placeholder="Enter your email" class="email-field" />
-                    <button type=submit" class="primary btn">Add Email</button>
+                    <input class="email-input" type="email" name="email" placeholder="Enter your email" required />
+                    <button class="primary btn" type=submit" name="action_add">Add Email</button>
                     <p class="help-text">
                       {% blocktrans %}
                       When you connect an email address, you can use it as a sign-in method, receive notifications to it, and use it to auto-join organizations that share your domain.

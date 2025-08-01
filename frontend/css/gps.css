@@ -344,6 +344,12 @@ h3 {
   cursor: initial;
 }
 
+.btn:disabled:hover,
+.btn.disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
 .btn.ghost:disabled {
   color: var(--gray-4, #5c717c);
   fill: var(--gray-4, #5c717c);
