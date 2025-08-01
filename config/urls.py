@@ -16,7 +16,13 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from squarelet.core.views import HomeView, SelectPlanView
 from squarelet.oidc.views import token_view
 from squarelet.organizations.viewsets import ChargeViewSet, OrganizationViewSet
-from squarelet.users.views import LoginView, SignupView, UserOnboardingView
+from squarelet.users.views import (
+    UserEmailView,
+    UserConnectionsView,
+    LoginView,
+    SignupView,
+    UserOnboardingView
+)
 from squarelet.users.viewsets import (
     RefreshTokenViewSet,
     UrlAuthTokenViewSet,
@@ -51,7 +57,9 @@ urlpatterns = [
         "organizations/",
         include("squarelet.organizations.urls", namespace="organizations"),
     ),
-    # override the accounts login with our version
+    # override the allauth views with our version
+    re_path("accounts/$", UserConnectionsView.as_view(), name="account_connections"),
+    re_path("accounts/email/$", UserEmailView.as_view(), name="account_email"),
     re_path("accounts/login/$", LoginView.as_view(), name="account_login"),
     re_path(
         "accounts/onboard/$", UserOnboardingView.as_view(), name="account_onboarding"

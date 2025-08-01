@@ -67,3 +67,5 @@ DJANGO_VITE = {
         "manifest_path": str(ROOT_DIR.path("frontend/dist/manifest.json")),
     }
 }
+
+ENABLE_SOCIAL_LOGINS = env.bool("ENABLE_SOCIAL_LOGINS", default=True)
