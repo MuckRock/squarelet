@@ -204,6 +204,12 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
         initial = super().get_signup_form_initial_data(sociallogin)
         initial["name"] = f"{initial['first_name']} {initial['last_name']}"
         return initial
+    
+    def get_connect_redirect_url(self, request, sociallogin):
+        """
+        Redirect to the user detail page after connecting a social account.
+        """
+        return reverse("users:detail", kwargs={"username": request.user.username})
 
 
 class MfaAdapter(DefaultMFAAdapter):
