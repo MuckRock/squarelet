@@ -63,11 +63,11 @@ class OrganizationSerializer(serializers.ModelSerializer):
 
         # Only keep members if user is authenticated AND member of org
         if not user or not user.is_authenticated:
-            rep.pop("members", None)
+            rep.pop("users", None)
         else:
             is_member = user in instance.users.all()
             if not is_member:
-                rep.pop("members", None)
+                rep.pop("users", None)
 
         return rep
 
