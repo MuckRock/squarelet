@@ -80,6 +80,7 @@ class UserConnectionsView(ConnectionsView):
         """Redirect to the user detail page after a successful connection operation."""
         return reverse("users:detail", kwargs={"username": self.request.user.username})
 
+
 class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
     model = User
     slug_field = "username"
