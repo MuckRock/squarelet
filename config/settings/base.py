@@ -443,7 +443,7 @@ PRESSPASS_COOKIE_DOMAIN = env("PRESSPASS_COOKIE_DOMAIN", default="")
 
 VERIFICATION_FORM_URL = env(
     "VERIFICATION_FORM_URL",
-    default="https://airtable.com/app93Yt5cwdVWTnqn/pagogIhgB1jZTzq00/form"
+    default="https://airtable.com/app93Yt5cwdVWTnqn/pagogIhgB1jZTzq00/form",
 )
 
 # stripe
