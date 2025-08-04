@@ -74,7 +74,10 @@ class UserEmailView(AllAuthEmailView):
 
 
 class UserConnectionsView(ConnectionsView):
-    """Override the connections view to redirect to user detail page after operations."""
+    """
+    Override the connections view to redirect
+    to user detail page after operations.
+    """
 
     def get_success_url(self):
         """Redirect to the user detail page after a successful connection operation."""
