@@ -38,8 +38,8 @@ from allauth.mfa import app_settings
 from allauth.mfa.models import Authenticator
 from allauth.mfa.utils import is_mfa_enabled
 from allauth.socialaccount.adapter import get_adapter as get_social_adapter
-from allauth.socialaccount.views import ConnectionsView
 from allauth.socialaccount.internal import flows
+from allauth.socialaccount.views import ConnectionsView
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Fieldset, Layout
 
