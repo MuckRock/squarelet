@@ -12,7 +12,7 @@ class OrganizationFilter(filters.FilterSet):
     private = filters.BooleanFilter(field_name="private")
     subtype = filters.CharFilter(method="filter_subtype", label="Subtype")
 
-    def filter_subtype(self, queryset, name, value):
+    def filter_subtype(self, queryset, value):
         return queryset.filter(subtypes__name=value)
 
     class Meta:
