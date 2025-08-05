@@ -10,6 +10,10 @@ class OrganizationFilter(filters.FilterSet):
     verified = filters.BooleanFilter(field_name="verified_journalist")
     individual = filters.BooleanFilter(field_name="individual")
     private = filters.BooleanFilter(field_name="private")
+    subtype = filters.CharFilter(method="filter_subtype", label="Subtype")
+
+    def filter_subtype(self, queryset, name, value):
+        return queryset.filter(subtypes__name=value)
 
     class Meta:
         model = Organization

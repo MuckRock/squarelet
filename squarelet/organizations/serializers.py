@@ -7,12 +7,43 @@ from rest_framework import serializers, status
 from rest_framework.exceptions import APIException
 
 # Squarelet
-from squarelet.organizations.models import Charge, Membership, Organization
+from squarelet.organizations.models import (
+    Charge,
+    Membership,
+    Organization,
+    OrganizationSubtype,
+)
+
+
+def resolve_subtype_names_to_pks(subtype_names):
+    """
+    Given a list of subtype names, return a list of OrganizationSubtype PKs.
+    """
+    if not isinstance(subtype_names, list):
+        raise serializers.ValidationError(
+            {"subtypes": "Must be a list of subtype names."}
+        )
+    subtype_pks = []
+    for name in subtype_names:
+        try:
+            subtype = OrganizationSubtype.objects.get(name=name)
+            subtype_pks.append(subtype.pk)
+        except OrganizationSubtype.DoesNotExist:
+            raise serializers.ValidationError(
+                {"subtypes": f"Invalid subtype name: {name}"}
+            )
+    return subtype_pks
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
     uuid = serializers.UUIDField(required=False)
     merged = serializers.SlugRelatedField(read_only=True, slug_field="uuid")
+    subtypes = serializers.ListField(
+        child=serializers.CharField(),
+        source="get_subtype_names",
+        required=False,
+        allow_null=True,
+    )
 
     class Meta:
         model = Organization
@@ -28,7 +59,16 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "payment_failed",
             "updated_at",
             "merged",
+            "subtypes",
         )
+
+    def to_internal_value(self, data):
+        """Adds custom handling for subtypes"""
+        ret = super().to_internal_value(data)
+        subtype_names = data.get("subtypes")
+        if subtype_names is not None:
+            ret["subtypes"] = resolve_subtype_names_to_pks(subtype_names)
+        return ret
 
 
 class OrganizationDetailSerializer(OrganizationSerializer):
