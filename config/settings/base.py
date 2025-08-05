@@ -441,6 +441,11 @@ PRESSPASS_API_URL = env("PRESSPASS_API_URL", default="https://dev.presspass.com"
 PRESSPASS_DOMAIN = env("PRESSPASS_DOMAIN", default="")
 PRESSPASS_COOKIE_DOMAIN = env("PRESSPASS_COOKIE_DOMAIN", default="")
 
+VERIFICATION_FORM_URL = env(
+    "VERIFICATION_FORM_URL",
+    default="https://airtable.com/app93Yt5cwdVWTnqn/pagogIhgB1jZTzq00/form",
+)
+
 # stripe
 # ------------------------------------------------------------------------------
 STRIPE_PUB_KEY = env("STRIPE_PUB_KEY")

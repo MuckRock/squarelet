@@ -1,0 +1,139 @@
+{% extends "account/onboarding/base.html" %}
+
+{% load i18n static airtable %}
+
+{% block javascript %}
+{% endblock %}
+
+{% block css %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static "css/invites.css" %}" />
+  <style>
+    header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+      align-self: stretch;
+      padding: 1rem;
+    }
+    header .icon {
+      display: flex;
+      width: 3rem;
+      height: 3rem;
+      justify-content: center;
+      align-items: center;
+    }
+    header .title {
+      color: var(--gray-5, #233944);
+      text-align: center;
+      font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
+
+      /* Title */
+      font-family: var(--font-sans, "Source Sans Pro");
+      font-size: var(--font-xl, 1.5rem);
+      font-style: normal;
+      font-weight: 600;
+      line-height: normal;
+    }
+    header .detail {
+      max-width: 32rem;
+      margin: 0 auto 0.5rem;
+      color: var(--gray-5, #233944);
+    }
+    header .detail a {
+      white-space: pre;
+    }
+
+    .icon {
+      display: flex !important;
+      align-items: center;
+    }
+    .icon svg {
+      fill: var(--blue-3);
+    }
+
+    footer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .verification.card {
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .unverified {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 2rem;
+    }
+    .unverified.org {
+      border-bottom: 1px solid var(--gray-2);
+      padding-bottom: 1rem;
+    }
+    .unverified.individual p {
+      margin: 0;
+      max-width: 24rem;
+      font-size: var(--font-sm, .875rem);
+      color: var(--gray-5);
+    }
+  </style>
+{% endblock %}
+
+{% block onboarding_step %}
+<div class="step">
+    <header>
+      <div class="icon">{% include "core/icons/verified.svg" %}</div>
+      <h2 class="title">{% blocktrans %}Request Verification{% endblocktrans %}</h2>
+      <p class="detail">
+        {% blocktrans %}
+        Verified newsrooms have access to additional reporting and publishing tools. Before you can upload documents to DocumentCloud, or access other advanced features, you may need to be in a verified newsroom.
+        {% endblocktrans %}
+      </p>
+      <p class="detail">
+        {% blocktrans %}
+        Our help pages include an in-depth <a href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433" target="_blank">guide to verification</a> and guidance on everything you can do in DocumentCloud without verification. 
+        {% endblocktrans %}
+      </p>
+    </header>
+    <main>
+      <div class="verification card">
+        {% for organization in unverified_orgs %}
+          <div class="unverified org">
+            {% include "account/team_list_item.html" %}
+            <a class="ghost button" href="{% airtable_verification_url organization %}" target="_blank">
+              Request verification
+            </a>
+          </div>
+        {% endfor %}
+        {% if not individually_verified %}
+          <div class="unverified individual">
+            <p>
+              {% blocktrans %}
+              Freelance journalists and independent researchers may qualify for verification,
+              although we <em>strongly</em> encourage verification through a newsroom or other affiliated organization.
+              {% endblocktrans %}
+            </p>
+            <a class="ghost primary button" href="{% airtable_verification_url organization %}" target="_blank">
+              Verify yourself
+            </a>
+          </div>
+        {% endif %}
+      </div>
+    </main>
+    <footer>
+      <form method="POST" action="{% url 'account_onboarding' %}">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="verification" />
+        <button type="submit" name="verification" value="skip" class="primary button">{% trans "Continue signing in" %}</button>
+      </form>
+    </footer>
+</div>
+{% endblock %}
