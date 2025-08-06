@@ -522,10 +522,6 @@ class Organization(AvatarMixin, models.Model):
             request=False,
         ).first()
 
-    def get_subtype_names(self):
-        """Retrieve a list of subtypes for this organization."""
-        return list(self.subtypes.values_list("name", flat=True))
-
     @transaction.atomic
     def merge(self, org, user):
         """Merge another organization into this one"""
