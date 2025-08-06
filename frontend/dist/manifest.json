@@ -7,5 +7,14 @@
     "css": [
       "assets/main-BBiUquqf.css"
     ]
+  },
+  "frontend/views/organization_list.ts": {
+    "file": "assets/views/organization_list-IHhJY-AQ.js",
+    "name": "views/organization_list",
+    "src": "frontend/views/organization_list.ts",
+    "isEntry": true,
+    "css": [
+      "assets/organization_list-CiWLF5Xu.css"
+    ]
   }
 }

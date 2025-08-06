@@ -19,6 +19,7 @@
     "@types/node": "^24.1.0",
     "@types/stripe-v3": "^3.0.9",
     "prettier": "^3.3.0",
+    "svelecte": "^5.2.1",
     "svelte": "^5.37.1",
     "typescript": "^3.3.3333",
     "vite": "^7.0.0"

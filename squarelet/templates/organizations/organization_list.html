@@ -10,7 +10,7 @@
 
 {% block content %}
   <div class="_cls-content">
-    <h2>Organizations</h2>
+    <h2>{% trans "Join an organization" %}</h2>
     <div class="_cls-action">
       <a class="_cls-nostyle" href="{% url "organizations:create" %}">
         Create a new organization
@@ -18,11 +18,7 @@
     </div>
   </div>
 
-  <div id="org_search">
-    <form>
-      <input type="search" name="q" placeholder="{% trans "Search organizations" %} ..." />
-    </form>
-  </div>
+  <div id="org_search"></div>
 
   {% comment "delete me" %}
   <div class="_cls-expandedContent">
