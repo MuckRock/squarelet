@@ -32,6 +32,7 @@ from datetime import datetime
 # Third Party
 from allauth.account.utils import get_next_redirect_url, send_email_confirmation
 from allauth.account.views import (
+    EmailView as AllAuthEmailView,
     LoginView as AllAuthLoginView,
     SignupView as AllAuthSignupView,
 )
@@ -40,6 +41,7 @@ from allauth.mfa.models import Authenticator
 from allauth.mfa.utils import is_mfa_enabled
 from allauth.socialaccount.adapter import get_adapter as get_social_adapter
 from allauth.socialaccount.internal import flows
+from allauth.socialaccount.views import ConnectionsView
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Fieldset, Layout
 
@@ -63,6 +65,25 @@ ONBOARDING_SESSION_DEFAULTS = (
     ("join_org", False),
     ("subscription", "not_started"),
 )
+
+
+class UserEmailView(AllAuthEmailView):
+    """Custom email view to redirect to user detail page after email operations."""
+
+    def get_success_url(self):
+        """Redirect to the user detail page after a successful email operation."""
+        return reverse("users:detail", kwargs={"username": self.request.user.username})
+
+
+class UserConnectionsView(ConnectionsView):
+    """
+    Override the connections view to redirect
+    to user detail page after operations.
+    """
+
+    def get_success_url(self):
+        """Redirect to the user detail page after a successful connection operation."""
+        return reverse("users:detail", kwargs={"username": self.request.user.username})
 
 
 class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
