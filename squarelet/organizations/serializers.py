@@ -11,7 +11,6 @@ from squarelet.organizations.models import (
     Charge,
     Membership,
     Organization,
-    OrganizationSubtype,
 )
 
 
