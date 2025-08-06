@@ -21,8 +21,6 @@ const views = Object.fromEntries(
   ]),
 );
 
-console.log(views);
-
 export default defineConfig({
   base: "/static/",
   build: {
@@ -36,6 +34,11 @@ export default defineConfig({
     },
   },
   plugins: [svelte({})],
+  resolve: {
+    alias: {
+      "@": path.resolve("frontend"),
+    },
+  },
   server: {
     port: 4200, // must be a port other than 5173
     host: true,

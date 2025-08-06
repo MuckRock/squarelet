@@ -8,7 +8,6 @@ import OrgSearch from "../components/OrgSearch.svelte";
 window.addEventListener("DOMContentLoaded", () => {
   const el = document.getElementById("org_search");
   if (el) {
-    // @ts-ignore
-    window.org_search = mount(OrgSearch, { target: el });
+    mount(OrgSearch, { target: el });
   }
 });
