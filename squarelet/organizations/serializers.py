@@ -8,12 +8,14 @@ from rest_framework.exceptions import APIException
 
 # Squarelet
 from squarelet.organizations.models import Charge, Membership, Organization
+from squarelet.users.models import User
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
     uuid = serializers.UUIDField(required=False)
     merged = serializers.SlugRelatedField(read_only=True, slug_field="uuid")
     subtypes = serializers.StringRelatedField(many=True)
+    admins = serializers.SerializerMethodField()
 
     class Meta:
         model = Organization
@@ -30,7 +32,20 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "updated_at",
             "merged",
             "subtypes",
+            "admins",
         )
+
+    def get_admins(self, obj):
+        admins = User.objects.filter(
+            memberships__organization=obj, memberships__admin=True
+        ).distinct()
+        return [
+            {
+                "name": admin.get_full_name() or admin.username,
+                "email": admin.email,
+            }
+            for admin in admins
+        ]
 
 
 class OrganizationDetailSerializer(OrganizationSerializer):
