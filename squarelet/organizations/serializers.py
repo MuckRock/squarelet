@@ -4,10 +4,10 @@ from django.db.models.expressions import F
 # Third Party
 import stripe
 from rest_framework import serializers, status
-from django.contrib.auth import get_user_model
 from rest_framework.exceptions import APIException
 
 # Squarelet
+from squarelet.users.models import User
 from squarelet.organizations.models import Charge, Membership, Organization
 
 
@@ -36,7 +36,6 @@ class OrganizationSerializer(serializers.ModelSerializer):
         )
 
     def get_admins(self, obj):
-        User = get_user_model()
         admins = User.objects.filter(
             memberships__organization=obj, memberships__admin=True
         ).distinct()
