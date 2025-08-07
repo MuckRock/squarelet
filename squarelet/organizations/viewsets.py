@@ -15,8 +15,7 @@ from squarelet.organizations.serializers import (
 
 
 class OrganizationViewSet(viewsets.ModelViewSet):
-    # remove _plan after clients are updated
-    queryset = Organization.objects.select_related("_plan")
+    queryset = Organization.objects.prefetch_related("subtypes")
     serializer_class = OrganizationSerializer
     permission_classes = (ScopePermission | IsAdminUser,)
     read_scopes = ("read_organization",)
