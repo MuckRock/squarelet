@@ -4,6 +4,7 @@ from django.db.models.expressions import F
 # Third Party
 import stripe
 from rest_framework import serializers, status
+from django.contrib.auth import get_user_model
 from rest_framework.exceptions import APIException
 
 # Squarelet
@@ -14,6 +15,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
     uuid = serializers.UUIDField(required=False)
     merged = serializers.SlugRelatedField(read_only=True, slug_field="uuid")
     subtypes = serializers.StringRelatedField(many=True)
+    admins = serializers.SerializerMethodField()
 
     class Meta:
         model = Organization
@@ -30,7 +32,21 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "updated_at",
             "merged",
             "subtypes",
+            "admins",
         )
+
+    def get_admins(self, obj):
+        User = get_user_model()
+        admins = User.objects.filter(
+            memberships__organization=obj, memberships__admin=True
+        ).distinct()
+        return [
+            {
+                "name": admin.get_full_name() or admin.username,
+                "email": admin.email,
+            }
+            for admin in admins
+        ]
 
 
 class OrganizationDetailSerializer(OrganizationSerializer):
