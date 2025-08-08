@@ -11,4 +11,5 @@ export interface Organization {
   payment_failed: boolean;
   avatar_url: string | URL;
   merged: Date | null;
+  member_count: number;
 }
