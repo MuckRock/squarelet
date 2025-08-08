@@ -2,11 +2,11 @@
   import type { Organization } from "@/types";
 
   import Svelecte from "svelecte";
+  import TeamListItem from "./TeamListItem.svelte";
 
   let selected: Organization | undefined = $state();
-  let options: Organization[] = $state([]);
 
-  $inspect(options, selected);
+  const fetchProps: RequestInit = { credentials: "include" };
 
   function onchange(e) {
     console.log(e);
@@ -18,12 +18,16 @@
     name="q"
     placeholder="Search public organizations…"
     bind:value={selected}
-    bind:options
     valueAsObject
     labelField="name"
-    fetch="/fe_api/organizations/?search=[query]"
+    fetch="/fe_api/organizations/?individual=false&private=false&search=[query]"
     fetchCallback={(resp) => resp.results}
+    fetchResetOnBlur={false}
+    resetOnBlur={false}
+    lazyDropdown={false}
+    {fetchProps}
     searchProps={{ skipSort: true }}
+    {onchange}
   >
     {#snippet selection(selectedOptions: Organization[], bindItem)}
       {#each selectedOptions as org (org.id)}
@@ -35,9 +39,7 @@
     {/snippet}
 
     {#snippet option(item: Organization)}
-      <div class="option">
-        {item.name}
-      </div>
+      <TeamListItem organization={item} />
     {/snippet}
   </Svelecte>
 </form>
