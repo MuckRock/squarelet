@@ -1,6 +1,6 @@
 FROM python:3.10
 
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
   postgresql-client
@@ -26,18 +26,21 @@ COPY ./config/certs/rootCA.pem /usr/local/share/ca-certificates/rootCA.crt
 RUN update-ca-certificates
 
 # install NVM
-ENV NVM_DIR /usr/local/nvm
-ENV NODE_VERSION 22.2.0
+ENV NVM_DIR=/usr/local/nvm
+
+# use the latest minor version of Node 22
+ENV NODE_VERSION=22.17.1
 
 RUN mkdir $NVM_DIR
 RUN curl https://raw.githubusercontent.com/creationix/nvm/v0.34.0/install.sh | sh \
   && . $NVM_DIR/nvm.sh \
   && nvm install $NODE_VERSION \
   && nvm alias default $NODE_VERSION \
-  && nvm use default
+  && nvm use default \
+  && nvm install-latest-npm
 
-ENV NODE_PATH $NVM_DIR/v$NODE_VERSION/lib/node_modules
-ENV PATH      $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
+ENV NODE_PATH=$NVM_DIR/v${NODE_VERSION}/lib/node_modules
+ENV PATH=$NVM_DIR/versions/node/v${NODE_VERSION}/bin:$PATH
 
 # heroku cli
 # RUN curl https://cli-assets.heroku.com/install.sh | sh

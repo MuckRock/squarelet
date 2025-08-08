@@ -1,0 +1,21 @@
+{
+  "extends": "@tsconfig/svelte/tsconfig.json",
+  "compilerOptions": {
+    /* Visit https://aka.ms/tsconfig.json to read more about this file */
+
+    "paths": {
+      "@": ["./frontend"]
+    },
+    /* Basic Options */
+    "target": "esnext",
+    "module": "esnext",
+
+    "strict": false,
+    "esModuleInterop": true,
+
+    /* Advanced Options */
+    "skipLibCheck": true /* Skip type checking of declaration files. */,
+    "forceConsistentCasingInFileNames": true /* Disallow inconsistently-cased references to the same file. */
+  },
+  "exclude": ["frontend/dist/", "node_modules/", "scratch/"]
+}

@@ -1,17 +1,26 @@
 {% extends "base.html" %}
-{% load static i18n avatar %}
+{% load static i18n avatar django_vite %}
 {% block title %}Organizations{% endblock %}
+
+
+{% block vite %}
+{{ block.super }}
+{% vite_asset 'frontend/views/organization_list.ts' %}
+{% endblock vite %}
 
 {% block content %}
   <div class="_cls-content">
-    <h2>Organizations</h2>
+    <h2>{% trans "Join an organization" %}</h2>
     <div class="_cls-action">
       <a class="_cls-nostyle" href="{% url "organizations:create" %}">
         Create a new organization
       </a>
     </div>
   </div>
-  
+
+  <div id="org_search"></div>
+
+  {% comment "delete me" %}
   <div class="_cls-expandedContent">
     <div id="_id-autocomplete" class="_cls-autocomplete">
       <div class="_cls-inputSection">
@@ -47,4 +56,9 @@
       </div>
     </div>
   </div>
+  {% endcomment %}
 {% endblock content %}
+
+{% block extra_javascript %}
+
+{% endblock extra_javascript %}
