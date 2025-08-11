@@ -8,7 +8,6 @@ from rest_framework.exceptions import APIException
 
 # Squarelet
 from squarelet.organizations.models import Charge, Membership, Organization
-from squarelet.users.models import User
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
