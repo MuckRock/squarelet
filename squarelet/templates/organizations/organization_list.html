@@ -2,63 +2,19 @@
 {% load static i18n avatar django_vite %}
 {% block title %}Organizations{% endblock %}
 
-
 {% block vite %}
 {{ block.super }}
 {% vite_asset 'frontend/views/organization_list.ts' %}
 {% endblock vite %}
 
 {% block content %}
-  <div class="_cls-content">
-    <h2>{% trans "Join an organization" %}</h2>
-    <div class="_cls-action">
-      <a class="_cls-nostyle" href="{% url "organizations:create" %}">
-        Create a new organization
-      </a>
-    </div>
-  </div>
-
+<main>
+  <header>
+    <nav class="breadcrumb">
+      
+      {% trans "Back to your account" %}
+    </nav>
+  </header>
   <div id="org_search"></div>
-
-  {% comment "delete me" %}
-  <div class="_cls-expandedContent">
-    <div id="_id-autocomplete" class="_cls-autocomplete">
-      <div class="_cls-inputSection">
-        <div class="_cls-input">
-          <div class="_cls-searchCircle"></div>
-          <div class="_cls-searchRectangle"></div>
-          <div id="_id-close" class="_cls-closeButton">
-            <div class="_cls-closeOpaque"></div>
-            <div class="_cls-closeLeft"></div>
-            <div class="_cls-closeRight"></div>
-          </div>
-          <input id="_id-filter" placeholder="Filter..." />
-          <div class="_cls-bottomLine"></div>
-        </div>
-        <div class="_cls-inputPad"></div>
-      </div>
-      <div class="_cls-results">
-
-        <div class="_cls-resultsList" id="_id-results">
-          {% for org in organization_list %}
-            <a href="{% url 'organizations:detail' org.slug %}">
-              <div class="_cls-result">
-                <div class="_cls-inlineAvatar">
-                  {% avatar org 22 %}
-                </div>
-                <span class="_cls-inlineText">
-                  {{ org.name }}
-                </span>
-              </div>
-            </a>
-          {% endfor %}
-        </div>
-      </div>
-    </div>
-  </div>
-  {% endcomment %}
+</main>
 {% endblock content %}
-
-{% block extra_javascript %}
-
-{% endblock extra_javascript %}

@@ -11,6 +11,7 @@ from django.http.response import (
 )
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils import timezone
 from django.views.generic import (
     DetailView,
     ListView,
@@ -26,15 +27,21 @@ import json
 import logging
 import sys
 import time
+from datetime import datetime
 
 # Third Party
 from allauth.account.utils import get_next_redirect_url, send_email_confirmation
 from allauth.account.views import (
+    EmailView as AllAuthEmailView,
     LoginView as AllAuthLoginView,
     SignupView as AllAuthSignupView,
 )
+from allauth.mfa import app_settings
+from allauth.mfa.models import Authenticator
+from allauth.mfa.utils import is_mfa_enabled
 from allauth.socialaccount.adapter import get_adapter as get_social_adapter
 from allauth.socialaccount.internal import flows
+from allauth.socialaccount.views import ConnectionsView
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Fieldset, Layout
 
@@ -60,6 +67,25 @@ ONBOARDING_SESSION_DEFAULTS = (
 )
 
 
+class UserEmailView(AllAuthEmailView):
+    """Custom email view to redirect to user detail page after email operations."""
+
+    def get_success_url(self):
+        """Redirect to the user detail page after a successful email operation."""
+        return reverse("users:detail", kwargs={"username": self.request.user.username})
+
+
+class UserConnectionsView(ConnectionsView):
+    """
+    Override the connections view to redirect
+    to user detail page after operations.
+    """
+
+    def get_success_url(self):
+        """Redirect to the user detail page after a successful connection operation."""
+        return reverse("users:detail", kwargs={"username": self.request.user.username})
+
+
 class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
     model = User
     slug_field = "username"
@@ -73,14 +99,61 @@ class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
     def get_context_data(self, **kwargs):
         user = self.object
         context = super().get_context_data(**kwargs)
-        context["other_orgs"] = (
-            context["user"]
-            .organizations.filter(individual=False)
-            .get_viewable(self.request.user)
+        context["admin_orgs"] = list(
+            user.organizations.filter(individual=False, memberships__admin=True)
         )
-        context["potential_organizations"] = user.get_potential_organizations()
-        context["pending_invitations"] = user.get_pending_invitations()
+        context["other_orgs"] = list(
+            user.organizations.filter(
+                individual=False, memberships__admin=False
+            ).get_viewable(self.request.user)
+        )
+        context["potential_organizations"] = list(user.get_potential_organizations())
+        context["pending_invitations"] = list(user.get_pending_invitations())
+        context["verified"] = user.verified_journalist()
+        context["emails"] = user.emailaddress_set.all()
+        context["is_mfa_enabled"] = is_mfa_enabled(user)
+        context["RECOVERY_CODE_COUNT"] = app_settings.RECOVERY_CODE_COUNT
+        context["unused_code_count"] = len(self.get_recovery_codes())
+        # Get the current plan and subscription, if any
+        individual_org = user.individual_organization
+        current_plan = None
+        subscription = None
+        if hasattr(individual_org, "subscriptions"):
+            subscription = individual_org.subscriptions.first()
+            if subscription and hasattr(subscription, "plan"):
+                current_plan = subscription.plan
+        context["current_plan"] = current_plan
+        # Get card, next charge date, and cancelled status for active subscription
+        if current_plan and subscription:
+            customer = getattr(individual_org, "customer", None)
+            if callable(customer):
+                customer = customer()
+            context["current_plan_card"] = getattr(customer, "card", None)
+            # Stripe subscription may have next charge date
+            stripe_sub = getattr(subscription, "stripe_subscription", None)
+            if stripe_sub:
+                # Try to get next charge date from Stripe subscription
+                time_stamp = getattr(stripe_sub, "current_period_end", None)
+                if time_stamp:
+                    tz_datetime = datetime.fromtimestamp(
+                        time_stamp, tz=timezone.get_current_timezone()
+                    )
+                    context["current_plan_next_charge_date"] = tz_datetime.date()
+            # Check if the plan is cancelled
+            context["current_plan_cancelled"] = getattr(subscription, "cancelled", None)
         return context
+
+    def get_recovery_codes(self):
+        "Get unused recovery codes"
+        authenticator = Authenticator.objects.filter(
+            user=self.request.user,
+            type=Authenticator.Type.RECOVERY_CODES,
+        ).first()
+
+        if not authenticator:
+            return []
+
+        return authenticator.wrap().get_unused_codes()
 
 
 class UserRedirectView(LoginRequiredMixin, RedirectView):

@@ -9,13 +9,19 @@
   {{ block.super }}
   <link rel="stylesheet" href="{% static "css/team_list_item.css" %}" />
   <style>
+    .step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2rem;
+    }
     header {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 1.5rem;
       align-self: stretch;
       padding: 1rem;
+      gap: 1rem;
     }
     header .icon {
       display: flex;
@@ -25,6 +31,9 @@
       align-items: center;
     }
     header .title {
+      max-width: 32rem;
+      margin: 0 auto;
+
       color: var(--gray-5, #233944);
       text-align: center;
       font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
@@ -38,7 +47,7 @@
     }
     header .detail {
       max-width: 32rem;
-      margin: 0 auto 0.5rem;
+      margin: 0 auto;
       color: var(--gray-5, #233944);
     }
     header .detail a {

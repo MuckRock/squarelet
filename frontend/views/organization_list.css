@@ -1,0 +1,15 @@
+/* main container, in base.html */
+._cls-main {
+  display: flex;
+  align-items: center;
+}
+
+main {
+  align-self: stretch;
+  display: flex;
+  max-width: 60rem;
+  padding: 1rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2rem;
+}

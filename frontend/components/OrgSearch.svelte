@@ -33,7 +33,9 @@
       {#each selectedOptions as org (org.id)}
         <div class="selected">
           {org.name}
-          <button data-action="deselect" use:bindItem={org}>&times;</button>
+          <button class="btn ghost" data-action="deselect" use:bindItem={org}>
+            &times;
+          </button>
         </div>
       {/each}
     {/snippet}
