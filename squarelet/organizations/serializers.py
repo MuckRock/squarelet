@@ -36,15 +36,16 @@ class OrganizationSerializer(serializers.ModelSerializer):
         )
 
     def get_admins(self, obj):
-        admins = User.objects.filter(
-            memberships__organization=obj, memberships__admin=True
-        ).distinct()
         return [
             {
-                "name": admin.get_full_name() or admin.username,
-                "email": admin.email,
+                "id": user.pk,
+                "name": user.get_full_name() or user.username,
+                "email": user.email,
             }
-            for admin in admins
+            for user in obj.users.all()
+            if any(
+                m.admin and m.organization_id == obj.pk for m in user.memberships.all()
+            )
         ]
 
 
