@@ -537,3 +537,7 @@ ROBOTS_CACHE_TIMEOUT = 60 * 60 * 24
 # GITHUB_REF_NAME is set by GitHub Actions
 # HEROKU_BRANCH is set by Heroku
 CI_GIT_BRANCH = env.str("GITHUB_REF_NAME", None) or env.str("HEROKU_BRANCH", None)
+
+WIX_APP_SECRET = env("WIX_APP_SECRET", default="")
+WIX_ACCOUNT_ID = env("WIX_ACCOUNT_ID", default="")
+WIX_SITE_ID = env("WIX_SITE_ID", default="")

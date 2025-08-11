@@ -1,4 +1,5 @@
 # Django
+from django.conf import settings
 from django.db import models, transaction
 from django.templatetags.static import static
 from django.urls import reverse
@@ -9,6 +10,7 @@ from django.utils.translation import gettext_lazy as _
 import uuid
 
 # Third Party
+import requests
 from autoslug import AutoSlugField
 from memoize import mproperty
 from sorl.thumbnail import ImageField
@@ -453,6 +455,32 @@ class Organization(AvatarMixin, models.Model):
     def has_active_subscription(self):
         """Check if the organization has an active subscription"""
         return bool(self.subscription)
+
+    def sync_wix(self, plan, user):
+        """Sync the user to Wix"""
+        if plan and plan.wix:
+            # XXX sync to wix
+            # check for duplicates?
+            requests.post(
+                "https://www.wixapis.com/members/v1/members",
+                headers={
+                    "Authorization": settings.WIX_APP_SECRET,
+                    "wix-site-id": settings.WIX_SITE_ID,
+                },
+                json={
+                    "member": {
+                        "loginEmail": user.email,
+                        "contact": {
+                            "firstName": user.name.split(" ", 1)[0],
+                            "lastName": user.name.split(" ", 1)[0],
+                            "emails": [user.email],
+                            "company": self.name,
+                        },
+                        # we do not collect country, state, or job title
+                        # where do we store checkbox for ToS?
+                    },
+                },
+            )
 
     def charge(
         self,
