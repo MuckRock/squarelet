@@ -8,6 +8,7 @@ from django.utils.translation import gettext_lazy as _
 import logging
 
 # Third Party
+import requests
 import stripe
 from autoslug import AutoSlugField
 from memoize import mproperty
@@ -381,6 +382,9 @@ class Plan(models.Model):
             "Webhook URL to notify when an organization subscribes to this plan"
         ),
     )
+
+    # do we need to sync users on this plan to wix?
+    wix = models.BooleanField(default=False)
 
     class Meta:
         ordering = ("slug",)
