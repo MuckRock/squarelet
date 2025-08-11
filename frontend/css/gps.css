@@ -161,6 +161,7 @@
   border: none;
   border-radius: 0.5rem;
   box-shadow: none;
+  color: var(--gray-4)
   display: inline-flex;
   gap: 0.5rem;
   justify-content: center;
