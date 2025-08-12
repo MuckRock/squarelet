@@ -1,18 +1,12 @@
 {% extends "base.html" %}
-{% load account socialaccount %}
-{% load airtable %}
-{% load avatar %}
-{% load i18n %}
-{% load static %}
-{% load thumbnail %}
+{% load account airtable avatar i18n socialaccount static thumbnail %}
 
 {% block title %}{% trans 'User' %}: {{ user.username }}{% endblock %}
 
 {% block css %}
 {# shared styles #}
 <link rel="stylesheet" href="{% static "css/gps.css" %}" />
-<link rel="stylesheet" href="{% static "css/invites.css" %}" />
-
+<link rel="stylesheet" href="{% static "css/team_list_item.css" %}" />
 
 {# include any style tags in parent templates #}
 {{ block.super }}

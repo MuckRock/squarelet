@@ -79,19 +79,8 @@
 }
 
 /* typography */
-h2 {
-  color: var(--gray-5, #233944);
-  font-feature-settings:
-    "ss04" on,
-    "liga" off,
-    "clig" off;
-  font-family: var(--font-sans, "Source Sans Pro");
-  font-size: var(--font-lg, 1.25rem);
-  font-style: normal;
-  font-weight: 400;
-  line-height: normal;
-}
-
+h1,
+h2,
 h3 {
   color: var(--gray-5, #233944);
   font-feature-settings:
@@ -99,12 +88,23 @@ h3 {
     "liga" off,
     "clig" off;
 
-  /* Heading */
+  /* Title */
   font-family: var(--font-sans, "Source Sans Pro");
-  font-size: var(--font-lg, 1.25rem);
   font-style: normal;
   font-weight: 600;
   line-height: normal;
+}
+
+h1 {
+  font-size: var(--font-xl, 1.5rem);
+}
+
+h2 {
+  font-size: var(--font-lg, 1.25rem);
+}
+
+h3 {
+  font-size: var(--font-lg, 1.25rem);
 }
 
 /* components */

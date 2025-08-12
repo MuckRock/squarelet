@@ -163,6 +163,18 @@ class List(ListView):
             .get_viewable(self.request.user)
         )
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+
+        context["invitations"] = []
+        context["potential_orgs"] = []
+        if user.is_authenticated:
+            context["invitations"] = list(user.get_pending_invitations())
+            context["potential_orgs"] = list(user.get_potential_organizations())
+
+        return context
+
 
 def autocomplete(request):
     # This should be replaced by a real API
