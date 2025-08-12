@@ -1,5 +1,5 @@
 {# required css: css/team_list_item.css #}
-{% load static %}
+{% load static i18n %}
 {% with count=organization.memberships.count avatar=organization.avatar %}
 <div class="team">
     {% if avatar %}
