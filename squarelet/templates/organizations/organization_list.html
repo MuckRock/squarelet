@@ -33,13 +33,17 @@
       <h2>
         {% trans "Pending invitations" %}
       </h2>
+      {% if not has_pending %}
+      <div class="empty">
+        <p>{% trans "Teams you can join will appear here when available." %}</p>
+      </div>
+      {% endif %}
 
+      {% if potential_orgs %}
       <div class="pre-approved">
         <header>
           <h2>{% trans "Pre-approved" %}</h2>
-          {% if potential_orgs %}
           <p>{% trans "Based on your email address, you're pre-approved to join:" %}</p>
-          {% endif %}
         </header>
         <div class="orgs">
           {% for organization in potential_orgs %}
@@ -58,8 +62,10 @@
           <p>{% trans "No pre-approved teams are available to join." %}</p>
           {% endfor %}
         </div>
-    </div>
+      </div>
+      {% endif %}
 
+    {% if invitations %}
     <div class="pending">
       <h2>{% trans "Pending requests" %}</h2>
       
@@ -83,6 +89,7 @@
         {% endfor %}
       </div>
     </div>
+    {% endif %}
 
     </section>
   </div>

@@ -8,8 +8,9 @@
 
   const fetchProps: RequestInit = { credentials: "include" };
 
-  function onchange(e) {
-    console.log(e);
+  function onChange(org: Organization) {
+    const url = new URL(`/organizations/${org.slug}/`, window.location.href);
+    window.location = url;
   }
 </script>
 
@@ -27,7 +28,7 @@
     lazyDropdown={false}
     {fetchProps}
     searchProps={{ skipSort: true }}
-    {onchange}
+    {onChange}
   >
     {#snippet selection(selectedOptions: Organization[], bindItem)}
       {#each selectedOptions as org (org.id)}

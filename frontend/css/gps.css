@@ -363,3 +363,23 @@ h3 {
   display: flex;
   width: 100%;
 }
+
+.empty {
+  display: flex;
+  width: 16.5rem;
+  padding: 1.5rem;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+
+  border-radius: 0.5rem;
+  border: 1.282px solid var(--Gray-2, #d8dee2);
+}
+
+.empty p {
+  align-self: stretch;
+  color: var(--gray-5);
+  text-align: center;
+  font-family: "Source Sans Pro";
+}
