@@ -163,6 +163,10 @@ class List(ListView):
             context["invitations"] = list(user.get_pending_invitations())
             context["potential_orgs"] = list(user.get_potential_organizations())
 
+        context["has_pending"] = bool(
+            context["invitations"] + context["potential_orgs"]
+        )
+
         return context
 
 
