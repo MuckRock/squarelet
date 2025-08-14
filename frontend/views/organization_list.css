@@ -4,14 +4,18 @@
   align-items: center;
 }
 
-main {
+article {
   align-self: stretch;
   display: flex;
   max-width: 60rem;
+  width: 100%;
+  min-height: 60vh;
+  margin: 0 auto;
   padding: 1rem;
   flex-direction: column;
   align-items: flex-start;
   gap: 2rem;
+  box-sizing: border-box;
 }
 
 header {
@@ -22,7 +26,7 @@ header {
   align-self: stretch;
 }
 
-header h1 {
+h1, h2 {
   margin: 0;
 }
 
@@ -46,13 +50,16 @@ nav.return a {
 }
 
 nav.return svg {
+  fill: currentColor;
   width: 1rem;
   height: 1rem;
 }
 
 .content {
+  width: 100%;
   display: flex;
   align-items: flex-start;
+  flex-wrap: wrap;
   gap: 1.5rem;
   align-self: stretch;
 }
@@ -61,13 +68,20 @@ nav.return svg {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 1.5rem;
-  flex: 1 0 0;
+  gap: 0.5rem;
+  flex: 1 0 auto;
   align-self: stretch;
+}
+
+.content section.search {
+  flex: 1 1 24rem;
 }
 
 #org_search {
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
 }
 
 .invites > div {
@@ -88,4 +102,8 @@ nav.return svg {
 
   /* shadow-1 */
   box-shadow: 0 2px 4px 2px var(--shadow, rgba(30, 48, 56, 0.15));
+}
+
+.empty {
+  box-sizing: border-box;
 }

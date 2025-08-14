@@ -385,7 +385,8 @@ h3 {
 
 .empty p {
   align-self: stretch;
-  color: var(--gray-5);
+  margin: 0;
+  color: var(--gray-4);
   text-align: center;
   font-family: "Source Sans Pro";
 }
