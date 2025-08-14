@@ -10,7 +10,7 @@
 {% endblock vite %}
 
 {% block content %}
-<main>
+<article id="organization_list">
   <header>
     {% if user.is_authenticated %}
     <nav class="return">
@@ -35,7 +35,8 @@
       </h2>
       {% if not has_pending %}
       <div class="empty">
-        <p>{% trans "Teams you can join will appear here when available." %}</p>
+        <p>{% trans "You don't have any outstanding invitations." %}</p>
+        <p>{% trans "Any invitations you receive will appear here." %}</p>
       </div>
       {% endif %}
 
@@ -93,7 +94,7 @@
 
     </section>
   </div>
-</main>
+</article>
 {% endblock content %}
 
 {% block extra_javascript %}

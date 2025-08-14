@@ -51,6 +51,7 @@
     align-items: center;
     justify-content: center;
     max-width: 88ch;
-    margin: 2rem auto;
+    width: 100%;
+    margin: 0 auto;
   }
 </style>
