@@ -82,10 +82,10 @@ class Detail(AdminLinkMixin, DetailView):
 
             context["requested_invite"] = self.request.user.invitations.filter(
                 organization=self.object
-            ).get_requested()
+            ).get_pending_requests()
             if context["is_admin"]:
                 context["invite_count"] = (
-                    self.object.invitations.get_requested().count()
+                    self.object.invitations.get_pending_requests().count()
                 )
 
             context["can_auto_join"] = (
@@ -156,6 +156,9 @@ class List(ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         user = self.request.user
+
+        if not user.is_authenticated:
+            return context
 
         context["invitations"] = []
         context["potential_orgs"] = []
@@ -469,8 +472,12 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
         context["members"] = self.object.memberships.select_related("user").order_by(
             "user__created_at"
         )
-        context["requested_invitations"] = self.object.invitations.get_requested()
-        context["pending_invitations"] = self.object.invitations.get_pending()
+        context["requested_invitations"] = (
+            self.object.invitations.get_pending_requests()
+        )
+        context["pending_invitations"] = (
+            self.object.invitations.get_pending_invitations()
+        )
         return context
 
 
