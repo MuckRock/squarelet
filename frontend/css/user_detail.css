@@ -119,6 +119,11 @@ a.nav-item {
   align-self: stretch;
 }
 
+h2 {
+  font-weight: 400;
+  font-size: var(--font-lg, 1.25rem);
+}
+
 .content section > header h2 {
   flex: 0 0 auto;
   margin: 0;

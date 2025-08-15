@@ -25,6 +25,7 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 0.5rem;
+  max-width: 100%;
 }
 
 /* contains team info */
@@ -43,10 +44,15 @@
   color: var(--gray-5, #233944);
 }
 
+.team .info h4 a {
+  color: currentColor;
+  text-decoration: none;
+}
+
 .team .badge {
   display: inline-flex;
   align-items: center;
-  gap: .25rem;
+  gap: 0.25rem;
 }
 
 .team .status {
@@ -71,8 +77,8 @@
 .org-avatar svg {
   display: block;
   fill: var(--gray-4, #d8dee2);
-  width: 2.75rem;
-  height: 2.75rem;
+  width: 2rem;
+  height: 2rem;
 }
 
 .org-avatar img {

@@ -348,7 +348,7 @@ class Organization(AvatarMixin, models.Model):
 
     def user_count(self):
         """Count the number of users, including pending invitations"""
-        return self.users.count() + self.invitations.get_pending().count()
+        return self.users.count() + self.invitations.get_pending_invitations().count()
 
     def add_creator(self, user):
         """Add user as the creator of the organization"""

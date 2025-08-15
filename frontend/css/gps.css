@@ -79,19 +79,8 @@
 }
 
 /* typography */
-h2 {
-  color: var(--gray-5, #233944);
-  font-feature-settings:
-    "ss04" on,
-    "liga" off,
-    "clig" off;
-  font-family: var(--font-sans, "Source Sans Pro");
-  font-size: var(--font-lg, 1.25rem);
-  font-style: normal;
-  font-weight: 400;
-  line-height: normal;
-}
-
+h1,
+h2,
 h3 {
   color: var(--gray-5, #233944);
   font-feature-settings:
@@ -99,12 +88,23 @@ h3 {
     "liga" off,
     "clig" off;
 
-  /* Heading */
+  /* Title */
   font-family: var(--font-sans, "Source Sans Pro");
-  font-size: var(--font-lg, 1.25rem);
   font-style: normal;
   font-weight: 600;
   line-height: normal;
+}
+
+h1 {
+  font-size: var(--font-xl, 1.5rem);
+}
+
+h2 {
+  font-size: var(--font-lg, 1.25rem);
+}
+
+h3 {
+  font-size: var(--font-lg, 1.25rem);
 }
 
 /* components */
@@ -169,7 +169,7 @@ h3 {
   box-sizing: border-box;
   border-radius: 0.5rem;
   padding: 0.375rem 0.75rem;
-  
+
   /* Layout */
   display: inline-flex;
   justify-content: center;
@@ -204,7 +204,8 @@ h3 {
 
 /* When hovering or focusing, the button rises
    up out from the content plane to signal it's interactive. */
-.btn:hover, .btn:focus {
+.btn:hover,
+.btn:focus {
   transform: translateY(-2px);
   background: var(--gray-3, #4294f0);
   box-shadow: 0px 2px 0px 0px var(--gray-4, #1367d0);
@@ -219,7 +220,8 @@ h3 {
   background: var(--blue-3, #4294f0);
 }
 
-.btn.primary:hover, .btn.primary:focus {
+.btn.primary:hover,
+.btn.primary:focus {
   transform: translateY(-2px);
   box-shadow: 0px 2px 0px 0px var(--blue-4, #1367d0);
 }
@@ -231,7 +233,8 @@ h3 {
   background: var(--green-3, #27c6a2);
 }
 
-.btn.premium:hover, .btn.premium:focus {
+.btn.premium:hover,
+.btn.premium:focus {
   transform: translateY(-2px);
   box-shadow: 0px 2px 0px 0px var(--green-4, #117383);
 }
@@ -243,7 +246,8 @@ h3 {
   background: var(--orange-3, #ec7b6b);
 }
 
-.btn.caution:hover, .btn.caution:focus {
+.btn.caution:hover,
+.btn.caution:focus {
   transform: translateY(-2px);
   box-shadow: 0px 2px 0px 0px var(--orange-4, #69515c);
 }
@@ -251,13 +255,14 @@ h3 {
 /* Danger button */
 
 .btn.danger {
-  border: 1px solid var(--red-4, #5D275F);
-  background: var(--red-3, #E1275F);
+  border: 1px solid var(--red-4, #5d275f);
+  background: var(--red-3, #e1275f);
 }
 
-.btn.danger:hover, .btn.danger:focus {
+.btn.danger:hover,
+.btn.danger:focus {
   transform: translateY(-2px);
-  box-shadow: 0px 2px 0px 0px var(--red-4, #5D275F);
+  box-shadow: 0px 2px 0px 0px var(--red-4, #5d275f);
 }
 
 /* Ghost button */
@@ -314,7 +319,8 @@ h3 {
   box-shadow: none;
 }
 
-.btn.ghost:hover, .btn.ghost:focus {
+.btn.ghost:hover,
+.btn.ghost:focus {
   background: var(--blue-1, #eef3f9);
   transform: none;
   box-shadow: none;
@@ -362,4 +368,25 @@ h3 {
 .btn.full {
   display: flex;
   width: 100%;
+}
+
+.empty {
+  display: flex;
+  width: 16.5rem;
+  padding: 1.5rem;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+
+  border-radius: 0.5rem;
+  border: 1.282px solid var(--Gray-2, #d8dee2);
+}
+
+.empty p {
+  align-self: stretch;
+  margin: 0;
+  color: var(--gray-4);
+  text-align: center;
+  font-family: "Source Sans Pro";
 }

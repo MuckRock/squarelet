@@ -13,6 +13,7 @@ from squarelet.organizations.models import Charge, Membership, Organization
 class OrganizationSerializer(serializers.ModelSerializer):
     uuid = serializers.UUIDField(required=False)
     merged = serializers.SlugRelatedField(read_only=True, slug_field="uuid")
+    subtypes = serializers.StringRelatedField(many=True)
 
     class Meta:
         model = Organization
@@ -28,6 +29,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "payment_failed",
             "updated_at",
             "merged",
+            "subtypes",
         )
 
 
