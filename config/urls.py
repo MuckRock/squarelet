@@ -22,15 +22,15 @@ from squarelet.organizations.fe_api.viewsets import (
 from squarelet.organizations.viewsets import ChargeViewSet, OrganizationViewSet
 from squarelet.payments.views import (
     PlanDetailView,
-    PlanRedirectView
+    PlanRedirectView,
 )
 from squarelet.users.fe_api.viewsets import UserViewSet as FEUserViewSet
 from squarelet.users.views import (
-    UserEmailView,
-    UserConnectionsView,
     LoginView,
     SignupView,
-    UserOnboardingView
+    UserConnectionsView,
+    UserEmailView,
+    UserOnboardingView,
 )
 from squarelet.users.viewsets import (
     RefreshTokenViewSet,

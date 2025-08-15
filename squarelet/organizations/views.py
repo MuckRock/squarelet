@@ -175,9 +175,9 @@ class List(ListView):
             context["potential_orgs"] = list(user.get_potential_organizations())
 
         context["has_pending"] = bool(
-            context["pending_requests"] +
-            context["pending_invitations"] +
-            context["potential_orgs"]
+            context["pending_requests"]
+            + context["pending_invitations"]
+            + context["potential_orgs"]
         )
         context["has_verified_email"] = bool(user.get_verified_emails())
 

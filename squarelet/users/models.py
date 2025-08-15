@@ -277,7 +277,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
 
     def get_pending_requests(self):
         verified_emails = self.get_verified_emails()
-        
+
         if not verified_emails:
             # If the user has no verified emails, they cannot have pending invites
             return Invitation.objects.none()
