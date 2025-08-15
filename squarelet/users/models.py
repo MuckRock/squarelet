@@ -235,6 +235,11 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
     def verified_journalist(self):
         return self.organizations.filter(verified_journalist=True).exists()
 
+    def get_verified_emails(self):
+        """Returns a list of all verified emails"""
+        verified_email_qs = self.emailaddress_set.filter(verified=True)
+        return list(verified_email_qs.values_list("email", flat=True))
+
     # TODO: remove after retiring Election Hub (#229)
     def is_hub_eligible(self):
         return self.organizations.filter(
@@ -270,26 +275,49 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
             and organization in self.get_potential_organizations()
         )
 
-    def get_pending_invitations(self):
-        verified_email_qs = self.emailaddress_set.filter(verified=True)
-        verified_emails = list(verified_email_qs.values_list("email", flat=True))
-
+    def get_pending_requests(self):
+        verified_emails = self.get_verified_emails()
+        
         if not verified_emails:
             # If the user has no verified emails, they cannot have pending invites
             return Invitation.objects.none()
 
-        # Query for Invitations matching any verified email
+        # Query for request Invitations matching any verified email
         # that are not accepted or rejected
-        pending_invites = (
+        pending_requests = (
             Invitation.objects.filter(
                 email__in=verified_emails,
+                request=True,
                 accepted_at__isnull=True,
                 rejected_at__isnull=True,
             )
             .select_related("organization")
             .order_by("-created_at")
         )
+        print(pending_requests)
 
+        return pending_requests
+
+    def get_pending_invitations(self):
+        verified_emails = self.get_verified_emails()
+
+        if not verified_emails:
+            # If the user has no verified emails, they cannot have pending invites
+            return Invitation.objects.none()
+
+        # Query for non-request Invitations matching any verified email
+        # that are not accepted or rejected
+        pending_invites = (
+            Invitation.objects.filter(
+                email__in=verified_emails,
+                request=False,
+                accepted_at__isnull=True,
+                rejected_at__isnull=True,
+            )
+            .select_related("organization")
+            .order_by("-created_at")
+        )
+        print(pending_invites)
         return pending_invites
 
 

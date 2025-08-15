@@ -170,12 +170,16 @@ class List(ListView):
         context["invitations"] = []
         context["potential_orgs"] = []
         if user.is_authenticated:
-            context["invitations"] = list(user.get_pending_invitations())
+            context["pending_requests"] = list(user.get_pending_requests())
+            context["pending_invitations"] = list(user.get_pending_invitations())
             context["potential_orgs"] = list(user.get_potential_organizations())
 
         context["has_pending"] = bool(
-            context["invitations"] + context["potential_orgs"]
+            context["pending_requests"] +
+            context["pending_invitations"] +
+            context["potential_orgs"]
         )
+        context["has_verified_email"] = bool(user.get_verified_emails())
 
         return context
 
@@ -510,7 +514,10 @@ class InvitationAccept(DetailView):
             return redirect(invitation.organization)
         elif action == "reject":
             invitation.reject()
-            messages.info(request, "Invitation rejected")
+            if invitation.request:
+                messages.info(request, "Invitation withdrawn")
+            else:
+                messages.info(request, "Invitation rejected")
             return redirect(request.user)
         else:
             messages.error(request, "Invalid choice")
