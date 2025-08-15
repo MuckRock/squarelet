@@ -14,6 +14,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
     uuid = serializers.UUIDField(required=False)
     merged = serializers.SlugRelatedField(read_only=True, slug_field="uuid")
     subtypes = serializers.StringRelatedField(many=True)
+    admins = serializers.SerializerMethodField()
 
     class Meta:
         model = Organization
@@ -30,7 +31,21 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "updated_at",
             "merged",
             "subtypes",
+            "admins",
         )
+
+    def get_admins(self, obj):
+        return [
+            {
+                "id": user.pk,
+                "name": user.get_full_name() or user.username,
+                "email": user.email,
+            }
+            for user in obj.users.all()
+            if any(
+                m.admin and m.organization_id == obj.pk for m in user.memberships.all()
+            )
+        ]
 
 
 class OrganizationDetailSerializer(OrganizationSerializer):
