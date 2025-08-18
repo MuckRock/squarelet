@@ -17,7 +17,6 @@
   gap: 2rem;
   box-sizing: border-box;
 }
-  
 
 .org-list-page > header {
   width: 100%;
@@ -33,7 +32,8 @@
   flex: 1 0 16rem;
 }
 
-h1, h2 {
+h1,
+h2 {
   margin: 0;
 }
 
@@ -117,7 +117,7 @@ nav.links svg {
   padding: 1rem 0.5rem;
   display: flex;
   flex-direction: column;
-  border-radius: .5rem;
+  border-radius: 0.5rem;
 }
 
 #org_search {

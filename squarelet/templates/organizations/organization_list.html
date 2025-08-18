@@ -74,7 +74,7 @@
         <p>
           {% blocktrans %}
           You must verify your email address before you can send requests
-          or receieve invitations to join an organization.
+          or receive invitations to join an organization.
           {% endblocktrans %}
         </p>
       </div>
@@ -113,7 +113,6 @@
         {% endif %}
 
         {% if pending_invitations %}
-        {{pending_invitations}}
         <div class="pending">
           <header>
             <h2>{% trans "Pending invitations" %}</h2>
