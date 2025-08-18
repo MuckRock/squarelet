@@ -3,6 +3,14 @@
 
 {% block title %}Organizations{% endblock %}
 
+{% block css %}
+<link rel="stylesheet" href="{% static "css/gps.css" %}" />
+<link rel="stylesheet" href="{% static "css/team_list_item.css" %}" />
+<link rel="stylesheet" href="{% static "css/user_detail.css" %}" />
+
+{# include any style tags in parent templates #}
+{{ block.super }}
+{% endblock css %}
 
 {% block vite %}
 {{ block.super }}
@@ -10,7 +18,7 @@
 {% endblock vite %}
 
 {% block content %}
-<article id="organization_list">
+<article id="organization_list" class="org-list-page">
   <header>
     {% if user.is_authenticated %}
     <nav class="links">
@@ -26,13 +34,38 @@
       </div>
     </nav>
     {% endif %}
-    <h1>{% trans "Join an organization" %}</h1>
+    <h1>{% trans "Organizations" %}</h1>
+    <div class="flex-1">
+      <div id="org_search"></div>
+    </div>
   </header>
 
+  {% if not user.is_authenticated %}
   <div class="content">
-    <section class="search">
-      <h2>{% trans "Find an organization to join" %}</h2>
-      <div id="org_search"></div>
+    <section class="introduction">
+      <h2>{% trans "Collaborate securely and share privately within MuckRock organizations" %}</h2>
+      <p>
+        {% blocktrans %}
+        Organization members have access to the permissions and purchases allowed by administrators.
+        Designed for teams collaborating on reporting, research, and more, organizations make it easy to work together when using MuckRock's tools.
+        {% endblocktrans %}
+      </p>
+      <div class="card">
+        <p class="lead">{% blocktrans %}You need a MuckRock account to join an organization or create a new one.{% endblocktrans %}</p>
+        <div class="btn-group">
+          <a class="btn primary" href="{% url 'account_login' %}?next={% url "organizations:list" %}">{% trans "Sign in" %}</a>
+          <a class="btn ghost" href="{% url 'account_signup' %}?next={% url "organizations:list" %}">{% trans "Create account" %}</a>
+        </div>
+      </div>
+    </section>
+  </div>
+  {% else %}
+  <div class="content">
+    <section class="your-orgs">
+      <h2>{% trans "Your organizations" %}</h2>
+      <div class="card">
+        {% include "organizations/your_organizations.html" %}
+      </div>
     </section>
 
     <section class="invites">
@@ -47,8 +80,8 @@
       </div>
       {% elif not has_pending %}
       <div class="empty">
-        <p>{% trans "You don't have any outstanding invitations." %}</p>
-        <p>{% trans "Any invitations you receive will appear here." %}</p>
+        <p>{% trans "You don't have any outstanding invitations or requests." %}</p>
+        <p>{% trans "Received invitations and sent requests will appear here." %}</p>
       </div>
       {% else %}
         {% if potential_orgs %}
@@ -57,7 +90,7 @@
             <h2>{% trans "Pre-approved" %}</h2>
             <p>{% trans "Based on your email address, you're pre-approved to join:" %}</p>
           </header>
-          <div class="orgs">
+          <div class="card">
             {% for organization in potential_orgs %}
             <div class="invite">
               {% include "account/team_list_item.html" %}
@@ -82,18 +115,20 @@
         {% if pending_invitations %}
         {{pending_invitations}}
         <div class="pending">
-          <h2>{% trans "Pending invitations" %}</h2>
-          <div class="orgs">
+          <header>
+            <h2>{% trans "Pending invitations" %}</h2>
+          </header>
+          <div class="card">
             {% for invite in pending_invitations %}
             <div class="invite">
               {% include "account/team_list_item.html" with organization=invite.organization %}
               
               <form method="post" action="{% url "organizations:invitation" uuid=invite.uuid %}" class="actions">
                 {% csrf_token %}
-                <button class="btn primary ghost" type="submit" name="action" value="accept">
+                <button class="btn small primary ghost" type="submit" name="action" value="accept">
                   {% trans "Accept" %}
                 </button>
-                <button class="btn danger ghost" type="submit" name="action" value="reject">
+                <button class="btn small danger ghost" type="submit" name="action" value="reject">
                   {% trans "Reject" %}
                 </button>
               </form>
@@ -109,17 +144,18 @@
 
         {% if pending_requests %}
         <div class="pending">
-          <h2>{% trans "Pending requests" %}</h2>
-          
-          <div class="orgs">
+          <header>
+            <h2>{% trans "Pending requests" %}</h2>
+          </header>
+          <div class="card">
             {% for invite in pending_requests %}
             <div class="invite">
               {% include "account/team_list_item.html" with organization=invite.organization %}
 
               <form method="post" action="{% url "organizations:invitation" uuid=invite.uuid %}" class="actions">
                 {% csrf_token %}
-                <button class="btn danger ghost" type="submit" name="action" value="reject">
-                  {% trans "Withdraw" %}
+                <button class="btn small danger ghost" type="submit" name="action" value="reject">
+                  {% trans "Withdraw request" %}
                 </button>
               </form>
             </div>
@@ -134,6 +170,7 @@
       {% endif %}
     </section>
   </div>
+  {% endif %}
 </article>
 {% endblock content %}
 

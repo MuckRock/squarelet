@@ -342,7 +342,7 @@ section#plan main {
 
 /* Organizations */
 
-.orgs {
+section .orgs {
   display: flex;
   padding: 1rem;
   flex-direction: column;
@@ -393,9 +393,10 @@ section#plan main {
 }
 
 .org-list .actions {
-  flex: 0 0;
+  flex: 0 0 4rem;
   display: flex;
-  gap: 0.5rem;
+  flex-wrap: wrap;
+  gap: 0 0.5rem;
   align-items: center;
 }
 

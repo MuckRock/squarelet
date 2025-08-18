@@ -183,6 +183,16 @@ class List(ListView):
             + context["potential_orgs"]
         )
         context["has_verified_email"] = bool(user.get_verified_emails())
+        context["admin_orgs"] = list(
+            user.organizations.filter(individual=False, memberships__admin=True)
+        )
+        context["other_orgs"] = list(
+            user.organizations.filter(
+                individual=False, memberships__admin=False
+            ).get_viewable(self.request.user)
+        )
+        context["potential_organizations"] = list(user.get_potential_organizations())
+        context["pending_invitations"] = list(user.get_pending_invitations())
 
         return context
 
