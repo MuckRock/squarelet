@@ -82,10 +82,10 @@ class Detail(AdminLinkMixin, DetailView):
 
             context["requested_invite"] = self.request.user.invitations.filter(
                 organization=self.object
-            ).get_requested()
+            ).get_pending_requests()
             if context["is_admin"]:
                 context["invite_count"] = (
-                    self.object.invitations.get_requested().count()
+                    self.object.invitations.get_pending_requests().count()
                 )
 
             context["can_auto_join"] = (
@@ -152,6 +152,39 @@ class List(ListView):
             .filter(individual=False)
             .get_viewable(self.request.user)
         )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+
+        if not user.is_authenticated:
+            return context
+
+        context["invitations"] = []
+        context["potential_orgs"] = []
+        if user.is_authenticated:
+            context["pending_requests"] = list(user.get_pending_requests())
+            context["pending_invitations"] = list(user.get_pending_invitations())
+            context["potential_orgs"] = list(user.get_potential_organizations())
+
+        context["has_pending"] = bool(
+            context["pending_requests"]
+            + context["pending_invitations"]
+            + context["potential_orgs"]
+        )
+        context["has_verified_email"] = bool(user.get_verified_emails())
+        context["admin_orgs"] = list(
+            user.organizations.filter(individual=False, memberships__admin=True)
+        )
+        context["other_orgs"] = list(
+            user.organizations.filter(
+                individual=False, memberships__admin=False
+            ).get_viewable(self.request.user)
+        )
+        context["potential_organizations"] = list(user.get_potential_organizations())
+        context["pending_invitations"] = list(user.get_pending_invitations())
+
+        return context
 
 
 def autocomplete(request):
@@ -449,8 +482,12 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
         context["members"] = self.object.memberships.select_related("user").order_by(
             "user__created_at"
         )
-        context["requested_invitations"] = self.object.invitations.get_requested()
-        context["pending_invitations"] = self.object.invitations.get_pending()
+        context["requested_invitations"] = (
+            self.object.invitations.get_pending_requests()
+        )
+        context["pending_invitations"] = (
+            self.object.invitations.get_pending_invitations()
+        )
         return context
 
 
@@ -484,7 +521,10 @@ class InvitationAccept(DetailView):
             return redirect(invitation.organization)
         elif action == "reject":
             invitation.reject()
-            messages.info(request, "Invitation rejected")
+            if invitation.request:
+                messages.info(request, "Invitation withdrawn")
+            else:
+                messages.info(request, "Invitation rejected")
             return redirect(request.user)
         else:
             messages.error(request, "Invalid choice")
