@@ -44,6 +44,9 @@
     font-weight: 600;
     line-height: normal;
   }
+  .username-warning a {
+    color: var(--blue-3);
+  }
 </style>
 {% endblock css %}
 
@@ -69,7 +72,7 @@
                 <span class="field-required">Required</span>
               {% endif %}
               {% if field.name == 'username' %}
-              <span class="username-warning danger">
+              <span class="username-warning">
                 {% if user.can_change_username %}
                 {% blocktrans %}
                 You may only change your username once.
@@ -85,8 +88,8 @@
               {% endif %}
             </label>
             {{ field }}
+            {% for error in field.errors %}<p class="error">{{ error }}</p>{% endfor %}
             {% if field.help_text %}<small class="help">{{ field.help_text }}</small>{% endif %}
-            {% for error in field.errors %}<div class="error">{{ error }}</div>{% endfor %}
           </div>
         {% endfor %}
         <button type="submit" class="btn primary">{% trans "Save Changes" %}</button>
