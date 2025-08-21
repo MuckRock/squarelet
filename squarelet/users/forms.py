@@ -419,9 +419,12 @@ class UserUpdateForm(forms.ModelForm):
 
         # Customize widgets / attributes
         self.fields["name"].required = True
-        self.fields["name"].widget.attrs.setdefault("placeholder", "")
         self.fields["username"].required = True
-        self.fields["username"].widget.attrs.setdefault("placeholder", "")
+
+        # Set autocomplete attributes
+        self.fields["name"].widget.attrs.update({"autocomplete": "name"})
+        self.fields["username"].widget.attrs.update({"autocomplete": "username"})
+        self.fields["avatar"].widget.attrs.update({"autocomplete": "photo"})
 
         # Disable username field if user can no longer change it
         user_instance = self.instance
@@ -429,12 +432,24 @@ class UserUpdateForm(forms.ModelForm):
             if not getattr(user_instance, "can_change_username", True):
                 self.fields["username"].disabled = True
 
-        # Crispy layout
-        self.helper = FormHelper()
-        self.helper.layout = Layout(
-            Field("avatar"),
-            Field("name"),
-            Field("username"),
-            Field("bio"),
+    def clean_username(self):
+        """Ensure username cannot be changed more than once.
+
+        If the stored instance indicates the username can no longer
+        be changed and the submitted value differs, raise a validation error.
+        """
+        username = self.cleaned_data.get("username")
+        can_change_username = (
+            self.instance
+            and hasattr(self.instance, "can_change_username")
+            and getattr(self.instance, "can_change_username")
         )
-        self.helper.form_tag = False
+        is_new_username = username != self.instance.username if self.instance else False
+        if can_change_username or not is_new_username:
+            return username
+        raise forms.ValidationError(
+            _(
+                "You have already changed your username "
+                "once and cannot change it again."
+            )
+        )

@@ -434,6 +434,10 @@ h3 {
   line-height: normal;
 }
 
+.field input[type="text"]:disabled {
+  color: var(--gray-4);
+}
+
 .field textarea {
   border-radius: 0.5rem;
   border: 1px solid var(--gray-3, #99A8B3);
@@ -454,4 +458,11 @@ h3 {
 .field .help {
   color: var(--gray-4, #5C717C);
   font-size: var(--font-sm);
+}
+
+.field .error {
+  margin: 0;
+  color: var(--red-3, #E1275F);
+  font-size: var(--font-sm);
+  font-weight: 600;
 }
