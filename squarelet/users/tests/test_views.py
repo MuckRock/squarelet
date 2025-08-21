@@ -98,7 +98,7 @@ class TestUserUpdateView(ViewTestMixin):
         assert user.name != data["name"]
         assert user.username != data["username"]
         assert response.context_data["object"].username != data["username"]
-    
+
     def test_username_change(self, rf, user_factory):
         user = user_factory(username="johndoe", can_change_username=False)
         data = {"name": "John Doe", "username": "johnnydoe", "use_autologin": False}
