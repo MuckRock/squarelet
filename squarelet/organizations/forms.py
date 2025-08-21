@@ -11,7 +11,7 @@ from crispy_forms.layout import Fieldset, Layout
 
 # Squarelet
 from squarelet.core.fields import EmailsListField
-from squarelet.core.forms import ImagePreviewWidget, StripeForm
+from squarelet.core.forms import AvatarWidget, StripeForm
 from squarelet.core.layout import Field
 
 # Local
@@ -152,9 +152,7 @@ class PaymentForm(StripeForm):
 class UpdateForm(forms.ModelForm):
     """Update misc information for an organization"""
 
-    avatar = forms.ImageField(
-        label=_("Avatar"), required=False, widget=ImagePreviewWidget
-    )
+    avatar = forms.ImageField(label=_("Avatar"), required=False, widget=AvatarWidget)
     private = forms.BooleanField(
         label=_("Private"),
         required=False,

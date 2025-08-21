@@ -20,7 +20,7 @@ from psycopg2 import errors
 from psycopg2.errorcodes import UNIQUE_VIOLATION
 
 # Squarelet
-from squarelet.core.forms import StripeForm
+from squarelet.core.forms import AvatarWidget, StripeForm
 from squarelet.core.layout import Field
 from squarelet.organizations.models import Plan
 from squarelet.organizations.models.organization import Organization
@@ -369,3 +369,87 @@ class ResetPasswordKeyForm(mfa.BaseAuthenticateForm, allauth.ResetPasswordKeyFor
 
         self.helper.layout = Layout(*fields)
         self.helper.form_tag = False
+
+
+class UserUpdateForm(forms.ModelForm):
+    """Form for updating basic user profile information.
+
+    Provides control over labels, help texts, placeholders, and widgets
+    for the user profile edit view.
+    """
+
+    class Meta:
+        model = User
+        fields = ["name", "username", "avatar", "bio"]
+        labels = {
+            "name": _("Full Name"),
+            "username": _("Username"),
+            "avatar": _("Avatar"),
+            "bio": _("Personal Bio"),
+        }
+        help_texts = {
+            "name": _(
+                "Your full name will be displayed on your profile "
+                "and used to identify you within organizations."
+            ),
+            "username": _(
+                "Your username must be unique; it will be used in URLs. "
+                "Max. 150 characters. Only numbers, letters, periods, "
+                "hyphens, and underscores are allowed."
+            ),
+            "avatar": _(
+                "Your avatar will represent you on your profile, "
+                "on public pages, and in lists."
+            ),
+            "bio": _("Markdown formatting supported. Maximum 250 characters."),
+        }
+        widgets = {
+            "avatar": AvatarWidget(),
+            "bio": forms.Textarea(
+                attrs={
+                    "rows": 4,
+                    "placeholder": _("Tell people a little about you..."),
+                }
+            ),
+        }
+
+    def __init__(self, *args, request=None, **kwargs):  # request optional for future
+        self.request = request
+        super().__init__(*args, **kwargs)
+
+        # Customize widgets / attributes
+        self.fields["name"].required = True
+        self.fields["username"].required = True
+
+        # Set autocomplete attributes
+        self.fields["name"].widget.attrs.update({"autocomplete": "name"})
+        self.fields["username"].widget.attrs.update({"autocomplete": "username"})
+        self.fields["avatar"].widget.attrs.update({"autocomplete": "photo"})
+
+        # Disable username field if user can no longer change it
+        user_instance = self.instance
+        if user_instance and hasattr(user_instance, "can_change_username"):
+            if not getattr(user_instance, "can_change_username", True):
+                self.fields["username"].disabled = True
+
+    def clean_username(self):
+        """Ensure username cannot be changed more than once.
+
+        If the stored instance indicates the username can no longer
+        be changed and the submitted value differs, raise a validation error.
+        """
+        username = self.cleaned_data.get("username")
+        can_change_username = (
+            self.instance
+            and hasattr(self.instance, "can_change_username")
+            and getattr(self.instance, "can_change_username")
+        )
+        is_new_username = username != self.instance.username if self.instance else False
+        if can_change_username or not is_new_username:
+            return username
+        raise forms.ValidationError(
+            _(
+                "You have already changed your username "
+                "once and cannot change it again."
+            )
+        )

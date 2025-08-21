@@ -1,5 +1,6 @@
 # Django
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http.response import (
     Http404,
@@ -12,6 +13,7 @@ from django.http.response import (
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 from django.views.generic import (
     DetailView,
     ListView,
@@ -42,16 +44,12 @@ from allauth.mfa.utils import is_mfa_enabled
 from allauth.socialaccount.adapter import get_adapter as get_social_adapter
 from allauth.socialaccount.internal import flows
 from allauth.socialaccount.views import ConnectionsView
-from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Fieldset, Layout
 
 # Squarelet
-from squarelet.core.forms import ImagePreviewWidget
-from squarelet.core.layout import Field
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.organizations.models import ReceiptEmail
 from squarelet.services.models import Service
-from squarelet.users.forms import SignupForm
+from squarelet.users.forms import SignupForm, UserUpdateForm
 from squarelet.users.onboarding import OnboardingStepRegistry, onboarding_check
 
 # Local
@@ -165,49 +163,40 @@ class UserRedirectView(LoginRequiredMixin, RedirectView):
 
 class UserUpdateView(LoginRequiredMixin, UpdateView):
     model = User
+    form_class = UserUpdateForm
 
-    def get_form_class(self):
-        """Include username in form if the user hasn't changed their username yet"""
-        fields = ["name", "avatar", "use_autologin"]
-        if self.object.can_change_username:
-            self.fields = ["username"] + fields
-        else:
-            self.fields = fields
-        return super().get_form_class()
-
-    def get_form(self, form_class=None):
-        form = super().get_form(form_class)
-        form.helper = FormHelper()
-        form.helper.layout = Layout(
-            Fieldset("Name", Field("name")),
-            (
-                Fieldset("Username", Field("username"))
-                if "username" in form.fields
-                else None
-            ),
-            Fieldset("Avatar image", Field("avatar"), css_class="_cls-compactField"),
-            Fieldset(
-                "Autologin", Field("use_autologin"), css_class="_cls-compactField"
-            ),
-        )
-        form.helper.form_tag = False
-        form.fields["avatar"].widget = ImagePreviewWidget()
-        return form
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["request"] = self.request
+        return kwargs
 
     def form_valid(self, form):
         self.object = form.save(commit=False)
         if self.request.user.username != self.object.username:
             self.object.can_change_username = False
         self.object.save()
+        # TODO: We probably don't need to be keeping the avatar in sync
+        # across both the user and their individual organization.
+        # Long term, it might be simpler to maintain profile information
+        # in the individual org, and remove personalization fields
+        # from the user model. User should really be an auth-oriented model.
         self.object.individual_organization.avatar = self.object.avatar
         self.object.individual_organization.name = self.object.username
         self.object.individual_organization.save()
+        messages.success(
+            self.request,
+            _("Your profile changes have been saved."),
+        )
         return HttpResponseRedirect(self.get_success_url())
 
     def form_invalid(self, form):
         """The user object has the invalid data in it - refresh it from the database
         before displaying to the user
         """
+        messages.error(
+            self.request,
+            _("There were errors saving your profile. Please review the form below."),
+        )
         self.object.refresh_from_db()
         return super().form_invalid(form)
 
