@@ -74,7 +74,7 @@ class TestUserUpdateView(ViewTestMixin):
         user = user_factory(can_change_username=False)
         response = self.call_view(rf, user)
         assert response.status_code == 200
-        assert "username" not in response.context_data["form"].fields
+        assert response.context_data["form"].fields["username"].disabled is True
 
     def test_post(self, rf, user_factory):
         user = user_factory()
@@ -98,6 +98,15 @@ class TestUserUpdateView(ViewTestMixin):
         assert user.name != data["name"]
         assert user.username != data["username"]
         assert response.context_data["object"].username != data["username"]
+    
+    def test_username_change(self, rf, user_factory):
+        user = user_factory(username="johndoe", can_change_username=False)
+        data = {"name": "John Doe", "username": "johnnydoe", "use_autologin": False}
+        response = self.call_view(rf, user, data=data)
+        user.refresh_from_db()
+        assert user.username != data["username"]
+        # There should be no error, the username shouldn't change
+        assert response.status_code == 302
 
 
 @pytest.mark.django_db()
