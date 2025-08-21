@@ -42,12 +42,8 @@ from allauth.mfa.utils import is_mfa_enabled
 from allauth.socialaccount.adapter import get_adapter as get_social_adapter
 from allauth.socialaccount.internal import flows
 from allauth.socialaccount.views import ConnectionsView
-from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Fieldset, Layout
 
 # Squarelet
-from squarelet.core.forms import AvatarWidget
-from squarelet.core.layout import Field
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.organizations.models import ReceiptEmail
 from squarelet.services.models import Service
