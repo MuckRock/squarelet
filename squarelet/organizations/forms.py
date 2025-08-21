@@ -152,9 +152,7 @@ class PaymentForm(StripeForm):
 class UpdateForm(forms.ModelForm):
     """Update misc information for an organization"""
 
-    avatar = forms.ImageField(
-        label=_("Avatar"), required=False, widget=AvatarWidget
-    )
+    avatar = forms.ImageField(label=_("Avatar"), required=False, widget=AvatarWidget)
     private = forms.BooleanField(
         label=_("Private"),
         required=False,

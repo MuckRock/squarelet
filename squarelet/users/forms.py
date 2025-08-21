@@ -20,8 +20,7 @@ from psycopg2 import errors
 from psycopg2.errorcodes import UNIQUE_VIOLATION
 
 # Squarelet
-from squarelet.core.forms import StripeForm, AvatarWidget
-from squarelet.core.layout import Field
+from squarelet.core.forms import AvatarWidget, StripeForm
 from squarelet.core.layout import Field
 from squarelet.organizations.models import Plan
 from squarelet.organizations.models.organization import Organization
@@ -390,12 +389,18 @@ class UserUpdateForm(forms.ModelForm):
         }
         help_texts = {
             "name": _(
-                "Your full name will be displayed on your profile and used to identify you within organizations."
+                "Your full name will be displayed on your profile "
+                "and used to identify you within organizations."
             ),
             "username": _(
-                "Your username must be unique; it will be used in URLs. Max. 150 characters. Only numbers, letters, periods, hyphens, and underscores are allowed."
+                "Your username must be unique; it will be used in URLs. "
+                "Max. 150 characters. Only numbers, letters, periods, "
+                "hyphens, and underscores are allowed."
             ),
-            "avatar": _("Your avatar will represent you on your profile, on public pages, and in lists."),
+            "avatar": _(
+                "Your avatar will represent you on your profile, "
+                "on public pages, and in lists."
+            ),
             "bio": _("Markdown formatting supported. Maximum 250 characters."),
         }
         widgets = {
@@ -405,7 +410,7 @@ class UserUpdateForm(forms.ModelForm):
                     "rows": 4,
                     "placeholder": _("Tell people a little about you..."),
                 }
-            )
+            ),
         }
 
     def __init__(self, *args, request=None, **kwargs):  # request optional for future
