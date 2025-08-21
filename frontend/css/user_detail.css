@@ -567,6 +567,29 @@ section .orgs {
   white-space: nowrap;
 }
 
+.content .security .autologin {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  align-self: stretch;
+}
+
+.autologin .help-text {
+  margin: 0;
+  font-size: var(--font-sm);
+  color: var(--gray-4);
+}
+
+.autologin .status-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.autologin .status-row h3 {
+  flex: 1 0 auto;
+}
+
 .content .security .password {
   display: flex;
   align-items: center;

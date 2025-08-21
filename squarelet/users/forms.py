@@ -453,3 +453,27 @@ class UserUpdateForm(forms.ModelForm):
                 "once and cannot change it again."
             )
         )
+
+
+class UserAutologinPreferenceForm(forms.ModelForm):
+    """Simple form to allow a user to opt in/out of autologin links.
+
+    Exposes only the ``use_autologin`` boolean from the ``User`` model so it can
+    be rendered independently on a settings/privacy page without the rest of
+    the profile fields.
+    """
+
+    class Meta:
+        model = User
+        fields = ["use_autologin"]
+        labels = {
+            "use_autologin": _("Use automatic login links"),
+        }
+        help_texts = {
+            "use_autologin": _(
+                "If enabled, links we email you (like notifications and password "
+                "resets) will include a secure token that logs you in automatically. "
+                "Disable this if you prefer to always enter your password."
+            )
+        }
+        widgets = {"use_autologin": forms.CheckboxInput()}
