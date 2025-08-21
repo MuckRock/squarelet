@@ -52,5 +52,17 @@ class StripeForm(forms.Form):
         return data
 
 
-class ImagePreviewWidget(ClearableFileInput):
-    template_name = "widgets/image_field.html"
+class AvatarWidget(ClearableFileInput):
+    template_name = "widgets/avatar.html"
+    clear_checkbox_label = _("Clear")
+    input_text = _("Replace")
+    initial_text = _("Current")
+
+    def get_context(self, name, value, attrs):
+        ctx = super().get_context(name, value, attrs)
+        # Add flags / labels for empty state
+        has_file = bool(value and getattr(value, "url", None))
+        ctx["widget"]["has_file"] = has_file
+        ctx["widget"]["upload_label"] = _("Replace") if has_file else _("Upload")
+        ctx["widget"]["help_text"] = attrs.get("help_text") or ctx.get("help_text")
+        return ctx

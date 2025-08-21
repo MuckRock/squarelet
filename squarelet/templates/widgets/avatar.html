@@ -1,0 +1,186 @@
+{% load i18n %}
+
+<div class="avatar-widget" data-avatar-widget>
+  <div class="avatar-preview-wrapper {% if widget.has_file %}has-file{% endif %}">
+    <img src="{{widget.value.url}}" alt="{% trans 'Current avatar' %}" class="avatar-preview" data-avatar-preview>
+    <div class="avatar-placeholder" data-avatar-preview>
+      {% include "core/icons/person-24.svg" %}
+    </div>
+  </div>
+  <div class="avatar-actions">
+    <label class="avatar-upload ghost btn">
+      {% include 'core/icons/upload.svg' %}
+      {{ widget.upload_label }}
+      <input
+        type="file"
+        name="{{ widget.name }}"
+        {% include "django/forms/widgets/attrs.html" %}
+        accept="image/*"
+        data-avatar-input
+        style="display:none;"
+      >
+    </label>
+    {# Clear checkbox from ClearableFileInput (hidden) #}
+    {% if widget.is_initial %}
+      <span class="avatar-clear" style="display:none;">
+        <input type="checkbox"
+               name="{{ widget.checkbox_name }}"
+               id="{{ widget.checkbox_id }}"
+               data-avatar-clear-checkbox
+               {% if not widget.has_file %}disabled{% endif %}>
+      </span>
+      <button type="button"
+              class="danger ghost btn"
+              data-avatar-clear-button
+              {% if not widget.has_file %}disabled{% endif %}>
+        {% include "core/icons/x.svg" %}
+        {% trans "Clear" %}
+      </button>
+    {% else %}
+      <button type="button"
+              class="danger ghost btn"
+              data-avatar-clear-button
+              {% if not widget.has_file %}disabled{% endif %}>
+        {% include "core/icons/x.svg" %}
+        {% trans "Clear" %}
+      </button>
+    {% endif %}
+  </div>
+  {% if widget.help_text %}
+    <p class="help-text">{{ widget.help_text }}</p>
+  {% endif %}
+  <style>
+    .avatar-preview-wrapper {
+      width: 5rem;
+      height: 5rem;
+      border-radius: 2.5rem;
+      border: 1px solid var(--gray-2);
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+    .avatar-placeholder {
+      fill: var(--gray-2);
+      height: 100%;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .avatar-placeholder svg {
+      height: 3rem;
+      width: 3rem;
+      margin-top: -.25rem;
+    }
+    .avatar-preview {
+      display: block;
+      height: 100%;
+      width: 100%;
+      object-fit: cover;
+    }
+    .avatar-widget {
+      display: flex;
+      padding: 0.5rem 0;
+      align-items: center;
+      gap: 0.5rem;
+      align-self: stretch;
+    }
+    .avatar-actions {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 0.5rem;
+      align-self: stretch;
+    }
+    .avatar-preview-wrapper:not(.has-file) img {
+      display: none;
+    }
+  </style>
+  <script>
+    (function(){
+      const root = document.currentScript.previousElementSibling; // script sits after wrapper
+      const container = root.closest('[data-avatar-widget]');
+      if(!container) return;
+
+      const fileInput = container.querySelector('[data-avatar-input]');
+      const previewEl = container.querySelector('[data-avatar-preview]');
+      const uploadLabelSpan = container.querySelector('[data-avatar-upload-label]');
+      const clearCheckbox = container.querySelector('[data-avatar-clear-checkbox]');
+      const clearButton = container.querySelector('[data-avatar-clear-button]');
+
+      function setState(hasFile){
+        if(uploadLabelSpan){
+          uploadLabelSpan.textContent = hasFile ? "{{ widget.upload_label }}" : "{{ widget.upload_label }}";
+        }
+        if(clearCheckbox){
+          // If there's no file, we keep checkbox enabled only if it is checked (so form submits clear flag)
+          clearCheckbox.disabled = !hasFile && !clearCheckbox.checked;
+        }
+        if(clearButton){
+          // Disable button whenever there is no current file showing
+          clearButton.disabled = !hasFile;
+        }
+      }
+
+      function setImagePreview(file){
+        previewEl.alt = '{{ _("Selected avatar") }}';
+        previewEl.src = URL.createObjectURL(file);
+        previewEl.parentElement.classList.add('has-file');
+        if(uploadLabelSpan) uploadLabelSpan.textContent = "{{ _('Replace') }}";
+      }
+
+      function clearImagePreview() {
+        previewEl.parentElement.classList.remove('has-file');
+        previewEl.src = '';
+        if(uploadLabelSpan) uploadLabelSpan.textContent = "{{ _('Upload') }}";
+      }
+
+      fileInput.addEventListener('change', function(){
+        const file = this.files && this.files[0];
+        if(file){
+            setImagePreview(file);
+            // update handle
+            // (Not reassigning previewEl variable for brevity)
+            setState(true);
+            if(clearCheckbox) clearCheckbox.checked = false;
+        } else {
+          // Revert to empty
+          clearImagePreview();
+          setState(false);
+        }
+      });
+
+      if(clearButton){
+        clearButton.addEventListener('click', function(){
+          if(this.disabled) return;
+          fileInput.value = '';
+          clearImagePreview();
+          if(clearCheckbox){
+            clearCheckbox.checked = true; // mark for clearing on submit
+            clearCheckbox.disabled = false; // keep enabled for potential re-selection logic
+          }
+          // Explicitly disable until a new file is selected
+          this.disabled = true;
+          setState(false); // will finalize disabled state
+        });
+      }
+
+      if(clearCheckbox){
+        clearCheckbox.addEventListener('change', function(){
+          if(this.checked){
+            fileInput.value = '';
+            // Do not remove existing initial image preview; server will clear on submit.
+            if(uploadLabelSpan) uploadLabelSpan.textContent = "{{ _('Upload') }}";
+            if(clearButton) clearButton.disabled = true;
+          } else {
+            if(uploadLabelSpan) uploadLabelSpan.textContent = "{% if widget.has_file %}{{ _('Replace') }}{% else %}{{_('Upload') }}{% endif %}";
+            if(clearButton && ({{ widget.has_file|yesno:"true,false" }})) clearButton.disabled = false;
+          }
+        });
+      }
+
+      // Initialize
+      setState({{ widget.has_file|yesno:"true,false" }});
+    })();
+  </script>
+</div>
