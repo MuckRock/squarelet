@@ -46,12 +46,12 @@ from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Fieldset, Layout
 
 # Squarelet
-from squarelet.core.forms import ImagePreviewWidget
+from squarelet.core.forms import AvatarWidget
 from squarelet.core.layout import Field
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.organizations.models import ReceiptEmail
 from squarelet.services.models import Service
-from squarelet.users.forms import SignupForm
+from squarelet.users.forms import SignupForm, UserUpdateForm
 from squarelet.users.onboarding import OnboardingStepRegistry, onboarding_check
 
 # Local
@@ -165,34 +165,12 @@ class UserRedirectView(LoginRequiredMixin, RedirectView):
 
 class UserUpdateView(LoginRequiredMixin, UpdateView):
     model = User
+    form_class = UserUpdateForm
 
-    def get_form_class(self):
-        """Include username in form if the user hasn't changed their username yet"""
-        fields = ["name", "avatar", "use_autologin"]
-        if self.object.can_change_username:
-            self.fields = ["username"] + fields
-        else:
-            self.fields = fields
-        return super().get_form_class()
-
-    def get_form(self, form_class=None):
-        form = super().get_form(form_class)
-        form.helper = FormHelper()
-        form.helper.layout = Layout(
-            Fieldset("Name", Field("name")),
-            (
-                Fieldset("Username", Field("username"))
-                if "username" in form.fields
-                else None
-            ),
-            Fieldset("Avatar image", Field("avatar"), css_class="_cls-compactField"),
-            Fieldset(
-                "Autologin", Field("use_autologin"), css_class="_cls-compactField"
-            ),
-        )
-        form.helper.form_tag = False
-        form.fields["avatar"].widget = ImagePreviewWidget()
-        return form
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["request"] = self.request
+        return kwargs
 
     def form_valid(self, form):
         self.object = form.save(commit=False)
