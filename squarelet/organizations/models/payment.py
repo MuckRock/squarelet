@@ -6,8 +6,10 @@ from django.utils.translation import gettext_lazy as _
 
 # Standard Library
 import logging
+import time
 
 # Third Party
+import requests
 import stripe
 from autoslug import AutoSlugField
 from memoize import mproperty
@@ -151,6 +153,23 @@ class Subscription(models.Model):
         _("date update"), help_text=_("Date when monthly resources are restored")
     )
 
+    def send_notification(self, subject, message):
+        """Send a Slack notification with retry logic."""
+        slack_webhook = self.plan.slack_webhook_url
+        if not slack_webhook:
+            return
+
+        payload = {"text": f"{subject}\n\n{message}"}
+
+        for attempt in range(3):
+            try:
+                response = requests.post(slack_webhook, json=payload, timeout=5)
+                if response.ok:
+                    return
+            except requests.RequestException:
+                pass
+            time.sleep(2 * (attempt + 1))
+
     # The cancelled flag is used to mark subscriptions that are ready for cancellation.
     # Cancellation happens at the end of the billing period; at that point,
     # the subscription is deleted from the database.
@@ -201,6 +220,15 @@ class Subscription(models.Model):
             )
             self.subscription_id = stripe_subscription.id
 
+        # Slack notification for new subscription
+        if self.plan.slack_webhook_url:
+            self.send_notification(
+                subject="New Subscription",
+                message=(
+                    f"{self.organization.name} just subscribed " f"to {self.plan.name}."
+                ),
+            )
+
     def cancel(self):
         # pylint: disable=using-constant-test
         if self.stripe_subscription:
@@ -209,6 +237,16 @@ class Subscription(models.Model):
 
         self.cancelled = True
         self.save()
+
+        # Slack notification for cancellation
+        if self.plan.slack_webhook_url:
+            self.send_notification(
+                subject="Subscription Cancelled",
+                message=(
+                    f"{self.organization.name} cancelled their subscription "
+                    f"to {self.plan.name}."
+                ),
+            )
 
     def modify(self, plan):
         """Modify an existing plan
@@ -230,6 +268,16 @@ class Subscription(models.Model):
             self.stripe_modify()
 
         self.save()
+
+        # Slack notification if an org has modified their plan
+        if self.plan.slack_webhook_url:
+            self.send_notification(
+                subject="Subscription Updated",
+                message=(
+                    f"{self.organization.name} changed their subscription "
+                    f"to {self.plan.name}."
+                ),
+            )
 
     def stripe_modify(self):
         """Update stripe subscription to match local subscription"""
@@ -330,6 +378,15 @@ class Plan(models.Model):
             "For private plans, organizations which should have access to this plan"
         ),
         blank=True,
+    )
+
+    slack_webhook_url = models.URLField(
+        _("Slack webhook URL"),
+        blank=True,
+        null=True,
+        help_text=_(
+            "Webhook URL to notify when an organization subscribes to this plan"
+        ),
     )
 
     class Meta:
