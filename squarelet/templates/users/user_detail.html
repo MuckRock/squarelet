@@ -428,6 +428,24 @@
         </a>
       </header>
       <main class="security">
+        <form class="autologin" method="post" action="{% url 'users:detail' username=user.username %}">
+          {% csrf_token %}
+          <div class="status-row">
+            <h3>{% trans "Automatic login links" %}</h3>
+            {% if user.use_autologin %}
+              <span class="badge green">{% trans "Enabled" %}</span>
+              <input type="hidden" name="use_autologin" value="False" />
+              <button type="submit" class="btn ghost danger small">{% trans "Disable" %}</button>
+            {% else %}
+              <span class="badge">{% trans "Disabled" %}</span>
+              <input type="hidden" name="use_autologin" value="True" />
+              <button type="submit" class="btn ghost primary small">{% trans "Enable" %}</button>
+            {% endif %}
+          </div>
+          <p class="help-text">
+            {% trans "When enabled, links we email you (like notifications) include a secure token that signs you in automatically." %}
+          </p>
+        </form>
         <div class="password">
           <h3>{% trans "Password" %}</h3>
           <a href="{% url "account_change_password" %}" class="small btn ghost primary">{% trans "Change password" %}</a>

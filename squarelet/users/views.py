@@ -49,7 +49,11 @@ from allauth.socialaccount.views import ConnectionsView
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.organizations.models import ReceiptEmail
 from squarelet.services.models import Service
-from squarelet.users.forms import SignupForm, UserUpdateForm
+from squarelet.users.forms import (
+    SignupForm,
+    UserAutologinPreferenceForm,
+    UserUpdateForm,
+)
 from squarelet.users.onboarding import OnboardingStepRegistry, onboarding_check
 
 # Local
@@ -139,6 +143,8 @@ class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
                     context["current_plan_next_charge_date"] = tz_datetime.date()
             # Check if the plan is cancelled
             context["current_plan_cancelled"] = getattr(subscription, "cancelled", None)
+        # Autologin preference form
+        context["autologin_form"] = UserAutologinPreferenceForm(instance=user)
         return context
 
     def get_recovery_codes(self):
@@ -152,6 +158,28 @@ class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
             return []
 
         return authenticator.wrap().get_unused_codes()
+
+    def post(self, request, *args, **kwargs):
+        """Handle updates to simple user settings (currently autologin toggle)."""
+        self.object = self.get_object()
+        form = UserAutologinPreferenceForm(request.POST, instance=self.object)
+        if form.is_valid():
+            form.save()
+            messages.success(
+                request,
+                _("Your automatic login preference has been updated."),
+            )
+        else:
+            messages.error(
+                request,
+                _(
+                    "We couldn't update your automatic login preference. "
+                    "Please try again."
+                ),
+            )
+        return HttpResponseRedirect(
+            reverse("users:detail", kwargs={"username": self.object.username})
+        )
 
 
 class UserRedirectView(LoginRequiredMixin, RedirectView):
