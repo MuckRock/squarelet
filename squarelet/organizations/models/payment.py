@@ -21,7 +21,6 @@ from squarelet.organizations.querysets import (
     PlanQuerySet,
     SubscriptionQuerySet,
 )
-from squarelet.organizations.tasks import send_slack_notification
 
 stripe.api_version = "2018-09-24"
 stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -155,6 +154,7 @@ class Subscription(models.Model):
     def send_notification(self, subject, message):
         """Queue a Slack notification asynchronously."""
         if self.plan.slack_webhook_url:
+            from squarelet.organizations.tasks import send_slack_notification
             send_slack_notification.delay(self.plan.slack_webhook_url, subject, message)
 
     # The cancelled flag is used to mark subscriptions that are ready for cancellation.
