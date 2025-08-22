@@ -481,12 +481,24 @@ class Organization(AvatarMixin, models.Model):
             )
             response.raise_for_status()
             contact_id = response.json()["member"]["contactId"]
+            plan_slug = plan.slug.split("-")[1]
             response = requests.post(
                 f"https://www.wixapis.com/contacts/v4/contacts/{contact_id}/labels",
                 headers=headers,
-                json={"labelKeys": ["custom.paying-member"]},
+                json={
+                    "labelKeys": ["custom.paying-member", f"custom.{plan_slug}-member"]
+                },
             )
             response.raise_for_status()
+            requests.post(
+                "https://www.wixapis.com/wix-sm/api/v1/auth/v1/auth/members"
+                "/send-set-password-email",
+                headers=headers,
+                json={
+                    "email": user.email,
+                    "hideIgnoreMessage": True,
+                },
+            )
 
     def charge(
         self,
