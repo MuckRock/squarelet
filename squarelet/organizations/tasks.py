@@ -10,6 +10,7 @@ import logging
 from datetime import date, datetime
 
 # Third Party
+import requests
 import stripe
 
 # Squarelet
@@ -17,6 +18,8 @@ from squarelet.core.mail import ORG_TO_ADMINS, send_mail
 from squarelet.core.models import Interval
 from squarelet.oidc.middleware import send_cache_invalidations
 from squarelet.organizations.models import Charge, Organization, Subscription
+from squarelet.organizations.models.payment import Plan
+from squarelet.users.models import User
 
 logger = logging.getLogger(__name__)
 stripe.api_version = "2018-09-24"
@@ -202,3 +205,15 @@ def backfill_charge_metadata(starting_after=None, keep_running=True):
     )
     if keep_running and has_more:
         backfill_charge_metadata.delay(last_id)
+
+
+@shared_task(
+    autoretry_for=(requests.exceptions.RequestException),
+    retry_backoff=60,
+    retry_kwargs={"max_retries": 3},
+)
+def sync_wix(org_id, plan_id, user_id):
+    org = Organization.objects.get(pk=org_id)
+    plan = Plan.objects.get(pk=plan_id) if plan_id else None
+    user = User.objects.get(pk=user_id)
+    org.sync_wix(plan, user)

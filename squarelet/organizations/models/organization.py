@@ -421,6 +421,7 @@ class Organization(AvatarMixin, models.Model):
 
         self.max_users = max_users
         self.save()
+        sync_will.delay(self.pk, plan.pk if plan else None, user.pk)
 
         if not self.plan and plan:
             # create a subscription going from no plan to plan
@@ -458,15 +459,14 @@ class Organization(AvatarMixin, models.Model):
 
     def sync_wix(self, plan, user):
         """Sync the user to Wix"""
+        headers = {
+            "Authorization": settings.WIX_APP_SECRET,
+            "wix-site-id": settings.WIX_SITE_ID,
+        }
         if plan and plan.wix:
-            # XXX sync to wix
-            # check for duplicates?
-            requests.post(
+            response = requests.post(
                 "https://www.wixapis.com/members/v1/members",
-                headers={
-                    "Authorization": settings.WIX_APP_SECRET,
-                    "wix-site-id": settings.WIX_SITE_ID,
-                },
+                headers=headers,
                 json={
                     "member": {
                         "loginEmail": user.email,
@@ -476,11 +476,17 @@ class Organization(AvatarMixin, models.Model):
                             "emails": [user.email],
                             "company": self.name,
                         },
-                        # we do not collect country, state, or job title
-                        # where do we store checkbox for ToS?
                     },
                 },
             )
+            response.raise_for_status()
+            contact_id = response.json()["member"]["contactId"]
+            response = requests.post(
+                f"https://www.wixapis.com/contacts/v4/contacts/{contact_id}/labels",
+                headers=headers,
+                json={"labelKeys": ["custom.paying-member"]},
+            )
+            response.raise_for_status()
 
     def charge(
         self,
