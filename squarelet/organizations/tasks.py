@@ -19,6 +19,8 @@ from squarelet.core.mail import ORG_TO_ADMINS, send_mail
 from squarelet.core.models import Interval
 from squarelet.oidc.middleware import send_cache_invalidations
 from squarelet.organizations.models import Charge, Organization, Subscription
+from squarelet.organizations.models.payment import Plan
+from squarelet.users.models import User
 
 logger = logging.getLogger(__name__)
 stripe.api_version = "2018-09-24"
@@ -221,3 +223,15 @@ def send_slack_notification(self, slack_webhook, subject, message):
             countdown=2**self.request.retries * 30 + randint(0, 30),
             exc=exc,
         )
+
+
+@shared_task(
+    autoretry_for=(requests.exceptions.RequestException),
+    retry_backoff=60,
+    retry_kwargs={"max_retries": 3},
+)
+def sync_wix(org_id, plan_id, user_id):
+    org = Organization.objects.get(pk=org_id)
+    plan = Plan.objects.get(pk=plan_id) if plan_id else None
+    user = User.objects.get(pk=user_id)
+    org.sync_wix(plan, user)
