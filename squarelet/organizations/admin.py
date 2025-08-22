@@ -268,7 +268,7 @@ class PlanAdmin(VersionAdmin):
         "annual",
         "for_individuals",
         "for_groups",
-        "slack_webhook_url"
+        "slack_webhook_url",
     )
     search_fields = ("name",)
     autocomplete_fields = ("private_organizations", "entitlements")
