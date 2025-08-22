@@ -6,10 +6,8 @@ from django.utils.translation import gettext_lazy as _
 
 # Standard Library
 import logging
-import time
 
 # Third Party
-import requests
 import stripe
 from autoslug import AutoSlugField
 from memoize import mproperty
@@ -23,6 +21,7 @@ from squarelet.organizations.querysets import (
     PlanQuerySet,
     SubscriptionQuerySet,
 )
+from squarelet.organizations.tasks import send_slack_notification
 
 stripe.api_version = "2018-09-24"
 stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -154,21 +153,9 @@ class Subscription(models.Model):
     )
 
     def send_notification(self, subject, message):
-        """Send a Slack notification with retry logic."""
-        slack_webhook = self.plan.slack_webhook_url
-        if not slack_webhook:
-            return
-
-        payload = {"text": f"{subject}\n\n{message}"}
-
-        for attempt in range(3):
-            try:
-                response = requests.post(slack_webhook, json=payload, timeout=5)
-                if response.ok:
-                    return
-            except requests.RequestException:
-                pass
-            time.sleep(2 * (attempt + 1))
+        """Queue a Slack notification asynchronously."""
+        if self.plan.slack_webhook_url:
+            send_slack_notification.delay(self.plan.slack_webhook_url, subject, message)
 
     # The cancelled flag is used to mark subscriptions that are ready for cancellation.
     # Cancellation happens at the end of the billing period; at that point,

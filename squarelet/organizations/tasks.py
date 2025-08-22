@@ -8,8 +8,10 @@ from django.utils.translation import gettext_lazy as _
 # Standard Library
 import logging
 from datetime import date, datetime
+from random import randint
 
 # Third Party
+import requests
 import stripe
 
 # Squarelet
@@ -202,3 +204,20 @@ def backfill_charge_metadata(starting_after=None, keep_running=True):
     )
     if keep_running and has_more:
         backfill_charge_metadata.delay(last_id)
+
+
+@shared_task(
+    bind=True,
+    max_retries=3,
+    name="squarelet.organizations.tasks.send_slack_notification",
+)
+def send_slack_notification(self, slack_webhook, subject, message):
+    payload = {"text": f"{subject}\n\n{message}"}
+    try:
+        response = requests.post(slack_webhook, json=payload, timeout=5)
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        raise self.retry(
+            countdown=2**self.request.retries * 30 + randint(0, 30),
+            exc=exc,
+        )
