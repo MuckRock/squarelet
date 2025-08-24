@@ -154,9 +154,9 @@ class Subscription(models.Model):
     def send_notification(self, subject, message):
         """Queue a Slack notification asynchronously."""
         if self.plan.slack_webhook_url:
-            from squarelet.organizations.tasks import (
+            from squarelet.organizations.tasks import (# pylint:disable=import-outside-toplevel
                 send_slack_notification,
-            )  # pylint:disable=import-outside-toplevel
+            )
 
             send_slack_notification.delay(self.plan.slack_webhook_url, subject, message)
 
