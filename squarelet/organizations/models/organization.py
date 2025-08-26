@@ -32,6 +32,7 @@ from squarelet.organizations.querysets import (
     MembershipQuerySet,
     OrganizationQuerySet,
 )
+from squarelet.organizations.tasks import sync_wix
 
 
 def organization_file_path(instance, filename):
@@ -421,7 +422,8 @@ class Organization(AvatarMixin, models.Model):
 
         self.max_users = max_users
         self.save()
-        sync_will.delay(self.pk, plan.pk if plan else None, user.pk)
+        for wix_user in self.users.all():
+            sync_wix.delay(self.pk, plan.pk if plan else None, wix_user.pk)
 
         if not self.plan and plan:
             # create a subscription going from no plan to plan
