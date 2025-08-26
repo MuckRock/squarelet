@@ -215,7 +215,8 @@ class Subscription(models.Model):
             self.send_notification(
                 subject="New Subscription",
                 message=(
-                    f"{self.organization.name} just subscribed " f"to {self.plan.name}."
+                    f"The organization **{self.organization.name}** "
+                    f"has just subscribed to the **{self.plan.name}** plan."
                 ),
             )
 
@@ -233,8 +234,9 @@ class Subscription(models.Model):
             self.send_notification(
                 subject="Subscription Cancelled",
                 message=(
-                    f"{self.organization.name} cancelled their subscription "
-                    f"to {self.plan.name}."
+                    f"The organization **{self.organization.name}** "
+                    "has cancelled their subscription"
+                    f" to the **{self.plan.name}** plan."
                 ),
             )
 
@@ -259,13 +261,14 @@ class Subscription(models.Model):
 
         self.save()
 
-        # Slack notification if an org has modified their plan
+        # Slack notification if an org has modified their subscription details
         if self.plan.slack_webhook_url:
             self.send_notification(
                 subject="Subscription Updated",
                 message=(
-                    f"{self.organization.name} changed their subscription "
-                    f"to {self.plan.name}."
+                    f"The organization **{self.organization.name}** "
+                    "has modified their subscription details "
+                    f"for the **{self.plan.name}** plan."
                 ),
             )
 
