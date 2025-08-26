@@ -215,8 +215,8 @@ class Subscription(models.Model):
             self.send_notification(
                 subject="New Subscription",
                 message=(
-                    f"The organization **{self.organization.name}** "
-                    f"has just subscribed to the **{self.plan.name}** plan."
+                    f"{self.organization.name} "
+                    f"has just subscribed to the {self.plan.name} plan."
                 ),
             )
 
@@ -234,9 +234,9 @@ class Subscription(models.Model):
             self.send_notification(
                 subject="Subscription Cancelled",
                 message=(
-                    f"The organization **{self.organization.name}** "
+                    f"{self.organization.name} "
                     "has cancelled their subscription"
-                    f" to the **{self.plan.name}** plan."
+                    f" to the {self.plan.name} plan."
                 ),
             )
 
@@ -266,9 +266,9 @@ class Subscription(models.Model):
             self.send_notification(
                 subject="Subscription Updated",
                 message=(
-                    f"The organization **{self.organization.name}** "
+                    f"{self.organization.name} "
                     "has modified their subscription details "
-                    f"for the **{self.plan.name}** plan."
+                    f"for the {self.plan.name} plan."
                 ),
             )
 
