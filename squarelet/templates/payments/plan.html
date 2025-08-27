@@ -329,21 +329,12 @@
 {% endblock %}
 
 {% block content %}
-<h1>Sunlight Research</h1>
-{{sunlight_plans}}
-{{existing_subscriptions}}
-
+<h1>{{plan.name}}</h1>
 <ul>
-{% for plan in sunlight_plans %}
-<li>
-  <ul>
-    <li><a href="{% url 'plan_detail' plan.pk plan.slug %}">{{plan.name}}</a></li>
-    <li>{{plan.slug}}</li>
-    <li>{{plan.base_price}}</li>
-    <li>{{plan.price_per_user}}</li>
-    <li>{{plan.annual}}</li>
-  </ul>
-</li>
-{% endfor %}
+  <li>{{plan.name}}</li>
+  <li>{{plan.slug}}</li>
+  <li>{{plan.base_price}}</li>
+  <li>{{plan.price_per_user}}</li>
+  <li>{{plan.annual}}</li>
 </ul>
 {% endblock %}

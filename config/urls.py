@@ -20,7 +20,7 @@ from squarelet.organizations.fe_api.viewsets import (
     OrganizationViewSet as FEOrganizationViewSet,
 )
 from squarelet.organizations.viewsets import ChargeViewSet, OrganizationViewSet
-from squarelet.payments.views import SunlightResearchPlansView
+from squarelet.payments.views import PlanDetailView, SunlightResearchPlansView
 from squarelet.users.fe_api.viewsets import UserViewSet as FEUserViewSet
 from squarelet.users.views import LoginView, SignupView, UserOnboardingView
 from squarelet.users.viewsets import (
@@ -56,6 +56,7 @@ def redirect_erh(request, path=""):
 
 urlpatterns = [
     path("", HomeView.as_view(), name="home"),
+    path("plans/<int:pk>-<slug:slug>/", PlanDetailView.as_view(), name="plan_detail"),
     path("plans/sunlight-research/", SunlightResearchPlansView.as_view(), name="plans_sunlight_research"),
     path("selectplan/", SelectPlanView.as_view(), name="select_plan"),
     # Django Admin, use {% url 'admin:index' %}
