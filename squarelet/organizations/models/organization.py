@@ -32,7 +32,6 @@ from squarelet.organizations.querysets import (
     MembershipQuerySet,
     OrganizationQuerySet,
 )
-from squarelet.organizations.tasks import sync_wix
 
 
 def organization_file_path(instance, filename):
@@ -412,6 +411,9 @@ class Organization(AvatarMixin, models.Model):
         self.subscriptions.start(organization=self, plan=plan)
 
     def set_subscription(self, token, plan, max_users, user):
+        # pylint-disable: import-outside-toplevel
+        from squarelet.organizations.tasks import sync_wix
+
         if self.individual:
             max_users = 1
         if token:
