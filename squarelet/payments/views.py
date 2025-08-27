@@ -1,8 +1,29 @@
 # Django
-from django.views.generic.base import TemplateView
+from django.shortcuts import redirect
+from django.views.generic import DetailView, TemplateView
 
 # Squarelet
 from squarelet.organizations.models import Plan, Organization
+
+
+class PlanDetailView(DetailView):
+    model = Plan
+    template_name = "payments/plan.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.user.is_authenticated:
+            # Check whether the user's individual org,
+            # or an org they administer, is subscribed to this plan.
+            # If so, add any subscribed orgs to the context.
+            pass
+        return context
+
+    def post(self, request, *args, **kwargs):
+        self.plan = self.get_object()
+        if not self.request.user.is_authenticated:
+            return redirect(self.plan)
+        return redirect(self.plan)
 
 
 class SunlightResearchPlansView(TemplateView):
