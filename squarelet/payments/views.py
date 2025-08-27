@@ -1,6 +1,10 @@
 # Django
+from django.conf import settings
 from django.shortcuts import redirect
 from django.views.generic import DetailView, TemplateView
+
+# Standard Library
+import json
 
 # Squarelet
 from squarelet.organizations.models import Plan, Organization
@@ -12,18 +16,139 @@ class PlanDetailView(DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        plan = self.get_object()
+        
         if self.request.user.is_authenticated:
-            # Check whether the user's individual org,
-            # or an org they administer, is subscribed to this plan.
-            # If so, add any subscribed orgs to the context.
-            pass
+            user = self.request.user
+            existing_subscriptions = []
+            admin_organizations = []
+            
+            # Check user's individual organization
+            individual_org = user.individual_organization
+            individual_subscription = individual_org.subscriptions.filter(
+                plan=plan, cancelled=False
+            ).first()
+            if individual_subscription:
+                existing_subscriptions.append((individual_subscription, individual_org))
+            
+            # Get organizations where user is admin
+            admin_orgs = Organization.objects.filter(
+                users=user,
+                memberships__admin=True,
+                individual=False
+            ).distinct()
+            
+            for org in admin_orgs:
+                org_subscription = org.subscriptions.filter(
+                    plan=plan, cancelled=False
+                ).first()
+                if org_subscription:
+                    existing_subscriptions.append((org_subscription, org))
+                else:
+                    admin_organizations.append(org)
+            
+            # Check if individual org can subscribe (not already subscribed)
+            can_subscribe_individual = not individual_subscription
+            
+            # Add default payment methods for organizations
+            individual_card = individual_org.customer().card
+            if individual_card:
+                context['individual_default_card'] = individual_card
+            
+            # Build org_cards mapping for all organizations (individual + admin)
+            org_cards = {}
+            
+            # Add individual org if it has a card
+            if individual_card:
+                org_cards[str(individual_org.pk)] = {
+                    'last4': individual_card.last4,
+                    'brand': individual_card.brand
+                }
+            
+            # Add admin organizations that have cards
+            for org in admin_organizations:
+                org_card = org.customer().card
+                if org_card:
+                    org_cards[str(org.pk)] = {
+                        'last4': org_card.last4,
+                        'brand': org_card.brand
+                    }
+            
+            context.update({
+                'existing_subscriptions': existing_subscriptions,
+                'admin_organizations': admin_organizations,
+                'can_subscribe_individual': can_subscribe_individual,
+                'individual_organization': individual_org,
+                'org_cards': org_cards,
+                'org_cards_json': json.dumps(org_cards),
+                'stripe_pk': settings.STRIPE_PUB_KEY,
+            })
+        
         return context
 
     def post(self, request, *args, **kwargs):
-        self.plan = self.get_object()
-        if not self.request.user.is_authenticated:
-            return redirect(self.plan)
-        return redirect(self.plan)
+        plan = self.get_object()
+        
+        if not request.user.is_authenticated:
+            # Redirect unauthenticated users to login, then back to this plan
+            from django.contrib.auth.views import redirect_to_login
+            return redirect_to_login(request.get_full_path())
+        
+        # Get form data
+        organization_id = request.POST.get('organization')
+        stripe_token = request.POST.get('stripe_token')
+        payment_method = request.POST.get('payment_method', 'new')
+        save_card = request.POST.get('save_card') == 'on'
+        
+        try:
+            # Get the organization
+            if organization_id:
+                organization = Organization.objects.get(
+                    pk=organization_id,
+                    users=request.user,
+                    memberships__admin=True
+                )
+            else:
+                organization = request.user.individual_organization
+            
+            # Check if already subscribed
+            if organization.subscriptions.filter(plan=plan, cancelled=False).exists():
+                # Already subscribed
+                return redirect(plan)
+            
+            # Handle payment method
+            customer = organization.customer()
+            
+            if payment_method == 'new' and stripe_token:
+                # Save new card if requested
+                if save_card:
+                    customer.save_card(stripe_token)
+                else:
+                    customer.add_source(stripe_token)
+            elif payment_method == 'existing' and not customer.card:
+                # Fallback if existing card not found
+                if stripe_token:
+                    customer.save_card(stripe_token)
+            
+            # Create and start subscription
+            subscription = organization.subscriptions.create(plan=plan)
+            subscription.start()
+            subscription.save()
+            
+            # Success - redirect to plan page or success page
+            return redirect(plan)
+            
+        except Organization.DoesNotExist:
+            # Invalid organization
+            pass
+        except Exception as e:
+            # Handle other errors
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Subscription creation failed: {str(e)}")
+        
+        # If we get here, something went wrong - redirect back to plan
+        return redirect(plan)
 
 
 class SunlightResearchPlansView(TemplateView):
