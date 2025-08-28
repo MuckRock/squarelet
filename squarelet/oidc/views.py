@@ -1,7 +1,7 @@
 # Standard
 # Django
-from django.db import transaction
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.views.decorators.csrf import csrf_exempt
 
 # Third Party
@@ -103,8 +103,7 @@ class OIDCRedirectURIUpdater(APIView):
             if not action or action not in ["add", "remove"]:
                 return Response(
                     {
-                        "error":
-                            "Invalid or missing 'action'. Must be 'add' or 'remove'."
+                        "error": "Invalid or missing 'action'. Must be 'add' or 'remove'."
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
@@ -112,16 +111,15 @@ class OIDCRedirectURIUpdater(APIView):
             if not uris_to_modify or not isinstance(uris_to_modify, list):
                 return Response(
                     {
-                        "error":
-                            "Invalid or missing 'redirect_uris'. "
-                            "It must be a list of strings."
+                        "error": "Invalid or missing 'redirect_uris'. "
+                        "It must be a list of strings."
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
         except (ValidationError, TypeError) as exc:
             return Response(
                 {"error": f"Invalid request format: {str(exc)}"},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         with transaction.atomic():
