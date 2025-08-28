@@ -412,10 +412,23 @@ document.addEventListener("DOMContentLoaded", function () {
       const saveCardCheckbox = form.querySelector('input[name="save_card"]').closest('label');
       const existingCardRadio = form.querySelector('input[value="existing"]');
       const newCardRadio = form.querySelector('input[value="new"]');
+      const managePaymentLink = form.querySelector('.manage-payment-link');
       
       if (selectedOrg) {
         // Show payment methods section
         paymentMethods.style.display = 'block';
+        
+        // Update manage payment methods link
+        const selectedOption = this.options[this.selectedIndex];
+        const isIndividual = selectedOption.getAttribute('data-individual') === 'true';
+        const orgSlug = selectedOption.getAttribute('data-slug');
+        
+        if (isIndividual) {
+          managePaymentLink.href = '/users/~payment/';
+        } else {
+          managePaymentLink.href = `/organizations/${orgSlug}/payment/`;
+        }
+        managePaymentLink.style.display = 'inline-block';
         
         // Check if organization has a saved card
         if (orgCards[selectedOrg]) {
@@ -459,6 +472,7 @@ document.addEventListener("DOMContentLoaded", function () {
         paymentMethods.style.display = 'none';
         cardField.style.display = 'none';
         saveCardCheckbox.style.display = 'none';
+        managePaymentLink.style.display = 'none';
       }
     });
   });
@@ -522,20 +536,25 @@ const orgCards = {{ org_cards_json|safe }};
                 <input type="hidden" id="id_stripe_token" name="stripe_token">
                 
                 <!-- Organization selection -->
-                <label>
-                  {% trans "Organization" %}
-                  <select name="organization" class="org-select" required>
-                    <option value="">{% trans "Choose an organization" %}</option>
-                    {% if can_subscribe_individual %}
-                      <option value="{{ individual_organization.pk }}">
-                        {{ individual_organization.name }} ({% trans "Personal" %})
-                      </option>
-                    {% endif %}
-                    {% for org in admin_organizations %}
-                      <option value="{{ org.pk }}">{{ org.name }}</option>
-                    {% endfor %}
-                  </select>
-                </label>
+                <div class="organization-selection">
+                  <label>
+                    {% trans "Organization" %}
+                    <select name="organization" class="org-select" required>
+                      <option value="">{% trans "Choose an organization" %}</option>
+                      {% if can_subscribe_individual %}
+                        <option value="{{ individual_organization.pk }}" data-slug="{{ individual_organization.slug }}" data-individual="true">
+                          {{ individual_organization.name }} ({% trans "Personal" %})
+                        </option>
+                      {% endif %}
+                      {% for org in admin_organizations %}
+                        <option value="{{ org.pk }}" data-slug="{{ org.slug }}" data-individual="false">{{ org.name }}</option>
+                      {% endfor %}
+                    </select>
+                  </label>
+                  <a href="#" class="manage-payment-link small ghost button" style="display:none;">
+                    {% trans "Manage payment methods" %}
+                  </a>
+                </div>
                 
                 <!-- Payment method selection (dynamically shown/hidden) -->
                 <div class="payment-methods" style="display:none;">
@@ -746,6 +765,17 @@ const orgCards = {{ org_cards_json|safe }};
   color: var(--gray-4);
 }
 
+.organization-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.organization-selection label {
+  flex: 1;
+}
+
 .org-select {
   width: 100%;
   padding: 0.5rem;
@@ -753,6 +783,11 @@ const orgCards = {{ org_cards_json|safe }};
   border-radius: 0.25rem;
   font-family: var(--font-sans, "Source Sans Pro");
   font-size: 1rem;
+}
+
+.manage-payment-link {
+  align-self: flex-start;
+  margin-top: 0.25rem;
 }
 
 .plan-details {
