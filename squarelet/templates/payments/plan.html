@@ -400,79 +400,109 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
   
+  // Helper functions for organization selection
+  function getFormElements(form) {
+    return {
+      cardOnFileOptions: form.querySelectorAll('.card-on-file-option'),
+      cardField: form.querySelector('.card-field'),
+      paymentMethods: form.querySelector('.payment-methods'),
+      saveCardCheckbox: form.querySelector('input[name="save_card"]').closest('label'),
+      existingCardRadio: form.querySelector('input[value="existing"]'),
+      newCardRadio: form.querySelector('input[value="new"]'),
+      managePaymentLink: form.querySelector('.manage-payment-link')
+    };
+  }
+  
+  function updateManagePaymentLink(selectElement, managePaymentLink) {
+    const selectedOption = selectElement.options[selectElement.selectedIndex];
+    const isIndividual = selectedOption.getAttribute('data-individual') === 'true';
+    const orgSlug = selectedOption.getAttribute('data-slug');
+    
+    if (isIndividual) {
+      managePaymentLink.href = '/users/~payment/';
+    } else {
+      managePaymentLink.href = `/organizations/${orgSlug}/payment/`;
+    }
+    managePaymentLink.style.display = 'inline-block';
+  }
+  
+  function updateCardOptions(selectedOrg, elements) {
+    const { cardOnFileOptions, existingCardRadio, newCardRadio } = elements;
+    const orgHasCard = orgCards[selectedOrg];
+    
+    if (orgHasCard) {
+      // Show existing card option and update card info
+      cardOnFileOptions.forEach(option => {
+        option.style.display = 'block';
+        const cardInfo = option.querySelector('.card-info');
+        if (cardInfo) {
+          cardInfo.textContent = `Use existing ${orgCards[selectedOrg].brand} ending in ${orgCards[selectedOrg].last4}`;
+        }
+      });
+      
+      // Default to existing card if no selection made
+      if (!existingCardRadio.checked && !newCardRadio.checked) {
+        existingCardRadio.checked = true;
+      }
+    } else {
+      // Hide existing card option
+      cardOnFileOptions.forEach(option => option.style.display = 'none');
+      
+      // Switch to new card if existing was selected but not available
+      if (existingCardRadio.checked) {
+        newCardRadio.checked = true;
+      }
+      // Default to new card if no selection made
+      if (!existingCardRadio.checked && !newCardRadio.checked) {
+        newCardRadio.checked = true;
+      }
+    }
+  }
+  
+  function updatePaymentUI(elements) {
+    const { cardField, saveCardCheckbox, existingCardRadio, newCardRadio } = elements;
+    
+    if (existingCardRadio.checked) {
+      cardField.style.display = 'none';
+      saveCardCheckbox.style.display = 'none';
+    } else if (newCardRadio.checked) {
+      cardField.style.display = 'block';
+      saveCardCheckbox.style.display = 'block';
+    }
+  }
+  
+  function hideAllPaymentElements(elements) {
+    const { paymentMethods, cardField, saveCardCheckbox, managePaymentLink } = elements;
+    
+    paymentMethods.style.display = 'none';
+    cardField.style.display = 'none';
+    saveCardCheckbox.style.display = 'none';
+    managePaymentLink.style.display = 'none';
+  }
+  
   // Organization selection handling
   const orgSelects = document.querySelectorAll('.org-select');
   orgSelects.forEach(select => {
     select.addEventListener('change', function() {
       const form = this.closest('form');
       const selectedOrg = this.value;
-      const cardOnFileOptions = form.querySelectorAll('.card-on-file-option');
-      const cardField = form.querySelector('.card-field');
-      const paymentMethods = form.querySelector('.payment-methods');
-      const saveCardCheckbox = form.querySelector('input[name="save_card"]').closest('label');
-      const existingCardRadio = form.querySelector('input[value="existing"]');
-      const newCardRadio = form.querySelector('input[value="new"]');
-      const managePaymentLink = form.querySelector('.manage-payment-link');
+      const elements = getFormElements(form);
       
       if (selectedOrg) {
         // Show payment methods section
-        paymentMethods.style.display = 'block';
+        elements.paymentMethods.style.display = 'block';
         
         // Update manage payment methods link
-        const selectedOption = this.options[this.selectedIndex];
-        const isIndividual = selectedOption.getAttribute('data-individual') === 'true';
-        const orgSlug = selectedOption.getAttribute('data-slug');
+        updateManagePaymentLink(this, elements.managePaymentLink);
         
-        if (isIndividual) {
-          managePaymentLink.href = '/users/~payment/';
-        } else {
-          managePaymentLink.href = `/organizations/${orgSlug}/payment/`;
-        }
-        managePaymentLink.style.display = 'inline-block';
+        // Update card options based on organization
+        updateCardOptions(selectedOrg, elements);
         
-        // Check if organization has a saved card
-        if (orgCards[selectedOrg]) {
-          // Show existing card option and update card info
-          cardOnFileOptions.forEach(option => {
-            option.style.display = 'block';
-            const cardInfo = option.querySelector('.card-info');
-            if (cardInfo) {
-              cardInfo.textContent = `Use existing ${orgCards[selectedOrg].brand} ending in ${orgCards[selectedOrg].last4}`;
-            }
-          });
-          
-          // If no payment method is currently selected, default to existing card
-          if (!existingCardRadio.checked && !newCardRadio.checked) {
-            existingCardRadio.checked = true;
-          }
-        } else {
-          // Hide existing card option
-          cardOnFileOptions.forEach(option => option.style.display = 'none');
-          
-          // If existing card was selected but org has no card, switch to new card
-          if (existingCardRadio.checked) {
-            newCardRadio.checked = true;
-          }
-          // If no payment method is currently selected, default to new card
-          if (!existingCardRadio.checked && !newCardRadio.checked) {
-            newCardRadio.checked = true;
-          }
-        }
-        
-        // Update UI based on current selection
-        if (existingCardRadio.checked) {
-          cardField.style.display = 'none';
-          saveCardCheckbox.style.display = 'none';
-        } else if (newCardRadio.checked) {
-          cardField.style.display = 'block';
-          saveCardCheckbox.style.display = 'block';
-        }
+        // Update UI based on current payment method selection
+        updatePaymentUI(elements);
       } else {
         // No organization selected - hide everything
-        paymentMethods.style.display = 'none';
-        cardField.style.display = 'none';
-        saveCardCheckbox.style.display = 'none';
-        managePaymentLink.style.display = 'none';
+        hideAllPaymentElements(elements);
       }
     });
   });
@@ -482,16 +512,9 @@ document.addEventListener("DOMContentLoaded", function () {
   paymentMethodRadios.forEach(radio => {
     radio.addEventListener('change', function() {
       const form = this.closest('form');
-      const cardField = form.querySelector('.card-field');
-      const saveCardCheckbox = form.querySelector('input[name="save_card"]').closest('label');
+      const elements = getFormElements(form);
       
-      if (this.value === 'new') {
-        cardField.style.display = 'block';
-        saveCardCheckbox.style.display = 'block';
-      } else {
-        cardField.style.display = 'none';
-        saveCardCheckbox.style.display = 'none';
-      }
+      updatePaymentUI(elements);
     });
   });
 });
