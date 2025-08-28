@@ -103,7 +103,8 @@ class OIDCRedirectURIUpdater(APIView):
             if not action or action not in ["add", "remove"]:
                 return Response(
                     {
-                        "error": "Invalid or missing 'action'. Must be 'add' or 'remove'."
+                        "error": "Invalid or missing 'action'. "
+                        "Must be 'add' or 'remove'."
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
