@@ -1,6 +1,7 @@
 # Django
 from django.conf import settings
 from django.shortcuts import redirect
+from django.urls import reverse
 from django.views.generic import DetailView, TemplateView
 
 # Standard Library
@@ -83,6 +84,10 @@ class PlanDetailView(DetailView):
                 'org_cards_json': json.dumps(org_cards),
                 'stripe_pk': settings.STRIPE_PUB_KEY,
             })
+        
+        # Add admin link if user has admin permissions
+        if self.request.user.is_authenticated and self.request.user.is_staff:
+            context['admin_link'] = reverse('admin:organizations_plan_change', args=[plan.pk])
         
         return context
 
