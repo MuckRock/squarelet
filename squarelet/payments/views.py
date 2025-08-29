@@ -1,8 +1,9 @@
 # Django
 from django.conf import settings
+from django.http import Http404
 from django.shortcuts import redirect
 from django.urls import reverse
-from django.views.generic import DetailView, TemplateView
+from django.views.generic import DetailView, RedirectView, TemplateView
 
 # Standard Library
 import json
@@ -203,3 +204,30 @@ class SunlightResearchPlansView(TemplateView):
         context["existing_subscriptions"] = existing_subscriptions
         
         return context
+
+
+class PlanRedirectView(RedirectView):
+    """
+    Redirects ID-only or slug-only plan URLs to the canonical ID+slug format
+    """
+    permanent = True
+    
+    def get_redirect_url(self, *args, **kwargs):
+        # Get the plan using ID or slug
+        pk = kwargs.get('pk')
+        slug = kwargs.get('slug')
+        
+        try:
+            if pk:
+                # ID provided, need to get the slug
+                plan = Plan.objects.get(pk=pk)
+                return reverse('plan_detail', kwargs={'pk': plan.pk, 'slug': plan.slug})
+            elif slug:
+                # Slug provided, need to get the ID
+                plan = Plan.objects.get(slug=slug)
+                return reverse('plan_detail', kwargs={'pk': plan.pk, 'slug': plan.slug})
+        except Plan.DoesNotExist:
+            raise Http404("No Plan found matching the query")
+        
+        # Should not reach here
+        raise Http404("Invalid plan URL")
