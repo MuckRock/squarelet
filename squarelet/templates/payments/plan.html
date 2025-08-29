@@ -2,6 +2,7 @@
 
 {% load i18n static %}
 {% load handleintent pass_query %}
+{% load markdown %}
 
 {% block head_title %}{% trans "Select plan" %}{% endblock %}
 
@@ -47,6 +48,7 @@
     gap: 1.5rem;
     align-self: stretch;
   }
+  .plan
   .free.plan main {
     flex-direction: row-reverse;
     padding: 1rem;
@@ -85,10 +87,9 @@
   .plan-actions {
     display: flex;
     flex-direction: column;
-    justify-content: center;
     align-items: center;
     gap: 0.625rem;
-    flex: 1 0 0;
+    flex: 1 1 20rem;
     align-self: stretch;
   }
   .plan-actions .button {
@@ -325,202 +326,234 @@
   .service .checkmark svg {
     fill: var(--blue-3);
   }
+  
+  .plan-description {
+    flex: 1 1 100%;
+    max-width: 800px;
+    margin: 1.5rem auto;
+    padding: 0 1rem;
+    color: var(--gray-5);
+    font-family: var(--font-sans, "Source Sans Pro");
+    font-size: var(--font-md, 1rem);
+    line-height: 1.6;
+  }
+  
+  .plan-description h3 {
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    color: var(--gray-5);
+    font-weight: 700;
+  }
+  
+  .plan-description p {
+    margin-bottom: 1rem;
+  }
+  
+  .plan-description ul {
+    margin-bottom: 1rem;
+    padding-left: 1.5rem;
+  }
+  
+  .plan-description a {
+    color: var(--blue-4);
+    text-decoration: underline;
+  }
 </style>
 {% endblock %}
 
 {% block javascript %}
 {{ block.super }}
 <script>
-// Stripe input styling
-var cardInputStyle = {
-  base: {
-    backgroundColor: '#FFFFFF',
-    color: '#3F3F3F',
-    fontSize: '16px',
-    fontFamily: '"Source Sans 3", "Source Sans Pro", system-ui, sans-serif',
-    fontSmoothing: 'antialiased',
-    '::placeholder': {
-      color: '#899194',
+  // Stripe input styling
+  var cardInputStyle = {
+    base: {
+      backgroundColor: '#FFFFFF',
+      color: '#3F3F3F',
+      fontSize: '16px',
+      fontFamily: '"Source Sans 3", "Source Sans Pro", system-ui, sans-serif',
+      fontSmoothing: 'antialiased',
+      '::placeholder': {
+        color: '#899194',
+      },
+      padding: '0.25rem 0.5rem',
     },
-    padding: '0.25rem 0.5rem',
-  },
-  invalid: {
-    color: '#e5424d',
-    ':focus': {
-      color: '#303238',
+    invalid: {
+      color: '#e5424d',
+      ':focus': {
+        color: '#303238',
+      },
     },
-  },
-};
+  };
 
-document.addEventListener("DOMContentLoaded", function () {
-  const cardFields = document.querySelectorAll(".card-field");
-  cardFields.forEach((cardField) => {
-    const form = cardField.closest('form');
-    const stripePk = form.querySelector('#id_stripe_pk').value;
-    const tokenInput = form.querySelector("#id_stripe_token");
-    
-    // Create the card element using the Stripe public key
-    const stripe = Stripe(stripePk);
-    const elements = stripe.elements();
-    const cardElement = elements.create("card", {style: cardInputStyle });
-    const cardElementMount = cardField.querySelector(".card-element");
-    cardElement.mount(cardElementMount);
-    
-    // Handle real-time validation errors from the card element
-    cardElement.on("change", function (event) {
-      const displayError = cardField.querySelector(".card-element-errors");
-      if (event.error) {
-        displayError.textContent = event.error.message;
-      } else {
-        displayError.textContent = "";
-      }
-    });
-    
-    // We don't want the browser to fill this in with old values
-    tokenInput.value = "";
-    
-    // Create a token or display an error when submitting the form
-    form.addEventListener("submit", function(event) {
-      event.preventDefault();
-      if (tokenInput.value) {
-        // Token already exists, continue with normal submission
-        return true;
-      }
-      stripe.createToken(cardElement).then(function(result) {
-        if (result.error) {
-          // Inform the customer that there was an error
-          const displayError = cardField.querySelector(".card-element-errors");
-          displayError.textContent = result.error.message;
+  document.addEventListener("DOMContentLoaded", function () {
+    const cardFields = document.querySelectorAll(".card-field");
+    cardFields.forEach((cardField) => {
+      const form = cardField.closest('form');
+      const stripePk = form.querySelector('#id_stripe_pk').value;
+      const tokenInput = form.querySelector("#id_stripe_token");
+      
+      // Create the card element using the Stripe public key
+      const stripe = Stripe(stripePk);
+      const elements = stripe.elements();
+      const cardElement = elements.create("card", {style: cardInputStyle });
+      const cardElementMount = cardField.querySelector(".card-element");
+      cardElement.mount(cardElementMount);
+      
+      // Handle real-time validation errors from the card element
+      cardElement.on("change", function (event) {
+        const displayError = cardField.querySelector(".card-element-errors");
+        if (event.error) {
+          displayError.textContent = event.error.message;
         } else {
-          // Set the token value and submit the form
-          tokenInput.value = result.token.id;
-          form.submit();
+          displayError.textContent = "";
         }
+      });
+      
+      // We don't want the browser to fill this in with old values
+      tokenInput.value = "";
+      
+      // Create a token or display an error when submitting the form
+      form.addEventListener("submit", function(event) {
+        event.preventDefault();
+        if (tokenInput.value) {
+          // Token already exists, continue with normal submission
+          return true;
+        }
+        stripe.createToken(cardElement).then(function(result) {
+          if (result.error) {
+            // Inform the customer that there was an error
+            const displayError = cardField.querySelector(".card-element-errors");
+            displayError.textContent = result.error.message;
+          } else {
+            // Set the token value and submit the form
+            tokenInput.value = result.token.id;
+            form.submit();
+          }
+        });
       });
     });
-  });
-  
-  // Helper functions for organization selection
-  function getFormElements(form) {
-    return {
-      cardOnFileOptions: form.querySelectorAll('.card-on-file-option'),
-      cardField: form.querySelector('.card-field'),
-      paymentMethods: form.querySelector('.payment-methods'),
-      saveCardCheckbox: form.querySelector('input[name="save_card"]').closest('label'),
-      existingCardRadio: form.querySelector('input[value="existing"]'),
-      newCardRadio: form.querySelector('input[value="new"]'),
-      managePaymentLink: form.querySelector('.manage-payment-link')
-    };
-  }
-  
-  function updateManagePaymentLink(selectElement, managePaymentLink) {
-    const selectedOption = selectElement.options[selectElement.selectedIndex];
-    const isIndividual = selectedOption.getAttribute('data-individual') === 'true';
-    const orgSlug = selectedOption.getAttribute('data-slug');
     
-    if (isIndividual) {
-      managePaymentLink.href = '/users/~payment/';
-    } else {
-      managePaymentLink.href = `/organizations/${orgSlug}/payment/`;
+    // Helper functions for organization selection
+    function getFormElements(form) {
+      return {
+        cardOnFileOptions: form.querySelectorAll('.card-on-file-option'),
+        cardField: form.querySelector('.card-field'),
+        paymentMethods: form.querySelector('.payment-methods'),
+        saveCardCheckbox: form.querySelector('input[name="save_card"]').closest('label'),
+        existingCardRadio: form.querySelector('input[value="existing"]'),
+        newCardRadio: form.querySelector('input[value="new"]'),
+        managePaymentLink: form.querySelector('.manage-payment-link')
+      };
     }
-    managePaymentLink.style.display = 'inline-block';
-  }
-  
-  function updateCardOptions(selectedOrg, elements) {
-    const { cardOnFileOptions, existingCardRadio, newCardRadio } = elements;
-    const orgHasCard = orgCards[selectedOrg];
     
-    if (orgHasCard) {
-      // Show existing card option and update card info
-      cardOnFileOptions.forEach(option => {
-        option.style.display = 'block';
-        const cardInfo = option.querySelector('.card-info');
-        if (cardInfo) {
-          cardInfo.textContent = `Use existing ${orgCards[selectedOrg].brand} ending in ${orgCards[selectedOrg].last4}`;
+    function updateManagePaymentLink(selectElement, managePaymentLink) {
+      const selectedOption = selectElement.options[selectElement.selectedIndex];
+      const isIndividual = selectedOption.getAttribute('data-individual') === 'true';
+      const orgSlug = selectedOption.getAttribute('data-slug');
+      
+      if (isIndividual) {
+        managePaymentLink.href = '/users/~payment/';
+      } else {
+        managePaymentLink.href = `/organizations/${orgSlug}/payment/`;
+      }
+      managePaymentLink.style.display = 'inline-block';
+    }
+    
+    function updateCardOptions(selectedOrg, elements) {
+      const { cardOnFileOptions, existingCardRadio, newCardRadio } = elements;
+      const orgHasCard = orgCards[selectedOrg];
+      
+      if (orgHasCard) {
+        // Show existing card option and update card info
+        cardOnFileOptions.forEach(option => {
+          option.style.display = 'block';
+          const cardInfo = option.querySelector('.card-info');
+          if (cardInfo) {
+            cardInfo.textContent = `Use existing ${orgCards[selectedOrg].brand} ending in ${orgCards[selectedOrg].last4}`;
+          }
+        });
+        
+        // Default to existing card if no selection made
+        if (!existingCardRadio.checked && !newCardRadio.checked) {
+          existingCardRadio.checked = true;
         }
-      });
-      
-      // Default to existing card if no selection made
-      if (!existingCardRadio.checked && !newCardRadio.checked) {
-        existingCardRadio.checked = true;
-      }
-    } else {
-      // Hide existing card option
-      cardOnFileOptions.forEach(option => option.style.display = 'none');
-      
-      // Switch to new card if existing was selected but not available
-      if (existingCardRadio.checked) {
-        newCardRadio.checked = true;
-      }
-      // Default to new card if no selection made
-      if (!existingCardRadio.checked && !newCardRadio.checked) {
-        newCardRadio.checked = true;
+      } else {
+        // Hide existing card option
+        cardOnFileOptions.forEach(option => option.style.display = 'none');
+        
+        // Switch to new card if existing was selected but not available
+        if (existingCardRadio.checked) {
+          newCardRadio.checked = true;
+        }
+        // Default to new card if no selection made
+        if (!existingCardRadio.checked && !newCardRadio.checked) {
+          newCardRadio.checked = true;
+        }
       }
     }
-  }
-  
-  function updatePaymentUI(elements) {
-    const { cardField, saveCardCheckbox, existingCardRadio, newCardRadio } = elements;
     
-    if (existingCardRadio.checked) {
+    function updatePaymentUI(elements) {
+      const { cardField, saveCardCheckbox, existingCardRadio, newCardRadio } = elements;
+      
+      if (existingCardRadio.checked) {
+        cardField.style.display = 'none';
+        saveCardCheckbox.style.display = 'none';
+      } else if (newCardRadio.checked) {
+        cardField.style.display = 'block';
+        saveCardCheckbox.style.display = 'block';
+      }
+    }
+    
+    function hideAllPaymentElements(elements) {
+      const { paymentMethods, cardField, saveCardCheckbox, managePaymentLink } = elements;
+      
+      paymentMethods.style.display = 'none';
       cardField.style.display = 'none';
       saveCardCheckbox.style.display = 'none';
-    } else if (newCardRadio.checked) {
-      cardField.style.display = 'block';
-      saveCardCheckbox.style.display = 'block';
+      managePaymentLink.style.display = 'none';
     }
-  }
-  
-  function hideAllPaymentElements(elements) {
-    const { paymentMethods, cardField, saveCardCheckbox, managePaymentLink } = elements;
     
-    paymentMethods.style.display = 'none';
-    cardField.style.display = 'none';
-    saveCardCheckbox.style.display = 'none';
-    managePaymentLink.style.display = 'none';
-  }
-  
-  // Organization selection handling
-  const orgSelects = document.querySelectorAll('.org-select');
-  orgSelects.forEach(select => {
-    select.addEventListener('change', function() {
-      const form = this.closest('form');
-      const selectedOrg = this.value;
-      const elements = getFormElements(form);
-      
-      if (selectedOrg) {
-        // Show payment methods section
-        elements.paymentMethods.style.display = 'block';
+    // Organization selection handling
+    const orgSelects = document.querySelectorAll('.org-select');
+    orgSelects.forEach(select => {
+      select.addEventListener('change', function() {
+        const form = this.closest('form');
+        const selectedOrg = this.value;
+        const elements = getFormElements(form);
         
-        // Update manage payment methods link
-        updateManagePaymentLink(this, elements.managePaymentLink);
+        if (selectedOrg) {
+          // Show payment methods section
+          elements.paymentMethods.style.display = 'block';
+          
+          // Update manage payment methods link
+          updateManagePaymentLink(this, elements.managePaymentLink);
+          
+          // Update card options based on organization
+          updateCardOptions(selectedOrg, elements);
+          
+          // Update UI based on current payment method selection
+          updatePaymentUI(elements);
+        } else {
+          // No organization selected - hide everything
+          hideAllPaymentElements(elements);
+        }
+      });
+    });
+    
+    // Payment method selection handling
+    const paymentMethodRadios = document.querySelectorAll('input[name="payment_method"]');
+    paymentMethodRadios.forEach(radio => {
+      radio.addEventListener('change', function() {
+        const form = this.closest('form');
+        const elements = getFormElements(form);
         
-        // Update card options based on organization
-        updateCardOptions(selectedOrg, elements);
-        
-        // Update UI based on current payment method selection
         updatePaymentUI(elements);
-      } else {
-        // No organization selected - hide everything
-        hideAllPaymentElements(elements);
-      }
+      });
     });
   });
-  
-  // Payment method selection handling
-  const paymentMethodRadios = document.querySelectorAll('input[name="payment_method"]');
-  paymentMethodRadios.forEach(radio => {
-    radio.addEventListener('change', function() {
-      const form = this.closest('form');
-      const elements = getFormElements(form);
-      
-      updatePaymentUI(elements);
-    });
-  });
-});
 
-// Make org cards data available to JavaScript  
-const orgCards = {{ org_cards_json|safe }};
+  // Make org cards data available to JavaScript  
+  const orgCards = {{ org_cards_json|safe }};
 </script>
 {% endblock %}
 
@@ -536,7 +569,6 @@ const orgCards = {{ org_cards_json|safe }};
     <main>
       <div class="plan-actions">
         {% if user.is_authenticated %}
-          
           <!-- Show existing subscriptions -->
           {% if existing_subscriptions %}
             <div class="existing-subscriptions">
@@ -641,44 +673,28 @@ const orgCards = {{ org_cards_json|safe }};
         {% endif %}
       </div>
       
-      <!-- Plan details -->
+      <!-- Plan benefits -->
+      {% if plan.benefits %}
       <div class="plan-details">
-        <h3>{% trans "Plan Details" %}</h3>
+        <h3>{% trans "Plan Benefits" %}</h3>
         <ul class="checklist">
+          {% for benefit in plan.benefits %}
           <li class="checklist-item">
             <span class="icon">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M9 16.17l-4.17-4.17-1.42 1.42L9 19 21 7l-1.42-1.42L9 16.17z"/>
-              </svg>
+              {% include "core/icons/checkmark.svg" %}
             </span>
-            <span class="text">
-              {% if plan.annual %}
-                {% trans "Annual billing" %}: ${{ plan.base_price }}
-              {% else %}
-                {% trans "Monthly billing" %}: ${{ plan.base_price }}
-              {% endif %}
-            </span>
+            <span class="text">{{ benefit }}</span>
           </li>
-          {% if plan.price_per_user %}
-          <li class="checklist-item">
-            <span class="icon">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M9 16.17l-4.17-4.17-1.42 1.42L9 19 21 7l-1.42-1.42L9 16.17z"/>
-              </svg>
-            </span>
-            <span class="text">{% trans "Per user" %}: ${{ plan.price_per_user }}</span>
-          </li>
-          {% endif %}
-          <li class="checklist-item">
-            <span class="icon">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M9 16.17l-4.17-4.17-1.42 1.42L9 19 21 7l-1.42-1.42L9 16.17z"/>
-              </svg>
-            </span>
-            <span class="text">{% trans "Cancel anytime" %}</span>
-          </li>
+          {% endfor %}
         </ul>
       </div>
+      {% endif %}
+
+      {% if plan.description %}
+        <div class="plan-description">
+          {{ plan.description|markdown|safe }}
+        </div>
+      {% endif %}
     </main>
   </div>
 </div>
@@ -691,7 +707,9 @@ const orgCards = {{ org_cards_json|safe }};
 }
 
 .subscription-form {
-  margin: 2rem 0;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 2rem 0;
   padding: 1.5rem;
   border: 1px solid var(--gray-2);
   border-radius: 0.5rem;
@@ -814,7 +832,8 @@ const orgCards = {{ org_cards_json|safe }};
 }
 
 .plan-details {
-  margin-top: 2rem;
+  flex: 1 1 20rem;
+  margin-bottom: 2rem;
   padding: 1rem;
   background: var(--gray-1);
   border-radius: 0.5rem;
