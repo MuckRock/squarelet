@@ -424,8 +424,9 @@ class Organization(AvatarMixin, models.Model):
 
         self.max_users = max_users
         self.save()
-        for wix_user in self.users.all():
-            sync_wix.delay(self.pk, plan.pk if plan else None, wix_user.pk)
+        if plan and plan.wix:
+            for wix_user in self.users.all():
+                sync_wix.delay(self.pk, plan.pk, wix_user.pk)
 
         if not self.plan and plan:
             # create a subscription going from no plan to plan
@@ -460,69 +461,6 @@ class Organization(AvatarMixin, models.Model):
     def has_active_subscription(self):
         """Check if the organization has an active subscription"""
         return bool(self.subscription)
-
-    def sync_wix(self, plan, user):
-        """Sync the user to Wix"""
-        headers = {
-            "Authorization": settings.WIX_APP_SECRET,
-            "wix-site-id": settings.WIX_SITE_ID,
-        }
-        if plan and plan.wix:
-            # Check for existing user
-            response = requests.post(
-                "https://www.wixapis.com/members/v1/members/query",
-                headers=headers,
-                json={
-                    "query": {
-                        "filter": {
-                            "loginEmail": user.email,
-                        }
-                    }
-                },
-            )
-            response.raise_for_status()
-            rjson = response.json()
-            if rjson["metadata"]["count"] > 0:
-                contact_id = rjson["members"][0]["contactId"]
-            else:
-                # Create the member
-                response = requests.post(
-                    "https://www.wixapis.com/members/v1/members",
-                    headers=headers,
-                    json={
-                        "member": {
-                            "loginEmail": user.email,
-                            "contact": {
-                                "firstName": user.name.split(" ", 1)[0],
-                                "lastName": user.name.split(" ", 1)[0],
-                                "emails": [user.email],
-                                "company": self.name,
-                            },
-                        },
-                    },
-                )
-                response.raise_for_status()
-                contact_id = response.json()["member"]["contactId"]
-            # Add their labels
-            plan_slug = plan.slug.split("-")[1]
-            response = requests.post(
-                f"https://www.wixapis.com/contacts/v4/contacts/{contact_id}/labels",
-                headers=headers,
-                json={
-                    "labelKeys": ["custom.paying-member", f"custom.{plan_slug}-member"]
-                },
-            )
-            response.raise_for_status()
-            # Send the member their set password email
-            requests.post(
-                "https://www.wixapis.com/wix-sm/api/v1/auth/v1/auth/members"
-                "/send-set-password-email",
-                headers=headers,
-                json={
-                    "email": user.email,
-                    "hideIgnoreMessage": True,
-                },
-            )
 
     def charge(
         self,
@@ -798,6 +736,9 @@ class Invitation(models.Model):
     @transaction.atomic
     def accept(self, user=None):
         """Accept the invitation"""
+        # pylint: disable=import-outside-toplevel
+        from squarelet.organizations.tasks import sync_wix
+
         if self.user is None and user is None:
             raise ValueError(
                 "Must give a user when accepting if invitation has no user"
@@ -815,6 +756,8 @@ class Invitation(models.Model):
             mailchimp_journey(self.user.email, "verified")
         if not self.organization.has_member(self.user):
             Membership.objects.create(organization=self.organization, user=self.user)
+            if self.organization.plan and self.organization.plan.wix:
+                sync_wix.delay(self.organization_id, self.organization.plan_id, user.pk)
 
     def reject(self):
         """Reject or revoke the invitation"""

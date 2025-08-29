@@ -18,6 +18,7 @@ import stripe
 from squarelet.core.mail import ORG_TO_ADMINS, send_mail
 from squarelet.core.models import Interval
 from squarelet.oidc.middleware import send_cache_invalidations
+from squarelet.organizations import wix
 from squarelet.organizations.models import Charge, Organization, Subscription
 from squarelet.organizations.models.payment import Plan
 from squarelet.users.models import User
@@ -232,6 +233,6 @@ def send_slack_notification(self, slack_webhook, subject, message):
 )
 def sync_wix(org_id, plan_id, user_id):
     org = Organization.objects.get(pk=org_id)
-    plan = Plan.objects.get(pk=plan_id) if plan_id else None
+    plan = Plan.objects.get(pk=plan_id)
     user = User.objects.get(pk=user_id)
-    org.sync_wix(plan, user)
+    wix.sync_wix(org, plan, user)
