@@ -571,16 +571,14 @@
         <!-- Show existing subscriptions for authenticated users -->
         {% if user.is_authenticated and existing_subscriptions %}
           <div class="existing-subscriptions">
-            <h3>{% trans "Current Subscriptions" %}</h3>
+            <h3>{% trans "Active Subscriptions" %}</h3>
             {% for subscription, org in existing_subscriptions %}
-              <div class="subscription-info">
-                <p><strong>{{ org.name }}</strong> is already subscribed to {{ plan.name }}</p>
-                <p>Next billing: {{ subscription.next_payment }}</p>
-              </div>
+              <li class="subscription-info">
+                <a href="{% url "organizations:detail" org.slug %}">{{ org.name }}</a> is already subscribed to {{ plan.name }}
+              </li>
             {% endfor %}
           </div>
         {% endif %}
-        
         <!-- Subscription Form - Always show but modify based on auth status -->
         <form method="POST" class="subscription-form">
           {% csrf_token %}
@@ -591,21 +589,23 @@
           {% endif %}
           
           {% if user.is_authenticated %}
-            {% if can_subscribe_individual or admin_organizations %}
+            {% if can_subscribe_individual and plan.for_individuals or admin_organizations and plan.for_groups %}
               <!-- Organization selection -->
               <div class="organization-selection">
                 <label>
                   {% trans "Organization" %}
                   <select name="organization" class="org-select" required>
                     <option value="">{% trans "Choose an organization" %}</option>
-                    {% if can_subscribe_individual %}
+                    {% if can_subscribe_individual and plan.for_individuals %}
                       <option value="{{ individual_organization.pk }}" data-slug="{{ individual_organization.slug }}" data-individual="true">
                         {{ individual_organization.name }} ({% trans "Personal" %})
                       </option>
                     {% endif %}
-                    {% for org in admin_organizations %}
-                      <option value="{{ org.pk }}" data-slug="{{ org.slug }}" data-individual="false">{{ org.name }}</option>
-                    {% endfor %}
+                    {% if plan.for_groups %}
+                      {% for org in admin_organizations %}
+                        <option value="{{ org.pk }}" data-slug="{{ org.slug }}" data-individual="false">{{ org.name }}</option>
+                      {% endfor %}
+                    {% endif %}
                   </select>
                 </label>
                 <a href="#" class="manage-payment-link small ghost button" style="display:none;">
@@ -668,7 +668,7 @@
               ${{ plan.base_price }}/{% if plan.annual %}{% trans "year" %}{% else %}{% trans "month" %}{% endif %}
             </div>
             {% if user.is_authenticated %}
-              {% if can_subscribe_individual or admin_organizations %}
+              {% if can_subscribe_individual and plan.for_individuals or admin_organizations and plan.for_groups %}
                 <button type="submit" class="btn premium">
                   {% trans "Subscribe" %}
                 </button>
@@ -803,10 +803,17 @@
 }
 
 .existing-subscriptions {
+  width: 100%;
+  box-sizing: border-box;
   background: var(--green-1);
   padding: 1rem;
   border-radius: 0.5rem;
   margin-bottom: 1rem;
+}
+
+.existing-subscriptions h3 {
+  color: var(--green-4);
+  opacity: .8;
 }
 
 .subscription-info {
