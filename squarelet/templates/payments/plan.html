@@ -568,114 +568,127 @@
     
     <main>
       <div class="plan-actions">
-        {% if user.is_authenticated %}
-          <!-- Show existing subscriptions -->
-          {% if existing_subscriptions %}
-            <div class="existing-subscriptions">
-              <h3>{% trans "Current Subscriptions" %}</h3>
-              {% for subscription, org in existing_subscriptions %}
-                <div class="subscription-info">
-                  <p><strong>{{ org.name }}</strong> is already subscribed to {{ plan.name }}</p>
-                  <p>Next billing: {{ subscription.next_payment }}</p>
-                </div>
-              {% endfor %}
-            </div>
-          {% endif %}
-          
-          <!-- Subscription Form -->
-          {% if can_subscribe_individual or admin_organizations %}
-              <form method="POST" class="subscription-form">
-                {% csrf_token %}
-                <input type="hidden" name="plan" value="{{ plan.pk }}">
-                <input type="hidden" id="id_stripe_pk" value="{{ stripe_pk }}">
-                <input type="hidden" id="id_stripe_token" name="stripe_token">
-                
-                <!-- Organization selection -->
-                <div class="organization-selection">
-                  <label>
-                    {% trans "Organization" %}
-                    <select name="organization" class="org-select" required>
-                      <option value="">{% trans "Choose an organization" %}</option>
-                      {% if can_subscribe_individual %}
-                        <option value="{{ individual_organization.pk }}" data-slug="{{ individual_organization.slug }}" data-individual="true">
-                          {{ individual_organization.name }} ({% trans "Personal" %})
-                        </option>
-                      {% endif %}
-                      {% for org in admin_organizations %}
-                        <option value="{{ org.pk }}" data-slug="{{ org.slug }}" data-individual="false">{{ org.name }}</option>
-                      {% endfor %}
-                    </select>
-                  </label>
-                  <a href="#" class="manage-payment-link small ghost button" style="display:none;">
-                    {% trans "Manage payment methods" %}
-                  </a>
-                </div>
-                
-                <!-- Payment method selection (dynamically shown/hidden) -->
-                <div class="payment-methods" style="display:none;">
-                  <div class="card-on-file-option" style="display:none;">
-                    <label>
-                      <input type="radio" name="payment_method" value="existing">
-                      <span class="card-info">{% trans "Use existing card" %}</span>
-                    </label>
-                  </div>
-                  <div class="new-card-option">
-                    <label>
-                      <div class="radio-header">
-                        <input type="radio" name="payment_method" value="new">
-                        {% trans "Use new card" %}
-                      </div>
-                    </label>
-                  </div>
-                </div>
-
-                <!-- Credit card field -->
-                <div class="card-field" style="display:none;">
-                  <div class="card-field-label">{% trans "Credit Card Information" %}</div>
-                  <div class="card-element"></div>
-                  <div class="card-element-errors" role="alert"></div>
-                </div>
-                
-                <!-- Save card option -->
-                <label style="display:none;">
-                  <input type="checkbox" name="save_card" checked>
-                  {% trans "Save as new default card" %}
-                </label>
-                
-                <div class="form-footer">
-                  <div class="price">
-                    ${{ plan.base_price }}/{% if plan.annual %}{% trans "year" %}{% else %}{% trans "month" %}{% endif %}
-                  </div>
-                  <button type="submit" class="button premium">
-                    {% trans "Subscribe" %}
-                  </button>
-                </div>
-              </form>
-          {% else %}
-            <div class="no-subscription-options">
-              <p>{% trans "You are already subscribed to this plan or don't have permission to subscribe." %}</p>
-            </div>
-          {% endif %}
-          
-        {% else %}
-          <!-- Unauthenticated user - show sign up prompt -->
-          <div class="signup-prompt">
-            <h3>{% trans "Create an account to subscribe" %}</h3>
-            <p>{% trans "You need to create an account before you can subscribe to this plan." %}</p>
-            <a href="{% url 'account_signup' %}?next={{ request.get_full_path|urlencode }}" class="button premium">
-              {% trans "Create Account" %}
-            </a>
-            <p>
-              {% trans "Already have an account?" %} 
-              <a href="{% url 'account_login' %}?next={{ request.get_full_path|urlencode }}">{% trans "Sign in" %}</a>
-            </p>
+        <!-- Show existing subscriptions for authenticated users -->
+        {% if user.is_authenticated and existing_subscriptions %}
+          <div class="existing-subscriptions">
+            <h3>{% trans "Current Subscriptions" %}</h3>
+            {% for subscription, org in existing_subscriptions %}
+              <div class="subscription-info">
+                <p><strong>{{ org.name }}</strong> is already subscribed to {{ plan.name }}</p>
+                <p>Next billing: {{ subscription.next_payment }}</p>
+              </div>
+            {% endfor %}
           </div>
         {% endif %}
+        
+        <!-- Subscription Form - Always show but modify based on auth status -->
+        <form method="POST" class="subscription-form">
+          {% csrf_token %}
+          <input type="hidden" name="plan" value="{{ plan.pk }}">
+          {% if user.is_authenticated %}
+            <input type="hidden" id="id_stripe_pk" value="{{ stripe_pk }}">
+            <input type="hidden" id="id_stripe_token" name="stripe_token">
+          {% endif %}
+          
+          {% if user.is_authenticated %}
+            {% if can_subscribe_individual or admin_organizations %}
+              <!-- Organization selection -->
+              <div class="organization-selection">
+                <label>
+                  {% trans "Organization" %}
+                  <select name="organization" class="org-select" required>
+                    <option value="">{% trans "Choose an organization" %}</option>
+                    {% if can_subscribe_individual %}
+                      <option value="{{ individual_organization.pk }}" data-slug="{{ individual_organization.slug }}" data-individual="true">
+                        {{ individual_organization.name }} ({% trans "Personal" %})
+                      </option>
+                    {% endif %}
+                    {% for org in admin_organizations %}
+                      <option value="{{ org.pk }}" data-slug="{{ org.slug }}" data-individual="false">{{ org.name }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+                <a href="#" class="manage-payment-link small ghost button" style="display:none;">
+                  {% trans "Manage payment methods" %}
+                </a>
+              </div>
+              
+              <!-- Payment method selection (dynamically shown/hidden) -->
+              <div class="payment-methods" style="display:none;">
+                <div class="card-on-file-option" style="display:none;">
+                  <label>
+                    <input type="radio" name="payment_method" value="existing">
+                    <span class="card-info">{% trans "Use existing card" %}</span>
+                  </label>
+                </div>
+                <div class="new-card-option">
+                  <label>
+                    <div class="radio-header">
+                      <input type="radio" name="payment_method" value="new">
+                      {% trans "Use new card" %}
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Credit card field -->
+              <div class="card-field" style="display:none;">
+                <div class="card-field-label">{% trans "Credit Card Information" %}</div>
+                <div class="card-element"></div>
+                <div class="card-element-errors" role="alert"></div>
+              </div>
+              
+              <!-- Save card option -->
+              <label style="display:none;">
+                <input type="checkbox" name="save_card" checked>
+                {% trans "Save as new default card" %}
+              </label>
+            {% else %}
+              <div class="no-subscription-options">
+                <p>{% trans "You are already subscribed to this plan or don't have permission to subscribe." %}</p>
+              </div>
+            {% endif %}
+          {% else %}
+            <!-- Unauthenticated user content -->
+            <div class="signup-prompt">
+              <h3>{% trans "You need a MuckRock account to subscribe to this plan." %}</h3>
+              <a href="{% url 'account_signup' %}?next={{ request.get_full_path|urlencode }}" class="btn primary">
+                {% trans "Create Account" %}
+              </a>
+              <p>
+                {% trans "Already have an account?" %} 
+                <a class="btn ghost primary" href="{% url 'account_login' %}?next={{ request.get_full_path|urlencode }}">{% trans "Sign in" %}</a>
+              </p>
+            </div>
+          {% endif %}
+          
+          <!-- Price and Subscribe button - Always visible -->
+          <div class="form-footer">
+            <div class="price">
+              ${{ plan.base_price }}/{% if plan.annual %}{% trans "year" %}{% else %}{% trans "month" %}{% endif %}
+            </div>
+            {% if user.is_authenticated %}
+              {% if can_subscribe_individual or admin_organizations %}
+                <button type="submit" class="btn premium">
+                  {% trans "Subscribe" %}
+                </button>
+              {% else %}
+                <button type="button" class="btn premium" disabled>
+                  {% trans "Subscribe" %}
+                </button>
+              {% endif %}
+            {% else %}
+              <button type="button" class="btn premium" disabled>
+                {% trans "Subscribe" %}
+              </button>
+            {% endif %}
+          </div>
+        </form>
       </div>
       
       <!-- Plan benefits -->
       {% if plan.benefits %}
-      <div class="plan-details">
+      <div class="plan-benefits">
         <h3>{% trans "Plan Benefits" %}</h3>
         <ul class="checklist">
           {% for benefit in plan.benefits %}
@@ -719,8 +732,6 @@
 .subscription-form h3 {
   margin-top: 0;
   color: var(--gray-5);
-  border-bottom: 1px solid var(--gray-2);
-  padding-bottom: 0.5rem;
 }
 
 .subscription-form label {
@@ -783,10 +794,12 @@
 
 .signup-prompt {
   text-align: center;
-  padding: 2rem;
-  background: var(--blue-1);
-  border-radius: 0.5rem;
   margin: 2rem 0;
+}
+
+.signup-prompt h3 {
+  max-width: 16rem;
+  margin: 0 auto 1rem;
 }
 
 .existing-subscriptions {
@@ -831,12 +844,16 @@
   margin-top: 0.25rem;
 }
 
-.plan-details {
-  flex: 1 1 20rem;
+.plan-benefits {
+  flex: 1 1 15rem;
   margin-bottom: 2rem;
   padding: 1rem;
   background: var(--gray-1);
   border-radius: 0.5rem;
+}
+
+.plan-benefits .icon {
+  fill: var(--green-3);
 }
 </style>
 {% endblock %}
