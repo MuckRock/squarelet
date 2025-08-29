@@ -60,7 +60,11 @@ from squarelet.organizations.models import (
     Organization,
     OrganizationEmailDomain,
 )
-from squarelet.organizations.tasks import handle_charge_succeeded, handle_invoice_failed
+from squarelet.organizations.tasks import (
+    handle_charge_succeeded,
+    handle_invoice_failed,
+    sync_wix,
+)
 
 # How much to paginate organizations list by
 ORG_PAGINATION = 100
@@ -113,6 +117,12 @@ class Detail(AdminLinkMixin, DetailView):
             if self.request.user.can_auto_join(self.organization):
                 # Auto-join the user to the organization (no invitation needed)
                 self.organization.memberships.create(user=self.request.user)
+                if self.organization.plan and self.organization.plan.wix:
+                    sync_wix.delay(
+                        self.organization_id,
+                        self.organization.plan_id,
+                        self.request.user.pk,
+                    )
                 messages.success(
                     request, _("You have successfully joined the organization!")
                 )
