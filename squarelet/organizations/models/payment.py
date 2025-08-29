@@ -8,7 +8,6 @@ from django.utils.translation import gettext_lazy as _
 import logging
 
 # Third Party
-import requests
 import stripe
 from autoslug import AutoSlugField
 from memoize import mproperty

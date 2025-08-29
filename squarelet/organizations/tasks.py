@@ -227,7 +227,7 @@ def send_slack_notification(self, slack_webhook, subject, message):
 
 
 @shared_task(
-    autoretry_for=(requests.exceptions.RequestException),
+    autoretry_for=(requests.exceptions.RequestException,),
     retry_backoff=60,
     retry_kwargs={"max_retries": 3},
 )

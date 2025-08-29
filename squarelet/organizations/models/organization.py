@@ -1,5 +1,4 @@
 # Django
-from django.conf import settings
 from django.db import models, transaction
 from django.templatetags.static import static
 from django.urls import reverse
@@ -10,7 +9,6 @@ from django.utils.translation import gettext_lazy as _
 import uuid
 
 # Third Party
-import requests
 from autoslug import AutoSlugField
 from memoize import mproperty
 from sorl.thumbnail import ImageField
@@ -411,7 +409,7 @@ class Organization(AvatarMixin, models.Model):
         self.subscriptions.start(organization=self, plan=plan)
 
     def set_subscription(self, token, plan, max_users, user):
-        # pylint-disable: import-outside-toplevel
+        # pylint: disable=import-outside-toplevel
         from squarelet.organizations.tasks import sync_wix
 
         if self.individual:
