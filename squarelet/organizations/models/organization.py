@@ -468,23 +468,42 @@ class Organization(AvatarMixin, models.Model):
             "wix-site-id": settings.WIX_SITE_ID,
         }
         if plan and plan.wix:
+            # Check for existing user
             response = requests.post(
-                "https://www.wixapis.com/members/v1/members",
+                "https://www.wixapis.com/members/v1/members/query",
                 headers=headers,
                 json={
-                    "member": {
-                        "loginEmail": user.email,
-                        "contact": {
-                            "firstName": user.name.split(" ", 1)[0],
-                            "lastName": user.name.split(" ", 1)[0],
-                            "emails": [user.email],
-                            "company": self.name,
-                        },
-                    },
+                    "query": {
+                        "filter": {
+                            "loginEmail": user.email,
+                        }
+                    }
                 },
             )
             response.raise_for_status()
-            contact_id = response.json()["member"]["contactId"]
+            rjson = response.json()
+            if rjson["metadata"]["count"] > 0:
+                contact_id = rjson["members"][0]["contactId"]
+            else:
+                # Create the member
+                response = requests.post(
+                    "https://www.wixapis.com/members/v1/members",
+                    headers=headers,
+                    json={
+                        "member": {
+                            "loginEmail": user.email,
+                            "contact": {
+                                "firstName": user.name.split(" ", 1)[0],
+                                "lastName": user.name.split(" ", 1)[0],
+                                "emails": [user.email],
+                                "company": self.name,
+                            },
+                        },
+                    },
+                )
+                response.raise_for_status()
+                contact_id = response.json()["member"]["contactId"]
+            # Add their labels
             plan_slug = plan.slug.split("-")[1]
             response = requests.post(
                 f"https://www.wixapis.com/contacts/v4/contacts/{contact_id}/labels",
@@ -494,6 +513,7 @@ class Organization(AvatarMixin, models.Model):
                 },
             )
             response.raise_for_status()
+            # Send the member their set password email
             requests.post(
                 "https://www.wixapis.com/wix-sm/api/v1/auth/v1/auth/members"
                 "/send-set-password-email",
