@@ -6,7 +6,7 @@ from django.db import migrations
 PLANS = [
     {
         "name": "Sunlight Research Center - Basic",
-        "slug": "src-basic",
+        "slug": "sunlight-basic",
         "minimum_users": 5,
         "base_price": 170,
         "price_per_user": 10,
@@ -18,7 +18,7 @@ PLANS = [
     },
     {
         "name": "Sunlight Research Center - Basic (Annual)",
-        "slug": "src-basic-annual",
+        "slug": "sunlight-basic-annual",
         "minimum_users": 5,
         "base_price": 2000,
         "price_per_user": 120,
@@ -30,7 +30,7 @@ PLANS = [
     },
     {
         "name": "Sunlight Research Center - Premium",
-        "slug": "src-premium",
+        "slug": "sunlight-premium",
         "minimum_users": 5,
         "base_price": 340,
         "price_per_user": 10,
@@ -42,7 +42,7 @@ PLANS = [
     },
     {
         "name": "Sunlight Research Center - Premium (Annual)",
-        "slug": "src-premium-annual",
+        "slug": "sunlight-premium-annual",
         "minimum_users": 5,
         "base_price": 4000,
         "price_per_user": 120,
@@ -54,7 +54,7 @@ PLANS = [
     },
     {
         "name": "Sunlight Research Center - Enterprise",
-        "slug": "src-enterprise",
+        "slug": "sunlight-enterprise",
         "minimum_users": 5,
         "base_price": 675,
         "price_per_user": 10,
@@ -66,7 +66,7 @@ PLANS = [
     },
     {
         "name": "Sunlight Research Center - Enterprise (Annual)",
-        "slug": "src-enterprise-annual",
+        "slug": "sunlight-enterprise-annual",
         "minimum_users": 5,
         "base_price": 8000,
         "price_per_user": 120,
