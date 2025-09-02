@@ -1,6 +1,7 @@
 # Django
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth.views import redirect_to_login
 from django.http import Http404
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -9,9 +10,13 @@ from django.views.generic import DetailView, RedirectView, TemplateView
 
 # Standard Library
 import json
+import logging
+import sys
 
 # Squarelet
 from squarelet.organizations.models import Organization, Plan
+
+logger = logging.getLogger(__name__)
 
 
 class PlanDetailView(DetailView):
@@ -19,6 +24,7 @@ class PlanDetailView(DetailView):
     template_name = "payments/plan.html"
 
     def get_context_data(self, **kwargs):
+        # pylint: disable=too-many-locals
         context = super().get_context_data(**kwargs)
         plan = self.get_object()
 
@@ -101,7 +107,6 @@ class PlanDetailView(DetailView):
 
         if not request.user.is_authenticated:
             # Redirect unauthenticated users to login, then back to this plan
-            from django.contrib.auth.views import redirect_to_login
 
             return redirect_to_login(request.get_full_path())
 
@@ -139,12 +144,11 @@ class PlanDetailView(DetailView):
         except Organization.DoesNotExist:
             # Invalid organization
             pass
-        except Exception as e:
+        except Exception as exc:  # pylint: disable=broad-except
             # Handle other errors
-            import logging
-
-            logger = logging.getLogger(__name__)
-            logger.error(f"Subscription creation failed: {str(e)}")
+            logger.error(
+                "Subscription creation failed: %s", exc, exc_info=sys.exc_info()
+            )
 
         # If we get here, something went wrong - redirect back to plan
         messages.error(request, _("Something went wrong"))
