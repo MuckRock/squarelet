@@ -166,7 +166,7 @@ class SunlightResearchPlansView(TemplateView):
         context = super().get_context_data(**kwargs)
 
         # 1. Fetch Sunlight research plans
-        sunlight_plans = list(Plan.objects.filter(slug__startswith="src-", wix=True))
+        sunlight_plans = list(Plan.objects.filter(slug__startswith="sunlight-", wix=True))
         context["sunlight_plans"] = sunlight_plans
 
         # 2. Fetch user subscription information
@@ -178,7 +178,7 @@ class SunlightResearchPlansView(TemplateView):
             # Check user's individual organization
             individual_org = self.request.user.individual_organization
             individual_subscriptions = individual_org.subscriptions.filter(
-                plan__slug__startswith="src-", plan__wix=True, cancelled=False
+                plan__slug__startswith="sunlight-", plan__wix=True, cancelled=False
             ).select_related("plan")
 
             for subscription in individual_subscriptions:
@@ -191,7 +191,7 @@ class SunlightResearchPlansView(TemplateView):
 
             for org in admin_orgs:
                 org_subscriptions = org.subscriptions.filter(
-                    plan__slug__startswith="src-", plan__wix=True, cancelled=False
+                    plan__slug__startswith="sunlight-", plan__wix=True, cancelled=False
                 ).select_related("plan")
 
                 for subscription in org_subscriptions:
