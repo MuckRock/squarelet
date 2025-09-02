@@ -108,7 +108,7 @@
       </p>
       <p class="detail">
         {% blocktrans %}
-        Our help pages include an in-depth <a href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433" target="_blank">guide to verification</a> and guidance on everything you can do in DocumentCloud without verification. 
+        Our help pages include an in-depth <a target="_blank" rel="noopener noreferrer" href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433">guide to verification</a> and guidance on everything you can do in DocumentCloud without verification. 
         {% endblocktrans %}
       </p>
     </header>
@@ -117,7 +117,7 @@
         {% for organization in unverified_orgs %}
           <div class="unverified org">
             {% include "account/team_list_item.html" %}
-            <a class="ghost button" href="{% airtable_verification_url organization %}" target="_blank">
+            <a target="_blank" rel="noopener noreferrer" class="ghost button" href="{% airtable_verification_url organization %}">
               Request verification
             </a>
           </div>
@@ -130,7 +130,7 @@
               although we <em>strongly</em> encourage verification through a newsroom or other affiliated organization.
               {% endblocktrans %}
             </p>
-            <a class="ghost primary button" href="{% airtable_verification_url organization %}" target="_blank">
+            <a target="_blank" rel="noopener noreferrer" class="ghost primary button" href="{% airtable_verification_url organization %}">
               Verify yourself
             </a>
           </div>
