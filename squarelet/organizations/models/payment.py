@@ -403,6 +403,9 @@ class Plan(models.Model):
     def __str__(self):
         return self.name
 
+    def get_absolute_url(self):
+        return reverse("plan_detail", kwargs={"pk": self.pk, "slug": self.slug})
+
     @property
     def free(self):
         return self.base_price == 0 and self.price_per_user == 0
