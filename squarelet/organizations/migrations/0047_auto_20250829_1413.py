@@ -9,6 +9,7 @@ def rename_sunlight_plans(apps, schema_editor):
     for plan in Plan.objects.filter(slug__startswith="src-"):
         plan.slug = plan.slug.replace("src-", "sunlight-")
         plan.save()
+        plan.make_stripe_plan()
 
 
 def rename_src_plans(apps, schema_editor):

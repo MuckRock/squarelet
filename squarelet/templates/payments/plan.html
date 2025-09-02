@@ -419,6 +419,13 @@
           // Token already exists, continue with normal submission
           return true;
         }
+        const payMethodInput = document.querySelector(
+          "input[name=payment_method]:checked",
+        );
+        if (payMethodInput != null && payMethodInput.value == "existing") {
+          // Do not try to get token if using a card on file
+          form.submit();
+        }
         stripe.createToken(cardElement).then(function(result) {
           if (result.error) {
             // Inform the customer that there was an error
@@ -538,6 +545,7 @@
           hideAllPaymentElements(elements);
         }
       });
+      select.dispatchEvent(new Event("change"));
     });
     
     // Payment method selection handling
@@ -549,6 +557,7 @@
         
         updatePaymentUI(elements);
       });
+      radio.dispatchEvent(new Event("change"));
     });
   });
 

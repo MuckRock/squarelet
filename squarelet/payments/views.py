@@ -1,15 +1,17 @@
 # Django
 from django.conf import settings
+from django.contrib import messages
 from django.http import Http404
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils.translation import gettext_lazy as _
 from django.views.generic import DetailView, RedirectView, TemplateView
 
 # Standard Library
 import json
 
 # Squarelet
-from squarelet.organizations.models import Plan, Organization
+from squarelet.organizations.models import Organization, Plan
 
 
 class PlanDetailView(DetailView):
@@ -106,8 +108,6 @@ class PlanDetailView(DetailView):
         # Get form data
         organization_id = request.POST.get("organization")
         stripe_token = request.POST.get("stripe_token")
-        payment_method = request.POST.get("payment_method", "new")
-        save_card = request.POST.get("save_card") == "on"
 
         try:
             # Get the organization
@@ -121,28 +121,19 @@ class PlanDetailView(DetailView):
             # Check if already subscribed
             if organization.subscriptions.filter(plan=plan, cancelled=False).exists():
                 # Already subscribed
+                messages.warning(request, _("Already subscribed"))
                 return redirect(plan)
 
             # Handle payment method
-            customer = organization.customer()
-
-            if payment_method == "new" and stripe_token:
-                # Save new card if requested
-                if save_card:
-                    customer.save_card(stripe_token)
-                else:
-                    customer.add_source(stripe_token)
-            elif payment_method == "existing" and not customer.card:
-                # Fallback if existing card not found
-                if stripe_token:
-                    customer.save_card(stripe_token)
-
-            # Create and start subscription
-            subscription = organization.subscriptions.create(plan=plan)
-            subscription.start()
-            subscription.save()
+            organization.set_subscription(
+                token=stripe_token,
+                plan=plan,
+                max_users=plan.minimum_users,
+                user=request.user,
+            )
 
             # Success - redirect to plan page or success page
+            messages.success(request, _("Succesfully subscribed"))
             return redirect(plan)
 
         except Organization.DoesNotExist:
@@ -156,6 +147,7 @@ class PlanDetailView(DetailView):
             logger.error(f"Subscription creation failed: {str(e)}")
 
         # If we get here, something went wrong - redirect back to plan
+        messages.error(request, _("Something went wrong"))
         return redirect(plan)
 
 
@@ -166,7 +158,9 @@ class SunlightResearchPlansView(TemplateView):
         context = super().get_context_data(**kwargs)
 
         # 1. Fetch Sunlight research plans
-        sunlight_plans = list(Plan.objects.filter(slug__startswith="sunlight-", wix=True))
+        sunlight_plans = list(
+            Plan.objects.filter(slug__startswith="sunlight-", wix=True)
+        )
         context["sunlight_plans"] = sunlight_plans
 
         # 2. Fetch user subscription information
