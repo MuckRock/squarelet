@@ -23,7 +23,7 @@ article#user_detail {
   flex-direction: column;
   align-items: flex-start;
   align-self: stretch;
-  
+
   display: none;
 }
 
@@ -38,7 +38,7 @@ article#user_detail {
   padding: 1.75rem 0.75rem 0.75rem 0.75rem;
   flex-direction: column;
   align-items: flex-start;
-  gap: .75rem;
+  gap: 0.75rem;
   align-self: stretch;
   position: sticky;
   top: 0;
@@ -85,7 +85,7 @@ a.nav-item {
 .nav-item svg {
   width: var(--font-md, 1rem);
   height: var(--font-md, 1rem);
-  fill: var(--gray-4, #5C717C);
+  fill: var(--gray-4, #5c717c);
   flex-shrink: 0;
 }
 
@@ -178,10 +178,10 @@ h2 {
 }
 
 .content .profile .icon img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .content .profile .details {
@@ -203,7 +203,7 @@ h2 {
 
 .content .profile .user-detail {
   font-size: var(--font-sm, 0.875rem);
-  color: var(--gray-4, #5C717C);
+  color: var(--gray-4, #5c717c);
   margin: 0;
 }
 
@@ -255,7 +255,7 @@ section#plan main {
 .plan-detail .icon {
   display: inline-flex;
   align-items: center;
-  color: var(--gray-4, #5C717C);
+  color: var(--gray-4, #5c717c);
   width: var(--font-md, 1rem);
   height: var(--font-md, 1rem);
 }
@@ -289,17 +289,17 @@ section#plan main {
 .verification-status .help-text {
   margin: 0;
   font-size: var(--font-sm, 0.875rem);
-  color: var(--gray-4, #5C717C);
+  color: var(--gray-4, #5c717c);
 }
 
 .verification-status svg {
   width: 2.25rem;
   height: 2.25rem;
-  fill: var(--gray-4, #5C717C);
+  fill: var(--gray-4, #5c717c);
 }
 
 .verification-status .verified svg path {
-  fill: var(--green-3, #27C6A2);
+  fill: var(--green-3, #27c6a2);
 }
 
 .verification-status .features {
@@ -329,15 +329,15 @@ section#plan main {
 .checklist-item svg {
   width: var(--font-sm, 0.875rem);
   height: var(--font-sm, 0.875rem);
-  fill: var(--gray-4, #5C717C);
+  fill: var(--gray-4, #5c717c);
 }
 
 .locked dd.checklist-item svg {
-  fill: var(--orange-3, #EC7B6B);
+  fill: var(--orange-3, #ec7b6b);
 }
 
 .unlocked dd.checklist-item svg {
-  fill: var(--green-3, #27C6A2);
+  fill: var(--green-3, #27c6a2);
 }
 
 /* Organizations */
@@ -371,11 +371,12 @@ section .orgs {
 }
 
 .org-list-header p {
-  color: var(--gray-4, #5C717C);
+  color: var(--gray-4, #5c717c);
   font-size: var(--font-xs, 0.75rem);
 }
 
-.org-list .invite, .org-list .org {
+.org-list .invite,
+.org-list .org {
   margin-bottom: 0.5rem;
   padding: 0;
   flex-wrap: wrap;
@@ -395,7 +396,7 @@ section .orgs {
 .org-list .actions {
   flex: 0 0 4rem;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0 0.5rem;
   align-items: center;
 }
@@ -403,7 +404,7 @@ section .orgs {
 .org-empty {
   width: 100%;
   text-align: center;
-  color: var(--gray-4, #5C717C);
+  color: var(--gray-4, #5c717c);
 }
 
 /* Connected Accounts */
@@ -435,7 +436,7 @@ section .orgs {
 .content .email.account .icon {
   display: inline-flex;
   align-items: center;
-  fill: var(--gray-4, #5C717C);
+  fill: var(--gray-4, #5c717c);
 }
 
 .content .account .label {
@@ -534,9 +535,9 @@ section .orgs {
   /* Style */
   appearance: none;
   border-radius: 0.5rem;
-  border: 1px solid var(--gray-3, #99A8B3);
-  background: var(--white, #FFF);
-  box-shadow: 0 2px 0 0 #D8DEE2 inset;
+  border: 1px solid var(--gray-3, #99a8b3);
+  background: var(--white, #fff);
+  box-shadow: 0 2px 0 0 #d8dee2 inset;
   /* Typography */
   font-family: var(--font-sans, "Source Sans Pro");
   font-size: var(--font-md, 1rem);
@@ -688,7 +689,9 @@ section .orgs {
   right: 0;
   visibility: hidden;
   opacity: 0;
-  transition: visibility 0s, opacity 0.2s ease-in-out;
+  transition:
+    visibility 0s,
+    opacity 0.2s ease-in-out;
   z-index: 1000;
   display: none;
   flex-direction: column;
@@ -721,28 +724,29 @@ section .orgs {
   padding: 1rem 2rem 0.5rem;
   background: transparent;
   border-bottom: 2px solid transparent;
-  transition: background 0.325s linear, border-color 0.125s ease-in-out;
+  transition:
+    background 0.325s linear,
+    border-color 0.125s ease-in-out;
   display: flex;
   align-items: center;
   justify-content: center;
   align-self: stretch;
-  color: var(--gray-4, #5C717C);
+  color: var(--gray-4, #5c717c);
   font-family: var(--font-sans, "Source Sans Pro");
   font-size: var(--font-md, 1rem);
   font-style: normal;
   font-weight: 600;
   line-height: normal;
   cursor: pointer;
-  
 }
 
 .tab-controller .tab:hover {
   color: var(--gray-5, #233944);
-  background: var(--blue-1, #EEF3F9);
+  background: var(--blue-1, #eef3f9);
 }
 
 .tab-controller .tab-active {
-  border-color: var(--blue-3, #4294F0);
+  border-color: var(--blue-3, #4294f0);
   color: var(--blue-5, #053775);
 }
 
