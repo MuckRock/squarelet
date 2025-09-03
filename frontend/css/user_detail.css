@@ -379,12 +379,12 @@ section .orgs {
 .org-list .org {
   margin-bottom: 0.5rem;
   padding: 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.5rem;
 }
 
 .org-list .team {
-  flex: 1 0 auto;
+  flex: 1 1 auto;
   flex-wrap: nowrap;
 }
 
@@ -396,9 +396,10 @@ section .orgs {
 .org-list .actions {
   flex: 0 0 4rem;
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 0 0.5rem;
   align-items: center;
+  justify-content: flex-end;
 }
 
 .org-empty {
