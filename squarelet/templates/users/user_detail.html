@@ -230,7 +230,7 @@
     <section id="verification">
       <header>
         <h2>{% trans "Your Verification" %}</h2>
-        <a href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433" class="btn ghost" target="_blank" rel="noopener noreferer">
+        <a target="_blank" rel="noopener noreferrer" href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433" class="btn ghost">
           {% include "core/icons/book.svg" %}
           {% trans "Learn about verification" %}
         </a>
@@ -251,7 +251,7 @@
         <div class="status unverified">
           {% include "core/icons/unverified-24.svg" %}
           <h3>{% trans "You are not a verified journalist. Some features are restricted." %}</h3>
-          <p class="help-text">Request newsroom verification for one of your organizations, or <a href="{% airtable_verification_url %}">request journalist verification for yourself</a>, to upload and publish documents.</p>
+          <p class="help-text">Request newsroom verification for one of your organizations, or <a target="_blank" rel="noopener noreferrer" href="{% airtable_verification_url %}">request journalist verification for yourself</a>, to upload and publish documents.</p>
         </div>
         <dl class="locked features">
           <dt class="checklist-item">{% include "core/icons/lock.svg" %}{% trans "Locked features:" %}</dt>
@@ -422,7 +422,7 @@
     <section id="security">
       <header>
         <h2>{% trans "Your Security Settings" %}</h2>
-        <a class="btn primary ghost" href="https://help.muckrock.com/Two-Factor-Authentication-1f9f8892696380e59857c19341a324af" target="_blank" rel="noopener noreferer">
+        <a target="_blank" rel="noopener noreferrer" class="btn primary ghost" href="https://help.muckrock.com/Two-Factor-Authentication-1f9f8892696380e59857c19341a324af">
           {% include "core/icons/book.svg" %}
           {% trans "Security best practices" %}
         </a>
