@@ -1266,11 +1266,13 @@ legend {
 }
 
 button._cls-altAction {
-  background: none;
+  background: var(--orange-3);
   box-shadow: none;
-  border-radius: 0;
-  padding: 2px !important;
-  margin-left: 0.6em;
+}
+
+button._cls-altAction:hover,
+button._cls-altAction:focus {
+  background: var(--orange-4);
 }
 
 ._cls-profDropdown ._cls-avatar {
