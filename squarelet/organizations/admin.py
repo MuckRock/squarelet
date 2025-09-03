@@ -1,12 +1,15 @@
 # Django
 from django.contrib import admin
+from django.db.models import JSONField
 from django.forms.models import BaseInlineFormSet
+from django.forms.widgets import Textarea
 from django.http.response import HttpResponse
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 
 # Standard Library
 import csv
+import json
 
 # Third Party
 from reversion.admin import VersionAdmin
@@ -29,6 +32,30 @@ from squarelet.organizations.models import (
     Subscription,
 )
 from squarelet.users.models import User
+
+
+# https://stackoverflow.com/questions/48145992/showing-json-field-in-django-admin
+# https://github.com/MuckRock/documentcloud/blob/master/documentcloud/addons/admin.py#L26-L38
+class PrettyJSONWidget(Textarea):
+    def format_value(self, value):
+        try:
+            # Accept Python objects and JSON strings
+            if isinstance(value, (dict, list)):
+                data = value
+            elif value in (None, ""):
+                return ""
+            else:
+                data = json.loads(value)
+
+            pretty = json.dumps(data, indent=2, sort_keys=True)
+
+            # these lines will try to adjust size of TextArea to fit to content
+            row_lengths = [len(r) for r in pretty.split("\n")]
+            self.attrs["rows"] = min(max(len(row_lengths) + 2, 10), 30)
+            self.attrs["cols"] = min(max(max(row_lengths) + 2, 40), 120)
+            return pretty
+        except Exception:  # pylint: disable=broad-except
+            return super().format_value(value)
 
 
 class SubscriptionInline(admin.TabularInline):
@@ -270,8 +297,12 @@ class PlanAdmin(VersionAdmin):
         "for_groups",
         "slack_webhook_url",
     )
-    search_fields = ("name",)
+    search_fields = ("name", "description")
     autocomplete_fields = ("private_organizations", "entitlements")
+    filter_horizontal = ("entitlements", "private_organizations")
+    formfield_overrides = {
+        JSONField: {"widget": PrettyJSONWidget},
+    }
 
 
 @admin.register(Entitlement)

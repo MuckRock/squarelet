@@ -385,11 +385,26 @@ class Plan(models.Model):
     # do we need to sync users on this plan to wix?
     wix = models.BooleanField(default=False)
 
+    benefits = models.JSONField(
+        _("benefits"),
+        default=list,
+        help_text=_("List of benefits included with this plan"),
+        blank=True,
+    )
+    description = models.TextField(
+        _("description"),
+        blank=True,
+        help_text=_("Detailed description of the plan, in Markdown"),
+    )
+
     class Meta:
         ordering = ("slug",)
 
     def __str__(self):
         return self.name
+
+    def get_absolute_url(self):
+        return reverse("plan_detail", kwargs={"pk": self.pk, "slug": self.slug})
 
     @property
     def free(self):

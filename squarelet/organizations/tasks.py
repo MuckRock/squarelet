@@ -19,8 +19,8 @@ from squarelet.core.mail import ORG_TO_ADMINS, send_mail
 from squarelet.core.models import Interval
 from squarelet.oidc.middleware import send_cache_invalidations
 from squarelet.organizations import wix
-from squarelet.organizations.models import Charge, Organization, Subscription
-from squarelet.organizations.models.payment import Plan
+from squarelet.organizations.models.organization import Organization
+from squarelet.organizations.models.payment import Charge, Plan, Subscription
 from squarelet.users.models import User
 
 logger = logging.getLogger(__name__)
