@@ -64,6 +64,11 @@ def mailchimp_subscribe(emails, list_=settings.MAILCHIMP_LIST_DEFAULT):
     """Adds the email to the mailing list throught the MailChimp API.
     https://mailchimp.com/developer/marketing/api/lists/"""
 
+    in_dev_env = settings.ENV in ("staging", "dev")
+    missing_api_key = not settings.MAILCHIMP_API_KEY
+    if in_dev_env or missing_api_key:
+        return None
+
     api_url = f"{settings.MAILCHIMP_API_ROOT}/lists/{list_}/"
     headers = {
         "Content-Type": "application/json",
@@ -86,6 +91,11 @@ def mailchimp_subscribe(emails, list_=settings.MAILCHIMP_LIST_DEFAULT):
 
 def mailchimp_journey(email, journey):
     """Trigger a mailchimp journey for the given email address"""
+
+    in_dev_env = settings.ENV in ("staging", "dev")
+    missing_api_key = not settings.MAILCHIMP_API_KEY
+    if in_dev_env or missing_api_key:
+        return None
 
     # IDs for our journeys
     journey_map = {
