@@ -240,25 +240,32 @@
         {% if verified %}
         <div class="status verified">
           {% include "core/icons/verified-24.svg" %}
-          <h3>{% trans "You are a verified journalist." %}</h3>
+          <h3>{% trans "You are verified." %}</h3>
+          {% if verified_organizations %}
+            {% if verified_organizations|length == 1 %}
+              <p class="help-text">You belong to verified organization <strong>{{ verified_organizations.0.name }}</strong>.</p>
+            {% else %}
+              <p class="help-text">You belong to verified organizations 
+              {% for org in verified_organizations %}
+                <strong>{{ org.name }}</strong>{% if not forloop.last %}{% if forloop.revcounter == 2 %} and {% else %}, {% endif %}{% endif %}
+              {% endfor %}.
+              </p>
+            {% endif %}
+          {% endif %}
+          {% if individually_verified %}
+            <p class="help-text">You are {% if verified_organizations %}also {% endif %}individually verified.</p>
+          {% endif %}
         </div>
-        <dl class="unlocked features">
-          <dt class="checklist-item">{% include "core/icons/unlock.svg" %}{% trans "Unlocked features:" %}</dt>
-          <dd class="checklist-item">{% include "core/icons/check-circle-fill.svg" %}{% trans "Upload to DocumentCloud" %}</dd>
-          <dd class="checklist-item">{% include "core/icons/check-circle-fill.svg" %}{% trans "Publish documents" %}</dd>
-        </dl>
         {% else %}
         <div class="status unverified">
           {% include "core/icons/unverified-24.svg" %}
-          <h3>{% trans "You are not a verified journalist. Some features are restricted." %}</h3>
-          <p class="help-text">Request newsroom verification for one of your organizations, or <a target="_blank" rel="noopener noreferrer" href="{% airtable_verification_url %}">request journalist verification for yourself</a>, to upload and publish documents.</p>
+          <h3>{% trans "You are not verified." %}</h3>
+          <p class="help-text">Request newsroom verification for one of your organizations.</p>
         </div>
-        <dl class="locked features">
-          <dt class="checklist-item">{% include "core/icons/lock.svg" %}{% trans "Locked features:" %}</dt>
-          <dd class="checklist-item">{% include "core/icons/x-circle-fill.svg" %}{% trans "Upload to DocumentCloud" %}</dd>
-          <dd class="checklist-item">{% include "core/icons/x-circle-fill.svg" %}{% trans "Publish documents" %}</dd>
-        </dl>
         {% endif %}
+        <div class="features">
+          <p>Verified newsrooms and journalists have access to additional tools, services, and features. <a target="_blank" rel="noopener noreferrer" href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433">Learn more</a></p>
+        </div>
       </main>
     </section>
 
@@ -279,6 +286,9 @@
       <main class="orgs">
         {% include "organizations/your_organizations.html" %}
       </main>
+      <footer>
+        <p class="help-text">If you’re a freelancer who works with multiple organizations, you may <a target="_blank" rel="noopener noreferrer" href="{% airtable_verification_url %}">request individual verification as a journalist</a>.</p>
+      </footer>
     </section>
 
     <section id="accounts">

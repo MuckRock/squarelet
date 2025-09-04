@@ -112,6 +112,12 @@ class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
         context["potential_organizations"] = list(user.get_potential_organizations())
         context["pending_invitations"] = list(user.get_pending_invitations())
         context["verified"] = user.verified_journalist()
+        context["verified_organizations"] = list(
+            user.organizations.filter(verified_journalist=True, individual=False)
+        )
+        context["individually_verified"] = (
+            user.individual_organization.verified_journalist
+        )
         context["emails"] = user.emailaddress_set.all()
         context["is_mfa_enabled"] = is_mfa_enabled(user)
         context["RECOVERY_CODE_COUNT"] = app_settings.RECOVERY_CODE_COUNT
