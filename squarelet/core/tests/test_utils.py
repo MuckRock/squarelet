@@ -1,5 +1,6 @@
 # Django
 from django.conf import settings
+from django.test import TestCase, override_settings
 
 # Standard Library
 import hashlib
@@ -23,8 +24,13 @@ def test_file_path_long():
     assert len(file_path("base", None, file_name)) == 92
 
 
-class TestMailchimpJourney:
-    def setup_method(self):
+@override_settings(
+    ENV="production",
+    MAILCHIMP_API_KEY="test-api-key-12345",
+    MAILCHIMP_API_ROOT="https://us1.api.mailchimp.com/3.0",
+)
+class TestMailchimpJourney(TestCase):
+    def setUp(self):
         self.email = "test@example.com"
         self.journey = "welcome_sq"
         self.journey_id = 24
