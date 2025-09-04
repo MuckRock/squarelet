@@ -187,12 +187,14 @@ h2 {
 .content .profile .details {
   display: flex;
   flex-wrap: wrap;
-  padding: 0rem 0.75rem;
-  justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.5rem;
   flex: 1 0 0;
   align-self: center;
+}
+
+.content .profile .details.details-padded {
+  padding: 0 0.75rem;
 }
 
 .content .profile .details h3 {
@@ -202,6 +204,7 @@ h2 {
 }
 
 .content .profile .user-detail {
+
   font-size: var(--font-sm, 0.875rem);
   color: var(--gray-4, #5c717c);
   margin: 0;

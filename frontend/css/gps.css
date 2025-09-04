@@ -129,36 +129,42 @@ h3 {
 }
 
 .badge.purple {
+  fill: var(--purple-5, #0e4450);
   color: var(--purple-5, #0e4450);
   border: 1px solid var(--purple-2, #9de3d3);
   background: var(--purple-1, #ebf9f6);
 }
 
 .badge.blue {
+  fill: var(--blue-5, #0e4450);
   color: var(--blue-5, #0e4450);
   border: 1px solid var(--blue-2, #9de3d3);
   background: var(--blue-1, #ebf9f6);
 }
 
 .badge.green {
+  fill: var(--green-5, #0e4450);
   color: var(--green-5, #0e4450);
   border: 1px solid var(--green-2, #9de3d3);
   background: var(--green-1, #ebf9f6);
 }
 
 .badge.yellow {
+  fill: var(--yellow-5, #0e4450);
   color: var(--yellow-5, #0e4450);
   border: 1px solid var(--yellow-2, #9de3d3);
   background: var(--yellow-1, #ebf9f6);
 }
 
 .badge.orange {
+  fill: var(--orange-5, #0e4450);
   color: var(--orange-5, #0e4450);
   border: 1px solid var(--orange-2, #9de3d3);
   background: var(--orange-1, #ebf9f6);
 }
 
 .badge.red {
+  fill: var(--red-5, #0e4450);
   color: var(--red-5, #0e4450);
   border: 1px solid var(--red-2, #9de3d3);
   background: var(--red-1, #ebf9f6);
