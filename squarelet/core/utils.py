@@ -93,6 +93,8 @@ def mailchimp_journey(email, journey):
         "verified": (45, 345, "20aa4a931d"),
         "welcome_sq": (24, 303, "20aa4a931d"),
         "welcome_mr": (37, 304, "20aa4a931d"),
+        "verified_premium_org": (55, 442, "20aa4a931d"),
+        "unverified_premium_org": (56, 441, "20aa4a931d"),
     }
     journey_id, step_id, list_id = journey_map[journey]
 

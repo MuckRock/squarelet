@@ -14,7 +14,7 @@ from memoize import mproperty
 
 # Squarelet
 from squarelet.core.mail import ORG_TO_RECEIPTS, send_mail
-from squarelet.core.utils import stripe_retry_on_error
+from squarelet.core.utils import mailchimp_journey, stripe_retry_on_error
 from squarelet.organizations.querysets import (
     ChargeQuerySet,
     EntitlementQuerySet,
@@ -209,6 +209,17 @@ class Subscription(models.Model):
                 )
             )
             self.subscription_id = stripe_subscription.id
+
+        # Trigger respective mailchimp journeys if this is the organization plan
+        if self.plan.slug in ("organization", "organization-annual"):
+            journey_key = (
+                "verified_premium_org"
+                if self.organization.verified_journalist
+                else "unverified_premium_org"
+            )
+            mailchimp_journey(
+                self.organization.customer().stripe_customer.email, journey_key
+            )
 
         # Slack notification for new subscription
         if self.plan.slack_webhook_url:
