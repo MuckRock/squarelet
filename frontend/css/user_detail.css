@@ -275,10 +275,9 @@ section#plan main {
   flex-direction: column;
   justify-content: center;
   align-items: flex-start;
-  align-self: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
   margin: 0 1rem 0 0;
-  flex: 1 0 16rem;
+  flex: 1 0 12rem;
 }
 
 .verification-status .status h3 {
@@ -286,7 +285,18 @@ section#plan main {
   font-size: var(--font-md, 1rem);
 }
 
-.verification-status .help-text {
+.verification-status .status p {
+  margin: 0;
+  font-size: var(--font-sm, 0.875rem);
+  color: var(--gray-4);
+}
+
+.verification-status .status strong {
+  display: inline-block;
+  font-weight: 600;
+}
+
+.help-text {
   margin: 0;
   font-size: var(--font-sm, 0.875rem);
   color: var(--gray-4, #5c717c);
@@ -307,7 +317,13 @@ section#plan main {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  flex: 0 0 auto;
+  flex: 1 1 12rem;
+}
+
+.verification-status .features p {
+  margin: 0;
+  padding: 0 .75rem;
+  color: var(--gray-4);
 }
 
 .checklist-item {
@@ -517,10 +533,8 @@ section .orgs {
 }
 
 .connect-account-form .help-text {
-  margin: 0;
   text-align: center;
   text-wrap: pretty;
-  font-size: var(--font-sm, 1rem);
   color: var(--gray-5, #233944);
 }
 
@@ -574,12 +588,6 @@ section .orgs {
   flex-direction: column;
   gap: 0.25rem;
   align-self: stretch;
-}
-
-.autologin .help-text {
-  margin: 0;
-  font-size: var(--font-sm);
-  color: var(--gray-4);
 }
 
 .autologin .status-row {
