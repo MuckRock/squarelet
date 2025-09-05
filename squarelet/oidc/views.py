@@ -84,13 +84,24 @@ token_view = csrf_exempt(TokenView.as_view())
 
 class OIDCRedirectURIUpdater(APIView):
     """
-    API endpoint to add/remove redirect URIs for OIDC clients on staging
+    API endpoint to add or remove redirect URIs for OIDC clients on staging.
+
+    **Request Method:**
+    PATCH /api/clients/{client_id}/redirect_uris/
+
+    **Expected JSON payload:**
+    ```json
+    {
+        "action": "add",
+        "redirect_uris": [
+            "https://example.com/callback",
+            "https://another.com/redirect"
+        ]
+    }
+    ```
     """
 
     permission_classes = [IsAdminUser]
-
-    def post(self, request, client_id, *args, **kwargs):
-        return self._handle_request(request, client_id)
 
     def patch(self, request, client_id, *args, **kwargs):
         return self._handle_request(request, client_id)
@@ -109,7 +120,11 @@ class OIDCRedirectURIUpdater(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            if not uris_to_modify or not isinstance(uris_to_modify, list):
+            if (
+                not uris_to_modify
+                or not isinstance(uris_to_modify, list)
+                or not all(isinstance(uri, str) for uri in uris_to_modify)
+            ):
                 return Response(
                     {
                         "error": "Invalid or missing 'redirect_uris'. "
@@ -143,7 +158,6 @@ class OIDCRedirectURIUpdater(APIView):
                     uri for uri in current_uris if uri not in uris_to_modify
                 ]
 
-            # No need for json.dumps(). The model field handles it.
             client.redirect_uris = current_uris
             client.save()
 
