@@ -179,9 +179,17 @@
         {% endif %}
         </div>
 
-        <div class="details">
+        <div class="details details-padded">
           <h3>{% firstof user.name user.username %}</h3>
+          <div class="details">
+          {% if individually_verified %}
+            <div class="badge green">
+              {% include "core/icons/verification.svg" %}
+              {% trans "Verified" %}
+            </div>
+          {% endif %}
           {% if user.name %}<p class="user-detail">{{user.username}}</p>{% endif %}
+          </div>
           <p class="user-detail">Joined <time title="{{user.created_at|date:"c"}}" datetime="{{user.created_at|date:"c"}}">{{user.created_at|date:"F j, Y"}}</time></p>
         </div>
       </main>
