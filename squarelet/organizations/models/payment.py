@@ -151,15 +151,6 @@ class Subscription(models.Model):
         _("date update"), help_text=_("Date when monthly resources are restored")
     )
 
-    def send_notification(self, subject, message):
-        """Queue a Slack notification asynchronously."""
-        if self.plan.slack_webhook_url:
-            from squarelet.organizations.tasks import (  # pylint:disable=import-outside-toplevel
-                send_slack_notification,
-            )
-
-            send_slack_notification.delay(self.plan.slack_webhook_url, subject, message)
-
     # The cancelled flag is used to mark subscriptions that are ready for cancellation.
     # Cancellation happens at the end of the billing period; at that point,
     # the subscription is deleted from the database.
@@ -211,14 +202,7 @@ class Subscription(models.Model):
             self.subscription_id = stripe_subscription.id
 
         # Slack notification for new subscription
-        if self.plan.slack_webhook_url:
-            self.send_notification(
-                subject="New Subscription",
-                message=(
-                    f"{self.organization.name} "
-                    f"has just subscribed to the {self.plan.name} plan."
-                ),
-            )
+        self.send_slack_notification("started")
 
     def cancel(self):
         # pylint: disable=using-constant-test
@@ -230,15 +214,7 @@ class Subscription(models.Model):
         self.save()
 
         # Slack notification for cancellation
-        if self.plan.slack_webhook_url:
-            self.send_notification(
-                subject="Subscription Cancelled",
-                message=(
-                    f"{self.organization.name} "
-                    "has cancelled their subscription"
-                    f" to the {self.plan.name} plan."
-                ),
-            )
+        self.send_slack_notification("cancelled")
 
     def modify(self, plan):
         """Modify an existing plan
@@ -262,15 +238,9 @@ class Subscription(models.Model):
         self.save()
 
         # Slack notification if an org has modified their subscription details
-        if self.plan.slack_webhook_url:
-            self.send_notification(
-                subject="Subscription Updated",
-                message=(
-                    f"{self.organization.name} "
-                    "has modified their subscription details "
-                    f"for the {self.plan.name} plan."
-                ),
-            )
+        self.send_slack_notification(
+            "modified", old_plan=old_plan, new_plan=plan
+        )
 
     def stripe_modify(self):
         """Update stripe subscription to match local subscription"""
@@ -292,6 +262,89 @@ class Subscription(models.Model):
             )
             self.cancelled = False
             self.save()
+
+    def send_slack_notification(self, event, **kwargs):
+        """Queue a Slack notification asynchronously for subscription events."""
+        if not self.plan.slack_webhook_url:
+            return
+
+        from squarelet.organizations.tasks import (  # pylint:disable=import-outside-toplevel
+            send_slack_notification,
+        )
+
+        # Link to the organization
+        org_url = self.organization.get_absolute_url()
+        domain = getattr(
+            settings, "SQUARELET_URL", "https://accounts.muckrock.com"
+        ).rstrip(
+            "/"
+        )  # avoid double slashes
+        org_link = (
+            f"<{domain}{org_url}|{self.organization.name}>"
+            if org_url
+            else self.organization.name
+        )
+
+        event_messages = {
+            "started": {
+                "subject": "New Subscription",
+                "message": (
+                    f"{org_link} has just subscribed to "
+                    f"the *{self.plan.name}* plan.",
+                )
+            },
+            "cancelled": {
+                "subject": "Subscription Cancelled",
+                "message": (
+                    f"{org_link} has cancelled their subscription "
+                    f"to the *{self.plan.name}* plan.",
+                )
+            },
+            "modified": {
+                "subject": "Subscription Updated",
+                "message": (
+                    f"{org_link} has modified their subscription "
+                    f"details for the *{self.plan.name}* plan.",
+                )
+            },
+        }
+
+        if event not in event_messages:
+            logger.warning("Unknown subscription event: %s", event)
+            return
+
+        event_data = event_messages[event]
+        subject = event_data["subject"]
+        message = event_data["message"]
+
+        # Build the base section block
+        section_block = {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": f"*{subject}*\n\n{message}"},
+            "accessory": {
+                "type": "image",
+                "image_url": self.organization.avatar_url,
+                "alt_text": f"{self.organization.name} avatar",
+            },
+        }
+
+        # Add fields for modified event if plan change data is available
+        if event == "modified" and "old_plan" in kwargs and "new_plan" in kwargs:
+            old_plan = kwargs["old_plan"]
+            new_plan = kwargs["new_plan"]
+            section_block["fields"] = [
+                {"type": "mrkdwn", "text": f"*Old Plan:*\n{old_plan.name}"},
+                {"type": "mrkdwn", "text": f"*New Plan:*\n{new_plan.name}"},
+            ]
+
+        slack_message = {
+            "text": f"{subject}\n\n{message}",  # Fallback text for notifications
+            "blocks": [section_block],
+        }
+
+        send_slack_notification.delay(
+            self.plan.slack_webhook_url, subject, slack_message
+        )
 
 
 class Plan(models.Model):
