@@ -210,16 +210,22 @@ class Subscription(models.Model):
             )
             self.subscription_id = stripe_subscription.id
 
-        # Trigger respective mailchimp journeys if this is the organization plan
-        if self.plan.slug in ("organization", "organization-annual"):
+        has_doccloud = self.plan.entitlements.filter(
+            client__name="DocumentCloud", slug="Organization"
+        ).exists()
+
+        has_muckrock = self.plan.entitlements.filter(
+            client__name="MuckRock", slug="Organization"
+        ).exists()
+
+        if has_doccloud and has_muckrock:
             journey_key = (
                 "verified_premium_org"
                 if self.organization.verified_journalist
                 else "unverified_premium_org"
             )
-            mailchimp_journey(
-                self.organization.customer().stripe_customer.email, journey_key
-            )
+            for user in self.organization.users.all():
+                mailchimp_journey(user.email, journey_key)
 
         # Slack notification for new subscription
         if self.plan.slack_webhook_url:
