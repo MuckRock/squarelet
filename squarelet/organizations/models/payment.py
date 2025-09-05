@@ -210,15 +210,8 @@ class Subscription(models.Model):
             )
             self.subscription_id = stripe_subscription.id
 
-        has_doccloud = self.plan.entitlements.filter(
-            client__name="DocumentCloud", slug="Organization"
-        ).exists()
-
-        has_muckrock = self.plan.entitlements.filter(
-            client__name="MuckRock", slug="Organization"
-        ).exists()
-
-        if has_doccloud and has_muckrock:
+        # Trigger respective mailchimp journeys if this is the organization plan
+        if self.plan_id and self.plan.entitlements.filter(slug="Organization").exists():
             journey_key = (
                 "verified_premium_org"
                 if self.organization.verified_journalist
