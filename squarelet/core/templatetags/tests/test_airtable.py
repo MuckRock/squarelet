@@ -165,6 +165,8 @@ class TestAirtableVerificationUrl:
     @pytest.mark.django_db(transaction=True)
     def test_complete_data(self, mock_context, organization_factory):
         """Should generate URL with all user and organization data"""
+        rf = RequestFactory()
+        request = rf.get("/")
         org = organization_factory(name="Acme Corporation", slug="acme")
         OrganizationUrl.objects.create(organization=org, url="https://acme.com")
         result = airtable_verification_url(mock_context, org)
@@ -184,9 +186,11 @@ class TestAirtableVerificationUrl:
             "Acme Corporation"
         ]
         assert query_params["prefill_Organization URL"] == ["https://acme.com"]
-        assert query_params["prefill_MuckRock Account URL"] == ["/users/johndoe/"]
-        assert query_params["prefill_MuckRock Organization URL"] == [
-            "/organizations/acme/"
+        assert query_params["prefill_MR User Account URL"] == [
+            request.build_absolute_uri("/users/johndoe/")
+        ]
+        assert query_params["prefill_MR Organization Account URL"] == [
+            request.build_absolute_uri("/organizations/acme/")
         ]
 
     def test_user_without_full_name(self, mock_context, mock_organization):
@@ -218,6 +222,8 @@ class TestAirtableVerificationUrl:
     def test_organization_without_url(self, mock_context, mock_organization):
         """Should handle organization without URL"""
         # Mock organization without URL
+        rf = RequestFactory()
+        request = rf.get("/")
         mock_organization.urls = OrganizationUrl.objects.none()
 
         result = airtable_verification_url(mock_context, mock_organization)
@@ -231,8 +237,8 @@ class TestAirtableVerificationUrl:
         assert query_params["prefill_Organization or Project Name"] == [
             "Acme Corporation"
         ]
-        assert query_params["prefill_MuckRock Organization URL"] == [
-            "/organizations/acme/"
+        assert query_params["prefill_MR Organization Account URL"] == [
+            request.build_absolute_uri("/organizations/acme/")
         ]
 
     def test_organization_with_empty_url(self, mock_context, mock_organization):
@@ -264,26 +270,7 @@ class TestAirtableVerificationUrl:
         # Organization fields should be filtered out
         assert "prefill_Organization or Project Name" not in query_params
         assert "prefill_Organization URL" not in query_params
-        assert "prefill_MuckRock Organization URL" not in query_params
-
-    def test_organization_without_get_absolute_url(
-        self, mock_context, mock_organization
-    ):
-        """Should handle organization without get_absolute_url method"""
-        # Mock organization that returns None for get_absolute_url
-        mock_organization.get_absolute_url.return_value = None
-
-        result = airtable_verification_url(mock_context, mock_organization)
-
-        parsed = urlparse(result)
-        query_params = parse_qs(parsed.query)
-
-        # MuckRock Organization URL should be filtered out
-        assert "prefill_MuckRock Organization URL" not in query_params
-        # Other fields should still be present
-        assert query_params["prefill_Organization or Project Name"] == [
-            "Acme Corporation"
-        ]
+        assert "prefill_MR Organization Account URL" not in query_params
 
     def test_uses_verification_form_constant(self, mock_context, mock_organization):
         """Should use the VERIFICATION_FORM_URL constant"""
@@ -400,7 +387,9 @@ class TestAirtableTemplateTagsInTemplate:
         ]
 
         # Check URLs (using real get_absolute_url methods)
-        assert query_params["prefill_MuckRock Account URL"] == [user.get_absolute_url()]
-        assert query_params["prefill_MuckRock Organization URL"] == [
-            organization.get_absolute_url()
+        assert query_params["prefill_MR User Account URL"] == [
+            request.build_absolute_uri(user.get_absolute_url())
+        ]
+        assert query_params["prefill_MR Organization Account URL"] == [
+            request.build_absolute_uri(organization.get_absolute_url())
         ]
