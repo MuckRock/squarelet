@@ -103,6 +103,8 @@ class OIDCRedirectURIUpdater(APIView):
 
     permission_classes = [IsAdminUser]
 
+    write_scopes = ("write_client_redirect_uris",)
+
     def patch(self, request, client_id, *args, **kwargs):
         return self._handle_request(request, client_id)
 
