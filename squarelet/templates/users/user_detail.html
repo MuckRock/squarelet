@@ -156,7 +156,7 @@
   <div class="content">
     <section id="profile">
       <header>
-        <h2>{% trans "Your Profile" %}</h2>
+        <h2>{% trans "Profile" %}</h2>
         <div class="header-actions">
           <!-- Hide action until we support profile previews
           <a href="?public" class="btn ghost">
@@ -197,7 +197,7 @@
 
     <section id="plan">
       <header>
-        <h2>{% trans "Your Plan" %}</h2>
+        <h2>{% trans "Plan" %}</h2>
         <div class="header-actions">
           <a href="{% url "users:receipts" %}" class="btn ghost">
             {% include "core/icons/log.svg" %}
@@ -237,7 +237,7 @@
 
     <section id="verification">
       <header>
-        <h2>{% trans "Your Verification" %}</h2>
+        <h2>{% trans "Verification" %}</h2>
         <a target="_blank" rel="noopener noreferrer" href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433" class="btn ghost">
           {% include "core/icons/book.svg" %}
           {% trans "Learn about verification" %}
@@ -272,14 +272,21 @@
         </div>
         {% endif %}
         <div class="features">
-          <p>Verified newsrooms and journalists have access to additional tools, services, and features. <a target="_blank" rel="noopener noreferrer" href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433">Learn more</a></p>
+          <p>
+            {% if verified %}
+            You can access additional tools, services, and features for verified newsrooms and journalists.
+            {% else %}
+            Verified newsrooms and journalists have access to additional tools, services, and features.
+            {% endif %}
+            <a target="_blank" rel="noopener noreferrer" href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433">Learn more</a>
+          </p>
         </div>
       </main>
     </section>
 
     <section id="organizations">
       <header>
-        <h2>{% trans "Your Organizations" %}</h2>
+        <h2>{% trans "Organizations" %}</h2>
         <div class="header-actions">
           <a href="{% url "organizations:list" %}" class="btn ghost">
             {% include "core/icons/search.svg" %}
@@ -301,7 +308,7 @@
 
     <section id="accounts">
       <header>
-        <h2>{% trans "Your Connected Accounts" %}</h2>
+        <h2>{% trans "Connected Accounts" %}</h2>
         <div class="dropdown-container" data-dropdown-open="false" >
           <a class="btn primary ghost {% if settings.ENABLE_SOCIAL_LOGINS %}dropdown-anchor{% endif %}" href="{% url "account_email" %}">
             {% include "core/icons/plus-circle.svg" %}
@@ -439,7 +446,7 @@
 
     <section id="security">
       <header>
-        <h2>{% trans "Your Security Settings" %}</h2>
+        <h2>{% trans "Security Settings" %}</h2>
         <a target="_blank" rel="noopener noreferrer" class="btn primary ghost" href="https://help.muckrock.com/Two-Factor-Authentication-1f9f8892696380e59857c19341a324af">
           {% include "core/icons/book.svg" %}
           {% trans "Security best practices" %}
