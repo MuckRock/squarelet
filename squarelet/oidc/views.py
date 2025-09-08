@@ -101,7 +101,7 @@ class OIDCRedirectURIUpdater(APIView):
     ```
     """
 
-    permission_classes = [IsAdminUser]
+    permission_classes = [ScopePermission | IsAdminUser]
 
     write_scopes = ("write_client_redirect_uris",)
 
