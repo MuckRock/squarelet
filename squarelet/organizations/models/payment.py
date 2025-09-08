@@ -238,9 +238,7 @@ class Subscription(models.Model):
         self.save()
 
         # Slack notification if an org has modified their subscription details
-        self.send_slack_notification(
-            "modified", old_plan=old_plan, new_plan=plan
-        )
+        self.send_slack_notification("modified", old_plan=old_plan, new_plan=plan)
 
     def stripe_modify(self):
         """Update stripe subscription to match local subscription"""
@@ -291,21 +289,21 @@ class Subscription(models.Model):
                 "message": (
                     f"{org_link} has just subscribed to "
                     f"the *{self.plan.name}* plan.",
-                )
+                ),
             },
             "cancelled": {
                 "subject": "Subscription Cancelled",
                 "message": (
                     f"{org_link} has cancelled their subscription "
                     f"to the *{self.plan.name}* plan.",
-                )
+                ),
             },
             "modified": {
                 "subject": "Subscription Updated",
                 "message": (
                     f"{org_link} has modified their subscription "
                     f"details for the *{self.plan.name}* plan.",
-                )
+                ),
             },
         }
 
