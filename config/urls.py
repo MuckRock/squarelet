@@ -14,7 +14,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 # Squarelet
 from squarelet.core.views import HomeView, SelectPlanView
-from squarelet.oidc.views import token_view
+from squarelet.oidc.views import OIDCRedirectURIUpdater, token_view
 from squarelet.organizations.fe_api.viewsets import (
     InvitationViewSet as FEInvitationViewSet,
     OrganizationViewSet as FEOrganizationViewSet,
@@ -115,6 +115,17 @@ if settings.DEBUG:
         ),
         path("500/", default_views.server_error),
     ]
+
+# Conditionally add the API endpoint based on the environment
+if settings.ENV == "staging" or settings.ENV == "dev":
+    urlpatterns.append(
+        path(
+            "api/clients/<int:client_id>/redirect_uris/",
+            OIDCRedirectURIUpdater.as_view(),
+            name="oidc_redirect_uri_updater",
+        )
+    )
+
 if "debug_toolbar" in settings.INSTALLED_APPS:
     # Third Party
     import debug_toolbar
