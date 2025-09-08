@@ -236,6 +236,9 @@ section#plan main {
 .plan-name {
   font-weight: var(--font-semibold, 600);
 }
+a.plan-name {
+  color: var(--blue-3);
+}
 
 .plan-details {
   margin: 0;
@@ -252,7 +255,7 @@ section#plan main {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin: 0;
+  margin: 0.25rem 0;
 }
 
 .plan-detail .icon {
@@ -261,6 +264,43 @@ section#plan main {
   color: var(--gray-4, #5c717c);
   width: var(--font-md, 1rem);
   height: var(--font-md, 1rem);
+}
+
+.plan-benefits.checklist {
+  margin: 0;
+  padding: .5rem;
+  border: 1px solid var(--gray-2, #d8dee2);
+  border-radius: 0.5rem;
+}
+
+.plan-benefits .checklist-item {
+  align-items: flex-start;
+  font-weight: 400;
+}
+
+.plan-benefits .checklist-item .icon {
+  display: inline-flex;
+  align-items: center;
+  margin: 0.125rem 0;
+  width: var(--font-sm, 0.875rem);
+  height: var(--font-sm, 0.875rem);
+}
+
+.plan-benefits .checklist-item .icon svg {
+  fill: var(--blue-3);
+}
+
+.plan-upgrade p {
+  margin: 0 0 0.5rem;
+}
+
+.plan-upgrade .plan-benefits .checklist-item .icon svg {
+  fill: var(--green-3);
+}
+
+.plan-upgrade .plan-benefits {
+  border: none;
+  padding: 0;
 }
 
 /* Verification */

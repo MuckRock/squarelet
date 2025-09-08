@@ -232,6 +232,18 @@
           {% endif %}
         </div>
         {% if current_plan %}
+        {% if current_plan.benefits %}
+        <ul class="plan-benefits checklist">
+          {% for benefit in current_plan.benefits %}
+          <li class="checklist-item">
+            <span class="icon">
+              {% include "core/icons/checkmark.svg" %}
+            </span>
+            <span class="text">{{ benefit }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
         <ul class="plan-details">
           {% if current_plan_next_charge_date %}
           <li class="plan-detail plan-next-charge">
@@ -247,6 +259,20 @@
           </li>
           {% endif %}
         </ul>
+        {% elif upgrade_plan %}
+        <div class="plan-upgrade">
+          <p>Upgrade to our <a href="{% url "plan_detail" pk=upgrade_plan.id slug=upgrade_plan %}">{{upgrade_plan.name}}</a> plan for additional benefits and features:</p>
+          <ul class="plan-benefits checklist">
+            {% for benefit in upgrade_plan.benefits %}
+            <li class="checklist-item">
+              <span class="icon">
+                {% include "core/icons/checkmark.svg" %}
+              </span>
+              <span class="text">{{ benefit }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
         {% endif %}
       </main>
     </section>

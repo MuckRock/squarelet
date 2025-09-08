@@ -48,6 +48,7 @@ from allauth.socialaccount.views import ConnectionsView
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.organizations.models import ReceiptEmail
+from squarelet.organizations.models.payment import Plan
 from squarelet.organizations.views import UpdateSubscription
 from squarelet.services.models import Service
 from squarelet.users.forms import (
@@ -151,12 +152,15 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         # Get the current plan and subscription, if any
         individual_org = user.individual_organization
         current_plan = None
+        upgrade_plan = Plan.objects.get(slug="professional")
         subscription = None
         if hasattr(individual_org, "subscriptions"):
             subscription = individual_org.subscriptions.first()
             if subscription and hasattr(subscription, "plan"):
                 current_plan = subscription.plan
+                upgrade_plan = None
         context["current_plan"] = current_plan
+        context["upgrade_plan"] = upgrade_plan
         # Get card, next charge date, and cancelled status for active subscription
         if current_plan and subscription:
             customer = getattr(individual_org, "customer", None)
