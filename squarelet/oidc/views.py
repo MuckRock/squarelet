@@ -16,6 +16,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
+# Squarelet
+from squarelet.oidc.permissions import ScopePermission
+
 
 class TokenEndpoint(endpoints.token.TokenEndpoint):
     """Override OIDC token endpoint to use our JWT tokens"""
@@ -101,7 +104,7 @@ class OIDCRedirectURIUpdater(APIView):
     ```
     """
 
-    permission_classes = [IsAdminUser]
+    permission_classes = [ScopePermission | IsAdminUser]
 
     write_scopes = ("write_client_redirect_uris",)
 
