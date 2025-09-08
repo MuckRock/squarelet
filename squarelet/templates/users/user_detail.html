@@ -215,7 +215,10 @@
       <header>
         <h2>{% trans "Plan" %}</h2>
         <div class="header-actions">
-          <a href="{% url "users:receipts" username=user %}" class="btn ghost">
+          <a href="{% url "select_plan" %}" class="btn ghost primary">
+            {% trans "View plans" %}
+          </a>
+          <a href="{% url "users:receipts" username=user.username %}" class="btn ghost primary">
             {% include "core/icons/log.svg" %}
             {% trans "View receipts" %}
           </a>
@@ -227,7 +230,7 @@
             <p>You are using MuckRock&rsquo;s <span class="plan-name" id="free">Free</span> plan.</p>
             <a class="btn premium" href="{% url "users:payment" username=user.username %}">Upgrade</a>
           {% else %}
-            <p>You are subscribed to MuckRock&rsquo;s <span class="plan-name" id="{{current_plan.slug}}">{{current_plan.name}}</span> plan.</p>
+            <p>You are subscribed to MuckRock&rsquo;s <a href="{% url "plan_detail" pk=current_plan.id slug=current_plan.slug %}" class="plan-name" id="{{current_plan.slug}}">{{current_plan.name}}</a> plan.</p>
             <a class="btn ghost primary" href="{% url "users:payment" username=user.username %}">Change plan</a>
           {% endif %}
         </div>
