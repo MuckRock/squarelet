@@ -305,6 +305,10 @@ section#plan main {
   color: var(--gray-4, #5c717c);
 }
 
+.help-text.error {
+  color: var(--orange-3);
+}
+
 .verification-status svg {
   width: 2.25rem;
   height: 2.25rem;

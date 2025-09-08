@@ -119,6 +119,7 @@ class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
             user.individual_organization.verified_journalist
         )
         context["emails"] = user.emailaddress_set.all()
+        context["has_unverified_emails"] = user.emailaddress_set.filter(verified=False).exists()
         context["is_mfa_enabled"] = is_mfa_enabled(user)
         context["RECOVERY_CODE_COUNT"] = app_settings.RECOVERY_CODE_COUNT
         context["unused_code_count"] = len(self.get_recovery_codes())

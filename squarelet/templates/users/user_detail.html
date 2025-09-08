@@ -483,10 +483,17 @@
               <span class="badge green">{% trans "Enabled" %}</span>
               <a class="small btn ghost" href="{% url "mfa_deactivate_totp" %}">{% trans "Disable two-factor auth" %}</a>
               {% else %}
-              <a class="small btn ghost" href="{% url "mfa_activate_totp" %}">{% trans "Enable two-factor auth" %}</a>
+                {% if has_unverified_emails %}
+                  <button class="small btn ghost primary" disabled>{% trans "Enable two-factor auth" %}</button>
+                {% else %}
+                  <a class="small btn ghost" href="{% url "mfa_activate_totp" %}">{% trans "Enable two-factor auth" %}</a>
+                {% endif %}
               {% endif %}
             </div>
           </div>
+          {% if has_unverified_emails %}
+            <p class="help-text error">{% trans "You must confirm all connected email addresses before enabling two-factor authentication." %}</p>
+          {% endif %}
           {% if is_mfa_enabled %}
             <div class="recovery-codes">
               <dl class="status">
