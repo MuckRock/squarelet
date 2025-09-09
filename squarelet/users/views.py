@@ -48,6 +48,7 @@ from allauth.socialaccount.views import ConnectionsView
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.organizations.models import ReceiptEmail
+from squarelet.organizations.views import UpdateSubscription
 from squarelet.services.models import Service
 from squarelet.users.forms import (
     SignupForm,
@@ -67,6 +68,24 @@ ONBOARDING_SESSION_DEFAULTS = (
     ("join_org", False),
     ("subscription", "not_started"),
 )
+
+class UserRedirectView(LoginRequiredMixin, RedirectView):
+    """Redirects legacy user routes to username-based routes for the current user"""
+    permanent = False
+
+    def get_redirect_url(self, *args, **kwargs):
+        target_view = kwargs.get("target_view")
+        return reverse(f"users:{target_view}", kwargs={"username": self.request.user.username})
+
+
+class StaffAccessMixin:
+    """Mixin to provide staff access control for user views"""
+    
+    def dispatch(self, request, *args, **kwargs):
+        username = kwargs.get("username")
+        if username != request.user.username and not request.user.is_staff:
+            raise Http404
+        return super().dispatch(request, *args, **kwargs)
 
 
 class UserEmailView(AllAuthEmailView):
@@ -88,15 +107,14 @@ class UserConnectionsView(ConnectionsView):
         return reverse("users:detail", kwargs={"username": self.request.user.username})
 
 
-class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
+class UserListView(LoginRequiredMixin, ListView):
+    model = User
+
+
+class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, DetailView):
     model = User
     slug_field = "username"
     slug_url_kwarg = "username"
-
-    def dispatch(self, request, *args, **kwargs):
-        if kwargs["username"] != request.user.username and not request.user.is_staff:
-            raise Http404
-        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         user = self.object
@@ -109,6 +127,7 @@ class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
                 individual=False, memberships__admin=False
             ).get_viewable(self.request.user)
         )
+        context["is_own_page"] = user == self.request.user
         context["potential_organizations"] = list(user.get_potential_organizations())
         context["pending_invitations"] = list(user.get_pending_invitations())
         context["verified"] = user.verified_journalist()
@@ -191,16 +210,11 @@ class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
         )
 
 
-class UserRedirectView(LoginRequiredMixin, RedirectView):
-    permanent = False
-
-    def get_redirect_url(self, *args, **kwargs):
-        return reverse("users:detail", kwargs={"username": self.request.user.username})
-
-
-class UserUpdateView(LoginRequiredMixin, UpdateView):
+class UserUpdateView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, UpdateView):
     model = User
     form_class = UserUpdateForm
+    slug_field = "username"
+    slug_url_kwarg = "username"
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -209,6 +223,8 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
 
     def form_valid(self, form):
         self.object = form.save(commit=False)
+        # TODO This assumes the user making the change is the same as the user in the 
+        # form, which may not be accurate if we allow staff to edit other users
         if self.request.user.username != self.object.username:
             self.object.can_change_username = False
         self.object.save()
@@ -239,13 +255,6 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
 
     def get_success_url(self):
         return reverse("users:detail", kwargs={"username": self.object.username})
-
-    def get_object(self, queryset=None):
-        return User.objects.get(pk=self.request.user.pk)
-
-
-class UserListView(LoginRequiredMixin, ListView):
-    model = User
 
 
 class UserOnboardingView(TemplateView):
@@ -466,14 +475,24 @@ def mailgun_webhook(request):
     return HttpResponse("OK")
 
 
-class Receipts(LoginRequiredMixin, TemplateView):
+class Receipts(LoginRequiredMixin, StaffAccessMixin, TemplateView):
     """Subclass to view individual's receipts"""
-
     template_name = "organizations/organization_receipts.html"
 
     def get_context_data(self, **kwargs):
-        context = super().get_context_data()
-        context["organizations"] = self.request.user.organizations.filter(
+        context = super().get_context_data(**kwargs)
+        username = kwargs.get("username")
+        target_user = User.objects.get(username=username)
+        context["organizations"] = target_user.organizations.filter(
             memberships__admin=True
         ).prefetch_related("charges")
         return context
+
+
+class UserPaymentView(LoginRequiredMixin, StaffAccessMixin, UpdateSubscription):
+    """UpdateSubscription with staff access control"""
+    
+    def get_object(self, queryset=None):
+        username = self.kwargs.get("username")
+        target_user = User.objects.get(username=username)
+        return target_user.individual_organization

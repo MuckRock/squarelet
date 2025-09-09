@@ -105,7 +105,11 @@
 <article id="user_detail">
   <aside class="sidebar">
     <div class="account">
+      {% if is_own_page %}
       <h2>{% trans "Your Account" %}</h2>
+      {% else %}
+      <h2>{% trans "User Account" %}</h2>
+      {% endif %}
       <nav>
         <ul>
           <li>
@@ -156,12 +160,12 @@
   <div class="content">
     {% if request.user.is_staff and request.user != user %}
       <div class="staff-toolbar">
-        <h3>Staff controls for {% firstof user.name user.username %}</h3>
+        <h3>{% trans "Staff control panel" %}</h3>
         <form action="{% url "hijack:login_with_username" user.username %}" method="post">
           {% csrf_token %}
-          <button class="btn ghost staff-action" type="submit">
+          <button class="btn caution" type="submit">
             {% include "core/icons/hijack.svg" %}
-            {% trans "Hijack" %}
+            {% trans "Hijack user" %}
           </button>
         </form>
       </div>
@@ -176,7 +180,7 @@
             {% trans "View profile" %}
           </a>
           -->
-          <a href="{% url "users:update" %}" class="btn ghost">
+          <a href="{% url "users:update" username=user.username %}" class="btn ghost">
             {% include "core/icons/pencil.svg" %}
             {% trans "Edit profile" %}
           </a>
@@ -211,7 +215,7 @@
       <header>
         <h2>{% trans "Plan" %}</h2>
         <div class="header-actions">
-          <a href="{% url "users:receipts" %}" class="btn ghost">
+          <a href="{% url "users:receipts" username=user %}" class="btn ghost">
             {% include "core/icons/log.svg" %}
             {% trans "View receipts" %}
           </a>
@@ -221,10 +225,10 @@
         <div class="plan-overview">
           {% if not current_plan %}
             <p>You are using MuckRock&rsquo;s <span class="plan-name" id="free">Free</span> plan.</p>
-            <a class="btn premium" href="{% url "users:payment" %}">Upgrade</a>
+            <a class="btn premium" href="{% url "users:payment" username=user.username %}">Upgrade</a>
           {% else %}
             <p>You are subscribed to MuckRock&rsquo;s <span class="plan-name" id="{{current_plan.slug}}">{{current_plan.name}}</span> plan.</p>
-            <a class="btn ghost" href="{% url "users:payment" %}">Change plan</a>
+            <a class="btn ghost" href="{% url "users:payment" username=user.username %}">Change plan</a>
           {% endif %}
         </div>
         {% if current_plan %}

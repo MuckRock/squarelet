@@ -8,7 +8,7 @@ class OrganizationAdminMixin(UserPassesTestMixin):
     def test_func(self):
         return self.request.user.is_authenticated and self.get_object().has_admin(
             self.request.user
-        )
+        ) or self.request.user.is_staff
 
 
 class IndividualMixin:

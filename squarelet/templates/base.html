@@ -87,7 +87,7 @@
               {% for organization in payment_failed_organizations %}
               <p>
                 {% if organization.individual %}
-                <a href="{% url "users:payment" %}">Update your billing info.</a>
+                <a href="{% url "users:payment" username=user.username %}">Update your billing info.</a>
                 {% else %}
                 <a href="{% url "organizations:payment" slug=organization.slug %}">
                   Update the billing info for {{ organization.name }}.

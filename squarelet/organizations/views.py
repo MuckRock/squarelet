@@ -273,10 +273,6 @@ class UpdateSubscription(OrganizationAdminMixin, UpdateView):
         }
 
 
-class IndividualUpdateSubscription(IndividualMixin, UpdateSubscription):
-    """Subclass to update subscriptions for individual organizations"""
-
-
 class Update(OrganizationAdminMixin, UpdateView):
     queryset = Organization.objects.filter(individual=False)
     form_class = UpdateForm

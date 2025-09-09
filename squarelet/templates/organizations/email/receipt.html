@@ -42,7 +42,7 @@
       <p>{% trans "This receipt confirms your payment to MuckRock." %}</p>
     {% endblock %}
     {% if individual_subscription %}
-      {% url "users:payment" as user_payment_url %}
+      {% url "users:payment_redirect" as user_payment_url %}
       {% blocktrans with user_payment_url=user_payment_url %}
         <p>
           Your account includes up to 20 requests per month, the ability to
