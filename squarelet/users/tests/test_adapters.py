@@ -55,7 +55,7 @@ class AdapterRedirectTests(TestCase):
         # For example, make this the first login and ensure onboarding session is not complete
         self.user.last_login = self.user.date_joined
         self.user.save()
-        
+
         # Initialize onboarding session but leave steps incomplete to trigger onboarding
         request.session["onboarding"] = {
             "email_check_completed": False,  # This will trigger onboarding
