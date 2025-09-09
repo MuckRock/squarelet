@@ -223,10 +223,13 @@ class UserUpdateView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Updat
 
     def form_valid(self, form):
         self.object = form.save(commit=False)
-        # TODO This assumes the user making the change is the same as the user in the 
-        # form, which may not be accurate if we allow staff to edit other users
-        if self.request.user.username != self.object.username:
+        
+        # Get the original username from database to compare with the new one
+        original_user = User.objects.get(pk=self.object.pk)
+        username_changed = original_user.username != self.object.username
+        if username_changed:
             self.object.can_change_username = False
+            
         self.object.save()
         # TODO: We probably don't need to be keeping the avatar in sync
         # across both the user and their individual organization.
