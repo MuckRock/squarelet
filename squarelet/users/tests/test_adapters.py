@@ -52,11 +52,13 @@ class AdapterRedirectTests(TestCase):
         request.user = self.user
 
         # Set up a condition that would trigger onboarding
-        # For example, make this the first login and ensure onboarding session is not complete
+        # For example, make this the first login and
+        # ensure onboarding session is not complete
         self.user.last_login = self.user.date_joined
         self.user.save()
 
-        # Initialize onboarding session but leave steps incomplete to trigger onboarding
+        # Initialize onboarding session but leave
+        # steps incomplete to trigger onboarding
         request.session["onboarding"] = {
             "email_check_completed": False,  # This will trigger onboarding
             "mfa_step": "not_started",
