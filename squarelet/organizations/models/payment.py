@@ -237,9 +237,6 @@ class Subscription(models.Model):
 
         self.save()
 
-        # Slack notification if an org has modified their subscription details
-        self.send_slack_notification("modified", old_plan=old_plan, new_plan=plan)
-
     def stripe_modify(self):
         """Update stripe subscription to match local subscription"""
         # pylint: disable=using-constant-test
@@ -298,13 +295,6 @@ class Subscription(models.Model):
                     f"to the *{self.plan.name}* plan."
                 ),
             },
-            "modified": {
-                "subject": "Subscription Updated",
-                "message": (
-                    f"{org_link} has modified their subscription "
-                    f"details for the *{self.plan.name}* plan."
-                ),
-            },
         }
 
         if event not in event_messages:
@@ -325,15 +315,6 @@ class Subscription(models.Model):
                 "alt_text": f"{self.organization.name} avatar",
             },
         }
-
-        # Add fields for modified event if plan change data is available
-        if event == "modified" and "old_plan" in kwargs and "new_plan" in kwargs:
-            old_plan = kwargs["old_plan"]
-            new_plan = kwargs["new_plan"]
-            section_block["fields"] = [
-                {"type": "mrkdwn", "text": f"*Old Plan:*\n{old_plan.name}"},
-                {"type": "mrkdwn", "text": f"*New Plan:*\n{new_plan.name}"},
-            ]
 
         slack_message = {
             "text": f"{subject}\n\n{message}",  # Fallback text for notifications
