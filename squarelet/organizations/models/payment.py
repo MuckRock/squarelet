@@ -211,7 +211,7 @@ class Subscription(models.Model):
             self.subscription_id = stripe_subscription.id
 
         # Trigger respective mailchimp journeys if this is the organization plan
-        if self.plan_id and self.plan.entitlements.filter(slug="Organization").exists():
+        if self.plan_id and self.plan.entitlements.filter(slug="organization").exists():
             journey_key = (
                 "verified_premium_org"
                 if self.organization.verified_journalist
