@@ -6,9 +6,11 @@ class OrganizationAdminMixin(UserPassesTestMixin):
     """Only allow access to organization admins"""
 
     def test_func(self):
-        return self.request.user.is_authenticated and self.get_object().has_admin(
+        is_staff = self.request.user.is_staff
+        is_admin = self.request.user.is_authenticated and self.get_object().has_admin(
             self.request.user
-        ) or self.request.user.is_staff
+        )
+        return is_admin or is_staff
 
 
 class IndividualMixin:

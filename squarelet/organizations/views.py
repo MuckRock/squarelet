@@ -49,7 +49,6 @@ from squarelet.organizations.forms import (
     UpdateForm,
 )
 from squarelet.organizations.mixins import (
-    IndividualMixin,
     OrganizationAdminMixin,
     VerifiedJournalistMixin,
 )

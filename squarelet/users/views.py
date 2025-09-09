@@ -69,18 +69,22 @@ ONBOARDING_SESSION_DEFAULTS = (
     ("subscription", "not_started"),
 )
 
+
 class UserRedirectView(LoginRequiredMixin, RedirectView):
     """Redirects legacy user routes to username-based routes for the current user"""
+
     permanent = False
 
     def get_redirect_url(self, *args, **kwargs):
         target_view = kwargs.get("target_view")
-        return reverse(f"users:{target_view}", kwargs={"username": self.request.user.username})
+        return reverse(
+            f"users:{target_view}", kwargs={"username": self.request.user.username}
+        )
 
 
 class StaffAccessMixin:
     """Mixin to provide staff access control for user views"""
-    
+
     def dispatch(self, request, *args, **kwargs):
         username = kwargs.get("username")
         if username != request.user.username and not request.user.is_staff:
@@ -223,13 +227,13 @@ class UserUpdateView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Updat
 
     def form_valid(self, form):
         self.object = form.save(commit=False)
-        
+
         # Get the original username from database to compare with the new one
         original_user = User.objects.get(pk=self.object.pk)
         username_changed = original_user.username != self.object.username
         if username_changed:
             self.object.can_change_username = False
-            
+
         self.object.save()
         # TODO: We probably don't need to be keeping the avatar in sync
         # across both the user and their individual organization.
@@ -480,6 +484,7 @@ def mailgun_webhook(request):
 
 class Receipts(LoginRequiredMixin, StaffAccessMixin, TemplateView):
     """Subclass to view individual's receipts"""
+
     template_name = "organizations/organization_receipts.html"
 
     def get_context_data(self, **kwargs):
@@ -494,7 +499,7 @@ class Receipts(LoginRequiredMixin, StaffAccessMixin, TemplateView):
 
 class UserPaymentView(LoginRequiredMixin, StaffAccessMixin, UpdateSubscription):
     """UpdateSubscription with staff access control"""
-    
+
     def get_object(self, queryset=None):
         username = self.kwargs.get("username")
         target_user = User.objects.get(username=username)
