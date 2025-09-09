@@ -36,6 +36,23 @@
     {% block css %}
     <!-- Your stuff: Third-party CSS libraries go here -->
     <link href="{% static 'hijack/hijack-styles.css' %}" rel="stylesheet">
+    <style>
+      #hijacked-warning-wrapper {
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+      }
+      #hijacked-warning-wrapper::after {
+        content: unset;
+      }
+      #hijacked-warning {
+        position: relative;
+        height: auto;
+        min-height: unset;
+        display: flex;
+        justify-content: space-between;
+      }
+    </style>
     {% endblock %}
 
     {% if settings.USE_PLAUSIBLE %}

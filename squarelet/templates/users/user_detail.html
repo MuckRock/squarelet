@@ -154,6 +154,18 @@
   </aside>
 
   <div class="content">
+    {% if request.user.is_staff and request.user != user %}
+      <div class="staff-toolbar">
+        <h3>Staff controls for {% firstof user.name user.username %}</h3>
+        <form action="{% url "hijack:login_with_username" user.username %}" method="post">
+          {% csrf_token %}
+          <button class="btn ghost staff-action" type="submit">
+            {% include "core/icons/hijack.svg" %}
+            {% trans "Hijack" %}
+          </button>
+        </form>
+      </div>
+    {% endif %}
     <section id="profile">
       <header>
         <h2>{% trans "Profile" %}</h2>
