@@ -288,21 +288,21 @@ class Subscription(models.Model):
                 "subject": "New Subscription",
                 "message": (
                     f"{org_link} has just subscribed to "
-                    f"the *{self.plan.name}* plan.",
+                    f"the *{self.plan.name}* plan."
                 ),
             },
             "cancelled": {
                 "subject": "Subscription Cancelled",
                 "message": (
                     f"{org_link} has cancelled their subscription "
-                    f"to the *{self.plan.name}* plan.",
+                    f"to the *{self.plan.name}* plan."
                 ),
             },
             "modified": {
                 "subject": "Subscription Updated",
                 "message": (
                     f"{org_link} has modified their subscription "
-                    f"details for the *{self.plan.name}* plan.",
+                    f"details for the *{self.plan.name}* plan."
                 ),
             },
         }
