@@ -49,7 +49,6 @@ from squarelet.organizations.forms import (
     UpdateForm,
 )
 from squarelet.organizations.mixins import (
-    IndividualMixin,
     OrganizationAdminMixin,
     VerifiedJournalistMixin,
 )
@@ -271,10 +270,6 @@ class UpdateSubscription(OrganizationAdminMixin, UpdateView):
                 r.email for r in self.object.receipt_emails.all()
             ),
         }
-
-
-class IndividualUpdateSubscription(IndividualMixin, UpdateSubscription):
-    """Subclass to update subscriptions for individual organizations"""
 
 
 class Update(OrganizationAdminMixin, UpdateView):

@@ -482,7 +482,7 @@
           {% if user.is_anonymous %}
           <a class="button premium" href="{% url "account_signup" %}{% pass_query %}&plan=professional">Sign up & subscribe</a>
           {% elif pro_plan %}
-          <a class="button" href="{% url "users:payment" %}">Manage</a>
+          <a class="button" href="{% url "users:payment" username=user.username %}">Manage</a>
           {% else %}
           <a class="button premium" href="{% url "account_onboarding" %}{% pass_query %}&plan=professional">Upgrade</a>
           {% endif %}
@@ -540,7 +540,7 @@
           {% if user.is_anonymous %}
           <a class="button premium" href="{% url "account_signup" %}{% pass_query %}&plan=organization">Sign up & subscribe</a>
           {% elif org_plans %}
-          <a class="button" href="{% url "users:detail" username=user.username %}{% pass_query %}&plan=organization">Manage</a>
+          <a class="button" href="{% url "users:payment" username=user.username %}{% pass_query %}&plan=organization">Manage</a>
           {% else %}
           <a class="button premium" href="{% url "account_onboarding" %}{% pass_query %}&plan=organization">Subscribe</a>
           {% endif %}

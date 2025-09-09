@@ -4,9 +4,9 @@
 {% load autologin %}
 
 {% block body %}
-  {% url "users:payment" as url_user %}
+  {% url "users:payment" username=user.username as url_user %}
   {% autologin url_user user as url_user_ %}
-  {% url "organizations:update" as url_org %}
+  {% url "organizations:update" username=user.username as url_org %}
   {% autologin url_org user as url_org_ %}
 
   {% if organization.individual %}

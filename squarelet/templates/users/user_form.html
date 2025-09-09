@@ -54,14 +54,14 @@
   <div class="user-profile-view">
     <header>
       <nav class="links">
-        <a class="ghost btn" href="{% url "users:detail" user.username %}">
+        <a class="ghost btn" href="{% url "users:detail" username=user.username %}">
           {% include "core/icons/arrow-left.svg" %}
           {% trans "Back to your account" %}
         </a>
       </nav>
       <h1>{% trans "Edit your profile" %}</h1>
     </header>
-    <form class="user-profile-form" method="post" enctype="multipart/form-data" action="{% url 'users:update' %}">
+    <form class="user-profile-form" method="post" enctype="multipart/form-data" action="{% url 'users:update' username=user.username %}">
       {% csrf_token %}
       <div class="card">
         {% for field in form %}

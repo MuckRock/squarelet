@@ -32,7 +32,7 @@
             </a>
           {% endif %}
         {% endif %}
-        <a title="{% trans 'View Profile' %}" class="_cls-navItem" href="{% url 'users:detail' user.username %}">
+        <a title="{% trans 'Your Account' %}" class="_cls-navItem" href="{% url 'users:redirect' %}">
           {% avatar request.user 25 %}
           {{ request.user.username }}
         </a>

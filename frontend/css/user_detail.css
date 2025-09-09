@@ -777,3 +777,37 @@ section .orgs {
   visibility: visible;
   opacity: 1;
 }
+
+/* Staff toolbar */
+
+.staff-toolbar {
+  display: flex;
+  padding: 0.5rem 0.5rem 0.5rem 1rem;
+  justify-content: space-between;
+  align-items: center;
+  align-self: stretch;
+
+  background: var(--yellow-2, #FFE5BA);
+  border: 1px solid var(--yellow-3, #ECCB6B);
+  border-radius: 0.5rem;
+  color: var(--red-4, #5D275F);
+}
+
+.staff-toolbar h3 {
+  margin: 0;
+  color: var(--red-5, #302240);
+  font-size: var(--font-md, 1rem);
+  font-weight: 600;
+}
+
+.staff-toolbar .btn.ghost {
+  color: var(--red-4, #5D275F);
+  fill: var(--red-4, #5D275F);
+}
+
+.staff-toolbar .btn.ghost:hover,
+.staff-toolbar .btn.ghost:focus {
+  background: var(--orange-2, #FFC2BA);
+  transform: none;
+  box-shadow: none;
+}
