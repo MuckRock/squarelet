@@ -12,6 +12,6 @@
   },
   "files.associations": {
     "*.html": "django-html",
-    "*.xvg": "xml"
+    "*.svg": "xml"
   }
 }
