@@ -175,12 +175,12 @@
         <h2>{% trans "Profile" %}</h2>
         <div class="header-actions">
           <!-- Hide action until we support profile previews
-          <a href="?public" class="btn ghost">
+          <a href="?public" class="btn ghost primary">
             {% include "core/icons/eye.svg" %}
             {% trans "View profile" %}
           </a>
           -->
-          <a href="{% url "users:update" username=user.username %}" class="btn ghost">
+          <a href="{% url "users:update" username=user.username %}" class="btn ghost primary">
             {% include "core/icons/pencil.svg" %}
             {% trans "Edit profile" %}
           </a>
@@ -215,7 +215,10 @@
       <header>
         <h2>{% trans "Plan" %}</h2>
         <div class="header-actions">
-          <a href="{% url "users:receipts" username=user %}" class="btn ghost">
+          <a href="{% url "select_plan" %}" class="btn ghost primary">
+            {% trans "View plans" %}
+          </a>
+          <a href="{% url "users:receipts" username=user.username %}" class="btn ghost primary">
             {% include "core/icons/log.svg" %}
             {% trans "View receipts" %}
           </a>
@@ -227,11 +230,23 @@
             <p>You are using MuckRock&rsquo;s <span class="plan-name" id="free">Free</span> plan.</p>
             <a class="btn premium" href="{% url "users:payment" username=user.username %}">Upgrade</a>
           {% else %}
-            <p>You are subscribed to MuckRock&rsquo;s <span class="plan-name" id="{{current_plan.slug}}">{{current_plan.name}}</span> plan.</p>
-            <a class="btn ghost" href="{% url "users:payment" username=user.username %}">Change plan</a>
+            <p>You are subscribed to MuckRock&rsquo;s <a href="{% url "plan_detail" pk=current_plan.id slug=current_plan.slug %}" class="plan-name" id="{{current_plan.slug}}">{{current_plan.name}}</a> plan.</p>
+            <a class="btn ghost primary" href="{% url "users:payment" username=user.username %}">Change plan</a>
           {% endif %}
         </div>
         {% if current_plan %}
+        {% if current_plan.benefits %}
+        <ul class="plan-benefits checklist">
+          {% for benefit in current_plan.benefits %}
+          <li class="checklist-item">
+            <span class="icon">
+              {% include "core/icons/checkmark.svg" %}
+            </span>
+            <span class="text">{{ benefit }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
         <ul class="plan-details">
           {% if current_plan_next_charge_date %}
           <li class="plan-detail plan-next-charge">
@@ -247,6 +262,20 @@
           </li>
           {% endif %}
         </ul>
+        {% elif upgrade_plan %}
+        <div class="plan-upgrade">
+          <p>Upgrade to our <a href="{% url "plan_detail" pk=upgrade_plan.id slug=upgrade_plan %}">{{upgrade_plan.name}}</a> plan for additional benefits and features:</p>
+          <ul class="plan-benefits checklist">
+            {% for benefit in upgrade_plan.benefits %}
+            <li class="checklist-item">
+              <span class="icon">
+                {% include "core/icons/checkmark.svg" %}
+              </span>
+              <span class="text">{{ benefit }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
         {% endif %}
       </main>
     </section>
@@ -254,7 +283,7 @@
     <section id="verification">
       <header>
         <h2>{% trans "Verification" %}</h2>
-        <a target="_blank" rel="noopener noreferrer" href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433" class="btn ghost">
+        <a target="_blank" rel="noopener noreferrer" href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433" class="btn ghost primary">
           {% include "core/icons/book.svg" %}
           {% trans "Learn about verification" %}
         </a>
@@ -304,11 +333,11 @@
       <header>
         <h2>{% trans "Organizations" %}</h2>
         <div class="header-actions">
-          <a href="{% url "organizations:list" %}" class="btn ghost">
+          <a href="{% url "organizations:list" %}" class="btn ghost primary">
             {% include "core/icons/search.svg" %}
             {% trans "Join an organization" %}
           </a>
-          <a href="{% url "organizations:create" %}" class="btn ghost">
+          <a href="{% url "organizations:create" %}" class="btn ghost primary">
             {% include "core/icons/plus-circle.svg" %}
             {% trans "Create organization" %}
           </a>
@@ -497,12 +526,12 @@
             <div class="mfa-active">
               {% if is_mfa_enabled %}
               <span class="badge green">{% trans "Enabled" %}</span>
-              <a class="small btn ghost" href="{% url "mfa_deactivate_totp" %}">{% trans "Disable two-factor auth" %}</a>
+              <a class="small btn ghost danger" href="{% url "mfa_deactivate_totp" %}">{% trans "Disable two-factor auth" %}</a>
               {% else %}
                 {% if has_unverified_emails %}
                   <button class="small btn ghost primary" disabled>{% trans "Enable two-factor auth" %}</button>
                 {% else %}
-                  <a class="small btn ghost" href="{% url "mfa_activate_totp" %}">{% trans "Enable two-factor auth" %}</a>
+                  <a class="small btn ghost primary" href="{% url "mfa_activate_totp" %}">{% trans "Enable two-factor auth" %}</a>
                 {% endif %}
               {% endif %}
             </div>
@@ -519,15 +548,15 @@
                 </dd>
               </dl>
               <div class="actions">
-                <a href="{% url "mfa_view_recovery_codes" %}" class="btn ghost small">
+                <a href="{% url "mfa_view_recovery_codes" %}" class="btn ghost primary small">
                   {% include "core/icons/eye.svg" %}
                   {% trans "View" %}
                 </a>
-                <a href="{% url "mfa_generate_recovery_codes" %}" class="btn ghost small">
+                <a href="{% url "mfa_generate_recovery_codes" %}" class="btn ghost primary small">
                   {% include "core/icons/sync.svg" %}
                   {% trans "Generate" %}
                 </a>
-                <a href="{% url "mfa_download_recovery_codes" %}" class="btn ghost small">
+                <a href="{% url "mfa_download_recovery_codes" %}" class="btn ghost primary small">
                   {% include "core/icons/download.svg" %}
                   {% trans "Download" %}
                 </a>

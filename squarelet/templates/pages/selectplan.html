@@ -227,17 +227,11 @@
     align-items: flex-start;
   }
 
-  .org a {
-    display: block;
-    padding: .5rem;
-    border-radius: .25rem;
+  .org {
+    padding: 0.5rem 0.75rem 0.5rem 0.5rem;
     border: 1px solid var(--gray-2);
-    text-decoration: none;
-    color: currentColor;
-    background-color: var(--white);
-  }
-  .org a:hover {
-    background-color: var(--blue-1);
+    border-radius: .5rem;
+    background: var(--white);
   }
 
   .team h4 {
@@ -413,9 +407,7 @@
         <ul class="org-list">
           {% for org in org_plans %}
           <li class="org">
-            <a href="{% url "organizations:detail" slug=org.slug %}">
-              {% include "account/team_list_item.html" with organization=org %}
-            </a>
+            {% include "account/team_list_item.html" with organization=org %}
           </li>
           {% endfor %}
         </ul>

@@ -55,11 +55,11 @@
       {% include "account/team_list_item.html" with organization=org %}
       <div class="actions">
         {% if not org.verified_journalist %}
-        <a target="_blank" rel="noopener noreferrer" class="btn ghost small" href="{% airtable_verification_url org %}">
+        <a target="_blank" rel="noopener noreferrer" class="btn ghost primary small" href="{% airtable_verification_url org %}">
           {% trans "Request verification" %}
         </a>
         {% endif %}
-        <a class="btn ghost small" href="{% url "organizations:manage-members" slug=org.slug %}">
+        <a class="btn ghost primary small" href="{% url "organizations:manage-members" slug=org.slug %}">
           {% include "core/icons/gear.svg" %}
           {% trans "Manage" %}
         </a>
