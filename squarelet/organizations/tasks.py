@@ -215,7 +215,24 @@ def backfill_charge_metadata(starting_after=None, keep_running=True):
     name="squarelet.organizations.tasks.send_slack_notification",
 )
 def send_slack_notification(self, slack_webhook, subject, message):
-    payload = {"text": f"{subject}\n\n{message}"}
+    if isinstance(message, dict):
+        # The message is in Slack's block format
+        payload = message
+        # Fallback text field
+        if "text" not in payload:
+            payload["text"] = f"{subject}\n\n{message}"
+    else:
+        # Convert to block format
+        payload = {
+            "text": f"{subject}\n\n{message}",
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": f"*{subject}*\n\n{message}"},
+                }
+            ],
+        }
+
     try:
         response = requests.post(slack_webhook, json=payload, timeout=5)
         response.raise_for_status()
