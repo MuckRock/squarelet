@@ -140,7 +140,7 @@
               {% endif %}
             {% endwith %}
             <p>
-              <a class="_cls-nostyle" href="{% url 'users:receipts' %}">
+              <a class="_cls-nostyle" href="{% url 'users:receipts' username=user.username %}">
                 <div class="_cls-action">{% trans 'View receipts' %}</div>
               </a>
             </p>

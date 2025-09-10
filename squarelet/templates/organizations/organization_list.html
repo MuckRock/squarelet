@@ -1,50 +1,178 @@
 {% extends "base.html" %}
-{% load static i18n avatar %}
+{% load static i18n avatar django_vite %}
+
 {% block title %}Organizations{% endblock %}
 
-{% block content %}
-  <div class="_cls-content">
-    <h2>Organizations</h2>
-    <div class="_cls-action">
-      <a class="_cls-nostyle" href="{% url "organizations:create" %}">
-        Create a new organization
-      </a>
-    </div>
-  </div>
-  
-  <div class="_cls-expandedContent">
-    <div id="_id-autocomplete" class="_cls-autocomplete">
-      <div class="_cls-inputSection">
-        <div class="_cls-input">
-          <div class="_cls-searchCircle"></div>
-          <div class="_cls-searchRectangle"></div>
-          <div id="_id-close" class="_cls-closeButton">
-            <div class="_cls-closeOpaque"></div>
-            <div class="_cls-closeLeft"></div>
-            <div class="_cls-closeRight"></div>
-          </div>
-          <input id="_id-filter" placeholder="Filter..." />
-          <div class="_cls-bottomLine"></div>
-        </div>
-        <div class="_cls-inputPad"></div>
-      </div>
-      <div class="_cls-results">
+{% block css %}
+<link rel="stylesheet" href="{% static "css/gps.css" %}" />
+<link rel="stylesheet" href="{% static "css/team_list_item.css" %}" />
+<link rel="stylesheet" href="{% static "css/user_detail.css" %}" />
 
-        <div class="_cls-resultsList" id="_id-results">
-          {% for org in organization_list %}
-            <a href="{% url 'organizations:detail' org.slug %}">
-              <div class="_cls-result">
-                <div class="_cls-inlineAvatar">
-                  {% avatar org 22 %}
-                </div>
-                <span class="_cls-inlineText">
-                  {{ org.name }}
-                </span>
-              </div>
-            </a>
-          {% endfor %}
+{# include any style tags in parent templates #}
+{{ block.super }}
+{% endblock css %}
+
+{% block vite %}
+{{ block.super }}
+{% vite_asset 'frontend/views/organization_list.ts' %}
+{% endblock vite %}
+
+{% block content %}
+<article id="organization_list" class="org-list-page">
+  <header>
+    {% if user.is_authenticated %}
+    <nav class="links">
+      <a href="{% url "users:detail" username=user.username %}">
+        {% include "core/icons/arrow-left.svg" %}
+        {% trans "Back to your account" %}
+      </a>
+      <div class="create">
+        <a href="{% url "organizations:create" %}" class="btn ghost">
+          {% include "core/icons/plus-circle.svg" %}
+          {% trans "Create organization" %}
+        </a>
+      </div>
+    </nav>
+    {% endif %}
+    <h1>{% trans "Organizations" %}</h1>
+    <div class="flex-1">
+      <div id="org_search"></div>
+    </div>
+  </header>
+
+  {% if not user.is_authenticated %}
+  <div class="content">
+    <section class="introduction">
+      <h2>{% trans "Collaborate securely and share privately within MuckRock organizations" %}</h2>
+      <p>
+        {% blocktrans %}
+        Organization members have access to the permissions and purchases allowed by administrators.
+        Designed for teams collaborating on reporting, research, and more, organizations make it easy to work together when using MuckRock's tools.
+        {% endblocktrans %}
+      </p>
+      <div class="card">
+        <p class="lead">{% blocktrans %}You need a MuckRock account to join an organization or create a new one.{% endblocktrans %}</p>
+        <div class="btn-group">
+          <a class="btn primary" href="{% url 'account_login' %}?next={% url "organizations:list" %}">{% trans "Sign in" %}</a>
+          <a class="btn ghost" href="{% url 'account_signup' %}?next={% url "organizations:list" %}">{% trans "Create account" %}</a>
         </div>
       </div>
-    </div>
+    </section>
   </div>
+  {% else %}
+  <div class="content">
+    <section class="your-orgs">
+      <h2>{% trans "Your organizations" %}</h2>
+      <div class="card">
+        {% include "organizations/your_organizations.html" %}
+      </div>
+    </section>
+
+    <section class="invites">
+      {% if not has_verified_email %}
+      <div class="empty">
+        <p>
+          {% blocktrans %}
+          You must verify your email address before you can send requests
+          or receive invitations to join an organization.
+          {% endblocktrans %}
+        </p>
+      </div>
+      {% elif not has_pending %}
+      <div class="empty">
+        <p>{% trans "You don't have any outstanding invitations or requests." %}</p>
+        <p>{% trans "Received invitations and sent requests will appear here." %}</p>
+      </div>
+      {% else %}
+        {% if potential_orgs %}
+        <div class="pre-approved">
+          <header>
+            <h2>{% trans "Pre-approved" %}</h2>
+            <p>{% trans "Based on your email address, you're pre-approved to join:" %}</p>
+          </header>
+          <div class="card">
+            {% for organization in potential_orgs %}
+            <div class="invite">
+              {% include "account/team_list_item.html" %}
+              
+              <form method="post" action="{% url "organizations:detail" slug=organization.slug %}" class="actions join">
+                {% csrf_token %}
+                <button class="button primary" name="action" value="join">
+                  <img src="{% static "icons/check.svg" %}">
+                  {% trans "Join" %}
+                </button>
+              </form>
+            </div>
+            {% empty %}
+            <div class="empty">
+              <p>{% trans "No pre-approved teams are available to join." %}</p>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if pending_invitations %}
+        <div class="pending">
+          <header>
+            <h2>{% trans "Pending invitations" %}</h2>
+          </header>
+          <div class="card">
+            {% for invite in pending_invitations %}
+            <div class="invite">
+              {% include "account/team_list_item.html" with organization=invite.organization %}
+              
+              <form method="post" action="{% url "organizations:invitation" uuid=invite.uuid %}" class="actions">
+                {% csrf_token %}
+                <button class="btn small primary ghost" type="submit" name="action" value="accept">
+                  {% trans "Accept" %}
+                </button>
+                <button class="btn small danger ghost" type="submit" name="action" value="reject">
+                  {% trans "Reject" %}
+                </button>
+              </form>
+            </div>
+            {% empty %}
+            <div class="empty">
+              <p>{% trans "No pending invitations." %}</p>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if pending_requests %}
+        <div class="pending">
+          <header>
+            <h2>{% trans "Pending requests" %}</h2>
+          </header>
+          <div class="card">
+            {% for invite in pending_requests %}
+            <div class="invite">
+              {% include "account/team_list_item.html" with organization=invite.organization %}
+
+              <form method="post" action="{% url "organizations:invitation" uuid=invite.uuid %}" class="actions">
+                {% csrf_token %}
+                <button class="btn small danger ghost" type="submit" name="action" value="reject">
+                  {% trans "Withdraw request" %}
+                </button>
+              </form>
+            </div>
+            {% empty %}
+            <div class="empty">
+              <p>{% trans "No pending requests." %}</p>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      {% endif %}
+    </section>
+  </div>
+  {% endif %}
+</article>
 {% endblock content %}
+
+{% block extra_javascript %}
+
+{% endblock extra_javascript %}

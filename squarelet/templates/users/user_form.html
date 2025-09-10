@@ -1,27 +1,98 @@
 {% extends "base.html" %}
-{% load crispy_forms_tags %}
-{% load i18n %}
-{% block title %}{{ user.name }} | {% trans 'Edit profile' %}{% endblock %}
+{% load i18n static %}
+{% block title %}{% trans 'Edit your profile' %}{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{% static "css/gps.css" %}" />
+<link rel="stylesheet" href="{% static "css/user_detail.css" %}" />
+{{ block.super }}
+<style>
+  .user-profile-view {
+    display: flex;
+    max-width: 60rem;
+    margin: 0 auto;
+    padding: 1rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    align-self: stretch;
+  }
+  .user-profile-form {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2rem;
+    margin-bottom: 2rem;
+  }
+  .user-profile-form button[type="submit"] {
+    align-self: flex-start;
+  }
+  .user-profile-form .card {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .username-warning {
+    max-width: 100%;
+    flex: 1 0 auto;
+    text-align: right;
+    color: var(--orange-3, #EC7B6B);
+    /* Small Label */
+    font-family: var(--font-sans, "Source Sans Pro");
+    font-size: var(--font-sm, 0.875rem);
+    font-style: normal;
+    font-weight: 600;
+    line-height: normal;
+  }
+  .username-warning a {
+    color: var(--blue-3);
+  }
+</style>
+{% endblock css %}
 
 {% block content %}
-  <div class="_cls-largeContent">
-    <h2>{{ user.name }}</h2>
-    <h3>{{ user.username }}</h3>
-    <p>{% blocktrans %}Modify your information and preferences.{% endblocktrans %}</p>
-
-    <p><a class="_cls-nostyle" href="{% url "account_email" %}"><div class="_cls-action">{% trans 'Edit email' %}</div></a></p>
-    <p><a class="_cls-nostyle" href="{% url "account_change_password" %}"><div class="_cls-action">{% trans 'Edit password' %}</div></a></p>
-    <p><a class="_cls-nostyle" href="{% url "mfa_index" %}"><div class="_cls-action">{% trans 'Edit two-factor authentication' %}</div></a></p>
-    <form class="form-horizontal" method="post" enctype="multipart/form-data" action="{% url 'users:update' %}">
+  <div class="user-profile-view">
+    <header>
+      <nav class="links">
+        <a class="ghost btn" href="{% url "users:detail" username=user.username %}">
+          {% include "core/icons/arrow-left.svg" %}
+          {% trans "Back to your account" %}
+        </a>
+      </nav>
+      <h1>{% trans "Edit your profile" %}</h1>
+    </header>
+    <form class="user-profile-form" method="post" enctype="multipart/form-data" action="{% url 'users:update' username=user.username %}">
       {% csrf_token %}
-      {% crispy form form.helper %}
-      <div class="control-group" style="margin-top: 2em;">
-        <div class="_cls-actionSmall">
-          <button type="submit" class="btn">{% trans 'Update' %}</button>
-          <a href="{% url 'users:detail' user.username %}" class="_cls-altAction">
-            {% trans 'Cancel' %}
-          </a>
-        </div>
+      <div class="card">
+        {% for field in form %}
+          <div class="field{% if field.errors %} has-errors{% endif %}">
+            <label for="{{field.id_for_label}}" class="field-label">
+              {{ field.label }}
+              {% if field.field.required %}
+                <span class="field-required">Required</span>
+              {% endif %}
+              {% if field.name == 'username' %}
+              <span class="username-warning">
+                {% if user.can_change_username %}
+                {% blocktrans %}
+                You may only change your username once.
+                <a target="_blank" rel="noopener noreferrer" href="https://help.muckrock.com/Change-your-email-address-or-username-19ef889269638171afdcf13cd47608ba">Learn more</a>
+                {% endblocktrans %}
+                {% else %}
+                {% blocktrans %}
+                You have already changed your username once.
+                <a target="_blank" rel="noopener noreferrer" href="https://help.muckrock.com/Change-your-email-address-or-username-19ef889269638171afdcf13cd47608ba">Learn more</a>
+                {% endblocktrans %}
+                {% endif %}
+              </span>
+              {% endif %}
+            </label>
+            {{ field }}
+            {% for error in field.errors %}<p class="error">{{ error }}</p>{% endfor %}
+            {% if field.help_text %}<small class="help">{{ field.help_text }}</small>{% endif %}
+          </div>
+        {% endfor %}
+        <button type="submit" class="btn primary">{% trans "Save Changes" %}</button>
       </div>
     </form>
   </div>

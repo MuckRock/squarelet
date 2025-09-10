@@ -1,11 +1,20 @@
 {
   "frontend/main.ts": {
-    "file": "assets/main-BBASv9HQ.js",
+    "file": "assets/main-B025ddmY.js",
     "name": "main",
     "src": "frontend/main.ts",
     "isEntry": true,
     "css": [
-      "assets/main-JODN5NBp.css"
+      "assets/main-CZahCDXg.css"
+    ]
+  },
+  "frontend/views/organization_list.ts": {
+    "file": "assets/views/organization_list-CAjMcwGi.js",
+    "name": "views/organization_list",
+    "src": "frontend/views/organization_list.ts",
+    "isEntry": true,
+    "css": [
+      "assets/organization_list-CNlNnK4W.css"
     ]
   }
 }

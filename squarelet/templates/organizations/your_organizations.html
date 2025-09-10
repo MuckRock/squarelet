@@ -1,0 +1,101 @@
+{% load airtable i18n static %}
+
+{% if potential_organizations %}
+<div class="org-list">
+  <header class="org-list-header">
+    <h3>{% trans "Pre-approved" %}</h3>
+    <p>{% trans "Based on your email address, you're pre-approved to join:" %}</p>
+  </header>
+  {% for organization in potential_organizations %}
+    <div class="invite">
+      {% include "account/team_list_item.html" with organization=organization %}
+      <form method="post" action="{% url "organizations:detail" slug=organization.slug %}" class="actions join">
+        {% csrf_token %}
+        <button class="small btn primary" name="action" value="join">
+          <img src="{% static "icons/check.svg" %}">
+          {% trans "Join" %}
+        </button>
+      </form>
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if pending_invitations %}
+<div class="org-list">
+  <header class="org-list-header">
+    <h3>{% trans "Open invitations" %}</h3>
+    <p>{% trans "Organizations you’ve been invited to join:" %}</p>
+  </header>
+  {% for invite in invitations %}
+    <div class="invite">
+      {% include "account/team_list_item.html" with organization=invite.organization %}
+      <form method="post" action="{% url "organizations:invitation" uuid=invite.uuid %}" class="actions">
+        {% csrf_token %}
+        <button class="small btn primary" type="submit" name="action" value="accept">
+          {% trans "Accept" %}
+        </button>
+        <button class="small btn danger ghost" type="submit" name="action" value="reject">
+          {% trans "Reject" %}
+        </button>
+      </form>
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if admin_orgs %}
+<div class="org-list">
+  <header class="org-list-header">
+    <h3>{% trans "Admin" %}</h3>
+    <p>{% trans "Organizations you manage:" %}</p>
+  </header>
+  {% for org in admin_orgs %}
+    <div class="org">
+      {% include "account/team_list_item.html" with organization=org %}
+      <div class="actions">
+        {% if not org.verified_journalist %}
+        <a target="_blank" rel="noopener noreferrer" class="btn ghost small" href="{% airtable_verification_url org %}">
+          {% trans "Request verification" %}
+        </a>
+        {% endif %}
+        <a class="btn ghost small" href="{% url "organizations:manage-members" slug=org.slug %}">
+          {% include "core/icons/gear.svg" %}
+          {% trans "Manage" %}
+        </a>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if other_orgs %}
+<div class="org-list">
+  <header class="org-list-header">
+    <h3>{% trans "Membership" %}</h3>
+    <p>{% trans "Organizations you've joined:" %}</p>
+  </header>
+  {% for org in other_orgs %}
+    <div class="org">
+      {% include "account/team_list_item.html" with organization=org %}
+      <form method="post" action="{% url "organizations:detail" slug=org.slug %}" class="actions">
+        {% csrf_token %}
+        <button class="btn danger ghost small" type="submit" name="action" value="leave">
+          {% include "core/icons/sign-out.svg" %}
+          {% trans "Leave" %}
+        </button>
+      </form>
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if not other_orgs and not admin_orgs and not pending_invitations and not potential_organizations %}
+<div class="org-empty">
+  <p>
+    {% blocktrans %}
+    Create or join an organization to collaborate with other MuckRock users
+    {% endblocktrans %}
+  </p>
+</div>
+{% endif %}

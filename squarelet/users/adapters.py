@@ -205,6 +205,12 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
         initial["name"] = f"{initial['first_name']} {initial['last_name']}"
         return initial
 
+    def get_connect_redirect_url(self, request, socialaccount):
+        """
+        Redirect to the user detail page after connecting a social account.
+        """
+        return reverse("users:detail", kwargs={"username": request.user.username})
+
 
 class MfaAdapter(DefaultMFAAdapter):
     error_messages = {

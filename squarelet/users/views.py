@@ -1,5 +1,6 @@
 # Django
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http.response import (
     Http404,
@@ -11,6 +12,8 @@ from django.http.response import (
 )
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 from django.views.generic import (
     DetailView,
     ListView,
@@ -26,25 +29,32 @@ import json
 import logging
 import sys
 import time
+from datetime import datetime
 
 # Third Party
 from allauth.account.utils import get_next_redirect_url, send_email_confirmation
 from allauth.account.views import (
+    EmailView as AllAuthEmailView,
     LoginView as AllAuthLoginView,
     SignupView as AllAuthSignupView,
 )
+from allauth.mfa import app_settings
+from allauth.mfa.models import Authenticator
+from allauth.mfa.utils import is_mfa_enabled
 from allauth.socialaccount.adapter import get_adapter as get_social_adapter
 from allauth.socialaccount.internal import flows
-from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Fieldset, Layout
+from allauth.socialaccount.views import ConnectionsView
 
 # Squarelet
-from squarelet.core.forms import ImagePreviewWidget
-from squarelet.core.layout import Field
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.organizations.models import ReceiptEmail
+from squarelet.organizations.views import UpdateSubscription
 from squarelet.services.models import Service
-from squarelet.users.forms import SignupForm
+from squarelet.users.forms import (
+    SignupForm,
+    UserAutologinPreferenceForm,
+    UserUpdateForm,
+)
 from squarelet.users.onboarding import OnboardingStepRegistry, onboarding_check
 
 # Local
@@ -60,93 +70,198 @@ ONBOARDING_SESSION_DEFAULTS = (
 )
 
 
-class UserDetailView(LoginRequiredMixin, AdminLinkMixin, DetailView):
+class UserRedirectView(LoginRequiredMixin, RedirectView):
+    """Redirects legacy user routes to username-based routes for the current user"""
+
+    permanent = False
+
+    def get_redirect_url(self, *args, **kwargs):
+        target_view = kwargs.get("target_view")
+        return reverse(
+            f"users:{target_view}", kwargs={"username": self.request.user.username}
+        )
+
+
+class StaffAccessMixin:
+    """Mixin to provide staff access control for user views"""
+
+    def dispatch(self, request, *args, **kwargs):
+        username = kwargs.get("username")
+        if username != request.user.username and not request.user.is_staff:
+            raise Http404
+        return super().dispatch(request, *args, **kwargs)
+
+
+class UserEmailView(AllAuthEmailView):
+    """Custom email view to redirect to user detail page after email operations."""
+
+    def get_success_url(self):
+        """Redirect to the user detail page after a successful email operation."""
+        return reverse("users:detail", kwargs={"username": self.request.user.username})
+
+
+class UserConnectionsView(ConnectionsView):
+    """
+    Override the connections view to redirect
+    to user detail page after operations.
+    """
+
+    def get_success_url(self):
+        """Redirect to the user detail page after a successful connection operation."""
+        return reverse("users:detail", kwargs={"username": self.request.user.username})
+
+
+class UserListView(LoginRequiredMixin, ListView):
+    model = User
+
+
+class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, DetailView):
     model = User
     slug_field = "username"
     slug_url_kwarg = "username"
 
-    def dispatch(self, request, *args, **kwargs):
-        if kwargs["username"] != request.user.username and not request.user.is_staff:
-            raise Http404
-        return super().dispatch(request, *args, **kwargs)
-
     def get_context_data(self, **kwargs):
         user = self.object
         context = super().get_context_data(**kwargs)
-        context["other_orgs"] = (
-            context["user"]
-            .organizations.filter(individual=False)
-            .get_viewable(self.request.user)
+        context["admin_orgs"] = list(
+            user.organizations.filter(individual=False, memberships__admin=True)
         )
-        context["potential_organizations"] = user.get_potential_organizations()
-        context["pending_invitations"] = user.get_pending_invitations()
+        context["other_orgs"] = list(
+            user.organizations.filter(
+                individual=False, memberships__admin=False
+            ).get_viewable(self.request.user)
+        )
+        context["is_own_page"] = user == self.request.user
+        context["potential_organizations"] = list(user.get_potential_organizations())
+        context["pending_invitations"] = list(user.get_pending_invitations())
+        context["verified"] = user.verified_journalist()
+        context["verified_organizations"] = list(
+            user.organizations.filter(verified_journalist=True, individual=False)
+        )
+        context["individually_verified"] = (
+            user.individual_organization.verified_journalist
+        )
+        context["emails"] = user.emailaddress_set.all()
+        context["has_unverified_emails"] = user.emailaddress_set.filter(
+            verified=False
+        ).exists()
+        context["is_mfa_enabled"] = is_mfa_enabled(user)
+        context["RECOVERY_CODE_COUNT"] = app_settings.RECOVERY_CODE_COUNT
+        context["unused_code_count"] = len(self.get_recovery_codes())
+        # Get the current plan and subscription, if any
+        individual_org = user.individual_organization
+        current_plan = None
+        subscription = None
+        if hasattr(individual_org, "subscriptions"):
+            subscription = individual_org.subscriptions.first()
+            if subscription and hasattr(subscription, "plan"):
+                current_plan = subscription.plan
+        context["current_plan"] = current_plan
+        # Get card, next charge date, and cancelled status for active subscription
+        if current_plan and subscription:
+            customer = getattr(individual_org, "customer", None)
+            if callable(customer):
+                customer = customer()
+            context["current_plan_card"] = getattr(customer, "card", None)
+            # Stripe subscription may have next charge date
+            stripe_sub = getattr(subscription, "stripe_subscription", None)
+            if stripe_sub:
+                # Try to get next charge date from Stripe subscription
+                time_stamp = getattr(stripe_sub, "current_period_end", None)
+                if time_stamp:
+                    tz_datetime = datetime.fromtimestamp(
+                        time_stamp, tz=timezone.get_current_timezone()
+                    )
+                    context["current_plan_next_charge_date"] = tz_datetime.date()
+            # Check if the plan is cancelled
+            context["current_plan_cancelled"] = getattr(subscription, "cancelled", None)
+        # Autologin preference form
+        context["autologin_form"] = UserAutologinPreferenceForm(instance=user)
         return context
 
+    def get_recovery_codes(self):
+        "Get unused recovery codes"
+        authenticator = Authenticator.objects.filter(
+            user=self.request.user,
+            type=Authenticator.Type.RECOVERY_CODES,
+        ).first()
 
-class UserRedirectView(LoginRequiredMixin, RedirectView):
-    permanent = False
+        if not authenticator:
+            return []
 
-    def get_redirect_url(self, *args, **kwargs):
-        return reverse("users:detail", kwargs={"username": self.request.user.username})
+        return authenticator.wrap().get_unused_codes()
 
-
-class UserUpdateView(LoginRequiredMixin, UpdateView):
-    model = User
-
-    def get_form_class(self):
-        """Include username in form if the user hasn't changed their username yet"""
-        fields = ["name", "avatar", "use_autologin"]
-        if self.object.can_change_username:
-            self.fields = ["username"] + fields
+    def post(self, request, *args, **kwargs):
+        """Handle updates to simple user settings (currently autologin toggle)."""
+        self.object = self.get_object()
+        form = UserAutologinPreferenceForm(request.POST, instance=self.object)
+        if form.is_valid():
+            form.save()
+            messages.success(
+                request,
+                _("Your automatic login preference has been updated."),
+            )
         else:
-            self.fields = fields
-        return super().get_form_class()
-
-    def get_form(self, form_class=None):
-        form = super().get_form(form_class)
-        form.helper = FormHelper()
-        form.helper.layout = Layout(
-            Fieldset("Name", Field("name")),
-            (
-                Fieldset("Username", Field("username"))
-                if "username" in form.fields
-                else None
-            ),
-            Fieldset("Avatar image", Field("avatar"), css_class="_cls-compactField"),
-            Fieldset(
-                "Autologin", Field("use_autologin"), css_class="_cls-compactField"
-            ),
+            messages.error(
+                request,
+                _(
+                    "We couldn't update your automatic login preference. "
+                    "Please try again."
+                ),
+            )
+        return HttpResponseRedirect(
+            reverse("users:detail", kwargs={"username": self.object.username})
         )
-        form.helper.form_tag = False
-        form.fields["avatar"].widget = ImagePreviewWidget()
-        return form
+
+
+class UserUpdateView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, UpdateView):
+    model = User
+    form_class = UserUpdateForm
+    slug_field = "username"
+    slug_url_kwarg = "username"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["request"] = self.request
+        return kwargs
 
     def form_valid(self, form):
         self.object = form.save(commit=False)
-        if self.request.user.username != self.object.username:
+
+        # Get the original username from database to compare with the new one
+        original_user = User.objects.get(pk=self.object.pk)
+        username_changed = original_user.username != self.object.username
+        if username_changed:
             self.object.can_change_username = False
+
         self.object.save()
+        # TODO: We probably don't need to be keeping the avatar in sync
+        # across both the user and their individual organization.
+        # Long term, it might be simpler to maintain profile information
+        # in the individual org, and remove personalization fields
+        # from the user model. User should really be an auth-oriented model.
         self.object.individual_organization.avatar = self.object.avatar
         self.object.individual_organization.name = self.object.username
         self.object.individual_organization.save()
+        messages.success(
+            self.request,
+            _("Your profile changes have been saved."),
+        )
         return HttpResponseRedirect(self.get_success_url())
 
     def form_invalid(self, form):
         """The user object has the invalid data in it - refresh it from the database
         before displaying to the user
         """
+        messages.error(
+            self.request,
+            _("There were errors saving your profile. Please review the form below."),
+        )
         self.object.refresh_from_db()
         return super().form_invalid(form)
 
     def get_success_url(self):
         return reverse("users:detail", kwargs={"username": self.object.username})
-
-    def get_object(self, queryset=None):
-        return User.objects.get(pk=self.request.user.pk)
-
-
-class UserListView(LoginRequiredMixin, ListView):
-    model = User
 
 
 class UserOnboardingView(TemplateView):
@@ -367,14 +482,25 @@ def mailgun_webhook(request):
     return HttpResponse("OK")
 
 
-class Receipts(LoginRequiredMixin, TemplateView):
+class Receipts(LoginRequiredMixin, StaffAccessMixin, TemplateView):
     """Subclass to view individual's receipts"""
 
     template_name = "organizations/organization_receipts.html"
 
     def get_context_data(self, **kwargs):
-        context = super().get_context_data()
-        context["organizations"] = self.request.user.organizations.filter(
+        context = super().get_context_data(**kwargs)
+        username = kwargs.get("username")
+        target_user = User.objects.get(username=username)
+        context["organizations"] = target_user.organizations.filter(
             memberships__admin=True
         ).prefetch_related("charges")
         return context
+
+
+class UserPaymentView(LoginRequiredMixin, StaffAccessMixin, UpdateSubscription):
+    """UpdateSubscription with staff access control"""
+
+    def get_object(self, queryset=None):
+        username = self.kwargs.get("username")
+        target_user = User.objects.get(username=username)
+        return target_user.individual_organization

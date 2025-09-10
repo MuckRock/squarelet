@@ -1,171 +1,544 @@
 {% extends "base.html" %}
-{% load static %}
-{% load thumbnail %}
-{% load avatar %}
-{% load i18n %}
+{% load account airtable avatar i18n socialaccount static thumbnail %}
 
 {% block title %}{% trans 'User' %}: {{ user.username }}{% endblock %}
 
+{% block css %}
+{# shared styles #}
+<link rel="stylesheet" href="{% static "css/gps.css" %}" />
+<link rel="stylesheet" href="{% static "css/team_list_item.css" %}" />
+
+{# include any style tags in parent templates #}
+{{ block.super }}
+
+{# page-specific styles #}
+<link rel="stylesheet" href="{% static "css/user_detail.css" %}" />
+{% endblock css %}
+
+{% block javascript %}
+{# include scripts in parent templates #}
+{{ block.super }}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    function closeDropdown(container) {
+      container.classList.remove('dropdown-open');
+      container.setAttribute('data-dropdown-open', 'false');
+    }
+
+    var containers = document.querySelectorAll('.dropdown-container');
+    containers.forEach(function(container) {
+      var anchor = container.querySelector('.dropdown-anchor');
+      if (anchor) {
+        anchor.addEventListener('click', function(e) {
+          e.preventDefault();
+          var open = container.classList.contains('dropdown-open');
+          if (open) {
+            closeDropdown(container);
+          } else {
+            // Close all other dropdowns first
+            containers.forEach(function(other) {
+              if (other !== container) {
+                closeDropdown(other);
+              }
+            });
+            container.classList.add('dropdown-open');
+            container.setAttribute('data-dropdown-open', 'true');
+          }
+        });
+        // Ensure closed by default
+        closeDropdown(container);
+      }
+    });
+
+    // Close dropdown if clicking outside
+    document.addEventListener('click', function(e) {
+      containers.forEach(function(container) {
+        if (!container.contains(e.target)) {
+          closeDropdown(container);
+        }
+      });
+    });
+  });
+
+  // Tab controller/Tab container logic
+  document.querySelectorAll('.tab-controller').forEach(function(controller) {
+    var container = controller.closest('.dropdown').querySelector('.tab-container');
+    if (!container) return;
+
+    function activateTab(tabName) {
+      // Update controller tabs
+      controller.querySelectorAll('.tab').forEach(function(tab) {
+        var isActive = tab.getAttribute('data-tab') === tabName;
+        tab.setAttribute('data-tab-active', isActive);
+        tab.classList.toggle('tab-active', isActive);
+      });
+      // Update container tabs
+      container.querySelectorAll('.tab').forEach(function(tab) {
+        var isActive = tab.getAttribute('data-tab') === tabName;
+        tab.setAttribute('data-tab-active', isActive);
+        tab.classList.toggle('tab-active', isActive);
+      });
+    }
+
+    // Click handler for controller tabs
+    controller.querySelectorAll('.tab').forEach(function(tab) {
+      tab.addEventListener('click', function(e) {
+        e.preventDefault();
+        var tabName = tab.getAttribute('data-tab');
+        activateTab(tabName);
+      });
+    });
+
+    // Initialize to first active tab
+    var initial = controller.querySelector('.tab[data-tab-active="true"]');
+    if (initial) {
+      activateTab(initial.getAttribute('data-tab'));
+    }
+  });
+
+  
+</script>
+{% endblock %}
+
+
 {% block content %}
-
-  <div class="_cls-largeContent">
-    <div class="_cls-profileColumns">
-      <div class="_cls-profileColumn">
-        <div class="_cls-profileSection">
-          <div class="_cls-profileInfo">
-            <div class="_cls-profileAvatar">
-              {% avatar user 37 %}
-            </div>
-            <div class="_cls-profileNames">
-              <div class="_cls-profileName">
-                {{ user.name }}
-              </div>
-              <div class="_cls-info">
-                {{ user.username }}
-              </div>
-            </div>
-          </div>
-          {% if user == request.user %}
-            <p>
-              <a class="_cls-nostyle" href="{% url "users:update" %}">
-                <div class="_cls-action">{% trans 'Edit profile' %}</div>
-              </a>
-            </p>
-            <p>
-              <a class="_cls-nostyle" href="{% url "socialaccount_connections" %}">
-                <div class="_cls-action">{% trans 'Edit connected accounts' %}</div>
-              </a>
-            </p>
-          {% endif %}
-        </div>
-        {% if user.individual_organization.verified_journalist %}
-          <div class="_cls-orgStatus _cls-verified">
-            Verified
-          </div>
-        {% endif %}
-
-        <div class="_cls-organizationSection">
-          <div class="_cls-mediumHeader">{% trans 'Organizations' %}</div>
-          <div>
-            <a class="_cls-action" href="{% url "organizations:list" %}">
-              {% trans "View all organizations" %}
-            </a>
-          </div>
-          {% if other_orgs.count > 0 %}
-            <ul class="_cls-profList">
-              {% for org in other_orgs.all %}
-                <a href="{% url "organizations:detail" org.slug %}">
-                  <li>
-                    <div class="_cls-inlineAvatar">
-                      {% avatar org 15 %}
-                    </div>
-                    {{ org.name }}
-                  </li>
-                </a>
-              {% endfor %}
-            </ul>
-          {% else %}
-            <div class="_cls-info">
-              <p>{% trans 'You are not a member of any organization.' %}</p>
-            </div>
-          {% endif %}
-        </div>
-
-        <!-- Organizations you can join -->
-        <div class="_cls-organizationSection" {% if not potential_organizations %} style="display: none;" {% endif %}>
-          <div class="_cls-mediumHeader">{% trans 'Organizations you can join' %}</div>
-          {% if potential_organizations %}
-            <ul class="_cls-profList">
-              {% for org in potential_organizations %}
-                <a href="{% url "organizations:detail" org.slug %}">
-                  <li>
-                    <div class="_cls-inlineAvatar">
-                      {% avatar org 15 %}
-                    </div>
-                    {{ org.name }}
-                  </li>
-                </a>
-              {% endfor %}
-            </ul>
-          {% else %}
-            <div class="_cls-info">
-              <p>{% trans 'No organizations available to join at the moment.' %}</p>
-            </div>
-          {% endif %}
-        </div>
-
-      {% if pending_invitations %}
-        <div class="_cls-organizationSection">
-          <div class="_cls-mediumHeader">{% trans 'Pending Invitations' %}</div>
-          <ul class="_cls-profList">
-            {% for invite in pending_invitations %}
-              <li>
-                <a href="{% url 'organizations:invitation' invite.uuid %}">
-                    {% blocktrans with org_name=invite.organization.name %}
-                      Invite to join <strong>{{ org_name }}</strong>
-                    {% endblocktrans %}
-                </a>
-                <span class="_cls-info" style="margin-left: 10px;">({{ invite.created_at|date:"Y-m-d" }})</span>
-                </li>
-              {% endfor %}
-          </ul>
-        </div>
+<article id="user_detail">
+  <aside class="sidebar">
+    <div class="account">
+      {% if is_own_page %}
+      <h2>{% trans "Your Account" %}</h2>
+      {% else %}
+      <h2>{% trans "User Account" %}</h2>
       {% endif %}
-
-      </div>
-
-      <div class="_cls-planColumn">
-        {% if user == request.user %}
-          <div class="_cls-currentPlan">
-
-            {% with subscription=user.individual_organization.subscription %}
-              {% if subscription %}
-                <div class="_cls-planInfo">
-                  {% trans "Current plan" %}: <b>{{ subscription.plan.name }}</b>
-                  {% if subscription.cancelled %}
-                    <div class="_cls-info _cls-infoSpaced">
-                      {% blocktrans with update_on=subscription.update_on|date:"m/d/Y" %}
-                        Subscription ends on {{ update_on }}
-                      {% endblocktrans %}
-                    </div>
-                  {% endif %}
-                </div>
-                <p>
-                  <a class="_cls-nostyle" href="{% url "users:payment" %}">
-                    <div class="_cls-action">{% trans 'Edit plans and payment' %}</div>
-                  </a>
-                </p>
+      <nav>
+        <ul>
+          <li>
+            <a href="#profile" class="profile nav-item">
+              {% include "core/icons/person.svg" %}
+              {% trans "Profile" %}
+            </a>
+          </li>
+          <li>
+            <a href="#plan" class="plan nav-item">
+              {% include "core/icons/credit-card.svg" %}
+              {% trans "Plan" %}
+            </a>
+          </li>
+          <li>
+            <a href="#verification" class="verification nav-item">
+              {% if verified %}
+              {% include "core/icons/verification.svg" %}
               {% else %}
-                <div class="_cls-planInfo">
-                  {% trans "Current plan" %}: <b>{% trans "Free" %}</b>
-                </div>
-                <div class="_cls-actionSmall">
-                  <a href="{% url "users:payment" %}">
-                    <button>{% trans 'Upgrade' %}</button>
-                  </a>
-                </div>
+              {% include "core/icons/unverified.svg" %}
               {% endif %}
-            {% endwith %}
-
-            <p>
-              <a class="_cls-nostyle" href="{% url "users:receipts" %}">
-                <div class="_cls-action">{% trans 'View receipts' %}</div>
-              </a>
-            </p>
-          </div>
-        {% endif %}
-
-        {% if request.user.is_staff and request.user != user %}
-          <form action="{% url "hijack:login_with_username" user.username %}" method="post" class="_cls-actionSmall">
-            {% csrf_token %}
-            <button type="submit">Hijack {{ user.username }}</button>
-          </form>
-        {% endif %}
-
-        {% include "core/component/services.html" %}
-      </div>
-
+              {% trans "Verification" %}
+            </a>
+          </li>
+          <li>
+            <a href="#organizations" class="organization nav-item">
+              {% include "core/icons/organization.svg" %}
+              {% trans "Organizations" %}
+            </a>
+          </li>
+          <li>
+            <a href="#accounts" class="accounts nav-item">
+              {% include "core/icons/mention.svg" %}
+              {% trans "Accounts" %}
+            </a>
+          </li>
+          <li>
+            <a href="#security" class="security nav-item">
+              {% include "core/icons/shield-lock.svg" %}
+              {% trans "Security" %}
+            </a>
+          </li>
+        </ul>
+      </nav>
     </div>
-  </div>
+  </aside>
 
+  <div class="content">
+    {% if request.user.is_staff and request.user != user %}
+      <div class="staff-toolbar">
+        <h3>{% trans "Staff control panel" %}</h3>
+        <form action="{% url "hijack:login_with_username" user.username %}" method="post">
+          {% csrf_token %}
+          <button class="btn caution" type="submit">
+            {% include "core/icons/hijack.svg" %}
+            {% trans "Hijack user" %}
+          </button>
+        </form>
+      </div>
+    {% endif %}
+    <section id="profile">
+      <header>
+        <h2>{% trans "Profile" %}</h2>
+        <div class="header-actions">
+          <!-- Hide action until we support profile previews
+          <a href="?public" class="btn ghost">
+            {% include "core/icons/eye.svg" %}
+            {% trans "View profile" %}
+          </a>
+          -->
+          <a href="{% url "users:update" username=user.username %}" class="btn ghost">
+            {% include "core/icons/pencil.svg" %}
+            {% trans "Edit profile" %}
+          </a>
+        </div>
+      </header>
+      <main class="profile">
+        <div class="icon">
+        {% if user.avatar %}
+          <img src="{{ user.avatar.url }}" alt="{{user.name}}" />
+        {% else %}
+          {% include "core/icons/person-24.svg" %}
+        {% endif %}
+        </div>
+
+        <div class="details details-padded">
+          <h3>{% firstof user.name user.username %}</h3>
+          <div class="details">
+          {% if individually_verified %}
+            <div class="badge green">
+              {% include "core/icons/verification.svg" %}
+              {% trans "Verified" %}
+            </div>
+          {% endif %}
+          {% if user.name %}<p class="user-detail">{{user.username}}</p>{% endif %}
+          </div>
+          <p class="user-detail">Joined <time title="{{user.created_at|date:"c"}}" datetime="{{user.created_at|date:"c"}}">{{user.created_at|date:"F j, Y"}}</time></p>
+        </div>
+      </main>
+    </section>
+
+    <section id="plan">
+      <header>
+        <h2>{% trans "Plan" %}</h2>
+        <div class="header-actions">
+          <a href="{% url "users:receipts" username=user %}" class="btn ghost">
+            {% include "core/icons/log.svg" %}
+            {% trans "View receipts" %}
+          </a>
+        </div>
+      </header>
+      <main class="plan">
+        <div class="plan-overview">
+          {% if not current_plan %}
+            <p>You are using MuckRock&rsquo;s <span class="plan-name" id="free">Free</span> plan.</p>
+            <a class="btn premium" href="{% url "users:payment" username=user.username %}">Upgrade</a>
+          {% else %}
+            <p>You are subscribed to MuckRock&rsquo;s <span class="plan-name" id="{{current_plan.slug}}">{{current_plan.name}}</span> plan.</p>
+            <a class="btn ghost" href="{% url "users:payment" username=user.username %}">Change plan</a>
+          {% endif %}
+        </div>
+        {% if current_plan %}
+        <ul class="plan-details">
+          {% if current_plan_next_charge_date %}
+          <li class="plan-detail plan-next-charge">
+            <span class="icon">{% include "core/icons/calendar.svg" %}</span>
+            <span class="label">
+              Subscription {% if current_plan_cancelled %}ends{% else %}renews{% endif %} on <time title="{{current_plan_next_charge_date|date:"c"}}" datetime="{{current_plan_next_charge_date|date:"c"}}">{{current_plan_next_charge_date|date:"F j, Y"}}</time></span>
+          </li>
+          {% endif %}
+          {% if current_plan_card %}
+          <li class="plan-detail plan-card">
+            <span class="icon">{% include "core/icons/credit-card.svg" %}</span>
+            <span class="label">{{current_plan_card.brand}} ending in {{current_plan_card.last4}}</span>
+          </li>
+          {% endif %}
+        </ul>
+        {% endif %}
+      </main>
+    </section>
+
+    <section id="verification">
+      <header>
+        <h2>{% trans "Verification" %}</h2>
+        <a target="_blank" rel="noopener noreferrer" href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433" class="btn ghost">
+          {% include "core/icons/book.svg" %}
+          {% trans "Learn about verification" %}
+        </a>
+      </header>
+
+      <main class="verification-status">
+        {% if verified %}
+        <div class="status verified">
+          {% include "core/icons/verified-24.svg" %}
+          <h3>{% trans "You are verified." %}</h3>
+          {% if verified_organizations %}
+            {% if verified_organizations|length == 1 %}
+              <p class="help-text">You belong to verified organization <strong>{{ verified_organizations.0.name }}</strong>.</p>
+            {% else %}
+              <p class="help-text">You belong to verified organizations 
+              {% for org in verified_organizations %}
+                <strong>{{ org.name }}</strong>{% if not forloop.last %}{% if forloop.revcounter == 2 %} and {% else %}, {% endif %}{% endif %}
+              {% endfor %}.
+              </p>
+            {% endif %}
+          {% endif %}
+          {% if individually_verified %}
+            <p class="help-text">You are {% if verified_organizations %}also {% endif %}individually verified.</p>
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="status unverified">
+          {% include "core/icons/unverified-24.svg" %}
+          <h3>{% trans "You are not verified." %}</h3>
+          <p class="help-text">Request newsroom verification for one of your organizations.</p>
+        </div>
+        {% endif %}
+        <div class="features">
+          <p>
+            {% if verified %}
+            You can access additional tools, services, and features for verified newsrooms and journalists.
+            {% else %}
+            Verified newsrooms and journalists have access to additional tools, services, and features.
+            {% endif %}
+            <a target="_blank" rel="noopener noreferrer" href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433">Learn more</a>
+          </p>
+        </div>
+      </main>
+    </section>
+
+    <section id="organizations">
+      <header>
+        <h2>{% trans "Organizations" %}</h2>
+        <div class="header-actions">
+          <a href="{% url "organizations:list" %}" class="btn ghost">
+            {% include "core/icons/search.svg" %}
+            {% trans "Join an organization" %}
+          </a>
+          <a href="{% url "organizations:create" %}" class="btn ghost">
+            {% include "core/icons/plus-circle.svg" %}
+            {% trans "Create organization" %}
+          </a>
+        </div>
+      </header>
+      <main class="orgs">
+        {% include "organizations/your_organizations.html" %}
+      </main>
+      <footer>
+        <p class="help-text">If you’re a freelancer who works with multiple organizations, you may <a target="_blank" rel="noopener noreferrer" href="{% airtable_verification_url %}">request individual verification as a journalist</a>.</p>
+      </footer>
+    </section>
+
+    <section id="accounts">
+      <header>
+        <h2>{% trans "Connected Accounts" %}</h2>
+        <div class="dropdown-container" data-dropdown-open="false" >
+          <a class="btn primary ghost {% if settings.ENABLE_SOCIAL_LOGINS %}dropdown-anchor{% endif %}" href="{% url "account_email" %}">
+            {% include "core/icons/plus-circle.svg" %}
+            {% trans "Connect an account" %}
+          </a>
+          {% if settings.ENABLE_SOCIAL_LOGINS %}
+          {% get_providers as socialaccount_providers %}
+          <div class="dropdown">
+            <div class="connect-account-dropdown card">
+              <header>
+                <ul class="tab-controller">
+                  <li class="tab tab-active" data-tab="email" data-tab-active="true">
+                    Email
+                  </li>
+                  {% for provider in socialaccount_providers %}
+                  <li class="tab" data-tab="{{provider.id}}" data-tab-active="false">
+                    {{provider.name}}
+                  </li>
+                  {% endfor %}
+                </ul>
+              </header>
+              <div class="tab-container">
+                <div class="tab tab-active" data-tab="email" data-tab-active="true">
+                  <form class="connect-account-form" method="POST" action="{% url 'account_email' %}">
+                    {% csrf_token %}
+                    <input class="email-input" type="email" name="email" placeholder="Enter your email" required />
+                    <button class="primary btn" type=submit" name="action_add">Add Email</button>
+                    <p class="help-text">
+                      {% blocktrans %}
+                      When you connect an email address, you can use it as a sign-in method, receive notifications to it, and use it to auto-join organizations that share your domain.
+                      {% endblocktrans %}
+                    </p>
+                  </form>
+                </div>
+                {% for provider in socialaccount_providers %}
+                <div class="tab" data-tab="{{provider.id}}" data-tab-active="false">
+                  <form class="connect-account-form" method="POST" action="{% provider_login_url provider.id process="connect" %}">
+                    {% csrf_token %}
+                    <button type=submit" class="primary btn">Connect with {{provider.name}}</button>
+                    <p class="help-text">
+                      {% blocktrans %}
+                      When you connect a {{provider.name}} account, you can use your account as a sign-in method.
+                      {% endblocktrans %}                      
+                    </p>
+                  </form>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </header>
+      <main class="accounts">
+        {% for email in emails %}
+        <div class="email account">
+          <div class="account-detail">
+            <span class="icon">{% include "core/icons/mail.svg" %}</span>
+            <h3 class="label">{{email.email}}</h3>
+          </div>
+          <form class="email-actions" action="{% url "account_email" %}" method="post">
+            {% csrf_token %}
+            <input type="hidden" name="email" value="{{email.email}}" />
+            {% if not email.verified %}
+            <button class="btn primary small" type="submit" name="action_send">
+              {% trans "Confirm this email" %}
+            </button>
+            {% else %}
+            <span class="badge green">{% trans "Confirmed" %}</span>
+            {% endif %}
+            {% if email.primary %}
+            <span class="badge blue">{% trans "Primary" %}</span>
+            {% else %}
+            <button class="btn small" type="submit" name="action_primary" {% if not email.verified %}disabled{% endif %}>
+              {% trans "Make primary" %}
+            </button>
+            {% endif %}
+            <button {% if email.primary %}disabled{% endif %} class="btn ghost danger" type="submit" name="action_remove">
+              {% include "core/icons/trashcan.svg" %}
+            </button>
+          </form>
+        </div>
+        {% endfor %}
+        {% if settings.ENABLE_SOCIAL_LOGINS %}
+        {% get_social_accounts user as accounts %}
+        {% for google_account in accounts.google %}
+          <div class="social account">
+            <div class="account-detail">
+              <div class="icon">{% include "core/icons/google.svg" %}</div>
+              <div class="account-detail-text">
+                <h3 class="provider-label">{{google_account.get_provider}}</h3>
+                <p class="provider-account">{{google_account.get_provider_account}}</p>
+              </div>
+              <div class="account-status">
+                <span class="badge green">{% trans "Connected" %}</span>
+              </div>
+            </div>
+            <div class="account-actions">
+              <form method="POST" action="{% url 'socialaccount_connections' %}">
+                {% csrf_token %}
+                <input type="hidden" name="account" value="{{google_account.pk}}" />
+                <button type="submit" class="ghost danger btn" title="Disconnect {{google_account.provider}} account">
+                  {% include "core/icons/trashcan.svg" %}
+                </button>
+              </form>
+            </div>
+          </div>
+        {% endfor %}
+        {% for github_account in accounts.github %}
+          <div class="social account">
+            <div class="account-detail">
+              <div class="icon">{% include "core/icons/github.svg" %}</div>
+              <div class="account-detail-text">
+                <h3 class="provider-label">{{github_account.get_provider}}</h3>
+                <p class="provider-account">{{github_account.get_provider_account}}</p>
+              </div>
+              <div class="account-status">
+                <span class="badge green">{% trans "Connected" %}</span>
+              </div>
+            </div>
+            <div class="account-actions">
+              <form method="POST" action="{% url 'socialaccount_connections' %}">
+                {% csrf_token %}
+                <input type="hidden" name="account" value="{{github_account.pk}}" />
+                <button type="submit" class="ghost danger btn" title="Disconnect {{github_account.provider}} account">
+                  {% include "core/icons/trashcan.svg" %}
+                </button>
+              </form>
+            </div>
+          </div>
+        {% endfor %}
+        {% endif %}
+      </main>
+    </section>
+
+    <section id="security">
+      <header>
+        <h2>{% trans "Security Settings" %}</h2>
+        <a target="_blank" rel="noopener noreferrer" class="btn primary ghost" href="https://help.muckrock.com/Two-Factor-Authentication-1f9f8892696380e59857c19341a324af">
+          {% include "core/icons/book.svg" %}
+          {% trans "Security best practices" %}
+        </a>
+      </header>
+      <main class="security">
+        <form class="autologin" method="post" action="{% url 'users:detail' username=user.username %}">
+          {% csrf_token %}
+          <div class="status-row">
+            <h3>{% trans "Automatic login links" %}</h3>
+            {% if user.use_autologin %}
+              <span class="badge green">{% trans "Enabled" %}</span>
+              <input type="hidden" name="use_autologin" value="False" />
+              <button type="submit" class="btn ghost danger small">{% trans "Disable" %}</button>
+            {% else %}
+              <span class="badge">{% trans "Disabled" %}</span>
+              <input type="hidden" name="use_autologin" value="True" />
+              <button type="submit" class="btn ghost primary small">{% trans "Enable" %}</button>
+            {% endif %}
+          </div>
+          <p class="help-text">
+            {% trans "When enabled, links we email you (like notifications) include a secure token that signs you in automatically." %}
+          </p>
+        </form>
+        <div class="password">
+          <h3>{% trans "Password" %}</h3>
+          <a href="{% url "account_change_password" %}" class="small btn ghost primary">{% trans "Change password" %}</a>
+        </div>
+        <div class="mfa">
+          <div class="mfa-overview">
+            <h3>{% trans "Two-factor authentication" %}</h3>
+            <div class="mfa-active">
+              {% if is_mfa_enabled %}
+              <span class="badge green">{% trans "Enabled" %}</span>
+              <a class="small btn ghost" href="{% url "mfa_deactivate_totp" %}">{% trans "Disable two-factor auth" %}</a>
+              {% else %}
+                {% if has_unverified_emails %}
+                  <button class="small btn ghost primary" disabled>{% trans "Enable two-factor auth" %}</button>
+                {% else %}
+                  <a class="small btn ghost" href="{% url "mfa_activate_totp" %}">{% trans "Enable two-factor auth" %}</a>
+                {% endif %}
+              {% endif %}
+            </div>
+          </div>
+          {% if has_unverified_emails %}
+            <p class="help-text error">{% trans "You must confirm all connected email addresses before enabling two-factor authentication." %}</p>
+          {% endif %}
+          {% if is_mfa_enabled %}
+            <div class="recovery-codes">
+              <dl class="status">
+                <dt>{% trans "Recovery codes" %}</dt>
+                <dd>
+                  There {{unused_code_count|pluralize:"is,are"}} {{ unused_code_count }} out of {{ RECOVERY_CODE_COUNT }} recovery codes available.
+                </dd>
+              </dl>
+              <div class="actions">
+                <a href="{% url "mfa_view_recovery_codes" %}" class="btn ghost small">
+                  {% include "core/icons/eye.svg" %}
+                  {% trans "View" %}
+                </a>
+                <a href="{% url "mfa_generate_recovery_codes" %}" class="btn ghost small">
+                  {% include "core/icons/sync.svg" %}
+                  {% trans "Generate" %}
+                </a>
+                <a href="{% url "mfa_download_recovery_codes" %}" class="btn ghost small">
+                  {% include "core/icons/download.svg" %}
+                  {% trans "Download" %}
+                </a>
+              </div>
+            </div>
+            {% endif %}
+        </div>
+
+        
+      </main>
+    </section>
+  </div>
+</article>
 {% endblock content %}

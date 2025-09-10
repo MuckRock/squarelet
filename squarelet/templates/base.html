@@ -36,16 +36,35 @@
     {% block css %}
     <!-- Your stuff: Third-party CSS libraries go here -->
     <link href="{% static 'hijack/hijack-styles.css' %}" rel="stylesheet">
+    <style>
+      #hijacked-warning-wrapper {
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+      }
+      #hijacked-warning-wrapper::after {
+        content: unset;
+      }
+      #hijacked-warning {
+        position: relative;
+        height: auto;
+        min-height: unset;
+        display: flex;
+        justify-content: space-between;
+      }
+    </style>
     {% endblock %}
 
     {% if settings.USE_PLAUSIBLE %}
     <script defer data-domain="accounts.muckrock.com" src="https://plausible.io/js/script.tagged-events.js"></script>
     {% endif %}
 
+    {% block vite %}
     {% vite_hmr_client %}
-
+    
     {# this will inject both main.ts and main.css #}
     {% vite_asset 'frontend/main.ts' %}
+    {% endblock vite %}
 
   </head>
 
@@ -68,7 +87,7 @@
               {% for organization in payment_failed_organizations %}
               <p>
                 {% if organization.individual %}
-                <a href="{% url "users:payment" %}">Update your billing info.</a>
+                <a href="{% url "users:payment" username=user.username %}">Update your billing info.</a>
                 {% else %}
                 <a href="{% url "organizations:payment" slug=organization.slug %}">
                   Update the billing info for {{ organization.name }}.

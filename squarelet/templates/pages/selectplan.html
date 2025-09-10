@@ -8,7 +8,7 @@
 {% block css %}
 {{ block.super }}
 <link rel="stylesheet" href="{% static "css/gps.css" %}" />
-<link rel="stylesheet" href="{% static "css/invites.css" %}" />
+<link rel="stylesheet" href="{% static "css/team_list_item.css" %}" />
 <style>
   .container {
     display: flex;
@@ -469,7 +469,7 @@
               </span>
               <span class="text">
                 {% blocktrans %}
-                Includes 2,000 AI Credits per month on DocumentCloud for advanced OCR and <a href="https://help.muckrock.com/19ef88926963810c9df9e46762194322?pvs=4#19ef8892696381fa8ec6d1bc0c4b5f6a" target="_blank">premium Add-Ons</a>
+                Includes 2,000 AI Credits per month on DocumentCloud for advanced OCR and <atarget="_blank" rel="noopener noreferrer" href="https://help.muckrock.com/19ef88926963810c9df9e46762194322?pvs=4#19ef8892696381fa8ec6d1bc0c4b5f6a">premium Add-Ons</a>
                 {% endblocktrans %}
               </span>
             </li>
@@ -482,7 +482,7 @@
           {% if user.is_anonymous %}
           <a class="button premium" href="{% url "account_signup" %}{% pass_query %}&plan=professional">Sign up & subscribe</a>
           {% elif pro_plan %}
-          <a class="button" href="{% url "users:payment" %}">Manage</a>
+          <a class="button" href="{% url "users:payment" username=user.username %}">Manage</a>
           {% else %}
           <a class="button premium" href="{% url "account_onboarding" %}{% pass_query %}&plan=professional">Upgrade</a>
           {% endif %}
@@ -527,7 +527,7 @@
               </span>
               <span class="text">
                 {% blocktrans %}
-                Includes 5,000 AI Credits per month on DocumentCloud for advanced OCR and <a href="https://help.muckrock.com/19ef88926963810c9df9e46762194322?pvs=4#19ef8892696381fa8ec6d1bc0c4b5f6a" target="_blank">premium Add-Ons</a>
+                Includes 5,000 AI Credits per month on DocumentCloud for advanced OCR and <a target="_blank" rel="noopener noreferrer" href="https://help.muckrock.com/19ef88926963810c9df9e46762194322?pvs=4#19ef8892696381fa8ec6d1bc0c4b5f6a">premium Add-Ons</a>
                 {% endblocktrans %}
               </span>
             </li>
@@ -540,7 +540,7 @@
           {% if user.is_anonymous %}
           <a class="button premium" href="{% url "account_signup" %}{% pass_query %}&plan=organization">Sign up & subscribe</a>
           {% elif org_plans %}
-          <a class="button" href="{% url "users:detail" username=user.username %}{% pass_query %}&plan=organization">Manage</a>
+          <a class="button" href="{% url "users:payment" username=user.username %}{% pass_query %}&plan=organization">Manage</a>
           {% else %}
           <a class="button premium" href="{% url "account_onboarding" %}{% pass_query %}&plan=organization">Subscribe</a>
           {% endif %}
@@ -556,7 +556,7 @@
           {% if user.is_anonymous %}
           <p>Apply to verify your organization after signing up or signing in</p>
           {% else %}
-          <p><a href="https://help.muckrock.com/19ef8892696381dba944e17e14938433?pvs=4">Learn more about verification</a></p>
+          <p><a target="_blank" rel="noopener noreferrer" href="https://help.muckrock.com/19ef8892696381dba944e17e14938433?pvs=4">Learn more about verification</a></p>
           {% endif %}
         </header>
         <main>

@@ -7,7 +7,7 @@
 {% block css %}
 {# shared styles #}
 <link rel="stylesheet" href="{% static "css/gps.css" %}" />
-<link rel="stylesheet" href="{% static "css/invites.css" %}" />
+<link rel="stylesheet" href="{% static "css/team_list_item.css" %}" />
 
 {# include any style tags in parent tempaltes #}
 {{ block.super }}
@@ -39,7 +39,7 @@
             {% csrf_token %}
             <button class="button primary" name="action" value="join">
               <img src="{% static "icons/check.svg" %}">
-              Join
+              {% trans "Join" %}
             </button>
           </form>
         </div>

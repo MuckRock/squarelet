@@ -35,22 +35,26 @@ def airtable_form_url(base_url, **kwargs):
 
 
 @register.simple_tag(takes_context=True)
-def airtable_verification_url(context, organization):
+def airtable_verification_url(context, organization=None):
     """Generate a verification form URL with a user and an organization."""
     user = context["request"].user
-    org_urls = organization.urls.all() if organization else []
+    user_url = context["request"].build_absolute_uri(user.get_absolute_url())
 
     prefill_data = {
         "Your Name": user.get_full_name() or user.username,
         "Email address on your account": user.email,
-        "MuckRock Account URL": user.get_absolute_url(),
+        "MR User Account URL": user_url,
     }
     if organization:
+        org_urls = organization.urls.all() if organization else []
+        organization_url = context["request"].build_absolute_uri(
+            organization.get_absolute_url()
+        )
         prefill_data.update(
             {
                 "Organization or Project Name": organization.name,
                 "Organization URL": org_urls[0].url if org_urls else "",
-                "MuckRock Organization URL": organization.get_absolute_url(),
+                "MR Organization Account URL": organization_url,
             }
         )
     filtered_data = {k: v for k, v in prefill_data.items() if v}
