@@ -10,6 +10,21 @@
   <div class="_cls-largeContent">
     <div class="_cls-profileColumns">
       <div class="_cls-profileColumn">
+
+        {% if request.user.is_staff and request.user != user and organization.plan.wix %}
+          <div class="staff-toolbar">
+            <h3>{% trans "Staff control panel" %}</h3>
+            <form method="post">
+              {% csrf_token %}
+              <button class="btn caution" type="submit" name="action" value="sync_wix">
+                {% trans "Hijack user" %}
+              </button>
+            </form>
+          </div>
+        {% endif %}
+
+
+
         <div class="_cls-profileSection">
           <div class="_cls-profileInfo _cls-organizationInfo">
             <div class="_cls-profileAvatar">
