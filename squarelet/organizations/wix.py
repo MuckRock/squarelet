@@ -3,11 +3,17 @@
 # Django
 from django.conf import settings
 
+# Standard Library
+import logging
+
 # Third Party
 import requests
 
+logger = logging.getLogger(__name__)
+
 
 def get_contact_by_email(headers, email):
+    logger.warning("[WIX] get contact by email")
     response = requests.post(
         "https://www.wixapis.com/members/v1/members/query",
         headers=headers,
@@ -21,6 +27,9 @@ def get_contact_by_email(headers, email):
     )
     response.raise_for_status()
     rjson = response.json()
+    logger.warning(
+        "[WIX] get contact by email response %d %s", response.status_code, rjson
+    )
     if rjson["metadata"]["count"] > 0:
         return rjson["members"][0]["contactId"]
     else:
@@ -28,6 +37,7 @@ def get_contact_by_email(headers, email):
 
 
 def create_member(headers, organization, user):
+    logger.warning("[WIX] create member")
     response = requests.post(
         "https://www.wixapis.com/members/v1/members",
         headers=headers,
@@ -44,21 +54,29 @@ def create_member(headers, organization, user):
         },
     )
     response.raise_for_status()
+    logger.warning(
+        "[WIX] create member response %d %s", response.status_code, response.json()
+    )
     return response.json()["member"]["contactId"]
 
 
 def add_labels(headers, contact_id, plan):
+    logger.warning("[WIX] add labels")
     plan_slug = plan.slug.split("-")[1]
     response = requests.post(
         f"https://www.wixapis.com/contacts/v4/contacts/{contact_id}/labels",
         headers=headers,
         json={"labelKeys": ["custom.paying-member", f"custom.{plan_slug}-member"]},
     )
+    logger.warning(
+        "[WIX] add labels response %d %s", response.status_code, response.json()
+    )
     response.raise_for_status()
 
 
 def send_set_password_email(headers, email):
-    requests.post(
+    logger.warning("[WIX] send set password email")
+    response = requests.post(
         "https://www.wixapis.com/wix-sm/api/v1/auth/v1/auth/members"
         "/send-set-password-email",
         headers=headers,
@@ -66,6 +84,12 @@ def send_set_password_email(headers, email):
             "email": email,
             "hideIgnoreMessage": True,
         },
+    )
+    response.raise_for_status()
+    logger.warning(
+        "[WIX] send set password email response %d %s",
+        response.status_code,
+        response.json(),
     )
 
 
@@ -77,6 +101,7 @@ def sync_wix(organization, plan, user):
         "wix-site-id": settings.WIX_SITE_ID,
     }
 
+    logger.warning("[WIX] sync wix org: %s plan: %s user: %s", organization, plan, user)
     contact_id = get_contact_by_email(headers, user.email)
     if contact_id is None:
         contact_id = create_member(headers, organization, user)
