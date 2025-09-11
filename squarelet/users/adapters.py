@@ -19,6 +19,7 @@ from furl import furl
 # Squarelet
 from squarelet.core.mail import Email
 from squarelet.organizations.models import Invitation
+from squarelet.users.onboarding import OnboardingStepRegistry
 
 
 class AccountAdapter(DefaultAccountAdapter):
@@ -138,7 +139,9 @@ class AccountAdapter(DefaultAccountAdapter):
         request.session["intent"] = request.GET.get("intent")
 
         # Check if we need user to go through onboarding
-        requires_onboarding = True  # TODO: Actually check lol
+        registry = OnboardingStepRegistry()
+        current_step, _ = registry.get_current_step(request)
+        requires_onboarding = current_step is not None
 
         if requires_onboarding:
             # Pass the user to the onboarding view
