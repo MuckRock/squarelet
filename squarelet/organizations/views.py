@@ -118,7 +118,7 @@ class Detail(AdminLinkMixin, DetailView):
                 self.organization.memberships.create(user=self.request.user)
                 if self.organization.plan and self.organization.plan.wix:
                     sync_wix.delay(
-                        self.organization_id,
+                        self.organization.pk,
                         self.organization.plan_id,
                         self.request.user.pk,
                     )
@@ -147,6 +147,17 @@ class Detail(AdminLinkMixin, DetailView):
                 organization=self.organization
             ).delete()
             messages.success(request, _("You have left the organization"))
+        elif (
+            request.POST.get("action") == "sync_wix"
+            and self.request.user.is_staff
+            and self.organization.plan.wix
+        ):
+            for wix_user in self.organization.users.all():
+                sync_wix.delay(
+                    self.organization.pk,
+                    self.organization.plan_id,
+                    wix_user.pk,
+                )
         return redirect(self.organization)
 
 
