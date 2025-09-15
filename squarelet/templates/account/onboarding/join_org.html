@@ -1,20 +1,14 @@
 {% extends "account/onboarding/base.html" %}
 
-{% load i18n static %}
+{% load i18n static django_vite %}
 
 {% block title %}{% trans "Join an organization" %}{% endblock title %}
 
-{% block css %}
-{# shared styles #}
-<link rel="stylesheet" href="{% static "css/gps.css" %}" />
-<link rel="stylesheet" href="{% static "css/team_list_item.css" %}" />
-
-{# include any style tags in parent tempaltes #}
+{% block vite %}
 {{ block.super }}
-
-{# page-specific styles #}
-<link rel="stylesheet" href="{% static "css/join_org.css" %}" />
-{% endblock css %}
+{% vite_asset "frontend/views/team_list_item.ts" %}
+{% vite_asset "frontend/views/join_org.ts" %}
+{% endblock vite %}
 
 {% block onboarding_step %}
 <div class="message">

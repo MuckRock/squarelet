@@ -399,6 +399,10 @@ h3 {
   flex-direction: column;
   gap: 0.375rem;
   align-self: stretch;
+  font-size: 1rem;
+  line-height: normal;
+  color: var(--black, #0c1e27);
+  font-feature-settings: "ss04" on;
 }
 
 .field-label {
@@ -415,7 +419,9 @@ h3 {
   font-size: var(--font-sm);
 }
 
-.field input[type="text"] {
+.field input[type="text"],
+.field input[type="email"],
+.field input[type="password"] {
   display: flex;
   width: 100%;
   box-sizing: border-box;
@@ -466,4 +472,10 @@ h3 {
   color: var(--red-3, #E1275F);
   font-size: var(--font-sm);
   font-weight: 600;
+}
+
+.field.inline-field {
+  flex-direction: row;
+  align-items: center;
+  font-weight: 400;
 }

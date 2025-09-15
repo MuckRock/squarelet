@@ -1,14 +1,17 @@
 {% extends "account/base.html" %}
 
-{% load i18n static %}
+{% load i18n static django_vite %}
 {% load handleintent pass_query %}
 
 {% block head_title %}{% trans "Select plan" %}{% endblock %}
 
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/team_list_item.ts" %}
+{% endblock vite %}
+
 {% block css %}
 {{ block.super }}
-<link rel="stylesheet" href="{% static "css/gps.css" %}" />
-<link rel="stylesheet" href="{% static "css/team_list_item.css" %}" />
 <style>
   .container {
     display: flex;

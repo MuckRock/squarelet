@@ -1,103 +1,12 @@
 {% extends "base.html" %}
-{% load account airtable avatar i18n socialaccount static thumbnail %}
+{% load account airtable avatar i18n socialaccount static thumbnail django_vite %}
 
 {% block title %}{% trans 'User' %}: {{ user.username }}{% endblock %}
 
-{% block css %}
-{# shared styles #}
-<link rel="stylesheet" href="{% static "css/gps.css" %}" />
-<link rel="stylesheet" href="{% static "css/team_list_item.css" %}" />
-
-{# include any style tags in parent templates #}
+{% block vite %}
 {{ block.super }}
-
-{# page-specific styles #}
-<link rel="stylesheet" href="{% static "css/user_detail.css" %}" />
-{% endblock css %}
-
-{% block javascript %}
-{# include scripts in parent templates #}
-{{ block.super }}
-<script>
-  document.addEventListener('DOMContentLoaded', function() {
-    function closeDropdown(container) {
-      container.classList.remove('dropdown-open');
-      container.setAttribute('data-dropdown-open', 'false');
-    }
-
-    var containers = document.querySelectorAll('.dropdown-container');
-    containers.forEach(function(container) {
-      var anchor = container.querySelector('.dropdown-anchor');
-      if (anchor) {
-        anchor.addEventListener('click', function(e) {
-          e.preventDefault();
-          var open = container.classList.contains('dropdown-open');
-          if (open) {
-            closeDropdown(container);
-          } else {
-            // Close all other dropdowns first
-            containers.forEach(function(other) {
-              if (other !== container) {
-                closeDropdown(other);
-              }
-            });
-            container.classList.add('dropdown-open');
-            container.setAttribute('data-dropdown-open', 'true');
-          }
-        });
-        // Ensure closed by default
-        closeDropdown(container);
-      }
-    });
-
-    // Close dropdown if clicking outside
-    document.addEventListener('click', function(e) {
-      containers.forEach(function(container) {
-        if (!container.contains(e.target)) {
-          closeDropdown(container);
-        }
-      });
-    });
-  });
-
-  // Tab controller/Tab container logic
-  document.querySelectorAll('.tab-controller').forEach(function(controller) {
-    var container = controller.closest('.dropdown').querySelector('.tab-container');
-    if (!container) return;
-
-    function activateTab(tabName) {
-      // Update controller tabs
-      controller.querySelectorAll('.tab').forEach(function(tab) {
-        var isActive = tab.getAttribute('data-tab') === tabName;
-        tab.setAttribute('data-tab-active', isActive);
-        tab.classList.toggle('tab-active', isActive);
-      });
-      // Update container tabs
-      container.querySelectorAll('.tab').forEach(function(tab) {
-        var isActive = tab.getAttribute('data-tab') === tabName;
-        tab.setAttribute('data-tab-active', isActive);
-        tab.classList.toggle('tab-active', isActive);
-      });
-    }
-
-    // Click handler for controller tabs
-    controller.querySelectorAll('.tab').forEach(function(tab) {
-      tab.addEventListener('click', function(e) {
-        e.preventDefault();
-        var tabName = tab.getAttribute('data-tab');
-        activateTab(tabName);
-      });
-    });
-
-    // Initialize to first active tab
-    var initial = controller.querySelector('.tab[data-tab-active="true"]');
-    if (initial) {
-      activateTab(initial.getAttribute('data-tab'));
-    }
-  });
-
-  
-</script>
+{% vite_asset "frontend/views/user_detail.ts" %}
+{% vite_asset "frontend/views/team_list_item.ts" %}
 {% endblock %}
 
 
