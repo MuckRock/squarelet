@@ -19,6 +19,8 @@ from itertools import chain
 # Third Party
 from allauth.account.models import EmailAddress
 from allauth.account.utils import setup_user_email, sync_user_email_addresses
+from allauth.mfa.admin import AuthenticatorAdmin
+from allauth.mfa.models import Authenticator
 from reversion.admin import VersionAdmin
 
 # Squarelet
@@ -285,3 +287,11 @@ class LoginLogAdmin(admin.ModelAdmin):
         return response
 
     export_as_csv.short_description = "Export Selected"
+
+
+admin.site.unregister(Authenticator)
+
+
+@admin.register(Authenticator)
+class MyAuthenticatorAdmin(AuthenticatorAdmin):
+    search_fields = ("user__username", "user__email")
