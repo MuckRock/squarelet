@@ -465,6 +465,10 @@ section .orgs {
   justify-content: flex-end;
 }
 
+.org-list .invite .actions {
+  flex: 0 0 auto;
+}
+
 .org-empty {
   width: 100%;
   text-align: center;
