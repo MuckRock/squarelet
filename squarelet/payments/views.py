@@ -40,7 +40,7 @@ class PlanDetailView(DetailView):
         """Override to check private plan access"""
         if queryset is None:
             queryset = self.get_queryset()
-        
+
         plan = super().get_object(queryset)
 
         protect_private_plan(plan, self.request.user)
