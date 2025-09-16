@@ -23,8 +23,8 @@
     align-items: center;
     gap: 1rem;
   }
-  h1,
-  p {
+  .container h1,
+  .container p {
     width: 100%;
     text-align: center;
     text-wrap: balance;
@@ -68,8 +68,12 @@
     <div class="icon">
       <img src="{% static 'icons/security.svg' %}" />
     </div>
-    <h1>{% trans "Confirm Access" %}</h1>
-    <p>{% blocktrans %}Please reauthenticate to safeguard your account.{% endblocktrans %}</p>
+    <h1>{% trans "Confirm Password" %}</h1>
+    <p>
+      {% blocktrans %}
+      For your security, please re-enter your password before continuing.
+      {% endblocktrans %}
+    </p>
   </header>
   <main>
   {% block reauthenticate_content %}{% endblock %}
