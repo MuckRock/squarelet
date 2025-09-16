@@ -550,10 +550,13 @@ requests==2.32.3
     #   premailer
     #   pyairtable
     #   pyjwkest
+    #   requests-mock
     #   requests-oauthlib
     #   smart-open
     #   sphinx
     #   stripe
+requests-mock==1.12.1
+    # via -r requirements/local.in
 requests-oauthlib==2.0.0
     # via
     #   -r requirements/base.txt
