@@ -119,7 +119,7 @@ class Detail(AdminLinkMixin, DetailView):
                 if self.organization.plan and self.organization.plan.wix:
                     sync_wix.delay(
                         self.organization.pk,
-                        self.organization.plan.pk.id,
+                        self.organization.plan.pk,
                         self.request.user.pk,
                     )
                 messages.success(
@@ -155,7 +155,7 @@ class Detail(AdminLinkMixin, DetailView):
             for wix_user in self.organization.users.all():
                 sync_wix.delay(
                     self.organization.pk,
-                    self.organization.plan.pk.id,
+                    self.organization.plan.pk,
                     wix_user.pk,
                 )
         return redirect(self.organization)
