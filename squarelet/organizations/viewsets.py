@@ -18,7 +18,6 @@ class OrganizationViewSet(viewsets.ModelViewSet):
     queryset = Organization.objects.prefetch_related(
         "subtypes__type", "users__memberships"
     )
-    serializer_class = OrganizationSerializer
     permission_classes = (ScopePermission | IsAdminUser,)
     read_scopes = ("read_organization",)
     write_scopes = ("write_organization",)
@@ -26,9 +25,11 @@ class OrganizationViewSet(viewsets.ModelViewSet):
     swagger_schema = None
     filterset_class = OrganizationFilter
 
-    def retrieve(self, request, *args, **kwargs):
-        serializer = OrganizationDetailSerializer(self.get_object(), many=False)
-        return Response(serializer.data)
+    def get_serializer_class(self):
+        if self.action == "retrieve":
+            return OrganizationDetailSerializer
+
+        return OrganizationSerializer
 
 
 class ChargeViewSet(viewsets.ModelViewSet):
