@@ -19,9 +19,32 @@ from squarelet.organizations.models import Organization, Plan
 logger = logging.getLogger(__name__)
 
 
+def protect_private_plan(plan, user):
+    """Raise 404 if user should not access this private plan"""
+    if plan.private_organizations.exists():
+        # If user is not authenticated, raise 404
+        if not user.is_authenticated:
+            raise Http404("Plan not found")
+
+        # If user is not admin of any organization for this plan, raise 404
+        user_admin_orgs = user.organizations.filter(memberships__admin=True)
+        if not plan.private_organizations.filter(pk__in=user_admin_orgs).exists():
+            raise Http404("Plan not found")
+
+
 class PlanDetailView(DetailView):
     model = Plan
     template_name = "payments/plan.html"
+
+    def get_object(self, queryset=None):
+        """Override to check private plan access"""
+        if queryset is None:
+            queryset = self.get_queryset()
+        
+        plan = super().get_object(queryset)
+
+        protect_private_plan(plan, self.request.user)
+        return plan
 
     def get_context_data(self, **kwargs):
         # pylint: disable=too-many-locals
@@ -216,13 +239,15 @@ class PlanRedirectView(RedirectView):
             if pk:
                 # ID provided, need to get the slug
                 plan = Plan.objects.get(pk=pk)
-                return reverse("plan_detail", kwargs={"pk": plan.pk, "slug": plan.slug})
             elif slug:
                 # Slug provided, need to get the ID
                 plan = Plan.objects.get(slug=slug)
-                return reverse("plan_detail", kwargs={"pk": plan.pk, "slug": plan.slug})
+            else:
+                raise Http404("Invalid plan URL")
+
+            protect_private_plan(plan, self.request.user)
+
+            return reverse("plan_detail", kwargs={"pk": plan.pk, "slug": plan.slug})
+
         except Plan.DoesNotExist:
             raise Http404("No Plan found matching the query")
-
-        # Should not reach here
-        raise Http404("Invalid plan URL")
