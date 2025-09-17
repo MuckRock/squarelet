@@ -3,6 +3,7 @@
 
 // import css here for bundling
 import "@/css/gps.css";
+import "@/css/user_detail.css";
 import "@/css/team_list_item.css";
 import "@/css/organization_list.css";
 
