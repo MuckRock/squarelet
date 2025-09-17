@@ -270,6 +270,9 @@ class Subscription(models.Model):
 
     def send_slack_notification(self, event, **kwargs):
         """Queue a Slack notification asynchronously for subscription events."""
+        if settings.ENV != "production":
+            return
+
         if not self.plan.slack_webhook_url:
             return
 
