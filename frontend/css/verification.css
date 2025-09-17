@@ -73,8 +73,13 @@ footer {
   gap: 2rem;
 }
 .unverified.org {
+  box-sizing: border-box;
   border-bottom: 1px solid var(--gray-2);
   padding-bottom: 1rem;
+}
+.unverified.org:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
 }
 .unverified.individual p {
   margin: 0;
