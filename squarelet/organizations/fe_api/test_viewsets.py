@@ -20,7 +20,7 @@ def api_client():
 def test_organization_viewset_admins_field(api_client):
     user = User.objects.create_user(username="admin_user", password="pw")
     member = User.objects.create_user(username="member_user", password="pw")
-    org = Organization.objects.create(name="Test Org")
+    org = Organization.objects.create(name="Test Org", verified_journalist=True)
 
     Membership.objects.create(user=user, organization=org, admin=True)
     Membership.objects.create(user=member, organization=org, admin=False)
@@ -37,7 +37,9 @@ def test_organization_viewset_admins_field(api_client):
 @pytest.mark.django_db
 def test_individual_org_excludes_admins_and_member_count(api_client):
     user = User.objects.create_user(username="user", password="pw")
-    org = Organization.objects.create(name="Solo Org", individual=True)
+    org = Organization.objects.create(
+        name="Solo Org", individual=True, verified_journalist=True
+    )
 
     api_client.force_authenticate(user=user)
     response = api_client.get(f"/fe_api/organizations/{org.id}/")
@@ -51,7 +53,7 @@ def test_individual_org_excludes_admins_and_member_count(api_client):
 @pytest.mark.django_db
 def test_excludes_members_if_not_authenticated(api_client):
     user = User.objects.create_user(username="user", password="pw")
-    org = Organization.objects.create(name="Private Org")
+    org = Organization.objects.create(name="Private Org", verified_journalist=True)
     Membership.objects.create(user=user, organization=org)
 
     response = api_client.get(f"/fe_api/organizations/{org.id}/")
@@ -62,7 +64,7 @@ def test_excludes_members_if_not_authenticated(api_client):
 def test_excludes_members_if_user_not_member(api_client):
     user = User.objects.create_user(username="user", password="pw")
     non_member = User.objects.create_user(username="non_member", password="pw")
-    org = Organization.objects.create(name="Some Org")
+    org = Organization.objects.create(name="Some Org", verified_journalist=True)
     Membership.objects.create(user=user, organization=org)
 
     api_client.force_authenticate(user=non_member)
@@ -76,7 +78,7 @@ def test_excludes_members_if_user_not_member(api_client):
 @pytest.mark.django_db
 def test_includes_members_if_user_is_member(api_client):
     user = User.objects.create_user(username="user", password="pw")
-    org = Organization.objects.create(name="Some Org")
+    org = Organization.objects.create(name="Some Org", verified_journalist=True)
     Membership.objects.create(user=user, organization=org)
 
     api_client.force_authenticate(user=user)
@@ -139,7 +141,8 @@ def test_accept_invitation_forbidden_for_unrelated_user(
     api_client, user_factory, invitation_factory
 ):
     unrelated_user = user_factory(email_verified=True)
-    invitation = invitation_factory()
+    # Create invitation with a different email to ensure no match
+    invitation = invitation_factory(email="invitation@different-domain.com")
 
     api_client.force_authenticate(unrelated_user)
     url = reverse("fe_api:fe-invitations-detail", args=[invitation.pk])
@@ -219,7 +222,10 @@ def test_member_cannot_resend_invitation(
     member = user_factory(email_verified=True)
     org.memberships.create(user=member, admin=False)
 
-    invitation = invitation_factory(organization=org)
+    # Create invitation with different email to ensure no match
+    invitation = invitation_factory(
+        organization=org, email="different-invitation@example.com"
+    )
 
     api_client.force_authenticate(member)
     url = reverse("fe_api:fe-invitations-detail", args=[invitation.pk])
