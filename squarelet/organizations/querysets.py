@@ -27,10 +27,19 @@ class OrganizationQuerySet(models.QuerySet):
             return self
         elif user.is_authenticated:
             # other users may not see private organizations unless they are a member
-            return self.filter(Q(private=False) | Q(users=user)).distinct()
+            # and they can only see public organizations that are visible
+            # (verified or have charges)
+            return self.filter(
+                Q(private=False, verified_journalist=True)
+                | Q(private=False, charges__isnull=False)
+                | Q(users=user)
+            ).distinct()
         else:
-            # anonymous users may not see any private organizations
-            return self.filter(private=False)
+            # anonymous users may only see public organizations that are visible
+            return self.filter(
+                Q(private=False, verified_journalist=True)
+                | Q(private=False, charges__isnull=False)
+            ).distinct()
 
     def create_individual(self, user, uuid=None):
         """Create an individual organization for user

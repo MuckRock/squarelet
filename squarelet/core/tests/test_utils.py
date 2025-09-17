@@ -50,6 +50,38 @@ class TestMailchimpJourney(TestCase):
             "Authorization": f"apikey {settings.MAILCHIMP_API_KEY}",
         }
 
+    @override_settings(ENV="dev", MAILCHIMP_API_KEY="test-key")
+    @patch("squarelet.core.utils.requests.put")
+    @patch("squarelet.core.utils.requests.post")
+    def test_mailchimp_journey_skipped_in_dev_environment(self, mock_post, mock_put):
+        """MailChimp journey should be skipped in dev environment"""
+        result = mailchimp_journey(self.email, self.journey)
+        assert result is None
+        mock_put.assert_not_called()
+        mock_post.assert_not_called()
+
+    @override_settings(ENV="staging", MAILCHIMP_API_KEY="test-key")
+    @patch("squarelet.core.utils.requests.put")
+    @patch("squarelet.core.utils.requests.post")
+    def test_mailchimp_journey_skipped_in_staging_environment(
+        self, mock_post, mock_put
+    ):
+        """MailChimp journey should be skipped in staging environment"""
+        result = mailchimp_journey(self.email, self.journey)
+        assert result is None
+        mock_put.assert_not_called()
+        mock_post.assert_not_called()
+
+    @override_settings(ENV="production", MAILCHIMP_API_KEY="")
+    @patch("squarelet.core.utils.requests.put")
+    @patch("squarelet.core.utils.requests.post")
+    def test_mailchimp_journey_skipped_without_api_key(self, mock_post, mock_put):
+        """MailChimp journey should be skipped when API key is missing"""
+        result = mailchimp_journey(self.email, self.journey)
+        assert result is None
+        mock_put.assert_not_called()
+        mock_post.assert_not_called()
+
     @patch("squarelet.core.utils.requests.put")
     @patch("squarelet.core.utils.requests.post")
     def test_successful_journey(self, mock_post, mock_put):
