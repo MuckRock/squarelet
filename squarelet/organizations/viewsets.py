@@ -1,7 +1,6 @@
 # Third Party
 from rest_framework import viewsets
 from rest_framework.permissions import IsAdminUser
-from rest_framework.response import Response
 
 # Squarelet
 from squarelet.oidc.permissions import ScopePermission
