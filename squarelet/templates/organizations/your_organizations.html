@@ -27,10 +27,10 @@
     <h3>{% trans "Open invitations" %}</h3>
     <p>{% trans "Organizations you’ve been invited to join:" %}</p>
   </header>
-  {% for invite in invitations %}
+  {% for invite in pending_invitations %}
     <div class="invite">
       {% include "account/team_list_item.html" with organization=invite.organization %}
-      <form method="post" action="{% url "organizations:invitation" uuid=invite.uuid %}" class="actions">
+      <form method="post" action="{% url "organizations:invitation" uuid=invite.uuid %}" class="actions actions-nowrap">
         {% csrf_token %}
         <button class="small btn primary" type="submit" name="action" value="accept">
           {% trans "Accept" %}
