@@ -2,10 +2,14 @@
 from django.contrib.auth.models import AnonymousUser
 from django.test import TestCase
 
+# Standard Library
+from uuid import uuid4
+
 # Third Party
 import pytest
 
 # Squarelet
+from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.models import Membership, Organization
 from squarelet.organizations.tests.factories import (
     ChargeFactory,
@@ -122,6 +126,54 @@ class TestOrganizationQuerySet(TestCase):
         viewable = Organization.objects.get_viewable(user)
         # Should only appear once despite meeting multiple criteria
         assert viewable.filter(id=org.id).count() == 1
+
+    @pytest.mark.django_db
+    def test_create_individual_basic(self):
+        """Test creating an individual organization for a user"""
+        user = UserFactory.build()  # build() creates unsaved instance
+        assert user.pk is None  # Ensure user is unsaved as required
+
+        org = Organization.objects.create_individual(user)
+
+        # Verify organization properties
+        assert org.name == user.username
+        assert org.individual is True
+        assert org.private is True
+        assert org.max_users == 1
+
+        # Verify user is saved and linked
+        assert user.pk is not None
+        assert user.individual_organization == org
+
+        # Verify creator membership exists
+        assert org.memberships.filter(user=user, admin=True).exists()
+
+        # Verify change log was created
+        assert org.change_logs.filter(
+            reason=ChangeLogReason.created, user=user, to_plan=org.plan, to_max_users=1
+        ).exists()
+
+    @pytest.mark.django_db
+    def test_create_individual_with_uuid(self):
+        """Test creating an individual organization with custom UUID"""
+        user = UserFactory.build()
+        custom_uuid = uuid4()
+
+        org = Organization.objects.create_individual(user, uuid=custom_uuid)
+
+        assert org.uuid == custom_uuid
+        assert org.name == user.username
+        assert org.individual is True
+
+    @pytest.mark.django_db
+    def test_create_individual_returns_organization(self):
+        """Test that create_individual returns the created organization"""
+        user = UserFactory.build()
+
+        org = Organization.objects.create_individual(user)
+
+        assert isinstance(org, Organization)
+        assert org == user.individual_organization
 
 
 class TestMembershipQuerySet(TestCase):
