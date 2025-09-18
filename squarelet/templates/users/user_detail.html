@@ -344,7 +344,7 @@
         </div>
       </header>
       <main class="orgs">
-        {% include "organizations/your_organizations.html" %}
+        {% include "organizations/your_organizations.html" with show_invitations=True %}
       </main>
       <footer>
         <p class="help-text">If you’re a freelancer who works with multiple organizations, you may <a target="_blank" rel="noopener noreferrer" href="{% airtable_verification_url %}">request individual verification as a journalist</a>.</p>

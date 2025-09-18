@@ -1,6 +1,6 @@
 {% load airtable i18n static %}
 
-{% if potential_organizations %}
+{% if show_invitations and potential_organizations %}
 <div class="org-list">
   <header class="org-list-header">
     <h3>{% trans "Pre-approved" %}</h3>
@@ -21,7 +21,7 @@
 </div>
 {% endif %}
 
-{% if pending_invitations %}
+{% if show_invitations and pending_invitations %}
 <div class="org-list">
   <header class="org-list-header">
     <h3>{% trans "Open invitations" %}</h3>
@@ -42,6 +42,31 @@
     </div>
   {% endfor %}
 </div>
+{% endif %}
+
+{% if show_invitations and pending_requests %}
+  <div class="org-list">
+    <header class="org-list-header">
+      <h3>{% trans "Open requests" %}</h3>
+      <p>{% trans "Organizations you’ve requested to join:" %}</p>
+    </header>
+    {% for invite in pending_requests %}
+    <div class="invite">
+      {% include "account/team_list_item.html" with organization=invite.organization %}
+
+      <form method="post" action="{% url "organizations:invitation" uuid=invite.uuid %}" class="actions">
+        {% csrf_token %}
+        <button class="btn small danger ghost" type="submit" name="action" value="reject">
+          {% trans "Withdraw request" %}
+        </button>
+      </form>
+    </div>
+    {% empty %}
+    <div class="empty">
+      <p>{% trans "No pending requests." %}</p>
+    </div>
+    {% endfor %}
+  </div>
 {% endif %}
 
 {% if admin_orgs %}

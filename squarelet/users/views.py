@@ -135,6 +135,7 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         context["is_own_page"] = user == self.request.user
         context["potential_organizations"] = list(user.get_potential_organizations())
         context["pending_invitations"] = list(user.get_pending_invitations())
+        context["pending_requests"] = list(user.get_pending_requests())
         context["verified"] = user.verified_journalist()
         context["verified_organizations"] = list(
             user.organizations.filter(verified_journalist=True, individual=False)
