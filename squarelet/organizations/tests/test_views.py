@@ -466,12 +466,12 @@ class TestInvitationAccept(ViewTestMixin):
         # pylint: disable=protected-access
         request._messages = MagicMock()
         request.session = MagicMock()
-        request.META['HTTP_REFERER'] = '/some/previous/page/'
+        request.META["HTTP_REFERER"] = "/some/previous/page/"
 
         response = self.view.as_view()(request, uuid=invitation.uuid)
 
         assert response.status_code == 302
-        assert response.url == '/some/previous/page/'
+        assert response.url == "/some/previous/page/"
 
     def test_reject_with_referer(self, rf, invitation_factory, user_factory):
         """Test that reject redirects to HTTP_REFERER when present"""
@@ -485,12 +485,12 @@ class TestInvitationAccept(ViewTestMixin):
         # pylint: disable=protected-access
         request._messages = MagicMock()
         request.session = MagicMock()
-        request.META['HTTP_REFERER'] = '/another/page/'
+        request.META["HTTP_REFERER"] = "/another/page/"
 
         response = self.view.as_view()(request, uuid=invitation.uuid)
 
         assert response.status_code == 302
-        assert response.url == '/another/page/'
+        assert response.url == "/another/page/"
 
     def test_accept_without_referer(self, rf, invitation_factory, user_factory):
         """Test that accept falls back to default redirect when no HTTP_REFERER"""
@@ -501,7 +501,7 @@ class TestInvitationAccept(ViewTestMixin):
 
         assert response.status_code == 302
         # Should redirect to the organization (default fallback)
-        assert f'/organizations/{invitation.organization.slug}/' in response.url
+        assert f"/organizations/{invitation.organization.slug}/" in response.url
 
     def test_reject_without_referer(self, rf, invitation_factory, user_factory):
         """Test that reject falls back to default redirect when no HTTP_REFERER"""
@@ -512,7 +512,7 @@ class TestInvitationAccept(ViewTestMixin):
 
         assert response.status_code == 302
         # Should redirect to the user (default fallback)
-        assert f'/users/{user.username}/' in response.url
+        assert f"/users/{user.username}/" in response.url
 
 
 @pytest.mark.django_db()

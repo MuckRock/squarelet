@@ -187,38 +187,38 @@ class TestGetRedirectUrl:
     def test_redirect_with_referer(self):
         """Test redirect uses HTTP_REFERER when available"""
         request = HttpRequest()
-        request.META['HTTP_REFERER'] = '/previous/page/'
+        request.META["HTTP_REFERER"] = "/previous/page/"
 
-        response = get_redirect_url(request, '/fallback/page/')
+        response = get_redirect_url(request, "/fallback/page/")
 
         assert isinstance(response, HttpResponseRedirect)
-        assert response.url == '/previous/page/'
+        assert response.url == "/previous/page/"
 
     def test_redirect_without_referer_string_fallback(self):
         """Test redirect uses string fallback when no HTTP_REFERER"""
         request = HttpRequest()
 
-        response = get_redirect_url(request, '/fallback/page/')
+        response = get_redirect_url(request, "/fallback/page/")
 
         assert isinstance(response, HttpResponseRedirect)
-        assert response.url == '/fallback/page/'
+        assert response.url == "/fallback/page/"
 
     def test_redirect_without_referer_httpresponse_fallback(self):
         """Test redirect uses HttpResponseRedirect fallback when no HTTP_REFERER"""
         request = HttpRequest()
-        fallback = HttpResponseRedirect('/fallback/page/')
+        fallback = HttpResponseRedirect("/fallback/page/")
 
         response = get_redirect_url(request, fallback)
 
         assert response is fallback
-        assert response.url == '/fallback/page/'
+        assert response.url == "/fallback/page/"
 
     def test_redirect_empty_referer(self):
         """Test redirect uses fallback when HTTP_REFERER is empty"""
         request = HttpRequest()
-        request.META['HTTP_REFERER'] = ''
+        request.META["HTTP_REFERER"] = ""
 
-        response = get_redirect_url(request, '/fallback/page/')
+        response = get_redirect_url(request, "/fallback/page/")
 
         assert isinstance(response, HttpResponseRedirect)
-        assert response.url == '/fallback/page/'
+        assert response.url == "/fallback/page/"

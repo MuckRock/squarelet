@@ -159,7 +159,7 @@ def get_redirect_url(request, fallback):
     falling back to the provided fallback if not available.
     This way, we can send users back to the page they came from.
     """
-    referer = request.META.get('HTTP_REFERER')
+    referer = request.META.get("HTTP_REFERER")
     if referer:
         return HttpResponseRedirect(referer)
 
