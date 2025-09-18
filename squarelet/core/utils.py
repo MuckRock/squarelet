@@ -1,5 +1,6 @@
 # Django
 from django.conf import settings
+from django.http import HttpResponseRedirect
 
 # Standard Library
 import logging
@@ -150,3 +151,21 @@ def mailchimp_journey(email, journey):
     except (requests.ConnectionError, ValueError):
         logger.error("[JOURNEY] Error starting journey", exc_info=sys.exc_info())
     return response
+
+
+def get_redirect_url(request, fallback):
+    """
+    Try to get a redirect URL from HTTP_REFERER header first,
+    falling back to the provided fallback if not available.
+    This way, we can send users back to the page they came from.
+    """
+    referer = request.META.get('HTTP_REFERER')
+    if referer:
+        return HttpResponseRedirect(referer)
+
+    # If fallback is already an HttpResponseRedirect, return it
+    if isinstance(fallback, HttpResponseRedirect):
+        return fallback
+
+    # Otherwise, treat it as a URL string
+    return HttpResponseRedirect(fallback)
