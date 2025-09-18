@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 def protect_private_plan(plan, user):
     """Raise 404 if user should not access this private plan"""
-    if plan.private_organizations.exists():
+    if not plan.public and plan.private_organizations.exists():
         # If user is not authenticated, raise 404
         if not user.is_authenticated:
             raise Http404("Plan not found")
@@ -65,9 +65,17 @@ class PlanDetailView(DetailView):
                 existing_subscriptions.append((individual_subscription, individual_org))
 
             # Get organizations where user is admin
-            admin_orgs = Organization.objects.filter(
+            admin_orgs_base = Organization.objects.filter(
                 users=user, memberships__admin=True, individual=False
             ).distinct()
+
+            # Filter by private_organizations if populated
+            if not plan.public and plan.private_organizations.exists():
+                admin_orgs = admin_orgs_base.filter(
+                    pk__in=plan.private_organizations.all()
+                )
+            else:
+                admin_orgs = admin_orgs_base
 
             for org in admin_orgs:
                 org_subscription = org.subscriptions.filter(
