@@ -10,7 +10,7 @@
 set -e
 if [ -n "$HEROKU_APP_NAME" ] && [ "$DJANGO_ENV" = "staging" ]; then
   # Restore the most recent backup of muckrock-staging into the review app database
-  heroku pg:backups:restore squarelet-staging::latest DATABASE_URL \
+  heroku pg:backups:restore squarelet-staging DATABASE_URL \
     --app "$HEROKU_APP_NAME" \
     --confirm "$HEROKU_APP_NAME"
 fi
