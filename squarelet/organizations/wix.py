@@ -46,7 +46,7 @@ def create_member(headers, organization, user):
                 "loginEmail": user.email,
                 "contact": {
                     "firstName": user.name.split(" ", 1)[0],
-                    "lastName": user.name.split(" ", 1)[0],
+                    "lastName": user.name.split(" ", 1)[1],
                     "emails": [user.email],
                     "company": organization.name,
                 },
@@ -107,5 +107,6 @@ def sync_wix(organization, plan, user):
     contact_id = get_contact_by_email(headers, user.email)
     if contact_id is None:
         contact_id = create_member(headers, organization, user)
+        # only set password for new members
+        send_set_password_email(headers, user.email)
     add_labels(headers, contact_id, plan)
-    send_set_password_email(headers, user.email)

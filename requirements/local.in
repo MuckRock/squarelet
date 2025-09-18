@@ -18,3 +18,4 @@ pytest-factoryboy
 pytest-freezegun
 pytest-mock
 pytest-sugar
+requests-mock
