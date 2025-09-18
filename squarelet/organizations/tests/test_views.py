@@ -463,6 +463,7 @@ class TestInvitationAccept(ViewTestMixin):
         url = self.url.format(uuid=invitation.uuid)
         request = rf.post(url, {"action": "accept"})
         request.user = user
+        # pylint: disable=protected-access
         request._messages = MagicMock()
         request.session = MagicMock()
         request.META['HTTP_REFERER'] = '/some/previous/page/'
@@ -481,6 +482,7 @@ class TestInvitationAccept(ViewTestMixin):
         url = self.url.format(uuid=invitation.uuid)
         request = rf.post(url, {"action": "reject"})
         request.user = user
+        # pylint: disable=protected-access
         request._messages = MagicMock()
         request.session = MagicMock()
         request.META['HTTP_REFERER'] = '/another/page/'
