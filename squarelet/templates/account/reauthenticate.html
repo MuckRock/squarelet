@@ -65,9 +65,11 @@
 {% block reauthenticate_content %}
   <form class="m-0" method="post" action="{% url 'account_reauthenticate' %}">
     {% csrf_token %}
+    {{ form.non_field_errors }}
     <label class="field">
       {% trans "Password" %}
       <input type="password" name="password" />
+      {{ form.password.errors }}
     </label>
     {{ redirect_field }}
     <button type="submit" class="button primary">{% trans "Confirm" %}</button>
