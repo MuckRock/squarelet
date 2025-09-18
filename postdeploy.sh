@@ -9,8 +9,10 @@
 # only copying staging data into an environment that expects to receive it.
 set -e
 if [ -n "$HEROKU_APP_NAME" ] && [ "$DJANGO_ENV" = "staging" ]; then
-  # Copy the data from the staging app database to the review app database.
-  heroku pg:copy squarelet-staging::DATABASE_URL DATABASE_URL --app $HEROKU_APP_NAME --confirm $HEROKU_APP_NAME
+  LATEST_BACKUP=$(heroku pg:backups --app squarelet-staging | awk '/b[0-9]+/ {print $1; exit}')
+  heroku pg:backups:restore "squarelet-staging::$LATEST_BACKUP" DATABASE_URL \
+    --app "$HEROKU_APP_NAME" \
+    --confirm "$HEROKU_APP_NAME"
 fi
 
 # No matter what environment we're in, ensure we run any Django migrations.
