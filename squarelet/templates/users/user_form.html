@@ -1,10 +1,8 @@
 {% extends "base.html" %}
-{% load i18n static %}
+{% load i18n static django_vite %}
 {% block title %}{% trans 'Edit your profile' %}{% endblock %}
 
 {% block css %}
-<link rel="stylesheet" href="{% static "css/gps.css" %}" />
-<link rel="stylesheet" href="{% static "css/user_detail.css" %}" />
 {{ block.super }}
 <style>
   .user-profile-view {
@@ -49,6 +47,11 @@
   }
 </style>
 {% endblock css %}
+
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/user_detail.ts" %}
+{% endblock vite %}
 
 {% block content %}
   <div class="user-profile-view">

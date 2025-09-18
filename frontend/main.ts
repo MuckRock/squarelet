@@ -1,4 +1,5 @@
 import "vite/modulepreload-polyfill";
+import "./css/gps.css";
 import "./css/autocomplete.css";
 import "./css/project.css";
 import "./css/main.css";
