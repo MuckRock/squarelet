@@ -40,6 +40,7 @@ from fuzzywuzzy import fuzz, process
 
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
+from squarelet.core.utils import get_redirect_url
 from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.denylist_domains import DENYLIST_DOMAINS
 from squarelet.organizations.forms import (
@@ -158,7 +159,8 @@ class Detail(AdminLinkMixin, DetailView):
                     self.organization.plan.pk,
                     wix_user.pk,
                 )
-        return redirect(self.organization)
+            messages.success(request, _("Wix sync started"))
+        return get_redirect_url(request, redirect(self.organization))
 
 
 class List(ListView):
@@ -534,17 +536,17 @@ class InvitationAccept(DetailView):
         if action == "accept":
             invitation.accept(request.user)
             messages.success(request, "Invitation accepted")
-            return redirect(invitation.organization)
+            return get_redirect_url(request, redirect(invitation.organization))
         elif action == "reject":
             invitation.reject()
             if invitation.request:
                 messages.info(request, "Invitation withdrawn")
             else:
                 messages.info(request, "Invitation rejected")
-            return redirect(request.user)
+            return get_redirect_url(request, redirect(request.user))
         else:
             messages.error(request, "Invalid choice")
-            return redirect(request.user)
+            return get_redirect_url(request, redirect(request.user))
 
 
 @method_decorator(xframe_options_sameorigin, name="dispatch")
