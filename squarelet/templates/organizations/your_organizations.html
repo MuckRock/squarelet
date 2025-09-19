@@ -80,6 +80,11 @@
       {% include "account/team_list_item.html" with organization=org %}
       <form method="post" action="{% url "organizations:detail" slug=org.slug %}" class="actions">
         {% csrf_token %}
+        {% if not org.verified_journalist %}
+        <a target="_blank" rel="noopener noreferrer" class="btn ghost primary small" href="{% airtable_verification_url org %}">
+          {% trans "Request verification" %}
+        </a>
+        {% endif %}
         <button class="btn danger ghost small" type="submit" name="action" value="leave">
           {% include "core/icons/sign-out.svg" %}
           {% trans "Leave" %}
