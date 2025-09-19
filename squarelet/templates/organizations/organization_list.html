@@ -77,6 +77,13 @@
           or receive invitations to join an organization.
           {% endblocktrans %}
         </p>
+        <form class="email-actions" action="{% url "account_email" %}" method="post">
+          {% csrf_token %}
+          <input type="hidden" name="email" value="{{user.email}}" />
+          <button class="btn primary small" type="submit" name="action_send">
+            {% trans "Confirm your email address" %}
+          </button>
+        </form>
       </div>
       {% elif not has_pending %}
       <div class="empty">
