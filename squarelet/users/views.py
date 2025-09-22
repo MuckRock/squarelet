@@ -94,11 +94,13 @@ class StaffAccessMixin:
 
 
 class UserEmailView(AllAuthEmailView):
-    """Custom email view to redirect to user detail page after email operations."""
+    """Custom email view to redirect user after email operations."""
 
     def get_success_url(self):
-        """Redirect to the user detail page after a successful email operation."""
-        return reverse("users:detail", kwargs={"username": self.request.user.username})
+        """Redirect to the previous page after a successful email operation."""
+        return self.request.META.get("HTTP_REFERER") or reverse(
+            "users:detail", kwargs={"username": self.request.user.username}
+        )
 
 
 class UserConnectionsView(ConnectionsView):
