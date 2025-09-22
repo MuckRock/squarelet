@@ -755,7 +755,7 @@ class Invitation(models.Model):
         if not self.organization.has_member(self.user):
             Membership.objects.create(organization=self.organization, user=self.user)
             if self.organization.plan and self.organization.plan.wix:
-                sync_wix.delay(self.organization_id, self.organization.plan_id, user.pk)
+                sync_wix.delay(self.organization_id, self.organization.plan.pk, user.pk)
 
     def reject(self):
         """Reject or revoke the invitation"""
