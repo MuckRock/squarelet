@@ -3,8 +3,10 @@
 
   import "@/css/team_list_item.css";
   import people from "@/icons/people.svg";
-  import unverified from "@/icons/unverified.svg";
-  import verified from "@/icons/verified.svg";
+  import UnverifiedIcon from "@/icons/unverified.svelte";
+  import VerifiedIcon from "@/icons/verified.svelte";
+  import LockIcon from "@/icons/lock.svelte";
+
 
   let { organization }: { organization: Organization } = $props();
 
@@ -35,14 +37,20 @@
   <div class="info">
     <h4>{organization.name}</h4>
     <div class="status">
+      {#if organization.private}
+        <div class="badge">
+          <span class="icon"><LockIcon /></span>
+          Private
+        </div>
+      {/if}
       {#if organization.verified_journalist}
-        <div class="badge verified">
-          <img src={verified} alt="Verified" />
+        <div class="badge green">
+          <span class="icon"><VerifiedIcon /></span>
           Verified
         </div>
       {:else}
         <div class="badge">
-          <img src={unverified} alt="Unverified" />
+          <span class="icon"><UnverifiedIcon /></span>
           Unverified
         </div>
         <span class="membership">
