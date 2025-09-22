@@ -21,7 +21,7 @@
     bind:value={selected}
     valueAsObject
     labelField="name"
-    fetch="/fe_api/organizations/?individual=false&private=false&search=[query]"
+    fetch="/fe_api/organizations/?individual=false&search=[query]"
     fetchCallback={(resp) => resp.results}
     fetchResetOnBlur={false}
     resetOnBlur={false}
