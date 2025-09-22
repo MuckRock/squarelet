@@ -104,7 +104,7 @@
               
               <form method="post" action="{% url "organizations:detail" slug=organization.slug %}" class="actions join">
                 {% csrf_token %}
-                <button class="button primary" name="action" value="join">
+                <button class="btn small primary" name="action" value="join">
                   <img src="{% static "icons/check.svg" %}">
                   {% trans "Join" %}
                 </button>
@@ -131,7 +131,7 @@
               
               <form method="post" action="{% url "organizations:invitation" uuid=invite.uuid %}" class="actions">
                 {% csrf_token %}
-                <button class="btn small primary ghost" type="submit" name="action" value="accept">
+                <button class="btn small primary" type="submit" name="action" value="accept">
                   {% trans "Accept" %}
                 </button>
                 <button class="btn small danger ghost" type="submit" name="action" value="reject">
