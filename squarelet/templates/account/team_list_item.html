@@ -16,14 +16,20 @@
             <a href="{% url "organizations:detail" slug=organization.slug %}">{{ organization.name }}</a>
         </h4>
         <div class="status">
+            {% if organization.private %}
+            <div class="badge">
+                <span class="icon">{% include "core/icons/lock.svg" %}</span>
+                {% trans "Private" %}
+            </div>
+            {% endif %}
             {% if organization.verified_journalist %}
             <div class="badge green">
-                <img src="{% static "icons/verified.svg" %}">
+                <span class="icon">{% include "core/icons/verified.svg" %}</span>
                 {% trans "Verified" %}
             </div>
             {% else %}
             <div class="badge">
-                <img src="{% static "icons/unverified.svg" %}">
+                <span class="icon">{% include "core/icons/unverified.svg" %}</span>
                 {% trans "Unverified" %}
             </div>
             <span class="membership">{{ count }} member{{ count|pluralize }}</span>

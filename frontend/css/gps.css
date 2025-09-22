@@ -118,6 +118,7 @@ h3 {
   border: 1px solid var(--gray-2, #d8dee2);
   background: var(--gray-1, #f5f6f7);
 
+  fill: var(--gray-4, #5C717C);
   color: var(--gray-5, #233944);
   font-family: "Source Sans Pro";
   font-size: var(--font-xs, 0.75rem);
@@ -129,45 +130,57 @@ h3 {
 }
 
 .badge.purple {
-  fill: var(--purple-5, #0e4450);
+  fill: var(--purple-4, #0e4450);
   color: var(--purple-5, #0e4450);
   border: 1px solid var(--purple-2, #9de3d3);
   background: var(--purple-1, #ebf9f6);
 }
 
 .badge.blue {
-  fill: var(--blue-5, #0e4450);
+  fill: var(--blue-4, #0e4450);
   color: var(--blue-5, #0e4450);
   border: 1px solid var(--blue-2, #9de3d3);
   background: var(--blue-1, #ebf9f6);
 }
 
 .badge.green {
-  fill: var(--green-5, #0e4450);
+  fill: var(--green-4, #0e4450);
   color: var(--green-5, #0e4450);
   border: 1px solid var(--green-2, #9de3d3);
   background: var(--green-1, #ebf9f6);
 }
 
 .badge.yellow {
-  fill: var(--yellow-5, #0e4450);
+  fill: var(--yellow-4, #0e4450);
   color: var(--yellow-5, #0e4450);
   border: 1px solid var(--yellow-2, #9de3d3);
   background: var(--yellow-1, #ebf9f6);
 }
 
 .badge.orange {
-  fill: var(--orange-5, #0e4450);
+  fill: var(--orange-4, #0e4450);
   color: var(--orange-5, #0e4450);
   border: 1px solid var(--orange-2, #9de3d3);
   background: var(--orange-1, #ebf9f6);
 }
 
 .badge.red {
-  fill: var(--red-5, #0e4450);
+  fill: var(--red-4, #0e4450);
   color: var(--red-5, #0e4450);
   border: 1px solid var(--red-2, #9de3d3);
   background: var(--red-1, #ebf9f6);
+}
+
+.badge .icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.badge .icon, .badge .icon svg {
+  width: 1rem;
+  height: 1rem;
+  fill: inherit;
 }
 
 .btn {
