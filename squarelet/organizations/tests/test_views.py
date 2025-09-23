@@ -8,6 +8,7 @@ from django.utils import timezone
 
 # Standard Library
 import json
+from unittest.mock import MagicMock
 
 # Third Party
 import pytest
@@ -452,6 +453,66 @@ class TestInvitationAccept(ViewTestMixin):
         invitation.refresh_from_db()
         assert invitation.accepted_at is None
         assert invitation.rejected_at is None
+
+    def test_accept_with_referer(self, rf, invitation_factory, user_factory):
+        """Test that accept redirects to HTTP_REFERER when present"""
+        invitation = invitation_factory()
+        user = user_factory()
+
+        # Create request with HTTP_REFERER
+        url = self.url.format(uuid=invitation.uuid)
+        request = rf.post(url, {"action": "accept"})
+        request.user = user
+        # pylint: disable=protected-access
+        request._messages = MagicMock()
+        request.session = MagicMock()
+        request.META["HTTP_REFERER"] = "/some/previous/page/"
+
+        response = self.view.as_view()(request, uuid=invitation.uuid)
+
+        assert response.status_code == 302
+        assert response.url == "/some/previous/page/"
+
+    def test_reject_with_referer(self, rf, invitation_factory, user_factory):
+        """Test that reject redirects to HTTP_REFERER when present"""
+        invitation = invitation_factory()
+        user = user_factory()
+
+        # Create request with HTTP_REFERER
+        url = self.url.format(uuid=invitation.uuid)
+        request = rf.post(url, {"action": "reject"})
+        request.user = user
+        # pylint: disable=protected-access
+        request._messages = MagicMock()
+        request.session = MagicMock()
+        request.META["HTTP_REFERER"] = "/another/page/"
+
+        response = self.view.as_view()(request, uuid=invitation.uuid)
+
+        assert response.status_code == 302
+        assert response.url == "/another/page/"
+
+    def test_accept_without_referer(self, rf, invitation_factory, user_factory):
+        """Test that accept falls back to default redirect when no HTTP_REFERER"""
+        invitation = invitation_factory()
+        user = user_factory()
+
+        response = self.call_view(rf, user, {"action": "accept"}, uuid=invitation.uuid)
+
+        assert response.status_code == 302
+        # Should redirect to the organization (default fallback)
+        assert f"/organizations/{invitation.organization.slug}/" in response.url
+
+    def test_reject_without_referer(self, rf, invitation_factory, user_factory):
+        """Test that reject falls back to default redirect when no HTTP_REFERER"""
+        invitation = invitation_factory()
+        user = user_factory()
+
+        response = self.call_view(rf, user, {"action": "reject"}, uuid=invitation.uuid)
+
+        assert response.status_code == 302
+        # Should redirect to the user (default fallback)
+        assert f"/users/{user.username}/" in response.url
 
 
 @pytest.mark.django_db()

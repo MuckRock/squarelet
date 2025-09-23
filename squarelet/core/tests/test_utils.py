@@ -1,5 +1,6 @@
 # Django
 from django.conf import settings
+from django.http import HttpRequest, HttpResponseRedirect
 from django.test import TestCase, override_settings
 
 # Standard Library
@@ -10,7 +11,7 @@ from unittest.mock import MagicMock, patch
 import requests
 
 # Squarelet
-from squarelet.core.utils import file_path, mailchimp_journey
+from squarelet.core.utils import file_path, get_redirect_url, mailchimp_journey
 
 
 def test_file_path_normal():
@@ -178,3 +179,46 @@ class TestMailchimpJourney(TestCase):
         # Call the function and verify logger is called
         mailchimp_journey(self.email, self.journey)
         assert mock_logger.call_count == 1
+
+
+class TestGetRedirectUrl:
+    """Test the get_redirect_url utility function"""
+
+    def test_redirect_with_referer(self):
+        """Test redirect uses HTTP_REFERER when available"""
+        request = HttpRequest()
+        request.META["HTTP_REFERER"] = "/previous/page/"
+
+        response = get_redirect_url(request, "/fallback/page/")
+
+        assert isinstance(response, HttpResponseRedirect)
+        assert response.url == "/previous/page/"
+
+    def test_redirect_without_referer_string_fallback(self):
+        """Test redirect uses string fallback when no HTTP_REFERER"""
+        request = HttpRequest()
+
+        response = get_redirect_url(request, "/fallback/page/")
+
+        assert isinstance(response, HttpResponseRedirect)
+        assert response.url == "/fallback/page/"
+
+    def test_redirect_without_referer_httpresponse_fallback(self):
+        """Test redirect uses HttpResponseRedirect fallback when no HTTP_REFERER"""
+        request = HttpRequest()
+        fallback = HttpResponseRedirect("/fallback/page/")
+
+        response = get_redirect_url(request, fallback)
+
+        assert response is fallback
+        assert response.url == "/fallback/page/"
+
+    def test_redirect_empty_referer(self):
+        """Test redirect uses fallback when HTTP_REFERER is empty"""
+        request = HttpRequest()
+        request.META["HTTP_REFERER"] = ""
+
+        response = get_redirect_url(request, "/fallback/page/")
+
+        assert isinstance(response, HttpResponseRedirect)
+        assert response.url == "/fallback/page/"
