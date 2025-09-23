@@ -3,18 +3,9 @@
 
 {% block title %}Organizations{% endblock %}
 
-{% block css %}
-<link rel="stylesheet" href="{% static "css/gps.css" %}" />
-<link rel="stylesheet" href="{% static "css/team_list_item.css" %}" />
-<link rel="stylesheet" href="{% static "css/user_detail.css" %}" />
-
-{# include any style tags in parent templates #}
-{{ block.super }}
-{% endblock css %}
-
 {% block vite %}
 {{ block.super }}
-{% vite_asset 'frontend/views/organization_list.ts' %}
+{% vite_asset "frontend/views/organization_list.ts" %}
 {% endblock vite %}
 
 {% block content %}

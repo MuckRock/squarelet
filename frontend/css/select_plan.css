@@ -1,14 +1,3 @@
-{% extends "account/base.html" %}
-
-{% load i18n static %}
-{% load handleintent pass_query %}
-
-{% block head_title %}{% trans "Select plan" %}{% endblock %}
-
-{% block css %}
-{{ block.super }}
-<link rel="stylesheet" href="{% static "css/invites.css" %}" />
-<style>
   .container {
     display: flex;
     max-width: 50rem;
@@ -226,17 +215,11 @@
     align-items: flex-start;
   }
 
-  .org a {
-    display: block;
-    padding: .5rem;
-    border-radius: .25rem;
+  .org {
+    padding: 0.5rem 0.75rem 0.5rem 0.5rem;
     border: 1px solid var(--gray-2);
-    text-decoration: none;
-    color: currentColor;
-    background-color: var(--white);
-  }
-  .org a:hover {
-    background-color: var(--blue-1);
+    border-radius: .5rem;
+    background: var(--white);
   }
 
   .team h4 {
@@ -324,25 +307,3 @@
   .service .checkmark svg {
     fill: var(--blue-3);
   }
-</style>
-{% endblock %}
-
-{% block content %}
-<h1>Sunlight Research</h1>
-{{sunlight_plans}}
-{{existing_subscriptions}}
-
-<ul>
-{% for plan in sunlight_plans %}
-<li>
-  <ul>
-    <li><a href="{% url 'plan_detail' plan.pk plan.slug %}">{{plan.name}}</a></li>
-    <li>{{plan.slug}}</li>
-    <li>{{plan.base_price}}</li>
-    <li>{{plan.price_per_user}}</li>
-    <li>{{plan.annual}}</li>
-  </ul>
-</li>
-{% endfor %}
-</ul>
-{% endblock %}

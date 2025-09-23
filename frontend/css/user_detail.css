@@ -201,6 +201,7 @@ h2 {
   flex: 1 1 100%;
   align-self: stretch;
   margin: 0;
+  font-weight: 600;
 }
 
 .content .profile .user-detail {
@@ -326,6 +327,7 @@ a.plan-name {
 .verification-status .status h3 {
   margin: 0;
   font-size: var(--font-md, 1rem);
+  font-weight: 600;
 }
 
 .verification-status .status p {
@@ -649,6 +651,7 @@ section .orgs {
 
 .autologin .status-row h3 {
   flex: 1 0 auto;
+  font-weight: 600;
 }
 
 .content .security .password {
