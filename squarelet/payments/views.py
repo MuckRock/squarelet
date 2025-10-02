@@ -147,11 +147,26 @@ class PlanDetailView(DetailView):
 
         # Get form data
         organization_id = request.POST.get("organization")
+        new_organization_name = request.POST.get("new_organization_name")
         stripe_token = request.POST.get("stripe_token")
 
         try:
-            # Get the organization
-            if organization_id:
+            # Get or create the organization
+            if organization_id == "new":
+                # Create a new organization
+                if not new_organization_name:
+                    messages.error(
+                        request, _("Please provide a name for the new organization")
+                    )
+                    return redirect(plan)
+
+                organization = Organization.objects.create(
+                    name=new_organization_name,
+                    private=False,
+                )
+                # Add the user as an admin
+                organization.add_creator(request.user)
+            elif organization_id:
                 organization = Organization.objects.get(
                     pk=organization_id, users=request.user, memberships__admin=True
                 )

@@ -467,6 +467,20 @@
   flex: 1;
 }
 
+.organization-selection .new-org-name-field {
+  display: none;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.organization-selection .new-org-name-field.showField {
+  display: flex;
+}
+
+.new-card-option.only-option {
+  display: none;
+}
+
 .org-select {
   width: 100%;
   padding: 0.5rem;

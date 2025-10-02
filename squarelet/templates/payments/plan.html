@@ -68,7 +68,7 @@
             {% endif %}
 
             {% if user.is_authenticated %}
-              {% if can_subscribe_individual and plan.for_individuals or admin_organizations and plan.for_groups %}
+              {% if can_subscribe_individual and plan.for_individuals or plan.for_groups %}
               <!-- Organization selection -->
               <div class="organization-selection">
                 <label>
@@ -84,8 +84,13 @@
                       {% for org in admin_organizations %}
                         <option value="{{ org.pk }}" data-slug="{{ org.slug }}" data-individual="false">{{ org.name }}</option>
                       {% endfor %}
+                      <option value="new" data-slug="" data-individual="false">{% trans "Create a new organization" %}</option>
                     {% endif %}
                   </select>
+                </label>
+                <label for="id_new_organization_name" class="new-org-name-field field">
+                  {% trans "Organization name" %}
+                  <input type="text" name="new_organization_name" id="id_new_organization_name" maxlength="255">
                 </label>
                 <a href="#" class="manage-payment-link small ghost button" style="display:none;">
                   {% trans "Manage payment methods" %}
@@ -120,7 +125,7 @@
               <!-- Save card option -->
               <label style="display:none;">
                 <input type="checkbox" name="save_card" checked>
-                {% trans "Save as new default card" %}
+                {% trans "Save as default card" %}
               </label>
             {% else %}
               <div class="no-subscription-options">
