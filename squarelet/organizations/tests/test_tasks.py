@@ -646,3 +646,118 @@ class TestCheckOverdueInvoices:
 
         # Should not send any emails for non-open invoices
         mock_send_mail.assert_not_called()
+
+
+    @pytest.mark.django_db
+    @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=30)
+    def test_sends_intermittent_reminder_emails(
+        self, invoice_factory, organization_factory, mocker
+    ):
+        """Should send reminder emails at intervals during grace period"""
+        org = organization_factory(payment_failed=True)
+        # Invoice 20 days overdue, last email sent 7 days ago
+        # Email interval = 30 // 10 = 3 days, so should send another email
+        invoice = invoice_factory(
+            organization=org,
+            status="open",
+            due_date=date.today() - timedelta(days=20),
+            last_overdue_email_sent=date.today() - timedelta(days=7),
+        )
+
+        mock_send_mail = mocker.patch("squarelet.organizations.tasks.send_mail")
+
+        tasks.check_overdue_invoices()
+
+        # Should send reminder email
+        mock_send_mail.assert_called_once()
+        call_kwargs = mock_send_mail.call_args[1]
+        assert call_kwargs["template"] == "organizations/email/invoice_overdue.html"
+
+        # Should update last email sent date
+        invoice.refresh_from_db()
+        assert invoice.last_overdue_email_sent == date.today()
+
+    @pytest.mark.django_db
+    @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=30)
+    def test_does_not_send_email_if_interval_not_reached(
+        self, invoice_factory, organization_factory, mocker
+    ):
+        """Should not send email if interval has not been reached"""
+        org = organization_factory(payment_failed=True)
+        # Invoice 20 days overdue, last email sent 2 days ago
+        # Email interval = 30 // 10 = 3 days, so should NOT send yet
+        invoice = invoice_factory(
+            organization=org,
+            status="open",
+            due_date=date.today() - timedelta(days=20),
+            last_overdue_email_sent=date.today() - timedelta(days=2),
+        )
+
+        mock_send_mail = mocker.patch("squarelet.organizations.tasks.send_mail")
+
+        tasks.check_overdue_invoices()
+
+        # Should not send email yet
+        mock_send_mail.assert_not_called()
+
+        # Should not update last email sent date
+        invoice.refresh_from_db()
+        assert invoice.last_overdue_email_sent == date.today() - timedelta(days=2)
+
+    @pytest.mark.django_db
+    @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=60)
+    def test_email_interval_scales_with_grace_period(
+        self, invoice_factory, organization_factory, mocker
+    ):
+        """Email interval should scale with grace period (grace_period // 10)"""
+        org = organization_factory(payment_failed=True)
+        # Grace period = 60, interval = 6 days
+        # Last email sent 5 days ago - should NOT send yet
+        invoice = invoice_factory(
+            organization=org,
+            status="open",
+            due_date=date.today() - timedelta(days=40),
+            last_overdue_email_sent=date.today() - timedelta(days=5),
+        )
+
+        mock_send_mail = mocker.patch("squarelet.organizations.tasks.send_mail")
+
+        tasks.check_overdue_invoices()
+
+        # Should not send email yet (5 days < 6 day interval)
+        mock_send_mail.assert_not_called()
+
+        # Now test with 6 days passed
+        invoice.last_overdue_email_sent = date.today() - timedelta(days=6)
+        invoice.save()
+
+        tasks.check_overdue_invoices()
+
+        # Should send email now (6 days >= 6 day interval)
+        mock_send_mail.assert_called_once()
+
+    @pytest.mark.django_db
+    @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=30)
+    def test_sends_email_if_last_overdue_email_sent_is_none(
+        self, invoice_factory, organization_factory, mocker
+    ):
+        """Should send email if last_overdue_email_sent is None (even with payment_failed=True)"""
+        org = organization_factory(payment_failed=True)
+        invoice = invoice_factory(
+            organization=org,
+            status="open",
+            due_date=date.today() - timedelta(days=20),
+            last_overdue_email_sent=None,
+        )
+
+        mock_send_mail = mocker.patch("squarelet.organizations.tasks.send_mail")
+
+        tasks.check_overdue_invoices()
+
+        # Should send email since last_overdue_email_sent is None
+        mock_send_mail.assert_called_once()
+
+        # Should set last_overdue_email_sent
+        invoice.refresh_from_db()
+        assert invoice.last_overdue_email_sent == date.today()
+

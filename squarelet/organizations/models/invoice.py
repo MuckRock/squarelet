@@ -59,6 +59,12 @@ class Invoice(models.Model):
     updated_at = models.DateTimeField(
         _("updated at"), auto_now=True, help_text=_("Last modification time")
     )
+    last_overdue_email_sent = models.DateField(
+        _("last overdue email sent"),
+        null=True,
+        blank=True,
+        help_text=_("Date when the last overdue warning email was sent"),
+    )
 
     class Meta:
         ordering = ("-created_at",)
