@@ -14,7 +14,7 @@
 {% block javascript %}
 {{ block.super }}
 {{ org_cards|json_script:"org-card-data"}}
-{{ plan|json_script:"plan-data" }}
+{{ plan_data|json_script:"plan-data" }}
 {% endblock %}
 
 {% block content %}
