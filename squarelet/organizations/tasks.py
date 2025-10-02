@@ -359,16 +359,31 @@ def check_overdue_invoices():
                 },
             )
         else:
-            # Within grace period - set payment_failed flag and send warning
+            # Within grace period - set payment_failed flag and send intermittent warnings
+            # Calculate email interval (send ~3 reminders during grace period)
+            email_interval_days = max(1, grace_period_days // 10)
+
+            # Check if we should send an email
+            should_send_email = False
             if not organization.payment_failed:
+                # First time overdue - always send and set flag
+                should_send_email = True
                 organization.payment_failed = True
                 organization.save()
-
                 logger.info(
                     "[STRIPE-CHECK-OVERDUE-INVOICES] Set payment_failed flag for org %s",
                     organization.uuid,
                 )
+            elif invoice.last_overdue_email_sent is None:
+                # No email sent yet for this invoice - send one
+                should_send_email = True
+            else:
+                # Check if enough time has passed since last email
+                days_since_last_email = (date.today() - invoice.last_overdue_email_sent).days
+                if days_since_last_email >= email_interval_days:
+                    should_send_email = True
 
+            if should_send_email:
                 # Send overdue invoice email
                 send_mail(
                     subject=_("Your invoice is overdue"),
@@ -381,6 +396,17 @@ def check_overdue_invoices():
                         "grace_period_days": grace_period_days,
                         "days_until_cancellation": grace_period_days - days_overdue,
                     },
+                )
+
+                # Update last email sent date
+                invoice.last_overdue_email_sent = date.today()
+                invoice.save()
+
+                logger.info(
+                    "[STRIPE-CHECK-OVERDUE-INVOICES] Sent overdue email for invoice %s (days overdue: %d, interval: %d days)",
+                    invoice.invoice_id,
+                    days_overdue,
+                    email_interval_days,
                 )
 
 
