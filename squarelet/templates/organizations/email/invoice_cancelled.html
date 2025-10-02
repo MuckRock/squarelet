@@ -1,0 +1,38 @@
+{% extends "core/email/base.html" %}
+{% load humanize %}
+{% load i18n %}
+{% load autologin %}
+
+{% block body %}
+  {% url "users:payment" username=user.username as url_user %}
+  {% autologin url_user user as url_user_ %}
+  {% url "organizations:update" username=user.username as url_org %}
+  {% autologin url_org user as url_org_ %}
+
+  {% if organization.individual %}
+    {% trans "Hi" %} {{ organization.users.first.name }},
+  {% else %}
+    {% trans "Hi" %} {{ organization.name }},
+  {% endif %}
+
+  <p class="red">{% trans "Your subscription has been cancelled due to non-payment." %}</p>
+
+  <p>{% blocktrans with invoice_number=invoice.invoice_id amount=invoice.amount_dollars|floatformat:2 due_date=invoice.due_date|date:"F j, Y" %}
+    Invoice {{ invoice_number }} for ${{ amount }} was due on {{ due_date }} and remains unpaid after multiple reminders.
+  {% endblocktrans %}</p>
+
+  <p>{% trans "Your account has been reverted to a free account. Your data remains safe and accessible." %}</p>
+
+  <p>{% trans "To restore your subscription, please:" %}</p>
+
+  <ol>
+    <li>{% trans "Contact us to arrange payment for the outstanding invoice" %}</li>
+    <li>{% if organization.individual %}
+      <a href="{{ url_user_ }}">{% trans "Resubscribe" %}</a>
+    {% else %}
+      <a href="{{ url_org_ }}">{% trans "Resubscribe" %}</a>
+    {% endif %} {% trans "to resume service" %}</li>
+  </ol>
+
+  {% trans "<p>Sincerely,<br />The MuckRock Team</p>" %}
+{% endblock %}
