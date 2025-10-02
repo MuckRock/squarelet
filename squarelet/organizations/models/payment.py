@@ -178,7 +178,7 @@ class Subscription(models.Model):
         else:
             return None
 
-    def start(self):
+    def start(self, payment_method="card"):
         # pylint: disable=using-constant-test
         if self.stripe_subscription:
             logger.error(
@@ -188,6 +188,14 @@ class Subscription(models.Model):
             )
             return
         if self.plan and not self.plan.free:
+            # Annual plans support payment by invoice
+            if self.plan.annual and payment_method == "invoice":
+                billing = "send_invoice"
+                days_until_due = 30
+            else:
+                billing = "charge_automatically"
+                days_until_due = None
+
             stripe_subscription = (
                 self.organization.customer().stripe_customer.subscriptions.create(
                     items=[
@@ -196,11 +204,9 @@ class Subscription(models.Model):
                             "quantity": self.organization.max_users,
                         }
                     ],
-                    billing=(
-                        "send_invoice" if self.plan.annual else "charge_automatically"
-                    ),
+                    billing=billing,
                     metadata={"action": f"Subscription ({self.plan})"},
-                    days_until_due=30 if self.plan.annual else None,
+                    days_until_due=days_until_due,
                 )
             )
             self.subscription_id = stripe_subscription.id
