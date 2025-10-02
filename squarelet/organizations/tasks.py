@@ -285,129 +285,153 @@ def handle_invoice_voided(invoice_data):
     logger.info("[STRIPE-WEBHOOK-INVOICE] Invoice voided: %s", invoice_data["id"])
 
 
+@shared_task(name="squarelet.organizations.tasks.process_overdue_invoice")
+def process_overdue_invoice(invoice_id):
+    """Process a single overdue invoice"""
+    try:
+        invoice = Invoice.objects.get(id=invoice_id)
+    except Invoice.DoesNotExist:
+        logger.error(
+            "[STRIPE-PROCESS-OVERDUE-INVOICE] Invoice %s not found",
+            invoice_id,
+        )
+        return
+
+    # Skip if invoice is not open
+    if invoice.status != "open":
+        logger.info(
+            "[STRIPE-PROCESS-OVERDUE-INVOICE] Skipping invoice %s (status: %s)",
+            invoice.invoice_id,
+            invoice.status,
+        )
+        return
+
+    organization = invoice.organization
+    grace_period_days = settings.OVERDUE_INVOICE_GRACE_PERIOD_DAYS
+    days_overdue = (date.today() - invoice.due_date).days
+
+    logger.info(
+        "[STRIPE-PROCESS-OVERDUE-INVOICE] Processing invoice %s for org %s (%d days overdue)",
+        invoice.invoice_id,
+        organization.uuid,
+        days_overdue,
+    )
+
+    # If at or past grace period, cancel subscription
+    if days_overdue >= grace_period_days:
+        logger.info(
+            "[STRIPE-PROCESS-OVERDUE-INVOICE] Cancelling subscription for org %s due to invoice %s",
+            organization.uuid,
+            invoice.invoice_id,
+        )
+
+        # Cancel subscription (same as credit card failures)
+        if organization.subscription:
+            organization.subscription_cancelled()
+            # Clear subscription reference since it was deleted
+            invoice.subscription = None
+
+        # Mark invoice as uncollectible in Stripe
+        try:
+            stripe.Invoice.modify(
+                invoice.invoice_id,
+                metadata={"marked_uncollectible": "true"}
+            )
+            invoice.status = "uncollectible"
+            invoice.save()
+            logger.info(
+                "[STRIPE-PROCESS-OVERDUE-INVOICE] Marked invoice %s as uncollectible",
+                invoice.invoice_id,
+            )
+        except stripe.error.StripeError as exc:
+            logger.error(
+                "[STRIPE-PROCESS-OVERDUE-INVOICE] Failed to mark invoice %s as uncollectible: %s",
+                invoice.invoice_id,
+                exc,
+                exc_info=sys.exc_info(),
+            )
+
+        # Send cancellation email
+        send_mail(
+            subject=_("Your subscription has been cancelled"),
+            template="organizations/email/invoice_cancelled.html",
+            organization=organization,
+            organization_to=ORG_TO_ADMINS,
+            extra_context={
+                "invoice": invoice,
+                "days_overdue": days_overdue,
+            },
+        )
+    else:
+        # Within grace period - set payment_failed flag and send intermittent warnings
+        # Calculate email interval (send ~3 reminders during grace period)
+        email_interval_days = max(1, grace_period_days // 10)
+
+        # Check if we should send an email
+        should_send_email = False
+        if not organization.payment_failed:
+            # First time overdue - always send and set flag
+            should_send_email = True
+            organization.payment_failed = True
+            organization.save()
+            logger.info(
+                "[STRIPE-PROCESS-OVERDUE-INVOICE] Set payment_failed flag for org %s",
+                organization.uuid,
+            )
+        elif invoice.last_overdue_email_sent is None:
+            # No email sent yet for this invoice - send one
+            should_send_email = True
+        else:
+            # Check if enough time has passed since last email
+            days_since_last_email = (date.today() - invoice.last_overdue_email_sent).days
+            if days_since_last_email >= email_interval_days:
+                should_send_email = True
+
+        if should_send_email:
+            # Send overdue invoice email
+            send_mail(
+                subject=_("Your invoice is overdue"),
+                template="organizations/email/invoice_overdue.html",
+                organization=organization,
+                organization_to=ORG_TO_ADMINS,
+                extra_context={
+                    "invoice": invoice,
+                    "days_overdue": days_overdue,
+                    "grace_period_days": grace_period_days,
+                    "days_until_cancellation": grace_period_days - days_overdue,
+                },
+            )
+
+            # Update last email sent date
+            invoice.last_overdue_email_sent = date.today()
+            invoice.save()
+
+            logger.info(
+                "[STRIPE-PROCESS-OVERDUE-INVOICE] Sent overdue email for invoice %s (days overdue: %d, interval: %d days)",
+                invoice.invoice_id,
+                days_overdue,
+                email_interval_days,
+            )
+
+
 @shared_task(name="squarelet.organizations.tasks.check_overdue_invoices")
 def check_overdue_invoices():
-    """Check for overdue invoices and take appropriate action"""
-    grace_period_days = settings.OVERDUE_INVOICE_GRACE_PERIOD_DAYS
-
+    """Find all overdue invoices and dispatch tasks to process them"""
     # Get all open invoices that are past due (any amount)
     all_overdue_invoices = Invoice.objects.filter(
         status="open",
         due_date__lt=date.today()
     )
 
+    invoice_count = all_overdue_invoices.count()
     logger.info(
-        "[STRIPE-CHECK-OVERDUE-INVOICES] Found %d overdue invoices (grace period: %d days)",
-        all_overdue_invoices.count(),
-        grace_period_days,
+        "[STRIPE-CHECK-OVERDUE-INVOICES] Found %d overdue invoices, dispatching tasks",
+        invoice_count,
     )
 
+    # Dispatch a task for each overdue invoice
     for invoice in all_overdue_invoices:
-        organization = invoice.organization
-        days_overdue = (date.today() - invoice.due_date).days
-
-        logger.info(
-            "[STRIPE-CHECK-OVERDUE-INVOICES] Processing invoice %s for org %s (%d days overdue)",
-            invoice.invoice_id,
-            organization.uuid,
-            days_overdue,
-        )
-
-        # If at or past grace period, cancel subscription
-        if days_overdue >= grace_period_days:
-            logger.info(
-                "[STRIPE-CHECK-OVERDUE-INVOICES] Cancelling subscription for org %s due to invoice %s",
-                organization.uuid,
-                invoice.invoice_id,
-            )
-
-            # Cancel subscription (same as credit card failures)
-            if organization.subscription:
-                organization.subscription_cancelled()
-                # Clear subscription reference since it was deleted
-                invoice.subscription = None
-
-            # Mark invoice as uncollectible in Stripe
-            try:
-                stripe.Invoice.modify(
-                    invoice.invoice_id,
-                    metadata={"marked_uncollectible": "true"}
-                )
-                invoice.status = "uncollectible"
-                invoice.save()
-                logger.info(
-                    "[STRIPE-CHECK-OVERDUE-INVOICES] Marked invoice %s as uncollectible",
-                    invoice.invoice_id,
-                )
-            except stripe.error.StripeError as exc:
-                logger.error(
-                    "[STRIPE-CHECK-OVERDUE-INVOICES] Failed to mark invoice %s as uncollectible: %s",
-                    invoice.invoice_id,
-                    exc,
-                    exc_info=sys.exc_info(),
-                )
-
-            # Send cancellation email
-            send_mail(
-                subject=_("Your subscription has been cancelled"),
-                template="organizations/email/invoice_cancelled.html",
-                organization=organization,
-                organization_to=ORG_TO_ADMINS,
-                extra_context={
-                    "invoice": invoice,
-                    "days_overdue": days_overdue,
-                },
-            )
-        else:
-            # Within grace period - set payment_failed flag and send intermittent warnings
-            # Calculate email interval (send ~3 reminders during grace period)
-            email_interval_days = max(1, grace_period_days // 10)
-
-            # Check if we should send an email
-            should_send_email = False
-            if not organization.payment_failed:
-                # First time overdue - always send and set flag
-                should_send_email = True
-                organization.payment_failed = True
-                organization.save()
-                logger.info(
-                    "[STRIPE-CHECK-OVERDUE-INVOICES] Set payment_failed flag for org %s",
-                    organization.uuid,
-                )
-            elif invoice.last_overdue_email_sent is None:
-                # No email sent yet for this invoice - send one
-                should_send_email = True
-            else:
-                # Check if enough time has passed since last email
-                days_since_last_email = (date.today() - invoice.last_overdue_email_sent).days
-                if days_since_last_email >= email_interval_days:
-                    should_send_email = True
-
-            if should_send_email:
-                # Send overdue invoice email
-                send_mail(
-                    subject=_("Your invoice is overdue"),
-                    template="organizations/email/invoice_overdue.html",
-                    organization=organization,
-                    organization_to=ORG_TO_ADMINS,
-                    extra_context={
-                        "invoice": invoice,
-                        "days_overdue": days_overdue,
-                        "grace_period_days": grace_period_days,
-                        "days_until_cancellation": grace_period_days - days_overdue,
-                    },
-                )
-
-                # Update last email sent date
-                invoice.last_overdue_email_sent = date.today()
-                invoice.save()
-
-                logger.info(
-                    "[STRIPE-CHECK-OVERDUE-INVOICES] Sent overdue email for invoice %s (days overdue: %d, interval: %d days)",
-                    invoice.invoice_id,
-                    days_overdue,
-                    email_interval_days,
-                )
+        process_overdue_invoice.delay(invoice.id)
 
 
 @shared_task(
