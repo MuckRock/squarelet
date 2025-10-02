@@ -939,3 +939,54 @@ class TestEntitlement:
 
         entitlement.plans.set([private_plan, public_plan])
         assert entitlement.public
+
+
+class TestInvoice:
+    """Unit tests for Invoice model"""
+
+    def test_str(self, invoice_factory):
+        invoice = invoice_factory.build(invoice_id="in_12345", amount=10000, status="open")
+        assert str(invoice) == "Invoice in_12345 - $100.00 (open)"
+
+    def test_amount_dollars(self, invoice_factory):
+        invoice = invoice_factory.build(amount=12345)
+        assert invoice.amount_dollars == 123.45
+
+    @pytest.mark.django_db
+    def test_is_overdue_true_for_past_due(self, invoice_factory):
+        """Test is_overdue returns True for open invoice past due date"""
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        past_due_date = timezone.now().date() - timedelta(days=1)
+        invoice = invoice_factory(status="open", due_date=past_due_date)
+        assert invoice.is_overdue is True
+
+    @pytest.mark.django_db
+    def test_is_overdue_false_for_future_due(self, invoice_factory):
+        """Test is_overdue returns False for open invoice with future due date"""
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        future_due_date = timezone.now().date() + timedelta(days=30)
+        invoice = invoice_factory(status="open", due_date=future_due_date)
+        assert invoice.is_overdue is False
+
+    @pytest.mark.django_db
+    def test_is_overdue_false_for_paid_invoice(self, invoice_factory):
+        """Test is_overdue returns False for paid invoice even if past due"""
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        past_due_date = timezone.now().date() - timedelta(days=30)
+        invoice = invoice_factory(status="paid", due_date=past_due_date)
+        assert invoice.is_overdue is False
+
+    @pytest.mark.django_db
+    def test_is_overdue_false_for_no_due_date(self, invoice_factory):
+        """Test is_overdue returns False when invoice has no due date"""
+        invoice = invoice_factory(status="open", due_date=None)
+        assert invoice.is_overdue is False

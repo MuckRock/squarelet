@@ -10,9 +10,10 @@ import pytest
 
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason
-from squarelet.organizations.models import Membership, Organization, Subscription
+from squarelet.organizations.models import Invoice, Membership, Organization, Subscription
 from squarelet.organizations.tests.factories import (
     ChargeFactory,
+    InvoiceFactory,
     MembershipFactory,
     OrganizationFactory,
     PlanFactory,
@@ -262,3 +263,101 @@ class TestSubscriptionQuerySet(TestCase):
 
         count = Subscription.objects.sunlight_active_count()
         assert count == 2
+
+
+class TestInvoiceQuerySet(TestCase):
+    """Unit tests for Invoice queryset"""
+
+    @pytest.mark.django_db
+    def test_overdue_empty_when_no_invoices(self):
+        """Overdue returns empty queryset when no invoices exist"""
+        overdue = Invoice.objects.overdue(grace_period_days=30)
+        assert overdue.count() == 0
+
+    @pytest.mark.django_db
+    def test_overdue_finds_past_due_invoices(self):
+        """Verify overdue finds invoices past their due date"""
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        # Create invoice that's 35 days overdue
+        old_due_date = timezone.now().date() - timedelta(days=35)
+        InvoiceFactory(status="open", due_date=old_due_date)
+
+        # Create invoice that's overdue within grace period
+        recent_due_date = timezone.now().date() - timedelta(days=10)
+        InvoiceFactory(status="open", due_date=recent_due_date)
+
+        # Query with 30-day grace period
+        overdue = Invoice.objects.overdue(grace_period_days=30)
+        assert overdue.count() == 1
+
+    @pytest.mark.django_db
+    def test_overdue_excludes_paid_invoices(self):
+        """Test overdue excludes paid invoices even if past due date"""
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        old_due_date = timezone.now().date() - timedelta(days=35)
+
+        # Create overdue but paid invoice
+        InvoiceFactory(status="paid", due_date=old_due_date)
+
+        # Create overdue open invoice
+        InvoiceFactory(status="open", due_date=old_due_date)
+
+        overdue = Invoice.objects.overdue(grace_period_days=30)
+        assert overdue.count() == 1
+
+    @pytest.mark.django_db
+    def test_overdue_excludes_other_statuses(self):
+        """Test overdue only includes open status invoices"""
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        old_due_date = timezone.now().date() - timedelta(days=35)
+
+        # Create invoices with various statuses
+        InvoiceFactory(status="open", due_date=old_due_date)
+        InvoiceFactory(status="void", due_date=old_due_date)
+        InvoiceFactory(status="uncollectible", due_date=old_due_date)
+        InvoiceFactory(status="draft", due_date=old_due_date)
+
+        overdue = Invoice.objects.overdue(grace_period_days=30)
+        assert overdue.count() == 1
+
+    @pytest.mark.django_db
+    def test_overdue_respects_grace_period(self):
+        """Test overdue respects the grace period parameter"""
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        # Create invoices at different overdue levels
+        InvoiceFactory.create_batch(
+            3,
+            status="open",
+            due_date=timezone.now().date() - timedelta(days=70),
+        )
+        InvoiceFactory.create_batch(
+            2,
+            status="open",
+            due_date=timezone.now().date() - timedelta(days=45),
+        )
+        InvoiceFactory.create_batch(
+            4,
+            status="open",
+            due_date=timezone.now().date() - timedelta(days=20),
+        )
+
+        # 30-day grace period should find 5 invoices (70 and 45 days old)
+        assert Invoice.objects.overdue(grace_period_days=30).count() == 5
+
+        # 60-day grace period should find 3 invoices (only 70 days old)
+        assert Invoice.objects.overdue(grace_period_days=60).count() == 3
+
+        # 15-day grace period should find all 9 invoices
+        assert Invoice.objects.overdue(grace_period_days=15).count() == 9

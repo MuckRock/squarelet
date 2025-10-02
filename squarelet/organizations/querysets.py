@@ -3,10 +3,11 @@ from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 from django.utils.timezone import get_current_timezone
 
 # Standard Library
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from uuid import uuid4
 
 # Third Party
@@ -228,3 +229,10 @@ class SubscriptionQuerySet(models.QuerySet):
             plan__wix=True,
             cancelled=False,
         ).count()
+
+
+class InvoiceQuerySet(models.QuerySet):
+    def overdue(self, grace_period_days):
+        """Get invoices that are past their due date plus grace period"""
+        cutoff_date = timezone.now().date() - timedelta(days=grace_period_days)
+        return self.filter(status="open", due_date__lte=cutoff_date)
