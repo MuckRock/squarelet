@@ -10,6 +10,7 @@ from django.utils.safestring import mark_safe
 # Standard Library
 import csv
 import json
+from datetime import date
 
 # Third Party
 from reversion.admin import VersionAdmin
@@ -178,9 +179,6 @@ class OverdueInvoiceFilter(admin.SimpleListFilter):
         ]
 
     def queryset(self, request, queryset):
-        # Standard Library
-        from datetime import date
-
         if self.value() == "yes":
             return queryset.filter(
                 invoices__status="open", invoices__due_date__lt=date.today()

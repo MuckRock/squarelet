@@ -3,6 +3,7 @@ from django.test import override_settings
 from django.utils import timezone
 
 # Standard Library
+from datetime import timedelta
 from unittest.mock import Mock, PropertyMock
 
 # Third Party
@@ -14,7 +15,7 @@ from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.models import Organization, ReceiptEmail
 from squarelet.organizations.tests.factories import EntitlementFactory, PlanFactory
 
-# pylint: disable=too-many-public-methods
+# pylint: disable=too-many-public-methods,too-many-lines
 
 
 class TestOrganization:
@@ -281,9 +282,7 @@ class TestOrganization:
         mocker.patch("stripe.Plan.create")
         plan = professional_plan_factory()
         organization = organization_factory(plans=[plan])
-        mocked_change_logs = mocker.patch(
-            "squarelet.organizations.models.Organization.change_logs"
-        )
+        mocker.patch("squarelet.organizations.models.Organization.change_logs")
         mocked_subscription = mocker.patch(
             "squarelet.organizations.models.Organization.subscription"
         )
@@ -305,9 +304,7 @@ class TestOrganization:
         mocker.patch("stripe.Plan.create")
         plan = professional_plan_factory()
         organization = organization_factory(plans=[plan])
-        mocked_change_logs = mocker.patch(
-            "squarelet.organizations.models.Organization.change_logs"
-        )
+        mocker.patch("squarelet.organizations.models.Organization.change_logs")
         mocked_subscription = mocker.patch(
             "squarelet.organizations.models.Organization.subscription"
         )
@@ -1006,7 +1003,9 @@ class TestInvoice:
     """Unit tests for Invoice model"""
 
     def test_str(self, invoice_factory):
-        invoice = invoice_factory.build(invoice_id="in_12345", amount=10000, status="open")
+        invoice = invoice_factory.build(
+            invoice_id="in_12345", amount=10000, status="open"
+        )
         assert str(invoice) == "Invoice in_12345 - $100.00 (open)"
 
     def test_amount_dollars(self, invoice_factory):
@@ -1016,10 +1015,6 @@ class TestInvoice:
     @pytest.mark.django_db
     def test_is_overdue_true_for_past_due(self, invoice_factory):
         """Test is_overdue returns True for open invoice past due date"""
-        from datetime import timedelta
-
-        from django.utils import timezone
-
         past_due_date = timezone.now().date() - timedelta(days=1)
         invoice = invoice_factory(status="open", due_date=past_due_date)
         assert invoice.is_overdue is True
@@ -1027,10 +1022,6 @@ class TestInvoice:
     @pytest.mark.django_db
     def test_is_overdue_false_for_future_due(self, invoice_factory):
         """Test is_overdue returns False for open invoice with future due date"""
-        from datetime import timedelta
-
-        from django.utils import timezone
-
         future_due_date = timezone.now().date() + timedelta(days=30)
         invoice = invoice_factory(status="open", due_date=future_due_date)
         assert invoice.is_overdue is False
@@ -1038,10 +1029,6 @@ class TestInvoice:
     @pytest.mark.django_db
     def test_is_overdue_false_for_paid_invoice(self, invoice_factory):
         """Test is_overdue returns False for paid invoice even if past due"""
-        from datetime import timedelta
-
-        from django.utils import timezone
-
         past_due_date = timezone.now().date() - timedelta(days=30)
         invoice = invoice_factory(status="paid", due_date=past_due_date)
         assert invoice.is_overdue is False
