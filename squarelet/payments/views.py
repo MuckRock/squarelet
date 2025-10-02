@@ -2,6 +2,7 @@
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.views import redirect_to_login
+from django.db import transaction
 from django.http import Http404
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -15,6 +16,8 @@ import sys
 
 # Squarelet
 from squarelet.organizations.models import Organization, Plan
+from squarelet.organizations.models.payment import Subscription
+from squarelet.organizations.tasks import add_to_waitlist
 
 logger = logging.getLogger(__name__)
 
@@ -122,6 +125,7 @@ class PlanDetailView(DetailView):
                     "org_cards": org_cards,
                     "org_cards_json": json.dumps(org_cards),
                     "stripe_pk": settings.STRIPE_PUB_KEY,
+                    "show_waitlist": not plan.has_available_slots() and plan.wix,
                 }
             )
 
@@ -143,11 +147,26 @@ class PlanDetailView(DetailView):
 
         # Get form data
         organization_id = request.POST.get("organization")
+        new_organization_name = request.POST.get("new_organization_name")
         stripe_token = request.POST.get("stripe_token")
 
         try:
-            # Get the organization
-            if organization_id:
+            # Get or create the organization
+            if organization_id == "new":
+                # Create a new organization
+                if not new_organization_name:
+                    messages.error(
+                        request, _("Please provide a name for the new organization")
+                    )
+                    return redirect(plan)
+
+                organization = Organization.objects.create(
+                    name=new_organization_name,
+                    private=False,
+                )
+                # Add the user as an admin
+                organization.add_creator(request.user)
+            elif organization_id:
                 organization = Organization.objects.get(
                     pk=organization_id, users=request.user, memberships__admin=True
                 )
@@ -160,7 +179,29 @@ class PlanDetailView(DetailView):
                 messages.warning(request, _("Already subscribed"))
                 return redirect(plan)
 
-            # Handle payment method
+            # For Sunlight plans, use transaction with
+            # row locking to prevent race conditions
+            if plan.slug.startswith("sunlight-") and plan.wix:
+                with transaction.atomic():
+                    # Lock subscription records to prevent concurrent subscriptions
+                    locked_count = (
+                        Subscription.objects.select_for_update().sunlight_active_count()
+                    )
+
+                    if locked_count >= settings.MAX_SUNLIGHT_SUBSCRIPTIONS:
+                        # Limit reached - add to waitlist
+                        transaction.on_commit(
+                            lambda: add_to_waitlist.delay(
+                                organization.pk, plan.pk, request.user.pk
+                            )
+                        )
+                        messages.success(
+                            request,
+                            _("You have been added to the waitlist."),
+                        )
+                        return redirect(plan)
+
+            # Proceed with subscription
             organization.set_subscription(
                 token=stripe_token,
                 plan=plan,
@@ -168,9 +209,9 @@ class PlanDetailView(DetailView):
                 user=request.user,
             )
 
-            # Success - redirect to plan page or success page
+            # Success - redirect to organization page
             messages.success(request, _("Succesfully subscribed"))
-            return redirect(plan)
+            return redirect(organization)
 
         except Organization.DoesNotExist:
             # Invalid organization

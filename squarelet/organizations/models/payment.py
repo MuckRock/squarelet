@@ -462,6 +462,14 @@ class Plan(models.Model):
         """
         return not self.free and not self.annual
 
+    def has_available_slots(self):
+        """Check if new subscriptions are allowed for this plan"""
+        # Only Sunlight plans have subscription limits
+        if self.slug.startswith("sunlight-") and self.wix:
+            current_count = Subscription.objects.sunlight_active_count()
+            return current_count < settings.MAX_SUNLIGHT_SUBSCRIPTIONS
+        return True
+
     def cost(self, users):
         return (
             self.base_price + max(users - self.minimum_users, 0) * self.price_per_user

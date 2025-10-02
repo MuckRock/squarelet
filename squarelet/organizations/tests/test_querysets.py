@@ -10,11 +10,13 @@ import pytest
 
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason
-from squarelet.organizations.models import Membership, Organization
+from squarelet.organizations.models import Membership, Organization, Subscription
 from squarelet.organizations.tests.factories import (
     ChargeFactory,
     MembershipFactory,
     OrganizationFactory,
+    PlanFactory,
+    SubscriptionFactory,
 )
 from squarelet.users.tests.factories import UserFactory
 
@@ -190,3 +192,73 @@ class TestMembershipQuerySet(TestCase):
 
         another_user = UserFactory()
         assert member.memberships.get_viewable(another_user).count() == 0
+
+
+class TestSubscriptionQuerySet(TestCase):
+    """Unit tests for Subscription queryset"""
+
+    @pytest.mark.django_db
+    def test_sunlight_active_count_zero(self):
+        """Test count returns zero when no Sunlight subscriptions exist"""
+        # Create some non-Sunlight subscriptions
+        regular_plan = PlanFactory(slug="professional", wix=False)
+        SubscriptionFactory(plan=regular_plan, cancelled=False)
+
+        count = Subscription.objects.sunlight_active_count()
+        assert count == 0
+
+    @pytest.mark.django_db
+    def test_sunlight_active_count_basic(self):
+        """Test count returns correct number of active Sunlight subscriptions"""
+        # Create Sunlight plans
+        sunlight_plan1 = PlanFactory(slug="sunlight-basic-monthly", wix=True)
+        sunlight_plan2 = PlanFactory(slug="sunlight-premium-annual", wix=True)
+
+        # Create active subscriptions
+        SubscriptionFactory(plan=sunlight_plan1, cancelled=False)
+        SubscriptionFactory(plan=sunlight_plan1, cancelled=False)
+        SubscriptionFactory(plan=sunlight_plan2, cancelled=False)
+
+        count = Subscription.objects.sunlight_active_count()
+        assert count == 3
+
+    @pytest.mark.django_db
+    def test_sunlight_active_count_excludes_cancelled(self):
+        """Test count excludes cancelled Sunlight subscriptions"""
+        sunlight_plan = PlanFactory(slug="sunlight-basic-monthly", wix=True)
+
+        # Create active and cancelled subscriptions
+        SubscriptionFactory(plan=sunlight_plan, cancelled=False)
+        SubscriptionFactory(plan=sunlight_plan, cancelled=False)
+        SubscriptionFactory(plan=sunlight_plan, cancelled=True)
+        SubscriptionFactory(plan=sunlight_plan, cancelled=True)
+
+        count = Subscription.objects.sunlight_active_count()
+        assert count == 2
+
+    @pytest.mark.django_db
+    def test_sunlight_active_count_excludes_non_wix(self):
+        """Test count excludes Sunlight plans with wix=False"""
+        sunlight_wix = PlanFactory(slug="sunlight-basic-monthly", wix=True)
+        sunlight_no_wix = PlanFactory(slug="sunlight-premium-annual", wix=False)
+
+        SubscriptionFactory(plan=sunlight_wix, cancelled=False)
+        SubscriptionFactory(plan=sunlight_no_wix, cancelled=False)
+
+        count = Subscription.objects.sunlight_active_count()
+        assert count == 1
+
+    @pytest.mark.django_db
+    def test_sunlight_active_count_mixed_subscriptions(self):
+        """Test count with mix of Sunlight and non-Sunlight subscriptions"""
+        sunlight_plan = PlanFactory(slug="sunlight-basic-monthly", wix=True)
+        regular_plan = PlanFactory(slug="professional", wix=False)
+
+        # Create mix of subscriptions
+        SubscriptionFactory(plan=sunlight_plan, cancelled=False)
+        SubscriptionFactory(plan=sunlight_plan, cancelled=False)
+        SubscriptionFactory(plan=sunlight_plan, cancelled=True)
+        SubscriptionFactory(plan=regular_plan, cancelled=False)
+
+        count = Subscription.objects.sunlight_active_count()
+        assert count == 2

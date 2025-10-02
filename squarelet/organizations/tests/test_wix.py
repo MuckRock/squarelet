@@ -11,8 +11,11 @@ import pytest
 from squarelet.organizations.tests.factories import PlanFactory
 from squarelet.organizations.wix import (
     add_labels,
+    add_to_waitlist,
+    create_contact,
     create_member,
     get_contact_by_email,
+    get_contact_by_email_v4,
     send_set_password_email,
     sync_wix,
 )
@@ -137,3 +140,172 @@ class TestWix:
 
         for url, response in zip(urls, requests_mock.request_history):
             assert response.url == url
+
+    @pytest.mark.django_db()
+    def test_create_contact(self, requests_mock, user):
+        """Test the create_contact function using Contacts API v4"""
+        contact_id = str(uuid.uuid4())
+        requests_mock.post(
+            "https://www.wixapis.com/contacts/v4/contacts",
+            json={"contact": {"id": contact_id}},
+        )
+
+        headers = {
+            "Authorization": settings.WIX_APP_SECRET,
+            "wix-site-id": settings.WIX_SITE_ID,
+        }
+        contact_id_ = create_contact(headers, user.individual_organization, user)
+        assert contact_id == contact_id_
+
+        # Verify the request structure matches Contacts API v4
+        request_json = requests_mock.last_request.json()
+        assert "info" in request_json
+        # Verify we're sending the expected payload to the endpoint
+        info = request_json["info"]
+        assert info["name"]["first"] == user.name.split(" ", 1)[0]
+        assert info["name"]["last"] == user.name.split(" ", 1)[1]
+        assert info["emails"]["items"][0]["email"] == user.email
+        assert info["emails"]["items"][0]["tag"] == "MAIN"
+        assert info["company"] == user.individual_organization.name
+
+    @pytest.mark.django_db()
+    def test_create_contact_single_word_name(self, requests_mock, user_factory):
+        """Test create_contact handles single-word names correctly"""
+        user = user_factory(name="Madonna")
+        contact_id = str(uuid.uuid4())
+        requests_mock.post(
+            "https://www.wixapis.com/contacts/v4/contacts",
+            json={"contact": {"id": contact_id}},
+        )
+
+        headers = {
+            "Authorization": settings.WIX_APP_SECRET,
+            "wix-site-id": settings.WIX_SITE_ID,
+        }
+        contact_id_ = create_contact(headers, user.individual_organization, user)
+        assert contact_id == contact_id_
+
+        # Verify single-word name is handled
+        request_json = requests_mock.last_request.json()
+        info = request_json["info"]
+        assert info["name"]["first"] == "Madonna"
+        assert info["name"]["last"] == ""
+
+    def test_get_contact_by_email_v4(self, requests_mock):
+        """Test the get_contact_by_email_v4 function using Contacts API v4"""
+        contact_id = str(uuid.uuid4())
+        requests_mock.post(
+            "https://www.wixapis.com/contacts/v4/contacts/query",
+            json={"contacts": [{"id": contact_id}]},
+        )
+
+        headers = {
+            "Authorization": settings.WIX_APP_SECRET,
+            "wix-site-id": settings.WIX_SITE_ID,
+        }
+        email = "info@muckrock.com"
+        contact_id_ = get_contact_by_email_v4(headers, email)
+        assert contact_id == contact_id_
+
+        # Verify the query filter structure
+        assert requests_mock.last_request.json() == {
+            "query": {"filter": {"info.emails.email": email}}
+        }
+
+    def test_get_contact_by_email_v4_not_found(self, requests_mock):
+        """Test get_contact_by_email_v4 returns None when contact not found"""
+        requests_mock.post(
+            "https://www.wixapis.com/contacts/v4/contacts/query",
+            json={"contacts": []},
+        )
+
+        headers = {
+            "Authorization": settings.WIX_APP_SECRET,
+            "wix-site-id": settings.WIX_SITE_ID,
+        }
+        email = "nonexistent@example.com"
+        contact_id = get_contact_by_email_v4(headers, email)
+        assert contact_id is None
+
+    @pytest.mark.django_db()
+    def test_add_to_waitlist_new_contact(self, requests_mock, user):
+        """Test add_to_waitlist creates new contact and applies labels"""
+        contact_id = str(uuid.uuid4())
+        plan = PlanFactory(slug="sunlight-basic-monthly", name="Sunlight Basic")
+
+        # Mock query to return no existing contact
+        requests_mock.post(
+            "https://www.wixapis.com/contacts/v4/contacts/query",
+            json={"contacts": []},
+        )
+        # Mock create contact
+        requests_mock.post(
+            "https://www.wixapis.com/contacts/v4/contacts",
+            json={"contact": {"id": contact_id}},
+        )
+        # Mock add labels
+        requests_mock.post(
+            f"https://www.wixapis.com/contacts/v4/contacts/{contact_id}/labels",
+            json={"contact": {"id": contact_id}},
+        )
+
+        add_to_waitlist(user.individual_organization, plan, user)
+
+        # Verify all three API calls were made
+        assert len(requests_mock.request_history) == 3
+
+        # Verify the labels call had correct waitlist labels
+        labels_request = requests_mock.request_history[2]
+        assert labels_request.json() == {
+            "labelKeys": ["custom.waitlist", "custom.waitlist-sunlight-basic-monthly"]
+        }
+
+    @pytest.mark.django_db()
+    def test_add_to_waitlist_existing_contact(self, requests_mock, user):
+        """Test add_to_waitlist uses existing contact and applies labels"""
+        contact_id = str(uuid.uuid4())
+        plan = PlanFactory(slug="sunlight-premium-annual", name="Sunlight Premium")
+
+        # Mock query to return existing contact
+        requests_mock.post(
+            "https://www.wixapis.com/contacts/v4/contacts/query",
+            json={"contacts": [{"id": contact_id}]},
+        )
+        # Mock add labels
+        requests_mock.post(
+            f"https://www.wixapis.com/contacts/v4/contacts/{contact_id}/labels",
+            json={"contact": {"id": contact_id}},
+        )
+
+        add_to_waitlist(user.individual_organization, plan, user)
+
+        # Verify only two API calls were made (query + labels, no create)
+        assert len(requests_mock.request_history) == 2
+
+        # Verify labels were added with correct waitlist labels
+        labels_request = requests_mock.request_history[1]
+        label_keys = labels_request.json()["labelKeys"]
+        assert "custom.waitlist" in label_keys
+        assert any(
+            label.startswith("custom.waitlist-sunlight-premium-annual")
+            for label in label_keys
+        )
+
+    @pytest.mark.django_db()
+    def test_add_to_waitlist_handles_errors(self, requests_mock, user, caplog):
+        """Test add_to_waitlist handles API errors gracefully"""
+        plan = PlanFactory(slug="sunlight-basic-monthly", name="Sunlight Basic")
+
+        # Mock the query to fail with a 500 error
+        requests_mock.post(
+            "https://www.wixapis.com/contacts/v4/contacts/query",
+            status_code=500,
+            text="500 Server Error",
+        )
+
+        # Should not raise an exception, just log the error
+        add_to_waitlist(user.individual_organization, plan, user)
+
+        # Verify error was logged
+        assert "Failed to add" in caplog.text
+        assert user.email in caplog.text

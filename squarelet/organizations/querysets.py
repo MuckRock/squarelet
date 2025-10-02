@@ -220,3 +220,11 @@ class SubscriptionQuerySet(models.QuerySet):
         subscription.start()
         subscription.save()
         return subscription
+
+    def sunlight_active_count(self):
+        """Count active Sunlight subscriptions across all variants"""
+        return self.filter(
+            plan__slug__startswith="sunlight-",
+            plan__wix=True,
+            cancelled=False,
+        ).count()

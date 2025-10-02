@@ -541,3 +541,7 @@ CI_GIT_BRANCH = env.str("GITHUB_REF_NAME", None) or env.str("HEROKU_BRANCH", Non
 WIX_APP_SECRET = env("WIX_APP_SECRET", default="")
 WIX_ACCOUNT_ID = env("WIX_ACCOUNT_ID", default="")
 WIX_SITE_ID = env("WIX_SITE_ID", default="")
+
+# Subscription limits
+# ------------------------------------------------------------------------------
+MAX_SUNLIGHT_SUBSCRIPTIONS = env.int("MAX_SUNLIGHT_SUBSCRIPTIONS", default=15)
