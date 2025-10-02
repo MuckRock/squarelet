@@ -49,8 +49,9 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
             user=user,
         )
 
-        # Should redirect back to plan
+        # Should redirect to the organization
         assert response.status_code == 302
+        assert response.url == org.get_absolute_url()
 
     def test_create_new_organization_without_name(
         self, rf, user_factory, plan_factory
@@ -133,7 +134,9 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
             user=user,
         )
 
+        # Should redirect to the organization
         assert response.status_code == 302
+        assert response.url == org.get_absolute_url()
 
     def test_unauthenticated_user_redirected_to_login(
         self, rf, plan_factory

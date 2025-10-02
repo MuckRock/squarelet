@@ -215,9 +215,9 @@ class PlanDetailView(DetailView):
                 user=request.user,
             )
 
-            # Success - redirect to plan page or success page
+            # Success - redirect to organization page
             messages.success(request, _("Succesfully subscribed"))
-            return redirect(plan)
+            return redirect(organization)
 
         except Organization.DoesNotExist:
             # Invalid organization
