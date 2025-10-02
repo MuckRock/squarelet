@@ -185,10 +185,10 @@ class PlanDetailView(DetailView):
                                 organization.pk, plan.pk, request.user.pk
                             )
                         )
-                        messages.info(
+                        messages.success(
                             request,
                             _(
-                                "This plan has reached its subscription limit. You have been added to the waitlist."
+                                "You have been added to the waitlist."
                             ),
                         )
                         return redirect(plan)
