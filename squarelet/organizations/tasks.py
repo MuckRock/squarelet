@@ -1,4 +1,5 @@
 # Django
+import sys
 from celery import shared_task
 from django.conf import settings
 from django.core.cache import cache
@@ -19,6 +20,7 @@ from squarelet.core.mail import ORG_TO_ADMINS, send_mail
 from squarelet.core.models import Interval
 from squarelet.oidc.middleware import send_cache_invalidations
 from squarelet.organizations import wix
+from squarelet.organizations.models.invoice import Invoice
 from squarelet.organizations.models.organization import Organization
 from squarelet.organizations.models.payment import Charge, Plan, Subscription
 from squarelet.users.models import User
@@ -147,6 +149,140 @@ def handle_invoice_failed(invoice_data):
         organization_to=ORG_TO_ADMINS,
         extra_context={"attempt": "final" if attempt == 4 else attempt},
     )
+
+
+@shared_task(name="squarelet.organizations.tasks.handle_invoice_created")
+def handle_invoice_created(invoice_data):
+    """Handle receiving an invoice.created event from the Stripe webhook"""
+    try:
+        organization = Organization.objects.get(
+            customers__customer_id=invoice_data["customer"]
+        )
+    except Organization.DoesNotExist:
+        logger.error(
+            "[STRIPE-WEBHOOK-INVOICE] Invoice created (%s) for customer (%s) with no matching organization",
+            invoice_data["id"],
+            invoice_data["customer"],
+        )
+        return
+
+    # Get the subscription if available from the parent object
+    subscription = None
+    parent = invoice_data.get("parent")
+    if parent and parent.get("type") == "subscription_details":
+        subscription_id = parent.get("subscription_details", {}).get("subscription")
+        if subscription_id:
+            try:
+                subscription = Subscription.objects.get(subscription_id=subscription_id)
+            except Subscription.DoesNotExist:
+                logger.warning(
+                    "[STRIPE-WEBHOOK-INVOICE] Invoice %s references subscription %s which doesn't exist locally",
+                    invoice_data["id"],
+                    subscription_id,
+                )
+
+    # Create or update the invoice
+    Invoice.objects.update_or_create(
+        invoice_id=invoice_data["id"],
+        defaults={
+            "organization": organization,
+            "subscription": subscription,
+            "amount": invoice_data["amount_due"],
+            "due_date": (
+                datetime.fromtimestamp(
+                    invoice_data["due_date"], tz=get_current_timezone()
+                ).date()
+                if invoice_data.get("due_date")
+                else None
+            ),
+            "status": invoice_data["status"],
+            "created_at": datetime.fromtimestamp(
+                invoice_data["created"], tz=get_current_timezone()
+            ),
+        },
+    )
+    logger.info("[STRIPE-WEBHOOK-INVOICE] Invoice created/updated: %s", invoice_data["id"])
+
+
+@shared_task(name="squarelet.organizations.tasks.handle_invoice_finalized")
+def handle_invoice_finalized(invoice_data):
+    """Handle receiving an invoice.finalized event from the Stripe webhook"""
+    try:
+        invoice = Invoice.objects.get(invoice_id=invoice_data["id"])
+    except Invoice.DoesNotExist:
+        logger.error(
+            "[STRIPE-WEBHOOK-INVOICE] Invoice finalized event for non-existent invoice: %s", invoice_data["id"], exc_info=sys.exc_info()
+        )
+        return
+
+    invoice.status = invoice_data["status"]
+    if invoice_data.get("due_date"):
+        invoice.due_date = datetime.fromtimestamp(
+            invoice_data["due_date"], tz=get_current_timezone()
+        ).date()
+    invoice.save()
+    logger.info("[STRIPE-WEBHOOK-INVOICE] Invoice finalized: %s", invoice_data["id"])
+
+
+@shared_task(name="squarelet.organizations.tasks.handle_invoice_payment_succeeded")
+def handle_invoice_payment_succeeded(invoice_data):
+    """Handle receiving an invoice.payment_succeeded event from the Stripe webhook"""
+    try:
+        invoice = Invoice.objects.get(invoice_id=invoice_data["id"])
+    except Invoice.DoesNotExist:
+        logger.error(
+            "[STRIPE-WEBHOOK-INVOICE] Invoice payment succeeded event for non-existent invoice: %s",
+            invoice_data["id"], exc_info=sys.exc_info()
+        )
+        return
+
+    invoice.status = "paid"
+    invoice.save()
+
+    # Clear payment_failed flag on the organization
+    organization = invoice.organization
+    if organization.payment_failed:
+        organization.payment_failed = False
+        organization.save()
+        logger.info(
+            "[STRIPE-WEBHOOK-INVOICE] Cleared payment_failed flag for organization %s due to invoice payment",
+            organization.uuid,
+        )
+
+    logger.info("[STRIPE-WEBHOOK-INVOICE] Invoice payment succeeded: %s", invoice_data["id"])
+
+
+@shared_task(name="squarelet.organizations.tasks.handle_invoice_marked_uncollectible")
+def handle_invoice_marked_uncollectible(invoice_data):
+    """Handle receiving an invoice.marked_uncollectible event from the Stripe webhook"""
+    try:
+        invoice = Invoice.objects.get(invoice_id=invoice_data["id"])
+    except Invoice.DoesNotExist:
+        logger.error(
+            "[STRIPE-WEBHOOK-INVOICE] Invoice marked uncollectible event for non-existent invoice: %s",
+            invoice_data["id"], exc_info=sys.exc_info()
+        )
+        return
+
+    invoice.status = "uncollectible"
+    invoice.save()
+    logger.info("[STRIPE-WEBHOOK-INVOICE] Invoice marked uncollectible: %s", invoice_data["id"])
+
+
+@shared_task(name="squarelet.organizations.tasks.handle_invoice_voided")
+def handle_invoice_voided(invoice_data):
+    """Handle receiving an invoice.voided event from the Stripe webhook"""
+    try:
+        invoice = Invoice.objects.get(invoice_id=invoice_data["id"])
+    except Invoice.DoesNotExist:
+        logger.error(
+            "[STRIPE-WEBHOOK-INVOICE] Invoice voided event for non-existent invoice: %s", invoice_data["id"], exc_info=sys.exc_info()
+        )
+        return
+
+    invoice.status = "void"
+    invoice.save()
+    logger.info("[STRIPE-WEBHOOK-INVOICE] Invoice voided: %s", invoice_data["id"])
 
 
 @shared_task(
