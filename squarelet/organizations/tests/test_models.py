@@ -401,7 +401,7 @@ class TestOrganization:
                     if f.is_relation and f.auto_created
                 ]
             )
-            == 13
+            == 14
         )
         # Many to many relations defined on the Organization model
         assert (
