@@ -173,9 +173,7 @@ class InvoiceFactory(factory.django.DjangoModelFactory):
     organization = factory.SubFactory(
         "squarelet.organizations.tests.factories.OrganizationFactory"
     )
-    subscription = factory.SubFactory(
-        "squarelet.organizations.tests.factories.SubscriptionFactory"
-    )
+    subscription = None  # Optional - can be set explicitly
     amount = 10000  # $100.00 in cents
     due_date = factory.LazyFunction(date.today)
     status = "open"
