@@ -275,7 +275,9 @@ class TestWix:
         assert mock_post.call_count == 3
 
         # Verify the labels call had correct waitlist labels
-        labels_call = [call for call in mock_post.call_args_list if "/labels" in str(call)][0]
+        labels_call = [
+            call for call in mock_post.call_args_list if "/labels" in str(call)
+        ][0]
         assert labels_call[1]["json"] == {
             "labelKeys": ["custom.waitlist", "custom.waitlist-sunlight-basic-monthly"]
         }
@@ -311,10 +313,15 @@ class TestWix:
         assert mock_post.call_count == 2
 
         # Verify labels were added with correct waitlist labels
-        labels_call = [call for call in mock_post.call_args_list if "/labels" in str(call)][0]
+        labels_call = [
+            call for call in mock_post.call_args_list if "/labels" in str(call)
+        ][0]
         label_keys = labels_call[1]["json"]["labelKeys"]
         assert "custom.waitlist" in label_keys
-        assert any(label.startswith("custom.waitlist-sunlight-premium-annual") for label in label_keys)
+        assert any(
+            label.startswith("custom.waitlist-sunlight-premium-annual")
+            for label in label_keys
+        )
 
     @pytest.mark.django_db()
     def test_add_to_waitlist_handles_errors(self, mocker, user, caplog):
@@ -323,7 +330,9 @@ class TestWix:
 
         # Mock the query to fail with a RequestException
         mock_response = mocker.Mock()
-        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("500 Server Error")
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
+            "500 Server Error"
+        )
         mocker.patch("requests.post", return_value=mock_response)
 
         # Should not raise an exception, just log the error

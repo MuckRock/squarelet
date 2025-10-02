@@ -19,6 +19,7 @@ def get_contact_names(user):
     last_name = name_parts[1] if len(name_parts) > 1 else ""
     return first_name, last_name
 
+
 def get_contact_by_email(headers, email):
     logger.warning("[WIX-SYNC] get contact by email")
     response = requests.post(
@@ -153,7 +154,7 @@ def create_contact(headers, organization, user):
         response.status_code,
         response.json(),
     )
-    return response.json()["contact"]["id"] 
+    return response.json()["contact"]["id"]
 
 
 def get_contact_by_email_v4(headers, email):
@@ -215,6 +216,4 @@ def add_to_waitlist(organization, plan, user):
         response.raise_for_status()
         logger.warning("[WIX-WAITLIST] Successfully added to waitlist: %s", user.email)
     except requests.exceptions.RequestException as exc:
-        logger.error(
-            "[WIX-WAITLIST] Failed to add %s to waitlist: %s", user.email, exc
-        )
+        logger.error("[WIX-WAITLIST] Failed to add %s to waitlist: %s", user.email, exc)

@@ -164,7 +164,8 @@ class PlanDetailView(DetailView):
                 messages.warning(request, _("Already subscribed"))
                 return redirect(plan)
 
-            # For Sunlight plans, use transaction with row locking to prevent race conditions
+            # For Sunlight plans, use transaction with
+            # row locking to prevent race conditions
             if plan.slug.startswith("sunlight-") and plan.wix:
                 with transaction.atomic():
                     # Lock subscription records to prevent concurrent subscriptions
@@ -187,9 +188,7 @@ class PlanDetailView(DetailView):
                         )
                         messages.success(
                             request,
-                            _(
-                                "You have been added to the waitlist."
-                            ),
+                            _("You have been added to the waitlist."),
                         )
                         return redirect(plan)
 
