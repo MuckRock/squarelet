@@ -160,7 +160,8 @@ def handle_invoice_created(invoice_data):
         )
     except Organization.DoesNotExist:
         logger.error(
-            "[STRIPE-WEBHOOK-INVOICE] Invoice created (%s) for customer (%s) with no matching organization",
+            "[STRIPE-WEBHOOK-INVOICE] Invoice created (%s) for customer "
+            "(%s) with no matching organization",
             invoice_data["id"],
             invoice_data["customer"],
         )
@@ -176,7 +177,8 @@ def handle_invoice_created(invoice_data):
                 subscription = Subscription.objects.get(subscription_id=subscription_id)
             except Subscription.DoesNotExist:
                 logger.warning(
-                    "[STRIPE-WEBHOOK-INVOICE] Invoice %s references subscription %s which doesn't exist locally",
+                    "[STRIPE-WEBHOOK-INVOICE] Invoice %s references "
+                    "subscription %s which doesn't exist locally",
                     invoice_data["id"],
                     subscription_id,
                 )
@@ -201,7 +203,9 @@ def handle_invoice_created(invoice_data):
             ),
         },
     )
-    logger.info("[STRIPE-WEBHOOK-INVOICE] Invoice created/updated: %s", invoice_data["id"])
+    logger.info(
+        "[STRIPE-WEBHOOK-INVOICE] Invoice created/updated: %s", invoice_data["id"]
+    )
 
 
 @shared_task(name="squarelet.organizations.tasks.handle_invoice_finalized")
@@ -211,7 +215,10 @@ def handle_invoice_finalized(invoice_data):
         invoice = Invoice.objects.get(invoice_id=invoice_data["id"])
     except Invoice.DoesNotExist:
         logger.error(
-            "[STRIPE-WEBHOOK-INVOICE] Invoice finalized event for non-existent invoice: %s", invoice_data["id"], exc_info=sys.exc_info()
+            "[STRIPE-WEBHOOK-INVOICE] Invoice finalized event for "
+            "non-existent invoice: %s",
+            invoice_data["id"],
+            exc_info=sys.exc_info(),
         )
         return
 
@@ -231,8 +238,10 @@ def handle_invoice_payment_succeeded(invoice_data):
         invoice = Invoice.objects.get(invoice_id=invoice_data["id"])
     except Invoice.DoesNotExist:
         logger.error(
-            "[STRIPE-WEBHOOK-INVOICE] Invoice payment succeeded event for non-existent invoice: %s",
-            invoice_data["id"], exc_info=sys.exc_info()
+            "[STRIPE-WEBHOOK-INVOICE] Invoice payment succeeded event for "
+            "non-existent invoice: %s",
+            invoice_data["id"],
+            exc_info=sys.exc_info(),
         )
         return
 
@@ -245,11 +254,14 @@ def handle_invoice_payment_succeeded(invoice_data):
         organization.payment_failed = False
         organization.save()
         logger.info(
-            "[STRIPE-WEBHOOK-INVOICE] Cleared payment_failed flag for organization %s due to invoice payment",
+            "[STRIPE-WEBHOOK-INVOICE] Cleared payment_failed flag for "
+            "organization %s due to invoice payment",
             organization.uuid,
         )
 
-    logger.info("[STRIPE-WEBHOOK-INVOICE] Invoice payment succeeded: %s", invoice_data["id"])
+    logger.info(
+        "[STRIPE-WEBHOOK-INVOICE] Invoice payment succeeded: %s", invoice_data["id"]
+    )
 
 
 @shared_task(name="squarelet.organizations.tasks.handle_invoice_marked_uncollectible")
@@ -259,14 +271,18 @@ def handle_invoice_marked_uncollectible(invoice_data):
         invoice = Invoice.objects.get(invoice_id=invoice_data["id"])
     except Invoice.DoesNotExist:
         logger.error(
-            "[STRIPE-WEBHOOK-INVOICE] Invoice marked uncollectible event for non-existent invoice: %s",
-            invoice_data["id"], exc_info=sys.exc_info()
+            "[STRIPE-WEBHOOK-INVOICE] Invoice marked uncollectible event "
+            "for non-existent invoice: %s",
+            invoice_data["id"],
+            exc_info=sys.exc_info(),
         )
         return
 
     invoice.status = "uncollectible"
     invoice.save()
-    logger.info("[STRIPE-WEBHOOK-INVOICE] Invoice marked uncollectible: %s", invoice_data["id"])
+    logger.info(
+        "[STRIPE-WEBHOOK-INVOICE] Invoice marked uncollectible: %s", invoice_data["id"]
+    )
 
 
 @shared_task(name="squarelet.organizations.tasks.handle_invoice_voided")
@@ -276,7 +292,10 @@ def handle_invoice_voided(invoice_data):
         invoice = Invoice.objects.get(invoice_id=invoice_data["id"])
     except Invoice.DoesNotExist:
         logger.error(
-            "[STRIPE-WEBHOOK-INVOICE] Invoice voided event for non-existent invoice: %s", invoice_data["id"], exc_info=sys.exc_info()
+            "[STRIPE-WEBHOOK-INVOICE] Invoice voided event for "
+            "non-existent invoice: %s",
+            invoice_data["id"],
+            exc_info=sys.exc_info(),
         )
         return
 
@@ -311,7 +330,8 @@ def process_overdue_invoice(invoice_id):
     days_overdue = (date.today() - invoice.due_date).days
 
     logger.info(
-        "[STRIPE-PROCESS-OVERDUE-INVOICE] Processing invoice %s for org %s (%d days overdue)",
+        "[STRIPE-PROCESS-OVERDUE-INVOICE] Processing invoice %s for org "
+        "%s (%d days overdue)",
         invoice.invoice_id,
         organization.uuid,
         days_overdue,
@@ -320,7 +340,8 @@ def process_overdue_invoice(invoice_id):
     # If at or past grace period, cancel subscription
     if days_overdue >= grace_period_days:
         logger.info(
-            "[STRIPE-PROCESS-OVERDUE-INVOICE] Cancelling subscription for org %s due to invoice %s",
+            "[STRIPE-PROCESS-OVERDUE-INVOICE] Cancelling subscription for "
+            "org %s due to invoice %s",
             organization.uuid,
             invoice.invoice_id,
         )
@@ -334,8 +355,7 @@ def process_overdue_invoice(invoice_id):
         # Mark invoice as uncollectible in Stripe
         try:
             stripe.Invoice.modify(
-                invoice.invoice_id,
-                metadata={"marked_uncollectible": "true"}
+                invoice.invoice_id, metadata={"marked_uncollectible": "true"}
             )
             invoice.status = "uncollectible"
             invoice.save()
@@ -345,7 +365,8 @@ def process_overdue_invoice(invoice_id):
             )
         except stripe.error.StripeError as exc:
             logger.error(
-                "[STRIPE-PROCESS-OVERDUE-INVOICE] Failed to mark invoice %s as uncollectible: %s",
+                "[STRIPE-PROCESS-OVERDUE-INVOICE] Failed to mark invoice %s "
+                "as uncollectible: %s",
                 invoice.invoice_id,
                 exc,
                 exc_info=sys.exc_info(),
@@ -383,7 +404,9 @@ def process_overdue_invoice(invoice_id):
             should_send_email = True
         else:
             # Check if enough time has passed since last email
-            days_since_last_email = (date.today() - invoice.last_overdue_email_sent).days
+            days_since_last_email = (
+                date.today() - invoice.last_overdue_email_sent
+            ).days
             if days_since_last_email >= email_interval_days:
                 should_send_email = True
 
@@ -407,7 +430,8 @@ def process_overdue_invoice(invoice_id):
             invoice.save()
 
             logger.info(
-                "[STRIPE-PROCESS-OVERDUE-INVOICE] Sent overdue email for invoice %s (days overdue: %d, interval: %d days)",
+                "[STRIPE-PROCESS-OVERDUE-INVOICE] Sent overdue email for "
+                "invoice %s (days overdue: %d, interval: %d days)",
                 invoice.invoice_id,
                 days_overdue,
                 email_interval_days,
@@ -419,8 +443,7 @@ def check_overdue_invoices():
     """Find all overdue invoices and dispatch tasks to process them"""
     # Get all open invoices that are past due (any amount)
     all_overdue_invoices = Invoice.objects.filter(
-        status="open",
-        due_date__lt=date.today()
+        status="open", due_date__lt=date.today()
     )
 
     invoice_count = all_overdue_invoices.count()
