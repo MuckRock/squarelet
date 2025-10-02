@@ -1,4 +1,5 @@
 # Django
+from django.test import override_settings
 from django.utils import timezone
 
 # Standard Library
@@ -6,6 +7,7 @@ from datetime import date, timedelta
 
 # Third Party
 import pytest
+import stripe
 from dateutil.relativedelta import relativedelta
 
 # Squarelet
@@ -392,3 +394,255 @@ class TestHandleInvoiceVoided:
 
         invoice.refresh_from_db()
         assert invoice.status == "void"
+
+
+class TestCheckOverdueInvoices:
+    """Unit tests for the check_overdue_invoices task"""
+
+    @pytest.mark.django_db
+    @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=30)
+    def test_sets_payment_failed_for_overdue_within_grace_period(
+        self, invoice_factory, organization_factory, mocker
+    ):
+        """Invoices overdue within grace period should set payment_failed and send warning"""
+        org = organization_factory()
+        # Invoice 20 days overdue (within 30-day grace period)
+        invoice = invoice_factory(
+            organization=org,
+            status="open",
+            due_date=date.today() - timedelta(days=20),
+        )
+
+        mock_send_mail = mocker.patch("squarelet.organizations.tasks.send_mail")
+
+        tasks.check_overdue_invoices()
+
+        # Should set payment_failed flag
+        org.refresh_from_db()
+        assert org.payment_failed
+
+        # Should send overdue warning email
+        mock_send_mail.assert_called_once()
+        call_kwargs = mock_send_mail.call_args[1]
+        assert call_kwargs["template"] == "organizations/email/invoice_overdue.html"
+        assert call_kwargs["extra_context"]["invoice"] == invoice
+        assert call_kwargs["extra_context"]["days_overdue"] == 20
+        assert call_kwargs["extra_context"]["days_until_cancellation"] == 10
+
+    @pytest.mark.django_db(transaction=True)
+    @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=30)
+    def test_cancels_at_grace_period_threshold(
+        self, invoice_factory, organization_factory, subscription_factory, mocker
+    ):
+        """Invoice exactly at grace period threshold should cancel subscription"""
+        org = organization_factory()
+        subscription = subscription_factory(organization=org)
+        invoice = invoice_factory(
+            organization=org,
+            subscription=subscription,
+            status="open",
+            due_date=date.today() - timedelta(days=30),
+        )
+
+        mock_send_mail = mocker.patch("squarelet.organizations.tasks.send_mail")
+        mocker.patch("stripe.Invoice.modify")
+        mock_subscription_cancelled = mocker.patch(
+            "squarelet.organizations.models.Organization.subscription_cancelled"
+        )
+
+        tasks.check_overdue_invoices()
+
+        # Should cancel subscription
+        mock_subscription_cancelled.assert_called_once()
+
+        # Should send cancellation email
+        mock_send_mail.assert_called_once()
+        call_kwargs = mock_send_mail.call_args[1]
+        assert call_kwargs["template"] == "organizations/email/invoice_cancelled.html"
+        assert call_kwargs["extra_context"]["invoice"] == invoice
+        assert call_kwargs["extra_context"]["days_overdue"] == 30
+
+    @pytest.mark.django_db(transaction=True)
+    @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=30)
+    def test_does_not_resend_email_if_payment_failed_already_set(
+        self, invoice_factory, organization_factory, subscription_factory, mocker
+    ):
+        """Should not resend overdue email if payment_failed flag is already set (still cancels at threshold)"""
+        org = organization_factory(payment_failed=True)
+        subscription = subscription_factory(organization=org)
+        invoice_factory(
+            organization=org,
+            subscription=subscription,
+            status="open",
+            due_date=date.today() - timedelta(days=30),
+        )
+
+        mock_send_mail = mocker.patch("squarelet.organizations.tasks.send_mail")
+        mocker.patch("stripe.Invoice.modify")
+
+        tasks.check_overdue_invoices()
+
+        # At threshold, should cancel and send cancellation email (not overdue email)
+        mock_send_mail.assert_called_once()
+        call_kwargs = mock_send_mail.call_args[1]
+        assert call_kwargs["template"] == "organizations/email/invoice_cancelled.html"
+
+    @pytest.mark.django_db(transaction=True)
+    @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=30)
+    def test_cancels_subscription_past_grace_period(
+        self, invoice_factory, organization_factory, subscription_factory, mocker
+    ):
+        """Invoice past grace period should cancel subscription"""
+        org = organization_factory()
+        subscription = subscription_factory(organization=org)
+        invoice = invoice_factory(
+            organization=org,
+            subscription=subscription,
+            status="open",
+            due_date=date.today() - timedelta(days=35),
+        )
+
+        mock_send_mail = mocker.patch("squarelet.organizations.tasks.send_mail")
+        mock_stripe = mocker.patch("stripe.Invoice.modify")
+        mock_subscription_cancelled = mocker.patch(
+            "squarelet.organizations.models.Organization.subscription_cancelled"
+        )
+
+        tasks.check_overdue_invoices()
+
+        # Should cancel subscription
+        mock_subscription_cancelled.assert_called_once()
+
+        # Should mark invoice uncollectible in Stripe
+        mock_stripe.assert_called_once_with(
+            invoice.invoice_id, metadata={"marked_uncollectible": "true"}
+        )
+
+        # Should send cancellation email
+        mock_send_mail.assert_called_once()
+        call_kwargs = mock_send_mail.call_args[1]
+        assert (
+            call_kwargs["template"] == "organizations/email/invoice_cancelled.html"
+        )
+        assert call_kwargs["extra_context"]["invoice"] == invoice
+        assert call_kwargs["extra_context"]["days_overdue"] == 35
+
+    @pytest.mark.django_db(transaction=True)
+    @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=30)
+    def test_handles_stripe_error_when_marking_uncollectible(
+        self, invoice_factory, organization_factory, subscription_factory, mocker
+    ):
+        """Should handle Stripe errors gracefully when marking uncollectible"""
+        org = organization_factory()
+        subscription = subscription_factory(organization=org)
+        invoice = invoice_factory(
+            organization=org,
+            subscription=subscription,
+            status="open",
+            due_date=date.today() - timedelta(days=35),
+        )
+
+        mocker.patch("squarelet.organizations.tasks.send_mail")
+        mocker.patch(
+            "squarelet.organizations.models.Organization.subscription_cancelled"
+        )
+        mock_stripe = mocker.patch(
+            "stripe.Invoice.modify",
+            side_effect=stripe.error.StripeError("API Error"),
+        )
+
+        # Should not raise exception
+        tasks.check_overdue_invoices()
+
+        # Should still attempt to mark uncollectible
+        mock_stripe.assert_called_once_with(
+            invoice.invoice_id, metadata={"marked_uncollectible": "true"}
+        )
+
+        # Invoice status should remain unchanged due to error
+        invoice.refresh_from_db()
+        assert invoice.status == "open"
+
+    @pytest.mark.django_db(transaction=True)
+    @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=30)
+    def test_handles_organization_without_subscription(
+        self, invoice_factory, organization_factory, mocker
+    ):
+        """Should handle organizations without active subscriptions"""
+        org = organization_factory()
+        invoice_factory(
+            organization=org,
+            subscription=None,
+            status="open",
+            due_date=date.today() - timedelta(days=35),
+        )
+
+        mock_send_mail = mocker.patch("squarelet.organizations.tasks.send_mail")
+        mock_stripe = mocker.patch("stripe.Invoice.modify")
+
+        # Should not raise exception
+        tasks.check_overdue_invoices()
+
+        # Should still mark invoice uncollectible and send email
+        mock_stripe.assert_called_once_with(
+            mocker.ANY, metadata={"marked_uncollectible": "true"}
+        )
+        mock_send_mail.assert_called_once()
+
+    @pytest.mark.django_db
+    @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=60)
+    def test_respects_custom_grace_period(
+        self, invoice_factory, organization_factory, mocker
+    ):
+        """Should respect custom grace period from settings"""
+        org = organization_factory()
+        # Invoice 50 days overdue (within 60-day grace period)
+        invoice_factory(
+            organization=org,
+            status="open",
+            due_date=date.today() - timedelta(days=50),
+        )
+
+        mock_send_mail = mocker.patch("squarelet.organizations.tasks.send_mail")
+
+        tasks.check_overdue_invoices()
+
+        # Should set payment_failed flag but not cancel
+        org.refresh_from_db()
+        assert org.payment_failed
+
+        # Should send overdue email, not cancellation email
+        mock_send_mail.assert_called_once()
+        call_kwargs = mock_send_mail.call_args[1]
+        assert call_kwargs["template"] == "organizations/email/invoice_overdue.html"
+
+    @pytest.mark.django_db
+    @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=30)
+    def test_only_processes_open_invoices(
+        self, invoice_factory, organization_factory, mocker
+    ):
+        """Should only process invoices with 'open' status"""
+        org = organization_factory()
+        # Create invoices with various statuses
+        invoice_factory(
+            organization=org,
+            status="paid",
+            due_date=date.today() - timedelta(days=35),
+        )
+        invoice_factory(
+            organization=org,
+            status="uncollectible",
+            due_date=date.today() - timedelta(days=35),
+        )
+        invoice_factory(
+            organization=org,
+            status="void",
+            due_date=date.today() - timedelta(days=35),
+        )
+
+        mock_send_mail = mocker.patch("squarelet.organizations.tasks.send_mail")
+
+        tasks.check_overdue_invoices()
+
+        # Should not send any emails for non-open invoices
+        mock_send_mail.assert_not_called()
