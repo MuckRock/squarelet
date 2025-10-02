@@ -185,14 +185,7 @@ class PlanDetailView(DetailView):
                 with transaction.atomic():
                     # Lock subscription records to prevent concurrent subscriptions
                     locked_count = (
-                        Subscription.objects.select_for_update()
-                        .sunlight_active_count()
-                        .filter(
-                            plan__slug__startswith="sunlight-",
-                            plan__wix=True,
-                            cancelled=False,
-                        )
-                        .count()
+                        Subscription.objects.select_for_update().sunlight_active_count()
                     )
 
                     if locked_count >= settings.MAX_SUNLIGHT_SUBSCRIPTIONS:
