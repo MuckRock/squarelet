@@ -6,6 +6,8 @@ from squarelet.core.tests.mixins import ViewTestMixin
 from squarelet.organizations.models import Organization
 from squarelet.payments import views
 
+# pylint: disable=invalid-name
+
 
 @pytest.mark.django_db()
 class TestPlanDetailViewCreateOrganization(ViewTestMixin):
@@ -32,9 +34,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
             "stripe_token": "tok_visa",
         }
 
-        response = self.call_view(
-            rf, user, data=data, pk=plan.pk, slug=plan.slug
-        )
+        response = self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
 
         # Verify organization was created
         org = Organization.objects.get(name="My New Organization")
@@ -53,9 +53,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         assert response.status_code == 302
         assert response.url == org.get_absolute_url()
 
-    def test_create_new_organization_without_name(
-        self, rf, user_factory, plan_factory
-    ):
+    def test_create_new_organization_without_name(self, rf, user_factory, plan_factory):
         """Test validation when creating organization without a name"""
         user = user_factory()
         plan = plan_factory(for_groups=True, public=True)
@@ -66,9 +64,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
             "stripe_token": "tok_visa",
         }
 
-        response = self.call_view(
-            rf, user, data=data, pk=plan.pk, slug=plan.slug
-        )
+        response = self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
 
         # Should redirect with error message
         assert response.status_code == 302
@@ -122,9 +118,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
             "stripe_token": "tok_visa",
         }
 
-        response = self.call_view(
-            rf, user, data=data, pk=plan.pk, slug=plan.slug
-        )
+        response = self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
 
         # Verify subscription was created with existing org
         mock_set_subscription.assert_called_once_with(
@@ -138,9 +132,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         assert response.status_code == 302
         assert response.url == org.get_absolute_url()
 
-    def test_unauthenticated_user_redirected_to_login(
-        self, rf, plan_factory
-    ):
+    def test_unauthenticated_user_redirected_to_login(self, rf, plan_factory):
         """Test that unauthenticated users are redirected to login"""
         plan = plan_factory(public=True)
 
@@ -150,9 +142,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
             "stripe_token": "tok_visa",
         }
 
-        response = self.call_view(
-            rf, user=None, data=data, pk=plan.pk, slug=plan.slug
-        )
+        response = self.call_view(rf, user=None, data=data, pk=plan.pk, slug=plan.slug)
 
         # Should redirect to login
         assert response.status_code == 302
@@ -175,9 +165,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
             "stripe_token": "tok_visa",
         }
 
-        response = self.call_view(
-            rf, user, data=data, pk=plan.pk, slug=plan.slug
-        )
+        response = self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
 
         # Should redirect back to plan
         assert response.status_code == 302
