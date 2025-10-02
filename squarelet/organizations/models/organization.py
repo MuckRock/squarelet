@@ -6,9 +6,12 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 # Standard Library
+import logging
+import sys
 import uuid
 
 # Third Party
+import stripe
 from autoslug import AutoSlugField
 from memoize import mproperty
 from sorl.thumbnail import ImageField
@@ -30,6 +33,9 @@ from squarelet.organizations.querysets import (
     MembershipQuerySet,
     OrganizationQuerySet,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 def organization_file_path(instance, filename):
@@ -450,13 +456,34 @@ class Organization(AvatarMixin, models.Model):
         )
 
     def subscription_cancelled(self):
-        """The subsctription was cancelled due to payment failure"""
+        """The subscription was cancelled due to payment failure"""
+        # Create change log entry
         self.change_logs.create(
             reason=ChangeLogReason.failed,
             from_plan=self.plan,
             from_max_users=self.max_users,
             to_max_users=self.max_users,
         )
+
+        # Cancel subscription in Stripe if it exists
+        if self.subscription and self.subscription.subscription_id:
+            try:
+                stripe.Subscription.delete(self.subscription.subscription_id)
+                logger.info(
+                    "Cancelled Stripe subscription %s for organization %s",
+                    self.subscription.subscription_id,
+                    self.uuid,
+                )
+            except stripe.error.StripeError as exc:
+                logger.error(
+                    "Failed to cancel Stripe subscription %s for organization %s: %s",
+                    self.subscription.subscription_id,
+                    self.uuid,
+                    exc,
+                    exc_info=sys.exc_info(),
+                )
+
+        # Delete local subscription record
         self.subscription.delete()
 
     def has_active_subscription(self):

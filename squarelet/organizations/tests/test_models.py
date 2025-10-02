@@ -7,6 +7,7 @@ from unittest.mock import Mock, PropertyMock
 
 # Third Party
 import pytest
+import stripe
 
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason
@@ -256,13 +257,73 @@ class TestOrganization:
         mocked_subscription = mocker.patch(
             "squarelet.organizations.models.Organization.subscription"
         )
+        mocked_subscription.subscription_id = "sub_test123"
+        mock_stripe_delete = mocker.patch("stripe.Subscription.delete")
+
         organization.subscription_cancelled()
+
         mocked_change_logs.create.assert_called_with(
             reason=ChangeLogReason.failed,
             from_plan=plan,
             from_max_users=organization.max_users,
             to_max_users=organization.max_users,
         )
+        # Should cancel in Stripe first
+        mock_stripe_delete.assert_called_once_with("sub_test123")
+        # Then delete local subscription
+        mocked_subscription.delete.assert_called()
+
+    @pytest.mark.django_db
+    def test_subscription_cancelled_without_subscription_id(
+        self, organization_factory, mocker, professional_plan_factory
+    ):
+        """Should still delete local subscription even if no subscription_id"""
+        mocker.patch("stripe.Plan.create")
+        plan = professional_plan_factory()
+        organization = organization_factory(plans=[plan])
+        mocked_change_logs = mocker.patch(
+            "squarelet.organizations.models.Organization.change_logs"
+        )
+        mocked_subscription = mocker.patch(
+            "squarelet.organizations.models.Organization.subscription"
+        )
+        mocked_subscription.subscription_id = None
+        mock_stripe_delete = mocker.patch("stripe.Subscription.delete")
+
+        organization.subscription_cancelled()
+
+        # Should not attempt to cancel in Stripe
+        mock_stripe_delete.assert_not_called()
+        # Should still delete local subscription
+        mocked_subscription.delete.assert_called()
+
+    @pytest.mark.django_db
+    def test_subscription_cancelled_stripe_error(
+        self, organization_factory, mocker, professional_plan_factory
+    ):
+        """Should handle Stripe errors gracefully and still delete local subscription"""
+        mocker.patch("stripe.Plan.create")
+        plan = professional_plan_factory()
+        organization = organization_factory(plans=[plan])
+        mocked_change_logs = mocker.patch(
+            "squarelet.organizations.models.Organization.change_logs"
+        )
+        mocked_subscription = mocker.patch(
+            "squarelet.organizations.models.Organization.subscription"
+        )
+        mocked_subscription.subscription_id = "sub_test123"
+        mock_stripe_delete = mocker.patch(
+            "stripe.Subscription.delete",
+            side_effect=stripe.error.InvalidRequestError(
+                "No such subscription", "subscription"
+            ),
+        )
+
+        organization.subscription_cancelled()
+
+        # Should attempt to cancel in Stripe
+        mock_stripe_delete.assert_called_once_with("sub_test123")
+        # Should still delete local subscription despite error
         mocked_subscription.delete.assert_called()
 
     @pytest.mark.django_db()
