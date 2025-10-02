@@ -5,6 +5,7 @@ from django.conf import settings
 
 # Standard Library
 import logging
+import sys
 
 # Third Party
 import requests
@@ -216,4 +217,9 @@ def add_to_waitlist(organization, plan, user):
         response.raise_for_status()
         logger.warning("[WIX-WAITLIST] Successfully added to waitlist: %s", user.email)
     except requests.exceptions.RequestException as exc:
-        logger.error("[WIX-WAITLIST] Failed to add %s to waitlist: %s", user.email, exc)
+        logger.error(
+            "[WIX-WAITLIST] Failed to add %s to waitlist: %s",
+            user.email,
+            exc,
+            exc_info=sys.exc_info(),
+        )
