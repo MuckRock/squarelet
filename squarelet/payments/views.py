@@ -149,6 +149,7 @@ class PlanDetailView(DetailView):
         organization_id = request.POST.get("organization")
         new_organization_name = request.POST.get("new_organization_name")
         stripe_token = request.POST.get("stripe_token")
+        payment_method = request.POST.get("payment_method", "new")
 
         try:
             # Get or create the organization
@@ -207,6 +208,7 @@ class PlanDetailView(DetailView):
                 plan=plan,
                 max_users=plan.minimum_users,
                 user=request.user,
+                payment_method=payment_method,
             )
 
             # Success - redirect to organization page

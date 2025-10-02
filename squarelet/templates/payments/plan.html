@@ -14,6 +14,7 @@
 {% block javascript %}
 {{ block.super }}
 {{ org_cards|json_script:"org-card-data"}}
+{{ plan|json_script:"plan-data" }}
 {% endblock %}
 
 {% block content %}
@@ -113,6 +114,14 @@
                     </div>
                   </label>
                 </div>
+                {% if plan.annual %}
+                <div class="invoice-option">
+                  <label>
+                    <input type="radio" name="payment_method" value="invoice">
+                    {% trans "Pay by invoice" %}
+                  </label>
+                </div>
+                {% endif %}
               </div>
 
               <!-- Credit card field -->
