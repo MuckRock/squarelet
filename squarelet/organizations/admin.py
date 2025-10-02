@@ -1,6 +1,6 @@
 # Django
 from django.contrib import admin
-from django.db.models import JSONField
+from django.db.models import Count, JSONField, Q, Sum
 from django.forms.models import BaseInlineFormSet
 from django.forms.widgets import Textarea
 from django.http.response import HttpResponse
@@ -19,6 +19,7 @@ from squarelet.organizations.models import (
     Charge,
     Customer,
     Entitlement,
+    Invoice,
     Invitation,
     Membership,
     Organization,
@@ -68,6 +69,36 @@ class CustomerInline(admin.TabularInline):
     model = Customer
     readonly_fields = ("customer_id",)
     extra = 0
+
+
+class InvoiceInline(admin.TabularInline):
+    model = Invoice
+    readonly_fields = (
+        "invoice_id",
+        "stripe_link",
+        "amount_dollars",
+        "status",
+        "due_date",
+        "created_at",
+    )
+    fields = readonly_fields
+    extra = 0
+    can_delete = False
+
+    @mark_safe
+    def stripe_link(self, obj):
+        """Link to Stripe invoice dashboard"""
+        if obj.invoice_id:
+            url = f"https://dashboard.stripe.com/invoices/{obj.invoice_id}"
+            return f'<a href="{url}" target="_blank">View in Stripe</a>'
+        return "-"
+
+    stripe_link.short_description = "Stripe"
+
+    def amount_dollars(self, obj):
+        return f"${obj.amount_dollars:.2f}"
+
+    amount_dollars.short_description = "Amount"
 
 
 class MembershipFormset(BaseInlineFormSet):
@@ -134,6 +165,34 @@ class MembershipsInline(admin.TabularInline):
     autocomplete_fields = ("from_organization",)
 
 
+class OverdueInvoiceFilter(admin.SimpleListFilter):
+    """Filter organizations by whether they have overdue invoices"""
+
+    title = "overdue invoices"
+    parameter_name = "has_overdue_invoices"
+
+    def lookups(self, request, model_admin):
+        return [
+            ("yes", "Has overdue invoices"),
+            ("no", "No overdue invoices"),
+        ]
+
+    def queryset(self, request, queryset):
+        # Standard Library
+        from datetime import date
+
+        if self.value() == "yes":
+            return queryset.filter(
+                invoices__status="open", invoices__due_date__lt=date.today()
+            ).distinct()
+        elif self.value() == "no":
+            # Organizations with no open invoices or no overdue invoices
+            return queryset.exclude(
+                invoices__status="open", invoices__due_date__lt=date.today()
+            )
+        return queryset
+
+
 @admin.register(Organization)
 class OrganizationAdmin(VersionAdmin):
     def export_organizations_as_csv(self, request, queryset):
@@ -181,6 +240,7 @@ class OrganizationAdmin(VersionAdmin):
         "private",
         "verified_journalist",
         "get_subtypes",
+        "get_outstanding_invoices",
     )
     list_filter = (
         "individual",
@@ -188,6 +248,7 @@ class OrganizationAdmin(VersionAdmin):
         "verified_journalist",
         "hub_eligible",
         "subtypes",
+        OverdueInvoiceFilter,
     )
     search_fields = ("name",)
     fields = (
@@ -236,13 +297,26 @@ class OrganizationAdmin(VersionAdmin):
         OrganizationEmailDomainInline,
         SubscriptionInline,
         CustomerInline,
+        InvoiceInline,
         MembershipInline,
         ReceiptEmailInline,
         InvitationInline,
     )
 
     def get_queryset(self, request):
-        return super().get_queryset(request).prefetch_related("subtypes", "domains")
+        return (
+            super()
+            .get_queryset(request)
+            .prefetch_related("subtypes", "domains")
+            .annotate(
+                outstanding_invoice_count=Count(
+                    "invoices", filter=Q(invoices__status="open")
+                ),
+                outstanding_invoice_total=Sum(
+                    "invoices__amount", filter=Q(invoices__status="open")
+                ),
+            )
+        )
 
     def save_model(self, request, obj, form, change):
         if obj.verified_journalist and "verified_journalist" in form.changed_data:
@@ -281,6 +355,17 @@ class OrganizationAdmin(VersionAdmin):
         return ", ".join(domain.domain for domain in obj.domains.all())
 
     get_email_domains.short_description = "Email Domains"
+
+    def get_outstanding_invoices(self, obj):
+        """Display count and total of outstanding invoices"""
+        count = getattr(obj, "outstanding_invoice_count", 0)
+        total = getattr(obj, "outstanding_invoice_total", 0)
+        if count > 0:
+            return f"{count} (${total / 100:.2f})"
+        return "-"
+
+    get_outstanding_invoices.short_description = "Outstanding Invoices"
+    get_outstanding_invoices.admin_order_field = "outstanding_invoice_count"
 
 
 @admin.register(Plan)
@@ -454,3 +539,80 @@ class OrganizationTypeAdmin(VersionAdmin):
 class OrganizationSubtypeAdmin(VersionAdmin):
     list_display = ("name", "type")
     search_fields = ("name", "type__name")
+
+
+@admin.register(Invoice)
+class InvoiceAdmin(VersionAdmin):
+    list_display = (
+        "invoice_id",
+        "organization",
+        "get_amount",
+        "status",
+        "due_date",
+        "created_at",
+    )
+    list_select_related = ("organization",)
+    list_filter = ("status",)
+    search_fields = ("invoice_id", "organization__name")
+    date_hierarchy = "created_at"
+    readonly_fields = (
+        "invoice_id",
+        "organization",
+        "subscription",
+        "amount",
+        "get_amount",
+        "due_date",
+        "status",
+        "created_at",
+        "updated_at",
+        "stripe_link",
+    )
+    fields = (
+        "invoice_id",
+        "stripe_link",
+        "organization",
+        "subscription",
+        "amount",
+        "get_amount",
+        "status",
+        "due_date",
+        "created_at",
+        "updated_at",
+        "last_overdue_email_sent",
+    )
+    actions = ["mark_as_paid", "mark_as_uncollectible"]
+
+    @mark_safe
+    def stripe_link(self, obj):
+        """Link to Stripe invoice dashboard"""
+        if obj.invoice_id:
+            url = f"https://dashboard.stripe.com/invoices/{obj.invoice_id}"
+            return f'<a href="{url}" target="_blank">View in Stripe</a>'
+        return "-"
+
+    stripe_link.short_description = "Stripe Dashboard"
+
+    def get_amount(self, obj):
+        return f"${obj.amount_dollars:.2f}"
+
+    get_amount.short_description = "Amount"
+
+    def mark_as_paid(self, request, queryset):
+        """Mark selected invoices as paid"""
+        updated = queryset.filter(status="open").update(status="paid")
+        self.message_user(
+            request,
+            f"{updated} invoice(s) marked as paid.",
+        )
+
+    mark_as_paid.short_description = "Mark as Paid"
+
+    def mark_as_uncollectible(self, request, queryset):
+        """Mark selected invoices as uncollectible"""
+        updated = queryset.filter(status="open").update(status="uncollectible")
+        self.message_user(
+            request,
+            f"{updated} invoice(s) marked as uncollectible.",
+        )
+
+    mark_as_uncollectible.short_description = "Mark as Uncollectible"
