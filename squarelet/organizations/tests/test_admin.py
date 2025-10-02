@@ -2,9 +2,6 @@
 from django.contrib.admin.sites import AdminSite
 from django.test import RequestFactory
 
-# Standard Library
-from datetime import date, timedelta
-
 # Third Party
 import pytest
 
@@ -20,14 +17,8 @@ class TestInvoiceAdmin:
     def invoice_admin(self):
         return InvoiceAdmin(Invoice, AdminSite())
 
-    @pytest.fixture
-    def request_factory(self):
-        return RequestFactory()
-
     @pytest.mark.django_db
-    def test_stripe_link_with_invoice_id(
-        self, invoice_admin, invoice_factory, request_factory
-    ):
+    def test_stripe_link_with_invoice_id(self, invoice_admin, invoice_factory):
         """Should generate Stripe dashboard link for invoice"""
         invoice = invoice_factory(invoice_id="in_test123")
         link = invoice_admin.stripe_link(invoice)
@@ -37,9 +28,7 @@ class TestInvoiceAdmin:
         assert "View in Stripe" in link
 
     @pytest.mark.django_db
-    def test_stripe_link_without_invoice_id(
-        self, invoice_admin, invoice_factory, request_factory
-    ):
+    def test_stripe_link_without_invoice_id(self, invoice_admin, invoice_factory):
         """Should return dash when no invoice_id"""
         invoice = invoice_factory(invoice_id="")
         link = invoice_admin.stripe_link(invoice)
@@ -64,9 +53,7 @@ class TestInvoiceAdmin:
 
         request = request_factory.get("/")
         mocker.patch.object(invoice_admin, "message_user")
-        queryset = Invoice.objects.filter(
-            id__in=[open_invoice.id, paid_invoice.id]
-        )
+        queryset = Invoice.objects.filter(id__in=[open_invoice.id, paid_invoice.id])
 
         invoice_admin.mark_as_paid(request, queryset)
 
@@ -86,9 +73,7 @@ class TestInvoiceAdmin:
 
         request = request_factory.get("/")
         mocker.patch.object(invoice_admin, "message_user")
-        queryset = Invoice.objects.filter(
-            id__in=[open_invoice.id, void_invoice.id]
-        )
+        queryset = Invoice.objects.filter(id__in=[open_invoice.id, void_invoice.id])
 
         invoice_admin.mark_as_uncollectible(request, queryset)
 

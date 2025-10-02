@@ -3,14 +3,21 @@ from django.contrib.auth.models import AnonymousUser
 from django.test import TestCase
 
 # Standard Library
+from datetime import timedelta
 from uuid import uuid4
 
 # Third Party
 import pytest
+from django.utils import timezone
 
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason
-from squarelet.organizations.models import Invoice, Membership, Organization, Subscription
+from squarelet.organizations.models import (
+    Invoice,
+    Membership,
+    Organization,
+    Subscription,
+)
 from squarelet.organizations.tests.factories import (
     ChargeFactory,
     InvoiceFactory,
@@ -277,10 +284,6 @@ class TestInvoiceQuerySet(TestCase):
     @pytest.mark.django_db
     def test_overdue_finds_past_due_invoices(self):
         """Verify overdue finds invoices past their due date"""
-        from datetime import timedelta
-
-        from django.utils import timezone
-
         # Create invoice that's 35 days overdue
         old_due_date = timezone.now().date() - timedelta(days=35)
         InvoiceFactory(status="open", due_date=old_due_date)
@@ -296,10 +299,6 @@ class TestInvoiceQuerySet(TestCase):
     @pytest.mark.django_db
     def test_overdue_excludes_paid_invoices(self):
         """Test overdue excludes paid invoices even if past due date"""
-        from datetime import timedelta
-
-        from django.utils import timezone
-
         old_due_date = timezone.now().date() - timedelta(days=35)
 
         # Create overdue but paid invoice
@@ -314,10 +313,6 @@ class TestInvoiceQuerySet(TestCase):
     @pytest.mark.django_db
     def test_overdue_excludes_other_statuses(self):
         """Test overdue only includes open status invoices"""
-        from datetime import timedelta
-
-        from django.utils import timezone
-
         old_due_date = timezone.now().date() - timedelta(days=35)
 
         # Create invoices with various statuses
@@ -332,10 +327,6 @@ class TestInvoiceQuerySet(TestCase):
     @pytest.mark.django_db
     def test_overdue_respects_grace_period(self):
         """Test overdue respects the grace period parameter"""
-        from datetime import timedelta
-
-        from django.utils import timezone
-
         # Create invoices at different overdue levels
         InvoiceFactory.create_batch(
             3,

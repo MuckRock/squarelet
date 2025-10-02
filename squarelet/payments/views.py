@@ -55,8 +55,8 @@ class PlanDetailView(DetailView):
         plan = self.get_object()
 
         # Add plan data for JSON serialization
-        context['plan_data'] = {
-            'annual': plan.annual,
+        context["plan_data"] = {
+            "annual": plan.annual,
         }
 
         if self.request.user.is_authenticated:

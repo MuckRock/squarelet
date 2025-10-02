@@ -338,9 +338,7 @@ class TestHandleInvoicePaymentSucceeded:
     @pytest.mark.django_db
     def test_clears_payment_failed_flag(self, organization_factory, invoice_factory):
         organization = organization_factory(payment_failed=True)
-        invoice = invoice_factory(
-            invoice_id="in_123", organization=organization, status="open"
-        )
+        invoice_factory(invoice_id="in_123", organization=organization, status="open")
 
         invoice_data = {"id": "in_123"}
 
@@ -354,9 +352,7 @@ class TestHandleInvoicePaymentSucceeded:
         self, organization_factory, invoice_factory
     ):
         organization = organization_factory(payment_failed=False)
-        invoice = invoice_factory(
-            invoice_id="in_123", organization=organization, status="open"
-        )
+        invoice_factory(invoice_id="in_123", organization=organization, status="open")
 
         invoice_data = {"id": "in_123"}
 
@@ -404,7 +400,8 @@ class TestCheckOverdueInvoices:
     def test_sets_payment_failed_for_overdue_within_grace_period(
         self, invoice_factory, organization_factory, mocker
     ):
-        """Invoices overdue within grace period should set payment_failed and send warning"""
+        """Invoices overdue within grace period should set payment_failed
+        and send warning"""
         org = organization_factory()
         # Invoice 20 days overdue (within 30-day grace period)
         invoice = invoice_factory(
@@ -467,7 +464,8 @@ class TestCheckOverdueInvoices:
     def test_does_not_resend_email_if_payment_failed_already_set(
         self, invoice_factory, organization_factory, subscription_factory, mocker
     ):
-        """Should not resend overdue email if payment_failed flag is already set (still cancels at threshold)"""
+        """Should not resend overdue email if payment_failed flag is already
+        set (still cancels at threshold)"""
         org = organization_factory(payment_failed=True)
         subscription = subscription_factory(organization=org)
         invoice = invoice_factory(
@@ -521,9 +519,7 @@ class TestCheckOverdueInvoices:
         # Should send cancellation email
         mock_send_mail.assert_called_once()
         call_kwargs = mock_send_mail.call_args[1]
-        assert (
-            call_kwargs["template"] == "organizations/email/invoice_cancelled.html"
-        )
+        assert call_kwargs["template"] == "organizations/email/invoice_cancelled.html"
         assert call_kwargs["extra_context"]["invoice"] == invoice
         assert call_kwargs["extra_context"]["days_overdue"] == 35
 
@@ -630,15 +626,15 @@ class TestCheckOverdueInvoices:
             due_date=date.today() - timedelta(days=35),
         )
 
-        mock_send_mail = mocker.patch("squarelet.organizations.tasks.send_mail")
+        mocker.patch("squarelet.organizations.tasks.send_mail")
 
         tasks.process_overdue_invoice(invoice.id)
 
-        # Should not process paid invoices - we check the invoice status in the task
-        # (This test verifies the logic works correctly even if called with a paid invoice)
+        # Should not process paid invoices - we check the invoice status in
+        # the task. (This test verifies the logic works correctly even if
+        # called with a paid invoice)
         invoice.refresh_from_db()
         assert invoice.status == "paid"  # Status unchanged
-
 
     @pytest.mark.django_db
     @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=30)
@@ -733,7 +729,8 @@ class TestCheckOverdueInvoices:
     def test_sends_email_if_last_overdue_email_sent_is_none(
         self, invoice_factory, organization_factory, mocker
     ):
-        """Should send email if last_overdue_email_sent is None (even with payment_failed=True)"""
+        """Should send email if last_overdue_email_sent is None
+        (even with payment_failed=True)"""
         org = organization_factory(payment_failed=True)
         invoice = invoice_factory(
             organization=org,
@@ -752,7 +749,6 @@ class TestCheckOverdueInvoices:
         # Should set last_overdue_email_sent
         invoice.refresh_from_db()
         assert invoice.last_overdue_email_sent == date.today()
-
 
 
 class TestCheckOverdueInvoicesDispatcher:
