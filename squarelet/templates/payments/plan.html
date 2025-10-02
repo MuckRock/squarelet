@@ -587,17 +587,33 @@
             {% endfor %}
           </div>
         {% endif %}
-        <!-- Subscription Form - Always show but modify based on auth status -->
-        <form method="POST" class="subscription-form">
-          {% csrf_token %}
-          <input type="hidden" name="plan" value="{{ plan.pk }}">
-          {% if user.is_authenticated %}
-            <input type="hidden" id="id_stripe_pk" value="{{ stripe_pk }}">
-            <input type="hidden" id="id_stripe_token" name="stripe_token">
-          {% endif %}
-          
-          {% if user.is_authenticated %}
-            {% if can_subscribe_individual and plan.for_individuals or admin_organizations and plan.for_groups %}
+
+        {% if user.is_authenticated and show_waitlist %}
+          <!-- Waitlist Form -->
+          <div class="alert alert-info waitlist-notice">
+            <h3>{% trans "Subscription Limit Reached" %}</h3>
+            <p>{% trans "This plan is currently at capacity. Join the waitlist to be notified when a spot becomes available." %}</p>
+          </div>
+
+          <form method="POST" class="waitlist-form">
+            {% csrf_token %}
+            <input type="hidden" name="waitlist" value="1" />
+            <button type="submit" class="btn premium">
+              {% trans "Join Waitlist" %}
+            </button>
+          </form>
+        {% else %}
+          <!-- Subscription Form - Always show but modify based on auth status -->
+          <form method="POST" class="subscription-form">
+            {% csrf_token %}
+            <input type="hidden" name="plan" value="{{ plan.pk }}">
+            {% if user.is_authenticated %}
+              <input type="hidden" id="id_stripe_pk" value="{{ stripe_pk }}">
+              <input type="hidden" id="id_stripe_token" name="stripe_token">
+            {% endif %}
+
+            {% if user.is_authenticated %}
+              {% if can_subscribe_individual and plan.for_individuals or admin_organizations and plan.for_groups %}
               <!-- Organization selection -->
               <div class="organization-selection">
                 <label>
@@ -692,8 +708,9 @@
             {% endif %}
           </div>
         </form>
+        {% endif %}
       </div>
-      
+
       <!-- Plan benefits -->
       {% if plan.benefits %}
       <div class="plan-benefits">

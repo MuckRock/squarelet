@@ -660,6 +660,96 @@ class TestPlan:
             tiers_mode="graduated",
         )
 
+    @pytest.mark.django_db
+    def test_has_available_slots_non_sunlight_plan(self, plan_factory):
+        """Non-Sunlight plans always have available slots"""
+        plan = plan_factory(slug="professional", wix=False)
+        assert plan.has_available_slots() is True
+
+    @pytest.mark.django_db
+    def test_has_available_slots_sunlight_no_wix(self, plan_factory):
+        """Sunlight plans with wix=False have no limit"""
+        plan = plan_factory(slug="sunlight-basic", wix=False)
+        assert plan.has_available_slots() is True
+
+    @pytest.mark.django_db
+    def test_has_available_slots_sunlight_under_limit(
+        self, plan_factory, subscription_factory, settings
+    ):
+        """Sunlight wix plan under limit has available slots"""
+        settings.MAX_SUNLIGHT_SUBSCRIPTIONS = 15
+        sunlight_plan = plan_factory(slug="sunlight-basic-monthly", wix=True)
+
+        # Create 10 active subscriptions (under limit of 15)
+        for _ in range(10):
+            subscription_factory(plan=sunlight_plan, cancelled=False)
+
+        assert sunlight_plan.has_available_slots() is True
+
+    @pytest.mark.django_db
+    def test_has_available_slots_sunlight_at_limit(
+        self, plan_factory, subscription_factory, settings
+    ):
+        """Sunlight wix plan at limit has no available slots"""
+        settings.MAX_SUNLIGHT_SUBSCRIPTIONS = 15
+        sunlight_plan = plan_factory(slug="sunlight-basic-monthly", wix=True)
+
+        # Create 15 active subscriptions (at limit)
+        for _ in range(15):
+            subscription_factory(plan=sunlight_plan, cancelled=False)
+
+        assert sunlight_plan.has_available_slots() is False
+
+    @pytest.mark.django_db
+    def test_has_available_slots_sunlight_over_limit(
+        self, plan_factory, subscription_factory, settings
+    ):
+        """Sunlight wix plan over limit has no available slots"""
+        settings.MAX_SUNLIGHT_SUBSCRIPTIONS = 15
+        sunlight_plan = plan_factory(slug="sunlight-basic-monthly", wix=True)
+
+        # Create 20 active subscriptions (over limit)
+        for _ in range(20):
+            subscription_factory(plan=sunlight_plan, cancelled=False)
+
+        assert sunlight_plan.has_available_slots() is False
+
+    @pytest.mark.django_db
+    def test_has_available_slots_counts_all_sunlight_variants(
+        self, plan_factory, subscription_factory, settings
+    ):
+        """Limit is shared across all Sunlight plan variants"""
+        settings.MAX_SUNLIGHT_SUBSCRIPTIONS = 15
+        sunlight_basic = plan_factory(slug="sunlight-basic-monthly", wix=True)
+        sunlight_premium = plan_factory(slug="sunlight-premium-annual", wix=True)
+
+        # Create 10 subscriptions for basic, 5 for premium (total 15)
+        for _ in range(10):
+            subscription_factory(plan=sunlight_basic, cancelled=False)
+        for _ in range(5):
+            subscription_factory(plan=sunlight_premium, cancelled=False)
+
+        # Both plans should show no slots available
+        assert sunlight_basic.has_available_slots() is False
+        assert sunlight_premium.has_available_slots() is False
+
+    @pytest.mark.django_db
+    def test_has_available_slots_excludes_cancelled(
+        self, plan_factory, subscription_factory, settings
+    ):
+        """Cancelled subscriptions don't count toward limit"""
+        settings.MAX_SUNLIGHT_SUBSCRIPTIONS = 15
+        sunlight_plan = plan_factory(slug="sunlight-basic-monthly", wix=True)
+
+        # Create 14 active and 10 cancelled subscriptions
+        for _ in range(14):
+            subscription_factory(plan=sunlight_plan, cancelled=False)
+        for _ in range(10):
+            subscription_factory(plan=sunlight_plan, cancelled=True)
+
+        # Should still have slots available (14 < 15)
+        assert sunlight_plan.has_available_slots() is True
+
 
 class TestInvitation:
     """Unit tests for Invitation model"""

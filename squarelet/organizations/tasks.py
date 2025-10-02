@@ -253,3 +253,16 @@ def sync_wix(org_id, plan_id, user_id):
     plan = Plan.objects.get(pk=plan_id)
     user = User.objects.get(pk=user_id)
     wix.sync_wix(org, plan, user)
+
+
+@shared_task(
+    autoretry_for=(requests.exceptions.RequestException,),
+    retry_backoff=60,
+    retry_kwargs={"max_retries": 3},
+)
+def add_to_waitlist(org_id, plan_id, user_id):
+    """Add user to waitlist in Wix"""
+    org = Organization.objects.get(pk=org_id)
+    plan = Plan.objects.get(pk=plan_id)
+    user = User.objects.get(pk=user_id)
+    wix.add_to_waitlist(org, plan, user)

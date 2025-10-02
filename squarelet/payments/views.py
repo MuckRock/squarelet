@@ -2,6 +2,7 @@
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.views import redirect_to_login
+from django.db import transaction
 from django.http import Http404
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -15,6 +16,8 @@ import sys
 
 # Squarelet
 from squarelet.organizations.models import Organization, Plan
+from squarelet.organizations.models.payment import Subscription
+from squarelet.organizations.tasks import add_to_waitlist
 
 logger = logging.getLogger(__name__)
 
@@ -122,6 +125,7 @@ class PlanDetailView(DetailView):
                     "org_cards": org_cards,
                     "org_cards_json": json.dumps(org_cards),
                     "stripe_pk": settings.STRIPE_PUB_KEY,
+                    "show_waitlist": not plan.has_available_slots() and plan.wix,
                 }
             )
 
@@ -160,7 +164,36 @@ class PlanDetailView(DetailView):
                 messages.warning(request, _("Already subscribed"))
                 return redirect(plan)
 
-            # Handle payment method
+            # For Sunlight plans, use transaction with row locking to prevent race conditions
+            if plan.slug.startswith("sunlight-") and plan.wix:
+                with transaction.atomic():
+                    # Lock subscription records to prevent concurrent subscriptions
+                    locked_count = (
+                        Subscription.objects.select_for_update()
+                        .filter(
+                            plan__slug__startswith="sunlight-",
+                            plan__wix=True,
+                            cancelled=False,
+                        )
+                        .count()
+                    )
+
+                    if locked_count >= settings.MAX_SUNLIGHT_SUBSCRIPTIONS:
+                        # Limit reached - add to waitlist
+                        transaction.on_commit(
+                            lambda: add_to_waitlist.delay(
+                                organization.pk, plan.pk, request.user.pk
+                            )
+                        )
+                        messages.info(
+                            request,
+                            _(
+                                "This plan has reached its subscription limit. You have been added to the waitlist."
+                            ),
+                        )
+                        return redirect(plan)
+
+            # Proceed with subscription
             organization.set_subscription(
                 token=stripe_token,
                 plan=plan,
