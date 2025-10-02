@@ -353,7 +353,7 @@ def process_overdue_invoice(invoice_id):
 
         # Send cancellation email
         send_mail(
-            subject=_("Your subscription has been cancelled"),
+            subject=_("Your subscription has been cancelled due to non-payment"),
             template="organizations/email/invoice_cancelled.html",
             organization=organization,
             organization_to=ORG_TO_ADMINS,
