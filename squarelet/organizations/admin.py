@@ -85,6 +85,7 @@ class InvoiceInline(admin.TabularInline):
     fields = readonly_fields
     extra = 0
     can_delete = False
+    max_num = 0
 
     @mark_safe
     def stripe_link(self, obj):
@@ -554,14 +555,7 @@ class InvoiceAdmin(VersionAdmin):
     search_fields = ("invoice_id", "organization__name")
     date_hierarchy = "created_at"
     readonly_fields = (
-        "invoice_id",
-        "organization",
-        "subscription",
-        "amount",
         "get_amount",
-        "due_date",
-        "status",
-        "created_at",
         "updated_at",
         "stripe_link",
     )
@@ -574,9 +568,9 @@ class InvoiceAdmin(VersionAdmin):
         "get_amount",
         "status",
         "due_date",
+        "last_overdue_email_sent",
         "created_at",
         "updated_at",
-        "last_overdue_email_sent",
     )
     actions = ["mark_as_paid", "mark_as_uncollectible"]
 
