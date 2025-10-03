@@ -17,6 +17,10 @@ class TestInvoiceAdmin:
     def invoice_admin(self):
         return InvoiceAdmin(Invoice, AdminSite())
 
+    @pytest.fixture
+    def request_factory(self):
+        return RequestFactory()
+
     @pytest.mark.django_db
     def test_stripe_link_with_invoice_id(self, invoice_admin, invoice_factory):
         """Should generate Stripe dashboard link for invoice"""
