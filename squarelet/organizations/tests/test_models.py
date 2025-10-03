@@ -1038,3 +1038,11 @@ class TestInvoice:
         """Test is_overdue returns False when invoice has no due date"""
         invoice = invoice_factory(status="open", due_date=None)
         assert invoice.is_overdue is False
+
+    def test_amount_none(self, invoice_factory):
+        """Test formatting logic when amount is None"""
+        invoice = invoice_factory.build(
+            invoice_id="in_12345", amount=None, status="open"
+        )
+        assert invoice.amount_dollars == 0.0
+        assert str(invoice) == "Invoice in_12345 - $0.00 (open)"
