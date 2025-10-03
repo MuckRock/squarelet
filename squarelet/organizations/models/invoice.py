@@ -70,11 +70,14 @@ class Invoice(models.Model):
         ordering = ("-created_at",)
 
     def __str__(self):
-        return f"Invoice {self.invoice_id} - ${self.amount / 100:.2f} ({self.status})"
+        amount_display = (self.amount / 100) if self.amount is not None else 0
+        return f"Invoice {self.invoice_id} - ${amount_display:.2f} ({self.status})"
 
     @property
     def amount_dollars(self):
         """Return the amount in dollars"""
+        if self.amount is None:
+            return 0.0
         return self.amount / 100.0
 
     @property
