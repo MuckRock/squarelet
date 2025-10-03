@@ -62,7 +62,12 @@ from squarelet.organizations.models import (
 )
 from squarelet.organizations.tasks import (
     handle_charge_succeeded,
+    handle_invoice_created,
     handle_invoice_failed,
+    handle_invoice_finalized,
+    handle_invoice_marked_uncollectible,
+    handle_invoice_payment_succeeded,
+    handle_invoice_voided,
     sync_wix,
 )
 
@@ -570,7 +575,7 @@ class PDFChargeDetail(WeasyTemplateResponseMixin, ChargeDetail):
 
 
 @csrf_exempt
-def stripe_webhook(request):
+def stripe_webhook(request):  # pylint: disable=too-many-branches
     """Handle webhooks from stripe"""
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
@@ -610,8 +615,9 @@ def stripe_webhook(request):
         return HttpResponseBadRequest()
     # If we've made it this far, then the webhook message was successfully sent!
     # Now it's up to us to act on it.
+    # https://docs.stripe.com/api/events/types
     success_msg = (
-        "Received Stripe webhook\n"
+        "[STRIPE-WEBHOOK] Received Stripe webhook\n"
         "\tfrom:\t%(address)s\n"
         "\ttype:\t%(type)s\n"
         "\tdata:\t%(data)s\n"
@@ -621,6 +627,16 @@ def stripe_webhook(request):
         handle_charge_succeeded.delay(event["data"]["object"])
     elif event_type == "invoice.payment_failed":
         handle_invoice_failed.delay(event["data"]["object"])
+    elif event_type == "invoice.created":
+        handle_invoice_created.delay(event["data"]["object"])
+    elif event_type == "invoice.finalized":
+        handle_invoice_finalized.delay(event["data"]["object"])
+    elif event_type == "invoice.payment_succeeded":
+        handle_invoice_payment_succeeded.delay(event["data"]["object"])
+    elif event_type == "invoice.marked_uncollectible":
+        handle_invoice_marked_uncollectible.delay(event["data"]["object"])
+    elif event_type == "invoice.voided":
+        handle_invoice_voided.delay(event["data"]["object"])
     return HttpResponse()
 
 
