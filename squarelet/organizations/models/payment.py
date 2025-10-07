@@ -14,7 +14,11 @@ from memoize import mproperty
 
 # Squarelet
 from squarelet.core.mail import ORG_TO_RECEIPTS, send_mail
-from squarelet.core.utils import mailchimp_journey, stripe_retry_on_error
+from squarelet.core.utils import (
+    is_production_env,
+    mailchimp_journey,
+    stripe_retry_on_error,
+)
 from squarelet.organizations.querysets import (
     ChargeQuerySet,
     EntitlementQuerySet,
@@ -270,7 +274,7 @@ class Subscription(models.Model):
 
     def send_slack_notification(self, event, **kwargs):
         """Queue a Slack notification asynchronously for subscription events."""
-        if settings.ENV != "production":
+        if not is_production_env():
             return
 
         if not self.plan.slack_webhook_url:
