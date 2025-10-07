@@ -26,7 +26,7 @@ def test_file_path_long():
 
 
 @override_settings(
-    ENV="production",
+    ENV="prod",
     MAILCHIMP_API_KEY="test-api-key-12345",
     MAILCHIMP_API_ROOT="https://us1.api.mailchimp.com/3.0",
 )
@@ -73,7 +73,7 @@ class TestMailchimpJourney(TestCase):
         mock_put.assert_not_called()
         mock_post.assert_not_called()
 
-    @override_settings(ENV="production", MAILCHIMP_API_KEY="")
+    @override_settings(ENV="prod", MAILCHIMP_API_KEY="")
     @patch("squarelet.core.utils.requests.put")
     @patch("squarelet.core.utils.requests.post")
     def test_mailchimp_journey_skipped_without_api_key(self, mock_post, mock_put):

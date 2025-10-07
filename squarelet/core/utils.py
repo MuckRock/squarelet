@@ -18,6 +18,11 @@ logger = logging.getLogger(__name__)
 MAX_RETRIES = 10
 
 
+def is_production_env():
+    """Check if we are in a production environment"""
+    return settings.ENV == "prod"
+
+
 def file_path(base, _instance, filename):
     """Create a file path that fits within the 100 character limit"""
     # 100 character is the default character limit, subtract 8 to allow for unique
