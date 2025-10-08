@@ -295,3 +295,6 @@ scratch/
 
 # keep built frontend files for now
 !frontend/dist
+
+# Local dev data
+/data

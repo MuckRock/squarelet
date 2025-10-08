@@ -128,6 +128,10 @@ def up(c):
     """Start the docker images"""
     c.run("docker compose up -d")
 
+@task
+def down(c):
+    """Shut down the docker images"""
+    c.run(f"docker compose down")
 
 @task
 def runserver(c):

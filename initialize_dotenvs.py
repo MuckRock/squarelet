@@ -8,11 +8,20 @@ import os
 import random
 import string
 
+COMPOSE_ENV_PATH = ".env"
 
 def random_string(n):
     return "".join(
-        random.choice(string.ascii_letters + string.digits) for _ in range(n)
+        random.choice(string.ascii_lowercase + string.digits) for _ in range(n)
     )
+
+def generate_and_save_compose_project_name():
+    """Generate a unique COMPOSE_PROJECT_NAME and save it to .env."""
+    project_name = os.path.basename(os.getcwd()).lower() + "_" + random_string(5)
+    with open(COMPOSE_ENV_PATH, "w") as f:
+        f.write(f"COMPOSE_PROJECT_NAME={project_name}\n")
+    print(f"Generated and saved COMPOSE_PROJECT_NAME={project_name} in {COMPOSE_ENV_PATH}")
+    return project_name
 
 
 CONFIG = [
@@ -86,6 +95,7 @@ def main():
                     )
                 file_.write("\n")
         print("Created file .envs/.local/{}".format(file_config["name"]))
+    generate_and_save_compose_project_name()
     print("Initialization Complete")
 
 
