@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 # Django
 from django.db import models, transaction
 from django.templatetags.static import static
@@ -6,9 +7,12 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 # Standard Library
+import logging
+import sys
 import uuid
 
 # Third Party
+import stripe
 from autoslug import AutoSlugField
 from memoize import mproperty
 from sorl.thumbnail import ImageField
@@ -30,6 +34,9 @@ from squarelet.organizations.querysets import (
     MembershipQuerySet,
     OrganizationQuerySet,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 def organization_file_path(instance, filename):
@@ -397,18 +404,24 @@ class Organization(AvatarMixin, models.Model):
     def subscription(self):
         return self.subscriptions.first()
 
-    def create_subscription(self, token, plan, user):
+    def create_subscription(self, token, plan, user, payment_method="card"):
         if token:
             self.save_card(token, user)
+        else:
+            # If we're missing a token, that means we have no card
+            # and can only issue an invoice
+            payment_method = "invoice"
 
         customer = self.customer().stripe_customer
         if not customer.email:
             customer.email = self.email
             customer.save()
 
-        self.subscriptions.start(organization=self, plan=plan)
+        self.subscriptions.start(
+            organization=self, plan=plan, payment_method=payment_method
+        )
 
-    def set_subscription(self, token, plan, max_users, user):
+    def set_subscription(self, token, plan, max_users, user, payment_method="card"):
         # pylint: disable=import-outside-toplevel
         from squarelet.organizations.tasks import sync_wix
 
@@ -416,6 +429,10 @@ class Organization(AvatarMixin, models.Model):
             max_users = 1
         if token:
             self.save_card(token, user)
+        else:
+            # If we're missing a token, that means we have no card
+            # and can only issue an invoice
+            payment_method = "invoice"
 
         # store so we can log
         from_plan, from_max_users = (self.plan, self.max_users)
@@ -429,7 +446,7 @@ class Organization(AvatarMixin, models.Model):
         if not self.plan and plan:
             # create a subscription going from no plan to plan
             # Don't pass the token in here, as we already saved it above
-            self.create_subscription(None, plan, user)
+            self.create_subscription(None, plan, user, payment_method=payment_method)
         elif self.plan and not plan:
             # cancel a subscription going from plan to no plan
             self.subscription.cancel()
@@ -447,13 +464,34 @@ class Organization(AvatarMixin, models.Model):
         )
 
     def subscription_cancelled(self):
-        """The subsctription was cancelled due to payment failure"""
+        """The subscription was cancelled due to payment failure"""
+        # Create change log entry
         self.change_logs.create(
             reason=ChangeLogReason.failed,
             from_plan=self.plan,
             from_max_users=self.max_users,
             to_max_users=self.max_users,
         )
+
+        # Cancel subscription in Stripe if it exists
+        if self.subscription and self.subscription.subscription_id:
+            try:
+                stripe.Subscription.delete(self.subscription.subscription_id)
+                logger.info(
+                    "Cancelled Stripe subscription %s for organization %s",
+                    self.subscription.subscription_id,
+                    self.uuid,
+                )
+            except stripe.error.StripeError as exc:
+                logger.error(
+                    "Failed to cancel Stripe subscription %s for organization %s: %s",
+                    self.subscription.subscription_id,
+                    self.uuid,
+                    exc,
+                    exc_info=sys.exc_info(),
+                )
+
+        # Delete local subscription record
         self.subscription.delete()
 
     def has_active_subscription(self):
