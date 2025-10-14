@@ -580,13 +580,13 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["admin"] = self.request.user
-        context["members"] = self.object.memberships.select_related("user").order_by(
-            "user__created_at"
+        context["members"] = list(
+            self.object.memberships.select_related("user").order_by("user__created_at")
         )
-        context["requested_invitations"] = (
+        context["requested_invitations"] = list(
             self.object.invitations.get_pending_requests()
         )
-        context["pending_invitations"] = (
+        context["pending_invitations"] = list(
             self.object.invitations.get_pending_invitations()
         )
         return context
