@@ -72,15 +72,18 @@
       </header>
 
       <div class="card">
-        <form method="POST" enctype="multipart/form-data" id="org-form">
+        <form method="POST" 
+          enctype="multipart/form-data" 
+          id="org-form" 
+          action="{% url "organizations:manage-members" slug=organization.slug %}">
           {% csrf_token %}
           <input type="hidden" name="action" value="managemembers">
           <div class="email">
             <label>
               <span class="sr-only">{% trans "Email" %}</span>
-              <input type="email" placeholder="{% trans 'Enter email addresses to invite' %}" />
+              <input type="email" name="emails" multiple placeholder="{% trans 'Enter email addresses to invite' %}" />
             </label>
-              <button type="submit" class="btn primary">
+              <button type="submit" name="addmember" class="btn primary">
                 {% include "core/icons/paper-airplane.svg" %}
                 {% trans "Send invites" %}
               </button>
@@ -126,6 +129,34 @@
         {% for membership in members %}
         <div class="membership">
           {% include "organizations/user_list_item.html" with membership=membership %}
+
+          <form method="POST" class="actions">
+            {% csrf_token %}
+            {% if membership.admin %}
+            <input type="hidden" name="admin" value="false">
+            <button type="submit" class="btn ghost">
+              {% include "core/icons/arrow-down.svg" %}
+              {% trans "Demote to member" %}
+            </button>
+            {% else %}
+            <input type="hidden" name="admin" value="true">
+            <button type="submit" class="btn ghost">
+              {% include "core/icons/arrow-up.svg" %}
+              {% trans "Promote to admin" %}
+            </button>
+            {% endif %}
+
+            {% if membership.user == request.user %}
+            <button class="btn ghost danger">
+              {% include "core/icons/sign-out.svg" %}
+              {% trans "Leave" %}
+            </button>
+            {% else %}
+            <button class="btn ghost danger">
+              {% include "core/icons/x-circle.svg" %}
+              {% trans "Remove" %}</button>
+            {% endif %}
+          </form>
         </div>
         {% endfor %}
       </div>
