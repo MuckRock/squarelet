@@ -63,17 +63,18 @@
           <h2>{% trans "Invite members" %}</h2>
           <p>{% trans "Add new members by email or with a special link" %}</p>
         </div>
-        <div class="actions">
-          <button class="btn primary ghost">
+        <form class="actions" method="POST"
+          action="{% url "organizations:manage-members" slug=organization.slug %}">
+          {% csrf_token %}
+          <button class="btn primary ghost" type="submit" name="addmember_link">
             {% include "core/icons/link.svg" %}
             {% trans "Generate invite link" %}
           </button>
-        </div>
+        </form>
       </header>
 
       <div class="card">
         <form method="POST" 
-          enctype="multipart/form-data" 
           id="org-form" 
           action="{% url "organizations:manage-members" slug=organization.slug %}">
           {% csrf_token %}
@@ -100,7 +101,7 @@
         <h2>
           {{ count }} pending request{{ count|pluralize }}
         </h2>
-        <p>{% trans "Users you’ve invited to join:" %}</p>
+        <p>{% trans "Users who've asked to join" %}:</p>
       </header>
       <div class="card"></div>
     </section>
@@ -114,8 +115,37 @@
         <h2>
           {{ count }} pending invitation{{ count|pluralize }}
         </h2>
+        <p>{% trans "Users you've invited to join" %}:</p>
       </header>
-      <div class="card"></div>
+      <div class="card">
+        {% for invitation in pending_invitations %}
+        <div class="invitation">
+          {% if invitation.user %}
+            {% include "organizations/user_list_item.html" with user=invitation.user %}
+          {% else %}
+            {% include "organizations/invitation_list_item.html" with invitation=invitation %}
+          {% endif %}
+
+          <form class="actions" method="POST" action="{% url "organizations:manage-members" slug=organization.slug %}">
+            <div class="buttons">
+              <button type="submit" class="btn ghost">
+                {% include "core/icons/paper-airplane.svg" %}
+                {% trans "Resend" %}
+              </button>
+              <button class="btn ghost">
+                {% include "core/icons/link.svg" %}
+                {% trans "Copy link" %}
+              </button>
+              <button class="btn ghost danger">
+                {% include "core/icons/x.svg" %}
+                {% trans "Withdraw" %}
+              </button>
+            </div>
+            <p>Generated {{ invitation.created_at }}</p>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
     </section>
     {% endwith %}
     {% endif %}
@@ -128,7 +158,7 @@
       <div class="card">
         {% for membership in members %}
         <div class="membership">
-          {% include "organizations/user_list_item.html" with membership=membership %}
+          {% include "organizations/user_list_item.html" with membership=membership user=membership.user %}
 
           <form method="POST" class="actions">
             {% csrf_token %}
