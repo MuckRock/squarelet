@@ -1,6 +1,6 @@
 {# required css: css/user_list_item.css #}
 {% load thumbnail i18n %}
-{% with user=membership.user avatar=membership.user.avatar %}
+{% with avatar=user.avatar %}
 <div class="user">
     <div class="avatar">
     {% if avatar %}
