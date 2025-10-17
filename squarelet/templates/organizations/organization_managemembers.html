@@ -82,7 +82,10 @@
           <div class="email">
             <label>
               <span class="sr-only">{% trans "Email" %}</span>
-              <input type="email" name="emails" multiple placeholder="{% trans 'Enter email addresses to invite' %}" />
+              <div class="wrapper">
+                {% include "core/icons/mail.svg" %}
+                <input type="email" name="emails" multiple placeholder="{% trans 'Enter email addresses to invite' %}" />
+              </div>
             </label>
               <button type="submit" name="addmember" class="btn primary">
                 {% include "core/icons/paper-airplane.svg" %}
