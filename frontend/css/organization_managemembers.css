@@ -1,1 +1,215 @@
 /* for /organizations/<slug>/manage-members/ */
+#managemembers {
+  display: flex;
+  padding: 2rem;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 0.4375rem;
+}
+
+#managemembers .sidebar {
+  display: flex;
+  width: 15rem;
+  max-width: 15rem;
+  flex-direction: column;
+  align-items: flex-start;
+  align-self: stretch;
+
+  > div {
+    display: flex;
+    padding: 0.875rem 0.75rem 0.75rem 0.75rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.5rem;
+    flex: 1 0 0;
+    align-self: stretch;
+  }
+
+  header {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    align-self: stretch;
+  }
+
+  nav ul {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    align-self: stretch;
+    margin: 0;
+    padding: 0;
+
+    li {
+      list-style: none;
+    }
+
+    li a {
+      display: flex;
+      padding: 0.25rem 0.5rem;
+      align-items: center;
+      gap: 0.5rem;
+      align-self: stretch;
+      border-radius: 0.25rem;
+    }
+  }
+}
+
+#managemembers .content {
+  display: flex;
+  width: 36rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+#managemembers .content section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  align-self: stretch;
+
+  header {
+    display: flex;
+    width: 36rem;
+    height: 2.25rem;
+    align-items: flex-end;
+    gap: 0.625rem;
+
+    .title {
+      display: flex;
+      height: 2.25rem;
+      padding-top: 1rem;
+      align-items: anchor-center;
+      gap: 0.5rem;
+      flex: 1 0 0;
+    }
+
+    h2 {
+      color: var(--gray-5, #233944);
+      font-feature-settings: "ss04" on;
+      font-family: var(--font-sans, "Source Sans Pro");
+      font-size: var(--font-md, 1rem);
+      font-style: normal;
+      font-weight: 400;
+      line-height: normal;
+      margin: 0;
+    }
+
+    p {
+      color: var(--gray-4, #5c717c);
+
+      /* Caption */
+      font-family: var(--font-sans, "Source Sans Pro");
+      font-size: var(--font-xs, 0.75rem);
+      font-style: normal;
+      font-weight: 400;
+      line-height: normal;
+      margin: 0;
+
+      min-width: 12.5rem;
+      max-width: 37.5rem;
+    }
+
+    .actions {
+      display: flex;
+      width: 10.0625rem;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 0.5rem;
+      flex-shrink: 0;
+    }
+  }
+
+  .card {
+    display: flex;
+    width: 36rem;
+    padding: 1rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.5rem;
+
+    border-radius: 0.5rem;
+    border: 1px solid var(--gray-2, #d8dee2);
+    background: var(--white, #fff);
+
+    /* shadow-1 */
+    box-shadow: 0 2px 4px 2px var(--shadow, rgba(30, 48, 56, 0.15));
+  }
+}
+
+#org-form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.375rem;
+  align-self: stretch;
+
+  .email {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    align-self: stretch;
+
+    /* todo: extract this as a global style */
+    label {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+      flex: 1 0 0;
+
+      .wrapper {
+        display: flex;
+        padding: 0 0.5rem;
+        align-items: center;
+        gap: 0.25rem;
+        align-self: stretch;
+
+        border-radius: 0.5rem;
+        border: 1px solid var(--gray-2, #d8dee2);
+        background: var(--white, #fff);
+        height: 1.875rem;
+
+        svg {
+          width: 1rem;
+          height: 1rem;
+        }
+      }
+
+      input[type="email"] {
+        display: flex;
+        padding: 0.25rem;
+        align-items: center;
+        gap: 0.625rem;
+        flex: 1 0 0;
+        border: none;
+      }
+    }
+  }
+
+  p {
+    color: var(--gray-4, #5c717c);
+    font-family: "Source Sans Pro";
+    font-size: 0.75rem;
+    font-style: normal;
+    font-weight: 400;
+    line-height: normal;
+    align-self: stretch;
+  }
+}
+
+#invite {
+}
+
+#requests {
+}
+
+#pending {
+}
+
+#members {
+}
