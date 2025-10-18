@@ -134,10 +134,9 @@
 
     border-radius: 0.5rem;
     border: 1px solid var(--gray-2, #d8dee2);
-    background: var(--white, #fff);
 
     /* shadow-1 */
-    box-shadow: 0 2px 4px 2px var(--shadow, rgba(30, 48, 56, 0.15));
+    box-shadow: var(--shadow-1);
   }
 }
 
@@ -209,6 +208,21 @@
 }
 
 #pending {
+  .invitation {
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-start;
+    align-self: stretch;
+
+    .actions {
+      display: flex;
+      width: 17rem;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-end;
+      gap: 0.5rem;
+    }
+  }
 }
 
 #members {

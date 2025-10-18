@@ -1,0 +1,39 @@
+/* for organizations/invitation_list_item.html */
+.invited {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  align-self: stretch;
+
+  .avatar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    align-self: stretch;
+
+    svg {
+      width: 1.5rem;
+      height: 1.09375rem;
+      flex-shrink: 0;
+      fill: var(--gray-3, #99a8b3);
+    }
+  }
+
+  .info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 0.25rem;
+    align-self: stretch;
+
+    h3 {
+      color: var(--gray-5, #233944);
+      font-family: var(--font-sans, "Source Sans Pro");
+      font-size: var(--font-md, 1rem);
+      font-style: normal;
+      font-weight: 600;
+      line-height: 1.5rem; /* 150% */
+    }
+  }
+}
