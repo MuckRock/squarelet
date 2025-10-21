@@ -54,6 +54,11 @@ class PlanDetailView(DetailView):
         context = super().get_context_data(**kwargs)
         plan = self.get_object()
 
+        # Add plan data for JSON serialization
+        context["plan_data"] = {
+            "annual": plan.annual,
+        }
+
         if self.request.user.is_authenticated:
             user = self.request.user
             existing_subscriptions = []
@@ -149,6 +154,7 @@ class PlanDetailView(DetailView):
         organization_id = request.POST.get("organization")
         new_organization_name = request.POST.get("new_organization_name")
         stripe_token = request.POST.get("stripe_token")
+        payment_method = request.POST.get("payment_method", "new")
 
         try:
             # Get or create the organization
@@ -207,6 +213,7 @@ class PlanDetailView(DetailView):
                 plan=plan,
                 max_users=plan.minimum_users,
                 user=request.user,
+                payment_method=payment_method,
             )
 
             # Success - redirect to organization page
