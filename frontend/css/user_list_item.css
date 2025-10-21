@@ -1,0 +1,51 @@
+.user {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1 0 0;
+
+  border-radius: 0.25rem;
+
+  .avatar {
+    display: flex;
+    width: 3.125rem;
+    height: 3.125rem;
+    padding: 0.19531rem;
+    justify-content: center;
+    align-items: center;
+    aspect-ratio: 1/1;
+
+    border-radius: 50%;
+    border: 3px solid var(--gray-3, #99a8b3);
+    background: var(--gray-1, #f5f6f7);
+
+    img {
+      max-width: 100%;
+      max-height: 100%;
+      border-radius: 50%;
+    }
+  }
+
+  .info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 0.25rem;
+
+    h3 {
+      color: var(--gray-5, #233944);
+      font-family: var(--font-sans, "Source Sans Pro");
+      font-size: var(--font-md, 1rem);
+      font-style: normal;
+      font-weight: 600;
+      line-height: 1.5rem; /* 150% */
+    }
+
+    .details {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+  }
+}
