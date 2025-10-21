@@ -126,7 +126,15 @@
           {% if invitation.user %}
             {% include "organizations/user_list_item.html" with user=invitation.user %}
           {% else %}
-            {% include "organizations/invitation_list_item.html" with invitation=invitation %}
+            {# include "organizations/invitation_list_item.html" with invitation=invitation #}
+            <div class="invited">
+              <div class="avatar">
+                  {% include "core/icons/mail.svg" %}
+              </div>
+              <div class="info">
+                  <h3>{{ invitation.email }}</h3>
+              </div>
+          </div>
           {% endif %}
 
           <form class="actions" method="POST" action="{% url "organizations:manage-members" slug=organization.slug %}">

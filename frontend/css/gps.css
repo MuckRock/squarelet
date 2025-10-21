@@ -122,7 +122,7 @@ strong {
   border: 1px solid var(--gray-2, #d8dee2);
   background: var(--gray-1, #f5f6f7);
 
-  fill: var(--gray-4, #5C717C);
+  fill: var(--gray-4, #5c717c);
   color: var(--gray-5, #233944);
   font-family: "Source Sans Pro";
   font-size: var(--font-xs, 0.75rem);
@@ -181,10 +181,18 @@ strong {
   justify-content: center;
 }
 
-.badge .icon, .badge .icon svg {
+.badge .icon,
+.badge .icon svg {
   width: 1rem;
   height: 1rem;
   fill: inherit;
+}
+
+/* semantic aliases */
+.badge.admin {
+  border-radius: 0.25rem;
+  border: 1px solid var(--orange-2, #ffc2ba);
+  background: var(--orange-1, #fff0ee);
 }
 
 .btn {
@@ -192,7 +200,7 @@ strong {
   box-sizing: border-box;
   border-radius: 0.5rem;
   padding: 0.375rem 0.75rem;
-  
+
   /* Layout */
   display: inline-flex;
   justify-content: center;
@@ -227,7 +235,8 @@ strong {
 
 /* When hovering or focusing, the button rises
    up out from the content plane to signal it's interactive. */
-.btn:hover, .btn:focus {
+.btn:hover,
+.btn:focus {
   transform: translateY(-2px);
   background: var(--gray-3, #4294f0);
   box-shadow: 0px 2px 0px 0px var(--gray-4, #1367d0);
@@ -242,7 +251,8 @@ strong {
   background: var(--blue-3, #4294f0);
 }
 
-.btn.primary:hover, .btn.primary:focus {
+.btn.primary:hover,
+.btn.primary:focus {
   transform: translateY(-2px);
   box-shadow: 0px 2px 0px 0px var(--blue-4, #1367d0);
 }
@@ -254,7 +264,8 @@ strong {
   background: var(--green-3, #27c6a2);
 }
 
-.btn.premium:hover, .btn.premium:focus {
+.btn.premium:hover,
+.btn.premium:focus {
   transform: translateY(-2px);
   box-shadow: 0px 2px 0px 0px var(--green-4, #117383);
 }
@@ -266,7 +277,8 @@ strong {
   background: var(--orange-3, #ec7b6b);
 }
 
-.btn.caution:hover, .btn.caution:focus {
+.btn.caution:hover,
+.btn.caution:focus {
   transform: translateY(-2px);
   box-shadow: 0px 2px 0px 0px var(--orange-4, #69515c);
 }
@@ -274,13 +286,14 @@ strong {
 /* Danger button */
 
 .btn.danger {
-  border: 1px solid var(--red-4, #5D275F);
-  background: var(--red-3, #E1275F);
+  border: 1px solid var(--red-4, #5d275f);
+  background: var(--red-3, #e1275f);
 }
 
-.btn.danger:hover, .btn.danger:focus {
+.btn.danger:hover,
+.btn.danger:focus {
   transform: translateY(-2px);
-  box-shadow: 0px 2px 0px 0px var(--red-4, #5D275F);
+  box-shadow: 0px 2px 0px 0px var(--red-4, #5d275f);
 }
 
 /* Ghost button */
@@ -291,7 +304,7 @@ strong {
   border: none;
   border-radius: 0.5rem;
   box-shadow: none;
-  color: var(--gray-4)
+  color: var(--gray-4);
   display: inline-flex;
   gap: 0.5rem;
   justify-content: center;
@@ -338,7 +351,8 @@ strong {
   box-shadow: none;
 }
 
-.btn.ghost:hover, .btn.ghost:focus {
+.btn.ghost:hover,
+.btn.ghost:focus {
   background: var(--blue-1, #eef3f9);
   transform: none;
   box-shadow: none;
@@ -450,9 +464,9 @@ strong {
 
   appearance: none;
   border-radius: 0.5rem;
-  border: 1px solid var(--gray-3, #99A8B3);
-  background: var(--white, #FFF);
-  box-shadow: 0 2px 0 0 #D8DEE2 inset;
+  border: 1px solid var(--gray-3, #99a8b3);
+  background: var(--white, #fff);
+  box-shadow: 0 2px 0 0 #d8dee2 inset;
   font-family: "Source Sans Pro";
   font-size: 1rem;
   line-height: normal;
@@ -464,12 +478,12 @@ strong {
 
 .field textarea {
   border-radius: 0.5rem;
-  border: 1px solid var(--gray-3, #99A8B3);
-  background: var(--white, #FFF);
-  box-shadow: 0 2px 0 0 var(--gray-2, #D8DEE2) inset;
+  border: 1px solid var(--gray-3, #99a8b3);
+  background: var(--white, #fff);
+  box-shadow: 0 2px 0 0 var(--gray-2, #d8dee2) inset;
   padding: 0.375rem 0.75rem;
   color: var(--gray-5, #233944);
-  font-feature-settings: 'ss04' on;
+  font-feature-settings: "ss04" on;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: "Source Sans Pro";
@@ -481,13 +495,13 @@ strong {
 
 .field .help {
   margin: 0;
-  color: var(--gray-4, #5C717C);
+  color: var(--gray-4, #5c717c);
   font-size: var(--font-sm);
 }
 
 .field .error {
   margin: 0;
-  color: var(--red-3, #E1275F);
+  color: var(--red-3, #e1275f);
   font-size: var(--font-sm);
   font-weight: 600;
 }
@@ -500,4 +514,14 @@ strong {
   flex-direction: row;
   align-items: center;
   font-weight: 400;
+}
+
+/* misc */
+.email {
+  color: var(--gray-5, #233944);
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-size: var(--font-xs, 0.75rem);
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1rem; /* 133.333% */
 }
