@@ -1,6 +1,7 @@
 # Django
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import (
     LoginRequiredMixin,
     PermissionRequiredMixin,
@@ -143,11 +144,41 @@ class Detail(AdminLinkMixin, DetailView):
                     ),
                 )
                 invitation.send()
-        elif request.POST.get("action") == "leave" and is_member:
-            self.request.user.memberships.filter(
-                organization=self.organization
-            ).delete()
-            messages.success(request, _("You have left the organization"))
+        elif request.POST.get("action") == "leave":
+            userid = request.POST.get("userid")
+            if userid:
+                if userid == str(request.user.id) and is_member:
+                    # Users removing themselves
+                    request.user.memberships.filter(
+                        organization=self.organization
+                    ).delete()
+                    messages.success(request, _("You left the organization"))
+                elif request.user.is_staff:
+                    # Staff removing another user
+                    user_model = get_user_model()
+                    try:
+                        target_user = user_model.objects.get(pk=userid)
+                        target_user.memberships.filter(
+                            organization=self.organization
+                        ).delete()
+                        messages.success(
+                            request,
+                            _("%(username)s left the organization")
+                            % {"username": target_user.username},
+                        )
+                    except user_model.DoesNotExist:
+                        messages.error(request, _("User not found"))
+                else:
+                    # Only staff can remove other users
+                    messages.error(
+                        request, _("You do not have permission to remove other users")
+                    )
+            elif is_member:
+                # User removing themselves (no userid provided)
+                request.user.memberships.filter(
+                    organization=self.organization
+                ).delete()
+                messages.success(request, _("You left the organization"))
         elif (
             request.POST.get("action") == "sync_wix"
             and self.request.user.is_staff

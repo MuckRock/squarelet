@@ -105,6 +105,7 @@
       {% include "account/team_list_item.html" with organization=org %}
       <form method="post" action="{% url "organizations:detail" slug=org.slug %}" class="actions">
         {% csrf_token %}
+        <input type="hidden" name="userid" value="{{ user.id }}">
         {% if not org.verified_journalist %}
         <a target="_blank" rel="noopener noreferrer" class="btn ghost primary small" href="{% airtable_verification_url org %}">
           {% trans "Request verification" %}
