@@ -89,7 +89,8 @@ document.addEventListener("DOMContentLoaded", function () {
       newCardRadio: form.querySelector('input[value="new"]'),
       managePaymentLink: form.querySelector('.manage-payment-link'),
       newOrgInput: form.querySelector('#id_new_organization_name'),
-      newOrgField: form.querySelector('#id_new_organization_name')?.closest('label')
+      newOrgField: form.querySelector('#id_new_organization_name')?.closest('label'),
+      submitButton: form.querySelector('button[type="submit"]')
     };
   }
   
@@ -214,6 +215,19 @@ document.addEventListener("DOMContentLoaded", function () {
       newOrgInput.value = ''; // Clear the value when hidden
     }
   }
+
+  function updateSubmitButton(selectedOrg: string, elements: Record<string, any>) {
+    const { submitButton } = elements;
+
+    if (!submitButton) return;
+
+    // Enable the button when an organization is selected
+    if (selectedOrg && selectedOrg !== '') {
+      (submitButton as HTMLButtonElement).disabled = false;
+    } else {
+      (submitButton as HTMLButtonElement).disabled = true;
+    }
+  }
   
   // Organization selection handling
   const orgSelects = document.querySelectorAll('.org-select');
@@ -238,10 +252,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // Update UI based on current payment method selection
         updatePaymentUI(elements);
+
+        // Enable the submit button
+        updateSubmitButton(selectedOrg, elements);
       } else {
         // No organization selected - hide everything
         toggleNewOrgField(selectedOrg, elements);
         hideAllPaymentElements(elements);
+
+        // Disable the submit button
+        updateSubmitButton(selectedOrg, elements);
       }
     });
     select.dispatchEvent(new Event("change"));
