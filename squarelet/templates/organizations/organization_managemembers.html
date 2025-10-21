@@ -66,6 +66,7 @@
         <form class="actions" method="POST"
           action="{% url "organizations:manage-members" slug=organization.slug %}">
           {% csrf_token %}
+          <input type="hidden" name="action" value="addmember_link">
           <button class="btn primary ghost" type="submit" name="addmember_link">
             {% include "core/icons/link.svg" %}
             {% trans "Generate invite link" %}
@@ -74,11 +75,11 @@
       </header>
 
       <div class="card">
-        <form method="POST" 
-          id="org-form" 
+        <form method="POST"
+          id="org-form"
           action="{% url "organizations:manage-members" slug=organization.slug %}">
           {% csrf_token %}
-          <input type="hidden" name="action" value="managemembers">
+          <input type="hidden" name="action" value="addmember">
           <div class="email">
             <label>
               <span class="sr-only">{% trans "Email" %}</span>
@@ -106,7 +107,37 @@
         </h2>
         <p>{% trans "Users who've asked to join" %}:</p>
       </header>
-      <div class="card"></div>
+      <div class="card">
+        {% for invitation in requested_invitations %}
+        <div class="invitation">
+          {% include "organizations/user_list_item.html" with user=invitation.user %}
+
+          <form class="actions" method="POST" action="{% url "organizations:manage-members" slug=organization.slug %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="acceptinvite">
+            <input type="hidden" name="inviteid" value="{{ invitation.id }}">
+            <div class="buttons">
+              <button type="submit" class="btn ghost primary">
+                {% include "core/icons/check.svg" %}
+                {% trans "Accept" %}
+              </button>
+            </div>
+          </form>
+
+          <form class="actions" method="POST" action="{% url "organizations:manage-members" slug=organization.slug %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="rejectinvite">
+            <input type="hidden" name="inviteid" value="{{ invitation.id }}">
+            <div class="buttons">
+              <button type="submit" class="btn ghost danger">
+                {% include "core/icons/x.svg" %}
+                {% trans "Reject" %}
+              </button>
+            </div>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
     </section>
     {% endwith %}
     {% endif %}
@@ -137,23 +168,33 @@
           </div>
           {% endif %}
 
-          <form class="actions" method="POST" action="{% url "organizations:manage-members" slug=organization.slug %}">
+          <div class="actions">
             <div class="buttons">
-              <button type="submit" class="btn ghost">
-                {% include "core/icons/paper-airplane.svg" %}
-                {% trans "Resend" %}
-              </button>
+              <form method="POST" action="{% url "organizations:manage-members" slug=organization.slug %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="resendinvite">
+                <input type="hidden" name="inviteid" value="{{ invitation.id }}">
+                <button type="submit" class="btn ghost">
+                  {% include "core/icons/paper-airplane.svg" %}
+                  {% trans "Resend" %}
+                </button>
+              </form>
               <button class="btn ghost">
                 {% include "core/icons/link.svg" %}
                 {% trans "Copy link" %}
               </button>
-              <button class="btn ghost danger">
-                {% include "core/icons/x.svg" %}
-                {% trans "Withdraw" %}
-              </button>
+              <form method="POST" action="{% url "organizations:manage-members" slug=organization.slug %}">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="revokeinvite">
+                <input type="hidden" name="inviteid" value="{{ invitation.id }}">
+                <button type="submit" class="btn ghost danger">
+                  {% include "core/icons/x.svg" %}
+                  {% trans "Withdraw" %}
+                </button>
+              </form>
             </div>
             <p>Generated {{ invitation.created_at }}</p>
-          </form>
+          </div>
         </div>
         {% endfor %}
       </div>
@@ -171,33 +212,43 @@
         <div class="membership">
           {% include "organizations/user_list_item.html" with membership=membership user=membership.user %}
 
-          <form method="POST" class="actions">
-            {% csrf_token %}
-            {% if membership.admin %}
-            <input type="hidden" name="admin" value="false">
-            <button type="submit" class="btn ghost">
-              {% include "core/icons/arrow-down.svg" %}
-              {% trans "Demote to member" %}
-            </button>
-            {% else %}
-            <input type="hidden" name="admin" value="true">
-            <button type="submit" class="btn ghost">
-              {% include "core/icons/arrow-up.svg" %}
-              {% trans "Promote to admin" %}
-            </button>
-            {% endif %}
+          <div class="actions">
+            <form method="POST" action="{% url "organizations:manage-members" slug=organization.slug %}">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="makeadmin">
+              <input type="hidden" name="userid" value="{{ membership.user.id }}">
+              {% if membership.admin %}
+              <input type="hidden" name="admin" value="false">
+              <button type="submit" class="btn ghost">
+                {% include "core/icons/arrow-down.svg" %}
+                {% trans "Demote to member" %}
+              </button>
+              {% else %}
+              <input type="hidden" name="admin" value="true">
+              <button type="submit" class="btn ghost">
+                {% include "core/icons/arrow-up.svg" %}
+                {% trans "Promote to admin" %}
+              </button>
+              {% endif %}
+            </form>
 
-            {% if membership.user == request.user %}
-            <button class="btn ghost danger">
-              {% include "core/icons/sign-out.svg" %}
-              {% trans "Leave" %}
-            </button>
-            {% else %}
-            <button class="btn ghost danger">
-              {% include "core/icons/x-circle.svg" %}
-              {% trans "Remove" %}</button>
-            {% endif %}
-          </form>
+            <form method="POST" action="{% url "organizations:manage-members" slug=organization.slug %}">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="removeuser">
+              <input type="hidden" name="userid" value="{{ membership.user.id }}">
+              {% if membership.user == request.user %}
+              <button type="submit" class="btn ghost danger">
+                {% include "core/icons/sign-out.svg" %}
+                {% trans "Leave" %}
+              </button>
+              {% else %}
+              <button type="submit" class="btn ghost danger">
+                {% include "core/icons/x-circle.svg" %}
+                {% trans "Remove" %}
+              </button>
+              {% endif %}
+            </form>
+          </div>
         </div>
         {% endfor %}
       </div>
