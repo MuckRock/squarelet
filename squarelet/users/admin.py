@@ -37,7 +37,7 @@ from .models import LoginLog, User
 class PermissionFilter(SimpleListFilter):
     """Filter for users by permission"""
 
-    title = "Permission Filter"
+    title = "Permission"
     parameter_name = "permission"
     template = "admin/dropdown_filter.html"
 
@@ -141,7 +141,7 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
         "is_superuser",
         "is_active",
     )
-    list_filter = [PermissionFilter]
+    list_filter = AuthUserAdmin.list_filter + (PermissionFilter,)
     search_fields = ("username_deterministic", "name", "email_deterministic")
     inlines = [EmailInline, InvitationInline, MembershipInline]
 
