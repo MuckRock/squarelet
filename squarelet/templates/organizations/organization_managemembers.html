@@ -157,19 +157,12 @@
           {% if invitation.user %}
             {% include "organizations/user_list_item.html" with user=invitation.user %}
           {% else %}
-            {# include "organizations/invitation_list_item.html" with invitation=invitation #}
-            <div class="invited">
-              <div class="avatar">
-                  {% include "core/icons/mail.svg" %}
-              </div>
-              <div class="info">
-                  <h3>{{ invitation.email }}</h3>
-              </div>
-          </div>
+            {% include "organizations/invitation_list_item.html" with invitation=invitation %}
           {% endif %}
 
           <div class="actions">
             <div class="buttons">
+              {% if invitation.email %}
               <form method="POST" action="{% url "organizations:manage-members" slug=organization.slug %}">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="resendinvite">
@@ -179,6 +172,7 @@
                   {% trans "Resend" %}
                 </button>
               </form>
+              {% endif %}
               <button class="btn ghost">
                 {% include "core/icons/link.svg" %}
                 {% trans "Copy link" %}
