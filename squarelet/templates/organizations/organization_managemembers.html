@@ -173,9 +173,16 @@
                 </button>
               </form>
               {% endif %}
-              <button class="btn ghost">
-                {% include "core/icons/link.svg" %}
-                {% trans "Copy link" %}
+              <label class="field">
+                <span class="sr-only">{% trans "Invite link" %}</span>
+                <input type="text" readonly
+                  value="{{ settings.SQUARELET_URL }}{% url "organizations:invitation" invitation.uuid %}">
+              </label>
+              <button 
+                class="btn ghost small copy" 
+                value="{{ settings.SQUARELET_URL }}{% url "organizations:invitation" invitation.uuid %}">
+                {% include "core/icons/copy.svg" %}
+                <span class="sr-only">{% trans "Copy link" %}</span>
               </button>
               <form method="POST" action="{% url "organizations:manage-members" slug=organization.slug %}">
                 {% csrf_token %}

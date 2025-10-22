@@ -224,6 +224,32 @@ The corresponding files are kept in the `requirements` folder. There are files f
 
 Running `inv pip-compile` will compile the `.in` files to the corresponding `.txt` files. This will pin all of the dependencies, and their dependencies, to the latest versions that meet any constraints that have been put on them. You should run this command if you need to add any new dependencies to an `.in` file. Please keep the `.in` files sorted. After running `inv pip-compile`, you will need to run `inv build` to rebuild the docker images with the new dependencies included.
 
+## Static files and frontend code
+
+We use Vite and `django-vite` to organize and bundle all CSS and javascript. Everything lives in the `frontend` directory.
+
+- CSS is in `frontend/css`
+- General utility javascript is in `frontend/js`
+- View-specific javascript is in `frontend/views/` as Typescript files
+
+Each Django view should have a corresponding HTML template, CSS file and TS file, with matching names so they're easy to find:
+
+- `squarelet/templates/organizations/organization_list.html` is a Django template
+- `frontend/css/organization_list.css` is the CSS file for that template
+- `frontend/views/organization_list.ts` is a Typescript entrypoint for that template
+
+Vite then handles all static assets on this page, so `organization_list.ts` imports `organization_list.css` and any other css files it needs, and Vite bundles everything. Then on the template, we use one line to get everything:
+
+```
+{% vite_asset 'frontend/views/organization_list.ts' %}
+```
+
+Svelte components live in `frontend/components` and can be imported into view files as needed. They need to be mounted explicitly, using Svelte's `mount()` function. We use Svelte 5.
+
+### Icons
+
+Icons are sometimes duplicated, because we need to use them in both Django templates and Svelte components. For Django templates, add SVG files to `squarelet/templates/core/icons`. For Svelte or other frontend-only use, add SVG files to `frontend/icons`.
+
 [docker]: https://docs.docker.com/
 [nginx]: https://www.nginx.com/
 [mailhog]: https://github.com/mailhog/MailHog
