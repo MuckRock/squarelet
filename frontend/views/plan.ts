@@ -64,9 +64,11 @@ document.addEventListener("DOMContentLoaded", function () {
       if (payMethodInput != null && payMethodInput.value == "existing") {
         // Do not try to get token if using a card on file
         form.submit();
+        /* Skip until #461
       } else if (payMethodInput != null && payMethodInput.value == "invoice") {
         // Do not try to get token if paying by invoice
         form.submit();
+        */
       } else {
         stripe.createToken(cardElement).then(function(result) {
           if (result.error) {
@@ -120,9 +122,10 @@ document.addEventListener("DOMContentLoaded", function () {
   
   function updateCardOptions(selectedOrg, elements) {
     const { cardOnFileOptions, existingCardRadio, newCardRadio } = elements;
-    const invoiceRadio = document.querySelector('input[value="invoice"]');
+    // const invoiceRadio = document.querySelector('input[value="invoice"]');
     const orgHasCard = orgCards[selectedOrg];
-    const noSelection = !existingCardRadio.checked && !newCardRadio.checked && !(invoiceRadio && invoiceRadio.checked);
+    // const noSelection = !existingCardRadio.checked && !newCardRadio.checked && !(invoiceRadio && invoiceRadio.checked);
+    const noSelection = !existingCardRadio.checked && !newCardRadio.checked;
 
     if (orgHasCard) {
       // Show existing card option and update card info
@@ -164,7 +167,7 @@ document.addEventListener("DOMContentLoaded", function () {
   
   function updatePaymentUI(elements) {
     const { cardField, saveCardCheckbox, existingCardRadio, newCardRadio } = elements;
-    const invoiceRadio = document.querySelector('input[value="invoice"]');
+    // const invoiceRadio = document.querySelector('input[value="invoice"]');
 
     if (existingCardRadio.checked) {
       cardField.style.display = 'none';
@@ -172,10 +175,13 @@ document.addEventListener("DOMContentLoaded", function () {
     } else if (newCardRadio.checked) {
       cardField.style.display = 'block';
       saveCardCheckbox.style.display = 'block';
+    }
+    /* Skip until #461
     } else if (invoiceRadio && invoiceRadio.checked) {
       cardField.style.display = 'none';
       saveCardCheckbox.style.display = 'none';
     }
+    */
   }
   
   function hideAllPaymentElements(elements) {
