@@ -1,8 +1,8 @@
 .invited {
   display: flex;
-  justify-content: flex-end;
-  align-items: flex-start;
-  align-self: stretch;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
 
   .avatar {
     display: flex;
@@ -21,10 +21,9 @@
   .info {
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: flex-start;
     gap: 0.25rem;
-    align-self: stretch;
 
     h3 {
       color: var(--gray-5, #233944);
