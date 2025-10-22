@@ -55,8 +55,8 @@ class PlanDetailView(DetailView):
         plan = self.get_object()
 
         # Add plan data for JSON serialization
-        context['plan_data'] = {
-            'annual': plan.annual,
+        context["plan_data"] = {
+            "annual": plan.annual,
         }
 
         if self.request.user.is_authenticated:
@@ -154,7 +154,17 @@ class PlanDetailView(DetailView):
         organization_id = request.POST.get("organization")
         new_organization_name = request.POST.get("new_organization_name")
         stripe_token = request.POST.get("stripe_token")
-        payment_method = request.POST.get("payment_method", "new")
+
+        # Set default payment method based on whether a token is provided
+        # If no payment_method is specified:
+        # use "card" if token exists, "invoice" otherwise
+        default_payment_method = "card" if stripe_token else "invoice"
+        payment_method = request.POST.get("payment_method", default_payment_method)
+
+        # Convert frontend payment method values to backend values
+        # Frontend sends "new" or "existing" for card payments, "invoice" for invoice
+        if payment_method in ("new", "existing"):
+            payment_method = "card"
 
         try:
             # Get or create the organization

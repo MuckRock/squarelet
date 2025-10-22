@@ -47,6 +47,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
             plan=plan,
             max_users=plan.minimum_users,
             user=user,
+            payment_method="card",
         )
 
         # Should redirect to the organization
@@ -126,6 +127,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
             plan=plan,
             max_users=plan.minimum_users,
             user=user,
+            payment_method="card",
         )
 
         # Should redirect to the organization

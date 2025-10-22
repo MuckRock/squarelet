@@ -24,7 +24,6 @@ from squarelet.organizations.choices import (
     STATE_CHOICES,
     ChangeLogReason,
 )
-from squarelet.organizations.models import payment
 from squarelet.organizations.models.payment import Charge
 from squarelet.organizations.querysets import (
     InvitationQuerySet,
@@ -411,7 +410,9 @@ class Organization(AvatarMixin, models.Model):
             customer.email = self.email
             customer.save()
 
-        self.subscriptions.start(organization=self, plan=plan, payment_method=payment_method)
+        self.subscriptions.start(
+            organization=self, plan=plan, payment_method=payment_method
+        )
 
     def set_subscription(self, token, plan, max_users, user, payment_method="card"):
         # pylint: disable=import-outside-toplevel

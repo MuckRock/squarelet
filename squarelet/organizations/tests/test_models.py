@@ -199,7 +199,7 @@ class TestOrganization:
         assert mocked_customer.email == organization.email
         mocked_customer.save.assert_called()
         mocked_subscriptions.start.assert_called_with(
-            organization=organization, plan=plan
+            organization=organization, plan=plan, payment_method="card"
         )
 
     @pytest.mark.django_db
@@ -218,7 +218,7 @@ class TestOrganization:
         max_users = 10
         token = "token"
         organization.set_subscription(token, plan, max_users, user)
-        mocked.assert_called_with(None, plan, user)
+        mocked.assert_called_with(None, plan, user, payment_method="card")
 
     @pytest.mark.django_db
     def test_set_subscription_cancel(
