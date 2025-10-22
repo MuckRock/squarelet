@@ -215,23 +215,36 @@
 #pending {
   .invitation {
     display: flex;
-    justify-content: flex-end;
-    align-items: flex-start;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
     align-self: stretch;
 
     .actions {
       display: flex;
-      width: 17rem;
       flex-direction: column;
       justify-content: center;
       align-items: flex-end;
       gap: 0.5rem;
+      min-width: 0;
 
       .buttons {
         display: flex;
-        width: 17rem;
         justify-content: flex-end;
-        align-items: flex-start;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        width: 100%;
+      }
+
+      .field {
+        flex: 1;
+        min-width: 0;
+
+        input[type="text"] {
+          width: 100%;
+          min-width: 0;
+        }
       }
 
       p {
