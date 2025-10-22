@@ -132,6 +132,111 @@ class TestDetail(ViewTestMixin):
         assert response.status_code == 302
         assert not organization.has_member(leaver)
 
+    def test_post_staff_remove_user(self, rf, organization_factory, user_factory):
+        """Staff member should be able to remove a user from an organization"""
+        staff_member = user_factory(is_staff=True)
+        target_user = user_factory()
+        organization = organization_factory(users=[target_user])
+
+        response = self.call_view(
+            rf,
+            staff_member,
+            {"action": "leave", "userid": target_user.pk},
+            slug=organization.slug,
+        )
+        assert response.status_code == 302
+        assert not organization.has_member(target_user)
+        # Ensure staff member is not affected
+        assert not organization.has_member(staff_member)
+
+    def test_post_staff_remove_admin(self, rf, organization_factory, user_factory):
+        """Staff member should be able to remove an admin from an organization"""
+        staff_member = user_factory(is_staff=True)
+        target_admin = user_factory()
+        organization = organization_factory(admins=[target_admin])
+
+        response = self.call_view(
+            rf,
+            staff_member,
+            {"action": "leave", "userid": target_admin.pk},
+            slug=organization.slug,
+        )
+        assert response.status_code == 302
+        assert not organization.has_member(target_admin)
+        assert not organization.has_admin(target_admin)
+
+    def test_post_staff_remove_other_staff(
+        self, rf, organization_factory, user_factory
+    ):
+        """Staff member should be able to remove another staff member from an org"""
+        staff_member1 = user_factory(is_staff=True)
+        staff_member2 = user_factory(is_staff=True)
+        organization = organization_factory(users=[staff_member2])
+
+        response = self.call_view(
+            rf,
+            staff_member1,
+            {"action": "leave", "userid": staff_member2.pk},
+            slug=organization.slug,
+        )
+        assert response.status_code == 302
+        assert not organization.has_member(staff_member2)
+
+    def test_post_non_staff_cannot_remove_other_user(
+        self, rf, organization_factory, user_factory
+    ):
+        """Non-staff member should not be able to remove another user"""
+        regular_user = user_factory()
+        target_user = user_factory()
+        organization = organization_factory(users=[regular_user, target_user])
+
+        response = self.call_view(
+            rf,
+            regular_user,
+            {"action": "leave", "userid": target_user.pk},
+            slug=organization.slug,
+        )
+        assert response.status_code == 302
+        # Both users should still be members since non-staff can't remove others
+        assert organization.has_member(target_user)
+        assert organization.has_member(regular_user)
+        self.assert_message(
+            messages.ERROR, "You do not have permission to remove other users"
+        )
+
+    def test_post_staff_remove_themselves_with_userid(
+        self, rf, organization_factory, user_factory
+    ):
+        """Staff member should be able to remove themselves using userid parameter"""
+        staff_member = user_factory(is_staff=True)
+        organization = organization_factory(users=[staff_member])
+
+        response = self.call_view(
+            rf,
+            staff_member,
+            {"action": "leave", "userid": staff_member.pk},
+            slug=organization.slug,
+        )
+        assert response.status_code == 302
+        assert not organization.has_member(staff_member)
+
+    def test_post_staff_remove_nonexistent_user(
+        self, rf, organization_factory, user_factory
+    ):
+        """Staff trying to remove a non-existent user should handle gracefully"""
+        staff_member = user_factory(is_staff=True)
+        organization = organization_factory()
+
+        # Try to remove a user with an ID that doesn't exist
+        response = self.call_view(
+            rf,
+            staff_member,
+            {"action": "leave", "userid": 99999},
+            slug=organization.slug,
+        )
+        # Should still redirect but show an error message
+        assert response.status_code == 302
+
 
 @pytest.mark.django_db()
 def test_list(rf, organization_factory):
