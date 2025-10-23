@@ -61,7 +61,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const payMethodInput = document.querySelector(
         "input[name=payment_method]:checked",
       );
-      if (payMethodInput != null && payMethodInput.value == "existing") {
+      if (payMethodInput != null && payMethodInput.value == "existing-card") {
         // Do not try to get token if using a card on file
         form.submit();
         /* Skip until #461
@@ -92,8 +92,8 @@ document.addEventListener("DOMContentLoaded", function () {
       cardField: form.querySelector('.card-field'),
       paymentMethods: form.querySelector('.payment-methods'),
       saveCardCheckbox: form.querySelector('input[name="save_card"]').closest('label'),
-      existingCardRadio: form.querySelector('input[value="existing"]'),
-      newCardRadio: form.querySelector('input[value="new"]'),
+      existingCardRadio: form.querySelector('input[value="existing-card"]'),
+      newCardRadio: form.querySelector('input[value="new-card"]'),
       managePaymentLink: form.querySelector('.manage-payment-link'),
       newOrgInput: form.querySelector('#id_new_organization_name'),
       newOrgField: form.querySelector('#id_new_organization_name')?.closest('label'),

@@ -43,11 +43,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
 
         # Verify subscription was created
         mock_set_subscription.assert_called_once_with(
-            token="tok_visa",
-            plan=plan,
-            max_users=plan.minimum_users,
-            user=user,
-            payment_method="card",
+            token="tok_visa", plan=plan, max_users=plan.minimum_users, user=user
         )
 
         # Should redirect to the organization
@@ -123,11 +119,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
 
         # Verify subscription was created with existing org
         mock_set_subscription.assert_called_once_with(
-            token="tok_visa",
-            plan=plan,
-            max_users=plan.minimum_users,
-            user=user,
-            payment_method="card",
+            token="tok_visa", plan=plan, max_users=plan.minimum_users, user=user
         )
 
         # Should redirect to the organization
