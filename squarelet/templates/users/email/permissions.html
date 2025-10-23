@@ -18,11 +18,12 @@
   <h2>Staff</h2>
   <p>The following users are may access the Django backend:</p>
   <ul>
-    {% for user in staff %}
+    {% for user, mfa_enabled in staff %}
       <li>
         <a href="{% url "admin:users_user_change" user.pk %}">
           {{ user.username }}
         </a>
+        (2FA: {{mfa_enabled|yesno}})
       </li>
     {% endfor %}
   </ul>
