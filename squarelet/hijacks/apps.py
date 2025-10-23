@@ -1,7 +1,7 @@
 from django.apps import AppConfig
 
 class HijacksConfig(AppConfig):
-    name = "hijacks"
+    name = "squarelet.hijacks"
 
     def ready(self):
-        import hijacks.signals
+        import squarelet.hijacks.signals
