@@ -1,10 +1,13 @@
 # Django
 from django.contrib import admin
+from django.contrib.admin.filters import SimpleListFilter
 from django.contrib.auth.admin import UserAdmin as AuthUserAdmin
 from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.models import Permission
 from django.contrib.postgres.aggregates.general import StringAgg
 from django.db.models.expressions import Exists, OuterRef
 from django.db.models.functions.comparison import Collate
+from django.db.models.query_utils import Q
 from django.http.response import HttpResponse
 from django.urls import reverse
 from django.urls.conf import re_path
@@ -29,6 +32,24 @@ from squarelet.organizations.models.organization import Membership
 
 # Local
 from .models import LoginLog, User
+
+
+class PermissionFilter(SimpleListFilter):
+    """Filter for users by permission"""
+
+    title = "Permission"
+    parameter_name = "permission"
+    template = "admin/dropdown_filter.html"
+
+    def lookups(self, request, model_admin):
+        return Permission.objects.values_list("pk", "name")
+
+    def queryset(self, request, queryset):
+        return queryset.filter(
+            Q(user_permissions=self.value())
+            | Q(groups__permissions=self.value())
+            | Q(is_superuser=True)
+        ).distinct()
 
 
 class EmailInline(admin.TabularInline):
@@ -120,6 +141,7 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
         "is_superuser",
         "is_active",
     )
+    list_filter = AuthUserAdmin.list_filter + (PermissionFilter,)
     search_fields = ("username_deterministic", "name", "email_deterministic")
     inlines = [EmailInline, InvitationInline, MembershipInline]
 
