@@ -1,4 +1,6 @@
+# Django
 from django.apps import AppConfig
+
 
 class HijacksConfig(AppConfig):
     name = "squarelet.hijacks"

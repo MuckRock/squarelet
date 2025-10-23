@@ -1,6 +1,12 @@
+# Django
 from django.dispatch import receiver
-from hijack.signals import hijack_started, hijack_ended
+
+# Third Party
+from hijack.signals import hijack_ended, hijack_started
+
+# Local
 from .models import HijackLog
+
 
 @receiver(hijack_started)
 def log_hijack_start(sender, hijacker_id, hijacked_id, **kwargs):
@@ -9,6 +15,7 @@ def log_hijack_start(sender, hijacker_id, hijacked_id, **kwargs):
         hijacked_id=hijacked_id,
         action="start",
     )
+
 
 @receiver(hijack_ended)
 def log_hijack_end(sender, hijacker_id, hijacked_id, **kwargs):

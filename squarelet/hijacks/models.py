@@ -1,11 +1,21 @@
 # hijacks/models.py
+# Django
 from django.db import models
+
+# Squarelet
 from squarelet.users.models import User
 
+
 class HijackLog(models.Model):
-    hijacker = models.ForeignKey(User, on_delete=models.CASCADE, related_name="hijacker_logs")
-    hijacked = models.ForeignKey(User, on_delete=models.CASCADE, related_name="hijacked_logs")
-    action = models.CharField(max_length=10, choices=[("start", "Started"), ("end", "Ended")])
+    hijacker = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="hijacker_logs"
+    )
+    hijacked = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="hijacked_logs"
+    )
+    action = models.CharField(
+        max_length=10, choices=[("start", "Started"), ("end", "Ended")]
+    )
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
