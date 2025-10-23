@@ -350,6 +350,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "squarelet.statistics.tasks.send_digest",
         "schedule": crontab(hour=7, minute=0),
     },
+    "permission_digest": {
+        "task": "squarelet.users.tasks.permission_digest",
+        "schedule": crontab(day_of_week="mon", hour=7, minute=0),
+    },
 }
 
 # django-allauth
@@ -388,6 +392,7 @@ MFA_ADAPTER = "squarelet.users.adapters.MfaAdapter"
 MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = ENV == "dev"
 
 DIGEST_EMAILS = env.list("DIGEST_EMAILS", default=[])
+PERMISSIONS_DIGEST_EMAILS = env.list("PERMISSIONS_DIGEST_EMAILS", default=[])
 
 MFA_PROMPT_SNOOZE_DURATION = timedelta(weeks=2)
 
