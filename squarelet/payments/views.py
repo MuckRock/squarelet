@@ -54,6 +54,11 @@ class PlanDetailView(DetailView):
         context = super().get_context_data(**kwargs)
         plan = self.get_object()
 
+        # Add plan data for JSON serialization
+        context["plan_data"] = {
+            "annual": plan.annual,
+        }
+
         if self.request.user.is_authenticated:
             user = self.request.user
             existing_subscriptions = []
@@ -138,14 +143,41 @@ class PlanDetailView(DetailView):
         return context
 
     def post(self, request, *args, **kwargs):
+        """
+        This receives a form submission for subscribing to the plan.
+        The form supports selecting an existing organization or creating a new one,
+        and choosing a payment method (new card, existing card, or invoice).
+
+        Except! Invoice handling is getting expanded support in #461—we are only
+        using invoices as a silent fallback for when no card has been provided.
+        This is an edge case and not a user-selectable option at this time.
+        """
         plan = self.get_object()
 
         if not request.user.is_authenticated:
-            # Redirect unauthenticated users to login, then back to this plan
-
+            # Redirect unauthenticated users to login, then back to this page
             return redirect_to_login(request.get_full_path())
 
+        # pylint: disable=pointless-string-statement
+        # It's not pointless, it's a block comment
+        """
         # Get form data
+
+        - Organization
+            - If creating a new organization, the ID will be "new"
+            - If creating a new organization, get the name from the form
+        - Stripe token
+            - If the user entered a credit card, the stripe_token will be populated
+            - If they are using a saved card, this value will be empty.
+            - If they are using an existing organization, there's a chance we'll have
+              a saved card on file already. If it's a new organization, we should expect
+              to have a token value.
+        - Payment method: one of "new-card", "existing-card", or "invoice"
+            - "new-card": user entered a new card (stripe_token will be populated)
+            - "existing-card": user selected an existing saved card (stripe_token empty)
+            - "invoice": user selected invoice payment (stripe_token empty)
+        """
+
         organization_id = request.POST.get("organization")
         new_organization_name = request.POST.get("new_organization_name")
         stripe_token = request.POST.get("stripe_token")

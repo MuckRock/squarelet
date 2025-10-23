@@ -211,13 +211,13 @@ class ChargeQuerySet(models.QuerySet):
 
 
 class SubscriptionQuerySet(models.QuerySet):
-    def start(self, organization, plan):
+    def start(self, organization, plan, payment_method="card"):
         subscription = self.model(
             organization=organization,
             plan=plan,
             update_on=date.today() + relativedelta(months=1),
         )
-        subscription.start()
+        subscription.start(payment_method=payment_method)
         subscription.save()
         return subscription
 

@@ -399,14 +399,25 @@ class Organization(AvatarMixin, models.Model):
 
     def create_subscription(self, token, plan, user):
         if token:
+            # The user provided a new card: save it to the org's account
             self.save_card(token, user)
+            payment_method = "card"
+        elif self.customer().card:
+            # Use the existing card saved to the org customer
+            payment_method = "card"
+        else:
+            # If we're missing a token and have no saved card,
+            # we can only issue an invoice
+            payment_method = "invoice"
 
         customer = self.customer().stripe_customer
         if not customer.email:
             customer.email = self.email
             customer.save()
 
-        self.subscriptions.start(organization=self, plan=plan)
+        self.subscriptions.start(
+            organization=self, plan=plan, payment_method=payment_method
+        )
 
     def set_subscription(self, token, plan, max_users, user):
         # pylint: disable=import-outside-toplevel
@@ -414,8 +425,6 @@ class Organization(AvatarMixin, models.Model):
 
         if self.individual:
             max_users = 1
-        if token:
-            self.save_card(token, user)
 
         # store so we can log
         from_plan, from_max_users = (self.plan, self.max_users)
@@ -428,8 +437,7 @@ class Organization(AvatarMixin, models.Model):
 
         if not self.plan and plan:
             # create a subscription going from no plan to plan
-            # Don't pass the token in here, as we already saved it above
-            self.create_subscription(None, plan, user)
+            self.create_subscription(token, plan, user)
         elif self.plan and not plan:
             # cancel a subscription going from plan to no plan
             self.subscription.cancel()
