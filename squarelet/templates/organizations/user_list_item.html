@@ -1,0 +1,29 @@
+{# required css: css/user_list_item.css #}
+{% load thumbnail i18n %}
+{% with avatar=user.avatar %}
+<div class="user">
+    {% if avatar %}
+        {% thumbnail avatar "100x100" crop="center" as img %}
+        <a class="avatar" href="{% url "users:detail" username=user.username %}">
+            <img src="{{ img.url }}" width="{{ img.width }}" height="{{ img.height }}" />
+        </a>
+        {% endthumbnail %}
+    {% else %}
+        <a class="avatar" href="{% url "users:detail" username=user.username %}">
+            {% include 'core/icons/person-24.svg' %}
+        </a>
+    {% endif %}
+    <div class="info">
+        <h3>{% firstof user.name user.username %}</h3>
+        <div class="details">
+            {% if user == request.user %}
+            <span class="blue badge">{% trans "You" %}</span>
+            {% endif %}
+            {% if membership.admin %}
+            <span class="orange badge">{% trans "Admin" %}</span>
+            {% endif %}
+            <span class="caption">{{ user.email }}</span>
+        </div>
+    </div>
+</div>
+{% endwith %}

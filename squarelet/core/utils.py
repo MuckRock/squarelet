@@ -158,6 +158,18 @@ def mailchimp_journey(email, journey):
     return response
 
 
+def pluralize(count, singular="", plural="s"):
+    """
+    Helper function for pluralization.
+    Returns the singular form if count is 1, otherwise returns the plural form.
+
+    Examples:
+        f"{count} invitation{pluralize(count)}" -> "1 invitation" or "2 invitations"
+        f"{count} categor{pluralize(count, 'y', 'ies')}" -> "1 category" or "2 categories"
+    """
+    return singular if count == 1 else plural
+
+
 def get_redirect_url(request, fallback):
     """
     Try to get a redirect URL from HTTP_REFERER header first,
