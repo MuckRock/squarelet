@@ -18,6 +18,7 @@ from squarelet.core.utils import (
     format_stripe_error,
     get_redirect_url,
     mailchimp_journey,
+    pluralize,
 )
 
 
@@ -30,6 +31,25 @@ def test_file_path_long():
     """File path truncates the file name if necessary"""
     file_name = "a" * 100 + ".ext"
     assert len(file_path("base", None, file_name)) == 92
+
+
+def test_pluralize():
+    # Pluralize returns plural form for counts other than 1
+    assert pluralize(0, "baby") == "babies"
+    assert pluralize(2, "duck") == "ducks"
+    assert pluralize(5, "sheep") == "sheep"
+    assert pluralize(0, "category") == "categories"
+    assert pluralize(2, "octopus") == "octopi"
+
+    # Pluralize returns singular form for count of 1
+    assert pluralize(1, "baby") == "baby"
+    assert pluralize(1, "duck") == "duck"
+
+    # Test in strings
+    assert f"1 {pluralize(1, 'invitation')}" == "1 invitation"
+    assert f"5 {pluralize(5, 'invitation')}" == "5 invitations"
+    assert f"1 {pluralize(1, 'category')}" == "1 category"
+    assert f"5 {pluralize(5, 'category')}" == "5 categories"
 
 
 @override_settings(

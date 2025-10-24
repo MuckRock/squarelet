@@ -46,6 +46,7 @@ from squarelet.core.utils import (
     get_redirect_url,
     get_stripe_dashboard_url,
     is_rate_limited,
+    pluralize
 )
 from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.denylist_domains import DENYLIST_DOMAINS
@@ -460,7 +461,7 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
             )
         else:
             emails = addmember_form.cleaned_data["emails"]
-
+            invitations_sent = 0
             for email in emails:
                 is_already_member = self.organization.has_member_by_email(email)
                 existing_open_invite = self.organization.get_existing_open_invite(email)
@@ -484,8 +485,11 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
                     email=email,
                 )
                 invitation.send()
-
-                messages.success(self.request, "Invitations sent")
+                invitations_sent += 1
+            messages.success(
+                self.request,
+                f"{invitations_sent} {pluralize(invitations_sent, "invitation")} sent",
+            )
 
         return redirect("organizations:manage-members", slug=self.organization.slug)
 
@@ -503,47 +507,52 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
         )
         return redirect("organizations:manage-members", slug=self.organization.slug)
 
-    def _handle_invite(self, request, invite_fn, success_message):
+    def _handle_invite(self, request, invite_fn, success_message_fn):
         try:
             inviteid = request.POST.get("inviteid")
             invite = Invitation.objects.get_open().get(
                 pk=inviteid, organization=self.organization
             )
             invite_fn(invite)
-            messages.success(self.request, success_message)
+            messages.success(self.request, success_message_fn(invite))
         except Invitation.DoesNotExist:
             return self._bad_call(request)
         return redirect("organizations:manage-members", slug=self.organization.slug)
 
     def _handle_revoke_invite(self, request):
         return self._handle_invite(
-            request, lambda invite: invite.reject(), "Invitation revoked"
+            request,
+            lambda invite: invite.reject(),
+            lambda invite: f"Invitation to {invite.email} revoked",
         )
 
     def _handle_resend_invite(self, request):
         return self._handle_invite(
             request,
             lambda invite: invite.send(),
-            "Invitation resent successfully.",
+            lambda invite: f"Invitation to {invite.email} resent successfully.",
         )
 
     def _handle_accept_invite(self, request):
-        def accept_invite(invite):
-            invite.accept()
-
-        return self._handle_invite(request, accept_invite, "Invitation accepted")
+        return self._handle_invite(
+            request,
+            lambda invite: invite.accept(),
+            lambda invite: f"Invitation from {invite.email} accepted",
+        )
 
     def _handle_reject_invite(self, request):
         return self._handle_invite(
-            request, lambda invite: invite.reject(), "Invitation rejected"
+            request,
+            lambda invite: invite.reject(),
+            lambda invite: f"Invitation from {invite.email} rejected",
         )
 
-    def _handle_user(self, request, membership_fn, success_message):
+    def _handle_user(self, request, membership_fn, success_message_fn):
         try:
             userid = request.POST.get("userid")
             membership = self.organization.memberships.get(user_id=userid)
             membership_fn(membership)
-            messages.success(self.request, success_message)
+            messages.success(self.request, success_message_fn(membership))
         except Membership.DoesNotExist:
             return self._bad_call(request)
         return redirect("organizations:manage-members", slug=self.organization.slug)
@@ -564,14 +573,19 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
         return self._handle_user(
             request,
             handle_make_admin,
-            "Made an admin" if set_admin else "Made not an admin",
+            lambda membership: (
+                f"{membership.user.username} promoted to admin"
+                if set_admin
+                else f"{membership.user.username} demoted to member"
+            ),
         )
 
     def _handle_remove_user(self, request):
-        def remove_user(membership):
-            membership.delete()
-
-        return self._handle_user(request, remove_user, "Removed user")
+        return self._handle_user(
+            request,
+            lambda membership: membership.delete(),
+            lambda membership: f"{membership.user.username} removed",
+        )
 
     def _bad_call(self, request):
         messages.error(self.request, "An unexpected error occurred")
