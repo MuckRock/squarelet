@@ -2,18 +2,18 @@
 {% load i18n %}
 <div class="invited">
     {% if invitation.email %}
-    <div class="avatar">
-        {% include "core/icons/mail.svg" %}
+    <div class="email avatar">
+        {% include "core/icons/mail-24.svg" %}
     </div>
     <div class="info">
         <h3>{{ invitation.email }}</h3>
     </div>
     {% else %}
-    <div class="avatar">
-        {% include "core/icons/link.svg" %}
+    <div class="link avatar">
+        {% include "core/icons/link-24.svg" %}
     </div>
     <div class="info">
-        {% trans "Generated link" %}
+        <h3>{% trans "Generated link" %}</h3>
     </div>
     {% endif %}
 </div>

@@ -184,13 +184,6 @@ h3 {
   fill: inherit;
 }
 
-/* semantic aliases */
-.badge.admin {
-  border-radius: 0.25rem;
-  border: 1px solid var(--orange-2, #ffc2ba);
-  background: var(--orange-1, #fff0ee);
-}
-
 .btn {
   /* Sizing */
   box-sizing: border-box;
@@ -312,7 +305,7 @@ h3 {
   text-decoration: none;
 
   svg path {
-    fill: var(--gray-4);
+    fill: currentColor;
   }
 }
 
@@ -325,10 +318,6 @@ h3 {
 .btn.ghost.primary {
   color: var(--blue-3, #1367d0);
   fill: var(--blue-3, #1367d0);
-
-  svg path {
-    fill: var(--blue-3, #1367d0);
-  }
 }
 
 .btn.ghost.primary:hover {
@@ -502,6 +491,7 @@ h3 {
 }
 
 .field .help {
+  margin: 0;
   color: var(--gray-4, #5c717c);
   font-size: var(--font-sm);
 }
@@ -519,9 +509,10 @@ h3 {
   font-weight: 400;
 }
 
-/* misc */
-.email {
-  color: var(--gray-5, #233944);
+/* Font Styles */
+.caption {
+  margin: 0;
+  color: var(--gray-4);
   font-family: var(--font-sans, "Source Sans Pro");
   font-size: var(--font-xs, 0.75rem);
   font-style: normal;
