@@ -1,19 +1,17 @@
 /* for /organizations/<slug>/manage-members/ */
+import { copyToClipboard } from "../util";
 import "@/css/organization_managemembers.css";
 import "@/css/user_list_item.css";
 import "@/css/invitation_list_item.css";
 
-function init() {
-  const buttons = document.querySelectorAll("button.copy");
-
-  buttons.forEach((buttton) => {
-    buttton.addEventListener("click", (e) => {
-      const link = buttton.getAttribute("value");
-      if (link) {
-        window?.navigator?.clipboard?.writeText(link);
-      }
+function main() {
+  document.querySelectorAll("button[data-clipboard]").forEach((button) => {
+    button.addEventListener("click", (e) => {
+      e.preventDefault();
+      const target = e.currentTarget as HTMLButtonElement;
+      copyToClipboard(target.value);
     });
   });
 }
 
-window.addEventListener("DOMContentLoaded", init);
+window.addEventListener("DOMContentLoaded", main);
