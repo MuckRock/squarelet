@@ -330,7 +330,7 @@
         {% for email in emails %}
         <div class="email account">
           <div class="account-detail">
-            <span class="icon">{% include "core/icons/mail.svg" %}</span>
+            <span class="icon">{% include "core/icons/mail-24.svg" %}</span>
             <h3 class="label">{{email.email}}</h3>
           </div>
           <form class="email-actions" action="{% url "account_email" %}" method="post">

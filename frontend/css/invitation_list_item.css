@@ -3,35 +3,51 @@
   align-items: center;
   gap: 0.5rem;
   flex: 1;
+}
 
-  .avatar {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    align-self: stretch;
+.invited .avatar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  align-self: stretch;
+}
 
-    svg {
-      width: 1.5rem;
-      height: 1.09375rem;
-      flex-shrink: 0;
-      fill: var(--gray-3, #99a8b3);
-    }
-  }
+.invited .email.avatar,
+.invited .link.avatar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 3.125rem;
+}
 
-  .info {
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    align-items: flex-start;
-    gap: 0.25rem;
+.invited .avatar svg {
+  width: 1.5rem;
+  height: 1.5rem;
+  fill: var(--gray-3, #99a8b3);
+}
 
-    h3 {
-      color: var(--gray-5, #233944);
-      font-family: var(--font-sans, "Source Sans Pro");
-      font-size: var(--font-md, 1rem);
-      font-style: normal;
-      font-weight: 600;
-      line-height: 1.5rem;
-    }
-  }
+.invited .info {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.invited .info h3 {
+  margin: 0;
+  color: var(--gray-5, #233944);
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-size: var(--font-md, 1rem);
+  font-style: normal;
+  font-weight: 600;
+  line-height: 1.5rem;
+}
+
+#managemembers .invitation {
+  display: flex;
+  align-items: flex-start;
+  align-self: stretch;
+  justify-content: space-between;
+  gap: 1rem;
 }
