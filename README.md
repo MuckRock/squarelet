@@ -226,11 +226,11 @@ Running `inv pip-compile` will compile the `.in` files to the corresponding `.tx
 
 ## Static files and frontend code
 
-We use Vite and `django-vite` to organize and bundle all CSS and javascript. Everything lives in the `frontend` directory.
+We use Vite and `django-vite` to organize and bundle all CSS and JavaScript. Everything lives in the `frontend` directory.
 
 - CSS is in `frontend/css`
-- General utility javascript is in `frontend/js`
-- View-specific javascript is in `frontend/views/` as Typescript files
+- General utility JavaScript is in `frontend/js`
+- View-specific JavaScript is in `frontend/views/` as TypeScript files
 
 Each Django view should have a corresponding HTML template, CSS file and TS file, with matching names so they're easy to find:
 
@@ -241,6 +241,8 @@ Each Django view should have a corresponding HTML template, CSS file and TS file
 Vite then handles all static assets on this page, so `organization_list.ts` imports `organization_list.css` and any other css files it needs, and Vite bundles everything. Then on the template, we use one line to get everything:
 
 ```
+{% load django_vite %}
+
 {% vite_asset 'frontend/views/organization_list.ts' %}
 ```
 
