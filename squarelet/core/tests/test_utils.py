@@ -11,7 +11,12 @@ from unittest.mock import MagicMock, patch
 import requests
 
 # Squarelet
-from squarelet.core.utils import file_path, get_redirect_url, mailchimp_journey
+from squarelet.core.utils import (
+    file_path,
+    get_redirect_url,
+    mailchimp_journey,
+    pluralize,
+)
 
 
 def test_file_path_normal():
@@ -23,6 +28,27 @@ def test_file_path_long():
     """File path truncates the file name if necessary"""
     file_name = "a" * 100 + ".ext"
     assert len(file_path("base", None, file_name)) == 92
+
+
+def test_pluralize():
+    # Pluralize returns 's' for count other than 1
+    assert pluralize(0) == "s"
+    assert pluralize(2) == "s"
+    assert pluralize(5) == "s"
+    assert pluralize(100) == "s"
+    assert pluralize(0, "y", "ies") == "ies"
+    assert pluralize(2, "y", "ies") == "ies"
+    assert pluralize(5, "y", "ies") == "ies"
+
+    # Pluralize returns empty string for count of 1
+    assert pluralize(1) == ""
+    assert pluralize(1, "y", "ies") == "y"
+
+    # Test in strings
+    assert f"1 invitation{pluralize(1)}" == "1 invitation"
+    assert f"5 invitation{pluralize(5)}" == "5 invitations"
+    assert f"1 categor{pluralize(1, 'y', 'ies')}" == "1 category"
+    assert f"5 categor{pluralize(5, 'y', 'ies')}" == "5 categories"
 
 
 @override_settings(
