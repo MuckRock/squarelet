@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load avatar django_vite i18n %}
+{% load avatar humanize django_vite i18n %}
 
 {% block title %}{{ organization.name }} | Manage Memberships{% endblock %}
 
@@ -11,49 +11,47 @@
 {% block content %}
 <article id="managemembers">
   <aside class="sidebar">
-    <div>
-      <a href="{{ organization.get_absolute_url }}" class="btn ghost primary">
-        {% include "core/icons/chevron-left.svg" %}
-        {% trans "Back to team overview" %}
-      </a>
+    <a href="{{ organization.get_absolute_url }}" class="btn small ghost primary">
+      {% include "core/icons/chevron-left.svg" %}
+      {% trans "Back to team overview" %}
+    </a>
 
-      <header>
-        <h1>{{ organization.name }}</h1>
-        <h2>{% trans "Members" %}</h2>
-      </header>
+    <header>
+      <h1>{{ organization.name }}</h1>
+      <h2>{% trans "Members" %}</h2>
+    </header>
 
-      <nav>
-        <ul>
-          <li>
-            <a href="#invite">
-              {% include "core/icons/plus-circle.svg" %}
-              {% trans "Invite members" %}
-            </a>
-          </li>
+    <nav>
+      <ul>
+        <li>
+          <a href="#invite">
+            {% include "core/icons/plus-circle.svg" %}
+            {% trans "Invite members" %}
+          </a>
+        </li>
 
-          <li>
-            <a href="#requests">
-              {% include "core/icons/smiley.svg" %}
-              {% trans "Member requests" %}
-            </a>
-          </li>
+        <li>
+          <a href="#requests">
+            {% include "core/icons/smiley.svg" %}
+            {% trans "Member requests" %}
+          </a>
+        </li>
 
-          <li>
-            <a href="#pending">
-              {% include "core/icons/mail.svg" %}
-              {% trans "Pending invitations" %}
-            </a>
-          </li>
+        <li>
+          <a href="#pending">
+            {% include "core/icons/mail.svg" %}
+            {% trans "Pending invitations" %}
+          </a>
+        </li>
 
-          <li>
-            <a href="#members">
-              {% include "core/icons/people.svg" %}
-              {% trans "Members" %}
-            </a>
-          </li>
-        </ul>
-      </nav>
-    </div>
+        <li>
+          <a href="#members">
+            {% include "core/icons/people.svg" %}
+            {% trans "Members" %}
+          </a>
+        </li>
+      </ul>
+    </nav>
   </aside>
 
   <div class="content">
@@ -66,8 +64,7 @@
         <form class="actions" method="POST"
           action="{% url "organizations:manage-members" slug=organization.slug %}">
           {% csrf_token %}
-          <input type="hidden" name="action" value="addmember_link">
-          <button class="btn primary ghost" type="submit" name="addmember_link">
+          <button class="btn primary ghost" type="submit" name="action" value="addmember_link">
             {% include "core/icons/link.svg" %}
             {% trans "Generate invite link" %}
           </button>
@@ -79,21 +76,18 @@
           id="org-form"
           action="{% url "organizations:manage-members" slug=organization.slug %}">
           {% csrf_token %}
-          <input type="hidden" name="action" value="addmember">
-          <div class="email">
-            <label>
-              <span class="sr-only">{% trans "Email" %}</span>
-              <div class="wrapper">
-                {% include "core/icons/mail.svg" %}
-                <input type="email" name="emails" multiple placeholder="{% trans 'Enter email addresses to invite' %}" />
-              </div>
-            </label>
-              <button type="submit" name="addmember" class="btn primary">
-                {% include "core/icons/paper-airplane.svg" %}
-                {% trans "Send invites" %}
-              </button>
-          </div>
-          <p class="help">{% trans "To invite multiple users, separate email addresses with spaces or commas" %}</p>
+          <label class="email field">
+            <span class="sr-only">{% trans "Email" %}</span>
+            <div class="wrapper">
+              {% include "core/icons/mail.svg" %}
+              <input type="email" name="emails" multiple placeholder="{% trans 'Enter email addresses to invite' %}" />
+            </div>
+            <p class="help">{% trans "To invite multiple users, separate email addresses with spaces or commas" %}</p>
+          </label>
+          <button type="submit" name="action" value="addmember" class="btn primary">
+            {% include "core/icons/paper-airplane.svg" %}
+            {% trans "Send invites" %}
+          </button>
         </form>
       </div>
     </section>
@@ -111,29 +105,20 @@
         {% for invitation in requested_invitations %}
         <div class="invitation">
           {% include "organizations/user_list_item.html" with user=invitation.user %}
-
           <form class="actions" method="POST" action="{% url "organizations:manage-members" slug=organization.slug %}">
             {% csrf_token %}
-            <input type="hidden" name="action" value="acceptinvite">
             <input type="hidden" name="inviteid" value="{{ invitation.id }}">
             <div class="buttons">
-              <button type="submit" class="btn ghost primary">
+              <button type="submit" class="btn ghost primary" name="action" value="acceptinvite">
                 {% include "core/icons/check.svg" %}
                 {% trans "Accept" %}
               </button>
-            </div>
-          </form>
-
-          <form class="actions" method="POST" action="{% url "organizations:manage-members" slug=organization.slug %}">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="rejectinvite">
-            <input type="hidden" name="inviteid" value="{{ invitation.id }}">
-            <div class="buttons">
-              <button type="submit" class="btn ghost danger">
+              <button type="submit" class="btn ghost danger" name="action" value="rejectinvite">
                 {% include "core/icons/x.svg" %}
                 {% trans "Reject" %}
               </button>
             </div>
+            <p class="caption">Recieved <time datetime="{{ invitation.created_at|date:"c" }}" title="{{ invitation.created_at|date:"c" }}">{{ invitation.created_at|naturaltime }}</time></p>
           </form>
         </div>
         {% endfor %}
@@ -153,48 +138,35 @@
       </header>
       <div class="card">
         {% for invitation in pending_invitations %}
-        <div class="invitation">
+        <div class="invitation {% if invitation.user %}user{% elif invitation.email %}email{% else %}link{% endif %}">
           {% if invitation.user %}
             {% include "organizations/user_list_item.html" with user=invitation.user %}
           {% else %}
             {% include "organizations/invitation_list_item.html" with invitation=invitation %}
           {% endif %}
-
           <div class="actions">
-            <div class="buttons">
+            <form class="buttons" method="POST" action="{% url "organizations:manage-members" slug=organization.slug %}">
+              {% csrf_token %}
+              <input type="hidden" name="inviteid" value="{{ invitation.id }}">
               {% if invitation.email %}
-              <form method="POST" action="{% url "organizations:manage-members" slug=organization.slug %}">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="resendinvite">
-                <input type="hidden" name="inviteid" value="{{ invitation.id }}">
-                <button type="submit" class="btn ghost">
-                  {% include "core/icons/paper-airplane.svg" %}
-                  {% trans "Resend" %}
-                </button>
-              </form>
+              <button type="submit" class="btn small ghost" name="action" value="resendinvite">
+                {% include "core/icons/paper-airplane.svg" %}
+                {% trans "Resend" %}
+              </button>
               {% endif %}
-              <label class="field">
-                <span class="sr-only">{% trans "Invite link" %}</span>
-                <input type="text" readonly
-                  value="{{ settings.SQUARELET_URL }}{% url "organizations:invitation" invitation.uuid %}">
-              </label>
               <button 
-                class="btn ghost small copy" 
+                class="btn ghost small" 
+                data-clipboard
                 value="{{ settings.SQUARELET_URL }}{% url "organizations:invitation" invitation.uuid %}">
                 {% include "core/icons/copy.svg" %}
-                <span class="sr-only">{% trans "Copy link" %}</span>
+                {% trans "Copy link" %}
               </button>
-              <form method="POST" action="{% url "organizations:manage-members" slug=organization.slug %}">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="revokeinvite">
-                <input type="hidden" name="inviteid" value="{{ invitation.id }}">
-                <button type="submit" class="btn ghost danger">
-                  {% include "core/icons/x.svg" %}
-                  {% trans "Withdraw" %}
-                </button>
-              </form>
-            </div>
-            <p>Generated {{ invitation.created_at }}</p>
+              <button type="submit" class="btn small ghost danger" name="action" value="revokeinvite">
+                {% include "core/icons/x.svg" %}
+                {% trans "Withdraw" %}
+              </button>
+            </form>
+            <p class="caption">Created <time datetime="{{ invitation.created_at|date:"c" }}" title="{{ invitation.created_at|date:"c" }}">{{ invitation.created_at|naturaltime }}</time></p>
           </div>
         </div>
         {% endfor %}
@@ -212,44 +184,34 @@
         {% for membership in members %}
         <div class="membership">
           {% include "organizations/user_list_item.html" with membership=membership user=membership.user %}
-
-          <div class="actions">
-            <form method="POST" action="{% url "organizations:manage-members" slug=organization.slug %}">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="makeadmin">
-              <input type="hidden" name="userid" value="{{ membership.user.id }}">
-              {% if membership.admin %}
-              <input type="hidden" name="admin" value="false">
-              <button type="submit" class="btn ghost">
-                {% include "core/icons/arrow-down.svg" %}
-                {% trans "Demote to member" %}
-              </button>
-              {% else %}
-              <input type="hidden" name="admin" value="true">
-              <button type="submit" class="btn ghost">
-                {% include "core/icons/arrow-up.svg" %}
-                {% trans "Promote to admin" %}
-              </button>
-              {% endif %}
-            </form>
-
-            <form method="POST" action="{% url "organizations:manage-members" slug=organization.slug %}">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="removeuser">
-              <input type="hidden" name="userid" value="{{ membership.user.id }}">
-              {% if membership.user == request.user %}
-              <button type="submit" class="btn ghost danger">
-                {% include "core/icons/sign-out.svg" %}
-                {% trans "Leave" %}
-              </button>
-              {% else %}
-              <button type="submit" class="btn ghost danger">
-                {% include "core/icons/x-circle.svg" %}
-                {% trans "Remove" %}
-              </button>
-              {% endif %}
-            </form>
-          </div>
+          <form class="actions" method="POST" action="{% url "organizations:manage-members" slug=organization.slug %}">
+            {% csrf_token %}
+            <input type="hidden" name="userid" value="{{ membership.user.id }}">
+            {% if membership.admin %}
+            <input type="hidden" name="admin" value="false">
+            <button type="submit" name="action" value="makeadmin" class="btn small ghost">
+              {% include "core/icons/arrow-down.svg" %}
+              {% trans "Demote to member" %}
+            </button>
+            {% else %}
+            <input type="hidden" name="admin" value="true">
+            <button type="submit" name="action" value="makeadmin" class="btn small ghost">
+              {% include "core/icons/arrow-up.svg" %}
+              {% trans "Promote to admin" %}
+            </button>
+            {% endif %}
+            {% if membership.user == request.user %}
+            <button type="submit" name="action" value="removeuser" class="btn small ghost danger">
+              {% include "core/icons/sign-out.svg" %}
+              {% trans "Leave" %}
+            </button>
+            {% else %}
+            <button type="submit" name="action" value="removeuser" class="btn small ghost danger">
+              {% include "core/icons/x-circle.svg" %}
+              {% trans "Remove" %}
+            </button>
+            {% endif %}
+          </form>
         </div>
         {% endfor %}
       </div>
