@@ -1,0 +1,163 @@
+/* Alert animations */
+
+@keyframes autoHide {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+    visibility: visible;
+  }
+  99% {
+    opacity: 0;
+    transform: translateY(-10px);
+    visibility: visible;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+    visibility: hidden;
+  }
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Alerts container */
+
+._cls-alerts {
+  width: 100%;
+  margin: 0 auto;
+  position: absolute;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+}
+
+/* Alert base styles */
+
+._cls-alert {
+  margin: 0 auto;
+  width: 90vw;
+  max-width: 32rem;
+}
+
+._cls-alert div {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: var(--font-sm);
+  border-radius: .25rem;
+  box-shadow: var(--shadow-1);
+  transform-origin: top center;
+  overflow: hidden;
+  background: var(--white);
+  border: 1px solid var(--gray-2);
+  color: var(--gray-5);
+}
+
+._cls-alert ._cls-dismiss {
+  flex: 0 0 auto;
+}
+
+._cls-alert ._cls-middleAlign {
+  flex: 1 1 auto;
+}
+
+._cls-alertIcon {
+  flex: 0 0 1.125rem;
+  font-weight: 600;
+  font-size: 1.2em;
+  border: solid 2px currentColor;
+  width: 1.125rem;
+  height: 1.125rem;
+  display: inline-block;
+  text-align: center;
+  line-height: 1;
+  border-radius: 50%;
+  vertical-align: middle;
+  position: relative;
+}
+
+.cls-alert ._cls-alertIcon::before {
+  font-style: italic;
+  font-family: serif;
+  font-size: 1.2em;
+  display: block;
+  transform: translateY(1px);
+}
+
+._cls-alert div._cls-dismiss {
+  animation: autoHide 0.5s ease-in-out forwards;
+  pointer-events: none;
+}
+
+._cls-close {
+  text-decoration: underline;
+  margin-left: 0.25em;
+  font-weight: 600;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+._cls-alert div._cls-fadeIn {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* Alert type styles */
+
+._cls-alert .alert-info {
+  background: var(--blue-1);
+  border-color: var(--blue-2);
+  color: var(--blue-5);
+}
+
+.alert-info ._cls-alertIcon::before {
+  content: "i";
+  display: block;
+  transform: translateY(1px);
+}
+
+._cls-alert .alert-success {
+  background: var(--green-1);
+  border-color: var(--green-2);
+  color: var(--green-5);
+}
+
+.alert-success ._cls-alertIcon::before {
+  content: "\2713";
+  display: block;
+  transform: translateY(1px);
+}
+
+._cls-alert .alert-error {
+  background: var(--red-1);
+  border-color: var(--red-2);
+  color: var(--red-5);
+}
+
+.alert-error ._cls-alertIcon::before {
+  content: "!";
+  display: block;
+  transform: translateY(1px);
+}
+
+._cls-alert .alert-warning {
+  background: var(--yellow-1);
+  border-color: var(--yellow-2);
+  color: var(--yellow-5);
+}
+
+.alert-warning ._cls-alertIcon::before {
+  content: "!";
+  display: block;
+  transform: translateY(1px);
+}

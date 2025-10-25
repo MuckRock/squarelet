@@ -96,7 +96,7 @@
               </p>
               {% endfor %}
             </span>
-            <span class="_cls-close" onclick="dismissAlert(this)">
+            <span class="_cls-close" data-dismiss="alert">
               Dismiss
             </span>
           </div>
@@ -110,6 +110,9 @@
               We received an error trying to email you, please
               <a href="{% url "account_email" %}">update your email.</a>
             </span>
+            <span class="_cls-close" data-dismiss="alert">
+              Dismiss
+            </span>
           </div>
         </div>
         {% endif %}
@@ -117,10 +120,10 @@
         {% if messages %}
         {% for message in messages %}
         <div class="_cls-alert">
-          <div class="{% if message.tags %}alert-{{ message.tags }}{% endif %}">
+          <div class="{% if message.tags %}alert-{{ message.tags }}{% endif %}" data-auto-dismiss>
             <span class="_cls-alertIcon"></span>
             <span class="_cls-middleAlign">{{ message|safe }}</span>
-            <span class="_cls-close" onclick="dismissAlert(this)">
+            <span class="_cls-close" data-dismiss="alert">
               Dismiss
             </span>
           </div>
@@ -128,21 +131,6 @@
         {% endfor %}
         {% endif %}
       </div>
-
-      <script>
-        function dismissAlert(target) {
-          const alert = target.parentElement;
-          const container = alert.parentElement;
-
-          // Remove the alert from the container
-          alert.remove();
-
-          // Check if the container has no more alerts
-          if (container.children.length === 0) {
-            container.remove();
-          }
-        }
-      </script>
 
       {% block container %}
       {% block content %}
