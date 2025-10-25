@@ -873,15 +873,13 @@ nav a:hover ._cls-serviceName {
   font-size: 0.9em;
   border-radius: 3px;
   box-shadow: 0 1px 2px #00000014;
+  transform-origin: top center;
+  overflow: hidden;
 }
 
 ._cls-alert div._cls-dismiss {
-  animation: autoHide 0.5s forwards;
+  animation: autoHide 0.5s ease-in-out forwards;
   pointer-events: none;
-}
-
-._cls-alert div:hover {
-  animation: 0;
 }
 
 ._cls-close {
@@ -895,19 +893,34 @@ nav a:hover ._cls-serviceName {
 @keyframes autoHide {
   0% {
     opacity: 1;
-    margin-top: 0;
+    transform: translateY(0);
     visibility: visible;
   }
   99% {
     opacity: 0;
-    margin-top: -19px;
+    transform: translateY(-10px);
     visibility: visible;
   }
   100% {
     opacity: 0;
-    margin-top: -19px;
+    transform: translateY(-10px);
     visibility: hidden;
   }
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+._cls-alert div._cls-fadeIn {
+  animation: fadeIn 0.3s ease-out forwards;
 }
 
 .alert-success {
@@ -1462,6 +1475,7 @@ textarea {
   width: 100%;
   margin: auto;
   position: absolute;
+  z-index: 10;
 }
 
 .alert-info {

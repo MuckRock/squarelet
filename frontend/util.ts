@@ -50,3 +50,6 @@ export function copyToClipboard(text?: string) {
   if (!text) return;
   window?.navigator?.clipboard?.writeText(text);
 }
+
+// Re-export alert functions for convenience
+export { showAlert } from './alerts';
