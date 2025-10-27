@@ -44,9 +44,3 @@ export function show(elem: HTMLElement) {
 export function hide(elem: HTMLElement) {
   elem.classList.add("_cls-hide");
 }
-
-// Copy text to clipboard
-export function copyToClipboard(text?: string) {
-  if (!text) return;
-  window?.navigator?.clipboard?.writeText(text);
-}
