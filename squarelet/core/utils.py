@@ -10,9 +10,9 @@ import uuid
 from hashlib import md5
 
 # Third Party
-from inflection import pluralize as inflection_pluralize
 import requests
 import stripe
+from inflection import pluralize as inflection_pluralize
 
 logger = logging.getLogger(__name__)
 
