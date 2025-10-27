@@ -32,7 +32,6 @@ import re
 import sys
 
 # Third Party
-from inflection import pluralize
 import stripe
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Field, Layout
@@ -405,7 +404,7 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
                 invitations_sent += 1
             messages.success(
                 self.request,
-                f"{invitations_sent} invitation{pluralize(invitations_sent)} sent",
+                f"{invitations_sent} {pluralize(invitations_sent, "invitation")} sent",
             )
 
         return redirect("organizations:manage-members", slug=self.organization.slug)
