@@ -474,7 +474,9 @@ class TestManageMembers(ViewTestMixin):
         self.call_view(rf, user, data, slug=organization.slug)
         invitation.refresh_from_db()
         assert invitation.rejected_at is not None
-        self.assert_message(messages.SUCCESS, f"Invitation to {invitation.email} revoked")
+        self.assert_message(
+            messages.SUCCESS, f"Invitation to {invitation.email} revoked"
+        )
 
     def test_accept_invite(
         self, rf, organization_factory, user_factory, invitation_factory
@@ -486,7 +488,9 @@ class TestManageMembers(ViewTestMixin):
         self.call_view(rf, user, data, slug=organization.slug)
         invitation.refresh_from_db()
         assert invitation.accepted_at is not None
-        self.assert_message(messages.SUCCESS, f"Invitation from {invitation.email} accepted")
+        self.assert_message(
+            messages.SUCCESS, f"Invitation from {invitation.email} accepted"
+        )
 
     def test_reject_invite(
         self, rf, organization_factory, user_factory, invitation_factory
@@ -498,7 +502,9 @@ class TestManageMembers(ViewTestMixin):
         self.call_view(rf, user, data, slug=organization.slug)
         invitation.refresh_from_db()
         assert invitation.rejected_at is not None
-        self.assert_message(messages.SUCCESS, f"Invitation from {invitation.email} rejected")
+        self.assert_message(
+            messages.SUCCESS, f"Invitation from {invitation.email} rejected"
+        )
 
     def test_revoke_invite_missing(self, rf, organization_factory, user_factory):
         user = user_factory()
