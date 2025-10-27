@@ -288,8 +288,8 @@ def pluralize(count: int, word: str) -> str:
     Returns the singular form if count is 1, otherwise returns the plural form.
 
     Examples:
-        f"{count} {pluralize(count, "invitation")}" -> "1 invitation" or "2 invitations"
-        f"{count} {pluralize(count, "category")}" -> "1 category" or "2 categories"
+        f"{count} {pluralize(count, 'invitation')}" -> "1 invitation" or "2 invitations"
+        f"{count} {pluralize(count, 'category')}" -> "1 category" or "2 categories"
     """
     return word if count == 1 else inflection_pluralize(word)
 
