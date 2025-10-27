@@ -140,14 +140,17 @@ strong {
   background: var(--purple-1, #ebf9f6);
 }
 
-.badge.blue {
+.badge.blue,
+.badge.primary {
   fill: var(--blue-4, #0e4450);
   color: var(--blue-5, #0e4450);
   border: 1px solid var(--blue-2, #9de3d3);
   background: var(--blue-1, #ebf9f6);
 }
 
-.badge.green {
+.badge.green,
+.badge.success,
+.badge.premium {
   fill: var(--green-4, #0e4450);
   color: var(--green-5, #0e4450);
   border: 1px solid var(--green-2, #9de3d3);
@@ -161,14 +164,18 @@ strong {
   background: var(--yellow-1, #ebf9f6);
 }
 
-.badge.orange {
+.badge.orange,
+.badge.caution,
+.badge.admin {
   fill: var(--orange-4, #0e4450);
   color: var(--orange-5, #0e4450);
   border: 1px solid var(--orange-2, #9de3d3);
   background: var(--orange-1, #ebf9f6);
 }
 
-.badge.red {
+.badge.red,
+.badge.error,
+.badge.danger {
   fill: var(--red-4, #0e4450);
   color: var(--red-5, #0e4450);
   border: 1px solid var(--red-2, #9de3d3);
@@ -239,6 +246,7 @@ strong {
 
 /* Primary button */
 
+.btn.blue,
 .btn.primary {
   border: 1px solid var(--blue-4, #1367d0);
   background: var(--blue-3, #4294f0);
@@ -248,6 +256,8 @@ strong {
   }
 }
 
+.btn.blue:hover,
+.btn.blue:focus,
 .btn.primary:hover,
 .btn.primary:focus {
   transform: translateY(-2px);
@@ -256,11 +266,14 @@ strong {
 
 /* Premium button */
 
+.btn.green,
 .btn.premium {
   border: 1px solid var(--green-4, #117383);
   background: var(--green-3, #27c6a2);
 }
 
+.btn.green:hover,
+.btn.green:focus,
 .btn.premium:hover,
 .btn.premium:focus {
   transform: translateY(-2px);
@@ -269,11 +282,14 @@ strong {
 
 /* Caution button */
 
+.btn.orange,
 .btn.caution {
   border: 1px solid var(--orange-4, #69515c);
   background: var(--orange-3, #ec7b6b);
 }
 
+.btn.orange:hover,
+.btn.orange:focus,
 .btn.caution:hover,
 .btn.caution:focus {
   transform: translateY(-2px);
@@ -282,11 +298,14 @@ strong {
 
 /* Danger button */
 
+.btn.red,
 .btn.danger {
   border: 1px solid var(--red-4, #5d275f);
   background: var(--red-3, #e1275f);
 }
 
+.btn.red:hover,
+.btn.red:focus,
 .btn.danger:hover,
 .btn.danger:focus {
   transform: translateY(-2px);
@@ -319,32 +338,45 @@ strong {
 
 /* Ghost button variants */
 
+.btn.ghost.blue,
 .btn.ghost.primary {
   color: var(--blue-3, #1367d0);
   fill: var(--blue-3, #1367d0);
 }
 
-.btn.ghost.primary:hover {
+.btn.ghost.blue:hover,
+.btn.ghost.blue:focus,
+.btn.ghost.primary:hover,
+.btn.ghost.primary:focus {
   background: var(--blue-1, #eef3f9);
 }
 
+.btn.ghost.orange,
 .btn.ghost.danger {
   color: var(--orange-3, #ec7b6b);
   fill: var(--orange-3, #ec7b6b);
 }
 
-.btn.ghost.danger:hover {
+.btn.ghost.orange:hover,
+.btn.ghost.orange:focus,
+.btn.ghost.danger:hover,
+.btn.ghost.danger:focus {
   background: var(--orange-1, #fff0ee);
 }
 
+.btn.ghost.green,
 .btn.ghost.premium,
 .btn.ghost.success {
   color: var(--green-3, #27c6a2);
   fill: var(--green-3, #27c6a2);
 }
 
+.btn.ghost.green:hover,
+.btn.ghost.green:focus,
 .btn.ghost.premium:hover,
-.btn.ghost.success:hover {
+.btn.ghost.premium:focus,
+.btn.ghost.success:hover,
+.btn.ghost.success:focus {
   background: var(--green-1, #ebf9f6);
 }
 
