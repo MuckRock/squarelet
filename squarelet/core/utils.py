@@ -14,6 +14,7 @@ from urllib.parse import quote
 
 # Third Party
 import actstream
+from inflection import pluralize as inflection_pluralize
 import requests
 import stripe
 from zenpy import Zenpy
@@ -281,16 +282,16 @@ def format_stripe_error(error):
     return generic_message
 
 
-def pluralize(count, singular="", plural="s"):
+def pluralize(count, word):
     """
     Helper function for pluralization.
     Returns the singular form if count is 1, otherwise returns the plural form.
 
     Examples:
-        f"{count} invitation{pluralize(count)}" -> "1 invitation" or "2 invitations"
-        f"{count} categor{pluralize(count, 'y', 'ies')}" -> "1 category" or "2 categories"
+        f"{count} {pluralize(count, 'invitation')}" -> "1 invitation" or "2 invitations"
+        f"{count} {pluralize(count, 'category')}" -> "1 category" or "2 categories"
     """
-    return singular if count == 1 else plural
+    return word if count == 1 else inflection_pluralize(word)
 
 
 def get_redirect_url(request, fallback):
