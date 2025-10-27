@@ -293,5 +293,4 @@ squarelet/config/
 scratch/
 *.js.map
 
-# keep built frontend files for now
-!frontend/dist
+frontend/dist
