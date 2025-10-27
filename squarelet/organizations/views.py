@@ -488,7 +488,7 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
                 invitations_sent += 1
             messages.success(
                 self.request,
-                f"{invitations_sent} {pluralize(invitations_sent, "invitation")} sent",
+                f"{invitations_sent} {pluralize(invitations_sent, 'invitation')} sent",
             )
 
         return redirect("organizations:manage-members", slug=self.organization.slug)
