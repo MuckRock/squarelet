@@ -8,7 +8,6 @@
 {% vite_asset "frontend/views/user_detail.ts" %}
 {% endblock %}
 
-
 {% block content %}
 <article id="user_detail">
   <aside class="sidebar">
@@ -82,12 +81,13 @@
       <header>
         <h2>{% trans "Profile" %}</h2>
         <div class="header-actions">
-          <!-- Hide action until we support profile previews
+          {% comment %}
+          Hide action until we support profile previews
           <a href="?public" class="btn ghost primary">
             {% include "core/icons/eye.svg" %}
             {% trans "View profile" %}
           </a>
-          -->
+          {% endcomment %}
           <a href="{% url "users:update" username=user.username %}" class="btn ghost primary">
             {% include "core/icons/pencil.svg" %}
             {% trans "Edit profile" %}
@@ -114,7 +114,14 @@
           {% endif %}
           {% if user.name %}<p class="user-detail">{{user.username}}</p>{% endif %}
           </div>
-          <p class="user-detail">Joined <time title="{{user.created_at|date:"c"}}" datetime="{{user.created_at|date:"c"}}">{{user.created_at|date:"F j, Y"}}</time></p>
+          <p class="user-detail">
+            Joined 
+            <time 
+              title="{{user.created_at|date:"c"}}" 
+              datetime="{{user.created_at|date:"c"}}">
+              {{user.created_at|date:"F j, Y"}}
+            </time>
+          </p>
         </div>
       </main>
     </section>
@@ -138,7 +145,11 @@
             <p>You are using MuckRock&rsquo;s <span class="plan-name" id="free">Free</span> plan.</p>
             <a class="btn premium" href="{% url "users:payment" username=user.username %}">Upgrade</a>
           {% else %}
-            <p>You are subscribed to MuckRock&rsquo;s <a href="{% url "plan_detail" pk=current_plan.id slug=current_plan.slug %}" class="plan-name" id="{{current_plan.slug}}">{{current_plan.name}}</a> plan.</p>
+            <p>You are subscribed to MuckRock&rsquo;s 
+              <a href="{% url "plan_detail" pk=current_plan.id slug=current_plan.slug %}" 
+              class="plan-name" id="{{current_plan.slug}}">{{current_plan.name}}</a> 
+              plan.
+            </p>
             <a class="btn ghost primary" href="{% url "users:payment" username=user.username %}">Change plan</a>
           {% endif %}
         </div>
@@ -319,7 +330,7 @@
         {% for email in emails %}
         <div class="email account">
           <div class="account-detail">
-            <span class="icon">{% include "core/icons/mail.svg" %}</span>
+            <span class="icon">{% include "core/icons/mail-24.svg" %}</span>
             <h3 class="label">{{email.email}}</h3>
           </div>
           <form class="email-actions" action="{% url "account_email" %}" method="post">

@@ -398,7 +398,7 @@ class TestManageMembers(ViewTestMixin):
         mail = mailoutbox[0]
         assert mail.subject == f"Invitation to join {organization.name}"
         assert mail.to == [email]
-        self.assert_message(messages.SUCCESS, "Invitations sent")
+        self.assert_message(messages.SUCCESS, "1 invitation sent")
 
     def test_add_member_bad_email(self, rf, organization_factory, user_factory):
         user = user_factory()
@@ -416,7 +416,7 @@ class TestManageMembers(ViewTestMixin):
         email = "invite@example.com"
         data = {"action": "addmember", "emails": email}
         self.call_view(rf, user, data, slug=organization.slug)
-        self.assert_message(messages.SUCCESS, "Invitations sent")
+        self.assert_message(messages.SUCCESS, "1 invitation sent")
         organization.refresh_from_db()
         assert organization.max_users == 5
 
@@ -430,7 +430,9 @@ class TestManageMembers(ViewTestMixin):
         self.call_view(rf, user, data, slug=organization.slug)
         invitation.refresh_from_db()
         assert invitation.rejected_at is not None
-        self.assert_message(messages.SUCCESS, "Invitation revoked")
+        self.assert_message(
+            messages.SUCCESS, f"Invitation to {invitation.email} revoked"
+        )
 
     def test_accept_invite(
         self, rf, organization_factory, user_factory, invitation_factory
@@ -442,7 +444,9 @@ class TestManageMembers(ViewTestMixin):
         self.call_view(rf, user, data, slug=organization.slug)
         invitation.refresh_from_db()
         assert invitation.accepted_at is not None
-        self.assert_message(messages.SUCCESS, "Invitation accepted")
+        self.assert_message(
+            messages.SUCCESS, f"Invitation from {invitation.email} accepted"
+        )
 
     def test_reject_invite(
         self, rf, organization_factory, user_factory, invitation_factory
@@ -454,7 +458,9 @@ class TestManageMembers(ViewTestMixin):
         self.call_view(rf, user, data, slug=organization.slug)
         invitation.refresh_from_db()
         assert invitation.rejected_at is not None
-        self.assert_message(messages.SUCCESS, "Invitation rejected")
+        self.assert_message(
+            messages.SUCCESS, f"Invitation from {invitation.email} rejected"
+        )
 
     def test_revoke_invite_missing(self, rf, organization_factory, user_factory):
         user = user_factory()
@@ -483,7 +489,7 @@ class TestManageMembers(ViewTestMixin):
         data = {"action": "makeadmin", "userid": member.pk, "admin": "true"}
         self.call_view(rf, admin, data, slug=organization.slug)
         assert organization.has_admin(member)
-        self.assert_message(messages.SUCCESS, "Made an admin")
+        self.assert_message(messages.SUCCESS, f"{member.username} promoted to admin")
 
     def test_remove_admin(self, rf, organization_factory, user_factory):
         admins = user_factory.create_batch(2)
@@ -491,7 +497,7 @@ class TestManageMembers(ViewTestMixin):
         data = {"action": "makeadmin", "userid": admins[1].pk, "admin": "false"}
         self.call_view(rf, admins[0], data, slug=organization.slug)
         assert not organization.has_admin(admins[1])
-        self.assert_message(messages.SUCCESS, "Made not an admin")
+        self.assert_message(messages.SUCCESS, f"{admins[1].username} demoted to member")
 
     def test_make_admin_bad_bool(self, rf, organization_factory, user_factory):
         admin = user_factory()
@@ -518,7 +524,7 @@ class TestManageMembers(ViewTestMixin):
         data = {"action": "removeuser", "userid": member.pk}
         self.call_view(rf, admin, data, slug=organization.slug)
         assert not organization.has_member(member)
-        self.assert_message(messages.SUCCESS, "Removed user")
+        self.assert_message(messages.SUCCESS, f"{member.username} removed")
 
     def test_bad_action(self, rf, organization_factory, user_factory):
         admin = user_factory()

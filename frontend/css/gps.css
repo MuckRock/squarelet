@@ -118,7 +118,7 @@ h3 {
   border: 1px solid var(--gray-2, #d8dee2);
   background: var(--gray-1, #f5f6f7);
 
-  fill: var(--gray-4, #5C717C);
+  fill: var(--gray-4, #5c717c);
   color: var(--gray-5, #233944);
   font-family: "Source Sans Pro";
   font-size: var(--font-xs, 0.75rem);
@@ -136,14 +136,17 @@ h3 {
   background: var(--purple-1, #ebf9f6);
 }
 
-.badge.blue {
+.badge.blue,
+.badge.primary {
   fill: var(--blue-4, #0e4450);
   color: var(--blue-5, #0e4450);
   border: 1px solid var(--blue-2, #9de3d3);
   background: var(--blue-1, #ebf9f6);
 }
 
-.badge.green {
+.badge.green,
+.badge.success,
+.badge.premium {
   fill: var(--green-4, #0e4450);
   color: var(--green-5, #0e4450);
   border: 1px solid var(--green-2, #9de3d3);
@@ -157,14 +160,18 @@ h3 {
   background: var(--yellow-1, #ebf9f6);
 }
 
-.badge.orange {
+.badge.orange,
+.badge.caution,
+.badge.admin {
   fill: var(--orange-4, #0e4450);
   color: var(--orange-5, #0e4450);
   border: 1px solid var(--orange-2, #9de3d3);
   background: var(--orange-1, #ebf9f6);
 }
 
-.badge.red {
+.badge.red,
+.badge.error,
+.badge.danger {
   fill: var(--red-4, #0e4450);
   color: var(--red-5, #0e4450);
   border: 1px solid var(--red-2, #9de3d3);
@@ -177,7 +184,8 @@ h3 {
   justify-content: center;
 }
 
-.badge .icon, .badge .icon svg {
+.badge .icon,
+.badge .icon svg {
   width: 1rem;
   height: 1rem;
   fill: inherit;
@@ -188,7 +196,7 @@ h3 {
   box-sizing: border-box;
   border-radius: 0.5rem;
   padding: 0.375rem 0.75rem;
-  
+
   /* Layout */
   display: inline-flex;
   justify-content: center;
@@ -223,7 +231,8 @@ h3 {
 
 /* When hovering or focusing, the button rises
    up out from the content plane to signal it's interactive. */
-.btn:hover, .btn:focus {
+.btn:hover,
+.btn:focus {
   transform: translateY(-2px);
   background: var(--gray-3, #4294f0);
   box-shadow: 0px 2px 0px 0px var(--gray-4, #1367d0);
@@ -233,50 +242,70 @@ h3 {
 
 /* Primary button */
 
+.btn.blue,
 .btn.primary {
   border: 1px solid var(--blue-4, #1367d0);
   background: var(--blue-3, #4294f0);
+
+  svg path {
+    fill: var(--white, white);
+  }
 }
 
-.btn.primary:hover, .btn.primary:focus {
+.btn.blue:hover,
+.btn.blue:focus,
+.btn.primary:hover,
+.btn.primary:focus {
   transform: translateY(-2px);
   box-shadow: 0px 2px 0px 0px var(--blue-4, #1367d0);
 }
 
 /* Premium button */
 
+.btn.green,
 .btn.premium {
   border: 1px solid var(--green-4, #117383);
   background: var(--green-3, #27c6a2);
 }
 
-.btn.premium:hover, .btn.premium:focus {
+.btn.green:hover,
+.btn.green:focus,
+.btn.premium:hover,
+.btn.premium:focus {
   transform: translateY(-2px);
   box-shadow: 0px 2px 0px 0px var(--green-4, #117383);
 }
 
 /* Caution button */
 
+.btn.orange,
 .btn.caution {
   border: 1px solid var(--orange-4, #69515c);
   background: var(--orange-3, #ec7b6b);
 }
 
-.btn.caution:hover, .btn.caution:focus {
+.btn.orange:hover,
+.btn.orange:focus,
+.btn.caution:hover,
+.btn.caution:focus {
   transform: translateY(-2px);
   box-shadow: 0px 2px 0px 0px var(--orange-4, #69515c);
 }
 
 /* Danger button */
 
+.btn.red,
 .btn.danger {
-  border: 1px solid var(--red-4, #5D275F);
-  background: var(--red-3, #E1275F);
+  border: 1px solid var(--red-4, #5d275f);
+  background: var(--red-3, #e1275f);
 }
 
-.btn.danger:hover, .btn.danger:focus {
+.btn.red:hover,
+.btn.red:focus,
+.btn.danger:hover,
+.btn.danger:focus {
   transform: translateY(-2px);
-  box-shadow: 0px 2px 0px 0px var(--red-4, #5D275F);
+  box-shadow: 0px 2px 0px 0px var(--red-4, #5d275f);
 }
 
 /* Ghost button */
@@ -287,12 +316,16 @@ h3 {
   border: none;
   border-radius: 0.5rem;
   box-shadow: none;
-  color: var(--gray-4)
+  color: var(--gray-4);
   display: inline-flex;
   gap: 0.5rem;
   justify-content: center;
   padding: 0.375rem 0.75rem;
   text-decoration: none;
+
+  svg path {
+    fill: currentColor;
+  }
 }
 
 .btn.ghost:hover {
@@ -301,32 +334,45 @@ h3 {
 
 /* Ghost button variants */
 
+.btn.ghost.blue,
 .btn.ghost.primary {
   color: var(--blue-3, #1367d0);
   fill: var(--blue-3, #1367d0);
 }
 
-.btn.ghost.primary:hover {
+.btn.ghost.blue:hover,
+.btn.ghost.blue:focus,
+.btn.ghost.primary:hover,
+.btn.ghost.primary:focus {
   background: var(--blue-1, #eef3f9);
 }
 
+.btn.ghost.orange,
 .btn.ghost.danger {
   color: var(--orange-3, #ec7b6b);
   fill: var(--orange-3, #ec7b6b);
 }
 
-.btn.ghost.danger:hover {
+.btn.ghost.orange:hover,
+.btn.ghost.orange:focus,
+.btn.ghost.danger:hover,
+.btn.ghost.danger:focus {
   background: var(--orange-1, #fff0ee);
 }
 
+.btn.ghost.green,
 .btn.ghost.premium,
 .btn.ghost.success {
   color: var(--green-3, #27c6a2);
   fill: var(--green-3, #27c6a2);
 }
 
+.btn.ghost.green:hover,
+.btn.ghost.green:focus,
 .btn.ghost.premium:hover,
-.btn.ghost.success:hover {
+.btn.ghost.premium:focus,
+.btn.ghost.success:hover,
+.btn.ghost.success:focus {
   background: var(--green-1, #ebf9f6);
 }
 
@@ -334,7 +380,8 @@ h3 {
   box-shadow: none;
 }
 
-.btn.ghost:hover, .btn.ghost:focus {
+.btn.ghost:hover,
+.btn.ghost:focus {
   background: var(--blue-1, #eef3f9);
   transform: none;
   box-shadow: none;
@@ -446,9 +493,9 @@ h3 {
 
   appearance: none;
   border-radius: 0.5rem;
-  border: 1px solid var(--gray-3, #99A8B3);
-  background: var(--white, #FFF);
-  box-shadow: 0 2px 0 0 #D8DEE2 inset;
+  border: 1px solid var(--gray-3, #99a8b3);
+  background: var(--white, #fff);
+  box-shadow: 0 2px 0 0 #d8dee2 inset;
   font-family: "Source Sans Pro";
   font-size: 1rem;
   line-height: normal;
@@ -460,12 +507,12 @@ h3 {
 
 .field textarea {
   border-radius: 0.5rem;
-  border: 1px solid var(--gray-3, #99A8B3);
-  background: var(--white, #FFF);
-  box-shadow: 0 2px 0 0 var(--gray-2, #D8DEE2) inset;
+  border: 1px solid var(--gray-3, #99a8b3);
+  background: var(--white, #fff);
+  box-shadow: 0 2px 0 0 var(--gray-2, #d8dee2) inset;
   padding: 0.375rem 0.75rem;
   color: var(--gray-5, #233944);
-  font-feature-settings: 'ss04' on;
+  font-feature-settings: "ss04" on;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: "Source Sans Pro";
@@ -476,13 +523,14 @@ h3 {
 }
 
 .field .help {
-  color: var(--gray-4, #5C717C);
+  margin: 0;
+  color: var(--gray-4, #5c717c);
   font-size: var(--font-sm);
 }
 
 .field .error {
   margin: 0;
-  color: var(--red-3, #E1275F);
+  color: var(--red-3, #e1275f);
   font-size: var(--font-sm);
   font-weight: 600;
 }
@@ -491,4 +539,15 @@ h3 {
   flex-direction: row;
   align-items: center;
   font-weight: 400;
+}
+
+/* Font Styles */
+.caption {
+  margin: 0;
+  color: var(--gray-4);
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-size: var(--font-xs, 0.75rem);
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1rem; /* 133.333% */
 }
