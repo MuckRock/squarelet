@@ -1,6 +1,7 @@
 # Django
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import (
     LoginRequiredMixin,
     PermissionRequiredMixin,
@@ -107,13 +108,10 @@ class Detail(AdminLinkMixin, DetailView):
 
         return context
 
-    def post(self, request, *args, **kwargs):
+    def handle_join(self, request):
         self.organization = self.get_object()
-
-        if not self.request.user.is_authenticated:
-            return redirect(self.organization)
         is_member = self.organization.has_member(self.request.user)
-        if request.POST.get("action") == "join" and not is_member:
+        if not is_member:
             if self.request.user.can_auto_join(self.organization):
                 # Auto-join the user to the organization (no invitation needed)
                 self.organization.memberships.create(user=self.request.user)
@@ -143,16 +141,44 @@ class Detail(AdminLinkMixin, DetailView):
                     ),
                 )
                 invitation.send()
-        elif request.POST.get("action") == "leave" and is_member:
-            self.request.user.memberships.filter(
-                organization=self.organization
-            ).delete()
-            messages.success(request, _("You have left the organization"))
-        elif (
-            request.POST.get("action") == "sync_wix"
-            and self.request.user.is_staff
-            and self.organization.plan.wix
-        ):
+
+    def handle_leave(self, request):
+        self.organization = self.get_object()
+        is_member = self.organization.has_member(self.request.user)
+        userid = request.POST.get("userid")
+        if userid:
+            if userid == str(request.user.id) and is_member:
+                # Users removing themselves
+                request.user.memberships.filter(organization=self.organization).delete()
+                messages.success(request, _("You left the organization"))
+            elif request.user.is_staff:
+                # Staff removing another user
+                user_model = get_user_model()
+                try:
+                    target_user = user_model.objects.get(pk=userid)
+                    target_user.memberships.filter(
+                        organization=self.organization
+                    ).delete()
+                    messages.success(
+                        request,
+                        _("%(username)s left the organization")
+                        % {"username": target_user.username},
+                    )
+                except user_model.DoesNotExist:
+                    messages.error(request, _("User not found"))
+            else:
+                # Only staff can remove other users
+                messages.error(
+                    request, _("You do not have permission to remove other users")
+                )
+        elif is_member:
+            # User removing themselves (no userid provided)
+            request.user.memberships.filter(organization=self.organization).delete()
+            messages.success(request, _("You left the organization"))
+
+    def handle_sync_wix(self, request):
+        self.organization = self.get_object()
+        if self.request.user.is_staff and self.organization.plan.wix:
             for wix_user in self.organization.users.all():
                 sync_wix.delay(
                     self.organization.pk,
@@ -160,6 +186,18 @@ class Detail(AdminLinkMixin, DetailView):
                     wix_user.pk,
                 )
             messages.success(request, _("Wix sync started"))
+
+    def post(self, request, *args, **kwargs):
+        self.organization = self.get_object()
+
+        if not self.request.user.is_authenticated:
+            return redirect(self.organization)
+        if request.POST.get("action") == "join":
+            self.handle_join(request)
+        elif request.POST.get("action") == "leave":
+            self.handle_leave(request)
+        elif request.POST.get("action") == "sync_wix":
+            self.handle_sync_wix(request)
         return get_redirect_url(request, redirect(self.organization))
 
 

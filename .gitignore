@@ -294,3 +294,6 @@ scratch/
 *.js.map
 
 frontend/dist
+
+# Local dev data
+/data
