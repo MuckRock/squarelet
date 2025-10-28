@@ -1,6 +1,7 @@
 # Django
 from django.contrib.auth.models import AnonymousUser
 from django.test import TestCase
+from django.utils import timezone
 
 # Standard Library
 from datetime import timedelta
@@ -8,7 +9,6 @@ from uuid import uuid4
 
 # Third Party
 import pytest
-from django.utils import timezone
 
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason
