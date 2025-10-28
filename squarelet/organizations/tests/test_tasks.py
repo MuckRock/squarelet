@@ -583,17 +583,17 @@ class TestCheckOverdueInvoices:
         mock_send_mail.assert_called_once()
 
     @pytest.mark.django_db
-    @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=60)
+    @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=45)
     def test_respects_custom_grace_period(
         self, invoice_factory, organization_factory, mocker
     ):
         """Should respect custom grace period from settings"""
         org = organization_factory()
-        # Invoice 50 days overdue (within 60-day grace period)
+        # Invoice 35 days overdue (within 45-day grace period)
         invoice = invoice_factory(
             organization=org,
             status="open",
-            due_date=date.today() - timedelta(days=50),
+            due_date=date.today() - timedelta(days=35),
         )
 
         mock_send_mail = mocker.patch("squarelet.organizations.tasks.send_mail")
@@ -690,35 +690,35 @@ class TestCheckOverdueInvoices:
         assert invoice.last_overdue_email_sent == date.today() - timedelta(days=2)
 
     @pytest.mark.django_db
-    @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=60)
+    @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=30)
     def test_email_interval_scales_with_grace_period(
         self, invoice_factory, organization_factory, mocker
     ):
         """Email interval should scale with grace period (grace_period // 10)"""
         org = organization_factory(payment_failed=True)
-        # Grace period = 60, interval = 6 days
-        # Last email sent 5 days ago - should NOT send yet
+        # Grace period = 30, interval = 3 days
+        # Last email sent 2 days ago - should NOT send yet
         invoice = invoice_factory(
             organization=org,
             status="open",
-            due_date=date.today() - timedelta(days=40),
-            last_overdue_email_sent=date.today() - timedelta(days=5),
+            due_date=date.today() - timedelta(days=20),
+            last_overdue_email_sent=date.today() - timedelta(days=2),
         )
 
         mock_send_mail = mocker.patch("squarelet.organizations.tasks.send_mail")
 
         tasks.process_overdue_invoice(invoice.id)
 
-        # Should not send email yet (5 days < 6 day interval)
+        # Should not send email yet (2 days < 3 day interval)
         mock_send_mail.assert_not_called()
 
-        # Now test with 6 days passed
-        invoice.last_overdue_email_sent = date.today() - timedelta(days=6)
+        # Now test with 3 days passed
+        invoice.last_overdue_email_sent = date.today() - timedelta(days=3)
         invoice.save()
 
         tasks.process_overdue_invoice(invoice.id)
 
-        # Should send email now (6 days >= 6 day interval)
+        # Should send email now (3 days >= 3 day interval)
         mock_send_mail.assert_called_once()
 
     @pytest.mark.django_db

@@ -565,5 +565,5 @@ ACTSTREAM_SETTINGS = {
 # Invoice settings
 # ------------------------------------------------------------------------------
 OVERDUE_INVOICE_GRACE_PERIOD_DAYS = env.int(
-    "OVERDUE_INVOICE_GRACE_PERIOD_DAYS", default=60
+    "OVERDUE_INVOICE_GRACE_PERIOD_DAYS", default=30
 )
