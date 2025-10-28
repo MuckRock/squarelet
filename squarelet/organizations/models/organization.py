@@ -1,4 +1,3 @@
-# pylint: disable=too-many-lines
 # Django
 from django.db import models, transaction
 from django.templatetags.static import static
