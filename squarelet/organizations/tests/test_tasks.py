@@ -853,9 +853,7 @@ class TestSyncWix:
         plan = organization_plan_factory()
         user = user_factory()
 
-        mock_wix_sync = mocker.patch(
-            "squarelet.organizations.tasks.wix.sync_wix"
-        )
+        mock_wix_sync = mocker.patch("squarelet.organizations.tasks.wix.sync_wix")
 
         tasks.sync_wix(org.id, plan.id, user.id)
 
@@ -872,9 +870,7 @@ class TestSyncWix:
         plan = organization_plan_factory()
         user = user_factory()
 
-        mock_wix_sync = mocker.patch(
-            "squarelet.organizations.tasks.wix.sync_wix"
-        )
+        mock_wix_sync = mocker.patch("squarelet.organizations.tasks.wix.sync_wix")
 
         tasks.sync_wix(org.id, plan.id, user.id)
 
@@ -891,9 +887,7 @@ class TestSyncWix:
         plan = organization_plan_factory()
         user = user_factory()
 
-        mock_wix_sync = mocker.patch(
-            "squarelet.organizations.tasks.wix.sync_wix"
-        )
+        mock_wix_sync = mocker.patch("squarelet.organizations.tasks.wix.sync_wix")
 
         tasks.sync_wix(org.id, plan.id, user.id)
 
