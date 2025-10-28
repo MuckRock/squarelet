@@ -63,7 +63,7 @@ document.addEventListener("DOMContentLoaded", function () {
       ) as HTMLInputElement;
       if (
         payMethodInput != null &&
-        (payMethodInput.value in ["existing-card", "invoice"])
+        (["existing-card", "invoice"].includes(payMethodInput.value))
       ) {
         // Do not try to get token if using a card on file
         // Do not try to get token if paying by invoice
