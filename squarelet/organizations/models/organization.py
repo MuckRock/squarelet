@@ -35,7 +35,6 @@ from squarelet.organizations.querysets import (
     OrganizationQuerySet,
 )
 
-
 logger = logging.getLogger(__name__)
 
 

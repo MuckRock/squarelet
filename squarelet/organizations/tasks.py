@@ -1,5 +1,4 @@
 # Django
-import sys
 from celery import shared_task
 from django.conf import settings
 from django.core.cache import cache
@@ -8,6 +7,7 @@ from django.utils.translation import gettext_lazy as _
 
 # Standard Library
 import logging
+import sys
 from datetime import date, datetime
 from random import randint
 

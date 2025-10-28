@@ -13,10 +13,7 @@ from dateutil.relativedelta import relativedelta
 # Squarelet
 from squarelet.organizations import tasks
 from squarelet.organizations.models import Charge, Invoice, Subscription
-from squarelet.organizations.tests.factories import (
-    InvoiceFactory,
-    SubscriptionFactory,
-)
+from squarelet.organizations.tests.factories import InvoiceFactory, SubscriptionFactory
 
 
 @pytest.mark.django_db()
