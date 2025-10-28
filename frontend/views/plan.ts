@@ -10,8 +10,7 @@ var cardInputStyle = {
     fontSmoothing: 'antialiased',
     '::placeholder': {
       color: '#899194',
-    },
-    padding: '0.25rem 0.5rem',
+    }
   },
   invalid: {
     color: '#e5424d',
@@ -121,10 +120,9 @@ document.addEventListener("DOMContentLoaded", function () {
   
   function updateCardOptions(selectedOrg, elements) {
     const { cardOnFileOptions, existingCardRadio, newCardRadio } = elements;
-    // const invoiceRadio = document.querySelector('input[value="invoice"]');
+    const invoiceRadio = document.querySelector('input[value="invoice"]');
     const orgHasCard = orgCards[selectedOrg];
-    // const noSelection = !existingCardRadio.checked && !newCardRadio.checked && !(invoiceRadio && invoiceRadio.checked);
-    const noSelection = !existingCardRadio.checked && !newCardRadio.checked;
+    const noSelection = !existingCardRadio.checked && !newCardRadio.checked && !(invoiceRadio && invoiceRadio.checked);
 
     if (orgHasCard) {
       // Show existing card option and update card info
@@ -154,12 +152,6 @@ document.addEventListener("DOMContentLoaded", function () {
       // Default to new card if no selection made
       if (existingCardRadio.checked || noSelection) {
           newCardRadio.checked = true;
-      }
-
-      // Hide the radio button when it's the only option
-      const newCardOption = newCardRadio?.closest('.new-card-option');
-      if (newCardOption) {
-        newCardOption.classList.add('only-option');
       }
     }
   }
