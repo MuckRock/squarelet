@@ -170,6 +170,9 @@ class TestOrganization:
     ):
         user = user_factory()
         organization = organization_factory()
+        mocker.patch(
+            "squarelet.organizations.models.Customer.stripe_customer", card=None
+        )
         mocker.patch("squarelet.organizations.models.Organization.change_logs")
         max_users = 10
         organization.set_subscription(None, organization.plan, max_users, user)
@@ -177,7 +180,7 @@ class TestOrganization:
         assert organization.max_users == 10
 
     @pytest.mark.django_db
-    def test_create_subscription(
+    def test_set_subscription_create(
         self, organization_factory, mocker, user_factory, professional_plan_factory
     ):
         mocker.patch("stripe.Plan.create")
@@ -193,32 +196,16 @@ class TestOrganization:
         mocked_subscriptions = mocker.patch(
             "squarelet.organizations.models.Organization.subscriptions"
         )
+        mocker.patch("squarelet.organizations.models.Organization.change_logs")
+        max_users = 10
         token = "token"
-        organization.create_subscription(token, plan, user)
+        organization.set_subscription(token, plan, max_users, user)
         mocked_save_card.assert_called_with(token, user)
         assert mocked_customer.email == organization.email
         mocked_customer.save.assert_called()
         mocked_subscriptions.start.assert_called_with(
             organization=organization, plan=plan, payment_method="card"
         )
-
-    @pytest.mark.django_db
-    def test_set_subscription_create(
-        self, organization_factory, mocker, user_factory, professional_plan_factory
-    ):
-        mocker.patch("stripe.Plan.create")
-        user = user_factory()
-        organization = organization_factory(admins=[user])
-        plan = professional_plan_factory()
-        mocked = mocker.patch(
-            "squarelet.organizations.models.Organization.create_subscription"
-        )
-        mocker.patch("squarelet.organizations.models.Organization.change_logs")
-        mocker.patch("squarelet.organizations.models.Organization.save_card")
-        max_users = 10
-        token = "token"
-        organization.set_subscription(token, plan, max_users, user)
-        mocked.assert_called_with(token, plan, user)
 
     @pytest.mark.django_db
     def test_set_subscription_cancel(
@@ -228,6 +215,9 @@ class TestOrganization:
         user = user_factory()
         plan = professional_plan_factory()
         organization = organization_factory(admins=[user], plans=[plan])
+        mocker.patch(
+            "squarelet.organizations.models.Customer.stripe_customer", card=None
+        )
         mocked = mocker.patch("squarelet.organizations.models.Subscription.cancel")
         mocker.patch("squarelet.organizations.models.Organization.change_logs")
         max_users = 10
@@ -243,6 +233,9 @@ class TestOrganization:
         user = user_factory()
         plan = professional_plan_factory()
         organization = organization_factory(admins=[user], plans=[plan])
+        mocker.patch(
+            "squarelet.organizations.models.Customer.stripe_customer", card=None
+        )
         mocked = mocker.patch("squarelet.organizations.models.Subscription.modify")
         mocker.patch("squarelet.organizations.models.Organization.change_logs")
         max_users = 10
