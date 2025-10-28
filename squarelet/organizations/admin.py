@@ -1,5 +1,6 @@
 # Django
 from django.contrib import admin
+from django.contrib.auth.models import AnonymousUser
 from django.db.models import Count, JSONField, Q, Sum
 from django.forms.models import BaseInlineFormSet
 from django.forms.widgets import Textarea
@@ -238,6 +239,7 @@ class OrganizationAdmin(VersionAdmin):
         "individual",
         "private",
         "verified_journalist",
+        "is_visible_to_anonymous",
         "get_subtypes",
         "get_outstanding_invoices",
     )
@@ -260,6 +262,7 @@ class OrganizationAdmin(VersionAdmin):
         "individual",
         "private",
         "verified_journalist",
+        "is_visible_to_anonymous",
         "hub_eligible",
         "allow_auto_join",
         "max_users",
@@ -282,6 +285,7 @@ class OrganizationAdmin(VersionAdmin):
         "created_at",
         "updated_at",
         "individual",
+        "is_visible_to_anonymous",
         "merged",
         "merged_at",
         "merged_by",
@@ -330,11 +334,12 @@ class OrganizationAdmin(VersionAdmin):
             return self.fields
 
     def get_readonly_fields(self, request, obj=None):
-        """Only add user link for individual organizations"""
+        """Add user link for individual organizations"""
+        base_readonly = self.readonly_fields
         if obj and obj.individual:
-            return ("user_link",) + self.readonly_fields
+            return ("user_link",) + base_readonly
         else:
-            return self.readonly_fields
+            return base_readonly
 
     @mark_safe
     def user_link(self, obj):
@@ -365,6 +370,17 @@ class OrganizationAdmin(VersionAdmin):
 
     get_outstanding_invoices.short_description = "Outstanding Invoices"
     get_outstanding_invoices.admin_order_field = "outstanding_invoice_count"
+
+    def is_visible_to_anonymous(self, obj):
+        """Check if organization is visible to anonymous users"""
+        return (
+            Organization.objects.filter(pk=obj.pk)
+            .get_viewable(AnonymousUser())
+            .exists()
+        )
+
+    is_visible_to_anonymous.short_description = "Visible to Anonymous"
+    is_visible_to_anonymous.boolean = True
 
 
 @admin.register(Plan)
