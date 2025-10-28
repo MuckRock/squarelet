@@ -553,5 +553,5 @@ MAX_SUNLIGHT_SUBSCRIPTIONS = env.int("MAX_SUNLIGHT_SUBSCRIPTIONS", default=15)
 # Invoice settings
 # ------------------------------------------------------------------------------
 OVERDUE_INVOICE_GRACE_PERIOD_DAYS = env.int(
-    "OVERDUE_INVOICE_GRACE_PERIOD_DAYS", default=60
+    "OVERDUE_INVOICE_GRACE_PERIOD_DAYS", default=30
 )
