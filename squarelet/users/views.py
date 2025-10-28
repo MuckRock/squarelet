@@ -56,6 +56,7 @@ from squarelet.users.forms import (
     UserAutologinPreferenceForm,
     UserUpdateForm,
 )
+from squarelet.users.hijack import hijack_by_group
 from squarelet.users.onboarding import OnboardingStepRegistry, onboarding_check
 
 # Local
@@ -184,6 +185,7 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
             context["current_plan_cancelled"] = getattr(subscription, "cancelled", None)
         # Autologin preference form
         context["autologin_form"] = UserAutologinPreferenceForm(instance=user)
+        context["may_hijack"] = hijack_by_group(self.request.user, user)
         return context
 
     def get_recovery_codes(self):

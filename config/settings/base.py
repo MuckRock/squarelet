@@ -484,7 +484,7 @@ DEBUG_TOOLBAR_CONFIG = {
 }
 # django-hijack
 # ------------------------------------------------------------------------------
-HIJACK_AUTHORIZE_STAFF = True
+HIJACK_AUTHORIZATION_CHECK = "squarelet.users.hijack.hijack_by_group"
 
 # dogslow
 # ------------------------------------------------------------------------------
