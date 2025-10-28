@@ -18,6 +18,7 @@ import stripe
 # Squarelet
 from squarelet.core.mail import ORG_TO_ADMINS, send_mail
 from squarelet.core.models import Interval
+from squarelet.core.utils import is_production_env
 from squarelet.oidc.middleware import send_cache_invalidations
 from squarelet.organizations import wix
 from squarelet.organizations.models.invoice import Invoice
@@ -557,6 +558,14 @@ def send_slack_notification(self, slack_webhook, subject, message):
     retry_kwargs={"max_retries": 3},
 )
 def sync_wix(org_id, plan_id, user_id):
+    # Only sync to Wix in production
+    if not is_production_env():
+        logger.info(
+            "[WIX-SYNC] Skipping Wix sync in non-production environment (ENV=%s)",
+            settings.ENV,
+        )
+        return
+
     org = Organization.objects.get(pk=org_id)
     plan = Plan.objects.get(pk=plan_id)
     user = User.objects.get(pk=user_id)
@@ -570,6 +579,15 @@ def sync_wix(org_id, plan_id, user_id):
 )
 def add_to_waitlist(org_id, plan_id, user_id):
     """Add user to waitlist in Wix"""
+    # Only add to waitlist in production
+    if not is_production_env():
+        logger.info(
+            "[WIX-WAITLIST] Skipping Wix waitlist"
+            " in non-production environment (ENV=%s)",
+            settings.ENV,
+        )
+        return
+
     org = Organization.objects.get(pk=org_id)
     plan = Plan.objects.get(pk=plan_id)
     user = User.objects.get(pk=user_id)

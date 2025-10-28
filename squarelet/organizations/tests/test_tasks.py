@@ -838,3 +838,125 @@ class TestCheckOverdueInvoicesDispatcher:
 
         # Should not dispatch any tasks
         mock_process.assert_not_called()
+
+
+class TestSyncWix:
+    """Unit tests for the sync_wix task"""
+
+    @pytest.mark.django_db
+    @override_settings(ENV="prod")
+    def test_syncs_in_production(
+        self, organization_factory, organization_plan_factory, user_factory, mocker
+    ):
+        """Should sync to Wix when running in production"""
+        org = organization_factory()
+        plan = organization_plan_factory()
+        user = user_factory()
+
+        mock_wix_sync = mocker.patch(
+            "squarelet.organizations.tasks.wix.sync_wix"
+        )
+
+        tasks.sync_wix(org.id, plan.id, user.id)
+
+        # Should call wix.sync_wix in production
+        mock_wix_sync.assert_called_once_with(org, plan, user)
+
+    @pytest.mark.django_db
+    @override_settings(ENV="staging")
+    def test_does_not_sync_in_staging(
+        self, organization_factory, organization_plan_factory, user_factory, mocker
+    ):
+        """Should not sync to Wix when running in staging"""
+        org = organization_factory()
+        plan = organization_plan_factory()
+        user = user_factory()
+
+        mock_wix_sync = mocker.patch(
+            "squarelet.organizations.tasks.wix.sync_wix"
+        )
+
+        tasks.sync_wix(org.id, plan.id, user.id)
+
+        # Should not call wix.sync_wix in staging
+        mock_wix_sync.assert_not_called()
+
+    @pytest.mark.django_db
+    @override_settings(ENV="dev")
+    def test_does_not_sync_in_dev(
+        self, organization_factory, organization_plan_factory, user_factory, mocker
+    ):
+        """Should not sync to Wix when running in dev"""
+        org = organization_factory()
+        plan = organization_plan_factory()
+        user = user_factory()
+
+        mock_wix_sync = mocker.patch(
+            "squarelet.organizations.tasks.wix.sync_wix"
+        )
+
+        tasks.sync_wix(org.id, plan.id, user.id)
+
+        # Should not call wix.sync_wix in dev
+        mock_wix_sync.assert_not_called()
+
+
+class TestAddToWaitlist:
+    """Unit tests for the add_to_waitlist task"""
+
+    @pytest.mark.django_db
+    @override_settings(ENV="prod")
+    def test_adds_to_waitlist_in_production(
+        self, organization_factory, organization_plan_factory, user_factory, mocker
+    ):
+        """Should add to waitlist when running in production"""
+        org = organization_factory()
+        plan = organization_plan_factory()
+        user = user_factory()
+
+        mock_wix_waitlist = mocker.patch(
+            "squarelet.organizations.tasks.wix.add_to_waitlist"
+        )
+
+        tasks.add_to_waitlist(org.id, plan.id, user.id)
+
+        # Should call wix.add_to_waitlist in production
+        mock_wix_waitlist.assert_called_once_with(org, plan, user)
+
+    @pytest.mark.django_db
+    @override_settings(ENV="staging")
+    def test_does_not_add_to_waitlist_in_staging(
+        self, organization_factory, organization_plan_factory, user_factory, mocker
+    ):
+        """Should not add to waitlist when running in staging"""
+        org = organization_factory()
+        plan = organization_plan_factory()
+        user = user_factory()
+
+        mock_wix_waitlist = mocker.patch(
+            "squarelet.organizations.tasks.wix.add_to_waitlist"
+        )
+
+        tasks.add_to_waitlist(org.id, plan.id, user.id)
+
+        # Should not call wix.add_to_waitlist in staging
+        mock_wix_waitlist.assert_not_called()
+
+    @pytest.mark.django_db
+    @override_settings(ENV="dev")
+    def test_does_not_add_to_waitlist_in_dev(
+        self, organization_factory, organization_plan_factory, user_factory, mocker
+    ):
+        """Should not add to waitlist when running in dev"""
+        org = organization_factory()
+        plan = organization_plan_factory()
+        user = user_factory()
+
+        mock_wix_waitlist = mocker.patch(
+            "squarelet.organizations.tasks.wix.add_to_waitlist"
+        )
+
+        tasks.add_to_waitlist(org.id, plan.id, user.id)
+
+        # Should not call wix.add_to_waitlist in dev
+        mock_wix_waitlist.assert_not_called()
