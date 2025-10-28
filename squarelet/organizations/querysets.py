@@ -29,10 +29,11 @@ class OrganizationQuerySet(models.QuerySet):
         elif user.is_authenticated:
             # other users may not see private organizations unless they are a member
             # and they can only see public organizations that are visible
-            # (verified or have charges)
+            # (verified or have charges or paid invoices)
             return self.filter(
                 Q(private=False, verified_journalist=True)
                 | Q(private=False, charges__isnull=False)
+                | Q(private=False, invoices__status="paid")
                 | Q(users=user)
             ).distinct()
         else:
@@ -40,6 +41,7 @@ class OrganizationQuerySet(models.QuerySet):
             return self.filter(
                 Q(private=False, verified_journalist=True)
                 | Q(private=False, charges__isnull=False)
+                | Q(private=False, invoices__status="paid")
             ).distinct()
 
     def create_individual(self, user, uuid=None):
