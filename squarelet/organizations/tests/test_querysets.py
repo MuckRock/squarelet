@@ -78,6 +78,27 @@ class TestOrganizationQuerySet(TestCase):
         assert public_org_without_charges not in viewable
 
     @pytest.mark.django_db
+    def test_get_viewable_authenticated_user_public_with_paid_invoices(self):
+        """Authenticated users can view public orgs with paid invoices"""
+        user = UserFactory()
+        public_org_with_paid_invoice = OrganizationFactory(
+            private=False, verified_journalist=False
+        )
+        InvoiceFactory(organization=public_org_with_paid_invoice, status="paid")
+        public_org_with_open_invoice = OrganizationFactory(
+            private=False, verified_journalist=False
+        )
+        InvoiceFactory(organization=public_org_with_open_invoice, status="open")
+        public_org_without_invoices = OrganizationFactory(
+            private=False, verified_journalist=False
+        )
+
+        viewable = Organization.objects.get_viewable(user)
+        assert public_org_with_paid_invoice in viewable
+        assert public_org_with_open_invoice not in viewable
+        assert public_org_without_invoices not in viewable
+
+    @pytest.mark.django_db
     def test_get_viewable_authenticated_user_member_of_private_org(self):
         """Authenticated users can view private orgs they are members of"""
         user = UserFactory()
@@ -123,6 +144,27 @@ class TestOrganizationQuerySet(TestCase):
         viewable = Organization.objects.get_viewable(user)
         assert public_org_with_charges in viewable
         assert public_org_without_charges not in viewable
+
+    @pytest.mark.django_db
+    def test_get_viewable_anonymous_user_public_with_paid_invoices(self):
+        """Anonymous users can view public orgs with paid invoices"""
+        user = AnonymousUser()
+        public_org_with_paid_invoice = OrganizationFactory(
+            private=False, verified_journalist=False
+        )
+        InvoiceFactory(organization=public_org_with_paid_invoice, status="paid")
+        public_org_with_open_invoice = OrganizationFactory(
+            private=False, verified_journalist=False
+        )
+        InvoiceFactory(organization=public_org_with_open_invoice, status="open")
+        public_org_without_invoices = OrganizationFactory(
+            private=False, verified_journalist=False
+        )
+
+        viewable = Organization.objects.get_viewable(user)
+        assert public_org_with_paid_invoice in viewable
+        assert public_org_with_open_invoice not in viewable
+        assert public_org_without_invoices not in viewable
 
     @pytest.mark.django_db
     def test_get_viewable_distinct_results(self):
