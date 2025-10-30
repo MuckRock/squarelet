@@ -1,4 +1,4 @@
-import { d, exists, on } from "./util";
+import { d, exists, on } from "../util";
 // import { StripeAPIError } from 'stripe/lib/Error';
 // const Stripe = require('stripe') as StripeAPIError;
 // TODO: get Stripe import to work.

@@ -342,6 +342,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "squarelet.organizations.tasks.restore_organization",
         "schedule": crontab(hour=0, minute=5),
     },
+    "check_overdue_invoices": {
+        "task": "squarelet.organizations.tasks.check_overdue_invoices",
+        "schedule": crontab(hour=2, minute=0),
+    },
     "store_statistics": {
         "task": "squarelet.statistics.tasks.store_statistics",
         "schedule": crontab(hour=5, minute=30),
@@ -550,3 +554,9 @@ WIX_SITE_ID = env("WIX_SITE_ID", default="")
 # Subscription limits
 # ------------------------------------------------------------------------------
 MAX_SUNLIGHT_SUBSCRIPTIONS = env.int("MAX_SUNLIGHT_SUBSCRIPTIONS", default=15)
+
+# Invoice settings
+# ------------------------------------------------------------------------------
+OVERDUE_INVOICE_GRACE_PERIOD_DAYS = env.int(
+    "OVERDUE_INVOICE_GRACE_PERIOD_DAYS", default=30
+)

@@ -10,8 +10,7 @@ var cardInputStyle = {
     fontSmoothing: 'antialiased',
     '::placeholder': {
       color: '#899194',
-    },
-    padding: '0.25rem 0.5rem',
+    }
   },
   invalid: {
     color: '#e5424d',
@@ -28,8 +27,8 @@ document.addEventListener("DOMContentLoaded", function () {
   const cardFields = document.querySelectorAll(".card-field");
   cardFields.forEach((cardField) => {
     const form = cardField.closest('form');
-    const stripePk = form.querySelector('#id_stripe_pk').value;
-    const tokenInput = form.querySelector("#id_stripe_token");
+    const stripePk = (form.querySelector('#id_stripe_pk') as HTMLInputElement).value;
+    const tokenInput = form.querySelector("#id_stripe_token") as HTMLInputElement;
     
     // Create the card element using the Stripe public key
     const stripe = Stripe(stripePk);
@@ -60,15 +59,14 @@ document.addEventListener("DOMContentLoaded", function () {
       }
       const payMethodInput = document.querySelector(
         "input[name=payment_method]:checked",
-      );
-      if (payMethodInput != null && payMethodInput.value == "existing-card") {
+      ) as HTMLInputElement;
+      if (
+        payMethodInput != null &&
+        (["existing-card", "invoice"].includes(payMethodInput.value))
+      ) {
         // Do not try to get token if using a card on file
-        form.submit();
-        /* Skip until #461
-      } else if (payMethodInput != null && payMethodInput.value == "invoice") {
         // Do not try to get token if paying by invoice
         form.submit();
-        */
       } else {
         stripe.createToken(cardElement).then(function(result) {
           if (result.error) {
@@ -122,10 +120,9 @@ document.addEventListener("DOMContentLoaded", function () {
   
   function updateCardOptions(selectedOrg, elements) {
     const { cardOnFileOptions, existingCardRadio, newCardRadio } = elements;
-    // const invoiceRadio = document.querySelector('input[value="invoice"]');
+    const invoiceRadio = document.querySelector('input[value="invoice"]');
     const orgHasCard = orgCards[selectedOrg];
-    // const noSelection = !existingCardRadio.checked && !newCardRadio.checked && !(invoiceRadio && invoiceRadio.checked);
-    const noSelection = !existingCardRadio.checked && !newCardRadio.checked;
+    const noSelection = !existingCardRadio.checked && !newCardRadio.checked && !(invoiceRadio && invoiceRadio.checked);
 
     if (orgHasCard) {
       // Show existing card option and update card info
@@ -156,18 +153,12 @@ document.addEventListener("DOMContentLoaded", function () {
       if (existingCardRadio.checked || noSelection) {
           newCardRadio.checked = true;
       }
-
-      // Hide the radio button when it's the only option
-      const newCardOption = newCardRadio?.closest('.new-card-option');
-      if (newCardOption) {
-        newCardOption.classList.add('only-option');
-      }
     }
   }
   
   function updatePaymentUI(elements) {
     const { cardField, saveCardCheckbox, existingCardRadio, newCardRadio } = elements;
-    // const invoiceRadio = document.querySelector('input[value="invoice"]');
+    const invoiceRadio = document.querySelector('input[value="invoice"]') as HTMLInputElement;
 
     if (existingCardRadio.checked) {
       cardField.style.display = 'none';
@@ -175,13 +166,10 @@ document.addEventListener("DOMContentLoaded", function () {
     } else if (newCardRadio.checked) {
       cardField.style.display = 'block';
       saveCardCheckbox.style.display = 'block';
-    }
-    /* Skip until #461
     } else if (invoiceRadio && invoiceRadio.checked) {
       cardField.style.display = 'none';
       saveCardCheckbox.style.display = 'none';
     }
-    */
   }
   
   function hideAllPaymentElements(elements) {
