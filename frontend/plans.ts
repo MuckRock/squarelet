@@ -383,3 +383,9 @@ function isFree(plan: Plan): boolean {
 function requiresPayment(plan: Plan): boolean {
   return !isFree(plan) && !plan.annual;
 }
+
+/* Load the PlanView */
+if (exists("id_stripe_pk")) {
+  // Stripe and plans pages.
+  new PlansView();
+}

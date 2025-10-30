@@ -9,9 +9,6 @@ import { exists } from "./util";
 import { DropdownView } from "./dropdown";
 import { EmailAddressView } from "./emailaddress";
 import { ReceiptsView } from "./receipts";
-import { PlansView } from "./plans";
-import { scrollControl } from "./scroll-controller";
-// import {ManageTableView} from './managetable';
 
 if (exists("_id-profDropdown")) {
   // Dropdown view;
@@ -37,9 +34,4 @@ if (exists("_id-resendVerification")) {
 if (exists("_id-receiptsTable")) {
   // Receipts page.
   new ReceiptsView();
-}
-
-if (exists("id_stripe_pk")) {
-  // Stripe and plans pages.
-  new PlansView();
 }

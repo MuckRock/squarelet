@@ -14,6 +14,7 @@
 {% block javascript %}
 {{ block.super }}
 {{ org_cards|json_script:"org-card-data"}}
+{{ plan_data|json_script:"plan-data" }}
 {% endblock %}
 
 {% block content %}
@@ -101,18 +102,28 @@
               <div class="payment-methods" style="display:none;">
                 <div class="card-on-file-option" style="display:none;">
                   <label>
-                    <input type="radio" name="payment_method" value="existing">
+                    <input type="radio" name="payment_method" value="existing-card">
                     <span class="card-info">{% trans "Use existing card" %}</span>
                   </label>
                 </div>
                 <div class="new-card-option">
                   <label>
                     <div class="radio-header">
-                      <input type="radio" name="payment_method" value="new">
+                      <input type="radio" name="payment_method" value="new-card">
                       {% trans "Use new card" %}
                     </div>
                   </label>
                 </div>
+                <!-- Hide invoice option until #461
+                {% if plan.annual %}
+                <div class="invoice-option">
+                  <label>
+                    <input type="radio" name="payment_method" value="invoice">
+                    {% trans "Pay by invoice" %}
+                  </label>
+                </div>
+                {% endif %}
+                -->
               </div>
 
               <!-- Credit card field -->
