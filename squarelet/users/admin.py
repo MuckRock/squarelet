@@ -114,6 +114,39 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
                 "fields": (
                     "is_active",
                     "is_staff",
+                )
+            },
+        ),
+        (
+            _("Important dates"),
+            {"fields": ("last_login", "last_mfa_prompt", "created_at", "updated_at")},
+        ),
+    )
+    superuser_fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    "uuid",
+                    "username",
+                    "password",
+                    "individual_org_link",
+                    "all_org_links",
+                    "can_change_username",
+                    "source",
+                )
+            },
+        ),
+        (
+            _("Personal info"),
+            {"fields": ("name", "email", "email_failed", "bio")},
+        ),
+        (
+            _("Permissions"),
+            {
+                "fields": (
+                    "is_active",
+                    "is_staff",
                     "is_superuser",
                     "groups",
                     "user_permissions",
@@ -156,6 +189,13 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
                 username_deterministic=Collate("username", "und-x-icu"),
             )
         )
+
+    def get_fieldsets(self, request, obj=None):
+        """Remove permission settings for non-super users"""
+        if request.user.is_superuser:
+            return self.superuser_fieldsets
+        else:
+            return self.fieldsets
 
     def save_model(self, request, obj, form, change):
         """Sync all auth email addresses"""
