@@ -2,8 +2,8 @@
 from urllib.parse import parse_qs, urlsplit
 
 # Third Party
-from allauth.mfa.models import Authenticator
 import pytest
+from allauth.mfa.models import Authenticator
 
 # Squarelet
 from squarelet.organizations.tests.factories import (
