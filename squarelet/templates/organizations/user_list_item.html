@@ -22,6 +22,9 @@
             {% if membership.admin %}
             <span class="orange badge">{% trans "Admin" %}</span>
             {% endif %}
+            {% if user.has_mfa_enabled %}
+            <span class="green badge">{% trans "2FA" %}</span>
+            {% endif %}
             <span class="caption">{{ user.email }}</span>
         </div>
     </div>

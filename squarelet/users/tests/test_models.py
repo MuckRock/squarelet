@@ -2,6 +2,7 @@
 from urllib.parse import parse_qs, urlsplit
 
 # Third Party
+from allauth.mfa.models import Authenticator
 import pytest
 
 # Squarelet
@@ -158,3 +159,19 @@ def test_get_potential_organizations_with_multiple_emails(user_factory):
     assert org1 in potential_orgs
     assert org2 in potential_orgs
     assert org3 not in potential_orgs
+
+
+@pytest.mark.django_db
+def test_has_mfa_enabled(user_factory):
+    # Create a user without MFA
+    user_without_mfa = user_factory()
+    assert user_without_mfa.has_mfa_enabled is False
+
+    # Create a user with MFA enabled
+    user_with_mfa = user_factory()
+    Authenticator.objects.create(
+        user=user_with_mfa,
+        type=Authenticator.Type.TOTP,
+        data={"secret": "test_secret"},
+    )
+    assert user_with_mfa.has_mfa_enabled is True
