@@ -296,7 +296,7 @@ class TestUserOnboardingView(ViewTestMixin):
             "has_verified_email": True,
             "has_organizations": True,
             "has_active_subscription": False,
-            "is_mfa_enabled": True,
+            "has_mfa_enabled": True,
             "has_invitations": False,
             "has_unverified_emails": False,
         }
@@ -323,10 +323,10 @@ class TestUserOnboardingView(ViewTestMixin):
                 return_value=defaults["has_active_subscription"],
             )
 
-        # Mock MFA status
+        # Mock MFA status - patch the is_mfa_enabled function in the user model
         mocker.patch(
-            "squarelet.users.onboarding.is_mfa_enabled",
-            return_value=defaults["is_mfa_enabled"],
+            "squarelet.users.models.is_mfa_enabled",
+            return_value=defaults["has_mfa_enabled"],
         )
 
         # Mock invitations
@@ -653,7 +653,7 @@ class TestUserOnboardingView(ViewTestMixin):
             },
         )
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
 
         step, _ = self._get_onboarding_step(request, mocker)
 
@@ -674,7 +674,7 @@ class TestUserOnboardingView(ViewTestMixin):
             },
         )
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
 
         self._mock_mfa_forms(mocker, valid=True)
 
@@ -717,7 +717,7 @@ class TestUserOnboardingView(ViewTestMixin):
             {"onboarding": {"email_check_completed": True, "mfa_step": "not_started"}},
         )
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=True)
+        self._mock_user_state(mocker, user, has_mfa_enabled=True)
 
         step, _ = self._get_onboarding_step(request, mocker)
 
@@ -743,7 +743,7 @@ class TestUserOnboardingView(ViewTestMixin):
             },
         )
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
 
         step, _ = self._get_onboarding_step(request, mocker)
 
@@ -887,7 +887,7 @@ class TestUserOnboardingView(ViewTestMixin):
             "onboarding": {"email_check_completed": True, "mfa_step": mfa_step},
         }
         request = self._create_get_request(rf, user, mock_django_session, session_data)
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
         self._mock_mfa_forms(mocker, valid=True)
 
         view = self.view()
@@ -984,7 +984,7 @@ class TestUserOnboardingView(ViewTestMixin):
             },
         )
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
         mock_form = self._mock_mfa_forms(mocker)
 
         view = self.view()
@@ -1216,7 +1216,7 @@ class TestUserOnboardingView(ViewTestMixin):
             },
         )
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
 
         response = self._call_view_post(request, mocker)
 
@@ -1240,7 +1240,7 @@ class TestUserOnboardingView(ViewTestMixin):
             },
         )
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
 
         # Mock timezone and user save
         mock_timezone_now = mocker.patch("squarelet.users.onboarding.timezone.now")
@@ -1270,7 +1270,7 @@ class TestUserOnboardingView(ViewTestMixin):
             },
         )
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
         self._mock_mfa_forms(mocker, valid=True)
 
         response = self._call_view_post(request, mocker)
@@ -1294,7 +1294,7 @@ class TestUserOnboardingView(ViewTestMixin):
             },
         )
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
         self._mock_mfa_forms(mocker, valid=False)
 
         response = self._call_view_post(request, mocker)
@@ -1316,7 +1316,7 @@ class TestUserOnboardingView(ViewTestMixin):
             },
         )
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
         self._mock_mfa_forms(mocker, valid=True)
 
         # Mock timezone and user save
@@ -1371,7 +1371,7 @@ class TestUserOnboardingView(ViewTestMixin):
             },
         )
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
 
         # Mock the adapter for TOTP generation
         mock_adapter = mocker.MagicMock()
@@ -1454,7 +1454,7 @@ class TestUserOnboardingView(ViewTestMixin):
             "onboarding": {"email_check_completed": True, "mfa_step": "opted_in"},
         }
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
 
         # Mock adapter
         mock_adapter = mocker.MagicMock()
@@ -1507,7 +1507,7 @@ class TestUserOnboardingView(ViewTestMixin):
             "onboarding": {"email_check_completed": True, "mfa_step": "opted_in"},
         }
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
         self._mock_mfa_forms(mocker, valid=True)
 
         # Mock timezone for user save
@@ -1683,7 +1683,7 @@ class TestUserOnboardingView(ViewTestMixin):
             has_verified_email=False,
             has_organizations=False,
             has_invitations=False,
-            is_mfa_enabled=False,
+            has_mfa_enabled=False,
         )
 
         # Step 1: Email confirmation required
@@ -1707,7 +1707,7 @@ class TestUserOnboardingView(ViewTestMixin):
             has_verified_email=False,
             has_organizations=False,
             has_invitations=False,
-            is_mfa_enabled=False,
+            has_mfa_enabled=False,
         )
 
         response = self._call_view_post(request, mocker)
@@ -1735,7 +1735,7 @@ class TestUserOnboardingView(ViewTestMixin):
             user,
             has_verified_email=True,
             has_active_subscription=False,
-            is_mfa_enabled=False,
+            has_mfa_enabled=False,
         )
 
         # Step 1: Should go straight to subscription (email already verified)
@@ -1778,7 +1778,7 @@ class TestUserOnboardingView(ViewTestMixin):
             user,
             has_organizations=False,
             has_invitations=True,
-            is_mfa_enabled=True,
+            has_mfa_enabled=True,
         )
 
         # Step 1: Should go to join_org step
@@ -1841,7 +1841,7 @@ class TestUserOnboardingView(ViewTestMixin):
         mocker.patch.object(
             user.individual_organization, "has_active_subscription", return_value=False
         )
-        mocker.patch("squarelet.users.onboarding.is_mfa_enabled", return_value=False)
+        mocker.patch("squarelet.users.models.is_mfa_enabled", return_value=False)
         user.last_mfa_prompt = None
 
         self._mock_mfa_forms(mocker, valid=True)
@@ -1909,7 +1909,7 @@ class TestUserOnboardingView(ViewTestMixin):
         mocker.patch.object(
             user.organizations, "filter", return_value=mock_org_queryset
         )
-        mocker.patch("squarelet.users.onboarding.is_mfa_enabled", return_value=True)
+        mocker.patch("squarelet.users.models.is_mfa_enabled", return_value=True)
 
         request = self._create_get_request(rf, user, mock_django_session, session_data)
 
@@ -2030,7 +2030,7 @@ class TestUserOnboardingView(ViewTestMixin):
         request.user = user
         request.session = mock_django_session({"onboarding": {"mfa_step": "opted_in"}})
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
         self._mock_mfa_forms(mocker, valid=False)
 
         response = self._call_view_post(request, mocker)
@@ -2088,7 +2088,7 @@ class TestUserOnboardingView(ViewTestMixin):
         mocker.patch.object(
             user.organizations, "filter", return_value=mock_org_queryset
         )
-        mocker.patch("squarelet.users.onboarding.is_mfa_enabled", return_value=True)
+        mocker.patch("squarelet.users.models.is_mfa_enabled", return_value=True)
         self._mock_mfa_forms(mocker, valid=True)
 
         view = self.view()
@@ -2120,7 +2120,7 @@ class TestUserOnboardingView(ViewTestMixin):
         mocker.patch.object(
             user.organizations, "filter", return_value=mock_org_queryset
         )
-        mocker.patch("squarelet.users.onboarding.is_mfa_enabled", return_value=True)
+        mocker.patch("squarelet.users.models.is_mfa_enabled", return_value=True)
 
         view = self.view()
         view.get_onboarding_step(request)
