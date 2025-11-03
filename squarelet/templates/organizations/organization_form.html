@@ -1,9 +1,14 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n django_vite %}
 {% load crispy_forms_tags %}
 {% load planinfo %}
 
 {% block title %}{{ organization.reference_name }}{% endblock %}
+
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/plans.ts" %}
+{% endblock %}
 
 {% block content %}
   <div class="_cls-content">

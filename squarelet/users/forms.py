@@ -268,7 +268,7 @@ class PremiumSubscriptionForm(StripeForm):
                     if not organization.receipt_emails.filter(email=email).exists():
                         organization.receipt_emails.create(email=email)
         try:
-            organization.create_subscription(stripe_token, plan, user)
+            organization.set_subscription(stripe_token, plan, plan.minimum_users, user)
             return True
         except stripe.error.StripeError as exc:
             logger.error("Error updating subscription: %s", exc)

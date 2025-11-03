@@ -222,7 +222,7 @@ def test_premium_subscription_form_save(plan_factory, user, mocker):
     """Test save method successfully creating a subscription"""
     plan = plan_factory(slug="professional")
     create_sub_mock = mocker.patch.object(
-        Organization, "create_subscription", return_value=None
+        Organization, "set_subscription", return_value=None
     )
 
     data = {
@@ -238,7 +238,7 @@ def test_premium_subscription_form_save(plan_factory, user, mocker):
     assert form.is_valid()
     form.save(user)
 
-    create_sub_mock.assert_called_once_with("tok_visa", plan, user)
+    create_sub_mock.assert_called_once_with("tok_visa", plan, plan.minimum_users, user)
 
 
 @pytest.mark.django_db
@@ -247,7 +247,7 @@ def test_premium_subscription_form_save_stripe_error(plan_factory, user, mocker)
     plan = plan_factory(slug="professional")
     mocker.patch.object(
         Organization,
-        "create_subscription",
+        "set_subscription",
         side_effect=stripe.error.StripeError("Payment failed"),
     )
 
@@ -376,7 +376,7 @@ def test_premium_subscription_form_save_new_organization(plan_factory, user, moc
     )
 
     create_sub_mock = mocker.patch.object(
-        Organization, "create_subscription", return_value=None
+        Organization, "set_subscription", return_value=None
     )
 
     data = {
@@ -405,7 +405,7 @@ def test_premium_subscription_form_save_new_organization(plan_factory, user, moc
     # the database. Instead, check that it was called with the right parameters.
     org_create_mock.assert_called_once_with(name="New Test Organization", private=False)
     add_creator_mock.assert_called_once_with(user)
-    create_sub_mock.assert_called_once_with("tok_visa", plan, user)
+    create_sub_mock.assert_called_once_with("tok_visa", plan, plan.minimum_users, user)
 
 
 @pytest.mark.django_db
@@ -418,7 +418,7 @@ def test_premium_subscription_form_save_unique_violation(plan_factory, user, moc
     plan = plan_factory(slug="professional")
     mocker.patch.object(
         Organization,
-        "create_subscription",
+        "set_subscription",
         side_effect=MockUniqueViolation(
             "duplicate key value violates unique constraint"
         ),

@@ -9,10 +9,7 @@ import { exists } from "./util";
 import { DropdownView } from "./dropdown";
 import { EmailAddressView } from "./emailaddress";
 import { ReceiptsView } from "./receipts";
-import { PlansView } from "./plans";
-import { scrollControl } from "./scroll-controller";
 import { initAlerts } from "./alerts";
-// import {ManageTableView} from './managetable';
 
 // Initialize alert system for progressive enhancement
 initAlerts();
@@ -27,12 +24,6 @@ if (exists("_id-autocomplete")) {
   new AutocompleteView();
 }
 
-// TODO(incorporate new manage table)
-// if (exists('_id-manageTable')) {
-//   // Manage members view.
-//   new ManageTableView();
-// }
-
 if (exists("_id-resendVerification")) {
   // E-mail address page.
   new EmailAddressView();
@@ -41,9 +32,4 @@ if (exists("_id-resendVerification")) {
 if (exists("_id-receiptsTable")) {
   // Receipts page.
   new ReceiptsView();
-}
-
-if (exists("id_stripe_pk")) {
-  // Stripe and plans pages.
-  new PlansView();
 }
