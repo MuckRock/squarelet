@@ -6,6 +6,9 @@ def hijack_by_group(hijacker, hijacked):
 
     hijack_groups = ["Support", "Technology"]
 
+    if hijacker == hijacked:
+        return False
+
     if not hijacked.is_active:
         return False
 
