@@ -2,7 +2,7 @@
 
 
 def hijack_by_group(hijacker, hijacked):
-    """Certain groups my hijack"""
+    """Certain groups may hijack"""
 
     hijack_groups = ["Support", "Technology"]
 
