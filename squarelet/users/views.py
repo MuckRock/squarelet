@@ -47,6 +47,7 @@ from allauth.socialaccount.views import ConnectionsView
 
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
+from squarelet.core.utils import new_action
 from squarelet.organizations.models import ReceiptEmail
 from squarelet.organizations.models.payment import Plan
 from squarelet.organizations.views import UpdateSubscription
@@ -250,6 +251,13 @@ class UserUpdateView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Updat
         self.object.individual_organization.avatar = self.object.avatar
         self.object.individual_organization.name = self.object.username
         self.object.individual_organization.save()
+
+        if self.request.user != self.object:
+            new_action(
+                actor=self.request.user,
+                verb="updated profile",
+                target=self.object,
+            )
         messages.success(
             self.request,
             _("Your profile changes have been saved."),

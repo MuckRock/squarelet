@@ -1,13 +1,38 @@
 # Django
 from django.db import transaction
+from django.dispatch import receiver
 from django.utils.translation import gettext_lazy as _
 
 # Third Party
+from actstream import registry
 from allauth.account import signals
+from hijack.signals import hijack_ended, hijack_started
 
 # Squarelet
 from squarelet.core.mail import send_mail
+from squarelet.core.utils import new_action
 from squarelet.oidc.middleware import send_cache_invalidations
+from squarelet.users.models import User
+
+registry.register(User)
+
+
+@receiver(hijack_started)
+def on_hijack_started(hijacker, hijacked, request, **kwargs):
+    new_action(
+        actor=hijacker,
+        verb="hijacked",
+        target=hijacked,
+    )
+
+
+@receiver(hijack_ended)
+def on_hijack_ended(hijacker, hijacked, request, **kwargs):
+    new_action(
+        actor=hijacker,
+        verb="ended hijack",
+        target=hijacked,
+    )
 
 
 def user_logged_in(request, user, **kwargs):
