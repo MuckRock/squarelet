@@ -9,6 +9,10 @@ import { exists } from "./util";
 import { DropdownView } from "./dropdown";
 import { EmailAddressView } from "./emailaddress";
 import { ReceiptsView } from "./receipts";
+import { initAlerts } from "./alerts";
+
+// Initialize alert system for progressive enhancement
+initAlerts();
 
 if (exists("_id-profDropdown")) {
   // Dropdown view;
@@ -19,12 +23,6 @@ if (exists("_id-autocomplete")) {
   // Autocomplete page.
   new AutocompleteView();
 }
-
-// TODO(incorporate new manage table)
-// if (exists('_id-manageTable')) {
-//   // Manage members view.
-//   new ManageTableView();
-// }
 
 if (exists("_id-resendVerification")) {
   // E-mail address page.

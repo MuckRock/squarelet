@@ -40,7 +40,6 @@ from allauth.account.views import (
 )
 from allauth.mfa import app_settings
 from allauth.mfa.models import Authenticator
-from allauth.mfa.utils import is_mfa_enabled
 from allauth.socialaccount.adapter import get_adapter as get_social_adapter
 from allauth.socialaccount.internal import flows
 from allauth.socialaccount.views import ConnectionsView
@@ -149,7 +148,6 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         context["has_unverified_emails"] = user.emailaddress_set.filter(
             verified=False
         ).exists()
-        context["is_mfa_enabled"] = is_mfa_enabled(user)
         context["RECOVERY_CODE_COUNT"] = app_settings.RECOVERY_CODE_COUNT
         context["unused_code_count"] = len(self.get_recovery_codes())
         # Get the current plan and subscription, if any
