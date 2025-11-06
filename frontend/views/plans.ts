@@ -1,4 +1,4 @@
-import { d, exists, on } from "./util";
+import { d, exists, on } from "../util";
 // import { StripeAPIError } from 'stripe/lib/Error';
 // const Stripe = require('stripe') as StripeAPIError;
 // TODO: get Stripe import to work.
@@ -107,15 +107,14 @@ export class PlansView {
     if (this.maxUsers != 0) {
       if (this.maxUsers - plan.minimum_users == 0) {
         costBreakdownFormatted += ` with ${plan.minimum_users} resource block${
-          plan.minimum_users != 1 ? 's' : ''
+          plan.minimum_users != 1 ? "s" : ""
         } included`;
         if (plan.price_per_user != 0) {
-          costBreakdownFormatted +=
-            ` ($${plan.price_per_user} per additional resouece block)`;
+          costBreakdownFormatted += ` ($${plan.price_per_user} per additional resouece block)`;
         }
       } else {
         costBreakdownFormatted += ` with ${plan.minimum_users} resource block${
-          plan.minimum_users != 1 ? 's' : ''
+          plan.minimum_users != 1 ? "s" : ""
         } included and ${this.maxUsers - plan.minimum_users} extra resource blocks
           at $${plan.price_per_user} each`;
       }
@@ -168,31 +167,26 @@ export class PlansView {
       if (plan.slug === "") {
         // The canonical free plan assigns no resources, so do not show the resource
         // blocks field
-        fieldset.style.display = 'none';
+        fieldset.style.display = "none";
       } else if (plan.slug == "organization") {
         // The normal organization plan does show the resource block
         // Add specific help text for it as well
-        fieldset.style.display = '';
-        hint.textContent = (
-          `Your plan covers unlimited users.  By default, this organization plan
+        fieldset.style.display = "";
+        hint.textContent = `Your plan covers unlimited users.  By default, this organization plan
           includes 50 requests on MuckRock as well as 5,000 credits for
           DocumentCloud premium features, both renewed monthly on your billing
           date.  Each additional resource block above 5 will grant you another 10
-          requests and 500 premium credits.`
-        );
+          requests and 500 premium credits.`;
       } else {
         // Custom plans show the resource block field and have generic help
-        fieldset.style.display = '';
-        hint.textContent = (
-          `You have selected a custom plan.  Please contact a staff member for
+        fieldset.style.display = "";
+        hint.textContent = `You have selected a custom plan.  Please contact a staff member for
           specific details on how many resources each resource block will
-          provide.`
-        );
+          provide.`;
       }
-    };
+    }
 
     this.updateAll(false);
-
   }
 
   /**
