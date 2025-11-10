@@ -1,7 +1,5 @@
 {% extends "base.html" %}
-{% load i18n django_vite %}
-{% load crispy_forms_tags %}
-{% load planinfo %}
+{% load i18n django_vite crispy_forms_tags planinfo %}
 
 {% block title %}{{ organization.reference_name }}{% endblock %}
 
@@ -11,6 +9,56 @@
 {% endblock %}
 
 {% block content %}
+<article id="organization-form">
+  <aside class="sidebar">
+    <a href="{{ organization.get_absolute_url }}" class="btn small ghost primary">
+      {% include "core/icons/chevron-left.svg" %}
+      {% trans "Back to team overview" %}
+    </a>
+
+    <header>
+      <h1>{{ organization.name }}</h1>
+      <h2>{% trans "Edit profile" %}</h2>
+    </header>
+  </aside>
+
+  <div class="content">
+    <section id="details">
+      <header>
+        <div class="title">
+          <h2>{% trans "Organization Details" %}</h2>
+          <p>{% trans "Update your organization information" %}</p>
+        </div>
+      </header>
+
+      <div class="card">
+        <form method="POST" action="{% url "organizations:update" slug=organization.slug %}">
+          {% crispy form form.helper %}
+          <button type="submit" class="btn primary">
+            {% trans "Save changes" %}
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <section id="protected">
+      <header>
+        <div class="title">
+          <h2>{% trans "Protected fields" %}</h2>
+          <p>
+            {% trans "Changes to these fields require approval by MuckRock staff" %}
+          </p>
+        </div>
+
+        <div class="card"></div>
+      </header>
+    </section>
+  </div>
+
+</article>
+{% endblock content %}
+
+{% comment %}
   <div class="_cls-content">
     <h1>{{ organization.reference_name }}</h1>
     {% if failed_receipt_emails %}
@@ -61,4 +109,4 @@
     </form>
   </div>
   {% planinfo organization=organization %}
-{% endblock %}
+{% endcomment %}
