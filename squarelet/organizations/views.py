@@ -370,6 +370,8 @@ class UpdateSubscription(OrganizationAdminMixin, UpdateView):
 
 
 class Update(OrganizationAdminMixin, UpdateView):
+    "Update organization metadata, with some fields requiring staff approval first"
+
     queryset = Organization.objects.filter(individual=False)
     form_class = UpdateForm
 

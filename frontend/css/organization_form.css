@@ -1,0 +1,37 @@
+/* css for /organizations/<slug>/update/ */
+
+#organization-form {
+  display: flex;
+  max-width: 60rem;
+  align-items: flex-start;
+  gap: 1.5rem;
+  align-self: stretch;
+  justify-content: center;
+}
+
+#organization-form .sidebar {
+  display: flex;
+  max-width: 15rem;
+  flex-direction: column;
+  align-items: flex-start;
+  flex: 1 0 0;
+  align-self: stretch;
+
+  header {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    align-self: stretch;
+  }
+}
+
+#organization-form .content {
+  display: flex;
+  max-width: 37.5rem;
+  padding: 0.75rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2rem;
+  flex: 1 0 0;
+}
