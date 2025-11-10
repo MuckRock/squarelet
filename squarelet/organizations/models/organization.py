@@ -83,12 +83,16 @@ class Organization(AvatarMixin, models.Model):
         help_text=_("An image to represent the organization"),
     )
 
+    about = models.TextField(
+        _("about"), blank=True, help_text="A short description of this organization"
+    )
+
     users = models.ManyToManyField(
         verbose_name=_("users"),
         to="users.User",
         through="organizations.Membership",
         related_name="organizations",
-        help_text=_("The user's in this organization"),
+        help_text=_("The users in this organization"),
     )
 
     subtypes = models.ManyToManyField(
@@ -99,6 +103,7 @@ class Organization(AvatarMixin, models.Model):
         blank=True,
     )
 
+    # parent/child relationships
     members = models.ManyToManyField(
         verbose_name=_("members"),
         to="self",
@@ -121,6 +126,7 @@ class Organization(AvatarMixin, models.Model):
         blank=True,
         null=True,
     )
+
     wikidata_id = models.CharField(
         _("wikidata id"),
         max_length=255,
@@ -128,6 +134,7 @@ class Organization(AvatarMixin, models.Model):
         help_text=_("The wikidata identifier"),
     )
 
+    # location
     city = models.CharField(
         _("city"),
         max_length=100,
