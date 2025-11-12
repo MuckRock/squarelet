@@ -23,6 +23,7 @@ from squarelet.organizations.choices import (
     COUNTRY_CHOICES,
     STATE_CHOICES,
     ChangeLogReason,
+    CHANGE_STATUS_CHOICES,
 )
 from squarelet.organizations.models.payment import Charge
 from squarelet.organizations.querysets import (
@@ -974,3 +975,85 @@ class OrganizationEmailDomain(models.Model):
         help_text=_("The organization to associate the email domain with"),
     )
     domain = models.CharField(_("domain"), max_length=255)
+
+
+class ProfileChangeRequest(models.Model):
+    """
+    A request to change core organization data, requiring staff approval
+    """
+
+    organization = models.ForeignKey(
+        Organization,
+        verbose_name=_("organization"),
+        on_delete=models.CASCADE,
+        related_name="profile_change_requests",
+        help_text=_("The organization we want to update"),
+    )
+
+    user = models.ForeignKey(
+        "users.User",
+        verbose_name=_("user"),
+        on_delete=models.CASCADE,
+        related_name="organization_change_requests",
+        help_text=_("The user making the request"),
+    )
+
+    status = models.CharField(
+        _("status"), choices=CHANGE_STATUS_CHOICES, default="pending"
+    )
+
+    created_at = AutoCreatedField(
+        _("created at"), help_text=_("When this organization was created")
+    )
+    updated_at = AutoLastModifiedField(
+        _("updated at"), help_text=_("When this organization was last updated")
+    )
+
+    # these are change requests, so they can be blank
+    name = models.CharField(
+        _("name"),
+        max_length=255,
+        help_text=_("The name of the organization"),
+        blank=True,
+    )
+    slug = AutoSlugField(
+        _("slug"),
+        help_text=_("A unique slug for use in URLs"),
+        blank=True,
+    )
+
+    # setting this adds an OrganizationUrl row
+    url = models.URLField(blank=True)
+
+    # location
+    city = models.CharField(
+        _("city"),
+        max_length=100,
+        blank=True,
+    )
+    state = models.CharField(
+        _("state"),
+        max_length=2,
+        blank=True,
+        choices=STATE_CHOICES,
+    )
+    country = models.CharField(
+        _("country"),
+        max_length=2,
+        blank=True,
+        choices=COUNTRY_CHOICES,
+    )
+
+    # snapshot the current state of the organization we're updating
+    previous = models.JSONField(_("previous"), blank=True, editable=False)
+
+    def __str__(self):
+        return f"Request: {self.organization} by {self.user}"
+
+    def save(self, *args, **kwargs):
+        fields = ["name", "slug", "city", "state", "country"]
+        if not self.previous:
+            self.previous = {
+                field: getattr(self.organization, field) for field in fields
+            }
+        super().save(*args, **kwargs)
