@@ -88,3 +88,9 @@ STATE_CHOICES = (
     ("SK", _("Saskatchewan")),
     ("YT", _("Yukon")),
 )
+
+CHANGE_STATUS_CHOICES = (
+    ("pending", _("Pending")),
+    ("accepted", _("Accepted")),
+    ("rejected", _("Rejected")),
+)
