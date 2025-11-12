@@ -1042,6 +1042,8 @@ class ProfileChangeRequest(models.Model):
     A request to change core organization data, requiring staff approval
     """
 
+    FIELDS = ("name", "slug", "city", "state", "country")
+
     organization = models.ForeignKey(
         Organization,
         verbose_name=_("organization"),
@@ -1111,9 +1113,28 @@ class ProfileChangeRequest(models.Model):
         return f"Request: {self.organization} by {self.user}"
 
     def save(self, *args, **kwargs):
-        fields = ["name", "slug", "city", "state", "country"]
         if not self.previous:
             self.previous = {
-                field: getattr(self.organization, field) for field in fields
+                field: getattr(self.organization, field) for field in self.FIELDS
             }
         super().save(*args, **kwargs)
+
+    def accept(self):
+        "Accept changes and keep a record"
+        with transaction.atomic():
+            self.status = "accepted"
+            for field in self.FIELDS:
+                if value := getattr(self, field):
+                    setattr(self.organization, field, value)
+
+            self.save()
+            self.organization.save()
+
+            transaction.on_commit(
+                lambda: send_cache_invalidations("organization", self.organization.uuid)
+            )
+
+    def reject(self):
+        "Say no but keep a record"
+        self.status = "rejected"
+        self.save()
