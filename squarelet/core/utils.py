@@ -282,7 +282,7 @@ def format_stripe_error(error):
     return generic_message
 
 
-def pluralize(count: int, word: str) -> str: 
+def pluralize(count: int, word: str) -> str:
     """
     Helper function for pluralization.
     Returns the singular form if count is 1, otherwise returns the plural form.
