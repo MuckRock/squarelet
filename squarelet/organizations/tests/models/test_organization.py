@@ -1,8 +1,5 @@
-# Django
-from django.test import override_settings
-
 # Standard Library
-from unittest.mock import Mock, PropertyMock
+from unittest.mock import Mock
 
 # Third Party
 import pytest

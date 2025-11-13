@@ -1,9 +1,6 @@
 # Standard Library
 from unittest.mock import Mock
 
-# Third Party
-import pytest
-
 
 class TestSubscription:
     """Unit tests for the Subscription model"""
