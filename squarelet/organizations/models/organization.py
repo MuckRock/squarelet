@@ -20,10 +20,10 @@ from squarelet.core.mixins import AvatarMixin
 from squarelet.core.utils import file_path, mailchimp_journey
 from squarelet.oidc.middleware import send_cache_invalidations
 from squarelet.organizations.choices import (
+    CHANGE_STATUS_CHOICES,
     COUNTRY_CHOICES,
     STATE_CHOICES,
     ChangeLogReason,
-    CHANGE_STATUS_CHOICES,
 )
 from squarelet.organizations.models.payment import Charge, ReceiptEmail
 from squarelet.organizations.querysets import (
