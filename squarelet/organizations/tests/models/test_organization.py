@@ -9,7 +9,6 @@ import stripe
 from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.models import Organization
 
-
 # pylint: disable=too-many-public-methods
 
 
