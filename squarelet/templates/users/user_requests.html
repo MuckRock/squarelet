@@ -80,16 +80,6 @@
                         {% trans "Withdraw request" %}
                       </button>
                     </form>
-                  {% elif request.rejected_at %}
-                    <form method="post" action="{% url "users:requests" username=target_user.username %}">
-                      {% csrf_token %}
-                      <input type="hidden" name="invitation_uuid" value="{{request.uuid}}" />
-                      <input type="hidden" name="action" value="undo_reject" />
-                      <button class="btn small primary" type="submit">
-                        {% include "core/icons/arrow-counterclockwise.svg" %}
-                        {% trans "Resend request" %}
-                      </button>
-                    </form>
                   {% endif %}
                 </div>
               {% endif %}
