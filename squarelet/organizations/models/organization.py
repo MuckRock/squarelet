@@ -28,7 +28,7 @@ from squarelet.organizations.choices import (
     ChangeLogReason,
     CHANGE_STATUS_CHOICES,
 )
-from squarelet.organizations.models.payment import Charge
+from squarelet.organizations.models.payment import Charge, ReceiptEmail
 from squarelet.organizations.querysets import (
     InvitationQuerySet,
     MembershipQuerySet,
@@ -847,34 +847,6 @@ class Invitation(models.Model):
             return self.email
 
 
-class ReceiptEmail(models.Model):
-    """An email address to send receipts to"""
-
-    organization = models.ForeignKey(
-        verbose_name=_("organization"),
-        to="organizations.Organization",
-        related_name="receipt_emails",
-        on_delete=models.CASCADE,
-        help_text=_("The organization this receipt email corresponds to"),
-    )
-    email = models.EmailField(
-        _("email"),
-        help_text=_("The email address to send the receipt to"),
-        db_collation="case_insensitive",
-    )
-    failed = models.BooleanField(
-        _("failed"),
-        default=False,
-        help_text=_("Has sending to this email address failed?"),
-    )
-
-    class Meta:
-        unique_together = ("organization", "email")
-
-    def __str__(self):
-        return f"Receipt Email: <{self.email}>"
-
-
 class OrganizationChangeLog(models.Model):
     """Track important changes to organizations"""
 
@@ -977,64 +949,6 @@ class OrganizationChangeLog(models.Model):
                 f"Plan: {self.from_plan} with {self.from_max_users} users"
             )
         return "Other reason"
-
-
-class OrganizationType(models.Model):
-    """A broad type an organization may be classified as"""
-
-    name = models.CharField(
-        _("name"), max_length=255, help_text=_("The name of the organization type")
-    )
-
-    def __str__(self):
-        return self.name
-
-
-class OrganizationSubtype(models.Model):
-    """A specific type an organization may be classified as"""
-
-    name = models.CharField(
-        _("name"), max_length=255, help_text=_("The name of the organization subtype")
-    )
-    type = models.ForeignKey(
-        verbose_name=_("type"),
-        to="organizations.OrganizationType",
-        on_delete=models.PROTECT,
-        related_name="subtypes",
-        help_text=_("The parent type for this subtype"),
-    )
-
-    class Meta:
-        ordering = ("type",)
-
-    def __str__(self):
-        return f"{self.type.name} - {self.name}"
-
-
-class OrganizationUrl(models.Model):
-    """URLs associated with an organization"""
-
-    organization = models.ForeignKey(
-        verbose_name=_("organization"),
-        to="organizations.Organization",
-        on_delete=models.CASCADE,
-        related_name="urls",
-        help_text=_("The organization to associate the URL with"),
-    )
-    url = models.URLField(_("url"))
-
-
-class OrganizationEmailDomain(models.Model):
-    """Email Domains associated with an organization"""
-
-    organization = models.ForeignKey(
-        verbose_name=_("organization"),
-        to="organizations.Organization",
-        on_delete=models.CASCADE,
-        related_name="domains",
-        help_text=_("The organization to associate the email domain with"),
-    )
-    domain = models.CharField(_("domain"), max_length=255)
 
 
 class ProfileChangeRequest(models.Model):
