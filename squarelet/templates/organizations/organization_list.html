@@ -76,11 +76,6 @@
           </button>
         </form>
       </div>
-      {% elif not has_pending %}
-      <div class="empty">
-        <p>{% trans "You don't have any outstanding invitations or requests." %}</p>
-        <p>{% trans "Received invitations and sent requests will appear here." %}</p>
-      </div>
       {% else %}
         {% if potential_orgs %}
         <div class="pre-approved">
@@ -110,10 +105,14 @@
         </div>
         {% endif %}
 
-        {% if pending_invitations %}
         <div class="pending">
           <header>
             <h2>{% trans "Pending invitations" %}</h2>
+            <div class="header-actions">
+              <a href="{% url "users:invitations" username=user.username %}" class="btn ghost primary">
+                {% trans "View all invitations" %}
+              </a>
+            </div>
           </header>
           <div class="card">
             {% for invite in pending_invitations %}
@@ -137,12 +136,15 @@
             {% endfor %}
           </div>
         </div>
-        {% endif %}
 
-        {% if pending_requests %}
         <div class="pending">
           <header>
             <h2>{% trans "Pending requests" %}</h2>
+            <div class="header-actions">
+              <a href="{% url "users:requests" username=user.username %}" class="btn ghost primary">
+                {% trans "View all requests" %}
+              </a>
+            </div>
           </header>
           <div class="card">
             {% for invite in pending_requests %}
@@ -163,7 +165,6 @@
             {% endfor %}
           </div>
         </div>
-        {% endif %}
       {% endif %}
     </section>
   </div>
