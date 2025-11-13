@@ -2,7 +2,6 @@
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db import models
 from django.http.response import (
     Http404,
     HttpResponse,
@@ -521,38 +520,27 @@ class UserPaymentView(LoginRequiredMixin, StaffAccessMixin, UpdateSubscription):
         target_user = User.objects.get(username=username)
         return target_user.individual_organization
 
-# TODO: Consolidate UserInvitationsView and UserRequestsView since they are very similar
-class UserInvitationsView(LoginRequiredMixin, StaffAccessMixin, ListView):
-    """View to display all invitations received by a user"""
+
+class BaseUserInvitationRequestView(LoginRequiredMixin, StaffAccessMixin, ListView):
+    """Base view for displaying invitations and requests for a user"""
 
     model = Invitation
-    template_name = "users/user_invitations.html"
-    context_object_name = "invitations"
     paginate_by = 20
 
+    # Subclasses must define these attributes
+    is_request_view = None  # True for requests, False for invitations
+    redirect_url_name = None  # URL name for POST redirect
+
     def get_queryset(self):
-        """Get all invitations (request=False) for the user's verified emails"""
+        """Get invitations or requests for the user based on view type"""
         username = self.kwargs.get("username")
         user = User.objects.get(username=username)
-        verified_emails = user.get_verified_emails()
-
-        if not verified_emails:
-            return Invitation.objects.none()
-
-        # Get all invitations (not requests) for this user's verified emails
-        # Include user field for cases where the user was directly invited
-        # TODO: Refact this into a queryset method on Invitation
-        queryset = (
-            Invitation.objects.filter(
-                models.Q(email__in=verified_emails) | models.Q(user=user), request=False
-            )
-            .select_related("organization")
-            .order_by("-created_at")
-        )
-
-        return queryset
+        if self.is_request_view:
+            return Invitation.objects.get_user_requests(user)
+        return Invitation.objects.get_user_invitations(user)
 
     def get_context_data(self, **kwargs):
+        """Add target user and ownership info to context"""
         context = super().get_context_data(**kwargs)
         username = self.kwargs.get("username")
         target_user = User.objects.get(username=username)
@@ -561,21 +549,21 @@ class UserInvitationsView(LoginRequiredMixin, StaffAccessMixin, ListView):
         return context
 
     def post(self, request, *args, **kwargs):
-        """Handle undo action for rejected invitations"""
+        """Handle sending a new request after rejecting an invitation"""
         invitation_uuid = request.POST.get("invitation_uuid")
         action = request.POST.get("action")
 
-        # TODO: Clarify action is sending a new request, not undoing a rejected invite
-        if action == "undo_reject":
+        # Only allow send_new_request for invitations view, not requests view
+        if action == "send_new_request" and not self.is_request_view:
             try:
                 # Get the rejected invitation
-                invitation = Invitation.objects.get(
-                    uuid=invitation_uuid, rejected_at__isnull=False
+                rejected_invitation = Invitation.objects.get(
+                    uuid=invitation_uuid, rejected_at__isnull=False, request=False
                 )
 
                 # Create a new request to join the organization
                 new_request = Invitation.objects.create(
-                    organization=invitation.organization,
+                    organization=rejected_invitation.organization,
                     user=request.user,
                     email=request.user.email,
                     request=True,
@@ -585,7 +573,7 @@ class UserInvitationsView(LoginRequiredMixin, StaffAccessMixin, ListView):
                 messages.success(
                     request,
                     _(
-                        f"Request to join {invitation.organization.name} "
+                        f"Request to join {rejected_invitation.organization.name} "
                         "has been sent."
                     ),
                 )
@@ -595,81 +583,23 @@ class UserInvitationsView(LoginRequiredMixin, StaffAccessMixin, ListView):
                 )
 
         return HttpResponseRedirect(
-            reverse("users:invitations", kwargs={"username": request.user.username})
+            reverse(self.redirect_url_name, kwargs={"username": request.user.username})
         )
 
 
-class UserRequestsView(LoginRequiredMixin, StaffAccessMixin, ListView):
+class UserInvitationsView(BaseUserInvitationRequestView):
+    """View to display all invitations received by a user"""
+
+    template_name = "users/user_invitations.html"
+    context_object_name = "invitations"
+    is_request_view = False
+    redirect_url_name = "users:invitations"
+
+
+class UserRequestsView(BaseUserInvitationRequestView):
     """View to display all requests sent by a user"""
 
-    model = Invitation
     template_name = "users/user_requests.html"
     context_object_name = "requests"
-    paginate_by = 20
-
-    def get_queryset(self):
-        """Get all requests (request=True) sent by the user"""
-        username = self.kwargs.get("username")
-        user = User.objects.get(username=username)
-        verified_emails = user.get_verified_emails()
-
-        if not verified_emails:
-            return Invitation.objects.none()
-
-        # Get all requests for this user's verified emails or user field
-        # TODO: Refact this into a queryset method on Invitation
-        queryset = (
-            Invitation.objects.filter(
-                models.Q(email__in=verified_emails) | models.Q(user=user), request=True
-            )
-            .select_related("organization")
-            .order_by("-created_at")
-        )
-
-        return queryset
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        username = self.kwargs.get("username")
-        target_user = User.objects.get(username=username)
-        context["target_user"] = target_user
-        context["is_own_page"] = target_user == self.request.user
-        return context
-
-    def post(self, request, *args, **kwargs):
-        """Handle undo action for rejected requests"""
-        invitation_uuid = request.POST.get("invitation_uuid")
-        action = request.POST.get("action")
-
-        # TODO: Users cannot undo a request rejected by someone else
-        if action == "undo_reject":
-            try:
-                # Get the rejected request
-                old_request = Invitation.objects.get(
-                    uuid=invitation_uuid, rejected_at__isnull=False
-                )
-
-                # Create a new request to join the organization
-                new_request = Invitation.objects.create(
-                    organization=old_request.organization,
-                    user=request.user,
-                    email=request.user.email,
-                    request=True,
-                )
-                new_request.send()
-
-                messages.success(
-                    request,
-                    _(
-                        f"New request to join {old_request.organization.name} "
-                        "has been sent."
-                    ),
-                )
-            except Invitation.DoesNotExist:
-                messages.error(
-                    request, _("Request not found or has not been rejected.")
-                )
-
-        return HttpResponseRedirect(
-            reverse("users:requests", kwargs={"username": request.user.username})
-        )
+    is_request_view = True
+    redirect_url_name = "users:requests"

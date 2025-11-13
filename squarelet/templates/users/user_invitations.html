@@ -85,7 +85,7 @@
                 <form method="post" action="{% url "users:invitations" username=target_user.username %}">
                   {% csrf_token %}
                   <input type="hidden" name="invitation_uuid" value="{{invitation.uuid}}" />
-                  <input type="hidden" name="action" value="undo_reject" />
+                  <input type="hidden" name="action" value="send_new_request" />
                   <button class="btn small primary" type="submit">
                     {% trans "Send request to join" %}
                   </button>
