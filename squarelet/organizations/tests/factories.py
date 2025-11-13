@@ -166,3 +166,14 @@ class EmailDomainFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = "organizations.OrganizationEmailDomain"
         django_get_or_create = ("domain",)
+
+
+class ProfileChangeRequestFactory(factory.django.DjangoModelFactory):
+    organization = factory.SubFactory(
+        "squarelet.organizations.tests.factories.OrganizationFactory"
+    )
+    user = factory.SubFactory("squarelet.users.tests.factories.UserFactory")
+    status = "pending"
+
+    class Meta:
+        model = "organizations.ProfileChangeRequest"

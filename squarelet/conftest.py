@@ -16,6 +16,7 @@ from squarelet.organizations.tests.factories import (
     OrganizationPlanFactory,
     PlanFactory,
     ProfessionalPlanFactory,
+    ProfileChangeRequestFactory,
     SubscriptionFactory,
 )
 from squarelet.users.tests.factories import UserFactory
@@ -28,6 +29,7 @@ register(MembershipFactory)
 register(OrganizationFactory)
 register(OrganizationPlanFactory)
 register(ProfessionalPlanFactory)
+register(ProfileChangeRequestFactory)
 register(SubscriptionFactory)
 register(CustomerFactory)
 
