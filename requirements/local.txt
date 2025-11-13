@@ -155,6 +155,7 @@ dill==0.3.5.1
 django==4.2.18
     # via
     #   -r requirements/base.txt
+    #   django-activity-stream
     #   django-allauth
     #   django-choices
     #   django-cors-headers
@@ -174,6 +175,8 @@ django==4.2.18
     #   djangorestframework-simplejwt
     #   dogslow
     #   drf-nested-routers
+django-activity-stream==2.0.0
+    # via -r requirements/base.txt
 django-allauth[mfa,socialaccount]==65.0.2
     # via -r requirements/base.txt
 django-autocomplete-light==3.8.2

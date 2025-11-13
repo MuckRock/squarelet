@@ -10,12 +10,29 @@ import uuid
 from hashlib import md5
 
 # Third Party
+import actstream
 import requests
 import stripe
 
 logger = logging.getLogger(__name__)
 
 MAX_RETRIES = 10
+
+
+def new_action(
+    actor, verb, action_object=None, target=None, public=False, description=None
+):
+    """Wrapper to send a new action and return the generated Action object."""
+    action_signal = actstream.action.send(
+        actor,
+        verb=verb,
+        action_object=action_object,
+        target=target,
+        public=public,
+        description=description,
+    )
+    # action_signal = ((action_handler, Action))
+    return action_signal[0][1]
 
 
 def is_production_env():
