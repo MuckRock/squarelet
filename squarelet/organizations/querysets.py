@@ -3,10 +3,11 @@ from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 from django.utils.timezone import get_current_timezone
 
 # Standard Library
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from uuid import uuid4
 
 # Third Party
@@ -28,10 +29,11 @@ class OrganizationQuerySet(models.QuerySet):
         elif user.is_authenticated:
             # other users may not see private organizations unless they are a member
             # and they can only see public organizations that are visible
-            # (verified or have charges)
+            # (verified or have charges or paid invoices)
             return self.filter(
                 Q(private=False, verified_journalist=True)
                 | Q(private=False, charges__isnull=False)
+                | Q(private=False, invoices__status="paid")
                 | Q(users=user)
             ).distinct()
         else:
@@ -39,6 +41,7 @@ class OrganizationQuerySet(models.QuerySet):
             return self.filter(
                 Q(private=False, verified_journalist=True)
                 | Q(private=False, charges__isnull=False)
+                | Q(private=False, invoices__status="paid")
             ).distinct()
 
     def create_individual(self, user, uuid=None):
@@ -228,3 +231,10 @@ class SubscriptionQuerySet(models.QuerySet):
             plan__wix=True,
             cancelled=False,
         ).count()
+
+
+class InvoiceQuerySet(models.QuerySet):
+    def overdue(self, grace_period_days):
+        """Get invoices that are past their due date plus grace period"""
+        cutoff_date = timezone.now().date() - timedelta(days=grace_period_days)
+        return self.filter(status="open", due_date__lte=cutoff_date)
