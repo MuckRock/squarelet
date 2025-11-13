@@ -1,6 +1,8 @@
 # Third Party
 import pytest
 
+from squarelet.organizations.models import ProfileChangeRequest
+
 
 class TestProfileChangeRequest:
     """Unit tests for ProfileChangeRequest model"""
@@ -136,7 +138,6 @@ class TestProfileChangeRequest:
     @pytest.mark.django_db()
     def test_all_fields_tracked_in_previous(self, organization_factory, user_factory):
         """Test that all FIELDS are tracked in previous snapshot"""
-        from squarelet.organizations.models import ProfileChangeRequest
 
         org = organization_factory(
             name="Test Org", slug="test-org", city="Test City", state="CA", country="US"

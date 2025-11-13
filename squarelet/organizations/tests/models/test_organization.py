@@ -1,5 +1,5 @@
 # Standard Library
-from unittest.mock import Mock, PropertyMock
+from unittest.mock import Mock
 
 # Third Party
 import pytest
