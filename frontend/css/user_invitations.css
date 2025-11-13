@@ -1,0 +1,26 @@
+
+
+.invitation-item main, .invitation-details {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.invitation-summary {
+  display: flex;
+  gap: 1rem;
+  font-size: var(--font-sm);
+  color: var(--gray-5);
+}
+
+dl.invitation-summary > div {
+  flex: 0 1 9rem;
+}
+
+.invitation-summary dt {
+  font-weight: var(--font-semibold);
+}
+
+.invitation-summary dd {
+  margin: 0;
+}
