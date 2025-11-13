@@ -1,6 +1,7 @@
 # Third Party
 import pytest
 
+# Squarelet
 from squarelet.organizations.models import ProfileChangeRequest
 
 
