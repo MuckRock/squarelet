@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans 'Requests' %}{% endblock %}
+
+{% block content %}
+<article id="user_requests" class="user-requests-page">
+  <header>
+    <nav class="links">
+      <a href="{% url "users:detail" username=target_user.username %}">
+        {% include "core/icons/arrow-left.svg" %}
+        {% trans "Back to" %} {% if is_own_page %}{% trans "your account" %}{% else %}{{ target_user.username }}{% endif %}
+      </a>
+    </nav>
+    <h1>
+      {% if is_own_page %}
+        {% trans "Your Requests" %}
+      {% else %}
+        {% trans "Requests for" %} {{ target_user.username }}
+      {% endif %}
+    </h1>
+    <p class="help-text">
+      {% trans "View all requests you've sent to join organizations." %}
+    </p>
+  </header>
+
+  <div class="content">
+    <section class="requests-list">
+      {% if requests %}
+        <div class="card">
+          {% for request in requests %}
+          <div class="request-item">
+            {% include "account/team_list_item.html" with organization=request.organization %}
+
+            <div class="request-details">
+              <dl class="status-info">
+                <dt>{% trans "Requested" %}</dt>
+                <dd>
+                  <time title="{{request.created_at|date:"c"}}" datetime="{{request.created_at|date:"c"}}">
+                    {{request.created_at|date:"F j, Y"}}
+                  </time>
+                </dd>
+                <dt>{% trans "Status" %}</dt>
+                <dd>
+                  {% if request.accepted_at %}
+                    <span class="badge green">
+                      {% include "core/icons/checkmark.svg" %}
+                      {% trans "Accepted" %}
+                    </span>
+                    <span class="status-date">
+                      <time title="{{request.accepted_at|date:"c"}}" datetime="{{request.accepted_at|date:"c"}}">
+                        {{request.accepted_at|date:"F j, Y"}}
+                      </time>
+                    </span>
+                  {% elif request.rejected_at %}
+                    <span class="badge red">
+                      {% include "core/icons/x.svg" %}
+                      {% trans "Rejected" %}
+                    </span>
+                    <span class="status-date">
+                      <time title="{{request.rejected_at|date:"c"}}" datetime="{{request.rejected_at|date:"c"}}">
+                        {{request.rejected_at|date:"F j, Y"}}
+                      </time>
+                    </span>
+                  {% else %}
+                    <span class="badge blue">
+                      {% include "core/icons/clock.svg" %}
+                      {% trans "Pending" %}
+                    </span>
+                  {% endif %}
+                </dd>
+              </dl>
+
+              {% if is_own_page %}
+                <div class="actions">
+                  {% if not request.accepted_at and not request.rejected_at %}
+                    <form method="post" action="{% url "organizations:invitation" uuid=request.uuid %}">
+                      {% csrf_token %}
+                      <button class="btn small danger ghost" type="submit" name="action" value="reject">
+                        {% trans "Withdraw request" %}
+                      </button>
+                    </form>
+                  {% elif request.rejected_at %}
+                    <form method="post" action="{% url "users:requests" username=target_user.username %}">
+                      {% csrf_token %}
+                      <input type="hidden" name="invitation_uuid" value="{{request.uuid}}" />
+                      <input type="hidden" name="action" value="undo_reject" />
+                      <button class="btn small primary" type="submit">
+                        {% include "core/icons/arrow-counterclockwise.svg" %}
+                        {% trans "Resend request" %}
+                      </button>
+                    </form>
+                  {% endif %}
+                </div>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+        {% if is_paginated %}
+        <nav class="pagination">
+          {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}" class="btn ghost">{% trans "Previous" %}</a>
+          {% endif %}
+          <span class="page-info">
+            {% trans "Page" %} {{ page_obj.number }} {% trans "of" %} {{ page_obj.paginator.num_pages }}
+          </span>
+          {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" class="btn ghost">{% trans "Next" %}</a>
+          {% endif %}
+        </nav>
+        {% endif %}
+      {% else %}
+        <div class="empty card">
+          <p>
+            {% if is_own_page %}
+              {% trans "You have not sent any requests to join organizations." %}
+            {% else %}
+              {% trans "This user has not sent any requests." %}
+            {% endif %}
+          </p>
+        </div>
+      {% endif %}
+    </section>
+  </div>
+</article>
+{% endblock content %}
