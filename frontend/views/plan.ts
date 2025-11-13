@@ -20,6 +20,20 @@ var cardInputStyle = {
   },
 };
 
+interface FormElements {
+  cardOnFileOption: HTMLDivElement | null;
+  cardField: HTMLDivElement | null;
+  paymentMethods: HTMLDivElement | null;
+  saveCardCheckbox: HTMLLabelElement | null;
+  existingCardRadio: HTMLInputElement | null;
+  newCardRadio: HTMLInputElement | null;
+  invoiceRadio: HTMLInputElement | null;
+  managePaymentLink: HTMLAnchorElement | null;
+  newOrgInput: HTMLInputElement | null;
+  newOrgField: HTMLLabelElement | null;
+  submitButton: HTMLButtonElement | null;
+}
+
 document.addEventListener("DOMContentLoaded", function () {
   // Make org cards data available to JavaScript
   const orgCards = JSON.parse(document.getElementById('org-card-data').textContent);
@@ -29,14 +43,14 @@ document.addEventListener("DOMContentLoaded", function () {
     const form = cardField.closest('form');
     const stripePk = (form.querySelector('#id_stripe_pk') as HTMLInputElement).value;
     const tokenInput = form.querySelector("#id_stripe_token") as HTMLInputElement;
-    
+
     // Create the card element using the Stripe public key
     const stripe = Stripe(stripePk);
     const elements = stripe.elements();
     const cardElement = elements.create("card", {style: cardInputStyle });
     const cardElementMount = cardField.querySelector(".card-element");
     cardElement.mount(cardElementMount);
-    
+
     // Handle real-time validation errors from the card element
     cardElement.on("change", function (event) {
       const displayError = cardField.querySelector(".card-element-errors");
@@ -46,10 +60,10 @@ document.addEventListener("DOMContentLoaded", function () {
         displayError.textContent = "";
       }
     });
-    
+
     // We don't want the browser to fill this in with old values
     tokenInput.value = "";
-    
+
     // Create a token or display an error when submitting the form
     form.addEventListener("submit", function(event) {
       event.preventDefault();
@@ -82,16 +96,17 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   });
-  
+
   // Helper functions for organization selection
-  function getFormElements(form) {
+  function getFormElements(form: HTMLFormElement): FormElements {
     return {
-      cardOnFileOptions: form.querySelectorAll('.card-on-file-option'),
+      cardOnFileOption: form.querySelector('.card-on-file-option'),
       cardField: form.querySelector('.card-field'),
       paymentMethods: form.querySelector('.payment-methods'),
       saveCardCheckbox: form.querySelector('input[name="save_card"]').closest('label'),
       existingCardRadio: form.querySelector('input[value="existing-card"]'),
       newCardRadio: form.querySelector('input[value="new-card"]'),
+      invoiceRadio: form.querySelector('input[value="invoice"]'),
       managePaymentLink: form.querySelector('.manage-payment-link'),
       newOrgInput: form.querySelector('#id_new_organization_name'),
       newOrgField: form.querySelector('#id_new_organization_name')?.closest('label'),
@@ -99,7 +114,7 @@ document.addEventListener("DOMContentLoaded", function () {
     };
   }
   
-  function updateManagePaymentLink(selectElement, managePaymentLink) {
+  function updateManagePaymentLink(selectElement: HTMLSelectElement, managePaymentLink: HTMLAnchorElement) {
     const selectedOption = selectElement.options[selectElement.selectedIndex];
     const isIndividual = selectedOption.getAttribute('data-individual') === 'true';
     const orgSlug = selectedOption.getAttribute('data-slug');
@@ -118,21 +133,18 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
   
-  function updateCardOptions(selectedOrg, elements) {
-    const { cardOnFileOptions, existingCardRadio, newCardRadio } = elements;
-    const invoiceRadio = document.querySelector('input[value="invoice"]');
+  function updateCardOptions(selectedOrg: string, elements: FormElements) {
+    const { cardOnFileOption, existingCardRadio, newCardRadio, invoiceRadio } = elements;
     const orgHasCard = orgCards[selectedOrg];
     const noSelection = !existingCardRadio.checked && !newCardRadio.checked && !(invoiceRadio && invoiceRadio.checked);
 
-    if (orgHasCard) {
+    if (orgHasCard && cardOnFileOption) {
       // Show existing card option and update card info
-      cardOnFileOptions.forEach(option => {
-        option.style.display = 'block';
-        const cardInfo = option.querySelector('.card-info');
-        if (cardInfo) {
-          cardInfo.textContent = `Use existing ${orgCards[selectedOrg].brand} ending in ${orgCards[selectedOrg].last4}`;
-        }
-      });
+      cardOnFileOption.style.display = 'block';
+      const cardInfo = cardOnFileOption.querySelector('.card-info');
+      if (cardInfo) {
+        cardInfo.textContent = `Use existing ${orgCards[selectedOrg].brand} ending in ${orgCards[selectedOrg].last4}`;
+      }
 
       // Default to existing card if no selection made
       if (noSelection) {
@@ -144,9 +156,9 @@ document.addEventListener("DOMContentLoaded", function () {
       if (newCardOption) {
         newCardOption.classList.remove('only-option');
       }
-    } else {
+    } else if (cardOnFileOption) {
       // Hide existing card option
-      cardOnFileOptions.forEach(option => option.style.display = 'none');
+      cardOnFileOption.style.display = 'none';
 
       // Switch to new card if existing was selected but not available
       // Default to new card if no selection made
@@ -156,9 +168,8 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
   
-  function updatePaymentUI(elements) {
-    const { cardField, saveCardCheckbox, existingCardRadio, newCardRadio } = elements;
-    const invoiceRadio = document.querySelector('input[value="invoice"]') as HTMLInputElement;
+  function updatePaymentUI(elements: FormElements) {
+    const { cardField, saveCardCheckbox, existingCardRadio, newCardRadio, invoiceRadio } = elements;
 
     if (existingCardRadio.checked) {
       cardField.style.display = 'none';
@@ -172,7 +183,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
   
-  function hideAllPaymentElements(elements) {
+  function hideAllPaymentElements(elements: FormElements) {
     const { paymentMethods, cardField, saveCardCheckbox, managePaymentLink } = elements;
 
     paymentMethods.style.display = 'none';
@@ -181,7 +192,7 @@ document.addEventListener("DOMContentLoaded", function () {
     managePaymentLink.style.display = 'none';
   }
 
-  function toggleNewOrgField(selectedOrg: string, elements: Record<string, HTMLInputElement>) {
+  function toggleNewOrgField(selectedOrg: string, elements: FormElements) {
     const { newOrgField, newOrgInput } = elements;
 
     if (!newOrgField || !newOrgInput) return;
@@ -196,16 +207,16 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  function updateSubmitButton(selectedOrg: string, elements: Record<string, any>) {
+  function updateSubmitButton(selectedOrg: string, elements: FormElements) {
     const { submitButton } = elements;
 
     if (!submitButton) return;
 
     // Enable the button when an organization is selected
     if (selectedOrg && selectedOrg !== '') {
-      (submitButton as HTMLButtonElement).disabled = false;
+      submitButton.disabled = false;
     } else {
-      (submitButton as HTMLButtonElement).disabled = true;
+      submitButton.disabled = true;
     }
   }
   
