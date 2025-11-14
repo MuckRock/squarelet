@@ -2,11 +2,14 @@
 
 {% block content %}
   <div class="_cls-content">
-    <h1>Request for Permission</h1>
+    <h1>Request for information from your MuckRock Account</h1>
 
     <p>
-      Client <strong>{{ client.name }}</strong> would like to access this
-      information of you ...
+      The site <strong>{{ client.name }}</strong> is requesting permission to
+      access information from your MuckRock account.
+    </p>
+    <p>
+      By authorizing, you allow this site to receive the following information:
     </p>
 
     <form method="post" action="{% url 'oidc_provider:authorize' %}">
@@ -14,15 +17,35 @@
       {{ hidden_inputs }}
 
       <ul>
-        {% for scope in scopes %}
         <li>
-          <strong>{{ scope.name }}</strong><br /><i>{{ scope.description }}</i>
+          <strong>Profile information:</strong><br />
+          <em>Your name, username, username, avatar URL and bio.</em>
         </li>
-        {% endfor %}
+        <li>
+          <strong>Contact information:</strong><br />
+          <em>Your primary email address and whether it’s been verified.</em>
+        </li>
+        <li>
+          <strong>Organizations:</strong><br />
+          <em>A list of organizations you are a member of.</em>
+        </li>
+        <li>
+          <strong>Account preferences:</strong><br />
+          <em>Whether you’ve enabled automatic login links in emails.</em>
       </ul>
 
-      <input type="submit" value="Decline" />
-      <input name="allow" type="submit" value="Authorize" />
+      <p>
+        This application will not have access to your password or any private
+        content within your account unless explicitly authorized.
+      </p>
+
+      <p>
+        Do you want to allow {{ client.name }} to access this information?
+      </p>
+
+      <input class="btn primary" name="allow" type="submit" value="Authorize" />
+      <input class="btn danger" type="submit" value="Decline" />
     </form>
   </div>
 {% endblock content %}
+q
