@@ -1,3 +1,6 @@
+# Django
+from django.utils import timezone
+
 # Third Party
 from rest_framework import viewsets
 from rest_framework.permissions import IsAdminUser
@@ -29,6 +32,17 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             return OrganizationDetailSerializer
 
         return OrganizationSerializer
+
+    def get_queryset(self):
+        """Filter by consent if required"""
+        if self.request.auth:
+            client = self.request.auth.client
+            if client and client.require_consent:
+                return self.queryset.filter(
+                    users__userconsent__client=client,
+                    users__userconsent__expires_at__gt=timezone.now(),
+                )
+        return self.queryset
 
 
 class ChargeViewSet(viewsets.ModelViewSet):
