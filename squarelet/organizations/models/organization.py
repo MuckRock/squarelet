@@ -1023,6 +1023,10 @@ class ProfileChangeRequest(models.Model):
     # snapshot the current state of the organization we're updating
     previous = models.JSONField(_("previous"), blank=True, editable=False)
 
+    explanation = models.TextField(
+        _("explanation"), blank=True, help_text="Reason for this proposed change"
+    )
+
     def __str__(self):
         return f"Request: {self.organization} by {self.user}"
 
