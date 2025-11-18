@@ -202,6 +202,7 @@ class UpdateForm(forms.ModelForm):
             self.fields.pop("allow_auto_join", None)
 
         self.helper = FormHelper()
+        self.helper.template_pack = "forms"
         self.helper.layout = Layout(
             Fieldset("Avatar", Field("avatar"), css_class="_cls-compactField"),
             Fieldset("Private", Field("private"), css_class="_cls-compactField"),
@@ -312,6 +313,7 @@ class ProfileChangeRequestForm(forms.ModelForm):
             )
 
         self.helper = FormHelper()
+        self.helper.template_pack = "forms"
         self.helper.layout = Layout(
             Fieldset(
                 "Name",
