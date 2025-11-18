@@ -21,6 +21,7 @@ from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
+from django.views import View
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
@@ -397,6 +398,55 @@ class RequestProfileChange(OrganizationAdminMixin, CreateView):
             ),
         )
         return redirect("organizations:update", slug=self.kwargs["slug"])
+
+
+class ReviewProfileChange(View):
+    """Handle staff review (accept/reject) of profile change requests"""
+
+    def post(self, request, slug, pk):
+        """Accept or reject a profile change request"""
+        # Verify user is staff
+        if not request.user.is_staff:
+            messages.error(
+                request,
+                _("You do not have permission to review profile change requests."),
+            )
+            return redirect("organizations:update", slug=slug)
+
+        # Get the profile change request
+        try:
+            profile_change = ProfileChangeRequest.objects.get(
+                pk=pk, organization__slug=slug, status="pending"
+            )
+        except ProfileChangeRequest.DoesNotExist:
+            messages.error(
+                request,
+                _("Profile change request not found or already processed."),
+            )
+            return redirect("organizations:update", slug=slug)
+
+        # Get the action from POST data
+        action = request.POST.get("action")
+
+        if action == "accept":
+            profile_change.accept()
+            messages.success(
+                request,
+                _("Profile change request has been accepted and applied."),
+            )
+        elif action == "reject":
+            profile_change.reject()
+            messages.success(
+                request,
+                _("Profile change request has been rejected."),
+            )
+        else:
+            messages.error(
+                request,
+                _("Invalid action specified."),
+            )
+
+        return redirect("organizations:update", slug=slug)
 
 
 class Create(LoginRequiredMixin, CreateView):
