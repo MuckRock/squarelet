@@ -35,7 +35,29 @@
   gap: 2rem;
   flex: 1 0 0;
 
-  section {
+  section,
+  .card {
     width: 100%;
+  }
+}
+
+#protected {
+  display: flex;
+  padding: 2rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+  align-self: stretch;
+}
+
+#pending-requests {
+  display: flex;
+  flex-direction: column;
+
+  dl {
+    width: 100%;
+  }
+  dt {
+    font-weight: bold;
   }
 }

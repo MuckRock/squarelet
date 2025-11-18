@@ -385,11 +385,11 @@ class Update(OrganizationAdminMixin, UpdateView):
             user=self.request.user,
         )
         context["profile_change_form"] = ProfileChangeRequestForm(
-            instance=profile_change_request
+            instance=profile_change_request, request=self.request
         )
         # Include any pending profile change requests
-        context["pending_change_requests"] = (
-            self.object.profile_change_requests.filter(status="pending")
+        context["pending_change_requests"] = self.object.profile_change_requests.filter(
+            status="pending"
         )
         return context
 
@@ -403,12 +403,10 @@ class RequestProfileChange(OrganizationAdminMixin, CreateView):
 
     def get_organization(self):
         """Get the organization from the URL"""
-        return Organization.objects.filter(
-            individual=False, slug=self.kwargs["slug"]
-        ).first()
+        return self.queryset.get(slug=self.kwargs["slug"])
 
     def get_form_kwargs(self):
-        """Pass the organization instance to the form"""
+        """Pass the organization instance and request to the form"""
         kwargs = super().get_form_kwargs()
         organization = self.get_organization()
         if organization:
@@ -416,6 +414,7 @@ class RequestProfileChange(OrganizationAdminMixin, CreateView):
             kwargs["instance"] = ProfileChangeRequest(
                 organization=organization, user=self.request.user
             )
+        kwargs["request"] = self.request
         return kwargs
 
     def form_valid(self, form):
@@ -439,7 +438,9 @@ class RequestProfileChange(OrganizationAdminMixin, CreateView):
         """Handle invalid form submission"""
         messages.error(
             self.request,
-            _("There was an error with your submission. Please check the form and try again."),
+            _(
+                "There was an error with your submission. Please check the form and try again."
+            ),
         )
         return redirect("organizations:update", slug=self.kwargs["slug"])
 
