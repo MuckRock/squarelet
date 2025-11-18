@@ -269,6 +269,7 @@ class ProfileChangeRequestForm(forms.ModelForm):
         fields = ["name", "slug", "url", "city", "state", "country", "explanation"]
 
     def __init__(self, *args, **kwargs):
+        self.request = kwargs.pop("request", None)
         super().__init__(*args, **kwargs)
 
         # Populate placeholders with current organization values
@@ -351,10 +352,11 @@ class ProfileChangeRequestForm(forms.ModelForm):
                 _("You must provide at least one field to change.")
             )
 
-        # Explanation is required when requesting changes
-        if not cleaned_data.get("explanation"):
-            raise forms.ValidationError(
-                _("Please provide an explanation for your requested changes.")
-            )
+        # Explanation is required for non-staff users when requesting changes
+        if self.request and not self.request.user.is_staff:
+            if not cleaned_data.get("explanation"):
+                raise forms.ValidationError(
+                    _("Please provide an explanation for your requested changes.")
+                )
 
         return cleaned_data
