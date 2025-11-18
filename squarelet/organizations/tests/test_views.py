@@ -355,7 +355,11 @@ class TestUpdateSubscription(ViewTestMixin):
             "stripe_pk": "key",
         }
         self.call_view(rf, user, data, slug=organization.slug)
-        self.assert_message(messages.ERROR, "Payment error: Error message")
+        self.assert_message(
+            messages.ERROR,
+            "Payment error: We're unable to process your payment at this time. "
+            "Please try again later or contact support for assistance.",
+        )
 
 
 @pytest.mark.django_db()

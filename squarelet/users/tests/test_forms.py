@@ -264,7 +264,10 @@ def test_premium_subscription_form_save_stripe_error(plan_factory, user, mocker)
     assert form.is_valid()
     assert form.save(user) is False
     assert form.errors == {
-        "__all__": ["Error processing payment. Please try again or contact support."]
+        "__all__": [
+            "We're unable to process your payment at this time. "
+            "Please try again later or contact support for assistance."
+        ]
     }
 
 

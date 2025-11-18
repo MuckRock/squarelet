@@ -9,11 +9,13 @@ from unittest.mock import MagicMock, patch
 
 # Third Party
 import requests
+import stripe
 
 # Squarelet
 from squarelet.core.utils import (
     create_zendesk_ticket,
     file_path,
+    format_stripe_error,
     get_redirect_url,
     mailchimp_journey,
 )
@@ -184,6 +186,161 @@ class TestMailchimpJourney(TestCase):
         # Call the function and verify logger is called
         mailchimp_journey(self.email, self.journey)
         assert mock_logger.call_count == 1
+
+
+class TestFormatStripeError:
+    """Test the format_stripe_error utility function"""
+
+    def test_card_error_expired_card(self):
+        """CardError with expired_card code should show detailed user message"""
+        error = stripe.error.CardError(
+            message="Your card has expired.",
+            param="exp_month",
+            code="expired_card",
+        )
+        user_message = format_stripe_error(error)
+
+        assert "expired" in user_message.lower()
+
+    def test_card_error_card_declined(self):
+        """CardError with card_declined code should show detailed user message"""
+        error = stripe.error.CardError(
+            message="Your card was declined.",
+            param="card",
+            code="card_declined",
+        )
+        user_message = format_stripe_error(error)
+
+        assert "declined" in user_message.lower()
+
+    def test_card_error_insufficient_funds(self):
+        """CardError with insufficient_funds code should show detailed user message"""
+        error = stripe.error.CardError(
+            message="Your card has insufficient funds.",
+            param="card",
+            code="insufficient_funds",
+        )
+        user_message = format_stripe_error(error)
+
+        assert "insufficient funds" in user_message.lower()
+
+    def test_card_error_incorrect_cvc(self):
+        """CardError with incorrect_cvc code should show detailed user message"""
+        error = stripe.error.CardError(
+            message="Your card's security code is incorrect.",
+            param="cvc",
+            code="incorrect_cvc",
+        )
+        user_message = format_stripe_error(error)
+
+        assert "security code" in user_message.lower() or "cvc" in user_message.lower()
+
+    def test_card_error_processing_error(self):
+        """CardError with processing_error code should show detailed user message"""
+        error = stripe.error.CardError(
+            message="An error occurred while processing your card.",
+            param="card",
+            code="processing_error",
+        )
+        user_message = format_stripe_error(error)
+
+        assert (
+            "processing" in user_message.lower() or "try again" in user_message.lower()
+        )
+
+    def test_card_error_generic(self):
+        """Generic CardError should use Stripe's user message"""
+        error = stripe.error.CardError(
+            message="Your card was declined for an unknown reason.",
+            param="card",
+            code="generic_decline",
+        )
+        user_message = format_stripe_error(error)
+
+        assert len(user_message) > 0
+        assert "card" in user_message.lower() or "declined" in user_message.lower()
+
+    def test_api_connection_error(self):
+        """APIConnectionError should show generic message"""
+        error = stripe.error.APIConnectionError("Network connection failed")
+        user_message = format_stripe_error(error)
+
+        assert "contact" in user_message.lower() or "support" in user_message.lower()
+        assert "try again" in user_message.lower()
+
+    def test_rate_limit_error(self):
+        """RateLimitError should show generic message"""
+        error = stripe.error.RateLimitError("Too many requests")
+        user_message = format_stripe_error(error)
+
+        assert "contact" in user_message.lower() or "support" in user_message.lower()
+        assert "try again" in user_message.lower()
+
+    def test_api_error(self):
+        """APIError should show generic message"""
+        error = stripe.error.APIError("Internal server error")
+        user_message = format_stripe_error(error)
+
+        assert "contact" in user_message.lower() or "support" in user_message.lower()
+        assert "try again" in user_message.lower()
+
+    def test_invalid_request_error(self):
+        """InvalidRequestError should show generic message"""
+        error = stripe.error.InvalidRequestError(
+            message="Invalid request", param="amount"
+        )
+        user_message = format_stripe_error(error)
+
+        assert "contact" in user_message.lower() or "support" in user_message.lower()
+
+    def test_authentication_error(self):
+        """AuthenticationError should show generic message"""
+        error = stripe.error.AuthenticationError("Invalid API key")
+        user_message = format_stripe_error(error)
+
+        assert "contact" in user_message.lower() or "support" in user_message.lower()
+
+    def test_idempotency_error(self):
+        """IdempotencyError should show generic message"""
+        error = stripe.error.IdempotencyError("Idempotency key reused")
+        user_message = format_stripe_error(error)
+
+        assert "contact" in user_message.lower() or "support" in user_message.lower()
+        assert "try again" in user_message.lower()
+
+    def test_permission_error(self):
+        """PermissionError should show generic message"""
+        error = stripe.error.PermissionError("Insufficient permissions")
+        user_message = format_stripe_error(error)
+
+        assert "contact" in user_message.lower() or "support" in user_message.lower()
+
+    def test_generic_stripe_error(self):
+        """Generic StripeError should show generic message"""
+        error = stripe.error.StripeError("Unknown error")
+        user_message = format_stripe_error(error)
+
+        assert "contact" in user_message.lower() or "support" in user_message.lower()
+
+    def test_technical_error_includes_mailto_link(self):
+        """Technical errors should include a mailto link with error details"""
+        error = stripe.error.APIError("Internal server error")
+        user_message = format_stripe_error(error)
+
+        # Check that the message contains an HTML mailto link
+        assert '<a href="mailto:info@muckrock.com' in user_message
+        assert "contact support</a>" in user_message
+
+        # Check that the subject and body are URL encoded
+        assert "subject=Payment" in user_message
+        assert "body=Error" in user_message
+
+        # Check that error details are included in the body
+        assert "APIError" in user_message
+        assert (
+            "Internal%20server%20error" in user_message
+            or "Internal server error" in user_message
+        )
 
 
 class TestGetRedirectUrl:
