@@ -185,28 +185,30 @@ def handle_invoice_created(invoice_data):
                 )
 
     # Create or update the invoice
-    Invoice.objects.update_or_create(
-        invoice_id=invoice_data["id"],
-        defaults={
-            "organization": organization,
-            "subscription": subscription,
-            "amount": invoice_data["amount_due"],
-            "due_date": (
-                datetime.fromtimestamp(
-                    invoice_data["due_date"], tz=get_current_timezone()
-                ).date()
-                if invoice_data.get("due_date")
-                else None
-            ),
-            "status": invoice_data["status"],
-            "created_at": datetime.fromtimestamp(
-                invoice_data["created"], tz=get_current_timezone()
-            ),
-        },
+    # Note: Invoice may already exist if created synchronously during subscription start
+    invoice, created = Invoice.create_or_update_from_stripe(
+        invoice_data, organization, subscription
     )
-    logger.info(
-        "[STRIPE-WEBHOOK-INVOICE] Invoice created/updated: %s", invoice_data["id"]
-    )
+    if created:
+        logger.info(
+            "[STRIPE-WEBHOOK-INVOICE] Invoice created via webhook: %s "
+            "(organization=%s, subscription=%s, amount=%s, status=%s)",
+            invoice_data["id"],
+            invoice.organization_id,
+            invoice.subscription_id,
+            invoice.amount,
+            invoice.status,
+        )
+    else:
+        logger.info(
+            "[STRIPE-WEBHOOK-INVOICE] Invoice updated via webhook: %s "
+            "(organization=%s, subscription=%s, amount=%s, status=%s)",
+            invoice_data["id"],
+            invoice.organization_id,
+            invoice.subscription_id,
+            invoice.amount,
+            invoice.status,
+        )
 
 
 @shared_task(name="squarelet.organizations.tasks.handle_invoice_finalized")

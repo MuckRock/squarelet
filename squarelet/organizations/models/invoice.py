@@ -1,7 +1,13 @@
 # Django
 from django.db import models
 from django.utils import timezone
+from django.utils.timezone import get_current_timezone
 from django.utils.translation import gettext_lazy as _
+
+# Standard Library
+from datetime import datetime
+
+import stripe
 
 # Squarelet
 from squarelet.organizations.querysets import InvoiceQuerySet
@@ -86,3 +92,26 @@ class Invoice(models.Model):
         if self.status == "open" and self.due_date:
             return timezone.now().date() > self.due_date
         return False
+
+    @classmethod
+    def create_or_update_from_stripe(
+        cls, stripe_invoice, organization, subscription=None
+    ):
+        """Create or update an Invoice from Stripe data."""
+        due_date = datetime.fromtimestamp(
+            stripe_invoice["due_date"], tz=get_current_timezone()
+        ).date() if stripe_invoice["due_date"] else None
+        created_at = datetime.fromtimestamp(
+            stripe_invoice["created"], tz=get_current_timezone()
+        )
+        return cls.objects.update_or_create(
+            invoice_id=stripe_invoice["id"],
+            defaults={
+                "organization": organization,
+                "subscription": subscription,
+                "amount": stripe_invoice["amount_due"],
+                "status": stripe_invoice["status"],
+                "due_date": due_date,
+                "created_at": created_at,
+            },
+        )

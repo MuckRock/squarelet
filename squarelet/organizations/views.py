@@ -671,7 +671,8 @@ def stripe_webhook(request):  # pylint: disable=too-many-branches
         handle_invoice_finalized.delay(event["data"]["object"])
     elif event_type == "invoice.paid":
         # Listening for invoice.paid ensures we handle payments that
-        # when happen in band (through Stripe) and out-of band (marked as paid)
+        # when happen when users pay them through Stripe or when staff
+        # manually mark them as paid through the Stripe dashboard
         handle_invoice_paid.delay(event["data"]["object"])
     elif event_type == "invoice.marked_uncollectible":
         handle_invoice_marked_uncollectible.delay(event["data"]["object"])
