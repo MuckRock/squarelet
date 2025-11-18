@@ -54,6 +54,7 @@ from squarelet.organizations.forms import (
     AddMemberForm,
     MergeForm,
     PaymentForm,
+    ProfileChangeRequestForm,
     UpdateForm,
 )
 from squarelet.organizations.mixins import (
@@ -66,6 +67,7 @@ from squarelet.organizations.models import (
     Membership,
     Organization,
     OrganizationEmailDomain,
+    ProfileChangeRequest,
 )
 from squarelet.organizations.tasks import (
     handle_charge_succeeded,
@@ -374,6 +376,72 @@ class Update(OrganizationAdminMixin, UpdateView):
 
     queryset = Organization.objects.filter(individual=False)
     form_class = UpdateForm
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Create an instance of ProfileChangeRequest for this organization
+        profile_change_request = ProfileChangeRequest(
+            organization=self.object,
+            user=self.request.user,
+        )
+        context["profile_change_form"] = ProfileChangeRequestForm(
+            instance=profile_change_request
+        )
+        # Include any pending profile change requests
+        context["pending_change_requests"] = (
+            self.object.profile_change_requests.filter(status="pending")
+        )
+        return context
+
+
+class RequestProfileChange(OrganizationAdminMixin, CreateView):
+    """Handle profile change requests for organization fields requiring staff approval"""
+
+    model = ProfileChangeRequest
+    form_class = ProfileChangeRequestForm
+    queryset = Organization.objects.filter(individual=False)
+
+    def get_organization(self):
+        """Get the organization from the URL"""
+        return Organization.objects.filter(
+            individual=False, slug=self.kwargs["slug"]
+        ).first()
+
+    def get_form_kwargs(self):
+        """Pass the organization instance to the form"""
+        kwargs = super().get_form_kwargs()
+        organization = self.get_organization()
+        if organization:
+            # Create a ProfileChangeRequest instance with the organization
+            kwargs["instance"] = ProfileChangeRequest(
+                organization=organization, user=self.request.user
+            )
+        return kwargs
+
+    def form_valid(self, form):
+        """Save the profile change request"""
+        profile_change_request = form.save(commit=False)
+        profile_change_request.organization = self.get_organization()
+        profile_change_request.user = self.request.user
+        profile_change_request.save()
+
+        messages.success(
+            self.request,
+            _(
+                "Your profile change request has been submitted and will be reviewed by staff."
+            ),
+        )
+        return redirect(
+            "organizations:update", slug=profile_change_request.organization.slug
+        )
+
+    def form_invalid(self, form):
+        """Handle invalid form submission"""
+        messages.error(
+            self.request,
+            _("There was an error with your submission. Please check the form and try again."),
+        )
+        return redirect("organizations:update", slug=self.kwargs["slug"])
 
 
 class Create(LoginRequiredMixin, CreateView):
