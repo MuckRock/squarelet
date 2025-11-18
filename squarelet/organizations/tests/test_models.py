@@ -283,7 +283,11 @@ class TestOrganization:
             "squarelet.organizations.models.Organization.subscription"
         )
         mocked_subscription.subscription_id = "sub_test123"
-        mock_stripe_delete = mocker.patch("stripe.Subscription.delete")
+        # Mock the stripe_subscription property to return a mock Stripe subscription
+        mock_stripe_sub = mocker.MagicMock()
+        type(mocked_subscription).stripe_subscription = mocker.PropertyMock(
+            return_value=mock_stripe_sub
+        )
 
         organization.subscription_cancelled()
 
@@ -293,8 +297,8 @@ class TestOrganization:
             from_max_users=organization.max_users,
             to_max_users=organization.max_users,
         )
-        # Should cancel in Stripe first
-        mock_stripe_delete.assert_called_once_with("sub_test123")
+        # Should cancel in Stripe first by calling delete on the stripe_subscription
+        mock_stripe_sub.delete.assert_called_once()
         # Then delete local subscription
         mocked_subscription.delete.assert_called()
 
@@ -311,13 +315,11 @@ class TestOrganization:
             "squarelet.organizations.models.Organization.subscription"
         )
         mocked_subscription.subscription_id = None
-        mock_stripe_delete = mocker.patch("stripe.Subscription.delete")
 
         organization.subscription_cancelled()
 
-        # Should not attempt to cancel in Stripe
-        mock_stripe_delete.assert_not_called()
         # Should still delete local subscription
+        # (no Stripe interaction since no subscription_id)
         mocked_subscription.delete.assert_called()
 
     @pytest.mark.django_db
@@ -333,18 +335,83 @@ class TestOrganization:
             "squarelet.organizations.models.Organization.subscription"
         )
         mocked_subscription.subscription_id = "sub_test123"
-        mock_stripe_delete = mocker.patch(
-            "stripe.Subscription.delete",
-            side_effect=stripe.error.InvalidRequestError(
-                "No such subscription", "subscription"
-            ),
+        # Mock the stripe_subscription property to return a mock
+        # that raises error on delete
+        mock_stripe_sub = mocker.MagicMock()
+        mock_stripe_sub.delete.side_effect = stripe.error.InvalidRequestError(
+            "No such subscription", "subscription"
+        )
+        type(mocked_subscription).stripe_subscription = mocker.PropertyMock(
+            return_value=mock_stripe_sub
         )
 
         organization.subscription_cancelled()
 
-        # Should attempt to cancel in Stripe
-        mock_stripe_delete.assert_called_once_with("sub_test123")
+        # Should attempt to delete the Stripe subscription
+        mock_stripe_sub.delete.assert_called_once()
         # Should still delete local subscription despite error
+        mocked_subscription.delete.assert_called()
+
+    @pytest.mark.django_db
+    def test_subscription_cancelled_correct_stripe_pattern(
+        self, organization_factory, mocker, professional_plan_factory
+    ):
+        """Test subscription_cancelled uses correct Stripe API pattern
+        (retrieve then delete)"""
+        mocker.patch("stripe.Plan.create")
+        plan = professional_plan_factory()
+        organization = organization_factory(plans=[plan])
+
+        # Mock the subscription property
+        mocked_subscription = mocker.patch(
+            "squarelet.organizations.models.Organization.subscription"
+        )
+        mocked_subscription.subscription_id = "sub_test123"
+
+        # Mock the Stripe subscription instance
+        mock_stripe_sub = mocker.MagicMock()
+        # Mock stripe_subscription property to return the mock Stripe subscription
+        type(mocked_subscription).stripe_subscription = mocker.PropertyMock(
+            return_value=mock_stripe_sub
+        )
+
+        # Mock change logs
+        mocker.patch("squarelet.organizations.models.Organization.change_logs")
+
+        organization.subscription_cancelled()
+
+        # Verify delete was called on the stripe_subscription instance
+        mock_stripe_sub.delete.assert_called_once()
+        # Verify local subscription was deleted
+        mocked_subscription.delete.assert_called()
+
+    @pytest.mark.django_db
+    def test_subscription_cancelled_nonexistent_stripe_subscription(
+        self, organization_factory, mocker, professional_plan_factory
+    ):
+        """Test graceful handling when Stripe subscription doesn't exist"""
+        mocker.patch("stripe.Plan.create")
+        plan = professional_plan_factory()
+        organization = organization_factory(plans=[plan])
+
+        # Mock the subscription property
+        mocked_subscription = mocker.patch(
+            "squarelet.organizations.models.Organization.subscription"
+        )
+        mocked_subscription.subscription_id = "sub_nonexistent"
+
+        # Mock stripe_subscription property to return None (subscription doesn't exist)
+        type(mocked_subscription).stripe_subscription = mocker.PropertyMock(
+            return_value=None
+        )
+
+        # Mock change logs
+        mocker.patch("squarelet.organizations.models.Organization.change_logs")
+
+        # Should not raise an error
+        organization.subscription_cancelled()
+
+        # Verify local subscription was still deleted
         mocked_subscription.delete.assert_called()
 
     @pytest.mark.django_db()
@@ -1355,9 +1422,7 @@ class TestInvoice:
         assert invoice.due_date is None
 
     @pytest.mark.django_db
-    def test_create_or_update_from_stripe_no_subscription(
-        self, organization_factory
-    ):
+    def test_create_or_update_from_stripe_no_subscription(self, organization_factory):
         """Test create_or_update_from_stripe works without subscription"""
         organization = organization_factory()
 

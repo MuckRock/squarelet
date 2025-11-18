@@ -98,9 +98,13 @@ class Invoice(models.Model):
         cls, stripe_invoice, organization, subscription=None
     ):
         """Create or update an Invoice from Stripe data."""
-        due_date = datetime.fromtimestamp(
-            stripe_invoice["due_date"], tz=get_current_timezone()
-        ).date() if stripe_invoice["due_date"] else None
+        due_date = (
+            datetime.fromtimestamp(
+                stripe_invoice["due_date"], tz=get_current_timezone()
+            ).date()
+            if stripe_invoice["due_date"]
+            else None
+        )
         created_at = datetime.fromtimestamp(
             stripe_invoice["created"], tz=get_current_timezone()
         )

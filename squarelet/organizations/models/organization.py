@@ -467,12 +467,20 @@ class Organization(AvatarMixin, models.Model):
         # Cancel subscription in Stripe if it exists
         if self.subscription and self.subscription.subscription_id:
             try:
-                stripe.Subscription.delete(self.subscription.subscription_id)
-                logger.info(
-                    "Cancelled Stripe subscription %s for organization %s",
-                    self.subscription.subscription_id,
-                    self.uuid,
-                )
+                stripe_sub = self.subscription.stripe_subscription
+                if stripe_sub:
+                    stripe_sub.delete()
+                    logger.info(
+                        "Cancelled Stripe subscription %s for organization %s",
+                        self.subscription.subscription_id,
+                        self.uuid,
+                    )
+                else:
+                    logger.warning(
+                        "Stripe subscription %s not found for organization %s",
+                        self.subscription.subscription_id,
+                        self.uuid,
+                    )
             except stripe.error.StripeError as exc:
                 logger.error(
                     "Failed to cancel Stripe subscription %s for organization %s: %s",
