@@ -1,0 +1,27 @@
+{% load crispy_forms_field %}
+
+{% if field.is_hidden %}
+  {{ field }}
+{% else %}
+  <div class="field{% if wrapper_class %} {{ wrapper_class }}{% endif %}">
+    {% if field.label and form_show_labels %}
+      <label for="{{ field.id_for_label }}">
+        {{ field.label|safe }}
+      </label>
+    {% endif %}
+
+    {% crispy_field field %}
+
+    {% if field.help_text %}
+      <small>{{ field.help_text|safe }}</small>
+    {% endif %}
+
+    {% if field.errors %}
+      <div class="errors">
+        {% for error in field.errors %}
+          {{ error }}
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+{% endif %}
