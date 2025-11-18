@@ -25,6 +25,11 @@ urlpatterns = [
         name="request-profile-change",
     ),
     path(
+        "<slug:slug>/review-profile-change/<int:pk>/",
+        view=views.ReviewProfileChange.as_view(),
+        name="review-profile-change",
+    ),
+    path(
         "<slug:slug>/manage-members/",
         view=views.ManageMembers.as_view(),
         name="manage-members",
