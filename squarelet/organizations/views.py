@@ -396,7 +396,8 @@ class Update(OrganizationAdminMixin, UpdateView):
 
 
 class RequestProfileChange(OrganizationAdminMixin, CreateView):
-    """Handle profile change requests for organization fields requiring staff approval"""
+    """Handle profile change requests for organization fields requiring staff
+    approval"""
 
     model = ProfileChangeRequest
     form_class = ProfileChangeRequestForm
@@ -428,7 +429,8 @@ class RequestProfileChange(OrganizationAdminMixin, CreateView):
         messages.success(
             self.request,
             _(
-                "Your profile change request has been submitted and will be reviewed by staff."
+                "Your profile change request has been submitted and will be "
+                "reviewed by staff."
             ),
         )
         return redirect(
@@ -440,7 +442,8 @@ class RequestProfileChange(OrganizationAdminMixin, CreateView):
         messages.error(
             self.request,
             _(
-                "There was an error with your submission. Please check the form and try again."
+                "There was an error with your submission. Please check the "
+                "form and try again."
             ),
         )
         return redirect("organizations:update", slug=self.kwargs["slug"])
