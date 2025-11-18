@@ -2,14 +2,15 @@
 
 {% block content %}
   <div class="_cls-content">
-    <h1>Request for information from your MuckRock Account</h1>
+    <h1>Request for access to your MuckRock account</h1>
 
     <p>
       The site <strong>{{ client.name }}</strong> is requesting permission to
       access information from your MuckRock account.
     </p>
     <p>
-      By authorizing, you allow this site to receive the following information:
+      By authorizing, you allow <strong>{{ client.name }}</strong> to receive
+      the following information:
     </p>
 
     <form method="post" action="{% url 'oidc_provider:authorize' %}">
@@ -19,19 +20,19 @@
       <ul>
         <li>
           <strong>Profile information:</strong><br />
-          <em>Your name, username, username, avatar URL and bio.</em>
+          <em>Your full name, username, avatar URL and bio</em>
         </li>
         <li>
           <strong>Contact information:</strong><br />
-          <em>Your primary email address and whether it’s been verified.</em>
+          <em>Your primary email address and whether it’s been verified</em>
         </li>
         <li>
           <strong>Organizations:</strong><br />
-          <em>A list of organizations you are a member of.</em>
+          <em>A list of organizations you are a member of</em>
         </li>
         <li>
           <strong>Account preferences:</strong><br />
-          <em>Whether you’ve enabled automatic login links in emails.</em>
+          <em>Whether you’ve enabled automatic login links in emails</em>
       </ul>
 
       <p>
@@ -48,4 +49,3 @@
     </form>
   </div>
 {% endblock content %}
-q
