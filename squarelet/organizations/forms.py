@@ -15,7 +15,7 @@ from squarelet.core.forms import AvatarWidget, StripeForm
 from squarelet.core.layout import Field
 
 # Local
-from .models import Organization, Plan
+from .models import Organization, Plan, ProfileChangeRequest
 
 
 class PaymentForm(StripeForm):
@@ -258,4 +258,103 @@ class MergeForm(forms.Form):
         bad_organization = cleaned_data.get("bad_organization")
         if good_organization and good_organization == bad_organization:
             raise forms.ValidationError("Cannot merge an organization into itself")
+        return cleaned_data
+
+
+class ProfileChangeRequestForm(forms.ModelForm):
+    """Request changes to core organization profile data"""
+
+    class Meta:
+        model = ProfileChangeRequest
+        fields = ["name", "slug", "url", "city", "state", "country", "explanation"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Populate placeholders with current organization values
+        if self.instance and self.instance.organization:
+            org = self.instance.organization
+            self.fields["name"].widget.attrs["placeholder"] = org.name
+            self.fields["slug"].widget.attrs["placeholder"] = org.slug
+            self.fields["city"].widget.attrs["placeholder"] = org.city or _("City")
+            self.fields["state"].widget.attrs[
+                "placeholder"
+            ] = org.get_state_display() or _("State")
+            self.fields["country"].widget.attrs[
+                "placeholder"
+            ] = org.get_country_display() or _("Country")
+
+            # Update help text to show current values
+            self.fields["name"].help_text = _(
+                f"Current: {org.name}. Leave blank to keep unchanged."
+            )
+            self.fields["slug"].help_text = _(
+                f"Current: {org.slug}. Leave blank to keep unchanged."
+            )
+            self.fields["city"].help_text = _(
+                f"Current: {org.city or 'Not set'}. Leave blank to keep unchanged."
+            )
+            self.fields["state"].help_text = _(
+                f"Current: {org.get_state_display() or 'Not set'}. "
+                "Leave blank to keep unchanged."
+            )
+            self.fields["country"].help_text = _(
+                f"Current: {org.get_country_display() or 'Not set'}. "
+                "Leave blank to keep unchanged."
+            )
+            self.fields["url"].help_text = _(
+                "Add a URL to associate with this organization."
+            )
+            self.fields["explanation"].help_text = _(
+                "Explain why you are requesting these changes (required for staff review)."
+            )
+
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Fieldset(
+                "Name",
+                Field("name"),
+                css_class="",
+            ),
+            Fieldset(
+                "Slug",
+                Field("slug"),
+                css_class="",
+            ),
+            Fieldset(
+                "URL",
+                Field("url"),
+                css_class="",
+            ),
+            Fieldset(
+                "Location",
+                Field("city"),
+                Field("state"),
+                Field("country"),
+                css_class="",
+            ),
+            Fieldset(
+                "Explanation",
+                Field("explanation"),
+                css_class="_cls-resizeField",
+            ),
+        )
+        self.helper.form_tag = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        # At least one field must be filled
+        fields_to_check = ["name", "slug", "url", "city", "state", "country"]
+        if not any(cleaned_data.get(field) for field in fields_to_check):
+            raise forms.ValidationError(
+                _("You must provide at least one field to change.")
+            )
+
+        # Explanation is required when requesting changes
+        if not cleaned_data.get("explanation"):
+            raise forms.ValidationError(
+                _("Please provide an explanation for your requested changes.")
+            )
+
         return cleaned_data

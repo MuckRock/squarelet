@@ -49,9 +49,59 @@
             {% trans "Changes to these fields require approval by MuckRock staff" %}
           </p>
         </div>
-
-        <div class="card"></div>
       </header>
+
+      {% if pending_change_requests %}
+      <div class="card">
+        <h3>{% trans "Pending Change Requests" %}</h3>
+        <p>{% trans "You have the following pending change requests awaiting staff approval:" %}</p>
+        <ul>
+          {% for request in pending_change_requests %}
+          <li>
+            <strong>{% trans "Requested on" %}:</strong> {{ request.created_at|date:"SHORT_DATE_FORMAT" }}
+            <br>
+            <strong>{% trans "Status" %}:</strong> {{ request.get_status_display }}
+            {% if request.name %}
+              <br><strong>{% trans "Name" %}:</strong> {{ request.name }}
+            {% endif %}
+            {% if request.slug %}
+              <br><strong>{% trans "Slug" %}:</strong> {{ request.slug }}
+            {% endif %}
+            {% if request.city %}
+              <br><strong>{% trans "City" %}:</strong> {{ request.city }}
+            {% endif %}
+            {% if request.state %}
+              <br><strong>{% trans "State" %}:</strong> {{ request.get_state_display }}
+            {% endif %}
+            {% if request.country %}
+              <br><strong>{% trans "Country" %}:</strong> {{ request.get_country_display }}
+            {% endif %}
+            {% if request.explanation %}
+              <br><strong>{% trans "Explanation" %}:</strong> {{ request.explanation }}
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+      <div class="card">
+        <h3>{% trans "Request profile changes" %}</h3>
+        <p>
+          {% trans "Changes to these fields require approval by MuckRock staff." %}
+        </p>
+        <form method="POST" action="{% url "organizations:request-profile-change" slug=organization.slug %}">
+          {% crispy profile_change_form profile_change_form.helper %}
+          
+          <button type="submit" class="btn primary">
+            {% if user.is_staff %}
+            {% trans "Save changes" %}
+            {% else %}
+            {% trans "Request changes" %}
+            {% endif %}
+          </button>
+        </form>
+      </div>
     </section>
   </div>
 
