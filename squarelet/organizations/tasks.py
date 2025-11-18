@@ -232,9 +232,9 @@ def handle_invoice_finalized(invoice_data):
     logger.info("[STRIPE-WEBHOOK-INVOICE] Invoice finalized: %s", invoice_data["id"])
 
 
-@shared_task(name="squarelet.organizations.tasks.handle_invoice_payment_succeeded")
-def handle_invoice_payment_succeeded(invoice_data):
-    """Handle receiving an invoice.payment_succeeded event from the Stripe webhook"""
+@shared_task(name="squarelet.organizations.tasks.handle_invoice_paid")
+def handle_invoice_paid(invoice_data):
+    """Handle receiving an invoice.paid event from the Stripe webhook"""
     try:
         invoice = Invoice.objects.get(invoice_id=invoice_data["id"])
     except Invoice.DoesNotExist:

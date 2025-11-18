@@ -67,7 +67,7 @@ from squarelet.organizations.tasks import (
     handle_invoice_failed,
     handle_invoice_finalized,
     handle_invoice_marked_uncollectible,
-    handle_invoice_payment_succeeded,
+    handle_invoice_paid,
     handle_invoice_voided,
     sync_wix,
 )
@@ -669,8 +669,10 @@ def stripe_webhook(request):  # pylint: disable=too-many-branches
         handle_invoice_created.delay(event["data"]["object"])
     elif event_type == "invoice.finalized":
         handle_invoice_finalized.delay(event["data"]["object"])
-    elif event_type == "invoice.payment_succeeded":
-        handle_invoice_payment_succeeded.delay(event["data"]["object"])
+    elif event_type == "invoice.paid":
+        # Listening for invoice.paid ensures we handle payments that
+        # when happen in band (through Stripe) and out-of band (marked as paid)
+        handle_invoice_paid.delay(event["data"]["object"])
     elif event_type == "invoice.marked_uncollectible":
         handle_invoice_marked_uncollectible.delay(event["data"]["object"])
     elif event_type == "invoice.voided":

@@ -319,7 +319,7 @@ class TestHandleInvoiceFinalized:
 
 
 class TestHandleInvoicePaymentSucceeded:
-    """Unit tests for the handle_invoice_payment_succeeded task"""
+    """Unit tests for the handle_invoice_paid task"""
 
     @pytest.mark.django_db
     def test_marks_invoice_paid(self, invoice_factory):
@@ -327,7 +327,7 @@ class TestHandleInvoicePaymentSucceeded:
 
         invoice_data = {"id": "in_123"}
 
-        tasks.handle_invoice_payment_succeeded(invoice_data)
+        tasks.handle_invoice_paid(invoice_data)
 
         invoice.refresh_from_db()
         assert invoice.status == "paid"
@@ -339,7 +339,7 @@ class TestHandleInvoicePaymentSucceeded:
 
         invoice_data = {"id": "in_123"}
 
-        tasks.handle_invoice_payment_succeeded(invoice_data)
+        tasks.handle_invoice_paid(invoice_data)
 
         organization.refresh_from_db()
         assert organization.payment_failed is False
@@ -353,7 +353,7 @@ class TestHandleInvoicePaymentSucceeded:
 
         invoice_data = {"id": "in_123"}
 
-        tasks.handle_invoice_payment_succeeded(invoice_data)
+        tasks.handle_invoice_paid(invoice_data)
 
         organization.refresh_from_db()
         assert organization.payment_failed is False
