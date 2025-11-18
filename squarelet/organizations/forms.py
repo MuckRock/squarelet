@@ -307,7 +307,8 @@ class ProfileChangeRequestForm(forms.ModelForm):
                 "Add a URL to associate with this organization."
             )
             self.fields["explanation"].help_text = _(
-                "Explain why you are requesting these changes (required for staff review)."
+                "Explain why you are requesting these changes "
+                "(required for staff review)."
             )
 
         self.helper = FormHelper()
