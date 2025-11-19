@@ -156,7 +156,10 @@ class UpdateForm(forms.ModelForm):
         label=_("Avatar"),
         required=False,
         widget=AvatarWidget,
-        help_text="This will represent the organization on its profile, on public pages, and in lists.",
+        help_text=(
+            "This will represent the organization on its profile, "
+            "on public pages, and in lists."
+        ),
     )
     about = forms.CharField(
         label=_("About"),
