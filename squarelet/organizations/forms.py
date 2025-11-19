@@ -273,6 +273,8 @@ class MergeForm(forms.Form):
 class ProfileChangeRequestForm(forms.ModelForm):
     """Request changes to core organization profile data"""
 
+    url = forms.URLField(label=_("URL"), required=False)
+
     class Meta:
         model = ProfileChangeRequest
         fields = ["name", "slug", "url", "city", "state", "country", "explanation"]
