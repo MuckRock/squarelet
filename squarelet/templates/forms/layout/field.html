@@ -1,25 +1,38 @@
 {% load crispy_forms_field %}
+{% load i18n %}
 
 {% if field.is_hidden %}
   {{ field }}
 {% else %}
-  <div class="field{% if wrapper_class %} {{ wrapper_class }}{% endif %}">
-    {% if field.label and form_show_labels %}
-      <label for="{{ field.id_for_label }}">
-        {{ field.label|safe }}
+  <div class="field{% if wrapper_class %} {{ wrapper_class }}{% endif %}{% if field.css_classes %} {{ field.css_classes }}{% endif %}">
+    {# Label #}
+    {% if field.label %}
+      <label for="{{ field.id_for_label }}" class="field-label{% if field.field.required %} required{% endif %}">
+        {{ field.label|safe }}{% if field.field.required %}<span class="required-mark">*</span>{% endif %}
       </label>
     {% endif %}
 
-    {% crispy_field field %}
+    {# Input #}
+    <div class="field-input">
+      {% if field|is_checkboxselectmultiple %}
+        {% include 'forms/layout/checkboxselectmultiple.html' %}
+      {% elif field|is_radioselect %}
+        {% include 'forms/layout/radioselect.html' %}
+      {% else %}
+        {% crispy_field field %}
+      {% endif %}
+    </div>
 
+    {# Help text #}
     {% if field.help_text %}
-      <small>{{ field.help_text|safe }}</small>
+      <div class="field-help">{{ field.help_text|safe }}</div>
     {% endif %}
 
+    {# Errors #}
     {% if field.errors %}
-      <div class="errors">
+      <div class="field-errors">
         {% for error in field.errors %}
-          {{ error }}
+          <div class="field-error">{{ error }}</div>
         {% endfor %}
       </div>
     {% endif %}

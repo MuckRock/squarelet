@@ -7,12 +7,12 @@ from django.utils.translation import gettext_lazy as _
 
 # Third Party
 from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Fieldset, Layout
+from crispy_forms.layout import Fieldset, Layout, Field as CrispyField
 
 # Squarelet
 from squarelet.core.fields import EmailsListField
 from squarelet.core.forms import AvatarWidget, StripeForm
-from squarelet.core.layout import Field
+from squarelet.core.layout import Field  # Used by PaymentForm
 
 # Local
 from .models import Organization, Plan, ProfileChangeRequest
@@ -152,7 +152,18 @@ class PaymentForm(StripeForm):
 class UpdateForm(forms.ModelForm):
     """Update misc information for an organization"""
 
-    avatar = forms.ImageField(label=_("Avatar"), required=False, widget=AvatarWidget)
+    avatar = forms.ImageField(
+        label=_("Avatar"),
+        required=False,
+        widget=AvatarWidget,
+        help_text="This will represent the organization on its profile, on public pages, and in lists.",
+    )
+    about = forms.CharField(
+        label=_("About"),
+        widget=forms.Textarea,
+        required=False,
+        help_text=_("Markdown formatting supported. Maximum 250 characters."),
+    )
     private = forms.BooleanField(
         label=_("Private"),
         required=False,
@@ -170,7 +181,7 @@ class UpdateForm(forms.ModelForm):
 
     class Meta:
         model = Organization
-        fields = ["avatar", "private", "allow_auto_join"]
+        fields = ["avatar", "about", "private", "allow_auto_join"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -204,16 +215,13 @@ class UpdateForm(forms.ModelForm):
         self.helper = FormHelper()
         self.helper.template_pack = "forms"
         self.helper.layout = Layout(
-            Fieldset("Avatar", Field("avatar"), css_class="_cls-compactField"),
-            Fieldset("Private", Field("private"), css_class="_cls-compactField"),
+            CrispyField("avatar"),
+            CrispyField("about"),
+            CrispyField("private"),
         )
 
         if "allow_auto_join" in self.fields:
-            self.helper.layout.fields.append(
-                Fieldset(
-                    "Auto Join", Field("allow_auto_join"), css_class="_cls-compactField"
-                )
-            )
+            self.helper.layout.fields.append(CrispyField("allow_auto_join"))
         self.helper.form_tag = False
 
 
@@ -315,33 +323,16 @@ class ProfileChangeRequestForm(forms.ModelForm):
         self.helper = FormHelper()
         self.helper.template_pack = "forms"
         self.helper.layout = Layout(
-            Fieldset(
-                "Name",
-                Field("name"),
-                css_class="",
-            ),
-            Fieldset(
-                "Slug",
-                Field("slug"),
-                css_class="",
-            ),
-            Fieldset(
-                "URL",
-                Field("url"),
-                css_class="",
-            ),
+            CrispyField("name"),
+            CrispyField("slug"),
+            CrispyField("url"),
             Fieldset(
                 "Location",
-                Field("city"),
-                Field("state"),
-                Field("country"),
-                css_class="",
+                CrispyField("city"),
+                CrispyField("state"),
+                CrispyField("country"),
             ),
-            Fieldset(
-                "Explanation",
-                Field("explanation"),
-                css_class="_cls-resizeField",
-            ),
+            CrispyField("explanation"),
         )
         self.helper.form_tag = False
 
