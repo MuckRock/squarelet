@@ -41,6 +41,22 @@
   }
 }
 
+#details form {
+  display: flex;
+  padding: 2rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+  align-self: stretch;
+
+  border-radius: 0.5rem;
+  border: 1px solid var(--gray-2, #d8dee2);
+  background: var(--white, #fff);
+
+  /* shadow-1 */
+  box-shadow: 0 2px 4px 2px var(--shadow, rgba(30, 48, 56, 0.15));
+}
+
 #protected {
   display: flex;
   padding: 2rem;
