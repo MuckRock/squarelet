@@ -11,7 +11,12 @@ from unittest.mock import MagicMock, patch
 import requests
 
 # Squarelet
-from squarelet.core.utils import file_path, get_redirect_url, mailchimp_journey
+from squarelet.core.utils import (
+    create_zendesk_ticket,
+    file_path,
+    get_redirect_url,
+    mailchimp_journey,
+)
 
 
 def test_file_path_normal():
@@ -222,3 +227,143 @@ class TestGetRedirectUrl:
 
         assert isinstance(response, HttpResponseRedirect)
         assert response.url == "/fallback/page/"
+
+
+@override_settings(
+    ENV="prod",
+    ZENDESK_EMAIL="test@example.com",
+    ZENDESK_TOKEN="test-token-12345",
+    ZENDESK_SUBDOMAIN="test-subdomain",
+)
+class TestCreateZendeskTicket(TestCase):
+    def setUp(self):
+        self.subject = "Test Ticket"
+        self.description = "This is a test ticket description"
+        self.priority = "high"
+        self.tags = ["test", "automated"]
+
+    @override_settings(ENV="dev")
+    @patch("squarelet.core.utils.Zenpy")
+    def test_zendesk_ticket_skipped_in_dev_environment(self, mock_zenpy):
+        """Zendesk ticket creation should be skipped in dev environment"""
+        result = create_zendesk_ticket(self.subject, self.description)
+        assert result is None
+        mock_zenpy.assert_not_called()
+
+    @override_settings(ENV="staging")
+    @patch("squarelet.core.utils.Zenpy")
+    def test_zendesk_ticket_skipped_in_staging_environment(self, mock_zenpy):
+        """Zendesk ticket creation should be skipped in staging environment"""
+        result = create_zendesk_ticket(self.subject, self.description)
+        assert result is None
+        mock_zenpy.assert_not_called()
+
+    @override_settings(ZENDESK_EMAIL="")
+    @patch("squarelet.core.utils.Zenpy")
+    def test_zendesk_ticket_skipped_without_email(self, mock_zenpy):
+        """Zendesk ticket creation should be skipped when email is missing"""
+        result = create_zendesk_ticket(self.subject, self.description)
+        assert result is None
+        mock_zenpy.assert_not_called()
+
+    @override_settings(ZENDESK_TOKEN="")
+    @patch("squarelet.core.utils.Zenpy")
+    def test_zendesk_ticket_skipped_without_token(self, mock_zenpy):
+        """Zendesk ticket creation should be skipped when token is missing"""
+        result = create_zendesk_ticket(self.subject, self.description)
+        assert result is None
+        mock_zenpy.assert_not_called()
+
+    @override_settings(ZENDESK_SUBDOMAIN="")
+    @patch("squarelet.core.utils.Zenpy")
+    def test_zendesk_ticket_skipped_without_subdomain(self, mock_zenpy):
+        """Zendesk ticket creation should be skipped when subdomain is missing"""
+        result = create_zendesk_ticket(self.subject, self.description)
+        assert result is None
+        mock_zenpy.assert_not_called()
+
+    @patch("squarelet.core.utils.Zenpy")
+    def test_successful_ticket_creation(self, mock_zenpy):
+        """Test successful ticket creation with all parameters"""
+        # Mock Zenpy client and ticket creation
+        mock_client_instance = MagicMock()
+        mock_zenpy.return_value = mock_client_instance
+
+        mock_created_ticket = MagicMock()
+        mock_created_ticket.id = 12345
+        mock_client_instance.tickets.create.return_value = mock_created_ticket
+
+        # Call the function
+        result = create_zendesk_ticket(
+            self.subject, self.description, self.priority, self.tags
+        )
+
+        # Verify Zenpy was initialized with correct credentials
+        mock_zenpy.assert_called_once_with(
+            email=settings.ZENDESK_EMAIL,
+            token=settings.ZENDESK_TOKEN,
+            subdomain=settings.ZENDESK_SUBDOMAIN,
+        )
+
+        # Verify ticket was created
+        mock_client_instance.tickets.create.assert_called_once()
+
+        # Verify the created ticket was returned
+        assert result == mock_created_ticket
+        assert result.id == 12345
+
+    @patch("squarelet.core.utils.Zenpy")
+    def test_ticket_creation_with_default_priority(self, mock_zenpy):
+        """Test ticket creation uses default priority when not specified"""
+        mock_client_instance = MagicMock()
+        mock_zenpy.return_value = mock_client_instance
+
+        mock_created_ticket = MagicMock()
+        mock_created_ticket.id = 12346
+        mock_client_instance.tickets.create.return_value = mock_created_ticket
+
+        # Call without specifying priority
+        result = create_zendesk_ticket(self.subject, self.description)
+
+        # Verify ticket was created
+        mock_client_instance.tickets.create.assert_called_once()
+        assert result == mock_created_ticket
+
+    @patch("squarelet.core.utils.Zenpy")
+    def test_ticket_creation_with_no_tags(self, mock_zenpy):
+        """Test ticket creation handles no tags correctly"""
+        mock_client_instance = MagicMock()
+        mock_zenpy.return_value = mock_client_instance
+
+        mock_created_ticket = MagicMock()
+        mock_created_ticket.id = 12347
+        mock_client_instance.tickets.create.return_value = mock_created_ticket
+
+        # Call without tags
+        result = create_zendesk_ticket(self.subject, self.description)
+
+        # Verify ticket was created
+        mock_client_instance.tickets.create.assert_called_once()
+        assert result == mock_created_ticket
+
+    @patch("squarelet.core.utils.Zenpy")
+    @patch("squarelet.core.utils.logger.error")
+    def test_ticket_creation_failure(self, mock_logger, mock_zenpy):
+        """Test that errors during ticket creation are logged and re-raised"""
+        mock_client_instance = MagicMock()
+        mock_zenpy.return_value = mock_client_instance
+
+        # Simulate an exception during ticket creation
+        test_exception = Exception("Zendesk API error")
+        mock_client_instance.tickets.create.side_effect = test_exception
+
+        # Verify the exception is raised
+        try:
+            create_zendesk_ticket(self.subject, self.description)
+            assert False, "Expected exception was not raised"
+        except Exception as exc:
+            assert exc == test_exception
+
+        # Verify error was logged
+        mock_logger.assert_called_once()
+        assert "Failed to create Zendesk ticket" in str(mock_logger.call_args)

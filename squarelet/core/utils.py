@@ -13,6 +13,8 @@ from hashlib import md5
 import actstream
 import requests
 import stripe
+from zenpy import Zenpy
+from zenpy.lib.api_objects import Ticket
 
 logger = logging.getLogger(__name__)
 
@@ -173,6 +175,64 @@ def mailchimp_journey(email, journey):
     except (requests.ConnectionError, ValueError):
         logger.error("[JOURNEY] Error starting journey", exc_info=sys.exc_info())
     return response
+
+
+def create_zendesk_ticket(subject, description, priority="normal", tags=None):
+    """
+    Create a Zendesk ticket using the Zenpy library.
+
+    This function creates a new ticket in Zendesk to track issues that require
+    staff intervention, such as an organization updating its profile details.
+    """
+    missing_config = not all([
+        settings.ZENDESK_EMAIL,
+        settings.ZENDESK_TOKEN,
+        settings.ZENDESK_SUBDOMAIN,
+    ])
+
+    if not is_production_env() or missing_config:
+        logger.info(
+            "Skipping Zendesk ticket creation (dev_env=%s, missing_config=%s): %s",
+            not is_production_env(),
+            missing_config,
+            subject,
+        )
+        return None
+
+    try:
+        # Initialize Zenpy client
+        zenpy_client = Zenpy(
+            email=settings.ZENDESK_EMAIL,
+            token=settings.ZENDESK_TOKEN,
+            subdomain=settings.ZENDESK_SUBDOMAIN,
+        )
+
+        # Create ticket object
+        ticket = Ticket(
+            subject=subject,
+            description=description,
+            priority=priority,
+            tags=tags or [],
+        )
+
+        # Create the ticket
+        created_ticket = zenpy_client.tickets.create(ticket)
+
+        logger.info(
+            "Created Zendesk ticket #%s: %s",
+            created_ticket.id,
+            subject,
+        )
+
+        return created_ticket
+
+    except Exception as exc:
+        logger.error(
+            "Failed to create Zendesk ticket: %s",
+            subject,
+            exc_info=sys.exc_info(),
+        )
+        raise exc
 
 
 def get_redirect_url(request, fallback):
