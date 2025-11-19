@@ -48,6 +48,7 @@
   align-items: flex-start;
   gap: 1rem;
   align-self: stretch;
+  width: 100%;
 
   border-radius: 0.5rem;
   border: 1px solid var(--gray-2, #d8dee2);
@@ -59,7 +60,6 @@
 
 #protected {
   display: flex;
-  padding: 2rem;
   flex-direction: column;
   align-items: flex-start;
   gap: 1rem;
