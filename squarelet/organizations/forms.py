@@ -194,7 +194,7 @@ class UpdateForm(forms.ModelForm):
             )
             if domain_list:
                 self.fields["allow_auto_join"].help_text = _(
-                    "<br> Allow users to join without an invite "
+                    "Allow users to join without an invite "
                     "if one of their verified emails matches one of "
                     "the organization's email domains. "
                     "This organization has the following email domains set:"
@@ -204,7 +204,7 @@ class UpdateForm(forms.ModelForm):
                 )
             else:
                 self.fields["allow_auto_join"].help_text = _(
-                    "<br>Allow users to join without requesting "
+                    "Allow users to join without requesting "
                     "an invite if one of their verified emails matches one of the "
                     "organization's email domains. No email domains currently set. "
                     f"<a href='{manage_domains_url}'>Add one now</a>."
