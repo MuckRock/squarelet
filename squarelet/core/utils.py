@@ -184,11 +184,13 @@ def create_zendesk_ticket(subject, description, priority="normal", tags=None):
     This function creates a new ticket in Zendesk to track issues that require
     staff intervention, such as an organization updating its profile details.
     """
-    missing_config = not all([
-        settings.ZENDESK_EMAIL,
-        settings.ZENDESK_TOKEN,
-        settings.ZENDESK_SUBDOMAIN,
-    ])
+    missing_config = not all(
+        [
+            settings.ZENDESK_EMAIL,
+            settings.ZENDESK_TOKEN,
+            settings.ZENDESK_SUBDOMAIN,
+        ]
+    )
 
     if not is_production_env() or missing_config:
         logger.info(

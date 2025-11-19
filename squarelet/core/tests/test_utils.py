@@ -361,7 +361,7 @@ class TestCreateZendeskTicket(TestCase):
         try:
             create_zendesk_ticket(self.subject, self.description)
             assert False, "Expected exception was not raised"
-        except Exception as exc: # pylint: disable=broad-except
+        except Exception as exc:  # pylint: disable=broad-except
             assert exc == test_exception
 
         # Verify error was logged
