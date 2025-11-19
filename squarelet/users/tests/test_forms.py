@@ -266,7 +266,12 @@ def test_premium_subscription_form_save_stripe_error(plan_factory, user, mocker)
     assert form.errors == {
         "__all__": [
             "We're unable to process your payment at this time. "
-            "Please try again later or contact support for assistance."
+            "Please try again later or "
+            '<a href="mailto:info@muckrock.com?subject='
+            "Payment%20Processing%20Error"
+            "&body=Error%20Type%3A%20StripeError%0A"
+            "Error%20Message%3A%20Payment%20failed"
+            '">contact support</a> for assistance.'
         ]
     }
 

@@ -358,7 +358,12 @@ class TestUpdateSubscription(ViewTestMixin):
         self.assert_message(
             messages.ERROR,
             "Payment error: We're unable to process your payment at this time. "
-            "Please try again later or contact support for assistance.",
+            "Please try again later or "
+            '<a href="mailto:info@muckrock.com?subject='
+            "Payment%20Processing%20Error"
+            "&body=Error%20Type%3A%20StripeError%0A"
+            "Error%20Message%3A%20Error%20message"
+            '">contact support</a> for assistance.',
         )
 
 
