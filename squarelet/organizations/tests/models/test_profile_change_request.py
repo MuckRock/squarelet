@@ -52,7 +52,7 @@ class TestProfileChangeRequest:
     def test_accept_updates_organization(self, profile_change_request_factory, mocker):
         """Test that accept() updates organization with requested changes"""
         mocked_sci = mocker.patch(
-            "squarelet.organizations.models.organization.send_cache_invalidations"
+            "squarelet.organizations.models.profile_change_request.send_cache_invalidations"
         )
 
         request = profile_change_request_factory(
@@ -84,7 +84,7 @@ class TestProfileChangeRequest:
     ):
         """Test that accept() only updates fields that have values"""
         mocker.patch(
-            "squarelet.organizations.models.organization.send_cache_invalidations"
+            "squarelet.organizations.models.profile_change_request.send_cache_invalidations"
         )
 
         org_city = "Original City"

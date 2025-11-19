@@ -12,4 +12,4 @@ They provided the following explanation:
 
 To approve this change, please follow this link:
 
-https://accounts.muckrock.com/organization{% url organizations:update slug=organization.slug %}
+https://accounts.muckrock.com/organization{% url 'organizations:update' slug=organization.slug %}
