@@ -478,6 +478,18 @@ strong {
   font-weight: 600;
 }
 
+.field-label-inline {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  flex: 1 0 0;
+
+  color: var(--black, #0c1e27);
+  font-feature-settings: "ss04" on;
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-weight: 600;
+}
+
 .field-required {
   color: var(--orange-3);
   font-size: var(--font-sm);

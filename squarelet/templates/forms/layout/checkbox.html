@@ -10,15 +10,16 @@
 
   {# Help text #}
   {% if field.help_text %}
-    <div class="help">{{ field.help_text|safe }}</div>
+    <p class="help">{{ field.help_text|safe }}</p>
   {% endif %}
 
   {# Errors #}
   {% if field.errors %}
-    <div class="field-errors">
+    <ul class="field-errors">
       {% for error in field.errors %}
-        <div class="field-error">{{ error }}</div>
+        <li class="field-error">{{ error }}</li>
       {% endfor %}
-    </div>
+    </ul>
   {% endif %}
 </div>
+<!-- squarelet/templates/forms/layout/checkbox.html -->
