@@ -10,13 +10,32 @@ import uuid
 from hashlib import md5
 
 # Third Party
+import actstream
 import requests
 import stripe
 from inflection import pluralize as inflection_pluralize
+from zenpy import Zenpy
+from zenpy.lib.api_objects import Ticket
 
 logger = logging.getLogger(__name__)
 
 MAX_RETRIES = 10
+
+
+def new_action(
+    actor, verb, action_object=None, target=None, public=False, description=None
+):
+    """Wrapper to send a new action and return the generated Action object."""
+    action_signal = actstream.action.send(
+        actor,
+        verb=verb,
+        action_object=action_object,
+        target=target,
+        public=public,
+        description=description,
+    )
+    # action_signal = ((action_handler, Action))
+    return action_signal[0][1]
 
 
 def is_production_env():
@@ -169,6 +188,66 @@ def pluralize(count, word):
         f"{count} {pluralize(count, 'category')}" -> "1 category" or "2 categories"
     """
     return word if count == 1 else inflection_pluralize(word)
+
+
+def create_zendesk_ticket(subject, description, priority="normal", tags=None):
+    """
+    Create a Zendesk ticket using the Zenpy library.
+
+    This function creates a new ticket in Zendesk to track issues that require
+    staff intervention, such as an organization updating its profile details.
+    """
+    missing_config = not all(
+        [
+            settings.ZENDESK_EMAIL,
+            settings.ZENDESK_TOKEN,
+            settings.ZENDESK_SUBDOMAIN,
+        ]
+    )
+
+    if not is_production_env() or missing_config:
+        logger.info(
+            "Skipping Zendesk ticket creation (dev_env=%s, missing_config=%s): %s",
+            not is_production_env(),
+            missing_config,
+            subject,
+        )
+        return None
+
+    try:
+        # Initialize Zenpy client
+        zenpy_client = Zenpy(
+            email=settings.ZENDESK_EMAIL,
+            token=settings.ZENDESK_TOKEN,
+            subdomain=settings.ZENDESK_SUBDOMAIN,
+        )
+
+        # Create ticket object
+        ticket = Ticket(
+            subject=subject,
+            description=description,
+            priority=priority,
+            tags=tags or [],
+        )
+
+        # Create the ticket
+        created_ticket = zenpy_client.tickets.create(ticket)
+
+        logger.info(
+            "Created Zendesk ticket #%s: %s",
+            created_ticket.id,
+            subject,
+        )
+
+        return created_ticket
+
+    except Exception as exc:
+        logger.error(
+            "Failed to create Zendesk ticket: %s",
+            subject,
+            exc_info=sys.exc_info(),
+        )
+        raise exc
 
 
 def get_redirect_url(request, fallback):

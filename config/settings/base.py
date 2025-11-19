@@ -71,6 +71,7 @@ DJANGO_APPS = [
     "django.forms",
 ]
 THIRD_PARTY_APPS = [
+    "actstream",
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
@@ -484,7 +485,7 @@ DEBUG_TOOLBAR_CONFIG = {
 }
 # django-hijack
 # ------------------------------------------------------------------------------
-HIJACK_AUTHORIZE_STAFF = True
+HIJACK_AUTHORIZATION_CHECK = "squarelet.users.hijack.hijack_by_group"
 
 # dogslow
 # ------------------------------------------------------------------------------
@@ -550,3 +551,9 @@ WIX_SITE_ID = env("WIX_SITE_ID", default="")
 # Subscription limits
 # ------------------------------------------------------------------------------
 MAX_SUNLIGHT_SUBSCRIPTIONS = env.int("MAX_SUNLIGHT_SUBSCRIPTIONS", default=15)
+
+# Activity Stream
+
+ACTSTREAM_SETTINGS = {
+    "USE_JSONFIELD": True,
+}

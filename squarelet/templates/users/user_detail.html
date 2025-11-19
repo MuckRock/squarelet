@@ -65,7 +65,7 @@
   </aside>
 
   <div class="content">
-    {% if request.user.is_staff and request.user != user %}
+    {% if may_hijack %}
       <div class="staff-toolbar">
         <h3>{% trans "Staff control panel" %}</h3>
         <form action="{% url "hijack:login_with_username" user.username %}" method="post">

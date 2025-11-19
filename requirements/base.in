@@ -5,6 +5,7 @@ bleach
 celery
 cryptography
 django-allauth[socialaccount,mfa]
+django-activity-stream
 django-autocomplete-light
 django-autoslug
 django-choices
@@ -49,3 +50,4 @@ rules
 smart_open
 sorl-thumbnail
 stripe
+zenpy
