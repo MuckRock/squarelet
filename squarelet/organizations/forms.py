@@ -7,7 +7,7 @@ from django.utils.translation import gettext_lazy as _
 
 # Third Party
 from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Fieldset, Layout, Field as CrispyField
+from crispy_forms.layout import Field as CrispyField, Fieldset, Layout
 
 # Squarelet
 from squarelet.core.fields import EmailsListField
