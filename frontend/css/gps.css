@@ -493,7 +493,8 @@ h3 {
 
 .field input[type="text"],
 .field input[type="email"],
-.field input[type="password"] {
+.field input[type="password"],
+.field input[type="url"] {
   display: flex;
   width: 100%;
   box-sizing: border-box;
@@ -531,6 +532,37 @@ h3 {
   box-shadow: 0 2px 0 0 var(--gray-2, #d8dee2) inset;
 }
 
+.field select {
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.375rem 0.75rem;
+  align-items: center;
+  gap: 0.5rem;
+  align-self: stretch;
+
+  appearance: none;
+  border-radius: 0.5rem;
+  border: 1px solid var(--gray-3, #99a8b3);
+  background: var(--white, #fff);
+  box-shadow: 0 2px 0 0 var(--gray-2, #d8dee2) inset;
+  font-family: "Source Sans Pro";
+  font-size: 1rem;
+  line-height: normal;
+  cursor: pointer;
+
+  /* Add dropdown arrow */
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%235c717c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2.5rem;
+}
+
+.field select:disabled {
+  color: var(--gray-4);
+  cursor: not-allowed;
+}
+
 .field .help {
   margin: 0;
   color: var(--gray-4, #5c717c);
@@ -548,6 +580,30 @@ h3 {
   flex-direction: row;
   align-items: center;
   font-weight: 400;
+}
+
+/* Fieldsets */
+
+.fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--gray-2, #d8dee2);
+  background: var(--gray-1, #f5f6f7);
+}
+
+.fieldset-legend {
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-size: var(--font-md, 1rem);
+  font-feature-settings: "ss04" on;
+}
+
+.fieldset-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 /* Font Styles */
