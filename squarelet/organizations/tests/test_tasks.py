@@ -9,6 +9,7 @@ from datetime import date, timedelta
 import pytest
 import stripe
 from dateutil.relativedelta import relativedelta
+from freezegun import freeze_time
 
 # Squarelet
 from squarelet.organizations import tasks
@@ -300,6 +301,7 @@ class TestHandleInvoiceFinalized:
     """Unit tests for the handle_invoice_finalized task"""
 
     @pytest.mark.django_db
+    @freeze_time("2025-01-15 12:00:00")
     def test_updates_invoice_status(self, invoice_factory):
         timestamp = timezone.now().replace(microsecond=0)
         due_timestamp = (timestamp + timedelta(days=30)).replace(microsecond=0)

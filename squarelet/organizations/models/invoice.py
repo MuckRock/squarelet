@@ -7,8 +7,6 @@ from django.utils.translation import gettext_lazy as _
 # Standard Library
 from datetime import datetime
 
-import stripe
-
 # Squarelet
 from squarelet.organizations.querysets import InvoiceQuerySet
 
