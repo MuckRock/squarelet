@@ -62,6 +62,10 @@ bz2file==0.98
     # via
     #   -r requirements/base.txt
     #   smart-open
+cachetools==6.2.2
+    # via
+    #   -r requirements/base.txt
+    #   zenpy
 celery==5.4.0
     # via
     #   -r requirements/base.txt
@@ -391,12 +395,15 @@ python-dateutil==2.9.0.post0
     #   -r requirements/base.txt
     #   botocore
     #   celery
+    #   zenpy
 python-levenshtein==0.25.1
     # via -r requirements/base.txt
 python-slugify==1.2.5
     # via -r requirements/base.txt
 pytz==2024.2
-    # via -r requirements/base.txt
+    # via
+    #   -r requirements/base.txt
+    #   zenpy
 qrcode==8.0
     # via
     #   -r requirements/base.txt
@@ -422,6 +429,7 @@ requests==2.32.3
     #   requests-oauthlib
     #   smart-open
     #   stripe
+    #   zenpy
 requests-oauthlib==2.0.0
     # via
     #   -r requirements/base.txt
@@ -449,6 +457,7 @@ six==1.16.0
     #   orderedmultidict
     #   pyjwkest
     #   python-dateutil
+    #   zenpy
 smart-open==1.7.1
     # via -r requirements/base.txt
 sorl-thumbnail==12.9.0
@@ -527,6 +536,8 @@ wrapt==1.11.2
     # via
     #   -r requirements/base.txt
     #   deprecated
+zenpy==2.0.56
+    # via -r requirements/base.txt
 zopfli==0.2.2
     # via
     #   -r requirements/base.txt

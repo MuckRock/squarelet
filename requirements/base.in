@@ -50,3 +50,4 @@ rules
 smart_open
 sorl-thumbnail
 stripe
+zenpy
