@@ -40,6 +40,8 @@ brotli==1.0.9
     # via fonttools
 bz2file==0.98
     # via smart-open
+cachetools==6.2.2
+    # via zenpy
 celery==5.4.0
     # via -r requirements/base.in
 certifi==2024.7.4
@@ -262,12 +264,15 @@ python-dateutil==2.9.0.post0
     # via
     #   botocore
     #   celery
+    #   zenpy
 python-levenshtein==0.25.1
     # via -r requirements/base.in
 python-slugify==1.2.5
     # via -r requirements/base.in
 pytz==2024.2
-    # via -r requirements/base.in
+    # via
+    #   -r requirements/base.in
+    #   zenpy
 qrcode==8.0
     # via django-allauth
 rapidfuzz==3.9.1
@@ -287,6 +292,7 @@ requests==2.32.3
     #   requests-oauthlib
     #   smart-open
     #   stripe
+    #   zenpy
 requests-oauthlib==2.0.0
     # via django-allauth
 rules==2.1
@@ -307,6 +313,7 @@ six==1.16.0
     #   orderedmultidict
     #   pyjwkest
     #   python-dateutil
+    #   zenpy
 smart-open==1.7.1
     # via -r requirements/base.in
 sorl-thumbnail==12.9.0
@@ -363,6 +370,8 @@ webencodings==0.5.1
     #   tinycss2
 wrapt==1.11.2
     # via deprecated
+zenpy==2.0.56
+    # via -r requirements/base.in
 zopfli==0.2.2
     # via fonttools
 
