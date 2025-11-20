@@ -17,6 +17,7 @@ from datetime import date
 from reversion.admin import VersionAdmin
 
 # Squarelet
+from squarelet.core.utils import is_production_env
 from squarelet.organizations.models import (
     Charge,
     Customer,
@@ -92,7 +93,8 @@ class InvoiceInline(admin.TabularInline):
     def stripe_link(self, obj):
         """Link to Stripe invoice dashboard"""
         if obj.invoice_id:
-            url = f"https://dashboard.stripe.com/invoices/{obj.invoice_id}"
+            env_prefix = "" if is_production_env() else "test/"
+            url = f"https://dashboard.stripe.com/{env_prefix}invoices/{obj.invoice_id}"
             return f'<a href="{url}" target="_blank">View in Stripe</a>'
         return "-"
 
@@ -594,7 +596,8 @@ class InvoiceAdmin(VersionAdmin):
     def stripe_link(self, obj):
         """Link to Stripe invoice dashboard"""
         if obj.invoice_id:
-            url = f"https://dashboard.stripe.com/invoices/{obj.invoice_id}"
+            env_prefix = "" if is_production_env() else "test/"
+            url = f"https://dashboard.stripe.com/{env_prefix}invoices/{obj.invoice_id}"
             return f'<a href="{url}" target="_blank">View in Stripe</a>'
         return "-"
 

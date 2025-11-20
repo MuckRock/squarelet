@@ -1,6 +1,6 @@
 # Django
 from django.contrib.admin.sites import AdminSite
-from django.test import RequestFactory
+from django.test import RequestFactory, override_settings
 
 # Third Party
 import pytest
@@ -21,6 +21,7 @@ class TestInvoiceAdmin:
     def request_factory(self):
         return RequestFactory()
 
+    @override_settings(ENV="prod")
     @pytest.mark.django_db
     def test_stripe_link_with_invoice_id(self, invoice_admin, invoice_factory):
         """Should generate Stripe dashboard link for invoice"""
@@ -28,6 +29,17 @@ class TestInvoiceAdmin:
         link = invoice_admin.stripe_link(invoice)
 
         assert "https://dashboard.stripe.com/invoices/in_test123" in link
+        assert 'target="_blank"' in link
+        assert "View in Stripe" in link
+
+    @override_settings(ENV="staging")
+    @pytest.mark.django_db
+    def test_stripe_test_link_with_invoice_id(self, invoice_admin, invoice_factory):
+        """Should generate Stripe test-mode dashboard link for invoice"""
+        invoice = invoice_factory(invoice_id="in_test123")
+        link = invoice_admin.stripe_link(invoice)
+
+        assert "https://dashboard.stripe.com/test/invoices/in_test123" in link
         assert 'target="_blank"' in link
         assert "View in Stripe" in link
 
