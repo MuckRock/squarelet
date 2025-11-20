@@ -210,6 +210,8 @@ class Subscription(models.Model):
                 )
             )
             self.subscription_id = stripe_subscription.id
+            # Save subscription before creating invoice
+            self.save()
 
             # Create Invoice record synchronously
             if stripe_subscription.latest_invoice:

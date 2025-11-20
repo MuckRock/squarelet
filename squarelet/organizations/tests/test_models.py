@@ -782,16 +782,29 @@ class TestSubscription:
         subscription = subscription_factory.build()
         assert subscription.stripe_subscription is None
 
+    @pytest.mark.django_db()
     def test_start(self, subscription_factory, professional_plan_factory, mocker):
-        plan = professional_plan_factory.build()
-        subscription = subscription_factory.build(plan=plan)
-        mocked = Mock()
+        plan = professional_plan_factory()
+        subscription = subscription_factory(plan=plan)
+
+        # Mock stripe subscription creation
+        stripe_subscription_id = "sub_test123"
+        mock_stripe_subscription = Mock(
+            id=stripe_subscription_id,
+            latest_invoice=None,  # No invoice to avoid invoice creation path
+        )
+        mocked_customer = Mock()
+        mocked_customer.stripe_customer.subscriptions.create.return_value = (
+            mock_stripe_subscription
+        )
         mocker.patch(
             "squarelet.organizations.models.organization.Organization.customer",
-            return_value=mocked,
+            return_value=mocked_customer,
         )
+
         subscription.start()
-        mocked.stripe_customer.subscriptions.create.assert_called_with(
+
+        mocked_customer.stripe_customer.subscriptions.create.assert_called_with(
             items=[
                 {
                     "plan": subscription.plan.stripe_id,
@@ -802,10 +815,7 @@ class TestSubscription:
             metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=None,
         )
-        assert (
-            subscription.subscription_id
-            == mocked.stripe_customer.subscriptions.create.return_value.id
-        )
+        assert subscription.subscription_id == stripe_subscription_id
 
     def test_start_existing(self, subscription_factory, mocker):
         """If there is an existing subscription, do not start another one"""
