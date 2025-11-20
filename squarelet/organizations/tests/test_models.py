@@ -270,6 +270,145 @@ class TestOrganization:
         mocked.assert_called_with(plan)
 
     @pytest.mark.django_db
+    def test_set_subscription_with_invoice_payment_method(
+        self, organization_factory, mocker, user_factory, professional_plan_factory
+    ):
+        """Test that explicitly passing payment_method='invoice' uses invoice billing"""
+        mocker.patch("stripe.Plan.create")
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        plan = professional_plan_factory()
+
+        # Mock that organization has a saved card
+        mocked_card = mocker.MagicMock()
+        mocked_customer = mocker.patch(
+            "squarelet.organizations.models.Customer.stripe_customer",
+            email=None,
+            default_source=True,
+        )
+        type(mocked_customer).card = PropertyMock(return_value=mocked_card)
+
+        mocked_subscriptions = mocker.patch(
+            "squarelet.organizations.models.Organization.subscriptions"
+        )
+        mocker.patch("squarelet.organizations.models.Organization.change_logs")
+
+        max_users = 10
+        token = None
+        # User explicitly selects invoice payment despite having a card on file
+        organization.set_subscription(
+            token, plan, max_users, user, payment_method="invoice"
+        )
+
+        # Should pass "invoice" to subscriptions.start, not "card"
+        mocked_subscriptions.start.assert_called_with(
+            organization=organization, plan=plan, payment_method="invoice"
+        )
+
+    @pytest.mark.django_db
+    def test_set_subscription_with_existing_card_payment_method(
+        self, organization_factory, mocker, user_factory, professional_plan_factory
+    ):
+        """Test that payment_method='existing-card' maps to 'card'"""
+        mocker.patch("stripe.Plan.create")
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        plan = professional_plan_factory()
+
+        mocker.patch(
+            "squarelet.organizations.models.Customer.stripe_customer",
+            email=None,
+        )
+        mocked_subscriptions = mocker.patch(
+            "squarelet.organizations.models.Organization.subscriptions"
+        )
+        mocker.patch("squarelet.organizations.models.Organization.change_logs")
+
+        max_users = 10
+        token = None
+        organization.set_subscription(
+            token, plan, max_users, user, payment_method="existing-card"
+        )
+
+        # "existing-card" should be mapped to "card"
+        mocked_subscriptions.start.assert_called_with(
+            organization=organization, plan=plan, payment_method="card"
+        )
+
+    @pytest.mark.django_db
+    def test_set_subscription_with_new_card_payment_method(
+        self, organization_factory, mocker, user_factory, professional_plan_factory
+    ):
+        """Test that payment_method='new-card' maps to 'card'"""
+        mocker.patch("stripe.Plan.create")
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        plan = professional_plan_factory()
+
+        mocked_save_card = mocker.patch(
+            "squarelet.organizations.models.Organization.save_card"
+        )
+        mocker.patch(
+            "squarelet.organizations.models.Customer.stripe_customer",
+            email=None,
+        )
+        mocked_subscriptions = mocker.patch(
+            "squarelet.organizations.models.Organization.subscriptions"
+        )
+        mocker.patch("squarelet.organizations.models.Organization.change_logs")
+
+        max_users = 10
+        token = "tok_test123"
+        organization.set_subscription(
+            token, plan, max_users, user, payment_method="new-card"
+        )
+
+        mocked_save_card.assert_called_with(token, user)
+        # "new-card" should be mapped to "card"
+        mocked_subscriptions.start.assert_called_with(
+            organization=organization, plan=plan, payment_method="card"
+        )
+
+    @pytest.mark.django_db
+    def test_set_subscription_backward_compatibility_no_payment_method(
+        self, organization_factory, mocker, user_factory, professional_plan_factory
+    ):
+        """
+        Test backward compatibility: when payment_method not provided,
+        auto-detect based on card
+        """
+        mocker.patch("stripe.Plan.create")
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        plan = professional_plan_factory()
+
+        # Mock that organization has a saved card
+        mocked_card = mocker.MagicMock()
+        mocked_customer_obj = mocker.MagicMock()
+        mocked_customer_obj.email = None
+        mocked_customer_obj.card = mocked_card
+
+        mocker.patch(
+            "squarelet.organizations.models.Organization.customer",
+            return_value=mocked_customer_obj,
+        )
+
+        mocked_subscriptions = mocker.patch(
+            "squarelet.organizations.models.Organization.subscriptions"
+        )
+        mocker.patch("squarelet.organizations.models.Organization.change_logs")
+
+        max_users = 10
+        token = None
+        # Don't pass payment_method - should auto-detect as "card" because card exists
+        organization.set_subscription(token, plan, max_users, user)
+
+        # Should default to "card" since a card is on file
+        mocked_subscriptions.start.assert_called_with(
+            organization=organization, plan=plan, payment_method="card"
+        )
+
+    @pytest.mark.django_db
     def test_subscription_cancelled(
         self, organization_factory, mocker, professional_plan_factory
     ):

@@ -406,19 +406,29 @@ class Organization(AvatarMixin, models.Model):
     def subscription(self):
         return self.subscriptions.first()
 
-    def set_subscription(self, token, plan, max_users, user):
+    def set_subscription(self, token, plan, max_users, user, payment_method=None):
         # pylint: disable=import-outside-toplevel
         from squarelet.organizations.tasks import sync_wix
 
         if self.individual:
             max_users = 1
 
-        if token or self.customer().card:
-            payment_method = "card"
+        # Determine payment method
+        if payment_method is None:
+            # Backward compatibility: auto-detect payment method if not
+            # explicitly provided
+            if token or self.customer().card:
+                payment_method = "card"
+            else:
+                # If we're missing a token and have no saved card,
+                # we can only issue an invoice
+                payment_method = "invoice"
         else:
-            # If we're missing a token and have no saved card,
-            # we can only issue an invoice
-            payment_method = "invoice"
+            # Updated handling: users can explicitly select payment method
+            # "new-card" and "existing-card" both map to "card"
+            if payment_method in ("new-card", "existing-card"):
+                payment_method = "card"
+            # "invoice" stays as "invoice"
 
         if token:
             # The user provided a new card: save it to the org's account
