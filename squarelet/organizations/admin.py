@@ -11,10 +11,16 @@ from django.utils.safestring import mark_safe
 # Standard Library
 import csv
 import json
+import logging
+import sys
 from datetime import date
 
 # Third Party
+import stripe
+from django.contrib import messages
 from reversion.admin import VersionAdmin
+
+logger = logging.getLogger(__name__)
 
 # Squarelet
 from squarelet.core.utils import is_production_env
@@ -576,6 +582,7 @@ class InvoiceAdmin(VersionAdmin):
         "get_amount",
         "updated_at",
         "stripe_link",
+        "invoice_actions",
     )
     fields = (
         "invoice_id",
@@ -590,7 +597,35 @@ class InvoiceAdmin(VersionAdmin):
         "created_at",
         "updated_at",
     )
-    actions = ["mark_as_paid", "mark_as_uncollectible"]
+    actions = ["mark_as_paid"]
+
+    def get_readonly_fields(self, request, obj=None):
+        """Make all fields readonly when editing existing invoice"""
+        if obj:  # Editing existing invoice
+            # Return all fields as readonly, include action buttons for open invoices
+            readonly = [
+                "get_amount",
+                "updated_at",
+                "stripe_link",
+                "invoice_id",
+                "organization",
+                "subscription",
+                "amount",
+                "status",
+                "due_date",
+                "last_overdue_email_sent",
+                "created_at",
+            ]
+            # Add action button field for open invoices
+            if obj.status == "open":
+                readonly.append("invoice_actions")
+            return tuple(readonly)
+        # When creating new invoice, only standard readonly fields
+        return (
+            "get_amount",
+            "updated_at",
+            "stripe_link",
+        )
 
     @mark_safe
     def stripe_link(self, obj):
@@ -608,22 +643,85 @@ class InvoiceAdmin(VersionAdmin):
 
     get_amount.short_description = "Amount"
 
-    def mark_as_paid(self, request, queryset):
-        """Mark selected invoices as paid"""
-        updated = queryset.filter(status="open").update(status="paid")
-        self.message_user(
-            request,
-            f"{updated} invoice(s) marked as paid.",
+    @mark_safe
+    def invoice_actions(self, obj):
+        """Display action buttons for open invoices"""
+        if not obj or obj.status != "open":
+            return "-"
+
+        # Create a link that triggers the mark_as_paid action for this invoice
+        change_url = reverse("admin:organizations_invoice_changelist")
+        url = f"{change_url}?action=mark_as_paid_single&invoice_id={obj.pk}"
+        style = (
+            "padding: 5px 10px; background: #417690; color: white; "
+            "text-decoration: none; border-radius: 4px; display: inline-block;"
         )
+        return f'<a class="button" href="{url}" style="{style}">Mark as Paid</a>'
+
+    invoice_actions.short_description = "Actions"
+
+    def mark_as_paid(self, request, queryset):
+        """Mark selected invoices as paid and sync to Stripe"""
+        success_count = 0
+        error_count = 0
+
+        for invoice in queryset.filter(status="open"):
+            try:
+                # Retrieve invoice from Stripe and call pay() on it
+                stripe_invoice = stripe.Invoice.retrieve(invoice.invoice_id)
+                stripe_invoice.pay(paid_out_of_band=True)
+                # Update local DB after Stripe succeeds
+                invoice.status = "paid"
+                invoice.save()
+                success_count += 1
+            except stripe.error.StripeError as exc:
+                logger.error(
+                    "Failed to mark invoice %s as paid in Stripe: %s",
+                    invoice.invoice_id,
+                    exc,
+                    exc_info=sys.exc_info(),
+                )
+                error_count += 1
+
+        if success_count > 0:
+            self.message_user(
+                request,
+                f"{success_count} invoice(s) marked as paid.",
+            )
+        if error_count > 0:
+            self.message_user(
+                request,
+                f"{error_count} invoice(s) could not be updated in Stripe. "
+                "Check logs for errors.",
+                level=messages.ERROR,
+            )
 
     mark_as_paid.short_description = "Mark as Paid"
 
-    def mark_as_uncollectible(self, request, queryset):
-        """Mark selected invoices as uncollectible"""
-        updated = queryset.filter(status="open").update(status="uncollectible")
-        self.message_user(
-            request,
-            f"{updated} invoice(s) marked as uncollectible.",
-        )
+    def changelist_view(self, request, extra_context=None):
+        """Handle custom single-invoice actions"""
+        # Check if this is a mark_as_paid_single action
+        if request.GET.get("action") == "mark_as_paid_single":
+            invoice_id = request.GET.get("invoice_id")
+            if invoice_id:
+                try:
+                    # Verify invoice exists before processing
+                    Invoice.objects.get(pk=invoice_id)
+                    # Call mark_as_paid with a queryset containing just this invoice
+                    queryset = Invoice.objects.filter(pk=invoice_id)
+                    self.mark_as_paid(request, queryset)
+                    # Redirect to the invoice detail page
+                    return HttpResponse(
+                        status=302,
+                        headers={
+                            "Location": reverse(
+                                "admin:organizations_invoice_change", args=[invoice_id]
+                            )
+                        },
+                    )
+                except Invoice.DoesNotExist:
+                    self.message_user(
+                        request, "Invoice not found.", level=messages.ERROR
+                    )
 
-    mark_as_uncollectible.short_description = "Mark as Uncollectible"
+        return super().changelist_view(request, extra_context)
