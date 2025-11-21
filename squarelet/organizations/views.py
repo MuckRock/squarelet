@@ -41,7 +41,7 @@ from fuzzywuzzy import fuzz, process
 
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
-from squarelet.core.utils import get_redirect_url
+from squarelet.core.utils import get_redirect_url, get_stripe_dashboard_url
 from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.denylist_domains import DENYLIST_DOMAINS
 from squarelet.organizations.forms import (
@@ -654,13 +654,29 @@ def stripe_webhook(request):  # pylint: disable=too-many-branches
     # If we've made it this far, then the webhook message was successfully sent!
     # Now it's up to us to act on it.
     # https://docs.stripe.com/api/events/types
-    success_msg = (
-        "[STRIPE-WEBHOOK] Received Stripe webhook\n"
-        "\tfrom:\t%(address)s\n"
-        "\ttype:\t%(type)s\n"
-        "\tdata:\t%(data)s\n"
-    ) % {"address": request.META["REMOTE_ADDR"], "type": event_type, "data": event}
-    logger.info(success_msg)
+
+    # Log invoice-related webhooks with minimal noise
+    if event_type.startswith("invoice."):
+        invoice_id = event["data"]["object"].get("id")
+        if invoice_id:
+            stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
+            logger.info(
+                "[STRIPE-WEBHOOK] %s: %s (%s)",
+                event_type,
+                invoice_id,
+                stripe_link,
+            )
+        else:
+            logger.info("[STRIPE-WEBHOOK] %s (no invoice ID)", event_type)
+    else:
+        # For non-invoice events, log with more detail
+        success_msg = (
+            "[STRIPE-WEBHOOK] Received Stripe webhook\n"
+            "\tfrom:\t%(address)s\n"
+            "\ttype:\t%(type)s\n"
+            "\tdata:\t%(data)s\n"
+        ) % {"address": request.META["REMOTE_ADDR"], "type": event_type, "data": event}
+        logger.info(success_msg)
     if event_type == "charge.succeeded":
         handle_charge_succeeded.delay(event["data"]["object"])
     elif event_type == "invoice.payment_failed":

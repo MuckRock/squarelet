@@ -18,7 +18,7 @@ import stripe
 # Squarelet
 from squarelet.core.mail import ORG_TO_ADMINS, send_mail
 from squarelet.core.models import Interval
-from squarelet.core.utils import is_production_env
+from squarelet.core.utils import get_stripe_dashboard_url, is_production_env
 from squarelet.oidc.middleware import send_cache_invalidations
 from squarelet.organizations import wix
 from squarelet.organizations.models.invoice import Invoice
@@ -160,11 +160,13 @@ def handle_invoice_created(invoice_data):
             customers__customer_id=invoice_data["customer"]
         )
     except Organization.DoesNotExist:
+        invoice_id = invoice_data["id"]
+        stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
         logger.error(
-            "[STRIPE-WEBHOOK-INVOICE] Invoice created (%s) for customer "
-            "(%s) with no matching organization",
-            invoice_data["id"],
-            invoice_data["customer"],
+            "[STRIPE-WEBHOOK-INVOICE] Invoice created for customer with no matching "
+            "organization: %s (%s)",
+            invoice_id,
+            stripe_link,
         )
         return
 
@@ -177,50 +179,44 @@ def handle_invoice_created(invoice_data):
             try:
                 subscription = Subscription.objects.get(subscription_id=subscription_id)
             except Subscription.DoesNotExist:
+                invoice_id = invoice_data["id"]
+                stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
                 logger.warning(
-                    "[STRIPE-WEBHOOK-INVOICE] Invoice %s references "
-                    "subscription %s which doesn't exist locally",
-                    invoice_data["id"],
-                    subscription_id,
+                    "[STRIPE-WEBHOOK-INVOICE] Invoice references missing subscription: "
+                    "%s (%s)",
+                    invoice_id,
+                    stripe_link,
                 )
 
     # Create or update the invoice
     # Note: Invoice may already exist if created synchronously during subscription start
-    invoice, created = Invoice.create_or_update_from_stripe(
+    _invoice, created = Invoice.create_or_update_from_stripe(
         invoice_data, organization, subscription
     )
-    if created:
-        logger.info(
-            "[STRIPE-WEBHOOK-INVOICE] Invoice created via webhook: %s "
-            "(organization=%s, subscription=%s, amount=%s, status=%s)",
-            invoice_data["id"],
-            invoice.organization_id,
-            invoice.subscription_id,
-            invoice.amount,
-            invoice.status,
-        )
-    else:
-        logger.info(
-            "[STRIPE-WEBHOOK-INVOICE] Invoice updated via webhook: %s "
-            "(organization=%s, subscription=%s, amount=%s, status=%s)",
-            invoice_data["id"],
-            invoice.organization_id,
-            invoice.subscription_id,
-            invoice.amount,
-            invoice.status,
-        )
+    invoice_id = invoice_data["id"]
+    stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
+    action = "created" if created else "updated"
+    logger.info(
+        "[STRIPE-WEBHOOK-INVOICE] Invoice %s via webhook: %s (%s)",
+        action,
+        invoice_id,
+        stripe_link,
+    )
 
 
 @shared_task(name="squarelet.organizations.tasks.handle_invoice_finalized")
 def handle_invoice_finalized(invoice_data):
     """Handle receiving an invoice.finalized event from the Stripe webhook"""
+    invoice_id = invoice_data["id"]
     try:
-        invoice = Invoice.objects.get(invoice_id=invoice_data["id"])
+        invoice = Invoice.objects.get(invoice_id=invoice_id)
     except Invoice.DoesNotExist:
+        stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
         logger.error(
-            "[STRIPE-WEBHOOK-INVOICE] Invoice finalized event for "
-            "non-existent invoice: %s",
-            invoice_data["id"],
+            "[STRIPE-WEBHOOK-INVOICE] Invoice finalized event for non-existent "
+            "invoice: %s (%s)",
+            invoice_id,
+            stripe_link,
             exc_info=sys.exc_info(),
         )
         return
@@ -231,19 +227,25 @@ def handle_invoice_finalized(invoice_data):
             invoice_data["due_date"], tz=get_current_timezone()
         ).date()
     invoice.save()
-    logger.info("[STRIPE-WEBHOOK-INVOICE] Invoice finalized: %s", invoice_data["id"])
+    stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
+    logger.info(
+        "[STRIPE-WEBHOOK-INVOICE] Invoice finalized: %s (%s)", invoice_id, stripe_link
+    )
 
 
 @shared_task(name="squarelet.organizations.tasks.handle_invoice_paid")
 def handle_invoice_paid(invoice_data):
     """Handle receiving an invoice.paid event from the Stripe webhook"""
+    invoice_id = invoice_data["id"]
     try:
-        invoice = Invoice.objects.get(invoice_id=invoice_data["id"])
+        invoice = Invoice.objects.get(invoice_id=invoice_id)
     except Invoice.DoesNotExist:
+        stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
         logger.error(
             "[STRIPE-WEBHOOK-INVOICE] Invoice payment succeeded event for "
-            "non-existent invoice: %s",
-            invoice_data["id"],
+            "non-existent invoice: %s (%s)",
+            invoice_id,
+            stripe_link,
             exc_info=sys.exc_info(),
         )
         return
@@ -253,58 +255,75 @@ def handle_invoice_paid(invoice_data):
 
     # Clear payment_failed flag on the organization
     organization = invoice.organization
+    stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
     if organization.payment_failed:
         organization.payment_failed = False
         organization.save()
         logger.info(
-            "[STRIPE-WEBHOOK-INVOICE] Cleared payment_failed flag for "
-            "organization %s due to invoice payment",
+            "[STRIPE-WEBHOOK-INVOICE] Cleared payment_failed flag for org %s (invoice paid): "
+            "%s (%s)",
             organization.uuid,
+            invoice_id,
+            stripe_link,
         )
 
     logger.info(
-        "[STRIPE-WEBHOOK-INVOICE] Invoice payment succeeded: %s", invoice_data["id"]
+        "[STRIPE-WEBHOOK-INVOICE] Invoice payment succeeded: %s (%s)",
+        invoice_id,
+        stripe_link,
     )
 
 
 @shared_task(name="squarelet.organizations.tasks.handle_invoice_marked_uncollectible")
 def handle_invoice_marked_uncollectible(invoice_data):
     """Handle receiving an invoice.marked_uncollectible event from the Stripe webhook"""
+    invoice_id = invoice_data["id"]
     try:
-        invoice = Invoice.objects.get(invoice_id=invoice_data["id"])
+        invoice = Invoice.objects.get(invoice_id=invoice_id)
     except Invoice.DoesNotExist:
+        stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
         logger.error(
-            "[STRIPE-WEBHOOK-INVOICE] Invoice marked uncollectible event "
-            "for non-existent invoice: %s",
-            invoice_data["id"],
+            "[STRIPE-WEBHOOK-INVOICE] Invoice marked uncollectible event for "
+            "non-existent invoice: %s (%s)",
+            invoice_id,
+            stripe_link,
             exc_info=sys.exc_info(),
         )
         return
 
     invoice.status = "uncollectible"
     invoice.save()
+    stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
     logger.info(
-        "[STRIPE-WEBHOOK-INVOICE] Invoice marked uncollectible: %s", invoice_data["id"]
+        "[STRIPE-WEBHOOK-INVOICE] Invoice marked uncollectible: %s (%s)",
+        invoice_id,
+        stripe_link,
     )
 
 
 @shared_task(name="squarelet.organizations.tasks.handle_invoice_voided")
 def handle_invoice_voided(invoice_data):
     """Handle receiving an invoice.voided event from the Stripe webhook"""
+    invoice_id = invoice_data["id"]
     try:
-        invoice = Invoice.objects.get(invoice_id=invoice_data["id"])
+        invoice = Invoice.objects.get(invoice_id=invoice_id)
     except Invoice.DoesNotExist:
+        stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
         logger.error(
-            "[STRIPE-WEBHOOK-INVOICE] Invoice voided event for "
-            "non-existent invoice: %s",
-            invoice_data["id"],
+            "[STRIPE-WEBHOOK-INVOICE] Invoice voided event for non-existent "
+            "invoice: %s (%s)",
+            invoice_id,
+            stripe_link,
             exc_info=sys.exc_info(),
         )
         return
 
     invoice.status = "void"
     invoice.save()
-    logger.info("[STRIPE-WEBHOOK-INVOICE] Invoice voided: %s", invoice_data["id"])
+    stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
+    logger.info(
+        "[STRIPE-WEBHOOK-INVOICE] Invoice voided: %s (%s)", invoice_id, stripe_link
+    )
 
 
 @shared_task(name="squarelet.organizations.tasks.process_overdue_invoice")

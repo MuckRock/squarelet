@@ -1,5 +1,5 @@
 # Django
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.auth.models import AnonymousUser
 from django.db.models import Count, JSONField, Q, Sum
 from django.forms.models import BaseInlineFormSet
@@ -17,13 +17,10 @@ from datetime import date
 
 # Third Party
 import stripe
-from django.contrib import messages
 from reversion.admin import VersionAdmin
 
-logger = logging.getLogger(__name__)
-
 # Squarelet
-from squarelet.core.utils import is_production_env
+from squarelet.core.utils import get_stripe_dashboard_url
 from squarelet.organizations.models import (
     Charge,
     Customer,
@@ -42,6 +39,8 @@ from squarelet.organizations.models import (
     Subscription,
 )
 from squarelet.users.models import User
+
+logger = logging.getLogger(__name__)
 
 
 # https://stackoverflow.com/questions/48145992/showing-json-field-in-django-admin
@@ -99,8 +98,7 @@ class InvoiceInline(admin.TabularInline):
     def stripe_link(self, obj):
         """Link to Stripe invoice dashboard"""
         if obj.invoice_id:
-            env_prefix = "" if is_production_env() else "test/"
-            url = f"https://dashboard.stripe.com/{env_prefix}invoices/{obj.invoice_id}"
+            url = get_stripe_dashboard_url("invoices", obj.invoice_id)
             return f'<a href="{url}" target="_blank">View in Stripe</a>'
         return "-"
 
@@ -631,8 +629,7 @@ class InvoiceAdmin(VersionAdmin):
     def stripe_link(self, obj):
         """Link to Stripe invoice dashboard"""
         if obj.invoice_id:
-            env_prefix = "" if is_production_env() else "test/"
-            url = f"https://dashboard.stripe.com/{env_prefix}invoices/{obj.invoice_id}"
+            url = get_stripe_dashboard_url("invoices", obj.invoice_id)
             return f'<a href="{url}" target="_blank">View in Stripe</a>'
         return "-"
 
