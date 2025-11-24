@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <div class="_cls-content">
+  <div class="_cls-content card">
     <h1>Request for access to your MuckRock account</h1>
 
     <p>
@@ -13,9 +13,7 @@
       the following information:
     </p>
 
-    <form method="post" action="{% url 'oidc_provider:authorize' %}">
-      {% csrf_token %}
-      {{ hidden_inputs }}
+    
 
       <ul>
         <li>
@@ -43,9 +41,11 @@
       <p>
         Do you want to allow {{ client.name }} to access this information?
       </p>
-
-      <input class="btn primary" name="allow" type="submit" value="Authorize" />
-      <input class="btn danger" type="submit" value="Decline" />
+    <form method="post" action="{% url 'oidc_provider:authorize' %}">
+      {% csrf_token %}
+      {{ hidden_inputs }}
+      <button class="btn primary" type="submit" name="allow" value="Authorize">Authorize</button>
+      <button class="btn danger" type="submit">Decline</button>
     </form>
   </div>
 {% endblock content %}
