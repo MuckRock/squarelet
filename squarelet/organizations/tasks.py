@@ -260,7 +260,8 @@ def handle_invoice_paid(invoice_data):
         organization.payment_failed = False
         organization.save()
         logger.info(
-            "[STRIPE-WEBHOOK-INVOICE] Cleared payment_failed flag for org %s (invoice paid): "
+            "[STRIPE-WEBHOOK-INVOICE] Cleared "
+            "payment_failed flag for org %s (invoice paid): "
             "%s (%s)",
             organization.uuid,
             invoice_id,

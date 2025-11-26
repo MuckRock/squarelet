@@ -1,6 +1,5 @@
 # Django
 from django.contrib import admin, messages
-from django.contrib.auth.models import AnonymousUser
 from django.db.models import Count, JSONField, Q, Sum
 from django.forms.models import BaseInlineFormSet
 from django.forms.widgets import Textarea
@@ -377,17 +376,6 @@ class OrganizationAdmin(VersionAdmin):
     get_outstanding_invoices.short_description = "Outstanding Invoices"
     get_outstanding_invoices.admin_order_field = "outstanding_invoice_count"
 
-    def is_visible_to_anonymous(self, obj):
-        """Check if organization is visible to anonymous users"""
-        return (
-            Organization.objects.filter(pk=obj.pk)
-            .get_viewable(AnonymousUser())
-            .exists()
-        )
-
-    is_visible_to_anonymous.short_description = "Visible to Anonymous"
-    is_visible_to_anonymous.boolean = True
-
 
 @admin.register(Plan)
 class PlanAdmin(VersionAdmin):
@@ -580,7 +568,6 @@ class InvoiceAdmin(VersionAdmin):
         "get_amount",
         "updated_at",
         "stripe_link",
-        "invoice_actions",
     )
     fields = (
         "invoice_id",
@@ -600,7 +587,7 @@ class InvoiceAdmin(VersionAdmin):
     def get_readonly_fields(self, request, obj=None):
         """Make all fields readonly when editing existing invoice"""
         if obj:  # Editing existing invoice
-            # Return all fields as readonly, include action buttons for open invoices
+            # Return all fields as readonly
             readonly = [
                 "get_amount",
                 "updated_at",
@@ -614,9 +601,6 @@ class InvoiceAdmin(VersionAdmin):
                 "last_overdue_email_sent",
                 "created_at",
             ]
-            # Add action button field for open invoices
-            if obj.status == "open":
-                readonly.append("invoice_actions")
             return tuple(readonly)
         # When creating new invoice, only standard readonly fields
         return (
@@ -639,23 +623,6 @@ class InvoiceAdmin(VersionAdmin):
         return f"${obj.amount_dollars:.2f}"
 
     get_amount.short_description = "Amount"
-
-    @mark_safe
-    def invoice_actions(self, obj):
-        """Display action buttons for open invoices"""
-        if not obj or obj.status != "open":
-            return "-"
-
-        # Create a link that triggers the mark_as_paid action for this invoice
-        change_url = reverse("admin:organizations_invoice_changelist")
-        url = f"{change_url}?action=mark_as_paid_single&invoice_id={obj.pk}"
-        style = (
-            "padding: 5px 10px; background: #417690; color: white; "
-            "text-decoration: none; border-radius: 4px; display: inline-block;"
-        )
-        return f'<a class="button" href="{url}" style="{style}">Mark as Paid</a>'
-
-    invoice_actions.short_description = "Actions"
 
     def mark_as_paid(self, request, queryset):
         """Mark selected invoices as paid and sync to Stripe"""

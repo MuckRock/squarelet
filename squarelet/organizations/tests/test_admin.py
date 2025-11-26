@@ -167,7 +167,7 @@ class TestInvoiceAdmin:
 
         readonly_fields = invoice_admin.get_readonly_fields(request, obj=invoice)
 
-        # All editable fields should be readonly when editing, plus invoice_actions
+        # All editable fields should be readonly when editing
         expected_readonly = (
             "get_amount",
             "updated_at",
@@ -180,7 +180,6 @@ class TestInvoiceAdmin:
             "due_date",
             "last_overdue_email_sent",
             "created_at",
-            "invoice_actions",
         )
         assert set(readonly_fields) == set(expected_readonly)
 
@@ -194,7 +193,7 @@ class TestInvoiceAdmin:
 
         readonly_fields = invoice_admin.get_readonly_fields(request, obj=invoice)
 
-        # All editable fields should be readonly when editing, NO invoice_actions
+        # All editable fields should be readonly when editing
         expected_readonly = (
             "get_amount",
             "updated_at",
@@ -224,26 +223,6 @@ class TestInvoiceAdmin:
             "stripe_link",
         )
         assert set(readonly_fields) == set(expected_readonly)
-
-    @pytest.mark.django_db
-    def test_invoice_actions_for_open_invoice(self, invoice_admin, invoice_factory):
-        """Should display Mark as Paid button for open invoices"""
-        open_invoice = invoice_factory(status="open")
-
-        actions_html = invoice_admin.invoice_actions(open_invoice)
-
-        assert "Mark as Paid" in actions_html
-        assert f"invoice_id={open_invoice.pk}" in actions_html
-        assert "action=mark_as_paid_single" in actions_html
-
-    @pytest.mark.django_db
-    def test_invoice_actions_for_paid_invoice(self, invoice_admin, invoice_factory):
-        """Should display dash for non-open invoices"""
-        paid_invoice = invoice_factory(status="paid")
-
-        actions_html = invoice_admin.invoice_actions(paid_invoice)
-
-        assert actions_html == "-"
 
     @pytest.mark.django_db
     def test_changelist_view_mark_as_paid_single(
