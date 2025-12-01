@@ -81,7 +81,7 @@ class CustomerInline(admin.TabularInline):
 class InvoiceInline(admin.TabularInline):
     model = Invoice
     readonly_fields = (
-        "invoice_id",
+        "invoice_link",
         "stripe_link",
         "amount_dollars",
         "status",
@@ -92,6 +92,16 @@ class InvoiceInline(admin.TabularInline):
     extra = 0
     can_delete = False
     max_num = 0
+
+    @mark_safe
+    def invoice_link(self, obj):
+        """Link to the invoice's detail page in Django admin"""
+        if obj.pk:
+            url = reverse("admin:organizations_invoice_change", args=[obj.pk])
+            return f'<a href="{url}">{obj.invoice_id}</a>'
+        return obj.invoice_id or "-"
+
+    invoice_link.short_description = "Invoice ID"
 
     @mark_safe
     def stripe_link(self, obj):
