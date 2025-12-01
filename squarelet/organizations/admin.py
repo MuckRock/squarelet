@@ -244,7 +244,6 @@ class OrganizationAdmin(VersionAdmin):
         "individual",
         "private",
         "verified_journalist",
-        "is_visible_to_anonymous",
         "get_subtypes",
         "get_outstanding_invoices",
     )
@@ -267,7 +266,6 @@ class OrganizationAdmin(VersionAdmin):
         "individual",
         "private",
         "verified_journalist",
-        "is_visible_to_anonymous",
         "hub_eligible",
         "allow_auto_join",
         "max_users",
@@ -290,7 +288,6 @@ class OrganizationAdmin(VersionAdmin):
         "created_at",
         "updated_at",
         "individual",
-        "is_visible_to_anonymous",
         "merged",
         "merged_at",
         "merged_by",
