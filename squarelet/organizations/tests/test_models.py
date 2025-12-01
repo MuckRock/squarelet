@@ -7,6 +7,7 @@ from unittest.mock import Mock, PropertyMock
 
 # Third Party
 import pytest
+import stripe
 
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason
@@ -440,6 +441,54 @@ class TestCustomer:
         customer.save_card(token)
         assert mocked_customer.source == token
         mocked_customer.save.assert_called_once()
+
+    @pytest.mark.django_db()
+    def test_customer_invalid_clears_and_creates_new(self, customer_factory, mocker):
+        """Test that an invalid customer_id is cleared and a new customer is created"""
+        old_customer_id = "cus_invalid_id"
+        new_customer_id = "cus_new_id"
+
+        # Mock stripe.Customer.retrieve to raise InvalidRequestError
+        mocked_retrieve = mocker.patch(
+            "stripe.Customer.retrieve",
+            side_effect=stripe.error.InvalidRequestError(
+                "No such customer: 'cus_invalid_id'; a similar object "
+                "exists in live mode, but a test mode key was used "
+                "to make this request.",
+                "id",
+            ),
+        )
+
+        # Mock stripe.Customer.create to return a new customer
+        mock_new_customer = Mock(id=new_customer_id)
+        mocked_create = mocker.patch(
+            "stripe.Customer.create", return_value=mock_new_customer
+        )
+
+        # Create a customer with an invalid customer_id
+        email = "email@example.com"
+        mocker.patch("squarelet.organizations.models.Organization.email", email)
+        customer = customer_factory(customer_id=old_customer_id)
+
+        # Access stripe_customer property - should clear invalid ID and create new one
+        result = customer.stripe_customer
+
+        # Verify the retrieve was called with the old ID
+        mocked_retrieve.assert_called_with(old_customer_id)
+
+        # Verify a new customer was created
+        mocked_create.assert_called_with(
+            description=customer.organization.name,
+            email=email,
+            name=customer.organization.user_full_name,
+        )
+
+        # Verify the result is the new customer
+        assert result == mock_new_customer
+
+        # Verify the customer_id was updated in the database
+        customer.refresh_from_db()
+        assert customer.customer_id == new_customer_id
 
 
 class TestMembership:
