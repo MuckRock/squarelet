@@ -1,4 +1,5 @@
 # Django
+from django.conf import settings
 from django.db import models
 from django.utils import timezone
 from django.utils.timezone import get_current_timezone
@@ -6,6 +7,9 @@ from django.utils.translation import gettext_lazy as _
 
 # Standard Library
 from datetime import datetime
+
+# Third Party
+import stripe
 
 # Squarelet
 from squarelet.organizations.querysets import InvoiceQuerySet
@@ -116,4 +120,24 @@ class Invoice(models.Model):
                 "due_date": due_date,
                 "created_at": created_at,
             },
+        )
+
+    def mark_uncollectible_in_stripe(self):
+        """
+        Mark this invoice as uncollectible in Stripe.
+
+        This method uses a direct API request to work with older Stripe API
+        versions (2018-09-24) that don't have the mark_uncollectible method
+        on the Invoice object.
+
+        Raises:
+            stripe.error.StripeError: If the Stripe API call fails
+        """
+        stripe.api_key = settings.STRIPE_SECRET_KEY
+        stripe.api_version = "2018-09-24"
+
+        stripe.api_requestor.APIRequestor().request(
+            "post",
+            f"/v1/invoices/{self.invoice_id}/mark_uncollectible",
+            {},
         )

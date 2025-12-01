@@ -377,9 +377,7 @@ def process_overdue_invoice(invoice_id):
 
         # Mark invoice as uncollectible in Stripe
         try:
-            stripe.Invoice.modify(
-                invoice.invoice_id, metadata={"marked_uncollectible": "true"}
-            )
+            invoice.mark_uncollectible_in_stripe()
             invoice.status = "uncollectible"
             invoice.save()
             logger.info(
