@@ -500,7 +500,9 @@ class TestCheckOverdueInvoices:
         )
 
         mock_send_mail = mocker.patch("squarelet.organizations.tasks.send_mail")
-        mock_stripe = mocker.patch("stripe.Invoice.modify")
+        mock_mark_uncollectible = mocker.patch(
+            "squarelet.organizations.models.invoice.Invoice.mark_uncollectible_in_stripe"
+        )
         mock_subscription_cancelled = mocker.patch(
             "squarelet.organizations.models.Organization.subscription_cancelled"
         )
@@ -511,9 +513,7 @@ class TestCheckOverdueInvoices:
         mock_subscription_cancelled.assert_called_once()
 
         # Should mark invoice uncollectible in Stripe
-        mock_stripe.assert_called_once_with(
-            invoice.invoice_id, metadata={"marked_uncollectible": "true"}
-        )
+        mock_mark_uncollectible.assert_called_once()
 
         # Should send cancellation email
         mock_send_mail.assert_called_once()
@@ -541,8 +541,8 @@ class TestCheckOverdueInvoices:
         mocker.patch(
             "squarelet.organizations.models.Organization.subscription_cancelled"
         )
-        mock_stripe = mocker.patch(
-            "stripe.Invoice.modify",
+        mock_mark_uncollectible = mocker.patch(
+            "squarelet.organizations.models.invoice.Invoice.mark_uncollectible_in_stripe",
             side_effect=stripe.error.StripeError("API Error"),
         )
 
@@ -550,9 +550,7 @@ class TestCheckOverdueInvoices:
         tasks.process_overdue_invoice(invoice.id)
 
         # Should still attempt to mark uncollectible
-        mock_stripe.assert_called_once_with(
-            invoice.invoice_id, metadata={"marked_uncollectible": "true"}
-        )
+        mock_mark_uncollectible.assert_called_once()
 
         # Invoice status should remain unchanged due to error
         invoice.refresh_from_db()
@@ -573,15 +571,15 @@ class TestCheckOverdueInvoices:
         )
 
         mock_send_mail = mocker.patch("squarelet.organizations.tasks.send_mail")
-        mock_stripe = mocker.patch("stripe.Invoice.modify")
+        mock_mark_uncollectible = mocker.patch(
+            "squarelet.organizations.models.invoice.Invoice.mark_uncollectible_in_stripe"
+        )
 
         # Should not raise exception
         tasks.process_overdue_invoice(invoice.id)
 
         # Should still mark invoice uncollectible and send email
-        mock_stripe.assert_called_once_with(
-            mocker.ANY, metadata={"marked_uncollectible": "true"}
-        )
+        mock_mark_uncollectible.assert_called_once()
         mock_send_mail.assert_called_once()
 
     @pytest.mark.django_db

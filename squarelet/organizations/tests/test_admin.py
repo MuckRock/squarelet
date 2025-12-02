@@ -172,6 +172,7 @@ class TestInvoiceAdmin:
             "get_amount",
             "updated_at",
             "stripe_link",
+            "hosted_invoice_url_link",
             "invoice_id",
             "organization",
             "subscription",
@@ -198,6 +199,7 @@ class TestInvoiceAdmin:
             "get_amount",
             "updated_at",
             "stripe_link",
+            "hosted_invoice_url_link",
             "invoice_id",
             "organization",
             "subscription",
@@ -221,6 +223,7 @@ class TestInvoiceAdmin:
             "get_amount",
             "updated_at",
             "stripe_link",
+            "hosted_invoice_url_link",
         )
         assert set(readonly_fields) == set(expected_readonly)
 
