@@ -43,7 +43,11 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
 
         # Verify subscription was created
         mock_set_subscription.assert_called_once_with(
-            token="tok_visa", plan=plan, max_users=plan.minimum_users, user=user
+            token="tok_visa",
+            plan=plan,
+            max_users=plan.minimum_users,
+            user=user,
+            payment_method=None,
         )
 
         # Should redirect to the organization
@@ -119,7 +123,11 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
 
         # Verify subscription was created with existing org
         mock_set_subscription.assert_called_once_with(
-            token="tok_visa", plan=plan, max_users=plan.minimum_users, user=user
+            token="tok_visa",
+            plan=plan,
+            max_users=plan.minimum_users,
+            user=user,
+            payment_method=None,
         )
 
         # Should redirect to the organization
@@ -163,3 +171,104 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
 
         # Should redirect back to plan
         assert response.status_code == 302
+
+    def test_existing_card_without_card_on_file(
+        self, rf, user_factory, organization_factory, plan_factory, mocker
+    ):
+        """Test validation: selecting existing-card without a card on file"""
+        user = user_factory()
+        org = organization_factory()
+        org.add_creator(user)
+        plan = plan_factory(for_groups=True, public=True)
+
+        # Mock that organization has NO card
+        mock_customer = mocker.MagicMock()
+        mock_customer.card = None
+        mocker.patch.object(org, "customer", return_value=mock_customer)
+
+        data = {
+            "organization": str(org.pk),
+            "payment_method": "existing-card",
+            "stripe_token": "",
+        }
+
+        response = self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
+
+        # Should redirect back to plan with error
+        assert response.status_code == 302
+        assert response.url == plan.get_absolute_url()
+
+    def test_new_card_without_stripe_token(
+        self, rf, user_factory, organization_factory, plan_factory
+    ):
+        """Test validation: selecting new-card without providing token"""
+        user = user_factory()
+        org = organization_factory()
+        org.add_creator(user)
+        plan = plan_factory(for_groups=True, public=True)
+
+        data = {
+            "organization": str(org.pk),
+            "payment_method": "new-card",
+            "stripe_token": "",  # No token provided
+        }
+
+        response = self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
+
+        # Should redirect back to plan with error
+        assert response.status_code == 302
+        assert response.url == plan.get_absolute_url()
+
+    def test_invoice_payment_for_non_annual_plan(
+        self, rf, user_factory, organization_factory, plan_factory
+    ):
+        """Test validation: invoice payment only available for annual plans"""
+        user = user_factory()
+        org = organization_factory()
+        org.add_creator(user)
+        plan = plan_factory(for_groups=True, public=True, annual=False)
+
+        data = {
+            "organization": str(org.pk),
+            "payment_method": "invoice",
+        }
+
+        response = self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
+
+        # Should redirect back to plan with error
+        assert response.status_code == 302
+        assert response.url == plan.get_absolute_url()
+
+    def test_invoice_payment_for_annual_plan_succeeds(
+        self, rf, user_factory, organization_factory, plan_factory, mocker
+    ):
+        """Test that invoice payment works correctly for annual plans"""
+        user = user_factory()
+        org = organization_factory()
+        org.add_creator(user)
+        plan = plan_factory(for_groups=True, public=True, annual=True)
+
+        # Mock set_subscription
+        mock_set_subscription = mocker.patch.object(
+            Organization, "set_subscription", return_value=None
+        )
+
+        data = {
+            "organization": str(org.pk),
+            "payment_method": "invoice",
+        }
+
+        response = self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
+
+        # Should succeed and call set_subscription with invoice payment method
+        mock_set_subscription.assert_called_once_with(
+            token=None,
+            plan=plan,
+            max_users=plan.minimum_users,
+            user=user,
+            payment_method="invoice",
+        )
+
+        # Should redirect to organization
+        assert response.status_code == 302
+        assert response.url == org.get_absolute_url()

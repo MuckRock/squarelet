@@ -94,6 +94,33 @@ def coverage(c):
     )
 
 
+@task(name="test-frontend")
+def test_frontend(c, ui=False, coverage=False):
+    """Run the frontend test suite with Vitest"""
+    cmd_args = []
+
+    if ui:
+        cmd_args.append("--ui")
+
+    if coverage:
+        cmd_args.append("--coverage")
+
+    # Run tests (use --run to exit after tests complete, unless --ui is specified)
+    if not ui:
+        cmd_args.append("--run")
+
+    cmd = f"npm test -- {' '.join(cmd_args)}" if cmd_args else "npm test -- --run"
+
+    c.run(
+        DOCKER_COMPOSE_RUN_OPT.format(
+            opt="--workdir /app",
+            service="squarelet_django",
+            cmd=cmd,
+        ),
+        pty=True,
+    )
+
+
 # Code Quality
 # --------------------------------------------------------------------------------
 

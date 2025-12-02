@@ -42,6 +42,12 @@ def is_production_env():
     return settings.ENV == "prod"
 
 
+def get_stripe_dashboard_url(resource_type, resource_id):
+    """Generate a Stripe dashboard URL for a given resource."""
+    env_prefix = "" if is_production_env() else "test/"
+    return f"https://dashboard.stripe.com/{env_prefix}{resource_type}/{resource_id}"
+
+
 def file_path(base, _instance, filename):
     """Create a file path that fits within the 100 character limit"""
     # 100 character is the default character limit, subtract 8 to allow for unique
