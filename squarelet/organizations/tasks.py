@@ -443,6 +443,7 @@ def process_overdue_invoice(invoice_id):
                     "days_overdue": days_overdue,
                     "grace_period_days": grace_period_days,
                     "days_until_cancellation": grace_period_days - days_overdue,
+                    "hosted_invoice_url": invoice.get_hosted_invoice_url(),
                 },
             )
 

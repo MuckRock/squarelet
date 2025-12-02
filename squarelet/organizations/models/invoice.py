@@ -95,6 +95,16 @@ class Invoice(models.Model):
             return timezone.now().date() > self.due_date
         return False
 
+    def get_hosted_invoice_url(self):
+        """
+        Fetch the hosted invoice URL from Stripe.
+        """
+        try:
+            stripe_invoice = stripe.Invoice.retrieve(self.invoice_id)
+            return stripe_invoice.get("hosted_invoice_url")
+        except stripe.error.StripeError:
+            return None
+
     @classmethod
     def create_or_update_from_stripe(
         cls, stripe_invoice, organization, subscription=None

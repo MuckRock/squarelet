@@ -28,9 +28,15 @@
   <p>{% trans "To avoid service interruption, please submit payment as soon as possible using one of the following methods:" %}</p>
 
   <ul>
-    <li>{% blocktrans with url=url_org_ %}
+    {% if hosted_invoice_url %}
+    <li>{% blocktrans with url=hosted_invoice_url %}
       <a href="{{ url }}">Pay online</a> via credit card
     {% endblocktrans %}</li>
+    {% else %}
+    <li>{% blocktrans with url=url_org_ %}
+      <a href="{{ url }}">Manage your payment methods</a>
+    {% endblocktrans %}</li>
+    {% endif %}
     <li>{% trans "Wire transfer or check (contact us for payment details)" %}</li>
   </ul>
 

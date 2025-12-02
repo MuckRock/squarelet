@@ -575,10 +575,12 @@ class InvoiceAdmin(VersionAdmin):
         "get_amount",
         "updated_at",
         "stripe_link",
+        "hosted_invoice_url_link",
     )
     fields = (
         "invoice_id",
         "stripe_link",
+        "hosted_invoice_url_link",
         "organization",
         "subscription",
         "amount",
@@ -599,6 +601,7 @@ class InvoiceAdmin(VersionAdmin):
                 "get_amount",
                 "updated_at",
                 "stripe_link",
+                "hosted_invoice_url_link",
                 "invoice_id",
                 "organization",
                 "subscription",
@@ -614,6 +617,7 @@ class InvoiceAdmin(VersionAdmin):
             "get_amount",
             "updated_at",
             "stripe_link",
+            "hosted_invoice_url_link",
         )
 
     @mark_safe
@@ -625,6 +629,18 @@ class InvoiceAdmin(VersionAdmin):
         return "-"
 
     stripe_link.short_description = "Stripe Dashboard"
+
+    @mark_safe
+    def hosted_invoice_url_link(self, obj):
+        """Link to customer-facing hosted invoice page"""
+        if obj.invoice_id:
+            url = obj.get_hosted_invoice_url()
+            if url:
+                return f'<a href="{url}" target="_blank">Customer Payment Page</a>'
+            return "Not available"
+        return "-"
+
+    hosted_invoice_url_link.short_description = "Hosted Invoice URL"
 
     def get_amount(self, obj):
         return f"${obj.amount_dollars:.2f}"

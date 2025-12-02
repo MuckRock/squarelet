@@ -749,6 +749,38 @@ class TestCheckOverdueInvoices:
         invoice.refresh_from_db()
         assert invoice.last_overdue_email_sent == date.today()
 
+    @pytest.mark.django_db
+    @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=30)
+    def test_includes_hosted_invoice_url_in_email(
+        self, invoice_factory, organization_factory, mocker
+    ):
+        """Should fetch and include hosted_invoice_url in email context"""
+        org = organization_factory()
+        invoice = invoice_factory(
+            organization=org,
+            status="open",
+            due_date=date.today() - timedelta(days=10),
+            invoice_id="in_test_123",
+        )
+
+        # Mock the Stripe API call
+        mock_stripe_invoice = mocker.Mock()
+        mock_stripe_invoice.get.return_value = "https://invoice.stripe.com/i/test"
+        mocker.patch("stripe.Invoice.retrieve", return_value=mock_stripe_invoice)
+
+        mock_send_mail = mocker.patch("squarelet.organizations.tasks.send_mail")
+
+        tasks.process_overdue_invoice(invoice.id)
+
+        # Should call send_mail with hosted_invoice_url in extra_context
+        mock_send_mail.assert_called_once()
+        call_kwargs = mock_send_mail.call_args[1]
+        assert "hosted_invoice_url" in call_kwargs["extra_context"]
+        assert (
+            call_kwargs["extra_context"]["hosted_invoice_url"]
+            == "https://invoice.stripe.com/i/test"
+        )
+
 
 class TestCheckOverdueInvoicesDispatcher:
     """Unit tests for the check_overdue_invoices dispatcher task"""
