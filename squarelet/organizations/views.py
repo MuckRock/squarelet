@@ -93,7 +93,7 @@ class Detail(AdminLinkMixin, DetailView):
                     self.object.invitations.get_pending_requests().count()
                 )
 
-            # Rejected join requpests
+            # Rejected join requests
             context["rejected_invite"] = self.request.user.invitations.filter(
                 organization=self.object
             ).get_rejected_requests()
