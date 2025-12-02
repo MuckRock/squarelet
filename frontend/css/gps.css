@@ -107,6 +107,10 @@ h3 {
   font-size: var(--font-lg, 1.25rem);
 }
 
+strong {
+  font-weight: 600;
+}
+
 /* components */
 .badge {
   display: flex;

@@ -210,6 +210,47 @@ class Subscription(models.Model):
                 )
             )
             self.subscription_id = stripe_subscription.id
+            # Save subscription before creating invoice
+            self.save()
+
+            # Create Invoice record synchronously
+            if stripe_subscription.latest_invoice:
+                try:
+                    # Import here to avoid circular imports
+                    # pylint: disable=import-outside-toplevel
+                    from squarelet.organizations.models import Invoice
+
+                    # Retrieve the full invoice object from Stripe
+                    stripe_invoice = stripe.Invoice.retrieve(
+                        stripe_subscription.latest_invoice
+                    )
+
+                    # Create the Invoice record in database using centralized method
+                    _, created = Invoice.create_or_update_from_stripe(
+                        stripe_invoice, self.organization, self
+                    )
+                    logger.info(
+                        "[SUBSCRIPTION-START] Invoice %s synchronously: %s",
+                        "created" if created else "updated",
+                        stripe_invoice.id,
+                    )
+                except stripe.error.StripeError as exc:
+                    # Log error but don't fail subscription creation
+                    # Webhook will create the invoice as fallback
+                    logger.error(
+                        "[SUBSCRIPTION-START] Failed to retrieve invoice %s: %s",
+                        stripe_subscription.latest_invoice,
+                        exc,
+                        exc_info=True,
+                    )
+                except Exception as exc:  # pylint: disable=broad-except
+                    # Catch any other errors to prevent subscription creation failure
+                    logger.error(
+                        "[SUBSCRIPTION-START] Unexpected error creating invoice %s: %s",
+                        stripe_subscription.latest_invoice,
+                        exc,
+                        exc_info=True,
+                    )
 
         # Trigger respective mailchimp journeys if this is the organization plan
         if self.plan_id and self.plan.entitlements.filter(slug="organization").exists():

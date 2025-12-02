@@ -6,9 +6,12 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 # Standard Library
+import logging
+import sys
 import uuid
 
 # Third Party
+import stripe
 from autoslug import AutoSlugField
 from memoize import mproperty
 from sorl.thumbnail import ImageField
@@ -30,6 +33,12 @@ from squarelet.organizations.querysets import (
     MembershipQuerySet,
     OrganizationQuerySet,
 )
+
+logger = logging.getLogger(__name__)
+
+# This warning is a sign this file needs to be refactored.
+# TODO: Refactor some Organization-related models into separate files.
+# pylint: disable=too-many-lines
 
 
 def organization_file_path(instance, filename):
@@ -397,19 +406,29 @@ class Organization(AvatarMixin, models.Model):
     def subscription(self):
         return self.subscriptions.first()
 
-    def set_subscription(self, token, plan, max_users, user):
+    def set_subscription(self, token, plan, max_users, user, payment_method=None):
         # pylint: disable=import-outside-toplevel
         from squarelet.organizations.tasks import sync_wix
 
         if self.individual:
             max_users = 1
 
-        if token or self.customer().card:
-            payment_method = "card"
+        # Determine payment method
+        if payment_method is None:
+            # Backward compatibility: auto-detect payment method if not
+            # explicitly provided
+            if token or self.customer().card:
+                payment_method = "card"
+            else:
+                # If we're missing a token and have no saved card,
+                # we can only issue an invoice
+                payment_method = "invoice"
         else:
-            # If we're missing a token and have no saved card,
-            # we can only issue an invoice
-            payment_method = "invoice"
+            # Updated handling: users can explicitly select payment method
+            # "new-card" and "existing-card" both map to "card"
+            if payment_method in ("new-card", "existing-card"):
+                payment_method = "card"
+            # "invoice" stays as "invoice"
 
         if token:
             # The user provided a new card: save it to the org's account
@@ -450,13 +469,42 @@ class Organization(AvatarMixin, models.Model):
         )
 
     def subscription_cancelled(self):
-        """The subsctription was cancelled due to payment failure"""
+        """The subscription was cancelled due to payment failure"""
+        # Create change log entry
         self.change_logs.create(
             reason=ChangeLogReason.failed,
             from_plan=self.plan,
             from_max_users=self.max_users,
             to_max_users=self.max_users,
         )
+
+        # Cancel subscription in Stripe if it exists
+        if self.subscription and self.subscription.subscription_id:
+            try:
+                stripe_sub = self.subscription.stripe_subscription
+                if stripe_sub:
+                    stripe_sub.delete()
+                    logger.info(
+                        "Cancelled Stripe subscription %s for organization %s",
+                        self.subscription.subscription_id,
+                        self.uuid,
+                    )
+                else:
+                    logger.warning(
+                        "Stripe subscription %s not found for organization %s",
+                        self.subscription.subscription_id,
+                        self.uuid,
+                    )
+            except stripe.error.StripeError as exc:
+                logger.error(
+                    "Failed to cancel Stripe subscription %s for organization %s: %s",
+                    self.subscription.subscription_id,
+                    self.uuid,
+                    exc,
+                    exc_info=sys.exc_info(),
+                )
+
+        # Delete local subscription record
         self.subscription.delete()
 
     def has_active_subscription(self):
