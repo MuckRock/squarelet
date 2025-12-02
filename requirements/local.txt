@@ -601,7 +601,7 @@ smart-open==1.7.1
     # via -r requirements/base.txt
 snowballstemmer==1.2.1
     # via sphinx
-sorl-thumbnail==12.9.0
+sorl-thumbnail==12.11.0
     # via -r requirements/base.txt
 sortedcontainers==2.4.0
     # via cyclonedx-python-lib
