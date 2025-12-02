@@ -501,7 +501,8 @@ class TestCheckOverdueInvoices:
 
         mock_send_mail = mocker.patch("squarelet.organizations.tasks.send_mail")
         mock_mark_uncollectible = mocker.patch(
-            "squarelet.organizations.models.invoice.Invoice.mark_uncollectible_in_stripe"
+            "squarelet.organizations.models.invoice.Invoice."
+            "mark_uncollectible_in_stripe"
         )
         mock_subscription_cancelled = mocker.patch(
             "squarelet.organizations.models.Organization.subscription_cancelled"
@@ -542,7 +543,8 @@ class TestCheckOverdueInvoices:
             "squarelet.organizations.models.Organization.subscription_cancelled"
         )
         mock_mark_uncollectible = mocker.patch(
-            "squarelet.organizations.models.invoice.Invoice.mark_uncollectible_in_stripe",
+            "squarelet.organizations.models.invoice.Invoice."
+            "mark_uncollectible_in_stripe",
             side_effect=stripe.error.StripeError("API Error"),
         )
 
@@ -572,7 +574,8 @@ class TestCheckOverdueInvoices:
 
         mock_send_mail = mocker.patch("squarelet.organizations.tasks.send_mail")
         mock_mark_uncollectible = mocker.patch(
-            "squarelet.organizations.models.invoice.Invoice.mark_uncollectible_in_stripe"
+            "squarelet.organizations.models.invoice.Invoice."
+            "mark_uncollectible_in_stripe"
         )
 
         # Should not raise exception
