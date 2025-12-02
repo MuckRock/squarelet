@@ -41,7 +41,11 @@ from fuzzywuzzy import fuzz, process
 
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
-from squarelet.core.utils import get_redirect_url, get_stripe_dashboard_url
+from squarelet.core.utils import (
+    format_stripe_error,
+    get_redirect_url,
+    get_stripe_dashboard_url,
+)
 from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.denylist_domains import DENYLIST_DOMAINS
 from squarelet.organizations.forms import (
@@ -294,7 +298,8 @@ class UpdateSubscription(OrganizationAdminMixin, UpdateView):
                 user=self.request.user,
             )
         except stripe.error.StripeError as exc:
-            messages.error(self.request, f"Payment error: {exc.user_message}")
+            user_message = format_stripe_error(exc)
+            messages.error(self.request, f"Payment error: {user_message}")
         else:
             organization.set_receipt_emails(form.cleaned_data["receipt_emails"])
             if form.cleaned_data.get("remove_card_on_file"):

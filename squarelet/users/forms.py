@@ -22,6 +22,7 @@ from psycopg2.errorcodes import UNIQUE_VIOLATION
 # Squarelet
 from squarelet.core.forms import AvatarWidget, StripeForm
 from squarelet.core.layout import Field
+from squarelet.core.utils import format_stripe_error
 from squarelet.organizations.models import Plan
 from squarelet.organizations.models.organization import Organization
 from squarelet.users.models import User
@@ -272,11 +273,8 @@ class PremiumSubscriptionForm(StripeForm):
             organization.set_subscription(stripe_token, plan, plan.minimum_users, user)
             return True
         except stripe.error.StripeError as exc:
-            logger.error("Error updating subscription: %s", exc)
-            self.add_error(
-                None,
-                _("Error processing payment. Please try again or contact support."),
-            )
+            user_message = format_stripe_error(exc)
+            self.add_error(None, user_message)
             return False
         except errors.lookup(UNIQUE_VIOLATION) as exc:
             # Organizations can only have one subscription
