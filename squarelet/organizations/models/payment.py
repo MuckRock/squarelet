@@ -69,19 +69,20 @@ class Customer(models.Model):
                     )
                 return stripe_customer
             except stripe.error.InvalidRequestError as exc:
-                # When the customer doesn't exist on Stripe (deleted or wrong env),
-                # clear the invalid customer_id to prevent infinite network requests
-                logger.warning(
-                    "[STRIPE CUSTOMER] Invalid customer_id %s "
-                    "for organization %s: %s. "
-                    "Clearing and creating new customer.",
+                logger.error(
+                    "[STRIPE CUSTOMER] Invalid Request Error "
+                    "while fetching Customer %s "
+                    "for Organization %s: %s. ",
                     self.customer_id,
-                    self.organization.name,
+                    self.organization.id,
                     exc,
                     exc_info=sys.exc_info(),
                 )
-                self.customer_id = None
-                self.save()
+                if exc.code == "resource_missing":
+                    # When the customer doesn't exist on Stripe (deleted or wrong env),
+                    # clear the invalid customer_id to prevent infinite network requests
+                    self.customer_id = None
+                    self.save()
 
         # if the stripe customer has not been created yet or has been removed,
         # create a new one.  Lock to avoid creating multiple in a race condition

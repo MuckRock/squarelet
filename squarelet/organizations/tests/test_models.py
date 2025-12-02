@@ -448,15 +448,24 @@ class TestCustomer:
         old_customer_id = "cus_invalid_id"
         new_customer_id = "cus_new_id"
 
-        # Mock stripe.Customer.retrieve to raise InvalidRequestError
+        # Mock stripe.Customer.retrieve to raise InvalidRequestError for old ID only
+        def mock_retrieve(customer_id):
+            if customer_id == old_customer_id:
+                error = stripe.error.InvalidRequestError(
+                    "No such customer: 'cus_invalid_id'; a similar object "
+                    "exists in live mode, but a test mode key was used "
+                    "to make this request.",
+                    "id",
+                )
+                error.code = "resource_missing"
+                raise error
+            # If called with a different ID (e.g., new customer created by
+            # another thread), return a mock customer
+            return Mock(id=customer_id, name="Test Customer")
+
         mocked_retrieve = mocker.patch(
             "stripe.Customer.retrieve",
-            side_effect=stripe.error.InvalidRequestError(
-                "No such customer: 'cus_invalid_id'; a similar object "
-                "exists in live mode, but a test mode key was used "
-                "to make this request.",
-                "id",
-            ),
+            side_effect=mock_retrieve,
         )
 
         # Mock stripe.Customer.create to return a new customer
