@@ -103,6 +103,10 @@
             </form>
           {% elif requested_invite %}
             <div class="_cls-info _cls-infoStatus _cls-infoSpaced">{% trans 'You have requested an invite.' %}</div>
+          {% elif rejected_invite %}
+              <div class="_cls-info _cls-infoStatus _cls-infoSpaced">
+                  {% trans 'Your request to join this organization was rejected. Please contact an admin if this is a mistake and you need to be added to this organization.' %}
+              </div>
           {% else %}
             <form class="_cls-infoSpaced" method="post">
               {% csrf_token %}

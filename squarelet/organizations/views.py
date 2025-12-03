@@ -102,6 +102,11 @@ class Detail(AdminLinkMixin, DetailView):
                     self.object.invitations.get_pending_requests().count()
                 )
 
+            # Rejected join requests
+            context["rejected_invite"] = self.request.user.invitations.filter(
+                organization=self.object
+            ).get_rejected_requests()
+
             context["can_auto_join"] = (
                 self.request.user.can_auto_join(self.object)
                 and not context["is_member"]
