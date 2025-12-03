@@ -153,7 +153,8 @@ class Detail(AdminLinkMixin, DetailView):
                 request,
                 f"You have reached the limit of {settings.ORG_JOIN_REQUEST_LIMIT} "
                 "join requests in the last "
-                f"{settings.ORG_JOIN_REQUEST_WINDOW // 60} minutes.",
+                f"{settings.ORG_JOIN_REQUEST_WINDOW // 60} minutes. "
+                "Please try again later.",
             )
 
             # Create ZenDesk ticket for review
