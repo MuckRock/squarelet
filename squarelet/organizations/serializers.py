@@ -7,6 +7,7 @@ from rest_framework import serializers, status
 from rest_framework.exceptions import APIException
 
 # Squarelet
+from squarelet.core.utils import format_stripe_error
 from squarelet.organizations.models import Charge, Membership, Organization
 
 
@@ -149,7 +150,8 @@ class ChargeSerializer(serializers.ModelSerializer):
                 validated_data.get("metadata"),
             )
         except stripe.error.StripeError as exc:
-            raise StripeError(exc.user_message)
+            user_message = format_stripe_error(exc)
+            raise StripeError(user_message)
         # add the card display to the response, so the client has immediate access
         # to the newly saved card
         data = {"card": organization.customer().card_display}

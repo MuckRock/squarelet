@@ -8,6 +8,7 @@ import os.path
 import sys
 import uuid
 from hashlib import md5
+from urllib.parse import quote
 
 # Third Party
 import actstream
@@ -40,6 +41,12 @@ def new_action(
 def is_production_env():
     """Check if we are in a production environment"""
     return settings.ENV == "prod"
+
+
+def get_stripe_dashboard_url(resource_type, resource_id):
+    """Generate a Stripe dashboard URL for a given resource."""
+    env_prefix = "" if is_production_env() else "test/"
+    return f"https://dashboard.stripe.com/{env_prefix}{resource_type}/{resource_id}"
 
 
 def file_path(base, _instance, filename):
@@ -235,6 +242,44 @@ def create_zendesk_ticket(subject, description, priority="normal", tags=None):
             exc_info=sys.exc_info(),
         )
         raise exc
+
+
+def format_stripe_error(error):
+    """
+    Translate Stripe errors into human-readable messages.
+
+    This function handles different types of Stripe errors and returns appropriate
+    user-facing messages. All errors are logged for debugging and monitoring.
+    """
+    # CardErrors - show detailed user messages
+    # These are user-facing errors where Stripe provides helpful messages
+    if isinstance(error, stripe.error.CardError):
+        # Stripe's user_message is already user-friendly for card errors
+        user_message = str(error)
+        logger.error("Stripe CardError: %s", error, exc_info=sys.exc_info())
+        return user_message
+
+    # Technical errors - show generic message
+    # These require support intervention, so don't expose technical details
+    error_type = type(error).__name__
+    error_message = str(error)
+
+    subject = quote("Payment Processing Error")
+    body = quote(f"Error Type: {error_type}\nError Message: {error_message}")
+    mailto_link = (
+        f'<a href="mailto:info@muckrock.com?subject={subject}&body={body}">'
+        f"contact support</a>"
+    )
+
+    generic_message = (
+        "We're unable to process your payment at this time. "
+        f"Please try again later or {mailto_link} for assistance."
+    )
+
+    # Log all technical errors for debugging
+    logger.error("Stripe error: %s", error, exc_info=sys.exc_info())
+
+    return generic_message
 
 
 def get_redirect_url(request, fallback):

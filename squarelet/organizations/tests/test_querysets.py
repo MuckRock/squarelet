@@ -1,8 +1,10 @@
 # Django
 from django.contrib.auth.models import AnonymousUser
 from django.test import TestCase
+from django.utils import timezone
 
 # Standard Library
+from datetime import timedelta
 from uuid import uuid4
 
 # Third Party
@@ -12,6 +14,7 @@ import pytest
 from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.models import (
     Invitation,
+    Invoice,
     Membership,
     Organization,
     Subscription,
@@ -19,6 +22,7 @@ from squarelet.organizations.models import (
 from squarelet.organizations.tests.factories import (
     ChargeFactory,
     InvitationFactory,
+    InvoiceFactory,
     MembershipFactory,
     OrganizationFactory,
     PlanFactory,
@@ -76,6 +80,27 @@ class TestOrganizationQuerySet(TestCase):
         assert public_org_without_charges not in viewable
 
     @pytest.mark.django_db
+    def test_get_viewable_authenticated_user_public_with_paid_invoices(self):
+        """Authenticated users can view public orgs with paid invoices"""
+        user = UserFactory()
+        public_org_with_paid_invoice = OrganizationFactory(
+            private=False, verified_journalist=False
+        )
+        InvoiceFactory(organization=public_org_with_paid_invoice, status="paid")
+        public_org_with_open_invoice = OrganizationFactory(
+            private=False, verified_journalist=False
+        )
+        InvoiceFactory(organization=public_org_with_open_invoice, status="open")
+        public_org_without_invoices = OrganizationFactory(
+            private=False, verified_journalist=False
+        )
+
+        viewable = Organization.objects.get_viewable(user)
+        assert public_org_with_paid_invoice in viewable
+        assert public_org_with_open_invoice not in viewable
+        assert public_org_without_invoices not in viewable
+
+    @pytest.mark.django_db
     def test_get_viewable_authenticated_user_member_of_private_org(self):
         """Authenticated users can view private orgs they are members of"""
         user = UserFactory()
@@ -121,6 +146,27 @@ class TestOrganizationQuerySet(TestCase):
         viewable = Organization.objects.get_viewable(user)
         assert public_org_with_charges in viewable
         assert public_org_without_charges not in viewable
+
+    @pytest.mark.django_db
+    def test_get_viewable_anonymous_user_public_with_paid_invoices(self):
+        """Anonymous users can view public orgs with paid invoices"""
+        user = AnonymousUser()
+        public_org_with_paid_invoice = OrganizationFactory(
+            private=False, verified_journalist=False
+        )
+        InvoiceFactory(organization=public_org_with_paid_invoice, status="paid")
+        public_org_with_open_invoice = OrganizationFactory(
+            private=False, verified_journalist=False
+        )
+        InvoiceFactory(organization=public_org_with_open_invoice, status="open")
+        public_org_without_invoices = OrganizationFactory(
+            private=False, verified_journalist=False
+        )
+
+        viewable = Organization.objects.get_viewable(user)
+        assert public_org_with_paid_invoice in viewable
+        assert public_org_with_open_invoice not in viewable
+        assert public_org_without_invoices not in viewable
 
     @pytest.mark.django_db
     def test_get_viewable_distinct_results(self):
@@ -352,3 +398,85 @@ class TestInvitationQuerySet(TestCase):
         qs = Invitation.objects.get_rejected()
         assert qs.count() == 1
         assert rejected in qs
+
+
+class TestInvoiceQuerySet(TestCase):
+    """Unit tests for Invoice queryset"""
+
+    @pytest.mark.django_db
+    def test_overdue_empty_when_no_invoices(self):
+        """Overdue returns empty queryset when no invoices exist"""
+        overdue = Invoice.objects.overdue(grace_period_days=30)
+        assert overdue.count() == 0
+
+    @pytest.mark.django_db
+    def test_overdue_finds_past_due_invoices(self):
+        """Verify overdue finds invoices past their due date"""
+        # Create invoice that's 35 days overdue
+        old_due_date = timezone.now().date() - timedelta(days=35)
+        InvoiceFactory(status="open", due_date=old_due_date)
+
+        # Create invoice that's overdue within grace period
+        recent_due_date = timezone.now().date() - timedelta(days=10)
+        InvoiceFactory(status="open", due_date=recent_due_date)
+
+        # Query with 30-day grace period
+        overdue = Invoice.objects.overdue(grace_period_days=30)
+        assert overdue.count() == 1
+
+    @pytest.mark.django_db
+    def test_overdue_excludes_paid_invoices(self):
+        """Test overdue excludes paid invoices even if past due date"""
+        old_due_date = timezone.now().date() - timedelta(days=35)
+
+        # Create overdue but paid invoice
+        InvoiceFactory(status="paid", due_date=old_due_date)
+
+        # Create overdue open invoice
+        InvoiceFactory(status="open", due_date=old_due_date)
+
+        overdue = Invoice.objects.overdue(grace_period_days=30)
+        assert overdue.count() == 1
+
+    @pytest.mark.django_db
+    def test_overdue_excludes_other_statuses(self):
+        """Test overdue only includes open status invoices"""
+        old_due_date = timezone.now().date() - timedelta(days=35)
+
+        # Create invoices with various statuses
+        InvoiceFactory(status="open", due_date=old_due_date)
+        InvoiceFactory(status="void", due_date=old_due_date)
+        InvoiceFactory(status="uncollectible", due_date=old_due_date)
+        InvoiceFactory(status="draft", due_date=old_due_date)
+
+        overdue = Invoice.objects.overdue(grace_period_days=30)
+        assert overdue.count() == 1
+
+    @pytest.mark.django_db
+    def test_overdue_respects_grace_period(self):
+        """Test overdue respects the grace period parameter"""
+        # Create invoices at different overdue levels
+        InvoiceFactory.create_batch(
+            3,
+            status="open",
+            due_date=timezone.now().date() - timedelta(days=70),
+        )
+        InvoiceFactory.create_batch(
+            2,
+            status="open",
+            due_date=timezone.now().date() - timedelta(days=45),
+        )
+        InvoiceFactory.create_batch(
+            4,
+            status="open",
+            due_date=timezone.now().date() - timedelta(days=20),
+        )
+
+        # 30-day grace period should find 5 invoices (70 and 45 days old)
+        assert Invoice.objects.overdue(grace_period_days=30).count() == 5
+
+        # 60-day grace period should find 3 invoices (only 70 days old)
+        assert Invoice.objects.overdue(grace_period_days=60).count() == 3
+
+        # 15-day grace period should find all 9 invoices
+        assert Invoice.objects.overdue(grace_period_days=15).count() == 9

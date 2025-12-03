@@ -1,0 +1,46 @@
+{% extends "core/email/base.html" %}
+{% load humanize %}
+{% load i18n %}
+{% load autologin %}
+
+{% block body %}
+  {% url "organizations:update" username=user.username as url_org %}
+  {% autologin url_org user as url_org_ %}
+
+  {% if organization.individual %}
+    {% trans "Hi" %} {{ organization.users.first.name }},
+  {% else %}
+    {% trans "Hi" %} {{ organization.name }},
+  {% endif %}
+
+  <p class="red">{% trans "Your invoice is overdue." %}</p>
+
+  <p>{% blocktrans with invoice_number=invoice.invoice_id amount=invoice.amount_dollars|floatformat:2 due_date=invoice.due_date|date:"F j, Y" %}
+    Invoice {{ invoice_number }} for ${{ amount }} was due on {{ due_date }} and remains unpaid.
+  {% endblocktrans %}</p>
+
+  {% if days_until_cancellation %}
+    <p>{% blocktrans with days=days_until_cancellation %}
+      <strong>Your subscription will be cancelled in {{ days }} days if payment is not received.</strong>
+    {% endblocktrans %}</p>
+  {% endif %}
+
+  <p>{% trans "To avoid service interruption, please submit payment as soon as possible using one of the following methods:" %}</p>
+
+  <ul>
+    {% if hosted_invoice_url %}
+    <li>{% blocktrans with url=hosted_invoice_url %}
+      <a href="{{ url }}">Pay online</a> via credit card
+    {% endblocktrans %}</li>
+    {% else %}
+    <li>{% blocktrans with url=url_org_ %}
+      <a href="{{ url }}">Manage your payment methods</a>
+    {% endblocktrans %}</li>
+    {% endif %}
+    <li>{% trans "Wire transfer or check (contact us for payment details)" %}</li>
+  </ul>
+
+  <p>{% trans "If you have already submitted payment, please disregard this notice." %}</p>
+
+  {% trans "<p>Sincerely,<br />The MuckRock Team</p>" %}
+{% endblock %}

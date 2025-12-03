@@ -3,17 +3,43 @@ from django.test import override_settings
 from django.utils import timezone
 
 # Standard Library
-from unittest.mock import Mock, PropertyMock
+from datetime import timedelta
+from unittest.mock import MagicMock, Mock, PropertyMock
 
 # Third Party
 import pytest
+import stripe
 
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason
-from squarelet.organizations.models import Organization, ReceiptEmail
+from squarelet.organizations.models import Invoice, Organization, ReceiptEmail
 from squarelet.organizations.tests.factories import EntitlementFactory, PlanFactory
 
-# pylint: disable=too-many-public-methods
+# pylint: disable=too-many-public-methods,too-many-lines
+
+
+def create_mock_stripe_invoice(invoice_id, amount_due, status, created, due_date=None):
+    """
+    Create a mock Stripe invoice object that supports dictionary-style access.
+
+    This helper simulates how Stripe API objects work (they inherit from dict),
+    allowing tests to use the same mock structure consistently.
+    """
+    mock_invoice = MagicMock()
+    invoice_data = {
+        "id": invoice_id,
+        "amount_due": amount_due,
+        "status": status,
+        "created": created,
+        "due_date": due_date,
+    }
+    mock_invoice.__getitem__ = MagicMock(side_effect=lambda k: invoice_data[k])
+    mock_invoice.get = MagicMock(
+        side_effect=lambda k, default=None: invoice_data.get(k, default)
+    )
+    # Also support property access (e.g., mock_invoice.id)
+    mock_invoice.id = invoice_id
+    return mock_invoice
 
 
 class TestOrganization:
@@ -244,6 +270,145 @@ class TestOrganization:
         mocked.assert_called_with(plan)
 
     @pytest.mark.django_db
+    def test_set_subscription_with_invoice_payment_method(
+        self, organization_factory, mocker, user_factory, professional_plan_factory
+    ):
+        """Test that explicitly passing payment_method='invoice' uses invoice billing"""
+        mocker.patch("stripe.Plan.create")
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        plan = professional_plan_factory()
+
+        # Mock that organization has a saved card
+        mocked_card = mocker.MagicMock()
+        mocked_customer = mocker.patch(
+            "squarelet.organizations.models.Customer.stripe_customer",
+            email=None,
+            default_source=True,
+        )
+        type(mocked_customer).card = PropertyMock(return_value=mocked_card)
+
+        mocked_subscriptions = mocker.patch(
+            "squarelet.organizations.models.Organization.subscriptions"
+        )
+        mocker.patch("squarelet.organizations.models.Organization.change_logs")
+
+        max_users = 10
+        token = None
+        # User explicitly selects invoice payment despite having a card on file
+        organization.set_subscription(
+            token, plan, max_users, user, payment_method="invoice"
+        )
+
+        # Should pass "invoice" to subscriptions.start, not "card"
+        mocked_subscriptions.start.assert_called_with(
+            organization=organization, plan=plan, payment_method="invoice"
+        )
+
+    @pytest.mark.django_db
+    def test_set_subscription_with_existing_card_payment_method(
+        self, organization_factory, mocker, user_factory, professional_plan_factory
+    ):
+        """Test that payment_method='existing-card' maps to 'card'"""
+        mocker.patch("stripe.Plan.create")
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        plan = professional_plan_factory()
+
+        mocker.patch(
+            "squarelet.organizations.models.Customer.stripe_customer",
+            email=None,
+        )
+        mocked_subscriptions = mocker.patch(
+            "squarelet.organizations.models.Organization.subscriptions"
+        )
+        mocker.patch("squarelet.organizations.models.Organization.change_logs")
+
+        max_users = 10
+        token = None
+        organization.set_subscription(
+            token, plan, max_users, user, payment_method="existing-card"
+        )
+
+        # "existing-card" should be mapped to "card"
+        mocked_subscriptions.start.assert_called_with(
+            organization=organization, plan=plan, payment_method="card"
+        )
+
+    @pytest.mark.django_db
+    def test_set_subscription_with_new_card_payment_method(
+        self, organization_factory, mocker, user_factory, professional_plan_factory
+    ):
+        """Test that payment_method='new-card' maps to 'card'"""
+        mocker.patch("stripe.Plan.create")
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        plan = professional_plan_factory()
+
+        mocked_save_card = mocker.patch(
+            "squarelet.organizations.models.Organization.save_card"
+        )
+        mocker.patch(
+            "squarelet.organizations.models.Customer.stripe_customer",
+            email=None,
+        )
+        mocked_subscriptions = mocker.patch(
+            "squarelet.organizations.models.Organization.subscriptions"
+        )
+        mocker.patch("squarelet.organizations.models.Organization.change_logs")
+
+        max_users = 10
+        token = "tok_test123"
+        organization.set_subscription(
+            token, plan, max_users, user, payment_method="new-card"
+        )
+
+        mocked_save_card.assert_called_with(token, user)
+        # "new-card" should be mapped to "card"
+        mocked_subscriptions.start.assert_called_with(
+            organization=organization, plan=plan, payment_method="card"
+        )
+
+    @pytest.mark.django_db
+    def test_set_subscription_backward_compatibility_no_payment_method(
+        self, organization_factory, mocker, user_factory, professional_plan_factory
+    ):
+        """
+        Test backward compatibility: when payment_method not provided,
+        auto-detect based on card
+        """
+        mocker.patch("stripe.Plan.create")
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        plan = professional_plan_factory()
+
+        # Mock that organization has a saved card
+        mocked_card = mocker.MagicMock()
+        mocked_customer_obj = mocker.MagicMock()
+        mocked_customer_obj.email = None
+        mocked_customer_obj.card = mocked_card
+
+        mocker.patch(
+            "squarelet.organizations.models.Organization.customer",
+            return_value=mocked_customer_obj,
+        )
+
+        mocked_subscriptions = mocker.patch(
+            "squarelet.organizations.models.Organization.subscriptions"
+        )
+        mocker.patch("squarelet.organizations.models.Organization.change_logs")
+
+        max_users = 10
+        token = None
+        # Don't pass payment_method - should auto-detect as "card" because card exists
+        organization.set_subscription(token, plan, max_users, user)
+
+        # Should default to "card" since a card is on file
+        mocked_subscriptions.start.assert_called_with(
+            organization=organization, plan=plan, payment_method="card"
+        )
+
+    @pytest.mark.django_db
     def test_subscription_cancelled(
         self, organization_factory, mocker, professional_plan_factory
     ):
@@ -256,13 +421,136 @@ class TestOrganization:
         mocked_subscription = mocker.patch(
             "squarelet.organizations.models.Organization.subscription"
         )
+        mocked_subscription.subscription_id = "sub_test123"
+        # Mock the stripe_subscription property to return a mock Stripe subscription
+        mock_stripe_sub = mocker.MagicMock()
+        type(mocked_subscription).stripe_subscription = mocker.PropertyMock(
+            return_value=mock_stripe_sub
+        )
+
         organization.subscription_cancelled()
+
         mocked_change_logs.create.assert_called_with(
             reason=ChangeLogReason.failed,
             from_plan=plan,
             from_max_users=organization.max_users,
             to_max_users=organization.max_users,
         )
+        # Should cancel in Stripe first by calling delete on the stripe_subscription
+        mock_stripe_sub.delete.assert_called_once()
+        # Then delete local subscription
+        mocked_subscription.delete.assert_called()
+
+    @pytest.mark.django_db
+    def test_subscription_cancelled_without_subscription_id(
+        self, organization_factory, mocker, professional_plan_factory
+    ):
+        """Should still delete local subscription even if no subscription_id"""
+        mocker.patch("stripe.Plan.create")
+        plan = professional_plan_factory()
+        organization = organization_factory(plans=[plan])
+        mocker.patch("squarelet.organizations.models.Organization.change_logs")
+        mocked_subscription = mocker.patch(
+            "squarelet.organizations.models.Organization.subscription"
+        )
+        mocked_subscription.subscription_id = None
+
+        organization.subscription_cancelled()
+
+        # Should still delete local subscription
+        # (no Stripe interaction since no subscription_id)
+        mocked_subscription.delete.assert_called()
+
+    @pytest.mark.django_db
+    def test_subscription_cancelled_stripe_error(
+        self, organization_factory, mocker, professional_plan_factory
+    ):
+        """Should handle Stripe errors gracefully and still delete local subscription"""
+        mocker.patch("stripe.Plan.create")
+        plan = professional_plan_factory()
+        organization = organization_factory(plans=[plan])
+        mocker.patch("squarelet.organizations.models.Organization.change_logs")
+        mocked_subscription = mocker.patch(
+            "squarelet.organizations.models.Organization.subscription"
+        )
+        mocked_subscription.subscription_id = "sub_test123"
+        # Mock the stripe_subscription property to return a mock
+        # that raises error on delete
+        mock_stripe_sub = mocker.MagicMock()
+        mock_stripe_sub.delete.side_effect = stripe.error.InvalidRequestError(
+            "No such subscription", "subscription"
+        )
+        type(mocked_subscription).stripe_subscription = mocker.PropertyMock(
+            return_value=mock_stripe_sub
+        )
+
+        organization.subscription_cancelled()
+
+        # Should attempt to delete the Stripe subscription
+        mock_stripe_sub.delete.assert_called_once()
+        # Should still delete local subscription despite error
+        mocked_subscription.delete.assert_called()
+
+    @pytest.mark.django_db
+    def test_subscription_cancelled_correct_stripe_pattern(
+        self, organization_factory, mocker, professional_plan_factory
+    ):
+        """Test subscription_cancelled uses correct Stripe API pattern
+        (retrieve then delete)"""
+        mocker.patch("stripe.Plan.create")
+        plan = professional_plan_factory()
+        organization = organization_factory(plans=[plan])
+
+        # Mock the subscription property
+        mocked_subscription = mocker.patch(
+            "squarelet.organizations.models.Organization.subscription"
+        )
+        mocked_subscription.subscription_id = "sub_test123"
+
+        # Mock the Stripe subscription instance
+        mock_stripe_sub = mocker.MagicMock()
+        # Mock stripe_subscription property to return the mock Stripe subscription
+        type(mocked_subscription).stripe_subscription = mocker.PropertyMock(
+            return_value=mock_stripe_sub
+        )
+
+        # Mock change logs
+        mocker.patch("squarelet.organizations.models.Organization.change_logs")
+
+        organization.subscription_cancelled()
+
+        # Verify delete was called on the stripe_subscription instance
+        mock_stripe_sub.delete.assert_called_once()
+        # Verify local subscription was deleted
+        mocked_subscription.delete.assert_called()
+
+    @pytest.mark.django_db
+    def test_subscription_cancelled_nonexistent_stripe_subscription(
+        self, organization_factory, mocker, professional_plan_factory
+    ):
+        """Test graceful handling when Stripe subscription doesn't exist"""
+        mocker.patch("stripe.Plan.create")
+        plan = professional_plan_factory()
+        organization = organization_factory(plans=[plan])
+
+        # Mock the subscription property
+        mocked_subscription = mocker.patch(
+            "squarelet.organizations.models.Organization.subscription"
+        )
+        mocked_subscription.subscription_id = "sub_nonexistent"
+
+        # Mock stripe_subscription property to return None (subscription doesn't exist)
+        type(mocked_subscription).stripe_subscription = mocker.PropertyMock(
+            return_value=None
+        )
+
+        # Mock change logs
+        mocker.patch("squarelet.organizations.models.Organization.change_logs")
+
+        # Should not raise an error
+        organization.subscription_cancelled()
+
+        # Verify local subscription was still deleted
         mocked_subscription.delete.assert_called()
 
     @pytest.mark.django_db()
@@ -340,7 +628,7 @@ class TestOrganization:
                     if f.is_relation and f.auto_created
                 ]
             )
-            == 13
+            == 14
         )
         # Many to many relations defined on the Organization model
         assert (
@@ -441,6 +729,63 @@ class TestCustomer:
         assert mocked_customer.source == token
         mocked_customer.save.assert_called_once()
 
+    @pytest.mark.django_db()
+    def test_customer_invalid_clears_and_creates_new(self, customer_factory, mocker):
+        """Test that an invalid customer_id is cleared and a new customer is created"""
+        old_customer_id = "cus_invalid_id"
+        new_customer_id = "cus_new_id"
+
+        # Mock stripe.Customer.retrieve to raise InvalidRequestError for old ID only
+        def mock_retrieve(customer_id):
+            if customer_id == old_customer_id:
+                error = stripe.error.InvalidRequestError(
+                    "No such customer: 'cus_invalid_id'; a similar object "
+                    "exists in live mode, but a test mode key was used "
+                    "to make this request.",
+                    "id",
+                )
+                error.code = "resource_missing"
+                raise error
+            # If called with a different ID (e.g., new customer created by
+            # another thread), return a mock customer
+            return Mock(id=customer_id, name="Test Customer")
+
+        mocked_retrieve = mocker.patch(
+            "stripe.Customer.retrieve",
+            side_effect=mock_retrieve,
+        )
+
+        # Mock stripe.Customer.create to return a new customer
+        mock_new_customer = Mock(id=new_customer_id)
+        mocked_create = mocker.patch(
+            "stripe.Customer.create", return_value=mock_new_customer
+        )
+
+        # Create a customer with an invalid customer_id
+        email = "email@example.com"
+        mocker.patch("squarelet.organizations.models.Organization.email", email)
+        customer = customer_factory(customer_id=old_customer_id)
+
+        # Access stripe_customer property - should clear invalid ID and create new one
+        result = customer.stripe_customer
+
+        # Verify the retrieve was called with the old ID
+        mocked_retrieve.assert_called_with(old_customer_id)
+
+        # Verify a new customer was created
+        mocked_create.assert_called_with(
+            description=customer.organization.name,
+            email=email,
+            name=customer.organization.user_full_name,
+        )
+
+        # Verify the result is the new customer
+        assert result == mock_new_customer
+
+        # Verify the customer_id was updated in the database
+        customer.refresh_from_db()
+        assert customer.customer_id == new_customer_id
+
 
 class TestMembership:
     """Unit tests for Membership model"""
@@ -494,16 +839,29 @@ class TestSubscription:
         subscription = subscription_factory.build()
         assert subscription.stripe_subscription is None
 
+    @pytest.mark.django_db()
     def test_start(self, subscription_factory, professional_plan_factory, mocker):
-        plan = professional_plan_factory.build()
-        subscription = subscription_factory.build(plan=plan)
-        mocked = Mock()
+        plan = professional_plan_factory()
+        subscription = subscription_factory(plan=plan)
+
+        # Mock stripe subscription creation
+        stripe_subscription_id = "sub_test123"
+        mock_stripe_subscription = Mock(
+            id=stripe_subscription_id,
+            latest_invoice=None,  # No invoice to avoid invoice creation path
+        )
+        mocked_customer = Mock()
+        mocked_customer.stripe_customer.subscriptions.create.return_value = (
+            mock_stripe_subscription
+        )
         mocker.patch(
             "squarelet.organizations.models.organization.Organization.customer",
-            return_value=mocked,
+            return_value=mocked_customer,
         )
+
         subscription.start()
-        mocked.stripe_customer.subscriptions.create.assert_called_with(
+
+        mocked_customer.stripe_customer.subscriptions.create.assert_called_with(
             items=[
                 {
                     "plan": subscription.plan.stripe_id,
@@ -514,10 +872,7 @@ class TestSubscription:
             metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=None,
         )
-        assert (
-            subscription.subscription_id
-            == mocked.stripe_customer.subscriptions.create.return_value.id
-        )
+        assert subscription.subscription_id == stripe_subscription_id
 
     def test_start_existing(self, subscription_factory, mocker):
         """If there is an existing subscription, do not start another one"""
@@ -596,6 +951,177 @@ class TestSubscription:
             metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=None,
         )
+
+    @pytest.mark.django_db()
+    def test_start_creates_invoice_with_card(
+        self, subscription_factory, professional_plan_factory, mocker
+    ):
+        """Test that subscription.start() creates an Invoice record for card payment"""
+        plan = professional_plan_factory()
+        subscription = subscription_factory(plan=plan)
+
+        # Mock Stripe subscription creation
+        stripe_subscription_id = "sub_test123"
+        stripe_invoice_id = "in_test123"
+        mock_stripe_subscription = Mock(
+            id=stripe_subscription_id, latest_invoice=stripe_invoice_id
+        )
+        # Mock stripe invoice using helper function
+        mock_stripe_invoice = create_mock_stripe_invoice(
+            invoice_id=stripe_invoice_id,
+            amount_due=2000,  # $20.00
+            status="open",
+            created=1234567890,
+            due_date=None,
+        )
+
+        mocked_customer = Mock()
+        mocked_customer.stripe_customer.subscriptions.create.return_value = (
+            mock_stripe_subscription
+        )
+        mocker.patch(
+            "squarelet.organizations.models.organization.Organization.customer",
+            return_value=mocked_customer,
+        )
+        mocker.patch("stripe.Invoice.retrieve", return_value=mock_stripe_invoice)
+        # Start the subscription
+        subscription.start(payment_method="card")
+
+        # Verify Stripe subscription was created
+        assert subscription.subscription_id == stripe_subscription_id
+
+        # Verify Invoice record was created
+        invoice = Invoice.objects.filter(invoice_id=stripe_invoice_id).first()
+        assert invoice is not None, "Invoice should be created synchronously"
+        assert invoice.organization == subscription.organization
+        assert invoice.subscription == subscription
+        assert invoice.amount == 2000
+        assert invoice.status == "open"
+
+    @pytest.mark.django_db()
+    def test_start_creates_invoice_with_invoice_payment(
+        self, subscription_factory, plan_factory, mocker
+    ):
+        """Test that subscription.start() creates Invoice for invoice payment method"""
+        # Mock Stripe Plan creation
+        mocker.patch("stripe.Plan.create")
+
+        # Create annual plan
+        plan = plan_factory(
+            name="Annual Professional",
+            annual=True,
+            base_price=240,
+            minimum_users=1,
+        )
+        subscription = subscription_factory(plan=plan)
+
+        # Mock Stripe subscription creation
+        stripe_subscription_id = "sub_annual123"
+        stripe_invoice_id = "in_annual123"
+        mock_stripe_subscription = Mock(
+            id=stripe_subscription_id, latest_invoice=stripe_invoice_id
+        )
+        # Mock stripe invoice using helper function
+        mock_stripe_invoice = create_mock_stripe_invoice(
+            invoice_id=stripe_invoice_id,
+            amount_due=24000,  # $240.00 annual
+            status="open",
+            created=1234567890,
+            due_date=1234657890,  # 30 days later
+        )
+
+        mocked_customer = Mock()
+        mocked_customer.stripe_customer.subscriptions.create.return_value = (
+            mock_stripe_subscription
+        )
+        mocker.patch(
+            "squarelet.organizations.models.organization.Organization.customer",
+            return_value=mocked_customer,
+        )
+        mocker.patch("stripe.Invoice.retrieve", return_value=mock_stripe_invoice)
+
+        # Start the subscription with invoice payment
+        subscription.start(payment_method="invoice")
+
+        # Verify subscription was created with send_invoice billing
+        mocked_customer.stripe_customer.subscriptions.create.assert_called_with(
+            items=[
+                {
+                    "plan": subscription.plan.stripe_id,
+                    "quantity": subscription.organization.max_users,
+                }
+            ],
+            billing="send_invoice",
+            metadata={"action": f"Subscription ({plan.name})"},
+            days_until_due=30,
+        )
+
+        # Verify Invoice record was created
+        invoice = Invoice.objects.filter(invoice_id=stripe_invoice_id).first()
+        assert invoice is not None
+        assert invoice.organization == subscription.organization
+        assert invoice.subscription == subscription
+        assert invoice.due_date is not None
+
+    @pytest.mark.django_db()
+    def test_start_free_plan_no_invoice(
+        self, subscription_factory, plan_factory, mocker
+    ):
+        """Test that free plans don't create invoices"""
+        mocker.patch("stripe.Plan.create")
+        plan = plan_factory()  # Free plan (no base_price = free)
+        subscription = subscription_factory(plan=plan)
+
+        mocked_customer = mocker.patch(
+            "squarelet.organizations.models.Organization.customer"
+        )
+
+        # Start the subscription
+        subscription.start(payment_method="card")
+
+        # Verify no Stripe subscription was created
+        assert mocked_customer.call_count == 0
+
+        # Verify no Invoice was created
+        assert Invoice.objects.count() == 0
+
+    @pytest.mark.django_db()
+    def test_start_handles_stripe_invoice_retrieval_error(
+        self, subscription_factory, professional_plan_factory, mocker
+    ):
+        """Test that subscription still succeeds if invoice retrieval fails"""
+        plan = professional_plan_factory()
+        subscription = subscription_factory(plan=plan)
+
+        # Mock Stripe subscription creation
+        stripe_subscription_id = "sub_test123"
+        mock_stripe_subscription = Mock(
+            id=stripe_subscription_id, latest_invoice="in_test123"
+        )
+
+        mocked_customer = Mock()
+        mocked_customer.stripe_customer.subscriptions.create.return_value = (
+            mock_stripe_subscription
+        )
+        mocker.patch(
+            "squarelet.organizations.models.organization.Organization.customer",
+            return_value=mocked_customer,
+        )
+
+        # Mock Invoice.retrieve to raise an error
+        mocker.patch(
+            "stripe.Invoice.retrieve",
+            side_effect=stripe.error.InvalidRequestError("No such invoice", "invoice"),
+        )
+
+        # Start should still succeed
+        subscription.start(payment_method="card")
+
+        # Verify subscription was still created
+        assert subscription.subscription_id == stripe_subscription_id
+
+        # Invoice won't be created due to error (webhook will handle it)
+        assert Invoice.objects.count() == 0
 
 
 class TestPlan:
@@ -939,3 +1465,221 @@ class TestEntitlement:
 
         entitlement.plans.set([private_plan, public_plan])
         assert entitlement.public
+
+
+class TestInvoice:
+    """Unit tests for Invoice model"""
+
+    def test_str(self, invoice_factory):
+        invoice = invoice_factory.build(
+            invoice_id="in_12345", amount=10000, status="open"
+        )
+        assert str(invoice) == "Invoice in_12345 - $100.00 (open)"
+
+    def test_amount_dollars(self, invoice_factory):
+        invoice = invoice_factory.build(amount=12345)
+        assert invoice.amount_dollars == 123.45
+
+    @pytest.mark.django_db
+    def test_is_overdue_true_for_past_due(self, invoice_factory):
+        """Test is_overdue returns True for open invoice past due date"""
+        past_due_date = timezone.now().date() - timedelta(days=1)
+        invoice = invoice_factory(status="open", due_date=past_due_date)
+        assert invoice.is_overdue is True
+
+    @pytest.mark.django_db
+    def test_is_overdue_false_for_future_due(self, invoice_factory):
+        """Test is_overdue returns False for open invoice with future due date"""
+        future_due_date = timezone.now().date() + timedelta(days=30)
+        invoice = invoice_factory(status="open", due_date=future_due_date)
+        assert invoice.is_overdue is False
+
+    @pytest.mark.django_db
+    def test_is_overdue_false_for_paid_invoice(self, invoice_factory):
+        """Test is_overdue returns False for paid invoice even if past due"""
+        past_due_date = timezone.now().date() - timedelta(days=30)
+        invoice = invoice_factory(status="paid", due_date=past_due_date)
+        assert invoice.is_overdue is False
+
+    @pytest.mark.django_db
+    def test_is_overdue_false_for_no_due_date(self, invoice_factory):
+        """Test is_overdue returns False when invoice has no due date"""
+        invoice = invoice_factory(status="open", due_date=None)
+        assert invoice.is_overdue is False
+
+    def test_amount_none(self, invoice_factory):
+        """Test formatting logic when amount is None"""
+        invoice = invoice_factory.build(
+            invoice_id="in_12345", amount=None, status="open"
+        )
+        assert invoice.amount_dollars == 0.0
+        assert str(invoice) == "Invoice in_12345 - $0.00 (open)"
+
+    @pytest.mark.django_db
+    def test_create_or_update_from_stripe_dict_access(
+        self, organization_factory, subscription_factory
+    ):
+        """Test create_or_update_from_stripe with dictionary (webhook scenario)"""
+        organization = organization_factory()
+        subscription = subscription_factory(organization=organization)
+
+        # Simulate webhook data - plain dictionary
+        stripe_invoice_dict = {
+            "id": "in_webhook123",
+            "amount_due": 5000,  # $50.00
+            "status": "open",
+            "created": 1234567890,
+            "due_date": 1234657890,  # 30 days later
+        }
+
+        invoice, created = Invoice.create_or_update_from_stripe(
+            stripe_invoice_dict, organization, subscription
+        )
+
+        assert created is True
+        assert invoice.invoice_id == "in_webhook123"
+        assert invoice.organization == organization
+        assert invoice.subscription == subscription
+        assert invoice.amount == 5000
+        assert invoice.status == "open"
+        assert invoice.due_date is not None
+
+    @pytest.mark.django_db
+    def test_create_or_update_from_stripe_object_access(
+        self, organization_factory, subscription_factory
+    ):
+        """Test create_or_update_from_stripe with Stripe object (API scenario)"""
+        organization = organization_factory()
+        subscription = subscription_factory(organization=organization)
+
+        # Simulate Stripe API object using helper function
+        mock_stripe_invoice = create_mock_stripe_invoice(
+            invoice_id="in_api456",
+            amount_due=10000,  # $100.00
+            status="paid",
+            created=1234567890,
+            due_date=None,
+        )
+
+        invoice, created = Invoice.create_or_update_from_stripe(
+            mock_stripe_invoice, organization, subscription
+        )
+
+        assert created is True
+        assert invoice.invoice_id == "in_api456"
+        assert invoice.organization == organization
+        assert invoice.subscription == subscription
+        assert invoice.amount == 10000
+        assert invoice.status == "paid"
+        assert invoice.due_date is None
+
+    @pytest.mark.django_db
+    def test_create_or_update_from_stripe_updates_existing(
+        self, organization_factory, invoice_factory
+    ):
+        """Test that create_or_update_from_stripe updates existing invoices"""
+        organization = organization_factory()
+        existing_invoice = invoice_factory(
+            invoice_id="in_existing789",
+            organization=organization,
+            amount=5000,
+            status="open",
+        )
+
+        # Update with new data
+        stripe_invoice_dict = {
+            "id": "in_existing789",
+            "amount_due": 7500,  # Changed amount
+            "status": "paid",  # Changed status
+            "created": 1234567890,
+            "due_date": None,
+        }
+
+        invoice, created = Invoice.create_or_update_from_stripe(
+            stripe_invoice_dict, organization, None
+        )
+
+        assert created is False
+        assert invoice.id == existing_invoice.id
+        assert invoice.amount == 7500
+        assert invoice.status == "paid"
+
+    @pytest.mark.django_db
+    def test_create_or_update_from_stripe_no_due_date(
+        self, organization_factory, subscription_factory
+    ):
+        """Test create_or_update_from_stripe handles None due_date correctly"""
+        organization = organization_factory()
+        subscription = subscription_factory(organization=organization)
+
+        stripe_invoice_dict = {
+            "id": "in_no_due_date",
+            "amount_due": 2000,
+            "status": "draft",
+            "created": 1234567890,
+            "due_date": None,  # No due date
+        }
+
+        invoice, created = Invoice.create_or_update_from_stripe(
+            stripe_invoice_dict, organization, subscription
+        )
+
+        assert created is True
+        assert invoice.due_date is None
+
+    @pytest.mark.django_db
+    def test_create_or_update_from_stripe_no_subscription(self, organization_factory):
+        """Test create_or_update_from_stripe works without subscription"""
+        organization = organization_factory()
+
+        stripe_invoice_dict = {
+            "id": "in_no_sub",
+            "amount_due": 3000,
+            "status": "open",
+            "created": 1234567890,
+            "due_date": 1234657890,
+        }
+
+        invoice, created = Invoice.create_or_update_from_stripe(
+            stripe_invoice_dict, organization, None
+        )
+
+        assert created is True
+        assert invoice.subscription is None
+        assert invoice.organization == organization
+
+    @pytest.mark.django_db
+    def test_mark_uncollectible_in_stripe_success(self, invoice_factory, mocker):
+        """Test mark_uncollectible_in_stripe successfully marks invoice"""
+        invoice = invoice_factory(invoice_id="in_test123", status="open")
+
+        # Mock the Stripe API request
+        mock_requestor = mocker.MagicMock()
+        mock_requestor.request.return_value = (mocker.MagicMock(), "api_key")
+        mocker.patch("stripe.api_requestor.APIRequestor", return_value=mock_requestor)
+
+        # Call the method
+        invoice.mark_uncollectible_in_stripe()
+
+        # Verify Stripe API was called correctly
+        mock_requestor.request.assert_called_once_with(
+            "post",
+            "/v1/invoices/in_test123/mark_uncollectible",
+            {},
+        )
+
+    @pytest.mark.django_db
+    def test_mark_uncollectible_in_stripe_stripe_error(self, invoice_factory, mocker):
+        """Test mark_uncollectible_in_stripe handles Stripe errors"""
+        invoice = invoice_factory(invoice_id="in_error123", status="open")
+
+        # Mock the Stripe API request to raise an error
+        mock_requestor = mocker.MagicMock()
+        mock_requestor.request.side_effect = stripe.error.InvalidRequestError(
+            "This invoice has already been marked uncollectible", "invoice"
+        )
+        mocker.patch("stripe.api_requestor.APIRequestor", return_value=mock_requestor)
+
+        # Should raise the Stripe error
+        with pytest.raises(stripe.error.InvalidRequestError):
+            invoice.mark_uncollectible_in_stripe()
