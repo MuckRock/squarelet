@@ -18,6 +18,7 @@ from django.http.response import (
 )
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
@@ -31,6 +32,7 @@ import json
 import logging
 import re
 import sys
+from datetime import timedelta
 
 # Third Party
 import stripe
@@ -45,6 +47,7 @@ from squarelet.core.utils import (
     format_stripe_error,
     get_redirect_url,
     get_stripe_dashboard_url,
+    create_zendesk_ticket,
 )
 from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.denylist_domains import DENYLIST_DOMAINS
@@ -119,37 +122,70 @@ class Detail(AdminLinkMixin, DetailView):
 
     def handle_join(self, request):
         self.organization = self.get_object()
-        is_member = self.organization.has_member(self.request.user)
-        if not is_member:
-            if self.request.user.can_auto_join(self.organization):
-                # Auto-join the user to the organization (no invitation needed)
-                self.organization.memberships.create(user=self.request.user)
-                if self.organization.plan and self.organization.plan.wix:
-                    sync_wix.delay(
-                        self.organization.pk,
-                        self.organization.plan.pk,
-                        self.request.user.pk,
-                    )
-                messages.success(
-                    request, _("You have successfully joined the organization!")
+        user = request.user
+
+        # Already a member
+        if self.organization.has_member(user):
+            return
+
+        # Auto join if allowed
+        if user.can_auto_join(self.organization):
+            self.organization.memberships.create(user=user)
+            if self.organization.plan and self.organization.plan.wix:
+                sync_wix.delay(
+                    self.organization.pk,
+                    self.organization.plan.pk,
+                    user.pk,
                 )
-            else:
-                invitation = self.organization.invitations.create(
-                    email=request.user.email, user=request.user, request=True
-                )
-                messages.success(
-                    request,
-                    _(
-                        "Request to join the organization sent!<br><br>"
-                        "We strongly recommend reaching out directly to one or all of "
-                        "the admins listed below to ensure your request is approved "
-                        "quickly. If all of the admins shown below have left the "
-                        "organization, please "
-                        '<a href="mailto:info@muckrock.com">contact support</a> '
-                        "for assistance.<br><br>"
-                    ),
-                )
-                invitation.send()
+            messages.success(request, "You have successfully joined the organization!")
+            return
+
+        # For normal requests to join, check rate limit
+        window_start = timezone.now() - timedelta(seconds=settings.ORG_JOIN_REQUEST_WINDOW)
+        recent_requests = Invitation.objects.filter(
+            user=user,
+            request=True,
+            created_at__gte=window_start
+        ).count()
+
+        if recent_requests >= settings.ORG_JOIN_REQUEST_LIMIT:
+            messages.error(
+                request,
+                f"You have reached the limit of {settings.ORG_JOIN_REQUEST_LIMIT} join requests "
+                f"in the last {settings.ORG_JOIN_REQUEST_WINDOW // 60} minutes."
+            )
+
+            # Create ZenDesk ticket for review
+            create_zendesk_ticket(
+                subject=f"User reached join-request rate limit ({recent_requests} requests)",
+                description=(
+                    f"The following user has reached the rate-limit for joining organizations, "
+                    f"sending {recent_requests} requests in the last "
+                    f"{settings.ORG_JOIN_REQUEST_WINDOW} seconds:\n\n"
+                    f"{settings.SQUARELET_URL}{user.get_absolute_url()}\n\n"
+                    "This is a signal that the user may be using their account in an inappropriate way."
+                ),
+                tags=["rate-limit", "join-request"]
+            )
+            return
+
+        # Create join request, assuming they aren't rate limited
+        invitation = self.organization.invitations.create(
+            email=request.user.email, user=request.user, request=True
+        )
+        messages.success(
+            request,
+            _(
+                "Request to join the organization sent!<br><br>"
+                "We strongly recommend reaching out directly to one or all of "
+                "the admins listed below to ensure your request is approved "
+                "quickly. If all of the admins shown below have left the "
+                "organization, please "
+                '<a href="mailto:info@muckrock.com">contact support</a> '
+                "for assistance.<br><br>"
+            ),
+        )
+        invitation.send()
 
     def handle_leave(self, request):
         self.organization = self.get_object()

@@ -192,11 +192,8 @@ def create_zendesk_ticket(subject, description, priority="normal", tags=None):
     staff intervention, such as an organization updating its profile details.
     """
     missing_config = not all(
-        [
-            settings.ZENDESK_EMAIL,
-            settings.ZENDESK_TOKEN,
-            settings.ZENDESK_SUBDOMAIN,
-        ]
+        getattr(settings, attr, None) 
+        for attr in ["ZENDESK_EMAIL", "ZENDESK_TOKEN", "ZENDESK_SUBDOMAIN"]
     )
 
     if not is_production_env() or missing_config:
