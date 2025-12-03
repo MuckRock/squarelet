@@ -177,3 +177,18 @@ class ProfileChangeRequestFactory(factory.django.DjangoModelFactory):
 
     class Meta:
         model = "organizations.ProfileChangeRequest"
+
+
+class InvoiceFactory(factory.django.DjangoModelFactory):
+    invoice_id = factory.Sequence(lambda n: f"in_{n}")
+    organization = factory.SubFactory(
+        "squarelet.organizations.tests.factories.OrganizationFactory"
+    )
+    subscription = None  # Optional - can be set explicitly
+    amount = 10000  # $100.00 in cents
+    due_date = factory.LazyFunction(date.today)
+    status = "open"
+    created_at = factory.LazyFunction(timezone.now)
+
+    class Meta:
+        model = "organizations.Invoice"

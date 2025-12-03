@@ -143,6 +143,7 @@ class PlanDetailView(DetailView):
         return context
 
     def post(self, request, *args, **kwargs):
+        # pylint: disable=too-many-return-statements,too-many-branches
         """
         This receives a form submission for subscribing to the plan.
         The form supports selecting an existing organization or creating a new one,
@@ -181,6 +182,7 @@ class PlanDetailView(DetailView):
         organization_id = request.POST.get("organization")
         new_organization_name = request.POST.get("new_organization_name")
         stripe_token = request.POST.get("stripe_token")
+        payment_method = request.POST.get("payment_method")
 
         try:
             # Get or create the organization
@@ -211,6 +213,26 @@ class PlanDetailView(DetailView):
                 messages.warning(request, _("Already subscribed"))
                 return redirect(plan)
 
+            # Validate payment method matches available options
+            if payment_method == "existing-card":
+                if not organization.customer().card:
+                    messages.error(
+                        request,
+                        _("No payment method on file. Please add a card."),
+                    )
+                    return redirect(plan)
+            elif payment_method == "new-card":
+                if not stripe_token:
+                    messages.error(request, _("Please provide card information."))
+                    return redirect(plan)
+            elif payment_method == "invoice":
+                if not plan.annual:
+                    messages.error(
+                        request,
+                        _("Invoice payment is only available for annual plans."),
+                    )
+                    return redirect(plan)
+
             # For Sunlight plans, use transaction with
             # row locking to prevent race conditions
             if plan.slug.startswith("sunlight-") and plan.wix:
@@ -239,6 +261,7 @@ class PlanDetailView(DetailView):
                 plan=plan,
                 max_users=plan.minimum_users,
                 user=request.user,
+                payment_method=payment_method,
             )
 
             # Success - redirect to organization page

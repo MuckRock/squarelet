@@ -42,7 +42,12 @@ from fuzzywuzzy import fuzz, process
 
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
-from squarelet.core.utils import get_redirect_url, pluralize
+from squarelet.core.utils import (
+    format_stripe_error,
+    get_redirect_url,
+    get_stripe_dashboard_url,
+    pluralize
+)
 from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.denylist_domains import DENYLIST_DOMAINS
 from squarelet.organizations.forms import (
@@ -66,7 +71,12 @@ from squarelet.organizations.models import (
 )
 from squarelet.organizations.tasks import (
     handle_charge_succeeded,
+    handle_invoice_created,
     handle_invoice_failed,
+    handle_invoice_finalized,
+    handle_invoice_marked_uncollectible,
+    handle_invoice_paid,
+    handle_invoice_voided,
     sync_wix,
 )
 
@@ -292,7 +302,8 @@ class UpdateSubscription(OrganizationAdminMixin, UpdateView):
                 user=self.request.user,
             )
         except stripe.error.StripeError as exc:
-            messages.error(self.request, f"Payment error: {exc.user_message}")
+            user_message = format_stripe_error(exc)
+            messages.error(self.request, f"Payment error: {user_message}")
         else:
             organization.set_receipt_emails(form.cleaned_data["receipt_emails"])
             if form.cleaned_data.get("remove_card_on_file"):
@@ -745,7 +756,7 @@ class PDFChargeDetail(WeasyTemplateResponseMixin, ChargeDetail):
 
 
 @csrf_exempt
-def stripe_webhook(request):
+def stripe_webhook(request):  # pylint: disable=too-many-branches
     """Handle webhooks from stripe"""
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
@@ -785,17 +796,47 @@ def stripe_webhook(request):
         return HttpResponseBadRequest()
     # If we've made it this far, then the webhook message was successfully sent!
     # Now it's up to us to act on it.
-    success_msg = (
-        "Received Stripe webhook\n"
-        "\tfrom:\t%(address)s\n"
-        "\ttype:\t%(type)s\n"
-        "\tdata:\t%(data)s\n"
-    ) % {"address": request.META["REMOTE_ADDR"], "type": event_type, "data": event}
-    logger.info(success_msg)
+    # https://docs.stripe.com/api/events/types
+
+    # Log invoice-related webhooks with minimal noise
+    if event_type.startswith("invoice."):
+        invoice_id = event["data"]["object"].get("id")
+        if invoice_id:
+            stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
+            logger.info(
+                "[STRIPE-WEBHOOK] %s: %s (%s)",
+                event_type,
+                invoice_id,
+                stripe_link,
+            )
+        else:
+            logger.info("[STRIPE-WEBHOOK] %s (no invoice ID)", event_type)
+    else:
+        # For non-invoice events, log with more detail
+        success_msg = (
+            "[STRIPE-WEBHOOK] Received Stripe webhook\n"
+            "\tfrom:\t%(address)s\n"
+            "\ttype:\t%(type)s\n"
+            "\tdata:\t%(data)s\n"
+        ) % {"address": request.META["REMOTE_ADDR"], "type": event_type, "data": event}
+        logger.info(success_msg)
     if event_type == "charge.succeeded":
         handle_charge_succeeded.delay(event["data"]["object"])
     elif event_type == "invoice.payment_failed":
         handle_invoice_failed.delay(event["data"]["object"])
+    elif event_type == "invoice.created":
+        handle_invoice_created.delay(event["data"]["object"])
+    elif event_type == "invoice.finalized":
+        handle_invoice_finalized.delay(event["data"]["object"])
+    elif event_type == "invoice.paid":
+        # Listening for invoice.paid ensures we handle payments that
+        # when happen when users pay them through Stripe or when staff
+        # manually mark them as paid through the Stripe dashboard
+        handle_invoice_paid.delay(event["data"]["object"])
+    elif event_type == "invoice.marked_uncollectible":
+        handle_invoice_marked_uncollectible.delay(event["data"]["object"])
+    elif event_type == "invoice.voided":
+        handle_invoice_voided.delay(event["data"]["object"])
     return HttpResponse()
 
 

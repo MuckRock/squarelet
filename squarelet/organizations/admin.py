@@ -1,6 +1,6 @@
 # Django
-from django.contrib import admin
-from django.db.models import JSONField
+from django.contrib import admin, messages
+from django.db.models import Count, JSONField, Q, Sum
 from django.forms.models import BaseInlineFormSet
 from django.forms.widgets import Textarea
 from django.http.response import HttpResponse
@@ -10,16 +10,22 @@ from django.utils.safestring import mark_safe
 # Standard Library
 import csv
 import json
+import logging
+import sys
+from datetime import date
 
 # Third Party
+import stripe
 from reversion.admin import VersionAdmin
 
 # Squarelet
+from squarelet.core.utils import get_stripe_dashboard_url
 from squarelet.organizations.models import (
     Charge,
     Customer,
     Entitlement,
     Invitation,
+    Invoice,
     Membership,
     Organization,
     OrganizationChangeLog,
@@ -32,6 +38,8 @@ from squarelet.organizations.models import (
     Subscription,
 )
 from squarelet.users.models import User
+
+logger = logging.getLogger(__name__)
 
 
 # https://stackoverflow.com/questions/48145992/showing-json-field-in-django-admin
@@ -68,6 +76,47 @@ class CustomerInline(admin.TabularInline):
     model = Customer
     readonly_fields = ("customer_id",)
     extra = 0
+
+
+class InvoiceInline(admin.TabularInline):
+    model = Invoice
+    readonly_fields = (
+        "invoice_link",
+        "stripe_link",
+        "amount_dollars",
+        "status",
+        "due_date",
+        "created_at",
+    )
+    fields = readonly_fields
+    extra = 0
+    can_delete = False
+    max_num = 0
+
+    @mark_safe
+    def invoice_link(self, obj):
+        """Link to the invoice's detail page in Django admin"""
+        if obj.pk:
+            url = reverse("admin:organizations_invoice_change", args=[obj.pk])
+            return f'<a href="{url}">{obj.invoice_id}</a>'
+        return obj.invoice_id or "-"
+
+    invoice_link.short_description = "Invoice ID"
+
+    @mark_safe
+    def stripe_link(self, obj):
+        """Link to Stripe invoice dashboard"""
+        if obj.invoice_id:
+            url = get_stripe_dashboard_url("invoices", obj.invoice_id)
+            return f'<a href="{url}" target="_blank">View in Stripe</a>'
+        return "-"
+
+    stripe_link.short_description = "Stripe"
+
+    def amount_dollars(self, obj):
+        return f"${obj.amount_dollars:.2f}"
+
+    amount_dollars.short_description = "Amount"
 
 
 class MembershipFormset(BaseInlineFormSet):
@@ -134,6 +183,31 @@ class MembershipsInline(admin.TabularInline):
     autocomplete_fields = ("from_organization",)
 
 
+class OverdueInvoiceFilter(admin.SimpleListFilter):
+    """Filter organizations by whether they have overdue invoices"""
+
+    title = "overdue invoices"
+    parameter_name = "has_overdue_invoices"
+
+    def lookups(self, request, model_admin):
+        return [
+            ("yes", "Has overdue invoices"),
+            ("no", "No overdue invoices"),
+        ]
+
+    def queryset(self, request, queryset):
+        if self.value() == "yes":
+            return queryset.filter(
+                invoices__status="open", invoices__due_date__lt=date.today()
+            ).distinct()
+        elif self.value() == "no":
+            # Organizations with no open invoices or no overdue invoices
+            return queryset.exclude(
+                invoices__status="open", invoices__due_date__lt=date.today()
+            )
+        return queryset
+
+
 @admin.register(Organization)
 class OrganizationAdmin(VersionAdmin):
     def export_organizations_as_csv(self, request, queryset):
@@ -181,6 +255,7 @@ class OrganizationAdmin(VersionAdmin):
         "private",
         "verified_journalist",
         "get_subtypes",
+        "get_outstanding_invoices",
     )
     list_filter = (
         "individual",
@@ -188,6 +263,7 @@ class OrganizationAdmin(VersionAdmin):
         "verified_journalist",
         "hub_eligible",
         "subtypes",
+        OverdueInvoiceFilter,
     )
     search_fields = ("name",)
     fields = (
@@ -237,13 +313,26 @@ class OrganizationAdmin(VersionAdmin):
         OrganizationEmailDomainInline,
         SubscriptionInline,
         CustomerInline,
+        InvoiceInline,
         MembershipInline,
         ReceiptEmailInline,
         InvitationInline,
     )
 
     def get_queryset(self, request):
-        return super().get_queryset(request).prefetch_related("subtypes", "domains")
+        return (
+            super()
+            .get_queryset(request)
+            .prefetch_related("subtypes", "domains")
+            .annotate(
+                outstanding_invoice_count=Count(
+                    "invoices", filter=Q(invoices__status="open")
+                ),
+                outstanding_invoice_total=Sum(
+                    "invoices__amount", filter=Q(invoices__status="open")
+                ),
+            )
+        )
 
     def save_model(self, request, obj, form, change):
         if obj.verified_journalist and "verified_journalist" in form.changed_data:
@@ -258,11 +347,12 @@ class OrganizationAdmin(VersionAdmin):
             return self.fields
 
     def get_readonly_fields(self, request, obj=None):
-        """Only add user link for individual organizations"""
+        """Add user link for individual organizations"""
+        base_readonly = self.readonly_fields
         if obj and obj.individual:
-            return ("user_link",) + self.readonly_fields
+            return ("user_link",) + base_readonly
         else:
-            return self.readonly_fields
+            return base_readonly
 
     @mark_safe
     def user_link(self, obj):
@@ -282,6 +372,17 @@ class OrganizationAdmin(VersionAdmin):
         return ", ".join(domain.domain for domain in obj.domains.all())
 
     get_email_domains.short_description = "Email Domains"
+
+    def get_outstanding_invoices(self, obj):
+        """Display count and total of outstanding invoices"""
+        count = getattr(obj, "outstanding_invoice_count", 0)
+        total = getattr(obj, "outstanding_invoice_total", 0)
+        if count > 0:
+            return f"{count} (${total / 100:.2f})"
+        return "-"
+
+    get_outstanding_invoices.short_description = "Outstanding Invoices"
+    get_outstanding_invoices.admin_order_field = "outstanding_invoice_count"
 
 
 @admin.register(Plan)
@@ -455,3 +556,160 @@ class OrganizationTypeAdmin(VersionAdmin):
 class OrganizationSubtypeAdmin(VersionAdmin):
     list_display = ("name", "type")
     search_fields = ("name", "type__name")
+
+
+@admin.register(Invoice)
+class InvoiceAdmin(VersionAdmin):
+    list_display = (
+        "invoice_id",
+        "organization",
+        "get_amount",
+        "status",
+        "due_date",
+        "created_at",
+    )
+    list_select_related = ("organization",)
+    list_filter = ("status",)
+    search_fields = ("invoice_id", "organization__name")
+    date_hierarchy = "created_at"
+    readonly_fields = (
+        "get_amount",
+        "updated_at",
+        "stripe_link",
+        "hosted_invoice_url_link",
+    )
+    fields = (
+        "invoice_id",
+        "stripe_link",
+        "hosted_invoice_url_link",
+        "organization",
+        "subscription",
+        "amount",
+        "get_amount",
+        "status",
+        "due_date",
+        "last_overdue_email_sent",
+        "created_at",
+        "updated_at",
+    )
+    actions = ["mark_as_paid"]
+
+    def get_readonly_fields(self, request, obj=None):
+        """Make all fields readonly when editing existing invoice"""
+        if obj:  # Editing existing invoice
+            # Return all fields as readonly
+            readonly = [
+                "get_amount",
+                "updated_at",
+                "stripe_link",
+                "hosted_invoice_url_link",
+                "invoice_id",
+                "organization",
+                "subscription",
+                "amount",
+                "status",
+                "due_date",
+                "last_overdue_email_sent",
+                "created_at",
+            ]
+            return tuple(readonly)
+        # When creating new invoice, only standard readonly fields
+        return (
+            "get_amount",
+            "updated_at",
+            "stripe_link",
+            "hosted_invoice_url_link",
+        )
+
+    @mark_safe
+    def stripe_link(self, obj):
+        """Link to Stripe invoice dashboard"""
+        if obj.invoice_id:
+            url = get_stripe_dashboard_url("invoices", obj.invoice_id)
+            return f'<a href="{url}" target="_blank">View in Stripe</a>'
+        return "-"
+
+    stripe_link.short_description = "Stripe Dashboard"
+
+    @mark_safe
+    def hosted_invoice_url_link(self, obj):
+        """Link to customer-facing hosted invoice page"""
+        if obj.invoice_id:
+            url = obj.get_hosted_invoice_url()
+            if url:
+                return f'<a href="{url}" target="_blank">Customer Payment Page</a>'
+            return "Not available"
+        return "-"
+
+    hosted_invoice_url_link.short_description = "Hosted Invoice URL"
+
+    def get_amount(self, obj):
+        return f"${obj.amount_dollars:.2f}"
+
+    get_amount.short_description = "Amount"
+
+    def mark_as_paid(self, request, queryset):
+        """Mark selected invoices as paid and sync to Stripe"""
+        success_count = 0
+        error_count = 0
+
+        for invoice in queryset.filter(status="open"):
+            try:
+                # Retrieve invoice from Stripe and call pay() on it
+                stripe_invoice = stripe.Invoice.retrieve(invoice.invoice_id)
+                stripe_invoice.pay(paid_out_of_band=True)
+                # Update local DB after Stripe succeeds
+                invoice.status = "paid"
+                invoice.save()
+                success_count += 1
+            except stripe.error.StripeError as exc:
+                logger.error(
+                    "Failed to mark invoice %s as paid in Stripe: %s",
+                    invoice.invoice_id,
+                    exc,
+                    exc_info=sys.exc_info(),
+                )
+                error_count += 1
+
+        if success_count > 0:
+            self.message_user(
+                request,
+                f"{success_count} invoice(s) marked as paid.",
+            )
+        if error_count > 0:
+            self.message_user(
+                request,
+                f"{error_count} invoice(s) could not be updated in Stripe. "
+                "Check logs for errors.",
+                level=messages.ERROR,
+            )
+
+    mark_as_paid.short_description = "Mark as Paid"
+
+    def changelist_view(self, request, extra_context=None):
+        """Handle custom single-invoice actions"""
+        # Check if this is a mark_as_paid_single action
+        if request.GET.get("action") == "mark_as_paid_single":
+            invoice_id = request.GET.get("invoice_id")
+            if invoice_id:
+                try:
+                    # Verify invoice exists before processing
+                    Invoice.objects.get(pk=invoice_id)
+                    # Call mark_as_paid with a queryset containing just this invoice
+                    queryset = Invoice.objects.filter(pk=invoice_id)
+                    self.mark_as_paid(request, queryset)
+                    # Redirect to the invoice detail page
+                    return HttpResponse(
+                        status=302,
+                        headers={
+                            "Location": reverse(
+                                "admin:organizations_invoice_change", args=[invoice_id]
+                            )
+                        },
+                    )
+                except Invoice.DoesNotExist:
+                    self.message_user(
+                        request, "Invoice not found.", level=messages.ERROR
+                    )
+
+        return super().changelist_view(request, extra_context)

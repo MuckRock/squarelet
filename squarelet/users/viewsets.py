@@ -4,6 +4,7 @@ from django.db.models.query import Prefetch
 from django.http.response import Http404
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 # Third Party
@@ -48,6 +49,17 @@ class UserViewSet(viewsets.ModelViewSet):
             return UserWriteSerializer
         else:
             return UserReadSerializer
+
+    def get_queryset(self):
+        """Filter by consent if required"""
+        if self.request.auth:
+            client = self.request.auth.client
+            if client and client.require_consent:
+                return self.queryset.filter(
+                    userconsent__client=client,
+                    userconsent__expires_at__gt=timezone.now(),
+                )
+        return self.queryset
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
