@@ -11,6 +11,7 @@ from squarelet.organizations.tests.factories import (
     EntitlementFactory,
     IndividualOrganizationFactory,
     InvitationFactory,
+    InvoiceFactory,
     MembershipFactory,
     OrganizationFactory,
     OrganizationPlanFactory,
@@ -24,6 +25,7 @@ register(ChargeFactory)
 register(PlanFactory)
 register(IndividualOrganizationFactory)
 register(InvitationFactory)
+register(InvoiceFactory)
 register(MembershipFactory)
 register(OrganizationFactory)
 register(OrganizationPlanFactory)

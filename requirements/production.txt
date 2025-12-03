@@ -460,7 +460,7 @@ six==1.16.0
     #   zenpy
 smart-open==1.7.1
     # via -r requirements/base.txt
-sorl-thumbnail==12.9.0
+sorl-thumbnail==12.11.0
     # via -r requirements/base.txt
 sqlparse==0.5.0
     # via
