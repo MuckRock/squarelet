@@ -192,7 +192,7 @@ def create_zendesk_ticket(subject, description, priority="normal", tags=None):
     staff intervention, such as an organization updating its profile details.
     """
     missing_config = not all(
-        getattr(settings, attr, None) 
+        getattr(settings, attr, None)
         for attr in ["ZENDESK_EMAIL", "ZENDESK_TOKEN", "ZENDESK_SUBDOMAIN"]
     )
 

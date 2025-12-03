@@ -44,10 +44,10 @@ from fuzzywuzzy import fuzz, process
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import (
+    create_zendesk_ticket,
     format_stripe_error,
     get_redirect_url,
     get_stripe_dashboard_url,
-    create_zendesk_ticket,
 )
 from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.denylist_domains import DENYLIST_DOMAINS
@@ -141,31 +141,35 @@ class Detail(AdminLinkMixin, DetailView):
             return
 
         # For normal requests to join, check rate limit
-        window_start = timezone.now() - timedelta(seconds=settings.ORG_JOIN_REQUEST_WINDOW)
+        window_start = timezone.now() - timedelta(
+            seconds=settings.ORG_JOIN_REQUEST_WINDOW
+        )
         recent_requests = Invitation.objects.filter(
-            user=user,
-            request=True,
-            created_at__gte=window_start
+            user=user, request=True, created_at__gte=window_start
         ).count()
 
         if recent_requests >= settings.ORG_JOIN_REQUEST_LIMIT:
             messages.error(
                 request,
-                f"You have reached the limit of {settings.ORG_JOIN_REQUEST_LIMIT} join requests "
-                f"in the last {settings.ORG_JOIN_REQUEST_WINDOW // 60} minutes."
+                f"You have reached the limit of {settings.ORG_JOIN_REQUEST_LIMIT} "
+                "join requests in the last "
+                f"{settings.ORG_JOIN_REQUEST_WINDOW // 60} minutes.",
             )
 
             # Create ZenDesk ticket for review
             create_zendesk_ticket(
-                subject=f"User reached join-request rate limit ({recent_requests} requests)",
+                subject="User reached join-request rate limit "
+                f"({recent_requests} requests)",
                 description=(
-                    f"The following user has reached the rate-limit for joining organizations, "
+                    "The following user has reached the "
+                    "rate-limit for joining organizations, "
                     f"sending {recent_requests} requests in the last "
                     f"{settings.ORG_JOIN_REQUEST_WINDOW} seconds:\n\n"
                     f"{settings.SQUARELET_URL}{user.get_absolute_url()}\n\n"
-                    "This is a signal that the user may be using their account in an inappropriate way."
+                    "This is a signal that the user may be "
+                    "using their account in an inappropriate way."
                 ),
-                tags=["rate-limit", "join-request"]
+                tags=["rate-limit", "join-request"],
             )
             return
 
