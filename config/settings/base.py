@@ -557,3 +557,8 @@ MAX_SUNLIGHT_SUBSCRIPTIONS = env.int("MAX_SUNLIGHT_SUBSCRIPTIONS", default=15)
 ACTSTREAM_SETTINGS = {
     "USE_JSONFIELD": True,
 }
+
+# Rate limits for users requesting to join an organization
+
+ORG_JOIN_REQUEST_LIMIT = env.int("ORG_JOIN_REQUEST_LIMIT", default=3)
+ORG_JOIN_REQUEST_WINDOW = env.int("ORG_JOIN_REQUEST_WINDOW", default=3600)
