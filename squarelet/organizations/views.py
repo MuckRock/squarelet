@@ -46,7 +46,7 @@ from squarelet.core.utils import (
     format_stripe_error,
     get_redirect_url,
     get_stripe_dashboard_url,
-    pluralize
+    pluralize,
 )
 from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.denylist_domains import DENYLIST_DOMAINS

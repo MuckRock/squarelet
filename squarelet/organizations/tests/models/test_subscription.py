@@ -1,5 +1,5 @@
 # Standard Library
-from unittest.mock import Mock, MagicMock
+from unittest.mock import MagicMock, Mock
 
 # Third Party
 import pytest
