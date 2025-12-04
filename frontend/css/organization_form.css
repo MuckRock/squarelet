@@ -54,19 +54,23 @@
 
   section {
     width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    align-self: stretch;
   }
 
-  h2, p {
-    margin: 0.5rem 0;
+  header .title {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
   }
-}
 
-#protected {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1rem;
-  align-self: stretch;
+  .title h2,
+  .title p {
+    margin: 0;
+  }
 }
 
 #pending-requests {
