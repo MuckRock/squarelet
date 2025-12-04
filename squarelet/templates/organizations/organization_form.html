@@ -11,12 +11,11 @@
 {% block content %}
 <article id="organization-form">
   <aside class="sidebar">
-    <a href="{{ organization.get_absolute_url }}" class="btn small ghost primary">
-      {% include "core/icons/chevron-left.svg" %}
-      {% trans "Back to team overview" %}
-    </a>
-
     <header>
+      <a href="{{ organization.get_absolute_url }}" class="btn small ghost primary">
+        {% include "core/icons/chevron-left.svg" %}
+        {% trans "Back to team overview" %}
+      </a>
       <h1>{{ organization.name }}</h1>
       <h2>{% trans "Edit profile" %}</h2>
     </header>
@@ -31,7 +30,7 @@
         </div>
       </header>
 
-      <form method="POST" action="{% url "organizations:update" slug=organization.slug %}">
+      <form method="POST" action="{% url "organizations:update" slug=organization.slug %}" class="form card">
         {% crispy form form.helper %}
         <button type="submit" class="btn primary">
           {% trans "Save changes" %}
@@ -114,24 +113,17 @@
         {% endfor %}
       </div>
       {% endif %}
-
-      <div class="card">
-        <h3>{% trans "Request profile changes" %}</h3>
-        <p>
-          {% trans "Changes to these fields require approval by MuckRock staff." %}
-        </p>
-        <form method="POST" action="{% url "organizations:request-profile-change" slug=organization.slug %}">
-          {% crispy profile_change_form profile_change_form.helper %}
-          
-          <button type="submit" class="btn primary">
-            {% if user.is_staff %}
-            {% trans "Save changes" %}
-            {% else %}
-            {% trans "Request changes" %}
-            {% endif %}
-          </button>
-        </form>
-      </div>
+      <form method="POST" action="{% url "organizations:request-profile-change" slug=organization.slug %}" class="form card">
+        {% crispy profile_change_form profile_change_form.helper %}
+        
+        <button type="submit" class="btn primary">
+          {% if user.is_staff %}
+          {% trans "Save changes" %}
+          {% else %}
+          {% trans "Request changes" %}
+          {% endif %}
+        </button>
+      </form>
     </section>
   </div>
 

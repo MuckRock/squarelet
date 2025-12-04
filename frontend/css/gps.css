@@ -456,7 +456,26 @@ strong {
   font-family: "Source Sans Pro";
 }
 
+.card {
+  padding: 2rem;
+  box-sizing: border-box;
+  border-radius: var(--radius-4);
+  box-shadow: var(--shadow-1);
+  background: var(--white);
+  color: var(--gray-5);
+  margin: 0 auto;
+}
+
 /* Form Fields */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-self: stretch;
+  width: 100%;
+  box-sizing: border-box;
+}
 
 .field {
   display: flex;
@@ -596,16 +615,20 @@ strong {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  padding: 0.75rem;
+  padding: 1rem;
   border-radius: 0.5rem;
   border: 1px solid var(--gray-2, #d8dee2);
-  background: var(--gray-1, #f5f6f7);
+  background: transparent;
 }
 
 .fieldset-legend {
   font-family: var(--font-sans, "Source Sans Pro");
   font-size: var(--font-md, 1rem);
   font-feature-settings: "ss04" on;
+  font-weight: 600;
+  color: currentColor;
+  background: transparent;
+  border: none;
 }
 
 .fieldset-fields {
