@@ -39,11 +39,6 @@ from squarelet.organizations.querysets import (
 
 logger = logging.getLogger(__name__)
 
-# This warning is a sign this file needs to be refactored.
-# TODO: Refactor some Organization-related models into separate files.
-# pylint: disable=too-many-lines
-
-
 def organization_file_path(instance, filename):
     return file_path("org_avatars", instance, filename)
 
