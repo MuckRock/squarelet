@@ -313,4 +313,3 @@ class TestSubscription:
 
         # Invoice won't be created due to error (webhook will handle it)
         assert Invoice.objects.count() == 0
-
