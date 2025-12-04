@@ -166,7 +166,7 @@ class TestSubscription:
             metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=None,
         )
-    
+
     @pytest.mark.django_db()
     def test_start_creates_invoice_with_card(
         self, subscription_factory, professional_plan_factory, mocker
