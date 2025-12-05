@@ -273,6 +273,7 @@ class OrganizationAdmin(VersionAdmin):
         "created_at",
         "updated_at",
         "avatar",
+        "about",
         "individual",
         "private",
         "verified_journalist",

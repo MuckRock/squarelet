@@ -13,7 +13,7 @@ from squarelet.core.templatetags.airtable import (
     airtable_form_url,
     airtable_verification_url,
 )
-from squarelet.organizations.models.organization import OrganizationUrl
+from squarelet.organizations.models.organization_metadata import OrganizationUrl
 
 
 class TestAirtableFormUrl:
