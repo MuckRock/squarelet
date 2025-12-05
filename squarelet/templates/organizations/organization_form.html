@@ -70,6 +70,11 @@
           <dd>{{ change.slug }}</dd>
           {% endif %}
 
+          {% if change.url %}
+          <dt>URL</dt>
+          <dd>{{ change.url }}</dd>
+          {% endif %}
+
           {% if change.city %}
           <dt>{% trans "City" %}</dt>
           <dd>{{ change.city }}</dd>

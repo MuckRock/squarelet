@@ -191,3 +191,39 @@ class TestProfileChangeRequestForm:
 
         assert form.is_valid(), form.errors
         assert form.cleaned_data["url"] == "https://example.com"
+
+    def test_url_must_be_unique_for_organization(
+        self, organization_factory, user_factory, rf
+    ):
+        """Test that duplicate URLs are rejected for the same organization"""
+        org = organization_factory(
+            name="Original Name",
+            slug="original-slug",
+        )
+        # Add an existing URL to the organization
+        org.urls.create(url="https://existing.com")
+
+        user = user_factory()
+        request = rf.post("/")
+        request.user = user
+
+        form_data = {
+            "name": "Original Name",
+            "slug": "original-slug",
+            "url": "https://existing.com",  # Duplicate URL
+            "explanation": "Adding existing URL",
+        }
+
+        initial = {
+            "name": org.name,
+            "slug": org.slug,
+        }
+
+        instance = ProfileChangeRequest(organization=org, user=user)
+        form = ProfileChangeRequestForm(
+            data=form_data, instance=instance, request=request, initial=initial
+        )
+
+        assert not form.is_valid()
+        assert "url" in form.errors
+        assert "already associated with the organization" in str(form.errors["url"])
