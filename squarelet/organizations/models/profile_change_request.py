@@ -47,10 +47,10 @@ class ProfileChangeRequest(models.Model):
     )
 
     created_at = AutoCreatedField(
-        _("created at"), help_text=_("When this organization was created")
+        _("created at"), help_text=_("When this request was created")
     )
     updated_at = AutoLastModifiedField(
-        _("updated at"), help_text=_("When this organization was last updated")
+        _("updated at"), help_text=_("When this request was last updated")
     )
 
     # these are change requests, so they can be blank
