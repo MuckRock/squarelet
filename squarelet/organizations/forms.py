@@ -298,6 +298,11 @@ class ProfileChangeRequestForm(forms.ModelForm):
         )
         self.fields["explanation"].required = not getattr(user, "is_staff", False)
 
+        for field in ProfileChangeRequest.FIELDS:
+            current = getattr(self.instance.organization, field, None)
+            if current:
+                self.fields[field].widget.attrs["placeholder"] = current
+
         self.helper = FormHelper()
         self.helper.template_pack = "forms"
         self.helper.layout = Layout(
