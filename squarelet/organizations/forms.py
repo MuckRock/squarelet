@@ -284,6 +284,8 @@ class ProfileChangeRequestForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop("request", None)
+        user = getattr(self.request, "user", None)
+
         super().__init__(*args, **kwargs)
 
         # Set help text
@@ -294,6 +296,7 @@ class ProfileChangeRequestForm(forms.ModelForm):
             "Explain why you are requesting these changes "
             "(required for staff review)."
         )
+        self.fields["explanation"].required = not getattr(user, "is_staff", False)
 
         self.helper = FormHelper()
         self.helper.template_pack = "forms"
@@ -319,7 +322,7 @@ class ProfileChangeRequestForm(forms.ModelForm):
         changed_fields = []
 
         for field in fields_to_check:
-            initial_value = self.initial.get(field)
+            initial_value = getattr(self.instance.organization, field, None)
             new_value = cleaned_data.get(field)
 
             # If the value hasn't changed, clear it
@@ -327,6 +330,13 @@ class ProfileChangeRequestForm(forms.ModelForm):
                 cleaned_data[field] = ""
             elif new_value:
                 changed_fields.append(field)
+
+        # Check if URL already exists for this organization
+        if cleaned_data.get("url") and self.instance and self.instance.organization:
+            if self.instance.organization.urls.filter(url=cleaned_data["url"]).exists():
+                raise forms.ValidationError(
+                    {"url": _("This URL is already associated with the organization.")}
+                )
 
         # At least one field must have changed
         if not changed_fields:
