@@ -350,16 +350,10 @@ class Update(OrganizationAdminMixin, UpdateView):
             organization=self.object,
             user=self.request.user,
         )
+
         context["profile_change_form"] = ProfileChangeRequestForm(
             instance=profile_change_request,
             request=self.request,
-            initial={
-                "name": self.object.name,
-                "slug": self.object.slug,
-                "city": self.object.city,
-                "state": self.object.state,
-                "country": self.object.country,
-            },
         )
         # Include any pending profile change requests
         context["pending_change_requests"] = self.object.profile_change_requests.filter(
