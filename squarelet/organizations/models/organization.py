@@ -36,6 +36,7 @@ from squarelet.organizations.querysets import (
 
 logger = logging.getLogger(__name__)
 
+
 def organization_file_path(instance, filename):
     return file_path("org_avatars", instance, filename)
 

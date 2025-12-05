@@ -138,6 +138,10 @@ class ProfileChangeRequest(models.Model):
                 if value := getattr(self, field):
                     setattr(self.organization, field, value)
 
+            # Handle URL field - create an OrganizationUrl if set
+            if self.url:
+                self.organization.urls.create(url=self.url)
+
             self.save()
             self.organization.save()
 
