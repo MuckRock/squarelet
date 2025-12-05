@@ -286,44 +286,14 @@ class ProfileChangeRequestForm(forms.ModelForm):
         self.request = kwargs.pop("request", None)
         super().__init__(*args, **kwargs)
 
-        # Populate placeholders with current organization values
-        if self.instance and self.instance.organization:
-            org = self.instance.organization
-            self.fields["name"].widget.attrs["placeholder"] = org.name
-            self.fields["slug"].widget.attrs["placeholder"] = org.slug
-            self.fields["city"].widget.attrs["placeholder"] = org.city or _("City")
-            self.fields["state"].widget.attrs[
-                "placeholder"
-            ] = org.get_state_display() or _("State")
-            self.fields["country"].widget.attrs[
-                "placeholder"
-            ] = org.get_country_display() or _("Country")
-
-            # Update help text to show current values
-            self.fields["name"].help_text = _(
-                f"Current: {org.name}. Leave blank to keep unchanged."
-            )
-            self.fields["slug"].help_text = _(
-                f"Current: {org.slug}. Leave blank to keep unchanged."
-            )
-            self.fields["city"].help_text = _(
-                f"Current: {org.city or 'Not set'}. Leave blank to keep unchanged."
-            )
-            self.fields["state"].help_text = _(
-                f"Current: {org.get_state_display() or 'Not set'}. "
-                "Leave blank to keep unchanged."
-            )
-            self.fields["country"].help_text = _(
-                f"Current: {org.get_country_display() or 'Not set'}. "
-                "Leave blank to keep unchanged."
-            )
-            self.fields["url"].help_text = _(
-                "Add a URL to associate with this organization."
-            )
-            self.fields["explanation"].help_text = _(
-                "Explain why you are requesting these changes "
-                "(required for staff review)."
-            )
+        # Set help text
+        self.fields["url"].help_text = _(
+            "Add a URL to associate with this organization."
+        )
+        self.fields["explanation"].help_text = _(
+            "Explain why you are requesting these changes "
+            "(required for staff review)."
+        )
 
         self.helper = FormHelper()
         self.helper.template_pack = "forms"
@@ -344,12 +314,23 @@ class ProfileChangeRequestForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
 
-        # At least one field must be filled
+        # Only keep fields that have changed from their initial values
         fields_to_check = ["name", "slug", "url", "city", "state", "country"]
-        if not any(cleaned_data.get(field) for field in fields_to_check):
-            raise forms.ValidationError(
-                _("You must provide at least one field to change.")
-            )
+        changed_fields = []
+
+        for field in fields_to_check:
+            initial_value = self.initial.get(field)
+            new_value = cleaned_data.get(field)
+
+            # If the value hasn't changed, clear it
+            if new_value == initial_value:
+                cleaned_data[field] = ""
+            elif new_value:
+                changed_fields.append(field)
+
+        # At least one field must have changed
+        if not changed_fields:
+            raise forms.ValidationError(_("You must change at least one field."))
 
         # Explanation is required for non-staff users when requesting changes
         if self.request and not self.request.user.is_staff:
