@@ -114,6 +114,31 @@ class TestProfileChangeRequest:
         # Country should remain unchanged (blank in request)
         assert request.organization.country == "US"
 
+    @pytest.mark.django_db(transaction=True)
+    def test_accept_creates_organization_url(
+        self, profile_change_request_factory, mocker
+    ):
+        """Test that accept() creates an OrganizationUrl when url field is set"""
+        mocker.patch(
+            "squarelet.organizations.models.profile_change_request"
+            ".send_cache_invalidations"
+        )
+
+        request = profile_change_request_factory(
+            status="pending",
+            url="https://example.com",
+        )
+
+        # Verify no URLs exist initially
+        assert request.organization.urls.count() == 0
+
+        request.accept()
+
+        # Verify URL was created
+        assert request.organization.urls.count() == 1
+        org_url = request.organization.urls.first()
+        assert org_url.url == "https://example.com"
+
     @pytest.mark.django_db()
     def test_reject_updates_status(self, profile_change_request_factory):
         """Test that reject() updates status but doesn't modify organization"""
