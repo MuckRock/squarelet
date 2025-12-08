@@ -8,6 +8,7 @@ import stripe
 # Squarelet
 from .test_invoice import Invoice, create_mock_stripe_invoice
 
+
 class TestSubscription:
     """Unit tests for the Subscription model"""
 
