@@ -376,7 +376,7 @@ class RequestProfileChange(OrganizationAdminMixin, CreateView):
         """Get the organization from the URL"""
         return self.queryset.get(slug=self.kwargs["slug"])
 
-    def get(self, request, **kwargs):
+    def get(self, request, *args, **kwargs):
         """Redirect GET requests back to the organization profile page"""
         return redirect("organizations:detail", slug=kwargs["slug"])
 
