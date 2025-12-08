@@ -32,6 +32,7 @@ def create_mock_stripe_invoice(invoice_id, amount_due, status, created, due_date
     mock_invoice.id = invoice_id
     return mock_invoice
 
+
 class TestSubscription:
     """Unit tests for the Subscription model"""
 
