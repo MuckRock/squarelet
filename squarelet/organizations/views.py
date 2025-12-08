@@ -18,7 +18,6 @@ from django.http.response import (
 )
 from django.shortcuts import redirect
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
@@ -32,7 +31,6 @@ import json
 import logging
 import re
 import sys
-from datetime import timedelta
 
 # Third Party
 import stripe
@@ -44,10 +42,10 @@ from fuzzywuzzy import fuzz, process
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import (
-    create_zendesk_ticket,
     format_stripe_error,
     get_redirect_url,
     get_stripe_dashboard_url,
+    is_rate_limited,
 )
 from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.denylist_domains import DENYLIST_DOMAINS
@@ -140,37 +138,30 @@ class Detail(AdminLinkMixin, DetailView):
             messages.success(request, "You have successfully joined the organization!")
             return
 
-        # For normal requests to join, check rate limit
-        window_start = timezone.now() - timedelta(
-            seconds=settings.ORG_JOIN_REQUEST_WINDOW
-        )
-        recent_requests = Invitation.objects.filter(
-            user=user, request=True, created_at__gte=window_start
-        ).count()
-
-        if recent_requests >= settings.ORG_JOIN_REQUEST_LIMIT:
+        if is_rate_limited(
+            user=user,
+            count_fn=lambda user, window_start: Invitation.objects.filter(
+                user=user, request=True, created_at__gte=window_start
+            ).count(),
+            limit=settings.ORG_JOIN_REQUEST_LIMIT,
+            window_seconds=settings.ORG_JOIN_REQUEST_WINDOW,
+            zendesk_subject="User reached join-request rate limit",
+            zendesk_description=(
+                "The following user has reached the "
+                "rate-limit for joining organizations, "
+                "sending {recent_requests} requests in the last "
+                f"{settings.ORG_JOIN_REQUEST_WINDOW} seconds:\n\n"
+                f"{settings.SQUARELET_URL}" + f"{user.get_absolute_url()}\n\n"
+                "This is a signal that the user may be "
+                "using their account in an inappropriate way."
+            ),
+        ):
             messages.error(
                 request,
                 f"You have reached the limit of {settings.ORG_JOIN_REQUEST_LIMIT} "
                 "join requests in the last "
                 f"{settings.ORG_JOIN_REQUEST_WINDOW // 60} minutes. "
                 "Please try again later.",
-            )
-
-            # Create ZenDesk ticket for review
-            create_zendesk_ticket(
-                subject="User reached join-request rate limit "
-                f"({recent_requests} requests)",
-                description=(
-                    "The following user has reached the "
-                    "rate-limit for joining organizations, "
-                    f"sending {recent_requests} requests in the last "
-                    f"{settings.ORG_JOIN_REQUEST_WINDOW} seconds:\n\n"
-                    f"{settings.SQUARELET_URL}{user.get_absolute_url()}\n\n"
-                    "This is a signal that the user may be "
-                    "using their account in an inappropriate way."
-                ),
-                tags=["rate-limit", "join-request"],
             )
             return
 

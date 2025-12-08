@@ -1,12 +1,14 @@
 # Django
 from django.conf import settings
 from django.http import HttpResponseRedirect
+from django.utils import timezone
 
 # Standard Library
 import logging
 import os.path
 import sys
 import uuid
+from datetime import timedelta
 from hashlib import md5
 from urllib.parse import quote
 
@@ -295,3 +297,44 @@ def get_redirect_url(request, fallback):
 
     # Otherwise, treat it as a URL string
     return HttpResponseRedirect(fallback)
+
+
+def is_rate_limited(
+    user,
+    count_fn,
+    limit,
+    window_seconds,
+    zendesk_subject=None,
+    zendesk_description=None,
+):
+    """
+    Generic rate-limiter.
+
+    Args:
+        user: The user performing the action
+        count_fn: The function we use to count
+        limit: Max allowed actions
+        window_seconds: Duration of the window in seconds
+        zendesk_subject: Optional subject for Zendesk ticket if rate limited
+        zendesk_description: Optional description for Zendesk ticket
+
+    Returns:
+        True if rate limited, False otherwise.
+    """
+    window_start = timezone.now() - timedelta(seconds=window_seconds)
+    recent_requests = count_fn(user, window_start)
+
+    if recent_requests >= limit:
+        if zendesk_subject and zendesk_description:
+            create_zendesk_ticket(
+                subject=zendesk_subject.format(
+                    recent_requests=recent_requests, user=user
+                ),
+                description=zendesk_description.format(
+                    recent_requests=recent_requests, user=user
+                ),
+                tags=["rate-limit", "join-request"],
+            )
+        return True
+
+    return False
