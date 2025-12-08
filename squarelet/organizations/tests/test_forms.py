@@ -13,7 +13,7 @@ class TestProfileChangeRequestForm:
     """Test ProfileChangeRequestForm"""
 
     def test_unchanged_fields_are_cleared(
-        self, organization_factory, user_factory, request_factory
+        self, organization_factory, user_factory, rf  # pylint: disable=invalid-name
     ):
         """Test that fields with unchanged values are cleared"""
         org = organization_factory(
@@ -24,7 +24,7 @@ class TestProfileChangeRequestForm:
             country="US",
         )
         user = user_factory()
-        request = request_factory.post("/")
+        request = rf.post("/")
         request.user = user
 
         # Create form with initial values from organization
@@ -63,7 +63,7 @@ class TestProfileChangeRequestForm:
         assert cleaned["state"] == "CA"
 
     def test_requires_at_least_one_change(
-        self, organization_factory, user_factory, request_factory
+        self, organization_factory, user_factory, rf  # pylint: disable=invalid-name
     ):
         """Test that form requires at least one field to be changed"""
         org = organization_factory(
@@ -74,7 +74,7 @@ class TestProfileChangeRequestForm:
             country="US",
         )
         user = user_factory()
-        request = request_factory.post("/")
+        request = rf.post("/")
         request.user = user
 
         # Submit form with no changes
@@ -104,7 +104,7 @@ class TestProfileChangeRequestForm:
         assert "You must change at least one field." in str(form.errors)
 
     def test_staff_user_does_not_require_explanation(
-        self, organization_factory, user_factory, request_factory
+        self, organization_factory, user_factory, rf  # pylint: disable=invalid-name
     ):
         """Test that staff users don't need to provide an explanation"""
         org = organization_factory(
@@ -112,7 +112,7 @@ class TestProfileChangeRequestForm:
             slug="original-slug",
         )
         staff_user = user_factory(is_staff=True)
-        request = request_factory.post("/")
+        request = rf.post("/")
         request.user = staff_user
 
         form_data = {
@@ -134,7 +134,7 @@ class TestProfileChangeRequestForm:
         assert form.is_valid(), form.errors
 
     def test_non_staff_user_requires_explanation(
-        self, organization_factory, user_factory, request_factory
+        self, organization_factory, user_factory, rf  # pylint: disable=invalid-name
     ):
         """Test that non-staff users must provide an explanation"""
         org = organization_factory(
@@ -142,7 +142,7 @@ class TestProfileChangeRequestForm:
             slug="original-slug",
         )
         user = user_factory(is_staff=False)
-        request = request_factory.post("/")
+        request = rf.post("/")
         request.user = user
 
         form_data = {
@@ -167,7 +167,7 @@ class TestProfileChangeRequestForm:
         )
 
     def test_url_field_accepts_new_url(
-        self, organization_factory, user_factory, request_factory
+        self, organization_factory, user_factory, rf  # pylint: disable=invalid-name
     ):
         """Test that URL field accepts new URLs even when not initially set"""
         org = organization_factory(
@@ -175,7 +175,7 @@ class TestProfileChangeRequestForm:
             slug="original-slug",
         )
         user = user_factory()
-        request = request_factory.post("/")
+        request = rf.post("/")
         request.user = user
 
         form_data = {
@@ -199,7 +199,7 @@ class TestProfileChangeRequestForm:
         assert form.cleaned_data["url"] == "https://example.com"
 
     def test_url_must_be_unique_for_organization(
-        self, organization_factory, user_factory, request_factory
+        self, organization_factory, user_factory, rf  # pylint: disable=invalid-name
     ):
         """Test that duplicate URLs are rejected for the same organization"""
         org = organization_factory(
@@ -210,7 +210,7 @@ class TestProfileChangeRequestForm:
         org.urls.create(url="https://existing.com")
 
         user = user_factory()
-        request = request_factory.post("/")
+        request = rf.post("/")
         request.user = user
 
         form_data = {
