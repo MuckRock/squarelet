@@ -255,14 +255,24 @@ class PlanDetailView(DetailView):
                         )
                         return redirect(plan)
 
-            # Proceed with subscription
-            organization.set_subscription(
-                token=stripe_token,
-                plan=plan,
-                max_users=plan.minimum_users,
-                user=request.user,
-                payment_method=payment_method,
-            )
+                    # Set subscription inside transaction to prevent race
+                    # between getting a correct count and activating the subscription
+                    organization.set_subscription(
+                        token=stripe_token,
+                        plan=plan,
+                        max_users=plan.minimum_users,
+                        user=request.user,
+                        payment_method=payment_method,
+                    )
+            else:
+                # Non-Sunlight plans don't need transaction protection
+                organization.set_subscription(
+                    token=stripe_token,
+                    plan=plan,
+                    max_users=plan.minimum_users,
+                    user=request.user,
+                    payment_method=payment_method,
+                )
 
             # Success - redirect to organization page
             messages.success(request, _("Succesfully subscribed"))

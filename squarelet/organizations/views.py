@@ -133,12 +133,16 @@ class Detail(AdminLinkMixin, DetailView):
 
         # Auto join if allowed
         if user.can_auto_join(self.organization):
+            # Auto-join the user to the organization (no invitation needed)
             self.organization.memberships.create(user=user)
             if self.organization.plan and self.organization.plan.wix:
                 sync_wix.delay(
                     self.organization.pk,
                     self.organization.plan.pk,
-                    user.pk,
+                    user.pk
+                )
+                messages.success(
+                    request, _("You have successfully joined the organization!")
                 )
             messages.success(request, "You have successfully joined the organization!")
             return
@@ -226,10 +230,13 @@ class Detail(AdminLinkMixin, DetailView):
         self.organization = self.get_object()
         if self.request.user.is_staff and self.organization.plan.wix:
             for wix_user in self.organization.users.all():
-                sync_wix.delay(
-                    self.organization.pk,
-                    self.organization.plan.pk,
-                    wix_user.pk,
+                # Use on_commit to ensure Wix sync runs after any pending transactions
+                transaction.on_commit(
+                    lambda u=wix_user: sync_wix.delay(
+                        self.organization.pk,
+                        self.organization.plan.pk,
+                        u.pk,
+                    )
                 )
             messages.success(request, _("Wix sync started"))
 

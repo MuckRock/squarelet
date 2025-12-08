@@ -440,8 +440,13 @@ class Organization(AvatarMixin, models.Model):
         self.max_users = max_users
         self.save()
         if plan and plan.wix:
+            # Use on_commit to ensure Wix sync only runs after transaction commits
+            # This prevents race conditions where sync tasks might run before
+            # organization/membership data is fully committed to the database
             for wix_user in self.users.all():
-                sync_wix.delay(self.pk, plan.pk, wix_user.pk)
+                transaction.on_commit(
+                    lambda u=wix_user: sync_wix.delay(self.pk, plan.pk, u.pk)
+                )
 
         if not self.plan and plan:
             # create a subscription going from no plan to plan
@@ -806,10 +811,13 @@ class Invitation(models.Model):
         if not self.organization.has_member(self.user):
             Membership.objects.create(organization=self.organization, user=self.user)
             if self.organization.plan and self.organization.plan.wix:
-                sync_wix.delay(
-                    self.organization_id,
-                    self.organization.plan.pk,
-                    self.user.pk,
+                # Use on_commit to ensure Wix sync runs after membership is committed
+                transaction.on_commit(
+                    lambda: sync_wix.delay(
+                        self.organization_id,
+                        self.organization.plan.pk,
+                        self.user.pk,
+                    )
                 )
 
     def reject(self):
