@@ -100,15 +100,13 @@
           <div>
             <form method="POST" action="{% url 'organizations:review-profile-change' slug=organization.slug pk=change.pk %}" style="display: inline;">
               {% csrf_token %}
-              <input type="hidden" name="action" value="accept">
-              <button type="submit" class="btn small primary">
+              <button type="submit" class="btn small primary" value="accept">
                 {% trans "Accept" %}
               </button>
             </form>
             <form method="POST" action="{% url 'organizations:review-profile-change' slug=organization.slug pk=change.pk %}" style="display: inline;">
               {% csrf_token %}
-              <input type="hidden" name="action" value="reject">
-              <button type="submit" class="btn small">
+              <button type="submit" class="btn small" value="reject">
                 {% trans "Reject" %}
               </button>
             </form>
