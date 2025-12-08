@@ -11,6 +11,7 @@ import time
 
 # Third Party
 import pytest
+from allauth.account.models import EmailAddress
 
 # Squarelet
 from squarelet.core.tests.mixins import ViewTestMixin
@@ -40,6 +41,47 @@ class TestUserDetailView(ViewTestMixin):
         other_user = user_factory()
         with pytest.raises(Http404):
             self.call_view(rf, other_user, username=user.username)
+
+    def test_primary_email_first(self, rf, user_factory):
+        """Test that primary email appears first in the emails list"""
+
+        user = user_factory()
+        # Clear any existing email addresses
+        EmailAddress.objects.filter(user=user).delete()
+
+        # Assign multiple email addresses to the user,
+        # such that the primary is not alphabetically first
+        EmailAddress.objects.create(
+            user=user, email="a-first@example.com", primary=False, verified=True
+        )
+        EmailAddress.objects.create(
+            user=user, email="z-last@example.com", primary=True, verified=True
+        )
+        EmailAddress.objects.create(
+            user=user,
+            email="m-middle@example.com",
+            primary=False,
+            verified=False,
+        )
+
+        response = self.call_view(rf, user, username=user.username)
+        assert response.status_code == 200
+
+        # Get the emails from context
+        emails = list(response.context_data["emails"])
+
+        # We should have all three emails
+        assert len(emails) == 3
+
+        # The primary email should be first
+        assert emails[0].primary is True
+        assert emails[0].email == "z-last@example.com"
+
+        # The other non-primary emails should follow alphabetically
+        assert emails[1].primary is False
+        assert emails[1].email == "a-first@example.com"
+        assert emails[2].primary is False
+        assert emails[2].email == "m-middle@example.com"
 
 
 @pytest.mark.django_db()

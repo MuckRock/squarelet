@@ -147,7 +147,7 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         context["individually_verified"] = (
             user.individual_organization.verified_journalist
         )
-        context["emails"] = user.emailaddress_set.all()
+        context["emails"] = user.emailaddress_set.order_by("-primary")
         context["has_unverified_emails"] = user.emailaddress_set.filter(
             verified=False
         ).exists()
