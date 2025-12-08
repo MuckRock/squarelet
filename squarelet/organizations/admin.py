@@ -34,6 +34,7 @@ from squarelet.organizations.models import (
     OrganizationType,
     OrganizationUrl,
     Plan,
+    ProfileChangeRequest,
     ReceiptEmail,
     Subscription,
 )
@@ -208,6 +209,11 @@ class OverdueInvoiceFilter(admin.SimpleListFilter):
         return queryset
 
 
+class ProfileChangeRequestInline(admin.StackedInline):
+    model = ProfileChangeRequest
+    extra = 0
+
+
 @admin.register(Organization)
 class OrganizationAdmin(VersionAdmin):
     def export_organizations_as_csv(self, request, queryset):
@@ -317,6 +323,7 @@ class OrganizationAdmin(VersionAdmin):
         MembershipInline,
         ReceiptEmailInline,
         InvitationInline,
+        ProfileChangeRequestInline,
     )
 
     def get_queryset(self, request):
