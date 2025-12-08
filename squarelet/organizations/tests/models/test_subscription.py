@@ -3,6 +3,7 @@ import pytest
 from unittest.mock import Mock
 
 
+
 class TestSubscription:
     """Unit tests for the Subscription model"""
 
