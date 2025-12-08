@@ -12,6 +12,7 @@ from django.utils.translation import gettext_lazy as _
 
 # Third Party
 import sesame
+from allauth.mfa.utils import is_mfa_enabled
 from memoize import mproperty
 from sorl.thumbnail import ImageField
 
@@ -201,6 +202,11 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
     def date_joined(self):
         """Alias date joined to create_at for third party apps"""
         return self.created_at
+
+    @property
+    def has_mfa_enabled(self):
+        """Check if the user has MFA enabled"""
+        return is_mfa_enabled(self)
 
     def save(self, *args, **kwargs):
         with transaction.atomic():
