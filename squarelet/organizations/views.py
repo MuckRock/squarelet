@@ -290,6 +290,7 @@ def autocomplete(request):
 class UpdateSubscription(OrganizationAdminMixin, UpdateView):
     queryset = Organization.objects.filter(individual=False)
     form_class = PaymentForm
+    template_name = "organizations/organization_payment.html"
 
     def form_valid(self, form):
         organization = self.object
@@ -342,6 +343,7 @@ class Update(OrganizationAdminMixin, UpdateView):
 
     queryset = Organization.objects.filter(individual=False)
     form_class = UpdateForm
+    template_name = "organizations/organization_update.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
