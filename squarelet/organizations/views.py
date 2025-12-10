@@ -123,17 +123,8 @@ class Detail(AdminLinkMixin, DetailView):
         if not is_member:
             if self.request.user.can_auto_join(self.organization):
                 # Auto-join the user to the organization (no invitation needed)
+                # Wix sync will be triggered automatically by Membership.save()
                 self.organization.memberships.create(user=self.request.user)
-                if self.organization.plan and self.organization.plan.wix:
-                    # Use on_commit to ensure Wix sync runs after commit
-                    # to avoid race condition where the user is not yet a member
-                    transaction.on_commit(
-                        lambda: sync_wix.delay(
-                            self.organization.pk,
-                            self.organization.plan.pk,
-                            self.request.user.pk,
-                        )
-                    )
                 messages.success(
                     request, _("You have successfully joined the organization!")
                 )
