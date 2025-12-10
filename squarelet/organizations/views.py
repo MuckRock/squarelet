@@ -149,8 +149,8 @@ class Detail(AdminLinkMixin, DetailView):
             zendesk_description=(
                 "The following user has reached the "
                 "rate-limit for joining organizations, "
-                "sending {recent_requests} requests in the last "
-                f"{settings.ORG_JOIN_REQUEST_WINDOW} seconds:\n\n"
+                f"sending {settings.ORG_JOIN_REQUEST_LIMIT} requests in the last "
+                f"{int(settings.ORG_JOIN_REQUEST_WINDOW / 3600)} hours\n\n"
                 f"{settings.SQUARELET_URL}" + f"{user.get_absolute_url()}\n\n"
                 "This is a signal that the user may be "
                 "using their account in an inappropriate way."

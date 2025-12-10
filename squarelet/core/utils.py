@@ -306,6 +306,7 @@ def is_rate_limited(
     window_seconds,
     zendesk_subject=None,
     zendesk_description=None,
+    extra_tags=None,
 ):
     """
     Generic rate-limiter.
@@ -317,23 +318,24 @@ def is_rate_limited(
         window_seconds: Duration of the window in seconds
         zendesk_subject: Optional subject for Zendesk ticket if rate limited
         zendesk_description: Optional description for Zendesk ticket
+        extra_tags: Optional list of additional Zendesk tags
 
     Returns:
         True if rate limited, False otherwise.
     """
     window_start = timezone.now() - timedelta(seconds=window_seconds)
-    recent_requests = count_fn(user, window_start)
+    recent_actions = count_fn(user, window_start)
 
-    if recent_requests >= limit:
+    if recent_actions >= limit:
         if zendesk_subject and zendesk_description:
+            # Always include "rate-limit", allow caller to add additional tags
+            tags = ["rate-limit"]
+            if extra_tags:
+                tags.extend(extra_tags)
             create_zendesk_ticket(
-                subject=zendesk_subject.format(
-                    recent_requests=recent_requests, user=user
-                ),
-                description=zendesk_description.format(
-                    recent_requests=recent_requests, user=user
-                ),
-                tags=["rate-limit", "join-request"],
+                subject=zendesk_subject,
+                description=zendesk_description,
+                tags=tags,
             )
         return True
 
