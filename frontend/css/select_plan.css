@@ -308,7 +308,8 @@
     fill: var(--blue-3);
   }
 
-  /* Sunlight Research Section */
+  /* Sunlight Research Desk Membership */
+  
   .sunlight.plan header {
     flex-direction: column;
     align-items: center;
