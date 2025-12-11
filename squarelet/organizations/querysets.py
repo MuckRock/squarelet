@@ -160,6 +160,34 @@ class InvitationQuerySet(models.QuerySet):
         return self.exclude(rejected_at=None)
 
 
+class OrganizationInvitationQuerySet(models.QuerySet):
+    def pending(self):
+        """Return pending invitations (neither accepted nor rejected)"""
+        return self.filter(accepted_at=None, rejected_at=None)
+
+    def accepted(self):
+        """Return accepted invitations"""
+        return self.exclude(accepted_at=None)
+
+    def rejected(self):
+        """Return rejected invitations"""
+        return self.exclude(rejected_at=None)
+
+    def invitations(self):
+        """Return pending invitations (not requests)"""
+        return self.pending().filter(request=False)
+
+    def requests(self):
+        """Return pending requests (not invitations)"""
+        return self.pending().filter(request=True)
+
+    def for_organization(self, organization):
+        """Return invitations to or from the given organization"""
+        return self.filter(
+            Q(from_organization=organization) | Q(to_organization=organization)
+        )
+
+
 class ChargeQuerySet(models.QuerySet):
     def make_charge(
         self,

@@ -1,4 +1,5 @@
 # Django
+from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.templatetags.static import static
 from django.urls import reverse
@@ -26,11 +27,13 @@ from squarelet.organizations.choices import (
     COUNTRY_CHOICES,
     STATE_CHOICES,
     ChangeLogReason,
+    RelationshipType,
 )
 from squarelet.organizations.models.payment import Charge
 from squarelet.organizations.querysets import (
     InvitationQuerySet,
     MembershipQuerySet,
+    OrganizationInvitationQuerySet,
     OrganizationQuerySet,
 )
 
@@ -287,6 +290,24 @@ class Organization(AvatarMixin, models.Model):
         help_text=(
             "Allow users to join automatically if one "
             "of their verified emails matches the email domain for this organization."
+        ),
+    )
+
+    collective_enabled = models.BooleanField(
+        _("collective enabled"),
+        default=False,
+        help_text=_(
+            "Enable this organization to participate in the collective feature as a "
+            "parent or membership group. Only staff can enable this via admin."
+        ),
+    )
+
+    share_resources = models.BooleanField(
+        _("share resources"),
+        default=True,
+        help_text=_(
+            "Share resources (subscriptions, credits) with all children and member "
+            "organizations. Global toggle that applies to all relationships."
         ),
     )
 
@@ -563,6 +584,39 @@ class Organization(AvatarMixin, models.Model):
             or (self.parent and self.parent.is_hub_eligible)
         )
 
+    # Organization Collective Methods
+
+    def get_effective_verification(self):
+        """
+        Check if this org is verified, either directly or through inheritance.
+
+        Returns True if:
+        - Org has verified_journalist=True, OR
+        - Any group the org belongs to is verified (automatic inheritance), OR
+        - Org's parent is verified (recursive)
+        """
+        # Direct verification
+        if self.verified_journalist:
+            return True
+
+        # Check membership groups (automatic inheritance)
+        if self.groups.filter(verified_journalist=True).exists():
+            return True
+
+        # Check parent (recursive)
+        if self.parent:
+            return self.parent.get_effective_verification()
+
+        return False
+
+    def can_invite_org_members(self, user):
+        """
+        Check if the given user can invite orgs to be members of this org.
+        User must be an admin, org must have collective enabled, and org cannot be
+        individual.
+        """
+        return not self.individual and self.collective_enabled and self.has_admin(user)
+
     def has_member_by_email(self, email):
         """Check if a user with an email is already a member of the organization."""
         return Membership.objects.filter(
@@ -611,6 +665,9 @@ class Organization(AvatarMixin, models.Model):
             organization=self
         )
         org.invitations.all().delete()
+
+        org.outgoing_org_invitations.update(from_organization=self)
+        org.incoming_org_invitations.update(to_organization=self)
 
         org.receipt_emails.exclude(
             email__in=self.receipt_emails.values("email")
@@ -837,6 +894,177 @@ class Invitation(models.Model):
             return f"{self.user.name} ({self.email})"
         else:
             return self.email
+
+
+class OrganizationInvitation(models.Model):
+    """
+    Invitation for an organization to join another organization
+    as a member (in a membership group) or child (in a parent-child hierarchy).
+
+    Can be either:
+    - An invitation: group/parent invites an org to join
+    - A request: org requests to join a group
+    """
+
+    objects = OrganizationInvitationQuerySet.as_manager()
+
+    uuid = models.UUIDField(
+        _("UUID"),
+        default=uuid.uuid4,
+        editable=False,
+        unique=True,
+        help_text=_("UUID serves as secret token for this invitation in URLs"),
+    )
+
+    from_organization = models.ForeignKey(
+        verbose_name=_("from organization"),
+        to="organizations.Organization",
+        on_delete=models.CASCADE,
+        related_name="outgoing_org_invitations",
+        help_text=_(
+            "The organization extending the invitation or receiving the request.  "
+            "This is always the organization that is the parent or group."
+        ),
+    )
+
+    to_organization = models.ForeignKey(
+        verbose_name=_("to organization"),
+        to="organizations.Organization",
+        on_delete=models.CASCADE,
+        related_name="incoming_org_invitations",
+        help_text=_(
+            "The organization being invited.  This is always the child or member"
+        ),
+    )
+
+    relationship_type = models.PositiveSmallIntegerField(
+        _("relationship type"),
+        choices=RelationshipType.choices,
+        help_text=_("Type of relationship: member or child"),
+    )
+
+    request = models.BooleanField(
+        _("request"),
+        default=False,
+        help_text=_(
+            "True if this is a request TO JOIN from to_organization. "
+            "False if this is an invitation FROM from_organization."
+        ),
+    )
+
+    created_at = AutoCreatedField(
+        _("created at"), help_text=_("When this invitation was created")
+    )
+
+    accepted_at = models.DateTimeField(
+        _("accepted at"),
+        blank=True,
+        null=True,
+        help_text=_("When accepted (NULL if pending)"),
+    )
+
+    rejected_at = models.DateTimeField(
+        _("rejected at"),
+        blank=True,
+        null=True,
+        help_text=_("When rejected (NULL if pending)"),
+    )
+
+    message = models.TextField(
+        _("message"),
+        blank=True,
+        help_text=_("Optional message from the inviter"),
+    )
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self):
+        direction = "Request from" if self.request else "Invitation to"
+        return f"{direction} {self.to_organization} by {self.from_organization}"
+
+    def clean(self):
+        """Validate invitation requirements"""
+
+        if self.accepted_at and self.rejected_at:
+            raise ValidationError("Cannot be both accepted and rejected")
+
+        # Verify from org has collective enabled
+        if self.from_organization and not self.from_organization.collective_enabled:
+            raise ValidationError(
+                f"{self.from_organization.name} does not have collective feature enabled"
+            )
+
+    @property
+    def is_pending(self):
+        """Is this invitation still pending (not accepted or rejected)?"""
+        return self.accepted_at is None and self.rejected_at is None
+
+    @property
+    def is_accepted(self):
+        """Has this invitation been accepted?"""
+        return self.accepted_at is not None
+
+    @property
+    def is_rejected(self):
+        """Has this invitation been rejected?"""
+        return self.rejected_at is not None
+
+    def send(self):
+        """Send email notification for this invitation/request"""
+        if self.request:
+            # This is a request TO JOIN - notify group admins
+            send_mail(
+                subject=_(
+                    f"{self.to_organization} has requested to join "
+                    f"{self.from_organization}"
+                ),
+                template="organizations/email/org_join_request.html",
+                organization=self.from_organization,
+                organization_to=ORG_TO_ADMINS,
+                extra_context={
+                    "invitation": self,
+                    "requesting_org": self.to_organization,
+                },
+            )
+        else:
+            # This is an invitation TO the org - notify target org admins
+            send_mail(
+                subject=_(f"Invitation to join {self.from_organization.name}"),
+                template="organizations/email/org_invitation.html",
+                organization=self.to_organization,
+                organization_to=ORG_TO_ADMINS,
+                extra_context={"invitation": self},
+            )
+
+    @transaction.atomic
+    def accept(self):
+        """Accept this invitation/request"""
+
+        if not self.is_pending:
+            raise ValueError("This invitation has already been processed")
+
+        self.accepted_at = timezone.now()
+        self.save()
+
+        # Create the relationship based on type
+        if self.relationship_type == RelationshipType.member:
+            # Add to membership group (simple M2M)
+            self.from_organization.members.add(self.to_organization)
+        elif self.relationship_type == RelationshipType.child:
+            # Set parent relationship
+            self.to_organization.parent = self.from_organization
+            self.to_organization.save()
+
+    @transaction.atomic
+    def reject(self):
+        """Reject this invitation/request"""
+
+        if not self.is_pending:
+            raise ValueError("This invitation has already been processed")
+
+        self.rejected_at = timezone.now()
+        self.save()
 
 
 class ReceiptEmail(models.Model):
