@@ -13,6 +13,7 @@ from squarelet.organizations.tests.factories import (
     InvitationFactory,
     MembershipFactory,
     OrganizationFactory,
+    OrganizationInvitationFactory,
     OrganizationPlanFactory,
     PlanFactory,
     ProfessionalPlanFactory,
@@ -26,6 +27,7 @@ register(IndividualOrganizationFactory)
 register(InvitationFactory)
 register(MembershipFactory)
 register(OrganizationFactory)
+register(OrganizationInvitationFactory)
 register(OrganizationPlanFactory)
 register(ProfessionalPlanFactory)
 register(SubscriptionFactory)
