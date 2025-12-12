@@ -234,12 +234,14 @@
     <header>
       <h2 class="header-display">
         {% blocktrans %}
-        Build your newsroom&rsquo;s investigative capacity with a <span class="heavy-underline secondary">Sunlight Membership</span>
+        Multiply your newsroom&rsquo;s investigative impact with a <span class="heavy-underline nowrap">Sunlight Research Desk Membership</span>
         {% endblocktrans %}
       </h2>
-      <p class="description">
-        {% trans "Access the Sunlight Research Desk, participate in trainings, and more" %}
-      </p>
+      <div class="description">
+        <p>{% trans "Our research experts help newsrooms dig deeper to produce stories with impact." %}</p>
+        <p>{% trans "We track down essential documents, analyze complex data sets, and prepare detailed timelines and source lists to help your newsroom build the foundation for investigations." %}</p>
+        <p>{% trans "Whether you’re backgrounding a source, tracking campaign money, or connecting the dots in public records — we’re the support system behind the byline." %}</p>
+      </div>
     </header>
     <main>
       <div class="sunlight-tiers">
@@ -247,6 +249,7 @@
         <div class="tier tier-{{ tier.name|lower }}">
           <header>
             <h3>{{ tier.name }}</h3>
+            <p><strong>{{ tier.short_description }}</strong></p>
           </header>
           <main>
             {% if tier.monthly.benefits or tier.annual.benefits %}

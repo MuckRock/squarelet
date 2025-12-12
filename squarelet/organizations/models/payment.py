@@ -501,6 +501,11 @@ class Plan(models.Model):
         help_text=_("List of benefits included with this plan"),
         blank=True,
     )
+    short_description = models.TextField(
+        _("description"),
+        blank=True,
+        help_text=_("A short description of the plan, used in lists"),
+    )
     description = models.TextField(
         _("description"),
         blank=True,

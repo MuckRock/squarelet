@@ -55,6 +55,7 @@ class SelectPlanView(TemplateView):
             if tier_name not in sunlight_tiers:
                 sunlight_tiers[tier_name] = {
                     "name": tier_name.title(),
+                    "short_description": plan.short_description,
                     "monthly": None,
                     "annual": None,
                 }
