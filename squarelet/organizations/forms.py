@@ -7,15 +7,15 @@ from django.utils.translation import gettext_lazy as _
 
 # Third Party
 from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Fieldset, Layout
+from crispy_forms.layout import Field as CrispyField, Fieldset, Layout
 
 # Squarelet
 from squarelet.core.fields import EmailsListField
 from squarelet.core.forms import AvatarWidget, StripeForm
-from squarelet.core.layout import Field
+from squarelet.core.layout import Field  # Used by PaymentForm
 
 # Local
-from .models import Organization, Plan
+from .models import Organization, Plan, ProfileChangeRequest
 
 
 class PaymentForm(StripeForm):
@@ -152,7 +152,21 @@ class PaymentForm(StripeForm):
 class UpdateForm(forms.ModelForm):
     """Update misc information for an organization"""
 
-    avatar = forms.ImageField(label=_("Avatar"), required=False, widget=AvatarWidget)
+    avatar = forms.ImageField(
+        label=_("Avatar"),
+        required=False,
+        widget=AvatarWidget,
+        help_text=(
+            "This will represent the organization on its profile, "
+            "on public pages, and in lists."
+        ),
+    )
+    about = forms.CharField(
+        label=_("About"),
+        widget=forms.Textarea,
+        required=False,
+        help_text=_("Markdown formatting supported. Maximum 250 characters."),
+    )
     private = forms.BooleanField(
         label=_("Private"),
         required=False,
@@ -170,7 +184,7 @@ class UpdateForm(forms.ModelForm):
 
     class Meta:
         model = Organization
-        fields = ["avatar", "private", "allow_auto_join"]
+        fields = ["avatar", "about", "private", "allow_auto_join"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -183,7 +197,7 @@ class UpdateForm(forms.ModelForm):
             )
             if domain_list:
                 self.fields["allow_auto_join"].help_text = _(
-                    "<br> Allow users to join without an invite "
+                    "Allow users to join without an invite "
                     "if one of their verified emails matches one of "
                     "the organization's email domains. "
                     "This organization has the following email domains set:"
@@ -193,7 +207,7 @@ class UpdateForm(forms.ModelForm):
                 )
             else:
                 self.fields["allow_auto_join"].help_text = _(
-                    "<br>Allow users to join without requesting "
+                    "Allow users to join without requesting "
                     "an invite if one of their verified emails matches one of the "
                     "organization's email domains. No email domains currently set. "
                     f"<a href='{manage_domains_url}'>Add one now</a>."
@@ -202,17 +216,15 @@ class UpdateForm(forms.ModelForm):
             self.fields.pop("allow_auto_join", None)
 
         self.helper = FormHelper()
+        self.helper.template_pack = "forms"
         self.helper.layout = Layout(
-            Fieldset("Avatar", Field("avatar"), css_class="_cls-compactField"),
-            Fieldset("Private", Field("private"), css_class="_cls-compactField"),
+            CrispyField("avatar"),
+            CrispyField("about"),
+            CrispyField("private"),
         )
 
         if "allow_auto_join" in self.fields:
-            self.helper.layout.fields.append(
-                Fieldset(
-                    "Auto Join", Field("allow_auto_join"), css_class="_cls-compactField"
-                )
-            )
+            self.helper.layout.fields.append(CrispyField("allow_auto_join"))
         self.helper.form_tag = False
 
 
@@ -258,4 +270,88 @@ class MergeForm(forms.Form):
         bad_organization = cleaned_data.get("bad_organization")
         if good_organization and good_organization == bad_organization:
             raise forms.ValidationError("Cannot merge an organization into itself")
+        return cleaned_data
+
+
+class ProfileChangeRequestForm(forms.ModelForm):
+    """Request changes to core organization profile data"""
+
+    url = forms.URLField(label=_("URL"), required=False)
+
+    class Meta:
+        model = ProfileChangeRequest
+        fields = ["name", "slug", "url", "city", "state", "country", "explanation"]
+
+    def __init__(self, *args, **kwargs):
+        self.request = kwargs.pop("request", None)
+        user = getattr(self.request, "user", None)
+
+        super().__init__(*args, **kwargs)
+
+        # Set help text
+        self.fields["url"].help_text = _(
+            "Add a URL to associate with this organization."
+        )
+        self.fields["explanation"].help_text = _(
+            "Explain why you are requesting these changes "
+            "(required for staff review)."
+        )
+        self.fields["explanation"].required = not getattr(user, "is_staff", False)
+
+        for field in ProfileChangeRequest.FIELDS:
+            current = getattr(self.instance.organization, field, None)
+            if current:
+                self.fields[field].widget.attrs["placeholder"] = current
+
+        self.helper = FormHelper()
+        self.helper.template_pack = "forms"
+        self.helper.layout = Layout(
+            CrispyField("name"),
+            CrispyField("slug"),
+            CrispyField("url"),
+            Fieldset(
+                "Location",
+                CrispyField("city"),
+                CrispyField("state"),
+                CrispyField("country"),
+            ),
+            CrispyField("explanation"),
+        )
+        self.helper.form_tag = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        # Only keep fields that have changed from their initial values
+        fields_to_check = ["name", "slug", "url", "city", "state", "country"]
+        changed_fields = []
+
+        for field in fields_to_check:
+            initial_value = getattr(self.instance.organization, field, None)
+            new_value = cleaned_data.get(field)
+
+            # If the value hasn't changed, clear it
+            if new_value == initial_value:
+                cleaned_data[field] = ""
+            elif new_value:
+                changed_fields.append(field)
+
+        # Check if URL already exists for this organization
+        if cleaned_data.get("url") and self.instance and self.instance.organization:
+            if self.instance.organization.urls.filter(url=cleaned_data["url"]).exists():
+                raise forms.ValidationError(
+                    {"url": _("This URL is already associated with the organization.")}
+                )
+
+        # At least one field must have changed
+        if not changed_fields:
+            raise forms.ValidationError(_("You must change at least one field."))
+
+        # Explanation is required for non-staff users when requesting changes
+        if self.request and not self.request.user.is_staff:
+            if not cleaned_data.get("explanation"):
+                raise forms.ValidationError(
+                    _("Please provide an explanation for your requested changes.")
+                )
+
         return cleaned_data

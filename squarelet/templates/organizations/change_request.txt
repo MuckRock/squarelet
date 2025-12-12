@@ -1,0 +1,15 @@
+{{user.name }} requested the following changes to their organization {{ organization.name }}:
+
+{% if change.name %}- Display Name: {{ change.previous.name }} -> {{ change.name }}{% endif %}
+{% if change.slug %}- Slug: {{ change.previous.slug }} -> {{ change.slug }}{% endif %}
+{% if change.city %}- City: {{ change.previous.city }} -> {{ change.city }}{% endif %}
+{% if change.state %}- State: {{ change.previous.state }} -> {{ change.state }}{% endif %}
+{% if change.country %}- Country: {{ change.previous.country }} -> {{ change.country }}{% endif %}
+
+They provided the following explanation:
+
+> {{ change.explanation }}
+
+To approve this change, please follow this link:
+
+https://accounts.muckrock.com/organization{% url 'organizations:update' slug=organization.slug %}
