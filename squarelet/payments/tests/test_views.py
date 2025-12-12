@@ -1,4 +1,9 @@
+# Django
+from django.http import Http404
+from django.urls import reverse
+
 # Third Party
+from autoslug.utils import slugify
 import pytest
 
 # Squarelet
@@ -272,3 +277,186 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         # Should redirect to organization
         assert response.status_code == 302
         assert response.url == org.get_absolute_url()
+
+
+@pytest.mark.django_db()
+class TestPlanRedirectView(ViewTestMixin):
+    """Test the Plan Redirect view that handles slug changes"""
+
+    view = views.PlanRedirectView
+    url = "/plans/{pk}/"
+
+    def test_redirect_with_id_only(self, rf, user_factory, plan_factory):
+        """Test that accessing plan by ID redirects to canonical URL with slug"""
+        user = user_factory()
+        plan = plan_factory(name="Test Plan", public=True)
+
+        # Access plan using ID only
+        response = self.call_view(rf, user, pk=plan.pk)
+
+        # Should return 301 permanent redirect
+        assert response.status_code == 301
+
+        # Should redirect to canonical URL with both ID and slug
+        expected_url = reverse("plan_detail", kwargs={"pk": plan.pk, "slug": plan.slug})
+        assert response.url == expected_url
+
+    def test_redirect_with_slug_only(self, rf, user_factory, plan_factory):
+        """Test that accessing plan by slug redirects to canonical URL with ID"""
+        user = user_factory()
+        plan = plan_factory(name="Test Plan", public=True)
+
+        # Access plan using slug only
+        self.url = "/plans/{slug}/"
+        response = self.call_view(rf, user, slug=plan.slug)
+
+        # Should return 301 permanent redirect
+        assert response.status_code == 301
+
+        # Should redirect to canonical URL with both ID and slug
+        expected_url = reverse("plan_detail", kwargs={"pk": plan.pk, "slug": plan.slug})
+        assert response.url == expected_url
+
+        # Reset URL for other tests
+        self.url = "/plans/{pk}/"
+
+    def test_redirect_with_id_returns_current_slug(self, rf, user_factory, plan_factory):
+        """Test that ID-based access returns current slug after name change
+
+        This simulates what happens after our migration updates plan names:
+        old links using the plan ID will redirect to the new slug.
+        """
+        user = user_factory()
+        # Create plan with original name
+        plan = plan_factory(name="Sunlight Research Center - Premium", public=True)
+        plan_id = plan.pk
+
+        # Manually update slug to simulate migration changing the name
+        # We update slug directly since AutoSlugField doesn't auto-update on save
+        old_slug = plan.slug
+        plan.name = "Sunlight Research Desk Membership - Premium"
+        plan.slug = slugify(plan.name)
+        plan.save()
+        plan.refresh_from_db()
+        new_slug = plan.slug
+
+        # Verify slug changed
+        assert old_slug != new_slug
+        assert old_slug == "sunlight-research-center-premium"
+        assert new_slug == "sunlight-research-desk-membership-premium"
+
+        # Access plan using just the ID (like old bookmarks would)
+        response = self.call_view(rf, user, pk=plan_id)
+
+        # Should return 301 permanent redirect
+        assert response.status_code == 301
+
+        # Should redirect to canonical URL with NEW slug
+        expected_url = reverse("plan_detail", kwargs={"pk": plan_id, "slug": new_slug})
+        assert response.url == expected_url
+        assert "sunlight-research-desk-membership" in response.url
+
+    def test_redirect_nonexistent_plan_returns_404(self, rf, user_factory):
+        """Test that accessing non-existent plan returns 404"""
+        user = user_factory()
+
+        # Try to access plan that doesn't exist
+        with pytest.raises(Http404):
+            self.call_view(rf, user, pk=99999)
+
+    def test_redirect_nonexistent_slug_returns_404(self, rf, user_factory):
+        """Test that accessing non-existent slug returns 404"""
+        user = user_factory()
+
+        # Try to access plan with slug that doesn't exist
+        self.url = "/plans/{slug}/"
+        with pytest.raises(Http404):
+            self.call_view(rf, user, slug="nonexistent-plan-slug")
+
+        # Reset URL for other tests
+        self.url = "/plans/{pk}/"
+
+
+@pytest.mark.django_db()
+class TestPlanDetailViewWithSlug(ViewTestMixin):
+    """Test the Plan Detail view with canonical URL format (ID + slug)"""
+
+    view = views.PlanDetailView
+    url = "/plans/{pk}-{slug}/"
+
+    def test_canonical_url_with_correct_slug(self, rf, user_factory, plan_factory, mocker):
+        """Test that canonical URL with correct slug works"""
+        user = user_factory()
+        plan = plan_factory(name="Test Plan", public=True)
+
+        # Mock Stripe customer to avoid API calls
+        mock_customer = mocker.MagicMock()
+        mock_customer.card = None
+        mocker.patch.object(
+            user.individual_organization, "customer", return_value=mock_customer
+        )
+
+        # Access plan using canonical URL format
+        response = self.call_view(rf, user, pk=plan.pk, slug=plan.slug)
+
+        # Should return 200 OK (no redirect needed)
+        assert response.status_code == 200
+
+    def test_canonical_url_with_outdated_slug_still_works(
+        self, rf, user_factory, plan_factory, mocker
+    ):
+        """Test that canonical URL with outdated slug still works
+
+        Django's DetailView uses pk to fetch the object, so the slug
+        parameter is not validated. This means old bookmarks with outdated
+        slugs will still work without redirecting.
+
+        This is actually desirable behavior - it means we don't break
+        existing links when we rename plans.
+        """
+        user = user_factory()
+        # Create plan with original name
+        plan = plan_factory(name="Sunlight Research Center - Basic", public=True)
+        plan_id = plan.pk
+        old_slug = plan.slug
+
+        # Mock Stripe customer to avoid API calls
+        mock_customer = mocker.MagicMock()
+        mock_customer.card = None
+        mocker.patch.object(
+            user.individual_organization, "customer", return_value=mock_customer
+        )
+
+        # Update the plan name and slug (simulating our migration)
+        plan.name = "Sunlight Research Desk Membership - Basic"
+        plan.slug = slugify(plan.name)
+        plan.save()
+        plan.refresh_from_db()
+        new_slug = plan.slug
+
+        # Verify slug changed
+        assert old_slug != new_slug
+        assert old_slug == "sunlight-research-center-basic"
+        assert new_slug == "sunlight-research-desk-membership-basic"
+
+        # Access plan using OLD slug with correct ID (like an old bookmark)
+        response = self.call_view(rf, user, pk=plan_id, slug=old_slug)
+
+        # Should return 200 OK - Django DetailView doesn't validate the slug
+        # The pk is correct, so it fetches the right plan
+        assert response.status_code == 200
+
+        # The view should still work and load the correct plan
+        assert response.context_data["plan"].pk == plan_id
+        assert response.context_data["plan"].name == plan.name
+
+    def test_canonical_url_with_wrong_slug_wrong_id_returns_404(
+        self, rf, user_factory, plan_factory
+    ):
+        """Test that wrong ID returns 404, regardless of slug"""
+        user = user_factory()
+        plan = plan_factory(name="Test Plan", public=True)
+
+        # Try to access with non-existent ID (slug doesn't matter)
+        with pytest.raises(Http404):
+            self.call_view(rf, user, pk=99999, slug=plan.slug)
