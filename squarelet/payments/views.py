@@ -208,7 +208,9 @@ class PlanDetailView(DetailView):
                     organization = request.user.individual_organization
 
                 # Check if already subscribed
-                if organization.subscriptions.filter(plan=plan, cancelled=False).exists():
+                if organization.subscriptions.filter(
+                    plan=plan, cancelled=False
+                ).exists():
                     # Already subscribed
                     messages.warning(request, _("Already subscribed"))
                     return redirect(plan)
@@ -236,35 +238,35 @@ class PlanDetailView(DetailView):
                 # For Sunlight plans, use transaction with
                 # row locking to prevent race conditions
                 if plan.slug.startswith("sunlight-") and plan.wix:
-                        # Lock subscription records to prevent concurrent subscriptions
-                        locked_count = (
-                            Subscription.objects.select_for_update().sunlight_active_count()
-                        )
+                    # Lock subscription records to prevent concurrent subscriptions
+                    locked_count = (
+                        Subscription.objects.select_for_update().sunlight_active_count()
+                    )
 
-                        if locked_count >= settings.MAX_SUNLIGHT_SUBSCRIPTIONS:
-                            # Limit reached - add to waitlist
-                            transaction.on_commit(
-                                lambda: add_to_waitlist.delay(
-                                    organization.pk, plan.pk, request.user.pk
-                                )
-                            )
-                            messages.success(
-                                request,
-                                _("You have been added to the waitlist."),
-                            )
-                            return redirect(plan)
-
-                        # Set subscription inside transaction to prevent race
-                        # between getting a correct count and activating the subscription
+                    if locked_count >= settings.MAX_SUNLIGHT_SUBSCRIPTIONS:
+                        # Limit reached - add to waitlist
                         transaction.on_commit(
-                            lambda: organization.set_subscription(
-                                token=stripe_token,
-                                plan=plan,
-                                max_users=plan.minimum_users,
-                                user=request.user,
-                                payment_method=payment_method,
+                            lambda: add_to_waitlist.delay(
+                                organization.pk, plan.pk, request.user.pk
                             )
                         )
+                        messages.success(
+                            request,
+                            _("You have been added to the waitlist."),
+                        )
+                        return redirect(plan)
+
+                    # Set subscription inside transaction to prevent race
+                    # between getting a correct count and activating the subscription
+                    transaction.on_commit(
+                        lambda: organization.set_subscription(
+                            token=stripe_token,
+                            plan=plan,
+                            max_users=plan.minimum_users,
+                            user=request.user,
+                            payment_method=payment_method,
+                        )
+                    )
                 else:
                     # Non-Sunlight plans don't need transaction protection
                     organization.set_subscription(

@@ -139,9 +139,7 @@ class Detail(AdminLinkMixin, DetailView):
                 if self.organization.plan and self.organization.plan.wix:
                     transaction.on_commit(
                         lambda: sync_wix.delay(
-                            self.organization.pk,
-                            self.organization.plan.pk,
-                            user.pk
+                            self.organization.pk, self.organization.plan.pk, user.pk
                         )
                     )
             messages.success(
