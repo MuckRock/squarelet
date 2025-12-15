@@ -232,13 +232,10 @@ class Detail(AdminLinkMixin, DetailView):
         self.organization = self.get_object()
         if self.request.user.is_staff and self.organization.plan.wix:
             for wix_user in self.organization.users.all():
-                # Use on_commit to ensure Wix sync runs after any pending transactions
-                transaction.on_commit(
-                    lambda u=wix_user: sync_wix.delay(
-                        self.organization.pk,
-                        self.organization.plan.pk,
-                        u.pk,
-                    )
+                sync_wix.delay(
+                    self.organization.pk,
+                    self.organization.plan.pk,
+                    wix_user.pk,
                 )
             messages.success(request, _("Wix sync started"))
 

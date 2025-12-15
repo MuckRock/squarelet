@@ -183,80 +183,90 @@ class PlanDetailView(DetailView):
         new_organization_name = request.POST.get("new_organization_name")
         stripe_token = request.POST.get("stripe_token")
         payment_method = request.POST.get("payment_method")
-
-        try:
-            # Get or create the organization
-            if organization_id == "new":
-                # Create a new organization
-                if not new_organization_name:
-                    messages.error(
-                        request, _("Please provide a name for the new organization")
-                    )
-                    return redirect(plan)
-
-                organization = Organization.objects.create(
-                    name=new_organization_name,
-                    private=False,
-                )
-                # Add the user as an admin
-                organization.add_creator(request.user)
-            elif organization_id:
-                organization = Organization.objects.get(
-                    pk=organization_id, users=request.user, memberships__admin=True
-                )
-            else:
-                organization = request.user.individual_organization
-
-            # Check if already subscribed
-            if organization.subscriptions.filter(plan=plan, cancelled=False).exists():
-                # Already subscribed
-                messages.warning(request, _("Already subscribed"))
-                return redirect(plan)
-
-            # Validate payment method matches available options
-            if payment_method == "existing-card":
-                if not organization.customer().card:
-                    messages.error(
-                        request,
-                        _("No payment method on file. Please add a card."),
-                    )
-                    return redirect(plan)
-            elif payment_method == "new-card":
-                if not stripe_token:
-                    messages.error(request, _("Please provide card information."))
-                    return redirect(plan)
-            elif payment_method == "invoice":
-                if not plan.annual:
-                    messages.error(
-                        request,
-                        _("Invoice payment is only available for annual plans."),
-                    )
-                    return redirect(plan)
-
-            # For Sunlight plans, use transaction with
-            # row locking to prevent race conditions
-            if plan.slug.startswith("sunlight-") and plan.wix:
-                with transaction.atomic():
-                    # Lock subscription records to prevent concurrent subscriptions
-                    locked_count = (
-                        Subscription.objects.select_for_update().sunlight_active_count()
-                    )
-
-                    if locked_count >= settings.MAX_SUNLIGHT_SUBSCRIPTIONS:
-                        # Limit reached - add to waitlist
-                        transaction.on_commit(
-                            lambda: add_to_waitlist.delay(
-                                organization.pk, plan.pk, request.user.pk
-                            )
-                        )
-                        messages.success(
-                            request,
-                            _("You have been added to the waitlist."),
+        with transaction.atomic():
+            try:
+                # Get or create the organization
+                if organization_id == "new":
+                    # Create a new organization
+                    if not new_organization_name:
+                        messages.error(
+                            request, _("Please provide a name for the new organization")
                         )
                         return redirect(plan)
 
-                    # Set subscription inside transaction to prevent race
-                    # between getting a correct count and activating the subscription
+                    organization = Organization.objects.create(
+                        name=new_organization_name,
+                        private=False,
+                    )
+                    # Add the user as an admin
+                    organization.add_creator(request.user)
+                elif organization_id:
+                    organization = Organization.objects.get(
+                        pk=organization_id, users=request.user, memberships__admin=True
+                    )
+                else:
+                    organization = request.user.individual_organization
+
+                # Check if already subscribed
+                if organization.subscriptions.filter(plan=plan, cancelled=False).exists():
+                    # Already subscribed
+                    messages.warning(request, _("Already subscribed"))
+                    return redirect(plan)
+
+                # Validate payment method matches available options
+                if payment_method == "existing-card":
+                    if not organization.customer().card:
+                        messages.error(
+                            request,
+                            _("No payment method on file. Please add a card."),
+                        )
+                        return redirect(plan)
+                elif payment_method == "new-card":
+                    if not stripe_token:
+                        messages.error(request, _("Please provide card information."))
+                        return redirect(plan)
+                elif payment_method == "invoice":
+                    if not plan.annual:
+                        messages.error(
+                            request,
+                            _("Invoice payment is only available for annual plans."),
+                        )
+                        return redirect(plan)
+
+                # For Sunlight plans, use transaction with
+                # row locking to prevent race conditions
+                if plan.slug.startswith("sunlight-") and plan.wix:
+                        # Lock subscription records to prevent concurrent subscriptions
+                        locked_count = (
+                            Subscription.objects.select_for_update().sunlight_active_count()
+                        )
+
+                        if locked_count >= settings.MAX_SUNLIGHT_SUBSCRIPTIONS:
+                            # Limit reached - add to waitlist
+                            transaction.on_commit(
+                                lambda: add_to_waitlist.delay(
+                                    organization.pk, plan.pk, request.user.pk
+                                )
+                            )
+                            messages.success(
+                                request,
+                                _("You have been added to the waitlist."),
+                            )
+                            return redirect(plan)
+
+                        # Set subscription inside transaction to prevent race
+                        # between getting a correct count and activating the subscription
+                        transaction.on_commit(
+                            lambda: organization.set_subscription(
+                                token=stripe_token,
+                                plan=plan,
+                                max_users=plan.minimum_users,
+                                user=request.user,
+                                payment_method=payment_method,
+                            )
+                        )
+                else:
+                    # Non-Sunlight plans don't need transaction protection
                     organization.set_subscription(
                         token=stripe_token,
                         plan=plan,
@@ -264,28 +274,19 @@ class PlanDetailView(DetailView):
                         user=request.user,
                         payment_method=payment_method,
                     )
-            else:
-                # Non-Sunlight plans don't need transaction protection
-                organization.set_subscription(
-                    token=stripe_token,
-                    plan=plan,
-                    max_users=plan.minimum_users,
-                    user=request.user,
-                    payment_method=payment_method,
+
+                # Success - redirect to organization page
+                messages.success(request, _("Succesfully subscribed"))
+                return redirect(organization)
+
+            except Organization.DoesNotExist:
+                # Invalid organization
+                pass
+            except Exception as exc:  # pylint: disable=broad-except
+                # Handle other errors
+                logger.error(
+                    "Subscription creation failed: %s", exc, exc_info=sys.exc_info()
                 )
-
-            # Success - redirect to organization page
-            messages.success(request, _("Succesfully subscribed"))
-            return redirect(organization)
-
-        except Organization.DoesNotExist:
-            # Invalid organization
-            pass
-        except Exception as exc:  # pylint: disable=broad-except
-            # Handle other errors
-            logger.error(
-                "Subscription creation failed: %s", exc, exc_info=sys.exc_info()
-            )
 
         # If we get here, something went wrong - redirect back to plan
         messages.error(request, _("Something went wrong"))

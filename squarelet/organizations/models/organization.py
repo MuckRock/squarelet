@@ -440,13 +440,8 @@ class Organization(AvatarMixin, models.Model):
         self.max_users = max_users
         self.save()
         if plan and plan.wix:
-            # Use on_commit to ensure Wix sync only runs after transaction commits
-            # This prevents race conditions where sync tasks might run before
-            # organization/membership data is fully committed to the database
             for wix_user in self.users.all():
-                transaction.on_commit(
-                    lambda u=wix_user: sync_wix.delay(self.pk, plan.pk, u.pk)
-                )
+                sync_wix.delay(self.pk, plan.pk, wix_user.pk)
 
         if not self.plan and plan:
             # create a subscription going from no plan to plan
