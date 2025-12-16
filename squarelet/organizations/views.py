@@ -134,14 +134,7 @@ class Detail(AdminLinkMixin, DetailView):
         # Auto join if allowed
         if user.can_auto_join(self.organization):
             # Auto-join the user to the organization (no invitation needed)
-            with transaction.atomic():
-                self.organization.memberships.create(user=user)
-                if self.organization.plan and self.organization.plan.wix:
-                    transaction.on_commit(
-                        lambda: sync_wix.delay(
-                            self.organization.pk, self.organization.plan.pk, user.pk
-                        )
-                    )
+            Membership.objects.create(organization=self.organization, user=user)
             messages.success(
                 request, _("You have successfully joined the organization!")
             )
