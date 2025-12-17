@@ -47,7 +47,7 @@
               </div>
             </div>
           </div>
-          {% if is_admin %}
+          {% if is_admin or user.is_staff %}
             <a href="{% url 'organizations:update' organization.slug %}"><div class="_cls-action">{% trans 'Edit organization' %}</div></a>
           {% endif %}
           {% if user.is_staff %}
@@ -82,7 +82,7 @@
               </div>
             </div>
           {% endif %}
-          {% if is_admin %}
+          {% if is_admin or user.is_staff %}
             <div class="_cls-infoSpaced">
               <a class="_cls-action" href="{% url 'organizations:manage-members' organization.slug %}">
                 {% if invite_count == 0 %}
