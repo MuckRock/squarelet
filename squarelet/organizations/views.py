@@ -99,8 +99,9 @@ class Detail(AdminLinkMixin, DetailView):
                 organization=self.object
             ).get_pending_requests()
             if context["is_admin"]:
+                pending_requests = self.object.invitations.get_pending_requests()
                 context["invite_count"] = (
-                    self.object.invitations.get_pending_requests().count()
+                    pending_requests.count() if pending_requests else 0
                 )
 
             # Rejected join requests

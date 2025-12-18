@@ -67,6 +67,24 @@ class TestDetail(ViewTestMixin):
         assert response.context_data["is_member"]
         assert "requested_invite" in response.context_data
         assert "invite_count" in response.context_data
+        # Verify invite_count is always an integer
+        assert isinstance(response.context_data["invite_count"], int)
+        assert response.context_data["invite_count"] == 0
+
+    def test_get_admin_with_pending_requests(
+        self, rf, organization_factory, user_factory, invitation_factory
+    ):
+        """Test that invite_count is an integer when there are pending requests"""
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        # Create some pending join requests
+        invitation_factory.create_batch(3, organization=organization, request=True)
+        response = self.call_view(rf, admin, slug=organization.slug)
+        assert response.status_code == 200
+        assert response.context_data["is_admin"]
+        # Verify invite_count is always an integer, not a queryset
+        assert isinstance(response.context_data["invite_count"], int)
+        assert response.context_data["invite_count"] == 3
 
     def test_get_individual(self, rf, individual_organization_factory):
         """Individual organizations should not have a detail page"""
