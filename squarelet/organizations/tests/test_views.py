@@ -86,6 +86,23 @@ class TestDetail(ViewTestMixin):
         assert isinstance(response.context_data["invite_count"], int)
         assert response.context_data["invite_count"] == 3
 
+    def test_get_staff_can_see_invite_count(
+        self, rf, organization_factory, user_factory, invitation_factory
+    ):
+        """Test that staff members can see invite_count even if not admin/member"""
+        staff_user = user_factory(is_staff=True)
+        organization = organization_factory()  # Staff not a member
+        # Create some pending join requests
+        invitation_factory.create_batch(2, organization=organization, request=True)
+        response = self.call_view(rf, staff_user, slug=organization.slug)
+        assert response.status_code == 200
+        assert not response.context_data["is_admin"]
+        assert not response.context_data["is_member"]
+        # Staff should still see invite_count
+        assert "invite_count" in response.context_data
+        assert isinstance(response.context_data["invite_count"], int)
+        assert response.context_data["invite_count"] == 2
+
     def test_get_individual(self, rf, individual_organization_factory):
         """Individual organizations should not have a detail page"""
         organization = individual_organization_factory()
