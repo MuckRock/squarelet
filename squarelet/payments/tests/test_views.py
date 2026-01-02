@@ -8,7 +8,7 @@ import pytest
 
 # Squarelet
 from squarelet.core.tests.mixins import ViewTestMixin
-from squarelet.organizations.models import Organization
+from squarelet.organizations.models import Organization, Plan
 from squarelet.payments import views
 
 # pylint: disable=invalid-name
@@ -320,7 +320,9 @@ class TestPlanRedirectView(ViewTestMixin):
         # Reset URL for other tests
         self.url = "/plans/{pk}/"
 
-    def test_redirect_with_id_returns_current_slug(self, rf, user_factory, plan_factory):
+    def test_redirect_with_id_returns_current_slug(
+        self, rf, user_factory, plan_factory
+    ):
         """Test that ID-based access returns current slug after name change
 
         This simulates what happens after our migration updates plan names:
@@ -384,7 +386,9 @@ class TestPlanDetailViewWithSlug(ViewTestMixin):
     view = views.PlanDetailView
     url = "/plans/{pk}-{slug}/"
 
-    def test_canonical_url_with_correct_slug(self, rf, user_factory, plan_factory, mocker):
+    def test_canonical_url_with_correct_slug(
+        self, rf, user_factory, plan_factory, mocker
+    ):
         """Test that canonical URL with correct slug works"""
         user = user_factory()
         plan = plan_factory(name="Test Plan", public=True)
@@ -401,6 +405,10 @@ class TestPlanDetailViewWithSlug(ViewTestMixin):
 
         # Should return 200 OK (no redirect needed)
         assert response.status_code == 200
+
+        # Verify matching_plan is in context (should be None for non-Sunlight plans)
+        assert "matching_plan" in response.context_data
+        assert response.context_data["matching_plan"] is None
 
     def test_canonical_url_with_outdated_slug_still_works(
         self, rf, user_factory, plan_factory, mocker
@@ -460,3 +468,29 @@ class TestPlanDetailViewWithSlug(ViewTestMixin):
         # Try to access with non-existent ID (slug doesn't matter)
         with pytest.raises(Http404):
             self.call_view(rf, user, pk=99999, slug=plan.slug)
+
+
+@pytest.mark.django_db()
+class TestGetMatchingPlanTier:
+    """Test the get_matching_plan_tier helper function"""
+
+    def test_non_sunlight_plan_returns_none(self, plan_factory):
+        """Test that non-Sunlight plans return None"""
+        plan = plan_factory(name="Regular Plan", public=True)
+
+        result = views.get_matching_plan_tier(plan)
+        assert result is None
+
+    def test_finds_matching_sunlight_plan_if_exists(self):
+        """Test that it finds matching Sunlight plans from the database"""
+        # Try to find the actual Sunlight plans from the migration
+        monthly = Plan.objects.filter(slug="sunlight-basic").first()
+        annual = Plan.objects.filter(slug="sunlight-basic-annual").first()
+
+        # Only test if both plans exist in the database
+        if monthly and annual:
+            result_from_monthly = views.get_matching_plan_tier(monthly)
+            assert result_from_monthly == annual
+
+            result_from_annual = views.get_matching_plan_tier(annual)
+            assert result_from_annual == monthly
