@@ -237,11 +237,6 @@
         Multiply your newsroom&rsquo;s investigative impact with a <span class="heavy-underline nowrap">Sunlight Research Desk Membership</span>
         {% endblocktrans %}
       </h2>
-      <div class="description">
-        <p>{% trans "Our research experts help newsrooms dig deeper to produce stories with impact." %}</p>
-        <p>{% trans "We track down essential documents, analyze complex data sets, and prepare detailed timelines and source lists to help your newsroom build the foundation for investigations." %}</p>
-        <p>{% trans "Whether you’re backgrounding a source, tracking campaign money, or connecting the dots in public records — we’re the support system behind the byline." %}</p>
-      </div>
     </header>
     <main>
       <div class="sunlight-tiers">
@@ -275,29 +270,32 @@
               {% endif %}
               {% if tier.monthly %}
               <div class="price monthly">
+                {% if tier.annual %}
+                <span class="alt">{% trans "or" %}</span>
+                {% endif %}
                 <span class="amount">${{ tier.monthly.base_price }}</span>
                 <span class="period">/ month</span>
               </div>
               {% endif %}
             </div>
             <div class="actions">
-              {% if tier.monthly %}
+              {% if tier.annual %}
               {% if user.is_anonymous %}
-              <a class="button secondary" href="{% url 'plan_detail' tier.monthly.pk tier.monthly.slug %}{% pass_query %}">
-                {% trans "Learn more" %}
+              <a class="btn premium" href="{% url 'plan_detail' tier.annual.pk tier.annual.slug %}{% pass_query %}">
+                {% trans "Sign up & subscribe" %}
               </a>
               {% else %}
-              <a class="button secondary" href="{% url 'plan_detail' tier.monthly.pk tier.monthly.slug %}{% pass_query %}">
+              <a class="btn premium" href="{% url 'plan_detail' tier.annual.pk tier.annual.slug %}{% pass_query %}">
                 {% trans "Subscribe" %}
               </a>
               {% endif %}
-              {% elif tier.annual %}
+              {% elif tier.monthly %}
               {% if user.is_anonymous %}
-              <a class="button secondary" href="{% url 'plan_detail' tier.annual.pk tier.annual.slug %}{% pass_query %}">
-                {% trans "Learn more" %}
+              <a class="btn premium" href="{% url 'plan_detail' tier.monthly.pk tier.monthly.slug %}{% pass_query %}">
+                {% trans "Sign up & subscribe" %}
               </a>
               {% else %}
-              <a class="button secondary" href="{% url 'plan_detail' tier.annual.pk tier.annual.slug %}{% pass_query %}">
+              <a class="btn premium" href="{% url 'plan_detail' tier.monthly.pk tier.monthly.slug %}{% pass_query %}">
                 {% trans "Subscribe" %}
               </a>
               {% endif %}

@@ -1,6 +1,6 @@
   .container {
     display: flex;
-    max-width: 50rem;
+    max-width: 72rem;
     padding: 3rem;
     flex-direction: column;
     align-items: center;
@@ -158,6 +158,8 @@
   }
 
   .plan header {
+    max-width: 50rem;
+    margin: 0 auto;
     display: flex;
     padding: 0.25rem 0.5rem;
     align-items: center;
@@ -320,7 +322,6 @@
   
   .sunlight.plan header {
     flex-direction: column;
-    align-items: center;
     gap: 1rem;
   }
 
@@ -345,7 +346,7 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 1.25rem;
-    flex: 1 0 18rem;
+    flex: 1 0 16rem;
     border-radius: 0.5rem;
     border: 1px solid var(--gray-2, #D8DEE2);
     background: var(--white, #FFF);
@@ -354,8 +355,8 @@
   .sunlight-tiers .tier header {
     display: flex;
     padding: 0;
-    align-items: center;
     gap: 0.5rem;
+    align-items: flex-start;
     align-self: stretch;
   }
 
@@ -363,17 +364,24 @@
     margin: 0;
     color: var(--gray-5, #233944);
     font-family: var(--font-sans, "Source Sans Pro");
-    font-size: var(--font-lg, 1.25rem);
+    font-size: var(--font-xl, 1.5rem);
     font-style: normal;
-    font-weight: 700;
+    font-weight: var(--font-semibold);
     line-height: normal;
     font-feature-settings: 'ss04' on;
+    text-align: left;
+  }
+
+  .sunlight-tiers .tier header p {
+    margin: 0;
+    color: var(--gray-4);
   }
 
   .sunlight-tiers .tier main {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
+    justify-content: flex-start;
     gap: 0.5rem;
     flex: 1 0 0;
     align-self: stretch;
@@ -381,6 +389,10 @@
 
   .sunlight-tiers .tier .checklist {
     margin: 0;
+  }
+
+  .sunlight-tiers .tier .checkmark {
+    fill: var(--yellow-3);
   }
 
   .sunlight-tiers .tier footer {
@@ -392,34 +404,46 @@
 
   .sunlight-tiers .tier .pricing {
     display: flex;
-    flex-direction: column;
     gap: 0.5rem;
+    align-items: baseline;
+    justify-content: space-between;
     align-self: stretch;
   }
 
   .sunlight-tiers .tier .price {
     display: flex;
     align-items: baseline;
-    gap: 0.5rem;
+    gap: 0.25rem;
   }
 
   .sunlight-tiers .tier .price .amount {
-    color: var(--gray-5, #233944);
-    font-family: var(--font-sans, "Source Sans Pro");
-    font-size: var(--font-xl, 1.5rem);
-    font-style: normal;
-    font-weight: 700;
-    line-height: normal;
-    font-feature-settings: 'ss04' on;
-  }
-
-  .sunlight-tiers .tier .price .period {
-    color: var(--gray-4, #5C717C);
+    color: var(--yellow-5);
     font-family: var(--font-sans, "Source Sans Pro");
     font-size: var(--font-md, 1rem);
     font-style: normal;
+    line-height: normal;
+    font-feature-settings: 'ss04' on;
+  }
+  
+  .sunlight-tiers .tier .annual.price .amount {
+    font-weight: var(--font-semibold);
+    font-size: var(--font-xl, 1.5rem);
+  }
+
+  .sunlight-tiers .tier .price .period,
+  .sunlight-tiers .tier .price .alt
+   {
+    color: var(--gray-4, #5C717C);
+    font-family: var(--font-sans, "Source Sans Pro");
+    font-style: normal;
     font-weight: 600;
     line-height: normal;
+    white-space: nowrap;
+  }
+
+  .sunlight-tiers .tier .monthly.price .period,
+  .sunlight-tiers .tier .monthly.price .alt {
+    font-size: var(--font-sm);
   }
 
   .sunlight-tiers .tier .price.annual {
