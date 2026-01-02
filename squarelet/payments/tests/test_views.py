@@ -3,8 +3,8 @@ from django.http import Http404
 from django.urls import reverse
 
 # Third Party
-from autoslug.utils import slugify
 import pytest
+from autoslug.utils import slugify
 
 # Squarelet
 from squarelet.core.tests.mixins import ViewTestMixin
