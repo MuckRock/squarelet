@@ -13,6 +13,7 @@ import pytest
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.models import (
+    Invitation,
     Invoice,
     Membership,
     Organization,
@@ -20,6 +21,7 @@ from squarelet.organizations.models import (
 )
 from squarelet.organizations.tests.factories import (
     ChargeFactory,
+    InvitationFactory,
     InvoiceFactory,
     MembershipFactory,
     OrganizationFactory,
@@ -244,6 +246,67 @@ class TestMembershipQuerySet(TestCase):
         assert member.memberships.get_viewable(another_user).count() == 0
 
 
+@pytest.mark.django_db(transaction=True)
+def test_membership_create_with_wix_plan_triggers_sync(mocker):
+    """Test that creating a membership with a Wix plan triggers sync"""
+    mock_sync = mocker.patch("squarelet.organizations.tasks.sync_wix.delay")
+
+    user = UserFactory()
+    wix_plan = PlanFactory(wix=True)
+    org = OrganizationFactory()
+    SubscriptionFactory(organization=org, plan=wix_plan)
+
+    # Create membership
+    membership = Membership.objects.create(user=user, organization=org)
+
+    # Verify membership was created
+    assert membership.user == user
+    assert membership.organization == org
+
+    # Verify sync_wix.delay was called with correct parameters
+    mock_sync.assert_called_once_with(org.pk, wix_plan.pk, user.pk)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_membership_create_without_wix_plan_no_sync(mocker):
+    """Test that creating a membership without Wix plan does not trigger sync"""
+    mock_sync = mocker.patch("squarelet.organizations.tasks.sync_wix.delay")
+
+    user = UserFactory()
+    non_wix_plan = PlanFactory(wix=False)
+    org = OrganizationFactory()
+    SubscriptionFactory(organization=org, plan=non_wix_plan)
+
+    # Create membership
+    membership = Membership.objects.create(user=user, organization=org)
+
+    # Verify membership was created
+    assert membership.user == user
+    assert membership.organization == org
+
+    # Verify sync_wix.delay was NOT called
+    mock_sync.assert_not_called()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_membership_create_without_plan_no_sync(mocker):
+    """Test that creating a membership for an org with no plan does not trigger sync"""
+    mock_sync = mocker.patch("squarelet.organizations.tasks.sync_wix.delay")
+
+    user = UserFactory()
+    org = OrganizationFactory()
+
+    # Create membership (org has no plan)
+    membership = Membership.objects.create(user=user, organization=org)
+
+    # Verify membership was created
+    assert membership.user == user
+    assert membership.organization == org
+
+    # Verify sync_wix.delay was NOT called
+    mock_sync.assert_not_called()
+
+
 class TestSubscriptionQuerySet(TestCase):
     """Unit tests for Subscription queryset"""
 
@@ -312,6 +375,90 @@ class TestSubscriptionQuerySet(TestCase):
 
         count = Subscription.objects.sunlight_active_count()
         assert count == 2
+
+
+class TestInvitationQuerySet(TestCase):
+    """Unit tests for Invitation queryset"""
+
+    @pytest.mark.django_db
+    def test_get_open(self):
+        """get_open returns only invitations with no accepted_at/rejected_at"""
+        inv_open = InvitationFactory(accepted_at=None, rejected_at=None)
+        InvitationFactory(accepted_at=None, rejected_at="2024-01-01")  # rejected
+        InvitationFactory(accepted_at="2024-01-01", rejected_at=None)  # accepted
+
+        qs = Invitation.objects.get_open()
+        assert qs.count() == 1
+        assert inv_open in qs
+
+    @pytest.mark.django_db
+    def test_get_pending(self):
+        """get_pending returns only open invitations, alias for open"""
+        open_inv = InvitationFactory(accepted_at=None, rejected_at=None)
+        # non-open invitations
+        InvitationFactory(accepted_at="2024-01-01", rejected_at=None)  # accepted
+        InvitationFactory(accepted_at=None, rejected_at="2024-01-01")  # rejected
+
+        qs = Invitation.objects.get_pending()
+        assert qs.count() == 1
+        assert open_inv in qs
+
+    @pytest.mark.django_db
+    def test_get_pending_invitations(self):
+        """get_pending_invitations returns open invitations where request=False"""
+        normal_inv = InvitationFactory(
+            request=False, accepted_at=None, rejected_at=None
+        )
+        InvitationFactory(request=True, accepted_at=None, rejected_at=None)  # request
+        InvitationFactory(request=False, accepted_at="2024-01-01")  # accepted
+
+        qs = Invitation.objects.get_pending_invitations()
+        assert qs.count() == 1
+        assert normal_inv in qs
+
+    @pytest.mark.django_db
+    def test_get_pending_requests(self):
+        """get_pending_requests returns open invitations where request=True"""
+        req_inv = InvitationFactory(request=True, accepted_at=None, rejected_at=None)
+        InvitationFactory(request=False, accepted_at=None, rejected_at=None)
+        InvitationFactory(request=True, rejected_at="2024-01-01")  # rejected
+
+        qs = Invitation.objects.get_pending_requests()
+        assert qs.count() == 1
+        assert req_inv in qs
+
+    @pytest.mark.django_db
+    def test_get_rejected_requests(self):
+        """get_rejected_requests returns request=True and rejected_at is not null"""
+        rejected_req = InvitationFactory(request=True, rejected_at="2024-01-01")
+        InvitationFactory(request=True, rejected_at=None)  # still open
+        InvitationFactory(request=False, rejected_at="2024-01-01")  # not a request
+
+        qs = Invitation.objects.get_rejected_requests()
+        assert qs.count() == 1
+        assert rejected_req in qs
+
+    @pytest.mark.django_db
+    def test_get_accepted(self):
+        """get_accepted returns invitations where accepted_at is set"""
+        accepted = InvitationFactory(accepted_at="2024-01-01")
+        InvitationFactory(accepted_at=None)
+        InvitationFactory(accepted_at=None, rejected_at="2024-01-01")
+
+        qs = Invitation.objects.get_accepted()
+        assert qs.count() == 1
+        assert accepted in qs
+
+    @pytest.mark.django_db
+    def test_get_rejected(self):
+        """get_rejected returns invitations where rejected_at is set"""
+        rejected = InvitationFactory(rejected_at="2024-01-01")
+        InvitationFactory(rejected_at=None)
+        InvitationFactory(accepted_at="2024-01-01", rejected_at=None)
+
+        qs = Invitation.objects.get_rejected()
+        assert qs.count() == 1
+        assert rejected in qs
 
 
 class TestInvoiceQuerySet(TestCase):

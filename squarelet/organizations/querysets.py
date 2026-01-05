@@ -150,6 +150,9 @@ class InvitationQuerySet(models.QuerySet):
     def get_pending_requests(self):
         return self.get_open().filter(request=True)
 
+    def get_rejected_requests(self):
+        return self.filter(request=True, rejected_at__isnull=False)
+
     def get_accepted(self):
         return self.exclude(accepted_at=None)
 

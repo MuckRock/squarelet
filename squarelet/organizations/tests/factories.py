@@ -3,6 +3,7 @@ from django.utils import timezone
 
 # Standard Library
 from datetime import date
+from unittest.mock import patch
 
 # Third Party
 import factory
@@ -39,6 +40,14 @@ class OrganizationFactory(factory.django.DjangoModelFactory):
         if create and extracted:
             for plan in extracted:
                 SubscriptionFactory(plan=plan, organization=self)
+            # Clear the memoized cache for the plan/subscription properties
+            # since they may have been accessed before subscriptions were created
+            for attr_name in list(vars(self).keys()):
+                if "plan" in attr_name.lower() or "subscription" in attr_name.lower():
+                    try:
+                        delattr(self, attr_name)
+                    except AttributeError:
+                        pass
 
 
 class IndividualOrganizationFactory(OrganizationFactory):
@@ -67,6 +76,12 @@ class MembershipFactory(factory.django.DjangoModelFactory):
 
     class Meta:
         model = "organizations.Membership"
+
+    @classmethod
+    def _create(cls, model_class, *args, **kwargs):
+        """Override create to mock sync_wix during factory creation"""
+        with patch("squarelet.organizations.tasks.sync_wix.delay"):
+            return super()._create(model_class, *args, **kwargs)
 
 
 class SubscriptionFactory(factory.django.DjangoModelFactory):

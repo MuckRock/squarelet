@@ -684,11 +684,30 @@ class Membership(models.Model):
         return f"Membership: {self.user} in {self.organization}"
 
     def save(self, *args, **kwargs):
+        # Prevents circular import
+        # pylint: disable=import-outside-toplevel
+        from squarelet.organizations.tasks import sync_wix
+
+        is_new = self.pk is None
+        is_wix = self.organization.plan and self.organization.plan.wix
+
         with transaction.atomic():
             super().save(*args, **kwargs)
+
+            # Trigger cache invalidation message to OIDC applications
             transaction.on_commit(
                 lambda: send_cache_invalidations("user", self.user.uuid)
             )
+
+            # Trigger Wix sync if this is a new membership and org has a Wix plan
+            if is_new and is_wix:
+                transaction.on_commit(
+                    lambda: sync_wix.delay(
+                        self.organization.pk,
+                        self.organization.plan.pk,
+                        self.user.pk,
+                    )
+                )
 
     def delete(self, *args, **kwargs):
         with transaction.atomic():
@@ -696,6 +715,7 @@ class Membership(models.Model):
             transaction.on_commit(
                 lambda: send_cache_invalidations("user", self.user.uuid)
             )
+            # TODO: We need to remove somebody's Wix membership here too
 
 
 class Invitation(models.Model):
@@ -788,9 +808,6 @@ class Invitation(models.Model):
     @transaction.atomic
     def accept(self, user=None):
         """Accept the invitation"""
-        # pylint: disable=import-outside-toplevel
-        from squarelet.organizations.tasks import sync_wix
-
         if self.user is None and user is None:
             raise ValueError(
                 "Must give a user when accepting if invitation has no user"
@@ -807,13 +824,8 @@ class Invitation(models.Model):
         ):
             mailchimp_journey(self.user.email, "verified")
         if not self.organization.has_member(self.user):
+            # Wix sync will be triggered automatically when Membership saves
             Membership.objects.create(organization=self.organization, user=self.user)
-            if self.organization.plan and self.organization.plan.wix:
-                sync_wix.delay(
-                    self.organization_id,
-                    self.organization.plan.pk,
-                    self.user.pk,
-                )
 
     def reject(self):
         """Reject or revoke the invitation"""

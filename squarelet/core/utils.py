@@ -1,12 +1,14 @@
 # Django
 from django.conf import settings
 from django.http import HttpResponseRedirect
+from django.utils import timezone
 
 # Standard Library
 import logging
 import os.path
 import sys
 import uuid
+from datetime import timedelta
 from hashlib import md5
 from urllib.parse import quote
 
@@ -205,11 +207,8 @@ def create_zendesk_ticket(subject, description, priority="normal", tags=None):
     staff intervention, such as an organization updating its profile details.
     """
     missing_config = not all(
-        [
-            settings.ZENDESK_EMAIL,
-            settings.ZENDESK_TOKEN,
-            settings.ZENDESK_SUBDOMAIN,
-        ]
+        getattr(settings, attr, None)
+        for attr in ["ZENDESK_EMAIL", "ZENDESK_TOKEN", "ZENDESK_SUBDOMAIN"]
     )
 
     if not is_production_env() or missing_config:
@@ -311,3 +310,46 @@ def get_redirect_url(request, fallback):
 
     # Otherwise, treat it as a URL string
     return HttpResponseRedirect(fallback)
+
+
+def is_rate_limited(
+    user,
+    count_fn,
+    limit,
+    window_seconds,
+    zendesk_subject=None,
+    zendesk_description=None,
+    extra_tags=None,
+):
+    """
+    Generic rate-limiter.
+
+    Args:
+        user: The user performing the action
+        count_fn: The function we use to count
+        limit: Max allowed actions
+        window_seconds: Duration of the window in seconds
+        zendesk_subject: Optional subject for Zendesk ticket if rate limited
+        zendesk_description: Optional description for Zendesk ticket
+        extra_tags: Optional list of additional Zendesk tags
+
+    Returns:
+        True if rate limited, False otherwise.
+    """
+    window_start = timezone.now() - timedelta(seconds=window_seconds)
+    recent_actions = count_fn(user, window_start)
+
+    if recent_actions >= limit:
+        if zendesk_subject and zendesk_description:
+            # Always include "rate-limit", allow caller to add additional tags
+            tags = ["rate-limit"]
+            if extra_tags:
+                tags.extend(extra_tags)
+            create_zendesk_ticket(
+                subject=zendesk_subject,
+                description=zendesk_description,
+                tags=tags,
+            )
+        return True
+
+    return False
