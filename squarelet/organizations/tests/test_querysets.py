@@ -246,6 +246,67 @@ class TestMembershipQuerySet(TestCase):
         assert member.memberships.get_viewable(another_user).count() == 0
 
 
+@pytest.mark.django_db(transaction=True)
+def test_membership_create_with_wix_plan_triggers_sync(mocker):
+    """Test that creating a membership with a Wix plan triggers sync"""
+    mock_sync = mocker.patch("squarelet.organizations.tasks.sync_wix.delay")
+
+    user = UserFactory()
+    wix_plan = PlanFactory(wix=True)
+    org = OrganizationFactory()
+    SubscriptionFactory(organization=org, plan=wix_plan)
+
+    # Create membership
+    membership = Membership.objects.create(user=user, organization=org)
+
+    # Verify membership was created
+    assert membership.user == user
+    assert membership.organization == org
+
+    # Verify sync_wix.delay was called with correct parameters
+    mock_sync.assert_called_once_with(org.pk, wix_plan.pk, user.pk)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_membership_create_without_wix_plan_no_sync(mocker):
+    """Test that creating a membership without Wix plan does not trigger sync"""
+    mock_sync = mocker.patch("squarelet.organizations.tasks.sync_wix.delay")
+
+    user = UserFactory()
+    non_wix_plan = PlanFactory(wix=False)
+    org = OrganizationFactory()
+    SubscriptionFactory(organization=org, plan=non_wix_plan)
+
+    # Create membership
+    membership = Membership.objects.create(user=user, organization=org)
+
+    # Verify membership was created
+    assert membership.user == user
+    assert membership.organization == org
+
+    # Verify sync_wix.delay was NOT called
+    mock_sync.assert_not_called()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_membership_create_without_plan_no_sync(mocker):
+    """Test that creating a membership for an org with no plan does not trigger sync"""
+    mock_sync = mocker.patch("squarelet.organizations.tasks.sync_wix.delay")
+
+    user = UserFactory()
+    org = OrganizationFactory()
+
+    # Create membership (org has no plan)
+    membership = Membership.objects.create(user=user, organization=org)
+
+    # Verify membership was created
+    assert membership.user == user
+    assert membership.organization == org
+
+    # Verify sync_wix.delay was NOT called
+    mock_sync.assert_not_called()
+
+
 class TestSubscriptionQuerySet(TestCase):
     """Unit tests for Subscription queryset"""
 
