@@ -47,3 +47,45 @@
     font-weight: var(--font-semibold, 600);
   }
 }
+
+#recovery-codes {
+  &.container {
+    width: 100%;
+    max-width: 48rem;
+    margin: 0 auto;
+    padding: 2rem;
+    box-sizing: border-box;
+  }
+
+  .card {
+    margin: 1rem auto;
+    max-width: 100%;
+  }
+  
+  .nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: var(--blue-3);
+    fill: var(--blue-3);
+    text-decoration: none;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+  }
+  
+  textarea#recovery_codes {
+    height: auto;
+    text-overflow: unset;
+    overflow-y: auto;
+    max-height: unset;
+  }
+
+  .actions {
+    margin: 1rem 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+  }
+}
