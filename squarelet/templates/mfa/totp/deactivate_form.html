@@ -1,28 +1,35 @@
-{% extends "mfa/totp/base.html" %}
-{% load i18n %}
-{% load allauth %}
-{% block head_title %}
-    {% trans "Deactivate Authenticator App" %}
-{% endblock head_title %}
+{% extends "base.html" %}
+{% load i18n django_vite %}
+
+{% block title %}
+    {% translate "Deactivate Two-Factor Auth" %}
+{% endblock title %}
+
+{% block vite %}
+  {{ block.super }}
+  {% vite_asset "frontend/views/mfa.ts" %}
+{% endblock vite %}
+
 {% block content %}
-    {% element h1 %}
-        {% trans "Deactivate Authenticator App" %}
-    {% endelement %}
-    {% element p %}
-        {% blocktranslate %}You are about to deactivate authenticator app based authentication. Are you sure?{% endblocktranslate %}
-    {% endelement %}
-    {% url 'mfa_deactivate_totp' as action_url %}
-    {% element form form=form method="post" action=action_url no_visible_fields=True %}
-        {% slot body %}
-            {% csrf_token %}
-            {% element fields form=form %}
-                {{ form.as_p }}
-            {% endelement %}
-        {% endslot %}
-        {% slot actions %}
-            {% element button tags="danger,delete" type="submit" %}
-                {% trans "Deactivate" %}
-            {% endelement %}
-        {% endslot %}
-    {% endelement %}
+  <div class="container" id="deactivate-mfa">
+    <header>
+      <a class="nav-link" href="{% url 'users:detail' user.username %}">
+        {% include "core/icons/arrow-left.svg" %}
+        {% trans "Return to your account" %}
+      </a>
+    </header>
+    <main class="card">
+      <h1>{% translate "Deactivate Two-Factor Authentication" %}</h1>
+      <p>
+          {% blocktranslate %}You are about to deactivate two-factor authentication. Are you sure?{% endblocktranslate %}
+      </p>
+      <form method="post" action="{% url 'mfa_deactivate_totp' %}">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn danger">
+          {% trans "Deactivate" %}
+        </button>
+      </form>
+    </main>
+  </div>
 {% endblock content %}
