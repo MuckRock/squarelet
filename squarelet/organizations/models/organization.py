@@ -937,6 +937,23 @@ class OrganizationInvitation(models.Model):
         ),
     )
 
+    from_user = models.ForeignKey(
+        verbose_name=_("user"),
+        to="users.User",
+        related_name="+",
+        on_delete=models.PROTECT,
+        help_text=_("The user who initiated this invitation"),
+    )
+    closed_by_user = models.ForeignKey(
+        verbose_name=_("user"),
+        to="users.User",
+        related_name="+",
+        on_delete=models.PROTECT,
+        blank=True,
+        null=True,
+        help_text=_("The user who accepted or rejected this invitation"),
+    )
+
     relationship_type = models.PositiveSmallIntegerField(
         _("relationship type"),
         choices=RelationshipType.choices,

@@ -763,6 +763,8 @@ class OrganizationInvitationAdmin(VersionAdmin):
     list_display = (
         "from_organization",
         "to_organization",
+        "from_user",
+        "closed_by_user",
         "relationship_type",
         "request",
         "created_at",
@@ -772,6 +774,11 @@ class OrganizationInvitationAdmin(VersionAdmin):
     list_filter = ("relationship_type", "request")
     search_fields = ("from_organization__name", "to_organization__name")
     readonly_fields = ("uuid", "created_at", "accepted_at", "rejected_at")
-    autocomplete_fields = ("from_organization", "to_organization")
+    autocomplete_fields = (
+        "from_organization",
+        "to_organization",
+        "from_user",
+        "closed_by_user",
+    )
     date_hierarchy = "created_at"
 >>>>>>> c91e084d (Add organization collective invitation model)
