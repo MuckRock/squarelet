@@ -226,6 +226,90 @@
           {% endif %}
         </footer>
       </div>
+      
+    </main>
+  </section>
+
+  <section class="plan sunlight">
+    <header>
+      <h2 class="header-display">
+        {% blocktrans %}
+        Multiply your newsroom&rsquo;s investigative impact with a <span class="heavy-underline nowrap">Sunlight Research Desk Membership</span>
+        {% endblocktrans %}
+      </h2>
+    </header>
+    <main>
+      <div class="sunlight-tiers">
+        {% for tier in sunlight_tiers %}
+        <div class="tier tier-{{ tier.name|lower }}">
+          <header>
+            <h3>{{ tier.name }}</h3>
+            <p><strong>{{ tier.short_description }}</strong></p>
+          </header>
+          <main>
+            {% if tier.monthly.benefits or tier.annual.benefits %}
+            <ul class="checklist">
+              {% for benefit in tier.monthly.benefits|default:tier.annual.benefits %}
+              <li class="checklist-item">
+                <span class="checkmark icon">
+                  {% include "core/icons/checkmark.svg" %}
+                </span>
+                <span class="text">{{ benefit }}</span>
+              </li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+          </main>
+          <footer>
+            <div class="pricing">
+              {% if tier.annual %}
+              <div class="price annual">
+                <span class="amount">${{ tier.annual.base_price }}</span>
+                <span class="period">/ year</span>
+              </div>
+              {% endif %}
+              {% if tier.monthly %}
+              <div class="price monthly">
+                {% if tier.annual %}
+                <span class="alt">{% trans "or" %}</span>
+                {% endif %}
+                <span class="amount">${{ tier.monthly.base_price }}</span>
+                <span class="period">/ month</span>
+              </div>
+              {% endif %}
+            </div>
+            <div class="actions">
+              {% if tier.annual %}
+              {% if user.is_anonymous %}
+              <a class="btn premium" href="{% url 'plan_detail' tier.annual.pk tier.annual.slug %}{% pass_query %}">
+                {% trans "Sign up & subscribe" %}
+              </a>
+              {% else %}
+              <a class="btn premium" href="{% url 'plan_detail' tier.annual.pk tier.annual.slug %}{% pass_query %}">
+                {% trans "Subscribe" %}
+              </a>
+              {% endif %}
+              {% elif tier.monthly %}
+              {% if user.is_anonymous %}
+              <a class="btn premium" href="{% url 'plan_detail' tier.monthly.pk tier.monthly.slug %}{% pass_query %}">
+                {% trans "Sign up & subscribe" %}
+              </a>
+              {% else %}
+              <a class="btn premium" href="{% url 'plan_detail' tier.monthly.pk tier.monthly.slug %}{% pass_query %}">
+                {% trans "Subscribe" %}
+              </a>
+              {% endif %}
+              {% endif %}
+              <a class="btn primary ghost" href="https://sunlightresearch.net/launch" target="_blank">Learn more</a>
+            </div>
+          </footer>
+        </div>
+        {% endfor %}
+      </div>
+    </main>
+  </section>
+  <section>
+    <main>
       <div class="verified plan">
         <header>
           <h2 class="header-display">

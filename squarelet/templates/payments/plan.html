@@ -25,7 +25,7 @@
         <span class="heavy-underline premium">{{ plan.name }}</span>
       </h2>
     </header>
-    
+
     <main>
       <div class="plan-actions">
         <!-- Show existing subscriptions for authenticated users -->
@@ -177,6 +177,17 @@
             {% endif %}
           </div>
         </form>
+        {% endif %}
+        {% if matching_plan %}
+          <p class="plan-switch-link">
+            <a href="{% url 'plan_detail' pk=matching_plan.pk slug=matching_plan.slug %}">
+              {% if plan.annual %}
+                {% trans "Also available as a monthly subscription" %}
+              {% else %}
+                {% trans "Also available as an annual subscription" %}
+              {% endif %}
+            </a>
+          </p>
         {% endif %}
       </div>
 

@@ -22,6 +22,27 @@ from squarelet.organizations.tasks import add_to_waitlist
 logger = logging.getLogger(__name__)
 
 
+def get_matching_plan_tier(plan):
+    """
+    For Sunlight Research Center plans, find the matching plan tier
+    with a different payment schedule (monthly <-> annual).
+    """
+    if not plan.slug.startswith("sunlight-"):
+        return None
+
+    if plan.annual:
+        # Find monthly equivalent by removing "-annual" suffix
+        matching_slug = plan.slug.replace("-annual", "")
+    else:
+        # Find annual equivalent by adding "-annual" suffix
+        matching_slug = f"{plan.slug}-annual"
+
+    try:
+        return Plan.objects.get(slug=matching_slug)
+    except Plan.DoesNotExist:
+        return None
+
+
 def protect_private_plan(plan, user):
     """Raise 404 if user should not access this private plan"""
     if not plan.public and plan.private_organizations.exists():
@@ -58,6 +79,9 @@ class PlanDetailView(DetailView):
         context["plan_data"] = {
             "annual": plan.annual,
         }
+
+        # Add matching plan tier with different payment schedule (for Sunlight plans)
+        context["matching_plan"] = get_matching_plan_tier(plan)
 
         if self.request.user.is_authenticated:
             user = self.request.user
