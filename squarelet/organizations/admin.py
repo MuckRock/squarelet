@@ -184,7 +184,6 @@ class MembershipsInline(admin.TabularInline):
     autocomplete_fields = ("from_organization",)
 
 
-<<<<<<< HEAD
 class OverdueInvoiceFilter(admin.SimpleListFilter):
     """Filter organizations by whether they have overdue invoices"""
 
@@ -210,8 +209,6 @@ class OverdueInvoiceFilter(admin.SimpleListFilter):
         return queryset
 
 
-||||||| parent of c91e084d (Add organization collective invitation model)
-=======
 class OutgoingOrganizationInvitationInline(admin.TabularInline):
     model = OrganizationInvitation
     fk_name = "from_organization"
@@ -244,7 +241,6 @@ class IncomingOrganizationInvitationInline(admin.TabularInline):
     verbose_name_plural = "Incoming Organization Invitations"
 
 
->>>>>>> c91e084d (Add organization collective invitation model)
 @admin.register(Organization)
 class OrganizationAdmin(VersionAdmin):
     def export_organizations_as_csv(self, request, queryset):
@@ -596,7 +592,6 @@ class OrganizationTypeAdmin(VersionAdmin):
 class OrganizationSubtypeAdmin(VersionAdmin):
     list_display = ("name", "type")
     search_fields = ("name", "type__name")
-<<<<<<< HEAD
 
 
 @admin.register(Invoice)
@@ -754,8 +749,6 @@ class InvoiceAdmin(VersionAdmin):
                     )
 
         return super().changelist_view(request, extra_context)
-||||||| parent of c91e084d (Add organization collective invitation model)
-=======
 
 
 @admin.register(OrganizationInvitation)
@@ -781,4 +774,3 @@ class OrganizationInvitationAdmin(VersionAdmin):
         "closed_by_user",
     )
     date_hierarchy = "created_at"
->>>>>>> c91e084d (Add organization collective invitation model)
