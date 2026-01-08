@@ -2,7 +2,7 @@
 {% load i18n django_vite %}
 
 {% block title %}
-    {% translate "Deactivate Two-Factor Auth" %}
+    {% translate "Disable Two-Factor Auth" %}
 {% endblock title %}
 
 {% block vite %}
@@ -19,15 +19,15 @@
       </a>
     </header>
     <main class="card">
-      <h1>{% translate "Deactivate Two-Factor Authentication" %}</h1>
+      <h1>{% translate "Disable Two-Factor Authentication" %}</h1>
       <p>
-          {% blocktranslate %}You are about to deactivate two-factor authentication. Are you sure?{% endblocktranslate %}
+          {% blocktranslate %}You are about to disable two-factor authentication. Are you sure?{% endblocktranslate %}
       </p>
       <form method="post" action="{% url 'mfa_deactivate_totp' %}">
         {% csrf_token %}
         {{ form.as_p }}
         <button type="submit" class="btn danger">
-          {% trans "Deactivate" %}
+          {% trans "Disable" %}
         </button>
       </form>
     </main>
