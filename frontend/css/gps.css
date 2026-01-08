@@ -480,6 +480,7 @@ strong {
 }
 
 .field .help {
+  margin: 0;
   color: var(--gray-4, #5C717C);
   font-size: var(--font-sm);
 }
@@ -489,6 +490,10 @@ strong {
   color: var(--red-3, #E1275F);
   font-size: var(--font-sm);
   font-weight: 600;
+}
+
+.field.has-errors .field-label {
+  color: var(--red-3, #E1275F);
 }
 
 .field.inline-field {

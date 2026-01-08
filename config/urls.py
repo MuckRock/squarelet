@@ -82,6 +82,8 @@ urlpatterns = [
         "accounts/onboard/$", UserOnboardingView.as_view(), name="account_onboarding"
     ),
     path("accounts/signup/", SignupView.as_view(), name="account_signup"),
+    # Custom MFA URLs that override allauth defaults
+    path("accounts/2fa/", include("squarelet.mfa.urls")),
     path("accounts/", include("allauth.urls")),
     path("accounts/", include("allauth.socialaccount.urls")),
     path("api/", include(router.urls)),

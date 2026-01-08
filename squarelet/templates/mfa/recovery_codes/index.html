@@ -1,30 +1,70 @@
 {% extends "mfa/recovery_codes/base.html" %}
-{% load i18n %}
-{% load allauth %}
+{% load i18n django_vite %}
+
+{% block vite %}
+  {{ block.super }}
+  {% vite_asset "frontend/views/mfa.ts" %}
+{% endblock %}
+
 {% block content %}
-    {% element h1 %}
-        {% translate "Recovery Codes" %}
-    {% endelement %}
-    {% element p %}
-        {% blocktranslate count unused_count=unused_codes|length %}There is {{ unused_count }} out of {{ total_count }} recovery codes available.{% plural %}There are {{ unused_count }} out of {{ total_count }} recovery codes available.{% endblocktranslate %}
-    {% endelement %}
-    {% element field id="recovery_codes" type="textarea" disabled=True rows=unused_codes|length readonly=True %}
-        {% slot label %}
-            {% translate "Unused codes" %}
-        {% endslot %}
-        {% comment %} djlint:off {% endcomment %}
-    {% slot value %}{% for code in unused_codes %}{% if forloop.counter0 %}
-{% endif %}{{ code }}{% endfor %}{% endslot %}
-{% comment %} djlint:on {% endcomment %}
-{% endelement %}
-{% if unused_codes %}
-{% url 'mfa_download_recovery_codes' as download_url %}
-{% element button href=download_url %}
-{% translate "Download codes" %}
-{% endelement %}
-{% endif %}
-{% url 'mfa_generate_recovery_codes' as generate_url %}
-{% element button href=generate_url %}
-{% translate "Generate new codes" %}
-{% endelement %}
-{% endblock content %}
+<div class="container" id="recovery-codes">
+  <header>
+    <a class="nav-link" href="{% url 'users:detail' user.username %}">
+      {% include "core/icons/arrow-left.svg" %}
+      {% trans "Return to your account" %}
+    </a>
+    <h1>Recovery Codes</h1>
+  </header>
+  <main>
+    <p>
+      {% blocktranslate %}
+      Your second-factor device will generate a unique, time-sensitive code for when you sign in.
+      {% endblocktranslate %}
+    </p>
+    <p>
+      {% blocktranslate %}
+      In case you lose access to your second-factor device, you can use a recovery code to access your account.
+      <strong>It&rsquo;s important to save your recovery codes to a secure location to ensure continued access to your account.</strong>
+      {% endblocktranslate %}
+    </p>
+    <p>
+      {% blocktranslate %}
+      Each recovery code may only be used once. When you run out of codes, you will need to generate new ones.
+      {% endblocktranslate %}
+    </p>
+    <p>
+      {% blocktranslate count unused_count=unused_codes|length %}
+      You have <strong>{{ unused_count }} out of {{ total_count }}</strong> recovery codes remaining.
+      {% plural %}
+      You have <strong>{{ unused_count }} out of {{ total_count }}</strong> recovery codes remaining.
+      {% endblocktranslate %}
+    </p>
+    <label class="field">
+      <span class="field-label">
+        {% translate "Unused codes" %}
+      </span>
+      <textarea rows="{{ unused_codes|length }}" disabled readonly id="recovery_codes">
+      {% for code in unused_codes %}{% if forloop.counter0 %}
+{% endif %}{{ code }}{% endfor %}
+      </textarea>
+    </label>
+  </main>
+
+  <footer class="actions flex flex-row">
+    {% if unused_codes %}
+      <a href="{% url "mfa_download_recovery_codes" %}" class="btn primary">
+        {% include "core/icons/download.svg" %}
+        {% trans "Download codes" %}
+      </a>
+      <button class="btn ghost primary" id="copy-recovery-codes">
+        {% include "core/icons/copy.svg" %}
+        {% trans "Copy codes" %}
+      </button>
+    {% endif %}
+    <a href="{% url "mfa_generate_recovery_codes" %}" class="btn ghost primary">
+      {% include "core/icons/sync.svg" %}
+      {% trans "Generate new codes" %}
+    </a>
+  </footer>
+</div>
+{% endblock %}

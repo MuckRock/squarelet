@@ -1,33 +1,34 @@
 {% extends "mfa/recovery_codes/base.html" %}
-{% load i18n %}
-{% load allauth %}
+{% load i18n django_vite %}
+
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/mfa.ts" %}
+{% endblock %}
+
 {% block content %}
-    {% element h1 %}
-        {% translate "Recovery Codes" %}
-    {% endelement %}
-    {% element p %}
+<div class="container" id="recovery-codes">
+  <header>
+    <a class="nav-link" href="{% url 'users:detail' user.username %}">
+      {% include "core/icons/arrow-left.svg" %}
+      {% trans "Return to your account" %}
+    </a>
+  </header>
+  <div class="card">
+    <h1>{% translate "Generate Recovery Codes" %}</h1>
+    <p>
         {% blocktranslate %}You are about to generate a new set of recovery codes for your account.{% endblocktranslate %}
         {% if unused_code_count %}
             {% blocktranslate %}This action will invalidate your existing codes.{% endblocktranslate %}
         {% endif %}
         {% blocktranslate %}Are you sure?{% endblocktranslate %}
-    {% endelement %}
-    {% url 'mfa_generate_recovery_codes' as action_url %}
-    {% element form method="post" action=action_url no_visible_fields=True %}
-        {% slot body %}
-            {% csrf_token %}
-            {{ form.as_p }}
-        {% endslot %}
-        {% slot actions %}
-            {% setvar tags %}
-                {% if unused_code_count %}
-                    danger
-                {% else %}
-                {% endif %}
-            {% endsetvar %}
-            {% element button type="submit" tags=tags %}
-                {% trans "Generate" %}
-            {% endelement %}
-        {% endslot %}
-    {% endelement %}
+    </p>
+    <form method="post" action="{% url 'mfa_generate_recovery_codes' %}" >
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit" class="btn {% if unused_code_count %}danger{% else %}primary{% endif %}">
+        {% trans "Generate codes" %}
+    </form>
+  </div>
+</div>
 {% endblock content %}
