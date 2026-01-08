@@ -160,6 +160,8 @@ class OrganizationInvitationFactory(factory.django.DjangoModelFactory):
     to_organization = factory.SubFactory(
         "squarelet.organizations.tests.factories.OrganizationFactory"
     )
+    from_user = factory.SubFactory("squarelet.users.tests.factories.UserFactory")
+    closed_by_user = factory.SubFactory("squarelet.users.tests.factories.UserFactory")
     relationship_type = RelationshipType.member
     request = False
 
