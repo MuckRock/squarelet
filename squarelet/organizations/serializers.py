@@ -16,8 +16,10 @@ class OrganizationSerializer(serializers.ModelSerializer):
     merged = serializers.SlugRelatedField(read_only=True, slug_field="uuid")
     subtypes = serializers.StringRelatedField(many=True)
     admins = serializers.SerializerMethodField()
-    parent = serializers.SlugRelatedField(read_only=True, slug_field="uuid")
-    groups = serializers.SlugRelatedField(read_only=True, slug_field="uuid", many=True)
+
+    parent = serializers.SerializerMethodField()
+    groups = serializers.SerializerMethodField()
+
     share_resources = serializers.BooleanField(read_only=True)
 
     class Meta:
@@ -53,6 +55,15 @@ class OrganizationSerializer(serializers.ModelSerializer):
                 m.admin and m.organization_id == obj.pk for m in user.memberships.all()
             )
         ]
+
+    def get_parent(self, obj):
+        if obj.parent is not None:
+            return OrganizationDetailSerializer(obj.parent).data
+        else:
+            return None
+
+    def get_groups(self, obj):
+        return OrganizationDetailSerializer(obj.groups.all(), many=True).data
 
 
 class OrganizationDetailSerializer(OrganizationSerializer):
