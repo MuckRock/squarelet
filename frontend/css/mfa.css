@@ -74,6 +74,80 @@
   }
 }
 
+#onboarding-mfa-setup {
+  header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+  h1 {
+    width: 100%;
+    text-wrap: balance;
+    margin: 0;
+  }
+  h1 {
+    color: var(--gray-5, #233944);
+    text-align: center;
+    font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
+
+    /* Title */
+    font-family: var(--font-sans, "Source Sans Pro");
+    font-size: var(--font-xl, 1.5rem);
+    font-style: normal;
+    font-weight: 600;
+    line-height: normal;
+  }
+  .help.link {
+    font-size: var(--font-md, 1rem);
+    font-weight: var(--font-semibold, 600);
+    color: var(--primary);
+  }
+  .flex {
+    display: flex;
+  }
+  .gap-1 {
+    gap: 1rem;
+  }
+  .align-end {
+    align-items: flex-end;
+  }
+  .align-center {
+    align-items: center;
+  }
+  .m-0 {
+    margin: 0;
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+  }
+  .help.text {
+    font-weight: var(--font-regular, 400);
+    font-size: var(--font-sm, 0.875em);
+    color: var(--gray-4);
+  }
+  .qr-code-container {
+    gap: 1rem;
+    justify-content: center;
+    align-items: center;
+    max-width: 32rem;
+    .code {
+      flex: 1 1 16rem;
+    }
+    .code img {
+      background: #fff;
+      border-radius: 0.5rem;
+    }
+    .instructions {
+      flex: 1 1 auto;
+    }
+  }
+  .errorlist {
+    margin: 0;
+  }
+}
+
 .container {
   display: flex;
   flex-direction: column;
