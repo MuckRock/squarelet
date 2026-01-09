@@ -14,15 +14,8 @@ import logging
 
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
-from squarelet.core.utils import (
-    get_redirect_url,
-    is_rate_limited,
-)
-from squarelet.organizations.models import (
-    Invitation,
-    Membership,
-    Organization,
-)
+from squarelet.core.utils import get_redirect_url, is_rate_limited
+from squarelet.organizations.models import Invitation, Membership, Organization
 from squarelet.organizations.tasks import sync_wix
 
 # How much to paginate organizations list by
