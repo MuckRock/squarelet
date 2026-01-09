@@ -1,0 +1,25 @@
+{% load crispy_forms_field %}
+{% load i18n %}
+
+{# Checkbox fields render inline with input before label #}
+<div class="field field-checkbox{% if wrapper_class %} {{ wrapper_class }}{% endif %}{% if field.css_classes %} {{ field.css_classes }}{% endif %}">
+  <label for="{{ field.id_for_label }}" class="field-label-inline">
+    {% crispy_field field %}
+    {{ field.label|safe }}
+  </label>
+
+  {# Help text #}
+  {% if field.help_text %}
+    <p class="help">{{ field.help_text|safe }}</p>
+  {% endif %}
+
+  {# Errors #}
+  {% if field.errors %}
+    <ul class="field-errors">
+      {% for error in field.errors %}
+        <li class="field-error">{{ error }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</div>
+<!-- squarelet/templates/forms/layout/checkbox.html -->
