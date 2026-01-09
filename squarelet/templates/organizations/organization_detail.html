@@ -86,16 +86,19 @@
                 {% if invite_count == 0 %}
                   Manage members
                 {% else %}
-                  {% blocktrans count invite_count=invite_count %}
-                    Manage (1 join request)
-                  {% plural %}
-                    Manage ({{ invite_count }} join requests)
+                  {% blocktrans %}
+                    Manage join requests
                   {% endblocktrans %}
                 {% endif %}
               </a>
             </div>
           {% endif %}
-          {% if requested_invite %}
+          {% if is_member %}
+            <form class="_cls-infoSpaced" method="post">
+              {% csrf_token %}
+              <button class="_cls-action" name="action" value="leave">{% trans 'Leave this organization' %}</button>
+            </form>
+          {% elif requested_invite %}
             <div class="_cls-info _cls-infoStatus _cls-infoSpaced">{% trans 'You have requested an invite.' %}</div>
           {% elif rejected_invite %}
               <div class="_cls-info _cls-infoStatus _cls-infoSpaced">
