@@ -110,15 +110,17 @@
             <h2>{% trans "Pending invitations" %}</h2>
             <div class="header-actions">
               <a href="{% url "users:invitations" username=user.username %}" class="btn ghost primary">
-                {% trans "View all invitations" %}
+                {% include "core/icons/history.svg" %}
+                {% trans "Invitation history" %}
               </a>
             </div>
           </header>
+          {% if pending_invitations|length > 0 %}
           <div class="card">
             {% for invite in pending_invitations %}
             <div class="invite">
               {% include "account/team_list_item.html" with organization=invite.organization %}
-              
+
               <form method="post" action="{% url "organizations:invitation" uuid=invite.uuid %}" class="actions">
                 {% csrf_token %}
                 <button class="btn small primary" type="submit" name="action" value="accept">
@@ -129,12 +131,13 @@
                 </button>
               </form>
             </div>
-            {% empty %}
-            <div class="empty">
-              <p>{% trans "No pending invitations." %}</p>
-            </div>
             {% endfor %}
           </div>
+          {% else %}
+          <div class="empty">
+            <p>{% trans "No pending invitations." %}</p>
+          </div>
+          {% endif %}
         </div>
 
         <div class="pending">
@@ -142,10 +145,12 @@
             <h2>{% trans "Pending requests" %}</h2>
             <div class="header-actions">
               <a href="{% url "users:requests" username=user.username %}" class="btn ghost primary">
-                {% trans "View all requests" %}
+                {% include "core/icons/history.svg" %}
+                {% trans "Request history" %}
               </a>
             </div>
           </header>
+          {% if pending_requests|length > 0 %}
           <div class="card">
             {% for invite in pending_requests %}
             <div class="invite">
@@ -158,12 +163,13 @@
                 </button>
               </form>
             </div>
-            {% empty %}
-            <div class="empty">
-              <p>{% trans "No pending requests." %}</p>
-            </div>
             {% endfor %}
           </div>
+          {% else %}
+          <div class="empty">
+            <p>{% trans "No pending requests." %}</p>
+          </div>
+          {% endif %}
         </div>
       {% endif %}
     </section>
