@@ -9,10 +9,10 @@
 {% endblock %}
 
 {% block content %}
-<article id="user_invitations" class="user-invitations-page">
+<article id="user_invitations" class="container user-invitations-page">
   <header>
     <nav class="links">
-      <a href="{% url "users:detail" username=target_user.username %}">
+      <a class="btn ghost primary" href="{% url "users:detail" username=target_user.username %}">
         {% include "core/icons/arrow-left.svg" %}
         {% trans "Back to" %} {% if is_own_page %}{% trans "your account" %}{% else %}{{ target_user.username }}{% endif %}
       </a>
@@ -30,9 +30,9 @@
   </header>
 
   <div class="content">
-    <section class="invitations-list">
+    <ul class="invitations-list">
         {% for invitation in invitations %}
-        <div class="invitation-item">
+        <li class="invitation-item">
           <header>
             {% include "account/team_list_item.html" with organization=invitation.organization %}
           </header>
@@ -93,34 +93,36 @@
               {% endif %}
             </div>
             {% endif %}
-          </div>
-        </div>
+          </li>
         {% empty %}
-        <div class="empty">
-          <p>
-            {% if is_own_page %}
-              {% trans "You have no invitations from organizations." %}
-            {% else %}
-              {% trans "This user has no invitations." %}
-            {% endif %}
-          </p>
-        </div>
+          <li class="empty">
+            <p>
+              {% if is_own_page %}
+                {% trans "You have no invitations from organizations." %}
+              {% else %}
+                {% trans "This user has no invitations." %}
+              {% endif %}
+            </p>
+          </li>
         {% endfor %}
-
-        {% if invitations and is_paginated %}
-        <nav class="pagination">
-          {% if page_obj.has_previous %}
-            <a href="?page={{ page_obj.previous_page_number }}" class="btn ghost">{% trans "Previous" %}</a>
-          {% endif %}
-          <span class="page-info">
-            {% trans "Page" %} {{ page_obj.number }} {% trans "of" %} {{ page_obj.paginator.num_pages }}
-          </span>
-          {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}" class="btn ghost">{% trans "Next" %}</a>
-          {% endif %}
-        </nav>
+      </ul>
+      {% if invitations and is_paginated %}
+      <nav class="pagination">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}" class="btn primary ghost">{% trans "Previous" %}</a>
+        {% else %}
+          <span class="btn primary ghost disabled">{% trans "Previous" %}</span>
         {% endif %}
-    </section>
+        <span class="page-info">
+          {% trans "Page" %} {{ page_obj.number }} {% trans "of" %} {{ page_obj.paginator.num_pages }}
+        </span>
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}" class="btn primary ghost">{% trans "Next" %}</a>
+        {% else %}
+          <span class="btn primary ghost disabled">{% trans "Next" %}</span>
+        {% endif %}
+      </nav>
+      {% endif %}
   </div>
 </article>
 {% endblock content %}
