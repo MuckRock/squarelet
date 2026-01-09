@@ -1,13 +1,18 @@
 {% extends "base.html" %}
-{% load static i18n %}
+{% load static i18n django_vite %}
 
 {% block title %}{% trans 'Requests' %}{% endblock %}
 
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/user_invitations.ts" %}
+{% endblock %}
+
 {% block content %}
-<article id="user_requests" class="user-requests-page">
+<article id="user_requests" class="container user-requests-page">
   <header>
     <nav class="links">
-      <a href="{% url "users:detail" username=target_user.username %}">
+      <a class="btn ghost primary" href="{% url "users:detail" username=target_user.username %}">
         {% include "core/icons/arrow-left.svg" %}
         {% trans "Back to" %} {% if is_own_page %}{% trans "your account" %}{% else %}{{ target_user.username }}{% endif %}
       </a>
@@ -20,99 +25,105 @@
       {% endif %}
     </h1>
     <p class="help-text">
-      {% trans "View all requests you've sent to join organizations." %}
+      {% trans "View all requests you've sent to organizations." %}
     </p>
   </header>
 
   <div class="content">
-    <section class="requests-list">
-      {% if requests %}
-        <div class="card">
-          {% for request in requests %}
-          <div class="request-item">
-            {% include "account/team_list_item.html" with organization=request.organization %}
-
-            <div class="request-details">
-              <dl class="status-info">
-                <dt>{% trans "Requested" %}</dt>
+    <ul class="invitations-list">
+        {% for invitation in requests %}
+        <li class="invitation-item">
+          <header>
+            {% include "account/team_list_item.html" with organization=invitation.organization %}
+          </header>
+          <main>
+            <dl class="invitation-summary">
+              <div>
+                <dt>Received</dt>
                 <dd>
-                  <time title="{{request.created_at|date:"c"}}" datetime="{{request.created_at|date:"c"}}">
-                    {{request.created_at|date:"F j, Y"}}
+                  <time title="{{invitation.created_at|date:"c"}}" datetime="{{invitation.created_at|date:"c"}}">
+                    {{invitation.created_at|date:"F j, Y"}}
                   </time>
                 </dd>
-                <dt>{% trans "Status" %}</dt>
-                <dd>
-                  {% if request.accepted_at %}
-                    <span class="badge green">
-                      {% include "core/icons/checkmark.svg" %}
+              </div>
+              <div class="{% if invitation.accepted_at %}accepted{% elif invitation.rejected_at %}rejected{% endif %}">
+                <dt>
+                  {% if invitation.accepted_at %}
+                  <dt>
                       {% trans "Accepted" %}
-                    </span>
-                    <span class="status-date">
-                      <time title="{{request.accepted_at|date:"c"}}" datetime="{{request.accepted_at|date:"c"}}">
-                        {{request.accepted_at|date:"F j, Y"}}
-                      </time>
-                    </span>
-                  {% elif request.rejected_at %}
-                    <span class="badge red">
-                      {% include "core/icons/x.svg" %}
+                  </dt>
+                  <dd>
+                    <time title="{{invitation.accepted_at|date:"c"}}" datetime="{{invitation.accepted_at|date:"c"}}">
+                      {{invitation.accepted_at|date:"F j, Y"}}
+                    </time>
+                  </dd>
+                  {% elif invitation.rejected_at %}
+                  <dt>
                       {% trans "Rejected" %}
-                    </span>
-                    <span class="status-date">
-                      <time title="{{request.rejected_at|date:"c"}}" datetime="{{request.rejected_at|date:"c"}}">
-                        {{request.rejected_at|date:"F j, Y"}}
-                      </time>
-                    </span>
-                  {% else %}
-                    <span class="badge blue">
-                      {% include "core/icons/clock.svg" %}
-                      {% trans "Pending" %}
-                    </span>
+                  </dt>
+                  <dd>
+                    <time title="{{invitation.rejected_at|date:"c"}}" datetime="{{invitation.rejected_at|date:"c"}}">
+                      {{invitation.rejected_at|date:"F j, Y"}}
+                    </time>
+                  </dd>
                   {% endif %}
-                </dd>
-              </dl>
-
-              {% if is_own_page %}
-                <div class="actions">
-                  {% if not request.accepted_at and not request.rejected_at %}
-                    <form method="post" action="{% url "organizations:invitation" uuid=request.uuid %}">
-                      {% csrf_token %}
-                      <button class="btn small danger ghost" type="submit" name="action" value="reject">
-                        {% trans "Withdraw request" %}
-                      </button>
-                    </form>
-                  {% endif %}
-                </div>
+                </dt>
+              </div>
+            </dl>
+            {% if is_own_page and not invitation.accepted_at or invitation.rejected_at %}
+            <div class="actions">
+              {% if not invitation.accepted_at and not invitation.rejected_at %}
+                <form method="post" action="{% url "organizations:invitation" uuid=invitation.uuid %}">
+                  {% csrf_token %}
+                  <button class="btn small primary" type="submit" name="action" value="accept">
+                    {% trans "Accept" %}
+                  </button>
+                  <button class="btn small danger ghost" type="submit" name="action" value="reject">
+                    {% trans "Reject" %}
+                  </button>
+                </form>
+              {% elif invitation.rejected_at %}
+                <form method="post" action="{% url "users:invitations" username=target_user.username %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="invitation_uuid" value="{{invitation.uuid}}" />
+                  <input type="hidden" name="action" value="send_new_request" />
+                  <button class="btn small ghost primary" type="submit">
+                    {% trans "Send request to join" %}
+                  </button>
+                </form>
               {% endif %}
             </div>
-          </div>
-          {% endfor %}
-        </div>
-
-        {% if is_paginated %}
-        <nav class="pagination">
-          {% if page_obj.has_previous %}
-            <a href="?page={{ page_obj.previous_page_number }}" class="btn ghost">{% trans "Previous" %}</a>
-          {% endif %}
-          <span class="page-info">
-            {% trans "Page" %} {{ page_obj.number }} {% trans "of" %} {{ page_obj.paginator.num_pages }}
-          </span>
-          {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}" class="btn ghost">{% trans "Next" %}</a>
-          {% endif %}
-        </nav>
-        {% endif %}
-      {% else %}
-        <div class="empty card">
-          <p>
-            {% if is_own_page %}
-              {% trans "You have not sent any requests to join organizations." %}
-            {% else %}
-              {% trans "This user has not sent any requests." %}
             {% endif %}
-          </p>
-        </div>
+          </li>
+        {% empty %}
+          <li class="empty">
+            <p>
+              {% if is_own_page %}
+                {% trans "You have no requests from organizations." %}
+              {% else %}
+                {% trans "This user has no requests." %}
+              {% endif %}
+            </p>
+          </li>
+        {% endfor %}
+      </ul>
+      {% if requests and is_paginated %}
+      <nav class="pagination">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}" class="btn primary ghost">{% trans "Previous" %}</a>
+        {% else %}
+          <span class="btn primary ghost disabled">{% trans "Previous" %}</span>
+        {% endif %}
+        <span class="page-info">
+          {% trans "Page" %} {{ page_obj.number }} {% trans "of" %} {{ page_obj.paginator.num_pages }}
+        </span>
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}" class="btn primary ghost">{% trans "Next" %}</a>
+        {% else %}
+          <span class="btn primary ghost disabled">{% trans "Next" %}</span>
+        {% endif %}
+      </nav>
       {% endif %}
-    </section>
   </div>
 </article>
 {% endblock content %}

@@ -46,7 +46,7 @@
                   </time>
                 </dd>
               </div>
-              <div>
+              <div class="{% if invitation.accepted_at %}accepted{% elif invitation.rejected_at %}rejected{% endif %}">
                 <dt>
                   {% if invitation.accepted_at %}
                   <dt>
@@ -69,7 +69,7 @@
                   {% endif %}
                 </dt>
             </dl>
-            {% if is_own_page %}
+            {% if is_own_page and not invitation.accepted_at or invitation.rejected_at %}
             <div class="actions">
               {% if not invitation.accepted_at and not invitation.rejected_at %}
                 <form method="post" action="{% url "organizations:invitation" uuid=invitation.uuid %}">
@@ -86,7 +86,7 @@
                   {% csrf_token %}
                   <input type="hidden" name="invitation_uuid" value="{{invitation.uuid}}" />
                   <input type="hidden" name="action" value="send_new_request" />
-                  <button class="btn small primary" type="submit">
+                  <button class="btn small ghost primary" type="submit">
                     {% trans "Send request to join" %}
                   </button>
                 </form>
