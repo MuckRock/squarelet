@@ -1,6 +1,7 @@
 # Django
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth.mixins import UserPassesTestMixin
 from django.http.response import (
     HttpResponse,
     HttpResponseBadRequest,
@@ -12,7 +13,6 @@ from django.utils.translation import gettext_lazy as _
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import DetailView, UpdateView
-from django.contrib.auth.mixins import UserPassesTestMixin
 
 # Standard Library
 import json
@@ -24,10 +24,7 @@ import stripe
 from django_weasyprint import WeasyTemplateResponseMixin
 
 # Squarelet
-from squarelet.core.utils import (
-    format_stripe_error,
-    get_stripe_dashboard_url,
-)
+from squarelet.core.utils import format_stripe_error, get_stripe_dashboard_url
 from squarelet.organizations.forms import PaymentForm
 from squarelet.organizations.mixins import OrganizationAdminMixin
 from squarelet.organizations.models import Charge, Organization

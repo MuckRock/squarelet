@@ -8,17 +8,10 @@ from django.utils.html import format_html
 from django.views.generic import DetailView
 
 # Squarelet
-from squarelet.core.utils import (
-    get_redirect_url,
-    pluralize,
-)
+from squarelet.core.utils import get_redirect_url, pluralize
 from squarelet.organizations.forms import AddMemberForm
 from squarelet.organizations.mixins import OrganizationAdminMixin
-from squarelet.organizations.models import (
-    Invitation,
-    Membership,
-    Organization,
-)
+from squarelet.organizations.models import Invitation, Membership, Organization
 
 
 class ManageMembers(OrganizationAdminMixin, DetailView):
