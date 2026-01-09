@@ -58,12 +58,14 @@ class OrganizationSerializer(serializers.ModelSerializer):
 
     def get_parent(self, obj):
         if obj.parent is not None:
-            return OrganizationDetailSerializer(obj.parent).data
+            return OrganizationDetailSerializer(obj.parent, context=self.context).data
         else:
             return None
 
     def get_groups(self, obj):
-        return OrganizationDetailSerializer(obj.groups.all(), many=True).data
+        return OrganizationDetailSerializer(
+            obj.groups.all(), many=True, context=self.context
+        ).data
 
 
 class OrganizationDetailSerializer(OrganizationSerializer):
