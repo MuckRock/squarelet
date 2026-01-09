@@ -8,7 +8,19 @@
   min-height: 100%;
 }
 
+.invitation-item, .invitation-item main, .invitation-details {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.invitation-item header {
+  flex: 1 1 16rem;
+}
+
 .invitation-summary {
+  flex: 0 1 auto;
   display: flex;
   gap: 1rem;
   font-size: var(--font-sm);
@@ -27,29 +39,21 @@ dl.invitation-summary > div {
   margin: 0;
 }
 
-.invitation-item, .invitation-item main, .invitation-details {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 1rem;
-}
-
-.invitation-item header {
-  flex: 1 1 16rem;
-}
-
-.invitation-summary {
-  flex: 1 1 auto;
-  color: var(--gray-5);
-}
-
 .invitation-item main {
   flex: 1 1 16rem;
-  max-width: 16rem;
+  justify-content: flex-end;
 }
 
 .invitation-summary time {
   white-space: nowrap;
+}
+
+.invitation-summary .accepted {
+  color: var(--green-4);
+}
+
+.invitation-summary .rejected {
+  color: var(--orange-4);
 }
 
 .invitations-list {
@@ -77,4 +81,11 @@ dl.invitation-summary > div {
   justify-content: center;
   gap: 1rem;
   align-items: center;
+  font-weight: 600;
+  color: var(--gray-4);
+}
+
+.invitation-item .actions form {
+  display: flex;
+  gap: 0.5rem;
 }
