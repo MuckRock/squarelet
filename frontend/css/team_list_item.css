@@ -63,8 +63,8 @@
 }
 
 .org-avatar {
-  width: 3.125rem;
-  height: 3.125rem;
+  width: 3.25rem;
+  height: 3.25rem;
   aspect-ratio: 1/1;
   border-radius: 0.3125rem;
   border: 1px solid var(--gray-2, #d8dee2);
@@ -72,6 +72,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  align-self: flex-start;
 }
 
 .org-avatar svg {
