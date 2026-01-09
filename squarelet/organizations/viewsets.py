@@ -18,7 +18,7 @@ from squarelet.organizations.serializers import (
 
 class OrganizationViewSet(viewsets.ModelViewSet):
     queryset = Organization.objects.prefetch_related(
-        "subtypes__type", "users__memberships"
+        "subtypes__type", "users__memberships", "groups"
     )
     permission_classes = (ScopePermission | IsAdminUser,)
     read_scopes = ("read_organization",)
