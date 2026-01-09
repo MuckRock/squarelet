@@ -154,7 +154,8 @@ nav.links svg {
 
 .empty {
   box-sizing: border-box;
-  min-height: 100%;
+  width: 100%;
+  aspect-ratio: 4 / 1;
 }
 
 /* Signed out users see this */
@@ -173,4 +174,23 @@ nav.links svg {
 .introduction .card p {
   margin: 0;
   font-weight: 600;
+}
+
+.your-orgs .org {
+  margin: 0 -0.25rem;
+  padding: 0.25rem;
+  border-radius: 0.5rem;
+  border: 1px solid;
+  border-color: transparent;
+  transition: border-color .1s linear;
+}
+
+.your-orgs .org:hover {
+  border-color: var(--blue-1);
+}
+
+.pending header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
