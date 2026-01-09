@@ -9,10 +9,7 @@ import re
 # Squarelet
 from squarelet.organizations.denylist_domains import DENYLIST_DOMAINS
 from squarelet.organizations.mixins import VerifiedJournalistMixin
-from squarelet.organizations.models import (
-    Organization,
-    OrganizationEmailDomain,
-)
+from squarelet.organizations.models import Organization, OrganizationEmailDomain
 
 
 class ManageDomains(VerifiedJournalistMixin, DetailView):

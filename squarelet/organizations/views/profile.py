@@ -6,15 +6,9 @@ from django.views import View
 from django.views.generic import CreateView, UpdateView
 
 # Squarelet
-from squarelet.organizations.forms import (
-    ProfileChangeRequestForm,
-    UpdateForm,
-)
+from squarelet.organizations.forms import ProfileChangeRequestForm, UpdateForm
 from squarelet.organizations.mixins import OrganizationAdminMixin
-from squarelet.organizations.models import (
-    Organization,
-    ProfileChangeRequest,
-)
+from squarelet.organizations.models import Organization, ProfileChangeRequest
 
 
 class Update(OrganizationAdminMixin, UpdateView):
