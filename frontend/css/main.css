@@ -660,7 +660,6 @@ nav a:hover ._cls-serviceName {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
-  justify-content: center;
 }
 
 ._cls-fieldInput {
