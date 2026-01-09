@@ -1,9 +1,11 @@
-
-
-.invitation-item main, .invitation-details {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+.container {
+  width: 100%;
+  max-width: 50rem;
+  margin: 0 auto;
+  padding: 2rem;
+  align-self: flex-start;
+  box-sizing: border-box;
+  min-height: 100%;
 }
 
 .invitation-summary {
@@ -23,4 +25,56 @@ dl.invitation-summary > div {
 
 .invitation-summary dd {
   margin: 0;
+}
+
+.invitation-item, .invitation-item main, .invitation-details {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.invitation-item header {
+  flex: 1 1 16rem;
+}
+
+.invitation-summary {
+  flex: 1 1 auto;
+  color: var(--gray-5);
+}
+
+.invitation-item main {
+  flex: 1 1 16rem;
+  max-width: 16rem;
+}
+
+.invitation-summary time {
+  white-space: nowrap;
+}
+
+.invitations-list {
+  list-style-type: none;
+  padding: 0;
+  box-sizing: border-box;
+  background: var(--white);
+  border: 1px solid var(--gray-2);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.invitation-item {
+  box-sizing: border-box;
+  padding: 0.5rem 0.5rem;
+  border-bottom: 1px solid var(--gray-2);
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.pagination {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  align-items: center;
 }

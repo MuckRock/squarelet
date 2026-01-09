@@ -106,7 +106,8 @@ nav.links svg {
   flex: 1 1 24rem;
 }
 
-.your-orgs .card {
+.your-orgs .card,
+.pending .card {
   gap: 1rem;
 }
 
@@ -193,4 +194,9 @@ nav.links svg {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.pending .card {
+  max-height: 32rem;
+  overflow-y: auto;
 }
