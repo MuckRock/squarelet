@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% load static i18n django_vite %}
+
+{% block title %}{% trans 'Requests' %}{% endblock %}
+
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/user_invitations.ts" %}
+{% endblock %}
+
+{% block content %}
+<article id="user_requests" class="container user-requests-page">
+  <header>
+    <nav class="links">
+      <a class="btn ghost primary" href="{% url "users:detail" username=target_user.username %}">
+        {% include "core/icons/arrow-left.svg" %}
+        {% trans "Back to" %} {% if is_own_page %}{% trans "your account" %}{% else %}{{ target_user.username }}{% endif %}
+      </a>
+    </nav>
+    <h1>
+      {% if is_own_page %}
+        {% trans "Your Requests" %}
+      {% else %}
+        {% trans "Requests for" %} {{ target_user.username }}
+      {% endif %}
+    </h1>
+    <p class="help-text">
+      {% trans "View all requests you've sent to organizations." %}
+    </p>
+  </header>
+
+  <div class="content">
+    <ul class="invitations-list">
+        {% for invitation in requests %}
+        <li class="invitation-item">
+          <header>
+            {% include "account/team_list_item.html" with organization=invitation.organization %}
+          </header>
+          <main>
+            <dl class="invitation-summary">
+              <div>
+                <dt>Received</dt>
+                <dd>
+                  <time title="{{invitation.created_at|date:"c"}}" datetime="{{invitation.created_at|date:"c"}}">
+                    {{invitation.created_at|date:"F j, Y"}}
+                  </time>
+                </dd>
+              </div>
+              <div class="{% if invitation.accepted_at %}accepted{% elif invitation.rejected_at %}rejected{% endif %}">
+                <dt>
+                  {% if invitation.accepted_at %}
+                  <dt>
+                      {% trans "Accepted" %}
+                  </dt>
+                  <dd>
+                    <time title="{{invitation.accepted_at|date:"c"}}" datetime="{{invitation.accepted_at|date:"c"}}">
+                      {{invitation.accepted_at|date:"F j, Y"}}
+                    </time>
+                  </dd>
+                  {% elif invitation.rejected_at %}
+                  <dt>
+                      {% trans "Rejected" %}
+                  </dt>
+                  <dd>
+                    <time title="{{invitation.rejected_at|date:"c"}}" datetime="{{invitation.rejected_at|date:"c"}}">
+                      {{invitation.rejected_at|date:"F j, Y"}}
+                    </time>
+                  </dd>
+                  {% endif %}
+                </dt>
+              </div>
+            </dl>
+            {% if is_own_page and not invitation.accepted_at or invitation.rejected_at %}
+            <div class="actions">
+              {% if not invitation.accepted_at and not invitation.rejected_at %}
+                <form method="post" action="{% url "organizations:invitation" uuid=invitation.uuid %}">
+                  {% csrf_token %}
+                  <button class="btn small primary" type="submit" name="action" value="accept">
+                    {% trans "Accept" %}
+                  </button>
+                  <button class="btn small danger ghost" type="submit" name="action" value="reject">
+                    {% trans "Reject" %}
+                  </button>
+                </form>
+              {% elif invitation.rejected_at %}
+                <form method="post" action="{% url "users:invitations" username=target_user.username %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="invitation_uuid" value="{{invitation.uuid}}" />
+                  <input type="hidden" name="action" value="send_new_request" />
+                  <button class="btn small ghost primary" type="submit">
+                    {% trans "Send request to join" %}
+                  </button>
+                </form>
+              {% endif %}
+            </div>
+            {% endif %}
+          </li>
+        {% empty %}
+          <li class="empty">
+            <p>
+              {% if is_own_page %}
+                {% trans "You have no requests from organizations." %}
+              {% else %}
+                {% trans "This user has no requests." %}
+              {% endif %}
+            </p>
+          </li>
+        {% endfor %}
+      </ul>
+      {% if requests and is_paginated %}
+      <nav class="pagination">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}" class="btn primary ghost">{% trans "Previous" %}</a>
+        {% else %}
+          <span class="btn primary ghost disabled">{% trans "Previous" %}</span>
+        {% endif %}
+        <span class="page-info">
+          {% trans "Page" %} {{ page_obj.number }} {% trans "of" %} {{ page_obj.paginator.num_pages }}
+        </span>
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}" class="btn primary ghost">{% trans "Next" %}</a>
+        {% else %}
+          <span class="btn primary ghost disabled">{% trans "Next" %}</span>
+        {% endif %}
+      </nav>
+      {% endif %}
+  </div>
+</article>
+{% endblock content %}

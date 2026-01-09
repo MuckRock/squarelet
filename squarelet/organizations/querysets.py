@@ -159,6 +159,31 @@ class InvitationQuerySet(models.QuerySet):
     def get_rejected(self):
         return self.exclude(rejected_at=None)
 
+    def for_user(self, user):
+        """Filter invitations/requests for a user's verified emails or user field"""
+        verified_emails = user.get_verified_emails()
+        if not verified_emails:
+            return self.none()
+        return self.filter(Q(email__in=verified_emails) | Q(user=user))
+
+    def get_user_invitations(self, user):
+        """Get all invitations (request=False) for a user"""
+        return (
+            self.for_user(user)
+            .filter(request=False)
+            .select_related("organization")
+            .order_by("-created_at")
+        )
+
+    def get_user_requests(self, user):
+        """Get all requests (request=True) for a user"""
+        return (
+            self.for_user(user)
+            .filter(request=True)
+            .select_related("organization")
+            .order_by("-created_at")
+        )
+
 
 class ChargeQuerySet(models.QuerySet):
     def make_charge(

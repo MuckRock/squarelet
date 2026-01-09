@@ -349,6 +349,9 @@ strong {
 .btn.ghost.primary:hover,
 .btn.ghost.primary:focus {
   background: var(--blue-1, #eef3f9);
+  &.disabled {
+    background: transparent;
+  }
 }
 
 .btn.ghost.orange,
@@ -362,6 +365,9 @@ strong {
 .btn.ghost.danger:hover,
 .btn.ghost.danger:focus {
   background: var(--orange-1, #fff0ee);
+  &.disabled {
+    background: transparent;
+  }
 }
 
 .btn.ghost.green,
@@ -378,6 +384,9 @@ strong {
 .btn.ghost.success:hover,
 .btn.ghost.success:focus {
   background: var(--green-1, #ebf9f6);
+  &.disabled {
+    background: transparent;
+  }
 }
 
 .btn.ghost.small {
