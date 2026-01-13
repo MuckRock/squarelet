@@ -138,8 +138,8 @@
 }
 
 body {
-  font-family: "Source Sans 3", "Source Sans Pro", "Lato", "Helvetica Neue",
-    sans-serif;
+  font-family:
+    "Source Sans 3", "Source Sans Pro", "Lato", "Helvetica Neue", sans-serif;
   margin: 0;
   padding: 0;
   background: #fafafa;
@@ -1463,6 +1463,11 @@ textarea {
   width: 100%;
   margin: auto;
   position: absolute;
+  pointer-events: none;
+}
+
+._cls-alerts > * {
+  pointer-events: all;
 }
 
 .alert-info {
