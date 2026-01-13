@@ -231,7 +231,7 @@ class TestWix:
     def test_add_to_waitlist_new_contact(self, requests_mock, user):
         """Test add_to_waitlist creates new contact and applies labels"""
         contact_id = str(uuid.uuid4())
-        plan = PlanFactory(slug="sunlight-basic-monthly", name="Sunlight Basic")
+        plan = PlanFactory(slug="sunlight-essential-monthly", name="Sunlight Essential")
 
         # Mock query to return no existing contact
         requests_mock.post(
@@ -257,14 +257,17 @@ class TestWix:
         # Verify the labels call had correct waitlist labels
         labels_request = requests_mock.request_history[2]
         assert labels_request.json() == {
-            "labelKeys": ["custom.waitlist", "custom.waitlist-sunlight-basic-monthly"]
+            "labelKeys": [
+                "custom.waitlist",
+                "custom.waitlist-sunlight-essential-monthly",
+            ]
         }
 
     @pytest.mark.django_db()
     def test_add_to_waitlist_existing_contact(self, requests_mock, user):
         """Test add_to_waitlist uses existing contact and applies labels"""
         contact_id = str(uuid.uuid4())
-        plan = PlanFactory(slug="sunlight-premium-annual", name="Sunlight Premium")
+        plan = PlanFactory(slug="sunlight-enhanced-annual", name="Sunlight Enhanced")
 
         # Mock query to return existing contact
         requests_mock.post(
@@ -287,14 +290,14 @@ class TestWix:
         label_keys = labels_request.json()["labelKeys"]
         assert "custom.waitlist" in label_keys
         assert any(
-            label.startswith("custom.waitlist-sunlight-premium-annual")
+            label.startswith("custom.waitlist-sunlight-enhanced-annual")
             for label in label_keys
         )
 
     @pytest.mark.django_db()
     def test_add_to_waitlist_handles_errors(self, requests_mock, user, caplog):
         """Test add_to_waitlist handles API errors gracefully"""
-        plan = PlanFactory(slug="sunlight-basic-monthly", name="Sunlight Basic")
+        plan = PlanFactory(slug="sunlight-essential-monthly", name="Sunlight Essential")
 
         # Mock the query to fail with a 500 error
         requests_mock.post(

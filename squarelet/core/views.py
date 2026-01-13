@@ -44,7 +44,7 @@ class SelectPlanView(TemplateView):
         # Structure the plans as: tiers -> each tier has monthly and annual plans
         sunlight_tiers = {}
         for plan in sunlight_plans_list:
-            # Extract tier from slug: "sunlight-basic", "sunlight-basic-annual"
+            # Extract tier from slug: "sunlight-essential", "sunlight-essential-annual"
             if plan.slug.endswith("-annual"):
                 tier_name = plan.slug.replace("sunlight-", "").replace("-annual", "")
                 payment_type = "annual"
@@ -63,7 +63,7 @@ class SelectPlanView(TemplateView):
             sunlight_tiers[tier_name][payment_type] = plan
 
         # Convert to ordered list for template
-        tier_order = ["basic", "premium", "enterprise"]
+        tier_order = ["essential", "enhanced", "enterprise"]
         context["sunlight_tiers"] = [
             sunlight_tiers[tier] for tier in tier_order if tier in sunlight_tiers
         ]

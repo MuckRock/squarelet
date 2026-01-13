@@ -237,6 +237,11 @@
         Multiply your newsroom&rsquo;s investigative impact with a <span class="heavy-underline nowrap">Sunlight Research Desk Membership</span>
         {% endblocktrans %}
       </h2>
+      <p class="nonprofit-discount-tout">
+        {% blocktrans %}
+        Non-profit newsrooms get 50% off Sunlight memberships
+        {% endblocktrans %}
+      </p>
     </header>
     <main>
       <div class="sunlight-tiers">
@@ -261,6 +266,14 @@
             {% endif %}
           </main>
           <footer>
+            {% if tier.name == "Custom" %}
+            <div class="actions">
+              <a class="btn premium" href="https://calendar.app.google/fAWZF635MY89Sp5J9">
+                Contact us
+              </a>
+              <a class="btn primary ghost" href="https://sunlightresearch.net/launch" target="_blank">Learn more</a>
+            </div>
+            {% else %}
             <div class="pricing">
               {% if tier.annual %}
               <div class="price annual">
@@ -302,6 +315,7 @@
               {% endif %}
               <a class="btn primary ghost" href="https://sunlightresearch.net/launch" target="_blank">Learn more</a>
             </div>
+            {% endif %}
           </footer>
         </div>
         {% endfor %}

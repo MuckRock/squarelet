@@ -484,8 +484,8 @@ class TestGetMatchingPlanTier:
     def test_finds_matching_sunlight_plan_if_exists(self):
         """Test that it finds matching Sunlight plans from the database"""
         # Try to find the actual Sunlight plans from the migration
-        monthly = Plan.objects.filter(slug="sunlight-basic").first()
-        annual = Plan.objects.filter(slug="sunlight-basic-annual").first()
+        monthly = Plan.objects.filter(slug="sunlight-essential").first()
+        annual = Plan.objects.filter(slug="sunlight-essential-annual").first()
 
         # Only test if both plans exist in the database
         if monthly and annual:

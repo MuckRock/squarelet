@@ -136,6 +136,18 @@
                 <input type="checkbox" name="save_card" checked>
                 {% trans "Save as default card" %}
               </label>
+
+              <!-- Nonprofit checkbox (only shown for Sunlight plans) -->
+              <div class="nonprofit-checkbox" style="display:none;">
+                <label class="checkbox-label">
+                  <input type="checkbox" name="is_nonprofit" id="id_is_nonprofit"
+                          {% if request.POST.is_nonprofit %}checked{% endif %}>
+                  {% trans "My organization is non-profit" %}
+                </label>
+                <p class="nonprofit-info">
+                  {% trans "Non-profit organizations receive a 50% discount on Sunlight Research Center plans." %}
+                </p>
+              </div>
             {% else %}
               <div class="no-subscription-options">
                 <p>{% trans "You are already subscribed to this plan or don't have permission to subscribe." %}</p>
@@ -158,7 +170,9 @@
           <!-- Price and Subscribe button - Always visible -->
           <div class="form-footer">
             <div class="price">
-              ${{ plan.base_price }}/{% if plan.annual %}{% trans "year" %}{% else %}{% trans "month" %}{% endif %}
+              <span class="original-price">${{ plan.base_price }}</span>
+              <span class="discounted-price" style="display:none;"></span>
+              <span class="pay-period">/&nbsp;{% if plan.annual %}{% trans "year" %}{% else %}{% trans "month" %}{% endif %}</span>
             </div>
             {% if user.is_authenticated %}
               {% if can_subscribe_individual and plan.for_individuals or admin_organizations and plan.for_groups %}

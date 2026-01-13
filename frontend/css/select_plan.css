@@ -312,6 +312,21 @@
 
   /* Sunlight Research Desk Membership */
 
+  .sunlight header {
+    gap: 0;
+  }
+
+  .sunlight .nonprofit-discount-tout {
+    margin: 0;
+    padding: 0.25em 0.5em;
+    font-size: var(--font-sm);
+    font-weight: var(--font-semibold);
+    color: var(--orange-5);
+    background-color: var(--orange-1);
+    border: 1px solid var(--orange-2);
+    border-radius: 0.5rem;
+  }
+
   .sunlight .heavy-underline {
     text-decoration-color: var(--yellow-3);
   }
