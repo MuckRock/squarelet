@@ -1,1 +1,0 @@
-/* empty css                        */import{m as t,O as o}from"../OrgSearch-ZF8wPRvp.js";window.addEventListener("DOMContentLoaded",()=>{const e=document.getElementById("org_search");e&&t(o,{target:e})});

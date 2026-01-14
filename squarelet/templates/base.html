@@ -74,29 +74,62 @@
 
     {% include "core/component/navigation.html" %}
 
-    <div class="_cls-alerts">
-      {% if payment_failed_organizations %}
-      <div class="_cls-alert">
-        <div class="alert-error">
-          <span class="_cls-alertIcon"></span>
-          <span class="_cls-middleAlign">
-            A recent charge made to your credit card has failed.
-            {% for organization in payment_failed_organizations %}
-            <p>
-              {% if organization.individual %}
-              <a href="{% url "users:payment" username=user.username %}">Update your billing info.</a>
-              {% else %}
-              <a href="{% url "organizations:payment" slug=organization.slug %}">
-                Update the billing info for {{ organization.name }}.
-              </a>
-              {% endif %}
-            </p>
-            {% endfor %}
-          </span>
-          <span class="_cls-close" onclick="dismissAlert(this)">
-            Dismiss
-          </span>
+    <div class="_cls-main">
+
+
+      <div class="_cls-alerts">
+        {% if payment_failed_organizations %}
+        <div class="_cls-alert">
+          <div class="alert-error">
+            <span class="_cls-alertIcon"></span>
+            <span class="_cls-middleAlign">
+              A recent charge made to your credit card has failed.
+              {% for organization in payment_failed_organizations %}
+              <p>
+                {% if organization.individual %}
+                <a href="{% url "users:payment" username=user.username %}">Update your billing info.</a>
+                {% else %}
+                <a href="{% url "organizations:payment" slug=organization.slug %}">
+                  Update the billing info for {{ organization.name }}.
+                </a>
+                {% endif %}
+              </p>
+              {% endfor %}
+            </span>
+            <span class="_cls-close" data-dismiss="alert">
+              Dismiss
+            </span>
+          </div>
         </div>
+        {% endif %}
+        {% if request.user.email_failed %}
+        <div class="_cls-alert">
+          <div class="alert-error">
+            <span class="_cls-alertIcon"></span>
+            <span class="_cls-middleAlign">
+              We received an error trying to email you, please
+              <a href="{% url "account_email" %}">update your email.</a>
+            </span>
+            <span class="_cls-close" data-dismiss="alert">
+              Dismiss
+            </span>
+          </div>
+        </div>
+        {% endif %}
+
+        {% if messages %}
+        {% for message in messages %}
+        <div class="_cls-alert">
+          <div class="{% if message.tags %}alert-{{ message.tags }}{% endif %}" data-auto-dismiss>
+            <span class="_cls-alertIcon"></span>
+            <span class="_cls-middleAlign">{{ message|safe }}</span>
+            <span class="_cls-close" data-dismiss="alert">
+              Dismiss
+            </span>
+          </div>
+        </div>
+        {% endfor %}
+        {% endif %}
       </div>
       {% endif %}
       {% if request.user.email_failed %}
@@ -111,36 +144,6 @@
       </div>
       {% endif %}
 
-      {% if messages %}
-      {% for message in messages %}
-      <div class="_cls-alert">
-        <div class="{% if message.tags %}alert-{{ message.tags }}{% endif %}">
-          <span class="_cls-alertIcon"></span>
-          <span class="_cls-middleAlign">{{ message|safe }}</span>
-          <span class="_cls-close" onclick="dismissAlert(this)">
-            Dismiss
-          </span>
-        </div>
-      </div>
-      {% endfor %}
-      {% endif %}
-    </div>
-    <script>
-      function dismissAlert(target) {
-        const alert = target.parentElement;
-        const container = alert.parentElement;
-
-        // Remove the alert from the container
-        alert.remove();
-
-        // Check if the container has no more alerts
-        if (container.children.length === 0) {
-          container.remove();
-        }
-      }
-    </script>
-    
-    <div class="_cls-main">
       {% block container %}
       {% block content %}
       <div class="_cls-content">

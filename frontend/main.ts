@@ -9,6 +9,13 @@ import { exists } from "./util";
 import { DropdownView } from "./dropdown";
 import { EmailAddressView } from "./emailaddress";
 import { ReceiptsView } from "./receipts";
+import { PlansView } from "./views/plans";
+import { scrollControl } from "./scroll-controller";
+import { initAlerts } from "./alerts";
+// import {ManageTableView} from './managetable';
+
+// Initialize alert system for progressive enhancement
+initAlerts();
 
 if (exists("_id-profDropdown")) {
   // Dropdown view;

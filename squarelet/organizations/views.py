@@ -21,6 +21,7 @@ from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
+from django.views import View
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
@@ -46,6 +47,7 @@ from squarelet.core.utils import (
     get_redirect_url,
     get_stripe_dashboard_url,
     is_rate_limited,
+    pluralize,
 )
 from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.denylist_domains import DENYLIST_DOMAINS
@@ -53,6 +55,7 @@ from squarelet.organizations.forms import (
     AddMemberForm,
     MergeForm,
     PaymentForm,
+    ProfileChangeRequestForm,
     UpdateForm,
 )
 from squarelet.organizations.mixins import (
@@ -65,6 +68,7 @@ from squarelet.organizations.models import (
     Membership,
     Organization,
     OrganizationEmailDomain,
+    ProfileChangeRequest,
 )
 from squarelet.organizations.tasks import (
     handle_charge_succeeded,
@@ -321,6 +325,7 @@ def autocomplete(request):
 class UpdateSubscription(OrganizationAdminMixin, UpdateView):
     queryset = Organization.objects.filter(individual=False)
     form_class = PaymentForm
+    template_name = "organizations/organization_payment.html"
 
     def form_valid(self, form):
         organization = self.object
@@ -369,8 +374,136 @@ class UpdateSubscription(OrganizationAdminMixin, UpdateView):
 
 
 class Update(OrganizationAdminMixin, UpdateView):
+    "Update organization metadata, with some fields requiring staff approval first"
+
     queryset = Organization.objects.filter(individual=False)
     form_class = UpdateForm
+    template_name = "organizations/organization_update.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Create an instance of ProfileChangeRequest for this organization
+        profile_change_request = ProfileChangeRequest(
+            organization=self.object,
+            user=self.request.user,
+        )
+
+        context["profile_change_form"] = ProfileChangeRequestForm(
+            instance=profile_change_request,
+            request=self.request,
+        )
+        # Include any pending profile change requests
+        context["pending_change_requests"] = self.object.profile_change_requests.filter(
+            status="pending"
+        )
+        return context
+
+
+class RequestProfileChange(OrganizationAdminMixin, CreateView):
+    """Handle profile change requests for organization fields requiring staff
+    approval"""
+
+    model = ProfileChangeRequest
+    form_class = ProfileChangeRequestForm
+    queryset = Organization.objects.filter(individual=False)
+
+    def get_organization(self):
+        """Get the organization from the URL"""
+        return self.queryset.get(slug=self.kwargs["slug"])
+
+    def get(self, request, *args, **kwargs):
+        """Redirect GET requests back to the organization profile page"""
+        return redirect("organizations:detail", slug=kwargs["slug"])
+
+    def get_form_kwargs(self):
+        """Pass the organization instance and request to the form"""
+        kwargs = super().get_form_kwargs()
+        organization = self.get_organization()
+        if organization:
+            # Create a ProfileChangeRequest instance with the organization
+            kwargs["instance"] = ProfileChangeRequest(
+                organization=organization, user=self.request.user
+            )
+        kwargs["request"] = self.request
+        return kwargs
+
+    def form_valid(self, form):
+        """Save the profile change request"""
+        profile_change_request = form.save(commit=False)
+        profile_change_request.organization = self.get_organization()
+        profile_change_request.user = self.request.user
+        profile_change_request.save()
+
+        messages.success(
+            self.request,
+            _(
+                "Your profile change request has been submitted and will be "
+                "reviewed by staff."
+            ),
+        )
+        return redirect(
+            "organizations:update", slug=profile_change_request.organization.slug
+        )
+
+    def form_invalid(self, form):
+        """Handle invalid form submission"""
+        messages.error(
+            self.request,
+            _(
+                "There was an error with your submission. Please check the "
+                "form and try again."
+            ),
+        )
+        return redirect("organizations:update", slug=self.kwargs["slug"])
+
+
+class ReviewProfileChange(View):
+    """Handle staff review (accept/reject) of profile change requests"""
+
+    def post(self, request, slug, pk):
+        """Accept or reject a profile change request"""
+        # Verify user is staff
+        if not request.user.is_staff:
+            messages.error(
+                request,
+                _("You do not have permission to review profile change requests."),
+            )
+            return redirect("organizations:update", slug=slug)
+
+        # Get the profile change request
+        try:
+            profile_change = ProfileChangeRequest.objects.get(
+                pk=pk, organization__slug=slug, status="pending"
+            )
+        except ProfileChangeRequest.DoesNotExist:
+            messages.error(
+                request,
+                _("Profile change request not found or already processed."),
+            )
+            return redirect("organizations:update", slug=slug)
+
+        # Get the action from POST data
+        action = request.POST.get("action")
+
+        if action == "accept":
+            profile_change.accept()
+            messages.success(
+                request,
+                _("Profile change request has been accepted and applied."),
+            )
+        elif action == "reject":
+            profile_change.reject()
+            messages.success(
+                request,
+                _("Profile change request has been rejected."),
+            )
+        else:
+            messages.error(
+                request,
+                _("Invalid action specified."),
+            )
+
+        return redirect("organizations:update", slug=slug)
 
 
 class Create(LoginRequiredMixin, CreateView):
@@ -460,7 +593,7 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
             )
         else:
             emails = addmember_form.cleaned_data["emails"]
-
+            invitations_sent = 0
             for email in emails:
                 is_already_member = self.organization.has_member_by_email(email)
                 existing_open_invite = self.organization.get_existing_open_invite(email)
@@ -484,8 +617,11 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
                     email=email,
                 )
                 invitation.send()
-
-                messages.success(self.request, "Invitations sent")
+                invitations_sent += 1
+            messages.success(
+                self.request,
+                f"{invitations_sent} {pluralize(invitations_sent, 'invitation')} sent",
+            )
 
         return redirect("organizations:manage-members", slug=self.organization.slug)
 
@@ -503,47 +639,52 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
         )
         return redirect("organizations:manage-members", slug=self.organization.slug)
 
-    def _handle_invite(self, request, invite_fn, success_message):
+    def _handle_invite(self, request, invite_fn, success_message_fn):
         try:
             inviteid = request.POST.get("inviteid")
             invite = Invitation.objects.get_open().get(
                 pk=inviteid, organization=self.organization
             )
             invite_fn(invite)
-            messages.success(self.request, success_message)
+            messages.success(self.request, success_message_fn(invite))
         except Invitation.DoesNotExist:
             return self._bad_call(request)
         return redirect("organizations:manage-members", slug=self.organization.slug)
 
     def _handle_revoke_invite(self, request):
         return self._handle_invite(
-            request, lambda invite: invite.reject(), "Invitation revoked"
+            request,
+            lambda invite: invite.reject(),
+            lambda invite: f"Invitation to {invite.email} revoked",
         )
 
     def _handle_resend_invite(self, request):
         return self._handle_invite(
             request,
             lambda invite: invite.send(),
-            "Invitation resent successfully.",
+            lambda invite: f"Invitation to {invite.email} resent successfully.",
         )
 
     def _handle_accept_invite(self, request):
-        def accept_invite(invite):
-            invite.accept()
-
-        return self._handle_invite(request, accept_invite, "Invitation accepted")
+        return self._handle_invite(
+            request,
+            lambda invite: invite.accept(),
+            lambda invite: f"Invitation from {invite.email} accepted",
+        )
 
     def _handle_reject_invite(self, request):
         return self._handle_invite(
-            request, lambda invite: invite.reject(), "Invitation rejected"
+            request,
+            lambda invite: invite.reject(),
+            lambda invite: f"Invitation from {invite.email} rejected",
         )
 
-    def _handle_user(self, request, membership_fn, success_message):
+    def _handle_user(self, request, membership_fn, success_message_fn):
         try:
             userid = request.POST.get("userid")
             membership = self.organization.memberships.get(user_id=userid)
             membership_fn(membership)
-            messages.success(self.request, success_message)
+            messages.success(self.request, success_message_fn(membership))
         except Membership.DoesNotExist:
             return self._bad_call(request)
         return redirect("organizations:manage-members", slug=self.organization.slug)
@@ -564,14 +705,19 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
         return self._handle_user(
             request,
             handle_make_admin,
-            "Made an admin" if set_admin else "Made not an admin",
+            lambda membership: (
+                f"{membership.user.username} promoted to admin"
+                if set_admin
+                else f"{membership.user.username} demoted to member"
+            ),
         )
 
     def _handle_remove_user(self, request):
-        def remove_user(membership):
-            membership.delete()
-
-        return self._handle_user(request, remove_user, "Removed user")
+        return self._handle_user(
+            request,
+            lambda membership: membership.delete(),
+            lambda membership: f"{membership.user.username} removed",
+        )
 
     def _bad_call(self, request):
         messages.error(self.request, "An unexpected error occurred")
@@ -580,13 +726,13 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["admin"] = self.request.user
-        context["members"] = self.object.memberships.select_related("user").order_by(
-            "user__created_at"
+        context["members"] = list(
+            self.object.memberships.select_related("user").order_by("user__created_at")
         )
-        context["requested_invitations"] = (
+        context["requested_invitations"] = list(
             self.object.invitations.get_pending_requests()
         )
-        context["pending_invitations"] = (
+        context["pending_invitations"] = list(
             self.object.invitations.get_pending_invitations()
         )
         return context

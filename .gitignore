@@ -293,8 +293,6 @@ squarelet/config/
 scratch/
 *.js.map
 
-# keep built frontend files for now
-!frontend/dist
-
 # Local dev data
 /data
+frontend/dist
