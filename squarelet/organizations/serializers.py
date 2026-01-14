@@ -17,6 +17,11 @@ class OrganizationSerializer(serializers.ModelSerializer):
     subtypes = serializers.StringRelatedField(many=True)
     admins = serializers.SerializerMethodField()
 
+    parent = serializers.SerializerMethodField()
+    groups = serializers.SerializerMethodField()
+
+    share_resources = serializers.BooleanField(read_only=True)
+
     class Meta:
         model = Organization
         fields = (
@@ -33,6 +38,9 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "merged",
             "subtypes",
             "admins",
+            "parent",
+            "groups",
+            "share_resources",
         )
 
     def get_admins(self, obj):
@@ -47,6 +55,17 @@ class OrganizationSerializer(serializers.ModelSerializer):
                 m.admin and m.organization_id == obj.pk for m in user.memberships.all()
             )
         ]
+
+    def get_parent(self, obj):
+        if obj.parent is not None:
+            return OrganizationDetailSerializer(obj.parent, context=self.context).data
+        else:
+            return None
+
+    def get_groups(self, obj):
+        return OrganizationDetailSerializer(
+            obj.groups.all(), many=True, context=self.context
+        ).data
 
 
 class OrganizationDetailSerializer(OrganizationSerializer):
