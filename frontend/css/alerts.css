@@ -35,6 +35,7 @@
   width: 100%;
   margin: 0 auto;
   position: absolute;
+  top: 0.5rem;
   z-index: 10;
   display: flex;
   flex-direction: column;
