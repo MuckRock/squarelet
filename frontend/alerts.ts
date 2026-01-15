@@ -52,6 +52,11 @@ export function initAlerts(): void {
       }
     }
   });
+
+  /* Enable alerts from the console for testing */
+  /* Uncomment to enable! */
+  // window.showAlert = showAlert
+  // window.dismissAlert = dismissAlert
 }
 
 /**
