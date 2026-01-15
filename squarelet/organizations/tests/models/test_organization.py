@@ -1,5 +1,5 @@
 # Standard Library
-from unittest.mock import Mock
+from unittest.mock import Mock, PropertyMock
 
 # Third Party
 import pytest
@@ -598,7 +598,7 @@ class TestOrganization:
                     if f.is_relation and f.auto_created
                 ]
             )
-            == 14
+            == 15
         )
         # Many to many relations defined on the Organization model
         assert (

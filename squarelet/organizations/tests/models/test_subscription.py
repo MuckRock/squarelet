@@ -5,7 +5,7 @@ from unittest.mock import Mock
 import pytest
 import stripe
 
-# Squarelet
+# Local
 from .test_invoice import Invoice, create_mock_stripe_invoice
 
 
