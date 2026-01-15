@@ -1,0 +1,43 @@
+{% load crispy_forms_field i18n %}
+
+{% if field.is_hidden %}
+  {{ field }}
+{% else %}
+  {% if field|is_checkbox %}
+    {% include 'forms/layout/checkbox.html' %}
+  {% else %}
+    {# Standard fields with label above input #}
+    <div class="field{% if wrapper_class %} {{ wrapper_class }}{% endif %}{% if field.css_classes %} {{ field.css_classes }}{% endif %}">
+      {# Label #}
+      {% if field.label and form_show_labels %}
+        <label for="{{ field.id_for_label }}" class="field-label{% if field.field.required %} required{% endif %}">
+          {{ field.label|safe }}{% if field.field.required %}<span class="required-mark">*</span>{% endif %}
+        </label>
+      {% endif %}
+
+      {# Input #}
+      {% if field|is_checkboxselectmultiple %}
+          {% include 'forms/layout/checkboxselectmultiple.html' %}
+      {% elif field|is_radioselect %}
+          {% include 'forms/layout/radioselect.html' %}
+      {% else %}
+          {% crispy_field field %}
+      {% endif %}
+
+      {# Help text #}
+      {% if field.help_text %}
+        <p class="help">{{ field.help_text|safe }}</p>
+      {% endif %}
+
+      {# Errors #}
+      {% if field.errors %}
+        <div class="field-errors">
+          {% for error in field.errors %}
+            <div class="field-error">{{ error }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
+{% endif %}
+<!-- squarelet/templates/forms/layout/field.html -->
