@@ -8,7 +8,7 @@ import squarelet.core.fields
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("organizations", "0051_merge_20251203_1716"),
+        ("organizations", "0050_profilechangerequest_ticket_id"),
     ]
 
     operations = [
