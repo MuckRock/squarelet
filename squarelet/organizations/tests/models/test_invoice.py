@@ -13,7 +13,6 @@ import stripe
 from squarelet.organizations.models import Invoice
 
 
-
 def create_mock_stripe_invoice(invoice_id, amount_due, status, created, due_date=None):
     """
     Create a mock Stripe invoice object that supports dictionary-style access.
