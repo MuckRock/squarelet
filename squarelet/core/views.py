@@ -22,6 +22,7 @@ class SelectPlanView(TemplateView):
     template_name = "pages/selectplan.html"
 
     def get_context_data(self, **kwargs):
+        # pylint: disable=too-many-locals
         context = super().get_context_data(**kwargs)
         user = self.request.user
         pro_plan = None

@@ -81,7 +81,7 @@ class PlanDetailView(DetailView):
         return plan
 
     def get_context_data(self, **kwargs):
-        # pylint: disable=too-many-locals
+        # pylint: disable=too-many-locals,too-many-branches
         context = super().get_context_data(**kwargs)
         plan = self.get_object()
 
@@ -202,6 +202,7 @@ class PlanDetailView(DetailView):
 
     def post(self, request, *args, **kwargs):
         # pylint: disable=too-many-return-statements,too-many-branches
+        # pylint: disable=too-many-locals,too-many-statements
         """
         This receives a form submission for subscribing to the plan.
         The form supports selecting an existing organization or creating a new one,
