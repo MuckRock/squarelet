@@ -546,6 +546,22 @@ class Plan(models.Model):
         )
 
     @property
+    def is_sunlight_plan(self):
+        """Check if this is a Sunlight Research Center plan"""
+        return self.slug.startswith("sunlight-")
+
+    @property
+    def nonprofit_variant_slug(self):
+        """Get the nonprofit variant slug for this plan"""
+        if self.slug.startswith("sunlight-nonprofit-"):
+            return self.slug  # Already a nonprofit variant
+        elif self.slug.startswith("sunlight-"):
+            # Convert sunlight-essential -> sunlight-nonprofit-essential
+            # Convert sunlight-essential-annual -> sunlight-nonprofit-essential-annual
+            return self.slug.replace("sunlight-", "sunlight-nonprofit-", 1)
+        return None
+
+    @property
     def stripe_id(self):
         """Namespace the stripe ID to not conflict with previous plans we have made"""
         return f"squarelet_plan_{self.slug}"

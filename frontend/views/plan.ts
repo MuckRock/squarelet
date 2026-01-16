@@ -32,6 +32,10 @@ interface FormElements {
   newOrgInput: HTMLInputElement | null;
   newOrgField: HTMLLabelElement | null;
   submitButton: HTMLButtonElement | null;
+  nonprofitCheckbox: HTMLInputElement | null;
+  nonprofitContainer: HTMLDivElement | null;
+  originalPrice: HTMLSpanElement | null;
+  discountedPrice: HTMLSpanElement | null;
 }
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -103,14 +107,18 @@ document.addEventListener("DOMContentLoaded", function () {
       cardOnFileOption: form.querySelector('.card-on-file-option'),
       cardField: form.querySelector('.card-field'),
       paymentMethods: form.querySelector('.payment-methods'),
-      saveCardCheckbox: form.querySelector('input[name="save_card"]').closest('label'),
+      saveCardCheckbox: form.querySelector('input[name="save_card"]')?.closest('label'),
       existingCardRadio: form.querySelector('input[value="existing-card"]'),
       newCardRadio: form.querySelector('input[value="new-card"]'),
       invoiceRadio: form.querySelector('input[value="invoice"]'),
       managePaymentLink: form.querySelector('.manage-payment-link'),
       newOrgInput: form.querySelector('#id_new_organization_name'),
       newOrgField: form.querySelector('#id_new_organization_name')?.closest('label'),
-      submitButton: form.querySelector('button[type="submit"]')
+      submitButton: form.querySelector('button[type="submit"]'),
+      nonprofitCheckbox: form.querySelector('#id_is_nonprofit'),
+      nonprofitContainer: form.querySelector('.nonprofit-checkbox'),
+      originalPrice: form.querySelector('.original-price'),
+      discountedPrice: form.querySelector('.discounted-price'),
     };
   }
   
@@ -219,7 +227,40 @@ document.addEventListener("DOMContentLoaded", function () {
       submitButton.disabled = true;
     }
   }
-  
+
+  function updatePriceDisplay(elements: FormElements, planData: any) {
+    const { nonprofitCheckbox, originalPrice, discountedPrice } = elements;
+
+    if (!nonprofitCheckbox || !originalPrice || !discountedPrice) return;
+
+    if (nonprofitCheckbox.checked && planData.has_nonprofit_variant) {
+      // Show discounted price from nonprofit plan variant
+      originalPrice.style.textDecoration = 'line-through';
+      originalPrice.style.opacity = '0.6';
+      discountedPrice.textContent = `$${planData.nonprofit_base_price}`;
+      discountedPrice.style.display = 'inline';
+    } else {
+      // Show normal price
+      discountedPrice.style.display = 'none';
+      originalPrice.style.textDecoration = 'none';
+      originalPrice.style.opacity = '1';
+    }
+  }
+
+  function updateNonprofitCheckboxVisibility(
+    selectedOrg: string,
+    elements: FormElements,
+    planData: any
+  ) {
+    if (!elements.nonprofitContainer) return;
+
+    if (planData.is_sunlight_plan && selectedOrg && selectedOrg !== '') {
+      elements.nonprofitContainer.style.display = 'block';
+    } else {
+      elements.nonprofitContainer.style.display = 'none';
+    }
+  }
+
   // Organization selection handling
   const orgSelects = document.querySelectorAll('.org-select');
   orgSelects.forEach(select => {
@@ -246,6 +287,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // Enable the submit button
         updateSubmitButton(selectedOrg, elements);
+
+        // Update nonprofit checkbox visibility and price display
+        updateNonprofitCheckboxVisibility(selectedOrg, elements, planData);
+        updatePriceDisplay(elements, planData);
       } else {
         // No organization selected - hide everything
         toggleNewOrgField(selectedOrg, elements);
@@ -253,6 +298,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // Disable the submit button
         updateSubmitButton(selectedOrg, elements);
+
+        // Hide nonprofit checkbox when no org selected
+        if (elements.nonprofitContainer) {
+          elements.nonprofitContainer.style.display = 'none';
+        }
       }
     });
     select.dispatchEvent(new Event("change"));
@@ -264,9 +314,19 @@ document.addEventListener("DOMContentLoaded", function () {
     radio.addEventListener('change', function() {
       const form = this.closest('form');
       const elements = getFormElements(form);
-      
+
       updatePaymentUI(elements);
     });
     radio.dispatchEvent(new Event("change"));
+  });
+
+  // Nonprofit checkbox handling
+  const nonprofitCheckboxes = document.querySelectorAll('#id_is_nonprofit');
+  nonprofitCheckboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', function() {
+      const form = this.closest('form');
+      const elements = getFormElements(form);
+      updatePriceDisplay(elements, planData);
+    });
   });
 });

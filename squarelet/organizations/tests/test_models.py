@@ -1189,7 +1189,7 @@ class TestPlan:
     @pytest.mark.django_db
     def test_has_available_slots_sunlight_no_wix(self, plan_factory):
         """Sunlight plans with wix=False have no limit"""
-        plan = plan_factory(slug="sunlight-basic", wix=False)
+        plan = plan_factory(slug="sunlight-essential", wix=False)
         assert plan.has_available_slots() is True
 
     @override_settings(MAX_SUNLIGHT_SUBSCRIPTIONS=15)
@@ -1198,7 +1198,7 @@ class TestPlan:
         self, plan_factory, subscription_factory
     ):
         """Sunlight wix plan under limit has available slots"""
-        sunlight_plan = plan_factory(slug="sunlight-basic-monthly", wix=True)
+        sunlight_plan = plan_factory(slug="sunlight-essential-monthly", wix=True)
 
         # Create 10 active subscriptions (under limit of 15)
         subscription_factory.create_batch(10, plan=sunlight_plan, cancelled=False)
@@ -1211,7 +1211,7 @@ class TestPlan:
         self, plan_factory, subscription_factory
     ):
         """Sunlight wix plan at limit has no available slots"""
-        sunlight_plan = plan_factory(slug="sunlight-basic-monthly", wix=True)
+        sunlight_plan = plan_factory(slug="sunlight-essential-monthly", wix=True)
 
         # Create 15 active subscriptions (at limit)
         subscription_factory.create_batch(15, plan=sunlight_plan, cancelled=False)
@@ -1224,7 +1224,7 @@ class TestPlan:
         self, plan_factory, subscription_factory
     ):
         """Sunlight wix plan over limit has no available slots"""
-        sunlight_plan = plan_factory(slug="sunlight-basic-monthly", wix=True)
+        sunlight_plan = plan_factory(slug="sunlight-essential-monthly", wix=True)
 
         # Create 20 active subscriptions (over limit)
         subscription_factory.create_batch(20, plan=sunlight_plan, cancelled=False)
@@ -1237,8 +1237,8 @@ class TestPlan:
         self, plan_factory, subscription_factory
     ):
         """Limit is shared across all Sunlight plan variants"""
-        sunlight_basic = plan_factory(slug="sunlight-basic-monthly", wix=True)
-        sunlight_premium = plan_factory(slug="sunlight-premium-annual", wix=True)
+        sunlight_basic = plan_factory(slug="sunlight-essential-monthly", wix=True)
+        sunlight_premium = plan_factory(slug="sunlight-enhanced-annual", wix=True)
 
         # Create 10 subscriptions for basic, 5 for premium (total 15)
         for _ in range(10):
@@ -1256,7 +1256,7 @@ class TestPlan:
         self, plan_factory, subscription_factory
     ):
         """Cancelled subscriptions don't count toward limit"""
-        sunlight_plan = plan_factory(slug="sunlight-basic-monthly", wix=True)
+        sunlight_plan = plan_factory(slug="sunlight-essential-monthly", wix=True)
 
         # Create 14 active and 10 cancelled subscriptions
         for _ in range(14):
@@ -1266,6 +1266,66 @@ class TestPlan:
 
         # Should still have slots available (14 < 15)
         assert sunlight_plan.has_available_slots() is True
+
+    def test_is_sunlight_plan_for_regular_sunlight(self, plan_factory):
+        """Regular Sunlight plans should be identified as Sunlight plans"""
+        plan = plan_factory.build(slug="sunlight-essential")
+        assert plan.is_sunlight_plan is True
+
+        plan = plan_factory.build(slug="sunlight-enhanced-annual")
+        assert plan.is_sunlight_plan is True
+
+        plan = plan_factory.build(slug="sunlight-enterprise")
+        assert plan.is_sunlight_plan is True
+
+    def test_is_sunlight_plan_for_nonprofit_sunlight(self, plan_factory):
+        """Nonprofit Sunlight plans should be identified as Sunlight plans"""
+        plan = plan_factory.build(slug="sunlight-nonprofit-essential")
+        assert plan.is_sunlight_plan is True
+
+        plan = plan_factory.build(slug="sunlight-nonprofit-enhanced-annual")
+        assert plan.is_sunlight_plan is True
+
+    def test_is_sunlight_plan_for_non_sunlight(self, plan_factory):
+        """Non-Sunlight plans should not be identified as Sunlight plans"""
+        plan = plan_factory.build(slug="professional")
+        assert plan.is_sunlight_plan is False
+
+        plan = plan_factory.build(slug="organization")
+        assert plan.is_sunlight_plan is False
+
+        plan = plan_factory.build(slug="free")
+        assert plan.is_sunlight_plan is False
+
+    def test_nonprofit_variant_slug_for_regular_sunlight(self, plan_factory):
+        """Regular Sunlight plans should return nonprofit variant slug"""
+        plan = plan_factory.build(slug="sunlight-essential")
+        assert plan.nonprofit_variant_slug == "sunlight-nonprofit-essential"
+
+        plan = plan_factory.build(slug="sunlight-enhanced-annual")
+        assert plan.nonprofit_variant_slug == "sunlight-nonprofit-enhanced-annual"
+
+        plan = plan_factory.build(slug="sunlight-enterprise")
+        assert plan.nonprofit_variant_slug == "sunlight-nonprofit-enterprise"
+
+    def test_nonprofit_variant_slug_for_nonprofit_sunlight(self, plan_factory):
+        """Nonprofit Sunlight plans should return their own slug"""
+        plan = plan_factory.build(slug="sunlight-nonprofit-essential")
+        assert plan.nonprofit_variant_slug == "sunlight-nonprofit-essential"
+
+        plan = plan_factory.build(slug="sunlight-nonprofit-enhanced-annual")
+        assert plan.nonprofit_variant_slug == "sunlight-nonprofit-enhanced-annual"
+
+    def test_nonprofit_variant_slug_for_non_sunlight(self, plan_factory):
+        """Non-Sunlight plans should return None"""
+        plan = plan_factory.build(slug="professional")
+        assert plan.nonprofit_variant_slug is None
+
+        plan = plan_factory.build(slug="organization")
+        assert plan.nonprofit_variant_slug is None
+
+        plan = plan_factory.build(slug="free")
+        assert plan.nonprofit_variant_slug is None
 
 
 class TestInvitation:

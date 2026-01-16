@@ -60,6 +60,16 @@ class PlanDetailView(DetailView):
     model = Plan
     template_name = "payments/plan.html"
 
+    def get_template_names(self):
+        """Override to use custom template for Enterprise plans"""
+        plan = self.get_object()
+
+        # Check if this is an Enterprise plan
+        if plan.slug.startswith("sunlight-enterprise"):
+            return ["payments/plan_enterprise.html"]
+
+        return [self.template_name]
+
     def get_object(self, queryset=None):
         """Override to check private plan access"""
         if queryset is None:
@@ -71,14 +81,38 @@ class PlanDetailView(DetailView):
         return plan
 
     def get_context_data(self, **kwargs):
-        # pylint: disable=too-many-locals
+        # pylint: disable=too-many-locals,too-many-branches
         context = super().get_context_data(**kwargs)
         plan = self.get_object()
 
         # Add plan data for JSON serialization
         context["plan_data"] = {
             "annual": plan.annual,
+            "is_sunlight_plan": plan.is_sunlight_plan,
+            "base_price": plan.base_price,
+            "price_per_user": plan.price_per_user,
+            "minimum_users": plan.minimum_users,
         }
+
+        # Add nonprofit plan pricing if available
+        if plan.is_sunlight_plan:
+            nonprofit_slug = plan.nonprofit_variant_slug
+            if nonprofit_slug:
+                try:
+                    nonprofit_plan = Plan.objects.get(slug=nonprofit_slug)
+                    context["plan_data"][
+                        "nonprofit_base_price"
+                    ] = nonprofit_plan.base_price
+                    context["plan_data"][
+                        "nonprofit_price_per_user"
+                    ] = nonprofit_plan.price_per_user
+                    context["plan_data"]["has_nonprofit_variant"] = True
+                except Plan.DoesNotExist:
+                    context["plan_data"]["has_nonprofit_variant"] = False
+            else:
+                context["plan_data"]["has_nonprofit_variant"] = False
+        else:
+            context["plan_data"]["has_nonprofit_variant"] = False
 
         # Add matching plan tier with different payment schedule (for Sunlight plans)
         context["matching_plan"] = get_matching_plan_tier(plan)
@@ -168,6 +202,7 @@ class PlanDetailView(DetailView):
 
     def post(self, request, *args, **kwargs):
         # pylint: disable=too-many-return-statements,too-many-branches
+        # pylint: disable=too-many-locals,too-many-statements
         """
         This receives a form submission for subscribing to the plan.
         The form supports selecting an existing organization or creating a new one,
@@ -207,6 +242,36 @@ class PlanDetailView(DetailView):
         new_organization_name = request.POST.get("new_organization_name")
         stripe_token = request.POST.get("stripe_token")
         payment_method = request.POST.get("payment_method")
+        is_nonprofit = request.POST.get("is_nonprofit") == "on"
+
+        # Handle nonprofit plan substitution
+        selected_plan = plan  # Original plan from URL
+
+        if is_nonprofit:
+            # Validate nonprofit checkbox is only used for Sunlight plans
+            if not plan.is_sunlight_plan:
+                messages.error(
+                    request,
+                    _(
+                        "Non-profit discount is only available for "
+                        "Sunlight Research Desk plans"
+                    ),
+                )
+                return redirect(plan)
+
+            # Get nonprofit variant slug
+            nonprofit_slug = plan.nonprofit_variant_slug
+            if nonprofit_slug:
+                try:
+                    nonprofit_plan = Plan.objects.get(slug=nonprofit_slug)
+                    selected_plan = nonprofit_plan
+                except Plan.DoesNotExist:
+                    messages.error(
+                        request,
+                        _("Non-profit plan variant not found. Please contact support."),
+                    )
+                    return redirect(plan)
+
         with transaction.atomic():
             try:
                 # Get or create the organization
@@ -232,6 +297,7 @@ class PlanDetailView(DetailView):
                     organization = request.user.individual_organization
 
                 # Check if already subscribed
+                # (check original plan for duplicate subscriptions)
                 if organization.subscriptions.filter(
                     plan=plan, cancelled=False
                 ).exists():
@@ -252,7 +318,7 @@ class PlanDetailView(DetailView):
                         messages.error(request, _("Please provide card information."))
                         return redirect(plan)
                 elif payment_method == "invoice":
-                    if not plan.annual:
+                    if not selected_plan.annual:
                         messages.error(
                             request,
                             _("Invoice payment is only available for annual plans."),
@@ -285,8 +351,8 @@ class PlanDetailView(DetailView):
                     transaction.on_commit(
                         lambda: organization.set_subscription(
                             token=stripe_token,
-                            plan=plan,
-                            max_users=plan.minimum_users,
+                            plan=selected_plan,
+                            max_users=selected_plan.minimum_users,
                             user=request.user,
                             payment_method=payment_method,
                         )
@@ -295,8 +361,8 @@ class PlanDetailView(DetailView):
                     # Non-Sunlight plans don't need transaction protection
                     organization.set_subscription(
                         token=stripe_token,
-                        plan=plan,
-                        max_users=plan.minimum_users,
+                        plan=selected_plan,
+                        max_users=selected_plan.minimum_users,
                         user=request.user,
                         payment_method=payment_method,
                     )
