@@ -62,6 +62,26 @@ class SelectPlanView(TemplateView):
 
             sunlight_tiers[tier_name][payment_type] = plan
 
+        # Fetch nonprofit variant plans and add them to tiers
+        for tier_name, tier_data in sunlight_tiers.items():
+            for payment_type in ["monthly", "annual"]:
+                if tier_data[payment_type]:
+                    standard_plan = tier_data[payment_type]
+                    nonprofit_slug = standard_plan.nonprofit_variant_slug
+                    if nonprofit_slug:
+                        try:
+                            nonprofit_plan = Plan.objects.get(slug=nonprofit_slug)
+                            tier_data[payment_type] = {
+                                "standard": standard_plan,
+                                "nonprofit": nonprofit_plan,
+                            }
+                        except Plan.DoesNotExist:
+                            # No nonprofit variant exists, keep the standard plan
+                            tier_data[payment_type] = {
+                                "standard": standard_plan,
+                                "nonprofit": None,
+                            }
+
         # Convert to ordered list for template
         tier_order = ["essential", "enhanced", "enterprise"]
         context["sunlight_tiers"] = [

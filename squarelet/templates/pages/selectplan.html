@@ -239,7 +239,7 @@
       </h2>
       <p class="nonprofit-discount-tout">
         {% blocktrans %}
-        Non-profit newsrooms get 50% off Sunlight memberships
+        Through generous philanthropic support, non-profit newsrooms receive subsidized pricing. Standard pricing reflects our full cost of service.
         {% endblocktrans %}
       </p>
     </header>
@@ -252,9 +252,9 @@
             <p><strong>{{ tier.short_description }}</strong></p>
           </header>
           <main>
-            {% if tier.monthly.benefits or tier.annual.benefits %}
+            {% if tier.monthly.standard.benefits or tier.annual.standard.benefits %}
             <ul class="checklist">
-              {% for benefit in tier.monthly.benefits|default:tier.annual.benefits %}
+              {% for benefit in tier.monthly.standard.benefits|default:tier.annual.standard.benefits %}
               <li class="checklist-item">
                 <span class="checkmark icon">
                   {% include "core/icons/checkmark.svg" %}
@@ -266,49 +266,72 @@
             {% endif %}
           </main>
           <footer>
-            {% if tier.name == "Custom" %}
+            {% if tier.name == "Enterprise" %}
             <div class="actions">
               <a class="btn premium" href="https://calendar.app.google/fAWZF635MY89Sp5J9">
-                Contact us
+                Contact us to design your plan
               </a>
               <a class="btn primary ghost" href="https://sunlightresearch.net/launch" target="_blank">Learn more</a>
             </div>
             {% else %}
-            <div class="pricing">
-              {% if tier.annual %}
+            {% if tier.monthly.standard or tier.annual.standard %}
+            <div class="pricing standard-pricing">
+              <h5>Standard</h5>
+              {% if tier.annual.standard %}
+                <div class="price annual">
+                  <span class="amount">${{ tier.annual.standard.base_price }}</span>
+                  <span class="period">/ year</span>
+                </div>
+              {% endif %}
+              {% if tier.annual.standard and tier.monthly.standard %}
+                <span class="price alt">{% trans "or" %}</span>
+              {% endif %}
+              {% if tier.monthly.standard %}
+                <div class="price monthly">
+                  <span class="amount">${{ tier.monthly.standard.base_price }}</span>
+                  <span class="period">/ month</span>
+                </div>
+              {% endif %}
+            </div>
+            {% endif %}
+            {% if tier.annual.nonprofit or tier.monthly.nonprofit %}
+            <div class="pricing nonprofit-pricing">
+              <h5>Non-profit</h5>
+              {% if tier.annual.nonprofit %}
               <div class="price annual">
-                <span class="amount">${{ tier.annual.base_price }}</span>
+                <span class="amount">${{ tier.annual.nonprofit.base_price }}</span>
                 <span class="period">/ year</span>
               </div>
               {% endif %}
-              {% if tier.monthly %}
+              {% if tier.annual.nonprofit and tier.monthly.nonprofit %}
+                <span class="price alt">{% trans "or" %}</span>
+              {% endif %}
+              {% if tier.monthly.nonprofit %}
               <div class="price monthly">
-                {% if tier.annual %}
-                <span class="alt">{% trans "or" %}</span>
-                {% endif %}
-                <span class="amount">${{ tier.monthly.base_price }}</span>
+                <span class="amount">${{ tier.monthly.nonprofit.base_price }}</span>
                 <span class="period">/ month</span>
               </div>
               {% endif %}
             </div>
+            {% endif %}
             <div class="actions">
               {% if tier.annual %}
               {% if user.is_anonymous %}
-              <a class="btn premium" href="{% url 'plan_detail' tier.annual.pk tier.annual.slug %}{% pass_query %}">
+              <a class="btn premium" href="{% url 'plan_detail' tier.annual.standard.pk tier.annual.standard.slug %}{% pass_query %}">
                 {% trans "Sign up & subscribe" %}
               </a>
               {% else %}
-              <a class="btn premium" href="{% url 'plan_detail' tier.annual.pk tier.annual.slug %}{% pass_query %}">
+              <a class="btn premium" href="{% url 'plan_detail' tier.annual.standard.pk tier.annual.standard.slug %}{% pass_query %}">
                 {% trans "Subscribe" %}
               </a>
               {% endif %}
               {% elif tier.monthly %}
               {% if user.is_anonymous %}
-              <a class="btn premium" href="{% url 'plan_detail' tier.monthly.pk tier.monthly.slug %}{% pass_query %}">
+              <a class="btn premium" href="{% url 'plan_detail' tier.monthly.standard.pk tier.monthly.standard.slug %}{% pass_query %}">
                 {% trans "Sign up & subscribe" %}
               </a>
               {% else %}
-              <a class="btn premium" href="{% url 'plan_detail' tier.monthly.pk tier.monthly.slug %}{% pass_query %}">
+              <a class="btn premium" href="{% url 'plan_detail' tier.monthly.standard.pk tier.monthly.standard.slug %}{% pass_query %}">
                 {% trans "Subscribe" %}
               </a>
               {% endif %}

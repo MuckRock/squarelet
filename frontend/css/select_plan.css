@@ -317,10 +317,12 @@
   }
 
   .sunlight .nonprofit-discount-tout {
-    margin: 0;
+    max-width: 32rem;
+    margin: 0 auto;
     padding: 0.25em 0.5em;
     font-size: var(--font-sm);
     font-weight: var(--font-semibold);
+    text-align: center;
     color: var(--orange-5);
     background-color: var(--orange-1);
     border: 1px solid var(--orange-2);
@@ -349,7 +351,7 @@
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    align-items: stretch;
+    align-items: flex-start;
     gap: 1.5rem;
     align-self: stretch;
     width: 100%;
@@ -369,6 +371,7 @@
 
   .sunlight-tiers .tier header {
     display: flex;
+    margin: 0;
     padding: 0;
     gap: 0.5rem;
     align-items: flex-start;
@@ -419,10 +422,16 @@
 
   .sunlight-tiers .tier .pricing {
     display: flex;
-    gap: 0.5rem;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
     align-items: baseline;
-    justify-content: space-between;
     align-self: stretch;
+  }
+
+  .sunlight-tiers .tier .pricing h5 {
+    margin: 0;
+    font-weight: 600;
+    color: var(--gray-4);
   }
 
   .sunlight-tiers .tier .price {
@@ -439,14 +448,14 @@
     line-height: normal;
     font-feature-settings: 'ss04' on;
   }
-  
+
   .sunlight-tiers .tier .annual.price .amount {
     font-weight: var(--font-semibold);
-    font-size: var(--font-xl, 1.5rem);
+    font-size: var(--font-lg, 1.25rem);
   }
 
   .sunlight-tiers .tier .price .period,
-  .sunlight-tiers .tier .price .alt
+  .sunlight-tiers .tier .alt
    {
     color: var(--gray-4, #5C717C);
     font-family: var(--font-sans, "Source Sans Pro");
@@ -456,9 +465,19 @@
     white-space: nowrap;
   }
 
+  .sunlight-tiers .tier .annual.price .period,
   .sunlight-tiers .tier .monthly.price .period,
-  .sunlight-tiers .tier .monthly.price .alt {
+  .sunlight-tiers .tier .alt {
     font-size: var(--font-sm);
+  }
+
+  .sunlight-tiers .tier h5 {
+    order: 0;
+    flex: 1 1 100%;
+  }
+
+ .sunlight-tiers .tier .alt {
+    order: 2
   }
 
   .sunlight-tiers .tier .price.annual {
@@ -466,7 +485,7 @@
   }
 
   .sunlight-tiers .tier .price.monthly {
-    order: 2;
+    order: 3;
   }
 
   .sunlight-tiers .tier .actions {
