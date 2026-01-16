@@ -60,6 +60,16 @@ class PlanDetailView(DetailView):
     model = Plan
     template_name = "payments/plan.html"
 
+    def get_template_names(self):
+        """Override to use custom template for Enterprise plans"""
+        plan = self.get_object()
+
+        # Check if this is an Enterprise plan
+        if plan.slug.startswith("sunlight-enterprise"):
+            return ["payments/plan_enterprise.html"]
+
+        return [self.template_name]
+
     def get_object(self, queryset=None):
         """Override to check private plan access"""
         if queryset is None:
