@@ -173,6 +173,7 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
         "is_staff",
         "is_superuser",
         "is_active",
+        "created_at",
     )
     list_filter = AuthUserAdmin.list_filter + (PermissionFilter,)
     search_fields = ("username_deterministic", "name", "email_deterministic")
