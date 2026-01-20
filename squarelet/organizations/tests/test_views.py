@@ -103,6 +103,82 @@ class TestDetail(ViewTestMixin):
         assert isinstance(response.context_data["invite_count"], int)
         assert response.context_data["invite_count"] == 2
 
+    def test_member_counts_in_context(self, rf, organization_factory, user_factory):
+        """Test that member_count and admin_count are in context"""
+        admin = user_factory()
+        members = user_factory.create_batch(3)
+        organization = organization_factory(admins=[admin], users=members)
+        response = self.call_view(rf, admin, slug=organization.slug)
+        assert response.status_code == 200
+        assert "member_count" in response.context_data
+        assert "admin_count" in response.context_data
+        # 1 admin + 3 members = 4 total users
+        assert response.context_data["member_count"] == 4
+        assert response.context_data["admin_count"] == 1
+
+    def test_verification_context_for_unverified_org_admin(
+        self, rf, organization_factory, user_factory
+    ):
+        """Test verification context for admin of unverified org"""
+        admin = user_factory()
+        organization = organization_factory(admins=[admin], verified_journalist=False)
+        response = self.call_view(rf, admin, slug=organization.slug)
+        assert response.status_code == 200
+        assert response.context_data["show_verification_request"] is True
+
+    def test_verification_context_for_verified_org_admin(
+        self, rf, organization_factory, user_factory
+    ):
+        """Test verification context for admin of verified org"""
+        admin = user_factory()
+        organization = organization_factory(admins=[admin], verified_journalist=True)
+        response = self.call_view(rf, admin, slug=organization.slug)
+        assert response.status_code == 200
+        assert response.context_data["show_verification_request"] is False
+
+    def test_verification_context_for_member(
+        self, rf, organization_factory, user_factory
+    ):
+        """Test that members don't see verification request prompt"""
+        member = user_factory()
+        organization = organization_factory(users=[member], verified_journalist=False)
+        response = self.call_view(rf, member, slug=organization.slug)
+        assert response.status_code == 200
+        assert response.context_data["show_verification_request"] is False
+
+    def test_security_settings_context_for_admin(
+        self, rf, organization_factory, user_factory
+    ):
+        """Test that admins see security settings in context"""
+        admin = user_factory()
+        organization = organization_factory(admins=[admin], allow_auto_join=True)
+        response = self.call_view(rf, admin, slug=organization.slug)
+        assert response.status_code == 200
+        assert "security_settings" in response.context_data
+        assert response.context_data["security_settings"]["allow_auto_join"] is True
+        assert "has_email_domains" in response.context_data["security_settings"]
+
+    def test_security_settings_context_for_member(
+        self, rf, organization_factory, user_factory
+    ):
+        """Test that members don't see security settings"""
+        member = user_factory()
+        organization = organization_factory(users=[member])
+        response = self.call_view(rf, member, slug=organization.slug)
+        assert response.status_code == 200
+        assert "security_settings" not in response.context_data
+
+    def test_security_settings_context_for_staff(
+        self, rf, organization_factory, user_factory
+    ):
+        """Test that staff see security settings even if not member"""
+        staff_user = user_factory(is_staff=True)
+        organization = organization_factory(allow_auto_join=False)
+        response = self.call_view(rf, staff_user, slug=organization.slug)
+        assert response.status_code == 200
+        assert "security_settings" in response.context_data
+        assert response.context_data["security_settings"]["allow_auto_join"] is False
+
     def test_get_individual(self, rf, individual_organization_factory):
         """Individual organizations should not have a detail page"""
         organization = individual_organization_factory()

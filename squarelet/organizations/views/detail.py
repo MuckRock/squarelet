@@ -63,6 +63,22 @@ class Detail(AdminLinkMixin, DetailView):
             context["users"] = admins
         context["admins"] = admins
 
+        # Add member counts
+        context["member_count"] = users.count()
+        context["admin_count"] = admins.count()
+
+        # Verification context - let template handle URL generation
+        context["show_verification_request"] = (
+            context.get("is_admin") or self.request.user.is_staff
+        ) and not self.object.verified_journalist
+
+        # Security settings context (read-only for now)
+        if context.get("is_admin") or self.request.user.is_staff:
+            context["security_settings"] = {
+                "allow_auto_join": self.object.allow_auto_join,
+                "has_email_domains": self.object.domains.exists(),
+            }
+
         return context
 
     def handle_join(self, request):

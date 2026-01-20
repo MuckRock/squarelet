@@ -1,182 +1,319 @@
 {% extends "base.html" %}
-{% load static %}
-{% load thumbnail %}
-{% load avatar %}
-{% load i18n %}
+{% load django_vite static thumbnail avatar i18n airtable %}
 
 {% block title %}{% trans 'Organization' %}: {{ organization.name }}{% endblock %}
 
-{% block css %}
-  {# shared styles #}
-  <link rel="stylesheet" href="{% static "css/gps.css" %}" />
-
-  {# include any style tags in parent templates #}
-  {{ block.super }}
-
-  {# page-specific styles #}
-  <link rel="stylesheet" href="{% static "css/user_detail.css" %}" />
-{% endblock css %}
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/organization_detail.ts" %}
+{% endblock %}
 
 {% block content %}
-  <div class="_cls-largeContent">
-    <div class="_cls-profileColumns">
-      <div class="_cls-profileColumn">
+<article id="organization_detail">
+  {% if is_admin or user.is_staff %}
+  <aside class="sidebar">
+    <div class="account">
+      <h2>{% trans "Organization" %}</h2>
+      <nav>
+        <ul>
+          <li>
+            <a href="#profile" class="profile nav-item">
+              {% include "core/icons/organization.svg" %}
+              {% trans "Profile" %}
+            </a>
+          </li>
+          <li>
+            <a href="#verification" class="verification nav-item">
+              {% if organization.verified_journalist %}
+              {% include "core/icons/verification.svg" %}
+              {% else %}
+              {% include "core/icons/unverified.svg" %}
+              {% endif %}
+              {% trans "Verification" %}
+            </a>
+          </li>
+          <li>
+            <a href="#members" class="members nav-item">
+              {% include "core/icons/person.svg" %}
+              {% trans "Members" %}
+            </a>
+          </li>
+          <li>
+            <a href="#plan" class="plan nav-item">
+              {% include "core/icons/credit-card.svg" %}
+              {% trans "Plan" %}
+            </a>
+          </li>
+          <li>
+            <a href="#security" class="security nav-item">
+              {% include "core/icons/shield-lock.svg" %}
+              {% trans "Security" %}
+            </a>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </aside>
+  {% endif %}
 
-        {% if request.user.is_staff and organization.plan.wix %}
-          <div class="staff-toolbar">
-            <h3>{% trans "Staff control panel" %}</h3>
-            <form method="post">
+  <div class="content">
+    {% if request.user.is_staff %}
+      <div class="staff-toolbar">
+        <h3>{% trans "Staff control panel" %}</h3>
+        <div class="staff-actions">
+          <a href="{% url 'admin:organizations_organization_change' organization.pk %}" class="btn ghost" target="_blank">
+            {% trans "View in Django admin" %}
+          </a>
+          <a href="{% url 'organizations:merge' %}" class="btn ghost">
+            {% trans "Merge organization" %}
+          </a>
+          {% if organization.plan.wix %}
+            <form method="post" style="display: inline;">
               {% csrf_token %}
               <button class="btn caution" type="submit" name="action" value="sync_wix">
                 {% trans "Sync Wix" %}
               </button>
             </form>
-          </div>
-        {% endif %}
-
-
-
-        <div class="_cls-profileSection">
-          <div class="_cls-profileInfo _cls-organizationInfo">
-            <div class="_cls-profileAvatar">
-              {% avatar organization 45 %}
-            </div>
-            <div class="_cls-profileNames">
-              <div class="_cls-profileName">
-                {{ organization.name }}
-              </div>
-            </div>
-          </div>
-          {% if is_admin or user.is_staff %}
-            <a href="{% url 'organizations:update' organization.slug %}"><div class="_cls-action">{% trans 'Edit organization' %}</div></a>
-          {% endif %}
-          {% if user.is_staff %}
-            <a href="{% url 'organizations:merge' %}"><div class="_cls-action">{% trans 'Merge organization' %}</div></a>
-          {% endif %}
-        </div>
-        {% if organization.verified_journalist %}
-          <div class="_cls-orgStatus _cls-verified">
-            Verified
-          </div>
-        {% endif %}
-        <div class="_cls-organizationSection">
-          {% if is_admin %}
-            <div class="_cls-info _cls-infoPreSpaced">{% trans 'You are an admin for this organization' %}</div>
-          {% elif is_member %}
-            <div class="_cls-info _cls-infoPreSpaced">{% trans 'You are a user for this organization' %}</div>
-          {% endif %}
-          {% if is_member %}
-            <div class="_cls-mediumHeader">{% trans 'Users' %} ({{ users|length }})</div>
-          {% else %}
-            <div class="_cls-mediumHeader">
-              {% trans 'Admins' %} ({{ users|length }})
-            </div>
-          {% endif %}
-          {% if user.is_staff %}
-            <div class="_cls-minorInfo">
-              <div>Admin emails:</div>
-              <div>
-                {% for admin in admins %}
-                  {{ admin.email }}{% if not forloop.last %},{% endif %}
-                {% endfor %}
-              </div>
-            </div>
-          {% endif %}
-          {% if is_admin or user.is_staff %}
-            <div class="_cls-infoSpaced">
-              <a class="_cls-action" href="{% url 'organizations:manage-members' organization.slug %}">
-                {% if invite_count == 0 %}
-                  Manage members
-                {% else %}
-                  {% blocktrans %}
-                    Manage join requests
-                  {% endblocktrans %}
-                {% endif %}
-              </a>
-            </div>
-          {% endif %}
-          {% if is_member %}
-            <form class="_cls-infoSpaced" method="post">
-              {% csrf_token %}
-              <button class="_cls-action" name="action" value="leave">{% trans 'Leave this organization' %}</button>
-            </form>
-          {% elif requested_invite %}
-            <div class="_cls-info _cls-infoStatus _cls-infoSpaced">{% trans 'You have requested an invite.' %}</div>
-          {% elif rejected_invite %}
-              <div class="_cls-info _cls-infoStatus _cls-infoSpaced">
-                  {% trans 'Your request to join this organization was rejected. Please contact an admin if this is a mistake and you need to be added to this organization.' %}
-              </div>
-          {% else %}
-            <form class="_cls-infoSpaced" method="post">
-              {% csrf_token %}
-              {% if can_auto_join %}
-                <button class="_cls-action" name="action" value="join">{% trans 'Join' %}</button>
-              {% else %}
-                <button class="_cls-action" name="action" value="join">{% trans 'Request to join' %}</button>
-              {% endif %}
-            </form>
-          {% endif %}
-          {% if users|length > 0 %}
-            <ul class="_cls-profList">
-              {% for user in users %}
-                <a href="{% url 'users:detail' user.username %}">
-                  <li>
-                    <div class="_cls-inlineAvatar">
-                      {% avatar user 15 %}
-                    </div>
-                    {{ user.safe_name }}
-                    {% if user in admins %}(Admin){% endif %}
-                  </li>
-                </a>
-              {% endfor %}
-            </ul>
-          {% else %}
-            <div class="_cls-info">
-              <p>{% trans 'This organization has no members.' %}</p>
-            </div>
           {% endif %}
         </div>
       </div>
-      <div class="_cls-planColumn">
+    {% endif %}
+
+    <section id="profile">
+      <header>
+        <h2>{% trans "Profile" %}</h2>
         {% if is_admin %}
-          <div class="_cls-currentPlan">
-            {% with subscription=organization.subscription %}
-              {% if subscription %}
-                <div class="_cls-planInfo">
-                  {% trans "Current plan" %}: <b>{{ subscription.plan.name }}</b>
-                  {% if subscription.cancelled %}
-                    <div class="_cls-info _cls-infoSpaced">
-                      {% blocktrans with update_on=subscription.update_on|date:"m/d/Y" %}
-                        Subscription ends  on {{ update_on }}
-                      {% endblocktrans %}
-                    </div>
-                  {% endif %}
-                </div>
-                <p>
-                  <a class="_cls-nostyle" href="{% url 'organizations:payment' organization.slug %}">
-                    <div class="_cls-action">{% trans 'Edit plans and payment' %}</div>
-                  </a>
-                </p>
-              {% else %}
-                <div class="_cls-planInfo">
-                  {% trans "Current plan" %}: <b>{% trans "Free" %}</b>
-                </div>
-                <div class="_cls-actionSmall">
-                  <a href="{% url 'organizations:payment' organization.slug %}">
-                    <button>{% trans 'Upgrade' %}</button>
-                  </a>
-                </div>
-              {% endif %}
-            {% endwith %}
-            <p>
-              <a class="_cls-nostyle" href="{% url 'users:receipts' username=user.username %}">
-                <div class="_cls-action">{% trans 'View receipts' %}</div>
+        <div class="header-actions">
+          <a href="{% url 'organizations:update' organization.slug %}" class="btn ghost primary">
+            {% include "core/icons/pencil.svg" %}
+            {% trans "Edit profile" %}
+          </a>
+        </div>
+        {% endif %}
+      </header>
+      <main class="profile">
+        <div class="icon">
+          {% avatar organization 48 %}
+        </div>
+        <div class="details details-padded">
+          <h3>{{ organization.name }}</h3>
+          <div class="details">
+            {% if organization.verified_journalist %}
+              <div class="badge green">
+                {% include "core/icons/verification.svg" %}
+                {% trans "Verified" %}
+              </div>
+            {% endif %}
+            {% if organization.city or organization.state or organization.country %}
+              <p class="user-detail">
+                {% if organization.city %}{{ organization.city }}{% endif %}{% if organization.city and organization.state %}, {% endif %}{% if organization.state %}{{ organization.get_state_display }}{% endif %}{% if organization.country and organization.country != 'US' %}, {{ organization.get_country_display }}{% endif %}
+              </p>
+            {% endif %}
+          </div>
+          {% if organization.about %}
+            <p class="org-about">{{ organization.about }}</p>
+          {% endif %}
+        </div>
+      </main>
+    </section>
+
+    {% if is_member or user.is_staff %}
+    <section id="verification">
+      <header>
+        <h2>{% trans "Verification" %}</h2>
+        <a target="_blank" rel="noopener noreferrer" href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433" class="btn ghost primary">
+          {% include "core/icons/book.svg" %}
+          {% trans "Learn about verification" %}
+        </a>
+      </header>
+      <main class="verification-status">
+        {% if organization.verified_journalist %}
+          <div class="status verified">
+            {% include "core/icons/verified-24.svg" %}
+            <h3>{% trans "This organization is verified." %}</h3>
+            <p class="help-text">{% trans "This organization has been verified as a newsroom with access to additional reporting and publishing tools." %}</p>
+          </div>
+        {% else %}
+          <div class="status unverified">
+            {% include "core/icons/unverified-24.svg" %}
+            <h3>{% trans "This organization is not verified." %}</h3>
+            {% if show_verification_request %}
+              <p class="help-text">{% trans "Request newsroom verification to access additional reporting and publishing tools." %}</p>
+              <a target="_blank" rel="noopener noreferrer" class="btn primary" href="{% airtable_verification_url organization %}">
+                {% trans "Request verification" %}
               </a>
+            {% else %}
+              <p class="help-text">{% trans "Contact an organization admin to request verification." %}</p>
+            {% endif %}
+          </div>
+        {% endif %}
+        <div class="features">
+          <p>
+            {% blocktrans %}
+            Verified newsrooms have access to additional reporting and publishing tools. Before you can upload documents to DocumentCloud, or access other advanced features, you may need to be in a verified newsroom.
+            {% endblocktrans %}
+            <a target="_blank" rel="noopener noreferrer" href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433">{% trans "Learn more" %}</a>
+          </p>
+        </div>
+      </main>
+    </section>
+    {% endif %}
+
+    <section id="members">
+      <header>
+        <h2>
+          {% if is_member %}
+            {% blocktrans count count=member_count %}
+              {{ count }} Member
+            {% plural %}
+              {{ count }} Members
+            {% endblocktrans %}
+          {% else %}
+            {% blocktrans count count=admin_count %}
+              {{ count }} Admin
+            {% plural %}
+              {{ count }} Admins
+            {% endblocktrans %}
+          {% endif %}
+        </h2>
+        <div class="header-actions">
+          {% if is_admin or user.is_staff %}
+            <a href="{% url 'organizations:manage-members' organization.slug %}" class="btn ghost primary">
+              {% trans "Manage members" %}
+              {% if invite_count > 0 %}
+                <span class="badge blue">{{ invite_count }}</span>
+              {% endif %}
+            </a>
+          {% elif user.is_authenticated and not is_member %}
+            <form method="post">
+              {% csrf_token %}
+              {% if can_auto_join %}
+                <button class="btn primary" name="action" value="join">{% trans "Join" %}</button>
+              {% else %}
+                <button class="btn primary" name="action" value="join">{% trans "Request to join" %}</button>
+              {% endif %}
+            </form>
+          {% endif %}
+        </div>
+      </header>
+      <main class="members">
+        {% if is_admin %}
+          <p class="help-text">{% trans "You are an admin for this organization" %}</p>
+        {% elif is_member %}
+          <p class="help-text">{% trans "You are a member of this organization" %}</p>
+        {% endif %}
+        {% if user.is_staff %}
+          <div class="staff-info">
+            <p class="help-text">Admin emails:
+              {% for admin in admins %}
+                {{ admin.email }}{% if not forloop.last %}, {% endif %}
+              {% endfor %}
             </p>
           </div>
         {% endif %}
-        {% include 'core/component/services.html' %}
-      </div>
-    </div>
+        {% if is_member %}
+          <p class="help-text">{{ admin_count }} {% if admin_count == 1 %}{% trans "admin" %}{% else %}{% trans "admins" %}{% endif %}</p>
+        {% endif %}
+        {% if users|length > 0 %}
+          <div class="user-list">
+            {% for user in users %}
+              {% with membership=user.memberships.first %}
+                {% include "organizations/user_list_item.html" %}
+              {% endwith %}
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="help-text">{% trans "This organization has no members." %}</p>
+        {% endif %}
+      </main>
+    </section>
+
+    {% if is_admin or user.is_staff %}
+    <section id="plan">
+      <header>
+        <h2>{% trans "Plan" %}</h2>
+        <div class="header-actions">
+          <a href="{% url 'organizations:payment' organization.slug %}" class="btn ghost primary">
+            {% trans "Edit plans and payment" %}
+          </a>
+          <a href="{% url 'users:receipts' username=user.username %}" class="btn ghost primary">
+            {% include "core/icons/log.svg" %}
+            {% trans "View receipts" %}
+          </a>
+        </div>
+      </header>
+      <main class="plan">
+        {% with subscription=organization.subscription %}
+          {% if subscription %}
+            <div class="plan-overview">
+              <p>
+                {% trans "Current plan" %}: <span class="plan-name">{{ subscription.plan.name }}</span>
+              </p>
+            </div>
+            {% if subscription.cancelled %}
+              <div class="plan-warning">
+                <p class="help-text error">
+                  {% blocktrans with update_on=subscription.update_on|date:"F j, Y" %}
+                    Subscription ends on {{ update_on }}
+                  {% endblocktrans %}
+                </p>
+              </div>
+            {% endif %}
+          {% else %}
+            <div class="plan-overview">
+              <p>{% trans "You are using MuckRock's" %} <span class="plan-name" id="free">{% trans "Free" %}</span> {% trans "plan." %}</p>
+              <a class="btn premium" href="{% url 'organizations:payment' organization.slug %}">{% trans "Upgrade" %}</a>
+            </div>
+          {% endif %}
+        {% endwith %}
+      </main>
+    </section>
+
+    <section id="security">
+      <header>
+        <h2>{% trans "Security Settings" %}</h2>
+        <a target="_blank" rel="noopener noreferrer" class="btn primary ghost" href="https://help.muckrock.com">
+          {% include "core/icons/book.svg" %}
+          {% trans "Security best practices" %}
+        </a>
+      </header>
+      <main class="security">
+        <div class="security-setting">
+          <h3>{% trans "Join requests" %}</h3>
+          <span class="badge green">{% trans "Enabled" %}</span>
+        </div>
+        <p class="help-text">{% trans "Users can request to join this organization" %}</p>
+
+        <div class="security-setting">
+          <h3>{% trans "Auto-join via verified email" %}</h3>
+          {% if security_settings.allow_auto_join %}
+            <span class="badge green">{% trans "Enabled" %}</span>
+          {% else %}
+            <span class="badge">{% trans "Disabled" %}</span>
+          {% endif %}
+        </div>
+        {% if security_settings.has_email_domains %}
+          <p class="help-text">
+            <a href="{% url 'organizations:manage-domains' organization.slug %}">{% trans "Manage email domains" %}</a>
+          </p>
+        {% else %}
+          <p class="help-text">
+            {% if organization.verified_journalist %}
+              <a href="{% url 'organizations:manage-domains' organization.slug %}">{% trans "Add email domains to allow auto-join" %}</a>
+            {% else %}
+              {% trans "Verify your organization to manage email domains" %}
+            {% endif %}
+          </p>
+        {% endif %}
+
+        <div class="security-setting">
+          <h3>{% trans "Require two-factor authentication" %}</h3>
+          <span class="badge">{% trans "Not yet implemented" %}</span>
+        </div>
+        <p class="help-text">{% trans "Coming soon" %}</p>
+      </main>
+    </section>
+    {% endif %}
   </div>
+</article>
 {% endblock content %}
