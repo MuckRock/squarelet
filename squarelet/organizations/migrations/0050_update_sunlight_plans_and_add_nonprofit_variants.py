@@ -22,78 +22,136 @@ def update_and_add_plans(apps, schema_editor):
 
     # Define benefits for each plan tier
     essential_benefits = [
-        "50 research desk hours per year",
-        "Two small projects or one medium project",
+        "50 hours of research team time for your projects",
         "One investigative training session of your choice, delivered to your team on your schedule",
         "Monthly workshops and investigative office hours",
         "Real-time research support from Sunlight experts",
         "Premium MuckRock account, including 50 free public records requests each month and credits for DocumentCloud AI tools",
+        "Investigative consult call with Sunlight researchers for real-time collaboration",
     ]
 
     enhanced_benefits = [
-        "100 research desk hours per year",
-        "Four small projects or two medium project",
+        "100 hours of research team time for your projects",
         "One investigative training session of your choice, delivered to your team on your schedule",
         "Monthly workshops and investigative office hours",
         "Real-time research support from Sunlight experts",
         "Premium MuckRock account, including 50 free public records requests each month and credits for DocumentCloud AI tools",
+        "Two investigative consult calls with Sunlight researchers for real-time collaboration",
     ]
 
     enterprise_benefits = [
-        "Tailored support and training to meet your newsroom needs",
+        "Our Sunlight research experts will work with your organization to develop a plan that best supports your investigative and accountability reporting goals.",
     ]
 
-    # Update existing plans (rename slugs, names, pricing, and benefits)
+    # Define short descriptions for each plan tier
+    essential_short_description = "Ideal for small to medium local newsrooms with big goals."
+    enhanced_short_description = "Ideal for medium to large teams tackling ambitious projects."
+    enterprise_short_description = "Ideal for large newsrooms, collaboratives, complex, long-term project assistance, tailored investigative training needs."
+
+    # Update existing plans (rename slugs, names, pricing, short descriptions, and benefits)
+    # We need to update Stripe plans and migrate subscriptions when slugs change
     plan_updates = [
         {
             "old_slug": "sunlight-basic",
             "new_slug": "sunlight-essential",
             "name": "Sunlight Research Center - Essential",
-            "base_price": 350,
+            "base_price": 680,
+            "short_description": essential_short_description,
             "benefits": essential_benefits,
+            "annual": False,
         },
         {
             "old_slug": "sunlight-basic-annual",
             "new_slug": "sunlight-essential-annual",
             "name": "Sunlight Research Center - Essential (Annual)",
-            "base_price": 4000,
+            "base_price": 8000,
+            "short_description": essential_short_description,
             "benefits": essential_benefits,
+            "annual": True,
         },
         {
             "old_slug": "sunlight-premium",
             "new_slug": "sunlight-enhanced",
             "name": "Sunlight Research Center - Enhanced",
-            "base_price": 680,
+            "base_price": 1380,
+            "short_description": enhanced_short_description,
             "benefits": enhanced_benefits,
+            "annual": False,
         },
         {
             "old_slug": "sunlight-premium-annual",
             "new_slug": "sunlight-enhanced-annual",
             "name": "Sunlight Research Center - Enhanced (Annual)",
-            "base_price": 8000,
+            "base_price": 16000,
+            "short_description": enhanced_short_description,
             "benefits": enhanced_benefits,
+            "annual": True,
         },
         {
             "old_slug": "sunlight-enterprise",
             "new_slug": "sunlight-enterprise",
             "name": "Sunlight Research Center - Enterprise",
-            "base_price": 1200,
+            "base_price": 2750,
+            "short_description": enterprise_short_description,
             "benefits": enterprise_benefits,
+            "annual": False,
         },
         {
             "old_slug": "sunlight-enterprise-annual",
             "new_slug": "sunlight-enterprise-annual",
             "name": "Sunlight Research Center - Enterprise (Annual)",
-            "base_price": 12000,
+            "base_price": 32000,
+            "short_description": enterprise_short_description,
             "benefits": enterprise_benefits,
+            "annual": True,
         },
     ]
 
     for update in plan_updates:
-        Plan.objects.filter(slug=update["old_slug"]).update(
-            slug=update["new_slug"],
+        old_slug = update["old_slug"]
+        new_slug = update["new_slug"]
+
+        # Only create new Stripe plans if slug is changing
+        # We keep the old plans active for grandfathered subscriptions
+        if old_slug != new_slug and not is_test_env:
+            new_stripe_id = f"squarelet_plan_{new_slug}"
+
+            try:
+                # Get the plan to determine pricing structure
+                plan = Plan.objects.get(slug=old_slug)
+
+                # Create new Stripe plan with the new slug
+                # Old plans remain active for existing subscriptions
+                kwargs = {
+                    "billing_scheme": "tiered",
+                    "tiers": [
+                        {
+                            "flat_amount": 100 * update["base_price"],
+                            "up_to": plan.minimum_users,
+                        },
+                        {"unit_amount": 100 * plan.price_per_user, "up_to": "inf"},
+                    ],
+                    "tiers_mode": "graduated",
+                }
+                stripe.Plan.create(
+                    id=new_stripe_id,
+                    currency="usd",
+                    interval="year" if update["annual"] else "month",
+                    product={"name": update["name"], "unit_label": "Seats"},
+                    **kwargs,
+                )
+            except stripe.error.InvalidRequestError:
+                # If the plan already exists, just skip
+                pass
+
+        # Update the database plan
+        # Existing subscriptions will continue to reference the old Stripe plan
+        # via their subscription_id, while new subscriptions will use the new slug
+        Plan.objects.filter(slug=old_slug).update(
+            slug=new_slug,
             name=update["name"],
             base_price=update["base_price"],
+            short_description=update["short_description"],
             benefits=update["benefits"],
         )
 
@@ -103,58 +161,63 @@ def update_and_add_plans(apps, schema_editor):
             "name": "Sunlight Research Center - Essential (Non-Profit)",
             "slug": "sunlight-nonprofit-essential",
             "minimum_users": 5,
-            "base_price": 175,  # 50% of 350
+            "base_price": 350,
             "price_per_user": 10,
             "public": False,
             "annual": False,
             "for_individuals": False,
             "for_groups": True,
             "wix": True,
+            "short_description": essential_short_description,
             "benefits": essential_benefits,
         },
         {
             "name": "Sunlight Research Center - Essential (Annual, Non-Profit)",
             "slug": "sunlight-nonprofit-essential-annual",
             "minimum_users": 5,
-            "base_price": 2000,  # 50% of 4000
+            "base_price": 4000,
             "price_per_user": 120,
             "public": False,
             "annual": True,
             "for_individuals": False,
             "for_groups": True,
             "wix": True,
+            "short_description": essential_short_description,
             "benefits": essential_benefits,
         },
         {
             "name": "Sunlight Research Center - Enhanced (Non-Profit)",
             "slug": "sunlight-nonprofit-enhanced",
             "minimum_users": 5,
-            "base_price": 340,  # 50% of 680
+            "base_price": 680,
             "price_per_user": 10,
             "public": False,
             "annual": False,
             "for_individuals": False,
             "for_groups": True,
             "wix": True,
+            "short_description": enhanced_short_description,
             "benefits": enhanced_benefits,
         },
         {
             "name": "Sunlight Research Center - Enhanced (Annual, Non-Profit)",
             "slug": "sunlight-nonprofit-enhanced-annual",
             "minimum_users": 5,
-            "base_price": 4000,  # 50% of 8000
+            "base_price": 8000,
             "price_per_user": 120,
             "public": False,
             "annual": True,
             "for_individuals": False,
             "for_groups": True,
             "wix": True,
+            "short_description": enhanced_short_description,
             "benefits": enhanced_benefits,
         },
     ]
 
     for plan_data in nonprofit_plans:
-        plan = Plan.objects.create(**plan_data)
+        slug = plan_data.pop("slug")
+        plan, created = Plan.objects.update_or_create(slug=slug, defaults=plan_data)
         plan.entitlements.add(*orgs)
 
         # Create the corresponding Stripe plan manually
@@ -195,57 +258,89 @@ def reverse_changes(apps, schema_editor):
     # Skip Stripe API calls in test environment (test key starts with sk_muckrock)
     is_test_env = settings.STRIPE_SECRET_KEY.startswith("sk_muckrock")
 
-    # Revert plan slugs, names, pricing, and benefits
+    # Revert plan slugs, names, pricing, short descriptions, and benefits
     plan_reverts = [
         {
             "current_slug": "sunlight-essential",
             "old_slug": "sunlight-basic",
             "name": "Sunlight Research Center - Basic",
             "base_price": 170,
+            "short_description": "",
             "benefits": [],
+            "annual": False,
         },
         {
             "current_slug": "sunlight-essential-annual",
             "old_slug": "sunlight-basic-annual",
             "name": "Sunlight Research Center - Basic (Annual)",
             "base_price": 2000,
+            "short_description": "",
             "benefits": [],
+            "annual": True,
         },
         {
             "current_slug": "sunlight-enhanced",
             "old_slug": "sunlight-premium",
             "name": "Sunlight Research Center - Premium",
             "base_price": 340,
+            "short_description": "",
             "benefits": [],
+            "annual": False,
         },
         {
             "current_slug": "sunlight-enhanced-annual",
             "old_slug": "sunlight-premium-annual",
             "name": "Sunlight Research Center - Premium (Annual)",
             "base_price": 4000,
+            "short_description": "",
             "benefits": [],
+            "annual": True,
         },
         {
             "current_slug": "sunlight-enterprise",
             "old_slug": "sunlight-enterprise",
             "name": "Sunlight Research Center - Enterprise",
             "base_price": 675,
+            "short_description": "",
             "benefits": [],
+            "annual": False,
         },
         {
             "current_slug": "sunlight-enterprise-annual",
             "old_slug": "sunlight-enterprise-annual",
             "name": "Sunlight Research Center - Enterprise (Annual)",
             "base_price": 8000,
+            "short_description": "",
             "benefits": [],
+            "annual": True,
         },
     ]
 
     for revert in plan_reverts:
-        Plan.objects.filter(slug=revert["current_slug"]).update(
-            slug=revert["old_slug"],
+        current_slug = revert["current_slug"]
+        old_slug = revert["old_slug"]
+
+        # Delete the new Stripe plans (we kept the old ones)
+        if current_slug != old_slug and not is_test_env:
+            stripe_id = f"squarelet_plan_{current_slug}"
+
+            try:
+                stripe_plan = stripe.Plan.retrieve(id=stripe_id)
+                # Also remove the associated product
+                product = stripe.Product.retrieve(id=stripe_plan.product)
+                stripe_plan.delete()
+                product.delete()
+            except stripe.error.InvalidRequestError:
+                # If the plan or product do not exist, just skip
+                pass
+
+        # Revert the database plan
+        # Old Stripe plans remain for existing subscriptions
+        Plan.objects.filter(slug=current_slug).update(
+            slug=old_slug,
             name=revert["name"],
             base_price=revert["base_price"],
+            short_description=revert["short_description"],
             benefits=revert["benefits"],
         )
 
