@@ -1,4 +1,4 @@
-{% load static i18n avatar pass_query %}
+{% load static i18n avatar pass_query handleintent %}
 
 <header class="_cls-heading">
   <div class="_cls-headingContainer">
@@ -13,6 +13,16 @@
     </nav>
     <div class="_cls-navMenu">
       <nav class="_cls-navItems _cls-domainItems">
+        <div class="_cls-servicesDropdown">
+          <button class="_cls-navItem _cls-servicesToggle">
+            {% include "core/icons/apps.svg" %}
+            Products
+            {% include "core/icons/chevron-down.svg" %}
+          </button>
+          <div class="_cls-servicesMenu">
+            {% services_dropdown %}
+          </div>
+        </div>
         <a href="{% url 'organizations:list' %}" class="_cls-navItem">
           <img src="{% static 'icons/org.svg' %}">
           Organizations
@@ -64,4 +74,25 @@
     menu.dataset.menuOpen = String(menuOpen);
   }
   menuButton.addEventListener('click', toggleMenu);
+
+  // Services dropdown
+  let servicesOpen = false;
+  const servicesToggle = document.querySelector('._cls-servicesToggle');
+  const servicesDropdown = document.querySelector('._cls-servicesDropdown');
+
+  function toggleServices(e) {
+    e.stopPropagation();
+    servicesOpen = !servicesOpen;
+    servicesDropdown.dataset.open = String(servicesOpen);
+  }
+
+  function closeServices() {
+    servicesOpen = false;
+    servicesDropdown.dataset.open = 'false';
+  }
+
+  if (servicesToggle) {
+    servicesToggle.addEventListener('click', toggleServices);
+    document.addEventListener('click', closeServices);
+  }
 </script>
