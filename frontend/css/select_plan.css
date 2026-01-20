@@ -369,6 +369,10 @@
   background: var(--white, #FFF);
 }
 
+.sunlight-tiers .tier-enterpise {
+  flex: 1 1 100%;
+}
+
 .sunlight-tiers .tier header {
   display: flex;
   margin: 0;
