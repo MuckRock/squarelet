@@ -36,7 +36,9 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         data = {
             "organization": "new",
             "new_organization_name": "My New Organization",
+            "payment_method": "new-card",
             "stripe_token": "tok_visa",
+            "stripe_pk": "pk_test",
         }
 
         response = self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
@@ -52,7 +54,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
             plan=plan,
             max_users=plan.minimum_users,
             user=user,
-            payment_method=None,
+            payment_method="new-card",
         )
 
         # Should redirect to the organization
@@ -67,13 +69,15 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         data = {
             "organization": "new",
             "new_organization_name": "",  # Empty name
+            "payment_method": "new-card",
             "stripe_token": "tok_visa",
+            "stripe_pk": "pk_test",
         }
 
         response = self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
 
-        # Should redirect with error message
-        assert response.status_code == 302
+        # Should re-render form with error (200, not redirect)
+        assert response.status_code == 200
 
         # Verify no organization was created
         assert not Organization.objects.filter(name="").exists()
@@ -91,7 +95,9 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         data = {
             "organization": "new",
             "new_organization_name": "Test Org",
+            "payment_method": "new-card",
             "stripe_token": "tok_visa",
+            "stripe_pk": "pk_test",
         }
 
         self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
@@ -121,7 +127,9 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
 
         data = {
             "organization": str(org.pk),
+            "payment_method": "new-card",
             "stripe_token": "tok_visa",
+            "stripe_pk": "pk_test",
         }
 
         response = self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
@@ -132,7 +140,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
             plan=plan,
             max_users=plan.minimum_users,
             user=user,
-            payment_method=None,
+            payment_method="new-card",
         )
 
         # Should redirect to the organization
@@ -146,7 +154,9 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         data = {
             "organization": "new",
             "new_organization_name": "Test Org",
+            "payment_method": "new-card",
             "stripe_token": "tok_visa",
+            "stripe_pk": "pk_test",
         }
 
         response = self.call_view(rf, user=None, data=data, pk=plan.pk, slug=plan.slug)
@@ -158,7 +168,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
     def test_already_subscribed_organization(
         self, rf, user_factory, organization_factory, plan_factory, subscription_factory
     ):
-        """Test that already subscribed organizations show warning"""
+        """Test that already subscribed organizations are excluded from form"""
         user = user_factory()
         plan = plan_factory(for_groups=True, public=True)
         org = organization_factory()
@@ -169,13 +179,16 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
 
         data = {
             "organization": str(org.pk),
+            "payment_method": "new-card",
             "stripe_token": "tok_visa",
+            "stripe_pk": "pk_test",
         }
 
         response = self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
 
-        # Should redirect back to plan
-        assert response.status_code == 302
+        # Form validation should fail because org is excluded from queryset
+        # Should re-render form with error (200, not redirect)
+        assert response.status_code == 200
 
     def test_existing_card_without_card_on_file(
         self, rf, user_factory, organization_factory, plan_factory, mocker
@@ -189,19 +202,19 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         # Mock that organization has NO card
         mock_customer = mocker.MagicMock()
         mock_customer.card = None
-        mocker.patch.object(org, "customer", return_value=mock_customer)
+        mocker.patch.object(Organization, "customer", return_value=mock_customer)
 
         data = {
             "organization": str(org.pk),
             "payment_method": "existing-card",
             "stripe_token": "",
+            "stripe_pk": "pk_test",
         }
 
         response = self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
 
-        # Should redirect back to plan with error
-        assert response.status_code == 302
-        assert response.url == plan.get_absolute_url()
+        # Should re-render form with error (200, not redirect)
+        assert response.status_code == 200
 
     def test_new_card_without_stripe_token(
         self, rf, user_factory, organization_factory, plan_factory
@@ -216,13 +229,13 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
             "organization": str(org.pk),
             "payment_method": "new-card",
             "stripe_token": "",  # No token provided
+            "stripe_pk": "pk_test",
         }
 
         response = self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
 
-        # Should redirect back to plan with error
-        assert response.status_code == 302
-        assert response.url == plan.get_absolute_url()
+        # Should re-render form with error (200, not redirect)
+        assert response.status_code == 200
 
     def test_invoice_payment_for_non_annual_plan(
         self, rf, user_factory, organization_factory, plan_factory
@@ -236,13 +249,13 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         data = {
             "organization": str(org.pk),
             "payment_method": "invoice",
+            "stripe_pk": "pk_test",
         }
 
         response = self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
 
-        # Should redirect back to plan with error
-        assert response.status_code == 302
-        assert response.url == plan.get_absolute_url()
+        # Should re-render form with error (200, not redirect)
+        assert response.status_code == 200
 
     def test_invoice_payment_for_annual_plan_succeeds(
         self, rf, user_factory, organization_factory, plan_factory, mocker
@@ -261,13 +274,14 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         data = {
             "organization": str(org.pk),
             "payment_method": "invoice",
+            "stripe_pk": "pk_test",
         }
 
         response = self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
 
         # Should succeed and call set_subscription with invoice payment method
         mock_set_subscription.assert_called_once_with(
-            token=None,
+            token="",
             plan=plan,
             max_users=plan.minimum_users,
             user=user,
