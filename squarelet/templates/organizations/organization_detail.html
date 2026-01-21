@@ -96,18 +96,14 @@
                 {% endif %}
               </a>
             </div>
-          {% elif is_member %}
-            <form class="_cls-infoSpaced" method="post">
-              {% csrf_token %}
-              <button class="_cls-action" name="action" value="leave">{% trans 'Leave this organization' %}</button>
-            </form>
-          {% elif requested_invite %}
+          {% endif %}
+          {% if requested_invite %}
             <div class="_cls-info _cls-infoStatus _cls-infoSpaced">{% trans 'You have requested an invite.' %}</div>
           {% elif rejected_invite %}
               <div class="_cls-info _cls-infoStatus _cls-infoSpaced">
                   {% trans 'Your request to join this organization was rejected. Please contact an admin if this is a mistake and you need to be added to this organization.' %}
               </div>
-          {% else %}
+          {% elif not is_member %}
             <form class="_cls-infoSpaced" method="post">
               {% csrf_token %}
               {% if can_auto_join %}
@@ -115,6 +111,11 @@
               {% else %}
                 <button class="_cls-action" name="action" value="join">{% trans 'Request to join' %}</button>
               {% endif %}
+            </form>
+          {% else %}
+            <form class="_cls-infoSpaced" method="post">
+              {% csrf_token %}
+              <button class="_cls-action" name="action" value="leave">{% trans 'Leave this organization' %}</button>
             </form>
           {% endif %}
           {% if users|length > 0 %}
