@@ -1,6 +1,7 @@
 {% extends "account/onboarding/base.html" %}
 
 {% load i18n static %}
+{% load humanize %}
 
 {% block javascript %}
   {{ block.super }}
@@ -455,7 +456,7 @@
           </label>
           <footer>
             <p class="plan-price">
-              ${{plans.individual.base_price}}/{% trans "month" %}
+              ${{plans.individual.base_price|intcomma}}/{% trans "month" %}
             </p>
             <button type="submit" class="button premium" name="submit-type" value="individual">
               {% blocktrans %}Subscribe to Premium{% endblocktrans %}
@@ -546,7 +547,7 @@
           </label>
           <footer>
             <p class="plan-price">
-              ${{plans.group.base_price}}/{% trans "month" %}
+              ${{plans.group.base_price|intcomma}}/{% trans "month" %}
             </p>
             <button type="submit" class="button premium" name="submit-type" value="group">
               {% blocktrans %}Subscribe to Premium{% endblocktrans %}

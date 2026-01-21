@@ -1,5 +1,10 @@
 import "@/css/plan.css"
 
+// Helper function to format numbers with commas
+function formatPrice(price: number): string {
+  return price.toLocaleString('en-US');
+}
+
 // Stripe input styling
 var cardInputStyle = {
   base: {
@@ -237,7 +242,7 @@ document.addEventListener("DOMContentLoaded", function () {
       // Show discounted price from nonprofit plan variant
       originalPrice.style.textDecoration = 'line-through';
       originalPrice.style.opacity = '0.6';
-      discountedPrice.textContent = `$${planData.nonprofit_base_price}`;
+      discountedPrice.textContent = `$${formatPrice(planData.nonprofit_base_price)}`;
       discountedPrice.style.display = 'inline';
     } else {
       // Show normal price

@@ -2,6 +2,7 @@
 
 {% load i18n static django_vite %}
 {% load handleintent pass_query %}
+{% load humanize %}
 
 {% block head_title %}{% trans "Select plan" %}{% endblock %}
 
@@ -279,7 +280,7 @@
               <h5>Standard</h5>
               {% if tier.annual.standard %}
                 <div class="price annual">
-                  <span class="amount">${{ tier.annual.standard.base_price }}</span>
+                  <span class="amount">${{ tier.annual.standard.base_price|intcomma }}</span>
                   <span class="period">/ year</span>
                 </div>
               {% endif %}
@@ -288,7 +289,7 @@
               {% endif %}
               {% if tier.monthly.standard %}
                 <div class="price monthly">
-                  <span class="amount">${{ tier.monthly.standard.base_price }}</span>
+                  <span class="amount">${{ tier.monthly.standard.base_price|intcomma }}</span>
                   <span class="period">/ month</span>
                 </div>
               {% endif %}
@@ -299,7 +300,7 @@
               <h5>Non-profit</h5>
               {% if tier.annual.nonprofit %}
               <div class="price annual">
-                <span class="amount">${{ tier.annual.nonprofit.base_price }}</span>
+                <span class="amount">${{ tier.annual.nonprofit.base_price|intcomma }}</span>
                 <span class="period">/ year</span>
               </div>
               {% endif %}
@@ -308,7 +309,7 @@
               {% endif %}
               {% if tier.monthly.nonprofit %}
               <div class="price monthly">
-                <span class="amount">${{ tier.monthly.nonprofit.base_price }}</span>
+                <span class="amount">${{ tier.monthly.nonprofit.base_price|intcomma }}</span>
                 <span class="period">/ month</span>
               </div>
               {% endif %}

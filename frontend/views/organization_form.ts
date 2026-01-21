@@ -4,6 +4,11 @@ import { d, exists, on } from "../util";
 // TODO: get Stripe import to work.
 const Stripe = window["Stripe"] as any;
 
+// Helper function to format numbers with commas
+function formatPrice(price: number): string {
+  return price.toLocaleString('en-US');
+}
+
 /**
  * A Squarelet plan.
  */
@@ -95,28 +100,25 @@ export class PlansView {
     if (this.totalCost == null) return;
 
     const plan = this.getPlan();
-    const cost = `${
-      plan.base_price +
-      (this.maxUsers - plan.minimum_users) * plan.price_per_user
-    }`;
+    const cost = plan.base_price + (this.maxUsers - plan.minimum_users) * plan.price_per_user;
     const timePeriod = plan.annual ? "year" : "month";
-    const costFormatted = `$${cost} / ${timePeriod}`;
+    const costFormatted = `$${formatPrice(cost)} / ${timePeriod}`;
     this.totalCost.textContent = costFormatted;
 
-    let costBreakdownFormatted = `$${plan.base_price} (base price)`;
+    let costBreakdownFormatted = `$${formatPrice(plan.base_price)} (base price)`;
     if (this.maxUsers != 0) {
       if (this.maxUsers - plan.minimum_users == 0) {
         costBreakdownFormatted += ` with ${plan.minimum_users} resource block${
           plan.minimum_users != 1 ? "s" : ""
         } included`;
         if (plan.price_per_user != 0) {
-          costBreakdownFormatted += ` ($${plan.price_per_user} per additional resouece block)`;
+          costBreakdownFormatted += ` ($${formatPrice(plan.price_per_user)} per additional resouece block)`;
         }
       } else {
         costBreakdownFormatted += ` with ${plan.minimum_users} resource block${
           plan.minimum_users != 1 ? "s" : ""
         } included and ${this.maxUsers - plan.minimum_users} extra resource blocks
-          at $${plan.price_per_user} each`;
+          at $${formatPrice(plan.price_per_user)} each`;
       }
     }
     this.costBreakdown.textContent = costBreakdownFormatted;
