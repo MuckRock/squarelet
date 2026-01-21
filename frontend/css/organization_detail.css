@@ -1,6 +1,6 @@
 /* Styles for organization_detail.html */
 
-/* Use article#organization_detail to match the layout structure from user_detail.html */
+/* Matches the layout from user_detail.html */
 article#organization_detail {
   box-sizing: border-box;
   width: 100%;
@@ -15,8 +15,18 @@ article#organization_detail {
 }
 
 /* Profile section enhancements */
+
+#organization_detail .profile > .details {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.content .profile .details {
+  width: 100%;
+}
+
 .org-about {
-  margin: 0.5rem 0 0;
+  margin: 0;
   color: var(--gray-5, #233944);
   font-size: var(--font-md, 1rem);
   line-height: 1.5;
@@ -69,13 +79,54 @@ section#security main.security {
   color: var(--gray-5, #233944);
 }
 
-/* Plan section warning */
-.plan-warning {
-  margin-top: 0.5rem;
-  padding: 0.5rem;
-  background: var(--orange-1, #fff0ee);
-  border: 1px solid var(--orange-2, #ffc2ba);
-  border-radius: 0.25rem;
+/* Plan section */
+#organization_detail .plan {
+  padding-bottom: 0.5rem;
+}
+
+.divider {
+  border: none;
+  border-bottom: 1px solid var(--gray-2);
+  margin: 0.5rem 0;
+  padding: 0;
+}
+
+.plan-overview {
+  padding: 0.5rem 0;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-size: var(--font-md, 1rem);
+  font-style: normal;
+  font-weight: 400;
+  line-height: var(--font-xl, 1.5rem); /* 150% */
+}
+
+.plan-upgrade {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.plan-overview p {
+  margin: 0;
+}
+
+.plan-name {
+  color: var(--green-4);
+}
+
+.plan-details {
+  display: flex;
+  gap: 1rem;
+  align-items: baseline;
+  font-size: var(--font-md);
+}
+
+.plan-benefits.checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  margin: 0.25rem 0;
 }
 
 /* Staff toolbar actions */
