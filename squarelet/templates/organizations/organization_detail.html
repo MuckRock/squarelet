@@ -18,8 +18,22 @@
         <ul>
           <li>
             <a href="#profile" class="profile nav-item">
-              {% include "core/icons/organization.svg" %}
+              {% include 'core/icons/organization.svg' %}
               {% trans "Profile" %}
+            </a>
+          </li>
+          {% if user.is_staff or is_admin or is_member %}
+          <li>
+            <a href="#plan" class="plan nav-item">
+              {% include "core/icons/credit-card.svg" %}
+              {% trans "Plan" %}
+            </a>
+          </li>
+          {% endif %}
+          <li>
+            <a href="#members" class="members nav-item">
+              {% include "core/icons/people.svg" %}
+              {% trans "Members" %}
             </a>
           </li>
           <li>
@@ -32,24 +46,14 @@
               {% trans "Verification" %}
             </a>
           </li>
-          <li>
-            <a href="#members" class="members nav-item">
-              {% include "core/icons/person.svg" %}
-              {% trans "Members" %}
-            </a>
-          </li>
-          <li>
-            <a href="#plan" class="plan nav-item">
-              {% include "core/icons/credit-card.svg" %}
-              {% trans "Plan" %}
-            </a>
-          </li>
+          {% if user.is_staff or is_admin or is_member %}
           <li>
             <a href="#security" class="security nav-item">
               {% include "core/icons/shield-lock.svg" %}
               {% trans "Security" %}
             </a>
           </li>
+          {% endif %}
         </ul>
       </nav>
     </div>
@@ -82,7 +86,7 @@
     <section id="profile">
       <header>
         <h2>{% trans "Profile" %}</h2>
-        {% if is_admin %}
+        {% if is_admin or request.user.is_staff %}
         <div class="header-actions">
           <a href="{% url 'organizations:update' organization.slug %}" class="btn ghost primary">
             {% include "core/icons/pencil.svg" %}
@@ -93,10 +97,15 @@
       </header>
       <main class="profile">
         <div class="icon">
-          {% avatar organization 48 %}
+          {% if organization.avatar %}
+            <img src="{{ organization.avatar.url }}" />
+          {% else %}
+            {% include 'core/icons/people-24.svg' %}
+          {% endif %}
         </div>
         <div class="details details-padded">
           <h3>{{ organization.name }}</h3>
+          {% if organization.verified_journalist or organization.city or organization.state or organization.country %}
           <div class="details">
             {% if organization.verified_journalist %}
               <div class="badge green">
@@ -110,6 +119,7 @@
               </p>
             {% endif %}
           </div>
+          {% endif %}
           {% if organization.about %}
             <p class="org-about">{{ organization.about }}</p>
           {% endif %}
@@ -117,44 +127,89 @@
       </main>
     </section>
 
-    {% if is_member or user.is_staff %}
-    <section id="verification">
+    {% if user.is_staff or is_admin or is_member %}
+    <section id="plan">
       <header>
-        <h2>{% trans "Verification" %}</h2>
-        <a target="_blank" rel="noopener noreferrer" href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433" class="btn ghost primary">
-          {% include "core/icons/book.svg" %}
-          {% trans "Learn about verification" %}
-        </a>
+        <h2>{% trans "Plan" %}</h2>
+        {% if user.is_staff or is_admin %}
+        <div class="header-actions">
+          <a href="{% url 'select_plan' %}" class="btn ghost primary">
+                {% trans "View all plans" %}
+          </a>
+          <a href="{% url 'users:receipts' username=user.username %}" class="btn ghost primary">
+            {% include "core/icons/log.svg" %}
+            {% trans "View receipts" %}
+          </a>
+        </div>
+        {% endif %}
       </header>
-      <main class="verification-status">
-        {% if organization.verified_journalist %}
-          <div class="status verified">
-            {% include "core/icons/verified-24.svg" %}
-            <h3>{% trans "This organization is verified." %}</h3>
-            <p class="help-text">{% trans "This organization has been verified as a newsroom with access to additional reporting and publishing tools." %}</p>
-          </div>
-        {% else %}
-          <div class="status unverified">
-            {% include "core/icons/unverified-24.svg" %}
-            <h3>{% trans "This organization is not verified." %}</h3>
-            {% if show_verification_request %}
-              <p class="help-text">{% trans "Request newsroom verification to access additional reporting and publishing tools." %}</p>
-              <a target="_blank" rel="noopener noreferrer" class="btn primary" href="{% airtable_verification_url organization %}">
-                {% trans "Request verification" %}
-              </a>
-            {% else %}
-              <p class="help-text">{% trans "Contact an organization admin to request verification." %}</p>
+      <main class="plan">
+        {% if current_plan %}
+          <div class="plan-overview">
+            <p>{% trans "This org is using MuckRock's" %} <span class="plan-name" id="{{ current_plan.slug }}">{% trans current_plan.name %}</span> {% trans "plan." %}</p>
+            {% if user.is_staff or is_admin %}
+            <a href="{% url 'organizations:payment' organization.slug %}" class="btn primary">
+              {% trans "Manage plan" %}
+            </a>
             {% endif %}
           </div>
-        {% endif %}
-        <div class="features">
-          <p>
-            {% blocktrans %}
-            Verified newsrooms have access to additional reporting and publishing tools. Before you can upload documents to DocumentCloud, or access other advanced features, you may need to be in a verified newsroom.
-            {% endblocktrans %}
-            <a target="_blank" rel="noopener noreferrer" href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433">{% trans "Learn more" %}</a>
-          </p>
+          <ul class="plan-details">
+            {% if current_plan_next_charge_date %}
+              <li class="plan-detail plan-next-charge">
+                <span class="icon">{% include "core/icons/calendar.svg" %}</span>
+                <span class="label">
+                  Subscription {% if current_plan_cancelled %}ends{% else %}renews{% endif %} on <time title="{{current_plan_next_charge_date|date:"c"}}" datetime="{{current_plan_next_charge_date|date:"c"}}">{{current_plan_next_charge_date|date:"F j, Y"}}</time></span>
+              </li>
+            {% endif %}
+            {% if current_plan_card %}
+              <li class="plan-detail plan-card">
+                <span class="icon">{% include "core/icons/credit-card.svg" %}</span>
+                <span class="label">{{current_plan_card.brand}} ending in {{current_plan_card.last4}}</span>
+              </li>
+            {% endif %}
+          </ul>
+          {% if current_plan.benefits %}
+            <ul class="plan-benefits checklist">
+              {% for benefit in current_plan.benefits %}
+              <li class="checklist-item">
+                <span class="icon">
+                  {% include "core/icons/checkmark.svg" %}
+                </span>
+                <span class="text">{{ benefit }}</span>
+              </li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+        {% elif upgrade_plan %}
+        <div class="plan-upgrade">
+          <div class="plan-overview">
+            <p>{% trans "This org is using MuckRock's" %} <span class="plan-name" id="free">{% trans "Free" %}</span> {% trans "plan." %}</p>
+            {% if user.is_staff or is_admin %}
+            <a href="{% url 'organizations:payment' organization.slug %}" class="btn primary">
+              {% trans "Manage plan" %}
+            </a>
+            {% endif %}
+          </div>
+          {% if is_admin or user.is_staff %}
+          <hr class="divider" />
+          {% if not upgrade_plan.benefits %}
+          <p>Upgrade to our <a class="plan-name" href="{% url "plan_detail" pk=upgrade_plan.id slug=upgrade_plan %}">{{upgrade_plan.name}}</a> plan for more.</p>
+          {% else %}
+          <p>Upgrade to our <a class="plan-name" href="{% url "plan_detail" pk=upgrade_plan.id slug=upgrade_plan %}">{{upgrade_plan.name}}</a> plan for additional benefits and features:</p>
+          <ul class="plan-benefits checklist">
+            {% for benefit in upgrade_plan.benefits %}
+            <li class="checklist-item">
+              <span class="icon">
+                {% include "core/icons/checkmark.svg" %}
+              </span>
+              <span class="text">{{ benefit }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+          {% endif %}
         </div>
+        {% endif %}
       </main>
     </section>
     {% endif %}
@@ -184,7 +239,8 @@
                 <span class="badge blue">{{ invite_count }}</span>
               {% endif %}
             </a>
-          {% elif user.is_authenticated and not is_member %}
+          {% endif %}
+          {% if user.is_authenticated and not is_member %}
             <form method="post">
               {% csrf_token %}
               {% if can_auto_join %}
@@ -228,47 +284,45 @@
       </main>
     </section>
 
-    {% if is_admin or user.is_staff %}
-    <section id="plan">
+    <section id="verification">
       <header>
-        <h2>{% trans "Plan" %}</h2>
-        <div class="header-actions">
-          <a href="{% url 'organizations:payment' organization.slug %}" class="btn ghost primary">
-            {% trans "Edit plans and payment" %}
-          </a>
-          <a href="{% url 'users:receipts' username=user.username %}" class="btn ghost primary">
-            {% include "core/icons/log.svg" %}
-            {% trans "View receipts" %}
-          </a>
-        </div>
+        <h2>{% trans "Verification" %}</h2>
+        <a target="_blank" rel="noopener noreferrer" href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433" class="btn ghost primary">
+          {% include "core/icons/book.svg" %}
+          {% trans "Learn about verification" %}
+        </a>
       </header>
-      <main class="plan">
-        {% with subscription=organization.subscription %}
-          {% if subscription %}
-            <div class="plan-overview">
-              <p>
-                {% trans "Current plan" %}: <span class="plan-name">{{ subscription.plan.name }}</span>
-              </p>
-            </div>
-            {% if subscription.cancelled %}
-              <div class="plan-warning">
-                <p class="help-text error">
-                  {% blocktrans with update_on=subscription.update_on|date:"F j, Y" %}
-                    Subscription ends on {{ update_on }}
-                  {% endblocktrans %}
-                </p>
-              </div>
+      <main class="verification-status">
+        {% if organization.verified_journalist %}
+          <div class="status verified">
+            {% include "core/icons/verified-24.svg" %}
+            <h3>{% trans "This organization is verified." %}</h3>
+            <p class="help-text">{% trans "This organization has been verified as a newsroom with access to additional reporting and publishing tools." %}</p>
+          </div>
+        {% else %}
+          <div class="status unverified">
+            {% include "core/icons/unverified-24.svg" %}
+            <h3>{% trans "This organization is not verified." %}</h3>
+            {% if show_verification_request and is_member or is_admin or request.user.is_staff %}
+              <p class="help-text">{% trans "Request newsroom verification to access additional reporting and publishing tools." %}</p>
+              <a target="_blank" rel="noopener noreferrer" class="btn primary" href="{% airtable_verification_url organization %}">
+                {% trans "Request verification" %}
+              </a>
             {% endif %}
-          {% else %}
-            <div class="plan-overview">
-              <p>{% trans "You are using MuckRock's" %} <span class="plan-name" id="free">{% trans "Free" %}</span> {% trans "plan." %}</p>
-              <a class="btn premium" href="{% url 'organizations:payment' organization.slug %}">{% trans "Upgrade" %}</a>
-            </div>
-          {% endif %}
-        {% endwith %}
+          </div>
+        {% endif %}
+        <div class="features">
+          <p>
+            {% blocktrans %}
+            Verified newsrooms have access to additional reporting and publishing tools. Before you can upload documents to DocumentCloud, or access other advanced features, you may need to be in a verified newsroom.
+            {% endblocktrans %}
+            <a target="_blank" rel="noopener noreferrer" href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433">{% trans "Learn more" %}</a>
+          </p>
+        </div>
       </main>
     </section>
 
+    {% if user.is_staff or is_admin or is_member %}
     <section id="security">
       <header>
         <h2>{% trans "Security Settings" %}</h2>

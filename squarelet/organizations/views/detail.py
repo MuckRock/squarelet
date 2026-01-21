@@ -1,4 +1,5 @@
 # Django
+from datetime import datetime
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
@@ -6,6 +7,7 @@ from django.db.models import Value as V
 from django.db.models.functions import Lower, StrIndex
 from django.http import JsonResponse
 from django.shortcuts import redirect
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import DetailView, ListView
 
@@ -15,7 +17,7 @@ import logging
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import get_redirect_url, is_rate_limited
-from squarelet.organizations.models import Invitation, Membership, Organization
+from squarelet.organizations.models import Invitation, Membership, Organization, Plan
 from squarelet.organizations.tasks import sync_wix
 
 # How much to paginate organizations list by
@@ -32,30 +34,31 @@ class Detail(AdminLinkMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        org = self.object
         if self.request.user.is_authenticated:
-            context["is_admin"] = self.object.has_admin(self.request.user)
-            context["is_member"] = self.object.has_member(self.request.user)
+            context["is_admin"] = org.has_admin(self.request.user)
+            context["is_member"] = org.has_member(self.request.user)
 
             context["requested_invite"] = self.request.user.invitations.filter(
-                organization=self.object
+                organization=org
             ).get_pending_requests()
             if context["is_admin"] or self.request.user.is_staff:
-                pending_requests = self.object.invitations.get_pending_requests()
+                pending_requests = org.invitations.get_pending_requests()
                 context["invite_count"] = (
                     pending_requests.count() if pending_requests else 0
                 )
 
             # Rejected join requests
             context["rejected_invite"] = self.request.user.invitations.filter(
-                organization=self.object
+                organization=org
             ).get_rejected_requests()
 
             context["can_auto_join"] = (
-                self.request.user.can_auto_join(self.object)
+                self.request.user.can_auto_join(org)
                 and not context["is_member"]
             )
 
-        users = self.object.users.all()
+        users = org.users.all()
         admins = users.filter(memberships__admin=True)
         if context.get("is_member"):
             context["users"] = users.order_by("-memberships__admin", "username")
@@ -63,9 +66,40 @@ class Detail(AdminLinkMixin, DetailView):
             context["users"] = admins
         context["admins"] = admins
 
+        # Get the current plan and subscription, if any
+        current_plan = None
+        upgrade_plan = Plan.objects.get(slug="organization")
+        subscription = None
+        if hasattr(org, "subscriptions"):
+            subscription = org.subscriptions.first()
+            if subscription and hasattr(subscription, "plan"):
+                current_plan = subscription.plan
+                upgrade_plan = None
+        context["current_plan"] = current_plan
+        context["upgrade_plan"] = upgrade_plan
+
         # Add member counts
         context["member_count"] = users.count()
         context["admin_count"] = admins.count()
+
+        # Plan context - get card, next charge date, and cancelled status for active subscription
+        if current_plan and subscription:
+            customer = getattr(org, "customer", None)
+            if callable(customer):
+                customer = customer()
+            context["current_plan_card"] = getattr(customer, "card", None)
+            # Stripe subscription may have next charge date
+            stripe_sub = getattr(subscription, "stripe_subscription", None)
+            if stripe_sub:
+                # Try to get next charge date from Stripe subscription
+                time_stamp = getattr(stripe_sub, "current_period_end", None)
+                if time_stamp:
+                    tz_datetime = datetime.fromtimestamp(
+                        time_stamp, tz=timezone.get_current_timezone()
+                    )
+                    context["current_plan_next_charge_date"] = tz_datetime.date()
+            # Check if the plan is cancelled
+            context["current_plan_cancelled"] = getattr(subscription, "cancelled", None)
 
         # Verification context - let template handle URL generation
         context["show_verification_request"] = (

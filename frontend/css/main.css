@@ -1230,6 +1230,18 @@ button._cls-navItem {
   white-space: nowrap;
 }
 
+._cls-navItem .icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  fill: currentColor;
+}
+
+._cls-navItem .icon svg {
+  height: 1rem;
+  width: 1rem;
+}
+
 a._cls-navItem:hover,
 button._cls-navItem:hover {
   text-decoration: none;
