@@ -33,7 +33,6 @@ class Detail(AdminLinkMixin, DetailView):
         )
 
     def get_context_data(self, **kwargs):
-        # pylint:disable=too-many-locals,too-many-branches,too-many-statements
         context = super().get_context_data(**kwargs)
         org = self.object
         if self.request.user.is_authenticated:
@@ -50,6 +49,8 @@ class Detail(AdminLinkMixin, DetailView):
             context["requested_invite"] = self.request.user.invitations.filter(
                 organization=org
             ).get_pending_requests()
+
+            # Rejected requests
             context["rejected_invite"] = self.request.user.invitations.filter(
                 organization=org
             ).get_rejected_requests()
@@ -69,20 +70,7 @@ class Detail(AdminLinkMixin, DetailView):
             memberships__organization=org, memberships__admin=True
         ).distinct()
         if context.get("is_member"):
-            # Sort by admin status, then username
-            # We need to filter by organization to avoid duplicate results from other memberships
-            users_list = list(
-                users.filter(memberships__organization=org)
-                .order_by("-memberships__admin", "username")
-                .distinct()
-            )
-            # Move current user to the front if they're in the list
-            if self.request.user.is_authenticated:
-                for i, user in enumerate(users_list):
-                    if user.id == self.request.user.id:
-                        users_list.insert(0, users_list.pop(i))
-                        break
-            context["users"] = users_list
+            context["users"] = org.member_users
         else:
             context["users"] = admins
         context["admins"] = admins
