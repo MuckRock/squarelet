@@ -421,7 +421,7 @@ class Organization(AvatarMixin, models.Model):
         )
         # Move current user to the front if they're in the list
         # Check if request exists and user is authenticated
-        if hasattr(self, 'request') and self.request.user.is_authenticated:
+        if hasattr(self, "request") and self.request.user.is_authenticated:
             for i, user in enumerate(users_list):
                 if user.id == self.request.user.id:
                     users_list.insert(0, users_list.pop(i))
