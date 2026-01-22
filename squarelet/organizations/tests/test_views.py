@@ -21,7 +21,7 @@ from squarelet.core.tests.mixins import ViewTestMixin
 from .. import views
 from ..models import OrganizationEmailDomain, ReceiptEmail
 
-# pylint: disable=invalid-name
+# pylint: disable=invalid-name,too-many-public-methods
 
 
 @pytest.mark.django_db()
@@ -66,15 +66,14 @@ class TestDetail(ViewTestMixin):
         assert response.context_data["is_admin"]
         assert response.context_data["is_member"]
         assert "requested_invite" in response.context_data
-        assert "invite_count" in response.context_data
-        # Verify invite_count is always an integer
-        assert isinstance(response.context_data["invite_count"], int)
-        assert response.context_data["invite_count"] == 0
+        assert "pending_requests" in response.context_data
+        # Verify pending_requests is a queryset
+        assert response.context_data["pending_requests"].count() == 0
 
     def test_get_admin_with_pending_requests(
         self, rf, organization_factory, user_factory, invitation_factory
     ):
-        """Test that invite_count is an integer when there are pending requests"""
+        """Test that pending_requests shows pending join requests"""
         admin = user_factory()
         organization = organization_factory(admins=[admin])
         # Create some pending join requests
@@ -82,14 +81,13 @@ class TestDetail(ViewTestMixin):
         response = self.call_view(rf, admin, slug=organization.slug)
         assert response.status_code == 200
         assert response.context_data["is_admin"]
-        # Verify invite_count is always an integer, not a queryset
-        assert isinstance(response.context_data["invite_count"], int)
-        assert response.context_data["invite_count"] == 3
+        # Verify pending_requests is a queryset with the correct count
+        assert response.context_data["pending_requests"].count() == 3
 
     def test_get_staff_can_see_invite_count(
         self, rf, organization_factory, user_factory, invitation_factory
     ):
-        """Test that staff members can see invite_count even if not admin/member"""
+        """Test that staff members can see pending_requests even if not admin/member"""
         staff_user = user_factory(is_staff=True)
         organization = organization_factory()  # Staff not a member
         # Create some pending join requests
@@ -98,10 +96,9 @@ class TestDetail(ViewTestMixin):
         assert response.status_code == 200
         assert not response.context_data["is_admin"]
         assert not response.context_data["is_member"]
-        # Staff should still see invite_count
-        assert "invite_count" in response.context_data
-        assert isinstance(response.context_data["invite_count"], int)
-        assert response.context_data["invite_count"] == 2
+        # Staff should still see pending_requests
+        assert "pending_requests" in response.context_data
+        assert response.context_data["pending_requests"].count() == 2
 
     def test_member_counts_in_context(self, rf, organization_factory, user_factory):
         """Test that member_count and admin_count are in context"""

@@ -1,5 +1,4 @@
 # Django
-from datetime import datetime
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
@@ -13,6 +12,7 @@ from django.views.generic import DetailView, ListView
 
 # Standard Library
 import logging
+from datetime import datetime
 
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
@@ -33,6 +33,7 @@ class Detail(AdminLinkMixin, DetailView):
         )
 
     def get_context_data(self, **kwargs):
+        # pylint:disable=too-many-locals,too-many-branches,too-many-statements
         context = super().get_context_data(**kwargs)
         org = self.object
         if self.request.user.is_authenticated:
@@ -40,9 +41,7 @@ class Detail(AdminLinkMixin, DetailView):
             context["is_member"] = org.has_member(self.request.user)
 
             if context["is_admin"] or self.request.user.is_staff:
-                context["pending_requests"] = (
-                    org.invitations.get_pending_requests()
-                )
+                context["pending_requests"] = org.invitations.get_pending_requests()
                 context["pending_invitations"] = (
                     org.invitations.get_pending_invitations()
                 )
@@ -56,19 +55,27 @@ class Detail(AdminLinkMixin, DetailView):
             ).get_rejected_requests()
 
             context["can_auto_join"] = (
-                self.request.user.can_auto_join(org)
-                and not context["is_member"]
+                self.request.user.can_auto_join(org) and not context["is_member"]
             )
 
         # Prefetch memberships for this organization only
         org_memberships = Membership.objects.filter(organization=org)
         users = org.users.prefetch_related(
-            Prefetch("memberships", queryset=org_memberships, to_attr="org_membership_list")
+            Prefetch(
+                "memberships", queryset=org_memberships, to_attr="org_membership_list"
+            )
         )
-        admins = users.filter(memberships__admin=True)
+        admins = users.filter(
+            memberships__organization=org, memberships__admin=True
+        ).distinct()
         if context.get("is_member"):
             # Sort by admin status, then username
-            users_list = list(users.order_by("-memberships__admin", "username"))
+            # We need to filter by organization to avoid duplicate results from other memberships
+            users_list = list(
+                users.filter(memberships__organization=org)
+                .order_by("-memberships__admin", "username")
+                .distinct()
+            )
             # Move current user to the front if they're in the list
             if self.request.user.is_authenticated:
                 for i, user in enumerate(users_list):
@@ -96,7 +103,8 @@ class Detail(AdminLinkMixin, DetailView):
         context["member_count"] = users.count()
         context["admin_count"] = admins.count()
 
-        # Plan context - get card, next charge date, and cancelled status for active subscription
+        # Plan context - get card, next charge date,
+        # and cancelled status for active subscription
         if current_plan and subscription:
             customer = getattr(org, "customer", None)
             if callable(customer):
