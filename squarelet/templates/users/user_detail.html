@@ -97,7 +97,9 @@
       <main class="profile">
         <div class="icon">
         {% if user.avatar %}
-          <img src="{{ user.avatar.url }}" alt="{{user.name}}" />
+          {% thumbnail user.avatar "240x240" crop="center" as img %}
+          <img src="{{ img.url }}" alt="{{user.name}}" />
+          {% endthumbnail %}
         {% else %}
           {% include "core/icons/person-24.svg" %}
         {% endif %}
