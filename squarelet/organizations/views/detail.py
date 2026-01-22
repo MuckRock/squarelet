@@ -3,7 +3,7 @@ from datetime import datetime
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
-from django.db.models import Value as V
+from django.db.models import Prefetch, Value as V
 from django.db.models.functions import Lower, StrIndex
 from django.http import JsonResponse
 from django.shortcuts import redirect
@@ -58,10 +58,22 @@ class Detail(AdminLinkMixin, DetailView):
                 and not context["is_member"]
             )
 
-        users = org.users.all()
+        # Prefetch memberships for this organization only
+        org_memberships = Membership.objects.filter(organization=org)
+        users = org.users.prefetch_related(
+            Prefetch("memberships", queryset=org_memberships, to_attr="org_membership_list")
+        )
         admins = users.filter(memberships__admin=True)
         if context.get("is_member"):
-            context["users"] = users.order_by("-memberships__admin", "username")
+            # Sort by admin status, then username
+            users_list = list(users.order_by("-memberships__admin", "username"))
+            # Move current user to the front if they're in the list
+            if self.request.user.is_authenticated:
+                for i, user in enumerate(users_list):
+                    if user.id == self.request.user.id:
+                        users_list.insert(0, users_list.pop(i))
+                        break
+            context["users"] = users_list
         else:
             context["users"] = admins
         context["admins"] = admins
