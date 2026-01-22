@@ -244,6 +244,7 @@
                 <span class="badge blue">{{ invite_count }}</span>
               {% endif %}
             </a>
+            
           {% endif %}
           {% if user.is_authenticated and not is_member %}
             <form method="post">
@@ -264,7 +265,7 @@
         {% if users|length > 0 %}
           <div class="user-list">
             {% for user in users %}
-              {% with membership=user.memberships.first %}
+              {% with membership=user.org_membership_list.0 %}
                 {% include "organizations/user_list_item.html" %}
               {% endwith %}
             {% endfor %}
