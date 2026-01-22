@@ -46,7 +46,6 @@ section#members main.members {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  margin-top: 0.5rem;
 }
 
 .staff-info {
@@ -135,11 +134,4 @@ section#security main.security {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
-}
-
-/* Responsive improvements */
-@media (max-width: 768px) {
-  .user-list {
-    gap: 0.5rem;
-  }
 }

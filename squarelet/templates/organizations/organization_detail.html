@@ -97,11 +97,15 @@
       </header>
       <main class="profile">
         <div class="icon">
-          {% if organization.avatar %}
-            <img src="{{ organization.avatar.url }}" />
+          {% with avatar=organization.avatar %}
+          {% if avatar %}
+            {% thumbnail avatar "240x240" crop="center" as img %}
+            <img src="{{ img.url }}" />
+            {% endthumbnail %}
           {% else %}
             {% include 'core/icons/people-24.svg' %}
           {% endif %}
+          {% endwith %}
         </div>
         <div class="details details-padded">
           <h3>{{ organization.name }}</h3>
@@ -234,6 +238,7 @@
         <div class="header-actions">
           {% if is_admin or user.is_staff %}
             <a href="{% url 'organizations:manage-members' organization.slug %}" class="btn ghost primary">
+              {% include "core/icons/people.svg" %}
               {% trans "Manage members" %}
               {% if invite_count > 0 %}
                 <span class="badge blue">{{ invite_count }}</span>
@@ -243,33 +248,19 @@
           {% if user.is_authenticated and not is_member %}
             <form method="post">
               {% csrf_token %}
-              {% if can_auto_join %}
-                <button class="btn primary" name="action" value="join">{% trans "Join" %}</button>
-              {% else %}
-                <button class="btn primary" name="action" value="join">{% trans "Request to join" %}</button>
-              {% endif %}
+              <button class="btn primary" name="action" value="join">
+                {% include "core/icons/plus-circle.svg" %}
+                {% if can_auto_join %}
+                  {% trans "Join" %}
+                {% else %}
+                  {% trans "Request to join" %}
+                {% endif %}
+              </button>
             </form>
           {% endif %}
         </div>
       </header>
       <main class="members">
-        {% if is_admin %}
-          <p class="help-text">{% trans "You are an admin for this organization" %}</p>
-        {% elif is_member %}
-          <p class="help-text">{% trans "You are a member of this organization" %}</p>
-        {% endif %}
-        {% if user.is_staff %}
-          <div class="staff-info">
-            <p class="help-text">Admin emails:
-              {% for admin in admins %}
-                {{ admin.email }}{% if not forloop.last %}, {% endif %}
-              {% endfor %}
-            </p>
-          </div>
-        {% endif %}
-        {% if is_member %}
-          <p class="help-text">{{ admin_count }} {% if admin_count == 1 %}{% trans "admin" %}{% else %}{% trans "admins" %}{% endif %}</p>
-        {% endif %}
         {% if users|length > 0 %}
           <div class="user-list">
             {% for user in users %}
