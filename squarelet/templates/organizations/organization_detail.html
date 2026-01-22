@@ -10,7 +10,6 @@
 
 {% block content %}
 <article id="organization_detail">
-  {% if is_admin or user.is_staff %}
   <aside class="sidebar">
     <div class="account">
       <h2>{% trans "Organization" %}</h2>
@@ -33,7 +32,11 @@
           <li>
             <a href="#members" class="members nav-item">
               {% include "core/icons/people.svg" %}
+              {% if is_member %}
               {% trans "Members" %}
+              {% else %}
+              {% trans "Admins" %}
+              {% endif %}
             </a>
           </li>
           <li>
@@ -62,7 +65,6 @@
       </nav>
     </div>
   </aside>
-  {% endif %}
 
   <div class="content">
     {% if request.user.is_staff %}
