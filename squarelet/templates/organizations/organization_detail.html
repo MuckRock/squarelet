@@ -142,7 +142,8 @@
         {% if user.is_staff or is_admin %}
         <div class="header-actions">
           <a href="{% url 'select_plan' %}" class="btn ghost primary">
-                {% trans "View all plans" %}
+            {% include "core/icons/list-unordered.svg" %}
+            {% trans "View all plans" %}
           </a>
           <a href="{% url 'users:receipts' username=user.username %}" class="btn ghost primary">
             {% include "core/icons/log.svg" %}
@@ -156,8 +157,8 @@
           <div class="plan-overview">
             <p>{% trans "This org is using MuckRock's" %} <span class="plan-name" id="{{ current_plan.slug }}">{% trans current_plan.name %}</span> {% trans "plan." %}</p>
             {% if user.is_staff or is_admin %}
-            <a href="{% url 'organizations:payment' organization.slug %}" class="btn primary">
-              {% trans "Manage plan" %}
+            <a href="{% url 'organizations:payment' organization.slug %}" class="btn primary ghost">
+              {% trans "Billing settings" %}
             </a>
             {% endif %}
           </div>
@@ -193,8 +194,9 @@
           <div class="plan-overview">
             <p>{% trans "This org is using MuckRock's" %} <span class="plan-name" id="free">{% trans "Free" %}</span> {% trans "plan." %}</p>
             {% if user.is_staff or is_admin %}
-            <a href="{% url 'organizations:payment' organization.slug %}" class="btn primary">
-              {% trans "Manage plan" %}
+            <a href="{% url 'organizations:payment' organization.slug %}" class="btn premium ghost">
+              {% include "core/icons/premium.svg" %}
+              {% trans "Upgrade" %}
             </a>
             {% endif %}
           </div>
