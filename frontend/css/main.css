@@ -752,16 +752,16 @@ nav a:hover ._cls-serviceName {
 ._cls-profileColumn {
   display: flex;
   flex-direction: column;
-  flex: 0.5;
-  border-right: solid 1px #dedede;
+  flex: 1 1 auto;
   padding: 0 2em 0 0;
 }
 
 ._cls-planColumn {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 1 1 auto;
   padding: 0 0 0 2em;
+  border-left: solid 1px #dedede;
 }
 
 ._cls-planInfo {
