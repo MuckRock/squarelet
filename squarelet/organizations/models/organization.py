@@ -409,6 +409,25 @@ class Organization(AvatarMixin, models.Model):
     def subscription(self):
         return self.subscriptions.first()
 
+    @mproperty
+    def member_users(self):
+        # Sort by admin status, then username
+        # We need to filter by organization to avoid
+        # duplicate results from other memberships
+        users_list = list(
+            self.users.filter(memberships__organization=self)
+            .order_by("-memberships__admin", "username")
+            .distinct()
+        )
+        # Move current user to the front if they're in the list
+        # Check if request exists and user is authenticated
+        if hasattr(self, 'request') and self.request.user.is_authenticated:
+            for i, user in enumerate(users_list):
+                if user.id == self.request.user.id:
+                    users_list.insert(0, users_list.pop(i))
+                    break
+        return users_list
+
     def set_subscription(self, token, plan, max_users, user, payment_method=None):
         # pylint: disable=import-outside-toplevel
         from squarelet.organizations.tasks import sync_wix
