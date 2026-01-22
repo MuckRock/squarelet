@@ -113,6 +113,30 @@ class TestDetail(ViewTestMixin):
         assert response.context_data["member_count"] == 4
         assert response.context_data["admin_count"] == 1
 
+    def test_users_have_org_membership_list(
+        self, rf, organization_factory, user_factory
+    ):
+        """Test that users in context have org_membership_list for template access"""
+        admin = user_factory()
+        member = user_factory()
+        organization = organization_factory(admins=[admin], users=[member])
+        response = self.call_view(rf, admin, slug=organization.slug)
+        assert response.status_code == 200
+        users = response.context_data["users"]
+        # Check that each user has the org_membership_list attribute
+        for user in users:
+            assert hasattr(user, "org_membership_list")
+            assert len(user.org_membership_list) > 0
+            # Verify the membership has the admin attribute
+            membership = user.org_membership_list[0]
+            assert hasattr(membership, "admin")
+            # The admin user should have admin=True
+            if user == admin:
+                assert membership.admin is True
+            # The regular member should have admin=False
+            elif user == member:
+                assert membership.admin is False
+
     def test_verification_context_for_unverified_org_admin(
         self, rf, organization_factory, user_factory
     ):
