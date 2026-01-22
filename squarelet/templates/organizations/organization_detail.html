@@ -46,6 +46,9 @@
               {% trans "Verification" %}
             </a>
           </li>
+          {% comment %}
+          # We're hiding this section for now, until we
+          # add more features for controlling org security.
           {% if user.is_staff or is_admin or is_member %}
           <li>
             <a href="#security" class="security nav-item">
@@ -54,6 +57,7 @@
             </a>
           </li>
           {% endif %}
+          {% endcomment %}
         </ul>
       </nav>
     </div>
@@ -237,14 +241,15 @@
         </h2>
         <div class="header-actions">
           {% if is_admin or user.is_staff %}
+            <a href="{% url 'organizations:manage-members' organization.slug %}#invite" class="btn ghost primary">
+              {% include "core/icons/plus-circle.svg" %}
+              {% trans "Invite members" %}
+            </a>
             <a href="{% url 'organizations:manage-members' organization.slug %}" class="btn ghost primary">
               {% include "core/icons/people.svg" %}
               {% trans "Manage members" %}
-              {% if invite_count > 0 %}
-                <span class="badge blue">{{ invite_count }}</span>
-              {% endif %}
             </a>
-            
+
           {% endif %}
           {% if user.is_authenticated and not is_member %}
             <form method="post">
@@ -262,6 +267,46 @@
         </div>
       </header>
       <main class="members">
+        {% if pending_requests and pending_requests.count > 0 %}
+          <div class="notification-banner blue">
+            <div class="banner-content">
+              <span class="icon">{% include "core/icons/person-add.svg" %}</span>
+              <div class="banner-text">
+                <strong>
+                  {% blocktrans count count=pending_requests.count %}
+                    You have {{ count }} pending join request
+                  {% plural %}
+                    You have {{ count }} pending join requests
+                  {% endblocktrans %}
+                </strong>
+                <p>{% trans "Review and approve requests to add new members to your organization." %}</p>
+              </div>
+              <a href="{% url 'organizations:manage-members' organization.slug %}#requests" class="btn primary">
+                {% trans "Review requests" %}
+              </a>
+            </div>
+          </div>
+        {% endif %}
+        {% if pending_invitations and pending_invitations.count > 0 %}
+          <div class="notification-banner blue">
+            <div class="banner-content">
+              <span class="icon">{% include "core/icons/mail.svg" %}</span>
+              <div class="banner-text">
+                <strong>
+                  {% blocktrans count count=pending_invitations.count %}
+                    You have {{ count }} pending invitation
+                  {% plural %}
+                    You have {{ count }} pending invitations
+                  {% endblocktrans %}
+                </strong>
+                <p>{% trans "Resend and revoke outstanding invitations." %}</p>
+              </div>
+              <a href="{% url 'organizations:manage-members' organization.slug %}#pending" class="btn primary">
+                {% trans "Review invitations" %}
+              </a>
+            </div>
+          </div>
+        {% endif %}
         {% if users|length > 0 %}
           <div class="user-list">
             {% for user in users %}
@@ -314,6 +359,9 @@
       </main>
     </section>
 
+    {% comment %}
+    # This section is not yet ready, since the features aren't supported yet.
+    # We're keeping this ready for when we need it.
     {% if user.is_staff or is_admin or is_member %}
     <section id="security">
       <header>
@@ -360,6 +408,7 @@
       </main>
     </section>
     {% endif %}
+    {% endcomment %}
   </div>
 </article>
 {% endblock content %}

@@ -103,8 +103,12 @@
       </header>
       <div class="card">
         {% for invitation in requested_invitations %}
-        <div class="invitation">
-          {% include "organizations/user_list_item.html" with user=invitation.user %}
+        <div class="invitation {% if invitation.user %}user{% else %}email{% endif %}">
+          {% if invitation.user %}
+            {% include "organizations/user_list_item.html" with user=invitation.user %}
+          {% else %}
+            {% include "organizations/invitation_list_item.html" with invitation=invitation %}
+          {% endif %}
           <form class="actions" method="POST" action="{% url "organizations:manage-members" slug=organization.slug %}">
             {% csrf_token %}
             <input type="hidden" name="inviteid" value="{{ invitation.id }}">
