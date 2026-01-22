@@ -23,6 +23,19 @@ def services_list():
     return {"service_providers": providers}
 
 
+@register.inclusion_tag("templatetags/services_dropdown.html")
+def services_dropdown():
+    providers = (
+        Service.objects.all()
+        .order_by("-provider_name__exact", "name")
+        .extra(
+            select={"provider_name_is_muckrock": "provider_name = 'MuckRock'"},
+            order_by=["-provider_name_is_muckrock", "name"],
+        )
+    )
+    return {"service_providers": providers}
+
+
 def match_service_to_intent(context):
     # Find the service provider based on the intent
     intent = context.request.GET.get("intent")
