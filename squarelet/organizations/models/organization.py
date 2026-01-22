@@ -1009,7 +1009,8 @@ class OrganizationInvitation(models.Model):
         # Verify from org has collective enabled
         if self.from_organization and not self.from_organization.collective_enabled:
             raise ValidationError(
-                f"{self.from_organization.name} does not have collective feature enabled"
+                f"{self.from_organization.name} does "
+                "not have collective feature enabled"
             )
 
     @property
