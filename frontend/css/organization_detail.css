@@ -135,3 +135,62 @@ section#security main.security {
   align-items: center;
   gap: 0.5rem;
 }
+
+/* Notification banner for pending requests */
+.notification-banner {
+  display: flex;
+  padding: 0.75rem 1rem;
+  justify-content: space-between;
+  align-items: center;
+  align-self: stretch;
+  border-radius: 0.5rem;
+}
+
+.notification-banner.blue {
+  background: var(--blue-1);
+  border: 1px solid var(--blue-2);
+  color: var(--blue-5);
+}
+
+.notification-banner .banner-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+}
+
+.notification-banner .icon {
+  flex: 0 0 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notification-banner .icon svg {
+  width: 1.5rem;
+  height: 1.5rem;
+  fill: currentColor;
+  opacity: 0.8;
+}
+
+.notification-banner .banner-text {
+  flex: 1 1 auto;
+}
+
+.notification-banner .banner-text strong {
+  display: block;
+  font-size: var(--font-md, 1rem);
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.notification-banner .banner-text p {
+  margin: 0;
+  font-size: var(--font-sm, 0.875rem);
+  opacity: 0.9;
+}
+
+.notification-banner .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
