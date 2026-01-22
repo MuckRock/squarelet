@@ -138,8 +138,8 @@
 }
 
 body {
-  font-family: "Source Sans 3", "Source Sans Pro", "Lato", "Helvetica Neue",
-    sans-serif;
+  font-family:
+    "Source Sans 3", "Source Sans Pro", "Lato", "Helvetica Neue", sans-serif;
   margin: 0;
   padding: 0;
   background: #fafafa;
@@ -1357,6 +1357,66 @@ button._cls-navItem:hover {
   gap: 5px;
 }
 
+._cls-servicesDropdown {
+  position: relative;
+}
+
+._cls-servicesToggle {
+  cursor: pointer;
+}
+
+._cls-servicesMenu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 320px;
+  background: var(--white);
+  border: 1px solid var(--gray-2);
+  border-radius: var(--radius-3);
+  box-shadow: var(--shadow-2);
+  padding: 0.5rem;
+  margin-top: 0.25rem;
+  z-index: var(--z-dropdown);
+}
+
+._cls-servicesDropdown[data-open="true"] ._cls-servicesMenu {
+  display: block;
+}
+
+._cls-serviceItem {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: var(--radius-2);
+  text-decoration: none;
+  color: var(--gray-5);
+  transition: background 0.2s ease;
+  align-items: flex-start;
+}
+
+._cls-serviceItem:hover {
+  background: var(--blue-1);
+}
+
+._cls-serviceItem img {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+._cls-serviceItem ._cls-serviceName {
+  font-weight: 600;
+  color: var(--gray-5);
+  margin-bottom: 0.125rem;
+}
+
+._cls-serviceItem ._cls-serviceDescription {
+  font-size: var(--font-sm);
+  color: var(--gray-4);
+  line-height: 1.3;
+}
+
 ._cls-profDropdown._cls-active ._cls-avatar {
   background: #f1f1f1;
   border-bottom: solid 2px transparent;
@@ -1463,6 +1523,11 @@ textarea {
   width: 100%;
   margin: auto;
   position: absolute;
+  pointer-events: none;
+}
+
+._cls-alerts > * {
+  pointer-events: all;
 }
 
 .alert-info {
