@@ -2,7 +2,7 @@
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
-from django.db.models import Prefetch, Value as V
+from django.db.models import Value as V
 from django.db.models.functions import Lower, StrIndex
 from django.http import JsonResponse
 from django.shortcuts import redirect
@@ -59,18 +59,12 @@ class Detail(AdminLinkMixin, DetailView):
                 self.request.user.can_auto_join(org) and not context["is_member"]
             )
 
-        # Prefetch memberships for this organization only
-        org_memberships = Membership.objects.filter(organization=org)
-        users = org.users.prefetch_related(
-            Prefetch(
-                "memberships", queryset=org_memberships, to_attr="org_membership_list"
-            )
-        )
-        admins = users.filter(
-            memberships__organization=org, memberships__admin=True
-        ).distinct()
+        users = org.member_users
+        admins = [
+            u for u in users if u.org_membership_list and u.org_membership_list[0].admin
+        ]
         if context.get("is_member"):
-            context["users"] = org.member_users
+            context["users"] = users
         else:
             context["users"] = admins
         context["admins"] = admins
@@ -88,8 +82,8 @@ class Detail(AdminLinkMixin, DetailView):
         context["upgrade_plan"] = upgrade_plan
 
         # Add member counts
-        context["member_count"] = users.count()
-        context["admin_count"] = admins.count()
+        context["member_count"] = len(users)
+        context["admin_count"] = len(admins)
 
         # Plan context - get card, next charge date,
         # and cancelled status for active subscription

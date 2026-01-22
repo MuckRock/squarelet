@@ -435,8 +435,19 @@ class Organization(AvatarMixin, models.Model):
         # Sort by admin status, then username
         # We need to filter by organization to avoid
         # duplicate results from other memberships
+
+        # Prefetch memberships for this organization only to preserve
+        # the membership.admin attribute needed for displaying badges
+        org_memberships = Membership.objects.filter(organization=self)
         users_list = list(
             self.users.filter(memberships__organization=self)
+            .prefetch_related(
+                models.Prefetch(
+                    "memberships",
+                    queryset=org_memberships,
+                    to_attr="org_membership_list",
+                )
+            )
             .order_by("-memberships__admin", "username")
             .distinct()
         )
