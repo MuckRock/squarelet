@@ -136,6 +136,8 @@ class TestDetail(ViewTestMixin):
             # The regular member should have admin=False
             elif user == member:
                 assert membership.admin is False
+        # Verify the current user (admin) is first in the list
+        assert users[0] == admin
 
     def test_verification_context_for_unverified_org_admin(
         self, rf, organization_factory, user_factory
