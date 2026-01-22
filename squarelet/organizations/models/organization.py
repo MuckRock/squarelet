@@ -430,17 +430,25 @@ class Organization(AvatarMixin, models.Model):
     def subscription(self):
         return self.subscriptions.first()
 
-    @mproperty
-    def member_users(self):
-        # Sort by admin status, then username
-        # We need to filter by organization to avoid
-        # duplicate results from other memberships
+    def member_users(self, request=None):
+        """Get all member users for this organization.
 
-        # Prefetch memberships for this organization only to preserve
-        # the membership.admin attribute needed for displaying badges
+        Args:
+            request: Optional request object. If provided and the user is authenticated,
+                    the current user will be moved to the front of the list.
+
+        Returns:
+            List of users sorted by admin status, then username, with the current
+            user at the front if request is provided.
+        """
+
         org_memberships = Membership.objects.filter(organization=self)
         users_list = list(
+            # We need to filter by organization to avoid
+            # duplicate results from other memberships
             self.users.filter(memberships__organization=self)
+            # Prefetch memberships for this organization only to preserve
+            # the membership.admin attribute needed for displaying badges
             .prefetch_related(
                 models.Prefetch(
                     "memberships",
@@ -452,10 +460,9 @@ class Organization(AvatarMixin, models.Model):
             .distinct()
         )
         # Move current user to the front if they're in the list
-        # Check if request exists and user is authenticated
-        if hasattr(self, "request") and self.request.user.is_authenticated:
+        if request and request.user.is_authenticated:
             for i, user in enumerate(users_list):
-                if user.id == self.request.user.id:
+                if user.id == request.user.id:
                     users_list.insert(0, users_list.pop(i))
                     break
         return users_list

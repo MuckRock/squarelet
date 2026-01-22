@@ -59,7 +59,7 @@ class Detail(AdminLinkMixin, DetailView):
                 self.request.user.can_auto_join(org) and not context["is_member"]
             )
 
-        users = org.member_users
+        users = org.member_users(self.request)
         admins = [
             u for u in users if u.org_membership_list and u.org_membership_list[0].admin
         ]
