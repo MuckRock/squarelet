@@ -6,11 +6,17 @@ from django.dispatch import receiver
 from actstream import registry
 
 # Squarelet
-from squarelet.organizations.models import Organization, Plan, ProfileChangeRequest
+from squarelet.organizations.models import (
+    Invitation,
+    Organization,
+    Plan,
+    ProfileChangeRequest,
+)
 
 # Register models with django-activity-stream
 registry.register(Organization)
 registry.register(ProfileChangeRequest)
+registry.register(Invitation)
 
 
 @receiver(
