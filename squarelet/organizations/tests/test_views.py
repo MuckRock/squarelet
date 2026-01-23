@@ -13,6 +13,7 @@ from unittest.mock import MagicMock
 # Third Party
 import pytest
 import stripe
+from actstream.models import Action
 
 # Squarelet
 from squarelet.core.tests.mixins import ViewTestMixin
@@ -283,6 +284,17 @@ class TestDetail(ViewTestMixin):
         # Ensure staff member is not affected
         assert not organization.has_member(staff_member)
 
+        # Verify activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="removed member from organization",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.action_object == target_user
+        assert action.target == organization
+        assert action.public is False
+
     def test_post_staff_remove_admin(self, rf, organization_factory, user_factory):
         """Staff member should be able to remove an admin from an organization"""
         staff_member = user_factory(is_staff=True)
@@ -298,6 +310,17 @@ class TestDetail(ViewTestMixin):
         assert response.status_code == 302
         assert not organization.has_member(target_admin)
         assert not organization.has_admin(target_admin)
+
+        # Verify activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="removed member from organization",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.action_object == target_admin
+        assert action.target == organization
+        assert action.public is False
 
     def test_post_staff_remove_other_staff(
         self, rf, organization_factory, user_factory
@@ -337,6 +360,13 @@ class TestDetail(ViewTestMixin):
         self.assert_message(
             messages.ERROR, "You do not have permission to remove other users"
         )
+
+        # Verify no activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(regular_user.pk),
+            verb="removed member from organization",
+        ).first()
+        assert action is None
 
     def test_post_staff_remove_themselves_with_userid(
         self, rf, organization_factory, user_factory
@@ -380,6 +410,108 @@ def test_list(rf, organization_factory):
     response = views.List.as_view()(request)
     assert response.status_code == 200
     assert len(response.context_data["organization_list"]) == 5
+
+
+@pytest.mark.django_db()
+class TestReviewProfileChange(ViewTestMixin):
+    """Test ReviewProfileChange view for staff accepting/rejecting changes"""
+
+    view = views.ReviewProfileChange
+    url = "/organizations/{slug}/review-profile-change/{pk}/"
+
+    def test_staff_accept_profile_change_creates_action(
+        self, rf, organization_factory, user_factory, profile_change_request_factory
+    ):
+        """Staff accepting profile change should create activity stream action"""
+        staff_member = user_factory(is_staff=True)
+        organization = organization_factory()
+        profile_change = profile_change_request_factory(
+            organization=organization,
+            status="pending",
+            name="New Organization Name",
+        )
+
+        response = self.call_view(
+            rf,
+            staff_member,
+            {"action": "accept"},
+            slug=organization.slug,
+            pk=profile_change.pk,
+        )
+        assert response.status_code == 302
+
+        # Verify activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="accepted profile change request",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.action_object == profile_change
+        assert action.target == organization
+        assert action.public is False
+
+    def test_staff_reject_profile_change_creates_action(
+        self, rf, organization_factory, user_factory, profile_change_request_factory
+    ):
+        """Staff rejecting profile change should create activity stream action"""
+        staff_member = user_factory(is_staff=True)
+        organization = organization_factory()
+        profile_change = profile_change_request_factory(
+            organization=organization,
+            status="pending",
+            name="New Organization Name",
+        )
+
+        response = self.call_view(
+            rf,
+            staff_member,
+            {"action": "reject"},
+            slug=organization.slug,
+            pk=profile_change.pk,
+        )
+        assert response.status_code == 302
+
+        # Verify activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="rejected profile change request",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.action_object == profile_change
+        assert action.target == organization
+        assert action.public is False
+
+    def test_non_staff_cannot_review_profile_change(
+        self, rf, organization_factory, user_factory, profile_change_request_factory
+    ):
+        """Non-staff user should not be able to review and should not create action"""
+        regular_user = user_factory(is_staff=False)
+        organization = organization_factory()
+        profile_change = profile_change_request_factory(
+            organization=organization,
+            status="pending",
+            name="New Organization Name",
+        )
+
+        response = self.call_view(
+            rf,
+            regular_user,
+            {"action": "accept"},
+            slug=organization.slug,
+            pk=profile_change.pk,
+        )
+        assert response.status_code == 302
+
+        # Verify no activity stream action was created
+        action = Action.objects.filter(
+            verb__in=[
+                "accepted profile change request",
+                "rejected profile change request",
+            ],
+        ).first()
+        assert action is None
 
 
 @pytest.mark.django_db()
