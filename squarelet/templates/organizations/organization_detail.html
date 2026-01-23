@@ -270,7 +270,7 @@
           {% elif user.is_authenticated and not is_member %}
             <form method="post">
               {% csrf_token %}
-              <button class="btn primary" name="action" value="join">
+              <button class="btn primary" name="action" value="join" id="join-org-button">
                 {% include "core/icons/plus-circle.svg" %}
                 {% if can_auto_join %}
                   {% trans "Join" %}
@@ -279,6 +279,7 @@
                 {% endif %}
               </button>
             </form>
+            {% include "organizations/join_request_modal.html" %}
           {% endif %}
         </div>
       </header>
@@ -428,3 +429,47 @@
   </div>
 </article>
 {% endblock content %}
+
+{% block extra_javascript %}
+{{ block.super }}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const joinButton = document.getElementById('join-org-button');
+    if (joinButton) {
+      const backdrop = document.getElementById('join-request-modal-backdrop');
+
+      // Intercept link click and show modal instead
+      joinButton.addEventListener('click', function(e) {
+        e.preventDefault();
+        backdrop.classList.remove('_cls-hide');
+        document.body.style.overflow = 'hidden';
+      });
+
+      // Close modal on backdrop click
+      backdrop.addEventListener('click', function(e) {
+        if (e.target === backdrop) {
+          backdrop.classList.add('_cls-hide');
+          document.body.style.overflow = '';
+        }
+      });
+
+      // Close modal on close button click
+      const closeButtons = backdrop.querySelectorAll('[data-dismiss="modal"]');
+      closeButtons.forEach(function(button) {
+        button.addEventListener('click', function() {
+          backdrop.classList.add('_cls-hide');
+          document.body.style.overflow = '';
+        });
+      });
+
+      // Close modal on Escape key
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && !backdrop.classList.contains('_cls-hide')) {
+          backdrop.classList.add('_cls-hide');
+          document.body.style.overflow = '';
+        }
+      });
+    }
+  });
+</script>
+{% endblock %}

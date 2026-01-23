@@ -658,3 +658,7 @@ strong {
   font-weight: 400;
   line-height: 1rem; /* 133.333% */
 }
+
+.font-sm {
+  font-size: var(--font-sm);
+}

@@ -245,6 +245,29 @@ class TestDetail(ViewTestMixin):
         assert mail.subject == f"{joiner} has requested to join {organization}"
         assert mail.to == [admin.email]
 
+    def test_post_join_rate_limit_shows_educational_message(
+        self, rf, organization_factory, user_factory, invitation_factory
+    ):
+        """Rate limit error should include educational messaging"""
+        joiner = user_factory()
+        organization = organization_factory()
+
+        # Create requests up to the limit (default is 2)
+        invitation_factory.create_batch(
+            2, user=joiner, request=True, created_at=timezone.now()
+        )
+
+        response = self.call_view(
+            rf, joiner, {"action": "join", "confirmed": "true"}, slug=organization.slug
+        )
+
+        assert response.status_code == 302
+        # Check that error message contains educational content
+        messages_list = list(messages.get_messages(response.wsgi_request))
+        assert len(messages_list) > 0
+        error_message = str(messages_list[0])
+        assert "actively collaborate" in error_message
+
     def test_post_member_join(self, rf, mailoutbox, organization_factory, user_factory):
         admin, joiner = user_factory.create_batch(2)
         organization = organization_factory(admins=[admin], users=[joiner])

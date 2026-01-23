@@ -3,6 +3,7 @@ import "./css/gps.css";
 import "./css/autocomplete.css";
 import "./css/project.css";
 import "./css/main.css";
+import "./css/modal.css";
 
 import { AutocompleteView } from "./autocomplete";
 import { exists } from "./util";
