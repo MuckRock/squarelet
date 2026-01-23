@@ -1,3 +1,5 @@
+# pylint: disable=too-many-lines
+# TODO: Refactor tests for each view file
 # Django
 from django.contrib import messages
 from django.contrib.auth.models import AnonymousUser
@@ -632,6 +634,57 @@ class TestUpdateSubscription(ViewTestMixin):
             '">contact support</a> for assistance.',
         )
 
+    def test_post_staff_updates_subscription_creates_action(
+        self, rf, organization_factory, user_factory, mocker
+    ):
+        """Staff updating subscription should create activity stream action"""
+        mocker.patch("squarelet.organizations.models.Customer.card", None)
+        mocker.patch("squarelet.organizations.models.Organization.set_subscription")
+        staff_member = user_factory(is_staff=True)
+        organization = organization_factory()
+        data = {
+            "stripe_token": "token",
+            "plan": "",
+            "max_users": 10,
+            "receipt_emails": "receipt@example.com",
+            "stripe_pk": "key",
+        }
+        self.call_view(rf, staff_member, data, slug=organization.slug)
+
+        # Verify activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="updated organization subscription",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.target == organization
+        assert action.public is False
+
+    def test_post_non_staff_admin_no_action_created(
+        self, rf, organization_factory, user_factory, mocker
+    ):
+        """Non-staff admin updating subscription should not create action"""
+        mocker.patch("squarelet.organizations.models.Customer.card", None)
+        mocker.patch("squarelet.organizations.models.Organization.set_subscription")
+        regular_admin = user_factory(is_staff=False)
+        organization = organization_factory(admins=[regular_admin])
+        data = {
+            "stripe_token": "token",
+            "plan": "",
+            "max_users": 10,
+            "receipt_emails": "receipt@example.com",
+            "stripe_pk": "key",
+        }
+        self.call_view(rf, regular_admin, data, slug=organization.slug)
+
+        # Verify no activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(regular_admin.pk),
+            verb="updated organization subscription",
+        ).first()
+        assert action is None
+
 
 @pytest.mark.django_db()
 class TestCreate(ViewTestMixin):
@@ -650,7 +703,7 @@ class TestCreate(ViewTestMixin):
 
 
 @pytest.mark.django_db()
-class TestManageMembers(ViewTestMixin):
+class TestManageMembers(ViewTestMixin):  # pylint: disable=too-many-public-methods
     """Test the ManageMembers Create view"""
 
     view = views.ManageMembers
@@ -807,6 +860,127 @@ class TestManageMembers(ViewTestMixin):
         data = {"action": "fakeaction"}
         self.call_view(rf, admin, data, slug=organization.slug)
         self.assert_message(messages.ERROR, "An unexpected error occurred")
+
+    def test_staff_make_admin_creates_action(
+        self, rf, organization_factory, user_factory
+    ):
+        """Staff promoting user to admin should create activity stream action"""
+        staff_member = user_factory(is_staff=True)
+        member = user_factory()
+        organization = organization_factory(users=[member])
+        data = {"action": "makeadmin", "userid": member.pk, "admin": "true"}
+        self.call_view(rf, staff_member, data, slug=organization.slug)
+
+        # Verify activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="promoted member to admin",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.action_object == member
+        assert action.target == organization
+        assert action.public is False
+
+    def test_staff_demote_admin_creates_action(
+        self, rf, organization_factory, user_factory
+    ):
+        """Staff demoting admin to member should create activity stream action"""
+        staff_member = user_factory(is_staff=True)
+        admin_user = user_factory()
+        organization = organization_factory(admins=[admin_user])
+        data = {"action": "makeadmin", "userid": admin_user.pk, "admin": "false"}
+        self.call_view(rf, staff_member, data, slug=organization.slug)
+
+        # Verify activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="demoted admin to member",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.action_object == admin_user
+        assert action.target == organization
+        assert action.public is False
+
+    def test_non_staff_admin_makeadmin_no_action(
+        self, rf, organization_factory, user_factory
+    ):
+        """Non-staff admin promoting user should not create action"""
+        regular_admin = user_factory(is_staff=False)
+        member = user_factory()
+        organization = organization_factory(admins=[regular_admin], users=[member])
+        data = {"action": "makeadmin", "userid": member.pk, "admin": "true"}
+        self.call_view(rf, regular_admin, data, slug=organization.slug)
+
+        # Verify no activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(regular_admin.pk),
+            verb="promoted member to admin",
+        ).first()
+        assert action is None
+
+    def test_staff_remove_user_creates_action(
+        self, rf, organization_factory, user_factory
+    ):
+        """Staff removing user should create activity stream action"""
+        staff_member = user_factory(is_staff=True)
+        member = user_factory()
+        organization = organization_factory(users=[member])
+        data = {"action": "removeuser", "userid": member.pk}
+        self.call_view(rf, staff_member, data, slug=organization.slug)
+
+        # Verify activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="removed member from organization",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.action_object == member
+        assert action.target == organization
+        assert action.public is False
+
+    def test_staff_add_member_creates_action(
+        self, rf, organization_factory, user_factory
+    ):
+        """Staff sending invitation should create activity stream action"""
+        staff_member = user_factory(is_staff=True)
+        organization = organization_factory()
+        email = "invite@example.com"
+        data = {"action": "addmember", "emails": email}
+        self.call_view(rf, staff_member, data, slug=organization.slug)
+
+        # Verify activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="sent organization invitation",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.target == organization
+        assert action.public is False
+
+    def test_staff_revoke_invite_creates_action(
+        self, rf, organization_factory, user_factory, invitation_factory
+    ):
+        """Staff revoking invitation should create activity stream action"""
+        staff_member = user_factory(is_staff=True)
+        organization = organization_factory()
+        invitation = invitation_factory(organization=organization)
+        data = {"action": "revokeinvite", "inviteid": invitation.pk}
+        self.call_view(rf, staff_member, data, slug=organization.slug)
+
+        # Verify activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="revoked organization invitation",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.action_object == invitation
+        assert action.target == organization
+        assert action.public is False
 
 
 @pytest.mark.django_db()
