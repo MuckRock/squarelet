@@ -16,7 +16,7 @@ from datetime import datetime
 
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
-from squarelet.core.utils import get_redirect_url, is_rate_limited
+from squarelet.core.utils import get_redirect_url, is_rate_limited, new_action
 from squarelet.organizations.models import Invitation, Membership, Organization, Plan
 from squarelet.organizations.tasks import sync_wix
 
@@ -198,6 +198,15 @@ class Detail(AdminLinkMixin, DetailView):
                     target_user.memberships.filter(
                         organization=self.organization
                     ).delete()
+
+                    # Log staff action to activity stream
+                    new_action(
+                        actor=request.user,
+                        verb="removed member from organization",
+                        action_object=target_user,
+                        target=self.organization,
+                    )
+
                     messages.success(
                         request,
                         _("%(username)s left the organization")
