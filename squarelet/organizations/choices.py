@@ -12,6 +12,11 @@ class ChangeLogReason(DjangoChoices):
     credit_card = ChoiceItem(3, _("Credit Card"))
 
 
+class RelationshipType(DjangoChoices):
+    member = ChoiceItem(0, _("Member"))
+    child = ChoiceItem(1, _("Child"))
+
+
 COUNTRY_CHOICES = (
     ("US", _("United States of America")),
     ("CA", _("Canada")),

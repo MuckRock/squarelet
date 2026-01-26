@@ -9,6 +9,9 @@ from unittest.mock import patch
 import factory
 from autoslug.utils import slugify
 
+# Squarelet
+from squarelet.organizations.choices import RelationshipType
+
 
 class OrganizationFactory(factory.django.DjangoModelFactory):
     name = factory.Sequence(lambda n: f"org-{n}")
@@ -148,6 +151,22 @@ class InvitationRequestFactory(factory.django.DjangoModelFactory):
 
     class Meta:
         model = "organizations.Invitation"
+
+
+class OrganizationInvitationFactory(factory.django.DjangoModelFactory):
+    from_organization = factory.SubFactory(
+        "squarelet.organizations.tests.factories.OrganizationFactory"
+    )
+    to_organization = factory.SubFactory(
+        "squarelet.organizations.tests.factories.OrganizationFactory"
+    )
+    from_user = factory.SubFactory("squarelet.users.tests.factories.UserFactory")
+    closed_by_user = factory.SubFactory("squarelet.users.tests.factories.UserFactory")
+    relationship_type = RelationshipType.member
+    request = False
+
+    class Meta:
+        model = "organizations.OrganizationInvitation"
 
 
 class ChargeFactory(factory.django.DjangoModelFactory):

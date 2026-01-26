@@ -30,6 +30,7 @@ from squarelet.organizations.models import (
     Organization,
     OrganizationChangeLog,
     OrganizationEmailDomain,
+    OrganizationInvitation,
     OrganizationSubtype,
     OrganizationType,
     OrganizationUrl,
@@ -208,6 +209,38 @@ class OverdueInvoiceFilter(admin.SimpleListFilter):
         return queryset
 
 
+class OutgoingOrganizationInvitationInline(admin.TabularInline):
+    model = OrganizationInvitation
+    fk_name = "from_organization"
+    fields = (
+        "to_organization",
+        "relationship_type",
+        "request",
+        "accepted_at",
+        "rejected_at",
+    )
+    readonly_fields = ("to_organization", "accepted_at", "rejected_at")
+    extra = 0
+    verbose_name = "Outgoing Organization Invitation"
+    verbose_name_plural = "Outgoing Organization Invitations"
+
+
+class IncomingOrganizationInvitationInline(admin.TabularInline):
+    model = OrganizationInvitation
+    fk_name = "to_organization"
+    fields = (
+        "from_organization",
+        "relationship_type",
+        "request",
+        "accepted_at",
+        "rejected_at",
+    )
+    readonly_fields = ("from_organization", "accepted_at", "rejected_at")
+    extra = 0
+    verbose_name = "Incoming Organization Invitation"
+    verbose_name_plural = "Incoming Organization Invitations"
+
+
 @admin.register(Organization)
 class OrganizationAdmin(VersionAdmin):
     def export_organizations_as_csv(self, request, queryset):
@@ -285,6 +318,8 @@ class OrganizationAdmin(VersionAdmin):
         "city",
         "state",
         "country",
+        "collective_enabled",
+        "share_resources",
         "parent",
         "members",
         "merged",
@@ -308,6 +343,8 @@ class OrganizationAdmin(VersionAdmin):
     inlines = (
         ChildrenInline,
         MembershipsInline,
+        OutgoingOrganizationInvitationInline,
+        IncomingOrganizationInvitationInline,
         OrganizationUrlInline,
         OrganizationEmailDomainInline,
         SubscriptionInline,
@@ -712,3 +749,28 @@ class InvoiceAdmin(VersionAdmin):
                     )
 
         return super().changelist_view(request, extra_context)
+
+
+@admin.register(OrganizationInvitation)
+class OrganizationInvitationAdmin(VersionAdmin):
+    list_display = (
+        "from_organization",
+        "to_organization",
+        "from_user",
+        "closed_by_user",
+        "relationship_type",
+        "request",
+        "created_at",
+        "accepted_at",
+        "rejected_at",
+    )
+    list_filter = ("relationship_type", "request")
+    search_fields = ("from_organization__name", "to_organization__name")
+    readonly_fields = ("uuid", "created_at", "accepted_at", "rejected_at")
+    autocomplete_fields = (
+        "from_organization",
+        "to_organization",
+        "from_user",
+        "closed_by_user",
+    )
+    date_hierarchy = "created_at"
