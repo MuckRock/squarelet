@@ -215,9 +215,7 @@ class TestHandleChargeSucceeded:
         organization_factory(customer__customer_id=charge_data["customer"])
         invoice = {
             "id": "in_EwIgmFCn7cnZFB",
-            "lines": {
-                "data": []  # Missing invoice_lines
-            },
+            "lines": {"data": []},  # Missing invoice_lines
         }
         mocker.patch(
             "squarelet.organizations.tasks.stripe.Invoice.retrieve",
