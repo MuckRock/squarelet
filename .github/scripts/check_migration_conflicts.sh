@@ -51,14 +51,14 @@ for migration_dir in $MIGRATION_DIRS; do
             echo "$base_migrations" | grep "^.*/${num}_" | sed 's/^/      /'
         done
         echo ""
-        echo "Please renumber your migration to avoid conflicts."
+        echo "To resolve, rebase this branch onto $BASE_BRANCH and run 'inv manage \"makemigrations --merge\"'"
         conflicts_found=1
     fi
 done
 
 if [ $conflicts_found -eq 1 ]; then
     echo ""
-    echo "Migration conflicts found! Please resolve before merging."
+    echo "Migration conflicts found! Please rebase onto $BASE_BRANCH and run 'inv manage \"makemigrations --merge\"' to create a merge migration."
     exit 1
 else
     echo "No migration conflicts detected."
