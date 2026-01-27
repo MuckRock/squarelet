@@ -374,7 +374,7 @@ def reverse_changes(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("organizations", "0049_plan_short_description"),
+        ("organizations", "0050_merge_20260122_1344"),
     ]
 
     operations = [
