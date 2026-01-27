@@ -138,8 +138,9 @@
                 {% trans "Save as default card" %}
               </label>
 
-              <!-- Nonprofit checkbox (only shown for Sunlight plans) -->
-              <div class="nonprofit-checkbox" style="display:none;">
+              <!-- Nonprofit checkbox (shown for Sunlight plans that aren't already nonprofit variants) -->
+              {% if plan.is_sunlight_plan and not is_nonprofit_variant %}
+              <div class="nonprofit-checkbox">
                 <label class="checkbox-label">
                   <input type="checkbox" name="is_nonprofit" id="id_is_nonprofit"
                           {% if request.POST.is_nonprofit %}checked{% endif %}>
@@ -149,6 +150,7 @@
                   {% trans "Non-profit organizations receive a discount on Sunlight Research Desk plans." %}
                 </p>
               </div>
+              {% endif %}
             {% else %}
               <div class="no-subscription-options">
                 <p>{% trans "You are already subscribed to this plan or don't have permission to subscribe." %}</p>

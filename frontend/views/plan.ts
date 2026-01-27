@@ -252,20 +252,6 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  function updateNonprofitCheckboxVisibility(
-    selectedOrg: string,
-    elements: FormElements,
-    planData: any
-  ) {
-    if (!elements.nonprofitContainer) return;
-
-    if (planData.is_sunlight_plan && selectedOrg && selectedOrg !== '') {
-      elements.nonprofitContainer.style.display = 'block';
-    } else {
-      elements.nonprofitContainer.style.display = 'none';
-    }
-  }
-
   // Organization selection handling
   const orgSelects = document.querySelectorAll('.org-select');
   orgSelects.forEach(select => {
@@ -293,8 +279,7 @@ document.addEventListener("DOMContentLoaded", function () {
         // Enable the submit button
         updateSubmitButton(selectedOrg, elements);
 
-        // Update nonprofit checkbox visibility and price display
-        updateNonprofitCheckboxVisibility(selectedOrg, elements, planData);
+        // Update price display for nonprofit checkbox
         updatePriceDisplay(elements, planData);
       } else {
         // No organization selected - hide everything
@@ -303,11 +288,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // Disable the submit button
         updateSubmitButton(selectedOrg, elements);
-
-        // Hide nonprofit checkbox when no org selected
-        if (elements.nonprofitContainer) {
-          elements.nonprofitContainer.style.display = 'none';
-        }
       }
     });
     select.dispatchEvent(new Event("change"));
