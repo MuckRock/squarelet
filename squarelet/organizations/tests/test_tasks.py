@@ -20,6 +20,7 @@ from squarelet.organizations.tests.factories import InvoiceFactory, Subscription
 # TODO: Refactor this file and `tasks.py` into smaller files
 # https://github.com/MuckRock/squarelet/issues/558
 
+
 @pytest.mark.django_db()
 def test_restore_organization(organization_plan_factory, mocker):
     patched = mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
