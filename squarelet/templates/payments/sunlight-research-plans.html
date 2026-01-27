@@ -2,6 +2,7 @@
 
 {% load i18n static %}
 {% load handleintent pass_query %}
+{% load humanize %}
 
 {% block head_title %}{% trans "Select plan" %}{% endblock %}
 
@@ -338,8 +339,8 @@
   <ul>
     <li><a href="{% url 'plan_detail' plan.pk plan.slug %}">{{plan.name}}</a></li>
     <li>{{plan.slug}}</li>
-    <li>{{plan.base_price}}</li>
-    <li>{{plan.price_per_user}}</li>
+    <li>{{plan.base_price|intcomma}}</li>
+    <li>{{plan.price_per_user|intcomma}}</li>
     <li>{{plan.annual}}</li>
   </ul>
 </li>

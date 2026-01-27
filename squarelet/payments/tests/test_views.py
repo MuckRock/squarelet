@@ -484,8 +484,8 @@ class TestGetMatchingPlanTier:
     def test_finds_matching_sunlight_plan_if_exists(self):
         """Test that it finds matching Sunlight plans from the database"""
         # Try to find the actual Sunlight plans from the migration
-        monthly = Plan.objects.filter(slug="sunlight-basic").first()
-        annual = Plan.objects.filter(slug="sunlight-basic-annual").first()
+        monthly = Plan.objects.filter(slug="sunlight-essential").first()
+        annual = Plan.objects.filter(slug="sunlight-essential-annual").first()
 
         # Only test if both plans exist in the database
         if monthly and annual:
@@ -494,3 +494,90 @@ class TestGetMatchingPlanTier:
 
             result_from_annual = views.get_matching_plan_tier(annual)
             assert result_from_annual == monthly
+
+
+@pytest.mark.django_db()
+class TestEnterpriseTemplateSelection(ViewTestMixin):
+    """Test that Enterprise plans use the custom template"""
+
+    view = views.PlanDetailView
+    url = "/plans/{pk}-{slug}/"
+
+    def test_enterprise_plan_uses_custom_template(
+        self, rf, user_factory, plan_factory, mocker
+    ):
+        """Test that Enterprise plans use the plan_enterprise.html template"""
+        user = user_factory()
+        plan = plan_factory(
+            name="Sunlight Enterprise",
+            slug="sunlight-enterprise",
+            public=True,
+        )
+
+        # Mock Stripe customer to avoid API calls
+        mock_customer = mocker.MagicMock()
+        mock_customer.card = None
+        mocker.patch.object(
+            user.individual_organization, "customer", return_value=mock_customer
+        )
+
+        response = self.call_view(rf, user, pk=plan.pk, slug=plan.slug)
+
+        # Should return 200 OK
+        assert response.status_code == 200
+
+        # Verify custom template is used
+        assert response.template_name == ["payments/plan_enterprise.html"]
+
+    def test_enterprise_annual_plan_uses_custom_template(
+        self, rf, user_factory, plan_factory, mocker
+    ):
+        """Test that Enterprise annual plans use the plan_enterprise.html template"""
+        user = user_factory()
+        plan = plan_factory(
+            name="Sunlight Enterprise Annual",
+            slug="sunlight-enterprise-annual",
+            public=True,
+            annual=True,
+        )
+
+        # Mock Stripe customer to avoid API calls
+        mock_customer = mocker.MagicMock()
+        mock_customer.card = None
+        mocker.patch.object(
+            user.individual_organization, "customer", return_value=mock_customer
+        )
+
+        response = self.call_view(rf, user, pk=plan.pk, slug=plan.slug)
+
+        # Should return 200 OK
+        assert response.status_code == 200
+
+        # Verify custom template is used
+        assert response.template_name == ["payments/plan_enterprise.html"]
+
+    def test_non_enterprise_plan_uses_default_template(
+        self, rf, user_factory, plan_factory, mocker
+    ):
+        """Test that non-Enterprise plans use the default template"""
+        user = user_factory()
+        plan = plan_factory(
+            name="Sunlight Essential",
+            slug="sunlight-essential",
+            public=True,
+        )
+
+        # Mock Stripe customer to avoid API calls
+        mock_customer = mocker.MagicMock()
+        mock_customer.card = None
+        mocker.patch.object(
+            user.individual_organization, "customer", return_value=mock_customer
+        )
+
+        response = self.call_view(rf, user, pk=plan.pk, slug=plan.slug)
+
+        # Should return 200 OK
+        assert response.status_code == 200
+
+        # Verify default template is used
+        assert response.template_name == ["payments/plan.html"]

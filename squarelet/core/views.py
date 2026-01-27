@@ -22,6 +22,7 @@ class SelectPlanView(TemplateView):
     template_name = "pages/selectplan.html"
 
     def get_context_data(self, **kwargs):
+        # pylint: disable=too-many-locals
         context = super().get_context_data(**kwargs)
         user = self.request.user
         pro_plan = None
@@ -44,7 +45,7 @@ class SelectPlanView(TemplateView):
         # Structure the plans as: tiers -> each tier has monthly and annual plans
         sunlight_tiers = {}
         for plan in sunlight_plans_list:
-            # Extract tier from slug: "sunlight-basic", "sunlight-basic-annual"
+            # Extract tier from slug: "sunlight-essential", "sunlight-essential-annual"
             if plan.slug.endswith("-annual"):
                 tier_name = plan.slug.replace("sunlight-", "").replace("-annual", "")
                 payment_type = "annual"
@@ -62,8 +63,28 @@ class SelectPlanView(TemplateView):
 
             sunlight_tiers[tier_name][payment_type] = plan
 
+        # Fetch nonprofit variant plans and add them to tiers
+        for tier_name, tier_data in sunlight_tiers.items():
+            for payment_type in ["monthly", "annual"]:
+                if tier_data[payment_type]:
+                    standard_plan = tier_data[payment_type]
+                    nonprofit_slug = standard_plan.nonprofit_variant_slug
+                    if nonprofit_slug:
+                        try:
+                            nonprofit_plan = Plan.objects.get(slug=nonprofit_slug)
+                            tier_data[payment_type] = {
+                                "standard": standard_plan,
+                                "nonprofit": nonprofit_plan,
+                            }
+                        except Plan.DoesNotExist:
+                            # No nonprofit variant exists, keep the standard plan
+                            tier_data[payment_type] = {
+                                "standard": standard_plan,
+                                "nonprofit": None,
+                            }
+
         # Convert to ordered list for template
-        tier_order = ["basic", "premium", "enterprise"]
+        tier_order = ["essential", "enhanced", "enterprise"]
         context["sunlight_tiers"] = [
             sunlight_tiers[tier] for tier in tier_order if tier in sunlight_tiers
         ]
