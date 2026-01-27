@@ -17,6 +17,18 @@ env:
   USE_DOCKER: false
 
 jobs:
+  migration-check:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for migration conflicts
+        run: .github/scripts/check_migration_conflicts.sh
+
   check:
     runs-on: ubuntu-latest
 
