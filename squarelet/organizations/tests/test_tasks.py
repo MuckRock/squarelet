@@ -198,6 +198,37 @@ class TestHandleChargeSucceeded:
 
         tasks.handle_charge_succeeded(charge_data)
 
+    @pytest.mark.django_db()
+    def test_with_invoice_but_no_invoice_lines(self, organization_factory, mocker):
+        """Test that handle_charge_succeeded completes when invoice has no lines"""
+        timestamp = timezone.now().replace(microsecond=0)
+        charge_data = {
+            "amount": 2500,
+            "created": int(timestamp.timestamp()),
+            "customer": "cus_Bp0Alb14pfVB9D",
+            "description": "Payment for invoice E28A672-0040",
+            "id": "ch_EwJiGXbaafREhT",
+            "invoice": "in_EwIgmFCn7cnZFB",
+            "metadata": {},
+            "object": "charge",
+        }
+        organization_factory(customer__customer_id=charge_data["customer"])
+        invoice = {
+            "id": "in_EwIgmFCn7cnZFB",
+            "lines": {
+                "data": []  # Missing invoice_lines
+            },
+        }
+        mocker.patch(
+            "squarelet.organizations.tasks.stripe.Invoice.retrieve",
+            return_value=invoice,
+        )
+        mocked = mocker.patch("squarelet.organizations.models.Charge.send_receipt")
+
+        # This should not raise any errors
+        tasks.handle_charge_succeeded(charge_data)
+        mocked.assert_called_once()
+
 
 @pytest.mark.django_db()
 def test_handle_invoice_failed(organization_factory, user_factory, mailoutbox):
