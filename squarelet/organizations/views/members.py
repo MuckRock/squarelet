@@ -197,14 +197,11 @@ class InvitationAccept(DetailView):
 
     def dispatch(self, request, *args, **kwargs):
         """
-        If the user is authenticated, associate the invitation with that user, so
-        they can access it later.
-        If not, store the invitation in the session, so that the invitation can be
-        associated on login
+        If the user is not authenticated, store the invitation in the session,
+        so that the invitation can be associated on login.
+        User association only happens when the user explicitly accepts or rejects.
         """
-        if request.user.is_authenticated:
-            Invitation.objects.filter(uuid=kwargs["uuid"]).update(user=request.user)
-        else:
+        if not request.user.is_authenticated:
             request.session["invitation"] = str(kwargs["uuid"])
         return super().dispatch(request, *args, **kwargs)
 
@@ -219,6 +216,10 @@ class InvitationAccept(DetailView):
             messages.success(request, "Invitation accepted")
             return get_redirect_url(request, redirect(invitation.organization))
         elif action == "reject":
+            # Associate the user with the invitation for auditing purposes
+            if invitation.user is None:
+                invitation.user = request.user
+                invitation.save()
             invitation.reject()
             if invitation.request:
                 messages.info(request, "Invitation withdrawn")
