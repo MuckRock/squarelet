@@ -66,21 +66,33 @@ def handle_charge_succeeded(charge_data):
     if charge_data["invoice"]:
         # fetch the invoice from stripe if one associated with the charge
         invoice = stripe.Invoice.retrieve(charge_data["invoice"])
-        invoice_line = invoice["lines"]["data"][0]
-        if "name" in invoice_line["plan"]:
-            plan_name = invoice_line["plan"]["name"]
-        else:
-            plan_name = stripe.Product.retrieve(invoice_line["plan"]["product"])["name"]
-        action = "Subscription Payment"
-        description = f"Subscription Payment for {plan_name} plan"
+        try:
+            invoice_line = invoice["lines"]["data"][0]
+            if "name" in invoice_line["plan"]:
+                plan_name = invoice_line["plan"]["name"]
+            else:
+                plan_name = stripe.Product.retrieve(invoice_line["plan"]["product"])[
+                    "name"
+                ]
+            action = "Subscription Payment"
+            description = f"Subscription Payment for {plan_name} plan"
+        except (TypeError, IndexError):
+            # The invoice data doesn't exist
+            invoice_line = None
+            plan_name = None
+            action = None
+            description = charge_data["description"]
     else:
+        invoice_line = None
         plan_name = None
         action = None
         description = charge_data["description"]
 
     # do not send receipts for MuckRock donations and crowdfunds
-    if charge_data["invoice"] and invoice_line["plan"]["id"].lower().startswith(
-        ("donate", "crowdfund")
+    if (
+        charge_data["invoice"]
+        and invoice_line
+        and invoice_line["plan"]["id"].lower().startswith(("donate", "crowdfund"))
     ):
         return
     if not charge_data["invoice"] and charge_data["metadata"].get(
