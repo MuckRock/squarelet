@@ -157,7 +157,7 @@
                 {% include "core/icons/paper-airplane.svg" %}
                 {% trans "Resend" %}
               </button>
-              {% endif %}
+              {% else %}
               <button 
                 class="btn ghost small" 
                 data-clipboard
@@ -165,6 +165,7 @@
                 {% include "core/icons/copy.svg" %}
                 {% trans "Copy link" %}
               </button>
+              {% endif %}
               <button type="submit" class="btn small ghost danger" name="action" value="revokeinvite">
                 {% include "core/icons/x.svg" %}
                 {% trans "Withdraw" %}

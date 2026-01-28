@@ -1,6 +1,7 @@
 .invited {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.5rem;
   flex: 1;
 }
@@ -42,6 +43,13 @@
   font-style: normal;
   font-weight: 600;
   line-height: 1.5rem;
+}
+
+.invited .info .help {
+  margin: 0;
+  width: 100%;
+  font-size: var(--font-sm);
+  color: var(--gray-4);
 }
 
 #managemembers .invitation {
