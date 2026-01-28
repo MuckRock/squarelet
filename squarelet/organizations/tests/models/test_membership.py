@@ -15,7 +15,7 @@ class TestMembership:
     @pytest.mark.django_db(transaction=True)
     def test_save(self, membership_factory, mocker):
         mocked = mocker.patch(
-            "squarelet.organizations.models.organization.send_cache_invalidations"
+            "squarelet.organizations.models.membership.send_cache_invalidations"
         )
         membership = membership_factory()
         mocked.assert_called_with("user", membership.user.uuid)
@@ -23,7 +23,7 @@ class TestMembership:
     @pytest.mark.django_db(transaction=True)
     def test_save_delete(self, membership_factory, mocker):
         mocked = mocker.patch(
-            "squarelet.organizations.models.organization.send_cache_invalidations"
+            "squarelet.organizations.models.membership.send_cache_invalidations"
         )
         membership = membership_factory()
         mocked.assert_called_with("user", membership.user.uuid)
