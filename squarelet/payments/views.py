@@ -89,6 +89,7 @@ class PlanDetailView(DetailView):
         context["plan_data"] = {
             "annual": plan.annual,
             "is_sunlight_plan": plan.is_sunlight_plan,
+            "is_nonprofit_variant": plan.slug.startswith("sunlight-nonprofit-"),
             "base_price": plan.base_price,
             "price_per_user": plan.price_per_user,
             "minimum_users": plan.minimum_users,
@@ -161,23 +162,7 @@ class PlanDetailView(DetailView):
                 context["individual_default_card"] = individual_card
 
             # Build org_cards mapping for all organizations (individual + admin)
-            org_cards = {}
-
-            # Add individual org if it has a card
-            if individual_card:
-                org_cards[str(individual_org.pk)] = {
-                    "last4": individual_card.last4,
-                    "brand": individual_card.brand,
-                }
-
-            # Add admin organizations that have cards
-            for org in admin_organizations:
-                org_card = org.customer().card
-                if org_card:
-                    org_cards[str(org.pk)] = {
-                        "last4": org_card.last4,
-                        "brand": org_card.brand,
-                    }
+            org_cards = self._get_org_cards(individual_org, admin_organizations)
 
             context.update(
                 {
@@ -198,7 +183,38 @@ class PlanDetailView(DetailView):
                 "admin:organizations_plan_change", args=[plan.pk]
             )
 
+        # Add nonprofit variant flag for template
+        context["is_nonprofit_variant"] = plan.slug.startswith("sunlight-nonprofit-")
+
         return context
+
+    def _get_org_cards(self, individual_org, admin_orgs):
+        """
+        Collect saved purchase methods for template context.
+        When an org is selected, its saved purchase method should be shown.
+        Each org only has 1 saved payment method.
+        """
+        org_cards = {}
+
+        # Add individual org if it has a card
+        if individual_org:
+            individual_card = individual_org.customer().card
+            if individual_card:
+                org_cards[str(individual_org.pk)] = {
+                    "last4": individual_card.last4,
+                    "brand": individual_card.brand,
+                }
+
+        # Add admin organizations that have cards
+        for org in admin_orgs:
+            org_card = org.customer().card
+            if org_card:
+                org_cards[str(org.pk)] = {
+                    "last4": org_card.last4,
+                    "brand": org_card.brand,
+                }
+
+        return org_cards
 
     def post(self, request, *args, **kwargs):
         # pylint: disable=too-many-return-statements,too-many-branches
