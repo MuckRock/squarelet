@@ -21,7 +21,7 @@ from squarelet.core.tests.mixins import ViewTestMixin
 from .. import views
 from ..models import OrganizationEmailDomain, ReceiptEmail
 
-# pylint: disable=invalid-name
+# pylint: disable=invalid-name,too-many-public-methods
 
 
 @pytest.mark.django_db()
@@ -66,15 +66,14 @@ class TestDetail(ViewTestMixin):
         assert response.context_data["is_admin"]
         assert response.context_data["is_member"]
         assert "requested_invite" in response.context_data
-        assert "invite_count" in response.context_data
-        # Verify invite_count is always an integer
-        assert isinstance(response.context_data["invite_count"], int)
-        assert response.context_data["invite_count"] == 0
+        assert "pending_requests" in response.context_data
+        # Verify pending_requests is a queryset
+        assert response.context_data["pending_requests"].count() == 0
 
     def test_get_admin_with_pending_requests(
         self, rf, organization_factory, user_factory, invitation_factory
     ):
-        """Test that invite_count is an integer when there are pending requests"""
+        """Test that pending_requests shows pending join requests"""
         admin = user_factory()
         organization = organization_factory(admins=[admin])
         # Create some pending join requests
@@ -82,14 +81,13 @@ class TestDetail(ViewTestMixin):
         response = self.call_view(rf, admin, slug=organization.slug)
         assert response.status_code == 200
         assert response.context_data["is_admin"]
-        # Verify invite_count is always an integer, not a queryset
-        assert isinstance(response.context_data["invite_count"], int)
-        assert response.context_data["invite_count"] == 3
+        # Verify pending_requests is a queryset with the correct count
+        assert response.context_data["pending_requests"].count() == 3
 
     def test_get_staff_can_see_invite_count(
         self, rf, organization_factory, user_factory, invitation_factory
     ):
-        """Test that staff members can see invite_count even if not admin/member"""
+        """Test that staff members can see pending_requests even if not admin/member"""
         staff_user = user_factory(is_staff=True)
         organization = organization_factory()  # Staff not a member
         # Create some pending join requests
@@ -98,10 +96,111 @@ class TestDetail(ViewTestMixin):
         assert response.status_code == 200
         assert not response.context_data["is_admin"]
         assert not response.context_data["is_member"]
-        # Staff should still see invite_count
-        assert "invite_count" in response.context_data
-        assert isinstance(response.context_data["invite_count"], int)
-        assert response.context_data["invite_count"] == 2
+        # Staff should still see pending_requests
+        assert "pending_requests" in response.context_data
+        assert response.context_data["pending_requests"].count() == 2
+
+    def test_member_counts_in_context(self, rf, organization_factory, user_factory):
+        """Test that member_count and admin_count are in context"""
+        admin = user_factory()
+        members = user_factory.create_batch(3)
+        organization = organization_factory(admins=[admin], users=members)
+        response = self.call_view(rf, admin, slug=organization.slug)
+        assert response.status_code == 200
+        assert "member_count" in response.context_data
+        assert "admin_count" in response.context_data
+        # 1 admin + 3 members = 4 total users
+        assert response.context_data["member_count"] == 4
+        assert response.context_data["admin_count"] == 1
+
+    def test_users_have_org_membership_list(
+        self, rf, organization_factory, user_factory
+    ):
+        """Test that users in context have org_membership_list for template access"""
+        admin = user_factory()
+        member = user_factory()
+        organization = organization_factory(admins=[admin], users=[member])
+        response = self.call_view(rf, admin, slug=organization.slug)
+        assert response.status_code == 200
+        users = response.context_data["users"]
+        # Check that each user has the org_membership_list attribute
+        for user in users:
+            assert hasattr(user, "org_membership_list")
+            assert len(user.org_membership_list) > 0
+            # Verify the membership has the admin attribute
+            membership = user.org_membership_list[0]
+            assert hasattr(membership, "admin")
+            # The admin user should have admin=True
+            if user == admin:
+                assert membership.admin is True
+            # The regular member should have admin=False
+            elif user == member:
+                assert membership.admin is False
+        # Verify the current user (admin) is first in the list
+        assert users[0] == admin
+
+    def test_verification_context_for_unverified_org_admin(
+        self, rf, organization_factory, user_factory
+    ):
+        """Test verification context for admin of unverified org"""
+        admin = user_factory()
+        organization = organization_factory(admins=[admin], verified_journalist=False)
+        response = self.call_view(rf, admin, slug=organization.slug)
+        assert response.status_code == 200
+        assert response.context_data["show_verification_request"] is True
+
+    def test_verification_context_for_verified_org_admin(
+        self, rf, organization_factory, user_factory
+    ):
+        """Test verification context for admin of verified org"""
+        admin = user_factory()
+        organization = organization_factory(admins=[admin], verified_journalist=True)
+        response = self.call_view(rf, admin, slug=organization.slug)
+        assert response.status_code == 200
+        assert response.context_data["show_verification_request"] is False
+
+    def test_verification_context_for_member(
+        self, rf, organization_factory, user_factory
+    ):
+        """Test that members don't see verification request prompt"""
+        member = user_factory()
+        organization = organization_factory(users=[member], verified_journalist=False)
+        response = self.call_view(rf, member, slug=organization.slug)
+        assert response.status_code == 200
+        assert response.context_data["show_verification_request"] is False
+
+    def test_security_settings_context_for_admin(
+        self, rf, organization_factory, user_factory
+    ):
+        """Test that admins see security settings in context"""
+        admin = user_factory()
+        organization = organization_factory(admins=[admin], allow_auto_join=True)
+        response = self.call_view(rf, admin, slug=organization.slug)
+        assert response.status_code == 200
+        assert "security_settings" in response.context_data
+        assert response.context_data["security_settings"]["allow_auto_join"] is True
+        assert "has_email_domains" in response.context_data["security_settings"]
+
+    def test_security_settings_context_for_member(
+        self, rf, organization_factory, user_factory
+    ):
+        """Test that members don't see security settings"""
+        member = user_factory()
+        organization = organization_factory(users=[member])
+        response = self.call_view(rf, member, slug=organization.slug)
+        assert response.status_code == 200
+        assert "security_settings" not in response.context_data
+
+    def test_security_settings_context_for_staff(
+        self, rf, organization_factory, user_factory
+    ):
+        """Test that staff see security settings even if not member"""
+        staff_user = user_factory(is_staff=True)
+        organization = organization_factory(allow_auto_join=False)
+        response = self.call_view(rf, staff_user, slug=organization.slug)
+        assert response.status_code == 200
+        assert "security_settings" in response.context_data
+        assert response.context_data["security_settings"]["allow_auto_join"] is False
 
     def test_get_individual(self, rf, individual_organization_factory):
         """Individual organizations should not have a detail page"""
@@ -442,7 +541,7 @@ class TestManageMembers(ViewTestMixin):
         mail = mailoutbox[0]
         assert mail.subject == f"Invitation to join {organization.name}"
         assert mail.to == [email]
-        self.assert_message(messages.SUCCESS, "Invitations sent")
+        self.assert_message(messages.SUCCESS, "1 invitation sent")
 
     def test_add_member_bad_email(self, rf, organization_factory, user_factory):
         user = user_factory()
@@ -460,7 +559,7 @@ class TestManageMembers(ViewTestMixin):
         email = "invite@example.com"
         data = {"action": "addmember", "emails": email}
         self.call_view(rf, user, data, slug=organization.slug)
-        self.assert_message(messages.SUCCESS, "Invitations sent")
+        self.assert_message(messages.SUCCESS, "1 invitation sent")
         organization.refresh_from_db()
         assert organization.max_users == 5
 
@@ -474,7 +573,9 @@ class TestManageMembers(ViewTestMixin):
         self.call_view(rf, user, data, slug=organization.slug)
         invitation.refresh_from_db()
         assert invitation.rejected_at is not None
-        self.assert_message(messages.SUCCESS, "Invitation revoked")
+        self.assert_message(
+            messages.SUCCESS, f"Invitation to {invitation.email} revoked"
+        )
 
     def test_accept_invite(
         self, rf, organization_factory, user_factory, invitation_factory
@@ -486,7 +587,9 @@ class TestManageMembers(ViewTestMixin):
         self.call_view(rf, user, data, slug=organization.slug)
         invitation.refresh_from_db()
         assert invitation.accepted_at is not None
-        self.assert_message(messages.SUCCESS, "Invitation accepted")
+        self.assert_message(
+            messages.SUCCESS, f"Invitation from {invitation.email} accepted"
+        )
 
     def test_reject_invite(
         self, rf, organization_factory, user_factory, invitation_factory
@@ -498,7 +601,9 @@ class TestManageMembers(ViewTestMixin):
         self.call_view(rf, user, data, slug=organization.slug)
         invitation.refresh_from_db()
         assert invitation.rejected_at is not None
-        self.assert_message(messages.SUCCESS, "Invitation rejected")
+        self.assert_message(
+            messages.SUCCESS, f"Invitation from {invitation.email} rejected"
+        )
 
     def test_revoke_invite_missing(self, rf, organization_factory, user_factory):
         user = user_factory()
@@ -527,7 +632,7 @@ class TestManageMembers(ViewTestMixin):
         data = {"action": "makeadmin", "userid": member.pk, "admin": "true"}
         self.call_view(rf, admin, data, slug=organization.slug)
         assert organization.has_admin(member)
-        self.assert_message(messages.SUCCESS, "Made an admin")
+        self.assert_message(messages.SUCCESS, f"{member.username} promoted to admin")
 
     def test_remove_admin(self, rf, organization_factory, user_factory):
         admins = user_factory.create_batch(2)
@@ -535,7 +640,7 @@ class TestManageMembers(ViewTestMixin):
         data = {"action": "makeadmin", "userid": admins[1].pk, "admin": "false"}
         self.call_view(rf, admins[0], data, slug=organization.slug)
         assert not organization.has_admin(admins[1])
-        self.assert_message(messages.SUCCESS, "Made not an admin")
+        self.assert_message(messages.SUCCESS, f"{admins[1].username} demoted to member")
 
     def test_make_admin_bad_bool(self, rf, organization_factory, user_factory):
         admin = user_factory()
@@ -562,7 +667,7 @@ class TestManageMembers(ViewTestMixin):
         data = {"action": "removeuser", "userid": member.pk}
         self.call_view(rf, admin, data, slug=organization.slug)
         assert not organization.has_member(member)
-        self.assert_message(messages.SUCCESS, "Removed user")
+        self.assert_message(messages.SUCCESS, f"{member.username} removed")
 
     def test_bad_action(self, rf, organization_factory, user_factory):
         admin = user_factory()

@@ -40,7 +40,6 @@ from allauth.account.views import (
 )
 from allauth.mfa import app_settings
 from allauth.mfa.models import Authenticator
-from allauth.mfa.utils import is_mfa_enabled
 from allauth.socialaccount.adapter import get_adapter as get_social_adapter
 from allauth.socialaccount.internal import flows
 from allauth.socialaccount.views import ConnectionsView
@@ -48,7 +47,7 @@ from allauth.socialaccount.views import ConnectionsView
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import new_action
-from squarelet.organizations.models import ReceiptEmail
+from squarelet.organizations.models import Invitation, ReceiptEmail
 from squarelet.organizations.models.payment import Plan
 from squarelet.organizations.views import UpdateSubscription
 from squarelet.services.models import Service
@@ -151,7 +150,6 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         context["has_unverified_emails"] = user.emailaddress_set.filter(
             verified=False
         ).exists()
-        context["is_mfa_enabled"] = is_mfa_enabled(user)
         context["RECOVERY_CODE_COUNT"] = app_settings.RECOVERY_CODE_COUNT
         context["unused_code_count"] = len(self.get_recovery_codes())
         # Get the current plan and subscription, if any
@@ -521,3 +519,87 @@ class UserPaymentView(LoginRequiredMixin, StaffAccessMixin, UpdateSubscription):
         username = self.kwargs.get("username")
         target_user = User.objects.get(username=username)
         return target_user.individual_organization
+
+
+class BaseUserInvitationRequestView(LoginRequiredMixin, StaffAccessMixin, ListView):
+    """Base view for displaying invitations and requests for a user"""
+
+    model = Invitation
+    paginate_by = 20
+
+    # Subclasses must define these attributes
+    is_request_view = None  # True for requests, False for invitations
+    redirect_url_name = None  # URL name for POST redirect
+
+    def get_queryset(self):
+        """Get invitations or requests for the user based on view type"""
+        username = self.kwargs.get("username")
+        user = User.objects.get(username=username)
+        if self.is_request_view:
+            return Invitation.objects.get_user_requests(user)
+        return Invitation.objects.get_user_invitations(user)
+
+    def get_context_data(self, **kwargs):
+        """Add target user and ownership info to context"""
+        context = super().get_context_data(**kwargs)
+        username = self.kwargs.get("username")
+        target_user = User.objects.get(username=username)
+        context["target_user"] = target_user
+        context["is_own_page"] = target_user == self.request.user
+        return context
+
+    def post(self, request, *args, **kwargs):
+        """Handle sending a new request after rejecting an invitation"""
+        invitation_uuid = request.POST.get("invitation_uuid")
+        action = request.POST.get("action")
+
+        # Only allow send_new_request for invitations view, not requests view
+        if action == "send_new_request" and not self.is_request_view:
+            try:
+                # Get the rejected invitation
+                rejected_invitation = Invitation.objects.get(
+                    uuid=invitation_uuid, rejected_at__isnull=False, request=False
+                )
+
+                # Create a new request to join the organization
+                new_request = Invitation.objects.create(
+                    organization=rejected_invitation.organization,
+                    user=request.user,
+                    email=request.user.email,
+                    request=True,
+                )
+                new_request.send()
+
+                messages.success(
+                    request,
+                    _(
+                        f"Request to join {rejected_invitation.organization.name} "
+                        "has been sent."
+                    ),
+                )
+            except Invitation.DoesNotExist:
+                messages.error(
+                    request, _("Invitation not found or has not been rejected.")
+                )
+
+        return HttpResponseRedirect(
+            reverse(self.redirect_url_name, kwargs={"username": request.user.username})
+        )
+
+
+class UserInvitationsView(BaseUserInvitationRequestView):
+    """View to display all invitations received by a user"""
+
+    template_name = "users/user_invitations.html"
+    context_object_name = "invitations"
+    is_request_view = False
+    redirect_url_name = "users:invitations"
+
+
+class UserRequestsView(BaseUserInvitationRequestView):
+    """View to display all requests sent by a user"""
+
+    template_name = "users/user_requests.html"
+    context_object_name = "requests"
+    is_request_view = True
+    redirect_url_name = "users:requests"

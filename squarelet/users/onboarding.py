@@ -14,7 +14,6 @@ from allauth.account.utils import has_verified_email
 from allauth.mfa.adapter import get_adapter
 from allauth.mfa.totp.forms import ActivateTOTPForm
 from allauth.mfa.totp.internal.flows import activate_totp
-from allauth.mfa.utils import is_mfa_enabled
 
 # Squarelet
 from squarelet.organizations.models.payment import Plan
@@ -358,7 +357,7 @@ class MFAOptInStep(OnboardingStep):
             return False
 
         # If the user has MFA enabled, skip this step
-        if is_mfa_enabled(user):
+        if user.has_mfa_enabled:
             onboarding["mfa_step"] = "completed"
             session.modified = True
             return False
