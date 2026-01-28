@@ -258,7 +258,10 @@
           {% if is_member %}
             <form class="_cls-infoSpaced" method="post">
               {% csrf_token %}
-              <button class="btn danger" name="action" value="leave">{% trans 'Leave this organization' %}</button>
+              <button class="btn danger ghost" name="action" value="leave">
+                {% include "core/icons/sign-out.svg" %}
+                {% trans 'Leave org' %}
+              </button>
             </form>
           {% elif requested_invite %}
             <p>{% trans 'You have requested an invite.' %}</p>
