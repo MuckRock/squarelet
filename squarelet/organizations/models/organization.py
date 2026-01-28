@@ -1125,34 +1125,6 @@ class OrganizationInvitation(models.Model):
         self.save()
 
 
-class ReceiptEmail(models.Model):
-    """An email address to send receipts to"""
-
-    organization = models.ForeignKey(
-        verbose_name=_("organization"),
-        to="organizations.Organization",
-        related_name="receipt_emails",
-        on_delete=models.CASCADE,
-        help_text=_("The organization this receipt email corresponds to"),
-    )
-    email = models.EmailField(
-        _("email"),
-        help_text=_("The email address to send the receipt to"),
-        db_collation="case_insensitive",
-    )
-    failed = models.BooleanField(
-        _("failed"),
-        default=False,
-        help_text=_("Has sending to this email address failed?"),
-    )
-
-    class Meta:
-        unique_together = ("organization", "email")
-
-    def __str__(self):
-        return f"Receipt Email: <{self.email}>"
-
-
 class OrganizationChangeLog(models.Model):
     """Track important changes to organizations"""
 
