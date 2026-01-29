@@ -24,7 +24,11 @@ import stripe
 from django_weasyprint import WeasyTemplateResponseMixin
 
 # Squarelet
-from squarelet.core.utils import format_stripe_error, get_stripe_dashboard_url
+from squarelet.core.utils import (
+    format_stripe_error,
+    get_stripe_dashboard_url,
+    new_action,
+)
 from squarelet.organizations.forms import PaymentForm
 from squarelet.organizations.mixins import OrganizationAdminMixin
 from squarelet.organizations.models import Charge, Organization
@@ -65,6 +69,14 @@ class UpdateSubscription(OrganizationAdminMixin, UpdateView):
                 organization.remove_card()
                 messages.success(self.request, _("Credit card removed"))
             else:
+                # Log staff action to activity stream
+                if self.request.user.is_staff:
+                    new_action(
+                        actor=self.request.user,
+                        verb="updated organization subscription",
+                        target=organization,
+                    )
+
                 messages.success(
                     self.request,
                     (

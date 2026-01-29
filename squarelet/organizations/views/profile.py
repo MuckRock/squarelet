@@ -6,6 +6,7 @@ from django.views import View
 from django.views.generic import CreateView, UpdateView
 
 # Squarelet
+from squarelet.core.utils import new_action
 from squarelet.organizations.forms import ProfileChangeRequestForm, UpdateForm
 from squarelet.organizations.mixins import OrganizationAdminMixin
 from squarelet.organizations.models import Organization, ProfileChangeRequest
@@ -125,12 +126,30 @@ class ReviewProfileChange(View):
 
         if action == "accept":
             profile_change.accept()
+
+            # Log staff action to activity stream
+            new_action(
+                actor=request.user,
+                verb="accepted profile change request",
+                action_object=profile_change,
+                target=profile_change.organization,
+            )
+
             messages.success(
                 request,
                 _("Profile change request has been accepted and applied."),
             )
         elif action == "reject":
             profile_change.reject()
+
+            # Log staff action to activity stream
+            new_action(
+                actor=request.user,
+                verb="rejected profile change request",
+                action_object=profile_change,
+                target=profile_change.organization,
+            )
+
             messages.success(
                 request,
                 _("Profile change request has been rejected."),
