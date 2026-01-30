@@ -21,6 +21,11 @@ class RelationshipType(models.IntegerChoices):
     child = 1, _("Child")
 
 
+class InvitationRole(models.IntegerChoices):
+    member = 0, _("Member")
+    admin = 1, _("Admin")
+
+
 class Country(models.TextChoices):
     US = "US", _("United States of America")
     CA = "CA", _("Canada")

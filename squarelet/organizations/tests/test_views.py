@@ -22,6 +22,7 @@ from squarelet.core.tests.mixins import ViewTestMixin
 
 # Local
 from .. import views
+from ..choices import InvitationRole
 from ..models import Organization, OrganizationEmailDomain, Plan, ReceiptEmail
 
 # pylint: disable=too-many-public-methods, too-many-lines
@@ -1314,6 +1315,43 @@ class TestManageMembers(ViewTestMixin):  # pylint: disable=too-many-public-metho
         assert action.action_object == invitation
         assert action.target == organization
         assert action.public is False
+
+    def test_add_member_as_admin_role(self, rf, organization_factory, user_factory):
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        email = "admin@example.com"
+        data = {
+            "action": "addmember",
+            "emails": email,
+            "role": str(InvitationRole.admin),
+        }
+        self.call_view(rf, user, data, slug=organization.slug)
+        invitation = organization.invitations.get(email=email)
+        assert invitation.role == InvitationRole.admin
+        self.assert_message(messages.SUCCESS, "1 invitation sent")
+
+    def test_add_member_defaults_to_member_role(
+        self, rf, organization_factory, user_factory
+    ):
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        email = "member@example.com"
+        data = {"action": "addmember", "emails": email}
+        self.call_view(rf, user, data, slug=organization.slug)
+        invitation = organization.invitations.get(email=email)
+        assert invitation.role == InvitationRole.member
+        self.assert_message(messages.SUCCESS, "1 invitation sent")
+
+    def test_add_member_link_defaults_to_member(
+        self, rf, organization_factory, user_factory
+    ):
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        data = {"action": "addmember_link"}
+        self.call_view(rf, user, data, slug=organization.slug)
+        invitation = organization.invitations.latest("created_at")
+        assert invitation.role == InvitationRole.member
+        assert invitation.email == ""
 
 
 @pytest.mark.django_db()

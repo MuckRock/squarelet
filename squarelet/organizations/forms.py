@@ -15,6 +15,7 @@ from squarelet.core.forms import AvatarWidget, StripeForm
 from squarelet.core.layout import Field  # Used by PaymentForm
 
 # Local
+from .choices import InvitationRole
 from .models import Organization, Plan, ProfileChangeRequest
 
 
@@ -232,6 +233,17 @@ class AddMemberForm(forms.Form):
     """Add a member to the organization"""
 
     emails = EmailsListField()
+    role = forms.ChoiceField(
+        label=_("Role"),
+        choices=InvitationRole.choices,
+        initial=InvitationRole.member,
+        required=False,
+        widget=forms.RadioSelect,
+        help_text=_(
+            "Members can view organization content. "
+            "Admins can also manage members and settings."
+        ),
+    )
 
 
 class MergeForm(forms.Form):

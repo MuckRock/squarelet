@@ -6,11 +6,14 @@ from django.utils import timezone
 import pytest
 
 # Squarelet
-from squarelet.organizations.choices import RelationshipType
+from squarelet.organizations.choices import InvitationRole, RelationshipType
 
 
 class TestInvitation:
     """Unit tests for Invitation model"""
+
+    # Can there ever be too many tests?
+    # pylint: disable=too-many-public-methods
 
     def test_str(self, invitation_factory):
         invitation = invitation_factory.build()
@@ -150,6 +153,34 @@ class TestInvitation:
         invitation = invitation_factory.build(withdrawn_at=timezone.now())
         with pytest.raises(ValueError):
             invitation.reject()
+
+    @pytest.mark.django_db()
+    def test_invitation_defaults_to_member_role(self, invitation_factory, mocker):
+        mocker.patch("stripe.Plan.create")
+        invitation = invitation_factory()
+        assert invitation.role == InvitationRole.member
+
+    @pytest.mark.django_db()
+    def test_accept_member_invitation_creates_member(
+        self, invitation_factory, user_factory, mocker
+    ):
+        mocker.patch("stripe.Plan.create")
+        invitation = invitation_factory(role=InvitationRole.member)
+        invitation.user = user_factory()
+        invitation.accept()
+        membership = invitation.organization.memberships.get(user=invitation.user)
+        assert not membership.admin
+
+    @pytest.mark.django_db()
+    def test_accept_admin_invitation_creates_admin(
+        self, invitation_factory, user_factory, mocker
+    ):
+        mocker.patch("stripe.Plan.create")
+        invitation = invitation_factory(role=InvitationRole.admin)
+        invitation.user = user_factory()
+        invitation.accept()
+        membership = invitation.organization.memberships.get(user=invitation.user)
+        assert membership.admin
 
     def test_get_name_no_user(self, invitation_factory):
         invitation = invitation_factory.build()

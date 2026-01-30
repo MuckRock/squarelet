@@ -7,6 +7,11 @@
     </div>
     <div class="info">
         <h3>{{ invitation.email }}</h3>
+        <div class="details">
+            {% if invitation.role == 1 %}
+            <span class="orange badge">{% trans "Admin" %}</span>
+            {% endif %}
+        </div>
     </div>
     {% else %}
     <div class="link avatar">
@@ -14,6 +19,11 @@
     </div>
     <div class="info">
         <h3>{% trans "Generated link" %}</h3>
+        <div class="details">
+            {% if invitation.role == 1 %}
+            <span class="orange badge">{% trans "Admin" %}</span>
+            {% endif %}
+        </div>
         <p class="help">Each invitation link may only be used once.</p>
     </div>
     {% endif %}
