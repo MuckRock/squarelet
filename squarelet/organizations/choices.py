@@ -17,6 +17,11 @@ class RelationshipType(DjangoChoices):
     child = ChoiceItem(1, _("Child"))
 
 
+class InvitationRole(DjangoChoices):
+    member = ChoiceItem(0, _("Member"))
+    admin = ChoiceItem(1, _("Admin"))
+
+
 COUNTRY_CHOICES = (
     ("US", _("United States of America")),
     ("CA", _("Canada")),
