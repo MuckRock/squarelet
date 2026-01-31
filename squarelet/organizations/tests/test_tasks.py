@@ -1022,3 +1022,84 @@ class TestAddToWaitlist:
 
         # Should not call wix.add_to_waitlist in dev
         mock_wix_waitlist.assert_not_called()
+
+
+class TestSyncWixForGroupMember:
+    """Unit tests for the sync_wix_for_group_member task"""
+
+    @pytest.mark.django_db
+    @override_settings(ENV="prod")
+    def test_syncs_in_production(
+        self, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """Should sync all member org users to Wix when running in production"""
+        wix_plan = plan_factory(wix=True)
+        group = organization_factory(
+            collective_enabled=True, share_resources=True, plans=[wix_plan]
+        )
+        member_org = organization_factory(users=[user_factory(), user_factory()])
+        group.members.add(member_org)
+
+        mock_wix_sync = mocker.patch("squarelet.organizations.tasks.wix.sync_wix")
+
+        tasks.sync_wix_for_group_member(member_org.id, group.id, wix_plan.id)
+
+        # Should call wix.sync_wix for each user in member org
+        assert mock_wix_sync.call_count == 2
+
+    @pytest.mark.django_db
+    @override_settings(ENV="staging")
+    def test_does_not_sync_in_staging(
+        self, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """Should not sync to Wix when running in staging"""
+        wix_plan = plan_factory(wix=True)
+        group = organization_factory(
+            collective_enabled=True, share_resources=True, plans=[wix_plan]
+        )
+        member_org = organization_factory(users=[user_factory()])
+        group.members.add(member_org)
+
+        mock_wix_sync = mocker.patch("squarelet.organizations.tasks.wix.sync_wix")
+
+        tasks.sync_wix_for_group_member(member_org.id, group.id, wix_plan.id)
+
+        mock_wix_sync.assert_not_called()
+
+    @pytest.mark.django_db
+    @override_settings(ENV="prod")
+    def test_skips_when_share_resources_false(
+        self, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """Should skip sync if group no longer shares resources"""
+        wix_plan = plan_factory(wix=True)
+        group = organization_factory(
+            collective_enabled=True, share_resources=False, plans=[wix_plan]
+        )
+        member_org = organization_factory(users=[user_factory()])
+        group.members.add(member_org)
+
+        mock_wix_sync = mocker.patch("squarelet.organizations.tasks.wix.sync_wix")
+
+        tasks.sync_wix_for_group_member(member_org.id, group.id, wix_plan.id)
+
+        mock_wix_sync.assert_not_called()
+
+    @pytest.mark.django_db
+    @override_settings(ENV="prod")
+    def test_skips_when_plan_not_wix(
+        self, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """Should skip sync if plan no longer has wix enabled"""
+        non_wix_plan = plan_factory(wix=False)
+        group = organization_factory(
+            collective_enabled=True, share_resources=True, plans=[non_wix_plan]
+        )
+        member_org = organization_factory(users=[user_factory()])
+        group.members.add(member_org)
+
+        mock_wix_sync = mocker.patch("squarelet.organizations.tasks.wix.sync_wix")
+
+        tasks.sync_wix_for_group_member(member_org.id, group.id, non_wix_plan.id)
+
+        mock_wix_sync.assert_not_called()

@@ -53,6 +53,11 @@ class Membership(models.Model):
         is_new = self.pk is None
         is_wix = self.organization.plan and self.organization.plan.wix
 
+        # Check group Wix plans if no direct Wix plan (before save, while we can check)
+        group_wix_plans = []
+        if is_new and not is_wix:
+            group_wix_plans = self.organization.get_wix_plans_from_groups()
+
         with transaction.atomic():
             super().save(*args, **kwargs)
 
@@ -61,15 +66,27 @@ class Membership(models.Model):
                 lambda: send_cache_invalidations("user", self.user.uuid)
             )
 
-            # Trigger Wix sync if this is a new membership and org has a Wix plan
-            if is_new and is_wix:
-                transaction.on_commit(
-                    lambda: sync_wix.delay(
-                        self.organization.pk,
-                        self.organization.plan.pk,
-                        self.user.pk,
+            # Trigger Wix sync if this is a new membership
+            if is_new:
+                if is_wix:
+                    # Direct org Wix plan
+                    transaction.on_commit(
+                        lambda: sync_wix.delay(
+                            self.organization.pk,
+                            self.organization.plan.pk,
+                            self.user.pk,
+                        )
                     )
-                )
+                else:
+                    # Group Wix plans - sync new user to each group's plan
+                    for group, plan in group_wix_plans:
+                        # Capture values to avoid closure issues
+                        group_pk, plan_pk, user_pk = group.pk, plan.pk, self.user.pk
+                        transaction.on_commit(
+                            lambda g=group_pk, p=plan_pk, u=user_pk: sync_wix.delay(
+                                g, p, u
+                            )
+                        )
 
     def delete(self, *args, **kwargs):
         with transaction.atomic():
