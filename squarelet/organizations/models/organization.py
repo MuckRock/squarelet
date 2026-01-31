@@ -322,11 +322,46 @@ class Organization(AvatarMixin, models.Model):
             return self.name
 
     def save(self, *args, **kwargs):
+        # Importing here to avoid a dependency loop
+        # pylint: disable=import-outside-toplevel
+        from squarelet.organizations.tasks import sync_wix_for_group_member
+
+        # Track if share_resources is being toggled ON
+        share_resources_toggled_on = False
+        if self.pk:
+            try:
+                old_instance = Organization.objects.get(pk=self.pk)
+                if self.share_resources and not old_instance.share_resources:
+                    share_resources_toggled_on = True
+            except Organization.DoesNotExist:
+                pass
+
         with transaction.atomic():
             super().save(*args, **kwargs)
             transaction.on_commit(
                 lambda: send_cache_invalidations("organization", self.uuid)
             )
+
+            # If share_resources was toggled ON and org has a Wix plan, sync members
+            if (
+                share_resources_toggled_on
+                and self.collective_enabled
+                and self.plan
+                and self.plan.wix
+            ):
+                # Capture values for delayed execution
+                org_pk = self.pk
+                plan_pk = self.plan.pk
+                member_pks = list(self.members.values_list("pk", flat=True))
+                child_pks = list(self.children.values_list("pk", flat=True))
+
+                def trigger_syncs():
+                    for member_pk in member_pks:
+                        sync_wix_for_group_member.delay(member_pk, org_pk, plan_pk)
+                    for child_pk in child_pks:
+                        sync_wix_for_group_member.delay(child_pk, org_pk, plan_pk)
+
+                transaction.on_commit(trigger_syncs)
 
     def get_absolute_url(self):
         """The url for this object"""
@@ -429,7 +464,7 @@ class Organization(AvatarMixin, models.Model):
 
     def set_subscription(self, token, plan, max_users, user, payment_method=None):
         # pylint: disable=import-outside-toplevel
-        from squarelet.organizations.tasks import sync_wix
+        from squarelet.organizations.tasks import sync_wix, sync_wix_for_group_member
 
         if self.individual:
             max_users = 1
@@ -461,8 +496,16 @@ class Organization(AvatarMixin, models.Model):
         self.max_users = max_users
         self.save()
         if plan and plan.wix:
+            # Sync direct org users
             for wix_user in self.users.all():
                 sync_wix.delay(self.pk, plan.pk, wix_user.pk)
+
+            # If this org is a group that shares resources, sync member/child org users
+            if self.collective_enabled and self.share_resources:
+                for member_org in self.members.all():
+                    sync_wix_for_group_member.delay(member_org.pk, self.pk, plan.pk)
+                for child_org in self.children.all():
+                    sync_wix_for_group_member.delay(child_org.pk, self.pk, plan.pk)
 
         if not self.plan and plan:
             # create a subscription going from no plan to plan
@@ -617,6 +660,30 @@ class Organization(AvatarMixin, models.Model):
         """
         return not self.individual and self.collective_enabled and self.has_admin(user)
 
+    def get_wix_plans_from_groups(self):
+        """
+        Get Wix plans from groups this organization belongs to that share resources.
+
+        Returns a list of (group, plan) tuples for groups/parents that:
+        - Have share_resources=True
+        - Have a plan with plan.wix=True
+        """
+        wix_plans = []
+
+        # Check membership groups
+        for group in self.groups.filter(share_resources=True).select_related("_plan"):
+            if group.plan and group.plan.wix:
+                wix_plans.append((group, group.plan))
+
+        # Check parent hierarchy (recursive)
+        if self.parent and self.parent.share_resources:
+            if self.parent.plan and self.parent.plan.wix:
+                wix_plans.append((self.parent, self.parent.plan))
+            # Also get parent's groups recursively
+            wix_plans.extend(self.parent.get_wix_plans_from_groups())
+
+        return wix_plans
+
     def has_member_by_email(self, email):
         """Check if a user with an email is already a member of the organization."""
         return Membership.objects.filter(
@@ -745,6 +812,11 @@ class Membership(models.Model):
         is_new = self.pk is None
         is_wix = self.organization.plan and self.organization.plan.wix
 
+        # Check group Wix plans if no direct Wix plan (before save, while we can check)
+        group_wix_plans = []
+        if is_new and not is_wix:
+            group_wix_plans = self.organization.get_wix_plans_from_groups()
+
         with transaction.atomic():
             super().save(*args, **kwargs)
 
@@ -753,15 +825,27 @@ class Membership(models.Model):
                 lambda: send_cache_invalidations("user", self.user.uuid)
             )
 
-            # Trigger Wix sync if this is a new membership and org has a Wix plan
-            if is_new and is_wix:
-                transaction.on_commit(
-                    lambda: sync_wix.delay(
-                        self.organization.pk,
-                        self.organization.plan.pk,
-                        self.user.pk,
+            # Trigger Wix sync if this is a new membership
+            if is_new:
+                if is_wix:
+                    # Direct org Wix plan
+                    transaction.on_commit(
+                        lambda: sync_wix.delay(
+                            self.organization.pk,
+                            self.organization.plan.pk,
+                            self.user.pk,
+                        )
                     )
-                )
+                else:
+                    # Group Wix plans - sync new user to each group's plan
+                    for group, plan in group_wix_plans:
+                        # Capture values to avoid closure issues
+                        group_pk, plan_pk, user_pk = group.pk, plan.pk, self.user.pk
+                        transaction.on_commit(
+                            lambda g=group_pk, p=plan_pk, u=user_pk: sync_wix.delay(
+                                g, p, u
+                            )
+                        )
 
     def delete(self, *args, **kwargs):
         with transaction.atomic():
@@ -1058,6 +1142,8 @@ class OrganizationInvitation(models.Model):
     @transaction.atomic
     def accept(self):
         """Accept this invitation/request"""
+        # pylint: disable=import-outside-toplevel
+        from squarelet.organizations.tasks import sync_wix_for_group_member
 
         if not self.is_pending:
             raise ValueError("This invitation has already been processed")
@@ -1073,6 +1159,17 @@ class OrganizationInvitation(models.Model):
             # Set parent relationship
             self.to_organization.parent = self.from_organization
             self.to_organization.save()
+
+        # Trigger Wix sync if the group has a Wix plan and shares resources
+        group = self.from_organization
+        if group.share_resources and group.plan and group.plan.wix:
+            # Capture IDs to avoid closure issues with delayed execution
+            to_org_pk = self.to_organization.pk
+            group_pk = group.pk
+            plan_pk = group.plan.pk
+            transaction.on_commit(
+                lambda: sync_wix_for_group_member.delay(to_org_pk, group_pk, plan_pk)
+            )
 
     @transaction.atomic
     def reject(self):
