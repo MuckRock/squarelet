@@ -1,6 +1,8 @@
 # Third Party
 import pytest
 
+# Squarelet
+from squarelet.organizations.models.membership import Membership
 
 class TestMembership:
     """Unit tests for Membership model"""
@@ -49,8 +51,6 @@ class TestMembership:
         group.members.add(member_org)
 
         user = user_factory()
-        # Create membership directly (not through factory to avoid patching)
-        from squarelet.organizations.models import Membership
 
         Membership.objects.create(user=user, organization=member_org, admin=False)
 
@@ -76,7 +76,6 @@ class TestMembership:
         group.members.add(member_org)
 
         user = user_factory()
-        from squarelet.organizations.models import Membership
 
         Membership.objects.create(user=user, organization=member_org, admin=False)
 

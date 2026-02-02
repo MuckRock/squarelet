@@ -497,7 +497,7 @@ class Organization(AvatarMixin, models.Model):
         return users_list
 
     def set_subscription(self, token, plan, max_users, user, payment_method=None):
-        # pylint: disable=import-outside-toplevel
+        # pylint: disable=import-outside-toplevel,too-many-branches
         from squarelet.organizations.tasks import sync_wix, sync_wix_for_group_member
 
         if self.individual:
