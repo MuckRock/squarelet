@@ -13,7 +13,12 @@ import stripe
 
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason, RelationshipType
-from squarelet.organizations.models import Invoice, Organization, ReceiptEmail
+from squarelet.organizations.models import (
+    Invoice,
+    Membership,
+    Organization,
+    ReceiptEmail,
+)
 from squarelet.organizations.tests.factories import EntitlementFactory, PlanFactory
 
 # pylint: disable=too-many-public-methods,too-many-lines
@@ -1024,8 +1029,6 @@ class TestMembership:
         group.members.add(member_org)
 
         user = user_factory()
-        # Create membership directly (not through factory to avoid patching)
-        from squarelet.organizations.models import Membership
 
         Membership.objects.create(user=user, organization=member_org, admin=False)
 
@@ -1051,7 +1054,6 @@ class TestMembership:
         group.members.add(member_org)
 
         user = user_factory()
-        from squarelet.organizations.models import Membership
 
         Membership.objects.create(user=user, organization=member_org, admin=False)
 
