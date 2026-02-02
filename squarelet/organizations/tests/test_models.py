@@ -13,7 +13,12 @@ import stripe
 
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason, RelationshipType
-from squarelet.organizations.models import Invoice, Organization, ReceiptEmail
+from squarelet.organizations.models import (
+    Invoice,
+    Membership,
+    Organization,
+    ReceiptEmail,
+)
 from squarelet.organizations.tests.factories import EntitlementFactory, PlanFactory
 
 # pylint: disable=too-many-public-methods,too-many-lines
@@ -722,6 +727,116 @@ class TestOrganization:
         )
         assert not org.can_invite_org_members(user)
 
+    # Tests for get_wix_plans_from_groups()
+
+    @pytest.mark.django_db()
+    def test_get_wix_plans_from_groups_no_groups(self, organization_factory):
+        """Test returns empty list when org has no groups"""
+        org = organization_factory()
+        assert org.get_wix_plans_from_groups() == []
+
+    @pytest.mark.django_db()
+    def test_get_wix_plans_from_groups_with_wix_plan(
+        self, organization_factory, plan_factory
+    ):
+        """Test returns plan when group has Wix plan and share_resources=True"""
+        wix_plan = plan_factory(wix=True)
+        group = organization_factory(
+            collective_enabled=True, share_resources=True, plans=[wix_plan]
+        )
+        member_org = organization_factory()
+        group.members.add(member_org)
+
+        result = member_org.get_wix_plans_from_groups()
+        assert len(result) == 1
+        assert result[0] == (group, wix_plan)
+
+    @pytest.mark.django_db()
+    def test_get_wix_plans_from_groups_share_resources_false(
+        self, organization_factory, plan_factory
+    ):
+        """Test returns empty when share_resources=False"""
+        wix_plan = plan_factory(wix=True)
+        group = organization_factory(
+            collective_enabled=True, share_resources=False, plans=[wix_plan]
+        )
+        member_org = organization_factory()
+        group.members.add(member_org)
+
+        assert member_org.get_wix_plans_from_groups() == []
+
+    @pytest.mark.django_db()
+    def test_get_wix_plans_from_groups_non_wix_plan(
+        self, organization_factory, plan_factory
+    ):
+        """Test returns empty when group has non-Wix plan"""
+        non_wix_plan = plan_factory(wix=False)
+        group = organization_factory(
+            collective_enabled=True, share_resources=True, plans=[non_wix_plan]
+        )
+        member_org = organization_factory()
+        group.members.add(member_org)
+
+        assert member_org.get_wix_plans_from_groups() == []
+
+    @pytest.mark.django_db()
+    def test_get_wix_plans_from_groups_parent_with_wix_plan(
+        self, organization_factory, plan_factory
+    ):
+        """Test returns plan from parent with Wix plan and share_resources=True"""
+        wix_plan = plan_factory(wix=True)
+        parent = organization_factory(
+            collective_enabled=True, share_resources=True, plans=[wix_plan]
+        )
+        child = organization_factory(parent=parent)
+
+        result = child.get_wix_plans_from_groups()
+        assert len(result) == 1
+        assert result[0] == (parent, wix_plan)
+
+    @pytest.mark.django_db()
+    def test_get_wix_plans_from_groups_recursive_parent(
+        self, organization_factory, plan_factory
+    ):
+        """Test returns plan from grandparent through recursive lookup"""
+        wix_plan = plan_factory(wix=True)
+        grandparent = organization_factory(
+            collective_enabled=True, share_resources=True, plans=[wix_plan]
+        )
+        parent = organization_factory(
+            parent=grandparent, collective_enabled=True, share_resources=True
+        )
+        child = organization_factory(parent=parent)
+
+        result = child.get_wix_plans_from_groups()
+        # Should find grandparent's plan through parent
+        assert len(result) == 1
+        assert result[0] == (grandparent, wix_plan)
+
+    @pytest.mark.django_db()
+    def test_get_wix_plans_from_groups_multiple_groups(
+        self, organization_factory, plan_factory
+    ):
+        """Test returns plans from multiple groups"""
+        wix_plan1 = plan_factory(wix=True)
+        wix_plan2 = plan_factory(wix=True)
+        group1 = organization_factory(
+            collective_enabled=True, share_resources=True, plans=[wix_plan1]
+        )
+        group2 = organization_factory(
+            collective_enabled=True, share_resources=True, plans=[wix_plan2]
+        )
+        member_org = organization_factory()
+        group1.members.add(member_org)
+        group2.members.add(member_org)
+
+        result = member_org.get_wix_plans_from_groups()
+        assert len(result) == 2
+        # Check both plans are in result (order may vary)
+        plans_in_result = [plan for _, plan in result]
+        assert wix_plan1 in plans_in_result
+        assert wix_plan2 in plans_in_result
+
 
 class TestCustomer:
     """Unit tests for Customer model"""
@@ -895,6 +1010,55 @@ class TestMembership:
         mocked.reset_mock()
         membership.delete()
         mocked.assert_called_with("user", membership.user.uuid)
+
+    @pytest.mark.django_db(transaction=True)
+    def test_save_syncs_new_user_via_group_wix_plan(
+        self, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """Test new membership syncs user via group's Wix plan"""
+        mock_sync = mocker.patch("squarelet.organizations.tasks.sync_wix.delay")
+        mocker.patch(
+            "squarelet.organizations.models.organization.send_cache_invalidations"
+        )
+
+        wix_plan = plan_factory(wix=True)
+        group = organization_factory(
+            collective_enabled=True, share_resources=True, plans=[wix_plan]
+        )
+        member_org = organization_factory()
+        group.members.add(member_org)
+
+        user = user_factory()
+
+        Membership.objects.create(user=user, organization=member_org, admin=False)
+
+        # Should sync user via group's plan
+        mock_sync.assert_called_once_with(group.pk, wix_plan.pk, user.pk)
+
+    @pytest.mark.django_db(transaction=True)
+    def test_save_prefers_direct_wix_plan_over_group(
+        self, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """Test new membership uses direct org Wix plan over group plan"""
+        mock_sync = mocker.patch("squarelet.organizations.tasks.sync_wix.delay")
+        mocker.patch(
+            "squarelet.organizations.models.organization.send_cache_invalidations"
+        )
+
+        group_wix_plan = plan_factory(wix=True)
+        org_wix_plan = plan_factory(wix=True)
+        group = organization_factory(
+            collective_enabled=True, share_resources=True, plans=[group_wix_plan]
+        )
+        member_org = organization_factory(plans=[org_wix_plan])
+        group.members.add(member_org)
+
+        user = user_factory()
+
+        Membership.objects.create(user=user, organization=member_org, admin=False)
+
+        # Should sync user via org's direct plan (not group's)
+        mock_sync.assert_called_once_with(member_org.pk, org_wix_plan.pk, user.pk)
 
 
 class TestSubscription:
@@ -2008,3 +2172,162 @@ class TestOrganizationInvitation:
             ValueError, match="This invitation has already been processed"
         ):
             invitation.reject()
+
+    # Tests for Wix sync integration
+
+    @pytest.mark.django_db(transaction=True)
+    def test_accept_triggers_wix_sync_for_group_with_wix_plan(
+        self, organization_invitation_factory, plan_factory, mocker
+    ):
+        """Test that accepting invitation triggers Wix sync when group has Wix plan"""
+        mock_sync = mocker.patch(
+            "squarelet.organizations.tasks.sync_wix_for_group_member.delay"
+        )
+        wix_plan = plan_factory(wix=True)
+        invitation = organization_invitation_factory(
+            from_organization__collective_enabled=True,
+            from_organization__share_resources=True,
+            from_organization__plans=[wix_plan],
+            relationship_type=RelationshipType.member,
+        )
+
+        invitation.accept()
+
+        mock_sync.assert_called_once_with(
+            invitation.to_organization.pk,
+            invitation.from_organization.pk,
+            wix_plan.pk,
+        )
+
+    @pytest.mark.django_db(transaction=True)
+    def test_accept_no_wix_sync_when_share_resources_false(
+        self, organization_invitation_factory, plan_factory, mocker
+    ):
+        """Test that Wix sync is not triggered when share_resources=False"""
+        mock_sync = mocker.patch(
+            "squarelet.organizations.tasks.sync_wix_for_group_member.delay"
+        )
+        wix_plan = plan_factory(wix=True)
+        invitation = organization_invitation_factory(
+            from_organization__collective_enabled=True,
+            from_organization__share_resources=False,
+            from_organization__plans=[wix_plan],
+            relationship_type=RelationshipType.member,
+        )
+
+        invitation.accept()
+
+        mock_sync.assert_not_called()
+
+    @pytest.mark.django_db(transaction=True)
+    def test_accept_no_wix_sync_when_no_wix_plan(
+        self, organization_invitation_factory, plan_factory, mocker
+    ):
+        """Test that Wix sync is not triggered when group has no Wix plan"""
+        mock_sync = mocker.patch(
+            "squarelet.organizations.tasks.sync_wix_for_group_member.delay"
+        )
+        non_wix_plan = plan_factory(wix=False)
+        invitation = organization_invitation_factory(
+            from_organization__collective_enabled=True,
+            from_organization__share_resources=True,
+            from_organization__plans=[non_wix_plan],
+            relationship_type=RelationshipType.member,
+        )
+
+        invitation.accept()
+
+        mock_sync.assert_not_called()
+
+
+class TestOrganizationWixSyncIntegration:
+    """Integration tests for Wix sync triggers in Organization model"""
+
+    @pytest.mark.django_db(transaction=True)
+    def test_save_triggers_wix_sync_on_share_resources_toggle(
+        self, organization_factory, plan_factory, mocker
+    ):
+        """Test that toggling share_resources from False to True triggers Wix sync"""
+        mock_sync = mocker.patch(
+            "squarelet.organizations.tasks.sync_wix_for_group_member.delay"
+        )
+        wix_plan = plan_factory(wix=True)
+        group = organization_factory(
+            collective_enabled=True, share_resources=False, plans=[wix_plan]
+        )
+        member_org = organization_factory()
+        group.members.add(member_org)
+
+        # Toggle share_resources to True
+        group.share_resources = True
+        group.save()
+
+        mock_sync.assert_called_once_with(member_org.pk, group.pk, wix_plan.pk)
+
+    @pytest.mark.django_db(transaction=True)
+    def test_save_no_sync_when_share_resources_already_true(
+        self, organization_factory, plan_factory, mocker
+    ):
+        """Test that save doesn't trigger sync when share_resources was already True"""
+        mock_sync = mocker.patch(
+            "squarelet.organizations.tasks.sync_wix_for_group_member.delay"
+        )
+        wix_plan = plan_factory(wix=True)
+        group = organization_factory(
+            collective_enabled=True, share_resources=True, plans=[wix_plan]
+        )
+        member_org = organization_factory()
+        group.members.add(member_org)
+
+        # Save without changing share_resources
+        group.save()
+
+        mock_sync.assert_not_called()
+
+    @pytest.mark.django_db(transaction=True)
+    def test_save_no_sync_when_no_wix_plan(
+        self, organization_factory, plan_factory, mocker
+    ):
+        """Test that toggling share_resources doesn't sync when no Wix plan"""
+        mock_sync = mocker.patch(
+            "squarelet.organizations.tasks.sync_wix_for_group_member.delay"
+        )
+        non_wix_plan = plan_factory(wix=False)
+        group = organization_factory(
+            collective_enabled=True, share_resources=False, plans=[non_wix_plan]
+        )
+        member_org = organization_factory()
+        group.members.add(member_org)
+
+        group.share_resources = True
+        group.save()
+
+        mock_sync.assert_not_called()
+
+    @pytest.mark.django_db(transaction=True)
+    def test_save_syncs_multiple_members_and_children(
+        self, organization_factory, plan_factory, mocker
+    ):
+        """Test that toggling share_resources syncs both members and children"""
+        mock_sync = mocker.patch(
+            "squarelet.organizations.tasks.sync_wix_for_group_member.delay"
+        )
+        wix_plan = plan_factory(wix=True)
+        group = organization_factory(
+            collective_enabled=True, share_resources=False, plans=[wix_plan]
+        )
+        member_org1 = organization_factory()
+        member_org2 = organization_factory()
+        child_org = organization_factory(parent=group)
+        group.members.add(member_org1, member_org2)
+
+        group.share_resources = True
+        group.save()
+
+        # Should sync all members and children
+        assert mock_sync.call_count == 3
+        call_args = [call[0] for call in mock_sync.call_args_list]
+        member_pks = [args[0] for args in call_args]
+        assert member_org1.pk in member_pks
+        assert member_org2.pk in member_pks
+        assert child_org.pk in member_pks
