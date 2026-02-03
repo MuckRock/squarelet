@@ -219,7 +219,7 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
             if request.user.is_staff:
                 new_action(
                     actor=request.user,
-                    verb="removed member from organization",
+                    verb="removed member",
                     action_object=user,
                     target=self.organization,
                 )

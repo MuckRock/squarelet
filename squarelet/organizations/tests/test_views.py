@@ -415,6 +415,122 @@ def test_list(rf, organization_factory):
 
 
 @pytest.mark.django_db()
+class TestUpdate(ViewTestMixin):
+    """Test the Organization Update view (profile updates)"""
+
+    view = views.Update
+    url = "/organizations/{slug}/update/"
+
+    def test_staff_update_profile_creates_action(
+        self, rf, organization_factory, user_factory
+    ):
+        """Staff updating organization profile should create activity stream action"""
+        staff_member = user_factory(is_staff=True)
+        organization = organization_factory()
+
+        response = self.call_view(
+            rf,
+            staff_member,
+            {"about": "New about text", "private": "on"},
+            slug=organization.slug,
+        )
+        assert response.status_code == 302
+
+        # Verify data was actually updated
+        organization.refresh_from_db()
+        assert organization.about == "New about text"
+        assert organization.private is True
+
+        # Verify activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="updated the profile",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.target == organization
+        assert action.public is False
+        assert "about" in action.description
+        assert "private" in action.description
+
+    def test_non_staff_update_profile_does_not_create_action(
+        self, rf, organization_factory, user_factory
+    ):
+        """Non-staff updating organization profile should NOT create action"""
+        regular_admin = user_factory(is_staff=False)
+        organization = organization_factory(admins=[regular_admin])
+
+        response = self.call_view(
+            rf,
+            regular_admin,
+            {"about": "New about text", "private": "on"},
+            slug=organization.slug,
+        )
+        assert response.status_code == 302
+
+        # Verify no activity stream action was created
+        action = Action.objects.filter(
+            verb="updated the profile",
+        ).first()
+        assert action is None
+
+
+@pytest.mark.django_db()
+class TestRequestProfileChange(ViewTestMixin):
+    """Test RequestProfileChange view for submitting profile change requests"""
+
+    view = views.RequestProfileChange
+    url = "/organizations/{slug}/request-profile-change/"
+
+    def test_staff_submit_profile_change_creates_action(
+        self, rf, organization_factory, user_factory
+    ):
+        """Staff submitting profile change should create activity stream action"""
+        staff_member = user_factory(is_staff=True)
+        organization = organization_factory()
+
+        response = self.call_view(
+            rf,
+            staff_member,
+            {"name": "New Organization Name", "explanation": "Testing"},
+            slug=organization.slug,
+        )
+        assert response.status_code == 302
+
+        # Verify activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="submitted profile change request",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.target == organization
+        assert action.public is False
+        assert "name" in action.description
+
+    def test_non_staff_submit_profile_change_does_not_create_action(
+        self, rf, organization_factory, user_factory
+    ):
+        """Non-staff submitting profile change should NOT create action"""
+        regular_admin = user_factory(is_staff=False)
+        organization = organization_factory(admins=[regular_admin])
+
+        response = self.call_view(
+            rf,
+            regular_admin,
+            {"name": "New Organization Name", "explanation": "Testing changes"},
+            slug=organization.slug,
+        )
+        assert response.status_code == 302
+
+        # Verify no activity stream action was created
+        action = Action.objects.filter(
+            verb="submitted profile change request",
+        ).first()
+        assert action is None
+
+
+@pytest.mark.django_db()
 class TestReviewProfileChange(ViewTestMixin):
     """Test ReviewProfileChange view for staff accepting/rejecting changes"""
 

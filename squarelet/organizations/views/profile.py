@@ -37,6 +37,22 @@ class Update(OrganizationAdminMixin, UpdateView):
         )
         return context
 
+    def form_valid(self, form):
+        """Save form and log staff actions with changed fields"""
+        response = super().form_valid(form)
+
+        # Log staff action if user is staff and fields changed
+        if self.request.user.is_staff and form.changed_data:
+            changed_fields = ", ".join(form.changed_data)
+            new_action(
+                actor=self.request.user,
+                verb="updated the profile",
+                target=self.object,
+                description=f"Changed fields: {changed_fields}",
+            )
+
+        return response
+
 
 class RequestProfileChange(OrganizationAdminMixin, CreateView):
     """Handle profile change requests for organization fields requiring staff
@@ -72,6 +88,27 @@ class RequestProfileChange(OrganizationAdminMixin, CreateView):
         profile_change_request.organization = self.get_organization()
         profile_change_request.user = self.request.user
         profile_change_request.save()
+
+        # Log staff action when editing protected fields
+        if self.request.user.is_staff:
+            # Get the fields that were changed (non-empty values in the request)
+            changed_fields = [
+                field
+                for field in ProfileChangeRequest.FIELDS
+                if getattr(profile_change_request, field)
+            ]
+            # Also check URL since it's handled separately
+            if form.cleaned_data.get("url"):
+                changed_fields.append("url")
+
+            if changed_fields:
+                new_action(
+                    actor=self.request.user,
+                    verb="submitted profile change request",
+                    action_object=profile_change_request,
+                    target=profile_change_request.organization,
+                    description=f"Changed fields: {', '.join(changed_fields)}",
+                )
 
         messages.success(
             self.request,
