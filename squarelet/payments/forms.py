@@ -5,9 +5,6 @@ from django import forms
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
-# Standard Library
-import json
-
 # Squarelet
 from squarelet.core.forms import StripeForm
 from squarelet.organizations.models import Organization, Plan
@@ -170,7 +167,10 @@ class PlanPurchaseForm(StripeForm):
         self.fields["payment_method"].choices = choices
 
     def _configure_nonprofit_field(self):
-        """Show nonprofit field only for Sunlight plans that aren't nonprofit variants"""
+        """
+        Show nonprofit field only for Sunlight
+        plans that aren't nonprofit variants
+        """
         is_nonprofit_variant = self.plan and self.plan.slug.startswith(
             "sunlight-nonprofit-"
         )
