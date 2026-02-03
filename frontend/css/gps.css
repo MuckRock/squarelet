@@ -408,10 +408,6 @@ strong {
   gap: 0.375rem;
 }
 
-.btn.small.danger {
-  border-color: var(--orange-3);
-}
-
 @media (hover: none) {
   .btn.ghost:hover {
     background: transparent;
