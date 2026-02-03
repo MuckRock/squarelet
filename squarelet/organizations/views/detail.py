@@ -162,9 +162,11 @@ class Detail(AdminLinkMixin, DetailView):
                         "You have reached the limit of {limit} "
                         "join requests in the last {window} minutes. "
                         "Please try again later.<br><br>"
-                        "<strong>Remember:</strong> Join requests should only be used when you work "
+                        "<strong>Remember:</strong> Join requests "
+                        "should only be used when you work "
                         "with or within an organization. "
-                        "To simply contact an organization, please reach out to admins directly."
+                        "To simply contact an organization, "
+                        "please reach out to admins directly."
                     ),
                     limit=settings.ORG_JOIN_REQUEST_LIMIT,
                     window=settings.ORG_JOIN_REQUEST_WINDOW // 60,

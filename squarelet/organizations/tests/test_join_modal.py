@@ -11,6 +11,8 @@ from squarelet.core.tests.mixins import ViewTestMixin
 # Local
 from .. import views
 
+# pylint: disable=invalid-name
+
 
 @pytest.mark.django_db()
 class TestJoinRequestModal(ViewTestMixin):
