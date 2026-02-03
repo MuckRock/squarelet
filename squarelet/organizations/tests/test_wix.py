@@ -67,11 +67,25 @@ class TestWix:
             }
         }
 
-    @pytest.mark.django_db()
-    def test_add_labels(self, requests_mock):
-        """Test the add_labels function"""
+    @pytest.mark.parametrize(
+        "plan_slug,expected_tier",
+        [
+            ("sunlight-essential", "essential"),
+            ("sunlight-essential-annual", "essential"),
+            ("sunlight-enhanced", "enhanced"),
+            ("sunlight-enhanced-annual", "enhanced"),
+            ("sunlight-enterprise", "enterprise"),
+            ("sunlight-enterprise-annual", "enterprise"),
+            ("sunlight-nonprofit-essential", "essential"),
+            ("sunlight-nonprofit-essential-annual", "essential"),
+            ("sunlight-nonprofit-enhanced", "enhanced"),
+            ("sunlight-nonprofit-enhanced-annual", "enhanced"),
+        ],
+    )
+    def test_add_labels(self, requests_mock, plan_slug, expected_tier):
+        """Test add_labels extracts correct tier from various slug patterns"""
         contact_id = str(uuid.uuid4())
-        plan = PlanFactory(name="Sunlight Premium")
+        plan = PlanFactory.build(slug=plan_slug)
         requests_mock.post(
             f"https://www.wixapis.com/contacts/v4/contacts/{contact_id}/labels",
             json={"contact": {"id": contact_id}},
@@ -82,7 +96,7 @@ class TestWix:
         }
         add_labels(headers, contact_id, plan)
         assert requests_mock.last_request.json() == {
-            "labelKeys": ["custom.paying-member", "custom.premium-member"]
+            "labelKeys": ["custom.paying-member", f"custom.{expected_tier}-member"]
         }
 
     def test_send_set_password_email(self, requests_mock):
