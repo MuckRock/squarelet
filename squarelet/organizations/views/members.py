@@ -178,9 +178,9 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["admin"] = self.request.user
-        context["members"] = list(
-            self.object.memberships.select_related("user").order_by("user__created_at")
-        )
+        # Use member_users() for consistent sorting: current user, admins, then members
+        users = self.object.member_users(self.request)
+        context["members"] = [u.org_membership_list[0] for u in users]
         context["requested_invitations"] = list(
             self.object.invitations.get_pending_requests()
         )
