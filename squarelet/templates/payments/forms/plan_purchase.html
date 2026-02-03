@@ -1,0 +1,159 @@
+{% load i18n humanize django_vite %}
+
+<div class="plan-purchase-form" data-plan-purchase-form>
+  {# Hidden fields #}
+  {% for hidden in form.hidden_fields %}
+    {{ hidden }}
+  {% endfor %}
+
+  {% if form.organization.field.queryset.exists %}
+    {# Organization selection #}
+    <div class="organization-selection">
+      <label for="{{ form.organization.id_for_label }}">
+        {% trans "Organization" %}
+        <select name="{{ form.organization.name }}"
+                id="{{ form.organization.id_for_label }}"
+                class="org-select" required>
+          <option value="">{{ form.organization.field.empty_label }}</option>
+          {% for org in form.organization.field.queryset %}
+            <option value="{{ org.pk }}"
+                    data-slug="{{ org.slug }}"
+                    data-individual="{{ org.individual|yesno:'true,false' }}"
+                    {% if form.organization.value == org.pk|stringformat:'d' %}selected{% endif %}>
+              {{ org.name }}{% if org.individual %} ({% trans "Personal" %}){% endif %}
+            </option>
+          {% endfor %}
+          {% if form.plan.for_groups %}
+            <option value="new" data-slug="" data-individual="false"
+                    {% if form.organization.value == 'new' %}selected{% endif %}>
+              {% trans "Create a new organization" %}
+            </option>
+          {% endif %}
+        </select>
+      </label>
+
+      {# Form errors for organization #}
+      {% if form.organization.errors %}
+        <div class="field-errors">
+          {% for error in form.organization.errors %}
+            <p class="error">{{ error }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      {# New organization name field #}
+      <label for="{{ form.new_organization_name.id_for_label }}"
+             class="new-org-name-field field">
+        {% trans "Organization name" %}
+        {{ form.new_organization_name }}
+      </label>
+      {% if form.new_organization_name.errors %}
+        <div class="field-errors">
+          {% for error in form.new_organization_name.errors %}
+            <p class="error">{{ error }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <a href="#" class="manage-payment-link small ghost button" style="display:none;">
+        {% trans "Manage payment methods" %}
+      </a>
+    </div>
+
+    {# Payment method selection (dynamically shown/hidden) #}
+    <div class="payment-methods" style="display:none;">
+      <div class="card-on-file-option" style="display:none;">
+        <label>
+          <input type="radio" name="payment_method" value="existing-card">
+          <span class="card-info">{% trans "Use existing card" %}</span>
+        </label>
+      </div>
+      <div class="new-card-option">
+        <label>
+          <div class="radio-header">
+            <input type="radio" name="payment_method" value="new-card">
+            {% trans "Use new card" %}
+          </div>
+        </label>
+      </div>
+      {% if form.plan.annual %}
+      <div class="invoice-option">
+        <label>
+          <input type="radio" name="payment_method" value="invoice">
+          {% trans "Pay by invoice" %}
+        </label>
+      </div>
+      {% endif %}
+    </div>
+
+    {# Credit card field #}
+    <div class="card-field" style="display:none;">
+      <div class="card-field-label">{% trans "Credit Card Information" %}</div>
+      <div class="card-element"></div>
+      <div class="card-element-errors" role="alert">
+        {% if form.stripe_token.errors %}
+          {% for error in form.stripe_token.errors %}{{ error }}{% endfor %}
+        {% endif %}
+      </div>
+    </div>
+
+    {# Save card option #}
+    <label class="save-card-option" style="display:none;">
+      <input type="checkbox" name="save_card" checked>
+      {% trans "Save as default card" %}
+    </label>
+
+    {# Nonprofit checkbox (shown for Sunlight plans that aren't already nonprofit variants) #}
+    {% if form.is_nonprofit %}
+    <div class="nonprofit-checkbox">
+      <label class="checkbox-label">
+        <input type="checkbox" name="is_nonprofit" id="id_is_nonprofit"
+               {% if form.is_nonprofit.value %}checked{% endif %}>
+        {% trans "My organization is non-profit" %}
+      </label>
+      <p class="nonprofit-info">
+        {% trans "Non-profit organizations receive a discount on Sunlight Research Desk plans." %}
+      </p>
+    </div>
+    {% endif %}
+
+  {% else %}
+    <div class="no-subscription-options">
+      <p>{% trans "You are already subscribed to this plan or don't have permission to subscribe." %}</p>
+    </div>
+  {% endif %}
+
+  {# Non-field errors #}
+  {% if form.non_field_errors %}
+    <div class="form-errors">
+      {% for error in form.non_field_errors %}
+        <p class="error">{{ error }}</p>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {# Price and Subscribe button #}
+  <div class="form-footer">
+    <div class="price">
+      <span class="original-price">${{ form.plan.base_price|intcomma }}</span>
+      <span class="discounted-price" style="display:none;"></span>
+      <span class="pay-period">/&nbsp;{% if form.plan.annual %}{% trans "year" %}{% else %}{% trans "month" %}{% endif %}</span>
+    </div>
+    {% if form.organization.field.queryset.exists %}
+      <button type="submit" class="btn premium" disabled>
+        {% trans "Subscribe" %}
+      </button>
+    {% else %}
+      <button type="submit" class="btn premium" disabled>
+        {% trans "Subscribe" %}
+      </button>
+    {% endif %}
+  </div>
+
+  {# JSON data for JavaScript #}
+  {{ form.get_org_cards_data|json_script:"org-card-data" }}
+  {{ form.get_plan_data|json_script:"plan-data" }}
+
+  {# Vite assets - CSS and JS loaded inline (valid HTML5) #}
+  {% vite_asset "frontend/views/plan_purchase_form.ts" %}
+</div>
