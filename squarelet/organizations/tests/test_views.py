@@ -1049,7 +1049,7 @@ class TestManageMembers(ViewTestMixin):  # pylint: disable=too-many-public-metho
         # Verify activity stream action was created
         action = Action.objects.filter(
             actor_object_id=str(staff_member.pk),
-            verb="removed member from organization",
+            verb="removed member",
         ).first()
         assert action is not None
         assert action.actor == staff_member
