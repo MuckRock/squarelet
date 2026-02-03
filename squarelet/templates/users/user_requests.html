@@ -39,7 +39,7 @@
           <main>
             <dl class="invitation-summary">
               <div>
-                <dt>Received</dt>
+                <dt>Sent</dt>
                 <dd>
                   <time title="{{invitation.created_at|date:"c"}}" datetime="{{invitation.created_at|date:"c"}}">
                     {{invitation.created_at|date:"F j, Y"}}
@@ -75,11 +75,9 @@
               {% if not invitation.accepted_at and not invitation.rejected_at %}
                 <form method="post" action="{% url "organizations:invitation" uuid=invitation.uuid %}">
                   {% csrf_token %}
-                  <button class="btn small primary" type="submit" name="action" value="accept">
-                    {% trans "Accept" %}
-                  </button>
                   <button class="btn small danger ghost" type="submit" name="action" value="reject">
-                    {% trans "Reject" %}
+                    {% include "core/icons/x.svg" %}
+                    {% trans "Withdraw" %}
                   </button>
                 </form>
               {% elif invitation.rejected_at %}
@@ -88,7 +86,7 @@
                   <input type="hidden" name="invitation_uuid" value="{{invitation.uuid}}" />
                   <input type="hidden" name="action" value="send_new_request" />
                   <button class="btn small ghost primary" type="submit">
-                    {% trans "Send request to join" %}
+                    {% trans "Resend request to join" %}
                   </button>
                 </form>
               {% endif %}
