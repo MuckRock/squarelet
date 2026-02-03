@@ -21,7 +21,7 @@ from squarelet.core.tests.mixins import ViewTestMixin
 from .. import views
 from ..models import OrganizationEmailDomain, ReceiptEmail
 
-# pylint: disable=invalid-name,too-many-public-methods
+# pylint: disable=invalid-name,too-many-public-methods,too-many-lines
 
 
 @pytest.mark.django_db()
@@ -245,6 +245,7 @@ class TestDetail(ViewTestMixin):
         assert mail.subject == f"{joiner} has requested to join {organization}"
         assert mail.to == [admin.email]
 
+    @override_settings(ORG_JOIN_REQUEST_LIMIT=2, ORG_JOIN_REQUEST_WINDOW=3600)
     def test_post_join_rate_limit_shows_educational_message(
         self, rf, organization_factory, user_factory, invitation_factory
     ):
@@ -252,7 +253,7 @@ class TestDetail(ViewTestMixin):
         joiner = user_factory()
         organization = organization_factory()
 
-        # Create requests up to the limit (default is 2)
+        # Create requests up to the limit
         invitation_factory.create_batch(
             2, user=joiner, request=True, created_at=timezone.now()
         )
@@ -262,11 +263,13 @@ class TestDetail(ViewTestMixin):
         )
 
         assert response.status_code == 302
-        # Check that error message contains educational content
-        messages_list = list(messages.get_messages(response.wsgi_request))
-        assert len(messages_list) > 0
-        error_message = str(messages_list[0])
-        assert "actively collaborate" in error_message
+        # Check that error message was shown and contains educational content
+        # pylint:disable=protected-access
+        call_args = self.request._messages.add.call_args
+        assert call_args is not None
+        level, message, _ = call_args[0]
+        assert level == messages.ERROR
+        assert "should only be used when you work with or within" in message
 
     def test_post_member_join(self, rf, mailoutbox, organization_factory, user_factory):
         admin, joiner = user_factory.create_batch(2)
@@ -393,6 +396,106 @@ class TestDetail(ViewTestMixin):
         )
         # Should still redirect but show an error message
         assert response.status_code == 302
+
+
+@pytest.mark.django_db()
+class TestJoinRequestModal(ViewTestMixin):
+    """Test the join request modal context on organization detail page"""
+
+    view = views.Detail
+    url = "/organizations/{slug}/"
+
+    def test_join_button_shown_for_non_member(
+        self, rf, organization_factory, user_factory
+    ):
+        """Non-members should be able to see the join button (via context)"""
+        user = user_factory()
+        organization = organization_factory()
+
+        response = self.call_view(rf, user, slug=organization.slug)
+
+        assert response.status_code == 200
+        # User is authenticated but not a member - should see join option
+        assert response.context_data["is_member"] is False
+        assert not response.context_data["requested_invite"]
+        assert not response.context_data["rejected_invite"]
+
+    def test_join_request_creates_invitation(
+        self, rf, mailoutbox, organization_factory, user_factory
+    ):
+        """Submitting join request should create an invitation"""
+        user = user_factory()
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+
+        response = self.call_view(
+            rf,
+            user,
+            data={"action": "join"},
+            slug=organization.slug,
+        )
+
+        # Should redirect back to org detail
+        assert response.status_code == 302
+        # Should create invitation
+        assert organization.invitations.filter(
+            email=user.email, user=user, request=True
+        ).exists()
+        # Should send email
+        assert len(mailoutbox) == 1
+
+    def test_join_button_not_shown_for_members(
+        self, rf, organization_factory, user_factory
+    ):
+        """Members should not see the join button"""
+        user = user_factory()
+        organization = organization_factory(users=[user])
+
+        response = self.call_view(rf, user, slug=organization.slug)
+
+        assert response.status_code == 200
+        # User is a member - should not see join option
+        assert response.context_data["is_member"] is True
+
+    def test_join_button_not_shown_for_rejected_users(
+        self, rf, organization_factory, user_factory, invitation_factory
+    ):
+        """
+        Users with rejected requests should see
+        rejection message instead of join button
+        """
+        user = user_factory()
+        organization = organization_factory()
+        invitation_factory(
+            organization=organization,
+            user=user,
+            request=True,
+            rejected_at=timezone.now(),
+        )
+
+        response = self.call_view(rf, user, slug=organization.slug)
+
+        assert response.status_code == 200
+        # Should have rejected invite in context
+        assert response.context_data["rejected_invite"].exists()
+
+    def test_pending_request_shown_in_context(
+        self, rf, organization_factory, user_factory, invitation_factory
+    ):
+        """Users with pending requests should see that status"""
+        user = user_factory()
+        organization = organization_factory()
+        invitation_factory(
+            organization=organization,
+            user=user,
+            request=True,
+        )
+
+        response = self.call_view(rf, user, slug=organization.slug)
+
+        assert response.status_code == 200
+        # Should have pending request in context
+        assert response.context_data["requested_invite"].exists()
 
 
 @pytest.mark.django_db()
