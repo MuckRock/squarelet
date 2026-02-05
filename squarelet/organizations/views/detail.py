@@ -7,6 +7,7 @@ from django.db.models.functions import Lower, StrIndex
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.utils import timezone
+from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import DetailView, ListView
 
@@ -156,10 +157,20 @@ class Detail(AdminLinkMixin, DetailView):
         ):
             messages.error(
                 request,
-                f"You have reached the limit of {settings.ORG_JOIN_REQUEST_LIMIT} "
-                "join requests in the last "
-                f"{settings.ORG_JOIN_REQUEST_WINDOW // 60} minutes. "
-                "Please try again later.",
+                format_html(
+                    _(
+                        "You have reached the limit of {limit} "
+                        "join requests in the last {window} minutes. "
+                        "Please try again later.<br><br>"
+                        "<strong>Remember:</strong> Join requests "
+                        "should only be used when you work "
+                        "with or within an organization. "
+                        "To simply contact an organization, "
+                        "please reach out to admins directly."
+                    ),
+                    limit=settings.ORG_JOIN_REQUEST_LIMIT,
+                    window=settings.ORG_JOIN_REQUEST_WINDOW // 60,
+                ),
             )
             return
 
