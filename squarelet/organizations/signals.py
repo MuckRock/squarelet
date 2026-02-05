@@ -2,8 +2,21 @@
 from django.db.models import signals
 from django.dispatch import receiver
 
+# Third Party
+from actstream import registry
+
 # Squarelet
-from squarelet.organizations.models import Plan
+from squarelet.organizations.models import (
+    Invitation,
+    Organization,
+    Plan,
+    ProfileChangeRequest,
+)
+
+# Register models with django-activity-stream
+registry.register(Organization)
+registry.register(ProfileChangeRequest)
+registry.register(Invitation)
 
 
 @receiver(

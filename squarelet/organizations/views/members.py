@@ -8,7 +8,7 @@ from django.utils.html import format_html
 from django.views.generic import DetailView
 
 # Squarelet
-from squarelet.core.utils import get_redirect_url, pluralize
+from squarelet.core.utils import get_redirect_url, new_action, pluralize
 from squarelet.organizations.forms import AddMemberForm
 from squarelet.organizations.mixins import OrganizationAdminMixin
 from squarelet.organizations.models import Invitation, Membership, Organization
@@ -46,6 +46,7 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
         else:
             emails = addmember_form.cleaned_data["emails"]
             invitations_sent = 0
+            invited_emails = []
             for email in emails:
                 is_already_member = self.organization.has_member_by_email(email)
                 existing_open_invite = self.organization.get_existing_open_invite(email)
@@ -70,6 +71,25 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
                 )
                 invitation.send()
                 invitations_sent += 1
+                invited_emails.append(email)
+
+            # Log staff action to activity stream (once for the batch)
+            if invitations_sent > 0 and request.user.is_staff:
+                # Include up to 10 email addresses in the description
+                if len(invited_emails) <= 10:
+                    email_list = ", ".join(invited_emails)
+                else:
+                    email_list = (
+                        ", ".join(invited_emails[:10])
+                        + f" and {len(invited_emails) - 10} more"
+                    )
+                new_action(
+                    actor=request.user,
+                    verb="sent organization invitation",
+                    target=self.organization,
+                    description=email_list,
+                )
+
             messages.success(
                 self.request,
                 f"{invitations_sent} {pluralize(invitations_sent, 'invitation')} sent",
@@ -104,9 +124,22 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
         return redirect("organizations:manage-members", slug=self.organization.slug)
 
     def _handle_revoke_invite(self, request):
+        def handle_revoke(invite):
+            invite.reject()
+
+            # Log staff action to activity stream
+            if request.user.is_staff:
+                new_action(
+                    actor=request.user,
+                    verb="revoked organization invitation",
+                    action_object=invite,
+                    target=self.organization,
+                    description=invite.email if invite.email else None,
+                )
+
         return self._handle_invite(
             request,
-            lambda invite: invite.reject(),
+            handle_revoke,
             lambda invite: f"Invitation to {invite.email} revoked",
         )
 
@@ -154,6 +187,19 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
             membership.admin = set_admin
             membership.save()
 
+            # Log staff action to activity stream
+            if request.user.is_staff:
+                new_action(
+                    actor=request.user,
+                    verb=(
+                        "promoted member to admin"
+                        if set_admin
+                        else "demoted admin to member"
+                    ),
+                    action_object=membership.user,
+                    target=self.organization,
+                )
+
         return self._handle_user(
             request,
             handle_make_admin,
@@ -165,9 +211,22 @@ class ManageMembers(OrganizationAdminMixin, DetailView):
         )
 
     def _handle_remove_user(self, request):
+        def handle_remove(membership):
+            user = membership.user
+            membership.delete()
+
+            # Log staff action to activity stream
+            if request.user.is_staff:
+                new_action(
+                    actor=request.user,
+                    verb="removed member",
+                    action_object=user,
+                    target=self.organization,
+                )
+
         return self._handle_user(
             request,
-            lambda membership: membership.delete(),
+            handle_remove,
             lambda membership: f"{membership.user.username} removed",
         )
 
