@@ -1,20 +1,16 @@
 # Django
 from django.db.models import Q
 from django.db.models.aggregates import Count
-from django.db.models.expressions import F
-from django.db.models.query import Prefetch
 
 # Third Party
 import django_filters
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters, mixins, status, viewsets
-from rest_framework.decorators import action
+from rest_framework import filters, mixins, viewsets
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 # Squarelet
-from squarelet.oidc.permissions import ScopePermission
 from squarelet.organizations.fe_api.permissions import (
     CanAcceptInvitation,
     CanCreateInvitation,
@@ -26,7 +22,6 @@ from squarelet.organizations.fe_api.serializers import (
     OrganizationSerializer,
 )
 from squarelet.organizations.models import Invitation, Organization
-from squarelet.users.models import User
 
 
 class OrganizationFilter(django_filters.FilterSet):
@@ -46,7 +41,7 @@ class OrganizationViewSet(viewsets.ReadOnlyModelViewSet):
         )
 
     serializer_class = OrganizationSerializer
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (AllowAny,)
     lookup_field = "id"
     swagger_schema = None
 
