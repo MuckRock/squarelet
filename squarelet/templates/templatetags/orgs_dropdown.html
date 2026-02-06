@@ -1,0 +1,21 @@
+{% load static %}
+{% for org in organizations %}
+  <a href="{{ org.get_absolute_url }}" class="_cls-orgItem">
+    <img src="{{ org.avatar_url }}" alt="{{ org.name }}">
+    <div class="_cls-orgName">
+      {{ org.name }}
+      {% if org.is_admin %}
+        <span class="_cls-orgBadge">Admin</span>
+      {% endif %}
+    </div>
+  </a>
+{% empty %}
+<a href="{% url 'organizations:create' %}" class="btn primary ghost full">
+  {% include "core/icons/plus-circle.svg" %}
+  Create an organization
+</a>
+{% endfor %}
+<hr class="_cls-orgsDivider" />
+<a href="{% url 'organizations:list' %}" class="btn primary ghost full">
+  Browse organizations
+</a>
