@@ -25,7 +25,7 @@
             {% if user.has_mfa_enabled %}
             <span class="green badge">{% trans "2FA" %}</span>
             {% endif %}
-            {% if user.is_authenticated %}
+            {% if request.user.is_authenticated %}
             <span class="caption">{{ user.email }}</span>
             {% endif %}
         </div>
