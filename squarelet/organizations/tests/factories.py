@@ -215,3 +215,14 @@ class InvoiceFactory(factory.django.DjangoModelFactory):
 
     class Meta:
         model = "organizations.Invoice"
+
+
+class ProfileChangeRequestFactory(factory.django.DjangoModelFactory):
+    organization = factory.SubFactory(
+        "squarelet.organizations.tests.factories.OrganizationFactory"
+    )
+    user = factory.SubFactory("squarelet.users.tests.factories.UserFactory")
+    status = "pending"
+
+    class Meta:
+        model = "organizations.ProfileChangeRequest"

@@ -3,12 +3,18 @@ import "./css/gps.css";
 import "./css/autocomplete.css";
 import "./css/project.css";
 import "./css/main.css";
+import "./css/modal.css";
 
 import { AutocompleteView } from "./autocomplete";
 import { exists } from "./util";
 import { DropdownView } from "./dropdown";
 import { EmailAddressView } from "./emailaddress";
 import { ReceiptsView } from "./receipts";
+import { initAlerts } from "./alerts";
+// import {ManageTableView} from './managetable';
+
+// Initialize alert system for progressive enhancement
+initAlerts();
 
 if (exists("_id-profDropdown")) {
   // Dropdown view;

@@ -1,0 +1,42 @@
+{% load i18n %}
+
+<div class="modal-backdrop _cls-hide" id="join-request-modal-backdrop" data-modal="join-request">
+  <div class="modal-dialog" role="dialog" aria-labelledby="join-request-title" aria-modal="true">
+    <div class="modal-content">
+      <header class="modal-header">
+        <h2 id="join-request-title">{% trans "Request to join organization?" %}</h2>
+        <button type="button" class="modal-close" data-dismiss="modal" aria-label="{% trans 'Close' %}">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </header>
+      <div class="modal-body">
+        <div class="modal-warning">
+          <p class="modal-emphasis">{% trans "MuckRock organizations are for collaboration between colleagues. Only send a join request if you work with or within this organization." %}</p>
+          <div class="font-sm">
+            <p>{% trans "If you simply need to contact the organization:" %}</p>
+            <ul class="modal-contact-options">
+              <li>{% trans "Reach out directly to one or more of the admins" %}</li>
+              <li>{% trans "Use the organization's official contact channels" %}</li>
+              <li>{% blocktrans %}If all admins have left, <a href="mailto:info@muckrock.com">contact support</a>{% endblocktrans %}</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn ghost" data-dismiss="modal">
+          {% trans "Cancel" %}
+        </button>
+        <form method="post" style="display: inline; margin: 0;">
+          {% csrf_token %}
+          <button type="submit" name="action" value="join" class="btn primary">
+            {% if can_auto_join %}
+              {% trans "Join organization" %}
+            {% else %}
+              {% trans "Send join request" %}
+            {% endif %}
+          </button>
+        </form>
+      </footer>
+    </div>
+  </div>
+</div>

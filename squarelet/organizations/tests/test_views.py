@@ -1,3 +1,5 @@
+# pylint: disable=too-many-lines
+# TODO: Refactor tests for each view file
 # Django
 from django.contrib import messages
 from django.contrib.auth.models import AnonymousUser
@@ -13,6 +15,7 @@ from unittest.mock import MagicMock
 # Third Party
 import pytest
 import stripe
+from actstream.models import Action
 
 # Squarelet
 from squarelet.core.tests.mixins import ViewTestMixin
@@ -21,7 +24,7 @@ from squarelet.core.tests.mixins import ViewTestMixin
 from .. import views
 from ..models import OrganizationEmailDomain, ReceiptEmail
 
-# pylint: disable=invalid-name
+# pylint: disable=invalid-name,too-many-public-methods,too-many-lines
 
 
 @pytest.mark.django_db()
@@ -66,15 +69,14 @@ class TestDetail(ViewTestMixin):
         assert response.context_data["is_admin"]
         assert response.context_data["is_member"]
         assert "requested_invite" in response.context_data
-        assert "invite_count" in response.context_data
-        # Verify invite_count is always an integer
-        assert isinstance(response.context_data["invite_count"], int)
-        assert response.context_data["invite_count"] == 0
+        assert "pending_requests" in response.context_data
+        # Verify pending_requests is a queryset
+        assert response.context_data["pending_requests"].count() == 0
 
     def test_get_admin_with_pending_requests(
         self, rf, organization_factory, user_factory, invitation_factory
     ):
-        """Test that invite_count is an integer when there are pending requests"""
+        """Test that pending_requests shows pending join requests"""
         admin = user_factory()
         organization = organization_factory(admins=[admin])
         # Create some pending join requests
@@ -82,14 +84,13 @@ class TestDetail(ViewTestMixin):
         response = self.call_view(rf, admin, slug=organization.slug)
         assert response.status_code == 200
         assert response.context_data["is_admin"]
-        # Verify invite_count is always an integer, not a queryset
-        assert isinstance(response.context_data["invite_count"], int)
-        assert response.context_data["invite_count"] == 3
+        # Verify pending_requests is a queryset with the correct count
+        assert response.context_data["pending_requests"].count() == 3
 
     def test_get_staff_can_see_invite_count(
         self, rf, organization_factory, user_factory, invitation_factory
     ):
-        """Test that staff members can see invite_count even if not admin/member"""
+        """Test that staff members can see pending_requests even if not admin/member"""
         staff_user = user_factory(is_staff=True)
         organization = organization_factory()  # Staff not a member
         # Create some pending join requests
@@ -98,10 +99,111 @@ class TestDetail(ViewTestMixin):
         assert response.status_code == 200
         assert not response.context_data["is_admin"]
         assert not response.context_data["is_member"]
-        # Staff should still see invite_count
-        assert "invite_count" in response.context_data
-        assert isinstance(response.context_data["invite_count"], int)
-        assert response.context_data["invite_count"] == 2
+        # Staff should still see pending_requests
+        assert "pending_requests" in response.context_data
+        assert response.context_data["pending_requests"].count() == 2
+
+    def test_member_counts_in_context(self, rf, organization_factory, user_factory):
+        """Test that member_count and admin_count are in context"""
+        admin = user_factory()
+        members = user_factory.create_batch(3)
+        organization = organization_factory(admins=[admin], users=members)
+        response = self.call_view(rf, admin, slug=organization.slug)
+        assert response.status_code == 200
+        assert "member_count" in response.context_data
+        assert "admin_count" in response.context_data
+        # 1 admin + 3 members = 4 total users
+        assert response.context_data["member_count"] == 4
+        assert response.context_data["admin_count"] == 1
+
+    def test_users_have_org_membership_list(
+        self, rf, organization_factory, user_factory
+    ):
+        """Test that users in context have org_membership_list for template access"""
+        admin = user_factory()
+        member = user_factory()
+        organization = organization_factory(admins=[admin], users=[member])
+        response = self.call_view(rf, admin, slug=organization.slug)
+        assert response.status_code == 200
+        users = response.context_data["users"]
+        # Check that each user has the org_membership_list attribute
+        for user in users:
+            assert hasattr(user, "org_membership_list")
+            assert len(user.org_membership_list) > 0
+            # Verify the membership has the admin attribute
+            membership = user.org_membership_list[0]
+            assert hasattr(membership, "admin")
+            # The admin user should have admin=True
+            if user == admin:
+                assert membership.admin is True
+            # The regular member should have admin=False
+            elif user == member:
+                assert membership.admin is False
+        # Verify the current user (admin) is first in the list
+        assert users[0] == admin
+
+    def test_verification_context_for_unverified_org_admin(
+        self, rf, organization_factory, user_factory
+    ):
+        """Test verification context for admin of unverified org"""
+        admin = user_factory()
+        organization = organization_factory(admins=[admin], verified_journalist=False)
+        response = self.call_view(rf, admin, slug=organization.slug)
+        assert response.status_code == 200
+        assert response.context_data["show_verification_request"] is True
+
+    def test_verification_context_for_verified_org_admin(
+        self, rf, organization_factory, user_factory
+    ):
+        """Test verification context for admin of verified org"""
+        admin = user_factory()
+        organization = organization_factory(admins=[admin], verified_journalist=True)
+        response = self.call_view(rf, admin, slug=organization.slug)
+        assert response.status_code == 200
+        assert response.context_data["show_verification_request"] is False
+
+    def test_verification_context_for_member(
+        self, rf, organization_factory, user_factory
+    ):
+        """Test that members don't see verification request prompt"""
+        member = user_factory()
+        organization = organization_factory(users=[member], verified_journalist=False)
+        response = self.call_view(rf, member, slug=organization.slug)
+        assert response.status_code == 200
+        assert response.context_data["show_verification_request"] is False
+
+    def test_security_settings_context_for_admin(
+        self, rf, organization_factory, user_factory
+    ):
+        """Test that admins see security settings in context"""
+        admin = user_factory()
+        organization = organization_factory(admins=[admin], allow_auto_join=True)
+        response = self.call_view(rf, admin, slug=organization.slug)
+        assert response.status_code == 200
+        assert "security_settings" in response.context_data
+        assert response.context_data["security_settings"]["allow_auto_join"] is True
+        assert "has_email_domains" in response.context_data["security_settings"]
+
+    def test_security_settings_context_for_member(
+        self, rf, organization_factory, user_factory
+    ):
+        """Test that members don't see security settings"""
+        member = user_factory()
+        organization = organization_factory(users=[member])
+        response = self.call_view(rf, member, slug=organization.slug)
+        assert response.status_code == 200
+        assert "security_settings" not in response.context_data
+
+    def test_security_settings_context_for_staff(
+        self, rf, organization_factory, user_factory
+    ):
+        """Test that staff see security settings even if not member"""
+        staff_user = user_factory(is_staff=True)
+        organization = organization_factory(allow_auto_join=False)
+        response = self.call_view(rf, staff_user, slug=organization.slug)
+        assert response.status_code == 200
+        assert "security_settings" in response.context_data
+        assert response.context_data["security_settings"]["allow_auto_join"] is False
 
     def test_get_individual(self, rf, individual_organization_factory):
         """Individual organizations should not have a detail page"""
@@ -146,6 +248,32 @@ class TestDetail(ViewTestMixin):
         assert mail.subject == f"{joiner} has requested to join {organization}"
         assert mail.to == [admin.email]
 
+    @override_settings(ORG_JOIN_REQUEST_LIMIT=2, ORG_JOIN_REQUEST_WINDOW=3600)
+    def test_post_join_rate_limit_shows_educational_message(
+        self, rf, organization_factory, user_factory, invitation_factory
+    ):
+        """Rate limit error should include educational messaging"""
+        joiner = user_factory()
+        organization = organization_factory()
+
+        # Create requests up to the limit
+        invitation_factory.create_batch(
+            2, user=joiner, request=True, created_at=timezone.now()
+        )
+
+        response = self.call_view(
+            rf, joiner, {"action": "join", "confirmed": "true"}, slug=organization.slug
+        )
+
+        assert response.status_code == 302
+        # Check that error message was shown and contains educational content
+        # pylint:disable=protected-access
+        call_args = self.request._messages.add.call_args
+        assert call_args is not None
+        level, message, _ = call_args[0]
+        assert level == messages.ERROR
+        assert "should only be used when you work with or within" in message
+
     def test_post_member_join(self, rf, mailoutbox, organization_factory, user_factory):
         admin, joiner = user_factory.create_batch(2)
         organization = organization_factory(admins=[admin], users=[joiner])
@@ -184,6 +312,17 @@ class TestDetail(ViewTestMixin):
         # Ensure staff member is not affected
         assert not organization.has_member(staff_member)
 
+        # Verify activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="removed member from organization",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.action_object == target_user
+        assert action.target == organization
+        assert action.public is False
+
     def test_post_staff_remove_admin(self, rf, organization_factory, user_factory):
         """Staff member should be able to remove an admin from an organization"""
         staff_member = user_factory(is_staff=True)
@@ -199,6 +338,17 @@ class TestDetail(ViewTestMixin):
         assert response.status_code == 302
         assert not organization.has_member(target_admin)
         assert not organization.has_admin(target_admin)
+
+        # Verify activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="removed member from organization",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.action_object == target_admin
+        assert action.target == organization
+        assert action.public is False
 
     def test_post_staff_remove_other_staff(
         self, rf, organization_factory, user_factory
@@ -239,6 +389,13 @@ class TestDetail(ViewTestMixin):
             messages.ERROR, "You do not have permission to remove other users"
         )
 
+        # Verify no activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(regular_user.pk),
+            verb="removed member from organization",
+        ).first()
+        assert action is None
+
     def test_post_staff_remove_themselves_with_userid(
         self, rf, organization_factory, user_factory
     ):
@@ -274,6 +431,106 @@ class TestDetail(ViewTestMixin):
 
 
 @pytest.mark.django_db()
+class TestJoinRequestModal(ViewTestMixin):
+    """Test the join request modal context on organization detail page"""
+
+    view = views.Detail
+    url = "/organizations/{slug}/"
+
+    def test_join_button_shown_for_non_member(
+        self, rf, organization_factory, user_factory
+    ):
+        """Non-members should be able to see the join button (via context)"""
+        user = user_factory()
+        organization = organization_factory()
+
+        response = self.call_view(rf, user, slug=organization.slug)
+
+        assert response.status_code == 200
+        # User is authenticated but not a member - should see join option
+        assert response.context_data["is_member"] is False
+        assert not response.context_data["requested_invite"]
+        assert not response.context_data["rejected_invite"]
+
+    def test_join_request_creates_invitation(
+        self, rf, mailoutbox, organization_factory, user_factory
+    ):
+        """Submitting join request should create an invitation"""
+        user = user_factory()
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+
+        response = self.call_view(
+            rf,
+            user,
+            data={"action": "join"},
+            slug=organization.slug,
+        )
+
+        # Should redirect back to org detail
+        assert response.status_code == 302
+        # Should create invitation
+        assert organization.invitations.filter(
+            email=user.email, user=user, request=True
+        ).exists()
+        # Should send email
+        assert len(mailoutbox) == 1
+
+    def test_join_button_not_shown_for_members(
+        self, rf, organization_factory, user_factory
+    ):
+        """Members should not see the join button"""
+        user = user_factory()
+        organization = organization_factory(users=[user])
+
+        response = self.call_view(rf, user, slug=organization.slug)
+
+        assert response.status_code == 200
+        # User is a member - should not see join option
+        assert response.context_data["is_member"] is True
+
+    def test_join_button_not_shown_for_rejected_users(
+        self, rf, organization_factory, user_factory, invitation_factory
+    ):
+        """
+        Users with rejected requests should see
+        rejection message instead of join button
+        """
+        user = user_factory()
+        organization = organization_factory()
+        invitation_factory(
+            organization=organization,
+            user=user,
+            request=True,
+            rejected_at=timezone.now(),
+        )
+
+        response = self.call_view(rf, user, slug=organization.slug)
+
+        assert response.status_code == 200
+        # Should have rejected invite in context
+        assert response.context_data["rejected_invite"].exists()
+
+    def test_pending_request_shown_in_context(
+        self, rf, organization_factory, user_factory, invitation_factory
+    ):
+        """Users with pending requests should see that status"""
+        user = user_factory()
+        organization = organization_factory()
+        invitation_factory(
+            organization=organization,
+            user=user,
+            request=True,
+        )
+
+        response = self.call_view(rf, user, slug=organization.slug)
+
+        assert response.status_code == 200
+        # Should have pending request in context
+        assert response.context_data["requested_invite"].exists()
+
+
+@pytest.mark.django_db()
 def test_list(rf, organization_factory):
     organization_factory.create_batch(5)
     request = rf.get("/organizations/")
@@ -281,6 +538,224 @@ def test_list(rf, organization_factory):
     response = views.List.as_view()(request)
     assert response.status_code == 200
     assert len(response.context_data["organization_list"]) == 5
+
+
+@pytest.mark.django_db()
+class TestUpdate(ViewTestMixin):
+    """Test the Organization Update view (profile updates)"""
+
+    view = views.Update
+    url = "/organizations/{slug}/update/"
+
+    def test_staff_update_profile_creates_action(
+        self, rf, organization_factory, user_factory
+    ):
+        """Staff updating organization profile should create activity stream action"""
+        staff_member = user_factory(is_staff=True)
+        organization = organization_factory()
+
+        response = self.call_view(
+            rf,
+            staff_member,
+            {"about": "New about text", "private": "on"},
+            slug=organization.slug,
+        )
+        assert response.status_code == 302
+
+        # Verify data was actually updated
+        organization.refresh_from_db()
+        assert organization.about == "New about text"
+        assert organization.private is True
+
+        # Verify activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="updated the profile",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.target == organization
+        assert action.public is False
+        assert "about" in action.description
+        assert "private" in action.description
+
+    def test_non_staff_update_profile_does_not_create_action(
+        self, rf, organization_factory, user_factory
+    ):
+        """Non-staff updating organization profile should NOT create action"""
+        regular_admin = user_factory(is_staff=False)
+        organization = organization_factory(admins=[regular_admin])
+
+        response = self.call_view(
+            rf,
+            regular_admin,
+            {"about": "New about text", "private": "on"},
+            slug=organization.slug,
+        )
+        assert response.status_code == 302
+
+        # Verify no activity stream action was created
+        action = Action.objects.filter(
+            verb="updated the profile",
+        ).first()
+        assert action is None
+
+
+@pytest.mark.django_db()
+class TestRequestProfileChange(ViewTestMixin):
+    """Test RequestProfileChange view for submitting profile change requests"""
+
+    view = views.RequestProfileChange
+    url = "/organizations/{slug}/request-profile-change/"
+
+    def test_staff_submit_profile_change_creates_action(
+        self, rf, organization_factory, user_factory
+    ):
+        """Staff submitting profile change should create activity stream action"""
+        staff_member = user_factory(is_staff=True)
+        organization = organization_factory()
+
+        response = self.call_view(
+            rf,
+            staff_member,
+            {"name": "New Organization Name", "explanation": "Testing"},
+            slug=organization.slug,
+        )
+        assert response.status_code == 302
+
+        # Verify activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="submitted profile change request",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.target == organization
+        assert action.public is False
+        assert "name" in action.description
+
+    def test_non_staff_submit_profile_change_does_not_create_action(
+        self, rf, organization_factory, user_factory
+    ):
+        """Non-staff submitting profile change should NOT create action"""
+        regular_admin = user_factory(is_staff=False)
+        organization = organization_factory(admins=[regular_admin])
+
+        response = self.call_view(
+            rf,
+            regular_admin,
+            {"name": "New Organization Name", "explanation": "Testing changes"},
+            slug=organization.slug,
+        )
+        assert response.status_code == 302
+
+        # Verify no activity stream action was created
+        action = Action.objects.filter(
+            verb="submitted profile change request",
+        ).first()
+        assert action is None
+
+
+@pytest.mark.django_db()
+class TestReviewProfileChange(ViewTestMixin):
+    """Test ReviewProfileChange view for staff accepting/rejecting changes"""
+
+    view = views.ReviewProfileChange
+    url = "/organizations/{slug}/review-profile-change/{pk}/"
+
+    def test_staff_accept_profile_change_creates_action(
+        self, rf, organization_factory, user_factory, profile_change_request_factory
+    ):
+        """Staff accepting profile change should create activity stream action"""
+        staff_member = user_factory(is_staff=True)
+        organization = organization_factory()
+        profile_change = profile_change_request_factory(
+            organization=organization,
+            status="pending",
+            name="New Organization Name",
+        )
+
+        response = self.call_view(
+            rf,
+            staff_member,
+            {"action": "accept"},
+            slug=organization.slug,
+            pk=profile_change.pk,
+        )
+        assert response.status_code == 302
+
+        # Verify activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="accepted profile change request",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.action_object == profile_change
+        assert action.target == organization
+        assert action.public is False
+
+    def test_staff_reject_profile_change_creates_action(
+        self, rf, organization_factory, user_factory, profile_change_request_factory
+    ):
+        """Staff rejecting profile change should create activity stream action"""
+        staff_member = user_factory(is_staff=True)
+        organization = organization_factory()
+        profile_change = profile_change_request_factory(
+            organization=organization,
+            status="pending",
+            name="New Organization Name",
+        )
+
+        response = self.call_view(
+            rf,
+            staff_member,
+            {"action": "reject"},
+            slug=organization.slug,
+            pk=profile_change.pk,
+        )
+        assert response.status_code == 302
+
+        # Verify activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="rejected profile change request",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.action_object == profile_change
+        assert action.target == organization
+        assert action.public is False
+
+    def test_non_staff_cannot_review_profile_change(
+        self, rf, organization_factory, user_factory, profile_change_request_factory
+    ):
+        """Non-staff user should not be able to review and should not create action"""
+        regular_user = user_factory(is_staff=False)
+        organization = organization_factory()
+        profile_change = profile_change_request_factory(
+            organization=organization,
+            status="pending",
+            name="New Organization Name",
+        )
+
+        response = self.call_view(
+            rf,
+            regular_user,
+            {"action": "accept"},
+            slug=organization.slug,
+            pk=profile_change.pk,
+        )
+        assert response.status_code == 302
+
+        # Verify no activity stream action was created
+        action = Action.objects.filter(
+            verb__in=[
+                "accepted profile change request",
+                "rejected profile change request",
+            ],
+        ).first()
+        assert action is None
 
 
 @pytest.mark.django_db()
@@ -401,6 +876,57 @@ class TestUpdateSubscription(ViewTestMixin):
             '">contact support</a> for assistance.',
         )
 
+    def test_post_staff_updates_subscription_creates_action(
+        self, rf, organization_factory, user_factory, mocker
+    ):
+        """Staff updating subscription should create activity stream action"""
+        mocker.patch("squarelet.organizations.models.Customer.card", None)
+        mocker.patch("squarelet.organizations.models.Organization.set_subscription")
+        staff_member = user_factory(is_staff=True)
+        organization = organization_factory()
+        data = {
+            "stripe_token": "token",
+            "plan": "",
+            "max_users": 10,
+            "receipt_emails": "receipt@example.com",
+            "stripe_pk": "key",
+        }
+        self.call_view(rf, staff_member, data, slug=organization.slug)
+
+        # Verify activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="updated organization subscription",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.target == organization
+        assert action.public is False
+
+    def test_post_non_staff_admin_no_action_created(
+        self, rf, organization_factory, user_factory, mocker
+    ):
+        """Non-staff admin updating subscription should not create action"""
+        mocker.patch("squarelet.organizations.models.Customer.card", None)
+        mocker.patch("squarelet.organizations.models.Organization.set_subscription")
+        regular_admin = user_factory(is_staff=False)
+        organization = organization_factory(admins=[regular_admin])
+        data = {
+            "stripe_token": "token",
+            "plan": "",
+            "max_users": 10,
+            "receipt_emails": "receipt@example.com",
+            "stripe_pk": "key",
+        }
+        self.call_view(rf, regular_admin, data, slug=organization.slug)
+
+        # Verify no activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(regular_admin.pk),
+            verb="updated organization subscription",
+        ).first()
+        assert action is None
+
 
 @pytest.mark.django_db()
 class TestCreate(ViewTestMixin):
@@ -419,7 +945,7 @@ class TestCreate(ViewTestMixin):
 
 
 @pytest.mark.django_db()
-class TestManageMembers(ViewTestMixin):
+class TestManageMembers(ViewTestMixin):  # pylint: disable=too-many-public-methods
     """Test the ManageMembers Create view"""
 
     view = views.ManageMembers
@@ -442,7 +968,7 @@ class TestManageMembers(ViewTestMixin):
         mail = mailoutbox[0]
         assert mail.subject == f"Invitation to join {organization.name}"
         assert mail.to == [email]
-        self.assert_message(messages.SUCCESS, "Invitations sent")
+        self.assert_message(messages.SUCCESS, "1 invitation sent")
 
     def test_add_member_bad_email(self, rf, organization_factory, user_factory):
         user = user_factory()
@@ -460,7 +986,7 @@ class TestManageMembers(ViewTestMixin):
         email = "invite@example.com"
         data = {"action": "addmember", "emails": email}
         self.call_view(rf, user, data, slug=organization.slug)
-        self.assert_message(messages.SUCCESS, "Invitations sent")
+        self.assert_message(messages.SUCCESS, "1 invitation sent")
         organization.refresh_from_db()
         assert organization.max_users == 5
 
@@ -474,7 +1000,9 @@ class TestManageMembers(ViewTestMixin):
         self.call_view(rf, user, data, slug=organization.slug)
         invitation.refresh_from_db()
         assert invitation.rejected_at is not None
-        self.assert_message(messages.SUCCESS, "Invitation revoked")
+        self.assert_message(
+            messages.SUCCESS, f"Invitation to {invitation.email} revoked"
+        )
 
     def test_accept_invite(
         self, rf, organization_factory, user_factory, invitation_factory
@@ -486,7 +1014,9 @@ class TestManageMembers(ViewTestMixin):
         self.call_view(rf, user, data, slug=organization.slug)
         invitation.refresh_from_db()
         assert invitation.accepted_at is not None
-        self.assert_message(messages.SUCCESS, "Invitation accepted")
+        self.assert_message(
+            messages.SUCCESS, f"Invitation from {invitation.email} accepted"
+        )
 
     def test_reject_invite(
         self, rf, organization_factory, user_factory, invitation_factory
@@ -498,7 +1028,9 @@ class TestManageMembers(ViewTestMixin):
         self.call_view(rf, user, data, slug=organization.slug)
         invitation.refresh_from_db()
         assert invitation.rejected_at is not None
-        self.assert_message(messages.SUCCESS, "Invitation rejected")
+        self.assert_message(
+            messages.SUCCESS, f"Invitation from {invitation.email} rejected"
+        )
 
     def test_revoke_invite_missing(self, rf, organization_factory, user_factory):
         user = user_factory()
@@ -527,7 +1059,7 @@ class TestManageMembers(ViewTestMixin):
         data = {"action": "makeadmin", "userid": member.pk, "admin": "true"}
         self.call_view(rf, admin, data, slug=organization.slug)
         assert organization.has_admin(member)
-        self.assert_message(messages.SUCCESS, "Made an admin")
+        self.assert_message(messages.SUCCESS, f"{member.username} promoted to admin")
 
     def test_remove_admin(self, rf, organization_factory, user_factory):
         admins = user_factory.create_batch(2)
@@ -535,7 +1067,7 @@ class TestManageMembers(ViewTestMixin):
         data = {"action": "makeadmin", "userid": admins[1].pk, "admin": "false"}
         self.call_view(rf, admins[0], data, slug=organization.slug)
         assert not organization.has_admin(admins[1])
-        self.assert_message(messages.SUCCESS, "Made not an admin")
+        self.assert_message(messages.SUCCESS, f"{admins[1].username} demoted to member")
 
     def test_make_admin_bad_bool(self, rf, organization_factory, user_factory):
         admin = user_factory()
@@ -562,7 +1094,7 @@ class TestManageMembers(ViewTestMixin):
         data = {"action": "removeuser", "userid": member.pk}
         self.call_view(rf, admin, data, slug=organization.slug)
         assert not organization.has_member(member)
-        self.assert_message(messages.SUCCESS, "Removed user")
+        self.assert_message(messages.SUCCESS, f"{member.username} removed")
 
     def test_bad_action(self, rf, organization_factory, user_factory):
         admin = user_factory()
@@ -570,6 +1102,127 @@ class TestManageMembers(ViewTestMixin):
         data = {"action": "fakeaction"}
         self.call_view(rf, admin, data, slug=organization.slug)
         self.assert_message(messages.ERROR, "An unexpected error occurred")
+
+    def test_staff_make_admin_creates_action(
+        self, rf, organization_factory, user_factory
+    ):
+        """Staff promoting user to admin should create activity stream action"""
+        staff_member = user_factory(is_staff=True)
+        member = user_factory()
+        organization = organization_factory(users=[member])
+        data = {"action": "makeadmin", "userid": member.pk, "admin": "true"}
+        self.call_view(rf, staff_member, data, slug=organization.slug)
+
+        # Verify activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="promoted member to admin",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.action_object == member
+        assert action.target == organization
+        assert action.public is False
+
+    def test_staff_demote_admin_creates_action(
+        self, rf, organization_factory, user_factory
+    ):
+        """Staff demoting admin to member should create activity stream action"""
+        staff_member = user_factory(is_staff=True)
+        admin_user = user_factory()
+        organization = organization_factory(admins=[admin_user])
+        data = {"action": "makeadmin", "userid": admin_user.pk, "admin": "false"}
+        self.call_view(rf, staff_member, data, slug=organization.slug)
+
+        # Verify activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="demoted admin to member",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.action_object == admin_user
+        assert action.target == organization
+        assert action.public is False
+
+    def test_non_staff_admin_makeadmin_no_action(
+        self, rf, organization_factory, user_factory
+    ):
+        """Non-staff admin promoting user should not create action"""
+        regular_admin = user_factory(is_staff=False)
+        member = user_factory()
+        organization = organization_factory(admins=[regular_admin], users=[member])
+        data = {"action": "makeadmin", "userid": member.pk, "admin": "true"}
+        self.call_view(rf, regular_admin, data, slug=organization.slug)
+
+        # Verify no activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(regular_admin.pk),
+            verb="promoted member to admin",
+        ).first()
+        assert action is None
+
+    def test_staff_remove_user_creates_action(
+        self, rf, organization_factory, user_factory
+    ):
+        """Staff removing user should create activity stream action"""
+        staff_member = user_factory(is_staff=True)
+        member = user_factory()
+        organization = organization_factory(users=[member])
+        data = {"action": "removeuser", "userid": member.pk}
+        self.call_view(rf, staff_member, data, slug=organization.slug)
+
+        # Verify activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="removed member",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.action_object == member
+        assert action.target == organization
+        assert action.public is False
+
+    def test_staff_add_member_creates_action(
+        self, rf, organization_factory, user_factory
+    ):
+        """Staff sending invitation should create activity stream action"""
+        staff_member = user_factory(is_staff=True)
+        organization = organization_factory()
+        email = "invite@example.com"
+        data = {"action": "addmember", "emails": email}
+        self.call_view(rf, staff_member, data, slug=organization.slug)
+
+        # Verify activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="sent organization invitation",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.target == organization
+        assert action.public is False
+
+    def test_staff_revoke_invite_creates_action(
+        self, rf, organization_factory, user_factory, invitation_factory
+    ):
+        """Staff revoking invitation should create activity stream action"""
+        staff_member = user_factory(is_staff=True)
+        organization = organization_factory()
+        invitation = invitation_factory(organization=organization)
+        data = {"action": "revokeinvite", "inviteid": invitation.pk}
+        self.call_view(rf, staff_member, data, slug=organization.slug)
+
+        # Verify activity stream action was created
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="revoked organization invitation",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.action_object == invitation
+        assert action.target == organization
+        assert action.public is False
 
 
 @pytest.mark.django_db()

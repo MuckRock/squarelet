@@ -40,4 +40,14 @@ urlpatterns = [
         "<str:username>/payment/", view=views.UserPaymentView.as_view(), name="payment"
     ),
     path("<str:username>/receipts/", view=views.Receipts.as_view(), name="receipts"),
+    path(
+        "<str:username>/invitations/",
+        view=views.UserInvitationsView.as_view(),
+        name="invitations",
+    ),
+    path(
+        "<str:username>/requests/",
+        view=views.UserRequestsView.as_view(),
+        name="requests",
+    ),
 ]

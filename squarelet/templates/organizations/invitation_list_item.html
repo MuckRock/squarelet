@@ -1,0 +1,20 @@
+{# required: css/invitation_list_item.css #}
+{% load i18n %}
+<div class="invited">
+    {% if invitation.email %}
+    <div class="email avatar">
+        {% include "core/icons/mail-24.svg" %}
+    </div>
+    <div class="info">
+        <h3>{{ invitation.email }}</h3>
+    </div>
+    {% else %}
+    <div class="link avatar">
+        {% include "core/icons/link-24.svg" %}
+    </div>
+    <div class="info">
+        <h3>{% trans "Generated link" %}</h3>
+        <p class="help">Each invitation link may only be used once.</p>
+    </div>
+    {% endif %}
+</div>
