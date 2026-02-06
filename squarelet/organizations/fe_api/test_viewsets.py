@@ -53,11 +53,13 @@ def test_individual_org_excludes_admins_and_member_count(api_client):
 @pytest.mark.django_db
 def test_excludes_members_if_not_authenticated(api_client):
     user = User.objects.create_user(username="user", password="pw")
-    org = Organization.objects.create(name="Private Org", verified_journalist=True)
+    org = Organization.objects.create(
+        name="Private Org", private=True, verified_journalist=True
+    )
     Membership.objects.create(user=user, organization=org)
 
     response = api_client.get(f"/fe_api/organizations/{org.id}/")
-    assert response.status_code == status.HTTP_403_FORBIDDEN  # Viewset is protected
+    assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 @pytest.mark.django_db
