@@ -104,10 +104,8 @@ class TestSendCacheInvalidation:
         uuids = [str(user.individual_organization_id)]
         send_cache_invalidation(client_profile.pk, "user", uuids)
 
-        # Verify - empty list should be sent since user has no consent
-        mock_send.assert_called_once()
-        assert mock_send.call_args[0][0] == "user"
-        assert mock_send.call_args[0][1] == []
+        # Verify - function should not be called since user has no consent
+        mock_send.assert_not_called()
 
     def test_user_consent_required_expired_consent(self, mocker):
         """Client with require_consent=True should not receive invalidation
@@ -135,10 +133,8 @@ class TestSendCacheInvalidation:
         uuids = [str(user.individual_organization_id)]
         send_cache_invalidation(client_profile.pk, "user", uuids)
 
-        # Verify - empty list should be sent since consent is expired
-        mock_send.assert_called_once()
-        assert mock_send.call_args[0][0] == "user"
-        assert mock_send.call_args[0][1] == []
+        # Verify - function should not be called since consent is expired
+        mock_send.assert_not_called()
 
     def test_user_consent_required_mixed_consent_status(self, mocker):
         """Client with require_consent=True should only receive
@@ -287,10 +283,8 @@ class TestSendCacheInvalidation:
         uuids = [str(org.uuid)]
         send_cache_invalidation(client_profile.pk, "organization", uuids)
 
-        # Verify - empty list should be sent
-        mock_send.assert_called_once()
-        assert mock_send.call_args[0][0] == "organization"
-        assert mock_send.call_args[0][1] == []
+        # Verify - function should not be called since org has no consent
+        mock_send.assert_not_called()
 
     def test_organization_consent_required_org_with_expired_consent(self, mocker):
         """Client with require_consent=True should not receive invalidation
@@ -322,10 +316,8 @@ class TestSendCacheInvalidation:
         uuids = [str(org.uuid)]
         send_cache_invalidation(client_profile.pk, "organization", uuids)
 
-        # Verify - empty list should be sent
-        mock_send.assert_called_once()
-        assert mock_send.call_args[0][0] == "organization"
-        assert mock_send.call_args[0][1] == []
+        # Verify - function should not be called since consent is expired
+        mock_send.assert_not_called()
 
     def test_organization_consent_required_mixed_consent_status(self, mocker):
         """Client with require_consent=True should only receive
@@ -455,10 +447,8 @@ class TestSendCacheInvalidation:
         # Execute with empty list
         send_cache_invalidation(client_profile.pk, "user", [])
 
-        # Verify - empty list should be sent
-        mock_send.assert_called_once()
-        assert mock_send.call_args[0][0] == "user"
-        assert mock_send.call_args[0][1] == []
+        # Verify - function should not be called for empty list
+        mock_send.assert_not_called()
 
     def test_organization_no_users(self, mocker):
         """Organization with no users should not be sent when consent is
@@ -477,7 +467,5 @@ class TestSendCacheInvalidation:
         uuids = [str(org.uuid)]
         send_cache_invalidation(client_profile.pk, "organization", uuids)
 
-        # Verify - empty list since org has no users
-        mock_send.assert_called_once()
-        assert mock_send.call_args[0][0] == "organization"
-        assert mock_send.call_args[0][1] == []
+        # Verify - function should not be called since org has no users
+        mock_send.assert_not_called()
