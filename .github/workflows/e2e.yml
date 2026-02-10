@@ -1,0 +1,83 @@
+name: E2E Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install invoke
+        run: pip install invoke
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".node-version"
+          cache: "npm"
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Add hosts entries
+        run: |
+          echo "127.0.0.1 dev.squarelet.com" | sudo tee -a /etc/hosts
+          echo "127.0.0.1 dev.mailhog.com" | sudo tee -a /etc/hosts
+
+      - name: Generate environment files
+        run: python initialize_dotenvs.py
+
+      - name: Generate self-signed certificates
+        run: |
+          mkdir -p config/certs
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+            -keyout config/certs/dev.squarelet.com-key.pem \
+            -out config/certs/dev.squarelet.com.pem \
+            -subj "/CN=dev.squarelet.com" \
+            -addext "subjectAltName=DNS:dev.squarelet.com,DNS:*.dev.documentcloud.org,DNS:dev.muckrock.com,DNS:dev.foiamachine.org,DNS:dev.mailhog.com"
+
+      - name: Build and start services
+        run: docker compose -f local.yml up -d --build
+
+      - name: Wait for services to be ready
+        run: |
+          echo "Waiting for Django to be ready..."
+          timeout 120 bash -c '
+            until curl -sk -o /dev/null -w "%{http_code}" https://dev.squarelet.com/accounts/login/ | grep -qE "200|302"; do
+              echo "Still waiting..."
+              sleep 3
+            done
+          '
+          echo "Django is ready"
+
+      - name: Run E2E tests
+        run: npx playwright test --project=chromium
+        env:
+          COMPOSE_FILE: local.yml
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+
+      - name: Show Docker logs on failure
+        if: failure()
+        run: docker compose -f local.yml logs --tail=100
