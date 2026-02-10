@@ -37,4 +37,5 @@ def send_cache_invalidation(client_profile_pk, model, uuids):
             ).distinct()
             uuids = [str(i) for i in organizations.values_list("uuid", flat=True)]
 
-    client_profile.send_cache_invalidation(model, uuids)
+    if uuids:
+        client_profile.send_cache_invalidation(model, uuids)
