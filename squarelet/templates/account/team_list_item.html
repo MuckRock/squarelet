@@ -1,14 +1,16 @@
 {# required css: css/team_list_item.css #}
-{% load static i18n %}
+{% load static i18n thumbnail %}
 {% with count=organization.memberships.count avatar=organization.avatar %}
 <div class="team">
     {% if avatar %}
+    {% thumbnail avatar "150x150" crop="center" as img %}
     <a class="org-avatar" href="{% url "organizations:detail" slug=organization.slug %}">
-      <img src="{{ avatar.url }}" />
+      <img src="{{ img.url }}" />
     </a>
+    {% endthumbnail %}
     {% else %}
     <a class="org-avatar" href="{% url "organizations:detail" slug=organization.slug %}">
-      {% include 'core/component/people.svg' %}
+      {% include 'core/icons/people-24.svg' %}
     </a>
     {% endif %}
     <div class="info">

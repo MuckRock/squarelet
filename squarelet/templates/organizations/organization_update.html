@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% load i18n django_vite crispy_forms_tags planinfo %}
+
+{% block title %}{{ organization.reference_name }}{% endblock %}
+
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/organization_update.ts" %}
+{% endblock %}
+
+{% block content %}
+<article id="organization-form">
+  <aside class="sidebar">
+    <header>
+      <a href="{{ organization.get_absolute_url }}" class="btn small ghost primary">
+        {% include "core/icons/chevron-left.svg" %}
+        {% trans "Back to team overview" %}
+      </a>
+      <h1>{{ organization.name }}</h1>
+      <h2>{% trans "Edit profile" %}</h2>
+    </header>
+  </aside>
+
+  <div class="content">
+    <section id="details">
+      <header>
+        <div class="title">
+          <h2>{% trans "Organization Details" %}</h2>
+          <p>{% trans "Update your organization information" %}</p>
+        </div>
+      </header>
+
+      <form method="POST" action="{% url "organizations:update" slug=organization.slug %}" class="form card">
+        {% crispy form form.helper %}
+        <button type="submit" class="btn primary">
+          {% trans "Save changes" %}
+        </button>
+      </form>
+    </section>
+
+    <section id="protected">
+      <header>
+        <div class="title">
+          <h2>{% trans "Protected fields" %}</h2>
+          <p>
+            {% trans "Changes to these fields require approval by MuckRock staff" %}
+          </p>
+        </div>
+      </header>
+
+      {% if pending_change_requests %}
+      <div class="card" id="pending-requests">
+        <h3>{% trans "Pending Change Requests" %}</h3>
+        <p>{% trans "You have the following change requests awaiting staff approval:" %}</p>
+        {% for change in pending_change_requests %}
+          <table>
+            <tbody>
+              <tr>
+                <th>{% trans "Requested on" %}</th>
+                <td>{{ change.created_at|date:"SHORT_DATE_FORMAT" }}</td>
+              </tr>
+              <tr>
+                <th>{% trans "Status" %}</th>
+                <td>{{ change.get_status_display }}</td>
+              </tr>
+              {% if change.name %}
+              <tr>
+                <th>{% trans "Name" %}</th>
+                <td>{{ change.name }}</td>
+              </tr>
+              {% endif %}
+              {% if change.slug %}
+              <tr>
+                <th>{% trans "Slug" %}</th>
+                <td>{{ change.slug }}</td>
+              </tr>
+              {% endif %}
+              {% if change.url %}
+              <tr>
+                <th>URL</th>
+                <td>{{ change.url }}</td>
+              </tr>
+              {% endif %}
+              {% if change.city %}
+              <tr>
+                <th>{% trans "City" %}</th>
+                <td>{{ change.city }}</td>
+              </tr>
+              {% endif %}
+              {% if change.state %}
+              <tr>
+                <th>{% trans "State" %}</th>
+                <td>{{ change.get_state_display }}</td>
+              </tr>
+              {% endif %}
+              {% if change.country %}
+              <tr>
+                <th>{% trans "Country" %}</th>
+                <td>{{ change.get_country_display }}</td>
+              </tr>
+              {% endif %}
+              {% if change.explanation %}
+              <tr>
+                <th>{% trans "Explanation" %}</th>
+                <td>{{ change.explanation }}</td>
+              </tr>
+              {% endif %}
+            </tbody>
+            {% if user.is_staff %}
+            <tfoot>
+              <tr>
+                <td colspan="2">
+                  <form method="POST" action="{% url 'organizations:review-profile-change' slug=organization.slug pk=change.pk %}" class="change-request-staff-actions">
+                    {% csrf_token %}
+                    <button type="submit" class="btn small primary" name="action" value="accept">
+                      {% include "core/icons/check.svg" %}
+                      {% trans "Accept" %}
+                    </button>
+                    <button type="submit" class="btn small danger" name="action" value="reject">
+                      {% include "core/icons/x.svg" %}
+                      {% trans "Reject" %}
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            </tfoot>
+            {% endif %}
+          </table>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <form method="POST" action="{% url "organizations:request-profile-change" slug=organization.slug %}" class="form card">
+        {% crispy profile_change_form profile_change_form.helper %}
+        
+        <button type="submit" class="btn primary">
+          {% if user.is_staff %}
+          {% trans "Save changes" %}
+          {% else %}
+          {% trans "Request changes" %}
+          {% endif %}
+        </button>
+      </form>
+    </section>
+  </div>
+
+</article>
+{% endblock content %}

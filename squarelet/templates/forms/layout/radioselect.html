@@ -1,0 +1,20 @@
+{% load crispy_forms_filters %}
+{% load i18n %}
+{% load l10n %}
+
+<div class="radio-group{% if inline_class %} inline{% endif %}{% if field_class %} {{ field_class }}{% endif %}"{% if flat_attrs %} {{ flat_attrs|safe }}{% endif %}>
+  {% for group, options, index in field|optgroups %}
+    {% if group %}<strong class="option-group-label">{% translate group %}</strong>{% endif %}
+    {% for option in options %}
+      <div class="radio-option{% if inline_class %} inline{% endif %}">
+        <input type="radio"
+               id="{{ option.attrs.id }}"
+               name="{{ field.html_name }}"
+               value="{{ option.value|unlocalize }}"
+               {% if option.attrs.checked %}checked{% endif %}
+               {% if option.attrs.disabled %}disabled{% endif %}>
+        <label for="{{ option.attrs.id }}">{{ option.label|unlocalize }}</label>
+      </div>
+    {% endfor %}
+  {% endfor %}
+</div>

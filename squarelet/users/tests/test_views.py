@@ -15,6 +15,7 @@ from allauth.account.models import EmailAddress
 
 # Squarelet
 from squarelet.core.tests.mixins import ViewTestMixin
+from squarelet.organizations.models import Invitation
 from squarelet.organizations.models.payment import Plan
 from squarelet.users import views
 
@@ -338,7 +339,7 @@ class TestUserOnboardingView(ViewTestMixin):
             "has_verified_email": True,
             "has_organizations": True,
             "has_active_subscription": False,
-            "is_mfa_enabled": True,
+            "has_mfa_enabled": True,
             "has_invitations": False,
             "has_unverified_emails": False,
         }
@@ -365,10 +366,10 @@ class TestUserOnboardingView(ViewTestMixin):
                 return_value=defaults["has_active_subscription"],
             )
 
-        # Mock MFA status
+        # Mock MFA status - patch the is_mfa_enabled function in the user model
         mocker.patch(
-            "squarelet.users.onboarding.is_mfa_enabled",
-            return_value=defaults["is_mfa_enabled"],
+            "squarelet.users.models.is_mfa_enabled",
+            return_value=defaults["has_mfa_enabled"],
         )
 
         # Mock invitations
@@ -695,7 +696,7 @@ class TestUserOnboardingView(ViewTestMixin):
             },
         )
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
 
         step, _ = self._get_onboarding_step(request, mocker)
 
@@ -716,7 +717,7 @@ class TestUserOnboardingView(ViewTestMixin):
             },
         )
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
 
         self._mock_mfa_forms(mocker, valid=True)
 
@@ -759,7 +760,7 @@ class TestUserOnboardingView(ViewTestMixin):
             {"onboarding": {"email_check_completed": True, "mfa_step": "not_started"}},
         )
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=True)
+        self._mock_user_state(mocker, user, has_mfa_enabled=True)
 
         step, _ = self._get_onboarding_step(request, mocker)
 
@@ -785,7 +786,7 @@ class TestUserOnboardingView(ViewTestMixin):
             },
         )
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
 
         step, _ = self._get_onboarding_step(request, mocker)
 
@@ -929,7 +930,7 @@ class TestUserOnboardingView(ViewTestMixin):
             "onboarding": {"email_check_completed": True, "mfa_step": mfa_step},
         }
         request = self._create_get_request(rf, user, mock_django_session, session_data)
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
         self._mock_mfa_forms(mocker, valid=True)
 
         view = self.view()
@@ -1026,7 +1027,7 @@ class TestUserOnboardingView(ViewTestMixin):
             },
         )
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
         mock_form = self._mock_mfa_forms(mocker)
 
         view = self.view()
@@ -1258,7 +1259,7 @@ class TestUserOnboardingView(ViewTestMixin):
             },
         )
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
 
         response = self._call_view_post(request, mocker)
 
@@ -1282,7 +1283,7 @@ class TestUserOnboardingView(ViewTestMixin):
             },
         )
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
 
         # Mock timezone and user save
         mock_timezone_now = mocker.patch("squarelet.users.onboarding.timezone.now")
@@ -1312,7 +1313,7 @@ class TestUserOnboardingView(ViewTestMixin):
             },
         )
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
         self._mock_mfa_forms(mocker, valid=True)
 
         response = self._call_view_post(request, mocker)
@@ -1336,7 +1337,7 @@ class TestUserOnboardingView(ViewTestMixin):
             },
         )
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
         self._mock_mfa_forms(mocker, valid=False)
 
         response = self._call_view_post(request, mocker)
@@ -1358,7 +1359,7 @@ class TestUserOnboardingView(ViewTestMixin):
             },
         )
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
         self._mock_mfa_forms(mocker, valid=True)
 
         # Mock timezone and user save
@@ -1413,7 +1414,7 @@ class TestUserOnboardingView(ViewTestMixin):
             },
         )
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
 
         # Mock the adapter for TOTP generation
         mock_adapter = mocker.MagicMock()
@@ -1496,7 +1497,7 @@ class TestUserOnboardingView(ViewTestMixin):
             "onboarding": {"email_check_completed": True, "mfa_step": "opted_in"},
         }
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
 
         # Mock adapter
         mock_adapter = mocker.MagicMock()
@@ -1549,7 +1550,7 @@ class TestUserOnboardingView(ViewTestMixin):
             "onboarding": {"email_check_completed": True, "mfa_step": "opted_in"},
         }
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
         self._mock_mfa_forms(mocker, valid=True)
 
         # Mock timezone for user save
@@ -1725,7 +1726,7 @@ class TestUserOnboardingView(ViewTestMixin):
             has_verified_email=False,
             has_organizations=False,
             has_invitations=False,
-            is_mfa_enabled=False,
+            has_mfa_enabled=False,
         )
 
         # Step 1: Email confirmation required
@@ -1749,7 +1750,7 @@ class TestUserOnboardingView(ViewTestMixin):
             has_verified_email=False,
             has_organizations=False,
             has_invitations=False,
-            is_mfa_enabled=False,
+            has_mfa_enabled=False,
         )
 
         response = self._call_view_post(request, mocker)
@@ -1777,7 +1778,7 @@ class TestUserOnboardingView(ViewTestMixin):
             user,
             has_verified_email=True,
             has_active_subscription=False,
-            is_mfa_enabled=False,
+            has_mfa_enabled=False,
         )
 
         # Step 1: Should go straight to subscription (email already verified)
@@ -1820,7 +1821,7 @@ class TestUserOnboardingView(ViewTestMixin):
             user,
             has_organizations=False,
             has_invitations=True,
-            is_mfa_enabled=True,
+            has_mfa_enabled=True,
         )
 
         # Step 1: Should go to join_org step
@@ -1883,7 +1884,7 @@ class TestUserOnboardingView(ViewTestMixin):
         mocker.patch.object(
             user.individual_organization, "has_active_subscription", return_value=False
         )
-        mocker.patch("squarelet.users.onboarding.is_mfa_enabled", return_value=False)
+        mocker.patch("squarelet.users.models.is_mfa_enabled", return_value=False)
         user.last_mfa_prompt = None
 
         self._mock_mfa_forms(mocker, valid=True)
@@ -1951,7 +1952,7 @@ class TestUserOnboardingView(ViewTestMixin):
         mocker.patch.object(
             user.organizations, "filter", return_value=mock_org_queryset
         )
-        mocker.patch("squarelet.users.onboarding.is_mfa_enabled", return_value=True)
+        mocker.patch("squarelet.users.models.is_mfa_enabled", return_value=True)
 
         request = self._create_get_request(rf, user, mock_django_session, session_data)
 
@@ -2072,7 +2073,7 @@ class TestUserOnboardingView(ViewTestMixin):
         request.user = user
         request.session = mock_django_session({"onboarding": {"mfa_step": "opted_in"}})
 
-        self._mock_user_state(mocker, user, is_mfa_enabled=False)
+        self._mock_user_state(mocker, user, has_mfa_enabled=False)
         self._mock_mfa_forms(mocker, valid=False)
 
         response = self._call_view_post(request, mocker)
@@ -2130,7 +2131,7 @@ class TestUserOnboardingView(ViewTestMixin):
         mocker.patch.object(
             user.organizations, "filter", return_value=mock_org_queryset
         )
-        mocker.patch("squarelet.users.onboarding.is_mfa_enabled", return_value=True)
+        mocker.patch("squarelet.users.models.is_mfa_enabled", return_value=True)
         self._mock_mfa_forms(mocker, valid=True)
 
         view = self.view()
@@ -2162,7 +2163,7 @@ class TestUserOnboardingView(ViewTestMixin):
         mocker.patch.object(
             user.organizations, "filter", return_value=mock_org_queryset
         )
-        mocker.patch("squarelet.users.onboarding.is_mfa_enabled", return_value=True)
+        mocker.patch("squarelet.users.models.is_mfa_enabled", return_value=True)
 
         view = self.view()
         view.get_onboarding_step(request)
@@ -2263,3 +2264,420 @@ class TestUserOnboardingView(ViewTestMixin):
         response = view_instance(request)
         # If successful, should respond gracefully
         assert response.status_code == 302
+
+
+@pytest.mark.django_db()
+class TestUserInvitationsView(ViewTestMixin):
+    """Test the User Invitations view"""
+
+    view = views.UserInvitationsView
+    url = "/users/{username}/invitations/"
+
+    def test_get_own_invitations(
+        self, rf, user_factory, organization_factory, invitation_factory
+    ):
+        """User can view their own invitations"""
+        user = user_factory(email_verified=True)
+        org = organization_factory()
+
+        # Create invitations for this user
+        invitation_factory.create_batch(
+            3, email=user.email, organization=org, request=False
+        )
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.status_code == 200
+        assert response.context_data["target_user"] == user
+        assert response.context_data["is_own_page"] is True
+        assert len(response.context_data["invitations"]) == 3
+
+    def test_get_invitations_filters_by_request_false(
+        self, rf, user_factory, organization_factory, invitation_factory
+    ):
+        """View only shows invitations (request=False), not requests"""
+        user = user_factory(email_verified=True)
+        org = organization_factory()
+
+        # Create invitations (should appear)
+        invitation_factory.create_batch(
+            2, email=user.email, organization=org, request=False
+        )
+        # Create requests (should NOT appear)
+        invitation_factory.create_batch(
+            3, email=user.email, organization=org, request=True
+        )
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.status_code == 200
+        # Only invitations should appear, not requests
+        assert len(response.context_data["invitations"]) == 2
+
+    def test_get_invitations_filters_by_verified_email(
+        self, rf, user_factory, organization_factory, invitation_factory, mocker
+    ):
+        """View only shows invitations for verified emails"""
+        user = user_factory(email="verified@example.com", email_verified=True)
+        org = organization_factory()
+
+        # Mock get_verified_emails to return only verified email
+        mocker.patch.object(
+            user, "get_verified_emails", return_value=["verified@example.com"]
+        )
+
+        # Create invitation for verified email (should appear)
+        invitation_factory(
+            email="verified@example.com", organization=org, request=False
+        )
+        # Create invitation for unverified email (should NOT appear)
+        invitation_factory(
+            email="unverified@example.com", organization=org, request=False
+        )
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.status_code == 200
+        assert len(response.context_data["invitations"]) == 1
+        assert response.context_data["invitations"][0].email == "verified@example.com"
+
+    def test_get_invitations_includes_user_field_invitations(
+        self, rf, user_factory, organization_factory, invitation_factory
+    ):
+        """View includes invitations directly assigned to user field"""
+        user = user_factory(email="user@example.com", email_verified=True)
+        org = organization_factory()
+
+        # Create invitation using user field instead of email
+        invitation_factory(user=user, organization=org, request=False)
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.status_code == 200
+        assert len(response.context_data["invitations"]) >= 1
+
+    def test_get_invitations_ordered_by_created_at_desc(
+        self, rf, user_factory, organization_factory, invitation_factory
+    ):
+        """Invitations should be ordered by created_at descending"""
+        user = user_factory(email_verified=True)
+        org = organization_factory()
+
+        # Create multiple invitations
+        invitation_factory(email=user.email, organization=org, request=False)
+        invitation_factory(email=user.email, organization=org, request=False)
+        invitation_factory(email=user.email, organization=org, request=False)
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.status_code == 200
+        invitations = list(response.context_data["invitations"])
+        # Most recent should be first
+        assert invitations[0].created_at >= invitations[-1].created_at
+
+    def test_get_invitations_pagination(
+        self, rf, user_factory, organization_factory, invitation_factory
+    ):
+        """Invitations should be paginated at 20 items per page"""
+        user = user_factory(email_verified=True)
+        org = organization_factory()
+
+        # Create 25 invitations (more than 1 page)
+        invitation_factory.create_batch(
+            25, email=user.email, organization=org, request=False
+        )
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.status_code == 200
+        assert response.context_data["is_paginated"] is True
+        assert len(response.context_data["invitations"]) == 20
+
+    def test_get_invitations_no_verified_emails(self, rf, user_factory, mocker):
+        """User with no verified emails should see empty list"""
+        user = user_factory(email_verified=False)
+
+        # Mock no verified emails
+        mocker.patch.object(user, "get_verified_emails", return_value=[])
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.status_code == 200
+        assert len(response.context_data["invitations"]) == 0
+
+    def test_staff_can_view_other_users_invitations(
+        self, rf, user_factory, organization_factory, invitation_factory
+    ):
+        """Staff users can view other users' invitations"""
+        staff_user = user_factory(is_staff=True, email_verified=True)
+        target_user = user_factory(email_verified=True)
+        org = organization_factory()
+
+        invitation_factory.create_batch(
+            2, email=target_user.email, organization=org, request=False
+        )
+
+        response = self.call_view(rf, staff_user, username=target_user.username)
+
+        assert response.status_code == 200
+        assert response.context_data["target_user"] == target_user
+        assert response.context_data["is_own_page"] is False
+        assert len(response.context_data["invitations"]) == 2
+
+    def test_post_send_new_request_creates_new_request(
+        self, rf, user_factory, organization_factory, invitation_factory, mocker
+    ):
+        """POST with send_new_request should create a new request"""
+        user = user_factory(email_verified=True)
+        org = organization_factory()
+
+        # Create a rejected invitation
+        rejected_invitation = invitation_factory(
+            email=user.email, organization=org, request=False
+        )
+        rejected_invitation.reject()
+
+        # Mock the send method
+        mocker.patch("squarelet.organizations.models.Invitation.send")
+
+        data = {
+            "invitation_uuid": str(rejected_invitation.uuid),
+            "action": "send_new_request",
+        }
+
+        response = self.call_view(rf, user, data=data, username=user.username)
+
+        assert response.status_code == 302
+        assert response.url == f"/users/{user.username}/invitations/"
+
+        # Verify a new request was created
+        new_request = Invitation.objects.filter(
+            organization=org, user=user, request=True
+        ).latest("created_at")
+        assert new_request is not None
+        assert new_request.email == user.email
+
+    def test_post_send_new_request_sends_notification(
+        self, rf, user_factory, organization_factory, invitation_factory, mocker
+    ):
+        """POST with send_new_request should send notification"""
+        user = user_factory(email_verified=True)
+        org = organization_factory()
+
+        rejected_invitation = invitation_factory(
+            email=user.email, organization=org, request=False
+        )
+        rejected_invitation.reject()
+
+        # Mock the send method
+        mock_send = mocker.patch("squarelet.organizations.models.Invitation.send")
+
+        data = {
+            "invitation_uuid": str(rejected_invitation.uuid),
+            "action": "send_new_request",
+        }
+
+        self.call_view(rf, user, data=data, username=user.username)
+
+        # Verify send was called
+        mock_send.assert_called_once()
+
+    def test_post_send_new_request_nonexistent_invitation(
+        self, rf, user_factory, mocker
+    ):
+        """POST with invalid invitation UUID should show error"""
+        user = user_factory(email_verified=True)
+
+        # Mock messages
+        mock_error = mocker.patch("squarelet.users.views.messages.error")
+
+        data = {
+            "invitation_uuid": "00000000-0000-0000-0000-000000000000",
+            "action": "send_new_request",
+        }
+
+        response = self.call_view(rf, user, data=data, username=user.username)
+
+        assert response.status_code == 302
+        mock_error.assert_called_once()
+
+    def test_post_send_new_request_non_rejected_invitation(
+        self, rf, user_factory, organization_factory, invitation_factory, mocker
+    ):
+        """POST with non-rejected invitation should show error"""
+        user = user_factory(email_verified=True)
+        org = organization_factory()
+
+        # Create a pending (not rejected) invitation
+        pending_invitation = invitation_factory(
+            email=user.email, organization=org, request=False
+        )
+
+        mock_error = mocker.patch("squarelet.users.views.messages.error")
+
+        data = {
+            "invitation_uuid": str(pending_invitation.uuid),
+            "action": "send_new_request",
+        }
+
+        response = self.call_view(rf, user, data=data, username=user.username)
+
+        assert response.status_code == 302
+        mock_error.assert_called_once()
+
+
+@pytest.mark.django_db()
+class TestUserRequestsView(ViewTestMixin):
+    """Test the User Requests view"""
+
+    view = views.UserRequestsView
+    url = "/users/{username}/requests/"
+
+    def test_get_own_requests(
+        self, rf, user_factory, organization_factory, invitation_factory
+    ):
+        """User can view their own requests"""
+        user = user_factory(email_verified=True)
+        org = organization_factory()
+
+        # Create requests for this user
+        invitation_factory.create_batch(
+            3, email=user.email, organization=org, request=True
+        )
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.status_code == 200
+        assert response.context_data["target_user"] == user
+        assert response.context_data["is_own_page"] is True
+        assert len(response.context_data["requests"]) == 3
+
+    def test_get_requests_filters_by_request_true(
+        self, rf, user_factory, organization_factory, invitation_factory
+    ):
+        """View only shows requests (request=True), not invitations"""
+        user = user_factory(email_verified=True)
+        org = organization_factory()
+
+        # Create requests (should appear)
+        invitation_factory.create_batch(
+            3, email=user.email, organization=org, request=True
+        )
+        # Create invitations (should NOT appear)
+        invitation_factory.create_batch(
+            2, email=user.email, organization=org, request=False
+        )
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.status_code == 200
+        # Only requests should appear, not invitations
+        assert len(response.context_data["requests"]) == 3
+
+    def test_get_requests_filters_by_verified_email(
+        self, rf, user_factory, organization_factory, invitation_factory, mocker
+    ):
+        """View only shows requests for verified emails"""
+        user = user_factory(email="verified@example.com", email_verified=True)
+        org = organization_factory()
+
+        # Mock get_verified_emails to return only verified email
+        mocker.patch.object(
+            user, "get_verified_emails", return_value=["verified@example.com"]
+        )
+
+        # Create request for verified email (should appear)
+        invitation_factory(email="verified@example.com", organization=org, request=True)
+        # Create request for unverified email (should NOT appear)
+        invitation_factory(
+            email="unverified@example.com", organization=org, request=True
+        )
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.status_code == 200
+        assert len(response.context_data["requests"]) == 1
+        assert response.context_data["requests"][0].email == "verified@example.com"
+
+    def test_get_requests_includes_user_field_requests(
+        self, rf, user_factory, organization_factory, invitation_factory
+    ):
+        """View includes requests directly assigned to user field"""
+        user = user_factory(email="user@example.com", email_verified=True)
+        org = organization_factory()
+
+        # Create request using user field instead of email
+        invitation_factory(user=user, organization=org, request=True)
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.status_code == 200
+        assert len(response.context_data["requests"]) >= 1
+
+    def test_get_requests_ordered_by_created_at_desc(
+        self, rf, user_factory, organization_factory, invitation_factory
+    ):
+        """Requests should be ordered by created_at descending"""
+        user = user_factory(email_verified=True)
+        org = organization_factory()
+
+        # Create multiple requests
+        invitation_factory(email=user.email, organization=org, request=True)
+        invitation_factory(email=user.email, organization=org, request=True)
+        invitation_factory(email=user.email, organization=org, request=True)
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.status_code == 200
+        requests = list(response.context_data["requests"])
+        # Most recent should be first
+        assert requests[0].created_at >= requests[-1].created_at
+
+    def test_get_requests_pagination(
+        self, rf, user_factory, organization_factory, invitation_factory
+    ):
+        """Requests should be paginated at 20 items per page"""
+        user = user_factory(email_verified=True)
+        org = organization_factory()
+
+        # Create 25 requests (more than 1 page)
+        invitation_factory.create_batch(
+            25, email=user.email, organization=org, request=True
+        )
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.status_code == 200
+        assert response.context_data["is_paginated"] is True
+        assert len(response.context_data["requests"]) == 20
+
+    def test_get_requests_no_verified_emails(self, rf, user_factory, mocker):
+        """User with no verified emails should see empty list"""
+        user = user_factory(email_verified=False)
+
+        # Mock no verified emails
+        mocker.patch.object(user, "get_verified_emails", return_value=[])
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.status_code == 200
+        assert len(response.context_data["requests"]) == 0
+
+    def test_staff_can_view_other_users_requests(
+        self, rf, user_factory, organization_factory, invitation_factory
+    ):
+        """Staff users can view other users' requests"""
+        staff_user = user_factory(is_staff=True, email_verified=True)
+        target_user = user_factory(email_verified=True)
+        org = organization_factory()
+
+        invitation_factory.create_batch(
+            2, email=target_user.email, organization=org, request=True
+        )
+
+        response = self.call_view(rf, staff_user, username=target_user.username)
+
+        assert response.status_code == 200
+        assert response.context_data["target_user"] == target_user
+        assert response.context_data["is_own_page"] is False
+        assert len(response.context_data["requests"]) == 2

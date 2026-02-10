@@ -1,5 +1,4 @@
 # Django
-from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.templatetags.static import static
 from django.urls import reverse
@@ -19,7 +18,6 @@ from sorl.thumbnail import ImageField
 
 # Squarelet
 from squarelet.core.fields import AutoCreatedField, AutoLastModifiedField
-from squarelet.core.mail import ORG_TO_ADMINS, send_mail
 from squarelet.core.mixins import AvatarMixin
 from squarelet.core.utils import file_path, mailchimp_journey
 from squarelet.oidc.middleware import send_cache_invalidations
@@ -27,21 +25,13 @@ from squarelet.organizations.choices import (
     COUNTRY_CHOICES,
     STATE_CHOICES,
     ChangeLogReason,
-    RelationshipType,
 )
-from squarelet.organizations.models.payment import Charge
-from squarelet.organizations.querysets import (
-    InvitationQuerySet,
-    MembershipQuerySet,
-    OrganizationInvitationQuerySet,
-    OrganizationQuerySet,
-)
+from squarelet.organizations.models.invitation import Invitation
+from squarelet.organizations.models.membership import Membership
+from squarelet.organizations.models.payment import Charge, ReceiptEmail
+from squarelet.organizations.querysets import OrganizationQuerySet
 
 logger = logging.getLogger(__name__)
-
-# This warning is a sign this file needs to be refactored.
-# TODO: Refactor some Organization-related models into separate files.
-# pylint: disable=too-many-lines
 
 
 def organization_file_path(instance, filename):
@@ -86,12 +76,16 @@ class Organization(AvatarMixin, models.Model):
         help_text=_("An image to represent the organization"),
     )
 
+    about = models.TextField(
+        _("about"), blank=True, help_text="A short description of this organization"
+    )
+
     users = models.ManyToManyField(
         verbose_name=_("users"),
         to="users.User",
         through="organizations.Membership",
         related_name="organizations",
-        help_text=_("The user's in this organization"),
+        help_text=_("The users in this organization"),
     )
 
     subtypes = models.ManyToManyField(
@@ -102,6 +96,7 @@ class Organization(AvatarMixin, models.Model):
         blank=True,
     )
 
+    # parent/child relationships
     members = models.ManyToManyField(
         verbose_name=_("members"),
         to="self",
@@ -124,6 +119,7 @@ class Organization(AvatarMixin, models.Model):
         blank=True,
         null=True,
     )
+
     wikidata_id = models.CharField(
         _("wikidata id"),
         max_length=255,
@@ -131,6 +127,7 @@ class Organization(AvatarMixin, models.Model):
         help_text=_("The wikidata identifier"),
     )
 
+    # location
     city = models.CharField(
         _("city"),
         max_length=100,
@@ -427,6 +424,43 @@ class Organization(AvatarMixin, models.Model):
     def subscription(self):
         return self.subscriptions.first()
 
+    def member_users(self, request=None):
+        """Get all member users for this organization.
+
+        Args:
+            request: Optional request object. If provided and the user is authenticated,
+                    the current user will be moved to the front of the list.
+
+        Returns:
+            List of users sorted by admin status, then username, with the current
+            user at the front if request is provided.
+        """
+
+        org_memberships = Membership.objects.filter(organization=self)
+        users_list = list(
+            # We need to filter by organization to avoid
+            # duplicate results from other memberships
+            self.users.filter(memberships__organization=self)
+            # Prefetch memberships for this organization only to preserve
+            # the membership.admin attribute needed for displaying badges
+            .prefetch_related(
+                models.Prefetch(
+                    "memberships",
+                    queryset=org_memberships,
+                    to_attr="org_membership_list",
+                )
+            )
+            .order_by("-memberships__admin", "username")
+            .distinct()
+        )
+        # Move current user to the front if they're in the list
+        if request and request.user.is_authenticated:
+            for i, user in enumerate(users_list):
+                if user.id == request.user.id:
+                    users_list.insert(0, users_list.pop(i))
+                    break
+        return users_list
+
     def set_subscription(self, token, plan, max_users, user, payment_method=None):
         # pylint: disable=import-outside-toplevel
         from squarelet.organizations.tasks import sync_wix
@@ -700,419 +734,6 @@ class Organization(AvatarMixin, models.Model):
         self.save()
 
 
-class Membership(models.Model):
-    """Through table for organization membership"""
-
-    objects = MembershipQuerySet.as_manager()
-
-    user = models.ForeignKey(
-        verbose_name=_("user"),
-        to="users.User",
-        on_delete=models.CASCADE,
-        related_name="memberships",
-    )
-    organization = models.ForeignKey(
-        verbose_name=_("organization"),
-        to="organizations.Organization",
-        on_delete=models.CASCADE,
-        related_name="memberships",
-    )
-    admin = models.BooleanField(
-        _("admin"),
-        default=False,
-        help_text=_("This user has administrative rights for this organization"),
-    )
-
-    created_at = AutoCreatedField(
-        _("created_at"),
-        null=True,
-        blank=True,
-        help_text=_("When this organization was created"),
-    )
-
-    class Meta:
-        unique_together = ("user", "organization")
-        ordering = ("user_id",)
-
-    def __str__(self):
-        return f"Membership: {self.user} in {self.organization}"
-
-    def save(self, *args, **kwargs):
-        # Prevents circular import
-        # pylint: disable=import-outside-toplevel
-        from squarelet.organizations.tasks import sync_wix
-
-        is_new = self.pk is None
-        is_wix = self.organization.plan and self.organization.plan.wix
-
-        with transaction.atomic():
-            super().save(*args, **kwargs)
-
-            # Trigger cache invalidation message to OIDC applications
-            transaction.on_commit(
-                lambda: send_cache_invalidations("user", self.user.uuid)
-            )
-
-            # Trigger Wix sync if this is a new membership and org has a Wix plan
-            if is_new and is_wix:
-                transaction.on_commit(
-                    lambda: sync_wix.delay(
-                        self.organization.pk,
-                        self.organization.plan.pk,
-                        self.user.pk,
-                    )
-                )
-
-    def delete(self, *args, **kwargs):
-        with transaction.atomic():
-            super().delete(*args, **kwargs)
-            transaction.on_commit(
-                lambda: send_cache_invalidations("user", self.user.uuid)
-            )
-            # TODO: We need to remove somebody's Wix membership here too
-
-
-class Invitation(models.Model):
-    """An invitation for a user to join an organization"""
-
-    objects = InvitationQuerySet.as_manager()
-
-    organization = models.ForeignKey(
-        verbose_name=_("organization"),
-        to="organizations.Organization",
-        related_name="invitations",
-        on_delete=models.CASCADE,
-        help_text=_("The organization this invitation is for"),
-    )
-    uuid = models.UUIDField(
-        _("UUID"),
-        default=uuid.uuid4,
-        editable=False,
-        help_text=_("This UUID serves as a secret token for this invitation in URLs"),
-    )
-    email = models.EmailField(
-        _("email"),
-        blank=True,
-        help_text=_("The email address to send this invitation to"),
-    )
-    user = models.ForeignKey(
-        verbose_name=_("user"),
-        to="users.User",
-        related_name="invitations",
-        on_delete=models.PROTECT,
-        blank=True,
-        null=True,
-        help_text=_(
-            "The user this invitation is for.  Used if a user requested an "
-            "invitation directly as opposed to an admin inviting them via email."
-        ),
-    )
-    request = models.BooleanField(
-        _("request"),
-        help_text="Is this a request for an invitation from the user or an invitation "
-        "to the user from an admin?",
-        default=False,
-    )
-    created_at = AutoCreatedField(
-        _("created at"), help_text=_("When this invitation was created")
-    )
-    accepted_at = models.DateTimeField(
-        _("accepted at"),
-        blank=True,
-        null=True,
-        help_text=_(
-            "When this invitation was accepted.  NULL signifies it has not been "
-            "accepted yet"
-        ),
-    )
-    rejected_at = models.DateTimeField(
-        _("rejected at"),
-        blank=True,
-        null=True,
-        help_text=_(
-            "When this invitation was rejected.  NULL signifies it has not been "
-            "rejected yet"
-        ),
-    )
-
-    class Meta:
-        ordering = ("created_at",)
-
-    def __str__(self):
-        return f"Invitation: {self.uuid}"
-
-    def send(self):
-
-        if self.request:
-            send_mail(
-                subject=_(f"{self.user} has requested to join {self.organization}"),
-                template="organizations/email/join_request.html",
-                organization=self.organization,
-                organization_to=ORG_TO_ADMINS,
-                extra_context={"joiner": self.user},
-            )
-        else:
-            send_mail(
-                subject=_(f"Invitation to join {self.organization.name}"),
-                template="organizations/email/invitation.html",
-                to=[self.email],
-                extra_context={"invitation": self},
-            )
-
-    @transaction.atomic
-    def accept(self, user=None):
-        """Accept the invitation"""
-        if self.user is None and user is None:
-            raise ValueError(
-                "Must give a user when accepting if invitation has no user"
-            )
-        if self.accepted_at or self.rejected_at:
-            raise ValueError("This invitation has already been closed")
-        if self.user is None:
-            self.user = user
-        self.accepted_at = timezone.now()
-        self.save()
-        if (
-            self.organization.verified_journalist
-            and not self.user.verified_journalist()
-        ):
-            mailchimp_journey(self.user.email, "verified")
-        if not self.organization.has_member(self.user):
-            # Wix sync will be triggered automatically when Membership saves
-            Membership.objects.create(organization=self.organization, user=self.user)
-
-    def reject(self):
-        """Reject or revoke the invitation"""
-        if self.accepted_at or self.rejected_at:
-            raise ValueError("This invitation has already been closed")
-        self.rejected_at = timezone.now()
-        self.save()
-
-    def get_name(self):
-        """Returns the name or email if no name is set"""
-        if self.user is not None and self.user.name:
-            return f"{self.user.name} ({self.email})"
-        else:
-            return self.email
-
-
-class OrganizationInvitation(models.Model):
-    """
-    Invitation for an organization to join another organization
-    as a member (in a membership group) or child (in a parent-child hierarchy).
-
-    Can be either:
-    - An invitation: group/parent invites an org to join
-    - A request: org requests to join a group
-    """
-
-    objects = OrganizationInvitationQuerySet.as_manager()
-
-    uuid = models.UUIDField(
-        _("UUID"),
-        default=uuid.uuid4,
-        editable=False,
-        unique=True,
-        help_text=_("UUID serves as secret token for this invitation in URLs"),
-    )
-
-    from_organization = models.ForeignKey(
-        verbose_name=_("from organization"),
-        to="organizations.Organization",
-        on_delete=models.CASCADE,
-        related_name="outgoing_org_invitations",
-        help_text=_(
-            "The organization extending the invitation or receiving the request.  "
-            "This is always the organization that is the parent or group."
-        ),
-    )
-
-    to_organization = models.ForeignKey(
-        verbose_name=_("to organization"),
-        to="organizations.Organization",
-        on_delete=models.CASCADE,
-        related_name="incoming_org_invitations",
-        help_text=_(
-            "The organization being invited.  This is always the child or member"
-        ),
-    )
-
-    from_user = models.ForeignKey(
-        verbose_name=_("user"),
-        to="users.User",
-        related_name="+",
-        on_delete=models.PROTECT,
-        help_text=_("The user who initiated this invitation"),
-    )
-    closed_by_user = models.ForeignKey(
-        verbose_name=_("user"),
-        to="users.User",
-        related_name="+",
-        on_delete=models.PROTECT,
-        blank=True,
-        null=True,
-        help_text=_("The user who accepted or rejected this invitation"),
-    )
-
-    relationship_type = models.PositiveSmallIntegerField(
-        _("relationship type"),
-        choices=RelationshipType.choices,
-        help_text=_("Type of relationship: member or child"),
-    )
-
-    request = models.BooleanField(
-        _("request"),
-        default=False,
-        help_text=_(
-            "True if this is a request TO JOIN from to_organization. "
-            "False if this is an invitation FROM from_organization."
-        ),
-    )
-
-    created_at = AutoCreatedField(
-        _("created at"), help_text=_("When this invitation was created")
-    )
-
-    accepted_at = models.DateTimeField(
-        _("accepted at"),
-        blank=True,
-        null=True,
-        help_text=_("When accepted (NULL if pending)"),
-    )
-
-    rejected_at = models.DateTimeField(
-        _("rejected at"),
-        blank=True,
-        null=True,
-        help_text=_("When rejected (NULL if pending)"),
-    )
-
-    message = models.TextField(
-        _("message"),
-        blank=True,
-        help_text=_("Optional message from the inviter"),
-    )
-
-    class Meta:
-        ordering = ("-created_at",)
-
-    def __str__(self):
-        direction = "Request from" if self.request else "Invitation to"
-        return f"{direction} {self.to_organization} by {self.from_organization}"
-
-    def clean(self):
-        """Validate invitation requirements"""
-
-        if self.accepted_at and self.rejected_at:
-            raise ValidationError("Cannot be both accepted and rejected")
-
-        # Verify from org has collective enabled
-        if self.from_organization and not self.from_organization.collective_enabled:
-            raise ValidationError(
-                f"{self.from_organization.name} does "
-                "not have collective feature enabled"
-            )
-
-    @property
-    def is_pending(self):
-        """Is this invitation still pending (not accepted or rejected)?"""
-        return self.accepted_at is None and self.rejected_at is None
-
-    @property
-    def is_accepted(self):
-        """Has this invitation been accepted?"""
-        return self.accepted_at is not None
-
-    @property
-    def is_rejected(self):
-        """Has this invitation been rejected?"""
-        return self.rejected_at is not None
-
-    def send(self):
-        """Send email notification for this invitation/request"""
-        if self.request:
-            # This is a request TO JOIN - notify group admins
-            send_mail(
-                subject=_(
-                    f"{self.to_organization} has requested to join "
-                    f"{self.from_organization}"
-                ),
-                template="organizations/email/org_join_request.html",
-                organization=self.from_organization,
-                organization_to=ORG_TO_ADMINS,
-                extra_context={
-                    "invitation": self,
-                    "requesting_org": self.to_organization,
-                },
-            )
-        else:
-            # This is an invitation TO the org - notify target org admins
-            send_mail(
-                subject=_(f"Invitation to join {self.from_organization.name}"),
-                template="organizations/email/org_invitation.html",
-                organization=self.to_organization,
-                organization_to=ORG_TO_ADMINS,
-                extra_context={"invitation": self},
-            )
-
-    @transaction.atomic
-    def accept(self):
-        """Accept this invitation/request"""
-
-        if not self.is_pending:
-            raise ValueError("This invitation has already been processed")
-
-        self.accepted_at = timezone.now()
-        self.save()
-
-        # Create the relationship based on type
-        if self.relationship_type == RelationshipType.member:
-            # Add to membership group (simple M2M)
-            self.from_organization.members.add(self.to_organization)
-        elif self.relationship_type == RelationshipType.child:
-            # Set parent relationship
-            self.to_organization.parent = self.from_organization
-            self.to_organization.save()
-
-    @transaction.atomic
-    def reject(self):
-        """Reject this invitation/request"""
-
-        if not self.is_pending:
-            raise ValueError("This invitation has already been processed")
-
-        self.rejected_at = timezone.now()
-        self.save()
-
-
-class ReceiptEmail(models.Model):
-    """An email address to send receipts to"""
-
-    organization = models.ForeignKey(
-        verbose_name=_("organization"),
-        to="organizations.Organization",
-        related_name="receipt_emails",
-        on_delete=models.CASCADE,
-        help_text=_("The organization this receipt email corresponds to"),
-    )
-    email = models.EmailField(
-        _("email"),
-        help_text=_("The email address to send the receipt to"),
-        db_collation="case_insensitive",
-    )
-    failed = models.BooleanField(
-        _("failed"),
-        default=False,
-        help_text=_("Has sending to this email address failed?"),
-    )
-
-    class Meta:
-        unique_together = ("organization", "email")
-
-    def __str__(self):
-        return f"Receipt Email: <{self.email}>"
-
-
 class OrganizationChangeLog(models.Model):
     """Track important changes to organizations"""
 
@@ -1215,61 +836,3 @@ class OrganizationChangeLog(models.Model):
                 f"Plan: {self.from_plan} with {self.from_max_users} users"
             )
         return "Other reason"
-
-
-class OrganizationType(models.Model):
-    """A broad type an organization may be classified as"""
-
-    name = models.CharField(
-        _("name"), max_length=255, help_text=_("The name of the organization type")
-    )
-
-    def __str__(self):
-        return self.name
-
-
-class OrganizationSubtype(models.Model):
-    """A specific type an organization may be classified as"""
-
-    name = models.CharField(
-        _("name"), max_length=255, help_text=_("The name of the organization subtype")
-    )
-    type = models.ForeignKey(
-        verbose_name=_("type"),
-        to="organizations.OrganizationType",
-        on_delete=models.PROTECT,
-        related_name="subtypes",
-        help_text=_("The parent type for this subtype"),
-    )
-
-    class Meta:
-        ordering = ("type",)
-
-    def __str__(self):
-        return f"{self.type.name} - {self.name}"
-
-
-class OrganizationUrl(models.Model):
-    """URLs associated with an organization"""
-
-    organization = models.ForeignKey(
-        verbose_name=_("organization"),
-        to="organizations.Organization",
-        on_delete=models.CASCADE,
-        related_name="urls",
-        help_text=_("The organization to associate the URL with"),
-    )
-    url = models.URLField(_("url"))
-
-
-class OrganizationEmailDomain(models.Model):
-    """Email Domains associated with an organization"""
-
-    organization = models.ForeignKey(
-        verbose_name=_("organization"),
-        to="organizations.Organization",
-        on_delete=models.CASCADE,
-        related_name="domains",
-        help_text=_("The organization to associate the email domain with"),
-    )
-    domain = models.CharField(_("domain"), max_length=255)

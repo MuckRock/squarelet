@@ -13,7 +13,6 @@ import stripe
 from allauth.account import forms as allauth
 from allauth.account.utils import setup_user_email
 from allauth.mfa.base import forms as mfa
-from allauth.mfa.utils import is_mfa_enabled
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import HTML, Layout
 from psycopg2 import errors
@@ -340,7 +339,7 @@ class ResetPasswordKeyForm(mfa.BaseAuthenticateForm, allauth.ResetPasswordKeyFor
     def __init__(self, *args, **kwargs):
         # save user here as it can be overridden in the parent class
         user = kwargs["user"]
-        mfa_enabled = is_mfa_enabled(user)
+        mfa_enabled = user.has_mfa_enabled
         super().__init__(*args, **kwargs)
         # restore user here
         self.user = user
