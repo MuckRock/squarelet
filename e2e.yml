@@ -1,0 +1,5 @@
+services:
+  squarelet_django:
+    environment:
+      - POSTGRES_DB=test_squarelet
+      - DISABLE_DEBUG_TOOLBAR=1
