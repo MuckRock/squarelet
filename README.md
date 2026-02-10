@@ -198,6 +198,42 @@ Invoke is a task execution library. It is used to allow easy access to common co
 
 The test suite will be run on CodeShip prior to releasing new code. Please ensure your code passes all tests before trying to release it. Also please add new tests if you develop new code - we try to mantain at least 85% code coverage.
 
+### E2E Tests
+
+End-to-end tests use [Playwright][playwright] and run against the Docker development environment with a dedicated test database.
+
+**Prerequisites:**
+
+Install Playwright and the browser engines (host-side, not in Docker):
+
+```bash
+npm install
+npx playwright install chromium firefox webkit
+```
+
+**Running tests:**
+
+`inv test-e2e` will run all E2E tests headlessly. The global setup automatically creates a `test_squarelet` database, restarts Django to use it, runs migrations, and seeds test data. After tests complete, the original Django service is restored and the test database is dropped.
+
+`inv test-e2e --ui` will run the tests with a visible browser window, useful for debugging.
+
+`inv test-e2e --grep "org viewing"` will run only tests matching the given pattern.
+
+You can also run Playwright directly with `npx playwright test`, which uses the same global setup/teardown lifecycle defined in `playwright.config.ts`.
+
+**Test structure:**
+
+The E2E tests live in the `e2e/` directory.
+Each suite of tests is defined by a `*.spec.ts` file. 
+There's also some utilities:
+
+- `e2e/helpers.ts` — Shared utilities (`login`, `expectFlashMessage`)
+- `e2e/global-setup.ts` / `e2e/global-teardown.ts` — Database and service lifecycle
+
+**Test data:**
+
+Test data is managed by the `seed_e2e_data` management command (`squarelet/core/management/commands/seed_e2e_data.py`), which creates users (`e2e-staff`, `e2e-admin`, `e2e-member`, `e2e-regular`, `e2e-requester`) and organizations (`e2e-public-org`, `e2e-private-org`) with appropriate roles and memberships.
+
 ### Code Quality
 
 `inv pylint` will run [pylint][pylint]. It is possible to silence checks, but should only be done in instances where pylint is misinterpreting the code.
@@ -269,6 +305,7 @@ Icons are sometimes duplicated, because we need to use them in both Django templ
 [black]: https://github.com/psf/black
 [pip-tools]: https://github.com/jazzband/pip-tools
 [mkcert-install]: https://github.com/FiloSottile/mkcert#installation
+[playwright]: https://playwright.dev/
 [muckrock]: https://github.com/MuckRock/muckrock
 [documentcloud]: https://github.com/MuckRock/documentcloud
 [documentcloudfrontend]: https://github.com/MuckRock/documentcloud-frontend

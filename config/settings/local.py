@@ -41,7 +41,7 @@ EMAIL_PORT = 1025
 DEBUG_TOOLBAR_CONFIG = {
     "INTERCEPT_REDIRECT": False,
     "SHOW_TEMPLATE_CONTEXT": True,
-    "SHOW_TOOLBAR_CALLBACK": lambda _: True,
+    "SHOW_TOOLBAR_CALLBACK": lambda _: not env.bool("DISABLE_DEBUG_TOOLBAR", False),
 }
 
 # Celery
@@ -69,3 +69,6 @@ DJANGO_VITE = {
 }
 
 ENABLE_SOCIAL_LOGINS = env.bool("ENABLE_SOCIAL_LOGINS", default=True)
+
+# Disable allauth rate limiting in local development to avoid 429s during e2e tests
+ACCOUNT_RATE_LIMITS = False
