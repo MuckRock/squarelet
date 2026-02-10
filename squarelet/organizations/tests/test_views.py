@@ -1,5 +1,3 @@
-# pylint: disable=too-many-lines
-# TODO: Refactor tests for each view file
 # Django
 from django.contrib import messages
 from django.contrib.auth.models import AnonymousUser
@@ -25,6 +23,7 @@ from .. import views
 from ..models import OrganizationEmailDomain, ReceiptEmail
 
 # pylint: disable=invalid-name,too-many-public-methods,too-many-lines
+# TODO: Refactor tests for each view file
 
 
 @pytest.mark.django_db()

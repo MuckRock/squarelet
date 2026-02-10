@@ -66,7 +66,7 @@ class Command(BaseCommand):
     @transaction.atomic
     def seed(self):
         # Create the organization plan (required by the org detail view)
-        plan, _ = Plan.objects.get_or_create(
+        Plan.objects.get_or_create(
             slug="organization",
             defaults={
                 "name": "Organization",
