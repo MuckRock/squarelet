@@ -23,3 +23,12 @@ class ClientFactory(factory.django.DjangoModelFactory):
 
     class Meta:
         model = "oidc_provider.Client"
+
+
+class ClientProfileFactory(factory.django.DjangoModelFactory):
+    client = factory.SubFactory(ClientFactory)
+    webhook_url = factory.Faker("url")
+    source = "muckrock"
+
+    class Meta:
+        model = "oidc.ClientProfile"
