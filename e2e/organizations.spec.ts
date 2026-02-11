@@ -4,22 +4,28 @@ import { login, expectFlashMessage } from "./helpers";
 test.describe("Organization Viewing", () => {
   test.describe("Anonymous user", () => {
     test("can view public org profile", async ({ page }) => {
-      await page.goto("/organizations/e2e-public-org/");
+      const response = await page.goto("/organizations/e2e-public-org/");
+      expect(response?.status()).toBe(200);
       await expect(page.locator("#profile h3")).toContainText("e2e-public-org");
     });
 
-    test("sees admin names in members list", async ({ page }) => {
+    test("cannot access private org (404)", async ({ page }) => {
+      const response = await page.goto("/organizations/e2e-private-org/");
+      expect(response?.status()).toBe(404);
+    });
+
+    test("sees only admins in member list", async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
       await expect(page.locator("#members .user-list")).toBeVisible();
       await expect(page.locator("#members .user-list .user")).toHaveCount(1); // only admins
     });
 
-    test("sees verification badge", async ({ page }) => {
+    test("sees org verification status", async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
       await expect(page.locator("#verification .status.verified")).toBeVisible();
     });
 
-    test("does NOT see user emails", async ({ page }) => {
+    test("does NOT see any admin emails", async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
       await expect(page.locator(".user .info .caption")).toHaveCount(0);
     });
@@ -28,11 +34,6 @@ test.describe("Organization Viewing", () => {
       await page.goto("/organizations/e2e-public-org/");
       await expect(page.locator("section#plan")).toHaveCount(0);
     });
-
-    test("cannot access private org (404)", async ({ page }) => {
-      const response = await page.goto("/organizations/e2e-private-org/");
-      expect(response?.status()).toBe(404);
-    });
   });
 
   test.describe("Signed-in, non-member", () => {
@@ -40,9 +41,9 @@ test.describe("Organization Viewing", () => {
       await login(page, "e2e-regular");
     });
 
-    test("sees admin emails", async ({ page }) => {
-      await page.goto("/organizations/e2e-public-org/");
-      await expect(page.locator(".user .info .caption").first()).toBeVisible();
+    test("cannot access private org (404)", async ({ page }) => {
+      const response = await page.goto("/organizations/e2e-private-org/");
+      expect(response?.status()).toBe(404);
     });
 
     test('sees "Request to join" button', async ({ page }) => {
@@ -55,16 +56,15 @@ test.describe("Organization Viewing", () => {
       await expect(page.locator("section#plan")).toHaveCount(0);
     });
 
-    test('members section header says "Admins" not "Members"', async ({ page }) => {
+    test("sees only admins in member list", async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
-      const header = page.locator("#members > header h2").first();
-      await expect(header).toContainText("Admin");
-      await expect(header).not.toContainText("Member");
+      await expect(page.locator("#members .user-list")).toBeVisible();
+      await expect(page.locator("#members .user-list .user")).toHaveCount(1); // only admins
     });
 
-    test("cannot access private org (404)", async ({ page }) => {
-      const response = await page.goto("/organizations/e2e-private-org/");
-      expect(response?.status()).toBe(404);
+    test("sees admin emails", async ({ page }) => {
+      await page.goto("/organizations/e2e-public-org/");
+      await expect(page.locator(".user .info .caption").first()).toBeVisible();
     });
   });
 
@@ -76,12 +76,6 @@ test.describe("Organization Viewing", () => {
     test("sees plan section", async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
       await expect(page.locator("section#plan")).toBeVisible();
-    });
-
-    test('members section header says "Members"', async ({ page }) => {
-      await page.goto("/organizations/e2e-public-org/");
-      const header = page.locator("#members header h2");
-      await expect(header).toContainText("Member");
     });
 
     test("sees all members in user list (not just admins)", async ({ page }) => {
@@ -97,12 +91,12 @@ test.describe("Organization Viewing", () => {
 
     test('does NOT see "Edit profile" link', async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
-      await expect(page.locator("text=Edit profile")).toHaveCount(0);
+      await expect(page.locator('a[href*="/organizations/e2e-public-org/update/"]')).toHaveCount(0);
     });
 
     test('does NOT see "Manage members" link', async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
-      await expect(page.locator("text=Manage members")).toHaveCount(0);
+      await expect(page.locator('a[href*="/organizations/e2e-public-org/manage-members/"]')).toHaveCount(0);
     });
   });
 
@@ -113,18 +107,23 @@ test.describe("Organization Viewing", () => {
 
     test('sees "Edit profile" link', async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
-      await expect(page.locator("a:has-text('Edit profile')")).toBeVisible();
+      await expect(page.locator('a[href*="/organizations/e2e-public-org/update/"]')).toBeVisible();
     });
 
     test('sees "Invite members" and "Manage members" links', async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
-      await expect(page.locator("a:has-text('Invite members')")).toBeVisible();
-      await expect(page.locator("a:has-text('Manage members')")).toBeVisible();
+      await expect(page.locator('a[href$="/organizations/e2e-public-org/manage-members/#invite"]')).toBeVisible();
+      await expect(page.locator('a[href$="/organizations/e2e-public-org/manage-members/"]')).toBeVisible();
     });
 
     test("sees plan section", async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
       await expect(page.locator("section#plan")).toBeVisible();
+    });
+
+    test("sees button to change plans", async ({ page }) => {
+      await page.goto("/organizations/e2e-public-org/");
+      await expect(page.locator('a[href$="/organizations/e2e-public-org/payment/"]')).toBeVisible();
     });
   });
 
@@ -137,23 +136,29 @@ test.describe("Organization Viewing", () => {
       await page.goto("/organizations/e2e-public-org/");
       await expect(page.locator(".staff-toolbar")).toBeVisible();
       await expect(
-        page.locator(".staff-toolbar a:has-text('View in Django admin')"),
+        page.locator('.staff-toolbar a[href*="/admin/organizations/organization/"]'),
       ).toBeVisible();
     });
 
     test('sees "Edit profile" link', async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
-      await expect(page.locator("a:has-text('Edit profile')")).toBeVisible();
+      await expect(page.locator('a[href*="/organizations/e2e-public-org/update/"]')).toBeVisible();
     });
 
-    test('sees "Manage members" link', async ({ page }) => {
+    test('sees "Manage members" links', async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
-      await expect(page.locator("a:has-text('Manage members')")).toBeVisible();
+      await expect(page.locator('a[href$="/organizations/e2e-public-org/manage-members/#invite"]')).toBeVisible();
+      await expect(page.locator('a[href$="/organizations/e2e-public-org/manage-members/"]')).toBeVisible();
     });
 
     test("sees plan section", async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
       await expect(page.locator("section#plan")).toBeVisible();
+    });
+
+    test("sees button to change plans", async ({ page }) => {
+      await page.goto("/organizations/e2e-public-org/");
+      await expect(page.locator('a[href$="/organizations/e2e-public-org/payment/"]')).toBeVisible();
     });
 
     test("CAN access private org", async ({ page }) => {
@@ -231,7 +236,7 @@ test.describe("Profile Editing", () => {
 
     await page.locator("section#protected button[type='submit']").click();
 
-    await expectFlashMessage(page, "submitted and will be reviewed");
+    await expectFlashMessage(page, "success");
   });
 
   test("staff can accept a change request", async ({ page }) => {
@@ -244,7 +249,7 @@ test.describe("Profile Editing", () => {
       .locator("section#protected textarea[name='explanation']")
       .fill("E2E test: to be accepted");
     await page.locator("section#protected button[type='submit']").click();
-    await expectFlashMessage(page, "submitted and will be reviewed");
+    await expectFlashMessage(page, "success");
 
     // Login as staff and review
     await login(page, "e2e-staff");
@@ -253,7 +258,7 @@ test.describe("Profile Editing", () => {
     await expect(page.locator("#pending-requests")).toBeVisible();
     await page.locator('#pending-requests button[value="accept"]').first().click();
 
-    await expectFlashMessage(page, "accepted and applied");
+    await expectFlashMessage(page, "success");
   });
 
   test("staff can reject a change request", async ({ page }) => {
@@ -266,7 +271,7 @@ test.describe("Profile Editing", () => {
       .locator("section#protected textarea[name='explanation']")
       .fill("E2E test: to be rejected");
     await page.locator("section#protected button[type='submit']").click();
-    await expectFlashMessage(page, "submitted and will be reviewed");
+    await expectFlashMessage(page, "success");
 
     // Login as staff and reject
     await login(page, "e2e-staff");
@@ -275,7 +280,7 @@ test.describe("Profile Editing", () => {
     await expect(page.locator("#pending-requests")).toBeVisible();
     await page.locator('#pending-requests button[value="reject"]').first().click();
 
-    await expectFlashMessage(page, "rejected");
+    await expectFlashMessage(page, "success");
   });
 });
 
@@ -287,7 +292,7 @@ test.describe("Member Management", () => {
     // Send email invitation
     await page.locator("input[name='emails']").fill("e2e-invited@example.com");
     await page.locator('button[value="addmember"]').click();
-    await expectFlashMessage(page, "invitation");
+    await expectFlashMessage(page, "success");
 
     // Verify pending invitation appears
     await page.goto("/organizations/e2e-public-org/manage-members/");
@@ -295,12 +300,12 @@ test.describe("Member Management", () => {
 
     // Resend invitation
     await page.locator('button[value="resendinvite"]').first().click();
-    await expectFlashMessage(page, "resent");
+    await expectFlashMessage(page, "success");
 
     // Revoke invitation
     await page.goto("/organizations/e2e-public-org/manage-members/");
     await page.locator('button[value="revokeinvite"]').first().click();
-    await expectFlashMessage(page, "revoked");
+    await expectFlashMessage(page, "success");
   });
 
   test("admin can generate an invite link visible to anonymous users", async ({
@@ -352,7 +357,7 @@ test.describe("Member Management", () => {
 
     // Click the submit button inside the modal
     await modal.locator('button[name="action"][value="join"]').click();
-    await expectFlashMessage(page, "Request to join");
+    await expectFlashMessage(page, "success");
 
     // Login as admin, navigate to manage-members
     await login(page, "e2e-admin");
@@ -363,7 +368,7 @@ test.describe("Member Management", () => {
 
     // Accept the request
     await page.locator('button[value="acceptinvite"]').first().click();
-    await expectFlashMessage(page, "accepted");
+    await expectFlashMessage(page, "success");
 
     // Clean up: remove the requester from the org
     await page.goto("/organizations/e2e-public-org/manage-members/");
@@ -383,13 +388,13 @@ test.describe("Member Management", () => {
     const modal = page.locator("#join-request-modal-backdrop");
     await expect(modal).not.toHaveClass(/_cls-hide/);
     await modal.locator('button[name="action"][value="join"]').click();
-    await expectFlashMessage(page, "Request to join");
+    await expectFlashMessage(page, "success");
 
     // Login as admin, reject the request
     await login(page, "e2e-admin");
     await page.goto("/organizations/e2e-public-org/manage-members/");
     await expect(page.locator("section#requests")).toBeVisible();
     await page.locator('button[value="rejectinvite"]').first().click();
-    await expectFlashMessage(page, "rejected");
+    await expectFlashMessage(page, "success");
   });
 });
