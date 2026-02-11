@@ -1,4 +1,3 @@
-# pylint: disable=too-many-lines
 # TODO: Refactor tests for each view file
 # Django
 from django.contrib import messages
@@ -23,9 +22,17 @@ from squarelet.core.tests.mixins import ViewTestMixin
 
 # Local
 from .. import views
-from ..models import Organization, OrganizationEmailDomain, ReceiptEmail
+from ..models import Organization, OrganizationEmailDomain, Plan, ReceiptEmail
 
 # pylint: disable=invalid-name,too-many-public-methods,too-many-lines
+
+
+def _assign_org_perm(user, codename):
+    """Assign an Organization permission to a user via the DB."""
+    ct = ContentType.objects.get_for_model(Organization)
+    perm = Permission.objects.get(codename=codename, content_type=ct)
+    user.user_permissions.add(perm)
+    return type(user).objects.get(pk=user.pk)
 
 
 @pytest.mark.django_db()
@@ -34,6 +41,12 @@ class TestDetail(ViewTestMixin):
 
     view = views.Detail
     url = "/organizations/{slug}/"
+
+    @pytest.fixture(autouse=True)
+    def _setup_plan(self):
+        Plan.objects.get_or_create(
+            slug="organization", defaults={"name": "Organization"}
+        )
 
     def test_get_anonymous(self, rf, organization_factory, user_factory):
         user = user_factory()
@@ -88,11 +101,12 @@ class TestDetail(ViewTestMixin):
         # Verify pending_requests is a queryset with the correct count
         assert response.context_data["pending_requests"].count() == 3
 
-    def test_get_staff_can_see_invite_count(
+    def test_get_staff_with_perm_can_see_invite_count(
         self, rf, organization_factory, user_factory, invitation_factory
     ):
-        """Test that staff members can see pending_requests even if not admin/member"""
+        """Test that staff with can_manage_members perm see pending_requests"""
         staff_user = user_factory(is_staff=True)
+        staff_user = _assign_org_perm(staff_user, "can_manage_members")
         organization = organization_factory()  # Staff not a member
         # Create some pending join requests
         invitation_factory.create_batch(2, organization=organization, request=True)
@@ -100,9 +114,20 @@ class TestDetail(ViewTestMixin):
         assert response.status_code == 200
         assert not response.context_data["is_admin"]
         assert not response.context_data["is_member"]
-        # Staff should still see pending_requests
+        # Staff with perm should see pending_requests
         assert "pending_requests" in response.context_data
         assert response.context_data["pending_requests"].count() == 2
+
+    def test_get_staff_without_perm_lacks_invite_count(
+        self, rf, organization_factory, user_factory, invitation_factory
+    ):
+        """Staff without can_manage_members don't see pending_requests"""
+        staff_user = user_factory(is_staff=True)
+        organization = organization_factory()
+        invitation_factory.create_batch(2, organization=organization, request=True)
+        response = self.call_view(rf, staff_user, slug=organization.slug)
+        assert response.status_code == 200
+        assert "pending_requests" not in response.context_data
 
     def test_member_counts_in_context(self, rf, organization_factory, user_factory):
         """Test that member_count and admin_count are in context"""
@@ -195,16 +220,27 @@ class TestDetail(ViewTestMixin):
         assert response.status_code == 200
         assert "security_settings" not in response.context_data
 
-    def test_security_settings_context_for_staff(
+    def test_security_settings_context_for_staff_with_perm(
         self, rf, organization_factory, user_factory
     ):
-        """Test that staff see security settings even if not member"""
+        """Test that staff with change_organization perm see security settings"""
         staff_user = user_factory(is_staff=True)
+        staff_user = _assign_org_perm(staff_user, "change_organization")
         organization = organization_factory(allow_auto_join=False)
         response = self.call_view(rf, staff_user, slug=organization.slug)
         assert response.status_code == 200
         assert "security_settings" in response.context_data
         assert response.context_data["security_settings"]["allow_auto_join"] is False
+
+    def test_security_settings_context_for_staff_without_perm(
+        self, rf, organization_factory, user_factory
+    ):
+        """Staff without change_organization don't see security settings"""
+        staff_user = user_factory(is_staff=True)
+        organization = organization_factory(allow_auto_join=False)
+        response = self.call_view(rf, staff_user, slug=organization.slug)
+        assert response.status_code == 200
+        assert "security_settings" not in response.context_data
 
     def test_get_individual(self, rf, individual_organization_factory):
         """Individual organizations should not have a detail page"""
@@ -297,8 +333,9 @@ class TestDetail(ViewTestMixin):
         assert not organization.has_member(leaver)
 
     def test_post_staff_remove_user(self, rf, organization_factory, user_factory):
-        """Staff member should be able to remove a user from an organization"""
+        """Staff with can_manage_members should be able to remove a user"""
         staff_member = user_factory(is_staff=True)
+        staff_member = _assign_org_perm(staff_member, "can_manage_members")
         target_user = user_factory()
         organization = organization_factory(users=[target_user])
 
@@ -325,8 +362,9 @@ class TestDetail(ViewTestMixin):
         assert action.public is False
 
     def test_post_staff_remove_admin(self, rf, organization_factory, user_factory):
-        """Staff member should be able to remove an admin from an organization"""
+        """Staff with can_manage_members should be able to remove an admin"""
         staff_member = user_factory(is_staff=True)
+        staff_member = _assign_org_perm(staff_member, "can_manage_members")
         target_admin = user_factory()
         organization = organization_factory(admins=[target_admin])
 
@@ -354,8 +392,9 @@ class TestDetail(ViewTestMixin):
     def test_post_staff_remove_other_staff(
         self, rf, organization_factory, user_factory
     ):
-        """Staff member should be able to remove another staff member from an org"""
+        """Staff with can_manage_members should be able to remove another staff"""
         staff_member1 = user_factory(is_staff=True)
+        staff_member1 = _assign_org_perm(staff_member1, "can_manage_members")
         staff_member2 = user_factory(is_staff=True)
         organization = organization_factory(users=[staff_member2])
 
@@ -400,7 +439,7 @@ class TestDetail(ViewTestMixin):
     def test_post_staff_remove_themselves_with_userid(
         self, rf, organization_factory, user_factory
     ):
-        """Staff member should be able to remove themselves using userid parameter"""
+        """Staff member can remove themselves using userid parameter"""
         staff_member = user_factory(is_staff=True)
         organization = organization_factory(users=[staff_member])
 
@@ -416,8 +455,9 @@ class TestDetail(ViewTestMixin):
     def test_post_staff_remove_nonexistent_user(
         self, rf, organization_factory, user_factory
     ):
-        """Staff trying to remove a non-existent user should handle gracefully"""
+        """Staff with perm trying to remove non-existent user gracefully"""
         staff_member = user_factory(is_staff=True)
+        staff_member = _assign_org_perm(staff_member, "can_manage_members")
         organization = organization_factory()
 
         # Try to remove a user with an ID that doesn't exist
@@ -437,6 +477,12 @@ class TestJoinRequestModal(ViewTestMixin):
 
     view = views.Detail
     url = "/organizations/{slug}/"
+
+    @pytest.fixture(autouse=True)
+    def _setup_plan(self):
+        Plan.objects.get_or_create(
+            slug="organization", defaults={"name": "Organization"}
+        )
 
     def test_join_button_shown_for_non_member(
         self, rf, organization_factory, user_factory
@@ -553,6 +599,7 @@ class TestUpdate(ViewTestMixin):
     ):
         """Staff updating organization profile should create activity stream action"""
         staff_member = user_factory(is_staff=True)
+        staff_member = _assign_org_perm(staff_member, "change_organization")
         organization = organization_factory()
 
         response = self.call_view(
@@ -614,6 +661,7 @@ class TestRequestProfileChange(ViewTestMixin):
     ):
         """Staff submitting profile change should create activity stream action"""
         staff_member = user_factory(is_staff=True)
+        staff_member = _assign_org_perm(staff_member, "change_organization")
         organization = organization_factory()
 
         response = self.call_view(
@@ -669,6 +717,7 @@ class TestReviewProfileChange(ViewTestMixin):
     ):
         """Staff accepting profile change should create activity stream action"""
         staff_member = user_factory(is_staff=True)
+        staff_member = _assign_org_perm(staff_member, "can_review_profile_changes")
         organization = organization_factory()
         profile_change = profile_change_request_factory(
             organization=organization,
@@ -701,6 +750,7 @@ class TestReviewProfileChange(ViewTestMixin):
     ):
         """Staff rejecting profile change should create activity stream action"""
         staff_member = user_factory(is_staff=True)
+        staff_member = _assign_org_perm(staff_member, "can_review_profile_changes")
         organization = organization_factory()
         profile_change = profile_change_request_factory(
             organization=organization,

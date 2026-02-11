@@ -8,11 +8,12 @@ from django.views.generic import CreateView, UpdateView
 # Squarelet
 from squarelet.core.utils import new_action
 from squarelet.organizations.forms import ProfileChangeRequestForm, UpdateForm
-from squarelet.organizations.mixins import OrganizationAdminMixin
+from squarelet.organizations.mixins import OrganizationPermissionMixin
 from squarelet.organizations.models import Organization, ProfileChangeRequest
 
 
-class Update(OrganizationAdminMixin, UpdateView):
+class Update(OrganizationPermissionMixin, UpdateView):
+    permission_required = "organizations.change_organization"
     "Update organization metadata, with some fields requiring staff approval first"
 
     queryset = Organization.objects.filter(individual=False)
@@ -35,6 +36,11 @@ class Update(OrganizationAdminMixin, UpdateView):
         context["pending_change_requests"] = self.object.profile_change_requests.filter(
             status="pending"
         )
+        # Pass permission for reviewing profile changes
+        user = self.request.user
+        context["can_review_profile_changes"] = user.has_perm(
+            "organizations.can_review_profile_changes", self.object
+        ) or user.has_perm("organizations.can_review_profile_changes")
         return context
 
     def form_valid(self, form):
@@ -54,17 +60,22 @@ class Update(OrganizationAdminMixin, UpdateView):
         return response
 
 
-class RequestProfileChange(OrganizationAdminMixin, CreateView):
+class RequestProfileChange(OrganizationPermissionMixin, CreateView):
     """Handle profile change requests for organization fields requiring staff
     approval"""
 
+    permission_required = "organizations.change_organization"
     model = ProfileChangeRequest
     form_class = ProfileChangeRequestForm
     queryset = Organization.objects.filter(individual=False)
 
+    def get_object(self, queryset=None):
+        """Get the organization from the URL (used by OrganizationPermissionMixin)"""
+        return self.queryset.get(slug=self.kwargs["slug"])
+
     def get_organization(self):
         """Get the organization from the URL"""
-        return self.queryset.get(slug=self.kwargs["slug"])
+        return self.get_object()
 
     def get(self, request, *args, **kwargs):
         """Redirect GET requests back to the organization profile page"""
@@ -138,8 +149,11 @@ class ReviewProfileChange(View):
 
     def post(self, request, slug, pk):
         """Accept or reject a profile change request"""
-        # Verify user is staff
-        if not request.user.is_staff:
+        # Verify user has permission to review profile changes
+        has_review_perm = request.user.has_perm(
+            "organizations.can_review_profile_changes"
+        )
+        if not has_review_perm:
             messages.error(
                 request,
                 _("You do not have permission to review profile change requests."),

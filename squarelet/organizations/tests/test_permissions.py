@@ -181,3 +181,126 @@ class TestDetailPermissionContext(ViewTestMixin):
         user = type(user).objects.get(pk=user.pk)
         # DB-assigned perm works without object (global)
         assert user.has_perm("organizations.can_manage_members")
+
+
+@pytest.mark.django_db()
+class TestCanViewMembersRule:
+    """Test the organizations.can_view_members rule-based permission"""
+
+    def test_member_has_can_view_members(self, organization_factory, user_factory):
+        """Org members get can_view_members dynamically via django-rules"""
+        member = user_factory()
+        org = organization_factory(users=[member])
+        assert member.has_perm("organizations.can_view_members", org)
+
+    def test_admin_has_can_view_members(self, organization_factory, user_factory):
+        """Org admins also get can_view_members (admins are members)"""
+        admin = user_factory()
+        org = organization_factory(admins=[admin])
+        assert admin.has_perm("organizations.can_view_members", org)
+
+    def test_non_member_lacks_can_view_members(
+        self, organization_factory, user_factory
+    ):
+        """Non-members do not get can_view_members"""
+        user = user_factory()
+        org = organization_factory()
+        assert not user.has_perm("organizations.can_view_members", org)
+
+    def test_anonymous_lacks_can_view_members(self, organization_factory):
+        """Anonymous users do not get can_view_members"""
+        org = organization_factory()
+        anon = AnonymousUser()
+        assert not anon.has_perm("organizations.can_view_members", org)
+
+    def test_staff_without_perm_lacks_can_view_members(
+        self, organization_factory, user_factory
+    ):
+        """Staff status alone does NOT grant can_view_members"""
+        staff = user_factory(is_staff=True)
+        org = organization_factory()
+        assert not staff.has_perm("organizations.can_view_members", org)
+
+    def test_staff_with_db_perm_has_can_view_members(self, user_factory):
+        """A user with the DB-assigned permission gets it (via ModelBackend)"""
+        user = user_factory()
+        ct = ContentType.objects.get_for_model(Organization)
+        perm = Permission.objects.get(codename="can_view_members", content_type=ct)
+        user.user_permissions.add(perm)
+        user = type(user).objects.get(pk=user.pk)
+        assert user.has_perm("organizations.can_view_members")
+
+
+@pytest.mark.django_db()
+class TestChangeOrganizationRule:
+    """Test the organizations.change_organization rule-based permission"""
+
+    def test_admin_has_change_organization(self, organization_factory, user_factory):
+        """Org admins get change_organization dynamically via django-rules"""
+        admin = user_factory()
+        org = organization_factory(admins=[admin])
+        assert admin.has_perm("organizations.change_organization", org)
+
+    def test_member_lacks_change_organization(self, organization_factory, user_factory):
+        """Regular members do not get change_organization"""
+        member = user_factory()
+        org = organization_factory(users=[member])
+        assert not member.has_perm("organizations.change_organization", org)
+
+    def test_anonymous_lacks_change_organization(self, organization_factory):
+        """Anonymous users do not get change_organization"""
+        org = organization_factory()
+        anon = AnonymousUser()
+        assert not anon.has_perm("organizations.change_organization", org)
+
+    def test_staff_without_perm_lacks_change_organization(
+        self, organization_factory, user_factory
+    ):
+        """Staff status alone does NOT grant change_organization on an object"""
+        staff = user_factory(is_staff=True)
+        org = organization_factory()
+        assert not staff.has_perm("organizations.change_organization", org)
+
+    def test_staff_with_db_perm_has_change_organization(self, user_factory):
+        """A user with the DB-assigned permission gets it (via ModelBackend)"""
+        user = user_factory()
+        ct = ContentType.objects.get_for_model(Organization)
+        perm = Permission.objects.get(codename="change_organization", content_type=ct)
+        user.user_permissions.add(perm)
+        user = type(user).objects.get(pk=user.pk)
+        assert user.has_perm("organizations.change_organization")
+
+
+@pytest.mark.django_db()
+class TestCanReviewProfileChangesRule:
+    """Test the organizations.can_review_profile_changes permission.
+
+    This permission has no django-rules registration — it only works via
+    DB assignment (user_permissions/groups).
+    """
+
+    def test_no_rule_registered(self, organization_factory, user_factory):
+        """Without a rule, object-level check returns False for everyone"""
+        admin = user_factory()
+        org = organization_factory(admins=[admin])
+        assert not admin.has_perm("organizations.can_review_profile_changes", org)
+
+    def test_staff_without_db_perm_lacks_review(
+        self, organization_factory, user_factory
+    ):
+        """Staff status alone does NOT grant can_review_profile_changes"""
+        staff = user_factory(is_staff=True)
+        org = organization_factory()
+        assert not staff.has_perm("organizations.can_review_profile_changes", org)
+        assert not staff.has_perm("organizations.can_review_profile_changes")
+
+    def test_user_with_db_perm_has_review(self, user_factory):
+        """A user with the DB-assigned permission gets it"""
+        user = user_factory()
+        ct = ContentType.objects.get_for_model(Organization)
+        perm = Permission.objects.get(
+            codename="can_review_profile_changes", content_type=ct
+        )
+        user.user_permissions.add(perm)
+        user = type(user).objects.get(pk=user.pk)
+        assert user.has_perm("organizations.can_review_profile_changes")
