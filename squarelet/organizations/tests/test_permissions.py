@@ -304,3 +304,189 @@ class TestCanReviewProfileChangesRule:
         user.user_permissions.add(perm)
         user = type(user).objects.get(pk=user.pk)
         assert user.has_perm("organizations.can_review_profile_changes")
+
+
+@pytest.mark.django_db()
+class TestCanViewSubscriptionRule:
+    """Test the organizations.can_view_subscription rule-based permission"""
+
+    def test_member_has_can_view_subscription(self, organization_factory, user_factory):
+        """Org members get can_view_subscription dynamically via django-rules"""
+        member = user_factory()
+        org = organization_factory(users=[member])
+        assert member.has_perm("organizations.can_view_subscription", org)
+
+    def test_admin_has_can_view_subscription(self, organization_factory, user_factory):
+        """Org admins also get can_view_subscription (admins are members)"""
+        admin = user_factory()
+        org = organization_factory(admins=[admin])
+        assert admin.has_perm("organizations.can_view_subscription", org)
+
+    def test_non_member_lacks_can_view_subscription(
+        self, organization_factory, user_factory
+    ):
+        """Non-members do not get can_view_subscription"""
+        user = user_factory()
+        org = organization_factory()
+        assert not user.has_perm("organizations.can_view_subscription", org)
+
+    def test_anonymous_lacks_can_view_subscription(self, organization_factory):
+        """Anonymous users do not get can_view_subscription"""
+        org = organization_factory()
+        anon = AnonymousUser()
+        assert not anon.has_perm("organizations.can_view_subscription", org)
+
+    def test_staff_without_perm_lacks_can_view_subscription(
+        self, organization_factory, user_factory
+    ):
+        """Staff status alone does NOT grant can_view_subscription"""
+        staff = user_factory(is_staff=True)
+        org = organization_factory()
+        assert not staff.has_perm("organizations.can_view_subscription", org)
+
+    def test_staff_with_db_perm_has_can_view_subscription(self, user_factory):
+        """A user with the DB-assigned permission gets it (via ModelBackend)"""
+        user = user_factory()
+        ct = ContentType.objects.get_for_model(Organization)
+        perm = Permission.objects.get(codename="can_view_subscription", content_type=ct)
+        user.user_permissions.add(perm)
+        user = type(user).objects.get(pk=user.pk)
+        assert user.has_perm("organizations.can_view_subscription")
+
+
+@pytest.mark.django_db()
+class TestCanEditSubscriptionRule:
+    """Test the organizations.can_edit_subscription rule-based permission"""
+
+    def test_admin_has_can_edit_subscription(self, organization_factory, user_factory):
+        """Org admins get can_edit_subscription dynamically via django-rules"""
+        admin = user_factory()
+        org = organization_factory(admins=[admin])
+        assert admin.has_perm("organizations.can_edit_subscription", org)
+
+    def test_member_lacks_can_edit_subscription(
+        self, organization_factory, user_factory
+    ):
+        """Regular members do not get can_edit_subscription"""
+        member = user_factory()
+        org = organization_factory(users=[member])
+        assert not member.has_perm("organizations.can_edit_subscription", org)
+
+    def test_anonymous_lacks_can_edit_subscription(self, organization_factory):
+        """Anonymous users do not get can_edit_subscription"""
+        org = organization_factory()
+        anon = AnonymousUser()
+        assert not anon.has_perm("organizations.can_edit_subscription", org)
+
+    def test_staff_without_perm_lacks_can_edit_subscription(
+        self, organization_factory, user_factory
+    ):
+        """Staff status alone does NOT grant can_edit_subscription"""
+        staff = user_factory(is_staff=True)
+        org = organization_factory()
+        assert not staff.has_perm("organizations.can_edit_subscription", org)
+
+    def test_staff_with_db_perm_has_can_edit_subscription(self, user_factory):
+        """A user with the DB-assigned permission gets it (via ModelBackend)"""
+        user = user_factory()
+        ct = ContentType.objects.get_for_model(Organization)
+        perm = Permission.objects.get(codename="can_edit_subscription", content_type=ct)
+        user.user_permissions.add(perm)
+        user = type(user).objects.get(pk=user.pk)
+        assert user.has_perm("organizations.can_edit_subscription")
+
+
+@pytest.mark.django_db()
+class TestCanViewChargeDetailRule:
+    """Test the organizations.can_view_charge rule-based permission"""
+
+    def test_admin_has_can_view_charge(self, organization_factory, user_factory):
+        """Org admins get can_view_charge dynamically via django-rules"""
+        admin = user_factory()
+        org = organization_factory(admins=[admin])
+        assert admin.has_perm("organizations.can_view_charge", org)
+
+    def test_member_lacks_can_view_charge(
+        self, organization_factory, user_factory
+    ):
+        """Regular members do not get can_view_charge"""
+        member = user_factory()
+        org = organization_factory(users=[member])
+        assert not member.has_perm("organizations.can_view_charge", org)
+
+    def test_anonymous_lacks_can_view_charge(self, organization_factory):
+        """Anonymous users do not get can_view_charge"""
+        org = organization_factory()
+        anon = AnonymousUser()
+        assert not anon.has_perm("organizations.can_view_charge", org)
+
+    def test_staff_without_perm_lacks_can_view_charge(
+        self, organization_factory, user_factory
+    ):
+        """Staff status alone does NOT grant can_view_charge"""
+        staff = user_factory(is_staff=True)
+        org = organization_factory()
+        assert not staff.has_perm("organizations.can_view_charge", org)
+
+    def test_staff_with_db_perm_has_can_view_charge(self, user_factory):
+        """A user with the DB-assigned permission gets it (via ModelBackend)"""
+        user = user_factory()
+        ct = ContentType.objects.get_for_model(Organization)
+        perm = Permission.objects.get(
+            codename="can_view_charge", content_type=ct
+        )
+        user.user_permissions.add(perm)
+        user = type(user).objects.get(pk=user.pk)
+        assert user.has_perm("organizations.can_view_charge")
+
+
+@pytest.mark.django_db()
+class TestUpdateSubscriptionViewPermission(ViewTestMixin):
+    """Test that UpdateSubscription view uses OrganizationPermissionMixin"""
+
+    view = views.UpdateSubscription
+    url = "/organizations/{slug}/payment/"
+
+    def test_accessible_by_admin(self, rf, organization_factory, user_factory, mocker):
+        """Admin can access UpdateSubscription"""
+        mocker.patch("squarelet.organizations.models.Customer.card", None)
+        admin = user_factory()
+        org = organization_factory(admins=[admin])
+        response = self.call_view(rf, admin, slug=org.slug)
+        assert response.status_code == 200
+
+    def test_denied_for_member(self, rf, organization_factory, user_factory):
+        """Regular member gets PermissionDenied"""
+        member = user_factory()
+        org = organization_factory(users=[member])
+        with pytest.raises(PermissionDenied):
+            self.call_view(rf, member, slug=org.slug)
+
+    def test_denied_for_staff_without_perm(
+        self, rf, organization_factory, user_factory
+    ):
+        """Staff without the permission gets PermissionDenied"""
+        staff = user_factory(is_staff=True)
+        org = organization_factory()
+        with pytest.raises(PermissionDenied):
+            self.call_view(rf, staff, slug=org.slug)
+
+    def test_accessible_by_staff_with_db_perm(
+        self, rf, organization_factory, user_factory, mocker
+    ):
+        """Staff with DB-assigned permission can access UpdateSubscription"""
+        mocker.patch("squarelet.organizations.models.Customer.card", None)
+        staff = user_factory(is_staff=True)
+        org = organization_factory()
+        ct = ContentType.objects.get_for_model(Organization)
+        perm = Permission.objects.get(codename="can_edit_subscription", content_type=ct)
+        staff.user_permissions.add(perm)
+        staff = type(staff).objects.get(pk=staff.pk)
+        response = self.call_view(rf, staff, slug=org.slug)
+        assert response.status_code == 200
+
+    def test_denied_for_anonymous(self, rf, organization_factory):
+        """Anonymous user gets redirected (302) to login"""
+        org = organization_factory()
+        response = self.call_view(rf, slug=org.slug)
+        assert response.status_code == 302
