@@ -44,6 +44,10 @@ jobs:
         run: |
           mkdir -p config/certs
           openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+            -keyout config/certs/rootCA-key.pem \
+            -out config/certs/rootCA.pem \
+            -subj "/CN=Test Root CA"
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
             -keyout config/certs/dev.squarelet.com-key.pem \
             -out config/certs/dev.squarelet.com.pem \
             -subj "/CN=dev.squarelet.com" \
