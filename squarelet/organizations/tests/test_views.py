@@ -1,7 +1,8 @@
 # TODO: Refactor tests for each view file
 # Django
 from django.contrib import messages
-from django.contrib.auth.models import AnonymousUser
+from django.contrib.auth.models import AnonymousUser, Permission
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
 from django.http.response import Http404
 from django.test.utils import override_settings
@@ -21,7 +22,7 @@ from squarelet.core.tests.mixins import ViewTestMixin
 
 # Local
 from .. import views
-from ..models import OrganizationEmailDomain, ReceiptEmail
+from ..models import Organization, OrganizationEmailDomain, ReceiptEmail
 
 # pylint: disable=invalid-name,too-many-public-methods,too-many-lines
 
@@ -950,12 +951,46 @@ class TestManageMembers(ViewTestMixin):  # pylint: disable=too-many-public-metho
     view = views.ManageMembers
     url = "/organizations/{slug}/manage-members/"
 
+    def _assign_perm(self, user):
+        """Assign the can_manage_members permission to a user via the DB."""
+        ct = ContentType.objects.get_for_model(Organization)
+        perm = Permission.objects.get(codename="can_manage_members", content_type=ct)
+        user.user_permissions.add(perm)
+        # Refresh to clear cached permissions
+        return type(user).objects.get(pk=user.pk)
+
     def test_get(self, rf, organization_factory, user_factory):
         user = user_factory()
         organization = organization_factory(admins=[user])
         response = self.call_view(rf, user, slug=organization.slug)
         assert response.status_code == 200
         assert response.context_data["admin"] == user
+
+    def test_get_denied_for_member(self, rf, organization_factory, user_factory):
+        """Regular members cannot access the manage members page"""
+        member = user_factory()
+        organization = organization_factory(users=[member])
+        with pytest.raises(PermissionDenied):
+            self.call_view(rf, member, slug=organization.slug)
+
+    def test_get_denied_for_staff_without_perm(
+        self, rf, organization_factory, user_factory
+    ):
+        """Staff without the assigned permission cannot access manage members"""
+        staff = user_factory(is_staff=True)
+        organization = organization_factory()
+        with pytest.raises(PermissionDenied):
+            self.call_view(rf, staff, slug=organization.slug)
+
+    def test_get_allowed_for_staff_with_perm(
+        self, rf, organization_factory, user_factory
+    ):
+        """Staff with the DB-assigned permission can access manage members"""
+        staff = user_factory(is_staff=True)
+        organization = organization_factory()
+        staff = self._assign_perm(staff)
+        response = self.call_view(rf, staff, slug=organization.slug)
+        assert response.status_code == 200
 
     def test_add_member_good(self, rf, mailoutbox, organization_factory, user_factory):
         user = user_factory()
@@ -1107,6 +1142,7 @@ class TestManageMembers(ViewTestMixin):  # pylint: disable=too-many-public-metho
     ):
         """Staff promoting user to admin should create activity stream action"""
         staff_member = user_factory(is_staff=True)
+        staff_member = self._assign_perm(staff_member)
         member = user_factory()
         organization = organization_factory(users=[member])
         data = {"action": "makeadmin", "userid": member.pk, "admin": "true"}
@@ -1128,6 +1164,7 @@ class TestManageMembers(ViewTestMixin):  # pylint: disable=too-many-public-metho
     ):
         """Staff demoting admin to member should create activity stream action"""
         staff_member = user_factory(is_staff=True)
+        staff_member = self._assign_perm(staff_member)
         admin_user = user_factory()
         organization = organization_factory(admins=[admin_user])
         data = {"action": "makeadmin", "userid": admin_user.pk, "admin": "false"}
@@ -1166,6 +1203,7 @@ class TestManageMembers(ViewTestMixin):  # pylint: disable=too-many-public-metho
     ):
         """Staff removing user should create activity stream action"""
         staff_member = user_factory(is_staff=True)
+        staff_member = self._assign_perm(staff_member)
         member = user_factory()
         organization = organization_factory(users=[member])
         data = {"action": "removeuser", "userid": member.pk}
@@ -1187,6 +1225,7 @@ class TestManageMembers(ViewTestMixin):  # pylint: disable=too-many-public-metho
     ):
         """Staff sending invitation should create activity stream action"""
         staff_member = user_factory(is_staff=True)
+        staff_member = self._assign_perm(staff_member)
         organization = organization_factory()
         email = "invite@example.com"
         data = {"action": "addmember", "emails": email}
@@ -1207,6 +1246,7 @@ class TestManageMembers(ViewTestMixin):  # pylint: disable=too-many-public-metho
     ):
         """Staff revoking invitation should create activity stream action"""
         staff_member = user_factory(is_staff=True)
+        staff_member = self._assign_perm(staff_member)
         organization = organization_factory()
         invitation = invitation_factory(organization=organization)
         data = {"action": "revokeinvite", "inviteid": invitation.pk}
