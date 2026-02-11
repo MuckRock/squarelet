@@ -271,9 +271,10 @@ class InvitationAccept(DetailView):
         invitation = self.get_object()
         action = request.POST.get("action")
         if action == "accept":
+            org = invitation.organization
             invitation.accept(request.user)
             messages.success(request, "Invitation accepted")
-            return get_redirect_url(request, redirect(invitation.organization))
+            return redirect("organizations:detail", slug=org.slug)
         elif action == "reject":
             # Associate the user with the invitation for auditing purposes
             if invitation.user is None:
