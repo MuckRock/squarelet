@@ -313,6 +313,8 @@ class Organization(AvatarMixin, models.Model):
         permissions = (
             ("merge_organization", "Can merge organizations"),
             ("can_manage_members", "Can manage organization members"),
+            ("can_view_members", "Can view organization members"),
+            ("can_review_profile_changes", "Can review profile change requests"),
         )
 
     def __str__(self):
