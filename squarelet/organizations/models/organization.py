@@ -310,7 +310,10 @@ class Organization(AvatarMixin, models.Model):
 
     class Meta:
         ordering = ("slug",)
-        permissions = (("merge_organization", "Can merge organizations"),)
+        permissions = (
+            ("merge_organization", "Can merge organizations"),
+            ("can_manage_members", "Can manage organization members"),
+        )
 
     def __str__(self):
         if self.individual:

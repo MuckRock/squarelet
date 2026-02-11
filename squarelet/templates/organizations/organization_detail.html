@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load django_vite static thumbnail avatar i18n airtable %}
+{% load django_vite static thumbnail avatar i18n airtable rules %}
 
 {% block title %}{% trans 'Organization' %}: {{ organization.name }}{% endblock %}
 
@@ -227,6 +227,7 @@
     {% endif %}
 
     <section id="members">
+      {% has_perm "organizations.can_manage_members" user organization as can_manage_members %}
       <header>
         <h2>
           {% if is_member %}
@@ -244,7 +245,7 @@
           {% endif %}
         </h2>
         <div class="header-actions">
-          {% if is_admin or user.is_staff %}
+          {% if can_manage_members %}
             <a href="{% url 'organizations:manage-members' organization.slug %}#invite" class="btn ghost primary">
               {% include "core/icons/plus-circle.svg" %}
               {% trans "Invite members" %}
