@@ -16,10 +16,8 @@ export async function login(page: Page, username: string) {
   await page.waitForURL((url) => !url.pathname.includes("/accounts/login/"));
 }
 
-export async function expectFlashMessage(page: Page, text: string) {
-  const alert = page.locator("._cls-alerts ._cls-middleAlign", {
-    hasText: text,
-  });
+export async function expectFlashMessage(page: Page, level: string) {
+  const alert = page.locator(`._cls-alerts .alert-${level}`);
   await expect(alert).toBeVisible({ timeout: 10_000 });
 }
 
