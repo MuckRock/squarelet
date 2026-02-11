@@ -51,14 +51,24 @@ class Detail(AdminLinkMixin, DetailView):
             context["is_member"] = org.has_member(self.request.user)
 
             # Compute permission context variables
-            context["can_manage_members"] = self._has_perm(
-                "organizations.can_manage_members"
-            )
-            context["can_view_members"] = self._has_perm(
-                "organizations.can_view_members"
-            )
-            context["can_change_organization"] = self._has_perm(
-                "organizations.change_organization"
+            context.update(
+                {
+                    "can_manage_members": self._has_perm(
+                        "organizations.can_manage_members"
+                    ),
+                    "can_view_members": self._has_perm(
+                        "organizations.can_view_members"
+                    ),
+                    "can_change_organization": self._has_perm(
+                        "organizations.change_organization"
+                    ),
+                    "can_view_subscription": self._has_perm(
+                        "organizations.can_view_subscription"
+                    ),
+                    "can_edit_subscription": self._has_perm(
+                        "organizations.can_edit_subscription"
+                    ),
+                }
             )
 
             if context["can_manage_members"]:

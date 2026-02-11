@@ -22,6 +22,18 @@ class Migration(migrations.Migration):
                         "can_review_profile_changes",
                         "Can review profile change requests",
                     ),
+                    (
+                        "can_view_subscription",
+                        "Can view organization subscription",
+                    ),
+                    (
+                        "can_edit_subscription",
+                        "Can edit organization subscription",
+                    ),
+                    (
+                        "can_view_charge",
+                        "Can view charge receipts",
+                    ),
                 ),
             },
         ),

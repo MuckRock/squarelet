@@ -16,6 +16,32 @@ This means a single permission can be granted in two ways:
 - **Implicitly** by a rules predicate (e.g. "org admins always have this").
 - **Explicitly** by assigning the permission to a User or Group in the database.
 
+## Why permission checks require two calls
+
+Django's `ModelBackend` has a limitation: when you pass an object to `has_perm()`, it **ignores DB-assigned permissions entirely**. This means a single `has_perm()` call can never check both backends:
+
+| Call | `ObjectPermissionBackend` (django-rules) | `ModelBackend` (DB-assigned) |
+|---|---|---|
+| `user.has_perm(perm, obj)` | Evaluates the predicate with the object | **Skipped** — returns `False` without checking the DB |
+| `user.has_perm(perm)` | Evaluates the predicate *without* an object | Checks `user_permissions` and `Group` assignments |
+
+Because of this, any code that needs to respect **both** backends must make two separate calls:
+
+```python
+user.has_perm(perm, obj) or user.has_perm(perm)
+```
+
+The first call lets django-rules evaluate the predicate against the object (e.g. "is this user an admin of *this* org?"). The second call lets `ModelBackend` check whether the user was explicitly granted the permission in the database (e.g. via `user.user_permissions.add(...)` or a `Group`).
+
+This pattern is safe only because our rules predicates use `@deny_if_not_obj` (see [Predicate decorators](#predicate-decorators-deny_if_not_obj-vs-skip_if_not_obj) below), which makes the rules backend return `False` — not `None` — when no object is provided. Without that decorator, the no-object call could produce false positives.
+
+You'll see this pattern in two places:
+
+- **`OrganizationPermissionMixin`** (`squarelet/organizations/mixins.py`) — for gating entire views.
+- **`Detail._has_perm()`** (`squarelet/organizations/views/detail.py`) — for computing per-permission context variables within a single view.
+
+There is an open issue to resolve this through a custom ModelBackend subclass:  [#586](https://github.com/MuckRock/squarelet/issues/586).
+
 ## How to add a new permission
 
 The steps below use `can_manage_members` as a concrete example.
