@@ -24,21 +24,27 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 class OrganizationQuerySet(models.QuerySet):
     def get_viewable(self, user):
         if user.is_staff:
-            # staff can always view all organizations
             return self
-        elif user.is_authenticated:
-            # other users may not see private organizations unless they are a member
-            # and they can only see public organizations that are visible
-            # (verified or have charges or paid invoices)
-            return self.filter(
+
+        qs = self
+        if user.is_authenticated:
+            # Start with the normal viewable filter
+            viewable_filter = (
                 Q(private=False, verified_journalist=True)
                 | Q(private=False, charges__isnull=False)
                 | Q(private=False, invoices__status="paid")
                 | Q(users=user)
-            ).distinct()
+            )
+
+            # Include auto-join orgs (pre-approved) in the same filter
+            if hasattr(user, "can_auto_join"):
+                auto_join_pks = [org.pk for org in qs if user.can_auto_join(org)]
+                if auto_join_pks:
+                    viewable_filter |= Q(pk__in=auto_join_pks)
+
+            return qs.filter(viewable_filter).distinct()
         else:
-            # anonymous users may only see public organizations that are visible
-            return self.filter(
+            return qs.filter(
                 Q(private=False, verified_journalist=True)
                 | Q(private=False, charges__isnull=False)
                 | Q(private=False, invoices__status="paid")
