@@ -24,27 +24,7 @@ class OrganizationPermissionMixin(PermissionRequiredMixin):
         user = self.request.user
         obj = self.get_object()
         perms = self.get_permission_required()
-        return all(self._check_perm(user, perm, obj) for perm in perms)
-
-    def _check_perm(self, user, perm, obj):
-        """Check object-level permission (django-rules) first, then DB-assigned."""
-        if user.has_perm(perm, obj):
-            return True
-        # Fall back to checking if the perm is directly assigned in the DB.
-        # We can't use has_perm() without obj because the rules backend
-        # skips predicates when obj is None, which can produce false positives.
-        if not user.is_authenticated:
-            return False
-        app_label, codename = perm.split(".")
-        return (
-            user.user_permissions.filter(
-                content_type__app_label=app_label, codename=codename
-            ).exists()
-            or user.groups.filter(
-                permissions__content_type__app_label=app_label,
-                permissions__codename=codename,
-            ).exists()
-        )
+        return all(user.has_perm(perm, obj) or user.has_perm(perm) for perm in perms)
 
     def handle_no_permission(self):
         if self.request.user.is_authenticated:
