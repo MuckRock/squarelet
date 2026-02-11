@@ -10,11 +10,12 @@ from django.views.generic import DetailView
 # Squarelet
 from squarelet.core.utils import get_redirect_url, new_action, pluralize
 from squarelet.organizations.forms import AddMemberForm
-from squarelet.organizations.mixins import OrganizationAdminMixin
+from squarelet.organizations.mixins import OrganizationPermissionMixin
 from squarelet.organizations.models import Invitation, Membership, Organization
 
 
-class ManageMembers(OrganizationAdminMixin, DetailView):
+class ManageMembers(OrganizationPermissionMixin, DetailView):
+    permission_required = "organizations.can_manage_members"
     queryset = Organization.objects.filter(individual=False)
     template_name = "organizations/organization_managemembers.html"
 

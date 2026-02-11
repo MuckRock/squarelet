@@ -31,3 +31,4 @@ add_perm("organizations.view_organization", is_public | (is_authenticated & is_m
 add_perm("organizations.add_organization", is_authenticated)
 add_perm("organizations.change_organization", is_authenticated & is_admin)
 add_perm("organizations.delete_organization", always_deny)
+add_perm("organizations.can_manage_members", is_authenticated & is_admin)
