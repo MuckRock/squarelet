@@ -139,26 +139,24 @@ def test_get_potential_organizations_with_multiple_emails(user_factory):
     user.emailaddress_set.create(email="user@example.com", verified=True)
     user.emailaddress_set.create(email="user@anotherdomain.com", verified=True)
 
-    # Create organizations using the factory
-    org1 = OrganizationFactory(name="Org 1")
+    org1 = OrganizationFactory(name="Org 1", allow_auto_join=True)
     domain1 = EmailDomainFactory.create(organization=org1, domain="example.com")
-    org1.domains.set([domain1])
 
-    org2 = OrganizationFactory(name="Org 2")
+    org2 = OrganizationFactory(name="Org 2", allow_auto_join=True)
     domain2 = EmailDomainFactory.create(organization=org2, domain="anotherdomain.com")
-    org2.domains.set([domain2])
 
     org3 = OrganizationFactory(name="Org 3")
-    domain3 = EmailDomainFactory.create(
-        organization=org3, domain="nonmatchingdomain.com"
-    )
-    org3.domains.set([domain3])
+    domain3 = EmailDomainFactory.create(organization=org3, domain="nonmatchingdomain.com")
 
+    org4 = OrganizationFactory(name="Org 4")
+    domain4 = EmailDomainFactory.create(organization=org4, domain="example.com")
+    
     # Test that the user can get the correct potential orgs
     potential_orgs = user.get_potential_organizations()
     assert org1 in potential_orgs
     assert org2 in potential_orgs
     assert org3 not in potential_orgs
+    assert org4 not in potential_orgs
 
 
 @pytest.mark.django_db
