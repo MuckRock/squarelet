@@ -24,11 +24,15 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 class OrganizationQuerySet(models.QuerySet):
     def get_viewable(self, user):
         if user.is_staff:
+            # staff can always view all organizations
             return self
 
         qs = self
         if user.is_authenticated:
-            # Start with the normal viewable filter
+            # other users may not see private organizations unless they are a member
+            # or they can auto join that org
+            # and they can only see public organizations that are visible
+            # (verified or have charges or paid invoices)
             viewable_filter = (
                 Q(private=False, verified_journalist=True)
                 | Q(private=False, charges__isnull=False)
