@@ -4,23 +4,23 @@
 from rules import add_perm, always_deny, is_authenticated, predicate
 
 # Squarelet
-from squarelet.core.rules import skip_if_not_obj
+from squarelet.core.rules import deny_if_not_obj
 
 
 @predicate
-@skip_if_not_obj
+@deny_if_not_obj
 def is_private(user, organization):
     return organization.private
 
 
 @predicate
-@skip_if_not_obj
+@deny_if_not_obj
 def is_member(user, organization):
     return organization.has_member(user)
 
 
 @predicate
-@skip_if_not_obj
+@deny_if_not_obj
 def is_admin(user, organization):
     return organization.has_admin(user)
 
