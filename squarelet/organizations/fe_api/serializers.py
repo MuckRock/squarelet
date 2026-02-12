@@ -5,6 +5,8 @@ from django.db.models.expressions import F
 import stripe
 from rest_framework import serializers, status
 from rest_framework.exceptions import APIException
+from sorl.thumbnail import get_thumbnail
+from sorl.thumbnail.helpers import ThumbnailError
 
 # Squarelet
 from squarelet.organizations.models import Invitation, Membership, Organization
@@ -20,6 +22,8 @@ class OrganizationSerializer(serializers.ModelSerializer):
         read_only=True,
     )
     admins = serializers.SerializerMethodField()
+    avatar_small = serializers.SerializerMethodField()
+    avatar_medium = serializers.SerializerMethodField()
 
     class Meta:
         model = Organization
@@ -38,6 +42,8 @@ class OrganizationSerializer(serializers.ModelSerializer):
             "updated_at",
             "payment_failed",
             "avatar_url",
+            "avatar_small",
+            "avatar_medium",
             "merged",
         )
 
@@ -49,6 +55,30 @@ class OrganizationSerializer(serializers.ModelSerializer):
                 m.admin and m.organization_id == obj.pk for m in user.memberships.all()
             )
         ]
+
+    def get_avatar_small(self, obj):
+        """Return a 50x50 thumbnail of the avatar."""
+        if obj.avatar:
+            try:
+                thumbnail = get_thumbnail(
+                    obj.avatar, "50x50", crop="center", quality=85
+                )
+                return thumbnail.url
+            except (ThumbnailError, IOError, OSError):
+                pass
+        return obj.default_avatar
+
+    def get_avatar_medium(self, obj):
+        """Return a 150x150 thumbnail of the avatar."""
+        if obj.avatar:
+            try:
+                thumbnail = get_thumbnail(
+                    obj.avatar, "150x150", crop="center", quality=85
+                )
+                return thumbnail.url
+            except (ThumbnailError, IOError, OSError):
+                pass
+        return obj.default_avatar
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)

@@ -10,6 +10,8 @@ export interface Organization {
   updated_at: string | Date;
   payment_failed: boolean;
   avatar_url: string | URL;
+  avatar_small?: string | URL;
+  avatar_medium?: string | URL;
   merged: Date | null;
   member_count: number;
 }

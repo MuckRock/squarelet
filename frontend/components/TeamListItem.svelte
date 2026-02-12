@@ -11,7 +11,8 @@
   let { organization }: { organization: Organization } = $props();
 
   let count = $derived(organization.member_count);
-  let avatar = $derived(organization.avatar_url);
+  // Use avatar_medium for better performance (150x150 instead of full size)
+  let avatar = $derived(organization.avatar_medium || organization.avatar_url);
 
   // Helper function for pluralization
   function pluralize(

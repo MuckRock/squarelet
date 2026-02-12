@@ -1,4 +1,3 @@
-# pylint: disable=too-many-lines
 # TODO: Refactor tests for each view file
 # Django
 from django.contrib import messages

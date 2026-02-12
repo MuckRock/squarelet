@@ -1,8 +1,14 @@
-{% load i18n %}
+{% load i18n thumbnail %}
 
 <div class="avatar-widget" data-avatar-widget>
   <div class="avatar-preview-wrapper {% if widget.has_file %}has-file{% endif %}">
-    <img src="{{widget.value.url}}" alt="{% trans 'Current avatar' %}" class="avatar-preview" data-avatar-preview>
+    {% if widget.has_file %}
+      {% thumbnail widget.value "80x80" crop="center" as im %}
+        <img src="{{ im.url }}" alt="{% trans 'Current avatar' %}" class="avatar-preview" data-avatar-preview>
+      {% endthumbnail %}
+    {% else %}
+      <img src="" alt="{% trans 'Current avatar' %}" class="avatar-preview" data-avatar-preview>
+    {% endif %}
     <div class="avatar-placeholder" data-avatar-preview>
       {% include "core/icons/person-24.svg" %}
     </div>
