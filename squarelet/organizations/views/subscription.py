@@ -30,7 +30,7 @@ from squarelet.core.utils import (
     new_action,
 )
 from squarelet.organizations.forms import PaymentForm
-from squarelet.organizations.mixins import OrganizationAdminMixin
+from squarelet.organizations.mixins import OrganizationPermissionMixin
 from squarelet.organizations.models import Charge, Organization
 from squarelet.organizations.tasks import (
     handle_charge_succeeded,
@@ -45,7 +45,8 @@ from squarelet.organizations.tasks import (
 logger = logging.getLogger(__name__)
 
 
-class UpdateSubscription(OrganizationAdminMixin, UpdateView):
+class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
+    permission_required = "organizations.can_edit_subscription"
     queryset = Organization.objects.filter(individual=False)
     form_class = PaymentForm
     template_name = "organizations/organization_payment.html"
@@ -110,7 +111,11 @@ class ChargeDetail(UserPassesTestMixin, DetailView):
     template_name = "organizations/email/receipt.html"
 
     def test_func(self):
-        return self.get_object().organization.has_admin(self.request.user)
+        user = self.request.user
+        org = self.get_object().organization
+        return user.has_perm("organizations.can_view_charge", org) or user.has_perm(
+            "organizations.can_view_charge"
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
