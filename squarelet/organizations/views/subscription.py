@@ -113,9 +113,9 @@ class ChargeDetail(UserPassesTestMixin, DetailView):
     def test_func(self):
         user = self.request.user
         org = self.get_object().organization
-        return user.has_perm(
-            "organizations.can_view_charge", org
-        ) or user.has_perm("organizations.can_view_charge")
+        return user.has_perm("organizations.can_view_charge", org) or user.has_perm(
+            "organizations.can_view_charge"
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
