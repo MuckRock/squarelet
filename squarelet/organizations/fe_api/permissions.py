@@ -1,4 +1,5 @@
 # Third Party
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import BasePermission
 
 # Squarelet
@@ -27,23 +28,40 @@ class CanAcceptInvitation(BasePermission):
 
 class CanRejectInvitation(BasePermission):
     """
-    Rejecting (or withdrawing) is allowed if:
-    - The user is an admin of the organization.
-    - The user is the requester of a join request.
-    - The user is the invitee of an admin invite (email match).
+    Rejecting is allowed if:
+    - Join request (request=True): only an admin can reject.
+    - Admin invitation (request=False): the invitee (email match) or an admin can reject.
     """
 
     def has_object_permission(self, request, view, obj):
         user = request.user
+        is_admin = obj.organization.has_admin(user)
+
+        if obj.request:
+            return is_admin
+
         verified_emails = user.emailaddress_set.filter(verified=True).values_list(
             "email", flat=True
         )
+        is_invitee = obj.email in verified_emails
+        return is_invitee or is_admin
 
-        is_invitee = obj.email in verified_emails  # receiving an invite
-        is_requester = obj.user == user  # submitted a join request
+
+class CanWithdrawInvitation(BasePermission):
+    """
+    Withdrawing is allowed if:
+    - Join request (request=True): only the requester can withdraw.
+    - Admin invitation (request=False): only an admin can withdraw.
+    """
+
+    def has_object_permission(self, request, view, obj):
+        user = request.user
+        is_requester = obj.user == user
         is_admin = obj.organization.has_admin(user)
 
-        return is_admin or is_requester or is_invitee
+        if obj.request:
+            return is_requester
+        return is_admin
 
 
 class CanResendInvitation(BasePermission):

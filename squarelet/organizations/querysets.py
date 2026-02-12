@@ -139,7 +139,10 @@ class EntitlementQuerySet(models.QuerySet):
 
 class InvitationQuerySet(models.QuerySet):
     def get_open(self):
-        return self.filter(accepted_at=None, rejected_at=None)
+        return self.filter(accepted_at=None, rejected_at=None, withdrawn_at=None)
+
+    def get_withdrawn(self):
+        return self.exclude(withdrawn_at=None)
 
     def get_pending(self):
         return self.get_open().filter()
@@ -187,8 +190,12 @@ class InvitationQuerySet(models.QuerySet):
 
 class OrganizationInvitationQuerySet(models.QuerySet):
     def pending(self):
-        """Return pending invitations (neither accepted nor rejected)"""
-        return self.filter(accepted_at=None, rejected_at=None)
+        """Return pending invitations (neither accepted, rejected, nor withdrawn)"""
+        return self.filter(accepted_at=None, rejected_at=None, withdrawn_at=None)
+
+    def withdrawn(self):
+        """Return withdrawn invitations"""
+        return self.exclude(withdrawn_at=None)
 
     def accepted(self):
         """Return accepted invitations"""
