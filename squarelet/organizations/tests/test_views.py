@@ -934,6 +934,7 @@ class TestUpdateSubscription(ViewTestMixin):
         mocker.patch("squarelet.organizations.models.Customer.card", None)
         mocker.patch("squarelet.organizations.models.Organization.set_subscription")
         staff_member = user_factory(is_staff=True)
+        staff_member = _assign_org_perm(staff_member, "can_edit_subscription")
         organization = organization_factory()
         data = {
             "stripe_token": "token",
