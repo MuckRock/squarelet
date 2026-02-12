@@ -81,6 +81,15 @@ class Invitation(models.Model):
             "rejected yet"
         ),
     )
+    withdrawn_at = models.DateTimeField(
+        _("withdrawn at"),
+        blank=True,
+        null=True,
+        help_text=_(
+            "When this invitation was withdrawn.  NULL signifies it has not been "
+            "withdrawn yet"
+        ),
+    )
 
     class Meta:
         ordering = ("created_at",)
@@ -113,7 +122,7 @@ class Invitation(models.Model):
             raise ValueError(
                 "Must give a user when accepting if invitation has no user"
             )
-        if self.accepted_at or self.rejected_at:
+        if self.accepted_at or self.rejected_at or self.withdrawn_at:
             raise ValueError("This invitation has already been closed")
         if self.user is None:
             self.user = user
@@ -129,10 +138,17 @@ class Invitation(models.Model):
             Membership.objects.create(organization=self.organization, user=self.user)
 
     def reject(self):
-        """Reject or revoke the invitation"""
-        if self.accepted_at or self.rejected_at:
+        """Reject the invitation"""
+        if self.accepted_at or self.rejected_at or self.withdrawn_at:
             raise ValueError("This invitation has already been closed")
         self.rejected_at = timezone.now()
+        self.save()
+
+    def withdraw(self):
+        """Withdraw the invitation"""
+        if self.accepted_at or self.rejected_at or self.withdrawn_at:
+            raise ValueError("This invitation has already been closed")
+        self.withdrawn_at = timezone.now()
         self.save()
 
     def get_name(self):
@@ -234,6 +250,13 @@ class OrganizationInvitation(models.Model):
         help_text=_("When rejected (NULL if pending)"),
     )
 
+    withdrawn_at = models.DateTimeField(
+        _("withdrawn at"),
+        blank=True,
+        null=True,
+        help_text=_("When withdrawn (NULL if pending)"),
+    )
+
     message = models.TextField(
         _("message"),
         blank=True,
@@ -253,6 +276,9 @@ class OrganizationInvitation(models.Model):
         if self.accepted_at and self.rejected_at:
             raise ValidationError("Cannot be both accepted and rejected")
 
+        if self.withdrawn_at and (self.accepted_at or self.rejected_at):
+            raise ValidationError("Cannot be withdrawn and also accepted or rejected")
+
         # Verify from org has collective enabled
         if self.from_organization and not self.from_organization.collective_enabled:
             raise ValidationError(
@@ -262,8 +288,12 @@ class OrganizationInvitation(models.Model):
 
     @property
     def is_pending(self):
-        """Is this invitation still pending (not accepted or rejected)?"""
-        return self.accepted_at is None and self.rejected_at is None
+        """Is this invitation still pending (not accepted, rejected, or withdrawn)?"""
+        return (
+            self.accepted_at is None
+            and self.rejected_at is None
+            and self.withdrawn_at is None
+        )
 
     @property
     def is_accepted(self):
@@ -274,6 +304,11 @@ class OrganizationInvitation(models.Model):
     def is_rejected(self):
         """Has this invitation been rejected?"""
         return self.rejected_at is not None
+
+    @property
+    def is_withdrawn(self):
+        """Has this invitation been withdrawn?"""
+        return self.withdrawn_at is not None
 
     def send(self):
         """Send email notification for this invitation/request"""
@@ -329,4 +364,14 @@ class OrganizationInvitation(models.Model):
             raise ValueError("This invitation has already been processed")
 
         self.rejected_at = timezone.now()
+        self.save()
+
+    @transaction.atomic
+    def withdraw(self):
+        """Withdraw this invitation/request"""
+
+        if not self.is_pending:
+            raise ValueError("This invitation has already been processed")
+
+        self.withdrawn_at = timezone.now()
         self.save()

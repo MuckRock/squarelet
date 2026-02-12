@@ -1085,9 +1085,9 @@ class TestManageMembers(ViewTestMixin):  # pylint: disable=too-many-public-metho
         data = {"action": "revokeinvite", "inviteid": invitation.pk}
         self.call_view(rf, user, data, slug=organization.slug)
         invitation.refresh_from_db()
-        assert invitation.rejected_at is not None
+        assert invitation.withdrawn_at is not None
         self.assert_message(
-            messages.SUCCESS, f"Invitation to {invitation.email} revoked"
+            messages.SUCCESS, f"Invitation to {invitation.email} withdrawn"
         )
 
     def test_accept_invite(
@@ -1307,7 +1307,7 @@ class TestManageMembers(ViewTestMixin):  # pylint: disable=too-many-public-metho
         # Verify activity stream action was created
         action = Action.objects.filter(
             actor_object_id=str(staff_member.pk),
-            verb="revoked organization invitation",
+            verb="withdrew organization invitation",
         ).first()
         assert action is not None
         assert action.actor == staff_member

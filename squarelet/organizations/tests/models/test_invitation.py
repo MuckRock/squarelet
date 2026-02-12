@@ -121,6 +121,36 @@ class TestInvitation:
         with pytest.raises(ValueError):
             invitation.reject()
 
+    @pytest.mark.freeze_time
+    @pytest.mark.django_db()
+    def test_withdraw(self, invitation_factory, mocker):
+        mocker.patch("stripe.Plan.create")
+        invitation = invitation_factory()
+        invitation.withdraw()
+        assert invitation.withdrawn_at == timezone.now()
+
+    def test_withdraw_closed(self, invitation_factory):
+        invitation = invitation_factory.build(accepted_at=timezone.now())
+        with pytest.raises(ValueError):
+            invitation.withdraw()
+
+    def test_withdraw_already_withdrawn(self, invitation_factory):
+        invitation = invitation_factory.build(withdrawn_at=timezone.now())
+        with pytest.raises(ValueError):
+            invitation.withdraw()
+
+    @pytest.mark.django_db()
+    def test_accept_withdrawn(self, invitation_factory, user_factory):
+        user = user_factory.build()
+        invitation = invitation_factory.build(withdrawn_at=timezone.now())
+        with pytest.raises(ValueError):
+            invitation.accept(user)
+
+    def test_reject_withdrawn(self, invitation_factory):
+        invitation = invitation_factory.build(withdrawn_at=timezone.now())
+        with pytest.raises(ValueError):
+            invitation.reject()
+
     def test_get_name_no_user(self, invitation_factory):
         invitation = invitation_factory.build()
         assert invitation.get_name() == invitation.email
@@ -224,6 +254,10 @@ class TestOrganizationInvitation:
         mail = mailoutbox[0]
         assert invitation.from_organization.name in mail.subject
 
+
+class TestOrganizationInvitationAccept:
+    """Tests for OrganizationInvitation accept functionality"""
+
     @pytest.mark.freeze_time
     @pytest.mark.django_db()
     def test_accept_member_invitation(self, organization_invitation_factory):
@@ -272,16 +306,9 @@ class TestOrganizationInvitation:
         ):
             invitation.accept()
 
-    @pytest.mark.django_db()
-    def test_accept_rejected_invitation(self, organization_invitation_factory):
-        """Test that accepting a rejected invitation raises error"""
-        invitation = organization_invitation_factory(
-            from_organization__collective_enabled=True, rejected_at=timezone.now()
-        )
-        with pytest.raises(
-            ValueError, match="This invitation has already been processed"
-        ):
-            invitation.accept()
+
+class TestOrganizationInvitationReject:
+    """Tests for OrganizationInvitation reject functionality"""
 
     @pytest.mark.freeze_time
     @pytest.mark.django_db()
@@ -292,6 +319,17 @@ class TestOrganizationInvitation:
         )
         invitation.reject()
         assert invitation.rejected_at == timezone.now()
+
+    @pytest.mark.django_db()
+    def test_accept_rejected_invitation(self, organization_invitation_factory):
+        """Test that accepting a rejected invitation raises error"""
+        invitation = organization_invitation_factory(
+            from_organization__collective_enabled=True, rejected_at=timezone.now()
+        )
+        with pytest.raises(
+            ValueError, match="This invitation has already been processed"
+        ):
+            invitation.accept()
 
     @pytest.mark.django_db()
     def test_reject_closed_invitation(self, organization_invitation_factory):
@@ -309,6 +347,72 @@ class TestOrganizationInvitation:
         """Test that rejecting an accepted invitation raises error"""
         invitation = organization_invitation_factory(
             from_organization__collective_enabled=True, accepted_at=timezone.now()
+        )
+        with pytest.raises(
+            ValueError, match="This invitation has already been processed"
+        ):
+            invitation.reject()
+
+
+class TestOrganizationInvitationWithdraw:
+    """Tests for OrganizationInvitation withdraw functionality"""
+
+    @pytest.mark.freeze_time
+    @pytest.mark.django_db()
+    def test_withdraw(self, organization_invitation_factory):
+        """Test withdrawing an invitation"""
+        invitation = organization_invitation_factory(
+            from_organization__collective_enabled=True
+        )
+        invitation.withdraw()
+        assert invitation.withdrawn_at == timezone.now()
+
+    @pytest.mark.django_db()
+    def test_withdraw_closed_invitation(self, organization_invitation_factory):
+        """Test that withdrawing an already closed invitation raises error"""
+        invitation = organization_invitation_factory(
+            from_organization__collective_enabled=True, accepted_at=timezone.now()
+        )
+        with pytest.raises(
+            ValueError, match="This invitation has already been processed"
+        ):
+            invitation.withdraw()
+
+    @pytest.mark.django_db()
+    def test_is_withdrawn(self, organization_invitation_factory):
+        """Test is_withdrawn property"""
+        invitation = organization_invitation_factory()
+        assert not invitation.is_withdrawn
+
+        invitation.withdrawn_at = timezone.now()
+        invitation.save()
+        assert invitation.is_withdrawn
+
+    @pytest.mark.django_db()
+    def test_is_pending_when_withdrawn(self, organization_invitation_factory):
+        """Test that is_pending returns False when withdrawn"""
+        invitation = organization_invitation_factory()
+        assert invitation.is_pending
+
+        invitation.withdrawn_at = timezone.now()
+        assert not invitation.is_pending
+
+    @pytest.mark.django_db()
+    def test_accept_withdrawn_invitation(self, organization_invitation_factory):
+        """Test that accepting a withdrawn invitation raises error"""
+        invitation = organization_invitation_factory(
+            from_organization__collective_enabled=True, withdrawn_at=timezone.now()
+        )
+        with pytest.raises(
+            ValueError, match="This invitation has already been processed"
+        ):
+            invitation.accept()
+
+    @pytest.mark.django_db()
+    def test_reject_withdrawn_invitation(self, organization_invitation_factory):
+        """Test that rejecting a withdrawn invitation raises error"""
+        invitation = organization_invitation_factory(
+            from_organization__collective_enabled=True, withdrawn_at=timezone.now()
         )
         with pytest.raises(
             ValueError, match="This invitation has already been processed"
