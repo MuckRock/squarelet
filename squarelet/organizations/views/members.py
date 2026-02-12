@@ -273,6 +273,12 @@ class InvitationAccept(DetailView):
         if action == "accept":
             invitation.accept(request.user)
             messages.success(request, "Invitation accepted")
+
+            # If the referer is this invitation page itself, ignore it
+            invite_url = request.build_absolute_uri()
+            if request.META.get("HTTP_REFERER") == invite_url:
+                del request.META["HTTP_REFERER"]
+
             return get_redirect_url(request, redirect(invitation.organization))
         elif action == "reject":
             # Associate the user with the invitation for auditing purposes
@@ -284,6 +290,11 @@ class InvitationAccept(DetailView):
                 messages.info(request, "Invitation withdrawn")
             else:
                 messages.info(request, "Invitation rejected")
+
+            # If the referer is this invitation page itself, ignore it
+            invite_url = request.build_absolute_uri()
+            if request.META.get("HTTP_REFERER") == invite_url:
+                del request.META["HTTP_REFERER"]
             return get_redirect_url(request, redirect(request.user))
         else:
             messages.error(request, "Invalid choice")
