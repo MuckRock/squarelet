@@ -406,9 +406,7 @@ class TestCanViewChargeDetailRule:
         org = organization_factory(admins=[admin])
         assert admin.has_perm("organizations.can_view_charge", org)
 
-    def test_member_lacks_can_view_charge(
-        self, organization_factory, user_factory
-    ):
+    def test_member_lacks_can_view_charge(self, organization_factory, user_factory):
         """Regular members do not get can_view_charge"""
         member = user_factory()
         org = organization_factory(users=[member])
@@ -432,9 +430,7 @@ class TestCanViewChargeDetailRule:
         """A user with the DB-assigned permission gets it (via ModelBackend)"""
         user = user_factory()
         ct = ContentType.objects.get_for_model(Organization)
-        perm = Permission.objects.get(
-            codename="can_view_charge", content_type=ct
-        )
+        perm = Permission.objects.get(codename="can_view_charge", content_type=ct)
         user.user_permissions.add(perm)
         user = type(user).objects.get(pk=user.pk)
         assert user.has_perm("organizations.can_view_charge")
