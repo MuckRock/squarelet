@@ -1,7 +1,13 @@
-{% load static %}
+{% load static thumbnail %}
 {% for org in organizations %}
   <a href="{{ org.get_absolute_url }}" class="_cls-orgItem">
-    <img src="{{ org.avatar_url }}" alt="{{ org.name }}">
+    {% if org.avatar %}
+      {% thumbnail org.avatar "40x40" crop="center" as im %}
+        <img src="{{ im.url }}" width="{{ im.width }}" height="{{ im.height }}" alt="{{ org.name }}">
+      {% endthumbnail %}
+    {% else %}
+      <img src="{% static 'icons/people-24.svg' %}" alt="{{ org.name }}">
+    {% endif %}
     <div class="_cls-orgName">
       {{ org.name }}
       {% if org.is_admin %}

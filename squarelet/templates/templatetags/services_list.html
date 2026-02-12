@@ -1,8 +1,15 @@
+{% load thumbnail %}
 <div class="service-providers">
   {% for provider in service_providers %}
     {% if provider.base_url %}
       <a href="{{provider.base_url}}" target="_blank" class="service-provider">
-        <img src="{{ provider.icon.url }}" alt="{{ provider.name }}">
+        {% if provider.icon %}
+          {% thumbnail provider.icon "60x60" crop="center" as im %}
+            <img src="{{ im.url }}" width="{{ im.width }}" height="{{ im.height }}" alt="{{ provider.name }}">
+          {% endthumbnail %}
+        {% else %}
+          <img src="{{ provider.icon.url }}" alt="{{ provider.name }}">
+        {% endif %}
         <div class="service-provider-text">
           <h3>{{ provider.name }}</h3>
           <p>{{ provider.description }}</p>
@@ -10,7 +17,13 @@
       </a>
     {% else %}
       <div class="service-provider">
-        <img src="{{ provider.icon.url }}" alt="{{ provider.name }}">
+        {% if provider.icon %}
+          {% thumbnail provider.icon "60x60" crop="center" as im %}
+            <img src="{{ im.url }}" width="{{ im.width }}" height="{{ im.height }}" alt="{{ provider.name }}">
+          {% endthumbnail %}
+        {% else %}
+          <img src="{{ provider.icon.url }}" alt="{{ provider.name }}">
+        {% endif %}
         <div class="service-provider-text">
           <h3>{{ provider.name }}</h3>
           <p>{{ provider.description }}</p>
