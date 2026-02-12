@@ -142,9 +142,7 @@ class OrganizationJoinStep(OnboardingStep):
     def _get_joinable_orgs(self, user):
         """Get organizations the user can join"""
         invitations = list(user.get_pending_invitations())
-        potential_orgs = list(
-            user.get_potential_organizations().filter(allow_auto_join=True)
-        )
+        potential_orgs = list(user.get_potential_organizations())
         return invitations, potential_orgs
 
     def should_execute(self, request):

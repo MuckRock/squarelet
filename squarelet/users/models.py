@@ -269,7 +269,9 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
 
         # Find organizations matching any of the domains
         return (
-            Organization.objects.filter(domains__domain__in=domains)
+            Organization.objects.filter(
+                domains__domain__in=domains, allow_auto_join=True
+            )
             .distinct()
             .exclude(users=self)
         )
