@@ -1,5 +1,8 @@
 """Tests for PlanPurchaseForm"""
 
+# Standard Library
+from pathlib import Path
+
 # Third Party
 import pytest
 
@@ -225,6 +228,61 @@ class TestPlanPurchaseFormValidation:
         form = PlanPurchaseForm(data, plan=plan, user=user)
         assert not form.is_valid()
         assert "new_organization_name" in form.errors
+
+    def test_existing_card_valid_when_org_has_card(
+        self, user_factory, plan_factory, mocker
+    ):
+        """Submitting existing-card should be valid when org has a card on file.
+
+        The JS dynamically adds an "existing-card" radio option when an org has
+        a saved card. The Python form must accept "existing-card" as a valid
+        choice so that Django's ChoiceField validation doesn't reject it.
+        """
+        user = user_factory()
+        plan = plan_factory(public=True, for_individuals=True)
+
+        # Mock that organization HAS a card on file
+        mock_card = mocker.MagicMock()
+        mock_card.last4 = "4242"
+        mock_card.brand = "Visa"
+        mock_customer = mocker.MagicMock()
+        mock_customer.card = mock_card
+        mocker.patch.object(Organization, "customer", return_value=mock_customer)
+
+        data = {
+            "organization": str(user.individual_organization.pk),
+            "payment_method": "existing-card",
+            "stripe_pk": "pk_test",
+        }
+
+        form = PlanPurchaseForm(data, plan=plan, user=user)
+        assert form.is_valid(), f"Form errors: {form.errors}"
+
+
+@pytest.mark.django_db
+class TestPlanPurchaseFormTemplateErrors:
+    """Test that form errors are rendered in the template"""
+
+    def test_template_shows_payment_method_errors(self):
+        """Template should render payment_method field errors.
+
+        When the form has validation errors on the payment_method field,
+        those errors must be visible to the user. The template must include
+        a block that renders form.payment_method.errors.
+        """
+        template_path = (
+            Path(__file__).resolve().parents[2]
+            / "templates"
+            / "payments"
+            / "forms"
+            / "plan_purchase.html"
+        )
+        template_content = template_path.read_text()
+
+        assert "form.payment_method.errors" in template_content, (
+            "Template does not render payment_method errors — users won't see "
+            "validation errors for payment method selection"
+        )
 
 
 @pytest.mark.django_db
