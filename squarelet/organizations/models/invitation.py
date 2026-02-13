@@ -305,6 +305,9 @@ class OrganizationInvitation(models.Model):
     @transaction.atomic
     def accept(self):
         """Accept this invitation/request"""
+        # Prevent circular import
+        # pylint: disable=import-outside-toplevel
+        from squarelet.organizations.tasks import sync_wix_for_group_member
 
         if not self.is_pending:
             raise ValueError("This invitation has already been processed")
@@ -320,6 +323,16 @@ class OrganizationInvitation(models.Model):
             # Set parent relationship
             self.to_organization.parent = self.from_organization
             self.to_organization.save()
+
+        # Trigger Wix sync if the group has a Wix plan and shares resources
+        group = self.from_organization
+        if group.share_resources and group.plan and group.plan.wix:
+            to_org_pk = self.to_organization.pk
+            group_pk = group.pk
+            plan_pk = group.plan.pk
+            transaction.on_commit(
+                lambda: sync_wix_for_group_member.delay(to_org_pk, group_pk, plan_pk)
+            )
 
     @transaction.atomic
     def reject(self):

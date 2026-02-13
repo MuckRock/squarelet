@@ -610,6 +610,58 @@ def sync_wix(org_id, plan_id, user_id):
     retry_backoff=60,
     retry_kwargs={"max_retries": 3},
 )
+def sync_wix_for_group_member(member_org_id, group_org_id, plan_id):
+    """Sync all users of a member organization to Wix using the group's plan.
+
+    This is used when:
+    - An organization joins a group that has a Wix plan with share_resources=True
+    - A group subscribes to a Wix plan and needs to sync all member org users
+    - share_resources is toggled on for a group with a Wix plan
+    """
+    if not is_production_env():
+        logger.info(
+            "[WIX-SYNC] Skipping group member Wix sync "
+            "in non-production environment (ENV=%s)",
+            settings.ENV,
+        )
+        return
+
+    member_org = Organization.objects.get(pk=member_org_id)
+    group_org = Organization.objects.get(pk=group_org_id)
+    plan = Plan.objects.get(pk=plan_id)
+
+    # Verify conditions still apply
+    if not group_org.share_resources:
+        logger.info(
+            "[WIX-SYNC] Group %s no longer shares resources, skipping sync",
+            group_org_id,
+        )
+        return
+
+    if not plan.wix:
+        logger.info(
+            "[WIX-SYNC] Plan %s no longer has wix enabled, skipping sync",
+            plan_id,
+        )
+        return
+
+    logger.info(
+        "[WIX-SYNC] Syncing %d users from member org %s to group %s's Wix plan %s",
+        member_org.users.count(),
+        member_org_id,
+        group_org_id,
+        plan_id,
+    )
+
+    for user in member_org.users.all():
+        wix.sync_wix(member_org, plan, user)
+
+
+@shared_task(
+    autoretry_for=(requests.exceptions.RequestException,),
+    retry_backoff=60,
+    retry_kwargs={"max_retries": 3},
+)
 def add_to_waitlist(org_id, plan_id, user_id):
     """Add user to waitlist in Wix"""
     # Only add to waitlist in production
