@@ -40,6 +40,7 @@ markdown
 memoize
 psycopg2 --no-binary psycopg2
 pyairtable
+pycryptodome
 python-Levenshtein
 python-slugify
 pytz

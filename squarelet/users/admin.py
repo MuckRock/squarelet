@@ -21,7 +21,7 @@ from itertools import chain
 
 # Third Party
 from allauth.account.models import EmailAddress
-from allauth.account.utils import setup_user_email, sync_user_email_addresses
+from allauth.account.utils import setup_user_email
 from allauth.mfa.admin import AuthenticatorAdmin
 from allauth.mfa.models import Authenticator
 from reversion.admin import VersionAdmin
@@ -202,7 +202,12 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
         """Sync all auth email addresses"""
         if change:
             super().save_model(request, obj, form, change)
-            sync_user_email_addresses(obj)
+            if obj.email and not EmailAddress.objects.filter(user=obj, email=obj.email).exists():
+                EmailAddress.objects.get_or_create(
+                    user=obj,
+                    email=obj.email,
+                    defaults={"primary": False, "verified": False},
+                )
         else:
             Organization.objects.create_individual(obj)
             setup_user_email(request, obj, [])

@@ -14,79 +14,71 @@ annotated-types==0.7.0
     # via
     #   -r requirements/base.txt
     #   pydantic
-argon2-cffi==21.3.0
+argon2-cffi==25.1.0
     # via -r requirements/base.txt
-argon2-cffi-bindings==21.2.0
+argon2-cffi-bindings==25.1.0
     # via
     #   -r requirements/base.txt
     #   argon2-cffi
-asgiref==3.6.0
+asgiref==3.11.1
     # via
     #   -r requirements/base.txt
     #   django
-asttokens==2.0.5
+    #   django-allauth
+    #   django-cors-headers
+asttokens==3.0.1
     # via
     #   -r requirements/base.txt
     #   stack-data
-backcall==0.1.0
+async-timeout==5.0.1
     # via
     #   -r requirements/base.txt
-    #   ipython
-bcrypt==3.1.4
+    #   redis
+bcrypt==5.0.0
     # via -r requirements/base.txt
-billiard==4.2.1
+billiard==4.2.4
     # via
     #   -r requirements/base.txt
     #   celery
-bleach==6.1.0
+bleach==6.3.0
     # via -r requirements/base.txt
-boto==2.49.0
-    # via
-    #   -r requirements/base.txt
-    #   smart-open
-boto3==1.21.21
+boto3==1.42.49
     # via
     #   -r requirements/base.txt
     #   django-storages
-    #   smart-open
-botocore==1.24.21
+botocore==1.42.49
     # via
     #   -r requirements/base.txt
     #   boto3
     #   s3transfer
-brotli==1.0.9
+brotli==1.2.0
     # via
     #   -r requirements/base.txt
     #   fonttools
-bz2file==0.98
-    # via
-    #   -r requirements/base.txt
-    #   smart-open
-cachetools==6.2.2
+cachetools==7.0.1
     # via
     #   -r requirements/base.txt
     #   zenpy
-celery==5.4.0
+celery==5.6.2
     # via
     #   -r requirements/base.txt
     #   django-celery-email
-certifi==2024.7.4
+certifi==2026.1.4
     # via
     #   -r requirements/base.txt
     #   requests
     #   sentry-sdk
-cffi==1.15.0
+cffi==2.0.0
     # via
     #   -r requirements/base.txt
     #   argon2-cffi-bindings
-    #   bcrypt
     #   cryptography
     #   weasyprint
-charset-normalizer==2.1.0
+charset-normalizer==3.4.4
     # via
     #   -r requirements/base.txt
     #   requests
-click==8.1.7
+click==8.3.1
     # via
     #   -r requirements/base.txt
     #   celery
@@ -97,43 +89,40 @@ click-didyoumean==0.3.1
     # via
     #   -r requirements/base.txt
     #   celery
-click-plugins==1.1.1
+click-plugins==1.1.1.2
     # via
     #   -r requirements/base.txt
     #   celery
-click-repl==0.2.0
+click-repl==0.3.0
     # via
     #   -r requirements/base.txt
     #   celery
 collectfast==2.2.0
     # via -r requirements/production.in
-cryptography==44.0.1
+cryptography==46.0.5
     # via
     #   -r requirements/base.txt
+    #   django-oidc-provider
     #   fido2
     #   pyjwt
-cssselect==1.0.3
+cssselect==1.4.0
     # via
     #   -r requirements/base.txt
     #   premailer
-cssselect2==0.7.0
+cssselect2==0.9.0
     # via
     #   -r requirements/base.txt
     #   weasyprint
-cssutils==1.0.2
+cssutils==2.11.1
     # via
     #   -r requirements/base.txt
     #   premailer
-decorator==4.3.2
+decorator==5.2.1
     # via
     #   -r requirements/base.txt
     #   ipdb
     #   ipython
-deprecated==1.2.13
-    # via
-    #   -r requirements/base.txt
-    #   redis
-django==4.2.18
+django==4.2.28
     # via
     #   -r requirements/base.txt
     #   collectfast
@@ -141,10 +130,11 @@ django==4.2.18
     #   django-allauth
     #   django-anymail
     #   django-appconf
+    #   django-autocomplete-light
     #   django-celery-email
     #   django-cors-headers
+    #   django-crispy-forms
     #   django-debug-toolbar
-    #   django-environ
     #   django-extensions
     #   django-filter
     #   django-hijack
@@ -152,6 +142,7 @@ django==4.2.18
     #   django-redis
     #   django-request-token
     #   django-reversion
+    #   django-sesame
     #   django-storages
     #   django-vite
     #   django-weasyprint
@@ -161,166 +152,164 @@ django==4.2.18
     #   drf-nested-routers
 django-activity-stream==2.0.0
     # via -r requirements/base.txt
-django-allauth[mfa,socialaccount]==65.0.2
+django-allauth[mfa,socialaccount]==65.14.3
     # via -r requirements/base.txt
-django-anymail[mailgun]==8.6
+django-anymail[mailgun]==14.0
     # via -r requirements/production.in
-django-appconf==1.0.5
+django-appconf==1.2.0
     # via django-celery-email
-django-autocomplete-light==3.8.2
+django-autocomplete-light==3.12.1
     # via -r requirements/base.txt
-django-autoslug==1.9.8
+django-autoslug==1.9.9
     # via -r requirements/base.txt
 django-celery-email==3.0.0
     # via -r requirements/production.in
-django-cors-headers==3.10.1
+django-cors-headers==4.9.0
     # via -r requirements/base.txt
-django-crispy-forms==1.13.0
+django-crispy-forms==2.5
     # via -r requirements/base.txt
-django-debug-toolbar==4.3.0
+django-debug-toolbar==6.2.0
     # via -r requirements/base.txt
-django-email-bandit==1.5
+django-email-bandit==2.0
     # via -r requirements/base.txt
-django-environ==0.4.4
+django-environ==0.12.0
     # via -r requirements/base.txt
 django-extensions==4.1
     # via -r requirements/base.txt
-django-filter==21.1
+django-filter==25.1
     # via -r requirements/base.txt
 django-hijack==2.3.0
     # via -r requirements/base.txt
-django-model-utils==3.1.2
+django-model-utils==5.0.0
     # via -r requirements/base.txt
-django-oidc-provider==0.8.0
+django-oidc-provider==0.9.0
     # via -r requirements/base.txt
 django-premailer==0.2.0
     # via -r requirements/base.txt
-django-redis==5.2.0
+django-redis==6.0.0
     # via -r requirements/base.txt
-django-request-token==0.9.2
+django-request-token==2.3.1
     # via -r requirements/base.txt
-django-reversion==4.0.1
+django-reversion==6.1.0
     # via -r requirements/base.txt
 django-robots==6.1
     # via -r requirements/base.txt
-django-sesame==1.5
+django-sesame==3.2.3
     # via -r requirements/base.txt
-django-storages[boto3]==1.12.3
+django-storages[boto3]==1.14.6
     # via
     #   -r requirements/base.txt
     #   collectfast
-django-vite==3.0.4
+django-vite==3.1.0
     # via -r requirements/base.txt
-django-weasyprint==2.2.0
+django-weasyprint==2.4.0
     # via -r requirements/base.txt
-djangorestframework==3.15.2
+djangorestframework==3.16.1
     # via
     #   -r requirements/base.txt
     #   djangorestframework-simplejwt
     #   drf-nested-routers
-djangorestframework-simplejwt==5.5.0
+djangorestframework-simplejwt==5.5.1
     # via -r requirements/base.txt
 dogslow==1.2
     # via -r requirements/base.txt
-drf-nested-routers==0.91
+drf-nested-routers==0.95.0
     # via -r requirements/base.txt
-executing==0.9.1
+exceptiongroup==1.3.1
+    # via
+    #   -r requirements/base.txt
+    #   celery
+    #   ipython
+executing==2.2.1
     # via
     #   -r requirements/base.txt
     #   stack-data
-fido2==1.2.0
+fido2==2.1.1
     # via
     #   -r requirements/base.txt
     #   django-allauth
-fonttools[woff]==4.43.0
+fonttools[woff]==4.61.1
     # via
     #   -r requirements/base.txt
     #   weasyprint
-furl==2.1.3
+furl==2.1.4
     # via -r requirements/base.txt
-future==0.18.3
-    # via
-    #   -r requirements/base.txt
-    #   pyjwkest
 fuzzywuzzy==0.18.0
     # via -r requirements/base.txt
-gunicorn==22.0.0
+gunicorn==25.1.0
     # via -r requirements/production.in
-html2text==2018.1.9
+html2text==2025.4.15
     # via -r requirements/base.txt
-html5lib==1.1
+idna==3.11
     # via
     #   -r requirements/base.txt
-    #   weasyprint
-idna==3.7
-    # via
-    #   -r requirements/base.txt
+    #   django-anymail
     #   requests
 inflection==0.5.1
     # via
     #   -r requirements/base.txt
     #   pyairtable
-ipdb==0.13.9
+ipdb==0.13.13
     # via -r requirements/base.txt
-ipython==8.10.0
+ipython==8.38.0
     # via
     #   -r requirements/base.txt
     #   ipdb
-jedi==0.18.1
+jedi==0.19.2
     # via
     #   -r requirements/base.txt
     #   ipython
-jmespath==0.9.3
+jmespath==1.1.0
     # via
     #   -r requirements/base.txt
     #   boto3
     #   botocore
-kombu==5.4.2
+kombu==5.6.2
     # via
     #   -r requirements/base.txt
     #   celery
-levenshtein==0.25.1
+levenshtein==0.27.3
     # via
     #   -r requirements/base.txt
     #   python-levenshtein
-lxml==4.9.1
+lxml==6.0.2
     # via
     #   -r requirements/base.txt
     #   premailer
-markdown==3.6
+markdown==3.10.2
     # via -r requirements/base.txt
-matplotlib-inline==0.1.3
+matplotlib-inline==0.2.1
     # via
     #   -r requirements/base.txt
     #   ipython
 memoize==1.0.0
     # via -r requirements/base.txt
-oauthlib==3.2.2
+more-itertools==10.8.0
     # via
     #   -r requirements/base.txt
-    #   requests-oauthlib
-orderedmultidict==1.0.1
+    #   cssutils
+oauthlib==3.3.1
+    # via
+    #   -r requirements/base.txt
+    #   django-allauth
+orderedmultidict==1.0.2
     # via
     #   -r requirements/base.txt
     #   furl
-packaging==24.1
+packaging==26.0
     # via
     #   -r requirements/base.txt
     #   gunicorn
-    #   redis
-parso==0.8.3
+    #   kombu
+parso==0.8.6
     # via
     #   -r requirements/base.txt
     #   jedi
-pexpect==4.6.0
+pexpect==4.9.0
     # via
     #   -r requirements/base.txt
     #   ipython
-pickleshare==0.7.5
-    # via
-    #   -r requirements/base.txt
-    #   ipython
-pillow==10.3.0
+pillow==12.1.1
     # via
     #   -r requirements/base.txt
     #   weasyprint
@@ -328,62 +317,53 @@ premailer==3.0.0
     # via
     #   -r requirements/base.txt
     #   django-premailer
-prompt-toolkit==3.0.30
+prompt-toolkit==3.0.52
     # via
     #   -r requirements/base.txt
     #   click-repl
     #   ipython
-psycopg2==2.9.6
+psycopg2==2.9.11
     # via -r requirements/base.txt
-psycopg2-binary==2.9.3
-    # via
-    #   -r requirements/base.txt
-    #   django-request-token
-ptyprocess==0.6.0
+ptyprocess==0.7.0
     # via
     #   -r requirements/base.txt
     #   pexpect
-pure-eval==0.2.2
+pure-eval==0.2.3
     # via
     #   -r requirements/base.txt
     #   stack-data
-pyairtable==2.3.3
+pyairtable==3.3.0
     # via -r requirements/base.txt
-pycparser==2.18
+pycparser==3.0
     # via
     #   -r requirements/base.txt
     #   cffi
-pycryptodomex==3.19.1
-    # via
-    #   -r requirements/base.txt
-    #   pyjwkest
-pydantic==2.7.4
+pycryptodome==3.23.0
+    # via -r requirements/base.txt
+pydantic==2.12.5
     # via
     #   -r requirements/base.txt
     #   pyairtable
-pydantic-core==2.18.4
+pydantic-core==2.41.5
     # via
     #   -r requirements/base.txt
     #   pydantic
-pydyf==0.5.0
+pydyf==0.12.1
     # via
     #   -r requirements/base.txt
     #   weasyprint
-pygments==2.15.1
+pygments==2.19.2
     # via
     #   -r requirements/base.txt
     #   ipython
-pyjwkest==1.4.0
-    # via
-    #   -r requirements/base.txt
-    #   django-oidc-provider
-pyjwt[crypto]==2.4.0
+pyjwt[crypto]==2.11.0
     # via
     #   -r requirements/base.txt
     #   django-allauth
+    #   django-oidc-provider
     #   django-request-token
     #   djangorestframework-simplejwt
-pyphen==0.13.2
+pyphen==0.17.2
     # via
     #   -r requirements/base.txt
     #   weasyprint
@@ -393,117 +373,120 @@ python-dateutil==2.9.0.post0
     #   botocore
     #   celery
     #   zenpy
-python-levenshtein==0.25.1
+python-levenshtein==0.27.3
     # via -r requirements/base.txt
-python-slugify==1.2.5
+python-slugify==8.0.4
     # via -r requirements/base.txt
-pytz==2024.2
+pytz==2025.2
     # via
     #   -r requirements/base.txt
     #   zenpy
-qrcode==8.0
+qrcode==8.2
     # via
     #   -r requirements/base.txt
     #   django-allauth
-rapidfuzz==3.9.1
+rapidfuzz==3.14.3
     # via
     #   -r requirements/base.txt
     #   levenshtein
-rcssmin==1.1.1
+rcssmin==1.2.2
     # via -r requirements/base.txt
-redis==4.1.0
+redis==7.1.1
     # via
     #   -r requirements/base.txt
     #   django-redis
-requests==2.32.3
+requests==2.32.5
     # via
     #   -r requirements/base.txt
     #   django-allauth
     #   django-anymail
     #   premailer
     #   pyairtable
-    #   pyjwkest
-    #   requests-oauthlib
-    #   smart-open
     #   stripe
     #   zenpy
-requests-oauthlib==2.0.0
-    # via
-    #   -r requirements/base.txt
-    #   django-allauth
-rules==2.1
+rules==3.5
     # via -r requirements/base.txt
-s3transfer==0.5.2
+s3transfer==0.16.0
     # via
     #   -r requirements/base.txt
     #   boto3
-sentry-sdk==1.14.0
+sentry-sdk==2.52.0
     # via -r requirements/production.in
-six==1.16.0
+six==1.17.0
     # via
     #   -r requirements/base.txt
-    #   asttokens
-    #   bcrypt
-    #   bleach
-    #   click-repl
-    #   django-autocomplete-light
-    #   django-environ
     #   furl
-    #   html5lib
     #   orderedmultidict
-    #   pyjwkest
     #   python-dateutil
     #   zenpy
-smart-open==1.7.1
+smart-open==7.5.0
     # via -r requirements/base.txt
-sorl-thumbnail==12.11.0
+sorl-thumbnail==13.0.0
     # via -r requirements/base.txt
-sqlparse==0.5.0
+sqlparse==0.5.5
     # via
     #   -r requirements/base.txt
     #   django
     #   django-debug-toolbar
-    #   django-request-token
-stack-data==0.3.0
+stack-data==0.6.3
     # via
     #   -r requirements/base.txt
     #   ipython
-stripe==2.10.1
+stripe==14.3.0
     # via -r requirements/base.txt
-tinycss2==1.2.1
+text-unidecode==1.3
+    # via
+    #   -r requirements/base.txt
+    #   python-slugify
+tinycss2==1.5.1
     # via
     #   -r requirements/base.txt
     #   cssselect2
     #   weasyprint
-toml==0.10.2
+tinyhtml5==2.0.0
+    # via
+    #   -r requirements/base.txt
+    #   weasyprint
+tomli==2.4.0
     # via
     #   -r requirements/base.txt
     #   ipdb
-traitlets==5.3.0
+traitlets==5.14.3
     # via
     #   -r requirements/base.txt
     #   ipython
     #   matplotlib-inline
-typing-extensions==4.12.2
+typing-extensions==4.15.0
     # via
     #   -r requirements/base.txt
+    #   asgiref
     #   collectfast
+    #   cryptography
+    #   django-anymail
+    #   exceptiongroup
+    #   ipython
     #   pyairtable
     #   pydantic
     #   pydantic-core
-tzdata==2024.2
+    #   stripe
+    #   typing-inspection
+typing-inspection==0.4.2
+    # via
+    #   -r requirements/base.txt
+    #   pydantic
+tzdata==2025.3
+    # via
+    #   -r requirements/base.txt
+    #   kombu
+tzlocal==5.3.1
     # via
     #   -r requirements/base.txt
     #   celery
-    #   kombu
-unidecode==1.0.22
-    # via
-    #   -r requirements/base.txt
-    #   python-slugify
-urllib3==1.26.19
+urllib3==2.6.3
     # via
     #   -r requirements/base.txt
     #   botocore
+    #   django-anymail
     #   pyairtable
     #   requests
     #   sentry-sdk
@@ -513,11 +496,11 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-wcwidth==0.1.7
+wcwidth==0.6.0
     # via
     #   -r requirements/base.txt
     #   prompt-toolkit
-weasyprint==57.1
+weasyprint==68.1
     # via
     #   -r requirements/base.txt
     #   django-weasyprint
@@ -526,18 +509,15 @@ webencodings==0.5.1
     #   -r requirements/base.txt
     #   bleach
     #   cssselect2
-    #   html5lib
     #   tinycss2
-wrapt==1.11.2
+    #   tinyhtml5
+wrapt==2.1.1
     # via
     #   -r requirements/base.txt
-    #   deprecated
+    #   smart-open
 zenpy==2.0.56
     # via -r requirements/base.txt
-zopfli==0.2.2
+zopfli==0.4.1
     # via
     #   -r requirements/base.txt
     #   fonttools
-
-# The following packages are considered to be unsafe in a requirements file:
-# setuptools

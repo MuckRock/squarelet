@@ -32,7 +32,8 @@ import time
 from datetime import datetime
 
 # Third Party
-from allauth.account.utils import get_next_redirect_url, send_email_confirmation
+from allauth.account.models import EmailAddress
+from allauth.account.utils import get_next_redirect_url
 from allauth.account.views import (
     EmailView as AllAuthEmailView,
     LoginView as AllAuthLoginView,
@@ -43,6 +44,7 @@ from allauth.mfa.models import Authenticator
 from allauth.socialaccount.adapter import get_adapter as get_social_adapter
 from allauth.socialaccount.internal import flows
 from allauth.socialaccount.views import ConnectionsView
+
 
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
@@ -344,7 +346,12 @@ class UserOnboardingView(TemplateView):
         is_first_login = request.session.get("first_login", False)
         if step == "confirm_email" and not is_first_login:
             # If the user just signed up, they are already sent the confirmation.
-            send_email_confirmation(request, request.user, False, request.user.email)
+            email_address, created = EmailAddress.objects.get_or_create(
+                user=request.user,
+                email=request.user.email,
+                defaults={"primary": True, "verified": False},
+            )
+            email_address.send_confirmation(request)
 
         if not step:
             # Onboarding is complete, clear the session store
