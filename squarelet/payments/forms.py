@@ -218,6 +218,7 @@ class PlanPurchaseForm(StripeForm):
         }
 
         # Add nonprofit plan pricing if available
+        data["has_nonprofit_variant"] = False
         if self.plan.is_sunlight_plan:
             nonprofit_slug = self.plan.nonprofit_variant_slug
             if nonprofit_slug:
@@ -227,11 +228,7 @@ class PlanPurchaseForm(StripeForm):
                     data["nonprofit_price_per_user"] = nonprofit_plan.price_per_user
                     data["has_nonprofit_variant"] = True
                 except Plan.DoesNotExist:
-                    data["has_nonprofit_variant"] = False
-            else:
-                data["has_nonprofit_variant"] = False
-        else:
-            data["has_nonprofit_variant"] = False
+                    pass
 
         return data
 
