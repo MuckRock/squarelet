@@ -259,30 +259,40 @@ class TestPlanPurchaseFormValidation:
         assert form.is_valid(), f"Form errors: {form.errors}"
 
 
-@pytest.mark.django_db
-class TestPlanPurchaseFormTemplateErrors:
-    """Test that form errors are rendered in the template"""
+class TestPlanPurchaseFormTemplate:
+    """Test that the template renders as expected"""
+
+    TEMPLATE_PATH = (
+        Path(__file__).resolve().parents[2]
+        / "templates"
+        / "payments"
+        / "forms"
+        / "plan_purchase.html"
+    )
+
+    @pytest.fixture(autouse=True)
+    def _load_template(self):
+        self.template_content = self.TEMPLATE_PATH.read_text()
+
+    def test_template_shows_organization_errors(self):
+        """Template should render organization field errors"""
+        assert "form.organization.errors" in self.template_content
+
+    def test_template_shows_new_organization_name_errors(self):
+        """Template should render new_organization_name field errors"""
+        assert "form.new_organization_name.errors" in self.template_content
 
     def test_template_shows_payment_method_errors(self):
-        """Template should render payment_method field errors.
+        """Template should render payment_method field errors"""
+        assert "form.payment_method.errors" in self.template_content
 
-        When the form has validation errors on the payment_method field,
-        those errors must be visible to the user. The template must include
-        a block that renders form.payment_method.errors.
-        """
-        template_path = (
-            Path(__file__).resolve().parents[2]
-            / "templates"
-            / "payments"
-            / "forms"
-            / "plan_purchase.html"
-        )
-        template_content = template_path.read_text()
+    def test_template_shows_stripe_token_errors(self):
+        """Template should render stripe_token field errors"""
+        assert "form.stripe_token.errors" in self.template_content
 
-        assert "form.payment_method.errors" in template_content, (
-            "Template does not render payment_method errors — users won't see "
-            "validation errors for payment method selection"
-        )
+    def test_template_shows_non_field_errors(self):
+        """Template should render non-field errors"""
+        assert "form.non_field_errors" in self.template_content
 
 
 @pytest.mark.django_db
