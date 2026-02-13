@@ -4,6 +4,7 @@ import pytest
 # Squarelet
 from squarelet.organizations.models.membership import Membership
 
+
 class TestMembership:
     """Unit tests for Membership model"""
 
