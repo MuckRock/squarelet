@@ -161,7 +161,6 @@ django==4.2.18
     #   -r requirements/base.txt
     #   django-activity-stream
     #   django-allauth
-    #   django-choices
     #   django-cors-headers
     #   django-debug-toolbar
     #   django-environ
@@ -186,8 +185,6 @@ django-allauth[mfa,socialaccount]==65.0.2
 django-autocomplete-light==3.8.2
     # via -r requirements/base.txt
 django-autoslug==1.9.8
-    # via -r requirements/base.txt
-django-choices==1.7.2
     # via -r requirements/base.txt
 django-cors-headers==3.10.1
     # via -r requirements/base.txt
@@ -587,7 +584,6 @@ six==1.16.0
     #   bleach
     #   click-repl
     #   django-autocomplete-light
-    #   django-choices
     #   django-coverage-plugin
     #   django-environ
     #   furl

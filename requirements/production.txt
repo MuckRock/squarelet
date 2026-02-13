@@ -142,7 +142,6 @@ django==4.2.18
     #   django-anymail
     #   django-appconf
     #   django-celery-email
-    #   django-choices
     #   django-cors-headers
     #   django-debug-toolbar
     #   django-environ
@@ -174,8 +173,6 @@ django-autoslug==1.9.8
     # via -r requirements/base.txt
 django-celery-email==3.0.0
     # via -r requirements/production.in
-django-choices==1.7.2
-    # via -r requirements/base.txt
 django-cors-headers==3.10.1
     # via -r requirements/base.txt
 django-crispy-forms==1.13.0
@@ -450,7 +447,6 @@ six==1.16.0
     #   bleach
     #   click-repl
     #   django-autocomplete-light
-    #   django-choices
     #   django-environ
     #   furl
     #   html5lib
