@@ -64,56 +64,58 @@ function createFormFixture(options: {
   const newCardChecked = hasCardOnFile ? '' : 'checked';
 
   return `
-    <script id="org-card-data" type="application/json">${createOrgCardData(hasCardOnFile)}</script>
-    <script id="plan-data" type="application/json">${createPlanData()}</script>
-
     <form id="test-form">
       <input type="hidden" id="id_stripe_pk" value="pk_test_123" />
       <input type="hidden" id="id_stripe_token" name="stripe_token" />
 
-      <select class="org-select" name="organization">
-        <option value="">Select an organization</option>
-        <option value="org-1" data-slug="org-1" data-individual="false" ${selectedOrg === 'org-1' ? 'selected' : ''}>Test Org</option>
-        <option value="individual" data-slug="individual" data-individual="true" ${selectedOrg === 'individual' ? 'selected' : ''}>Individual</option>
-        <option value="new">Create New Organization</option>
-      </select>
+      <div data-plan-purchase-form>
+        <script id="org-card-data" type="application/json">${createOrgCardData(hasCardOnFile)}</script>
+        <script id="plan-data" type="application/json">${createPlanData()}</script>
 
-      <label for="id_new_organization_name">
-        <input type="text" id="id_new_organization_name" name="new_organization_name" />
-      </label>
+        <select class="org-select" name="organization">
+          <option value="">Select an organization</option>
+          <option value="org-1" data-slug="org-1" data-individual="false" ${selectedOrg === 'org-1' ? 'selected' : ''}>Test Org</option>
+          <option value="individual" data-slug="individual" data-individual="true" ${selectedOrg === 'individual' ? 'selected' : ''}>Individual</option>
+          <option value="new">Create New Organization</option>
+        </select>
 
-      <div class="payment-methods" style="display: none;">
-        <div class="card-on-file-option" style="display: none;">
-          <input type="radio" name="payment_method" value="existing-card" id="id_existing_card" />
-          <label for="id_existing_card">
-            <span class="card-info"></span>
-          </label>
-        </div>
+        <label for="id_new_organization_name">
+          <input type="text" id="id_new_organization_name" name="new_organization_name" />
+        </label>
 
-        <div class="new-card-option">
-          <input type="radio" name="payment_method" value="new-card" id="id_new_card" ${newCardChecked} />
-          <label for="id_new_card">Use a new card</label>
-        </div>
-
-        ${includeInvoiceOption ? `
-          <div class="invoice-option">
-            <input type="radio" name="payment_method" value="invoice" id="id_invoice" />
-            <label for="id_invoice">Pay by invoice</label>
+        <div class="payment-methods" style="display: none;">
+          <div class="card-on-file-option" style="display: none;">
+            <input type="radio" name="payment_method" value="existing-card" id="id_existing_card" />
+            <label for="id_existing_card">
+              <span class="card-info"></span>
+            </label>
           </div>
-        ` : ''}
+
+          <div class="new-card-option">
+            <input type="radio" name="payment_method" value="new-card" id="id_new_card" ${newCardChecked} />
+            <label for="id_new_card">Use a new card</label>
+          </div>
+
+          ${includeInvoiceOption ? `
+            <div class="invoice-option">
+              <input type="radio" name="payment_method" value="invoice" id="id_invoice" />
+              <label for="id_invoice">Pay by invoice</label>
+            </div>
+          ` : ''}
+        </div>
+
+        <div class="card-field" style="display: none;">
+          <div class="card-element"></div>
+          <div class="card-element-errors"></div>
+        </div>
+
+        <label class="save-card-option" style="display: none;">
+          <input type="checkbox" name="save_card" />
+          Save card for future use
+        </label>
+
+        <a href="#" class="manage-payment-link" style="display: none;">Manage payment methods</a>
       </div>
-
-      <div class="card-field" style="display: none;">
-        <div class="card-element"></div>
-        <div class="card-element-errors"></div>
-      </div>
-
-      <label style="display: none;">
-        <input type="checkbox" name="save_card" />
-        Save card for future use
-      </label>
-
-      <a href="#" class="manage-payment-link" style="display: none;">Manage payment methods</a>
 
       <button type="submit" disabled>Subscribe</button>
     </form>
@@ -121,7 +123,7 @@ function createFormFixture(options: {
 }
 
 // Test Suite
-describe('Plan View - Payment Form Logic', () => {
+describe('Plan Purchase Form', () => {
   let mockElement: MockStripeElement;
   let mockElements: MockStripeElements;
   let mockStripe: MockStripe;
@@ -145,7 +147,7 @@ describe('Plan View - Payment Form Logic', () => {
 
   const loadModule = async () => {
     // Import the module which will execute the DOMContentLoaded listener
-    await import('./plan');
+    await import('./plan_purchase_form');
     // Trigger DOMContentLoaded
     document.dispatchEvent(new Event('DOMContentLoaded'));
   };
@@ -248,7 +250,7 @@ describe('Plan View - Payment Form Logic', () => {
       const existingCardRadio = document.querySelector('input[value="existing-card"]') as HTMLInputElement;
       const newCardRadio = document.querySelector('input[value="new-card"]') as HTMLInputElement;
       const cardField = document.querySelector('.card-field') as HTMLDivElement;
-      const saveCardCheckbox = document.querySelector('input[name="save_card"]')?.closest('label') as HTMLLabelElement;
+      const saveCardCheckbox = document.querySelector('.save-card-option') as HTMLLabelElement;
 
       select.value = 'org-1';
       select.dispatchEvent(new Event('change'));
@@ -272,7 +274,7 @@ describe('Plan View - Payment Form Logic', () => {
       const newCardRadio = document.querySelector('input[value="new-card"]') as HTMLInputElement;
       const invoiceRadio = document.querySelector('input[value="invoice"]') as HTMLInputElement;
       const cardField = document.querySelector('.card-field') as HTMLDivElement;
-      const saveCardCheckbox = document.querySelector('input[name="save_card"]')?.closest('label') as HTMLLabelElement;
+      const saveCardCheckbox = document.querySelector('.save-card-option') as HTMLLabelElement;
 
       select.value = 'org-1';
       select.dispatchEvent(new Event('change'));
