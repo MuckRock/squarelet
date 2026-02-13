@@ -86,6 +86,15 @@
       {% endif %}
     </div>
 
+    {# Payment method errors #}
+    {% if form.payment_method.errors %}
+      <div class="field-errors">
+        {% for error in form.payment_method.errors %}
+          <p class="error">{{ error }}</p>
+        {% endfor %}
+      </div>
+    {% endif %}
+
     {# Credit card field #}
     <div class="card-field" style="display:none;">
       <div class="card-field-label">{% trans "Credit Card Information" %}</div>

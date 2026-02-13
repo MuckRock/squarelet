@@ -157,6 +157,7 @@ class PlanPurchaseForm(StripeForm):
     def _configure_payment_method_field(self):
         """Configure payment method choices based on plan"""
         choices = [
+            ("existing-card", _("Use card on file")),
             ("new-card", _("Use new card")),
         ]
 
