@@ -838,10 +838,11 @@ class TestUpdateSubscription(ViewTestMixin):
         }
         response = self.call_view(rf, user, data, slug=organization.slug)
         assert response.status_code == 302
-        assert mocked.called_with(
+        mocked.assert_called_once_with(
             token=data["stripe_token"],
             plan=organization.plan,
-            max_user=data["max_users"],
+            max_users=data["max_users"],
+            user=user,
         )
         assert set(e.email for e in organization.receipt_emails.all()) == set(
             data["receipt_emails"].split("\n")
