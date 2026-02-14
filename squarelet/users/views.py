@@ -73,7 +73,19 @@ ONBOARDING_SESSION_DEFAULTS = (
     ("subscription", "not_started"),
 )
 
+def send_email_confirmation(request, user, signup=False, email=None):
+    """
+    Compatibility wrapper for removed allauth utility.
 
+    Keeps the old API so existing code and tests continue to work.
+    """
+    email_address, _ = EmailAddress.objects.get_or_create(
+        user=user,
+        email=email or user.email,
+        defaults={"primary": True, "verified": False},
+    )
+    email_address.send_confirmation(request)
+    
 class UserRedirectView(LoginRequiredMixin, RedirectView):
     """Redirects legacy user routes to username-based routes for the current user"""
 
@@ -346,12 +358,12 @@ class UserOnboardingView(TemplateView):
         is_first_login = request.session.get("first_login", False)
         if step == "confirm_email" and not is_first_login:
             # If the user just signed up, they are already sent the confirmation.
-            email_address, created = EmailAddress.objects.get_or_create(
-                user=request.user,
-                email=request.user.email,
-                defaults={"primary": True, "verified": False},
+            send_email_confirmation(
+                request,
+                request.user,
+                False,
+                request.user.email,
             )
-            email_address.send_confirmation(request)
 
         if not step:
             # Onboarding is complete, clear the session store
