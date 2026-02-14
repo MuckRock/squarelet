@@ -26,7 +26,7 @@ registry.register(Invitation)
 )
 def make_stripe_plan(sender, instance, created, raw, using, update_fields, **kwargs):
     """Create a stripe plan on plan creation"""
-    # pylint: disable=unused-argument
+    # pylint: disable=unused-argument, too-many-positional-arguments
     if created:
         instance.make_stripe_plan()
 

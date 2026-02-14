@@ -25,7 +25,12 @@ from squarelet.users.onboarding import OnboardingStepRegistry
 class AccountAdapter(DefaultAccountAdapter):
     """
     Custom account adapter for allauth
+    We don't implement phone based methods that are present in
+    the DefaultAccountAdapter as abstracts and don't support phone login,
+    so we silence the pylint warning instead of listing a bunch of empty stubs
     """
+
+    # pylint:disable = abstract-method
 
     def can_delete_email(self, email_address):
         """Do not allow somone to delete their primary email address"""
@@ -179,7 +184,7 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
 
     def authentication_error(
         self, request, provider_id, error=None, exception=None, extra_context=None
-    ):
+    ): # pylint:disable = too-many-positional-arguments
         print(
             "SocialAccount authentication error!",
             "error",

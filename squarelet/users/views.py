@@ -32,7 +32,8 @@ import time
 from datetime import datetime
 
 # Third Party
-from allauth.account.utils import get_next_redirect_url, send_email_confirmation
+from allauth.account.models import EmailAddress
+from allauth.account.utils import get_next_redirect_url
 from allauth.account.views import (
     EmailView as AllAuthEmailView,
     LoginView as AllAuthLoginView,
@@ -70,6 +71,20 @@ ONBOARDING_SESSION_DEFAULTS = (
     ("join_org", False),
     ("subscription", "not_started"),
 )
+
+
+def send_email_confirmation(request, user, email=None):
+    """
+    Compatibility wrapper for removed allauth utility.
+
+    Keeps the old API so existing code and tests continue to work.
+    """
+    email_address, _ = EmailAddress.objects.get_or_create(
+        user=user,
+        email=email or user.email,
+        defaults={"primary": True, "verified": False},
+    )
+    email_address.send_confirmation(request)
 
 
 class UserRedirectView(LoginRequiredMixin, RedirectView):
@@ -344,7 +359,11 @@ class UserOnboardingView(TemplateView):
         is_first_login = request.session.get("first_login", False)
         if step == "confirm_email" and not is_first_login:
             # If the user just signed up, they are already sent the confirmation.
-            send_email_confirmation(request, request.user, False, request.user.email)
+            send_email_confirmation(
+                request,
+                request.user,
+                request.user.email,
+            )
 
         if not step:
             # Onboarding is complete, clear the session store
@@ -391,13 +410,13 @@ class UserOnboardingView(TemplateView):
 class LoginView(AllAuthLoginView):
     def get(self, request, *args, **kwargs):
         """
-        If the url_auth_token parameter is still present, it means the auth token failed
+        If the sesame parameter is still present, it means the auth token failed
         to authenticate the user.  Redirect them to the nested next parameter instead of
         asking them to login
         """
         onboarding_check(request)
         next_url = get_next_redirect_url(request)
-        if "url_auth_token" in request.GET and next_url:
+        if "sesame" in request.GET and next_url:
             return redirect(f"{settings.MUCKROCK_URL}{next_url}")
         return super().get(request, *args, **kwargs)
 

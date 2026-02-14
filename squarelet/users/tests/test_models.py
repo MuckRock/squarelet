@@ -61,7 +61,7 @@ def test_wrap_url(user_factory):
     assert parse.netloc == "www.example.com"
     assert parse.path == ""
     query = parse_qs(parse.query)
-    assert "url_auth_token" in query
+    assert "sesame" in query
     assert query["a"] == ["1"]
 
 
@@ -73,7 +73,7 @@ def test_wrap_url_off(user_factory):
     assert parse.netloc == "www.example.com"
     assert parse.path == ""
     query = parse_qs(parse.query)
-    assert "url_auth_token" not in query
+    assert "sesame" not in query
     assert query["a"] == ["1"]
 
 

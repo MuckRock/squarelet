@@ -15,8 +15,6 @@ from squarelet.organizations.models import Organization
 from squarelet.users import forms
 from squarelet.users.models import User
 
-# pylint: disable=invalid-name
-
 
 @pytest.mark.django_db
 def test_clean_good(plan_factory):
