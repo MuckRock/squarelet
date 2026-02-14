@@ -164,7 +164,7 @@ class TestLoginView(ViewTestMixin):
     def test_get_url_auth_token(self, rf, mocker):
         """Test handling of lingering url_auth_token parameter"""
         next_url = "/target/url/"
-        params = {"url_auth_token": "token", "next": next_url}
+        params = {"sesame": "token", "next": next_url}
         request = rf.get(self.url, params)
         request.user = AnonymousUser()
         request.session = mocker.MagicMock()

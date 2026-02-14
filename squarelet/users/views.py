@@ -410,13 +410,13 @@ class UserOnboardingView(TemplateView):
 class LoginView(AllAuthLoginView):
     def get(self, request, *args, **kwargs):
         """
-        If the url_auth_token parameter is still present, it means the auth token failed
+        If the sesame parameter is still present, it means the auth token failed
         to authenticate the user.  Redirect them to the nested next parameter instead of
         asking them to login
         """
         onboarding_check(request)
         next_url = get_next_redirect_url(request)
-        if "url_auth_token" in request.GET and next_url:
+        if "sesame" in request.GET and next_url:
             return redirect(f"{settings.MUCKROCK_URL}{next_url}")
         return super().get(request, *args, **kwargs)
 
