@@ -24,7 +24,7 @@ from squarelet.core.tests.mixins import ViewTestMixin
 from .. import views
 from ..models import OrganizationEmailDomain, ReceiptEmail
 
-# pylint: disable=invalid-name,too-many-public-methods,too-many-lines
+# pylint: disable=too-many-public-methods
 
 
 @pytest.mark.django_db()

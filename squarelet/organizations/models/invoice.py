@@ -147,4 +147,3 @@ class Invoice(models.Model):
         stripe.api_version = "2018-09-24"
 
         stripe.Invoice.mark_uncollectible(self.invoice_id)
-

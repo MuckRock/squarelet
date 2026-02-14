@@ -45,7 +45,6 @@ from allauth.socialaccount.adapter import get_adapter as get_social_adapter
 from allauth.socialaccount.internal import flows
 from allauth.socialaccount.views import ConnectionsView
 
-
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import new_action
@@ -73,7 +72,8 @@ ONBOARDING_SESSION_DEFAULTS = (
     ("subscription", "not_started"),
 )
 
-def send_email_confirmation(request, user, signup=False, email=None):
+
+def send_email_confirmation(request, user, email=None):
     """
     Compatibility wrapper for removed allauth utility.
 
@@ -85,7 +85,8 @@ def send_email_confirmation(request, user, signup=False, email=None):
         defaults={"primary": True, "verified": False},
     )
     email_address.send_confirmation(request)
-    
+
+
 class UserRedirectView(LoginRequiredMixin, RedirectView):
     """Redirects legacy user routes to username-based routes for the current user"""
 
@@ -361,7 +362,6 @@ class UserOnboardingView(TemplateView):
             send_email_confirmation(
                 request,
                 request.user,
-                False,
                 request.user.email,
             )
 

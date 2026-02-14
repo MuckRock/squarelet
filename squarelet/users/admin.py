@@ -202,7 +202,10 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
         """Sync all auth email addresses"""
         if change:
             super().save_model(request, obj, form, change)
-            if obj.email and not EmailAddress.objects.filter(user=obj, email=obj.email).exists():
+            if (
+                obj.email
+                and not EmailAddress.objects.filter(user=obj, email=obj.email).exists()
+            ):
                 EmailAddress.objects.get_or_create(
                     user=obj,
                     email=obj.email,

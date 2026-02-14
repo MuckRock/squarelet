@@ -19,8 +19,7 @@ from squarelet.organizations.models import Invitation
 from squarelet.organizations.models.payment import Plan
 from squarelet.users import views
 
-# pylint: disable=invalid-name, disable=too-many-lines
-
+# pylint: disable=too-many-lines, too-many-positional-arguments
 
 @pytest.mark.django_db()
 class TestUserDetailView(ViewTestMixin):
@@ -158,8 +157,6 @@ class TestLoginView(ViewTestMixin):
 
     view = views.LoginView
     url = "/accounts/login/"
-
-    # pylint: disable=invalid-name
 
     def test_get_url_auth_token(self, rf, mocker):
         """Test handling of lingering url_auth_token parameter"""
@@ -1126,7 +1123,7 @@ class TestUserOnboardingView(ViewTestMixin):
         response = self._call_view_get(request, mocker, mock_email_send=False)
 
         assert response.status_code == 200
-        mock_send.assert_called_once_with(request, user, False, user.email)
+        mock_send.assert_called_once_with(request, user, user.email)
 
     def test_get_confirm_email_skips_email_on_first_login(
         self, rf, user_factory, mocker, mock_django_session
@@ -2033,7 +2030,7 @@ class TestUserOnboardingView(ViewTestMixin):
         response = self._call_view_get(request, mocker, mock_email_send=False)
 
         # Should send email confirmation automatically
-        mock_send_confirmation.assert_called_once_with(request, user, False, user.email)
+        mock_send_confirmation.assert_called_once_with(request, user, user.email)
         assert response.status_code == 200  # Render confirm_email template
 
     def test_email_confirmation_not_sent_on_first_login(
