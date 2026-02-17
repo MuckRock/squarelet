@@ -1,7 +1,14 @@
+{% load thumbnail %}
 {% for provider in service_providers %}
   {% if provider.base_url %}
     <a href="{{ provider.base_url }}" class="_cls-serviceItem">
-      <img src="{{ provider.icon.url }}" alt="{{ provider.name }}">
+      {% if provider.icon %}
+        {% thumbnail provider.icon "40x40" crop="center" as im %}
+          <img src="{{ im.url }}" width="{{ im.width }}" height="{{ im.height }}" alt="{{ provider.name }}">
+        {% endthumbnail %}
+      {% else %}
+        <img src="{{ provider.icon.url }}" alt="{{ provider.name }}">
+      {% endif %}
       <div>
         <div class="_cls-serviceName">{{ provider.name }}</div>
         <div class="_cls-serviceDescription">{{ provider.description }}</div>
