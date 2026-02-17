@@ -15,7 +15,6 @@ from .base import env
 from anymail.backends.mailgun import EmailBackend as MailgunBackend  # isort:skip
 from bandit.backends.base import HijackBackendMixin  # isort:skip
 
-
 # GENERAL
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#secret-key
