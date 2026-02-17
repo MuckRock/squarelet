@@ -314,3 +314,68 @@ class TestOrganizationInvitation:
             ValueError, match="This invitation has already been processed"
         ):
             invitation.reject()
+
+    # Tests for Wix sync integration
+    @pytest.mark.django_db(transaction=True)
+    def test_accept_triggers_wix_sync_for_group_with_wix_plan(
+        self, organization_invitation_factory, plan_factory, mocker
+    ):
+        """Test that accepting invitation triggers Wix sync when group has Wix plan"""
+        mock_sync = mocker.patch(
+            "squarelet.organizations.tasks.sync_wix_for_group_member.delay"
+        )
+        wix_plan = plan_factory(wix=True)
+        invitation = organization_invitation_factory(
+            from_organization__collective_enabled=True,
+            from_organization__share_resources=True,
+            from_organization__plans=[wix_plan],
+            relationship_type=RelationshipType.member,
+        )
+
+        invitation.accept()
+
+        mock_sync.assert_called_once_with(
+            invitation.to_organization.pk,
+            invitation.from_organization.pk,
+            wix_plan.pk,
+        )
+
+    @pytest.mark.django_db(transaction=True)
+    def test_accept_no_wix_sync_when_share_resources_false(
+        self, organization_invitation_factory, plan_factory, mocker
+    ):
+        """Test that Wix sync is not triggered when share_resources=False"""
+        mock_sync = mocker.patch(
+            "squarelet.organizations.tasks.sync_wix_for_group_member.delay"
+        )
+        wix_plan = plan_factory(wix=True)
+        invitation = organization_invitation_factory(
+            from_organization__collective_enabled=True,
+            from_organization__share_resources=False,
+            from_organization__plans=[wix_plan],
+            relationship_type=RelationshipType.member,
+        )
+
+        invitation.accept()
+
+        mock_sync.assert_not_called()
+
+    @pytest.mark.django_db(transaction=True)
+    def test_accept_no_wix_sync_when_no_wix_plan(
+        self, organization_invitation_factory, plan_factory, mocker
+    ):
+        """Test that Wix sync is not triggered when group has no Wix plan"""
+        mock_sync = mocker.patch(
+            "squarelet.organizations.tasks.sync_wix_for_group_member.delay"
+        )
+        non_wix_plan = plan_factory(wix=False)
+        invitation = organization_invitation_factory(
+            from_organization__collective_enabled=True,
+            from_organization__share_resources=True,
+            from_organization__plans=[non_wix_plan],
+            relationship_type=RelationshipType.member,
+        )
+
+        invitation.accept()
+
+        mock_sync.assert_not_called()
