@@ -64,7 +64,7 @@ class Detail(AdminLinkMixin, DetailView):
         admins = [
             u for u in users if u.org_membership_list and u.org_membership_list[0].admin
         ]
-        if context.get("is_member"):
+        if context.get("is_member") or self.request.user.is_staff:
             context["users"] = users
         else:
             context["users"] = admins
