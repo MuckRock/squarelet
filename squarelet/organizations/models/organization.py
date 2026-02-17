@@ -33,6 +33,8 @@ from squarelet.organizations.querysets import OrganizationQuerySet
 
 logger = logging.getLogger(__name__)
 
+# pylint:disable=too-many-positional-arguments
+
 
 def organization_file_path(instance, filename):
     return file_path("org_avatars", instance, filename)
@@ -321,6 +323,7 @@ class Organization(AvatarMixin, models.Model):
     def save(self, *args, **kwargs):
         # Importing here to avoid a dependency loop
         # pylint: disable=import-outside-toplevel
+        # Squarelet
         from squarelet.organizations.tasks import sync_wix_for_group_member
 
         # Track if share_resources is being toggled ON
@@ -498,6 +501,7 @@ class Organization(AvatarMixin, models.Model):
 
     def set_subscription(self, token, plan, max_users, user, payment_method=None):
         # pylint: disable=import-outside-toplevel,too-many-branches
+        # Squarelet
         from squarelet.organizations.tasks import sync_wix, sync_wix_for_group_member
 
         if self.individual:

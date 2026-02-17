@@ -33,6 +33,7 @@ def get_contact_by_email(headers, email):
                 }
             }
         },
+        timeout=(5, 15),
     )
     response.raise_for_status()
     rjson = response.json()
@@ -63,6 +64,7 @@ def create_member(headers, organization, user):
                 },
             },
         },
+        timeout=(5, 15),
     )
     response.raise_for_status()
     logger.warning(
@@ -85,6 +87,7 @@ def add_labels(headers, contact_id, plan):
         f"https://www.wixapis.com/contacts/v4/contacts/{contact_id}/labels",
         headers=headers,
         json={"labelKeys": ["custom.paying-member", f"custom.{plan_slug}-member"]},
+        timeout=(5, 15),
     )
     logger.warning(
         "[WIX-SYNC] add labels response %d %s", response.status_code, response.json()
@@ -102,6 +105,7 @@ def send_set_password_email(headers, email):
             "email": email,
             "hideIgnoreMessage": True,
         },
+        timeout=(5, 15),
     )
     response.raise_for_status()
     logger.warning(
@@ -155,6 +159,7 @@ def create_contact(headers, organization, user):
                 "company": organization.name,
             }
         },
+        timeout=(5, 15),
     )
     response.raise_for_status()
     logger.warning(
@@ -178,6 +183,7 @@ def get_contact_by_email_v4(headers, email):
                 }
             }
         },
+        timeout=(5, 15),
     )
     response.raise_for_status()
     rjson = response.json()
@@ -220,6 +226,7 @@ def add_to_waitlist(organization, plan, user):
             f"https://www.wixapis.com/contacts/v4/contacts/{contact_id}/labels",
             headers=headers,
             json={"labelKeys": ["custom.waitlist", plan_label]},
+            timeout=(5, 15),
         )
         response.raise_for_status()
         logger.warning("[WIX-WAITLIST] Successfully added to waitlist: %s", user.email)

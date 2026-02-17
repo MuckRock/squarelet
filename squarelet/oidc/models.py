@@ -56,4 +56,4 @@ class ClientProfile(models.Model):
             "timestamp": timestamp,
             "signature": signature,
         }
-        requests.post(self.webhook_url, data=data)
+        requests.post(self.webhook_url, data=data, timeout=30)

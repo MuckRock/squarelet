@@ -18,6 +18,8 @@ registry.register(Organization)
 registry.register(ProfileChangeRequest)
 registry.register(Invitation)
 
+# pylint:disable=too-many-positional-arguments
+
 
 @receiver(
     signals.post_save,

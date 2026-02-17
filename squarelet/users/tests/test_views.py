@@ -19,7 +19,7 @@ from squarelet.organizations.models import Invitation
 from squarelet.organizations.models.payment import Plan
 from squarelet.users import views
 
-# pylint: disable=invalid-name, disable=too-many-lines
+# pylint: disable=too-many-positional-arguments, too-many-lines
 
 
 @pytest.mark.django_db()
@@ -158,8 +158,6 @@ class TestLoginView(ViewTestMixin):
 
     view = views.LoginView
     url = "/accounts/login/"
-
-    # pylint: disable=invalid-name
 
     def test_get_url_auth_token(self, rf, mocker):
         """Test handling of lingering url_auth_token parameter"""

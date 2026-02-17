@@ -307,6 +307,7 @@ class OrganizationInvitation(models.Model):
         """Accept this invitation/request"""
         # Prevent circular import
         # pylint: disable=import-outside-toplevel
+        # Squarelet
         from squarelet.organizations.tasks import sync_wix_for_group_member
 
         if not self.is_pending:
