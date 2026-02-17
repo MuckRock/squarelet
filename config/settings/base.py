@@ -79,6 +79,7 @@ THIRD_PARTY_APPS = [
     "allauth.socialaccount.providers.google",
     "allauth.mfa",
     "crispy_forms",
+    "crispy_bootstrap4",
     "dal",
     "dal_select2",
     "debug_toolbar",
@@ -107,6 +108,8 @@ LOCAL_APPS = [
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
+
+CRISPY_TEMPLATE_PACK = "bootstrap4"
 
 # AUTHENTICATION
 # ------------------------------------------------------------------------------
