@@ -184,7 +184,7 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
 
     def authentication_error(
         self, request, provider_id, error=None, exception=None, extra_context=None
-    ): # pylint:disable = too-many-positional-arguments
+    ):  # pylint:disable = too-many-positional-arguments
         print(
             "SocialAccount authentication error!",
             "error",

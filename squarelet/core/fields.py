@@ -31,7 +31,7 @@ class AutoLastModifiedField(AutoCreatedField):
     By default, sets editable=False and default=datetime.now.
     """
 
-    def pre_save(self, model_instance, add): #pylint: disable = unused-argument
+    def pre_save(self, model_instance, add):  # pylint: disable = unused-argument
         value = now()
         setattr(model_instance, self.attname, value)
         return value

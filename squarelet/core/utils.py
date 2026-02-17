@@ -27,7 +27,7 @@ MAX_RETRIES = 10
 
 def new_action(
     actor, verb, action_object=None, target=None, public=False, description=None
-): # pylint:disable = too-many-positional-arguments
+):  # pylint:disable = too-many-positional-arguments
     """Wrapper to send a new action and return the generated Action object."""
     action_signal = actstream.action.send(
         actor,
@@ -320,7 +320,7 @@ def is_rate_limited(
     zendesk_subject=None,
     zendesk_description=None,
     extra_tags=None,
-): # pylint:disable = too-many-positional-arguments
+):  # pylint:disable = too-many-positional-arguments
     """
     Generic rate-limiter.
 

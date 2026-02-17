@@ -13,6 +13,7 @@ from squarelet.payments import views
 
 # pylint:disable = too-many-positional-arguments
 
+
 @pytest.mark.django_db()
 class TestPlanDetailViewCreateOrganization(ViewTestMixin):
     """Test the Plan Detail view with new organization creation"""

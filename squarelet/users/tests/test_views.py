@@ -21,6 +21,7 @@ from squarelet.users import views
 
 # pylint: disable=too-many-lines, too-many-positional-arguments
 
+
 @pytest.mark.django_db()
 class TestUserDetailView(ViewTestMixin):
     """Test the User Detail view"""

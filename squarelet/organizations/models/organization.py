@@ -575,7 +575,7 @@ class Organization(AvatarMixin, models.Model):
         token=None,
         save_card=False,
         metadata=None,
-    ): # pylint:disable=too-many-positional-arguments
+    ):  # pylint:disable=too-many-positional-arguments
         """Charge the organization and optionally save their credit card"""
         if save_card:
             self.save_card(token, user)
