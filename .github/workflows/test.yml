@@ -46,11 +46,11 @@ jobs:
       - name: Lint
         run: pylint squarelet
 
-      - name: Isort
-        run: isort --check-only -rc squarelet
+      - name: Check import formatting
+        run: isort --check-only squarelet config/urls.py config/settings
 
-      - name: Formatting
-        run: black --check squarelet --exclude migrations
+      - name: Check code formatting
+        run: black --check squarelet --exclude migrations && black --check config/urls.py && black --check config/settings
 
   test:
     runs-on: ubuntu-latest

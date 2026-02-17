@@ -463,6 +463,7 @@ class Organization(AvatarMixin, models.Model):
 
     def set_subscription(self, token, plan, max_users, user, payment_method=None):
         # pylint: disable=import-outside-toplevel, too-many-positional-arguments
+        # Squarelet
         from squarelet.organizations.tasks import sync_wix
 
         if self.individual:
