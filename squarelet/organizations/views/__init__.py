@@ -3,7 +3,12 @@
 from .admin import Create, Merge
 from .detail import Detail, List, autocomplete
 from .domains import ManageDomains
-from .members import InvitationAccept, ManageMembers
+from .members import (
+    InvitationAccept,
+    ManageMembers,
+    OrgInvitationsView,
+    OrgRequestsView,
+)
 from .profile import RequestProfileChange, ReviewProfileChange, Update
 from .subscription import (
     ChargeDetail,
@@ -29,6 +34,8 @@ __all__ = [
     # Member views
     "ManageMembers",
     "InvitationAccept",
+    "OrgInvitationsView",
+    "OrgRequestsView",
     # Domain views
     "ManageDomains",
     # Admin views

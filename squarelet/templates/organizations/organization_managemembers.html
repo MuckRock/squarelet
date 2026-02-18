@@ -92,14 +92,25 @@
       </div>
     </section>
 
-    {% if requested_invitations %}
     {% with count=requested_invitations|length %}
     <section id="requests">
       <header>
-        <h2>
-          {{ count }} pending request{{ count|pluralize }}
-        </h2>
-        <p>{% trans "Users who've asked to join" %}:</p>
+        <div class="title">
+          {% if requested_invitations %}
+          <h2>
+            {{ count }} pending request{{ count|pluralize }}
+          </h2>
+          {% else %}
+          <h2>
+            Pending requests
+          </h2>
+          {% endif %}
+          <p>{% trans "Users who've asked to join" %}:</p>
+        </div>
+        <a href="{% url "organizations:org-requests" slug=organization.slug %}" class="btn small ghost primary">
+          {% include "core/icons/history.svg" %}
+          {% trans "View request history" %}
+        </a>
       </header>
       <div class="card">
         {% for invitation in requested_invitations %}
@@ -125,20 +136,35 @@
             <p class="caption">Recieved <time datetime="{{ invitation.created_at|date:"c" }}" title="{{ invitation.created_at|date:"c" }}">{{ invitation.created_at|naturaltime }}</time></p>
           </form>
         </div>
+        {% empty %}
+        <div class="empty">
+          <h3>No pending requests</h3>
+        </div>
         {% endfor %}
       </div>
     </section>
     {% endwith %}
-    {% endif %}
 
-    {% if pending_invitations %}
     {% with count=pending_invitations|length %}
     <section id="pending">
       <header>
-        <h2>
-          {{ count }} pending invitation{{ count|pluralize }}
-        </h2>
-        <p>{% trans "Users you've invited to join" %}:</p>
+        <div class="title">
+          {% if pending_invitations %}
+          <h2>
+
+            {{ count }} pending invitation{{ count|pluralize }}
+          </h2>
+          {% else %}
+          <h2>
+            Pending invitations
+          </h2>
+          {% endif %}
+          <p>{% trans "Users you've invited to join" %}:</p>
+        </div>
+        <a href="{% url "organizations:org-invitations" slug=organization.slug %}" class="btn small ghost primary">
+          {% include "core/icons/history.svg" %}
+          {% trans "View invitation history" %}
+        </a>
       </header>
       <div class="card">
         {% for invitation in pending_invitations %}
@@ -174,11 +200,14 @@
             <p class="caption">Created <time datetime="{{ invitation.created_at|date:"c" }}" title="{{ invitation.created_at|date:"c" }}">{{ invitation.created_at|naturaltime }}</time></p>
           </div>
         </div>
+        {% empty %}
+        <div class="empty">
+          <h3>No pending invitations</h3>
+        </div>
         {% endfor %}
       </div>
     </section>
     {% endwith %}
-    {% endif %}
 
     {% with count=members|length %}
     <section id="members">
