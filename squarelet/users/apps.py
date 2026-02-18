@@ -3,7 +3,7 @@ from django.apps import AppConfig
 from django.db.utils import ProgrammingError
 
 # Third Party
-from Cryptodome.PublicKey import RSA
+from Crypto.PublicKey import RSA
 
 
 class UsersConfig(AppConfig):

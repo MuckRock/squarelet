@@ -28,7 +28,7 @@ django-sesame
 django-storages[boto3]
 django-vite
 django-weasyprint
-django<5.0
+django<6
 djangorestframework
 djangorestframework_simplejwt
 dogslow
@@ -41,6 +41,8 @@ markdown
 memoize
 psycopg2 --no-binary psycopg2
 pyairtable
+pycryptodome
+PyJWT>=2.8,<2.10
 python-Levenshtein
 python-slugify
 pytz
