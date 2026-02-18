@@ -11,7 +11,7 @@ from squarelet.core.tests.mixins import ViewTestMixin
 from squarelet.organizations.models import Organization, Plan
 from squarelet.payments import views
 
-# pylint: disable=invalid-name
+# pylint: disable=too-many-positional-arguments
 
 
 @pytest.mark.django_db()

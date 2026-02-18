@@ -1,6 +1,4 @@
 # Standard Library
-from anymail.backends.mailgun import EmailBackend as MailgunBackend  # isort:skip
-from bandit.backends.base import HijackBackendMixin  # isort:skip
 import logging
 import os
 
@@ -13,6 +11,9 @@ from sentry_sdk.integrations.logging import LoggingIntegration
 # Local
 from .base import *  # noqa
 from .base import env
+
+from anymail.backends.mailgun import EmailBackend as MailgunBackend  # isort:skip
+from bandit.backends.base import HijackBackendMixin  # isort:skip
 
 # GENERAL
 # ------------------------------------------------------------------------------

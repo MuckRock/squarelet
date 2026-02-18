@@ -224,19 +224,13 @@ class TestInvoice:
         invoice = invoice_factory(invoice_id="in_test123", status="open")
 
         # Mock the Stripe API request
-        mock_requestor = mocker.MagicMock()
-        mock_requestor.request.return_value = (mocker.MagicMock(), "api_key")
-        mocker.patch("stripe.api_requestor.APIRequestor", return_value=mock_requestor)
+        mock_mark = mocker.patch("stripe.Invoice.mark_uncollectible")
 
         # Call the method
         invoice.mark_uncollectible_in_stripe()
 
         # Verify Stripe API was called correctly
-        mock_requestor.request.assert_called_once_with(
-            "post",
-            "/v1/invoices/in_test123/mark_uncollectible",
-            {},
-        )
+        mock_mark.assert_called_once_with("in_test123")
 
     @pytest.mark.django_db
     def test_mark_uncollectible_in_stripe_stripe_error(self, invoice_factory, mocker):
@@ -244,11 +238,13 @@ class TestInvoice:
         invoice = invoice_factory(invoice_id="in_error123", status="open")
 
         # Mock the Stripe API request to raise an error
-        mock_requestor = mocker.MagicMock()
-        mock_requestor.request.side_effect = stripe.error.InvalidRequestError(
-            "This invoice has already been marked uncollectible", "invoice"
+        mocker.patch(
+            "stripe.Invoice.mark_uncollectible",
+            side_effect=stripe.error.InvalidRequestError(
+                "This invoice has already been marked uncollectible",
+                "invoice",
+            ),
         )
-        mocker.patch("stripe.api_requestor.APIRequestor", return_value=mock_requestor)
 
         # Should raise the Stripe error
         with pytest.raises(stripe.error.InvalidRequestError):
