@@ -165,7 +165,7 @@ django-activity-stream==2.0.0
     # via -r /app/requirements/base.txt
 django-allauth[mfa,socialaccount]==65.0.2
     # via -r /app/requirements/base.txt
-django-anymail[mailgun]==8.6
+django-anymail[mailgun]==14.0
     # via -r requirements/production.in
 django-appconf==1.0.5
     # via django-celery-email
@@ -255,6 +255,7 @@ html5lib==1.1
 idna==3.7
     # via
     #   -r /app/requirements/base.txt
+    #   django-anymail
     #   requests
 inflection==0.5.1
     # via
@@ -503,6 +504,7 @@ urllib3==1.26.19
     # via
     #   -r /app/requirements/base.txt
     #   botocore
+    #   django-anymail
     #   pyairtable
     #   requests
     #   sentry-sdk
