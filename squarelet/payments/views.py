@@ -10,7 +10,6 @@ from django.utils.translation import gettext_lazy as _
 from django.views.generic import DetailView, RedirectView, TemplateView
 
 # Standard Library
-import json
 import logging
 import sys
 
@@ -18,6 +17,7 @@ import sys
 from squarelet.organizations.models import Organization, Plan
 from squarelet.organizations.models.payment import Subscription
 from squarelet.organizations.tasks import add_to_waitlist
+from squarelet.payments.forms import PlanPurchaseForm
 
 logger = logging.getLogger(__name__)
 
@@ -80,40 +80,22 @@ class PlanDetailView(DetailView):
         protect_private_plan(plan, self.request.user)
         return plan
 
+    def get_form(self):
+        """Get the plan purchase form"""
+        plan = self.get_object()
+        user = self.request.user if self.request.user.is_authenticated else None
+
+        if self.request.method == "POST":
+            return PlanPurchaseForm(self.request.POST, plan=plan, user=user)
+        return PlanPurchaseForm(plan=plan, user=user)
+
     def get_context_data(self, **kwargs):
-        # pylint: disable=too-many-locals,too-many-branches
         context = super().get_context_data(**kwargs)
         plan = self.get_object()
 
-        # Add plan data for JSON serialization
-        context["plan_data"] = {
-            "annual": plan.annual,
-            "is_sunlight_plan": plan.is_sunlight_plan,
-            "is_nonprofit_variant": plan.slug.startswith("sunlight-nonprofit-"),
-            "base_price": plan.base_price,
-            "price_per_user": plan.price_per_user,
-            "minimum_users": plan.minimum_users,
-        }
-
-        # Add nonprofit plan pricing if available
-        if plan.is_sunlight_plan:
-            nonprofit_slug = plan.nonprofit_variant_slug
-            if nonprofit_slug:
-                try:
-                    nonprofit_plan = Plan.objects.get(slug=nonprofit_slug)
-                    context["plan_data"][
-                        "nonprofit_base_price"
-                    ] = nonprofit_plan.base_price
-                    context["plan_data"][
-                        "nonprofit_price_per_user"
-                    ] = nonprofit_plan.price_per_user
-                    context["plan_data"]["has_nonprofit_variant"] = True
-                except Plan.DoesNotExist:
-                    context["plan_data"]["has_nonprofit_variant"] = False
-            else:
-                context["plan_data"]["has_nonprofit_variant"] = False
-        else:
-            context["plan_data"]["has_nonprofit_variant"] = False
+        # Add form to context
+        if "form" not in kwargs:
+            context["form"] = self.get_form()
 
         # Add matching plan tier with different payment schedule (for Sunlight plans)
         context["matching_plan"] = get_matching_plan_tier(plan)
@@ -121,7 +103,6 @@ class PlanDetailView(DetailView):
         if self.request.user.is_authenticated:
             user = self.request.user
             existing_subscriptions = []
-            admin_organizations = []
 
             # Check user's individual organization
             individual_org = user.individual_organization
@@ -150,28 +131,10 @@ class PlanDetailView(DetailView):
                 ).first()
                 if org_subscription:
                     existing_subscriptions.append((org_subscription, org))
-                else:
-                    admin_organizations.append(org)
-
-            # Check if individual org can subscribe (not already subscribed)
-            can_subscribe_individual = not individual_subscription
-
-            # Add default payment methods for organizations
-            individual_card = individual_org.customer().card
-            if individual_card:
-                context["individual_default_card"] = individual_card
-
-            # Build org_cards mapping for all organizations (individual + admin)
-            org_cards = self._get_org_cards(individual_org, admin_organizations)
 
             context.update(
                 {
                     "existing_subscriptions": existing_subscriptions,
-                    "admin_organizations": admin_organizations,
-                    "can_subscribe_individual": can_subscribe_individual,
-                    "individual_organization": individual_org,
-                    "org_cards": org_cards,
-                    "org_cards_json": json.dumps(org_cards),
                     "stripe_pk": settings.STRIPE_PUB_KEY,
                     "show_waitlist": not plan.has_available_slots() and plan.wix,
                 }
@@ -217,129 +180,38 @@ class PlanDetailView(DetailView):
         return org_cards
 
     def post(self, request, *args, **kwargs):
-        # pylint: disable=too-many-return-statements,too-many-branches
-        # pylint: disable=too-many-locals,too-many-statements
         """
-        This receives a form submission for subscribing to the plan.
-        The form supports selecting an existing organization or creating a new one,
-        and choosing a payment method (new card, existing card, or invoice).
-
-        Except! Invoice handling is getting expanded support in #461—we are only
-        using invoices as a silent fallback for when no card has been provided.
-        This is an edge case and not a user-selectable option at this time.
+        Handle form submission for subscribing to the plan.
+        Uses PlanPurchaseForm for validation and data extraction.
         """
-        plan = self.get_object()
+        self.object = self.get_object()
+        plan = self.object
 
         if not request.user.is_authenticated:
             # Redirect unauthenticated users to login, then back to this page
             return redirect_to_login(request.get_full_path())
 
-        # pylint: disable=pointless-string-statement
-        # It's not pointless, it's a block comment
-        """
-        # Get form data
+        form = self.get_form()
 
-        - Organization
-            - If creating a new organization, the ID will be "new"
-            - If creating a new organization, get the name from the form
-        - Stripe token
-            - If the user entered a credit card, the stripe_token will be populated
-            - If they are using a saved card, this value will be empty.
-            - If they are using an existing organization, there's a chance we'll have
-              a saved card on file already. If it's a new organization, we should expect
-              to have a token value.
-        - Payment method: one of "new-card", "existing-card", or "invoice"
-            - "new-card": user entered a new card (stripe_token will be populated)
-            - "existing-card": user selected an existing saved card (stripe_token empty)
-            - "invoice": user selected invoice payment (stripe_token empty)
-        """
-
-        organization_id = request.POST.get("organization")
-        new_organization_name = request.POST.get("new_organization_name")
-        stripe_token = request.POST.get("stripe_token")
-        payment_method = request.POST.get("payment_method")
-        is_nonprofit = request.POST.get("is_nonprofit") == "on"
-
-        # Handle nonprofit plan substitution
-        selected_plan = plan  # Original plan from URL
-
-        if is_nonprofit:
-            # Validate nonprofit checkbox is only used for Sunlight plans
-            if not plan.is_sunlight_plan:
-                messages.error(
-                    request,
-                    _(
-                        "Non-profit discount is only available for "
-                        "Sunlight Research Desk plans"
-                    ),
-                )
-                return redirect(plan)
-
-            # Get nonprofit variant slug
-            nonprofit_slug = plan.nonprofit_variant_slug
-            if nonprofit_slug:
-                try:
-                    nonprofit_plan = Plan.objects.get(slug=nonprofit_slug)
-                    selected_plan = nonprofit_plan
-                except Plan.DoesNotExist:
-                    messages.error(
-                        request,
-                        _("Non-profit plan variant not found. Please contact support."),
-                    )
-                    return redirect(plan)
+        if not form.is_valid():
+            # Re-render with form errors
+            return self.render_to_response(self.get_context_data(form=form))
 
         with transaction.atomic():
             try:
-                # Get or create the organization
-                if organization_id == "new":
-                    # Create a new organization
-                    if not new_organization_name:
-                        messages.error(
-                            request, _("Please provide a name for the new organization")
-                        )
-                        return redirect(plan)
+                # Get form results
+                result = form.save(request.user)
+                organization = result["organization"]
+                selected_plan = result["plan"]
+                payment_method = result["payment_method"]
+                stripe_token = result["stripe_token"]
 
-                    organization = Organization.objects.create(
-                        name=new_organization_name,
-                        private=False,
-                    )
-                    # Add the user as an admin
-                    organization.add_creator(request.user)
-                elif organization_id:
-                    organization = Organization.objects.get(
-                        pk=organization_id, users=request.user, memberships__admin=True
-                    )
-                else:
-                    organization = request.user.individual_organization
-
-                # Check if already subscribed
-                # (check original plan for duplicate subscriptions)
+                # Check if already subscribed (check original plan)
                 if organization.subscriptions.filter(
                     plan=plan, cancelled=False
                 ).exists():
-                    # Already subscribed
                     messages.warning(request, _("Already subscribed"))
                     return redirect(plan)
-
-                # Validate payment method matches available options
-                if payment_method == "existing-card":
-                    if not organization.customer().card:
-                        messages.error(
-                            request,
-                            _("No payment method on file. Please add a card."),
-                        )
-                        return redirect(plan)
-                elif payment_method == "new-card":
-                    if not stripe_token:
-                        messages.error(request, _("Please provide card information."))
-                        return redirect(plan)
-                elif payment_method == "invoice":
-                    if not selected_plan.annual:
-                        messages.error(
-                            request,
-                            _("Invoice payment is only available for annual plans."),
-                        )
-                        return redirect(plan)
 
                 # For Sunlight plans, use transaction with
                 # row locking to prevent race conditions
@@ -384,7 +256,7 @@ class PlanDetailView(DetailView):
                     )
 
                 # Success - redirect to organization page
-                messages.success(request, _("Succesfully subscribed"))
+                messages.success(request, _("Successfully subscribed"))
                 return redirect(organization)
 
             except Organization.DoesNotExist:
