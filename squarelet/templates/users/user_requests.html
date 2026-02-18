@@ -46,7 +46,7 @@
                   </time>
                 </dd>
               </div>
-              <div class="{% if invitation.accepted_at %}accepted{% elif invitation.rejected_at %}rejected{% endif %}">
+              <div class="{% if invitation.accepted_at %}accepted{% elif invitation.rejected_at %}rejected{% elif invitation.withdrawn_at %}withdrawn{% endif %}">
                 <dt>
                   {% if invitation.accepted_at %}
                   <dt>
@@ -55,6 +55,15 @@
                   <dd>
                     <time title="{{invitation.accepted_at|date:"c"}}" datetime="{{invitation.accepted_at|date:"c"}}">
                       {{invitation.accepted_at|date:"F j, Y"}}
+                    </time>
+                  </dd>
+                  {% elif invitation.withdrawn_at %}
+                  <dt>
+                      {% trans "Withdrawn" %}
+                  </dt>
+                  <dd>
+                    <time title="{{invitation.withdrawn_at|date:"c"}}" datetime="{{invitation.withdrawn_at|date:"c"}}">
+                      {{invitation.withdrawn_at|date:"F j, Y"}}
                     </time>
                   </dd>
                   {% elif invitation.rejected_at %}
@@ -70,17 +79,17 @@
                 </dt>
               </div>
             </dl>
-            {% if is_own_page and not invitation.accepted_at or invitation.rejected_at %}
+            {% if is_own_page and not invitation.accepted_at or invitation.rejected_at or invitation.withdrawn_at %}
             <div class="actions">
-              {% if not invitation.accepted_at and not invitation.rejected_at %}
+              {% if not invitation.accepted_at and not invitation.rejected_at and not invitation.withdrawn_at %}
                 <form method="post" action="{% url "organizations:invitation" uuid=invitation.uuid %}">
                   {% csrf_token %}
-                  <button class="btn small danger ghost" type="submit" name="action" value="reject">
+                  <button class="btn small danger ghost" type="submit" name="action" value="withdraw">
                     {% include "core/icons/x.svg" %}
                     {% trans "Withdraw" %}
                   </button>
                 </form>
-              {% elif invitation.rejected_at %}
+              {% elif invitation.rejected_at or invitation.withdrawn_at %}
                 <form method="post" action="{% url "users:invitations" username=target_user.username %}">
                   {% csrf_token %}
                   <input type="hidden" name="invitation_uuid" value="{{invitation.uuid}}" />

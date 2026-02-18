@@ -159,7 +159,7 @@ class InvitationFormset(BaseInlineFormSet):
 class InvitationInline(admin.TabularInline):
     model = Invitation
     readonly_fields = ("user",)
-    fields = ["email", "user", "request", "accepted_at", "rejected_at"]
+    fields = ["email", "user", "request", "accepted_at", "rejected_at", "withdrawn_at"]
     extra = 0
     formset = InvitationFormset
 
@@ -219,8 +219,9 @@ class OutgoingOrganizationInvitationInline(admin.TabularInline):
         "request",
         "accepted_at",
         "rejected_at",
+        "withdrawn_at",
     )
-    readonly_fields = ("to_organization", "accepted_at", "rejected_at")
+    readonly_fields = ("to_organization", "accepted_at", "rejected_at", "withdrawn_at")
     extra = 0
     verbose_name = "Outgoing Organization Invitation"
     verbose_name_plural = "Outgoing Organization Invitations"
@@ -235,8 +236,14 @@ class IncomingOrganizationInvitationInline(admin.TabularInline):
         "request",
         "accepted_at",
         "rejected_at",
+        "withdrawn_at",
     )
-    readonly_fields = ("from_organization", "accepted_at", "rejected_at")
+    readonly_fields = (
+        "from_organization",
+        "accepted_at",
+        "rejected_at",
+        "withdrawn_at",
+    )
     extra = 0
     verbose_name = "Incoming Organization Invitation"
     verbose_name_plural = "Incoming Organization Invitations"
@@ -771,10 +778,17 @@ class OrganizationInvitationAdmin(VersionAdmin):
         "created_at",
         "accepted_at",
         "rejected_at",
+        "withdrawn_at",
     )
     list_filter = ("relationship_type", "request")
     search_fields = ("from_organization__name", "to_organization__name")
-    readonly_fields = ("uuid", "created_at", "accepted_at", "rejected_at")
+    readonly_fields = (
+        "uuid",
+        "created_at",
+        "accepted_at",
+        "rejected_at",
+        "withdrawn_at",
+    )
     autocomplete_fields = (
         "from_organization",
         "to_organization",

@@ -16,6 +16,7 @@ from squarelet.organizations.fe_api.permissions import (
     CanCreateInvitation,
     CanRejectInvitation,
     CanResendInvitation,
+    CanWithdrawInvitation,
 )
 from squarelet.organizations.fe_api.serializers import (
     InvitationSerializer,
@@ -73,7 +74,9 @@ class InvitationViewSet(
 
         return (
             Invitation.objects.filter(
-                accepted_at__isnull=True, rejected_at__isnull=True
+                accepted_at__isnull=True,
+                rejected_at__isnull=True,
+                withdrawn_at__isnull=True,
             )
             .filter(
                 Q(user=user)
@@ -120,6 +123,20 @@ class InvitationViewSet(
             except ValueError as error:
                 return Response({"detail": str(error)}, status=400)
 
+        elif action == "withdraw":
+            if not CanWithdrawInvitation().has_object_permission(
+                request, self, invitation
+            ):
+                raise PermissionDenied(
+                    "You do not have permission to withdraw this invitation."
+                )
+
+            try:
+                invitation.withdraw()
+                return Response({"status": "invitation withdrawn"})
+            except ValueError as error:
+                return Response({"detail": str(error)}, status=400)
+
         elif action == "resend":
             if not CanResendInvitation().has_object_permission(
                 request, self, invitation
@@ -133,6 +150,9 @@ class InvitationViewSet(
 
         else:
             return Response(
-                {"detail": "Invalid action. Must be one of: accept, reject, resend."},
+                {
+                    "detail": "Invalid action. Must be one of: "
+                    "accept, reject, withdraw, resend."
+                },
                 status=400,
             )

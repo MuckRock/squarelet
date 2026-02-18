@@ -52,7 +52,8 @@ dl.invitation-summary > div {
   color: var(--green-4);
 }
 
-.invitation-summary .rejected {
+.invitation-summary .rejected,
+.invitation-summary .withdrawn {
   color: var(--orange-4);
 }
 
