@@ -297,3 +297,8 @@ scratch/
 /data
 
 frontend/dist
+
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/

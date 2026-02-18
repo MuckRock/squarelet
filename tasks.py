@@ -121,6 +121,24 @@ def test_frontend(c, ui=False, coverage=False):
     )
 
 
+@task(name="test-e2e")
+def test_e2e(c, ui=False, grep=""):
+    """Run Playwright E2E tests against a dedicated test database
+
+    Global setup creates the test DB, restarts Django, runs migrations,
+    and seeds data. Global teardown restores the original Django service
+    and drops the test DB. Both are configured in playwright.config.ts.
+    """
+    playwright_args = []
+    if ui:
+        playwright_args.append("--headed")
+    if grep:
+        playwright_args.append(f"--grep '{grep}'")
+    pw_flags = " ".join(playwright_args)
+
+    c.run(f"npx playwright test {pw_flags}", pty=True)
+
+
 # Code Quality
 # --------------------------------------------------------------------------------
 
