@@ -296,6 +296,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
                 request=True,
                 accepted_at__isnull=True,
                 rejected_at__isnull=True,
+                withdrawn_at__isnull=True,
             )
             .select_related("organization")
             .order_by("-created_at")
@@ -319,6 +320,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
                 request=False,
                 accepted_at__isnull=True,
                 rejected_at__isnull=True,
+                withdrawn_at__isnull=True,
             )
             .select_related("organization")
             .order_by("-created_at")
