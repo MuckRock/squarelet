@@ -380,6 +380,7 @@ class TestSubscriptionQuerySet(TestCase):
 
 class TestInvitationQuerySet(TestCase):
     """Unit tests for Invitation queryset"""
+
     # pylint: disable=too-many-public-methods
 
     @pytest.mark.django_db

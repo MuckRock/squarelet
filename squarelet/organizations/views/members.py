@@ -303,6 +303,7 @@ class InvitationAccept(DetailView):
 
 class BaseOrgInvitationRequestView(OrganizationAdminMixin, ListView):
     """Base view for displaying invitation and request history for an organization"""
+
     # TODO: Refactor to use `can_manage_members` permission (#582)
 
     model = Invitation
