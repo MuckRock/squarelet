@@ -436,7 +436,7 @@ s3transfer==0.5.2
     # via
     #   -r /app/requirements/base.txt
     #   boto3
-sentry-sdk==1.14.0
+sentry-sdk==2.53.0
     # via -r requirements/production.in
 six==1.16.0
     # via
