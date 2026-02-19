@@ -40,7 +40,7 @@ class Update(OrganizationPermissionMixin, UpdateView):
         user = self.request.user
         context["can_review_profile_changes"] = user.has_perm(
             "organizations.can_review_profile_changes", self.object
-        ) or user.has_perm("organizations.can_review_profile_changes")
+        )
         return context
 
     def form_valid(self, form):

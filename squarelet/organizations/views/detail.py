@@ -33,69 +33,39 @@ class Detail(AdminLinkMixin, DetailView):
             self.request.user
         )
 
-    def _has_perm(self, perm):
-        """Check if the current user has a permission via rules or DB assignment.
-
-        Checks object-level perms (django-rules) first, then falls back to
-        DB-assigned perms (user_permissions/groups).
-        """
-        user = self.request.user
-        obj = self.object
-        return user.has_perm(perm, obj) or user.has_perm(perm)
-
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         org = self.object
-        if self.request.user.is_authenticated:
-            context["is_admin"] = org.has_admin(self.request.user)
-            context["is_member"] = org.has_member(self.request.user)
+        user = self.request.user
+        if user.is_authenticated:
+            context["is_admin"] = org.has_admin(user)
+            context["is_member"] = org.has_member(user)
 
-            # Compute permission context variables
-            context.update(
-                {
-                    "can_manage_members": self._has_perm(
-                        "organizations.can_manage_members"
-                    ),
-                    "can_view_members": self._has_perm(
-                        "organizations.can_view_members"
-                    ),
-                    "can_change_organization": self._has_perm(
-                        "organizations.change_organization"
-                    ),
-                    "can_view_subscription": self._has_perm(
-                        "organizations.can_view_subscription"
-                    ),
-                    "can_edit_subscription": self._has_perm(
-                        "organizations.can_edit_subscription"
-                    ),
-                }
-            )
-
-            if context["can_manage_members"]:
+            if user.has_perm("organizations.can_manage_members", org):
                 context["pending_requests"] = org.invitations.get_pending_requests()
                 context["pending_invitations"] = (
                     org.invitations.get_pending_invitations()
                 )
 
             # Join requests
-            context["requested_invite"] = self.request.user.invitations.filter(
+            context["requested_invite"] = user.invitations.filter(
                 organization=org
             ).get_pending_requests()
 
             # Rejected requests
-            context["rejected_invite"] = self.request.user.invitations.filter(
+            context["rejected_invite"] = user.invitations.filter(
                 organization=org
             ).get_rejected_requests()
 
             context["can_auto_join"] = (
-                self.request.user.can_auto_join(org) and not context["is_member"]
+                user.can_auto_join(org) and not context["is_member"]
             )
 
         users = org.member_users(self.request)
         admins = [
             u for u in users if u.org_membership_list and u.org_membership_list[0].admin
         ]
-        if context.get("can_view_members"):
+        if user.has_perm("organizations.can_view_members", org):
             context["users"] = users
         else:
             context["users"] = admins
@@ -139,14 +109,14 @@ class Detail(AdminLinkMixin, DetailView):
 
         # Verification context - let template handle URL generation
         context["show_verification_request"] = (
-            context.get("can_change_organization")
-        ) and not self.object.verified_journalist
+            user.has_perm("organizations.change_organization", org)
+        ) and not org.verified_journalist
 
         # Security settings context (read-only for now)
-        if context.get("can_change_organization"):
+        if user.has_perm("organizations.change_organization", org):
             context["security_settings"] = {
-                "allow_auto_join": self.object.allow_auto_join,
-                "has_email_domains": self.object.domains.exists(),
+                "allow_auto_join": org.allow_auto_join,
+                "has_email_domains": org.domains.exists(),
             }
 
         return context
@@ -224,7 +194,7 @@ class Detail(AdminLinkMixin, DetailView):
 
     def handle_leave(self, request):
         is_member = self.organization.has_member(self.request.user)
-        can_manage = self._has_perm("organizations.can_manage_members")
+        can_manage = request.user.has_perm("organizations.can_manage_members", self.organization)
         userid = request.POST.get("userid")
         if userid:
             if userid == str(request.user.id) and is_member:
