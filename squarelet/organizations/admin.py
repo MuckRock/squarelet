@@ -244,6 +244,7 @@ class IncomingOrganizationInvitationInline(admin.TabularInline):
 
 class ProfileChangeRequestInline(admin.StackedInline):
     model = ProfileChangeRequest
+    autocomplete_fields = ("user",)
     extra = 0
 
 
