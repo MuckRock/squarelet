@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { login, expectFlashMessage } from "./helpers";
+import { login, expectFlashMessage, runManageCommand } from "./helpers";
 
 test.describe("Organization Viewing", () => {
   test.describe("Anonymous user", () => {
@@ -400,6 +400,11 @@ test.describe("Member Management", () => {
 });
 
 test.describe("Invitation & Request History", () => {
+  // Clear any invitations left over from earlier tests so history counts are predictable
+  test.beforeAll(() => {
+    runManageCommand("seed_e2e_data --action clear_invitations");
+  });
+
   test.describe("Org admin", () => {
     test.beforeEach(async ({ page }) => {
       await login(page, "e2e-admin");

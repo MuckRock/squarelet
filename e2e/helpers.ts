@@ -22,10 +22,13 @@ export async function expectFlashMessage(page: Page, level: string) {
 }
 
 export function runManageCommand(args: string): string {
-  return execSync(`${COMPOSE_E2E} exec -T squarelet_django python manage.py ${args}`, {
-    stdio: "pipe",
-    timeout: 30_000,
-  })
+  return execSync(
+    `${COMPOSE_E2E} exec -T squarelet_django /entrypoint python manage.py ${args}`,
+    {
+      stdio: "pipe",
+      timeout: 30_000,
+    },
+  )
     .toString()
     .trim();
 }
