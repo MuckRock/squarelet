@@ -24,7 +24,7 @@ class OrganizationPermissionMixin(PermissionRequiredMixin):
         user = self.request.user
         obj = self.get_object()
         perms = self.get_permission_required()
-        return all(user.has_perm(perm, obj) or user.has_perm(perm) for perm in perms)
+        return all(user.has_perm(perm, obj) for perm in perms)
 
     def handle_no_permission(self):
         if self.request.user.is_authenticated:
