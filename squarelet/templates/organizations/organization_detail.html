@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load django_vite static thumbnail avatar i18n airtable %}
+{% load django_vite static thumbnail avatar i18n airtable rules %}
 
 {% block title %}{% trans 'Organization' %}: {{ organization.name }}{% endblock %}
 
@@ -9,6 +9,11 @@
 {% endblock %}
 
 {% block content %}
+{% has_perm "organizations.change_organization" user organization as can_change_organization %}
+{% has_perm "organizations.can_manage_members" user organization as can_manage_members %}
+{% has_perm "organizations.can_view_members" user organization as can_view_members %}
+{% has_perm "organizations.can_view_subscription" user organization as can_view_subscription %}
+{% has_perm "organizations.can_edit_subscription" user organization as can_edit_subscription %}
 <article id="organization_detail">
   <aside class="sidebar">
     <div class="account">
@@ -32,7 +37,7 @@
           <li>
             <a href="#members" class="members nav-item">
               {% include "core/icons/people.svg" %}
-              {% if is_member %}
+              {% if can_view_members %}
               {% trans "Members" %}
               {% else %}
               {% trans "Admins" %}
@@ -229,7 +234,7 @@
     <section id="members">
       <header>
         <h2>
-          {% if is_member %}
+          {% if can_view_members %}
             {% blocktrans count count=member_count %}
               {{ count }} Member
             {% plural %}

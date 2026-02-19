@@ -194,7 +194,9 @@ class Detail(AdminLinkMixin, DetailView):
 
     def handle_leave(self, request):
         is_member = self.organization.has_member(self.request.user)
-        can_manage = request.user.has_perm("organizations.can_manage_members", self.organization)
+        can_manage = request.user.has_perm(
+            "organizations.can_manage_members", self.organization
+        )
         userid = request.POST.get("userid")
         if userid:
             if userid == str(request.user.id) and is_member:
