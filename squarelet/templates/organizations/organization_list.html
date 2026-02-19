@@ -9,30 +9,19 @@
 {% endblock vite %}
 
 {% block content %}
+{% if not user.is_authenticated %}
 <article id="organization_list" class="org-list-page">
   <header>
-    {% if user.is_authenticated %}
-    <nav class="links">
-      <a href="{% url "users:detail" username=user.username %}">
-        {% include "core/icons/arrow-left.svg" %}
-        {% trans "Back to your account" %}
-      </a>
-      <div class="create">
-        <a href="{% url "organizations:create" %}" class="btn ghost primary">
-          {% include "core/icons/plus-circle.svg" %}
-          {% trans "Create organization" %}
-        </a>
-      </div>
-    </nav>
-    {% endif %}
     <h1>{% trans "Organizations" %}</h1>
-    <div class="flex-1">
-      <div id="org_search"></div>
-    </div>
   </header>
-
-  {% if not user.is_authenticated %}
   <div class="content">
+    <header>
+      <h1>{% trans "Organizations" %}</h1>
+    </header>
+    <section class="search">
+      <h2>{% trans "Search organizations" %}</h2>
+      <div id="org_search"></div>
+    </section>
     <section class="introduction">
       <h2>{% trans "Collaborate securely and share privately within MuckRock organizations" %}</h2>
       <p>
@@ -42,7 +31,7 @@
         {% endblocktrans %}
       </p>
       <div class="card">
-        <p class="lead">{% blocktrans %}You need a MuckRock account to join an organization or create a new one.{% endblocktrans %}</p>
+        <p class="lead">{% blocktrans %}You need a MuckRock account to join and create organizations.{% endblocktrans %}</p>
         <div class="btn-group">
           <a class="btn primary" href="{% url 'account_login' %}?next={% url "organizations:list" %}">{% trans "Sign in" %}</a>
           <a class="btn ghost" href="{% url 'account_signup' %}?next={% url "organizations:list" %}">{% trans "Create account" %}</a>
@@ -50,9 +39,62 @@
       </div>
     </section>
   </div>
-  {% else %}
-  <div class="content">
-    <section class="your-orgs">
+</article>
+{% else %}
+<article id="organization_list" class="sidebar-layout">
+  <aside class="sidebar">
+    <nav>
+      <a href="{% url "users:detail" username=user.username %}" class="btn small ghost primary">
+        {% include "core/icons/chevron-left.svg" %}
+        {% trans "Back to your account" %}
+      </a>
+      <ul>
+        <li>
+          <a href="#org_search" class="nav-item">
+            {% include "core/icons/search.svg" %}
+            {% trans "Search" %}
+          </a>
+        </li>
+
+        <li>
+          <a href="#your-orgs" class="nav-item">
+            {% include "core/icons/people.svg" %}
+            {% trans "Your organizations" %}
+          </a>
+        </li>
+
+        <li>
+          <a href="#invitations" class="nav-item">
+            {% include "core/icons/mail.svg" %}
+            {% trans "Pending invitations" %}
+          </a>
+        </li>
+
+        <li>
+          <a href="#requests" class="nav-item">
+            {% include "core/icons/smiley.svg" %}
+            {% trans "Pending requests" %}
+          </a>
+        </li>
+      </ul>
+
+      <a href="{% url "organizations:create" %}" class="btn ghost primary create">
+        {% include "core/icons/plus-circle.svg" %}
+        {% trans "Create organization" %}
+      </a>
+    </nav>
+  </aside>
+
+  <main class="content">
+    <header>
+      <h1>{% trans "Organizations" %}</h1>
+    </header>
+    <section class="search">
+      <h2>{% trans "Search organizations" %}</h2>
+      <div id="org_search"></div>
+    </section>
+
+    <section id="your-orgs" class="your-orgs">
       <h2>{% trans "Your organizations" %}</h2>
       <div class="card">
         {% include "organizations/your_organizations.html" %}
@@ -78,7 +120,7 @@
       </div>
       {% else %}
         {% if potential_orgs %}
-        <div class="pre-approved">
+        <div id="pre-approved" class="pre-approved">
           <header>
             <h2>{% trans "Pre-approved" %}</h2>
             <p>{% trans "Based on your email address, you're pre-approved to join:" %}</p>
@@ -87,7 +129,7 @@
             {% for organization in potential_orgs %}
             <div class="invite">
               {% include "account/team_list_item.html" %}
-              
+
               <form method="post" action="{% url "organizations:detail" slug=organization.slug %}" class="actions join">
                 {% csrf_token %}
                 <button class="btn small primary" name="action" value="join">
@@ -105,7 +147,7 @@
         </div>
         {% endif %}
 
-        <div class="pending">
+        <div id="invitations" class="pending">
           <header>
             <h2>{% trans "Pending invitations" %}</h2>
             <div class="header-actions">
@@ -140,7 +182,7 @@
           {% endif %}
         </div>
 
-        <div class="pending">
+        <div id="requests" class="pending">
           <header>
             <h2>{% trans "Pending requests" %}</h2>
             <div class="header-actions">
@@ -173,9 +215,9 @@
         </div>
       {% endif %}
     </section>
-  </div>
-  {% endif %}
+  </main>
 </article>
+{% endif %}
 {% endblock content %}
 
 {% block extra_javascript %}

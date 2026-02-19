@@ -1,152 +1,6 @@
-/* styles for user_detail.html */
-article#user_detail {
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 60rem; /* 960px */
-  padding: 0.75rem;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  align-self: stretch;
-  gap: 1.5rem;
-  margin: 0 auto;
-}
-
-:root {
-  --min-sidebar-width: 45rem; /* 720px */
-}
-
-.sidebar {
-  box-sizing: border-box;
-  flex: 0 1 auto;
-  max-width: 15rem;
-  flex-direction: column;
-  align-items: flex-start;
-  align-self: stretch;
-
-  display: none;
-}
-
-@media (min-width: 45rem) {
-  .sidebar {
-    display: flex;
-  }
-}
-
-.sidebar .account {
-  display: flex;
-  padding: 1.75rem 0.75rem 0.75rem 0.75rem;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.75rem;
-  align-self: stretch;
-  position: sticky;
-  top: 0;
-}
-
-.sidebar .account h2 {
-  margin: 0;
-}
-
-.sidebar .account nav ul {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0;
-}
-
-.sidebar .account nav li {
-  list-style: none;
-  margin: 0;
-}
-
-.nav-item,
-a.nav-item {
-  display: flex;
-  padding: 0.25rem 0.5rem;
-  align-items: center;
-  gap: 0.5rem;
-
-  color: var(--gray-5, #233944);
-  font-feature-settings: "ss04" on;
-  border-radius: 0.25rem;
-
-  /* Label */
-  font-family: var(--font-sans, "Source Sans Pro");
-  font-size: var(--font-md, 1rem);
-  font-style: normal;
-  font-weight: 600;
-  line-height: normal;
-
-  text-decoration: none;
-}
-
-.nav-item svg {
-  width: var(--font-md, 1rem);
-  height: var(--font-md, 1rem);
-  fill: var(--gray-4, #5c717c);
-  flex-shrink: 0;
-}
-
-/* Account page sections */
-
-.content {
-  flex: 1 1 32rem;
-  min-width: 0;
-  display: flex;
-  padding: 1.5rem 0.75rem;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 3rem;
-}
-
-.content section {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.5rem;
-  align-self: stretch;
-}
-
-.content section > header {
-  flex: 1 1 auto;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
-  align-self: stretch;
-}
-
-h2 {
-  font-weight: 400;
-  font-size: var(--font-lg, 1.25rem);
-}
-
-.content section > header h2 {
-  flex: 0 0 auto;
-  margin: 0;
-  white-space: nowrap;
-}
-
-.content section > header .header-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.125rem;
-}
-
-.content section main {
-  box-sizing: border-box;
-  width: 100%;
-
-  border-radius: 0.5rem;
-  border: 1px solid var(--gray-2, #d8dee2);
-  background: var(--white, #fff);
-
-  box-shadow: var(--shadow-1);
-}
+/* Content-specific styles for user_detail.html
+ * Layout rules are in sidebar_layout.css
+ */
 
 /* Profile */
 
@@ -205,7 +59,6 @@ h2 {
 }
 
 .content .profile .user-detail {
-
   font-size: var(--font-sm, 0.875rem);
   color: var(--gray-4, #5c717c);
   margin: 0;
@@ -341,16 +194,6 @@ a.plan-name {
   font-weight: 600;
 }
 
-.help-text {
-  margin: 0;
-  font-size: var(--font-sm, 0.875rem);
-  color: var(--gray-4, #5c717c);
-}
-
-.help-text.error {
-  color: var(--orange-3);
-}
-
 .verification-status svg {
   width: 2.25rem;
   height: 2.25rem;
@@ -409,72 +252,11 @@ a.plan-name {
 
 section .orgs {
   display: flex;
-  padding: 1rem;
+  padding: 1rem 0.5rem;
   flex-direction: column;
   align-items: flex-start;
   gap: 1rem;
   align-self: stretch;
-}
-
-.org-list {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.5rem;
-  align-self: stretch;
-}
-
-.org-list-header h3,
-.org-list-header p {
-  margin: 0;
-}
-
-.org-list-header h3 {
-  font-size: var(--font-md, 1rem);
-  color: var(--gray-5, #233944);
-  font-weight: 600;
-}
-
-.org-list-header p {
-  color: var(--gray-4, #5c717c);
-  font-size: var(--font-xs, 0.75rem);
-}
-
-.org-list .invite,
-.org-list .org {
-  margin-bottom: 0.5rem;
-  padding: 0;
-  flex-wrap: nowrap;
-  gap: 0.5rem;
-}
-
-.org-list .team {
-  flex: 1 1 auto;
-  flex-wrap: nowrap;
-}
-
-.org-list .info a {
-  color: currentColor;
-  text-decoration: none;
-}
-
-.org-list .actions {
-  flex: 0 0 4rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 0.5rem;
-  align-items: center;
-  justify-content: flex-end;
-}
-
-.org-list .invite .actions {
-  flex: 0 0 auto;
-}
-
-.org-empty {
-  width: 100%;
-  text-align: center;
-  color: var(--gray-4, #5c717c);
 }
 
 /* Connected Accounts */
@@ -825,36 +607,30 @@ section .orgs {
   opacity: 1;
 }
 
-/* Staff toolbar */
-
-.staff-toolbar {
+/* Profile Editing */
+.user-profile-form {
   display: flex;
-  padding: 0.5rem 0.5rem 0.5rem 1rem;
-  justify-content: space-between;
-  align-items: center;
-  align-self: stretch;
-
-  background: var(--yellow-2, #FFE5BA);
-  border: 1px solid var(--yellow-3, #ECCB6B);
-  border-radius: 0.5rem;
-  color: var(--red-4, #5D275F);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2rem;
+  margin-bottom: 2rem;
+  width: 100%;
 }
-
-.staff-toolbar h3 {
-  margin: 0;
-  color: var(--red-5, #302240);
-  font-size: var(--font-md, 1rem);
+.user-profile-form button[type="submit"] {
+  align-self: flex-start;
+}
+.username-warning {
+  max-width: 100%;
+  flex: 1 0 auto;
+  text-align: right;
+  color: var(--orange-3, #EC7B6B);
+  /* Small Label */
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-size: var(--font-sm, 0.875rem);
+  font-style: normal;
   font-weight: 600;
+  line-height: normal;
 }
-
-.staff-toolbar .btn.ghost {
-  color: var(--red-4, #5D275F);
-  fill: var(--red-4, #5D275F);
-}
-
-.staff-toolbar .btn.ghost:hover,
-.staff-toolbar .btn.ghost:focus {
-  background: var(--orange-2, #FFC2BA);
-  transform: none;
-  box-shadow: none;
+.username-warning a {
+  color: var(--blue-3);
 }

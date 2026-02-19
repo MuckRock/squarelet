@@ -1,6 +1,8 @@
 // import CSS for bundling
+import "@/css/sidebar_layout.css";
 import "@/css/team_list_item.css";
 import "@/css/user_detail.css";
+import "@/css/organization_list.css";
 
 document.addEventListener('DOMContentLoaded', function() {
   function closeDropdown(container) {
