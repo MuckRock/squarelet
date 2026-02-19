@@ -78,10 +78,6 @@ nav.links svg {
 .content {
   width: 100%;
   flex: 0 1 auto;
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  flex-wrap: wrap;
   gap: 1.5rem;
   padding: 0;
   box-sizing: border-box;
@@ -92,7 +88,7 @@ nav.links svg {
   flex-direction: column;
   align-items: flex-start;
   gap: 1rem;
-  flex: 1 0 24rem;
+  flex: 0 0 auto;
   align-self: stretch;
 }
 
