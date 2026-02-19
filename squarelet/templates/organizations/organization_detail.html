@@ -8,6 +8,12 @@
 {% vite_asset "frontend/views/organization_detail.ts" %}
 {% endblock %}
 
+{% has_perm "organizations.change_organization" user organization as can_change_organization %}
+{% has_perm "organizations.can_manage_members" user organization as can_manage_members %}
+{% has_perm "organizations.can_view_members" user organization as can_view_members %}
+{% has_perm "organizations.can_view_subscription" user organization as can_view_subscription %}
+{% has_perm "organizations.can_edit_subscription" user organization as can_edit_subscription %}
+
 {% block layout_id %}organization_detail{% endblock %}
 
 {% block header %}
@@ -229,7 +235,7 @@
     <section id="members">
       <header>
         <h2>
-          {% if is_member %}
+          {% if can_view_members %}
             {% blocktrans count count=member_count %}
               {{ count }} Member
             {% plural %}

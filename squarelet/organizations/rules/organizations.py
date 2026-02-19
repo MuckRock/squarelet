@@ -4,7 +4,7 @@
 from rules import add_perm, always_deny, is_authenticated, predicate
 
 # Squarelet
-from squarelet.core.rules import skip_if_not_obj, add_perm_with_db_check
+from squarelet.core.rules import add_perm_with_db_check, skip_if_not_obj
 
 
 @predicate
