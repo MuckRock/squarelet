@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "layouts/sidebar_layout.html" %}
 {% load django_vite static thumbnail avatar i18n airtable %}
 
 {% block title %}{% trans 'Organization' %}: {{ organization.name }}{% endblock %}
@@ -8,87 +8,87 @@
 {% vite_asset "frontend/views/organization_detail.ts" %}
 {% endblock %}
 
-{% block content %}
-<article id="organization_detail">
-  <aside class="sidebar">
-    <div class="account">
-      <h2>{% trans "Organization" %}</h2>
-      <nav>
-        <ul>
-          <li>
-            <a href="#profile" class="profile nav-item">
-              {% include 'core/icons/organization.svg' %}
-              {% trans "Profile" %}
-            </a>
-          </li>
-          {% if user.is_staff or is_admin or is_member %}
-          <li>
-            <a href="#plan" class="plan nav-item">
-              {% include "core/icons/credit-card.svg" %}
-              {% trans "Plan" %}
-            </a>
-          </li>
-          {% endif %}
-          <li>
-            <a href="#members" class="members nav-item">
-              {% include "core/icons/people.svg" %}
-              {% if is_member %}
-              {% trans "Members" %}
-              {% else %}
-              {% trans "Admins" %}
-              {% endif %}
-            </a>
-          </li>
-          <li>
-            <a href="#verification" class="verification nav-item">
-              {% if organization.verified_journalist %}
-              {% include "core/icons/verification.svg" %}
-              {% else %}
-              {% include "core/icons/unverified.svg" %}
-              {% endif %}
-              {% trans "Verification" %}
-            </a>
-          </li>
-          {% comment %}
-          # We're hiding this section for now, until we
-          # add more features for controlling org security.
-          {% if user.is_staff or is_admin or is_member %}
-          <li>
-            <a href="#security" class="security nav-item">
-              {% include "core/icons/shield-lock.svg" %}
-              {% trans "Security" %}
-            </a>
-          </li>
-          {% endif %}
-          {% endcomment %}
-        </ul>
-      </nav>
-    </div>
-  </aside>
+{% block layout_id %}organization_detail{% endblock %}
 
-  <div class="content">
-    {% if request.user.is_staff %}
-      <div class="staff-toolbar">
-        <h3>{% trans "Staff control panel" %}</h3>
-        <div class="staff-actions">
-          <a href="{% url 'admin:organizations_organization_change' organization.pk %}" class="btn ghost" target="_blank">
-            {% trans "View in Django admin" %}
-          </a>
-          <a href="{% url 'organizations:merge' %}" class="btn ghost">
-            {% trans "Merge organization" %}
-          </a>
-          {% if organization.plan.wix %}
-            <form method="post" style="display: inline;">
-              {% csrf_token %}
-              <button class="btn caution" type="submit" name="action" value="sync_wix">
-                {% trans "Sync Wix" %}
-              </button>
-            </form>
-          {% endif %}
-        </div>
+{% block header %}
+  <header>
+    <h1>{% trans "Organization" %}</h1>
+  </header>
+  {% if request.user.is_staff %}
+    <div class="staff-toolbar">
+      <h3>{% trans "Staff control panel" %}</h3>
+      <div class="staff-actions">
+        <a href="{% url 'admin:organizations_organization_change' organization.pk %}" class="btn ghost" target="_blank">
+          {% trans "View in Django admin" %}
+        </a>
+        <a href="{% url 'organizations:merge' %}" class="btn ghost">
+          {% trans "Merge organization" %}
+        </a>
+        {% if organization.plan.wix %}
+          <form method="post" style="display: inline;">
+            {% csrf_token %}
+            <button class="btn caution" type="submit" name="action" value="sync_wix">
+              {% trans "Sync Wix" %}
+            </button>
+          </form>
+        {% endif %}
       </div>
-    {% endif %}
+    </div>
+  {% endif %}
+{% endblock %}
 
+{% block sidebar %}
+  <ul>
+    <li>
+      <a href="#profile" class="nav-item">
+        {% include 'core/icons/organization.svg' %}
+        {% trans "Profile" %}
+      </a>
+    </li>
+    {% if user.is_staff or is_admin or is_member %}
+    <li>
+      <a href="#plan" class="nav-item">
+        {% include "core/icons/credit-card.svg" %}
+        {% trans "Plan" %}
+      </a>
+    </li>
+    {% endif %}
+    <li>
+      <a href="#members" class="nav-item">
+        {% include "core/icons/people.svg" %}
+        {% if is_member %}
+        {% trans "Members" %}
+        {% else %}
+        {% trans "Admins" %}
+        {% endif %}
+      </a>
+    </li>
+    <li>
+      <a href="#verification" class="nav-item">
+        {% if organization.verified_journalist %}
+        {% include "core/icons/verification.svg" %}
+        {% else %}
+        {% include "core/icons/unverified.svg" %}
+        {% endif %}
+        {% trans "Verification" %}
+      </a>
+    </li>
+    {% comment %}
+    # We're hiding this section for now, until we
+    # add more features for controlling org security.
+    {% if user.is_staff or is_admin or is_member %}
+    <li>
+      <a href="#security" class="nav-item">
+        {% include "core/icons/shield-lock.svg" %}
+        {% trans "Security" %}
+      </a>
+    </li>
+    {% endif %}
+    {% endcomment %}
+  </ul>
+{% endblock sidebar %}
+
+{% block main %}
     <section id="profile">
       <header>
         <h2>{% trans "Profile" %}</h2>
@@ -426,9 +426,7 @@
     </section>
     {% endif %}
     {% endcomment %}
-  </div>
-</article>
-{% endblock content %}
+{% endblock main %}
 
 {% block extra_javascript %}
 {{ block.super }}

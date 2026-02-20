@@ -51,6 +51,11 @@
   line-height: 1.5rem; /* 150% */
 }
 
+.user .info h3 a {
+  color: currentColor;
+  text-decoration: none;
+}
+
 .user .info .details {
   flex: 1 1 auto;
   display: flex;

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block content %}
+<article id="{% block layout_id %}{% endblock %}" class="sidebar-layout {% block layout_class %}{% endblock %}">
+  <aside class="sidebar">
+    <nav>
+    {% block sidebar %}{% endblock %}
+    </nav>    
+  </aside>
+  <main class="content">
+    {% block header %}{% endblock %}
+    {% block main %}{% endblock %}
+  </main>
+</article>
+{% endblock content %}

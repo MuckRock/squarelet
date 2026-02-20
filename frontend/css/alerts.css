@@ -40,6 +40,8 @@
   display: flex;
   flex-direction: column;
   gap: 0.25em;
+  /* Enable pointer events beneath container */
+  pointer-events: none;
 }
 
 /* Alert base styles */
@@ -48,6 +50,8 @@
   margin: 0 auto;
   width: 90vw;
   max-width: 32rem;
+  /* Allow pointer events within alerts */
+  pointer-events: all;
 }
 
 ._cls-alert div {
