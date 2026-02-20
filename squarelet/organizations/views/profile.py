@@ -36,11 +36,6 @@ class Update(OrganizationPermissionMixin, UpdateView):
         context["pending_change_requests"] = self.object.profile_change_requests.filter(
             status="pending"
         )
-        # Pass permission for reviewing profile changes
-        user = self.request.user
-        context["can_review_profile_changes"] = user.has_perm(
-            "organizations.can_review_profile_changes", self.object
-        )
         return context
 
     def form_valid(self, form):
@@ -144,22 +139,17 @@ class RequestProfileChange(OrganizationPermissionMixin, CreateView):
         return redirect("organizations:update", slug=self.kwargs["slug"])
 
 
-class ReviewProfileChange(View):
+class ReviewProfileChange(OrganizationPermissionMixin, View):
     """Handle staff review (accept/reject) of profile change requests"""
+
+    permission_required = "organizations.can_review_profile_changes"
+    queryset = Organization.objects.filter(individual=False)
+
+    def get_object(self, queryset=None):
+        return self.queryset.get(slug=self.kwargs["slug"])
 
     def post(self, request, slug, pk):
         """Accept or reject a profile change request"""
-        # Verify user has permission to review profile changes
-        has_review_perm = request.user.has_perm(
-            "organizations.can_review_profile_changes"
-        )
-        if not has_review_perm:
-            messages.error(
-                request,
-                _("You do not have permission to review profile change requests."),
-            )
-            return redirect("organizations:update", slug=slug)
-
         # Get the profile change request
         try:
             profile_change = ProfileChangeRequest.objects.get(

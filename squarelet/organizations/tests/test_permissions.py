@@ -275,12 +275,12 @@ class TestChangeOrganizationRule:
 class TestCanReviewProfileChangesRule:
     """Test the organizations.can_review_profile_changes permission.
 
-    This permission has no django-rules registration — it only works via
-    DB assignment (user_permissions/groups).
+    Registered with add_perm(always_deny), so the dynamic
+    predicate always fails — only DB assignment grants this permission.
     """
 
-    def test_no_rule_registered(self, organization_factory, user_factory):
-        """Without a rule, object-level check returns False for everyone"""
+    def test_admin_lacks_review(self, organization_factory, user_factory):
+        """Org admins do not get can_review_profile_changes dynamically"""
         admin = user_factory()
         org = organization_factory(admins=[admin])
         assert not admin.has_perm("organizations.can_review_profile_changes", org)
@@ -294,9 +294,10 @@ class TestCanReviewProfileChangesRule:
         assert not staff.has_perm("organizations.can_review_profile_changes", org)
         assert not staff.has_perm("organizations.can_review_profile_changes")
 
-    def test_user_with_db_perm_has_review(self, user_factory):
-        """A user with the DB-assigned permission gets it"""
+    def test_db_perm_grants_review(self, organization_factory, user_factory):
+        """A user with the DB-assigned permission gets it (with and without obj)"""
         user = user_factory()
+        org = organization_factory()
         ct = ContentType.objects.get_for_model(Organization)
         perm = Permission.objects.get(
             codename="can_review_profile_changes", content_type=ct
@@ -304,6 +305,7 @@ class TestCanReviewProfileChangesRule:
         user.user_permissions.add(perm)
         user = type(user).objects.get(pk=user.pk)
         assert user.has_perm("organizations.can_review_profile_changes")
+        assert user.has_perm("organizations.can_review_profile_changes", org)
 
 
 @pytest.mark.django_db()

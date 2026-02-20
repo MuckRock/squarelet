@@ -790,14 +790,14 @@ class TestReviewProfileChange(ViewTestMixin):
             name="New Organization Name",
         )
 
-        response = self.call_view(
-            rf,
-            regular_user,
-            {"action": "accept"},
-            slug=organization.slug,
-            pk=profile_change.pk,
-        )
-        assert response.status_code == 302
+        with pytest.raises(PermissionDenied):
+            self.call_view(
+                rf,
+                regular_user,
+                {"action": "accept"},
+                slug=organization.slug,
+                pk=profile_change.pk,
+            )
 
         # Verify no activity stream action was created
         action = Action.objects.filter(
