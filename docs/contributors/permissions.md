@@ -16,31 +16,35 @@ This means a single permission can be granted in two ways:
 - **Implicitly** by a rules predicate (e.g. "org admins always have this").
 - **Explicitly** by assigning the permission to a User or Group in the database.
 
-## Why permission checks require two calls
+## How `add_perm_with_db_check` unifies both backends
 
-Django's `ModelBackend` has a limitation: when you pass an object to `has_perm()`, it **ignores DB-assigned permissions entirely**. This means a single `has_perm()` call can never check both backends:
+Django's `ModelBackend` has a limitation: when you pass an object to `has_perm()`, it _ignores DB-assigned permissions entirely_. To work around this without requiring two separate `has_perm()` calls, we use the `add_perm_with_db_check` helper (in `squarelet/core/rules.py`).
 
-| Call | `ObjectPermissionBackend` (django-rules) | `ModelBackend` (DB-assigned) |
-|---|---|---|
-| `user.has_perm(perm, obj)` | Evaluates the predicate with the object | **Skipped** — returns `False` without checking the DB |
-| `user.has_perm(perm)` | Evaluates the predicate *without* an object | Checks `user_permissions` and `Group` assignments |
-
-Because of this, any code that needs to respect **both** backends must make two separate calls:
+`add_perm_with_db_check` registers a rules predicate that combines the dynamic check with a direct DB lookup:
 
 ```python
-user.has_perm(perm, obj) or user.has_perm(perm)
+# squarelet/core/rules.py
+def has_db_perm(perm):
+    @predicate(f"has_db_perm:{perm}")
+    def inner(user):
+        backend = load_backend("django.contrib.auth.backends.ModelBackend")
+        return backend.has_perm(user, perm)
+    return inner
+
+def add_perm_with_db_check(perm, pred):
+    add_perm(perm, pred | has_db_perm(perm))
 ```
 
-The first call lets django-rules evaluate the predicate against the object (e.g. "is this user an admin of *this* org?"). The second call lets `ModelBackend` check whether the user was explicitly granted the permission in the database (e.g. via `user.user_permissions.add(...)` or a `Group`).
+The resulting rule is `pred | has_db_perm(perm)`, so a single call to `user.has_perm(perm, obj)` will:
 
-This pattern is safe only because our rules predicates use `@deny_if_not_obj` (see [Predicate decorators](#predicate-decorators-deny_if_not_obj-vs-skip_if_not_obj) below), which makes the rules backend return `False` — not `None` — when no object is provided. Without that decorator, the no-object call could produce false positives.
+1. Evaluate the dynamic predicate with the object (e.g. "is this user an admin of *this* org?").
+2. If that fails, check whether the user was explicitly granted the permission in the database (via `user.user_permissions` or a `Group`).
 
-You'll see this pattern in two places:
+Use `add_perm_with_db_check` for any permission that should be grantable both dynamically (via rules) and explicitly (via the DB). Usually, but not always, DB grants are reserved for granting system-wide permissions to staff roles.
 
-- **`OrganizationPermissionMixin`** (`squarelet/organizations/mixins.py`) — for gating entire views.
-- **`Detail._has_perm()`** (`squarelet/organizations/views/detail.py`) — for computing per-permission context variables within a single view.
+For permissions that are purely DB-assigned with no dynamic rule, pass `always_deny` as the predicate (e.g. `can_review_profile_changes`). This will prevent all access, except for users with DB-assigned permission, while still allowing us to support a single `user.has_perm(perm, obj)` check, like in our  `OrganizationPermissionMixin`.
 
-There is an open issue to resolve this through a custom ModelBackend subclass:  [#586](https://github.com/MuckRock/squarelet/issues/586).
+Use plain `add_perm` for permissions that only need the rules predicate (e.g. `add_organization`, `view_organization`, `delete_organization`) and won't have the permission assed in the DB.
 
 ## How to add a new permission
 
@@ -68,25 +72,29 @@ inv manage "makemigrations organizations"
 inv manage "migrate"
 ```
 
-### 2. Define a rules predicate
+### 2. Register the permission with `add_perm_with_db_check`
 
-In the appropriate rules file, register the permission with `add_perm`. Predicates are composable with `&` (and), `|` (or), and `~` (not).
+In the appropriate rules file, register the permission using `add_perm_with_db_check`. This combines the dynamic predicate with a DB-assigned fallback in a single rule. Predicates are composable with `&` (and), `|` (or), and `~` (not).
 
 ```python
 # squarelet/organizations/rules/organizations.py
-from rules import add_perm, is_authenticated
+from squarelet.core.rules import add_perm_with_db_check
 
-add_perm("organizations.can_manage_members", is_authenticated & is_admin)
+add_perm_with_db_check("organizations.can_manage_members", is_admin)
 ```
 
-`is_admin` is a custom predicate decorated with `@deny_if_not_obj` (in `squarelet/core/rules.py`), which returns `False` when called without an object. This ensures that `has_perm(perm)` without an object safely denies access instead of producing false positives -- see [Predicate decorators: `deny_if_not_obj` vs `skip_if_not_obj`](#predicate-decorators-deny_if_not_obj-vs-skip_if_not_obj) below.
+`is_admin` is a custom predicate decorated with `@skip_if_not_obj` (in `squarelet/core/rules.py`), which returns `None` when called without an object. Because `add_perm_with_db_check` uses `|` (or), the `None` from the skipped predicate still allows the `has_db_perm` fallback to run.
 
 ### 3. Gate a view with `OrganizationPermissionMixin`
 
-`OrganizationPermissionMixin` (in `squarelet/organizations/mixins.py`) extends Django's `PermissionRequiredMixin` to check the permission against the organization object. It tries two paths:
+`OrganizationPermissionMixin` (in `squarelet/organizations/mixins.py`) extends Django's `PermissionRequiredMixin` to check the permission against the organization object. Because `add_perm_with_db_check` bakes the DB fallback into the rule itself, the mixin only needs a single `has_perm` call:
 
-1. **Object-level**: `user.has_perm(perm, org)` -- evaluated by django-rules.
-2. **DB-assigned**: `user.has_perm(perm)` -- evaluated by `ModelBackend` (Django's `ModelBackend` skips DB-assigned perms when an object is passed, so both calls are needed). This is safe because `deny_if_not_obj` makes the rules backend return `False` when no object is provided.
+```python
+# From OrganizationPermissionMixin.has_permission
+return all(user.has_perm(perm, obj) for perm in perms)
+```
+
+To use the mixin:
 
 ```python
 # squarelet/organizations/views/members.py
@@ -101,12 +109,16 @@ Authenticated users without the permission receive a **403**. Anonymous users ar
 
 ### 4. Check the permission in a template
 
-Load the `rules` template tags and use `{% has_perm %}` to evaluate the permission against the current user and object.
+Load the `rules` template tags and use `{% has_perm %}` to evaluate the permission against the current user and object. This is the preferred way to gate UI elements: use `{% has_perm %}` instead of checking context variables like `is_admin` or `user.is_staff`.
 
 ```html+django
 {% load rules %}
 
+{% has_perm "organizations.change_organization" user organization as can_change_organization %}
 {% has_perm "organizations.can_manage_members" user organization as can_manage_members %}
+{% has_perm "organizations.can_view_members" user organization as can_view_members %}
+{% has_perm "organizations.can_view_subscription" user organization as can_view_subscription %}
+{% has_perm "organizations.can_edit_subscription" user organization as can_edit_subscription %}
 
 {% if can_manage_members %}
   <a href="{% url 'organizations:manage-members' organization.slug %}">
@@ -115,9 +127,26 @@ Load the `rules` template tags and use `{% has_perm %}` to evaluate the permissi
 {% endif %}
 ```
 
-`{% has_perm %}` calls `user.has_perm(perm, obj)` under the hood, so the django-rules predicate is evaluated with the organization as the object.
+`{% has_perm %}` calls `user.has_perm(perm, obj)` under the hood, so the combined rule (dynamic predicate + DB fallback) is evaluated in a single call.
 
-### 5. Write tests
+### 5. Check the permission in a view's `get_context_data`
+
+When you need permission-dependent logic in a view (not just gating access), use `user.has_perm(perm, obj)` directly:
+
+```python
+# squarelet/organizations/views/detail.py
+if user.has_perm("organizations.can_manage_members", org):
+    context["pending_requests"] = org.invitations.get_pending_requests()
+
+if user.has_perm("organizations.can_view_members", org):
+    context["users"] = users
+else:
+    context["users"] = admins
+```
+
+Avoid ad-hoc role checks like `is_admin or user.is_staff` -- always go through `has_perm` so that both dynamic rules and DB-assigned permissions are respected.
+
+### 6. Write tests
 
 Follow the TDD pattern established in `squarelet/organizations/tests/test_permissions.py`. Cover three layers:
 
@@ -148,36 +177,38 @@ def test_manage_members_view_denied_for_member(self, rf, organization_factory, u
 **DB-assigned** -- verify that explicitly assigned permissions work:
 
 ```python
-def test_staff_with_db_perm_has_can_manage_members(self, user_factory):
+def test_db_perm_grants_can_manage_members(self, user_factory, organization_factory):
     user = user_factory()
+    org = organization_factory()
     ct = ContentType.objects.get_for_model(Organization)
     perm = Permission.objects.get(codename="can_manage_members", content_type=ct)
     user.user_permissions.add(perm)
     user = type(user).objects.get(pk=user.pk)  # clear cached perms
-    assert user.has_perm("organizations.can_manage_members")
+    assert user.has_perm("organizations.can_manage_members", org)
 ```
 
-## Predicate decorators: `deny_if_not_obj` vs `skip_if_not_obj`
+Note: because `add_perm_with_db_check` bakes the DB fallback into the rule, the DB-assigned test passes an `org` object to `has_perm`. The `has_db_perm` predicate within the combined rule checks the DB directly, so this works in a single call.
 
-Both decorators live in `squarelet/core/rules.py` and handle the case where a predicate is called without an object (i.e. `has_perm(perm)` with no `obj`).
+## The `skip_if_not_obj` decorator
 
-- **`deny_if_not_obj`** returns `False` -- the predicate **denies** access. This is the safe default and should be used for all new predicates. Organization rules already use this decorator.
-- **`skip_if_not_obj`** returns `None` -- the predicate is **skipped**. The rules `&` operator treats `None` as "skip this predicate", which can produce false positives. For example, `is_authenticated & is_admin` would evaluate to `True` for any authenticated user when `is_admin` is skipped. This decorator is **deprecated** and should be migrated to `deny_if_not_obj`.
-
-Because organization predicates use `deny_if_not_obj`, `OrganizationPermissionMixin` can safely call `has_perm(perm)` without an object as a fallback for DB-assigned permissions:
+`skip_if_not_obj` lives in `squarelet/core/rules.py` and handles the case where a predicate is called without an object (i.e. `has_perm(perm)` with no `obj`). It returns `None`, which tells the rules `&` and `|` operators to skip the predicate.
 
 ```python
-# From OrganizationPermissionMixin.has_permission
-return all(user.has_perm(perm, obj) or user.has_perm(perm) for perm in perms)
+@predicate
+@skip_if_not_obj
+def is_admin(user, organization):
+    return organization.has_admin(user)
 ```
 
-When adding a new permission, always use `@deny_if_not_obj` on predicates that require an object.
+With `add_perm_with_db_check`, this is safe: the combined rule `is_admin | has_db_perm(perm)` will skip `is_admin` (returning `None`) and then evaluate `has_db_perm`, which checks the DB directly.
+
+**Caution**: Do not use `skip_if_not_obj` predicates with plain `add_perm` in a way that could produce false positives. For example, `is_authenticated & is_admin` would evaluate to `True` for any authenticated user when `is_admin` returns `None` (because `&` skips the `None`). The `add_perm_with_db_check` helper avoids this problem by using `|` instead of `&` to compose the DB fallback.
 
 ## Quick-reference checklist
 
 - [ ] Add permission to `Model.Meta.permissions`
 - [ ] Run `makemigrations` + `migrate`
-- [ ] Register predicate with `add_perm()` in the rules file (use `@deny_if_not_obj` on predicates that need an object)
+- [ ] Register permission with `add_perm_with_db_check()` in the rules file
 - [ ] Use `OrganizationPermissionMixin` in the view (or call `has_perm` directly)
 - [ ] Use `{% has_perm %}` in templates
 - [ ] Write rule-level, view-level, and DB-assigned tests
