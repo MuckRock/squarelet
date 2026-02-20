@@ -324,6 +324,7 @@ class TestSendCacheInvalidation:
         invalidations for organizations with at least one user with valid
         consent
         """
+        # pylint: disable=too-many-locals
         # Setup
         client = ClientFactory(require_consent=True)
         client_profile = ClientProfileFactory(client=client)
