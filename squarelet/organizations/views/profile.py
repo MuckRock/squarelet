@@ -145,7 +145,7 @@ class ReviewProfileChange(OrganizationPermissionMixin, View):
     permission_required = "organizations.can_review_profile_changes"
     queryset = Organization.objects.filter(individual=False)
 
-    def get_object(self, queryset=None):
+    def get_object(self):
         return self.queryset.get(slug=self.kwargs["slug"])
 
     def post(self, request, slug, pk):
