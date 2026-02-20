@@ -14,7 +14,7 @@
         </a>
     {% endif %}
     <div class="info">
-        <h3>{% firstof user.name user.username %}</h3>
+        <h3><a href="{% url "users:detail" username=user.username %}">{% firstof user.name user.username %}</a></h3>
         <div class="details">
             {% if user == request.user %}
             <span class="blue badge">{% trans "You" %}</span>
