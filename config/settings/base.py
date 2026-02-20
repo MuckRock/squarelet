@@ -408,6 +408,7 @@ OIDC_EXTRA_SCOPE_CLAIMS = "squarelet.users.oidc.CustomScopeClaims"
 OIDC_SESSION_MANAGEMENT_ENABLE = True
 OIDC_GRANT_TYPE_PASSWORD_ENABLE = True
 OIDC_AFTER_USERLOGIN_HOOK = "squarelet.oidc.utils.oidc_login_hook"
+OIDC_SKIP_CONSENT_EXPIRE = env.int("OIDC_SKIP_CONSENT_EXPIRE", default=180)
 # Allows session cookie to be used in OAuth
 SESSION_COOKIE_SAMESITE = "None"
 SESSION_COOKIE_SECURE = True
