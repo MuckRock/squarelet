@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n django_vite crispy_forms_tags planinfo %}
+{% load i18n django_vite crispy_forms_tags planinfo rules %}
 
 {% block title %}{{ organization.reference_name }}{% endblock %}
 
@@ -106,6 +106,7 @@
               </tr>
               {% endif %}
             </tbody>
+            {% has_perm "organizations.can_review_profile_changes" user organization as can_review_profile_changes %}
             {% if can_review_profile_changes %}
             <tfoot>
               <tr>
