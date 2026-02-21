@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% load django_vite %}
+
+{% block title %}Glomar: {{ org.name }}{% endblock %}
+
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/glomar_organization_detail.ts" %}
+{% endblock %}
+
+{% block content %}
+<article id="glomar_organization_detail">
+  <aside class="sidebar">
+    <div class="account">
+      <h2>{{ org.name }}</h2>
+      <nav>
+        <ul>
+          <li><a href="#overview" class="nav-item">Overview</a></li>
+          <li><a href="#members" class="nav-item">Members</a></li>
+        </ul>
+      </nav>
+    </div>
+  </aside>
+
+  <div class="content">
+    <div class="staff-toolbar">
+      <h3>Staff CRM</h3>
+      <div class="header-actions">
+        <a href="{% url 'organizations:detail' org.slug %}" class="btn">Org Page</a>
+        <a href="{% url 'admin:organizations_organization_change' org.pk %}" class="btn">Django Admin</a>
+      </div>
+    </div>
+
+    <section id="overview">
+      <header>
+        <h2>Overview</h2>
+      </header>
+      <main>
+        <dl class="crm-fields">
+          <dt>Name</dt>
+          <dd>{{ org.name }}</dd>
+
+          <dt>Slug</dt>
+          <dd>{{ org.slug }}</dd>
+
+          <dt>Created</dt>
+          <dd>{{ org.created_at|date:"N j, Y, P" }}</dd>
+
+          <dt>Updated</dt>
+          <dd>{{ org.updated_at|date:"N j, Y, P" }}</dd>
+
+          <dt>City</dt>
+          <dd>{{ org.city|default:"—" }}</dd>
+
+          <dt>State</dt>
+          <dd>{{ org.state|default:"—" }}</dd>
+
+          <dt>Country</dt>
+          <dd>{{ org.country|default:"—" }}</dd>
+
+          <dt>Plan</dt>
+          <dd>{{ plan.name|default:"Free" }}</dd>
+
+          <dt>Max Users</dt>
+          <dd>{{ org.max_users }}</dd>
+
+          <dt>Private</dt>
+          <dd>{% if org.private %}<span class="badge">Yes</span>{% else %}No{% endif %}</dd>
+
+          <dt>Verified Journalist</dt>
+          <dd>{% if verified_journalist %}<span class="badge green">Yes</span>{% else %}No{% endif %}</dd>
+        </dl>
+      </main>
+    </section>
+
+    <section id="members">
+      <header>
+        <h2>Members</h2>
+      </header>
+      <main>
+        {% if memberships %}
+        <table class="crm-table">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Role</th>
+              <th>Joined</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for membership in memberships %}
+            <tr>
+              <td>
+                <a href="{% url 'glomar:user_detail' membership.user.username %}">
+                  {{ membership.user.username }}
+                </a>
+              </td>
+              <td>
+                {% if membership.admin %}
+                  <span class="badge admin">Admin</span>
+                {% else %}
+                  Member
+                {% endif %}
+              </td>
+              <td>{{ membership.created_at|date:"N j, Y"|default:"—" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="empty">No members.</p>
+        {% endif %}
+      </main>
+    </section>
+  </div>
+</article>
+{% endblock content %}

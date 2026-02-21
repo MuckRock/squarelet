@@ -104,6 +104,7 @@ LOCAL_APPS = [
     "squarelet.statistics",
     "squarelet.users.apps.UsersConfig",
     "squarelet.services.apps.ServicesConfig",
+    "squarelet.glomar.apps.GlomarConfig",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS

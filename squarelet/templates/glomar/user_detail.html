@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% load django_vite %}
+
+{% block title %}Glomar: {{ target_user.username }}{% endblock %}
+
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/glomar_user_detail.ts" %}
+{% endblock %}
+
+{% block content %}
+<article id="glomar_user_detail">
+  <aside class="sidebar">
+    <div class="account">
+      <h2>{{ target_user.username }}</h2>
+      <nav>
+        <ul>
+          <li><a href="#overview" class="nav-item">Overview</a></li>
+          <li><a href="#subscriptions" class="nav-item">Subscriptions</a></li>
+          <li><a href="#organizations" class="nav-item">Organizations</a></li>
+        </ul>
+      </nav>
+    </div>
+  </aside>
+
+  <div class="content">
+    <div class="staff-toolbar">
+      <h3>Staff CRM</h3>
+      <div class="header-actions">
+        <a href="{% url 'users:detail' target_user.username %}" class="btn">User Profile</a>
+        <a href="{% url 'admin:users_user_change' target_user.pk %}" class="btn">Django Admin</a>
+      </div>
+    </div>
+
+    <section id="overview">
+      <header>
+        <h2>Overview</h2>
+      </header>
+      <main>
+        <dl class="crm-fields">
+          <dt>Username</dt>
+          <dd>{{ target_user.username }}</dd>
+
+          <dt>Name</dt>
+          <dd>{{ target_user.name|default:"—" }}</dd>
+
+          <dt>Email</dt>
+          <dd>{{ target_user.email|default:"—" }}</dd>
+
+          <dt>Created</dt>
+          <dd>{{ target_user.created_at|date:"N j, Y, P" }}</dd>
+
+          <dt>Updated</dt>
+          <dd>{{ target_user.updated_at|date:"N j, Y, P" }}</dd>
+
+          <dt>City</dt>
+          <dd>{{ city|default:"—" }}</dd>
+
+          <dt>State</dt>
+          <dd>{{ state|default:"—" }}</dd>
+
+          <dt>Country</dt>
+          <dd>{{ country|default:"—" }}</dd>
+
+          <dt>Source</dt>
+          <dd>{{ target_user.get_source_display }}</dd>
+
+          <dt>Staff</dt>
+          <dd>{% if target_user.is_staff %}<span class="badge green">Yes</span>{% else %}No{% endif %}</dd>
+
+          <dt>Active</dt>
+          <dd>{% if target_user.is_active %}<span class="badge green">Yes</span>{% else %}<span class="badge">No</span>{% endif %}</dd>
+
+          <dt>Verified Journalist</dt>
+          <dd>{% if verified_journalist %}<span class="badge green">Yes</span>{% else %}No{% endif %}</dd>
+
+          <dt>Verified Emails</dt>
+          <dd>
+            {% if verified_emails %}
+              {% for email in verified_emails %}{{ email }}{% if not forloop.last %}, {% endif %}{% endfor %}
+            {% else %}
+              <span class="empty">None</span>
+            {% endif %}
+          </dd>
+
+          <dt>MFA Enabled</dt>
+          <dd>{% if target_user.has_mfa_enabled %}<span class="badge green">Yes</span>{% else %}No{% endif %}</dd>
+        </dl>
+      </main>
+    </section>
+
+    <section id="subscriptions">
+      <header>
+        <h2>Subscriptions</h2>
+      </header>
+      <main>
+        <dl class="crm-fields">
+          <dt>Individual Plan</dt>
+          <dd>{{ individual_plan.name|default:"Free" }}</dd>
+        </dl>
+      </main>
+    </section>
+
+    <section id="organizations">
+      <header>
+        <h2>Organizations</h2>
+      </header>
+      <main>
+        {% if memberships %}
+        <table class="crm-table">
+          <thead>
+            <tr>
+              <th>Organization</th>
+              <th>Role</th>
+              <th>Plan</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for membership in memberships %}
+            <tr>
+              <td>
+                <a href="{% url 'glomar:organization_detail' membership.organization.slug %}">
+                  {{ membership.organization.name }}
+                </a>
+              </td>
+              <td>
+                {% if membership.admin %}
+                  <span class="badge admin">Admin</span>
+                {% else %}
+                  Member
+                {% endif %}
+              </td>
+              <td>{{ membership.plan_name }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="empty">No organization memberships.</p>
+        {% endif %}
+      </main>
+    </section>
+  </div>
+</article>
+{% endblock content %}

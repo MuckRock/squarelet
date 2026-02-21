@@ -74,6 +74,7 @@ urlpatterns = [
         "organizations/",
         include("squarelet.organizations.urls", namespace="organizations"),
     ),
+    path("glomar/", include("squarelet.glomar.urls", namespace="glomar")),
     # override the allauth views with our version
     re_path("accounts/$", UserConnectionsView.as_view(), name="account_connections"),
     re_path("accounts/email/$", UserEmailView.as_view(), name="account_email"),
