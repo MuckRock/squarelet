@@ -10,6 +10,7 @@ from allauth.account.models import EmailAddress
 
 # Squarelet
 from squarelet.organizations.models import Membership, Organization
+from squarelet.organizations.models.invitation import Invitation
 from squarelet.organizations.models.payment import Customer, Plan
 from squarelet.users.models import User
 
@@ -51,9 +52,9 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument(
             "--action",
-            choices=["seed", "teardown"],
+            choices=["seed", "teardown", "clear_invitations"],
             required=True,
-            help="Whether to seed or teardown test data",
+            help="Whether to seed, teardown, or clear invitation test data",
         )
 
     def handle(self, *args, **options):
@@ -62,6 +63,8 @@ class Command(BaseCommand):
             self.seed()
         elif action == "teardown":
             self.teardown()
+        elif action == "clear_invitations":
+            self.clear_invitations()
 
     @transaction.atomic
     def seed(self):
@@ -151,6 +154,15 @@ class Command(BaseCommand):
             "password": E2E_PASSWORD,
         }
         self.stdout.write(json.dumps(result))
+
+    @transaction.atomic
+    def clear_invitations(self):
+        """Delete all invitations for e2e test organizations."""
+        count, _ = Invitation.objects.filter(
+            organization__slug__startswith="e2e-"
+        ).delete()
+        self.stderr.write(f"Deleted {count} invitation-related objects")
+        self.stdout.write(json.dumps({"status": "clear_invitations_complete"}))
 
     @transaction.atomic
     def teardown(self):

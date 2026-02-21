@@ -381,6 +381,8 @@ class TestSubscriptionQuerySet(TestCase):
 class TestInvitationQuerySet(TestCase):
     """Unit tests for Invitation queryset"""
 
+    # pylint: disable=too-many-public-methods
+
     @pytest.mark.django_db
     def test_get_open(self):
         """get_open returns only invitations with no accepted_at/rejected_at"""
@@ -663,6 +665,105 @@ class TestInvitationQuerySet(TestCase):
 
         queryset = Invitation.objects.get_user_requests(user)
         assert queryset.count() == 0
+
+    @pytest.mark.django_db
+    def test_get_org_invitations_filters_by_request_false(self):
+        """get_org_invitations returns only invitations (request=False) for an org"""
+        org = OrganizationFactory()
+        invitation = InvitationFactory(organization=org, request=False)
+        InvitationFactory(organization=org, request=True)  # request, not invitation
+
+        qs = Invitation.objects.get_org_invitations(org)
+        assert qs.count() == 1
+        assert invitation in qs
+
+    @pytest.mark.django_db
+    def test_get_org_invitations_includes_all_statuses(self):
+        """get_org_invitations returns pending, accepted, and rejected invitations"""
+        org = OrganizationFactory()
+        InvitationFactory(organization=org, request=False)  # pending
+        InvitationFactory(organization=org, request=False, accepted_at=timezone.now())
+        InvitationFactory(organization=org, request=False, rejected_at=timezone.now())
+        # TODO: Add withdrawn status (#588)
+
+        qs = Invitation.objects.get_org_invitations(org)
+        assert qs.count() == 3
+
+    @pytest.mark.django_db
+    def test_get_org_invitations_scoped_to_org(self):
+        """get_org_invitations only returns invitations for the specified org"""
+        org1 = OrganizationFactory()
+        org2 = OrganizationFactory()
+        invite1 = InvitationFactory(organization=org1, request=False)
+        InvitationFactory(organization=org2, request=False)
+
+        qs = Invitation.objects.get_org_invitations(org1)
+        assert qs.count() == 1
+        assert invite1 in qs
+
+    @pytest.mark.django_db
+    def test_get_org_invitations_ordered_by_created_at_desc(self):
+        """get_org_invitations orders by created_at descending"""
+        org = OrganizationFactory()
+        inv1 = InvitationFactory(organization=org, request=False)
+        inv2 = InvitationFactory(organization=org, request=False)
+        inv3 = InvitationFactory(organization=org, request=False)
+
+        qs = list(Invitation.objects.get_org_invitations(org))
+        assert qs[0] == inv3
+        assert qs[1] == inv2
+        assert qs[2] == inv1
+
+    @pytest.mark.django_db
+    def test_get_org_requests_filters_by_request_true(self):
+        """get_org_requests returns only requests (request=True) for an org"""
+        org = OrganizationFactory()
+        user = UserFactory()
+        request = InvitationRequestFactory(organization=org, user=user, request=True)
+        InvitationFactory(organization=org, request=False)  # invitation, not request
+
+        qs = Invitation.objects.get_org_requests(org)
+        assert qs.count() == 1
+        assert request in qs
+
+    @pytest.mark.django_db
+    def test_get_org_requests_includes_all_statuses(self):
+        """get_org_requests returns pending, accepted, and rejected requests"""
+        org = OrganizationFactory()
+        user1 = UserFactory()
+        user2 = UserFactory()
+        user3 = UserFactory()
+        InvitationRequestFactory(organization=org, user=user1, request=True)
+        InvitationRequestFactory(
+            organization=org,
+            user=user2,
+            request=True,
+            accepted_at=timezone.now(),
+        )
+        InvitationRequestFactory(
+            organization=org,
+            user=user3,
+            request=True,
+            rejected_at=timezone.now(),
+        )
+        # TODO: Add withdrawn status (#588)
+
+        qs = Invitation.objects.get_org_requests(org)
+        assert qs.count() == 3
+
+    @pytest.mark.django_db
+    def test_get_org_requests_scoped_to_org(self):
+        """get_org_requests only returns requests for the specified org"""
+        org1 = OrganizationFactory()
+        org2 = OrganizationFactory()
+        user1 = UserFactory()
+        user2 = UserFactory()
+        invite1 = InvitationRequestFactory(organization=org1, user=user1, request=True)
+        InvitationRequestFactory(organization=org2, user=user2, request=True)
+
+        qs = Invitation.objects.get_org_requests(org1)
+        assert qs.count() == 1
+        assert invite1 in qs
 
 
 class TestInvoiceQuerySet(TestCase):

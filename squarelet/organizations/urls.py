@@ -39,6 +39,16 @@ urlpatterns = [
         view=views.ManageDomains.as_view(),
         name="manage-domains",
     ),
+    path(
+        "<slug:slug>/invitations/",
+        view=views.OrgInvitationsView.as_view(),
+        name="org-invitations",
+    ),
+    path(
+        "<slug:slug>/requests/",
+        view=views.OrgRequestsView.as_view(),
+        name="org-requests",
+    ),
     path("<slug:slug>/", view=views.Detail.as_view(), name="detail"),
     path(
         "<uuid:uuid>/invitation/",

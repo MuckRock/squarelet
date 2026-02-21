@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { login, expectFlashMessage } from "./helpers";
+import { login, expectFlashMessage, runManageCommand } from "./helpers";
 
 test.describe("Organization Viewing", () => {
   test.describe("Anonymous user", () => {
@@ -396,5 +396,133 @@ test.describe("Member Management", () => {
     await expect(page.locator("section#requests")).toBeVisible();
     await page.locator('button[value="rejectinvite"]').first().click();
     await expectFlashMessage(page, "success");
+  });
+});
+
+test.describe("Invitation & Request History", () => {
+  // Clear any invitations left over from earlier tests so history counts are predictable
+  test.beforeAll(() => {
+    runManageCommand("seed_e2e_data --action clear_invitations");
+  });
+
+  test.describe("Org admin", () => {
+    test.beforeEach(async ({ page }) => {
+      await login(page, "e2e-admin");
+    });
+
+    test("can access invitation history page", async ({ page }) => {
+      const response = await page.goto("/organizations/e2e-public-org/invitations/");
+      expect(response?.status()).toBe(200);
+      await expect(page.locator("#org_invitations")).toBeVisible();
+      await expect(page.locator("#org_invitations .invitations-list")).toBeVisible();
+    });
+
+    test("can access request history page", async ({ page }) => {
+      const response = await page.goto("/organizations/e2e-public-org/requests/");
+      expect(response?.status()).toBe(200);
+      await expect(page.locator("#org_requests")).toBeVisible();
+      await expect(page.locator("#org_requests .invitations-list")).toBeVisible();
+    });
+
+    test("can navigate to history pages from manage-members page", async ({ page }) => {
+      await page.goto("/organizations/e2e-public-org/manage-members/");
+
+      // Verify history links exist in each section
+      const invitationsLink = page.locator(
+        'a[href$="/organizations/e2e-public-org/invitations/"]',
+      );
+      const requestsLink = page.locator(
+        'a[href$="/organizations/e2e-public-org/requests/"]',
+      );
+      await expect(invitationsLink).toBeVisible();
+      await expect(requestsLink).toBeVisible();
+
+      // Click invitation history link and verify navigation
+      await invitationsLink.first().click();
+      await expect(page.locator("#org_invitations")).toBeVisible();
+    });
+
+    test("revoked invitation appears in invitation history", async ({ page }) => {
+      await page.goto("/organizations/e2e-public-org/manage-members/");
+
+      // Send an email invitation
+      await page.locator("input[name='emails']").fill("e2e-history-test@example.com");
+      await page.locator('button[value="addmember"]').click();
+      await expectFlashMessage(page, "success");
+
+      // Revoke it
+      await page.goto("/organizations/e2e-public-org/manage-members/");
+      await page.locator('button[value="revokeinvite"]').first().click();
+      await expectFlashMessage(page, "success");
+
+      // Verify it appears in invitation history with "Revoked" status
+      await page.goto("/organizations/e2e-public-org/invitations/");
+      await expect(page.locator("#org_invitations .invitation-item")).toHaveCount(1, {
+        timeout: 5_000,
+      });
+      await expect(
+        page.locator("#org_invitations .invitation-summary .rejected"),
+      ).toBeVisible();
+    });
+
+    test("rejected join request appears in request history", async ({ page, browser }) => {
+      // Login as requester and submit join request
+      const requesterContext = await browser.newContext({ ignoreHTTPSErrors: true });
+      const requesterPage = await requesterContext.newPage();
+      await login(requesterPage, "e2e-requester");
+      await requesterPage.goto("/organizations/e2e-public-org/");
+      await requesterPage.locator("#join-org-button").click();
+
+      const modal = requesterPage.locator("#join-request-modal-backdrop");
+      await expect(modal).not.toHaveClass(/_cls-hide/);
+      await modal.locator('button[name="action"][value="join"]').click();
+      await expectFlashMessage(requesterPage, "success");
+      await requesterContext.close();
+
+      // Admin rejects the request
+      await page.goto("/organizations/e2e-public-org/manage-members/");
+      await expect(page.locator("section#requests")).toBeVisible();
+      await page.locator('button[value="rejectinvite"]').first().click();
+      await expectFlashMessage(page, "success");
+
+      // Verify it appears in request history with "Rejected" status
+      await page.goto("/organizations/e2e-public-org/requests/");
+      await expect(page.locator("#org_requests .invitation-item")).toHaveCount(1, {
+        timeout: 5_000,
+      });
+      await expect(
+        page.locator("#org_requests .invitation-summary .rejected"),
+      ).toBeVisible();
+    });
+  });
+
+  test.describe("Non-admin member", () => {
+    test("cannot access invitation history (403)", async ({ page }) => {
+      await login(page, "e2e-member");
+      const response = await page.goto("/organizations/e2e-public-org/invitations/");
+      expect(response?.status()).toBe(403);
+    });
+
+    test("cannot access request history (403)", async ({ page }) => {
+      await login(page, "e2e-member");
+      const response = await page.goto("/organizations/e2e-public-org/requests/");
+      expect(response?.status()).toBe(403);
+    });
+  });
+
+  test.describe("MuckRock staff", () => {
+    test("can access any org's invitation history", async ({ page }) => {
+      await login(page, "e2e-staff");
+      const response = await page.goto("/organizations/e2e-public-org/invitations/");
+      expect(response?.status()).toBe(200);
+      await expect(page.locator("#org_invitations")).toBeVisible();
+    });
+
+    test("can access any org's request history", async ({ page }) => {
+      await login(page, "e2e-staff");
+      const response = await page.goto("/organizations/e2e-public-org/requests/");
+      expect(response?.status()).toBe(200);
+      await expect(page.locator("#org_requests")).toBeVisible();
+    });
   });
 });

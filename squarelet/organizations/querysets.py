@@ -194,6 +194,22 @@ class InvitationQuerySet(models.QuerySet):
             .order_by("-created_at")
         )
 
+    def get_org_invitations(self, organization):
+        """Get all invitations (request=False) sent by an organization"""
+        return (
+            self.filter(organization=organization, request=False)
+            .select_related("user")
+            .order_by("-created_at")
+        )
+
+    def get_org_requests(self, organization):
+        """Get all requests (request=True) received by an organization"""
+        return (
+            self.filter(organization=organization, request=True)
+            .select_related("user")
+            .order_by("-created_at")
+        )
+
 
 class OrganizationInvitationQuerySet(models.QuerySet):
     def pending(self):
