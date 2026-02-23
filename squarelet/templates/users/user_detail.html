@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "layouts/sidebar_layout.html" %}
 {% load account airtable avatar i18n socialaccount static thumbnail django_vite %}
 
 {% block title %}{% trans 'User' %}: {{ user.username }}{% endblock %}
@@ -8,63 +8,64 @@
 {% vite_asset "frontend/views/user_detail.ts" %}
 {% endblock %}
 
-{% block content %}
-<article id="user_detail">
-  <aside class="sidebar">
-    <div class="account">
-      {% if is_own_page %}
-      <h2>{% trans "Your Account" %}</h2>
-      {% else %}
-      <h2>{% trans "User Account" %}</h2>
-      {% endif %}
-      <nav>
-        <ul>
-          <li>
-            <a href="#profile" class="profile nav-item">
-              {% include "core/icons/person.svg" %}
-              {% trans "Profile" %}
-            </a>
-          </li>
-          <li>
-            <a href="#plan" class="plan nav-item">
-              {% include "core/icons/credit-card.svg" %}
-              {% trans "Plan" %}
-            </a>
-          </li>
-          <li>
-            <a href="#verification" class="verification nav-item">
-              {% if verified %}
-              {% include "core/icons/verification.svg" %}
-              {% else %}
-              {% include "core/icons/unverified.svg" %}
-              {% endif %}
-              {% trans "Verification" %}
-            </a>
-          </li>
-          <li>
-            <a href="#organizations" class="organization nav-item">
-              {% include "core/icons/organization.svg" %}
-              {% trans "Organizations" %}
-            </a>
-          </li>
-          <li>
-            <a href="#accounts" class="accounts nav-item">
-              {% include "core/icons/mention.svg" %}
-              {% trans "Accounts" %}
-            </a>
-          </li>
-          <li>
-            <a href="#security" class="security nav-item">
-              {% include "core/icons/shield-lock.svg" %}
-              {% trans "Security" %}
-            </a>
-          </li>
-        </ul>
-      </nav>
-    </div>
-  </aside>
+{% block layout_id %}user_detail{% endblock %}
 
-  <div class="content">
+{% block header %}
+  <header>
+    {% if is_own_page %}
+    <h1>{% trans "Your Account" %}</h1>
+    {% else %}
+    <h1>{% trans "User Account" %}</h1>
+    {% endif %}
+  </header>
+{% endblock %}
+
+{% block sidebar %}
+  <ul>
+    <li>
+      <a href="#profile" class="nav-item">
+        {% include "core/icons/person.svg" %}
+        {% trans "Profile" %}
+      </a>
+    </li>
+    <li>
+      <a href="#plan" class="nav-item">
+        {% include "core/icons/credit-card.svg" %}
+        {% trans "Plan" %}
+      </a>
+    </li>
+    <li>
+      <a href="#verification" class="nav-item">
+        {% if verified %}
+        {% include "core/icons/verification.svg" %}
+        {% else %}
+        {% include "core/icons/unverified.svg" %}
+        {% endif %}
+        {% trans "Verification" %}
+      </a>
+    </li>
+    <li>
+      <a href="#organizations" class="nav-item">
+        {% include "core/icons/organization.svg" %}
+        {% trans "Organizations" %}
+      </a>
+    </li>
+    <li>
+      <a href="#accounts" class="nav-item">
+        {% include "core/icons/mention.svg" %}
+        {% trans "Accounts" %}
+      </a>
+    </li>
+    <li>
+      <a href="#security" class="nav-item">
+        {% include "core/icons/shield-lock.svg" %}
+        {% trans "Security" %}
+      </a>
+    </li>
+  </ul>
+{% endblock sidebar %}
+
+{% block main %}
     {% if may_hijack %}
       <div class="staff-toolbar">
         <h3>{% trans "Staff control panel" %}</h3>
@@ -117,9 +118,9 @@
           {% if user.name %}<p class="user-detail">{{user.username}}</p>{% endif %}
           </div>
           <p class="user-detail">
-            Joined 
-            <time 
-              title="{{user.created_at|date:"c"}}" 
+            Joined
+            <time
+              title="{{user.created_at|date:"c"}}"
               datetime="{{user.created_at|date:"c"}}">
               {{user.created_at|date:"F j, Y"}}
             </time>
@@ -147,9 +148,9 @@
             <p>You are using MuckRock&rsquo;s <span class="plan-name" id="free">Free</span> plan.</p>
             <a class="btn premium" href="{% url "users:payment" username=user.username %}">Upgrade</a>
           {% else %}
-            <p>You are subscribed to MuckRock&rsquo;s 
-              <a href="{% url "plan_detail" pk=current_plan.id slug=current_plan.slug %}" 
-              class="plan-name" id="{{current_plan.slug}}">{{current_plan.name}}</a> 
+            <p>You are subscribed to MuckRock&rsquo;s
+              <a href="{% url "plan_detail" pk=current_plan.id slug=current_plan.slug %}"
+              class="plan-name" id="{{current_plan.slug}}">{{current_plan.name}}</a>
               plan.
             </p>
             <a class="btn ghost primary" href="{% url "users:payment" username=user.username %}">Change plan</a>
@@ -219,7 +220,7 @@
             {% if verified_organizations|length == 1 %}
               <p class="help-text">You belong to verified organization <strong>{{ verified_organizations.0.name }}</strong>.</p>
             {% else %}
-              <p class="help-text">You belong to verified organizations 
+              <p class="help-text">You belong to verified organizations
               {% for org in verified_organizations %}
                 <strong>{{ org.name }}</strong>{% if not forloop.last %}{% if forloop.revcounter == 2 %} and {% else %}, {% endif %}{% endif %}
               {% endfor %}.
@@ -268,7 +269,7 @@
         {% include "organizations/your_organizations.html" with show_invitations=True %}
       </main>
       <footer>
-        <p class="help-text">If you’re a freelancer who works with multiple organizations, you may <a target="_blank" rel="noopener noreferrer" href="{% airtable_verification_url %}">request individual verification as a journalist</a>.</p>
+        <p class="help-text">If you're a freelancer who works with multiple organizations, you may <a target="_blank" rel="noopener noreferrer" href="{% airtable_verification_url %}">request individual verification as a journalist</a>.</p>
       </footer>
     </section>
 
@@ -317,7 +318,7 @@
                     <p class="help-text">
                       {% blocktrans %}
                       When you connect a {{provider.name}} account, you can use your account as a sign-in method.
-                      {% endblocktrans %}                      
+                      {% endblocktrans %}
                     </p>
                   </form>
                 </div>
@@ -485,10 +486,6 @@
             </div>
             {% endif %}
         </div>
-
-        
       </main>
     </section>
-  </div>
-</article>
-{% endblock content %}
+{% endblock main %}
