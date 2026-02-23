@@ -1,3 +1,5 @@
+/* Plan Page Styles (page-level layout, not form-specific) */
+
 .container {
   display: flex;
   max-width: 50rem;
@@ -261,7 +263,7 @@
 }
 
 .membership {
-  word-break: 
+  word-break:
 }
 
 .services-list {
@@ -348,6 +350,7 @@
   text-decoration: underline;
 }
 
+/* Subscription form wrapper (for unauthenticated users) */
 .subscription-form {
   width: 100%;
   box-sizing: border-box;
@@ -361,54 +364,6 @@
 .subscription-form h3 {
   margin-top: 0;
   color: var(--gray-5);
-}
-
-.subscription-form label {
-  font-weight: 600;
-  color: var(--gray-5);
-}
-
-.payment-methods {
-  margin: 1rem 0;
-}
-
-.payment-methods label {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: center;
-  cursor: pointer;
-}
-
-.radio-header {
-  display: flex;
-  align-items: center;
-}
-
-.payment-methods input[type="radio"] {
-  margin-top: 0;
-  margin-right: 0.5rem;
-}
-
-.card-field {
-  flex: 1 1 100%;
-  margin: 1rem 0;
-  padding: 0.75rem;
-  background: #FFFFFF;
-  border-radius: 0.25rem;
-  border: 1px solid var(--gray-2);
-}
-
-.card-field-label {
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-  color: var(--gray-5);
-}
-
-.card-element-errors {
-  color: var(--red-3);
-  margin-top: 0.5rem;
-  font-size: 0.875rem;
 }
 
 .form-footer {
@@ -450,51 +405,6 @@
   margin: 0.5rem 0;
 }
 
-.no-subscription-options {
-  text-align: center;
-  padding: 2rem;
-  color: var(--gray-4);
-}
-
-.organization-selection {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.organization-selection label {
-  flex: 1;
-}
-
-.organization-selection .new-org-name-field {
-  display: none;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.organization-selection .new-org-name-field.showField {
-  display: flex;
-}
-
-.new-card-option.only-option {
-  display: none;
-}
-
-.org-select {
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid var(--gray-2);
-  border-radius: 0.25rem;
-  font-family: var(--font-sans, "Source Sans Pro");
-  font-size: 1rem;
-}
-
-.manage-payment-link {
-  align-self: flex-start;
-  margin-top: 0.25rem;
-}
-
 .plan-benefits {
   flex: 1 1 15rem;
   margin-bottom: 2rem;
@@ -507,21 +417,20 @@
   fill: var(--green-3);
 }
 
-.nonprofit-checkbox {
-  margin: 0.5rem 0;
-}
-
-.nonprofit-checkbox .nonprofit-info {
-  margin: 0;
-  font-size: var(--font-sm, 0.875rem);
-  color: var(--gray-5);
-  padding-left: 1.5rem;
-}
-
 .pay-period {
   font-size: 1rem;
 }
 
 .discounted-price {
   weight: var(--font-semibold);
+}
+
+.plan-switch-link {
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.plan-switch-link a {
+  color: var(--blue-4);
+  text-decoration: underline;
 }
