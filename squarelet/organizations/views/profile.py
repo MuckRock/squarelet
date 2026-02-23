@@ -13,9 +13,9 @@ from squarelet.organizations.models import Organization, ProfileChangeRequest
 
 
 class Update(OrganizationPermissionMixin, UpdateView):
-    permission_required = "organizations.change_organization"
     "Update organization metadata, with some fields requiring staff approval first"
 
+    permission_required = "organizations.change_organization"
     queryset = Organization.objects.filter(individual=False)
     form_class = UpdateForm
     template_name = "organizations/organization_update.html"

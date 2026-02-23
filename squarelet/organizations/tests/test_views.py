@@ -1430,6 +1430,18 @@ class TestChargeDetail(ViewTestMixin):
         assert response.status_code == 200
         assert response.context_data["subject"] == "Receipt"
 
+    def test_get_staff_with_perm(
+        self, rf, organization_factory, user_factory, charge_factory
+    ):
+        """Staff with can_view_charge DB permission can view the charge detail"""
+        staff_user = user_factory(is_staff=True)
+        staff_user = _assign_org_perm(staff_user, "can_view_charge")
+        organization = organization_factory()
+        charge = charge_factory(organization=organization)
+        response = self.call_view(rf, staff_user, pk=charge.pk)
+        assert response.status_code == 200
+        assert response.context_data["subject"] == "Receipt"
+
 
 class TestStripeWebhook:
     def call_view(self, rf, data):

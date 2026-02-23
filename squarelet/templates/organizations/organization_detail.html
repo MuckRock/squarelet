@@ -13,6 +13,7 @@
 {% has_perm "organizations.can_view_members" user organization as can_view_members %}
 {% has_perm "organizations.can_view_subscription" user organization as can_view_subscription %}
 {% has_perm "organizations.can_edit_subscription" user organization as can_edit_subscription %}
+{% has_perm "organizations.can_view_charge" user organization as can_view_charge %}
 
 {% block layout_id %}organization_detail{% endblock %}
 
@@ -62,7 +63,7 @@
     <li>
       <a href="#members" class="nav-item">
         {% include "core/icons/people.svg" %}
-        {% if is_member %}
+        {% if can_view_members %}
         {% trans "Members" %}
         {% else %}
         {% trans "Admins" %}
@@ -153,10 +154,12 @@
             {% include "core/icons/list-unordered.svg" %}
             {% trans "View all plans" %}
           </a>
+          {% if can_view_charge %}
           <a href="{% url 'users:receipts' username=user.username %}" class="btn ghost primary">
             {% include "core/icons/log.svg" %}
             {% trans "View receipts" %}
           </a>
+          {% endif %}
         </div>
         {% endif %}
       </header>
