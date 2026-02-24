@@ -1,4 +1,6 @@
 # Django
+from django.contrib.auth.models import Group, Permission
+from django.contrib.contenttypes.models import ContentType
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
@@ -21,6 +23,17 @@ USERS = [
     {"username": "e2e-member", "is_staff": False},
     {"username": "e2e-regular", "is_staff": False},
     {"username": "e2e-requester", "is_staff": False},
+]
+
+# DB-assigned Organization permissions for the e2e-staff user
+STAFF_ORG_PERMISSIONS = [
+    "change_organization",
+    "can_manage_members",
+    "can_view_members",
+    "can_view_subscription",
+    "can_edit_subscription",
+    "can_view_charge",
+    "can_review_profile_changes",
 ]
 
 ORGS = [
@@ -109,6 +122,13 @@ class Command(BaseCommand):
             created_users[username] = user
             self.stderr.write(f"Created user: {username}")
 
+        # Create "Staff" group with org permissions and add staff user
+        staff_group = self._create_staff_group()
+        staff_user = created_users.get("e2e-staff")
+        if staff_user:
+            staff_user.groups.add(staff_group)
+            self.stderr.write("Added e2e-staff to Staff group")
+
         # Create organizations
         created_orgs = {}
         for org_spec in ORGS:
@@ -152,6 +172,22 @@ class Command(BaseCommand):
         }
         self.stdout.write(json.dumps(result))
 
+    def _create_staff_group(self):
+        """Create a Staff group with Organization-level permissions."""
+        group, created = Group.objects.get_or_create(name="Staff")
+        if created:
+            org_content_type = ContentType.objects.get_for_model(Organization)
+            perms = Permission.objects.filter(
+                codename__in=STAFF_ORG_PERMISSIONS, content_type=org_content_type
+            )
+            group.permissions.set(perms)
+            self.stderr.write(
+                f"Created Staff group with {perms.count()} org permissions"
+            )
+        else:
+            self.stderr.write("Staff group already exists, skipping")
+        return group
+
     @transaction.atomic
     def teardown(self):
         # Delete users (cascades to memberships, email addresses)
@@ -169,6 +205,11 @@ class Command(BaseCommand):
             name__startswith="e2e-", individual=True
         ).delete()
         self.stderr.write(f"Deleted {count} individual org objects")
+
+        # Delete Staff group created by seed
+        count, _ = Group.objects.filter(name="Staff").delete()
+        if count:
+            self.stderr.write("Deleted Staff group")
 
         self.stderr.write("Teardown complete")
         self.stdout.write(json.dumps({"status": "teardown_complete"}))
