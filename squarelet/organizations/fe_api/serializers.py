@@ -81,6 +81,7 @@ class InvitationSerializer(serializers.ModelSerializer):
             "uuid",
             "accepted_at",
             "rejected_at",
+            "withdrawn_at",
             "created_at",
             "user",
         )

@@ -126,13 +126,13 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
 
     def _handle_revoke_invite(self, request):
         def handle_revoke(invite):
-            invite.reject()
+            invite.withdraw()
 
             # Log staff action to activity stream
             if request.user.is_staff:
                 new_action(
                     actor=request.user,
-                    verb="revoked organization invitation",
+                    verb="withdrew organization invitation",
                     action_object=invite,
                     target=self.organization,
                     description=invite.email if invite.email else None,
@@ -141,7 +141,7 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
         return self._handle_invite(
             request,
             handle_revoke,
-            lambda invite: f"Invitation to {invite.email} revoked",
+            lambda invite: f"Invitation to {invite.email} withdrawn",
         )
 
     def _handle_resend_invite(self, request):
@@ -287,10 +287,20 @@ class InvitationAccept(DetailView):
                 invitation.user = request.user
                 invitation.save()
             invitation.reject()
-            if invitation.request:
-                messages.info(request, "Invitation withdrawn")
-            else:
-                messages.info(request, "Invitation rejected")
+            messages.info(request, "Invitation rejected")
+
+            # If the referer is this invitation page itself, ignore it
+            invite_url = request.build_absolute_uri()
+            if request.META.get("HTTP_REFERER") == invite_url:
+                del request.META["HTTP_REFERER"]
+            return get_redirect_url(request, redirect(request.user))
+        elif action == "withdraw":
+            # Associate the user with the invitation for auditing purposes
+            if invitation.user is None:
+                invitation.user = request.user
+                invitation.save()
+            invitation.withdraw()
+            messages.info(request, "Invitation withdrawn")
 
             # If the referer is this invitation page itself, ignore it
             invite_url = request.build_absolute_uri()
