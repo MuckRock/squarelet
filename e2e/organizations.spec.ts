@@ -442,7 +442,7 @@ test.describe("Invitation & Request History", () => {
       await expect(page.locator("#org_invitations")).toBeVisible();
     });
 
-    test("revoked invitation appears in invitation history", async ({ page }) => {
+    test("withdrawn invitation appears in invitation history", async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/manage-members/");
 
       // Send an email invitation
@@ -461,7 +461,7 @@ test.describe("Invitation & Request History", () => {
         timeout: 5_000,
       });
       await expect(
-        page.locator("#org_invitations .invitation-summary .rejected"),
+        page.locator("#org_invitations .invitation-summary .withdrawn"),
       ).toBeVisible();
     });
 

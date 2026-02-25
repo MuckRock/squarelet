@@ -151,7 +151,6 @@
       <div class="title">
         {% if pending_invitations %}
         <h2>
-
           {{ count }} pending invitation{{ count|pluralize }}
         </h2>
         {% else %}
@@ -171,6 +170,9 @@
       <div class="invitation {% if invitation.user %}user{% elif invitation.email %}email{% else %}link{% endif %}">
         {% if invitation.user %}
           {% include "organizations/user_list_item.html" with user=invitation.user %}
+        {% else %}
+          {% include "organizations/invitation_list_item.html" with invitation=invitation %}
+        {% endif %}
           <div class="actions">
             <form class="buttons" method="POST" action="{% url "organizations:manage-members" slug=organization.slug %}">
               {% csrf_token %}
@@ -197,11 +199,11 @@
             <p class="caption">Created <time datetime="{{ invitation.created_at|date:"c" }}" title="{{ invitation.created_at|date:"c" }}">{{ invitation.created_at|naturaltime }}</time></p>
           </div>
         </div>
-        {% empty %}
+      {% empty %}
         <div class="empty">
           <h3>No pending invitations</h3>
         </div>
-        {% endfor %}
+      {% endfor %}
       </div>
     </section>
     {% endwith %}

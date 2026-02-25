@@ -44,7 +44,7 @@
                 </time>
               </dd>
             </div>
-            <div class="{% if invitation.accepted_at %}accepted{% elif invitation.rejected_at %}rejected{% endif %}">
+            <div class="{% if invitation.accepted_at %}accepted{% elif invitation.rejected_at %}rejected{% elif invitation.withdrawn_at %}withdrawn{% endif %}">
               {% if invitation.accepted_at %}
               <dt>{% trans "Accepted" %}</dt>
               <dd>
@@ -53,10 +53,17 @@
                 </time>
               </dd>
               {% elif invitation.rejected_at %}
-              <dt>{% trans "Revoked" %}</dt>
+              <dt>{% trans "Declined" %}</dt>
               <dd>
                 <time title="{{invitation.rejected_at|date:"c"}}" datetime="{{invitation.rejected_at|date:"c"}}">
                   {{invitation.rejected_at|date:"F j, Y"}}
+                </time>
+              </dd>
+              {% elif invitation.withdrawn_at %}
+              <dt>{% trans "Withdrawn" %}</dt>
+              <dd>
+                <time title="{{invitation.withdrawn_at|date:"c"}}" datetime="{{invitation.withdrawn_at|date:"c"}}">
+                  {{invitation.withdrawn_at|date:"F j, Y"}}
                 </time>
               </dd>
               {% else %}
