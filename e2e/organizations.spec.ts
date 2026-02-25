@@ -401,7 +401,7 @@ test.describe("Member Management", () => {
 
 test.describe("Invitation & Request History", () => {
   // Clear any invitations left over from earlier tests so history counts are predictable
-  test.beforeAll(() => {
+  test.beforeEach(() => {
     runManageCommand("seed_e2e_data --action clear_invitations");
   });
 
@@ -442,6 +442,48 @@ test.describe("Invitation & Request History", () => {
       await expect(page.locator("#org_invitations")).toBeVisible();
     });
 
+    test("pending invitation appears in invitation history", async ({ page }) => {
+      await page.goto("/organizations/e2e-public-org/manage-members/");
+
+      // Send an email invitation to a known e2e user
+      await page.locator("input[name='emails']").fill("e2e-regular@example.com");
+      await page.locator('button[value="addmember"]').click();
+      await expectFlashMessage(page, "success");
+
+      // Verify it appears in invitation history with "pending" status
+      await page.goto("/organizations/e2e-public-org/invitations/");
+      await expect(page.locator("#org_invitations .invitation-item")).toHaveCount(1, {
+        timeout: 5_000,
+      });
+      await expect(
+        page.locator("#org_invitations .invitation-summary .pending"),
+      ).toBeVisible();
+    });
+
+    test("accepted invitation appears in invitation history", async ({ page }) => {
+      await page.goto("/organizations/e2e-public-org/manage-members/");
+
+      // Send an email invitation to a known e2e user
+      await page.locator("input[name='emails']").fill("e2e-regular@example.com");
+      await page.locator('button[value="addmember"]').click();
+      await expectFlashMessage(page, "success");
+
+      // Receiving user accepts it
+      await login(page, "e2e-regular");
+      await page.goto("/users/e2e-regular/invitations/");
+      await page.locator('button[value="accept"]').click();
+
+      // Verify it appears in invitation history with "accepted" status
+      await login(page, "e2e-admin");
+      await page.goto("/organizations/e2e-public-org/invitations/");
+      await expect(page.locator("#org_invitations .invitation-item")).toHaveCount(1, {
+        timeout: 5_000,
+      });
+      await expect(
+        page.locator("#org_invitations .invitation-summary .accepted"),
+      ).toBeVisible();
+    });
+
     test("withdrawn invitation appears in invitation history", async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/manage-members/");
 
@@ -455,13 +497,37 @@ test.describe("Invitation & Request History", () => {
       await page.locator('button[value="revokeinvite"]').first().click();
       await expectFlashMessage(page, "success");
 
-      // Verify it appears in invitation history with "Revoked" status
+      // Verify it appears in invitation history with "withdrawn" status
       await page.goto("/organizations/e2e-public-org/invitations/");
       await expect(page.locator("#org_invitations .invitation-item")).toHaveCount(1, {
         timeout: 5_000,
       });
       await expect(
         page.locator("#org_invitations .invitation-summary .withdrawn"),
+      ).toBeVisible();
+    });
+
+    test("declined invitation appears in invitation history", async ({ page }) => {
+      await page.goto("/organizations/e2e-public-org/manage-members/");
+
+      // Send an email invitation to a known e2e user
+      await page.locator("input[name='emails']").fill("e2e-regular@example.com");
+      await page.locator('button[value="addmember"]').click();
+      await expectFlashMessage(page, "success");
+
+      // Receiving user declines it
+      await login(page, "e2e-regular");
+      await page.goto("/users/e2e-regular/invitations/");
+      await page.locator('button[value="reject"]').click();
+
+      // Verify it appears in invitation history with "rejected" status
+      await login(page, "e2e-admin");
+      await page.goto("/organizations/e2e-public-org/invitations/");
+      await expect(page.locator("#org_invitations .invitation-item")).toHaveCount(1, {
+        timeout: 5_000,
+      });
+      await expect(
+        page.locator("#org_invitations .invitation-summary .rejected"),
       ).toBeVisible();
     });
 

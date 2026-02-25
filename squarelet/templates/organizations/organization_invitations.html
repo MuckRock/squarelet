@@ -44,7 +44,7 @@
                 </time>
               </dd>
             </div>
-            <div class="{% if invitation.accepted_at %}accepted{% elif invitation.rejected_at %}rejected{% elif invitation.withdrawn_at %}withdrawn{% endif %}">
+            <div class="{% if invitation.accepted_at %}accepted{% elif invitation.rejected_at %}rejected{% elif invitation.withdrawn_at %}withdrawn{% else %}pending{% endif %}">
               {% if invitation.accepted_at %}
               <dt>{% trans "Accepted" %}</dt>
               <dd>

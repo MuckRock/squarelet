@@ -193,11 +193,26 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def clear_invitations(self):
-        """Delete all invitations for e2e test organizations."""
+        """Delete all invitations for e2e test organizations and reset
+        memberships back to the seeded state."""
         count, _ = Invitation.objects.filter(
             organization__slug__startswith="e2e-"
         ).delete()
         self.stderr.write(f"Deleted {count} invitation-related objects")
+
+        # Reset memberships to seeded state (remove members added during tests)
+        for org_spec in ORGS:
+            seeded_usernames = org_spec["admins"] + org_spec["members"]
+            count, _ = Membership.objects.filter(
+                organization__slug=org_spec["slug"],
+            ).exclude(
+                user__username__in=seeded_usernames,
+            ).delete()
+            if count:
+                self.stderr.write(
+                    f"Removed {count} non-seeded memberships from {org_spec['slug']}"
+                )
+
         self.stdout.write(json.dumps({"status": "clear_invitations_complete"}))
 
     @transaction.atomic
