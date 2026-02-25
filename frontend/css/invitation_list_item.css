@@ -54,8 +54,14 @@
 
 #managemembers .invitation {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   align-self: stretch;
   justify-content: space-between;
   gap: 1rem;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  border: 1px solid transparent;
+  &:hover {
+    border-color: var(--gray-1);
+  }
 }

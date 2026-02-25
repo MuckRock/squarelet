@@ -36,35 +36,36 @@ class Detail(AdminLinkMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         org = self.object
-        if self.request.user.is_authenticated:
-            context["is_admin"] = org.has_admin(self.request.user)
-            context["is_member"] = org.has_member(self.request.user)
+        user = self.request.user
+        if user.is_authenticated:
+            context["is_admin"] = org.has_admin(user)
+            context["is_member"] = org.has_member(user)
 
-            if context["is_admin"] or self.request.user.is_staff:
+            if user.has_perm("organizations.can_manage_members", org):
                 context["pending_requests"] = org.invitations.get_pending_requests()
                 context["pending_invitations"] = (
                     org.invitations.get_pending_invitations()
                 )
 
             # Join requests
-            context["requested_invite"] = self.request.user.invitations.filter(
+            context["requested_invite"] = user.invitations.filter(
                 organization=org
             ).get_pending_requests()
 
             # Rejected requests
-            context["rejected_invite"] = self.request.user.invitations.filter(
+            context["rejected_invite"] = user.invitations.filter(
                 organization=org
             ).get_rejected_requests()
 
             context["can_auto_join"] = (
-                self.request.user.can_auto_join(org) and not context["is_member"]
+                user.can_auto_join(org) and not context["is_member"]
             )
 
         users = org.member_users(self.request)
         admins = [
             u for u in users if u.org_membership_list and u.org_membership_list[0].admin
         ]
-        if context.get("is_member") or self.request.user.is_staff:
+        if user.has_perm("organizations.can_view_members", org):
             context["users"] = users
         else:
             context["users"] = admins
@@ -108,20 +109,19 @@ class Detail(AdminLinkMixin, DetailView):
 
         # Verification context - let template handle URL generation
         context["show_verification_request"] = (
-            context.get("is_admin") or self.request.user.is_staff
-        ) and not self.object.verified_journalist
+            user.has_perm("organizations.change_organization", org)
+        ) and not org.verified_journalist
 
         # Security settings context (read-only for now)
-        if context.get("is_admin") or self.request.user.is_staff:
+        if user.has_perm("organizations.change_organization", org):
             context["security_settings"] = {
-                "allow_auto_join": self.object.allow_auto_join,
-                "has_email_domains": self.object.domains.exists(),
+                "allow_auto_join": org.allow_auto_join,
+                "has_email_domains": org.domains.exists(),
             }
 
         return context
 
     def handle_join(self, request):
-        self.organization = self.get_object()
         user = request.user
 
         # Already a member
@@ -193,16 +193,18 @@ class Detail(AdminLinkMixin, DetailView):
         invitation.send()
 
     def handle_leave(self, request):
-        self.organization = self.get_object()
         is_member = self.organization.has_member(self.request.user)
+        can_manage = request.user.has_perm(
+            "organizations.can_manage_members", self.organization
+        )
         userid = request.POST.get("userid")
         if userid:
             if userid == str(request.user.id) and is_member:
                 # Users removing themselves
                 request.user.memberships.filter(organization=self.organization).delete()
                 messages.success(request, _("You left the organization"))
-            elif request.user.is_staff:
-                # Staff removing another user
+            elif can_manage:
+                # User with can_manage_members permission removing another user
                 user_model = get_user_model()
                 try:
                     target_user = user_model.objects.get(pk=userid)
@@ -226,7 +228,7 @@ class Detail(AdminLinkMixin, DetailView):
                 except user_model.DoesNotExist:
                     messages.error(request, _("User not found"))
             else:
-                # Only staff can remove other users
+                # Only users with can_manage_members can remove other users
                 messages.error(
                     request, _("You do not have permission to remove other users")
                 )
@@ -236,7 +238,6 @@ class Detail(AdminLinkMixin, DetailView):
             messages.success(request, _("You left the organization"))
 
     def handle_sync_wix(self, request):
-        self.organization = self.get_object()
         if self.request.user.is_staff and self.organization.plan.wix:
             for wix_user in self.organization.users.all():
                 sync_wix.delay(
@@ -247,7 +248,8 @@ class Detail(AdminLinkMixin, DetailView):
             messages.success(request, _("Wix sync started"))
 
     def post(self, request, *args, **kwargs):
-        self.organization = self.get_object()
+        self.object = self.get_object()
+        self.organization = self.object
 
         if not self.request.user.is_authenticated:
             return redirect(self.organization)

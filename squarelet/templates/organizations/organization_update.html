@@ -1,5 +1,5 @@
-{% extends "base.html" %}
-{% load i18n django_vite crispy_forms_tags planinfo %}
+{% extends "layouts/sidebar_layout.html" %}
+{% load i18n django_vite crispy_forms_tags planinfo rules %}
 
 {% block title %}{{ organization.reference_name }}{% endblock %}
 
@@ -8,20 +8,24 @@
 {% vite_asset "frontend/views/organization_update.ts" %}
 {% endblock %}
 
-{% block content %}
-<article id="organization-form">
-  <aside class="sidebar">
-    <header>
-      <a href="{{ organization.get_absolute_url }}" class="btn small ghost primary">
-        {% include "core/icons/chevron-left.svg" %}
-        {% trans "Back to team overview" %}
-      </a>
-      <h1>{{ organization.name }}</h1>
-      <h2>{% trans "Edit profile" %}</h2>
-    </header>
-  </aside>
+{% block layout_id %}organization-form{% endblock %}
 
-  <div class="content">
+{% block header %}
+  <header>
+    <h1>{{ organization.name }}</h1>
+    <span class="arrow">{% include "core/icons/chevron-right.svg" %}</span>
+    <h2>{% trans "Edit profile" %}</h2>
+  </header>
+{% endblock header %}
+
+{% block sidebar %}
+  <a href="{{ organization.get_absolute_url }}" class="btn small ghost primary">
+    {% include "core/icons/chevron-left.svg" %}
+    {% trans "Back to team overview" %}
+  </a>
+{% endblock %}
+
+{% block main %}
     <section id="details">
       <header>
         <div class="title">
@@ -106,7 +110,8 @@
               </tr>
               {% endif %}
             </tbody>
-            {% if user.is_staff %}
+            {% has_perm "organizations.can_review_profile_changes" user organization as can_review_profile_changes %}
+            {% if can_review_profile_changes %}
             <tfoot>
               <tr>
                 <td colspan="2">
@@ -131,7 +136,7 @@
       {% endif %}
       <form method="POST" action="{% url "organizations:request-profile-change" slug=organization.slug %}" class="form card">
         {% crispy profile_change_form profile_change_form.helper %}
-        
+
         <button type="submit" class="btn primary">
           {% if user.is_staff %}
           {% trans "Save changes" %}
@@ -141,7 +146,4 @@
         </button>
       </form>
     </section>
-  </div>
-
-</article>
-{% endblock content %}
+{% endblock main %}

@@ -1,5 +1,5 @@
 # Django
-from django.contrib.auth.mixins import UserPassesTestMixin
+from django.contrib.auth.mixins import PermissionRequiredMixin, UserPassesTestMixin
 
 
 class OrganizationAdminMixin(UserPassesTestMixin):
@@ -11,6 +11,25 @@ class OrganizationAdminMixin(UserPassesTestMixin):
             self.request.user
         )
         return is_admin or is_staff
+
+
+class OrganizationPermissionMixin(PermissionRequiredMixin):
+    """Check a permission against the organization object.
+
+    Works with both django-rules (dynamic) and ModelBackend (DB-assigned).
+    Authenticated users without permission get 403; anonymous users are redirected.
+    """
+
+    def has_permission(self):
+        user = self.request.user
+        obj = self.get_object()
+        perms = self.get_permission_required()
+        return all(user.has_perm(perm, obj) for perm in perms)
+
+    def handle_no_permission(self):
+        if self.request.user.is_authenticated:
+            self.raise_exception = True
+        return super().handle_no_permission()
 
 
 class IndividualMixin:

@@ -684,10 +684,10 @@ class TestInvitationQuerySet(TestCase):
         InvitationFactory(organization=org, request=False)  # pending
         InvitationFactory(organization=org, request=False, accepted_at=timezone.now())
         InvitationFactory(organization=org, request=False, rejected_at=timezone.now())
-        # TODO: Add withdrawn status (#588)
+        InvitationFactory(organization=org, request=False, withdrawn_at=timezone.now())
 
         qs = Invitation.objects.get_org_invitations(org)
-        assert qs.count() == 3
+        assert qs.count() == 4
 
     @pytest.mark.django_db
     def test_get_org_invitations_scoped_to_org(self):
@@ -746,10 +746,15 @@ class TestInvitationQuerySet(TestCase):
             request=True,
             rejected_at=timezone.now(),
         )
-        # TODO: Add withdrawn status (#588)
+        InvitationRequestFactory(
+            organization=org,
+            user=user3,
+            request=True,
+            withdrawn_at=timezone.now(),
+        )
 
         qs = Invitation.objects.get_org_requests(org)
-        assert qs.count() == 3
+        assert qs.count() == 4
 
     @pytest.mark.django_db
     def test_get_org_requests_scoped_to_org(self):
