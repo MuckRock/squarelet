@@ -345,6 +345,20 @@ test.describe("Member Management", () => {
     await page.locator('section#pending button[value="revokeinvite"]').first().click();
   });
 
+  test("inviting an existing member shows info, not success", async ({ page }) => {
+    await login(page, "e2e-admin");
+    await page.goto("/organizations/e2e-public-org/manage-members/");
+
+    // e2e-member is already a member per the seed data
+    await page.locator("input[name='emails']").fill("e2e-member@example.com");
+    await page.locator('button[value="addmember"]').click();
+
+    // Should see an info message, not a "0 invitations sent" success message
+    await expectFlashMessage(page, "info");
+    const successAlerts = page.locator("._cls-alerts .alert-success");
+    await expect(successAlerts).toHaveCount(0);
+  });
+
   test("user can request to join and admin can accept", async ({ page }) => {
     // Login as requester and submit join request
     await login(page, "e2e-requester");

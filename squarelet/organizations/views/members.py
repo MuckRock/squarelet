@@ -60,10 +60,8 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
 
                 if existing_open_invite:
                     existing_open_invite.send()
-                    messages.success(
-                        self.request,
-                        f"Resent invitation to {email}.",
-                    )
+                    invitations_sent += 1
+                    invited_emails.append(email)
                     continue
 
                 invitation = Invitation.objects.create(
@@ -91,10 +89,12 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
                     description=email_list,
                 )
 
-            messages.success(
-                self.request,
-                f"{invitations_sent} {pluralize(invitations_sent, 'invitation')} sent",
-            )
+            if invitations_sent > 0:
+                messages.success(
+                    self.request,
+                    f"{invitations_sent}"
+                    f" {pluralize(invitations_sent, 'invitation')} sent",
+                )
 
         return redirect("organizations:manage-members", slug=self.organization.slug)
 
