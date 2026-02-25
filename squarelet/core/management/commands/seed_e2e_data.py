@@ -203,11 +203,15 @@ class Command(BaseCommand):
         # Reset memberships to seeded state (remove members added during tests)
         for org_spec in ORGS:
             seeded_usernames = org_spec["admins"] + org_spec["members"]
-            count, _ = Membership.objects.filter(
-                organization__slug=org_spec["slug"],
-            ).exclude(
-                user__username__in=seeded_usernames,
-            ).delete()
+            count, _ = (
+                Membership.objects.filter(
+                    organization__slug=org_spec["slug"],
+                )
+                .exclude(
+                    user__username__in=seeded_usernames,
+                )
+                .delete()
+            )
             if count:
                 self.stderr.write(
                     f"Removed {count} non-seeded memberships from {org_spec['slug']}"
