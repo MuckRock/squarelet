@@ -114,18 +114,46 @@
             {% if can_review_profile_changes %}
             <tfoot>
               <tr>
-                <td colspan="2">
-                  <form method="POST" action="{% url 'organizations:review-profile-change' slug=organization.slug pk=change.pk %}" class="change-request-staff-actions">
+                <td colspan="2" style="text-align:left;">
+
+                  <form method="POST"
+                        action="{% url 'organizations:review-profile-change' slug=organization.slug pk=change.pk %}"
+                        class="change-request-staff-actions">
+
                     {% csrf_token %}
-                    <button type="submit" class="btn small primary" name="action" value="accept">
-                      {% include "core/icons/check.svg" %}
-                      {% trans "Accept" %}
-                    </button>
-                    <button type="submit" class="btn small danger" name="action" value="reject">
-                      {% include "core/icons/x.svg" %}
-                      {% trans "Reject" %}
-                    </button>
+
+                    <div style="display:flex; flex-direction:column; gap:1rem;">
+
+                      <div>
+                        <button type="submit" class="btn small primary" name="action" value="accept">
+                          {% include "core/icons/check.svg" %}
+                          {% trans "Accept" %}
+                        </button>
+
+                        <button type="submit" class="btn small danger" name="action" value="reject">
+                          {% include "core/icons/x.svg" %}
+                          {% trans "Reject" %}
+                        </button>
+                      </div>
+
+                      <div>
+                        <label for="internal_note_{{ change.pk }}">
+                          {% trans "Reason (required)" %}
+                        </label>
+
+                        <input
+                          type="text"
+                          name="internal_note"
+                          id="internal_note_{{ change.pk }}"
+                          required
+                          class="form-control"
+                        />
+                      </div>
+
+                    </div>
+
                   </form>
+
                 </td>
               </tr>
             </tfoot>

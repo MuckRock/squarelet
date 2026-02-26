@@ -53,6 +53,15 @@ class ProfileChangeRequest(models.Model):
         _("updated at"), help_text=_("When this request was last updated")
     )
 
+    internal_note = models.TextField(
+        _("internal note"),
+        blank=True,
+        help_text=_(
+            "Internal staff note about a change request visible"
+            " only to organization staff"
+        ),
+    )
+
     # these are change requests, so they can be blank
     name = models.CharField(
         _("name"),
@@ -130,10 +139,14 @@ class ProfileChangeRequest(models.Model):
 
         super().save(*args, **kwargs)
 
-    def accept(self):
+    def accept(self, note: str):
         "Accept changes and keep a record"
+        if not note or not note.strip():
+            raise ValueError("Review note is required")
+
         with transaction.atomic():
             self.status = "accepted"
+            self.internal_note = note
             for field in self.FIELDS:
                 if value := getattr(self, field):
                     setattr(self.organization, field, value)
@@ -149,7 +162,10 @@ class ProfileChangeRequest(models.Model):
                 lambda: send_cache_invalidations("organization", self.organization.uuid)
             )
 
-    def reject(self):
+    def reject(self, note: str):
         "Say no but keep a record"
+        if not note or not note.strip():
+            raise ValueError("Review note is required")
+        self.internal_note = note
         self.status = "rejected"
         self.save()

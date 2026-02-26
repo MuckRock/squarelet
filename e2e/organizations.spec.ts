@@ -256,6 +256,9 @@ test.describe("Profile Editing", () => {
     await page.goto("/organizations/e2e-public-org/update/");
 
     await expect(page.locator("#pending-requests")).toBeVisible();
+    await page
+      .locator("#pending-requests input[name='internal_note']").first()
+      .fill("E2E staff acceptance note");
     await page.locator('#pending-requests button[value="accept"]').first().click();
 
     await expectFlashMessage(page, "success");
@@ -278,6 +281,9 @@ test.describe("Profile Editing", () => {
     await page.goto("/organizations/e2e-public-org/update/");
 
     await expect(page.locator("#pending-requests")).toBeVisible();
+    await page
+      .locator("#pending-requests input[name='internal_note']").first()
+      .fill("E2E staff rejection note");
     await page.locator('#pending-requests button[value="reject"]').first().click();
 
     await expectFlashMessage(page, "success");
