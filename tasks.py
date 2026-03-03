@@ -82,7 +82,7 @@ def coverage(c):
         DOCKER_COMPOSE_RUN_OPT_USER.format(
             opt="-e DJANGO_SETTINGS_MODULE=config.settings.test",
             service="squarelet_django",
-            cmd=f"coverage run -m py.test squarelet",
+            cmd=f"coverage run -m pytest squarelet",
         )
     )
     c.run(
@@ -176,10 +176,12 @@ def up(c):
     """Start the docker images"""
     c.run("docker compose up -d")
 
+
 @task
 def down(c):
     """Shut down the docker images"""
     c.run(f"docker compose down")
+
 
 @task
 def runserver(c):
