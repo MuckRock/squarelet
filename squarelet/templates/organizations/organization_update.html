@@ -122,9 +122,24 @@
 
                     {% csrf_token %}
 
-                    <div style="display:flex; flex-direction:column; gap:1rem;">
+                      <label class="field">
+                        <span class="field-label">
+                          {% trans "Internal note" %}
+                          <span class="field-required">
+                            Required
+                          </span>
+                        </span>
+                        <input
+                          type="text"
+                          name="internal_note"
+                          id="internal_note_{{ change.pk }}"
+                          required
+                          class="form-control"
+                          style="width: 100%;"
+                        />
+                      </label>
 
-                      <div>
+                      <div class="staff-actions-btn-group">
                         <button type="submit" class="btn small primary" name="action" value="accept">
                           {% include "core/icons/check.svg" %}
                           {% trans "Accept" %}
@@ -135,22 +150,6 @@
                           {% trans "Reject" %}
                         </button>
                       </div>
-
-                      <div>
-                        <label for="internal_note_{{ change.pk }}">
-                          {% trans "Reason (required)" %}
-                        </label>
-
-                        <input
-                          type="text"
-                          name="internal_note"
-                          id="internal_note_{{ change.pk }}"
-                          required
-                          class="form-control"
-                        />
-                      </div>
-
-                    </div>
 
                   </form>
 
