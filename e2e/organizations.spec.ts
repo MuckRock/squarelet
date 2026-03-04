@@ -67,7 +67,9 @@ test.describe("Organization Viewing", () => {
 
     test("sees org verification status", async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
-      await expect(page.locator("#verification .status.verified")).toBeVisible();
+      await expect(
+        page.locator("#verification .status.verified"),
+      ).toBeVisible();
     });
 
     test("does NOT see any admin emails", async ({ page }) => {
@@ -123,7 +125,9 @@ test.describe("Organization Viewing", () => {
       await expect(page.locator("section#plan")).toBeVisible();
     });
 
-    test("sees all members in user list (not just admins)", async ({ page }) => {
+    test("sees all members in user list (not just admins)", async ({
+      page,
+    }) => {
       await page.goto("/organizations/e2e-public-org/");
       // Should see both the admin and the member
       await expect(page.locator("#members .user-list .user")).toHaveCount(2);
@@ -136,12 +140,18 @@ test.describe("Organization Viewing", () => {
 
     test('does NOT see "Edit profile" link', async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
-      await expect(page.locator('a[href*="/organizations/e2e-public-org/update/"]')).toHaveCount(0);
+      await expect(
+        page.locator('a[href*="/organizations/e2e-public-org/update/"]'),
+      ).toHaveCount(0);
     });
 
     test('does NOT see "Manage members" link', async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
-      await expect(page.locator('a[href*="/organizations/e2e-public-org/manage-members/"]')).toHaveCount(0);
+      await expect(
+        page.locator(
+          'a[href*="/organizations/e2e-public-org/manage-members/"]',
+        ),
+      ).toHaveCount(0);
     });
   });
 
@@ -152,13 +162,25 @@ test.describe("Organization Viewing", () => {
 
     test('sees "Edit profile" link', async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
-      await expect(page.locator('a[href*="/organizations/e2e-public-org/update/"]')).toBeVisible();
+      await expect(
+        page.locator('a[href*="/organizations/e2e-public-org/update/"]'),
+      ).toBeVisible();
     });
 
-    test('sees "Invite members" and "Manage members" links', async ({ page }) => {
+    test('sees "Invite members" and "Manage members" links', async ({
+      page,
+    }) => {
       await page.goto("/organizations/e2e-public-org/");
-      await expect(page.locator('a[href$="/organizations/e2e-public-org/manage-members/#invite"]')).toBeVisible();
-      await expect(page.locator('a[href$="/organizations/e2e-public-org/manage-members/"]')).toBeVisible();
+      await expect(
+        page.locator(
+          'a[href$="/organizations/e2e-public-org/manage-members/#invite"]',
+        ),
+      ).toBeVisible();
+      await expect(
+        page.locator(
+          'a[href$="/organizations/e2e-public-org/manage-members/"]',
+        ),
+      ).toBeVisible();
     });
 
     test("sees plan section", async ({ page }) => {
@@ -168,7 +190,9 @@ test.describe("Organization Viewing", () => {
 
     test("sees button to change plans", async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
-      await expect(page.locator('a[href$="/organizations/e2e-public-org/payment/"]')).toBeVisible();
+      await expect(
+        page.locator('a[href$="/organizations/e2e-public-org/payment/"]'),
+      ).toBeVisible();
     });
   });
 
@@ -181,19 +205,31 @@ test.describe("Organization Viewing", () => {
       await page.goto("/organizations/e2e-public-org/");
       await expect(page.locator(".staff-toolbar")).toBeVisible();
       await expect(
-        page.locator('.staff-toolbar a[href*="/admin/organizations/organization/"]'),
+        page.locator(
+          '.staff-toolbar a[href*="/admin/organizations/organization/"]',
+        ),
       ).toBeVisible();
     });
 
     test('sees "Edit profile" link', async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
-      await expect(page.locator('a[href*="/organizations/e2e-public-org/update/"]')).toBeVisible();
+      await expect(
+        page.locator('a[href*="/organizations/e2e-public-org/update/"]'),
+      ).toBeVisible();
     });
 
     test('sees "Manage members" links', async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
-      await expect(page.locator('a[href$="/organizations/e2e-public-org/manage-members/#invite"]')).toBeVisible();
-      await expect(page.locator('a[href$="/organizations/e2e-public-org/manage-members/"]')).toBeVisible();
+      await expect(
+        page.locator(
+          'a[href$="/organizations/e2e-public-org/manage-members/#invite"]',
+        ),
+      ).toBeVisible();
+      await expect(
+        page.locator(
+          'a[href$="/organizations/e2e-public-org/manage-members/"]',
+        ),
+      ).toBeVisible();
     });
 
     test("sees plan section", async ({ page }) => {
@@ -203,13 +239,17 @@ test.describe("Organization Viewing", () => {
 
     test("sees button to change plans", async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
-      await expect(page.locator('a[href$="/organizations/e2e-public-org/payment/"]')).toBeVisible();
+      await expect(
+        page.locator('a[href$="/organizations/e2e-public-org/payment/"]'),
+      ).toBeVisible();
     });
 
     test("CAN access private org", async ({ page }) => {
       const response = await page.goto("/organizations/e2e-private-org/");
       expect(response?.status()).toBe(200);
-      await expect(page.locator("#profile h3")).toContainText("e2e-private-org");
+      await expect(page.locator("#profile h3")).toContainText(
+        "e2e-private-org",
+      );
     });
   });
 });
@@ -229,7 +269,9 @@ test.describe("Profile Editing", () => {
 
     // Verify change reflected on detail page
     await page.goto("/organizations/e2e-public-org/");
-    await expect(page.locator("p.org-about")).toContainText("Updated by e2e test");
+    await expect(page.locator("p.org-about")).toContainText(
+      "Updated by e2e test",
+    );
 
     // Clean up: clear the about field
     await page.goto("/organizations/e2e-public-org/update/");
@@ -237,12 +279,17 @@ test.describe("Profile Editing", () => {
     await page.locator("section#details button[type='submit']").click();
   });
 
-  test("toggling private hides org from anonymous users", async ({ page, browser }) => {
+  test("toggling private hides org from anonymous users", async ({
+    page,
+    browser,
+  }) => {
     // Login as admin and make org private
     await login(page, "e2e-admin");
     await page.goto("/organizations/e2e-public-org/update/");
 
-    const privateCheckbox = page.locator("section#details input[name='private']");
+    const privateCheckbox = page.locator(
+      "section#details input[name='private']",
+    );
     await privateCheckbox.check();
     await page.locator("section#details button[type='submit']").click();
 
@@ -270,7 +317,9 @@ test.describe("Profile Editing", () => {
     await anonContext2.close();
   });
 
-  test("admin can only request changes to protected fields", async ({ page }) => {
+  test("admin can only request changes to protected fields", async ({
+    page,
+  }) => {
     await login(page, "e2e-admin");
     await page.goto("/organizations/e2e-public-org/update/");
 
@@ -293,7 +342,9 @@ test.describe("Profile Editing", () => {
     await login(page, "e2e-admin");
     await page.goto("/organizations/e2e-public-org/update/");
 
-    await page.locator("section#protected input[name='city']").fill("Accepted City");
+    await page
+      .locator("section#protected input[name='city']")
+      .fill("Accepted City");
     await page
       .locator("section#protected textarea[name='explanation']")
       .fill("E2E test: to be accepted");
@@ -306,9 +357,13 @@ test.describe("Profile Editing", () => {
 
     await expect(page.locator("#pending-requests")).toBeVisible();
     await page
-      .locator("#pending-requests input[name='internal_note']").first()
+      .locator("#pending-requests input[name='internal_note']")
+      .first()
       .fill("E2E staff acceptance note");
-    await page.locator('#pending-requests button[value="accept"]').first().click();
+    await page
+      .locator('#pending-requests button[value="accept"]')
+      .first()
+      .click();
 
     await expectFlashMessage(page, "success");
   });
@@ -318,7 +373,9 @@ test.describe("Profile Editing", () => {
     await login(page, "e2e-admin");
     await page.goto("/organizations/e2e-public-org/update/");
 
-    await page.locator("section#protected input[name='city']").fill("Rejected City");
+    await page
+      .locator("section#protected input[name='city']")
+      .fill("Rejected City");
     await page
       .locator("section#protected textarea[name='explanation']")
       .fill("E2E test: to be rejected");
@@ -333,14 +390,19 @@ test.describe("Profile Editing", () => {
     await page
       .locator("#pending-requests input[name='internal_note']").first()
       .fill("E2E staff rejection note");
-    await page.locator('#pending-requests button[value="reject"]').first().click();
+    await page
+      .locator('#pending-requests button[value="reject"]')
+      .first()
+      .click();
 
     await expectFlashMessage(page, "success");
   });
 });
 
 test.describe("Member Management", () => {
-  test("admin can invite, resend, and revoke an email invitation", async ({ page }) => {
+  test("admin can invite, resend, and revoke an email invitation", async ({
+    page,
+  }) => {
     await login(page, "e2e-admin");
     await page.goto("/organizations/e2e-public-org/manage-members/");
 
@@ -379,7 +441,9 @@ test.describe("Member Management", () => {
 
     // Extract the invitation URL from the flash message
     const messageHtml = await flashMessage.innerHTML();
-    const urlMatch = messageHtml.match(/\/organizations\/[a-f0-9-]+\/invitation\//);
+    const urlMatch = messageHtml.match(
+      /\/organizations\/[a-f0-9-]+\/invitation\//,
+    );
     expect(urlMatch).toBeTruthy();
     const invitationPath = urlMatch![0];
 
@@ -394,13 +458,20 @@ test.describe("Member Management", () => {
     // Verify the link invitation shows "Copy link" (not "Resend") on manage-members
     await page.goto("/organizations/e2e-public-org/manage-members/");
     await expect(page.locator("section#pending")).toBeVisible();
-    await expect(page.locator("section#pending button[data-clipboard]")).toBeVisible();
+    await expect(
+      page.locator("section#pending button[data-clipboard]"),
+    ).toBeVisible();
 
     // Clean up: revoke the link invitation
-    await page.locator('section#pending button[value="revokeinvite"]').first().click();
+    await page
+      .locator('section#pending button[value="revokeinvite"]')
+      .first()
+      .click();
   });
 
-  test("inviting an existing member shows info, not success", async ({ page }) => {
+  test("inviting an existing member shows info, not success", async ({
+    page,
+  }) => {
     await login(page, "e2e-admin");
     await page.goto("/organizations/e2e-public-org/manage-members/");
 
@@ -465,5 +536,117 @@ test.describe("Member Management", () => {
     await expect(page.locator("section#requests")).toBeVisible();
     await page.locator('button[value="rejectinvite"]').first().click();
     await expectFlashMessage(page, "success");
+  });
+
+  test("member role assigned after acceptance", async ({
+    page,
+  }) => {
+    await login(page, "e2e-admin");
+    await page.goto("/organizations/e2e-public-org/manage-members/");
+
+    // Defensive cleanup: revoke any stale pending invitations
+    while (await page.locator('button[value="revokeinvite"]').count()) {
+      await page.locator('button[value="revokeinvite"]').first().click();
+      await page.goto("/organizations/e2e-public-org/manage-members/");
+    }
+
+    // Send invitation with Member role (default)
+    await page
+      .locator("input[name='emails']")
+      .fill("e2e-requester@example.com");
+    await page.locator("select[name='role']").selectOption("0");
+    await page.locator('button[value="addmember"]').click();
+    await expectFlashMessage(page, "success");
+
+    // Verify pending invitation does NOT show Admin badge
+    await page.goto("/organizations/e2e-public-org/manage-members/");
+    const pendingSection = page.locator("section#pending");
+    await expect(pendingSection).toBeVisible();
+    const pendingInvitation = pendingSection.locator(".invitation").first();
+    await expect(pendingInvitation.locator(".orange.badge")).toHaveCount(0);
+
+    // Login as the invited user and accept from their account page
+    await login(page, "e2e-requester");
+    await page.goto("/users/e2e-requester/");
+    const invitation = page.locator(".invite", {
+      has: page.locator("text=e2e-public-org"),
+    });
+    await invitation.locator('button[value="accept"]').click();
+    await expectFlashMessage(page, "success");
+
+    // Verify the user is a member (not admin) in the members list
+    await login(page, "e2e-admin");
+    await page.goto("/organizations/e2e-public-org/manage-members/");
+    const requesterMembership = page.locator(".membership", {
+      has: page.locator("h3", { hasText: "e2e-requester" }),
+    });
+    await expect(requesterMembership).toBeVisible();
+    await expect(
+      requesterMembership.locator('button[value="makeadmin"]'),
+    ).toContainText("Promote to admin");
+
+    // Clean up: remove the user from the org
+    await requesterMembership.locator('button[value="removeuser"]').click();
+  });
+
+  test("admin role assigned after acceptance", async ({
+    page,
+  }) => {
+    await login(page, "e2e-admin");
+    await page.goto("/organizations/e2e-public-org/manage-members/");
+
+    // Defensive cleanup: revoke any stale pending invitations
+    while (await page.locator('button[value="revokeinvite"]').count()) {
+      await page.locator('button[value="revokeinvite"]').first().click();
+      await page.goto("/organizations/e2e-public-org/manage-members/");
+    }
+
+    // Remove e2e-regular from org if they're already a member
+    const staleMembership = page.locator(".membership", {
+      has: page.locator("h3", { hasText: "e2e-regular" }),
+    });
+    if ((await staleMembership.count()) > 0) {
+      await staleMembership.locator('button[value="removeuser"]').click();
+      await page.goto("/organizations/e2e-public-org/manage-members/");
+    }
+
+    // Send invitation with Admin role
+    await page.locator("input[name='emails']").fill("e2e-regular@example.com");
+    await page.locator("select[name='role']").selectOption("1");
+    await page.locator('button[value="addmember"]').click();
+    await expectFlashMessage(page, "success");
+
+    // Verify pending invitation shows Admin badge
+    await page.goto("/organizations/e2e-public-org/manage-members/");
+    const pendingSection = page.locator("section#pending");
+    await expect(pendingSection).toBeVisible();
+    const pendingInvitation = pendingSection.locator(".invitation").first();
+    await expect(pendingInvitation.locator(".orange.badge")).toBeVisible();
+    await expect(pendingInvitation.locator(".orange.badge")).toContainText(
+      "Admin",
+    );
+
+    // Login as the invited user and accept from their account page
+    await login(page, "e2e-regular");
+    await page.goto("/users/e2e-regular/");
+    const invitation = page.locator(".invite", {
+      has: page.locator("text=e2e-public-org"),
+    });
+    await invitation.locator('button[value="accept"]').click();
+    await expectFlashMessage(page, "success");
+
+    // Verify the user is an admin in the members list
+    await login(page, "e2e-admin");
+    await page.goto("/organizations/e2e-public-org/manage-members/");
+    const regularMembership = page.locator(".membership", {
+      has: page.locator("h3", { hasText: "e2e-regular" }),
+    });
+    await expect(regularMembership).toBeVisible();
+    await expect(
+      regularMembership.locator('button[value="makeadmin"]'),
+    ).toContainText("Demote to member");
+
+    // Clean up: remove the user from the org
+    await regularMembership.locator('button[value="removeuser"]').click();
   });
 });
