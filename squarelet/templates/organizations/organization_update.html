@@ -114,18 +114,45 @@
             {% if can_review_profile_changes %}
             <tfoot>
               <tr>
-                <td colspan="2">
-                  <form method="POST" action="{% url 'organizations:review-profile-change' slug=organization.slug pk=change.pk %}" class="change-request-staff-actions">
+                <td colspan="2" style="text-align:left;">
+
+                  <form method="POST"
+                        action="{% url 'organizations:review-profile-change' slug=organization.slug pk=change.pk %}"
+                        class="change-request-staff-actions">
+
                     {% csrf_token %}
-                    <button type="submit" class="btn small primary" name="action" value="accept">
-                      {% include "core/icons/check.svg" %}
-                      {% trans "Accept" %}
-                    </button>
-                    <button type="submit" class="btn small danger" name="action" value="reject">
-                      {% include "core/icons/x.svg" %}
-                      {% trans "Reject" %}
-                    </button>
+
+                      <label class="field">
+                        <span class="field-label">
+                          {% trans "Internal note" %}
+                          <span class="field-required">
+                            Required
+                          </span>
+                        </span>
+                        <input
+                          type="text"
+                          name="internal_note"
+                          id="internal_note_{{ change.pk }}"
+                          required
+                          class="form-control"
+                          style="width: 100%;"
+                        />
+                      </label>
+
+                      <div class="staff-actions-btn-group">
+                        <button type="submit" class="btn small primary" name="action" value="accept">
+                          {% include "core/icons/check.svg" %}
+                          {% trans "Accept" %}
+                        </button>
+
+                        <button type="submit" class="btn small danger" name="action" value="reject">
+                          {% include "core/icons/x.svg" %}
+                          {% trans "Reject" %}
+                        </button>
+                      </div>
+
                   </form>
+
                 </td>
               </tr>
             </tfoot>

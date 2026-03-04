@@ -3,6 +3,7 @@ from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.utils import timezone
 
 # Standard Library
 import json
@@ -121,6 +122,11 @@ class Command(BaseCommand):
                 primary=True,
                 verified=True,
             )
+
+            # Set last_mfa_prompt so the MFA onboarding step is snoozed,
+            # preventing onboarding from intercepting login redirects
+            user.last_mfa_prompt = timezone.now()
+            user.save(update_fields=["last_mfa_prompt"])
 
             created_users[username] = user
             self.stderr.write(f"Created user: {username}")

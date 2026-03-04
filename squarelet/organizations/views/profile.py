@@ -164,9 +164,10 @@ class ReviewProfileChange(OrganizationPermissionMixin, View):
 
         # Get the action from POST data
         action = request.POST.get("action")
+        note = request.POST.get("internal_note", "").strip()
 
         if action == "accept":
-            profile_change.accept()
+            profile_change.accept(note=note)
 
             # Log staff action to activity stream
             new_action(
@@ -174,6 +175,7 @@ class ReviewProfileChange(OrganizationPermissionMixin, View):
                 verb="accepted profile change request",
                 action_object=profile_change,
                 target=profile_change.organization,
+                description=note,
             )
 
             messages.success(
@@ -181,7 +183,7 @@ class ReviewProfileChange(OrganizationPermissionMixin, View):
                 _("Profile change request has been accepted and applied."),
             )
         elif action == "reject":
-            profile_change.reject()
+            profile_change.reject(note=note)
 
             # Log staff action to activity stream
             new_action(
@@ -189,6 +191,7 @@ class ReviewProfileChange(OrganizationPermissionMixin, View):
                 verb="rejected profile change request",
                 action_object=profile_change,
                 target=profile_change.organization,
+                description=note,
             )
 
             messages.success(
@@ -201,4 +204,7 @@ class ReviewProfileChange(OrganizationPermissionMixin, View):
                 _("Invalid action specified."),
             )
 
-        return redirect("organizations:update", slug=slug)
+        return redirect(
+            "organizations:update",
+            slug=profile_change.organization.slug,
+        )

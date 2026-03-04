@@ -1,5 +1,50 @@
 import { test, expect } from "@playwright/test";
-import { login, expectFlashMessage, runManageCommand } from "./helpers";
+import { login, deleteTestOrg, expectFlashMessage, resetOrgProfileState, runManageCommand } from "./helpers";
+
+const NEW_ORG_SLUG = "e2e-new-org";
+
+test.describe("Organization Creation", () => {
+  test.afterAll(() => {
+    deleteTestOrg(NEW_ORG_SLUG);
+  });
+
+  test.describe("Authenticated user", () => {
+    test.beforeEach(async ({ page }) => {
+      await login(page, "e2e-regular");
+    });
+
+    test("creates org with unique name and redirects to org page", async ({ page }) => {
+      await page.goto("/organizations/~create");
+      await page.locator("input[name='name']").fill("e2e-new-org");
+      await page.locator("button[type='submit']").click();
+      await expect(page).toHaveURL(/\/organizations\/e2e-new-org\//);
+    });
+
+    test("similar name shows matching orgs, force-create works", async ({ page }) => {
+      await page.goto("/organizations/~create");
+      await page.locator("input[name='name']").fill("e2e public org");
+      await page.locator("button[type='submit']").click();
+
+      // Should show matching organizations and a force-create form
+      await expect(page).toHaveURL(/\/organizations\/~create/);
+      await expect(page.locator("input[name='force'][value='true']")).toBeAttached();
+
+      // The force form reuses the #login_form id with the hidden force field
+      await page.locator("#login_form button[type='submit']").click();
+      await page.waitForURL((url) => !url.pathname.includes("~create"));
+      await expect(page).toHaveURL(/\/organizations\//);
+    });
+  });
+
+  test.describe("Unauthenticated user", () => {
+    test("redirected to login", async ({ page }) => {
+      await page.context().clearCookies();
+      await page.goto("/organizations/~create");
+      await expect(page).toHaveURL(/\/accounts\/login\//);
+    });
+  });
+});
+
 
 test.describe("Organization Viewing", () => {
   test.describe("Anonymous user", () => {
@@ -170,6 +215,10 @@ test.describe("Organization Viewing", () => {
 });
 
 test.describe("Profile Editing", () => {
+  test.beforeEach(() => {
+    resetOrgProfileState("e2e-public-org");
+  });
+
   test("admin can edit unprotected fields", async ({ page }) => {
     await login(page, "e2e-admin");
     await page.goto("/organizations/e2e-public-org/update/");
@@ -256,6 +305,9 @@ test.describe("Profile Editing", () => {
     await page.goto("/organizations/e2e-public-org/update/");
 
     await expect(page.locator("#pending-requests")).toBeVisible();
+    await page
+      .locator("#pending-requests input[name='internal_note']").first()
+      .fill("E2E staff acceptance note");
     await page.locator('#pending-requests button[value="accept"]').first().click();
 
     await expectFlashMessage(page, "success");
@@ -278,6 +330,9 @@ test.describe("Profile Editing", () => {
     await page.goto("/organizations/e2e-public-org/update/");
 
     await expect(page.locator("#pending-requests")).toBeVisible();
+    await page
+      .locator("#pending-requests input[name='internal_note']").first()
+      .fill("E2E staff rejection note");
     await page.locator('#pending-requests button[value="reject"]').first().click();
 
     await expectFlashMessage(page, "success");
@@ -343,6 +398,20 @@ test.describe("Member Management", () => {
 
     // Clean up: revoke the link invitation
     await page.locator('section#pending button[value="revokeinvite"]').first().click();
+  });
+
+  test("inviting an existing member shows info, not success", async ({ page }) => {
+    await login(page, "e2e-admin");
+    await page.goto("/organizations/e2e-public-org/manage-members/");
+
+    // e2e-member is already a member per the seed data
+    await page.locator("input[name='emails']").fill("e2e-member@example.com");
+    await page.locator('button[value="addmember"]').click();
+
+    // Should see an info message, not a "0 invitations sent" success message
+    await expectFlashMessage(page, "info");
+    const successAlerts = page.locator("._cls-alerts .alert-success");
+    await expect(successAlerts).toHaveCount(0);
   });
 
   test("user can request to join and admin can accept", async ({ page }) => {

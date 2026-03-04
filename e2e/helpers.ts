@@ -12,7 +12,11 @@ export async function login(page: Page, username: string) {
   await page.goto("/accounts/login/");
   await page.locator("#login_form input[name='login']").fill(username);
   await page.locator("#login_form input[name='password']").fill(E2E_PASSWORD);
+  const loginResponse = page.waitForResponse(
+    (resp) => resp.url().includes("/accounts/login/") && resp.request().method() === "POST",
+  );
   await page.locator("#login_form button.primary").click();
+  expect((await loginResponse).status()).toBe(302);
   await page.waitForURL((url) => !url.pathname.includes("/accounts/login/"));
 }
 
@@ -31,4 +35,35 @@ export function runManageCommand(args: string): string {
   )
     .toString()
     .trim();
+}
+
+export function deleteTestUser(username: string) {
+  runManageCommand(
+    `shell -c "
+from squarelet.users.models import User
+from squarelet.organizations.models import Organization, OrganizationChangeLog
+for u in User.objects.filter(username='${username}'):
+    org_pks = list(u.organizations.values_list('pk', flat=True))
+    OrganizationChangeLog.objects.filter(user=u).delete()
+    OrganizationChangeLog.objects.filter(organization__in=org_pks).delete()
+    u.delete()
+    Organization.objects.filter(pk__in=org_pks).delete()
+"`,
+  );
+}
+
+export function deleteTestOrg(slug: string) {
+  runManageCommand(
+    `shell -c "from squarelet.organizations.models import Organization; Organization.objects.filter(slug__startswith='${slug}', individual=False).delete()"`,
+  );
+}
+
+export function resetOrgProfileState(slug: string) {
+  runManageCommand(
+    `shell -c "
+from squarelet.organizations.models import Organization, ProfileChangeRequest
+ProfileChangeRequest.objects.filter(organization__slug='${slug}').delete()
+Organization.objects.filter(slug='${slug}').update(city='')
+"`,
+  );
 }

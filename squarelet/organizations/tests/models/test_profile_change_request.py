@@ -64,7 +64,7 @@ class TestProfileChangeRequest:
             country="US",
         )
 
-        request.accept()
+        request.accept(note="Approved by test")
 
         # Status should be updated
         assert request.status == "accepted"
@@ -104,7 +104,7 @@ class TestProfileChangeRequest:
         request.organization.country = "US"
         request.organization.save()
 
-        request.accept()
+        request.accept(note="Approved by test")
 
         request.organization.refresh_from_db()
         # Name should be updated
@@ -132,7 +132,7 @@ class TestProfileChangeRequest:
         # Verify no URLs exist initially
         assert request.organization.urls.count() == 0
 
-        request.accept()
+        request.accept(note="Approved by test")
 
         # Verify URL was created
         assert request.organization.urls.count() == 1
@@ -148,7 +148,7 @@ class TestProfileChangeRequest:
 
         original_org_name = request.organization.name
 
-        request.reject()
+        request.reject(note="Rejected by test")
 
         # Status should be updated
         assert request.status == "rejected"
