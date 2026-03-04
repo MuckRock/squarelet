@@ -29,8 +29,9 @@ class TestUserDetailView(ViewTestMixin):
     view = views.UserDetailView
     url = "/users/{username}/"
 
-    def test_get(self, rf, user_factory):
+    def test_get(self, rf, user_factory, professional_plan_factory):
         user = user_factory()
+        professional_plan_factory()
         response = self.call_view(rf, user, username=user.username)
         assert response.status_code == 200
         assert list(response.context_data["other_orgs"]) == list(
@@ -43,10 +44,11 @@ class TestUserDetailView(ViewTestMixin):
         with pytest.raises(Http404):
             self.call_view(rf, other_user, username=user.username)
 
-    def test_primary_email_first(self, rf, user_factory):
+    def test_primary_email_first(self, rf, user_factory, professional_plan_factory):
         """Test that primary email appears first in the emails list"""
 
         user = user_factory()
+        professional_plan_factory()
         # Clear any existing email addresses
         EmailAddress.objects.filter(user=user).delete()
 
@@ -1645,9 +1647,19 @@ class TestUserOnboardingView(ViewTestMixin):
         # Should render template with form errors, not redirect
         self._assert_template(response, "account/onboarding/subscribe.html")
 
-    def test_post_subscribe_skip(self, rf, user_factory, mocker, mock_django_session):
+    def test_post_subscribe_skip(
+        self,
+        rf,
+        user_factory,
+        mocker,
+        mock_django_session,
+        professional_plan_factory,
+        organization_plan_factory,
+    ):
         """POST to subscribe step with skip should complete subscription"""
         user = user_factory()
+        professional_plan_factory()
+        organization_plan_factory()
         request = self._create_post_request(
             rf,
             user,

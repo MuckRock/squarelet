@@ -375,6 +375,7 @@ def test_premium_subscription_form_clean_new_org_missing_name():
 def test_premium_subscription_form_save_new_organization(plan_factory, user, mocker):
     """Test creating a new organization during subscription"""
     plan = plan_factory(slug="professional")
+    plan = plan_factory(slug="organization")
     # Create a real organization and then mock the subscription creation
     # to avoid testing stripe functionality
     org_create_mock = mocker.patch(

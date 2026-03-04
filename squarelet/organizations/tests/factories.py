@@ -1,4 +1,5 @@
 # Django
+from django.db.models import signals
 from django.utils import timezone
 
 # Standard Library
@@ -98,6 +99,7 @@ class SubscriptionFactory(factory.django.DjangoModelFactory):
         model = "organizations.Subscription"
 
 
+@factory.django.mute_signals(signals.pre_save, signals.post_save)
 class PlanFactory(factory.django.DjangoModelFactory):
     """A factory for creating Plan test objects"""
 
