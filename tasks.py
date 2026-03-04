@@ -131,7 +131,7 @@ def test_e2e(c, ui=False, grep=""):
     """
     playwright_args = []
     if ui:
-        playwright_args.append("--headed")
+        playwright_args.append("--ui")
     if grep:
         playwright_args.append(f"--grep '{grep}'")
     pw_flags = " ".join(playwright_args)

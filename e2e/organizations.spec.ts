@@ -1,5 +1,50 @@
 import { test, expect } from "@playwright/test";
-import { login, expectFlashMessage } from "./helpers";
+import { login, deleteTestOrg, expectFlashMessage, resetOrgProfileState } from "./helpers";
+
+const NEW_ORG_SLUG = "e2e-new-org";
+
+test.describe("Organization Creation", () => {
+  test.afterAll(() => {
+    deleteTestOrg(NEW_ORG_SLUG);
+  });
+
+  test.describe("Authenticated user", () => {
+    test.beforeEach(async ({ page }) => {
+      await login(page, "e2e-regular");
+    });
+
+    test("creates org with unique name and redirects to org page", async ({ page }) => {
+      await page.goto("/organizations/~create");
+      await page.locator("input[name='name']").fill("e2e-new-org");
+      await page.locator("button[type='submit']").click();
+      await expect(page).toHaveURL(/\/organizations\/e2e-new-org\//);
+    });
+
+    test("similar name shows matching orgs, force-create works", async ({ page }) => {
+      await page.goto("/organizations/~create");
+      await page.locator("input[name='name']").fill("e2e public org");
+      await page.locator("button[type='submit']").click();
+
+      // Should show matching organizations and a force-create form
+      await expect(page).toHaveURL(/\/organizations\/~create/);
+      await expect(page.locator("input[name='force'][value='true']")).toBeAttached();
+
+      // The force form reuses the #login_form id with the hidden force field
+      await page.locator("#login_form button[type='submit']").click();
+      await page.waitForURL((url) => !url.pathname.includes("~create"));
+      await expect(page).toHaveURL(/\/organizations\//);
+    });
+  });
+
+  test.describe("Unauthenticated user", () => {
+    test("redirected to login", async ({ page }) => {
+      await page.context().clearCookies();
+      await page.goto("/organizations/~create");
+      await expect(page).toHaveURL(/\/accounts\/login\//);
+    });
+  });
+});
+
 
 test.describe("Organization Viewing", () => {
   test.describe("Anonymous user", () => {
@@ -170,6 +215,10 @@ test.describe("Organization Viewing", () => {
 });
 
 test.describe("Profile Editing", () => {
+  test.beforeEach(() => {
+    resetOrgProfileState("e2e-public-org");
+  });
+
   test("admin can edit unprotected fields", async ({ page }) => {
     await login(page, "e2e-admin");
     await page.goto("/organizations/e2e-public-org/update/");
