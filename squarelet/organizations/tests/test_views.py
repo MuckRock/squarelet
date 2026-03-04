@@ -728,7 +728,7 @@ class TestReviewProfileChange(ViewTestMixin):
         response = self.call_view(
             rf,
             staff_member,
-            {"action": "accept"},
+            {"action": "accept", "internal_note": "Approved by staff"},
             slug=organization.slug,
             pk=profile_change.pk,
         )
@@ -761,7 +761,7 @@ class TestReviewProfileChange(ViewTestMixin):
         response = self.call_view(
             rf,
             staff_member,
-            {"action": "reject"},
+            {"action": "reject", "internal_note": "Rejected due to policy mismatch"},
             slug=organization.slug,
             pk=profile_change.pk,
         )
