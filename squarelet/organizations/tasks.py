@@ -492,66 +492,6 @@ def check_overdue_invoices():
 
 
 @shared_task(
-    name="squarelet.organizations.tasks.backfill_charge_metadata",
-    autoretry_for=(stripe.error.RateLimitError,),
-)
-def backfill_charge_metadata(starting_after=None, keep_running=True):
-    """This task for for backfilling in charge metadata.
-    It is only meant to be run once upon release, then can be safely removed.
-    """
-    logger.info("[BCM] Running: starting_after %s", starting_after)
-    limit = 25
-    # cache product ID/name mapping to reduce API calls
-    products = cache.get_or_set(
-        "backfill_product_mapping",
-        lambda: {p.id: p.name for p in stripe.Product.list().auto_paging_iter()},
-    )
-    stripe_charges = stripe.Charge.list(limit=limit, starting_after=starting_after)
-    last_id = stripe_charges["data"][-1]["id"]
-    has_more = stripe_charges["has_more"]
-
-    # we only need to backfill data for recurring charges, which will have an invoice
-    stripe_charges = [c for c in stripe_charges["data"] if c["invoice"]]
-    charges = Charge.objects.in_bulk(
-        [c["id"] for c in stripe_charges], field_name="charge_id"
-    )
-    logger.info(
-        "[BCM] Charges with invoice: %d Charges found: %d",
-        len(stripe_charges),
-        len(charges),
-    )
-
-    for stripe_charge in stripe_charges:
-        logger.warning("[BCM] Charge ID: %s", stripe_charge["id"])
-        if stripe_charge["id"] not in charges:
-            logger.warning("[BCM] Charge ID not found: %s", stripe_charge["id"])
-            continue
-        charge = charges[stripe_charge["id"]]
-        charge.metadata["action"] = "Subscription Payment"
-
-        invoice = stripe.Invoice.retrieve(stripe_charge["invoice"])
-        invoice_line = invoice["lines"]["data"][0]
-        if "name" in invoice_line["plan"]:
-            charge.metadata["plan"] = invoice_line["plan"]["name"]
-        else:
-            charge.metadata["plan"] = products[invoice_line["plan"]["product"]]
-
-        charge.description = f"Subscription Payment for {charge.metadata['plan']} plan"
-
-    logger.warning("[BCM] bulk updating")
-    Charge.objects.bulk_update(charges.values(), ["metadata", "description"])
-
-    logger.warning(
-        "[BCM] last_id %s - keep_running %s and has_more %s",
-        last_id,
-        keep_running,
-        has_more,
-    )
-    if keep_running and has_more:
-        backfill_charge_metadata.delay(last_id)
-
-
-@shared_task(
     bind=True,
     max_retries=3,
     name="squarelet.organizations.tasks.send_slack_notification",
