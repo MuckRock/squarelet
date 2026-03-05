@@ -231,6 +231,38 @@ class TestHandleChargeSucceeded:
         tasks.handle_charge_succeeded(charge_data)
         mocked.assert_called_once()
 
+    @pytest.mark.django_db()
+    def test_duplicate_charge_idempotency(self, organization_factory, mocker):
+        """Test that duplicate webhook calls don't create duplicate charges"""
+        timestamp = timezone.now().replace(microsecond=0)
+        charge_data = {
+            "amount": 2000,
+            "created": int(timestamp.timestamp()),
+            "customer": "cus_duplicate",
+            "description": "Duplicate test",
+            "id": "ch_duplicate_test",
+            "invoice": None,
+            "metadata": {},
+            "object": "charge",
+        }
+        organization = organization_factory(
+            customer__customer_id=charge_data["customer"]
+        )
+        mocked_receipt = mocker.patch(
+            "squarelet.organizations.models.Charge.send_receipt"
+        )
+
+        # First webhook call - creates charge
+        tasks.handle_charge_succeeded(charge_data)
+        assert Charge.objects.filter(charge_id=charge_data["id"]).count() == 1
+        assert mocked_receipt.call_count == 1
+
+        # Second webhook call - should not create duplicate
+        tasks.handle_charge_succeeded(charge_data)
+        assert Charge.objects.filter(charge_id=charge_data["id"]).count() == 1
+        # Receipt should be sent again (get_or_create returns existing, send_receipt called)
+        assert mocked_receipt.call_count == 2
+
 
 @pytest.mark.django_db()
 def test_handle_invoice_failed(organization_factory, user_factory, mailoutbox):
@@ -246,6 +278,118 @@ def test_handle_invoice_failed(organization_factory, user_factory, mailoutbox):
     mail = mailoutbox[0]
     assert mail.subject == "Your payment has failed"
     assert mail.to == [user.email]
+
+
+@pytest.mark.django_db()
+def test_handle_invoice_failed_attempt_4_subscription_cancelled(
+    organization_factory, user_factory, mailoutbox, mocker
+):
+    """Test 4th failed attempt cancels subscription"""
+    user = user_factory()
+    customer_id = "cus_cancel"
+    organization = organization_factory(
+        admins=[user], customer__customer_id=customer_id
+    )
+
+    # Mock subscription_cancelled at the class level
+    mocked_cancel = mocker.patch(
+        "squarelet.organizations.models.organization.Organization.subscription_cancelled"
+    )
+
+    invoice_data = {"id": 2, "customer": customer_id, "attempt_count": 4}
+    tasks.handle_invoice_failed(invoice_data)
+
+    organization.refresh_from_db()
+    assert organization.payment_failed
+    mocked_cancel.assert_called_once()
+    mail = mailoutbox[0]
+    assert mail.subject == "Your subscription has been cancelled"
+    assert "final" in mail.body
+
+
+@pytest.mark.django_db()
+def test_handle_invoice_failed_subscription_cancel_error(
+    organization_factory, user_factory, mocker
+):
+    """Test that error is raised if subscription_cancelled raises error"""
+    user = user_factory()
+    customer_id = "cus_cancel_err"
+    organization_factory(
+        admins=[user], customer__customer_id=customer_id
+    )
+
+    # Mock subscription_cancelled to raise an error at class level
+    mocker.patch(
+        "squarelet.organizations.models.organization.Organization.subscription_cancelled",
+        side_effect=stripe.error.APIError("Cancellation failed"),
+    )
+
+    invoice_data = {"id": 3, "customer": customer_id, "attempt_count": 4}
+
+    # Should raise the error since it's not caught
+    with pytest.raises(stripe.error.APIError):
+        tasks.handle_invoice_failed(invoice_data)
+
+
+@pytest.mark.django_db()
+def test_handle_invoice_failed_donation_no_organization():
+    """Test graceful handling when organization not found for donation"""
+    invoice_data = {
+        "id": "in_donation",
+        "customer": "cus_nonexistent",
+        "attempt_count": 1,
+        "lines": {"data": [{"plan": {"id": "donate"}}]},
+    }
+
+    # Should not raise error, just return silently for donations
+    tasks.handle_invoice_failed(invoice_data)
+
+
+@pytest.mark.django_db()
+def test_handle_invoice_failed_organization_not_found(mocker):
+    """Test error logging when organization not found for non-donation"""
+    invoice_data = {
+        "id": "in_missing_org",
+        "customer": "cus_nonexistent",
+        "attempt_count": 2,
+        "lines": {"data": [{"plan": {"id": "professional"}}]},
+    }
+
+    mock_logger = mocker.patch("squarelet.organizations.tasks.logger")
+
+    # Should log error and return gracefully
+    tasks.handle_invoice_failed(invoice_data)
+
+    mock_logger.error.assert_called_once()
+    assert "no matching organization" in mock_logger.error.call_args[0][0]
+
+
+@pytest.mark.django_db()
+def test_handle_invoice_failed_email_send_failure(
+    organization_factory, user_factory, mocker
+):
+    """Test handling when email send fails"""
+    user = user_factory()
+    customer_id = "cus_email_fail"
+    organization = organization_factory(
+        admins=[user], customer__customer_id=customer_id
+    )
+
+    # Mock send_mail to raise an exception
+    mocker.patch(
+        "squarelet.organizations.tasks.send_mail",
+        side_effect=Exception("Email server error"),
+    )
+
+    invoice_data = {"id": 4, "customer": customer_id, "attempt_count": 1}
+
+    # Should raise exception since send_mail error is not caught
+    with pytest.raises(Exception, match="Email server error"):
+        tasks.handle_invoice_failed(invoice_data)
+
+    # Verify payment_failed was still set before error
+    organization.refresh_from_db()
+    assert organization.payment_failed
 
 
 class TestHandleInvoiceCreated:
@@ -329,6 +473,59 @@ class TestHandleInvoiceCreated:
         assert existing_invoice.amount == 10000
         assert existing_invoice.status == "open"
 
+    @pytest.mark.django_db(transaction=True)
+    def test_organization_not_found(self, mocker):
+        """Test error logging when organization not found"""
+        invoice_data = {
+            "id": "in_no_org",
+            "customer": "cus_nonexistent",
+            "parent": None,
+            "amount_due": 10000,
+            "due_date": None,
+            "status": "draft",
+            "created": int(timezone.now().timestamp()),
+        }
+
+        mock_logger = mocker.patch("squarelet.organizations.tasks.logger")
+
+        # Should log error and return gracefully
+        tasks.handle_invoice_created(invoice_data)
+
+        mock_logger.error.assert_called_once()
+        assert "STRIPE-WEBHOOK-INVOICE" in mock_logger.error.call_args[0][0]
+        assert "no matching organization" in mock_logger.error.call_args[0][0]
+
+    @pytest.mark.django_db(transaction=True)
+    def test_missing_subscription_logs_warning(self, organization_factory, mocker):
+        """Test that missing subscription logs a warning but continues"""
+        organization_factory(customer__customer_id="cus_123")
+
+        mock_logger = mocker.patch("squarelet.organizations.tasks.logger")
+
+        invoice_data = {
+            "id": "in_warn",
+            "customer": "cus_123",
+            "parent": {
+                "type": "subscription_details",
+                "subscription_details": {"subscription": "sub_missing"},
+            },
+            "amount_due": 5000,
+            "due_date": None,
+            "status": "draft",
+            "created": int(timezone.now().timestamp()),
+        }
+
+        tasks.handle_invoice_created(invoice_data)
+
+        # Verify warning was logged
+        mock_logger.warning.assert_called_once()
+        assert "STRIPE-WEBHOOK-INVOICE" in mock_logger.warning.call_args[0][0]
+        assert "missing subscription" in mock_logger.warning.call_args[0][0]
+
+        # Verify invoice was still created
+        invoice = Invoice.objects.get(invoice_id="in_warn")
+        assert invoice.subscription is None
+
 
 class TestHandleInvoiceFinalized:
     """Unit tests for the handle_invoice_finalized task"""
@@ -351,6 +548,24 @@ class TestHandleInvoiceFinalized:
         invoice.refresh_from_db()
         assert invoice.status == "open"
         assert invoice.due_date == due_timestamp.date()
+
+    @pytest.mark.django_db()
+    def test_invoice_not_found(self, mocker):
+        """Test error handling when invoice doesn't exist"""
+        invoice_data = {
+            "id": "in_nonexistent",
+            "status": "open",
+            "due_date": None,
+        }
+
+        mock_logger = mocker.patch("squarelet.organizations.tasks.logger")
+
+        # Should log error and return gracefully
+        tasks.handle_invoice_finalized(invoice_data)
+
+        mock_logger.error.assert_called_once()
+        assert "STRIPE-WEBHOOK-INVOICE" in mock_logger.error.call_args[0][0]
+        assert "non-existent invoice" in mock_logger.error.call_args[0][0]
 
 
 class TestHandleInvoicePaymentSucceeded:
@@ -392,6 +607,20 @@ class TestHandleInvoicePaymentSucceeded:
 
         organization.refresh_from_db()
         assert organization.payment_failed is False
+
+    @pytest.mark.django_db()
+    def test_invoice_not_found(self, mocker):
+        """Test error handling when invoice doesn't exist"""
+        invoice_data = {"id": "in_paid_nonexistent"}
+
+        mock_logger = mocker.patch("squarelet.organizations.tasks.logger")
+
+        # Should log error and return gracefully
+        tasks.handle_invoice_paid(invoice_data)
+
+        mock_logger.error.assert_called_once()
+        assert "STRIPE-WEBHOOK-INVOICE" in mock_logger.error.call_args[0][0]
+        assert "non-existent invoice" in mock_logger.error.call_args[0][0]
 
 
 class TestHandleInvoiceMarkedUncollectible:
