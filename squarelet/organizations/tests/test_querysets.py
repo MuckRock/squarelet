@@ -379,6 +379,187 @@ class TestSubscriptionQuerySet(TestCase):
         assert count == 2
 
 
+class TestPlanQuerySet(TestCase):
+    """Unit tests for Plan queryset"""
+
+    @pytest.mark.django_db
+    def test_get_viewable_staff(self):
+        """Staff users can view all plans"""
+        from squarelet.organizations.models import Plan
+
+        staff_user = UserFactory(is_staff=True)
+        public_plan = PlanFactory(public=True)
+        private_plan = PlanFactory(public=False)
+
+        viewable = Plan.objects.get_viewable(staff_user)
+        assert public_plan in viewable
+        assert private_plan in viewable
+
+    @pytest.mark.django_db
+    def test_get_viewable_authenticated(self):
+        """Authenticated users can view public plans and their org plans"""
+        from squarelet.organizations.models import Plan
+
+        user = UserFactory()
+        org = OrganizationFactory()
+        MembershipFactory(user=user, organization=org)
+
+        public_plan = PlanFactory(public=True)
+        org_plan = PlanFactory(public=False)
+        org_plan.organizations.add(org)
+        unrelated_private_plan = PlanFactory(public=False)
+
+        viewable = Plan.objects.get_viewable(user)
+        assert public_plan in viewable
+        assert org_plan in viewable
+        assert unrelated_private_plan not in viewable
+
+    @pytest.mark.django_db
+    def test_get_viewable_anonymous(self):
+        """Anonymous users can only view public plans"""
+        from squarelet.organizations.models import Plan
+
+        anonymous = AnonymousUser()
+        public_plan = PlanFactory(public=True)
+        private_plan = PlanFactory(public=False)
+
+        viewable = Plan.objects.get_viewable(anonymous)
+        assert public_plan in viewable
+        assert private_plan not in viewable
+
+    @pytest.mark.django_db
+    def test_get_public(self):
+        """get_public returns only public plans"""
+        from squarelet.organizations.models import Plan
+
+        public_plan = PlanFactory(public=True)
+        private_plan = PlanFactory(public=False)
+
+        public = Plan.objects.get_public()
+        assert public_plan in public
+        assert private_plan not in public
+
+    @pytest.mark.django_db
+    def test_choices_for_individuals(self):
+        """choices() filters for_individuals=True for individual orgs"""
+        from squarelet.organizations.models import Plan
+
+        individual_org = OrganizationFactory(individual=True)
+        individual_plan = PlanFactory(for_individuals=True, public=True)
+        group_plan = PlanFactory(for_groups=True, for_individuals=False, public=True)
+
+        choices = Plan.objects.choices(individual_org)
+        assert individual_plan in choices
+        assert group_plan not in choices
+
+    @pytest.mark.django_db
+    def test_free(self):
+        """free() returns plans with zero price"""
+        from squarelet.organizations.models import Plan
+
+        free_plan = PlanFactory(base_price=0, price_per_user=0)
+        paid_plan = PlanFactory(base_price=500, price_per_user=0)
+
+        free_plans = Plan.objects.free()
+        assert free_plan in free_plans
+        assert paid_plan not in free_plans
+
+
+class TestEntitlementQuerySet(TestCase):
+    """Unit tests for Entitlement queryset"""
+
+    @pytest.mark.django_db
+    def test_get_viewable_staff(self):
+        """Staff users can view all entitlements"""
+        from squarelet.organizations.models import Entitlement, Plan
+
+        staff_user = UserFactory(is_staff=True)
+        public_plan = PlanFactory(public=True)
+        private_plan = PlanFactory(public=False)
+
+        public_entitlement = Entitlement.objects.create(
+            name="Public Feature", slug="public-feature"
+        )
+        public_entitlement.plans.add(public_plan)
+
+        private_entitlement = Entitlement.objects.create(
+            name="Private Feature", slug="private-feature"
+        )
+        private_entitlement.plans.add(private_plan)
+
+        viewable = Entitlement.objects.get_viewable(staff_user)
+        assert public_entitlement in viewable
+        assert private_entitlement in viewable
+
+    @pytest.mark.django_db
+    def test_get_viewable_authenticated(self):
+        """Authenticated users can view public entitlements"""
+        from squarelet.organizations.models import Entitlement, Plan
+
+        user = UserFactory()
+        public_plan = PlanFactory(public=True)
+        private_plan = PlanFactory(public=False)
+
+        public_entitlement = Entitlement.objects.create(
+            name="Public Feature", slug="public-feature"
+        )
+        public_entitlement.plans.add(public_plan)
+
+        private_entitlement = Entitlement.objects.create(
+            name="Private Feature", slug="private-feature"
+        )
+        private_entitlement.plans.add(private_plan)
+
+        viewable = Entitlement.objects.get_viewable(user)
+        assert public_entitlement in viewable
+        assert private_entitlement not in viewable
+
+    @pytest.mark.django_db
+    def test_get_viewable_anonymous(self):
+        """Anonymous users can view public entitlements"""
+        from squarelet.organizations.models import Entitlement, Plan
+
+        anonymous = AnonymousUser()
+        public_plan = PlanFactory(public=True)
+        private_plan = PlanFactory(public=False)
+
+        public_entitlement = Entitlement.objects.create(
+            name="Public Feature", slug="public-feature"
+        )
+        public_entitlement.plans.add(public_plan)
+
+        private_entitlement = Entitlement.objects.create(
+            name="Private Feature", slug="private-feature"
+        )
+        private_entitlement.plans.add(private_plan)
+
+        viewable = Entitlement.objects.get_viewable(anonymous)
+        assert public_entitlement in viewable
+        assert private_entitlement not in viewable
+
+    @pytest.mark.django_db
+    def test_get_public(self):
+        """get_public returns only public entitlements"""
+        from squarelet.organizations.models import Entitlement, Plan
+
+        public_plan = PlanFactory(public=True)
+        private_plan = PlanFactory(public=False)
+
+        public_entitlement = Entitlement.objects.create(
+            name="Public Feature", slug="public-feature"
+        )
+        public_entitlement.plans.add(public_plan)
+
+        private_entitlement = Entitlement.objects.create(
+            name="Private Feature", slug="private-feature"
+        )
+        private_entitlement.plans.add(private_plan)
+
+        public = Entitlement.objects.get_public()
+        assert public_entitlement in public
+        assert private_entitlement not in public
+
+
 class TestInvitationQuerySet(TestCase):
     """Unit tests for Invitation queryset"""
 

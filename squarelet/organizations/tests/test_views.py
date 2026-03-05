@@ -997,6 +997,45 @@ class TestUpdateSubscription(ViewTestMixin):
         ).first()
         assert action is None
 
+    def test_post_remove_card_on_file(
+        self, rf, organization_factory, user_factory, mocker
+    ):
+        """Test removing card on file"""
+        # Mock customer with card on file
+        mock_card = mocker.Mock(id="card_123")
+        mock_customer = mocker.Mock()
+        mock_customer.card = mock_card
+        mock_customer.card_display = "Card ending in 1234"
+        mocker.patch(
+            "squarelet.organizations.models.Customer.card",
+            new_callable=mocker.PropertyMock,
+            return_value=mock_card,
+        )
+        mocker.patch(
+            "squarelet.organizations.models.Customer.card_display",
+            new_callable=mocker.PropertyMock,
+            return_value="Card ending in 1234",
+        )
+        mocker.patch("squarelet.organizations.models.Organization.set_subscription")
+        mocked_remove = mocker.patch(
+            "squarelet.organizations.models.Organization.remove_card"
+        )
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        data = {
+            "stripe_token": "",
+            "plan": "",
+            "max_users": 5,
+            "receipt_emails": "receipt@example.com",
+            "stripe_pk": "key",
+            "use_card_on_file": "False",
+            "remove_card_on_file": "true",
+        }
+        response = self.call_view(rf, user, data, slug=organization.slug)
+        assert response.status_code == 302
+        mocked_remove.assert_called_once()
+        self.assert_message(messages.SUCCESS, "Credit card removed")
+
 
 @pytest.mark.django_db()
 class TestCreate(ViewTestMixin):
@@ -1541,6 +1580,110 @@ class TestStripeWebhook:
         event = {"type": "test"}
         response = self.call_view(rf, event)
         assert response.status_code == 400
+
+    def test_invoice_event_logging_with_id(self, rf, mocker):
+        """Test invoice events log with Stripe dashboard link"""
+        mocked_handler = mocker.patch(
+            "squarelet.organizations.views.subscription.handle_invoice_created.delay"
+        )
+        event = {
+            "type": "invoice.created",
+            "data": {"object": {"id": "in_test123"}},
+        }
+        response = self.call_view(rf, event)
+        assert response.status_code == 200
+        mocked_handler.assert_called_once_with(event["data"]["object"])
+
+    def test_invoice_event_logging_without_id(self, rf, mocker):
+        """Test invoice events log without ID"""
+        mocked_handler = mocker.patch(
+            "squarelet.organizations.views.subscription.handle_invoice_created.delay"
+        )
+        event = {
+            "type": "invoice.created",
+            "data": {"object": {}},
+        }
+        response = self.call_view(rf, event)
+        assert response.status_code == 200
+        mocked_handler.assert_called_once_with(event["data"]["object"])
+
+    def test_charge_succeeded_handler_dispatch(self, rf, mocker):
+        """Test charge.succeeded event dispatches handler"""
+        mocked_handler = mocker.patch(
+            "squarelet.organizations.views.subscription.handle_charge_succeeded.delay"
+        )
+        event = {
+            "type": "charge.succeeded",
+            "data": {"object": {"id": "ch_test123"}},
+        }
+        response = self.call_view(rf, event)
+        assert response.status_code == 200
+        mocked_handler.assert_called_once_with(event["data"]["object"])
+
+    def test_invoice_payment_failed_handler_dispatch(self, rf, mocker):
+        """Test invoice.payment_failed event dispatches handler"""
+        mocked_handler = mocker.patch(
+            "squarelet.organizations.views.subscription.handle_invoice_failed.delay"
+        )
+        event = {
+            "type": "invoice.payment_failed",
+            "data": {"object": {"id": "in_test123"}},
+        }
+        response = self.call_view(rf, event)
+        assert response.status_code == 200
+        mocked_handler.assert_called_once_with(event["data"]["object"])
+
+    def test_invoice_finalized_handler_dispatch(self, rf, mocker):
+        """Test invoice.finalized event dispatches handler"""
+        mocked_handler = mocker.patch(
+            "squarelet.organizations.views.subscription.handle_invoice_finalized.delay"
+        )
+        event = {
+            "type": "invoice.finalized",
+            "data": {"object": {"id": "in_test123"}},
+        }
+        response = self.call_view(rf, event)
+        assert response.status_code == 200
+        mocked_handler.assert_called_once_with(event["data"]["object"])
+
+    def test_invoice_paid_handler_dispatch(self, rf, mocker):
+        """Test invoice.paid event dispatches handler"""
+        mocked_handler = mocker.patch(
+            "squarelet.organizations.views.subscription.handle_invoice_paid.delay"
+        )
+        event = {
+            "type": "invoice.paid",
+            "data": {"object": {"id": "in_test123"}},
+        }
+        response = self.call_view(rf, event)
+        assert response.status_code == 200
+        mocked_handler.assert_called_once_with(event["data"]["object"])
+
+    def test_invoice_marked_uncollectible_handler_dispatch(self, rf, mocker):
+        """Test invoice.marked_uncollectible event dispatches handler"""
+        mocked_handler = mocker.patch(
+            "squarelet.organizations.views.subscription.handle_invoice_marked_uncollectible.delay"
+        )
+        event = {
+            "type": "invoice.marked_uncollectible",
+            "data": {"object": {"id": "in_test123"}},
+        }
+        response = self.call_view(rf, event)
+        assert response.status_code == 200
+        mocked_handler.assert_called_once_with(event["data"]["object"])
+
+    def test_invoice_voided_handler_dispatch(self, rf, mocker):
+        """Test invoice.voided event dispatches handler"""
+        mocked_handler = mocker.patch(
+            "squarelet.organizations.views.subscription.handle_invoice_voided.delay"
+        )
+        event = {
+            "type": "invoice.voided",
+            "data": {"object": {"id": "in_test123"}},
+        }
+        response = self.call_view(rf, event)
+        assert response.status_code == 200
+        mocked_handler.assert_called_once_with(event["data"]["object"])
 
 
 @pytest.mark.django_db()
