@@ -232,6 +232,7 @@ class Subscription(models.Model):
                 try:
                     # Import here to avoid circular imports
                     # pylint: disable=import-outside-toplevel
+                    # Squarelet
                     from squarelet.organizations.models import Invoice
 
                     # Retrieve the full invoice object from Stripe
@@ -341,6 +342,7 @@ class Subscription(models.Model):
         if not self.plan.slack_webhook_url:
             return
 
+        # Squarelet
         from squarelet.organizations.tasks import (  # pylint:disable=import-outside-toplevel
             send_slack_notification,
         )

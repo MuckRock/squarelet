@@ -157,9 +157,9 @@ def format(c):
             cmd="black squarelet --exclude migrations && "
             "black config/urls.py && "
             "black config/settings && "
-            "isort --recursive squarelet && "
+            "isort squarelet && "
             "isort config/urls.py && "
-            "isort --recursive config/settings"
+            "isort config/settings"
         )
     )
 

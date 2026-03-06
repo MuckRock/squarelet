@@ -22,6 +22,7 @@ from squarelet.organizations.models import Invitation
 from squarelet.users.onboarding import OnboardingStepRegistry
 
 
+# pylint:disable=too-many-positional-arguments
 class AccountAdapter(DefaultAccountAdapter):
     """
     Custom account adapter for allauth

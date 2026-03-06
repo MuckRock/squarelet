@@ -1,101 +1,117 @@
 # Django
+from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-# Third Party
-from djchoices import ChoiceItem, DjangoChoices
+# Disabling linting enforcement of uppercase names,
+# which would require much larger code changes.
+# This is to provide backwards compatibility
+
+# pylint:disable = invalid-name
 
 
-class ChangeLogReason(DjangoChoices):
-    created = ChoiceItem(0, _("Created"))
-    updated = ChoiceItem(1, _("Updated"))
-    failed = ChoiceItem(2, _("Failed"))
-    credit_card = ChoiceItem(3, _("Credit Card"))
+class ChangeLogReason(models.IntegerChoices):
+    created = 0, _("Created")
+    updated = 1, _("Updated")
+    failed = 2, _("Failed")
+    credit_card = 3, _("Credit Card")
 
 
-class RelationshipType(DjangoChoices):
-    member = ChoiceItem(0, _("Member"))
-    child = ChoiceItem(1, _("Child"))
+class RelationshipType(models.IntegerChoices):
+    member = 0, _("Member")
+    child = 1, _("Child")
 
 
-COUNTRY_CHOICES = (
-    ("US", _("United States of America")),
-    ("CA", _("Canada")),
-)
+class Country(models.TextChoices):
+    US = "US", _("United States of America")
+    CA = "CA", _("Canada")
 
-STATE_CHOICES = (
-    ("AK", _("Alaska")),
-    ("AL", _("Alabama")),
-    ("AR", _("Arkansas")),
-    ("AZ", _("Arizona")),
-    ("CA", _("California")),
-    ("CO", _("Colorado")),
-    ("CT", _("Connecticut")),
-    ("DC", _("District of Columbia")),
-    ("DE", _("Delaware")),
-    ("FL", _("Florida")),
-    ("GA", _("Georgia")),
-    ("HI", _("Hawaii")),
-    ("IA", _("Iowa")),
-    ("ID", _("Idaho")),
-    ("IL", _("Illinois")),
-    ("IN", _("Indiana")),
-    ("KS", _("Kansas")),
-    ("KY", _("Kentucky")),
-    ("LA", _("Louisiana")),
-    ("MA", _("Massachusetts")),
-    ("MD", _("Maryland")),
-    ("ME", _("Maine")),
-    ("MI", _("Michigan")),
-    ("MN", _("Minnesota")),
-    ("MO", _("Missouri")),
-    ("MS", _("Mississippi")),
-    ("MT", _("Montana")),
-    ("NC", _("North Carolina")),
-    ("ND", _("North Dakota")),
-    ("NE", _("Nebraska")),
-    ("NH", _("New Hampshire")),
-    ("NJ", _("New Jersey")),
-    ("NM", _("New Mexico")),
-    ("NV", _("Nevada")),
-    ("NY", _("New York")),
-    ("OH", _("Ohio")),
-    ("OK", _("Oklahoma")),
-    ("OR", _("Oregon")),
-    ("PA", _("Pennsylvania")),
-    ("RI", _("Rhode Island")),
-    ("SC", _("South Carolina")),
-    ("SD", _("South Dakota")),
-    ("TN", _("Tennessee")),
-    ("TX", _("Texas")),
-    ("UT", _("Utah")),
-    ("VA", _("Virginia")),
-    ("VT", _("Vermont")),
-    ("WA", _("Washington")),
-    ("WI", _("Wisconsin")),
-    ("WV", _("West Virginia")),
-    ("WY", _("Wyoming")),
-    ("AS", _("American Samoa")),
-    ("GU", _("Guam")),
-    ("MP", _("Northern Mariana Islands")),
-    ("PR", _("Puerto Rico")),
-    ("VI", _("Virgin Islands")),
-    ("AB", _("Alberta")),
-    ("BC", _("British Columbia")),
-    ("MB", _("Manitoba")),
-    ("NB", _("New Brunswick")),
-    ("NL", _("Newfoundland and Labrador")),
-    ("NT", _("Northwest Territories")),
-    ("NS", _("Nova Scotia")),
-    ("NU", _("Nunavut")),
-    ("ON", _("Ontario")),
-    ("PE", _("Prince Edward Island")),
-    ("QC", _("Quebec")),
-    ("SK", _("Saskatchewan")),
-    ("YT", _("Yukon")),
-)
 
-CHANGE_STATUS_CHOICES = (
-    ("pending", _("Pending")),
-    ("accepted", _("Accepted")),
-    ("rejected", _("Rejected")),
-)
+COUNTRY_CHOICES = Country.choices
+
+
+class State(models.TextChoices):
+    AK = "AK", _("Alaska")
+    AL = "AL", _("Alabama")
+    AR = "AR", _("Arkansas")
+    AZ = "AZ", _("Arizona")
+    CA = "CA", _("California")
+    CO = "CO", _("Colorado")
+    CT = "CT", _("Connecticut")
+    DC = "DC", _("District of Columbia")
+    DE = "DE", _("Delaware")
+    FL = "FL", _("Florida")
+    GA = "GA", _("Georgia")
+    HI = "HI", _("Hawaii")
+    IA = "IA", _("Iowa")
+    ID = "ID", _("Idaho")
+    IL = "IL", _("Illinois")
+    IN = "IN", _("Indiana")
+    KS = "KS", _("Kansas")
+    KY = "KY", _("Kentucky")
+    LA = "LA", _("Louisiana")
+    MA = "MA", _("Massachusetts")
+    MD = "MD", _("Maryland")
+    ME = "ME", _("Maine")
+    MI = "MI", _("Michigan")
+    MN = "MN", _("Minnesota")
+    MO = "MO", _("Missouri")
+    MS = "MS", _("Mississippi")
+    MT = "MT", _("Montana")
+    NC = "NC", _("North Carolina")
+    ND = "ND", _("North Dakota")
+    NE = "NE", _("Nebraska")
+    NH = "NH", _("New Hampshire")
+    NJ = "NJ", _("New Jersey")
+    NM = "NM", _("New Mexico")
+    NV = "NV", _("Nevada")
+    NY = "NY", _("New York")
+    OH = "OH", _("Ohio")
+    OK = "OK", _("Oklahoma")
+    OR = "OR", _("Oregon")
+    PA = "PA", _("Pennsylvania")
+    RI = "RI", _("Rhode Island")
+    SC = "SC", _("South Carolina")
+    SD = "SD", _("South Dakota")
+    TN = "TN", _("Tennessee")
+    TX = "TX", _("Texas")
+    UT = "UT", _("Utah")
+    VA = "VA", _("Virginia")
+    VT = "VT", _("Vermont")
+    WA = "WA", _("Washington")
+    WI = "WI", _("Wisconsin")
+    WV = "WV", _("West Virginia")
+    WY = "WY", _("Wyoming")
+
+    # US Territories
+    AS = "AS", _("American Samoa")
+    GU = "GU", _("Guam")
+    MP = "MP", _("Northern Mariana Islands")
+    PR = "PR", _("Puerto Rico")
+    VI = "VI", _("Virgin Islands")
+
+    # Canadian Provinces & Territories
+    AB = "AB", _("Alberta")
+    BC = "BC", _("British Columbia")
+    MB = "MB", _("Manitoba")
+    NB = "NB", _("New Brunswick")
+    NL = "NL", _("Newfoundland and Labrador")
+    NT = "NT", _("Northwest Territories")
+    NS = "NS", _("Nova Scotia")
+    NU = "NU", _("Nunavut")
+    ON = "ON", _("Ontario")
+    PE = "PE", _("Prince Edward Island")
+    QC = "QC", _("Quebec")
+    SK = "SK", _("Saskatchewan")
+    YT = "YT", _("Yukon")
+
+
+STATE_CHOICES = State.choices
+
+
+class ChangeStatus(models.TextChoices):
+    pending = "pending", _("Pending")
+    accepted = "accepted", _("Accepted")
+    rejected = "rejected", _("Rejected")
+
+
+CHANGE_STATUS_CHOICES = ChangeStatus.choices

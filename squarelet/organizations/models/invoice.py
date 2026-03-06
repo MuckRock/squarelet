@@ -146,8 +146,4 @@ class Invoice(models.Model):
         stripe.api_key = settings.STRIPE_SECRET_KEY
         stripe.api_version = "2018-09-24"
 
-        stripe.api_requestor.APIRequestor().request(
-            "post",
-            f"/v1/invoices/{self.invoice_id}/mark_uncollectible",
-            {},
-        )
+        stripe.Invoice.mark_uncollectible(self.invoice_id)

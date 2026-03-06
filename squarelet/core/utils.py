@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 
 MAX_RETRIES = 10
 
+# pylint:disable=too-many-positional-arguments
+
 
 def new_action(
     actor, verb, action_object=None, target=None, public=False, description=None

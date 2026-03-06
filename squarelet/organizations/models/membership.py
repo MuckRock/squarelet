@@ -48,6 +48,7 @@ class Membership(models.Model):
     def save(self, *args, **kwargs):
         # Prevents circular import
         # pylint: disable=import-outside-toplevel
+        # Squarelet
         from squarelet.organizations.tasks import sync_wix
 
         is_new = self.pk is None

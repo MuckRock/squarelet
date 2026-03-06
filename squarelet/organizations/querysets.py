@@ -20,6 +20,8 @@ from squarelet.organizations.choices import ChangeLogReason
 stripe.api_version = "2018-09-24"
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
+# pylint:disable=too-many-positional-arguments
+
 
 class OrganizationQuerySet(models.QuerySet):
     def get_viewable(self, user):
