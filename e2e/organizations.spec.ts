@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { login, deleteTestOrg, expectFlashMessage, resetOrgProfileState } from "./helpers";
+import { login, deleteTestOrg, expectFlashMessage, resetOrgProfileState, runManageCommand } from "./helpers";
 
 const NEW_ORG_SLUG = "e2e-new-org";
 
@@ -465,5 +465,202 @@ test.describe("Member Management", () => {
     await expect(page.locator("section#requests")).toBeVisible();
     await page.locator('button[value="rejectinvite"]').first().click();
     await expectFlashMessage(page, "success");
+  });
+});
+
+test.describe("Invitation & Request History", () => {
+  // Clear any invitations left over from earlier tests so history counts are predictable
+  test.beforeEach(() => {
+    runManageCommand("seed_e2e_data --action clear_invitations");
+  });
+
+  test.describe("Org admin", () => {
+    test.beforeEach(async ({ page }) => {
+      await login(page, "e2e-admin");
+    });
+
+    test("can access invitation history page", async ({ page }) => {
+      const response = await page.goto("/organizations/e2e-public-org/invitations/");
+      expect(response?.status()).toBe(200);
+      await expect(page.locator(".invitation-history-page")).toBeVisible();
+      // After clearing invitations, the page shows an empty message
+      await expect(page.locator(".empty-message")).toBeVisible();
+    });
+
+    test("can access request history page", async ({ page }) => {
+      const response = await page.goto("/organizations/e2e-public-org/requests/");
+      expect(response?.status()).toBe(200);
+      await expect(page.locator(".invitation-history-page")).toBeVisible();
+      // After clearing invitations, the page shows an empty message
+      await expect(page.locator(".empty-message")).toBeVisible();
+    });
+
+    test("can navigate to history pages from manage-members page", async ({ page }) => {
+      await page.goto("/organizations/e2e-public-org/manage-members/");
+
+      // Verify history links exist in each section
+      const invitationsLink = page.locator(
+        'a[href$="/organizations/e2e-public-org/invitations/"]',
+      );
+      const requestsLink = page.locator(
+        'a[href$="/organizations/e2e-public-org/requests/"]',
+      );
+      await expect(invitationsLink).toBeVisible();
+      await expect(requestsLink).toBeVisible();
+
+      // Click invitation history link and verify navigation
+      await invitationsLink.first().click();
+      await expect(page.locator(".invitation-history-page")).toBeVisible();
+    });
+
+    test("pending invitation appears in invitation history", async ({ page }) => {
+      await page.goto("/organizations/e2e-public-org/manage-members/");
+
+      // Send an email invitation to a known e2e user
+      await page.locator("input[name='emails']").fill("e2e-regular@example.com");
+      await page.locator('button[value="addmember"]').click();
+      await expectFlashMessage(page, "success");
+
+      // Verify it appears in invitation history with "pending" status
+      await page.goto("/organizations/e2e-public-org/invitations/");
+      await expect(page.locator(".invitation-history-table tbody tr")).toHaveCount(1, {
+        timeout: 5_000,
+      });
+      await expect(
+        page.locator("td.invitation-status.pending"),
+      ).toBeVisible();
+    });
+
+    test("accepted invitation appears in invitation history", async ({ page }) => {
+      await page.goto("/organizations/e2e-public-org/manage-members/");
+
+      // Send an email invitation to a known e2e user
+      await page.locator("input[name='emails']").fill("e2e-regular@example.com");
+      await page.locator('button[value="addmember"]').click();
+      await expectFlashMessage(page, "success");
+
+      // Receiving user accepts it
+      await login(page, "e2e-regular");
+      await page.goto("/users/e2e-regular/invitations/");
+      await page.locator('button[value="accept"]').click();
+      await page.waitForLoadState("networkidle");
+
+      // Verify it appears in invitation history with "accepted" status
+      await login(page, "e2e-admin");
+      await page.goto("/organizations/e2e-public-org/invitations/");
+      await expect(page.locator(".invitation-history-table tbody tr")).toHaveCount(1, {
+        timeout: 5_000,
+      });
+      await expect(
+        page.locator("td.invitation-status.accepted"),
+      ).toBeVisible();
+    });
+
+    test("withdrawn invitation appears in invitation history", async ({ page }) => {
+      await page.goto("/organizations/e2e-public-org/manage-members/");
+
+      // Send an email invitation
+      await page.locator("input[name='emails']").fill("e2e-history-test@example.com");
+      await page.locator('button[value="addmember"]').click();
+      await expectFlashMessage(page, "success");
+
+      // Revoke it
+      await page.goto("/organizations/e2e-public-org/manage-members/");
+      await page.locator('button[value="revokeinvite"]').first().click();
+      await expectFlashMessage(page, "success");
+
+      // Verify it appears in invitation history with "withdrawn" status
+      await page.goto("/organizations/e2e-public-org/invitations/");
+      await expect(page.locator(".invitation-history-table tbody tr")).toHaveCount(1, {
+        timeout: 5_000,
+      });
+      await expect(
+        page.locator("td.invitation-status.withdrawn"),
+      ).toBeVisible();
+    });
+
+    test("declined invitation appears in invitation history", async ({ page }) => {
+      await page.goto("/organizations/e2e-public-org/manage-members/");
+
+      // Send an email invitation to a known e2e user
+      await page.locator("input[name='emails']").fill("e2e-regular@example.com");
+      await page.locator('button[value="addmember"]').click();
+      await expectFlashMessage(page, "success");
+
+      // Receiving user declines it
+      await login(page, "e2e-regular");
+      await page.goto("/users/e2e-regular/invitations/");
+      await page.locator('button[value="reject"]').click();
+
+      // Verify it appears in invitation history with "declined" status
+      await login(page, "e2e-admin");
+      await page.goto("/organizations/e2e-public-org/invitations/");
+      await expect(page.locator(".invitation-history-table tbody tr")).toHaveCount(1, {
+        timeout: 5_000,
+      });
+      await expect(
+        page.locator("td.invitation-status.declined"),
+      ).toBeVisible();
+    });
+
+    test("rejected join request appears in request history", async ({ page, browser }) => {
+      // Login as requester and submit join request
+      const requesterContext = await browser.newContext({ ignoreHTTPSErrors: true });
+      const requesterPage = await requesterContext.newPage();
+      await login(requesterPage, "e2e-requester");
+      await requesterPage.goto("/organizations/e2e-public-org/");
+      await requesterPage.locator("#join-org-button").click();
+
+      const modal = requesterPage.locator("#join-request-modal-backdrop");
+      await expect(modal).not.toHaveClass(/_cls-hide/);
+      await modal.locator('button[name="action"][value="join"]').click();
+      await expectFlashMessage(requesterPage, "success");
+      await requesterContext.close();
+
+      // Admin rejects the request
+      await page.goto("/organizations/e2e-public-org/manage-members/");
+      await expect(page.locator("section#requests")).toBeVisible();
+      await page.locator('button[value="rejectinvite"]').first().click();
+      await expectFlashMessage(page, "success");
+
+      // Verify it appears in request history with "declined" status
+      await page.goto("/organizations/e2e-public-org/requests/");
+      await expect(page.locator(".invitation-history-table tbody tr")).toHaveCount(1, {
+        timeout: 5_000,
+      });
+      await expect(
+        page.locator("td.invitation-status.declined"),
+      ).toBeVisible();
+    });
+  });
+
+  test.describe("Non-admin member", () => {
+    test("cannot access invitation history (403)", async ({ page }) => {
+      await login(page, "e2e-member");
+      const response = await page.goto("/organizations/e2e-public-org/invitations/");
+      expect(response?.status()).toBe(403);
+    });
+
+    test("cannot access request history (403)", async ({ page }) => {
+      await login(page, "e2e-member");
+      const response = await page.goto("/organizations/e2e-public-org/requests/");
+      expect(response?.status()).toBe(403);
+    });
+  });
+
+  test.describe("MuckRock staff", () => {
+    test("can access any org's invitation history", async ({ page }) => {
+      await login(page, "e2e-staff");
+      const response = await page.goto("/organizations/e2e-public-org/invitations/");
+      expect(response?.status()).toBe(200);
+      await expect(page.locator(".invitation-history-page")).toBeVisible();
+    });
+
+    test("can access any org's request history", async ({ page }) => {
+      await login(page, "e2e-staff");
+      const response = await page.goto("/organizations/e2e-public-org/requests/");
+      expect(response?.status()).toBe(200);
+      await expect(page.locator(".invitation-history-page")).toBeVisible();
+    });
   });
 });

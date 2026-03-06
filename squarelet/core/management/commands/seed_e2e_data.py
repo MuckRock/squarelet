@@ -13,6 +13,7 @@ from allauth.account.models import EmailAddress
 
 # Squarelet
 from squarelet.organizations.models import Membership, Organization
+from squarelet.organizations.models.invitation import Invitation
 from squarelet.organizations.models.payment import Customer, Plan
 from squarelet.users.models import User
 
@@ -65,9 +66,9 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument(
             "--action",
-            choices=["seed", "teardown"],
+            choices=["seed", "teardown", "clear_invitations"],
             required=True,
-            help="Whether to seed or teardown test data",
+            help="Whether to seed, teardown, or clear invitation test data",
         )
 
     def handle(self, *args, **options):
@@ -76,6 +77,8 @@ class Command(BaseCommand):
             self.seed()
         elif action == "teardown":
             self.teardown()
+        elif action == "clear_invitations":
+            self.clear_invitations()
 
     @transaction.atomic
     def seed(self):
@@ -193,6 +196,34 @@ class Command(BaseCommand):
         else:
             self.stderr.write("Staff group already exists, skipping")
         return group
+
+    @transaction.atomic
+    def clear_invitations(self):
+        """Delete all invitations for e2e test organizations and reset
+        memberships back to the seeded state."""
+        count, _ = Invitation.objects.filter(
+            organization__slug__startswith="e2e-"
+        ).delete()
+        self.stderr.write(f"Deleted {count} invitation-related objects")
+
+        # Reset memberships to seeded state (remove members added during tests)
+        for org_spec in ORGS:
+            seeded_usernames = org_spec["admins"] + org_spec["members"]
+            count, _ = (
+                Membership.objects.filter(
+                    organization__slug=org_spec["slug"],
+                )
+                .exclude(
+                    user__username__in=seeded_usernames,
+                )
+                .delete()
+            )
+            if count:
+                self.stderr.write(
+                    f"Removed {count} non-seeded memberships from {org_spec['slug']}"
+                )
+
+        self.stdout.write(json.dumps({"status": "clear_invitations_complete"}))
 
     @transaction.atomic
     def teardown(self):

@@ -1,6 +1,6 @@
 .container {
   width: 100%;
-  max-width: 50rem;
+  max-width: 64rem;
   margin: 0 auto;
   padding: 2rem;
   align-self: flex-start;
@@ -8,72 +8,75 @@
   min-height: 100%;
 }
 
-.invitation-item, .invitation-item main, .invitation-details {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 1rem;
-}
-
-.invitation-item header {
-  flex: 1 1 16rem;
-}
-
-.invitation-summary {
-  flex: 0 1 auto;
-  display: flex;
-  gap: 1rem;
-  font-size: var(--font-sm);
-  color: var(--gray-5);
-}
-
-dl.invitation-summary > div {
-  flex: 0 1 9rem;
-}
-
-.invitation-summary dt {
-  font-weight: var(--font-semibold);
-}
-
-.invitation-summary dd {
-  margin: 0;
-}
-
-.invitation-item main {
-  flex: 1 1 16rem;
-  justify-content: flex-end;
-}
-
-.invitation-summary time {
-  white-space: nowrap;
-}
-
-.invitation-summary .accepted {
-  color: var(--green-4);
-}
-
-.invitation-summary .rejected,
-.invitation-summary .withdrawn {
-  color: var(--orange-4);
-}
-
-.invitations-list {
-  list-style-type: none;
-  padding: 0;
-  box-sizing: border-box;
+.invitation-history-table-wrapper {
+  overflow-x: auto;
+  margin: 2em 0;
   background: var(--white);
   border: 1px solid var(--gray-2);
   border-radius: 0.5rem;
-  overflow: hidden;
 }
 
-.invitation-item {
-  box-sizing: border-box;
-  padding: 0.5rem 0.5rem;
+.invitation-history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-sm);
+}
+
+.invitation-history-table thead {
   border-bottom: 1px solid var(--gray-2);
-  &:last-child {
-    border-bottom: none;
-  }
+}
+
+.invitation-history-table th {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  font-weight: var(--font-semibold);
+  color: var(--gray-5);
+  white-space: nowrap;
+}
+
+.invitation-history-table td {
+  padding: 0.5rem 0.75rem;
+  vertical-align: middle;
+}
+
+.invitation-history-table tbody tr {
+  border-bottom: 1px solid var(--gray-2);
+}
+
+.invitation-history-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.invitation-date time {
+  white-space: nowrap;
+}
+
+.invitation-status .status-label {
+  font-weight: var(--font-semibold);
+  display: block;
+}
+
+.invitation-status.accepted {
+  color: var(--green-4);
+}
+
+.invitation-status.declined,
+.invitation-status.withdrawn {
+  color: var(--orange-4);
+}
+
+.invitation-actions form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.empty-message {
+  padding: 2rem;
+  text-align: center;
+  color: var(--gray-4);
+  background: var(--white);
+  border: 1px solid var(--gray-2);
+  border-radius: 0.5rem;
 }
 
 .pagination {
@@ -84,9 +87,4 @@ dl.invitation-summary > div {
   align-items: center;
   font-weight: 600;
   color: var(--gray-4);
-}
-
-.invitation-item .actions form {
-  display: flex;
-  gap: 0.5rem;
 }

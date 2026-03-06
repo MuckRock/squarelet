@@ -1,0 +1,58 @@
+{% extends "core/invitation_history_base.html" %}
+{% load static i18n django_vite %}
+
+{% block history_title %}{{ organization.name }} | {% trans 'Invitation History' %}{% endblock %}
+
+{% block history_vite %}
+{% vite_asset "frontend/views/org_invitations.ts" %}
+{% endblock %}
+
+{% block back_link %}
+<a class="btn ghost primary" href="{% url "organizations:manage-members" slug=organization.slug %}">
+  {% include "core/icons/arrow-left.svg" %}
+  {% trans "Back to manage members" %}
+</a>
+{% endblock %}
+
+{% block page_title %}{% trans "Invitation History" %}{% endblock %}
+
+{% block help_text %}
+{% trans "All invitations sent by" %} {{ organization.name }}.
+{% endblock %}
+
+{% block table_content %}
+{% if invitations %}
+<div class="invitation-history-table-wrapper">
+  <table class="invitation-history-table">
+    <thead>
+      <tr>
+        <th>{% trans "User" %}</th>
+        <th>{% trans "Sent" %}</th>
+        <th>{% trans "Status" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for invitation in invitations %}
+      <tr>
+        <td class="invitation-who">
+          {% if invitation.user %}
+            {% include "organizations/user_list_item.html" with user=invitation.user %}
+          {% else %}
+            {% include "organizations/invitation_list_item.html" with invitation=invitation %}
+          {% endif %}
+        </td>
+        <td class="invitation-date">
+          <time title="{{invitation.created_at|date:"c"}}" datetime="{{invitation.created_at|date:"c"}}">
+            {{invitation.created_at|date:"F j, Y"}}
+          </time>
+        </td>
+        {% include "core/invitation_status_cell.html" %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="empty-message">{% trans "No invitations have been sent." %}</p>
+{% endif %}
+{% endblock %}
