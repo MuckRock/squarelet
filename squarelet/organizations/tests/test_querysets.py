@@ -406,7 +406,8 @@ class TestPlanQuerySet(TestCase):
 
         public_plan = PlanFactory(public=True)
         org_plan = PlanFactory(public=False)
-        org_plan.organizations.add(org)
+        # Create subscription to associate plan with org
+        SubscriptionFactory(organization=org, plan=org_plan)
         unrelated_private_plan = PlanFactory(public=False)
 
         viewable = Plan.objects.get_viewable(user)
@@ -471,19 +472,23 @@ class TestEntitlementQuerySet(TestCase):
     @pytest.mark.django_db
     def test_get_viewable_staff(self):
         """Staff users can view all entitlements"""
+        from oidc_provider.models import Client
         from squarelet.organizations.models import Entitlement, Plan
 
         staff_user = UserFactory(is_staff=True)
+        client = Client.objects.create(
+            name="Test Client", owner=staff_user, client_id="client-staff"
+        )
         public_plan = PlanFactory(public=True)
         private_plan = PlanFactory(public=False)
 
         public_entitlement = Entitlement.objects.create(
-            name="Public Feature", slug="public-feature"
+            name="Public Feature Staff", slug="public-feature-staff", client=client
         )
         public_entitlement.plans.add(public_plan)
 
         private_entitlement = Entitlement.objects.create(
-            name="Private Feature", slug="private-feature"
+            name="Private Feature Staff", slug="private-feature-staff", client=client
         )
         private_entitlement.plans.add(private_plan)
 
@@ -494,19 +499,29 @@ class TestEntitlementQuerySet(TestCase):
     @pytest.mark.django_db
     def test_get_viewable_authenticated(self):
         """Authenticated users can view public entitlements"""
+        from oidc_provider.models import Client
         from squarelet.organizations.models import Entitlement, Plan
 
         user = UserFactory()
+        other_user = UserFactory()
+        client = Client.objects.create(
+            name="Test Client", owner=user, client_id="client-auth1"
+        )
+        other_client = Client.objects.create(
+            name="Other Client", owner=other_user, client_id="client-auth2"
+        )
         public_plan = PlanFactory(public=True)
         private_plan = PlanFactory(public=False)
 
         public_entitlement = Entitlement.objects.create(
-            name="Public Feature", slug="public-feature"
+            name="Public Feature Auth", slug="public-feature-auth", client=client
         )
         public_entitlement.plans.add(public_plan)
 
         private_entitlement = Entitlement.objects.create(
-            name="Private Feature", slug="private-feature"
+            name="Private Feature Auth",
+            slug="private-feature-auth",
+            client=other_client,
         )
         private_entitlement.plans.add(private_plan)
 
@@ -517,19 +532,24 @@ class TestEntitlementQuerySet(TestCase):
     @pytest.mark.django_db
     def test_get_viewable_anonymous(self):
         """Anonymous users can view public entitlements"""
+        from oidc_provider.models import Client
         from squarelet.organizations.models import Entitlement, Plan
 
         anonymous = AnonymousUser()
+        owner = UserFactory()
+        client = Client.objects.create(
+            name="Test Client", owner=owner, client_id="client-anon"
+        )
         public_plan = PlanFactory(public=True)
         private_plan = PlanFactory(public=False)
 
         public_entitlement = Entitlement.objects.create(
-            name="Public Feature", slug="public-feature"
+            name="Public Feature Anon", slug="public-feature-anon", client=client
         )
         public_entitlement.plans.add(public_plan)
 
         private_entitlement = Entitlement.objects.create(
-            name="Private Feature", slug="private-feature"
+            name="Private Feature Anon", slug="private-feature-anon", client=client
         )
         private_entitlement.plans.add(private_plan)
 
@@ -540,24 +560,122 @@ class TestEntitlementQuerySet(TestCase):
     @pytest.mark.django_db
     def test_get_public(self):
         """get_public returns only public entitlements"""
+        from oidc_provider.models import Client
         from squarelet.organizations.models import Entitlement, Plan
 
+        owner = UserFactory()
+        client = Client.objects.create(
+            name="Test Client", owner=owner, client_id="client-public"
+        )
         public_plan = PlanFactory(public=True)
         private_plan = PlanFactory(public=False)
 
         public_entitlement = Entitlement.objects.create(
-            name="Public Feature", slug="public-feature"
+            name="Public Feature Public", slug="public-feature-public", client=client
         )
         public_entitlement.plans.add(public_plan)
 
         private_entitlement = Entitlement.objects.create(
-            name="Private Feature", slug="private-feature"
+            name="Private Feature Public", slug="private-feature-public", client=client
         )
         private_entitlement.plans.add(private_plan)
 
         public = Entitlement.objects.get_public()
         assert public_entitlement in public
         assert private_entitlement not in public
+
+    @pytest.mark.django_db
+    def test_get_subscribed_authenticated(self):
+        """Authenticated users can view entitlements they're subscribed to"""
+        from oidc_provider.models import Client
+        from squarelet.organizations.models import Entitlement, Plan
+
+        user = UserFactory()
+        org = OrganizationFactory()
+        MembershipFactory(user=user, organization=org)
+
+        owner = UserFactory()
+        client = Client.objects.create(
+            name="Test Client", owner=owner, client_id="client-subscribed"
+        )
+
+        plan = PlanFactory()
+        entitlement = Entitlement.objects.create(
+            name="Subscribed Feature", slug="subscribed-feature-auth", client=client
+        )
+        entitlement.plans.add(plan)
+        # Create subscription to associate plan with org
+        SubscriptionFactory(organization=org, plan=plan)
+
+        unrelated_entitlement = Entitlement.objects.create(
+            name="Unrelated Feature", slug="unrelated-feature-auth", client=client
+        )
+
+        subscribed = Entitlement.objects.get_subscribed(user)
+        assert entitlement in subscribed
+        assert unrelated_entitlement not in subscribed
+
+    @pytest.mark.django_db
+    def test_get_subscribed_anonymous(self):
+        """Anonymous users get empty queryset"""
+        from oidc_provider.models import Client
+        from squarelet.organizations.models import Entitlement
+
+        anonymous = AnonymousUser()
+        owner = UserFactory()
+        client = Client.objects.create(
+            name="Test Client", owner=owner, client_id="client-subscribed-anon"
+        )
+        Entitlement.objects.create(
+            name="Feature", slug="feature-subscribed-anon", client=client
+        )
+
+        subscribed = Entitlement.objects.get_subscribed(anonymous)
+        assert subscribed.count() == 0
+
+    @pytest.mark.django_db
+    def test_get_owned_authenticated(self):
+        """Authenticated users can view entitlements they own via client"""
+        from oidc_provider.models import Client
+        from squarelet.organizations.models import Entitlement
+
+        user = UserFactory()
+        other_user = UserFactory()
+        client = Client.objects.create(
+            name="Test Client", owner=user, client_id="client-owned1"
+        )
+        other_client = Client.objects.create(
+            name="Other Client", owner=other_user, client_id="client-owned2"
+        )
+
+        owned_entitlement = Entitlement.objects.create(
+            name="Owned Feature", slug="owned-feature-auth", client=client
+        )
+        unowned_entitlement = Entitlement.objects.create(
+            name="Unowned Feature", slug="unowned-feature-auth", client=other_client
+        )
+
+        owned = Entitlement.objects.get_owned(user)
+        assert owned_entitlement in owned
+        assert unowned_entitlement not in owned
+
+    @pytest.mark.django_db
+    def test_get_owned_anonymous(self):
+        """Anonymous users get empty queryset"""
+        from oidc_provider.models import Client
+        from squarelet.organizations.models import Entitlement
+
+        anonymous = AnonymousUser()
+        owner = UserFactory()
+        client = Client.objects.create(
+            name="Test Client", owner=owner, client_id="client-owned-anon"
+        )
+        Entitlement.objects.create(
+            name="Feature", slug="feature-owned-anon", client=client
+        )
+
+        owned = Entitlement.objects.get_owned(anonymous)
+        assert owned.count() == 0
 
 
 class TestInvitationQuerySet(TestCase):
@@ -951,6 +1069,16 @@ class TestInvitationQuerySet(TestCase):
         qs = Invitation.objects.get_org_requests(org1)
         assert qs.count() == 1
         assert invite1 in qs
+
+    @pytest.mark.django_db
+    def test_get_withdrawn(self):
+        """Test get_withdrawn returns only withdrawn invitations"""
+        withdrawn_inv = InvitationFactory(withdrawn_at=timezone.now())
+        active_inv = InvitationFactory(withdrawn_at=None)
+
+        queryset = Invitation.objects.get_withdrawn()
+        assert withdrawn_inv in queryset
+        assert active_inv not in queryset
 
 
 class TestInvoiceQuerySet(TestCase):
@@ -1350,7 +1478,9 @@ class TestChargeQuerySet:
 
         # Assert
         assert charge.id == existing_charge.id  # Same database record
-        assert Charge.objects.filter(charge_id="ch_existing").count() == 1  # No duplicate
+        assert (
+            Charge.objects.filter(charge_id="ch_existing").count() == 1
+        )  # No duplicate
 
     @pytest.mark.django_db()
     def test_make_charge_with_zero_fee_amount(self, mocker):
