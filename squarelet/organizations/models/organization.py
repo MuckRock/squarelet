@@ -320,6 +320,7 @@ class Organization(AvatarMixin, models.Model):
             ("can_view_subscription", "Can view organization subscription"),
             ("can_edit_subscription", "Can edit organization subscription"),
             ("can_view_charge", "Can view charge receipts"),
+            ("can_manage_domains", "Can manage organization email domains"),
         )
 
     def __str__(self):
