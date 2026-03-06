@@ -54,16 +54,32 @@ section#security main.security {
 
 .security-setting {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.5rem;
 }
 
-.security-setting h3 {
-  flex: 1 0 auto;
+.content .security h3 {
+  flex: 0 0 auto;
   margin: 0;
   font-weight: 600;
   font-size: var(--font-md, 1rem);
   color: var(--gray-5, #233944);
+}
+
+.security-setting .security-description {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+}
+
+.security-setting .security-description p {
+  flex: 1 1 100%;
+}
+
+.security-setting .security-actions {
+  flex: 0 1 16em;
 }
 
 /* Plan section */
