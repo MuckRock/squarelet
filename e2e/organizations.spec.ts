@@ -1,5 +1,11 @@
 import { test, expect } from "@playwright/test";
-import { login, deleteTestOrg, expectFlashMessage, resetOrgProfileState } from "./helpers";
+import {
+  login,
+  deleteTestOrg,
+  expectFlashMessage,
+  resetOrgProfileState,
+  resetAutoJoinState,
+} from "./helpers";
 
 const NEW_ORG_SLUG = "e2e-new-org";
 
@@ -465,5 +471,42 @@ test.describe("Member Management", () => {
     await expect(page.locator("section#requests")).toBeVisible();
     await page.locator('button[value="rejectinvite"]').first().click();
     await expectFlashMessage(page, "success");
+  });
+});
+
+test.describe("Auto-Join Domain Management", () => {
+  test.afterEach(() => {
+    resetAutoJoinState("e2e-public-org");
+  });
+
+  test("admin can enable auto-join, add a domain, and disable auto-join", async ({ page }) => {
+    await login(page, "e2e-admin");
+
+    // Navigate to org detail — auto-join should be disabled by default
+    await page.goto("/organizations/e2e-public-org/");
+    await expect(page.locator("section#security")).toBeVisible();
+    await expect(page.locator('button[value="enable_autojoin"]')).toBeVisible();
+
+    // Enable auto-join — should redirect to manage-domains page
+    await page.locator('button[value="enable_autojoin"]').click();
+    await expect(page).toHaveURL(/\/organizations\/e2e-public-org\/manage-domains\//);
+    await expectFlashMessage(page, "success");
+
+    // Add a domain from the dropdown (example.com from e2e-admin's verified email)
+    await page.locator("select[name='domain']").selectOption("example.com");
+    await page.locator("section#add button[type='submit']").click();
+    await expectFlashMessage(page, "success");
+
+    // Verify the domain appears in the trusted domains list
+    await expect(page.locator(".domain-name", { hasText: "example.com" })).toBeVisible();
+
+    // Go back to org detail and disable auto-join
+    await page.goto("/organizations/e2e-public-org/");
+    await expect(page.locator('button[value="disable_autojoin"]')).toBeVisible();
+    await page.locator('button[value="disable_autojoin"]').click();
+    await expectFlashMessage(page, "success");
+
+    // Verify auto-join is now disabled on the detail page
+    await expect(page.locator('button[value="enable_autojoin"]')).toBeVisible();
   });
 });

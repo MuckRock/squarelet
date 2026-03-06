@@ -67,3 +67,15 @@ Organization.objects.filter(slug='${slug}').update(city='')
 "`,
   );
 }
+
+export function resetAutoJoinState(slug: string) {
+  runManageCommand(
+    `shell -c "
+from squarelet.organizations.models import Organization
+org = Organization.objects.get(slug='${slug}')
+org.allow_auto_join = False
+org.save()
+org.domains.all().delete()
+"`,
+  );
+}
