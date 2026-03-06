@@ -1,73 +1,98 @@
-{% extends "base.html" %}
-{% load avatar %}
-{% load i18n %}
+{% extends "layouts/sidebar_layout.html" %}
+{% load django_vite i18n %}
+
 {% block title %}{{ organization.name }} | Manage Domains{% endblock %}
 
-{% block content %}
-  <div class="_cls-largeContent">
-    <h2>Manage domains</h2>
-    <h3>{{ organization.name }}</h3>
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/organization_managedomains.ts" %}
+{% endblock vite %}
 
-    <div class="_cls-tableHeading">{% trans 'Manage domains' %}</div>
-    <div class="_cls-tableInfo">{% trans 'Domains associated with the organization' %}</div>
-    <form class="_cls-inlineForm" method="post" enctype="multipart/form-data" id="org-form">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="managedomains">
-      <div class="_cls-manageTable">
-        <div class="_cls-manageRow _cls-manageHeader">
-          <div class="_cls-manageCell" style="width: 50%">{% trans 'Domain' %}</div>
-          <div class="_cls-manageCell" style="width: 40%">{% trans 'Action' %}</div>
-        </div>
+{% block layout_id %}managedomains{% endblock %}
 
+{% block header %}
+  <header>
+    <h1>{{ organization.name }}</h1>
+    <span class="arrow">{% include "core/icons/chevron-right.svg" %}</span>
+    <h2>{% trans "Auto-join by email address" %}</h2>
+  </header>
+{% endblock %}
+
+{% block sidebar %}
+  <a href="{{ organization.get_absolute_url }}" class="btn small ghost primary">
+    {% include "core/icons/chevron-left.svg" %}
+    {% trans "Back to team overview" %}
+  </a>
+  <ul>
+    <li>
+      <a href="#domains" class="nav-item">
+        {% include "core/icons/globe.svg" %}
+        {% trans "Trusted domains" %}
+      </a>
+    </li>
+    <li>
+      <a href="#add" class="nav-item">
+        {% include "core/icons/plus-circle.svg" %}
+        {% trans "Add a domain" %}
+      </a>
+    </li>
+  </ul>
+{% endblock sidebar %}
+
+{% block main %}
+  <p class="help-text">
+    {% trans "When auto-join is enabled, users with a verified email address matching one of these trusted domains can join your organization automatically without needing admin approval." %}
+  </p>
+  <section id="domains">
+    <header>
+      <div class="title">
+        <h2>{% trans "Trusted domains" %}</h2>
+      </div>
+    </header>
+    <div class="card">
+      {% if domains %}
         {% for domain in domains %}
-          <div class="_cls-manageRow">
-            <div class="_cls-manageCell">
-              {{ domain.domain }}
-            </div>
-            <div class="_cls-manageCell">
-              <form method="POST" class="_cls-inlineForm">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="removedomain">
-                <input type="hidden" name="domain" value="{{ domain.domain }}">
-                <button type="submit" class="_cls-compactButton">{% trans 'Remove' %}</button>
-              </form>
-            </div>
-          </div>
-        {% empty %}
-          <div class="_cls-manageRow">
-            <div class="_cls-manageCell" colspan="2">
-              {% trans 'No domains added yet.' %}
-            </div>
+          <div class="domain-row">
+            <span class="domain-name">{{ domain.domain }}</span>
+            <form method="post" class="domain-action">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="removedomain">
+              <input type="hidden" name="domain" value="{{ domain.domain }}">
+              <button type="submit" class="btn danger ghost small">{% trans "Remove" %}</button>
+            </form>
           </div>
         {% endfor %}
-      </div>
-    </form>
-
-    <div class="_cls-tableHeading">{% trans 'Add new domain' %}</div>
-    <div class="_cls-tableInfo">
-      {% blocktrans %}
-        Add a new domain to associate with the organization.
-      {% endblocktrans %}
+      {% else %}
+        <p class="help-text">{% trans "No trusted domains added yet. Add a domain below to allow users to auto-join." %}</p>
+      {% endif %}
     </div>
-    <form class="_cls-inlineForm" method="post" enctype="multipart/form-data">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="adddomain">
-      <div class="_cls-inviteUsers _cls-actionSmall _cls-actionSmaller">
-        <input
-          type="text"
-          name="domain"
-          placeholder="Enter domain (e.g., example.com)"
-          required
-          style="width: 100%"
-        />
-        <button type="submit" name="adddomain">
-          + {% trans 'Add domain' %}
-        </button>
-      </div>
-    </form>
+  </section>
 
-    <p class="_cls-spaced"><a href="{{ organization.get_absolute_url }}" class="_cls-altAction">
-      {% trans 'Go back' %}
-    </a></p>
-  </div>
-{% endblock %}
+  <section id="add">
+    <header>
+      <div class="title">
+        <h2>{% trans "Add a new domain" %}</h2>
+      </div>
+    </header>
+    <div class="card">
+      {% if available_domains %}
+        <p class="help-text">{% trans "Select a domain from your verified email addresses to add as a trusted domain." %}</p>
+        <form method="post" class="add-domain-form">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="adddomain">
+          <div class="add-domain-fields">
+            <select name="domain" required>
+              <option value="">{% trans "Select a domain..." %}</option>
+              {% for domain in available_domains %}
+                <option value="{{ domain }}">{{ domain }}</option>
+              {% endfor %}
+            </select>
+            <button type="submit" class="btn primary">{% trans "Add domain" %}</button>
+          </div>
+        </form>
+      {% else %}
+        <p class="help-text">{% trans "No additional domains available. All domains from your verified email addresses have already been added, or you need to verify an email address first." %}</p>
+      {% endif %}
+    </div>
+  </section>
+{% endblock main %}
