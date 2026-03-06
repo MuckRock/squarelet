@@ -482,15 +482,17 @@ test.describe("Invitation & Request History", () => {
     test("can access invitation history page", async ({ page }) => {
       const response = await page.goto("/organizations/e2e-public-org/invitations/");
       expect(response?.status()).toBe(200);
-      await expect(page.locator("#org_invitations")).toBeVisible();
-      await expect(page.locator("#org_invitations .invitations-list")).toBeVisible();
+      await expect(page.locator(".invitation-history-page")).toBeVisible();
+      // After clearing invitations, the page shows an empty message
+      await expect(page.locator(".empty-message")).toBeVisible();
     });
 
     test("can access request history page", async ({ page }) => {
       const response = await page.goto("/organizations/e2e-public-org/requests/");
       expect(response?.status()).toBe(200);
-      await expect(page.locator("#org_requests")).toBeVisible();
-      await expect(page.locator("#org_requests .invitations-list")).toBeVisible();
+      await expect(page.locator(".invitation-history-page")).toBeVisible();
+      // After clearing invitations, the page shows an empty message
+      await expect(page.locator(".empty-message")).toBeVisible();
     });
 
     test("can navigate to history pages from manage-members page", async ({ page }) => {
@@ -508,7 +510,7 @@ test.describe("Invitation & Request History", () => {
 
       // Click invitation history link and verify navigation
       await invitationsLink.first().click();
-      await expect(page.locator("#org_invitations")).toBeVisible();
+      await expect(page.locator(".invitation-history-page")).toBeVisible();
     });
 
     test("pending invitation appears in invitation history", async ({ page }) => {
@@ -521,11 +523,11 @@ test.describe("Invitation & Request History", () => {
 
       // Verify it appears in invitation history with "pending" status
       await page.goto("/organizations/e2e-public-org/invitations/");
-      await expect(page.locator("#org_invitations .invitation-item")).toHaveCount(1, {
+      await expect(page.locator(".invitation-history-table tbody tr")).toHaveCount(1, {
         timeout: 5_000,
       });
       await expect(
-        page.locator("#org_invitations .invitation-summary .pending"),
+        page.locator("td.invitation-status.pending"),
       ).toBeVisible();
     });
 
@@ -541,15 +543,16 @@ test.describe("Invitation & Request History", () => {
       await login(page, "e2e-regular");
       await page.goto("/users/e2e-regular/invitations/");
       await page.locator('button[value="accept"]').click();
+      await page.waitForLoadState("networkidle");
 
       // Verify it appears in invitation history with "accepted" status
       await login(page, "e2e-admin");
       await page.goto("/organizations/e2e-public-org/invitations/");
-      await expect(page.locator("#org_invitations .invitation-item")).toHaveCount(1, {
+      await expect(page.locator(".invitation-history-table tbody tr")).toHaveCount(1, {
         timeout: 5_000,
       });
       await expect(
-        page.locator("#org_invitations .invitation-summary .accepted"),
+        page.locator("td.invitation-status.accepted"),
       ).toBeVisible();
     });
 
@@ -568,11 +571,11 @@ test.describe("Invitation & Request History", () => {
 
       // Verify it appears in invitation history with "withdrawn" status
       await page.goto("/organizations/e2e-public-org/invitations/");
-      await expect(page.locator("#org_invitations .invitation-item")).toHaveCount(1, {
+      await expect(page.locator(".invitation-history-table tbody tr")).toHaveCount(1, {
         timeout: 5_000,
       });
       await expect(
-        page.locator("#org_invitations .invitation-summary .withdrawn"),
+        page.locator("td.invitation-status.withdrawn"),
       ).toBeVisible();
     });
 
@@ -589,14 +592,14 @@ test.describe("Invitation & Request History", () => {
       await page.goto("/users/e2e-regular/invitations/");
       await page.locator('button[value="reject"]').click();
 
-      // Verify it appears in invitation history with "rejected" status
+      // Verify it appears in invitation history with "declined" status
       await login(page, "e2e-admin");
       await page.goto("/organizations/e2e-public-org/invitations/");
-      await expect(page.locator("#org_invitations .invitation-item")).toHaveCount(1, {
+      await expect(page.locator(".invitation-history-table tbody tr")).toHaveCount(1, {
         timeout: 5_000,
       });
       await expect(
-        page.locator("#org_invitations .invitation-summary .rejected"),
+        page.locator("td.invitation-status.declined"),
       ).toBeVisible();
     });
 
@@ -620,13 +623,13 @@ test.describe("Invitation & Request History", () => {
       await page.locator('button[value="rejectinvite"]').first().click();
       await expectFlashMessage(page, "success");
 
-      // Verify it appears in request history with "Rejected" status
+      // Verify it appears in request history with "declined" status
       await page.goto("/organizations/e2e-public-org/requests/");
-      await expect(page.locator("#org_requests .invitation-item")).toHaveCount(1, {
+      await expect(page.locator(".invitation-history-table tbody tr")).toHaveCount(1, {
         timeout: 5_000,
       });
       await expect(
-        page.locator("#org_requests .invitation-summary .rejected"),
+        page.locator("td.invitation-status.declined"),
       ).toBeVisible();
     });
   });
@@ -650,14 +653,14 @@ test.describe("Invitation & Request History", () => {
       await login(page, "e2e-staff");
       const response = await page.goto("/organizations/e2e-public-org/invitations/");
       expect(response?.status()).toBe(200);
-      await expect(page.locator("#org_invitations")).toBeVisible();
+      await expect(page.locator(".invitation-history-page")).toBeVisible();
     });
 
     test("can access any org's request history", async ({ page }) => {
       await login(page, "e2e-staff");
       const response = await page.goto("/organizations/e2e-public-org/requests/");
       expect(response?.status()).toBe(200);
-      await expect(page.locator("#org_requests")).toBeVisible();
+      await expect(page.locator(".invitation-history-page")).toBeVisible();
     });
   });
 });
