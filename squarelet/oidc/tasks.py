@@ -9,6 +9,7 @@ from .models import ClientProfile
 @shared_task(name="squarelet.oidc.tasks.send_cache_invalidation")
 def send_cache_invalidation(client_profile_pk, model, uuids):
     # pylint: disable=import-outside-toplevel
+    # Squarelet
     from squarelet.organizations.models import Organization
     from squarelet.users.models import User
 
