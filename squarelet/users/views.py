@@ -379,6 +379,16 @@ class UserOnboardingView(TemplateView):
             if success is False:
                 context = self.get_context_data(**kwargs)
                 return self.render_to_response(context)
+        # Often times, a user confirms their email in another tab and thus
+        # a mismatch gets thrown erroneously. This should redirect them.
+        elif step == "confirm_email":
+            # Re-check server state
+            if request.user.emailaddress_set.filter(
+                email=request.user.email,
+                verified=True,
+            ).exists():
+                # Email is now verified — just continue onboarding
+                return redirect("account_onboarding")
         else:
             logger.error(
                 "[ONBOARDING] Onboarding step mismatch", exc_info=sys.exc_info()
