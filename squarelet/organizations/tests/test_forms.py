@@ -12,9 +12,7 @@ from squarelet.organizations.models import ProfileChangeRequest
 class TestProfileChangeRequestForm:
     """Test ProfileChangeRequestForm"""
 
-    def test_unchanged_fields_are_cleared(
-        self, organization_factory, user_factory, rf  # pylint: disable=invalid-name
-    ):
+    def test_unchanged_fields_are_cleared(self, organization_factory, user_factory, rf):
         """Test that fields with unchanged values are cleared"""
         org = organization_factory(
             name="Original Name",
@@ -62,9 +60,7 @@ class TestProfileChangeRequestForm:
         assert cleaned["slug"] == "new-slug"
         assert cleaned["state"] == "CA"
 
-    def test_requires_at_least_one_change(
-        self, organization_factory, user_factory, rf  # pylint: disable=invalid-name
-    ):
+    def test_requires_at_least_one_change(self, organization_factory, user_factory, rf):
         """Test that form requires at least one field to be changed"""
         org = organization_factory(
             name="Original Name",
@@ -104,7 +100,7 @@ class TestProfileChangeRequestForm:
         assert "You must change at least one field." in str(form.errors)
 
     def test_staff_user_does_not_require_explanation(
-        self, organization_factory, user_factory, rf  # pylint: disable=invalid-name
+        self, organization_factory, user_factory, rf
     ):
         """Test that staff users don't need to provide an explanation"""
         org = organization_factory(
@@ -134,7 +130,7 @@ class TestProfileChangeRequestForm:
         assert form.is_valid(), form.errors
 
     def test_non_staff_user_requires_explanation(
-        self, organization_factory, user_factory, rf  # pylint: disable=invalid-name
+        self, organization_factory, user_factory, rf
     ):
         """Test that non-staff users must provide an explanation"""
         org = organization_factory(
@@ -166,9 +162,7 @@ class TestProfileChangeRequestForm:
             form.errors
         )
 
-    def test_url_field_accepts_new_url(
-        self, organization_factory, user_factory, rf  # pylint: disable=invalid-name
-    ):
+    def test_url_field_accepts_new_url(self, organization_factory, user_factory, rf):
         """Test that URL field accepts new URLs even when not initially set"""
         org = organization_factory(
             name="Original Name",
@@ -199,7 +193,7 @@ class TestProfileChangeRequestForm:
         assert form.cleaned_data["url"] == "https://example.com"
 
     def test_url_must_be_unique_for_organization(
-        self, organization_factory, user_factory, rf  # pylint: disable=invalid-name
+        self, organization_factory, user_factory, rf
     ):
         """Test that duplicate URLs are rejected for the same organization"""
         org = organization_factory(

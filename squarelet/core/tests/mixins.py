@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 class ViewTestMixin:
     """Test mixin to help call views from tests"""
 
-    # pylint: disable=protected-access, invalid-name
+    # pylint: disable=protected-access
 
     def call_view(self, rf, user=None, data=None, params=None, **kwargs):
         if params is None:

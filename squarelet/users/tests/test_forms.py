@@ -2,6 +2,7 @@
 # Django
 from django.forms import HiddenInput, ValidationError
 
+# Standard Library
 from unittest.mock import MagicMock
 
 # Third Party
@@ -14,8 +15,6 @@ from psycopg2.errorcodes import UNIQUE_VIOLATION
 from squarelet.organizations.models import Organization
 from squarelet.users import forms
 from squarelet.users.models import User
-
-# pylint: disable=invalid-name
 
 
 @pytest.mark.django_db
