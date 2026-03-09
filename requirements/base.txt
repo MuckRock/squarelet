@@ -153,7 +153,7 @@ django-storages[boto3]==1.12.3
     # via -r requirements/base.in
 django-vite==3.0.4
     # via -r requirements/base.in
-django-weasyprint==2.3.0
+django-weasyprint==2.4.0
     # via -r requirements/base.in
 djangorestframework==3.16.1
     # via
@@ -178,8 +178,6 @@ fuzzywuzzy==0.18.0
     # via -r requirements/base.in
 html2text==2018.1.9
     # via -r requirements/base.in
-html5lib==1.1
-    # via weasyprint
 idna==3.7
     # via requests
 inflection==0.5.1
@@ -248,7 +246,7 @@ pydantic==2.7.4
     # via pyairtable
 pydantic-core==2.18.4
     # via pydantic
-pydyf==0.5.0
+pydyf==0.12.1
     # via weasyprint
 pygments==2.15.1
     # via ipython
@@ -309,7 +307,6 @@ six==1.16.0
     #   django-choices
     #   django-environ
     #   furl
-    #   html5lib
     #   orderedmultidict
     #   python-dateutil
     #   zenpy
@@ -326,10 +323,12 @@ stack-data==0.3.0
     # via ipython
 stripe==8.11.0
     # via -r requirements/base.in
-tinycss2==1.2.1
+tinycss2==1.5.1
     # via
     #   cssselect2
     #   weasyprint
+tinyhtml5==2.1.0
+    # via weasyprint
 toml==0.10.2
     # via ipdb
 traitlets==5.3.0
@@ -360,14 +359,14 @@ vine==5.1.0
     #   kombu
 wcwidth==0.1.7
     # via prompt-toolkit
-weasyprint==58.1
+weasyprint==64.1
     # via django-weasyprint
 webencodings==0.5.1
     # via
     #   bleach
     #   cssselect2
-    #   html5lib
     #   tinycss2
+    #   tinyhtml5
 wrapt==1.11.2
     # via deprecated
 zenpy==2.0.56

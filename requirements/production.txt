@@ -215,7 +215,7 @@ django-storages[boto3]==1.12.3
     #   collectfast
 django-vite==3.0.4
     # via -r /app/requirements/base.txt
-django-weasyprint==2.3.0
+django-weasyprint==2.4.0
     # via -r /app/requirements/base.txt
 djangorestframework==3.16.1
     # via
@@ -248,10 +248,6 @@ gunicorn==22.0.0
     # via -r requirements/production.in
 html2text==2018.1.9
     # via -r /app/requirements/base.txt
-html5lib==1.1
-    # via
-    #   -r /app/requirements/base.txt
-    #   weasyprint
 idna==3.7
     # via
     #   -r /app/requirements/base.txt
@@ -368,7 +364,7 @@ pydantic-core==2.18.4
     # via
     #   -r /app/requirements/base.txt
     #   pydantic
-pydyf==0.5.0
+pydyf==0.12.1
     # via
     #   -r /app/requirements/base.txt
     #   weasyprint
@@ -449,7 +445,6 @@ six==1.16.0
     #   django-choices
     #   django-environ
     #   furl
-    #   html5lib
     #   orderedmultidict
     #   python-dateutil
     #   zenpy
@@ -469,10 +464,14 @@ stack-data==0.3.0
     #   ipython
 stripe==8.11.0
     # via -r /app/requirements/base.txt
-tinycss2==1.2.1
+tinycss2==1.5.1
     # via
     #   -r /app/requirements/base.txt
     #   cssselect2
+    #   weasyprint
+tinyhtml5==2.1.0
+    # via
+    #   -r /app/requirements/base.txt
     #   weasyprint
 toml==0.10.2
     # via
@@ -518,7 +517,7 @@ wcwidth==0.1.7
     # via
     #   -r /app/requirements/base.txt
     #   prompt-toolkit
-weasyprint==58.1
+weasyprint==64.1
     # via
     #   -r /app/requirements/base.txt
     #   django-weasyprint
@@ -527,8 +526,8 @@ webencodings==0.5.1
     #   -r /app/requirements/base.txt
     #   bleach
     #   cssselect2
-    #   html5lib
     #   tinycss2
+    #   tinyhtml5
 wrapt==1.11.2
     # via
     #   -r /app/requirements/base.txt
