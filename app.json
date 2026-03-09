@@ -1,6 +1,7 @@
 {
   "name": "squarelet",
   "description": "User and organization management for MuckRock",
+  "stack": "heroku-24",
   "repository": "https://github.com/muckrock/squarelet",
   "formation": {
     "web": {
