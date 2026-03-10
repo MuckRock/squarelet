@@ -14,29 +14,14 @@ Enable org admins to search existing users when inviting members. Requires:
 
 ## Part 1 — User Privacy States (Backend)
 
-### 1a. Add `hidden` field to `Organization`
+### 1a. Add `hidden` field to `Organization` ✅
 
 **File:** `squarelet/organizations/models/organization.py`
 
-Add a `hidden` BooleanField to the `Organization` model. For individual orgs
-this tracks whether the user is "hidden" from search (i.e., not yet verified,
-no payment, no confirmed email). For non-individual orgs this field is unused
-and should default to `False`.
+Done. Added `hidden` BooleanField (default `True`) at line 204.
+Migration: `squarelet/organizations/migrations/0059_add_hidden.py`.
 
-```python
-hidden = models.BooleanField(
-    _("hidden"),
-    default=True,
-    help_text=_(
-        "Individual accounts are hidden until the user has verified their email, "
-        "made a payment, or been verified by association. Hidden accounts do not "
-        "appear in search results."
-    ),
-)
-```
-
-**Migration:** Generate a new migration. New users default to `hidden=True`.
-The data migration will:
+**TODO (data migration):** Still need a data migration to:
 
 - Set all non-individual orgs: `hidden=False`, `private` unchanged.
 - Set individual orgs: `private=False` (making all existing users public by default).
@@ -57,16 +42,12 @@ Connect to:
   setting `hidden = False` (non-individual orgs don't use this field).
 - Possibly `Membership` post-save on verified orgs → cascade
 
-### 1c. Change individual org `private` default
+### 1c. Change individual org `private` default — DONE
 
-Currently, `create_individual` (in `OrganizationQuerySet`) creates individual
-orgs with `private=True`. Per the issue, a user is "public by default" (but
-hidden until conditions are met). So the `private` field should default to
-`False` for newly created individual orgs.
-
-**File:** `squarelet/organizations/querysets.py`, `create_individual` method —
-change `private=True` to `private=False`. Existing individual orgs are handled
-by the data migration in Part 1a.
+Changed `create_individual` in `squarelet/organizations/querysets.py` from
+`private=True` to `private=False`. Updated `IndividualOrganizationFactory` to
+match (`private=False`, `hidden=True`). Updated existing tests in
+`test_querysets.py` to reflect the new default.
 
 ---
 
@@ -113,29 +94,13 @@ want special styling or positioning.
 
 ## Part 3 — User Search API Endpoint
 
-### 3a. UserManager — `get_searchable`
+### 3a. UserManager — `get_searchable` — DONE
 
 **File:** `squarelet/users/managers.py`
 
-Add a `get_searchable(requesting_user)` method to `UserManager`. Note: `UserManager`
-extends `AuthUserManager` — it is a **Manager**, not a **QuerySet**, so this method
-won't be chainable from other querysets. That's fine for our use case (called only
-from the viewset's `get_queryset`).
-
-```python
-def get_searchable(self, user):
-    """Return users visible in search to `user`."""
-    if user.is_staff:
-        return self
-    # Never show hidden users
-    qs = self.filter(individual_organization__hidden=False)
-    # Private users are only visible to org-mates
-    qs = qs.filter(
-        Q(individual_organization__private=False)
-        | Q(organizations__users=user)
-    ).distinct()
-    return qs
-```
+Implemented `get_searchable(user)` on `UserManager`. Tests in
+`squarelet/users/tests/test_managers.py` (6 tests covering staff, hidden,
+public, private/orgmate, private/stranger, and deduplication).
 
 ### 3b. Lightweight serializer
 
@@ -484,10 +449,18 @@ submits as `name="emails"` to the Django view exactly as before.
 
 ### Backend tests
 
-**Files:**
+**Done:**
 
-- `squarelet/users/tests/test_models.py` — test `hidden` transitions (signal fires,
-  field updates correctly)
+- `squarelet/users/tests/test_managers.py` — 6 tests for `get_searchable` visibility
+  (staff sees all, hidden excluded, public visible, private visible to orgmates,
+  private hidden from strangers, no duplicates)
+- `squarelet/organizations/tests/test_querysets.py` — updated `test_create_individual_basic`
+  and `test_get_viewable` to reflect new `private=False` default
+
+**Still needed:**
+
+- `squarelet/users/tests/test_signals.py` — test `hidden` transitions (signal fires,
+  field updates correctly on email confirm / charge / membership)
 - `squarelet/users/tests/test_api.py` (or new `squarelet/users/fe_api/tests/`) —
   test `GET /fe_api/users/?search=` with hidden/private/public users
 - `squarelet/organizations/tests/test_api.py` (or `fe_api/tests/`) —
@@ -504,13 +477,13 @@ Not in scope for this plan (no existing frontend tests in the codebase).
 
 | File                                                                | Change                                                      |
 | ------------------------------------------------------------------- | ----------------------------------------------------------- |
-| `squarelet/organizations/models/organization.py`                    | Add `hidden` BooleanField                                   |
-| `squarelet/organizations/migrations/XXXX_add_hidden.py`             | New migration                                               |
-| `squarelet/organizations/querysets.py`                              | Change `create_individual` default `private=True` → `False` |
+| `squarelet/organizations/models/organization.py`                    | Add `hidden` BooleanField ✅                                |
+| `squarelet/organizations/migrations/0059_add_hidden.py`             | New migration ✅                                            |
+| `squarelet/organizations/querysets.py`                              | Change `create_individual` default `private=True` → `False` ✅ |
 | `squarelet/users/signals.py`                                        | Add signals to set `hidden=False` on email verify / payment |
 | `squarelet/users/forms.py`                                          | Add `private` field to `UserUpdateForm`                     |
 | `squarelet/users/views.py`                                          | Save `private` to `individual_organization` in update view  |
-| `squarelet/users/managers.py`                                       | Add `get_searchable(user)` queryset method                  |
+| `squarelet/users/managers.py`                                       | Add `get_searchable(user)` manager method ✅                |
 | `squarelet/users/fe_api/serializers.py`                             | Add `UserSearchSerializer`                                  |
 | `squarelet/users/fe_api/viewsets.py`                                | Add search, filter, `get_searchable` to `UserViewSet`       |
 | `squarelet/organizations/fe_api/viewsets.py`                        | Call `invitation.send()` in `perform_create`                |
