@@ -29,18 +29,14 @@ Migration: `squarelet/organizations/migrations/0059_add_hidden.py`.
   ≥1 verified email, OR has any charge, OR is a member of a `verified_journalist` org.
 - Individual orgs that meet none of those conditions remain `hidden=True`.
 
-### 1b. Signal to un-hide users when conditions are met
+### 1b. Signal to un-hide users when conditions are met ✅
 
-**File:** `squarelet/users/signals.py` (already exists — extend it)
+**File:** `squarelet/users/signals.py`
 
-Connect to:
-
-- `allauth` `email_confirmed` signal → mark `user.individual_organization.hidden = False`
-  (The existing `email_confirmed` handler only sends cache invalidations; extend it.)
-- `Charge` post-save signal → `charge.organization` points to an `Organization`, not a
-  `User`. The handler must check `charge.organization.individual` is `True` before
-  setting `hidden = False` (non-individual orgs don't use this field).
-- Possibly `Membership` post-save on verified orgs → cascade
+Done. Extended `email_confirmed` to set `hidden=False` on primary email confirm.
+Added `charge_created` post_save handler for `Charge` model (checks
+`organization.individual` before updating). Tests in
+`squarelet/users/tests/test_signals.py` (4 new tests).
 
 ### 1c. Change individual org `private` default — DONE
 
@@ -102,55 +98,32 @@ Implemented `get_searchable(user)` on `UserManager`. Tests in
 `squarelet/users/tests/test_managers.py` (6 tests covering staff, hidden,
 public, private/orgmate, private/stranger, and deduplication).
 
-### 3b. Lightweight serializer
+### 3b. Lightweight serializer ✅
 
 **File:** `squarelet/users/fe_api/serializers.py`
 
-Add a `UserSearchSerializer` with only public-safe fields (no email):
+Done. Added `UserSearchSerializer` with safe fields only (id, uuid, username,
+name, avatar_url — no email).
 
-```python
-class UserSearchSerializer(serializers.ModelSerializer):
-    uuid = serializers.UUIDField(read_only=True)
-    avatar_url = serializers.CharField(read_only=True)
-
-    class Meta:
-        model = User
-        fields = ("id", "uuid", "username", "name", "avatar_url")
-        read_only_fields = fields
-```
-
-### 3c. UserViewSet — add search
+### 3c. UserViewSet — add search ✅
 
 **File:** `squarelet/users/fe_api/viewsets.py`
 
-Extend `UserViewSet`:
-
-```python
-class UserViewSet(viewsets.ReadOnlyModelViewSet):
-    permission_classes = (IsAuthenticated,)
-    lookup_field = "id"
-    filter_backends = [filters.SearchFilter]
-    search_fields = ["username", "name"]
-
-    def get_serializer_class(self):
-        if self.action == "list":
-            return UserSearchSerializer
-        return UserSerializer  # existing detailed serializer
-
-    def get_queryset(self):
-        if self.action == "list":
-            return User.objects.get_searchable(self.request.user)
-        return User.objects.prefetch_related("organizations")
-```
+Done. Rewired `get_queryset` to use `get_searchable` for list action,
+`get_serializer_class` returns `UserSearchSerializer` for list and
+`UserSerializer` for detail. Search uses PostgreSQL full-text `SearchVector`
+with prefix matching (`search_type="raw"` with `:*` suffix) to avoid
+`LIKE`/`ILIKE` errors from the `case_insensitive` collation on `username`
+and `name` fields.
 
 Endpoint: `GET /fe_api/users/?search=<query>`
 
-### 3d. URL router
+Tests in `squarelet/users/fe_api/test_user_viewsets.py` (3 new tests:
+search by username, hidden exclusion, safe fields only).
 
-**File:** `config/urls.py` or wherever `fe_api` router is registered
+### 3d. URL router ✅
 
-Verify `UserViewSet` is registered in the `fe_api` router. (It currently is,
-under `users`.)
+Already registered in `config/urls.py` as `fe_api_router.register(r"users", ...)`.
 
 ---
 
@@ -454,15 +427,17 @@ submits as `name="emails"` to the Django view exactly as before.
 - `squarelet/users/tests/test_managers.py` — 6 tests for `get_searchable` visibility
   (staff sees all, hidden excluded, public visible, private visible to orgmates,
   private hidden from strangers, no duplicates)
+- `squarelet/users/tests/test_signals.py` — 4 new tests for un-hide signals
+  (email confirm unhides, non-primary doesn't unhide, charge unhides individual,
+  charge doesn't unhide group)
+- `squarelet/users/fe_api/test_user_viewsets.py` — 3 new tests for search API
+  (search by username, hidden exclusion, safe fields only). Updated 1 existing test
+  for hidden-by-default.
 - `squarelet/organizations/tests/test_querysets.py` — updated `test_create_individual_basic`
   and `test_get_viewable` to reflect new `private=False` default
 
 **Still needed:**
 
-- `squarelet/users/tests/test_signals.py` — test `hidden` transitions (signal fires,
-  field updates correctly on email confirm / charge / membership)
-- `squarelet/users/tests/test_api.py` (or new `squarelet/users/fe_api/tests/`) —
-  test `GET /fe_api/users/?search=` with hidden/private/public users
 - `squarelet/organizations/tests/test_api.py` (or `fe_api/tests/`) —
   test `POST /fe_api/invitations/` sends the invitation email, handles
   duplicate/already-member cases
@@ -475,24 +450,24 @@ Not in scope for this plan (no existing frontend tests in the codebase).
 
 ## File Change Summary
 
-| File                                                                | Change                                                      |
-| ------------------------------------------------------------------- | ----------------------------------------------------------- |
-| `squarelet/organizations/models/organization.py`                    | Add `hidden` BooleanField ✅                                |
-| `squarelet/organizations/migrations/0059_add_hidden.py`             | New migration ✅                                            |
+| File                                                                | Change                                                         |
+| ------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `squarelet/organizations/models/organization.py`                    | Add `hidden` BooleanField ✅                                   |
+| `squarelet/organizations/migrations/0059_add_hidden.py`             | New migration ✅                                               |
 | `squarelet/organizations/querysets.py`                              | Change `create_individual` default `private=True` → `False` ✅ |
-| `squarelet/users/signals.py`                                        | Add signals to set `hidden=False` on email verify / payment |
-| `squarelet/users/forms.py`                                          | Add `private` field to `UserUpdateForm`                     |
-| `squarelet/users/views.py`                                          | Save `private` to `individual_organization` in update view  |
-| `squarelet/users/managers.py`                                       | Add `get_searchable(user)` manager method ✅                |
-| `squarelet/users/fe_api/serializers.py`                             | Add `UserSearchSerializer`                                  |
-| `squarelet/users/fe_api/viewsets.py`                                | Add search, filter, `get_searchable` to `UserViewSet`       |
-| `squarelet/organizations/fe_api/viewsets.py`                        | Call `invitation.send()` in `perform_create`                |
-| `squarelet/templates/users/user_form.html`                          | (likely no change; field renders automatically)             |
-| `squarelet/templates/organizations/organization_managemembers.html` | Replace email input with `#user-select` mount point         |
-| `frontend/components/UserListItem.svelte`                           | New component                                               |
-| `frontend/components/UserSelect.svelte`                             | New component                                               |
-| `frontend/views/organization_managemembers.ts`                      | Mount `UserSelect`, intercept submit, POST to REST API      |
-| `frontend/types.d.ts`                                               | Add `User` interface                                        |
+| `squarelet/users/signals.py`                                        | Add signals to set `hidden=False` on email verify / payment ✅ |
+| `squarelet/users/forms.py`                                          | Add `private` field to `UserUpdateForm`                        |
+| `squarelet/users/views.py`                                          | Save `private` to `individual_organization` in update view     |
+| `squarelet/users/managers.py`                                       | Add `get_searchable(user)` manager method ✅                   |
+| `squarelet/users/fe_api/serializers.py`                             | Add `UserSearchSerializer` ✅                                  |
+| `squarelet/users/fe_api/viewsets.py`                                | Add search, filter, `get_searchable` to `UserViewSet` ✅       |
+| `squarelet/organizations/fe_api/viewsets.py`                        | Call `invitation.send()` in `perform_create`                   |
+| `squarelet/templates/users/user_form.html`                          | (likely no change; field renders automatically)                |
+| `squarelet/templates/organizations/organization_managemembers.html` | Replace email input with `#user-select` mount point            |
+| `frontend/components/UserListItem.svelte`                           | New component                                                  |
+| `frontend/components/UserSelect.svelte`                             | New component                                                  |
+| `frontend/views/organization_managemembers.ts`                      | Mount `UserSelect`, intercept submit, POST to REST API         |
+| `frontend/types.d.ts`                                               | Add `User` interface                                           |
 
 ---
 
