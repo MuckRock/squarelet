@@ -8,6 +8,7 @@ from allauth.account.models import EmailAddress
 
 # Squarelet
 from squarelet.organizations.denylist_domains import DENYLIST_DOMAINS
+from squarelet.organizations.forms import DomainActionForm
 from squarelet.organizations.mixins import OrganizationPermissionMixin
 from squarelet.organizations.models import Organization, OrganizationEmailDomain
 
@@ -17,7 +18,7 @@ class ManageDomains(OrganizationPermissionMixin, DetailView):
     queryset = Organization.objects.filter(individual=False)
     template_name = "organizations/organization_managedomains.html"
 
-    def _get_available_domains(self):
+    def get_available_domains(self):
         """Get domains from the admin's verified emails, excluding denylist
         and already-added domains."""
         verified_emails = EmailAddress.objects.filter(
@@ -29,62 +30,60 @@ class ManageDomains(OrganizationPermissionMixin, DetailView):
         )
         return sorted(user_domains - DENYLIST_DOMAINS - existing_domains)
 
-    def post(self, request, *args, **kwargs):
-        """Handle form processing"""
-        self.organization = self.get_object()
-
-        actions = {
-            "adddomain": self._handle_add_domain,
-            "removedomain": self._handle_remove_domain,
-        }
-        action = request.POST.get("action")
-        if action in actions:
-            return actions[action](request)
-        return self._bad_call(request)
-
-    def _handle_add_domain(self, request):
-        domain = request.POST.get("domain", "").strip().lower()
-        available = self._get_available_domains()
-
-        if domain not in available:
-            messages.error(
-                request,
-                "Invalid domain. Please select a domain from your verified emails.",
-            )
-            return redirect("organizations:manage-domains", slug=self.organization.slug)
-
-        OrganizationEmailDomain.objects.create(
-            organization=self.organization, domain=domain
-        )
-        messages.success(request, f"The domain {domain} was added successfully.")
-        return redirect("organizations:manage-domains", slug=self.organization.slug)
-
-    def _handle_remove_domain(self, request):
-        domain = request.POST.get("domain", "").strip().lower()
-
-        try:
-            domain_entry = OrganizationEmailDomain.objects.get(
-                organization=self.organization, domain=domain
-            )
-            domain_entry.delete()
-            messages.success(request, f"The domain {domain} was removed successfully.")
-        except OrganizationEmailDomain.DoesNotExist:
-            messages.error(
-                request,
-                f"The domain {domain} was not found or has already been removed.",
-            )
-
-        return redirect("organizations:manage-domains", slug=self.organization.slug)
-
     def get_context_data(self, **kwargs):
         self.organization = self.get_object()
 
         context = super().get_context_data(**kwargs)
         context["admin"] = self.request.user
         context["domains"] = self.organization.domains.all()
-        context["available_domains"] = self._get_available_domains()
+        context["available_domains"] = self.get_available_domains()
         return context
 
-    def _bad_call(self, request):
-        messages.error(request, "An unexpected error occurred.")
+    def post(self, request, *args, **kwargs):
+        """Handle form processing"""
+        self.organization = self.get_object()
+
+        form = DomainActionForm(
+            request.POST,
+            available_domains=self.get_available_domains(),
+            organization=self.organization,
+        )
+
+        # Render errors into alerts on the page since we're
+        # we're not rendering per-field errors in the form.
+        if not form.is_valid():
+            for error in form.errors.get("__all__", []):
+                messages.error(request, error)
+            for field, errors in form.errors.items():
+                if field != "__all__":
+                    for error in errors:
+                        messages.error(request, error)
+            return redirect("organizations:manage-domains", slug=self.organization.slug)
+
+        # Since the form is valid, we know we're either handling
+        # the add or remove action. Any other actions will be
+        # caught as errors and returned above.
+        handlers = {
+            DomainActionForm.ACTION_ADD: self.handle_add_domain,
+            DomainActionForm.ACTION_REMOVE: self.handle_remove_domain,
+        }
+        return handlers[form.cleaned_data["action"]](request, form)
+
+    def handle_add_domain(self, request, form):
+        # Create a new OrganizationEmailDomain entry
+        # with the provided domain and organization
+        domain = form.cleaned_data["domain"]
+        OrganizationEmailDomain.objects.create(
+            organization=self.organization, domain=domain
+        )
+        messages.success(request, f"The domain {domain} was added successfully.")
+        return redirect("organizations:manage-domains", slug=self.organization.slug)
+
+    def handle_remove_domain(self, request, form):
+        # `domain_entry` is the OrganizationEmailDomain instance to delete
+        domain_entry = form.cleaned_data["domain_entry"]
+        domain_entry.delete()
+        # `domain` is just the string of the domain name for messaging purposes
+        domain = form.cleaned_data["domain"]
+        messages.success(request, f"The domain {domain} was removed successfully.")
         return redirect("organizations:manage-domains", slug=self.organization.slug)
