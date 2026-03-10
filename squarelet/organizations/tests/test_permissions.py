@@ -13,7 +13,7 @@ from squarelet.organizations.models import Organization, Plan
 # Local
 from .. import views
 
-# pylint: disable=invalid-name,unused-argument
+# pylint: disable=unused-argument
 
 
 @pytest.mark.django_db()

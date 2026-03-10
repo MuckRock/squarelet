@@ -1,6 +1,7 @@
 # Django
 from django.contrib.auth.models import UserManager as AuthUserManager
 from django.db import transaction
+from django.db.models import Q
 
 # Squarelet
 from squarelet.core.utils import mailchimp_journey
@@ -8,6 +9,18 @@ from squarelet.organizations.models import Organization
 
 
 class UserManager(AuthUserManager):
+    def get_searchable(self, user):
+        """Return users visible in search to `user`."""
+        if user.is_staff:
+            return self.all()
+        # Never show hidden users
+        qs = self.filter(individual_organization__hidden=False)
+        # Private users are only visible to org-mates
+        qs = qs.filter(
+            Q(individual_organization__private=False) | Q(organizations__users=user)
+        ).distinct()
+        return qs
+
     def _create_user(self, username, email, password=None, **extra_fields):
         """Create and save a user with the given username, email, and password."""
         uuid = extra_fields.pop("uuid", None)

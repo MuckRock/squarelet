@@ -55,7 +55,8 @@ class OrganizationFactory(factory.django.DjangoModelFactory):
 
 class IndividualOrganizationFactory(OrganizationFactory):
     individual = True
-    private = True
+    private = False
+    hidden = True
     max_users = 1
 
 
