@@ -333,6 +333,23 @@ class TestDetail(ViewTestMixin):
         assert response.status_code == 302
         assert not organization.has_member(leaver)
 
+    def test_post_member_leave_private_org_redirects_to_profile(
+        self, rf, organization_factory, user_factory
+    ):
+        """When a member leaves a private org, they should be redirected to
+        their profile page instead of back to the org page (which they can
+        no longer access)."""
+        admin, leaver = user_factory.create_batch(2)
+        organization = organization_factory(
+            admins=[admin], users=[leaver], private=True
+        )
+        response = self.call_view(
+            rf, leaver, {"action": "leave"}, slug=organization.slug
+        )
+        assert response.status_code == 302
+        assert not organization.has_member(leaver)
+        assert response.url == leaver.get_absolute_url()
+
     def test_post_staff_remove_user(self, rf, organization_factory, user_factory):
         """Staff with can_manage_members should be able to remove a user"""
         staff_member = user_factory(is_staff=True)
