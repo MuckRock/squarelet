@@ -9,6 +9,7 @@ from django.views.generic import DetailView, ListView
 
 # Squarelet
 from squarelet.core.utils import get_redirect_url, new_action, pluralize
+from squarelet.organizations.choices import InvitationRole
 from squarelet.organizations.forms import AddMemberForm
 from squarelet.organizations.mixins import OrganizationPermissionMixin
 from squarelet.organizations.models import Invitation, Membership, Organization
@@ -46,6 +47,11 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
             )
         else:
             emails = addmember_form.cleaned_data["emails"]
+            role = addmember_form.cleaned_data.get("role")
+            if not role:
+                role = InvitationRole.member
+            else:
+                role = int(role)
             invitations_sent = 0
             invited_emails = []
             for email in emails:
@@ -67,6 +73,7 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
                 invitation = Invitation.objects.create(
                     organization=self.organization,
                     email=email,
+                    role=role,
                 )
                 invitation.send()
                 invitations_sent += 1
@@ -102,6 +109,7 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
         # Create an invitation and display it to the admin
         invitation = Invitation.objects.create(
             organization=self.organization,
+            role=InvitationRole.member,
         )
         url = reverse("organizations:invitation", args=(invitation.uuid,))
         messages.success(

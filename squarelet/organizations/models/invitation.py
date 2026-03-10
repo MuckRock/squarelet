@@ -11,7 +11,7 @@ import uuid
 from squarelet.core.fields import AutoCreatedField
 from squarelet.core.mail import ORG_TO_ADMINS, send_mail
 from squarelet.core.utils import mailchimp_journey
-from squarelet.organizations.choices import RelationshipType
+from squarelet.organizations.choices import InvitationRole, RelationshipType
 from squarelet.organizations.models.membership import Membership
 from squarelet.organizations.querysets import (
     InvitationQuerySet,
@@ -59,6 +59,12 @@ class Invitation(models.Model):
         help_text="Is this a request for an invitation from the user or an invitation "
         "to the user from an admin?",
         default=False,
+    )
+    role = models.PositiveSmallIntegerField(
+        _("role"),
+        choices=InvitationRole.choices,
+        default=InvitationRole.member,
+        help_text=_("The role this user will have when accepting the invitation"),
     )
     created_at = AutoCreatedField(
         _("created at"), help_text=_("When this invitation was created")
@@ -135,7 +141,11 @@ class Invitation(models.Model):
             mailchimp_journey(self.user.email, "verified")
         if not self.organization.has_member(self.user):
             # Wix sync will be triggered automatically when Membership saves
-            Membership.objects.create(organization=self.organization, user=self.user)
+            Membership.objects.create(
+                organization=self.organization,
+                user=self.user,
+                admin=(self.role == InvitationRole.admin),
+            )
 
     def reject(self):
         """Reject the invitation"""

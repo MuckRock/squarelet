@@ -84,6 +84,13 @@
           </div>
           <p class="help">{% trans "To invite multiple users, separate email addresses with spaces or commas" %}</p>
         </label>
+        <div class="role field">
+          <label class="field-label sr-only" for="id_role">{% trans "Role" %}</label>
+          <select name="role" id="id_role">
+            <option value="0" selected>{% trans "Member" %}</option>
+            <option value="1">{% trans "Admin" %}</option>
+          </select>
+        </div>
         <button type="submit" name="action" value="addmember" class="btn primary">
           {% include "core/icons/paper-airplane.svg" %}
           {% trans "Send invites" %}
