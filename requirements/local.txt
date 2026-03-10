@@ -280,7 +280,9 @@ idna==3.7
 imagesize==1.0.0
     # via sphinx
 inflection==0.5.1
-    # via pytest-factoryboy
+    # via
+    #   -r requirements/base.txt
+    #   pytest-factoryboy
 iniconfig==1.1.1
     # via pytest
 ipdb==0.13.9

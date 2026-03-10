@@ -249,6 +249,8 @@ idna==3.7
     #   -r requirements/base.txt
     #   django-anymail
     #   requests
+inflection==0.5.1
+    # via -r requirements/base.txt
 ipdb==0.13.9
     # via -r requirements/base.txt
 ipython==8.10.0

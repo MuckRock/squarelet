@@ -36,6 +36,7 @@ drf-nested-routers
 furl
 fuzzywuzzy
 html2text
+inflection
 ipdb
 markdown
 memoize
