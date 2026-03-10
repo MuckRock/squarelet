@@ -198,11 +198,13 @@ class Detail(AdminLinkMixin, DetailView):
             "organizations.can_manage_members", self.organization
         )
         userid = request.POST.get("userid")
+        user_left = False
         if userid:
             if userid == str(request.user.id) and is_member:
                 # Users removing themselves
                 request.user.memberships.filter(organization=self.organization).delete()
                 messages.success(request, _("You left the organization"))
+                user_left = True
             elif can_manage:
                 # User with can_manage_members permission removing another user
                 user_model = get_user_model()
@@ -236,6 +238,13 @@ class Detail(AdminLinkMixin, DetailView):
             # User removing themselves (no userid provided)
             request.user.memberships.filter(organization=self.organization).delete()
             messages.success(request, _("You left the organization"))
+            user_left = True
+
+        # Redirect to profile if the user left a private org they can no
+        # longer view, otherwise redirect following default behavior
+        if user_left and self.organization.private:
+            return redirect(request.user)
+        return None
 
     def handle_sync_wix(self, request):
         if self.request.user.is_staff and self.organization.plan.wix:
@@ -256,7 +265,9 @@ class Detail(AdminLinkMixin, DetailView):
         if request.POST.get("action") == "join":
             self.handle_join(request)
         elif request.POST.get("action") == "leave":
-            self.handle_leave(request)
+            response = self.handle_leave(request)
+            if response:
+                return response
         elif request.POST.get("action") == "sync_wix":
             self.handle_sync_wix(request)
         return get_redirect_url(request, redirect(self.organization))
