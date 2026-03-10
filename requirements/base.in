@@ -3,7 +3,6 @@ argon2-cffi
 bcrypt
 bleach
 celery
-cryptography
 django-allauth[socialaccount,mfa]
 django-activity-stream
 django-autocomplete-light
