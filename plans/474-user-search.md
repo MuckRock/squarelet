@@ -19,15 +19,11 @@ Enable org admins to search existing users when inviting members. Requires:
 **File:** `squarelet/organizations/models/organization.py`
 
 Done. Added `hidden` BooleanField (default `True`) at line 204.
-Migration: `squarelet/organizations/migrations/0059_add_hidden.py`.
-
-**TODO (data migration):** Still need a data migration to:
-
-- Set all non-individual orgs: `hidden=False`, `private` unchanged.
-- Set individual orgs: `private=False` (making all existing users public by default).
-- Then apply hidden logic: set `hidden=False` for individual orgs whose user has
-  ≥1 verified email, OR has any charge, OR is a member of a `verified_journalist` org.
-- Individual orgs that meet none of those conditions remain `hidden=True`.
+Schema migration: `squarelet/organizations/migrations/0059_add_hidden.py`.
+Data migration: `squarelet/organizations/migrations/0060_populate_hidden.py` — sets
+non-individual orgs to `hidden=False`, individual orgs to `private=False`, then
+un-hides individuals with verified primary email, any charge, or membership in a
+`verified_journalist` org. Fully reversible.
 
 ### 1b. Signal to un-hide users when conditions are met ✅
 
