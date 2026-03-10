@@ -382,6 +382,15 @@ class UserUpdateForm(forms.ModelForm):
     for the user profile edit view.
     """
 
+    private = forms.BooleanField(
+        label=_("Private"),
+        required=False,
+        help_text=_(
+            "While private, only organization peers will be able to "
+            "see you in lists and search results"
+        ),
+    )
+
     class Meta:
         model = User
         fields = ["name", "username", "avatar", "bio"]
@@ -420,6 +429,12 @@ class UserUpdateForm(forms.ModelForm):
     def __init__(self, *args, request=None, **kwargs):  # request optional for future
         self.request = request
         super().__init__(*args, **kwargs)
+
+        # Initialize private field from individual_organization
+        if self.instance and self.instance.pk:
+            self.fields["private"].initial = (
+                self.instance.individual_organization.private
+            )
 
         # Customize widgets / attributes
         self.fields["name"].required = True

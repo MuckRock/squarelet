@@ -151,6 +151,41 @@ class TestUserUpdateView(ViewTestMixin):
         # There should be no error, the username shouldn't change
         assert response.status_code == 302
 
+    def test_private_field_in_form(self, rf, user_factory):
+        """The privacy toggle should appear in the update form"""
+        user = user_factory()
+        response = self.call_view(rf, user, username=user.username)
+        assert "private" in response.context_data["form"].fields
+
+    def test_post_sets_private_true(self, rf, user_factory):
+        """Checking the private box should set individual_organization.private"""
+        user = user_factory()
+        assert not user.individual_organization.private  # default is False
+        data = {
+            "name": user.name,
+            "username": user.username,
+            "private": True,
+        }
+        response = self.call_view(rf, user, data=data, username=user.username)
+        assert response.status_code == 302
+        user.individual_organization.refresh_from_db()
+        assert user.individual_organization.private is True
+
+    def test_post_sets_private_false(self, rf, user_factory):
+        """Unchecked checkbox (absent from POST) should set private=False"""
+        user = user_factory()
+        user.individual_organization.private = True
+        user.individual_organization.save()
+        data = {
+            "name": user.name,
+            "username": user.username,
+            # "private" intentionally omitted — unchecked checkbox
+        }
+        response = self.call_view(rf, user, data=data, username=user.username)
+        assert response.status_code == 302
+        user.individual_organization.refresh_from_db()
+        assert user.individual_organization.private is False
+
 
 @pytest.mark.django_db()
 class TestLoginView(ViewTestMixin):
