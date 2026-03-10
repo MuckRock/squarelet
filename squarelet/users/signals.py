@@ -85,7 +85,9 @@ def email_changed(request, user, from_email_address, to_email_address, **kwargs)
     )
 
 
-def charge_created(sender, instance, created, **kwargs):  # pylint: disable=unused-argument
+def charge_created(
+    sender, instance, created, **kwargs
+):  # pylint: disable=unused-argument
     """Un-hide individual orgs when a charge is created"""
     if created and instance.organization.individual and instance.organization.hidden:
         instance.organization.hidden = False
