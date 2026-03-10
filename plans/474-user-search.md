@@ -51,7 +51,10 @@ The data migration will:
 Connect to:
 
 - `allauth` `email_confirmed` signal → mark `user.individual_organization.hidden = False`
-- `Charge` post-save signal → mark the org's owner as `hidden = False`
+  (The existing `email_confirmed` handler only sends cache invalidations; extend it.)
+- `Charge` post-save signal → `charge.organization` points to an `Organization`, not a
+  `User`. The handler must check `charge.organization.individual` is `True` before
+  setting `hidden = False` (non-individual orgs don't use this field).
 - Possibly `Membership` post-save on verified orgs → cascade
 
 ### 1c. Change individual org `private` default
@@ -110,11 +113,14 @@ want special styling or positioning.
 
 ## Part 3 — User Search API Endpoint
 
-### 3a. UserQuerySet — `get_searchable`
+### 3a. UserManager — `get_searchable`
 
-**File:** `squarelet/users/managers.py` (or a new `squarelet/users/querysets.py`)
+**File:** `squarelet/users/managers.py`
 
-Add a `get_searchable(requesting_user)` method to the `User` queryset:
+Add a `get_searchable(requesting_user)` method to `UserManager`. Note: `UserManager`
+extends `AuthUserManager` — it is a **Manager**, not a **QuerySet**, so this method
+won't be chainable from other querysets. That's fine for our use case (called only
+from the viewset's `get_queryset`).
 
 ```python
 def get_searchable(self, user):
@@ -204,7 +210,7 @@ Displays a single user in the dropdown list. Modelled after `TeamListItem.svelte
 </div>
 ```
 
-Add `User` type to `frontend/types.ts` (or wherever org/team types live):
+Add `User` type to `frontend/types.d.ts` (where `Organization` is already defined):
 
 ```typescript
 export interface User {
@@ -225,11 +231,17 @@ export interface User {
 A multi-select widget that:
 
 - Fetches users via `/fe_api/users/?search=[query]`
-- Detects email-like input and injects a synthetic "invite by email" option
+- Supports `creatable` mode so email-like input generates a synthetic "invite by email" option
 - Shows selections as chips (user chip vs email chip styled differently)
 - Emits a list of `{ type: "user", id: number } | { type: "email", email: string }`
 
 Rough structure (Svelte 5, Svelecte):
+
+**Note:** Svelecte's `fetchCallback` receives only `(response)` — the query string
+is **not** passed (see `OrgSearch.svelte` for the existing pattern). Email detection
+cannot happen inside `fetchCallback`. Instead, use Svelecte's `creatable` prop to
+allow free-text entry, and validate/tag email entries via `createFilter` and
+`createTransform`.
 
 ```svelte
 <script lang="ts">
@@ -240,24 +252,42 @@ Rough structure (Svelte 5, Svelecte):
 
   type Selection =
     | { type: "user"; id: number; username: string; name: string; avatar_url: string }
-    | { type: "email"; email: string };
+    | { type: "email"; email: string; name: string; id: string };
+
+  interface Props {
+    onChange?: (selections: Selection[]) => void;
+  }
+
+  let { onChange }: Props = $props();
 
   let selections: Selection[] = $state([]);
   const fetchProps: RequestInit = { credentials: "include" };
 
-  function fetchCallback(resp: { results: User[] }, query: string): (User | { type: "email"; email: string })[] {
-    const users = resp.results;
-    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(query);
-    const alreadyHasEmail = users.some((u: any) => u.email === query);
-    if (isEmail && !alreadyHasEmail) {
-      return [...users, { type: "email", email: query, name: query, id: `email:${query}` }];
-    }
-    return users;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  function fetchCallback(resp: { count: number; results: User[] }): User[] {
+    return resp.results;
+  }
+
+  /** Only allow creating items that look like email addresses */
+  function createFilter(query: string): boolean {
+    return emailRegex.test(query);
+  }
+
+  /** Transform a created item (email string) into a Selection */
+  function createTransform(query: string): Selection {
+    return { type: "email", email: query, name: query, id: `email:${query}` };
+  }
+
+  function handleChange(next: Selection[]) {
+    selections = next;
+    onChange?.(next);
   }
 </script>
 
 <Svelecte
   multiple
+  creatable
   name="invitees"
   placeholder="Search users or enter an email…"
   bind:value={selections}
@@ -266,9 +296,14 @@ Rough structure (Svelte 5, Svelecte):
   fetch="/fe_api/users/?search=[query]"
   {fetchCallback}
   {fetchProps}
+  {createFilter}
+  {createTransform}
+  fetchResetOnBlur={false}
+  resetOnBlur={false}
   lazyDropdown={false}
+  {handleChange}
 >
-  {#snippet option(item)}
+  {#snippet option(item: Selection)}
     {#if item.type === "email"}
       <div class="email-option">Invite <strong>{item.email}</strong> by email</div>
     {:else}
@@ -276,7 +311,7 @@ Rough structure (Svelte 5, Svelecte):
     {/if}
   {/snippet}
 
-  {#snippet selection(selectedOptions, bindItem)}
+  {#snippet selection(selectedOptions: Selection[], bindItem)}
     {#each selectedOptions as sel (sel.id ?? sel.email)}
       <div class="chip {sel.type}">
         {sel.type === "email" ? sel.email : (sel.name || sel.username)}
@@ -322,8 +357,14 @@ import UserSelect from "@/components/UserSelect.svelte";
 import { showAlert } from "../alerts";
 
 type Selection =
-  | { type: "user"; id: number; email: string }
-  | { type: "email"; email: string };
+  | {
+      type: "user";
+      id: number;
+      username: string;
+      name: string;
+      avatar_url: string;
+    }
+  | { type: "email"; email: string; name: string; id: string };
 
 function main() {
   const el = document.getElementById("user-select");
@@ -360,23 +401,29 @@ function main() {
         ?.value ?? "";
 
     const results = await Promise.allSettled(
-      selections.map((sel) =>
-        fetch("/fe_api/invitations/", {
+      selections.map((sel) => {
+        // For user selections, POST the user ID (no email available from search).
+        // For email selections, POST the email string.
+        const body: Record<string, unknown> = {
+          organization: orgId,
+          role: parseInt(role),
+          request: false,
+        };
+        if (sel.type === "user") {
+          body.user = sel.id;
+        } else {
+          body.email = sel.email;
+        }
+        return fetch("/fe_api/invitations/", {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json", "X-CSRFToken": csrf },
-          body: JSON.stringify({
-            organization: orgId,
-            email: sel.email,
-            user: sel.type === "user" ? sel.id : null,
-            role: parseInt(role),
-            request: false,
-          }),
+          body: JSON.stringify(body),
         }).then((r) => {
           if (!r.ok) throw r;
           return r;
-        }),
-      ),
+        });
+      }),
     );
 
     const sent = results.filter((r) => r.status === "fulfilled").length;
@@ -401,7 +448,9 @@ function main() {
 
 **File:** `squarelet/organizations/fe_api/viewsets.py`
 
-`perform_create` currently saves but never sends the invitation email. Fix this:
+The viewset currently has **no** `perform_create` override — it uses the default
+`CreateModelMixin.perform_create`, which calls `serializer.save()` but does not
+send the invitation email. Add an override:
 
 ```python
 def perform_create(self, serializer):
@@ -409,9 +458,17 @@ def perform_create(self, serializer):
     invitation.send()
 ```
 
+**Note:** Verify that `Invitation.save()` and `InvitationSerializer.create()` do
+not already call `send()` to avoid double-sending.
+
 The org's integer `pk` is passed via `data-org-id` on the form element (see 6a).
 The `InvitationSerializer` already accepts `organization` as a pk field — no
 serializer changes needed.
+
+Because user-type selections only send a `user` ID (no email), the
+`InvitationSerializer` or `perform_create` may need to look up the user's email
+from their ID in order to send the invitation. Check whether the `Invitation`
+model requires an email or can work with just a user FK.
 
 ### 6d. Django POST fallback
 
@@ -462,7 +519,7 @@ Not in scope for this plan (no existing frontend tests in the codebase).
 | `frontend/components/UserListItem.svelte`                           | New component                                               |
 | `frontend/components/UserSelect.svelte`                             | New component                                               |
 | `frontend/views/organization_managemembers.ts`                      | Mount `UserSelect`, intercept submit, POST to REST API      |
-| `frontend/types.ts`                                                 | Add `User` interface                                        |
+| `frontend/types.d.ts`                                               | Add `User` interface                                        |
 
 ---
 
