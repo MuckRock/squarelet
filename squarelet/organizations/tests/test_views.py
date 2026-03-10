@@ -22,6 +22,7 @@ from squarelet.core.tests.mixins import ViewTestMixin
 
 # Local
 from .. import views
+from ..choices import InvitationRole
 from ..models import Organization, OrganizationEmailDomain, Plan, ReceiptEmail
 
 # pylint: disable=too-many-public-methods, too-many-lines
@@ -1315,6 +1316,43 @@ class TestManageMembers(ViewTestMixin):  # pylint: disable=too-many-public-metho
         assert action.target == organization
         assert action.public is False
 
+    def test_add_member_as_admin_role(self, rf, organization_factory, user_factory):
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        email = "admin@example.com"
+        data = {
+            "action": "addmember",
+            "emails": email,
+            "role": str(InvitationRole.admin),
+        }
+        self.call_view(rf, user, data, slug=organization.slug)
+        invitation = organization.invitations.get(email=email)
+        assert invitation.role == InvitationRole.admin
+        self.assert_message(messages.SUCCESS, "1 invitation sent")
+
+    def test_add_member_defaults_to_member_role(
+        self, rf, organization_factory, user_factory
+    ):
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        email = "member@example.com"
+        data = {"action": "addmember", "emails": email}
+        self.call_view(rf, user, data, slug=organization.slug)
+        invitation = organization.invitations.get(email=email)
+        assert invitation.role == InvitationRole.member
+        self.assert_message(messages.SUCCESS, "1 invitation sent")
+
+    def test_add_member_link_defaults_to_member(
+        self, rf, organization_factory, user_factory
+    ):
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        data = {"action": "addmember_link"}
+        self.call_view(rf, user, data, slug=organization.slug)
+        invitation = organization.invitations.latest("created_at")
+        assert invitation.role == InvitationRole.member
+        assert invitation.email == ""
+
 
 @pytest.mark.django_db()
 class TestInvitationAccept(ViewTestMixin):
@@ -1584,3 +1622,169 @@ class TestManageDomains(ViewTestMixin):
         # Call the view with the user and ensure PermissionDenied is raised
         with pytest.raises(PermissionDenied):
             self.call_view(rf, user, data, slug=organization.slug)
+
+
+@pytest.mark.django_db()
+class TestOrgInvitationsView(ViewTestMixin):
+    """Test the Organization Invitations History view"""
+
+    view = views.OrgInvitationsView
+    url = "/organizations/{slug}/invitations/"
+
+    def test_get_admin(
+        self, rf, organization_factory, user_factory, invitation_factory
+    ):
+        """Admin can view org invitation history"""
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        invitation_factory.create_batch(3, organization=organization, request=False)
+        response = self.call_view(rf, user, slug=organization.slug)
+        assert response.status_code == 200
+        assert len(response.context_data["invitations"]) == 3
+        assert response.context_data["organization"] == organization
+
+    def test_get_filters_request_false(
+        self, rf, organization_factory, user_factory, invitation_factory
+    ):
+        """View only shows invitations (request=False), not requests"""
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        invitation_factory.create_batch(2, organization=organization, request=False)
+        invitation_factory.create_batch(3, organization=organization, request=True)
+        response = self.call_view(rf, user, slug=organization.slug)
+        assert len(response.context_data["invitations"]) == 2
+
+    def test_get_shows_all_statuses(
+        self, rf, organization_factory, user_factory, invitation_factory
+    ):
+        """View shows pending, accepted, and rejected invitations"""
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        invitation_factory(organization=organization, request=False)
+        invitation_factory(
+            organization=organization, request=False, accepted_at=timezone.now()
+        )
+        invitation_factory(
+            organization=organization, request=False, rejected_at=timezone.now()
+        )
+        invitation_factory(
+            organization=organization, request=False, withdrawn_at=timezone.now()
+        )
+        response = self.call_view(rf, user, slug=organization.slug)
+        assert len(response.context_data["invitations"]) == 4
+
+    def test_get_non_admin_denied(self, rf, organization_factory, user_factory):
+        """Non-admin members cannot access"""
+        user = user_factory()
+        organization = organization_factory(users=[user])
+        with pytest.raises(PermissionDenied):
+            self.call_view(rf, user, slug=organization.slug)
+
+    def test_get_staff_without_perm_denied(
+        self, rf, organization_factory, user_factory
+    ):
+        """Staff without DB-assigned permission cannot access"""
+        staff = user_factory(is_staff=True)
+        organization = organization_factory()
+        with pytest.raises(PermissionDenied):
+            self.call_view(rf, staff, slug=organization.slug)
+
+    def test_get_staff_with_db_perm(
+        self, rf, organization_factory, user_factory, invitation_factory
+    ):
+        """Staff with DB-assigned can_manage_members can view invitation history"""
+        staff = _assign_org_perm(user_factory(is_staff=True), "can_manage_members")
+        organization = organization_factory()
+        invitation_factory.create_batch(2, organization=organization, request=False)
+        response = self.call_view(rf, staff, slug=organization.slug)
+        assert response.status_code == 200
+        assert len(response.context_data["invitations"]) == 2
+
+    def test_get_anonymous_redirect(self, rf, organization_factory):
+        """Anonymous user gets redirected to login"""
+        organization = organization_factory()
+        response = self.call_view(rf, slug=organization.slug)
+        assert response.status_code == 302
+
+
+@pytest.mark.django_db()
+class TestOrgRequestsView(ViewTestMixin):
+    """Test the Organization Requests History view"""
+
+    view = views.OrgRequestsView
+    url = "/organizations/{slug}/requests/"
+
+    def test_get_admin(
+        self, rf, organization_factory, user_factory, invitation_factory
+    ):
+        """Admin can view org request history"""
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        invitation_factory.create_batch(3, organization=organization, request=True)
+        response = self.call_view(rf, user, slug=organization.slug)
+        assert response.status_code == 200
+        assert len(response.context_data["requests"]) == 3
+        assert response.context_data["organization"] == organization
+
+    def test_get_filters_request_true(
+        self, rf, organization_factory, user_factory, invitation_factory
+    ):
+        """View only shows requests (request=True), not invitations"""
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        invitation_factory.create_batch(2, organization=organization, request=True)
+        invitation_factory.create_batch(3, organization=organization, request=False)
+        response = self.call_view(rf, user, slug=organization.slug)
+        assert len(response.context_data["requests"]) == 2
+
+    def test_get_shows_all_statuses(
+        self, rf, organization_factory, user_factory, invitation_factory
+    ):
+        """View shows pending, accepted, and rejected requests"""
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        invitation_factory(organization=organization, request=True)
+        invitation_factory(
+            organization=organization, request=True, accepted_at=timezone.now()
+        )
+        invitation_factory(
+            organization=organization, request=True, rejected_at=timezone.now()
+        )
+        invitation_factory(
+            organization=organization, request=True, withdrawn_at=timezone.now()
+        )
+        response = self.call_view(rf, user, slug=organization.slug)
+        assert len(response.context_data["requests"]) == 4
+
+    def test_get_non_admin_denied(self, rf, organization_factory, user_factory):
+        """Non-admin members cannot access"""
+        user = user_factory()
+        organization = organization_factory(users=[user])
+        with pytest.raises(PermissionDenied):
+            self.call_view(rf, user, slug=organization.slug)
+
+    def test_get_staff_without_perm_denied(
+        self, rf, organization_factory, user_factory
+    ):
+        """Staff without DB-assigned permission cannot access"""
+        staff = user_factory(is_staff=True)
+        organization = organization_factory()
+        with pytest.raises(PermissionDenied):
+            self.call_view(rf, staff, slug=organization.slug)
+
+    def test_get_staff_with_db_perm(
+        self, rf, organization_factory, user_factory, invitation_factory
+    ):
+        """Staff with DB-assigned can_manage_members can view request history"""
+        staff = _assign_org_perm(user_factory(is_staff=True), "can_manage_members")
+        organization = organization_factory()
+        invitation_factory.create_batch(2, organization=organization, request=True)
+        response = self.call_view(rf, staff, slug=organization.slug)
+        assert response.status_code == 200
+        assert len(response.context_data["requests"]) == 2
+
+    def test_get_anonymous_redirect(self, rf, organization_factory):
+        """Anonymous user gets redirected to login"""
+        organization = organization_factory()
+        response = self.call_view(rf, slug=organization.slug)
+        assert response.status_code == 302

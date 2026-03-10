@@ -337,12 +337,19 @@ class ResetPasswordKeyForm(mfa.BaseAuthenticateForm, allauth.ResetPasswordKeyFor
     """Customize the reset password key form layout"""
 
     def __init__(self, *args, **kwargs):
-        # save user here as it can be overridden in the parent class
-        user = kwargs["user"]
-        mfa_enabled = user.has_mfa_enabled
+        # Save user (may be None if link is invalid/expired)
+        user = kwargs.get("user")
+
         super().__init__(*args, **kwargs)
-        # restore user here
+
+        # If user is None, this is an invalid/expired link.
+        # Let allauth handle rendering its invalid key page.
+        if user is None:
+            return
+
+        # Restore user (parent may override it)
         self.user = user
+        mfa_enabled = user.has_mfa_enabled
 
         # remove the code field if 2FA is not enabled
         if not mfa_enabled:

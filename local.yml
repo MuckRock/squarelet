@@ -73,9 +73,7 @@ services:
       - "/app/node_modules" # prevent overwrite
     networks:
       default:
-        aliases:
-          - internal.dev.squarelet.com
-          - internal.dev.presspass.com
+        aliases: []
 
   squarelet_postgres:
     build:

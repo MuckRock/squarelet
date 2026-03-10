@@ -84,6 +84,13 @@
           </div>
           <p class="help">{% trans "To invite multiple users, separate email addresses with spaces or commas" %}</p>
         </label>
+        <div class="role field">
+          <label class="field-label sr-only" for="id_role">{% trans "Role" %}</label>
+          <select name="role" id="id_role">
+            <option value="0" selected>{% trans "Member" %}</option>
+            <option value="1">{% trans "Admin" %}</option>
+          </select>
+        </div>
         <button type="submit" name="action" value="addmember" class="btn primary">
           {% include "core/icons/paper-airplane.svg" %}
           {% trans "Send invites" %}
@@ -92,14 +99,25 @@
     </div>
   </section>
 
-  {% if requested_invitations %}
   {% with count=requested_invitations|length %}
   <section id="requests">
     <header>
-      <h2>
-        {{ count }} pending request{{ count|pluralize }}
-      </h2>
-      <p>{% trans "Users who've asked to join" %}:</p>
+      <div class="title">
+        {% if requested_invitations %}
+        <h2>
+          {{ count }} pending request{{ count|pluralize }}
+        </h2>
+        {% else %}
+        <h2>
+          Pending requests
+        </h2>
+        {% endif %}
+        <p>{% trans "Users who've asked to join" %}:</p>
+      </div>
+      <a href="{% url "organizations:org-requests" slug=organization.slug %}" class="btn small ghost primary">
+        {% include "core/icons/history.svg" %}
+        {% trans "View request history" %}
+      </a>
     </header>
     <div class="card">
       {% for invitation in requested_invitations %}
@@ -125,20 +143,34 @@
           <p class="caption">Recieved <time datetime="{{ invitation.created_at|date:"c" }}" title="{{ invitation.created_at|date:"c" }}">{{ invitation.created_at|naturaltime }}</time></p>
         </form>
       </div>
+      {% empty %}
+      <div class="empty">
+        <h3>No pending requests</h3>
+      </div>
       {% endfor %}
     </div>
   </section>
   {% endwith %}
-  {% endif %}
 
-  {% if pending_invitations %}
   {% with count=pending_invitations|length %}
   <section id="pending">
     <header>
-      <h2>
-        {{ count }} pending invitation{{ count|pluralize }}
-      </h2>
-      <p>{% trans "Users you've invited to join" %}:</p>
+      <div class="title">
+        {% if pending_invitations %}
+        <h2>
+          {{ count }} pending invitation{{ count|pluralize }}
+        </h2>
+        {% else %}
+        <h2>
+          Pending invitations
+        </h2>
+        {% endif %}
+        <p>{% trans "Users you've invited to join" %}:</p>
+      </div>
+      <a href="{% url "organizations:org-invitations" slug=organization.slug %}" class="btn small ghost primary">
+        {% include "core/icons/history.svg" %}
+        {% trans "View invitation history" %}
+      </a>
     </header>
     <div class="card">
       {% for invitation in pending_invitations %}
@@ -148,78 +180,84 @@
         {% else %}
           {% include "organizations/invitation_list_item.html" with invitation=invitation %}
         {% endif %}
-        <div class="actions">
-          <form class="buttons" method="POST" action="{% url "organizations:manage-members" slug=organization.slug %}">
+          <div class="actions">
+            <form class="buttons" method="POST" action="{% url "organizations:manage-members" slug=organization.slug %}">
+              {% csrf_token %}
+              <input type="hidden" name="inviteid" value="{{ invitation.id }}">
+              {% if invitation.email %}
+              <button type="submit" class="btn small ghost" name="action" value="resendinvite">
+                {% include "core/icons/paper-airplane.svg" %}
+                {% trans "Resend" %}
+              </button>
+              {% else %}
+              <button 
+                class="btn ghost small" 
+                data-clipboard
+                value="{{ settings.SQUARELET_URL }}{% url "organizations:invitation" invitation.uuid %}">
+                {% include "core/icons/copy.svg" %}
+                {% trans "Copy link" %}
+              </button>
+              {% endif %}
+              <button type="submit" class="btn small ghost danger" name="action" value="revokeinvite">
+                {% include "core/icons/x.svg" %}
+                {% trans "Withdraw" %}
+              </button>
+            </form>
+            <p class="caption">Created <time datetime="{{ invitation.created_at|date:"c" }}" title="{{ invitation.created_at|date:"c" }}">{{ invitation.created_at|naturaltime }}</time></p>
+          </div>
+        </div>
+      {% empty %}
+        <div class="empty">
+          <h3>No pending invitations</h3>
+        </div>
+      {% endfor %}
+      </div>
+    </section>
+    {% endwith %}
+
+    {% with count=members|length %}
+    <section id="members">
+      <header>
+        <h2>{{ count }} member{{ count|pluralize }}</h2>
+      </header>
+      <div class="card">
+        {% for membership in members %}
+        <div class="membership">
+          {% include "organizations/user_list_item.html" with membership=membership user=membership.user %}
+          <form class="actions" method="POST" action="{% url "organizations:manage-members" slug=organization.slug %}">
             {% csrf_token %}
-            <input type="hidden" name="inviteid" value="{{ invitation.id }}">
-            {% if invitation.email %}
-            <button type="submit" class="btn small ghost" name="action" value="resendinvite">
-              {% include "core/icons/paper-airplane.svg" %}
-              {% trans "Resend" %}
+            <input type="hidden" name="userid" value="{{ membership.user.id }}">
+            {% if membership.admin %}
+            <input type="hidden" name="admin" value="false">
+            <button type="submit" name="action" value="makeadmin" class="btn small ghost">
+              {% include "core/icons/arrow-down.svg" %}
+              {% trans "Demote to member" %}
             </button>
             {% else %}
-            <button
-              class="btn ghost small"
-              data-clipboard
-              value="{{ settings.SQUARELET_URL }}{% url "organizations:invitation" invitation.uuid %}">
-              {% include "core/icons/copy.svg" %}
-              {% trans "Copy link" %}
+            <input type="hidden" name="admin" value="true">
+            <button type="submit" name="action" value="makeadmin" class="btn small ghost">
+              {% include "core/icons/arrow-up.svg" %}
+              {% trans "Promote to admin" %}
             </button>
             {% endif %}
-            <button type="submit" class="btn small ghost danger" name="action" value="revokeinvite">
-              {% include "core/icons/x.svg" %}
-              {% trans "Withdraw" %}
+            {% if membership.user == request.user %}
+            <button type="submit" name="action" value="removeuser" class="btn small ghost danger">
+              {% include "core/icons/sign-out.svg" %}
+              {% trans "Leave" %}
             </button>
+            {% else %}
+            <button type="submit" name="action" value="removeuser" class="btn small ghost danger">
+              {% include "core/icons/x-circle.svg" %}
+              {% trans "Remove" %}
+            </button>
+            {% endif %}
           </form>
-          <p class="caption">Created <time datetime="{{ invitation.created_at|date:"c" }}" title="{{ invitation.created_at|date:"c" }}">{{ invitation.created_at|naturaltime }}</time></p>
         </div>
+        {% endfor %}
       </div>
-      {% endfor %}
-    </div>
-  </section>
-  {% endwith %}
-  {% endif %}
+    </section>
+    {% endwith %}
 
-  {% with count=members|length %}
-  <section id="members">
-    <header>
-      <h2>{{ count }} member{{ count|pluralize }}</h2>
-    </header>
-    <div class="card">
-      {% for membership in members %}
-      <div class="membership">
-        {% include "organizations/user_list_item.html" with membership=membership user=membership.user %}
-        <form class="actions" method="POST" action="{% url "organizations:manage-members" slug=organization.slug %}">
-          {% csrf_token %}
-          <input type="hidden" name="userid" value="{{ membership.user.id }}">
-          {% if membership.admin %}
-          <input type="hidden" name="admin" value="false">
-          <button type="submit" name="action" value="makeadmin" class="btn small ghost">
-            {% include "core/icons/arrow-down.svg" %}
-            {% trans "Demote to member" %}
-          </button>
-          {% else %}
-          <input type="hidden" name="admin" value="true">
-          <button type="submit" name="action" value="makeadmin" class="btn small ghost">
-            {% include "core/icons/arrow-up.svg" %}
-            {% trans "Promote to admin" %}
-          </button>
-          {% endif %}
-          {% if membership.user == request.user %}
-          <button type="submit" name="action" value="removeuser" class="btn small ghost danger">
-            {% include "core/icons/sign-out.svg" %}
-            {% trans "Leave" %}
-          </button>
-          {% else %}
-          <button type="submit" name="action" value="removeuser" class="btn small ghost danger">
-            {% include "core/icons/x-circle.svg" %}
-            {% trans "Remove" %}
-          </button>
-          {% endif %}
-        </form>
-      </div>
-      {% endfor %}
-    </div>
-  </section>
-  {% endwith %}
+  </div>
+</article>
 {% endblock main %}

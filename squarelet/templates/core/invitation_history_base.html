@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load static i18n django_vite %}
+
+{% block title %}{% block history_title %}{% endblock %}{% endblock %}
+
+{% block vite %}
+{{ block.super }}
+{% block history_vite %}{% endblock %}
+{% endblock %}
+
+{% block content %}
+<article class="container invitation-history-page">
+  <header>
+    <nav class="links">
+      {% block back_link %}{% endblock %}
+    </nav>
+    <h1>{% block page_title %}{% endblock %}</h1>
+    <p class="help-text">{% block help_text %}{% endblock %}</p>
+  </header>
+
+  <div class="content">
+    {% block table_content %}
+    <div class="invitation-history-table-wrapper">
+      <table class="invitation-history-table">
+        <thead>
+          <tr>
+            {% block table_headers %}{% endblock %}
+          </tr>
+        </thead>
+        <tbody>
+          {% block table_rows %}{% endblock %}
+        </tbody>
+      </table>
+    </div>
+    {% endblock %}
+
+    {% if is_paginated %}
+    <nav class="pagination">
+      {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}" class="btn primary ghost">{% trans "Previous" %}</a>
+      {% else %}
+        <span class="btn primary ghost disabled">{% trans "Previous" %}</span>
+      {% endif %}
+      <span class="page-info">
+        {% trans "Page" %} {{ page_obj.number }} {% trans "of" %} {{ page_obj.paginator.num_pages }}
+      </span>
+      {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}" class="btn primary ghost">{% trans "Next" %}</a>
+      {% else %}
+        <span class="btn primary ghost disabled">{% trans "Next" %}</span>
+      {% endif %}
+    </nav>
+    {% endif %}
+  </div>
+</article>
+{% endblock content %}

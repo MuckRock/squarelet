@@ -1,0 +1,22 @@
+{% load i18n %}
+<td class="invitation-status {% if invitation.accepted_at %}accepted{% elif invitation.rejected_at %}declined{% elif invitation.withdrawn_at %}withdrawn{% else %}pending{% endif %}">
+  {% if invitation.accepted_at %}
+    <span class="status-label">{% trans "Accepted" %}</span>
+    <time title="{{invitation.accepted_at|date:"c"}}" datetime="{{invitation.accepted_at|date:"c"}}">
+      {{invitation.accepted_at|date:"F j, Y"}}
+    </time>
+  {% elif invitation.rejected_at %}
+    <span class="status-label">{% trans "Declined" %}</span>
+    <time title="{{invitation.rejected_at|date:"c"}}" datetime="{{invitation.rejected_at|date:"c"}}">
+      {{invitation.rejected_at|date:"F j, Y"}}
+    </time>
+  {% elif invitation.withdrawn_at %}
+    <span class="status-label">{% trans "Withdrawn" %}</span>
+    <time title="{{invitation.withdrawn_at|date:"c"}}" datetime="{{invitation.withdrawn_at|date:"c"}}">
+      {{invitation.withdrawn_at|date:"F j, Y"}}
+    </time>
+  {% else %}
+    <span class="status-label">{% trans "Pending" %}</span>
+    <span>&mdash;</span>
+  {% endif %}
+</td>

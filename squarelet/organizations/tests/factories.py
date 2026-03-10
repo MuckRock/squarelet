@@ -10,7 +10,7 @@ import factory
 from autoslug.utils import slugify
 
 # Squarelet
-from squarelet.organizations.choices import RelationshipType
+from squarelet.organizations.choices import InvitationRole, RelationshipType
 
 
 class OrganizationFactory(factory.django.DjangoModelFactory):
@@ -140,6 +140,8 @@ class InvitationFactory(factory.django.DjangoModelFactory):
 
     class Meta:
         model = "organizations.Invitation"
+
+    role = InvitationRole.member
 
 
 class InvitationRequestFactory(factory.django.DjangoModelFactory):

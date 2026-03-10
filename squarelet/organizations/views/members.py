@@ -5,10 +5,11 @@ from django.http.response import HttpResponseBadRequest
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.html import format_html
-from django.views.generic import DetailView
+from django.views.generic import DetailView, ListView
 
 # Squarelet
 from squarelet.core.utils import get_redirect_url, new_action, pluralize
+from squarelet.organizations.choices import InvitationRole
 from squarelet.organizations.forms import AddMemberForm
 from squarelet.organizations.mixins import OrganizationPermissionMixin
 from squarelet.organizations.models import Invitation, Membership, Organization
@@ -46,6 +47,11 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
             )
         else:
             emails = addmember_form.cleaned_data["emails"]
+            role = addmember_form.cleaned_data.get("role")
+            if not role:
+                role = InvitationRole.member
+            else:
+                role = int(role)
             invitations_sent = 0
             invited_emails = []
             for email in emails:
@@ -67,6 +73,7 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
                 invitation = Invitation.objects.create(
                     organization=self.organization,
                     email=email,
+                    role=role,
                 )
                 invitation.send()
                 invitations_sent += 1
@@ -102,6 +109,7 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
         # Create an invitation and display it to the admin
         invitation = Invitation.objects.create(
             organization=self.organization,
+            role=InvitationRole.member,
         )
         url = reverse("organizations:invitation", args=(invitation.uuid,))
         messages.success(
@@ -310,3 +318,46 @@ class InvitationAccept(DetailView):
         else:
             messages.error(request, "Invalid choice")
             return get_redirect_url(request, redirect(request.user))
+
+
+class BaseOrgInvitationRequestView(OrganizationPermissionMixin, ListView):
+    """Base view for displaying invitation and request history for an organization"""
+
+    permission_required = "organizations.can_manage_members"
+    model = Invitation
+    paginate_by = 20
+    is_request_view = None
+
+    def get_object(self):
+        if not hasattr(self, "_organization"):
+            self._organization = Organization.objects.filter(individual=False).get(
+                slug=self.kwargs["slug"]
+            )
+        return self._organization
+
+    def get_queryset(self):
+        org = self.get_object()
+        if self.is_request_view:
+            return Invitation.objects.get_org_requests(org)
+        return Invitation.objects.get_org_invitations(org)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["organization"] = self.get_object()
+        return context
+
+
+class OrgInvitationsView(BaseOrgInvitationRequestView):
+    """View to display all invitations sent by an organization"""
+
+    template_name = "organizations/organization_invitations.html"
+    context_object_name = "invitations"
+    is_request_view = False
+
+
+class OrgRequestsView(BaseOrgInvitationRequestView):
+    """View to display all requests received by an organization"""
+
+    template_name = "organizations/organization_requests.html"
+    context_object_name = "requests"
+    is_request_view = True
