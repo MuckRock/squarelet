@@ -112,8 +112,8 @@ class Detail(AdminLinkMixin, DetailView):
             user.has_perm("organizations.change_organization", org)
         ) and not org.verified_journalist
 
-        # Security settings context (read-only for now)
-        if user.has_perm("organizations.change_organization", org):
+        # Security settings context
+        if user.has_perm("organizations.can_manage_domains", org):
             context["security_settings"] = {
                 "allow_auto_join": org.allow_auto_join,
                 "has_email_domains": org.domains.exists(),
@@ -237,6 +237,28 @@ class Detail(AdminLinkMixin, DetailView):
             request.user.memberships.filter(organization=self.organization).delete()
             messages.success(request, _("You left the organization"))
 
+    def handle_enable_autojoin(self, request):
+        if not request.user.has_perm(
+            "organizations.can_manage_domains", self.organization
+        ):
+            messages.error(request, _("You do not have permission to manage auto-join"))
+            return None
+        self.organization.allow_auto_join = True
+        self.organization.save()
+        messages.success(request, _("Auto-join has been enabled"))
+        return redirect("organizations:manage-domains", slug=self.organization.slug)
+
+    def handle_disable_autojoin(self, request):
+        if not request.user.has_perm(
+            "organizations.can_manage_domains", self.organization
+        ):
+            messages.error(request, _("You do not have permission to manage auto-join"))
+            return None
+        self.organization.allow_auto_join = False
+        self.organization.save()
+        messages.success(request, _("Auto-join has been disabled"))
+        return None
+
     def handle_sync_wix(self, request):
         if self.request.user.is_staff and self.organization.plan.wix:
             for wix_user in self.organization.users.all():
@@ -253,12 +275,19 @@ class Detail(AdminLinkMixin, DetailView):
 
         if not self.request.user.is_authenticated:
             return redirect(self.organization)
-        if request.POST.get("action") == "join":
+        action = request.POST.get("action")
+        if action == "join":
             self.handle_join(request)
-        elif request.POST.get("action") == "leave":
+        elif action == "leave":
             self.handle_leave(request)
-        elif request.POST.get("action") == "sync_wix":
+        elif action == "sync_wix":
             self.handle_sync_wix(request)
+        elif action == "enable_autojoin":
+            result = self.handle_enable_autojoin(request)
+            if result:
+                return result
+        elif action == "disable_autojoin":
+            self.handle_disable_autojoin(request)
         return get_redirect_url(request, redirect(self.organization))
 
 

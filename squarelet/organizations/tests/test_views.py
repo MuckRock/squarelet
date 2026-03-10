@@ -16,6 +16,7 @@ from unittest.mock import MagicMock
 import pytest
 import stripe
 from actstream.models import Action
+from allauth.account.models import EmailAddress
 
 # Squarelet
 from squarelet.core.tests.mixins import ViewTestMixin
@@ -224,9 +225,9 @@ class TestDetail(ViewTestMixin):
     def test_security_settings_context_for_staff_with_perm(
         self, rf, organization_factory, user_factory
     ):
-        """Test that staff with change_organization perm see security settings"""
+        """Test that staff with can_manage_domains perm see security settings"""
         staff_user = user_factory(is_staff=True)
-        staff_user = _assign_org_perm(staff_user, "change_organization")
+        staff_user = _assign_org_perm(staff_user, "can_manage_domains")
         organization = organization_factory(allow_auto_join=False)
         response = self.call_view(rf, staff_user, slug=organization.slug)
         assert response.status_code == 200
@@ -236,7 +237,7 @@ class TestDetail(ViewTestMixin):
     def test_security_settings_context_for_staff_without_perm(
         self, rf, organization_factory, user_factory
     ):
-        """Staff without change_organization don't see security settings"""
+        """Staff without can_manage_domains don't see security settings"""
         staff_user = user_factory(is_staff=True)
         organization = organization_factory(allow_auto_join=False)
         response = self.call_view(rf, staff_user, slug=organization.slug)
@@ -1544,6 +1545,10 @@ class TestManageDomains(ViewTestMixin):
         user = user_factory()
         organization = organization_factory(admins=[user], verified_journalist=True)
         domain = "newdomain.com"
+        # User must have a verified email matching the domain
+        EmailAddress.objects.create(
+            user=user, email=f"admin@{domain}", verified=True, primary=False
+        )
         data = {"action": "adddomain", "domain": domain}
         self.call_view(rf, user, data, slug=organization.slug)
         assert OrganizationEmailDomain.objects.filter(
@@ -1553,33 +1558,50 @@ class TestManageDomains(ViewTestMixin):
             messages.SUCCESS, f"The domain {domain} was added successfully."
         )
 
-    def test_add_domain_invalid_format(self, rf, organization_factory, user_factory):
+    def test_add_domain_not_in_verified_emails(
+        self, rf, organization_factory, user_factory
+    ):
+        """Domain not matching any verified email is rejected"""
         user = user_factory()
         organization = organization_factory(admins=[user], verified_journalist=True)
-        domain = "invalid_domain"
+        domain = "unknown.com"
         data = {"action": "adddomain", "domain": domain}
         self.call_view(rf, user, data, slug=organization.slug)
         self.assert_message(
-            messages.ERROR, "Invalid domain format. Please enter a valid domain."
+            messages.ERROR,
+            "Invalid domain. Please select a domain from your verified emails.",
         )
 
     def test_add_domain_blacklisted(self, rf, organization_factory, user_factory):
         user = user_factory()
         organization = organization_factory(admins=[user], verified_journalist=True)
         domain = "gmail.com"
+        # Even with a verified email, denylist blocks it
+        EmailAddress.objects.create(
+            user=user, email=f"user@{domain}", verified=True, primary=False
+        )
         data = {"action": "adddomain", "domain": domain}
         self.call_view(rf, user, data, slug=organization.slug)
-        self.assert_message(messages.ERROR, f"The domain {domain} is not allowed.")
+        self.assert_message(
+            messages.ERROR,
+            "Invalid domain. Please select a domain from your verified emails.",
+        )
 
     def test_add_domain_duplicate(self, rf, organization_factory, user_factory):
         user = user_factory()
         organization = organization_factory(admins=[user], verified_journalist=True)
         domain = "existingdomain.com"
+        EmailAddress.objects.create(
+            user=user, email=f"admin@{domain}", verified=True, primary=False
+        )
         # Adding the domain once
         OrganizationEmailDomain.objects.create(organization=organization, domain=domain)
         data = {"action": "adddomain", "domain": domain}
         self.call_view(rf, user, data, slug=organization.slug)
-        self.assert_message(messages.ERROR, f"The domain {domain} is already added.")
+        self.assert_message(
+            messages.ERROR,
+            "Invalid domain. Please select a domain from your verified emails.",
+        )
 
     def test_remove_domain(self, rf, organization_factory, user_factory):
         user = user_factory()
@@ -1599,9 +1621,12 @@ class TestManageDomains(ViewTestMixin):
     def test_bad_action(self, rf, organization_factory, user_factory):
         user = user_factory()
         organization = organization_factory(admins=[user], verified_journalist=True)
-        data = {"action": "fakeaction"}
+        data = {"action": "fakeaction", "domain": "example.com"}
         self.call_view(rf, user, data, slug=organization.slug)
-        self.assert_message(messages.ERROR, "An unexpected error occurred.")
+        self.assert_message(
+            messages.ERROR,
+            "Select a valid choice. fakeaction is not one of the available choices.",
+        )
 
     def test_add_domain_non_admin(self, rf, organization_factory, user_factory):
         # Create a regular user and a non-admin organization
@@ -1614,14 +1639,18 @@ class TestManageDomains(ViewTestMixin):
             self.call_view(rf, user, data, slug=organization.slug)
 
     def test_add_domain_non_verified_org(self, rf, organization_factory, user_factory):
-        # Create a user and a non-verified organization
+        """Admins of non-verified orgs can still access manage-domains"""
         user = user_factory()
         organization = organization_factory(admins=[user], verified_journalist=False)
-        data = {"action": "adddomain", "domain": "example.com"}
-
-        # Call the view with the user and ensure PermissionDenied is raised
-        with pytest.raises(PermissionDenied):
-            self.call_view(rf, user, data, slug=organization.slug)
+        domain = "example.com"
+        EmailAddress.objects.create(
+            user=user, email=f"admin@{domain}", verified=True, primary=False
+        )
+        data = {"action": "adddomain", "domain": domain}
+        self.call_view(rf, user, data, slug=organization.slug)
+        assert OrganizationEmailDomain.objects.filter(
+            organization=organization, domain=domain
+        ).exists()
 
 
 @pytest.mark.django_db()

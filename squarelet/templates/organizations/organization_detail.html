@@ -75,10 +75,7 @@
         {% trans "Verification" %}
       </a>
     </li>
-    {% comment %}
-    # We're hiding this section for now, until we
-    # add more features for controlling org security.
-    {% if user.is_staff or is_admin or is_member %}
+    {% if security_settings %}
     <li>
       <a href="#security" class="nav-item">
         {% include "core/icons/shield-lock.svg" %}
@@ -86,7 +83,6 @@
       </a>
     </li>
     {% endif %}
-    {% endcomment %}
   </ul>
 {% endblock sidebar %}
 
@@ -386,56 +382,57 @@
       </main>
     </section>
 
-    {% comment %}
-    # This section is not yet ready, since the features aren't supported yet.
-    # We're keeping this ready for when we need it.
-    {% if user.is_staff or is_admin or is_member %}
+    {% if security_settings %}
     <section id="security">
       <header>
         <h2>{% trans "Security Settings" %}</h2>
-        <a target="_blank" rel="noopener noreferrer" class="btn primary ghost" href="https://help.muckrock.com">
-          {% include "core/icons/book.svg" %}
-          {% trans "Security best practices" %}
-        </a>
       </header>
       <main class="security">
+        {% comment %}
         <div class="security-setting">
           <h3>{% trans "Join requests" %}</h3>
           <span class="badge green">{% trans "Enabled" %}</span>
         </div>
         <p class="help-text">{% trans "Users can request to join this organization" %}</p>
+        {% endcomment %}
 
         <div class="security-setting">
-          <h3>{% trans "Auto-join via verified email" %}</h3>
-          {% if security_settings.allow_auto_join %}
-            <span class="badge green">{% trans "Enabled" %}</span>
-          {% else %}
-            <span class="badge">{% trans "Disabled" %}</span>
-          {% endif %}
-        </div>
-        {% if security_settings.has_email_domains %}
-          <p class="help-text">
-            <a href="{% url 'organizations:manage-domains' organization.slug %}">{% trans "Manage email domains" %}</a>
-          </p>
-        {% else %}
-          <p class="help-text">
-            {% if organization.verified_journalist %}
-              <a href="{% url 'organizations:manage-domains' organization.slug %}">{% trans "Add email domains to allow auto-join" %}</a>
+          <div class="security-description">
+            <h3>{% trans "Auto-join via verified email" %}</h3>
+            {% if security_settings.allow_auto_join %}
+              <span class="badge green">{% trans "Enabled" %}</span>
             {% else %}
-              {% trans "Verify your organization to manage email domains" %}
+              <span class="badge">{% trans "Disabled" %}</span>
             {% endif %}
-          </p>
+          {% if security_settings.allow_auto_join %}
+            <p class="help-text">{% trans "Users with a verified email matching a trusted domain can automatically join this organization." %}</p>
+          </div>
+          <div class="security-actions">
+            <a href="{% url 'organizations:manage-domains' organization.slug %}" class="btn ghost primary">
+              {% trans "Manage domains" %}
+            </a>
+            <form method="post">
+              {% csrf_token %}
+              <button class="btn danger ghost" type="submit" name="action" value="disable_autojoin">
+                {% trans "Disable auto-join" %}
+              </button>
+            </form>
+          </div>
+          {% else %}
+              <p class="help-text">{% trans "Enable auto-join to allow users with matching verified email domains to join your organization automatically." %}</p>
+            </div>
+            <div class="security-actions">
+              <form method="post">
+                {% csrf_token %}
+                <button class="btn primary" type="submit" name="action" value="enable_autojoin">
+                  {% trans "Enable auto-join" %}
+                </button>
+              </form>
+            </div>
         {% endif %}
-
-        <div class="security-setting">
-          <h3>{% trans "Require two-factor authentication" %}</h3>
-          <span class="badge">{% trans "Not yet implemented" %}</span>
-        </div>
-        <p class="help-text">{% trans "Coming soon" %}</p>
       </main>
     </section>
     {% endif %}
-    {% endcomment %}
 {% endblock main %}
 
 {% block extra_javascript %}
