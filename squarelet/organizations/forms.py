@@ -13,6 +13,7 @@ from crispy_forms.layout import Field as CrispyField, Fieldset, Layout
 from squarelet.core.fields import EmailsListField
 from squarelet.core.forms import AvatarWidget, StripeForm
 from squarelet.core.layout import Field  # Used by PaymentForm
+from squarelet.organizations.models import OrganizationEmailDomain
 
 # Local
 from .choices import InvitationRole
@@ -364,6 +365,62 @@ class ProfileChangeRequestForm(forms.ModelForm):
             if not cleaned_data.get("explanation"):
                 raise forms.ValidationError(
                     _("Please provide an explanation for your requested changes.")
+                )
+
+        return cleaned_data
+
+
+class DomainActionForm(forms.Form):
+    """Form for adding or removing an organization email domain."""
+
+    ACTION_ADD = "adddomain"
+    ACTION_REMOVE = "removedomain"
+    ACTION_CHOICES = [
+        (ACTION_ADD, _("Add domain")),
+        (ACTION_REMOVE, _("Remove domain")),
+    ]
+
+    action = forms.ChoiceField(choices=ACTION_CHOICES)
+    domain = forms.CharField(max_length=255)
+
+    def __init__(self, *args, available_domains=None, organization=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.available_domains = available_domains or []
+        self.organization = organization
+
+    def clean_domain(self):
+        return self.cleaned_data["domain"].strip().lower()
+
+    def clean(self):
+        cleaned_data = super().clean()
+        action = cleaned_data.get("action")
+        domain = cleaned_data.get("domain")
+
+        # If either required field is missing, we can bail early.
+        # The form is already invalid and field-level validators
+        # will raise form errors for missing required fields.
+        if not action or not domain:
+            return cleaned_data
+
+        if action == self.ACTION_ADD:
+            if domain not in self.available_domains:
+                raise forms.ValidationError(
+                    _(
+                        "Invalid domain. Please select a domain from "
+                        "your verified emails."
+                    )
+                )
+        elif action == self.ACTION_REMOVE:
+            try:
+                cleaned_data["domain_entry"] = OrganizationEmailDomain.objects.get(
+                    organization=self.organization, domain=domain
+                )
+            except OrganizationEmailDomain.DoesNotExist:
+                raise forms.ValidationError(
+                    _(
+                        f"The domain {domain} was not found or "
+                        "has already been removed."
+                    )
                 )
 
         return cleaned_data

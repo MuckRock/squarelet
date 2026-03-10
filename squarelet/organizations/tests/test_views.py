@@ -1621,9 +1621,12 @@ class TestManageDomains(ViewTestMixin):
     def test_bad_action(self, rf, organization_factory, user_factory):
         user = user_factory()
         organization = organization_factory(admins=[user], verified_journalist=True)
-        data = {"action": "fakeaction"}
+        data = {"action": "fakeaction", "domain": "example.com"}
         self.call_view(rf, user, data, slug=organization.slug)
-        self.assert_message(messages.ERROR, "An unexpected error occurred.")
+        self.assert_message(
+            messages.ERROR,
+            "Select a valid choice. fakeaction is not one of the available choices.",
+        )
 
     def test_add_domain_non_admin(self, rf, organization_factory, user_factory):
         # Create a regular user and a non-admin organization
