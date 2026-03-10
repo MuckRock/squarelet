@@ -2,6 +2,7 @@ Pillow
 argon2-cffi
 bcrypt
 bleach
+boto3
 celery
 django-allauth[socialaccount,mfa]
 django-activity-stream
@@ -39,7 +40,6 @@ ipdb
 markdown
 memoize
 psycopg2 --no-binary psycopg2
-pyairtable
 pycryptodome
 PyJWT>=2.8,<2.10
 python-Levenshtein

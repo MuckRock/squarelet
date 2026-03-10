@@ -8,8 +8,6 @@
 
 amqp==5.3.1
     # via kombu
-annotated-types==0.7.0
-    # via pydantic
 argon2-cffi==21.3.0
     # via -r requirements/base.in
 argon2-cffi-bindings==21.2.0
@@ -28,11 +26,12 @@ bleach==6.1.0
     # via -r requirements/base.in
 boto==2.49.0
     # via smart-open
-boto3==1.21.21
+boto3==1.42.64
     # via
+    #   -r requirements/base.in
     #   django-storages
     #   smart-open
-botocore==1.24.21
+botocore==1.42.65
     # via
     #   boto3
     #   s3transfer
@@ -148,7 +147,7 @@ django-robots==6.1
     # via -r requirements/base.in
 django-sesame==1.5
     # via -r requirements/base.in
-django-storages[boto3]==1.12.3
+django-storages[boto3]==1.14.6
     # via -r requirements/base.in
 django-vite==3.0.4
     # via -r requirements/base.in
@@ -179,8 +178,6 @@ html2text==2018.1.9
     # via -r requirements/base.in
 idna==3.7
     # via requests
-inflection==0.5.1
-    # via pyairtable
 ipdb==0.13.9
     # via -r requirements/base.in
 ipython==8.10.0
@@ -235,16 +232,10 @@ ptyprocess==0.6.0
     # via pexpect
 pure-eval==0.2.2
     # via stack-data
-pyairtable==2.3.3
-    # via -r requirements/base.in
 pycparser==2.18
     # via cffi
 pycryptodome==3.23.0
     # via -r requirements/base.in
-pydantic==2.7.4
-    # via pyairtable
-pydantic-core==2.18.4
-    # via pydantic
 pydyf==0.12.1
     # via weasyprint
 pygments==2.15.1
@@ -285,7 +276,6 @@ requests==2.32.4
     # via
     #   django-allauth
     #   premailer
-    #   pyairtable
     #   requests-oauthlib
     #   smart-open
     #   stripe
@@ -294,7 +284,7 @@ requests-oauthlib==2.0.0
     # via django-allauth
 rules==2.1
     # via -r requirements/base.in
-s3transfer==0.5.2
+s3transfer==0.16.0
     # via boto3
 six==1.16.0
     # via
@@ -335,21 +325,16 @@ traitlets==5.3.0
     #   ipython
     #   matplotlib-inline
 typing-extensions==4.12.2
-    # via
-    #   pyairtable
-    #   pydantic
-    #   pydantic-core
-    #   stripe
+    # via stripe
 tzdata==2024.2
     # via
     #   celery
     #   kombu
 unidecode==1.0.22
     # via python-slugify
-urllib3==1.26.19
+urllib3==2.6.3
     # via
     #   botocore
-    #   pyairtable
     #   requests
 vine==5.1.0
     # via
