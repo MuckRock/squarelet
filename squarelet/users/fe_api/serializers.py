@@ -7,6 +7,18 @@ from squarelet.organizations.serializers import MembershipSerializer
 from squarelet.users.models import User
 
 
+class UserSearchSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for search results — no email or sensitive fields"""
+
+    uuid = serializers.UUIDField(read_only=True)
+    avatar_url = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = User
+        fields = ("id", "uuid", "username", "name", "avatar_url")
+        read_only_fields = fields
+
+
 class UserSerializer(serializers.ModelSerializer):
     uuid = serializers.UUIDField(read_only=True)
     username = serializers.CharField(read_only=True)
