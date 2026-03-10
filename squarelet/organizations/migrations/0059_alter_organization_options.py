@@ -6,7 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("organizations", "0057_profilechangerequest_internal_note"),
+        ("organizations", "0058_invitation_role"),
     ]
 
     operations = [
