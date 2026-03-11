@@ -81,6 +81,10 @@ class InvitationViewSet(
 
     def perform_create(self, serializer):
         invitation = serializer.save()
+        # If a user was specified but no email, resolve from the user
+        if invitation.user and not invitation.email:
+            invitation.email = invitation.user.email
+            invitation.save(update_fields=["email"])
         invitation.send()
 
     def get_queryset(self):

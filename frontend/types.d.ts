@@ -1,3 +1,28 @@
+export interface User {
+  id: number;
+  uuid: string;
+  username: string;
+  name: string;
+  avatar_url: string;
+}
+
+export type UserSelection = {
+  type: "user";
+  id: number;
+  username: string;
+  name: string;
+  avatar_url: string;
+};
+
+export type EmailSelection = {
+  type: "email";
+  email: string;
+  name: string;
+  id: string;
+};
+
+export type Selection = UserSelection | EmailSelection;
+
 export interface Organization {
   id: number;
   uuid: string;
