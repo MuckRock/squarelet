@@ -85,7 +85,3 @@ class InvitationSerializer(serializers.ModelSerializer):
             "created_at",
             "user",
         )
-
-    def perform_create(self, serializer):
-        invitation = serializer.save()
-        invitation.send()
