@@ -1,12 +1,14 @@
 /* for /organizations/<slug>/manage-members/ */
-import { mount } from "svelte";
-import { showAlert } from "../alerts";
 import type { Selection } from "../types";
-import UserSelect from "../components/UserSelect.svelte";
+
 import "@/css/sidebar_layout.css";
 import "@/css/organization_managemembers.css";
 import "@/css/user_list_item.css";
 import "@/css/invitation_list_item.css";
+
+import { mount } from "svelte";
+import { showAlert } from "../alerts";
+import UserSelect from "../components/UserSelect.svelte";
 
 function main() {
   // Clipboard buttons for invite links
@@ -31,17 +33,26 @@ function main() {
     '[name="action"][value="addmember"]',
   );
   const orgId = form.dataset.orgId;
-  let selections: Selection[] = [];
 
   // Hide the plain email fallback, show the Svelte widget
   form.querySelector(".email-fallback")?.setAttribute("hidden", "");
 
+  let selections: Selection[] = [];
+  let clearSelect: (() => void) | undefined;
+  const state = $state({ disabled: false });
+
   mount(UserSelect, {
     target: el,
     props: {
+      get disabled() {
+        return state.disabled;
+      },
       onChange(next: Selection[]) {
         selections = next;
         if (submitBtn) submitBtn.disabled = next.length === 0;
+      },
+      onReady(api: { clear: () => void }) {
+        clearSelect = api.clear;
       },
     },
   });
@@ -51,6 +62,10 @@ function main() {
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     if (selections.length === 0) return;
+
+    // Disable form while requests are in flight
+    state.disabled = true;
+    if (submitBtn) submitBtn.disabled = true;
 
     const role =
       form.querySelector<HTMLSelectElement>('[name="role"]')?.value ?? "0";
@@ -97,7 +112,12 @@ function main() {
         `${failed} invitation${failed !== 1 ? "s" : ""} failed to send.`,
         "error",
       );
+
+    // Re-enable and clear on completion
+    state.disabled = false;
+    clearSelect?.();
     selections = [];
+    if (submitBtn) submitBtn.disabled = true;
   });
 }
 
