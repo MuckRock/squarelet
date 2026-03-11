@@ -5,7 +5,7 @@ from django.db.models.aggregates import Count
 # Third Party
 import django_filters
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters, mixins, viewsets
+from rest_framework import filters, mixins, status, viewsets
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -65,6 +65,30 @@ class InvitationViewSet(
     queryset = Invitation.objects.all()
     serializer_class = InvitationSerializer
     permission_classes = [IsAuthenticated, CanCreateInvitation]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # Resolve the invitee email before saving
+        email = serializer.validated_data.get("email", "")
+        user_obj = serializer.validated_data.get("user")
+        org = serializer.validated_data.get("organization")
+
+        if not email and user_obj:
+            email = user_obj.email
+
+        if email and org and org.has_member_by_email(email):
+            return Response(
+                {"status": "already_member", "email": email},
+                status=status.HTTP_200_OK,
+            )
+
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(
+            serializer.data, status=status.HTTP_201_CREATED, headers=headers
+        )
 
     def perform_create(self, serializer):
         invitation = serializer.save()

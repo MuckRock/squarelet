@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { login, deleteTestOrg, expectFlashMessage, resetOrgProfileState, runManageCommand } from "./helpers";
+import { login, deleteTestOrg, expectFlashMessage, inviteByEmail, resetOrgProfileState, runManageCommand } from "./helpers";
 
 const NEW_ORG_SLUG = "e2e-new-org";
 
@@ -407,8 +407,7 @@ test.describe("Member Management", () => {
     await page.goto("/organizations/e2e-public-org/manage-members/");
 
     // Send email invitation
-    await page.locator("input[name='emails']").fill("e2e-invited@example.com");
-    await page.locator('button[value="addmember"]').click();
+    await inviteByEmail(page, "e2e-invited@example.com");
     await expectFlashMessage(page, "success");
 
     // Verify pending invitation appears
@@ -476,10 +475,9 @@ test.describe("Member Management", () => {
     await page.goto("/organizations/e2e-public-org/manage-members/");
 
     // e2e-member is already a member per the seed data
-    await page.locator("input[name='emails']").fill("e2e-member@example.com");
-    await page.locator('button[value="addmember"]').click();
+    await inviteByEmail(page, "e2e-member@example.com");
 
-    // Should see an info message, not a "0 invitations sent" success message
+    // Should see an info message, not a success message
     await expectFlashMessage(page, "info");
     const successAlerts = page.locator("._cls-alerts .alert-success");
     await expect(successAlerts).toHaveCount(0);
@@ -551,9 +549,9 @@ test.describe("Member Management", () => {
     }
 
     // Send invitation with Member role (default)
-    await page
-      .locator("input[name='emails']")
-      .fill("e2e-requester@example.com");
+    await page.locator("#user-select input").fill("e2e-requester@example.com");
+    await expect(page.locator("button.creatable-row")).toBeEnabled({ timeout: 5_000 });
+    await page.locator("button.creatable-row").click();
     await page.locator("select[name='role']").selectOption("0");
     await page.locator('button[value="addmember"]').click();
     await expectFlashMessage(page, "success");
@@ -611,7 +609,9 @@ test.describe("Member Management", () => {
     }
 
     // Send invitation with Admin role
-    await page.locator("input[name='emails']").fill("e2e-regular@example.com");
+    await page.locator("#user-select input").fill("e2e-regular@example.com");
+    await expect(page.locator("button.creatable-row")).toBeEnabled({ timeout: 5_000 });
+    await page.locator("button.creatable-row").click();
     await page.locator("select[name='role']").selectOption("1");
     await page.locator('button[value="addmember"]').click();
     await expectFlashMessage(page, "success");
@@ -700,8 +700,7 @@ test.describe("Invitation & Request History", () => {
       await page.goto("/organizations/e2e-public-org/manage-members/");
 
       // Send an email invitation to a known e2e user
-      await page.locator("input[name='emails']").fill("e2e-regular@example.com");
-      await page.locator('button[value="addmember"]').click();
+      await inviteByEmail(page, "e2e-regular@example.com");
       await expectFlashMessage(page, "success");
 
       // Verify it appears in invitation history with "pending" status
@@ -718,8 +717,7 @@ test.describe("Invitation & Request History", () => {
       await page.goto("/organizations/e2e-public-org/manage-members/");
 
       // Send an email invitation to a known e2e user
-      await page.locator("input[name='emails']").fill("e2e-regular@example.com");
-      await page.locator('button[value="addmember"]').click();
+      await inviteByEmail(page, "e2e-regular@example.com");
       await expectFlashMessage(page, "success");
 
       // Receiving user accepts it
@@ -743,8 +741,7 @@ test.describe("Invitation & Request History", () => {
       await page.goto("/organizations/e2e-public-org/manage-members/");
 
       // Send an email invitation
-      await page.locator("input[name='emails']").fill("e2e-history-test@example.com");
-      await page.locator('button[value="addmember"]').click();
+      await inviteByEmail(page, "e2e-history-test@example.com");
       await expectFlashMessage(page, "success");
 
       // Revoke it
@@ -766,8 +763,7 @@ test.describe("Invitation & Request History", () => {
       await page.goto("/organizations/e2e-public-org/manage-members/");
 
       // Send an email invitation to a known e2e user
-      await page.locator("input[name='emails']").fill("e2e-regular@example.com");
-      await page.locator('button[value="addmember"]').click();
+      await inviteByEmail(page, "e2e-regular@example.com");
       await expectFlashMessage(page, "success");
 
       // Receiving user declines it
