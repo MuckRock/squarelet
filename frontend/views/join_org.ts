@@ -1,5 +1,5 @@
-import '@/css/team_list_item.css';
-import '@/css/join_org.css';
+import "@/css/team_list_item.css";
+import "@/css/join_org.css";
 
 import { mount } from "svelte";
 import OrgSearch from "../components/OrgSearch.svelte";

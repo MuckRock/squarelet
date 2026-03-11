@@ -39,13 +39,16 @@
   flex-direction: row-reverse;
   padding: 1rem;
   border-radius: 0.5rem;
-  border: 1px solid var(--gray-2, #D8DEE2);
-  background: var(--white, #FFF);
+  border: 1px solid var(--gray-2, #d8dee2);
+  background: var(--white, #fff);
 }
 .header-display {
   text-align: center;
   color: var(--gray-5, #233944);
-  font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
+  font-feature-settings:
+    "ss04" on,
+    "liga" off,
+    "clig" off;
   font-family: var(--font-sans, "Source Sans Pro");
   font-size: var(--font-xl, 1.5rem);
   font-style: normal;
@@ -56,19 +59,19 @@
   text-decoration-line: underline;
   text-decoration-style: solid;
   text-decoration-skip-ink: none;
-  text-decoration-color: var(--gray-3, #4294F0);
+  text-decoration-color: var(--gray-3, #4294f0);
   text-decoration-thickness: 10%;
   text-underline-offset: 25%;
   text-underline-position: from-font;
 }
 .heavy-underline.primary {
-  text-decoration-color: var(--blue-3, #4294F0);
+  text-decoration-color: var(--blue-3, #4294f0);
 }
 .heavy-underline.secondary {
-  text-decoration-color: var(--purple-3, #A0A0A0);
+  text-decoration-color: var(--purple-3, #a0a0a0);
 }
 .heavy-underline.premium {
-  text-decoration-color: var(--green-3, #A0A0A0);
+  text-decoration-color: var(--green-3, #a0a0a0);
 }
 .plan-actions {
   display: flex;
@@ -103,7 +106,7 @@
 .checklist-item .text {
   flex: 1 0 0;
   color: var(--gray-5, #233944);
-  font-feature-settings: 'ss04' on;
+  font-feature-settings: "ss04" on;
   font-family: var(--font-sans, "Source Sans Pro");
   font-size: var(--font-sm, 0.825rem);
   font-style: normal;
@@ -142,7 +145,7 @@
 }
 .organization.plan {
   border: 1px solid var(--purple-2);
-  background: var(--purple-1, #F4F1FE);
+  background: var(--purple-1, #f4f1fe);
 }
 
 .professional.plan main,
@@ -176,7 +179,7 @@
   font-family: var(--font-sans, "Source Sans Pro");
   font-size: var(--font-md, 1rem);
   font-style: normal;
-  font-feature-settings: 'ss04' on;
+  font-feature-settings: "ss04" on;
   font-weight: 600;
   line-height: normal;
 }
@@ -201,10 +204,13 @@
   font-weight: 600;
   line-height: normal;
   text-align: center;
-  font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
+  font-feature-settings:
+    "ss04" on,
+    "liga" off,
+    "clig" off;
 }
 .professional.plan .price {
-  color: var(--blue-5, #1E2B60);
+  color: var(--blue-5, #1e2b60);
 }
 .organization.plan .price {
   color: var(--purple-5);
@@ -220,7 +226,7 @@
 .org {
   padding: 0.5rem 0.75rem 0.5rem 0.5rem;
   border: 1px solid var(--gray-2);
-  border-radius: .5rem;
+  border-radius: 0.5rem;
   background: var(--white);
 }
 
@@ -243,9 +249,9 @@
 }
 
 .verified header p {
-  color: var(--gray-4, #5C717C);
+  color: var(--gray-4, #5c717c);
   text-align: center;
-  font-feature-settings: 'ss04' on;
+  font-feature-settings: "ss04" on;
 
   /* Label */
   font-family: var(--font-sans, "Source Sans Pro");
@@ -256,7 +262,7 @@
 }
 
 .membership {
-  word-break: 
+  word-break:;
 }
 
 .services-list {
@@ -303,7 +309,7 @@
   flex-wrap: wrap;
 
   border-radius: 0.5rem;
-  border: 1px solid var(--gray-2, #D8DEE2);
+  border: 1px solid var(--gray-2, #d8dee2);
 }
 
 .service .checkmark svg {
@@ -365,8 +371,8 @@
   gap: 1.25rem;
   flex: 1 0 16rem;
   border-radius: 0.5rem;
-  border: 1px solid var(--gray-2, #D8DEE2);
-  background: var(--white, #FFF);
+  border: 1px solid var(--gray-2, #d8dee2);
+  background: var(--white, #fff);
 }
 
 .sunlight-tiers .tier-enterpise {
@@ -390,7 +396,7 @@
   font-style: normal;
   font-weight: var(--font-semibold);
   line-height: normal;
-  font-feature-settings: 'ss04' on;
+  font-feature-settings: "ss04" on;
   text-align: left;
 }
 
@@ -450,7 +456,7 @@
   font-size: var(--font-md, 1rem);
   font-style: normal;
   line-height: normal;
-  font-feature-settings: 'ss04' on;
+  font-feature-settings: "ss04" on;
 }
 
 .sunlight-tiers .tier .annual.price .amount {
@@ -459,9 +465,8 @@
 }
 
 .sunlight-tiers .tier .price .period,
-.sunlight-tiers .tier .alt
-  {
-  color: var(--gray-4, #5C717C);
+.sunlight-tiers .tier .alt {
+  color: var(--gray-4, #5c717c);
   font-family: var(--font-sans, "Source Sans Pro");
   font-style: normal;
   font-weight: 600;
@@ -481,7 +486,7 @@
 }
 
 .sunlight-tiers .tier .alt {
-  order: 2
+  order: 2;
 }
 
 .sunlight-tiers .tier .price.annual {

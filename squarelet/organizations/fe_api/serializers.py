@@ -83,5 +83,8 @@ class InvitationSerializer(serializers.ModelSerializer):
             "rejected_at",
             "withdrawn_at",
             "created_at",
-            "user",
         )
+        extra_kwargs = {
+            "email": {"required": False, "allow_blank": True},
+            "user": {"required": False},
+        }

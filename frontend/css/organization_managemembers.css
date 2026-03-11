@@ -73,16 +73,24 @@
   }
 }
 
-#org-form {
+#invite-form {
   display: flex;
   align-items: flex-start;
   flex-wrap: wrap;
   gap: 0.375rem;
   align-self: stretch;
   width: 100%;
+
+  [hidden] {
+    display: none;
+  }
 }
 
-#org-form .email.field {
+#invite-form #user-select {
+  flex: 1 1 12em;
+}
+
+#invite-form .email.field {
   flex: 1 1 12em;
   & .wrapper {
     flex: 1 0 auto;
@@ -112,7 +120,7 @@
   }
 }
 
-#org-form .role.field {
+#invite-form .role.field {
   flex: 1 1 auto;
   max-width: 8em;
 }
