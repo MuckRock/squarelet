@@ -66,6 +66,10 @@ class InvitationViewSet(
     serializer_class = InvitationSerializer
     permission_classes = [IsAuthenticated, CanCreateInvitation]
 
+    def perform_create(self, serializer):
+        invitation = serializer.save()
+        invitation.send()
+
     def get_queryset(self):
         user = self.request.user
         verified_emails = user.emailaddress_set.filter(verified=True).values_list(

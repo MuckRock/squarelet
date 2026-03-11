@@ -45,42 +45,23 @@ match (`private=False`, `hidden=True`). Updated existing tests in
 
 ## Part 2 — Expose Privacy Setting in User Profile Edit
 
-### 2a. Form changes
+### 2a. Form changes ✅
 
 **File:** `squarelet/users/forms.py`
 
-The `UserUpdateForm` currently models `User`. The `private` field lives on
-`user.individual_organization` (an `Organization` instance). Two options:
+Done. Added non-model `BooleanField` `private` to `UserUpdateForm`, initialized
+from `individual_organization.private` in `__init__`. `UserUpdateView.form_valid`
+saves it onto `individual_organization`. Tests in
+`squarelet/users/tests/test_views.py` (3 new tests: field present, sets true,
+sets false).
 
-Add a non-model `BooleanField` to `UserUpdateForm` and manually save it to
-`user.individual_organization` in the view.
-
-```python
-private = forms.BooleanField(
-    label=_("Private account"),
-    required=False,
-    help_text=_(
-        "When enabled, your profile is only visible to MuckRock staff "
-        "and members of organizations you belong to."
-    ),
-)
-
-def __init__(self, *args, **kwargs):
-    super().__init__(*args, **kwargs)
-    if self.instance and self.instance.pk:
-        self.fields["private"].initial = self.instance.individual_organization.private
-```
-
-The view (`squarelet/users/views.py`, `UserUpdateView`) saves `private` onto
-`user.individual_organization` after saving the user.
-
-### 2b. Template
+### 2b. Template ✅
 
 **File:** `squarelet/templates/users/user_form.html`
 
-The template already iterates `{% for field in form %}`, so the new `private`
-checkbox field will render automatically. No template changes needed unless we
-want special styling or positioning.
+Added checkbox detection: fields with `widget.input_type == "checkbox"` render
+inline (input before label) using existing `field-checkbox` / `field-label-inline`
+CSS classes. Non-checkbox fields render as before.
 
 ---
 
@@ -378,31 +359,17 @@ function main() {
 }
 ```
 
-### 6c. Backend: `InvitationViewSet.perform_create`
+### 6c. Backend: `InvitationViewSet.perform_create` ✅
 
 **File:** `squarelet/organizations/fe_api/viewsets.py`
 
-The viewset currently has **no** `perform_create` override — it uses the default
-`CreateModelMixin.perform_create`, which calls `serializer.save()` but does not
-send the invitation email. Add an override:
+Done. Moved misplaced `perform_create` from `InvitationSerializer` (where it was
+a no-op) to `InvitationViewSet`. Calls `invitation.send()` after save. Test in
+`squarelet/organizations/fe_api/test_viewsets.py` (`test_create_invitation_sends_email`).
 
-```python
-def perform_create(self, serializer):
-    invitation = serializer.save()
-    invitation.send()
-```
-
-**Note:** Verify that `Invitation.save()` and `InvitationSerializer.create()` do
-not already call `send()` to avoid double-sending.
-
-The org's integer `pk` is passed via `data-org-id` on the form element (see 6a).
-The `InvitationSerializer` already accepts `organization` as a pk field — no
-serializer changes needed.
-
-Because user-type selections only send a `user` ID (no email), the
-`InvitationSerializer` or `perform_create` may need to look up the user's email
-from their ID in order to send the invitation. Check whether the `Invitation`
-model requires an email or can work with just a user FK.
+Note: `user` is read-only on `InvitationSerializer`, so the frontend must send
+`email` for both user-type and email-type selections. The `Invitation` model's
+`email` field is required for sending.
 
 ### 6d. Django POST fallback
 
@@ -432,11 +399,10 @@ submits as `name="emails"` to the Django view exactly as before.
 - `squarelet/organizations/tests/test_querysets.py` — updated `test_create_individual_basic`
   and `test_get_viewable` to reflect new `private=False` default
 
-**Still needed:**
-
-- `squarelet/organizations/tests/test_api.py` (or `fe_api/tests/`) —
-  test `POST /fe_api/invitations/` sends the invitation email, handles
-  duplicate/already-member cases
+- `squarelet/organizations/fe_api/test_viewsets.py` —
+  `test_create_invitation_sends_email` verifies `send()` is called on POST
+- `squarelet/users/tests/test_views.py` — 3 new tests for privacy toggle
+  (field present, sets true, sets false)
 
 ### Frontend tests
 
@@ -452,13 +418,13 @@ Not in scope for this plan (no existing frontend tests in the codebase).
 | `squarelet/organizations/migrations/0059_add_hidden.py`             | New migration ✅                                               |
 | `squarelet/organizations/querysets.py`                              | Change `create_individual` default `private=True` → `False` ✅ |
 | `squarelet/users/signals.py`                                        | Add signals to set `hidden=False` on email verify / payment ✅ |
-| `squarelet/users/forms.py`                                          | Add `private` field to `UserUpdateForm`                        |
-| `squarelet/users/views.py`                                          | Save `private` to `individual_organization` in update view     |
+| `squarelet/users/forms.py`                                          | Add `private` field to `UserUpdateForm` ✅                     |
+| `squarelet/users/views.py`                                          | Save `private` to `individual_organization` in update view ✅  |
 | `squarelet/users/managers.py`                                       | Add `get_searchable(user)` manager method ✅                   |
 | `squarelet/users/fe_api/serializers.py`                             | Add `UserSearchSerializer` ✅                                  |
 | `squarelet/users/fe_api/viewsets.py`                                | Add search, filter, `get_searchable` to `UserViewSet` ✅       |
-| `squarelet/organizations/fe_api/viewsets.py`                        | Call `invitation.send()` in `perform_create`                   |
-| `squarelet/templates/users/user_form.html`                          | (likely no change; field renders automatically)                |
+| `squarelet/organizations/fe_api/viewsets.py`                        | Call `invitation.send()` in `perform_create` ✅                |
+| `squarelet/templates/users/user_form.html`                          | Checkbox inline rendering ✅                                   |
 | `squarelet/templates/organizations/organization_managemembers.html` | Replace email input with `#user-select` mount point            |
 | `frontend/components/UserListItem.svelte`                           | New component                                                  |
 | `frontend/components/UserSelect.svelte`                             | New component                                                  |
