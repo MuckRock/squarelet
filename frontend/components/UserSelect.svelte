@@ -6,11 +6,15 @@
 
   interface Props {
     onChange?: (selections: Selection[]) => void;
+    onReady?: (api: { clear: () => void }) => void;
+    disabled?: boolean;
   }
 
-  let { onChange }: Props = $props();
+  let { onChange, onReady, disabled = false }: Props = $props();
 
-  let selections: Selection[] = $state([]);
+  let value: Selection[] = $state([]);
+
+  onReady?.({ clear: () => (value = []) });
   const fetchProps: RequestInit = { credentials: "include" };
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -19,9 +23,10 @@
     return resp.results;
   }
 
-  /** Only allow creating items that look like email addresses */
+  /** Only allow creating items that look like email addresses.
+   *  Svelecte: return true to HIDE the create option, false to SHOW it. */
   function createFilter(query: string): boolean {
-    return emailRegex.test(query);
+    return !emailRegex.test(query);
   }
 
   /** Transform a created item (email string) into a Selection */
@@ -30,16 +35,26 @@
   }
 
   function handleChange() {
-    onChange?.(selections);
+    onChange?.(value);
+  }
+
+  /** Svelecte doesn't catch AbortError when it cancels in-flight fetches. */
+  function suppressAbortError(e: PromiseRejectionEvent) {
+    if (e.reason instanceof DOMException && e.reason.name === "AbortError") {
+      e.preventDefault();
+    }
   }
 </script>
+
+<svelte:window onunhandledrejection={suppressAbortError} />
 
 <Svelecte
   multiple
   creatable
   name="invitees"
   placeholder="Search users or enter an email..."
-  bind:value={selections}
+  {disabled}
+  bind:value
   valueAsObject
   labelField="name"
   fetch="/fe_api/users/?search=[query]"
@@ -47,6 +62,8 @@
   {fetchProps}
   {createFilter}
   {createTransform}
+  fetchDebounceTime={400}
+  minQuery={3}
   fetchResetOnBlur={false}
   resetOnBlur={false}
   lazyDropdown={false}
