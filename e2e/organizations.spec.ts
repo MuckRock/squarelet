@@ -1,11 +1,12 @@
 import { test, expect } from "@playwright/test";
 import {
   login,
+  inviteByEmail,
   deleteTestOrg,
   expectFlashMessage,
   resetOrgProfileState,
   resetAutoJoinState,
-  runManageCommand
+  runManageCommand,
 } from "./helpers";
 
 const NEW_ORG_SLUG = "e2e-new-org";
@@ -20,7 +21,9 @@ test.describe("Organization Creation", () => {
       await login(page, "e2e-regular");
     });
 
-    test("creates org with unique name and redirects to org page", async ({ page }) => {
+    test("creates org with unique name and redirects to org page", async ({
+      page,
+    }) => {
       await page.goto("/organizations/~create");
       await page.locator("input[name='name']").fill("e2e-new-org");
       await page.locator("button[type='submit']").click();
@@ -49,7 +52,6 @@ test.describe("Organization Creation", () => {
     });
   });
 });
-
 
 test.describe("Organization Viewing", () => {
   test.describe("Anonymous user", () => {
@@ -393,7 +395,8 @@ test.describe("Profile Editing", () => {
 
     await expect(page.locator("#pending-requests")).toBeVisible();
     await page
-      .locator("#pending-requests input[name='internal_note']").first()
+      .locator("#pending-requests input[name='internal_note']")
+      .first()
       .fill("E2E staff rejection note");
     await page
       .locator('#pending-requests button[value="reject"]')
@@ -412,8 +415,7 @@ test.describe("Member Management", () => {
     await page.goto("/organizations/e2e-public-org/manage-members/");
 
     // Send email invitation
-    await page.locator("input[name='emails']").fill("e2e-invited@example.com");
-    await page.locator('button[value="addmember"]').click();
+    await inviteByEmail(page, "e2e-invited@example.com");
     await expectFlashMessage(page, "success");
 
     // Verify pending invitation appears
@@ -481,10 +483,9 @@ test.describe("Member Management", () => {
     await page.goto("/organizations/e2e-public-org/manage-members/");
 
     // e2e-member is already a member per the seed data
-    await page.locator("input[name='emails']").fill("e2e-member@example.com");
-    await page.locator('button[value="addmember"]').click();
+    await inviteByEmail(page, "e2e-member@example.com");
 
-    // Should see an info message, not a "0 invitations sent" success message
+    // Should see an info message, not a success message
     await expectFlashMessage(page, "info");
     const successAlerts = page.locator("._cls-alerts .alert-success");
     await expect(successAlerts).toHaveCount(0);
@@ -543,9 +544,7 @@ test.describe("Member Management", () => {
     await expectFlashMessage(page, "success");
   });
 
-  test("member role assigned after acceptance", async ({
-    page,
-  }) => {
+  test("member role assigned after acceptance", async ({ page }) => {
     await login(page, "e2e-admin");
     await page.goto("/organizations/e2e-public-org/manage-members/");
 
@@ -556,9 +555,11 @@ test.describe("Member Management", () => {
     }
 
     // Send invitation with Member role (default)
-    await page
-      .locator("input[name='emails']")
-      .fill("e2e-requester@example.com");
+    await page.locator("#user-select input").fill("e2e-requester@example.com");
+    await expect(page.locator("button.creatable-row")).toBeEnabled({
+      timeout: 5_000,
+    });
+    await page.locator("button.creatable-row").click();
     await page.locator("select[name='role']").selectOption("0");
     await page.locator('button[value="addmember"]').click();
     await expectFlashMessage(page, "success");
@@ -594,9 +595,7 @@ test.describe("Member Management", () => {
     await requesterMembership.locator('button[value="removeuser"]').click();
   });
 
-  test("admin role assigned after acceptance", async ({
-    page,
-  }) => {
+  test("admin role assigned after acceptance", async ({ page }) => {
     await login(page, "e2e-admin");
     await page.goto("/organizations/e2e-public-org/manage-members/");
 
@@ -616,7 +615,11 @@ test.describe("Member Management", () => {
     }
 
     // Send invitation with Admin role
-    await page.locator("input[name='emails']").fill("e2e-regular@example.com");
+    await page.locator("#user-select input").fill("e2e-regular@example.com");
+    await expect(page.locator("button.creatable-row")).toBeEnabled({
+      timeout: 5_000,
+    });
+    await page.locator("button.creatable-row").click();
     await page.locator("select[name='role']").selectOption("1");
     await page.locator('button[value="addmember"]').click();
     await expectFlashMessage(page, "success");
@@ -668,7 +671,9 @@ test.describe("Invitation & Request History", () => {
     });
 
     test("can access invitation history page", async ({ page }) => {
-      const response = await page.goto("/organizations/e2e-public-org/invitations/");
+      const response = await page.goto(
+        "/organizations/e2e-public-org/invitations/",
+      );
       expect(response?.status()).toBe(200);
       await expect(page.locator(".invitation-history-page")).toBeVisible();
       // After clearing invitations, the page shows an empty message
@@ -676,14 +681,18 @@ test.describe("Invitation & Request History", () => {
     });
 
     test("can access request history page", async ({ page }) => {
-      const response = await page.goto("/organizations/e2e-public-org/requests/");
+      const response = await page.goto(
+        "/organizations/e2e-public-org/requests/",
+      );
       expect(response?.status()).toBe(200);
       await expect(page.locator(".invitation-history-page")).toBeVisible();
       // After clearing invitations, the page shows an empty message
       await expect(page.locator(".empty-message")).toBeVisible();
     });
 
-    test("can navigate to history pages from manage-members page", async ({ page }) => {
+    test("can navigate to history pages from manage-members page", async ({
+      page,
+    }) => {
       await page.goto("/organizations/e2e-public-org/manage-members/");
 
       // Verify history links exist in each section
@@ -701,30 +710,32 @@ test.describe("Invitation & Request History", () => {
       await expect(page.locator(".invitation-history-page")).toBeVisible();
     });
 
-    test("pending invitation appears in invitation history", async ({ page }) => {
+    test("pending invitation appears in invitation history", async ({
+      page,
+    }) => {
       await page.goto("/organizations/e2e-public-org/manage-members/");
 
       // Send an email invitation to a known e2e user
-      await page.locator("input[name='emails']").fill("e2e-regular@example.com");
-      await page.locator('button[value="addmember"]').click();
+      await inviteByEmail(page, "e2e-regular@example.com");
       await expectFlashMessage(page, "success");
 
       // Verify it appears in invitation history with "pending" status
       await page.goto("/organizations/e2e-public-org/invitations/");
-      await expect(page.locator(".invitation-history-table tbody tr")).toHaveCount(1, {
+      await expect(
+        page.locator(".invitation-history-table tbody tr"),
+      ).toHaveCount(1, {
         timeout: 5_000,
       });
-      await expect(
-        page.locator("td.invitation-status.pending"),
-      ).toBeVisible();
+      await expect(page.locator("td.invitation-status.pending")).toBeVisible();
     });
 
-    test("accepted invitation appears in invitation history", async ({ page }) => {
+    test("accepted invitation appears in invitation history", async ({
+      page,
+    }) => {
       await page.goto("/organizations/e2e-public-org/manage-members/");
 
       // Send an email invitation to a known e2e user
-      await page.locator("input[name='emails']").fill("e2e-regular@example.com");
-      await page.locator('button[value="addmember"]').click();
+      await inviteByEmail(page, "e2e-regular@example.com");
       await expectFlashMessage(page, "success");
 
       // Receiving user accepts it
@@ -736,20 +747,21 @@ test.describe("Invitation & Request History", () => {
       // Verify it appears in invitation history with "accepted" status
       await login(page, "e2e-admin");
       await page.goto("/organizations/e2e-public-org/invitations/");
-      await expect(page.locator(".invitation-history-table tbody tr")).toHaveCount(1, {
+      await expect(
+        page.locator(".invitation-history-table tbody tr"),
+      ).toHaveCount(1, {
         timeout: 5_000,
       });
-      await expect(
-        page.locator("td.invitation-status.accepted"),
-      ).toBeVisible();
+      await expect(page.locator("td.invitation-status.accepted")).toBeVisible();
     });
 
-    test("withdrawn invitation appears in invitation history", async ({ page }) => {
+    test("withdrawn invitation appears in invitation history", async ({
+      page,
+    }) => {
       await page.goto("/organizations/e2e-public-org/manage-members/");
 
       // Send an email invitation
-      await page.locator("input[name='emails']").fill("e2e-history-test@example.com");
-      await page.locator('button[value="addmember"]').click();
+      await inviteByEmail(page, "e2e-history-test@example.com");
       await expectFlashMessage(page, "success");
 
       // Revoke it
@@ -759,7 +771,9 @@ test.describe("Invitation & Request History", () => {
 
       // Verify it appears in invitation history with "withdrawn" status
       await page.goto("/organizations/e2e-public-org/invitations/");
-      await expect(page.locator(".invitation-history-table tbody tr")).toHaveCount(1, {
+      await expect(
+        page.locator(".invitation-history-table tbody tr"),
+      ).toHaveCount(1, {
         timeout: 5_000,
       });
       await expect(
@@ -767,12 +781,13 @@ test.describe("Invitation & Request History", () => {
       ).toBeVisible();
     });
 
-    test("declined invitation appears in invitation history", async ({ page }) => {
+    test("declined invitation appears in invitation history", async ({
+      page,
+    }) => {
       await page.goto("/organizations/e2e-public-org/manage-members/");
 
       // Send an email invitation to a known e2e user
-      await page.locator("input[name='emails']").fill("e2e-regular@example.com");
-      await page.locator('button[value="addmember"]').click();
+      await inviteByEmail(page, "e2e-regular@example.com");
       await expectFlashMessage(page, "success");
 
       // Receiving user declines it
@@ -783,17 +798,22 @@ test.describe("Invitation & Request History", () => {
       // Verify it appears in invitation history with "declined" status
       await login(page, "e2e-admin");
       await page.goto("/organizations/e2e-public-org/invitations/");
-      await expect(page.locator(".invitation-history-table tbody tr")).toHaveCount(1, {
+      await expect(
+        page.locator(".invitation-history-table tbody tr"),
+      ).toHaveCount(1, {
         timeout: 5_000,
       });
-      await expect(
-        page.locator("td.invitation-status.declined"),
-      ).toBeVisible();
+      await expect(page.locator("td.invitation-status.declined")).toBeVisible();
     });
 
-    test("rejected join request appears in request history", async ({ page, browser }) => {
+    test("rejected join request appears in request history", async ({
+      page,
+      browser,
+    }) => {
       // Login as requester and submit join request
-      const requesterContext = await browser.newContext({ ignoreHTTPSErrors: true });
+      const requesterContext = await browser.newContext({
+        ignoreHTTPSErrors: true,
+      });
       const requesterPage = await requesterContext.newPage();
       await login(requesterPage, "e2e-requester");
       await requesterPage.goto("/organizations/e2e-public-org/");
@@ -813,25 +833,29 @@ test.describe("Invitation & Request History", () => {
 
       // Verify it appears in request history with "declined" status
       await page.goto("/organizations/e2e-public-org/requests/");
-      await expect(page.locator(".invitation-history-table tbody tr")).toHaveCount(1, {
+      await expect(
+        page.locator(".invitation-history-table tbody tr"),
+      ).toHaveCount(1, {
         timeout: 5_000,
       });
-      await expect(
-        page.locator("td.invitation-status.declined"),
-      ).toBeVisible();
+      await expect(page.locator("td.invitation-status.declined")).toBeVisible();
     });
   });
 
   test.describe("Non-admin member", () => {
     test("cannot access invitation history (403)", async ({ page }) => {
       await login(page, "e2e-member");
-      const response = await page.goto("/organizations/e2e-public-org/invitations/");
+      const response = await page.goto(
+        "/organizations/e2e-public-org/invitations/",
+      );
       expect(response?.status()).toBe(403);
     });
 
     test("cannot access request history (403)", async ({ page }) => {
       await login(page, "e2e-member");
-      const response = await page.goto("/organizations/e2e-public-org/requests/");
+      const response = await page.goto(
+        "/organizations/e2e-public-org/requests/",
+      );
       expect(response?.status()).toBe(403);
     });
   });
@@ -839,14 +863,18 @@ test.describe("Invitation & Request History", () => {
   test.describe("MuckRock staff", () => {
     test("can access any org's invitation history", async ({ page }) => {
       await login(page, "e2e-staff");
-      const response = await page.goto("/organizations/e2e-public-org/invitations/");
+      const response = await page.goto(
+        "/organizations/e2e-public-org/invitations/",
+      );
       expect(response?.status()).toBe(200);
       await expect(page.locator(".invitation-history-page")).toBeVisible();
     });
 
     test("can access any org's request history", async ({ page }) => {
       await login(page, "e2e-staff");
-      const response = await page.goto("/organizations/e2e-public-org/requests/");
+      const response = await page.goto(
+        "/organizations/e2e-public-org/requests/",
+      );
       expect(response?.status()).toBe(200);
       await expect(page.locator(".invitation-history-page")).toBeVisible();
     });
@@ -858,7 +886,9 @@ test.describe("Auto-Join Domain Management", () => {
     resetAutoJoinState("e2e-public-org");
   });
 
-  test("admin can enable auto-join, add a domain, and disable auto-join", async ({ page }) => {
+  test("admin can enable auto-join, add a domain, and disable auto-join", async ({
+    page,
+  }) => {
     await login(page, "e2e-admin");
 
     // Navigate to org detail — auto-join should be disabled by default
@@ -868,7 +898,9 @@ test.describe("Auto-Join Domain Management", () => {
 
     // Enable auto-join — should redirect to manage-domains page
     await page.locator('button[value="enable_autojoin"]').click();
-    await expect(page).toHaveURL(/\/organizations\/e2e-public-org\/manage-domains\//);
+    await expect(page).toHaveURL(
+      /\/organizations\/e2e-public-org\/manage-domains\//,
+    );
     await expectFlashMessage(page, "success");
 
     // Add a domain from the dropdown (example.com from e2e-admin's verified email)
@@ -877,11 +909,15 @@ test.describe("Auto-Join Domain Management", () => {
     await expectFlashMessage(page, "success");
 
     // Verify the domain appears in the trusted domains list
-    await expect(page.locator(".domain-name", { hasText: "example.com" })).toBeVisible();
+    await expect(
+      page.locator(".domain-name", { hasText: "example.com" }),
+    ).toBeVisible();
 
     // Go back to org detail and disable auto-join
     await page.goto("/organizations/e2e-public-org/");
-    await expect(page.locator('button[value="disable_autojoin"]')).toBeVisible();
+    await expect(
+      page.locator('button[value="disable_autojoin"]'),
+    ).toBeVisible();
     await page.locator('button[value="disable_autojoin"]').click();
     await expectFlashMessage(page, "success");
 

@@ -25,6 +25,21 @@ export async function expectFlashMessage(page: Page, level: string) {
   await expect(alert).toBeVisible({ timeout: 10_000 });
 }
 
+/**
+ * Invite a user by email using the Svelecte-based UserSelect widget on the
+ * manage-members page.  Types the email, waits for the creatable-row button to
+ * become enabled (the email regex must match), clicks it to add the selection,
+ * then clicks the "Send invites" submit button.
+ */
+export async function inviteByEmail(page: Page, email: string) {
+  const input = page.locator("#user-select input");
+  await input.fill(email);
+  const createBtn = page.locator("button.creatable-row");
+  await expect(createBtn).toBeEnabled({ timeout: 5_000 });
+  await createBtn.click();
+  await page.locator('button[value="addmember"]').click();
+}
+
 export function runManageCommand(args: string): string {
   return execSync(
     `${COMPOSE_E2E} exec -T squarelet_django /entrypoint python manage.py ${args}`,

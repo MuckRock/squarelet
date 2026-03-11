@@ -94,19 +94,31 @@ function main() {
             "X-CSRFToken": csrf,
           },
           body: JSON.stringify(body),
-        }).then((r) => {
+        }).then(async (r) => {
+          const data = await r.json();
           if (!r.ok) throw r;
-          return r;
+          return data as { status?: string };
         });
       }),
     );
 
-    const sent = results.filter((r) => r.status === "fulfilled").length;
-    const failed = results.length - sent;
+    const alreadyMembers = results.filter(
+      (r) => r.status === "fulfilled" && r.value.status === "already_member",
+    ).length;
+    const sent = results.filter(
+      (r) => r.status === "fulfilled" && r.value.status !== "already_member",
+    ).length;
+    const failed = results.length - sent - alreadyMembers;
     if (sent > 0)
       showAlert(`${sent} invitation${sent !== 1 ? "s" : ""} sent.`, "success", {
         autoDismiss: true,
       });
+    if (alreadyMembers > 0)
+      showAlert(
+        `${alreadyMembers} user${alreadyMembers !== 1 ? "s are" : " is"} already a member.`,
+        "info",
+        { autoDismiss: true },
+      );
     if (failed > 0)
       showAlert(
         `${failed} invitation${failed !== 1 ? "s" : ""} failed to send.`,
