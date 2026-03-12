@@ -1,5 +1,15 @@
 # Issue 474: Search Existing Users When Creating Org Membership Invitations
 
+## Status — All implementation complete (2026-03-12)
+
+All seven parts are implemented and committed. E2e tests updated (switched from
+`pressSequentially` to `fill` for reliability). Backend also handles adding
+users who are already members of the org (returns `already_member` status).
+
+**Remaining:** Final review, run full test suite, open PR against master.
+
+---
+
 ## Overview
 
 Enable org admins to search existing users when inviting members. Requires:
@@ -104,11 +114,11 @@ Already registered in `config/urls.py` as `fe_api_router.register(r"users", ...)
 
 ---
 
-## Part 4 — Frontend: `UserListItem` Svelte Component
+## Part 4 — Frontend: `UserListItem` Svelte Component ✅
 
 **File:** `frontend/components/UserListItem.svelte` (new)
 
-Displays a single user in the dropdown list. Modelled after `TeamListItem.svelte`.
+Done. Displays a single user in the dropdown list. Modelled after `TeamListItem.svelte`.
 
 ```svelte
 <script lang="ts">
@@ -139,11 +149,11 @@ export interface User {
 
 ---
 
-## Part 5 — Frontend: `UserSelect` Svelte Component
+## Part 5 — Frontend: `UserSelect` Svelte Component ✅
 
 **File:** `frontend/components/UserSelect.svelte` (new)
 
-A multi-select widget that:
+Done. A multi-select widget that:
 
 - Fetches users via `/fe_api/users/?search=[query]`
 - Supports `creatable` mode so email-like input generates a synthetic "invite by email" option
@@ -212,7 +222,7 @@ allow free-text entry, and validate/tag email entries via `createFilter` and
   {fetchCallback}
   {fetchProps}
   {createFilter}
-  {createTransform}
+  {createHandler}
   fetchResetOnBlur={false}
   resetOnBlur={false}
   lazyDropdown={false}
@@ -239,17 +249,17 @@ allow free-text entry, and validate/tag email entries via `createFilter` and
 
 ---
 
-## Part 6 — Frontend: Wire Into "Invite Members" Form
+## Part 6 — Frontend: Wire Into "Invite Members" Form ✅
 
 Progressive enhancement: the form keeps its Django `method="POST"` as a no-JS
 fallback. When JS is available, submission is intercepted and each invitation is
 posted individually to `POST /fe_api/invitations/` with inline feedback.
 
-### 6a. Template
+### 6a. Template ✅
 
 **File:** `squarelet/templates/organizations/organization_managemembers.html`
 
-Replace the existing `<input type="email" name="emails" multiple ...>` with:
+Done. Replaced the existing `<input type="email" name="emails" multiple ...>` with:
 
 - A `<div id="user-select"></div>` mount point for the `UserSelect` component
 - A plain `<input type="email" name="emails">` fallback beneath it (visible only
@@ -258,12 +268,12 @@ Replace the existing `<input type="email" name="emails" multiple ...>` with:
 Add `data-org-id="{{ organization.pk }}"` to the form element so the TS
 layer can include the org's integer pk in the REST POST body.
 
-### 6b. TypeScript
+### 6b. TypeScript ✅
 
-**File:** `frontend/views/organization_managemembers.ts`
+**File:** `frontend/views/organization_managemembers.svelte.ts`
 
-Mount `UserSelect` onto `#user-select`. Intercept the form's `submit` event and
-POST each selection to `POST /fe_api/invitations/`, then show inline feedback
+Done. Mounts `UserSelect` onto `#user-select`. Intercepts the form's `submit` event
+and POSTs each selection to `POST /fe_api/invitations/`, with inline feedback
 without a full page reload.
 
 ```typescript
@@ -371,7 +381,7 @@ Note: `user` is read-only on `InvitationSerializer`, so the frontend must send
 `email` for both user-type and email-type selections. The `Invitation` model's
 `email` field is required for sending.
 
-### 6d. Django POST fallback
+### 6d. Django POST fallback ✅
 
 **File:** `squarelet/organizations/views/members.py`
 
@@ -425,15 +435,15 @@ Not in scope for this plan (no existing frontend tests in the codebase).
 | `squarelet/users/fe_api/viewsets.py`                                | Add search, filter, `get_searchable` to `UserViewSet` ✅       |
 | `squarelet/organizations/fe_api/viewsets.py`                        | Call `invitation.send()` in `perform_create` ✅                |
 | `squarelet/templates/users/user_form.html`                          | Checkbox inline rendering ✅                                   |
-| `squarelet/templates/organizations/organization_managemembers.html` | Replace email input with `#user-select` mount point            |
-| `frontend/components/UserListItem.svelte`                           | New component                                                  |
-| `frontend/components/UserSelect.svelte`                             | New component                                                  |
-| `frontend/views/organization_managemembers.ts`                      | Mount `UserSelect`, intercept submit, POST to REST API         |
-| `frontend/types.d.ts`                                               | Add `User` interface                                           |
+| `squarelet/templates/organizations/organization_managemembers.html` | Replace email input with `#user-select` mount point ✅         |
+| `frontend/components/UserListItem.svelte`                           | New component ✅                                               |
+| `frontend/components/UserSelect.svelte`                             | New component ✅                                               |
+| `frontend/views/organization_managemembers.svelte.ts`               | Mount `UserSelect`, intercept submit, POST to REST API ✅      |
+| `frontend/types.d.ts`                                               | Add `User` interface ✅                                        |
 
 ---
 
-## Open Questions / Decisions Needed
+## Open Questions / Decisions — All Resolved
 
 1. **User search access** — resolved. The manage-members page is gated by
    `organizations.can_manage_members` (granted to org admins and staff with an
