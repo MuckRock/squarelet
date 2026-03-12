@@ -177,7 +177,8 @@
 }
 
 /* Signed out users see this */
-.introduction h2, p {
+.introduction h2,
+p {
   margin: 0;
 }
 
@@ -198,7 +199,7 @@
   border-radius: 0.5rem;
   border: 1px solid;
   border-color: transparent;
-  transition: border-color .1s linear;
+  transition: border-color 0.1s linear;
 }
 
 .your-orgs .org:hover {

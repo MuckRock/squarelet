@@ -97,7 +97,8 @@ h3 {
   line-height: normal;
 }
 
-.pending, .pre-approved {
+.pending,
+.pre-approved {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -106,7 +107,8 @@ h3 {
   padding: 1rem;
 }
 
-.pending header, .pre-approved header {
+.pending header,
+.pre-approved header {
   flex-direction: column;
   align-items: flex-start;
 }

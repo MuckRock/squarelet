@@ -253,3 +253,60 @@ def test_non_admin_cannot_create_invitation(
     )
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.django_db
+def test_create_invitation_sends_email(
+    api_client, user_factory, organization_factory, mocker
+):
+    """Creating an invitation via POST should call invitation.send()"""
+    org = organization_factory()
+    admin = user_factory(email_verified=True)
+    org.memberships.create(user=admin, admin=True)
+
+    mock_send = mocker.patch("squarelet.organizations.models.Invitation.send")
+
+    api_client.force_authenticate(admin)
+    url = reverse("fe_api:fe-invitations-list")
+    response = api_client.post(
+        url,
+        data={
+            "email": "newmember@example.com",
+            "organization": org.pk,
+            "request": False,
+        },
+        format="json",
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED
+    mock_send.assert_called_once()
+
+
+@pytest.mark.django_db
+def test_create_invitation_with_user_id_resolves_email(
+    api_client, user_factory, organization_factory, mocker
+):
+    """POSTing with a user ID (no email) should resolve the user's email"""
+    org = organization_factory()
+    admin = user_factory(email_verified=True)
+    org.memberships.create(user=admin, admin=True)
+
+    invitee = user_factory(email="invitee@example.com")
+
+    mocker.patch("squarelet.organizations.models.Invitation.send")
+
+    api_client.force_authenticate(admin)
+    url = reverse("fe_api:fe-invitations-list")
+    response = api_client.post(
+        url,
+        data={
+            "user": invitee.pk,
+            "organization": org.pk,
+            "request": False,
+        },
+        format="json",
+    )
+
+    assert response.status_code == status.HTTP_201_CREATED
+    assert response.data["email"] == "invitee@example.com"
+    assert response.data["user"] == invitee.pk

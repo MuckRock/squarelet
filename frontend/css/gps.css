@@ -605,7 +605,7 @@ strong {
 }
 
 .field.has-errors .field-label {
-  color: var(--red-3, #E1275F);
+  color: var(--red-3, #e1275f);
 }
 
 .field.inline-field {

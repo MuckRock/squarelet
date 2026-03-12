@@ -5,7 +5,7 @@
 
 {% block vite %}
 {{ block.super }}
-{% vite_asset "frontend/views/organization_managemembers.ts" %}
+{% vite_asset "frontend/views/organization_managemembers.svelte.ts" %}
 {% endblock vite %}
 
 {% block layout_id %}managemembers{% endblock %}
@@ -73,10 +73,12 @@
 
     <div class="card">
       <form method="POST"
-        id="org-form"
+        id="invite-form"
+        data-org-id="{{ organization.pk }}"
         action="{% url "organizations:manage-members" slug=organization.slug %}">
         {% csrf_token %}
-        <label class="email field">
+        <div id="user-select"></div>
+        <label class="email field email-fallback">
           <span class="sr-only">{% trans "Email" %}</span>
           <div class="wrapper">
             {% include "core/icons/mail.svg" %}

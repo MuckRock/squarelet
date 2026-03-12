@@ -193,7 +193,7 @@ class TestOrganizationQuerySet(TestCase):
         # Verify organization properties
         assert org.name == user.username
         assert org.individual is True
-        assert org.private is True
+        assert org.private is False
         assert org.max_users == 1
 
         # Verify user is saved and linked
@@ -240,11 +240,15 @@ class TestMembershipQuerySet(TestCase):
         private_org = OrganizationFactory(admins=[admin], private=True)
         MembershipFactory(organization=private_org, user=member)
 
-        assert Membership.objects.get_viewable(member).count() == 3
-        assert Membership.objects.get_viewable(user).count() == 1
+        # member sees: 3 individual org memberships (public) + 2 private_org
+        # memberships (admin + member, since member belongs to private_org)
+        assert Membership.objects.get_viewable(member).count() == 5
+        # user sees: 3 individual org memberships (public) but not private_org
+        assert Membership.objects.get_viewable(user).count() == 3
 
         another_user = UserFactory()
-        assert member.memberships.get_viewable(another_user).count() == 0
+        # another_user can see member's individual org membership (public)
+        assert member.memberships.get_viewable(another_user).count() == 1
 
 
 @pytest.mark.django_db(transaction=True)

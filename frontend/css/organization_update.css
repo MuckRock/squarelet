@@ -39,7 +39,8 @@
   flex-direction: column;
   width: 100%;
 
-  h3, p {
+  h3,
+  p {
     margin: 0;
   }
 
@@ -49,7 +50,8 @@
     table-layout: auto;
     border-collapse: collapse;
   }
-  th, td {
+  th,
+  td {
     padding: 0.125em 0.5em;
     text-align: left;
     border: 1px solid var(--gray-2);
@@ -83,7 +85,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.25rem; 
+  gap: 0.25rem;
   flex: 0 1 8em;
 }
 

@@ -83,9 +83,8 @@ class InvitationSerializer(serializers.ModelSerializer):
             "rejected_at",
             "withdrawn_at",
             "created_at",
-            "user",
         )
-
-    def perform_create(self, serializer):
-        invitation = serializer.save()
-        invitation.send()
+        extra_kwargs = {
+            "email": {"required": False, "allow_blank": True},
+            "user": {"required": False},
+        }
