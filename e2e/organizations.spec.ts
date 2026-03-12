@@ -549,7 +549,7 @@ test.describe("Member Management", () => {
     }
 
     // Send invitation with Member role (default)
-    await page.locator("#user-select input").fill("e2e-requester@example.com");
+    await page.locator("#user-select input").pressSequentially("e2e-requester@example.com");
     await expect(page.locator("button.creatable-row")).toBeEnabled({ timeout: 5_000 });
     await page.locator("button.creatable-row").click();
     await page.locator("select[name='role']").selectOption("0");
@@ -609,7 +609,7 @@ test.describe("Member Management", () => {
     }
 
     // Send invitation with Admin role
-    await page.locator("#user-select input").fill("e2e-regular@example.com");
+    await page.locator("#user-select input").pressSequentially("e2e-regular@example.com");
     await expect(page.locator("button.creatable-row")).toBeEnabled({ timeout: 5_000 });
     await page.locator("button.creatable-row").click();
     await page.locator("select[name='role']").selectOption("1");

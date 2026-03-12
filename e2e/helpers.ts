@@ -33,7 +33,7 @@ export async function expectFlashMessage(page: Page, level: string) {
  */
 export async function inviteByEmail(page: Page, email: string) {
   const input = page.locator("#user-select input");
-  await input.fill(email);
+  await input.pressSequentially(email);
   const createBtn = page.locator("button.creatable-row");
   await expect(createBtn).toBeEnabled({ timeout: 5_000 });
   await createBtn.click();
