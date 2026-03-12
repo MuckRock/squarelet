@@ -30,8 +30,8 @@
   }
 
   /** Transform a created item (email string) into a Selection */
-  function createTransform(query: string): Selection {
-    return { type: "email", email: query, name: query, id: `email:${query}` };
+  function createHandler({ inputValue }: { inputValue: string }): Selection {
+    return { type: "email", email: inputValue, name: inputValue, id: `email:${inputValue}` };
   }
 
   function handleChange() {
@@ -61,7 +61,7 @@
   {fetchCallback}
   {fetchProps}
   {createFilter}
-  {createTransform}
+  {createHandler}
   fetchDebounceTime={400}
   minQuery={3}
   fetchResetOnBlur={false}
