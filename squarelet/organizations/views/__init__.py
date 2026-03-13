@@ -1,6 +1,7 @@
 # Import all views to maintain backward compatibility with existing imports
 # Local
-from .admin import Create, Merge
+from .admin import Merge
+from .create import Create
 from .detail import Detail, List, autocomplete
 from .domains import ManageDomains
 from .members import (

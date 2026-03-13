@@ -4,7 +4,7 @@
 import pytest
 
 # Squarelet
-from squarelet.organizations.forms import ProfileChangeRequestForm
+from squarelet.organizations.forms import CreateForm, ProfileChangeRequestForm
 from squarelet.organizations.models import ProfileChangeRequest
 
 
@@ -227,3 +227,24 @@ class TestProfileChangeRequestForm:
         assert not form.is_valid()
         assert "url" in form.errors
         assert "already associated with the organization" in str(form.errors["url"])
+
+
+@pytest.mark.django_db()
+class TestCreateForm:
+    """Test CreateForm"""
+
+    def test_valid_with_name(self):
+        """CreateForm with valid name creates successfully"""
+        form = CreateForm(data={"name": "New Organization"})
+        assert form.is_valid(), form.errors
+
+    def test_valid_with_all_fields(self):
+        """CreateForm accepts optional about field"""
+        form = CreateForm(data={"name": "New Organization", "about": "A great org"})
+        assert form.is_valid(), form.errors
+
+    def test_invalid_without_name(self):
+        """CreateForm without name fails validation"""
+        form = CreateForm(data={"about": "A great org"})
+        assert not form.is_valid()
+        assert "name" in form.errors

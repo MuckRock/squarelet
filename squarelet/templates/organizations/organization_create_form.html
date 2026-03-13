@@ -1,53 +1,35 @@
 {% extends "base.html" %}
-{% load static i18n avatar crispy_forms_tags %}
+{% load static i18n django_vite crispy_forms_tags %}
 {% block title %}Create organization{% endblock %}
+
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/organization_create.ts" %}
+{% endblock vite %}
 
 {% block content %}
 
-<div class="_cls-content">
-  {% if matching_orgs %}
+<div class="_cls-content create-organization {% if not has_verified_email %}unverified{% endif %}">
+  {% if not has_verified_email %}
+    <h2>{% trans "Email verification required" %}</h2>
     <p>
       {% blocktrans %}
-        It looks like one or more organizations with similar names are already
-        up and running on MuckRock:
+        You must verify your email address before creating an organization.
+        Please check your inbox for a verification email, or view your
+        connected accounts to resend it.
       {% endblocktrans %}
     </p>
-    <ul>
-      {% for org in matching_orgs %}
-        <li>
-          <a href="{{ org.get_absolute_url }}">
-            {{ org.name }}
-          </a>
-          {% if org.verified_journalist %}(Verified){% endif %}
-        </li>
-      {% endfor %}
-    </ul>
-
-    <br><br>
-    <p>
-      {% blocktrans %}
-        If the organization you're trying to create is already set up on
-        MuckRock, please look for the "Request to Join" option on the
-        organization's profile page. Please contact support if you the admins
-        listed have left the organization.
-      {% endblocktrans %}
-    </p>
-    <p>{% trans "My organization is not shown:" %}</p>
-    <form id="login_form" method="POST" action="{% url 'organizations:create' %}">
-      {% crispy form form.helper %}
-      <input type="hidden" name="force" value="true">
-      <div class="_cls-actionBig">
-        <button type="submit">{% trans "Create Organization" %}</button>
-      </div>
-    </form>
+    <a href="{% url 'users:detail' user %}#accounts" class="btn primary">
+      {% trans "Go to account" %}
+    </a>
 
   {% else %}
-    <form id="login_form" method="POST" action="{% url 'organizations:create' %}">
+    <h1 class="title">{% trans "Create an organization" %}</h1>
+    <div id="org_name_search"></div>
+    <form class="card" method="POST" action="{% url 'organizations:create' %}" enctype="multipart/form-data">
+      {% csrf_token %}
       {% crispy form form.helper %}
-
-      <div class="_cls-actionBig">
-        <button type="submit">{% trans "Create organization" %}</button>
-      </div>
+      <button type="submit" class="btn primary full">{% trans "Create organization" %}</button>
     </form>
   {% endif %}
 </div>
