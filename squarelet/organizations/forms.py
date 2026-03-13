@@ -19,6 +19,41 @@ from .choices import InvitationRole
 from .models import Organization, Plan, ProfileChangeRequest
 
 
+class CreateForm(forms.ModelForm):
+    """Form for creating a new organization"""
+
+    avatar = forms.ImageField(
+        label=_("Avatar"),
+        required=False,
+        widget=AvatarWidget,
+        help_text=(
+            "This will represent the organization on its profile, "
+            "on public pages, and in lists."
+        ),
+    )
+    about = forms.CharField(
+        label=_("About"),
+        widget=forms.Textarea,
+        required=False,
+        help_text=_("Markdown formatting supported. Maximum 250 characters."),
+    )
+
+    class Meta:
+        model = Organization
+        fields = ["name", "about", "avatar"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.template_pack = "forms"
+        self.helper.layout = Layout(
+            CrispyField("name"),
+            CrispyField("avatar"),
+            CrispyField("about"),
+        )
+        self.helper.form_tag = False
+
+
 class PaymentForm(StripeForm):
     """Update subscription information for an organization"""
 

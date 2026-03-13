@@ -231,6 +231,34 @@ class TestOrganizationQuerySet(TestCase):
         assert org == user.individual_organization
 
 
+class TestFuzzySearch(TestCase):
+    """Unit tests for Organization.objects.fuzzy_search()"""
+
+    @pytest.mark.django_db
+    def test_fuzzy_search_finds_similar_name(self):
+        """fuzzy_search returns orgs with similar names"""
+        OrganizationFactory(name="MuckRock Foundation", individual=False)
+        results = Organization.objects.fuzzy_search("Muckrock")
+        assert results.count() == 1
+        assert results.first().name == "MuckRock Foundation"
+
+    @pytest.mark.django_db
+    def test_fuzzy_search_no_match(self):
+        """fuzzy_search returns empty queryset when no orgs match"""
+        OrganizationFactory(name="MuckRock Foundation", individual=False)
+        results = Organization.objects.fuzzy_search("xyzzyspoon")
+        assert results.count() == 0
+
+    @pytest.mark.django_db
+    def test_fuzzy_search_excludes_individual_orgs(self):
+        """fuzzy_search excludes individual organizations"""
+        OrganizationFactory(name="MuckRock User", individual=True, private=True)
+        OrganizationFactory(name="MuckRock Foundation", individual=False)
+        results = Organization.objects.fuzzy_search("MuckRock")
+        assert results.count() == 1
+        assert results.first().name == "MuckRock Foundation"
+
+
 class TestMembershipQuerySet(TestCase):
     """Unit tests for Membership queryset"""
 

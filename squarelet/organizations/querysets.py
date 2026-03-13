@@ -13,6 +13,7 @@ from uuid import uuid4
 # Third Party
 import stripe
 from dateutil.relativedelta import relativedelta
+from fuzzywuzzy import fuzz, process
 
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason
@@ -55,6 +56,25 @@ class OrganizationQuerySet(models.QuerySet):
                 | Q(private=False, charges__isnull=False)
                 | Q(private=False, invoices__status="paid")
             ).distinct()
+
+    def fuzzy_search(self, name, limit=10, score_cutoff=83):
+        """Fuzzy search for non-individual organizations by name"""
+        group_orgs = self.filter(individual=False)
+        matching_orgs = process.extractBests(
+            name,
+            {o: o.name for o in group_orgs},
+            limit=limit,
+            scorer=fuzz.partial_ratio,
+            score_cutoff=score_cutoff,
+        )
+        matched_pks = [org.pk for _, _, org in matching_orgs]
+        if not matched_pks:
+            return self.none()
+        # Preserve match order using CASE/WHEN
+        preserved = models.Case(
+            *[models.When(pk=pk, then=pos) for pos, pk in enumerate(matched_pks)]
+        )
+        return self.filter(pk__in=matched_pks).order_by(preserved)
 
     def create_individual(self, user, uuid=None):
         """Create an individual organization for user

@@ -20,19 +20,17 @@ test.describe("Organization Creation", () => {
       await expect(page).toHaveURL(/\/organizations\/e2e-new-org\//);
     });
 
-    test("similar name shows matching orgs, force-create works", async ({ page }) => {
+    test("typing a similar name shows live fuzzy matches", async ({ page }) => {
       await page.goto("/organizations/~create");
+
+      // Type a name that matches an existing org
       await page.locator("input[name='name']").fill("e2e public org");
-      await page.locator("button[type='submit']").click();
 
-      // Should show matching organizations and a force-create form
-      await expect(page).toHaveURL(/\/organizations\/~create/);
-      await expect(page.locator("input[name='force'][value='true']")).toBeAttached();
-
-      // The force form reuses the #login_form id with the hidden force field
-      await page.locator("#login_form button[type='submit']").click();
-      await page.waitForURL((url) => !url.pathname.includes("~create"));
-      await expect(page).toHaveURL(/\/organizations\//);
+      // The matching org should appear in the results list
+      const results = page.locator("#org_name_search");
+      await expect(
+        results.locator("a[href='/organizations/e2e-public-org/']"),
+      ).toBeVisible({ timeout: 5_000 });
     });
   });
 
