@@ -62,6 +62,7 @@
   {disabled}
   bind:value
   valueAsObject
+  valueField="id"
   labelField="name"
   fetch="/fe_api/users/?search=[query]"
   {fetchCallback}
