@@ -3,6 +3,7 @@
 
   import Svelecte from "svelecte";
   import UserListItem from "./UserListItem.svelte";
+  import plusCircle from "@/icons/plus-circle.svg?raw";
 
   interface Props {
     onChange?: (selections: Selection[]) => void;
@@ -31,7 +32,12 @@
 
   /** Transform a created item (email string) into a Selection */
   function createHandler({ inputValue }: { inputValue: string }): Selection {
-    return { type: "email", email: inputValue, name: inputValue, id: `email:${inputValue}` };
+    return {
+      type: "email",
+      email: inputValue,
+      name: inputValue,
+      id: `email:${inputValue}`,
+    };
   }
 
   function handleChange() {
@@ -68,7 +74,26 @@
   resetOnBlur={false}
   lazyDropdown={false}
   onChange={handleChange}
+  class="svelecte-control user-search"
+  --sv-min-height="2rem"
+  --sv-disabled-bg="var(--gray-1, #f5f6f7)"
+  --sv-border="1px solid var(--gray-3, #99a8b3)"
+  --sv-border-radius="0.5rem"
+  --sv-general-padding="0.375rem"
+  --sv-placeholder-color="var(--gray-3, #99a8b3)"
+  --sv-icon-color="var(--gray-3, #99a8b3)"
+  --sv-icon-color-hover="var(--gray-4, #5c717c)"
+  --sv-separator-bg="var(--gray-2, #d8dee2)"
+  --sv-dropdown-border="1px solid var(--gray-2, #d8dee2)"
+  --sv-dropdown-shadow="var(--shadow-2, 0 6px 8px 0px rgba(30 48 56 / 0.1))"
+  --sv-dropdown-active-bg="var(--blue-1, #eef3f9)"
+  --sv-dropdown-selected-bg="var(--blue-1, #eef3f9)"
+  --sv-loader-border="2px solid var(--blue-3, #4294f0)"
 >
+  {#snippet prepend()}
+    <span class="prepend">{@html plusCircle}</span>
+  {/snippet}
+
   {#snippet option(item: Selection)}
     {#if item.type === "email"}
       <div class="email-option">
@@ -88,3 +113,84 @@
     {/each}
   {/snippet}
 </Svelecte>
+
+<style>
+  .prepend {
+    display: contents;
+
+    :global(svg) {
+      width: 1rem;
+      height: 1rem;
+      margin: 0 0.5rem;
+      fill: var(--gray-4, #5c717c);
+    }
+  }
+
+  :global(.svelecte-control.user-search) {
+    font-family: var(--font-sans, "Source Sans Pro"), sans-serif;
+    font-size: var(--font-md, 1rem);
+    font-feature-settings: "ss04" on;
+    box-shadow: 0 2px 0 0 var(--gray-2, #d8dee2) inset;
+  }
+
+  :global(.svelecte-control.user-search input) {
+    font-family: var(--font-sans, "Source Sans Pro"), sans-serif;
+    font-size: var(--font-md, 1rem);
+  }
+
+  :global(.svelecte-control.user-search .sv-dropdown) {
+    border-radius: 0.5rem;
+  }
+
+  :global(.svelecte-control.user-search .sv-dropdown .sv-dd-item) {
+    font-family: var(--font-sans, "Source Sans Pro"), sans-serif;
+    font-size: var(--font-md, 1rem);
+    padding: 0.375rem 0.75rem;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-family: var(--font-sans, "Source Sans Pro"), sans-serif;
+    font-size: var(--font-sm, 0.875rem);
+    font-weight: 600;
+    line-height: normal;
+    background: var(--blue-1, #eef3f9);
+    border: 1px solid var(--blue-2, #b5ceed);
+    color: var(--blue-5, #053775);
+  }
+
+  .chip.email {
+    background: var(--green-1, #ebf9f6);
+    border: 1px solid var(--green-2, #9de3d3);
+    color: var(--green-5, #0e4450);
+  }
+
+  .chip button {
+    all: unset;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    font-size: var(--font-md, 1rem);
+    line-height: 1;
+    color: inherit;
+    opacity: 0.6;
+  }
+
+  .chip button:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.1);
+  }
+
+  .email-option {
+    padding: 0.25rem 0;
+    color: var(--gray-5, #233944);
+  }
+</style>
