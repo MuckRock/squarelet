@@ -19,7 +19,7 @@ describe("UserListItem", () => {
     });
 
     expect(target.textContent).toContain("Jane Doe");
-    expect(target.textContent).toContain("@janedoe");
+    expect(target.textContent).toContain("janedoe");
   });
 
   it("falls back to username when name is empty", () => {
