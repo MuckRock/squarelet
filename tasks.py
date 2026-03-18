@@ -92,6 +92,13 @@ def coverage(c):
             cmd=f"coverage html",
         )
     )
+    c.run(
+        DOCKER_COMPOSE_RUN_OPT_USER.format(
+            opt="-e DJANGO_SETTINGS_MODULE=config.settings.test",
+            service="squarelet_django",
+            cmd=f"coverage json --pretty-print",
+        )
+    )
 
 
 @task(name="test-frontend")
