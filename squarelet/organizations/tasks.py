@@ -1,7 +1,6 @@
 # Django
 from celery import shared_task
 from django.conf import settings
-from django.core.cache import cache
 from django.utils.timezone import get_current_timezone
 from django.utils.translation import gettext_lazy as _
 

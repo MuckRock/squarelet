@@ -9,21 +9,20 @@ from uuid import uuid4
 
 # Third Party
 import pytest
-import stripe
+from oidc_provider.models import Client
 
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.models import (
-    Invitation,
+    Entitlement,
     Invoice,
     Membership,
     Organization,
+    Plan,
     Subscription,
 )
 from squarelet.organizations.tests.factories import (
     ChargeFactory,
-    InvitationFactory,
-    InvitationRequestFactory,
     InvoiceFactory,
     MembershipFactory,
     OrganizationFactory,
@@ -413,7 +412,6 @@ class TestPlanQuerySet(TestCase):
     @pytest.mark.django_db
     def test_get_viewable_staff(self):
         """Staff users can view all plans"""
-        from squarelet.organizations.models import Plan
 
         staff_user = UserFactory(is_staff=True)
         public_plan = PlanFactory(public=True)
@@ -426,7 +424,6 @@ class TestPlanQuerySet(TestCase):
     @pytest.mark.django_db
     def test_get_viewable_authenticated(self):
         """Authenticated users can view public plans and their org plans"""
-        from squarelet.organizations.models import Plan
 
         user = UserFactory()
         org = OrganizationFactory()
@@ -446,7 +443,6 @@ class TestPlanQuerySet(TestCase):
     @pytest.mark.django_db
     def test_get_viewable_anonymous(self):
         """Anonymous users can only view public plans"""
-        from squarelet.organizations.models import Plan
 
         anonymous = AnonymousUser()
         public_plan = PlanFactory(public=True)
@@ -459,7 +455,6 @@ class TestPlanQuerySet(TestCase):
     @pytest.mark.django_db
     def test_get_public(self):
         """get_public returns only public plans"""
-        from squarelet.organizations.models import Plan
 
         public_plan = PlanFactory(public=True)
         private_plan = PlanFactory(public=False)
@@ -471,7 +466,6 @@ class TestPlanQuerySet(TestCase):
     @pytest.mark.django_db
     def test_choices_for_individuals(self):
         """choices() filters for_individuals=True for individual orgs"""
-        from squarelet.organizations.models import Plan
 
         individual_org = OrganizationFactory(individual=True)
         individual_plan = PlanFactory(for_individuals=True, public=True)
@@ -484,7 +478,6 @@ class TestPlanQuerySet(TestCase):
     @pytest.mark.django_db
     def test_free(self):
         """free() returns plans with zero price"""
-        from squarelet.organizations.models import Plan
 
         free_plan = PlanFactory(base_price=0, price_per_user=0)
         paid_plan = PlanFactory(base_price=500, price_per_user=0)
@@ -500,8 +493,6 @@ class TestEntitlementQuerySet(TestCase):
     @pytest.mark.django_db
     def test_get_viewable_staff(self):
         """Staff users can view all entitlements"""
-        from oidc_provider.models import Client
-        from squarelet.organizations.models import Entitlement, Plan
 
         staff_user = UserFactory(is_staff=True)
         client = Client.objects.create(
@@ -527,8 +518,6 @@ class TestEntitlementQuerySet(TestCase):
     @pytest.mark.django_db
     def test_get_viewable_authenticated(self):
         """Authenticated users can view public entitlements"""
-        from oidc_provider.models import Client
-        from squarelet.organizations.models import Entitlement, Plan
 
         user = UserFactory()
         other_user = UserFactory()
@@ -560,8 +549,6 @@ class TestEntitlementQuerySet(TestCase):
     @pytest.mark.django_db
     def test_get_viewable_anonymous(self):
         """Anonymous users can view public entitlements"""
-        from oidc_provider.models import Client
-        from squarelet.organizations.models import Entitlement, Plan
 
         anonymous = AnonymousUser()
         owner = UserFactory()
@@ -588,8 +575,6 @@ class TestEntitlementQuerySet(TestCase):
     @pytest.mark.django_db
     def test_get_public(self):
         """get_public returns only public entitlements"""
-        from oidc_provider.models import Client
-        from squarelet.organizations.models import Entitlement, Plan
 
         owner = UserFactory()
         client = Client.objects.create(
@@ -615,8 +600,6 @@ class TestEntitlementQuerySet(TestCase):
     @pytest.mark.django_db
     def test_get_subscribed_authenticated(self):
         """Authenticated users can view entitlements they're subscribed to"""
-        from oidc_provider.models import Client
-        from squarelet.organizations.models import Entitlement, Plan
 
         user = UserFactory()
         org = OrganizationFactory()
@@ -646,8 +629,6 @@ class TestEntitlementQuerySet(TestCase):
     @pytest.mark.django_db
     def test_get_subscribed_anonymous(self):
         """Anonymous users get empty queryset"""
-        from oidc_provider.models import Client
-        from squarelet.organizations.models import Entitlement
 
         anonymous = AnonymousUser()
         owner = UserFactory()
@@ -664,8 +645,6 @@ class TestEntitlementQuerySet(TestCase):
     @pytest.mark.django_db
     def test_get_owned_authenticated(self):
         """Authenticated users can view entitlements they own via client"""
-        from oidc_provider.models import Client
-        from squarelet.organizations.models import Entitlement
 
         user = UserFactory()
         other_user = UserFactory()
@@ -690,8 +669,6 @@ class TestEntitlementQuerySet(TestCase):
     @pytest.mark.django_db
     def test_get_owned_anonymous(self):
         """Anonymous users get empty queryset"""
-        from oidc_provider.models import Client
-        from squarelet.organizations.models import Entitlement
 
         anonymous = AnonymousUser()
         owner = UserFactory()
@@ -704,409 +681,6 @@ class TestEntitlementQuerySet(TestCase):
 
         owned = Entitlement.objects.get_owned(anonymous)
         assert owned.count() == 0
-
-
-class TestInvitationQuerySet(TestCase):
-    """Unit tests for Invitation queryset"""
-
-    # pylint: disable=too-many-public-methods
-
-    @pytest.mark.django_db
-    def test_get_open(self):
-        """get_open returns only invitations with no accepted_at/rejected_at"""
-        inv_open = InvitationFactory(accepted_at=None, rejected_at=None)
-        InvitationFactory(accepted_at=None, rejected_at="2024-01-01")  # rejected
-        InvitationFactory(accepted_at="2024-01-01", rejected_at=None)  # accepted
-
-        qs = Invitation.objects.get_open()
-        assert qs.count() == 1
-        assert inv_open in qs
-
-    @pytest.mark.django_db
-    def test_get_pending(self):
-        """get_pending returns only open invitations, alias for open"""
-        open_inv = InvitationFactory(accepted_at=None, rejected_at=None)
-        # non-open invitations
-        InvitationFactory(accepted_at="2024-01-01", rejected_at=None)  # accepted
-        InvitationFactory(accepted_at=None, rejected_at="2024-01-01")  # rejected
-
-        qs = Invitation.objects.get_pending()
-        assert qs.count() == 1
-        assert open_inv in qs
-
-    @pytest.mark.django_db
-    def test_get_pending_invitations(self):
-        """get_pending_invitations returns open invitations where request=False"""
-        normal_inv = InvitationFactory(
-            request=False, accepted_at=None, rejected_at=None
-        )
-        InvitationFactory(request=True, accepted_at=None, rejected_at=None)  # request
-        InvitationFactory(request=False, accepted_at="2024-01-01")  # accepted
-
-        qs = Invitation.objects.get_pending_invitations()
-        assert qs.count() == 1
-        assert normal_inv in qs
-
-    @pytest.mark.django_db
-    def test_get_pending_requests(self):
-        """get_pending_requests returns open invitations where request=True"""
-        req_inv = InvitationFactory(request=True, accepted_at=None, rejected_at=None)
-        InvitationFactory(request=False, accepted_at=None, rejected_at=None)
-        InvitationFactory(request=True, rejected_at="2024-01-01")  # rejected
-
-        qs = Invitation.objects.get_pending_requests()
-        assert qs.count() == 1
-        assert req_inv in qs
-
-    @pytest.mark.django_db
-    def test_get_rejected_requests(self):
-        """get_rejected_requests returns request=True and rejected_at is not null"""
-        rejected_req = InvitationFactory(request=True, rejected_at="2024-01-01")
-        InvitationFactory(request=True, rejected_at=None)  # still open
-        InvitationFactory(request=False, rejected_at="2024-01-01")  # not a request
-
-        qs = Invitation.objects.get_rejected_requests()
-        assert qs.count() == 1
-        assert rejected_req in qs
-
-    @pytest.mark.django_db
-    def test_get_accepted(self):
-        """get_accepted returns invitations where accepted_at is set"""
-        accepted = InvitationFactory(accepted_at="2024-01-01")
-        InvitationFactory(accepted_at=None)
-        InvitationFactory(accepted_at=None, rejected_at="2024-01-01")
-
-        qs = Invitation.objects.get_accepted()
-        assert qs.count() == 1
-        assert accepted in qs
-
-    @pytest.mark.django_db
-    def test_get_rejected(self):
-        """get_rejected returns invitations where rejected_at is set"""
-        rejected = InvitationFactory(rejected_at="2024-01-01")
-        InvitationFactory(rejected_at=None)
-        InvitationFactory(accepted_at="2024-01-01", rejected_at=None)
-
-        qs = Invitation.objects.get_rejected()
-        assert qs.count() == 1
-        assert rejected in qs
-
-    def test_for_user_with_verified_email(self):
-        """Test for_user() filters by user's verified email"""
-        user = UserFactory(email="user@example.com", email_verified=True)
-        org = OrganizationFactory()
-
-        # Create invitation to user's verified email
-        invitation = InvitationFactory(email="user@example.com", organization=org)
-
-        # Create invitation to different email (should not appear)
-        InvitationFactory(email="other@example.com", organization=org)
-
-        queryset = Invitation.objects.for_user(user)
-        assert invitation in queryset
-        assert queryset.count() == 1
-
-    @pytest.mark.django_db
-    def test_for_user_with_user_field(self):
-        """Test for_user() includes invitations via user field"""
-        user = UserFactory(email="user@example.com", email_verified=True)
-        org = OrganizationFactory()
-
-        # Create invitation via user field
-        invitation = InvitationFactory(user=user, organization=org, request=True)
-
-        queryset = Invitation.objects.for_user(user)
-        assert invitation in queryset
-        assert queryset.count() == 1
-
-    @pytest.mark.django_db
-    def test_for_user_combines_email_and_user_field(self):
-        """Test for_user() returns both email and user field matches"""
-        user = UserFactory(email="user@example.com", email_verified=True)
-        org = OrganizationFactory()
-
-        # Create invitation to email
-        email_invitation = InvitationFactory(email="user@example.com", organization=org)
-
-        # Create invitation via user field
-        user_invitation = InvitationFactory(user=user, organization=org, request=True)
-
-        queryset = Invitation.objects.for_user(user)
-        assert email_invitation in queryset
-        assert user_invitation in queryset
-        assert queryset.count() == 2
-
-    @pytest.mark.django_db
-    def test_for_user_no_verified_emails(self):
-        """Test for_user() returns empty queryset when user has no verified emails"""
-        user = UserFactory(email="user@example.com", email_verified=False)
-        org = OrganizationFactory()
-
-        # Create invitation that would match if email was verified
-        InvitationFactory(email="user@example.com", organization=org)
-
-        queryset = Invitation.objects.for_user(user)
-        assert queryset.count() == 0
-
-    @pytest.mark.django_db
-    def test_for_user_multiple_verified_emails(self):
-        """Test for_user() matches any of user's verified emails"""
-        user = UserFactory(email="primary@example.com", email_verified=True)
-        org = OrganizationFactory()
-
-        # Create invitations to different verified emails
-        invitation1 = InvitationFactory(email="primary@example.com", organization=org)
-        InvitationFactory(email="secondary@example.com", organization=org)
-
-        # Mock get_verified_emails to return multiple emails
-        # In real code, this would involve creating EmailAddress records
-        # For now, we'll just test the primary email case
-        queryset = Invitation.objects.for_user(user)
-        assert invitation1 in queryset
-        # invitation2 won't be included unless secondary email is verified
-        assert queryset.count() == 1
-
-    @pytest.mark.django_db
-    def test_get_user_invitations_filters_by_request_false(self):
-        """Test get_user_invitations() returns only invitations, not requests"""
-        user = UserFactory(email="user@example.com", email_verified=True)
-        org = OrganizationFactory()
-
-        # Create invitation (request=False)
-        invitation = InvitationFactory(
-            email="user@example.com", organization=org, request=False
-        )
-
-        # Create request (request=True) - should not appear
-        InvitationRequestFactory(user=user, organization=org, request=True)
-
-        queryset = Invitation.objects.get_user_invitations(user)
-        assert invitation in queryset
-        assert queryset.count() == 1
-        assert all(not inv.request for inv in queryset)
-
-    @pytest.mark.django_db
-    def test_get_user_invitations_includes_select_related(self):
-        """Test get_user_invitations() includes organization via select_related"""
-        user = UserFactory(email="user@example.com", email_verified=True)
-        org = OrganizationFactory()
-
-        InvitationFactory(email="user@example.com", organization=org)
-
-        # Execute the query to load data
-        queryset = list(Invitation.objects.get_user_invitations(user))
-
-        # Check that organization is prefetched (no additional query needed)
-        with self.assertNumQueries(0):
-            # This should not trigger a query if select_related worked
-            _ = queryset[0].organization.name
-
-    @pytest.mark.django_db
-    def test_get_user_invitations_ordered_by_created_at_desc(self):
-        """Test get_user_invitations() orders by created_at descending"""
-        user = UserFactory(email="user@example.com", email_verified=True)
-        org = OrganizationFactory()
-
-        # Create invitations in sequence
-        invitation1 = InvitationFactory(email="user@example.com", organization=org)
-        invitation2 = InvitationFactory(email="user@example.com", organization=org)
-        invitation3 = InvitationFactory(email="user@example.com", organization=org)
-
-        queryset = list(Invitation.objects.get_user_invitations(user))
-
-        # Most recent should be first
-        assert queryset[0] == invitation3
-        assert queryset[1] == invitation2
-        assert queryset[2] == invitation1
-
-    @pytest.mark.django_db
-    def test_get_user_requests_filters_by_request_true(self):
-        """Test get_user_requests() returns only requests, not invitations"""
-        user = UserFactory(email="user@example.com", email_verified=True)
-        org = OrganizationFactory()
-
-        # Create request (request=True)
-        request = InvitationRequestFactory(user=user, organization=org, request=True)
-
-        # Create invitation (request=False) - should not appear
-        InvitationFactory(email="user@example.com", organization=org, request=False)
-
-        queryset = Invitation.objects.get_user_requests(user)
-        assert request in queryset
-        assert queryset.count() == 1
-        assert all(inv.request for inv in queryset)
-
-    @pytest.mark.django_db
-    def test_get_user_requests_includes_select_related(self):
-        """Test get_user_requests() includes organization via select_related"""
-        user = UserFactory(email="user@example.com", email_verified=True)
-        org = OrganizationFactory()
-
-        InvitationRequestFactory(user=user, organization=org)
-
-        # Execute the query to load data
-        queryset = list(Invitation.objects.get_user_requests(user))
-
-        # Check that organization is prefetched (no additional query needed)
-        with self.assertNumQueries(0):
-            # This should not trigger a query if select_related worked
-            _ = queryset[0].organization.name
-
-    @pytest.mark.django_db
-    def test_get_user_requests_ordered_by_created_at_desc(self):
-        """Test get_user_requests() orders by created_at descending"""
-        user = UserFactory(email="user@example.com", email_verified=True)
-        org = OrganizationFactory()
-
-        # Create requests in sequence
-        request1 = InvitationRequestFactory(user=user, organization=org)
-        request2 = InvitationRequestFactory(user=user, organization=org)
-        request3 = InvitationRequestFactory(user=user, organization=org)
-
-        queryset = list(Invitation.objects.get_user_requests(user))
-
-        # Most recent should be first
-        assert queryset[0] == request3
-        assert queryset[1] == request2
-        assert queryset[2] == request1
-
-    @pytest.mark.django_db
-    def test_get_user_invitations_no_verified_emails(self):
-        """Test get_user_invitations() returns empty when no verified emails"""
-        user = UserFactory(email="user@example.com", email_verified=False)
-        org = OrganizationFactory()
-
-        # Create invitation that would match if verified
-        InvitationFactory(email="user@example.com", organization=org)
-
-        queryset = Invitation.objects.get_user_invitations(user)
-        assert queryset.count() == 0
-
-    @pytest.mark.django_db
-    def test_get_user_requests_no_verified_emails(self):
-        """Test get_user_requests() returns empty when no verified emails"""
-        user = UserFactory(email="user@example.com", email_verified=False)
-        org = OrganizationFactory()
-
-        # Create request that would match if verified
-        InvitationRequestFactory(user=user, organization=org)
-
-        queryset = Invitation.objects.get_user_requests(user)
-        assert queryset.count() == 0
-
-    @pytest.mark.django_db
-    def test_get_org_invitations_filters_by_request_false(self):
-        """get_org_invitations returns only invitations (request=False) for an org"""
-        org = OrganizationFactory()
-        invitation = InvitationFactory(organization=org, request=False)
-        InvitationFactory(organization=org, request=True)  # request, not invitation
-
-        qs = Invitation.objects.get_org_invitations(org)
-        assert qs.count() == 1
-        assert invitation in qs
-
-    @pytest.mark.django_db
-    def test_get_org_invitations_includes_all_statuses(self):
-        """get_org_invitations returns pending, accepted, and rejected invitations"""
-        org = OrganizationFactory()
-        InvitationFactory(organization=org, request=False)  # pending
-        InvitationFactory(organization=org, request=False, accepted_at=timezone.now())
-        InvitationFactory(organization=org, request=False, rejected_at=timezone.now())
-        InvitationFactory(organization=org, request=False, withdrawn_at=timezone.now())
-
-        qs = Invitation.objects.get_org_invitations(org)
-        assert qs.count() == 4
-
-    @pytest.mark.django_db
-    def test_get_org_invitations_scoped_to_org(self):
-        """get_org_invitations only returns invitations for the specified org"""
-        org1 = OrganizationFactory()
-        org2 = OrganizationFactory()
-        invite1 = InvitationFactory(organization=org1, request=False)
-        InvitationFactory(organization=org2, request=False)
-
-        qs = Invitation.objects.get_org_invitations(org1)
-        assert qs.count() == 1
-        assert invite1 in qs
-
-    @pytest.mark.django_db
-    def test_get_org_invitations_ordered_by_created_at_desc(self):
-        """get_org_invitations orders by created_at descending"""
-        org = OrganizationFactory()
-        inv1 = InvitationFactory(organization=org, request=False)
-        inv2 = InvitationFactory(organization=org, request=False)
-        inv3 = InvitationFactory(organization=org, request=False)
-
-        qs = list(Invitation.objects.get_org_invitations(org))
-        assert qs[0] == inv3
-        assert qs[1] == inv2
-        assert qs[2] == inv1
-
-    @pytest.mark.django_db
-    def test_get_org_requests_filters_by_request_true(self):
-        """get_org_requests returns only requests (request=True) for an org"""
-        org = OrganizationFactory()
-        user = UserFactory()
-        request = InvitationRequestFactory(organization=org, user=user, request=True)
-        InvitationFactory(organization=org, request=False)  # invitation, not request
-
-        qs = Invitation.objects.get_org_requests(org)
-        assert qs.count() == 1
-        assert request in qs
-
-    @pytest.mark.django_db
-    def test_get_org_requests_includes_all_statuses(self):
-        """get_org_requests returns pending, accepted, and rejected requests"""
-        org = OrganizationFactory()
-        user1 = UserFactory()
-        user2 = UserFactory()
-        user3 = UserFactory()
-        InvitationRequestFactory(organization=org, user=user1, request=True)
-        InvitationRequestFactory(
-            organization=org,
-            user=user2,
-            request=True,
-            accepted_at=timezone.now(),
-        )
-        InvitationRequestFactory(
-            organization=org,
-            user=user3,
-            request=True,
-            rejected_at=timezone.now(),
-        )
-        InvitationRequestFactory(
-            organization=org,
-            user=user3,
-            request=True,
-            withdrawn_at=timezone.now(),
-        )
-
-        qs = Invitation.objects.get_org_requests(org)
-        assert qs.count() == 4
-
-    @pytest.mark.django_db
-    def test_get_org_requests_scoped_to_org(self):
-        """get_org_requests only returns requests for the specified org"""
-        org1 = OrganizationFactory()
-        org2 = OrganizationFactory()
-        user1 = UserFactory()
-        user2 = UserFactory()
-        invite1 = InvitationRequestFactory(organization=org1, user=user1, request=True)
-        InvitationRequestFactory(organization=org2, user=user2, request=True)
-
-        qs = Invitation.objects.get_org_requests(org1)
-        assert qs.count() == 1
-        assert invite1 in qs
-
-    @pytest.mark.django_db
-    def test_get_withdrawn(self):
-        """Test get_withdrawn returns only withdrawn invitations"""
-        withdrawn_inv = InvitationFactory(withdrawn_at=timezone.now())
-        active_inv = InvitationFactory(withdrawn_at=None)
-
-        queryset = Invitation.objects.get_withdrawn()
-        assert withdrawn_inv in queryset
-        assert active_inv not in queryset
 
 
 class TestInvoiceQuerySet(TestCase):
@@ -1189,499 +763,3 @@ class TestInvoiceQuerySet(TestCase):
 
         # 15-day grace period should find all 9 invoices
         assert Invoice.objects.overdue(grace_period_days=15).count() == 9
-
-
-class TestChargeQuerySet:
-    """Unit tests for ChargeQuerySet.make_charge()"""
-
-    @pytest.mark.django_db()
-    def test_make_charge_with_new_card_token(self, mocker):
-        """Test creating charge with new card token"""
-        # Arrange
-        org = OrganizationFactory(customer__customer_id="cus_test123")
-        token = "tok_visa"
-
-        # Mock Stripe customer retrieve (prevent real API call)
-        mock_stripe_customer = mocker.Mock()
-        mock_stripe_customer.sources = mocker.Mock()
-        mocker.patch(
-            "squarelet.organizations.models.payment.stripe.Customer.retrieve",
-            return_value=mock_stripe_customer,
-        )
-
-        # Mock source creation and deletion
-        mock_source = mocker.Mock(id="src_123")
-        mock_stripe_customer.sources.create = mocker.Mock(return_value=mock_source)
-        mock_source.delete = mocker.Mock()
-
-        # Mock charge creation
-        timestamp = int(timezone.now().timestamp())
-        mock_stripe_charge = mocker.Mock(id="ch_test123", created=timestamp)
-        mock_charge_create = mocker.patch(
-            "squarelet.organizations.querysets.stripe.Charge.create",
-            return_value=mock_stripe_charge,
-        )
-
-        # Act
-        from squarelet.organizations.models import Charge
-
-        charge = Charge.objects.make_charge(
-            organization=org,
-            token=token,
-            amount=5000,
-            fee_amount=100,
-            description="Test charge",
-            metadata={"test": "value"},
-        )
-
-        # Assert
-        mock_stripe_customer.sources.create.assert_called_once_with(source=token)
-        mock_charge_create.assert_called_once()
-        call_kwargs = mock_charge_create.call_args[1]
-        assert call_kwargs["amount"] == 5000
-        assert call_kwargs["source"] == mock_source
-        assert call_kwargs["description"] == "Test charge"
-        assert call_kwargs["metadata"]["organization"] == org.name
-        assert call_kwargs["metadata"]["organization id"] == str(org.uuid)
-        assert call_kwargs["metadata"]["fee amount"] == 100
-        assert call_kwargs["metadata"]["test"] == "value"
-        mock_source.delete.assert_called_once()  # Temporary source deleted
-        assert charge.charge_id == "ch_test123"
-        assert charge.organization == org
-
-    @pytest.mark.django_db()
-    def test_make_charge_with_saved_card(self, mocker):
-        """Test creating charge with saved card (no token)"""
-        # Arrange
-        org = OrganizationFactory(customer__customer_id="cus_saved")
-
-        # Mock Stripe customer with saved card
-        mock_card = mocker.Mock(id="card_123")
-        mock_stripe_customer = mocker.Mock()
-        mock_stripe_customer.sources = mocker.Mock()
-        mock_stripe_customer.sources.data = [mock_card]
-        mocker.patch(
-            "squarelet.organizations.models.payment.stripe.Customer.retrieve",
-            return_value=mock_stripe_customer,
-        )
-
-        # Mock Customer.card property to return the mock card
-        mocker.patch(
-            "squarelet.organizations.models.payment.Customer.card",
-            new_callable=mocker.PropertyMock,
-            return_value=mock_card,
-        )
-
-        # Mock charge creation
-        timestamp = int(timezone.now().timestamp())
-        mock_stripe_charge = mocker.Mock(id="ch_saved_card", created=timestamp)
-        mock_charge_create = mocker.patch(
-            "squarelet.organizations.querysets.stripe.Charge.create",
-            return_value=mock_stripe_charge,
-        )
-
-        # Act
-        from squarelet.organizations.models import Charge
-
-        charge = Charge.objects.make_charge(
-            organization=org,
-            token=None,
-            amount=3000,
-            fee_amount=0,
-            description="Saved card charge",
-            metadata={},
-        )
-
-        # Assert
-        mock_charge_create.assert_called_once()
-        call_kwargs = mock_charge_create.call_args[1]
-        assert call_kwargs["source"] == mock_card
-        assert charge.charge_id == "ch_saved_card"
-
-    def _mock_customer_with_card(self, mocker, org):
-        """Helper to mock Stripe customer with saved card"""
-        mock_card = mocker.Mock(id="card_123")
-        mock_stripe_customer = mocker.Mock()
-        mock_stripe_customer.sources = mocker.Mock()
-        mock_stripe_customer.sources.data = [mock_card]
-        mocker.patch(
-            "squarelet.organizations.models.payment.stripe.Customer.retrieve",
-            return_value=mock_stripe_customer,
-        )
-        mocker.patch(
-            "squarelet.organizations.models.payment.Customer.card",
-            new_callable=mocker.PropertyMock,
-            return_value=mock_card,
-        )
-        return mock_card
-
-    @pytest.mark.django_db()
-    def test_make_charge_includes_default_metadata(self, mocker):
-        """Test charge includes organization metadata"""
-        # Arrange
-        org = OrganizationFactory(name="Test Org", customer__customer_id="cus_meta")
-        self._mock_customer_with_card(mocker, org)
-
-        timestamp = int(timezone.now().timestamp())
-        mock_stripe_charge = mocker.Mock(id="ch_metadata", created=timestamp)
-        mock_charge_create = mocker.patch(
-            "squarelet.organizations.querysets.stripe.Charge.create",
-            return_value=mock_stripe_charge,
-        )
-
-        # Act
-        from squarelet.organizations.models import Charge
-
-        Charge.objects.make_charge(
-            organization=org,
-            token=None,
-            amount=1000,
-            fee_amount=50,
-            description="Metadata test",
-            metadata={},
-        )
-
-        # Assert
-        call_kwargs = mock_charge_create.call_args[1]
-        metadata = call_kwargs["metadata"]
-        assert metadata["organization"] == "Test Org"
-        assert metadata["organization id"] == str(org.uuid)
-        assert metadata["fee amount"] == 50
-
-    @pytest.mark.django_db()
-    def test_make_charge_merges_custom_metadata(self, mocker):
-        """Test custom metadata is merged with defaults"""
-        # Arrange
-        org = OrganizationFactory(customer__customer_id="cus_custom")
-        self._mock_customer_with_card(mocker, org)
-
-        timestamp = int(timezone.now().timestamp())
-        mock_stripe_charge = mocker.Mock(id="ch_custom", created=timestamp)
-        mock_charge_create = mocker.patch(
-            "squarelet.organizations.querysets.stripe.Charge.create",
-            return_value=mock_stripe_charge,
-        )
-
-        # Act
-        from squarelet.organizations.models import Charge
-
-        Charge.objects.make_charge(
-            organization=org,
-            token=None,
-            amount=2000,
-            fee_amount=0,
-            description="Custom metadata",
-            metadata={"custom_field": "custom_value", "action": "test-action"},
-        )
-
-        # Assert
-        call_kwargs = mock_charge_create.call_args[1]
-        metadata = call_kwargs["metadata"]
-        assert metadata["custom_field"] == "custom_value"
-        assert metadata["action"] == "test-action"
-        assert metadata["organization"] == org.name  # Default still included
-
-    @pytest.mark.django_db()
-    def test_make_charge_uses_idempotency_key(self, mocker):
-        """Test idempotency key is UUID"""
-        # Arrange
-        org = OrganizationFactory(customer__customer_id="cus_idem")
-        self._mock_customer_with_card(mocker, org)
-
-        timestamp = int(timezone.now().timestamp())
-        mock_stripe_charge = mocker.Mock(id="ch_idempotent", created=timestamp)
-        mock_charge_create = mocker.patch(
-            "squarelet.organizations.querysets.stripe.Charge.create",
-            return_value=mock_stripe_charge,
-        )
-
-        # Act
-        from squarelet.organizations.models import Charge
-
-        Charge.objects.make_charge(
-            organization=org,
-            token=None,
-            amount=1500,
-            fee_amount=0,
-            description="Idempotency test",
-            metadata={},
-        )
-
-        # Assert
-        call_kwargs = mock_charge_create.call_args[1]
-        idempotency_key = call_kwargs["idempotency_key"]
-        assert isinstance(idempotency_key, str)
-        assert len(idempotency_key) > 0
-        # UUID4 format check (simple validation)
-        assert "-" in idempotency_key
-
-    @pytest.mark.django_db()
-    def test_make_charge_statement_descriptor_from_metadata(self, mocker):
-        """Test statement descriptor from metadata action"""
-        # Arrange
-        org = OrganizationFactory(customer__customer_id="cus_desc")
-        self._mock_customer_with_card(mocker, org)
-
-        timestamp = int(timezone.now().timestamp())
-        mock_stripe_charge = mocker.Mock(id="ch_descriptor", created=timestamp)
-        mock_charge_create = mocker.patch(
-            "squarelet.organizations.querysets.stripe.Charge.create",
-            return_value=mock_stripe_charge,
-        )
-
-        # Act
-        from squarelet.organizations.models import Charge
-
-        Charge.objects.make_charge(
-            organization=org,
-            token=None,
-            amount=2500,
-            fee_amount=0,
-            description="Descriptor test",
-            metadata={"action": "Request Filing"},
-        )
-
-        # Assert
-        call_kwargs = mock_charge_create.call_args[1]
-        assert call_kwargs["statement_descriptor_suffix"] == "Request Filing"
-
-    @pytest.mark.django_db()
-    def test_make_charge_statement_descriptor_empty_when_no_action(self, mocker):
-        """Test statement descriptor empty when no action in metadata"""
-        # Arrange
-        org = OrganizationFactory(customer__customer_id="cus_noact")
-        self._mock_customer_with_card(mocker, org)
-
-        timestamp = int(timezone.now().timestamp())
-        mock_stripe_charge = mocker.Mock(id="ch_no_action", created=timestamp)
-        mock_charge_create = mocker.patch(
-            "squarelet.organizations.querysets.stripe.Charge.create",
-            return_value=mock_stripe_charge,
-        )
-
-        # Act
-        from squarelet.organizations.models import Charge
-
-        Charge.objects.make_charge(
-            organization=org,
-            token=None,
-            amount=1000,
-            fee_amount=0,
-            description="No action test",
-            metadata={},
-        )
-
-        # Assert
-        call_kwargs = mock_charge_create.call_args[1]
-        assert call_kwargs["statement_descriptor_suffix"] == ""
-
-    @pytest.mark.django_db()
-    def test_make_charge_race_condition_with_webhook(self, mocker):
-        """Test get_or_create handles webhook race condition"""
-        # Arrange
-        org = OrganizationFactory(customer__customer_id="cus_race")
-        self._mock_customer_with_card(mocker, org)
-
-        # Create existing charge (simulating webhook creating it first)
-        existing_charge = ChargeFactory(charge_id="ch_existing", organization=org)
-
-        timestamp = int(timezone.now().timestamp())
-        mock_stripe_charge = mocker.Mock(id="ch_existing", created=timestamp)
-        mocker.patch(
-            "squarelet.organizations.querysets.stripe.Charge.create",
-            return_value=mock_stripe_charge,
-        )
-
-        # Act
-        from squarelet.organizations.models import Charge
-
-        charge = Charge.objects.make_charge(
-            organization=org,
-            token=None,
-            amount=5000,
-            fee_amount=0,
-            description="Race test",
-            metadata={},
-        )
-
-        # Assert
-        assert charge.id == existing_charge.id  # Same database record
-        assert (
-            Charge.objects.filter(charge_id="ch_existing").count() == 1
-        )  # No duplicate
-
-    @pytest.mark.django_db()
-    def test_make_charge_with_zero_fee_amount(self, mocker):
-        """Test charge with zero fee amount"""
-        # Arrange
-        org = OrganizationFactory(customer__customer_id="cus_zero")
-        self._mock_customer_with_card(mocker, org)
-
-        timestamp = int(timezone.now().timestamp())
-        mock_stripe_charge = mocker.Mock(id="ch_zero_fee", created=timestamp)
-        mock_charge_create = mocker.patch(
-            "squarelet.organizations.querysets.stripe.Charge.create",
-            return_value=mock_stripe_charge,
-        )
-
-        # Act
-        from squarelet.organizations.models import Charge
-
-        charge = Charge.objects.make_charge(
-            organization=org,
-            token=None,
-            amount=1000,
-            fee_amount=0,
-            description="Zero fee test",
-            metadata={},
-        )
-
-        # Assert
-        assert charge.fee_amount == 0
-        call_kwargs = mock_charge_create.call_args[1]
-        assert call_kwargs["metadata"]["fee amount"] == 0
-
-    @pytest.mark.django_db()
-    def test_make_charge_stripe_card_error(self, mocker):
-        """Test handling of Stripe card errors"""
-        # Arrange
-        org = OrganizationFactory(customer__customer_id="cus_card_err")
-        self._mock_customer_with_card(mocker, org)
-
-        # Mock Stripe to raise CardError
-        card_error = stripe.error.CardError(
-            message="Your card was declined",
-            param="card",
-            code="card_declined",
-        )
-        mocker.patch(
-            "squarelet.organizations.querysets.stripe.Charge.create",
-            side_effect=card_error,
-        )
-
-        # Act & Assert
-        from squarelet.organizations.models import Charge
-
-        with pytest.raises(stripe.error.CardError) as exc_info:
-            Charge.objects.make_charge(
-                organization=org,
-                token=None,
-                amount=1000,
-                fee_amount=0,
-                description="Card error test",
-                metadata={},
-            )
-
-        assert exc_info.value.code == "card_declined"
-        # Verify no Charge record was created
-        assert not Charge.objects.filter(organization=org).exists()
-
-    @pytest.mark.django_db()
-    def test_make_charge_stripe_api_error(self, mocker):
-        """Test handling of Stripe API errors"""
-        # Arrange
-        org = OrganizationFactory(customer__customer_id="cus_api_err")
-        self._mock_customer_with_card(mocker, org)
-
-        # Mock Stripe to raise APIError
-        api_error = stripe.error.APIError(
-            message="An error occurred with our API",
-        )
-        mocker.patch(
-            "squarelet.organizations.querysets.stripe.Charge.create",
-            side_effect=api_error,
-        )
-
-        # Act & Assert
-        from squarelet.organizations.models import Charge
-
-        with pytest.raises(stripe.error.APIError):
-            Charge.objects.make_charge(
-                organization=org,
-                token=None,
-                amount=2000,
-                fee_amount=0,
-                description="API error test",
-                metadata={},
-            )
-
-        # Verify no Charge record was created
-        assert not Charge.objects.filter(organization=org).exists()
-
-    @pytest.mark.django_db()
-    def test_make_charge_customer_without_card(self, mocker):
-        """Test error when customer has no saved card"""
-        # Arrange
-        org = OrganizationFactory(customer__customer_id="cus_no_card")
-
-        # Mock Stripe customer WITHOUT saved card
-        mock_stripe_customer = mocker.Mock()
-        mock_stripe_customer.sources = mocker.Mock()
-        mock_stripe_customer.sources.data = []  # No cards saved
-        mocker.patch(
-            "squarelet.organizations.models.payment.stripe.Customer.retrieve",
-            return_value=mock_stripe_customer,
-        )
-
-        # Mock Customer.card property to return None (no card)
-        mocker.patch(
-            "squarelet.organizations.models.payment.Customer.card",
-            new_callable=mocker.PropertyMock,
-            return_value=None,
-        )
-
-        # Mock charge creation to raise error
-        invalid_error = stripe.error.InvalidRequestError(
-            message="Cannot charge a customer that has no active card",
-            param="source",
-        )
-        mocker.patch(
-            "squarelet.organizations.querysets.stripe.Charge.create",
-            side_effect=invalid_error,
-        )
-
-        # Act & Assert
-        from squarelet.organizations.models import Charge
-
-        with pytest.raises(stripe.error.InvalidRequestError):
-            Charge.objects.make_charge(
-                organization=org,
-                token=None,  # No token provided
-                amount=1000,
-                fee_amount=0,
-                description="No card test",
-                metadata={},
-            )
-
-    @pytest.mark.django_db()
-    def test_make_charge_large_amount(self, mocker):
-        """Test charge with large amount"""
-        # Arrange
-        org = OrganizationFactory(customer__customer_id="cus_large")
-        self._mock_customer_with_card(mocker, org)
-
-        timestamp = int(timezone.now().timestamp())
-        mock_stripe_charge = mocker.Mock(id="ch_large", created=timestamp)
-        mock_charge_create = mocker.patch(
-            "squarelet.organizations.querysets.stripe.Charge.create",
-            return_value=mock_stripe_charge,
-        )
-
-        # Act
-        from squarelet.organizations.models import Charge
-
-        large_amount = 100000  # $1,000.00 in cents (reasonable large amount)
-        charge = Charge.objects.make_charge(
-            organization=org,
-            token=None,
-            amount=large_amount,
-            fee_amount=5000,  # $50 fee (within smallint range)
-            description="Large amount test",
-            metadata={},
-        )
-
-        # Assert
-        call_kwargs = mock_charge_create.call_args[1]
-        assert call_kwargs["amount"] == large_amount
-        assert charge.amount == large_amount
-        assert charge.fee_amount == 5000
