@@ -321,3 +321,22 @@ class TestOrganizationAdmin:
         display = org_admin.get_outstanding_invoices(org)
 
         assert display == "-"
+
+    @pytest.mark.django_db
+    def test_save_model_subscribes_when_verified_journalist_set(
+        self, org_admin, organization_factory, request_factory, mocker
+    ):
+        """Should call subscribe() when verified_journalist is changed to True"""
+        org = organization_factory(verified_journalist=False)
+        org.verified_journalist = True
+
+        request = request_factory.get("/")
+        mock_form = mocker.Mock()
+        mock_form.changed_data = ["verified_journalist"]
+
+        subscribe_mock = mocker.patch.object(org, "subscribe")
+        mocker.patch("reversion.admin.VersionAdmin.save_model")
+
+        org_admin.save_model(request, org, mock_form, change=True)
+
+        subscribe_mock.assert_called_once()
