@@ -1662,7 +1662,8 @@ class TestStripeWebhook:
     def test_invoice_marked_uncollectible_handler_dispatch(self, rf, mocker):
         """Test invoice.marked_uncollectible event dispatches handler"""
         mocked_handler = mocker.patch(
-            "squarelet.organizations.views.subscription.handle_invoice_marked_uncollectible.delay"
+            "squarelet.organizations.views.subscription."
+            "handle_invoice_marked_uncollectible.delay"
         )
         event = {
             "type": "invoice.marked_uncollectible",

@@ -245,9 +245,7 @@ class TestHandleChargeSucceeded:
             "metadata": {},
             "object": "charge",
         }
-        organization = organization_factory(
-            customer__customer_id=charge_data["customer"]
-        )
+        organization_factory(customer__customer_id=charge_data["customer"])
         mocked_receipt = mocker.patch(
             "squarelet.organizations.models.Charge.send_receipt"
         )
@@ -260,7 +258,8 @@ class TestHandleChargeSucceeded:
         # Second webhook call - should not create duplicate
         tasks.handle_charge_succeeded(charge_data)
         assert Charge.objects.filter(charge_id=charge_data["id"]).count() == 1
-        # Receipt should be sent again (get_or_create returns existing, send_receipt called)
+        # Receipt should be sent again (get_or_create returns existing,
+        # send_receipt called)
         assert mocked_receipt.call_count == 2
 
 
@@ -293,7 +292,8 @@ def test_handle_invoice_failed_attempt_4_subscription_cancelled(
 
     # Mock subscription_cancelled at the class level
     mocked_cancel = mocker.patch(
-        "squarelet.organizations.models.organization.Organization.subscription_cancelled"
+        "squarelet.organizations.models.organization.Organization."
+        "subscription_cancelled"
     )
 
     invoice_data = {"id": 2, "customer": customer_id, "attempt_count": 4}
@@ -314,13 +314,12 @@ def test_handle_invoice_failed_subscription_cancel_error(
     """Test that error is raised if subscription_cancelled raises error"""
     user = user_factory()
     customer_id = "cus_cancel_err"
-    organization_factory(
-        admins=[user], customer__customer_id=customer_id
-    )
+    organization_factory(admins=[user], customer__customer_id=customer_id)
 
     # Mock subscription_cancelled to raise an error at class level
     mocker.patch(
-        "squarelet.organizations.models.organization.Organization.subscription_cancelled",
+        "squarelet.organizations.models.organization.Organization."
+        "subscription_cancelled",
         side_effect=stripe.error.APIError("Cancellation failed"),
     )
 
