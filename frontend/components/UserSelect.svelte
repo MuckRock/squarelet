@@ -80,7 +80,6 @@
   --sv-disabled-bg="var(--gray-1, #f5f6f7)"
   --sv-border="1px solid var(--gray-3, #99a8b3)"
   --sv-border-radius="0.5rem"
-  --sv-general-padding="0.375rem"
   --sv-placeholder-color="var(--gray-3, #99a8b3)"
   --sv-icon-color="var(--gray-3, #99a8b3)"
   --sv-icon-color-hover="var(--gray-4, #5c717c)"
@@ -91,10 +90,6 @@
   --sv-dropdown-selected-bg="var(--blue-1, #eef3f9)"
   --sv-loader-border="2px solid var(--blue-3, #4294f0)"
 >
-  {#snippet prepend()}
-    <span class="prepend">{@html plusCircle}</span>
-  {/snippet}
-
   {#snippet option(item: Selection)}
     {#if item.type === "email"}
       <div class="email-option">
@@ -116,22 +111,14 @@
 </Svelecte>
 
 <style>
-  .prepend {
-    display: contents;
-
-    :global(svg) {
-      width: 1rem;
-      height: 1rem;
-      margin: 0 0.5rem;
-      fill: var(--gray-4, #5c717c);
-    }
+  :global(.sv-control--selection) {
+    padding: 0 0.25em;
   }
 
   :global(.svelecte-control.user-search) {
     font-family: var(--font-sans, "Source Sans Pro"), sans-serif;
     font-size: var(--font-md, 1rem);
     font-feature-settings: "ss04" on;
-    box-shadow: 0 2px 0 0 var(--gray-2, #d8dee2) inset;
   }
 
   :global(.svelecte-control.user-search input) {
@@ -165,9 +152,9 @@
   }
 
   .chip.email {
-    background: var(--green-1, #ebf9f6);
-    border: 1px solid var(--green-2, #9de3d3);
-    color: var(--green-5, #0e4450);
+    background: var(--gray-1, #ebf9f6);
+    border: 1px solid var(--gray-2, #9de3d3);
+    color: var(--gray-5, #0e4450);
   }
 
   .chip button {
