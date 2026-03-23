@@ -11,15 +11,12 @@ from datetime import date, datetime, timedelta
 from uuid import uuid4
 
 # Third Party
-import stripe
 from dateutil.relativedelta import relativedelta
 from fuzzywuzzy import fuzz, process
 
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason
-
-stripe.api_version = "2018-09-24"
-stripe.api_key = settings.STRIPE_SECRET_KEY
+from squarelet.organizations.payments.factory import get_payment_provider
 
 # pylint:disable=too-many-positional-arguments
 
@@ -292,15 +289,19 @@ class ChargeQuerySet(models.QuerySet):
             **metadata,
         }
 
-        stripe_charge = stripe.Charge.create(
-            amount=amount,
-            currency="usd",
-            customer=customer.stripe_customer,
-            description=description,
-            source=source,
-            metadata=default_metadata,
-            statement_descriptor_suffix=metadata.get("action", ""),
-            idempotency_key=str(uuid4()),
+        stripe_charge = (
+            get_payment_provider()
+            .get_charge_service()
+            .create(
+                amount=amount,
+                currency="usd",
+                customer=customer.stripe_customer,
+                description=description,
+                source=source,
+                metadata=default_metadata,
+                statement_descriptor_suffix=metadata.get("action", ""),
+                idempotency_key=str(uuid4()),
+            )
         )
         if token:
             source.delete()

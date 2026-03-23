@@ -39,6 +39,7 @@ from squarelet.organizations.models import (
     ReceiptEmail,
     Subscription,
 )
+from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.users.models import User
 
 logger = logging.getLogger(__name__)
@@ -708,8 +709,9 @@ class InvoiceAdmin(VersionAdmin):
         for invoice in queryset.filter(status="open"):
             try:
                 # Retrieve invoice from Stripe and call pay() on it
-                stripe_invoice = stripe.Invoice.retrieve(invoice.invoice_id)
-                stripe_invoice.pay(paid_out_of_band=True)
+                invoice_service = get_payment_provider().get_invoice_service()
+                stripe_invoice = invoice_service.retrieve(invoice.invoice_id)
+                invoice_service.pay(stripe_invoice, paid_out_of_band=True)
                 # Update local DB after Stripe succeeds
                 invoice.status = "paid"
                 invoice.save()

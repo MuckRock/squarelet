@@ -15,11 +15,8 @@ from memoize import mproperty
 
 # Squarelet
 from squarelet.core.mail import ORG_TO_RECEIPTS, send_mail
-from squarelet.core.utils import (
-    is_production_env,
-    mailchimp_journey,
-    stripe_retry_on_error,
-)
+from squarelet.core.utils import is_production_env, mailchimp_journey
+from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.querysets import (
     ChargeQuerySet,
     EntitlementQuerySet,
@@ -27,8 +24,6 @@ from squarelet.organizations.querysets import (
     SubscriptionQuerySet,
 )
 
-stripe.api_version = "2018-09-24"
-stripe.api_key = settings.STRIPE_SECRET_KEY
 logger = logging.getLogger(__name__)
 
 
@@ -57,14 +52,14 @@ class Customer(models.Model):
     @mproperty
     def stripe_customer(self):
         """Retrieve the customer from Stripe or create one if it doesn't exist"""
+        customer_service = get_payment_provider().get_customer_service()
+
         # first try to find an existing stripe customer
         if self.customer_id:
             try:
-                stripe_customer = stripe_retry_on_error(
-                    stripe.Customer.retrieve, self.customer_id
-                )
+                stripe_customer = customer_service.retrieve(self.customer_id)
                 if stripe_customer.name is None:
-                    stripe.Customer.modify(
+                    customer_service.modify(
                         stripe_customer.id, name=self.organization.user_full_name
                     )
                 return stripe_customer
@@ -92,7 +87,7 @@ class Customer(models.Model):
             if customer.customer_id:
                 return customer.stripe_customer
             # create the customer on stripe
-            stripe_customer = stripe.Customer.create(
+            stripe_customer = customer_service.create(
                 description=customer.organization.name,
                 email=customer.organization.email,
                 name=customer.organization.user_full_name,
@@ -105,8 +100,12 @@ class Customer(models.Model):
     def card(self):
         """Retrieve the customer's default credit card on file, if there is one"""
         if self.stripe_customer.default_source:
-            source = self.stripe_customer.sources.retrieve(
-                self.stripe_customer.default_source
+            source = (
+                get_payment_provider()
+                .get_customer_service()
+                .retrieve_source(
+                    self.stripe_customer, self.stripe_customer.default_source
+                )
             )
             if source.object == "card":
                 return source
@@ -125,18 +124,23 @@ class Customer(models.Model):
 
     def save_card(self, token):
         """Save a new default card"""
-        self.stripe_customer.source = token
-        self.stripe_customer.save()
+        get_payment_provider().get_customer_service().save_card(
+            self.stripe_customer, token
+        )
 
     def remove_card(self):
         """Remove the default card"""
-        stripe.Customer.delete_source(
+        get_payment_provider().get_customer_service().remove_card(
             self.customer_id, self.stripe_customer.default_source
         )
 
     def add_source(self, token):
         """Add a non-default source"""
-        return self.stripe_customer.sources.create(source=token)
+        return (
+            get_payment_provider()
+            .get_customer_service()
+            .add_source(self.stripe_customer, token)
+        )
 
 
 class Subscription(models.Model):
@@ -185,12 +189,12 @@ class Subscription(models.Model):
     @mproperty
     def stripe_subscription(self):
         if self.subscription_id:
-            try:
-                return stripe.Subscription.retrieve(self.subscription_id)
-            except stripe.error.InvalidRequestError:  # pragma: no cover
-                return None
-        else:
-            return None
+            return (
+                get_payment_provider()
+                .get_subscription_service()
+                .retrieve(self.subscription_id)
+            )
+        return None
 
     def start(self, payment_method="card"):
         # pylint: disable=using-constant-test
@@ -211,13 +215,12 @@ class Subscription(models.Model):
                 days_until_due = None
 
             stripe_subscription = (
-                self.organization.customer().stripe_customer.subscriptions.create(
-                    items=[
-                        {
-                            "plan": self.plan.stripe_id,
-                            "quantity": self.organization.max_users,
-                        }
-                    ],
+                get_payment_provider()
+                .get_subscription_service()
+                .create(
+                    stripe_customer=self.organization.customer().stripe_customer,
+                    plan_id=self.plan.stripe_id,
+                    quantity=self.organization.max_users,
                     billing=billing,
                     metadata={"action": f"Subscription ({self.plan})"},
                     days_until_due=days_until_due,
@@ -236,8 +239,10 @@ class Subscription(models.Model):
                     from squarelet.organizations.models import Invoice
 
                     # Retrieve the full invoice object from Stripe
-                    stripe_invoice = stripe.Invoice.retrieve(
-                        stripe_subscription.latest_invoice
+                    stripe_invoice = (
+                        get_payment_provider()
+                        .get_invoice_service()
+                        .retrieve(stripe_subscription.latest_invoice)
                     )
 
                     # Create the Invoice record in database using centralized method
@@ -283,8 +288,9 @@ class Subscription(models.Model):
     def cancel(self):
         # pylint: disable=using-constant-test
         if self.stripe_subscription:
-            self.stripe_subscription.cancel_at_period_end = True
-            self.stripe_subscription.save()
+            get_payment_provider().get_subscription_service().cancel_at_period_end(
+                self.stripe_subscription
+            )
 
         self.cancelled = True
         self.save()
@@ -305,7 +311,9 @@ class Subscription(models.Model):
             self.start()
         elif not old_plan.free and plan.free:
             # cancel subscription on stripe
-            self.stripe_subscription.delete()
+            get_payment_provider().get_subscription_service().delete(
+                self.stripe_subscription
+            )
             self.subscription_id = None
         elif not old_plan.free and not plan.free:
             # modify plan
@@ -317,7 +325,7 @@ class Subscription(models.Model):
         """Update stripe subscription to match local subscription"""
         # pylint: disable=using-constant-test
         if self.stripe_subscription:
-            stripe.Subscription.modify(
+            get_payment_provider().get_subscription_service().modify(
                 self.subscription_id,
                 cancel_at_period_end=False,
                 items=[
@@ -592,8 +600,8 @@ class Plan(models.Model):
                         "billing_scheme": "per_unit",
                         "amount": 100 * self.base_price,
                     }
-                stripe.Plan.create(
-                    id=self.stripe_id,
+                get_payment_provider().get_plan_service().create(
+                    plan_id=self.stripe_id,
                     currency="usd",
                     interval="year" if self.annual else "month",
                     product={"name": self.name, "unit_label": "Seats"},
@@ -606,11 +614,12 @@ class Plan(models.Model):
     def delete_stripe_plan(self):
         """Remove a stripe plan"""
         try:
-            plan = stripe.Plan.retrieve(id=self.stripe_id)
+            plan_service = get_payment_provider().get_plan_service()
+            plan = plan_service.retrieve(self.stripe_id)
             # We also want to remove the associated product
-            product = stripe.Product.retrieve(id=plan.product)
-            plan.delete()
-            product.delete()
+            product = plan_service.retrieve_product(plan.product)
+            plan_service.delete(plan)
+            plan_service.delete_product(product)
         except stripe.error.InvalidRequestError:
             # if the plan or product do not exist, just skip
             pass
@@ -661,7 +670,7 @@ class Charge(models.Model):
 
     @mproperty
     def charge(self):
-        return stripe.Charge.retrieve(self.charge_id)
+        return get_payment_provider().get_charge_service().retrieve(self.charge_id)
 
     @property
     def amount_dollars(self):
