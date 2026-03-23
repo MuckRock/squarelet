@@ -55,6 +55,32 @@ class TestCharge:
         charge.refresh_from_db()
         assert set(charge.metadata["receipt_emails"]) == set(emails)
 
+    @pytest.mark.django_db()
+    def test_send_receipt_accumulates_recipients(self, charge_factory, mocker):
+        """Calling send_receipt twice with different org receipt emails
+        stores the union of both sets in metadata."""
+        mocked = mocker.patch(
+            "squarelet.organizations.models.Charge.charge", new_callable=PropertyMock
+        )
+        mocked.return_value = {"source": {"brand": "Visa", "last4": "1234"}}
+
+        charge = charge_factory()
+
+        # First send with one set of emails
+        charge.organization.set_receipt_emails(["a@example.com", "b@example.com"])
+        charge.send_receipt()
+
+        # Change receipt emails and send again
+        charge.organization.set_receipt_emails(["b@example.com", "c@example.com"])
+        charge.send_receipt()
+
+        charge.refresh_from_db()
+        assert set(charge.metadata["receipt_emails"]) == {
+            "a@example.com",
+            "b@example.com",
+            "c@example.com",
+        }
+
     def test_items_no_fee(self, charge_factory):
         charge = charge_factory.build()
         assert charge.items() == [

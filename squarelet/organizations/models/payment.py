@@ -668,10 +668,13 @@ class Charge(models.Model):
 
     def send_receipt(self):
         """Send receipt"""
-        receipt_emails = list(
+        current_emails = list(
             self.organization.receipt_emails.values_list("email", flat=True)
         )
-        self.metadata["receipt_emails"] = receipt_emails
+        existing = self.metadata.get("receipt_emails", [])
+        seen = set(existing)
+        merged = list(existing) + [e for e in current_emails if e not in seen]
+        self.metadata["receipt_emails"] = merged
         self.save(update_fields=["metadata"])
 
         send_mail(
@@ -683,7 +686,7 @@ class Charge(models.Model):
                 "charge": self,
                 "individual_subscription": self.description == "Professional",
                 "group_subscription": self.description.startswith("Organization"),
-                "receipt_emails": receipt_emails,
+                "receipt_emails": current_emails,
             },
         )
 

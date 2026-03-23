@@ -124,9 +124,7 @@ class ChargeDetail(UserPassesTestMixin, DetailView):
         receipt_emails = self.object.metadata.get("receipt_emails")
         if receipt_emails is None:
             receipt_emails = list(
-                self.object.organization.receipt_emails.values_list(
-                    "email", flat=True
-                )
+                self.object.organization.receipt_emails.values_list("email", flat=True)
             )
         context["receipt_emails"] = receipt_emails
         # Override user to None so the base email template does not show
