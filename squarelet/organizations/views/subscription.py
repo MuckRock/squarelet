@@ -118,6 +118,20 @@ class ChargeDetail(UserPassesTestMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["subject"] = "Receipt"
+        # Show who the receipt was sent to — stored in metadata for new
+        # charges, falling back to the org's current receipt emails for
+        # older charges that predate this feature
+        receipt_emails = self.object.metadata.get("receipt_emails")
+        if receipt_emails is None:
+            receipt_emails = list(
+                self.object.organization.receipt_emails.values_list(
+                    "email", flat=True
+                )
+            )
+        context["receipt_emails"] = receipt_emails
+        # Override user to None so the base email template does not show
+        # the viewer's email in the "sent to" footer
+        context["user"] = None
         return context
 
 

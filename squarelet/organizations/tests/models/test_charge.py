@@ -39,6 +39,22 @@ class TestCharge:
         assert mail.subject == "Receipt"
         assert set(mail.to) == set(emails)
 
+    @pytest.mark.django_db()
+    def test_send_receipt_stores_recipients(self, charge_factory, mocker):
+        """send_receipt stores the recipient emails in metadata so we can
+        display who the receipt was sent to, not who is viewing it."""
+        mocked = mocker.patch(
+            "squarelet.organizations.models.Charge.charge", new_callable=PropertyMock
+        )
+        mocked.return_value = {"source": {"brand": "Visa", "last4": "1234"}}
+
+        emails = ["receipts@example.com", "foo@example.com"]
+        charge = charge_factory()
+        charge.organization.set_receipt_emails(emails)
+        charge.send_receipt()
+        charge.refresh_from_db()
+        assert set(charge.metadata["receipt_emails"]) == set(emails)
+
     def test_items_no_fee(self, charge_factory):
         charge = charge_factory.build()
         assert charge.items() == [

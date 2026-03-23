@@ -2,6 +2,17 @@
 {% load humanize %}
 {% load i18n %}
 
+{% block sent_to %}
+  {% if receipt_emails %}
+    <p>
+      {% trans "This receipt was sent to" %}
+      {% for email in receipt_emails %}
+        <a href="mailto:{{ email }}">{{ email }}</a>{% if not forloop.last %}, {% endif %}
+      {% endfor %}.
+    </p>
+  {% endif %}
+{% endblock %}
+
 {% block body %}
   {% block receipt %}
     <div class="receipt">

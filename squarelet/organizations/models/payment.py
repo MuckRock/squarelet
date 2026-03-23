@@ -668,6 +668,12 @@ class Charge(models.Model):
 
     def send_receipt(self):
         """Send receipt"""
+        receipt_emails = list(
+            self.organization.receipt_emails.values_list("email", flat=True)
+        )
+        self.metadata["receipt_emails"] = receipt_emails
+        self.save(update_fields=["metadata"])
+
         send_mail(
             subject=_("Receipt"),
             template="organizations/email/receipt.html",
@@ -677,6 +683,7 @@ class Charge(models.Model):
                 "charge": self,
                 "individual_subscription": self.description == "Professional",
                 "group_subscription": self.description.startswith("Organization"),
+                "receipt_emails": receipt_emails,
             },
         )
 

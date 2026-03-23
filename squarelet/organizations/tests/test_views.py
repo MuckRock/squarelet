@@ -1509,6 +1509,37 @@ class TestChargeDetail(ViewTestMixin):
         assert response.status_code == 200
         assert response.context_data["subject"] == "Receipt"
 
+    def test_context_shows_receipt_emails_not_viewer(
+        self, rf, organization_factory, user_factory, charge_factory
+    ):
+        """The receipt should show who it was sent to, not the viewer's email"""
+        viewer = user_factory()
+        organization = organization_factory(admins=[viewer])
+        receipt_emails = ["billing@example.com", "finance@example.com"]
+        charge = charge_factory(
+            organization=organization,
+            metadata={"receipt_emails": receipt_emails},
+        )
+        response = self.call_view(rf, viewer, pk=charge.pk)
+        assert response.context_data["receipt_emails"] == receipt_emails
+        # The viewer's email should NOT be used as the "sent to" address
+        assert response.context_data.get("user") is None
+
+    def test_context_falls_back_to_current_receipt_emails(
+        self, rf, organization_factory, user_factory, charge_factory
+    ):
+        """Older charges without stored receipt_emails fall back to the
+        organization's current receipt email addresses."""
+        viewer = user_factory()
+        organization = organization_factory(admins=[viewer])
+        current_emails = ["billing@example.com", "finance@example.com"]
+        organization.set_receipt_emails(current_emails)
+        # Charge has no receipt_emails in metadata (simulates older charge)
+        charge = charge_factory(organization=organization)
+        response = self.call_view(rf, viewer, pk=charge.pk)
+        assert set(response.context_data["receipt_emails"]) == set(current_emails)
+        assert response.context_data.get("user") is None
+
     def test_get_staff_with_perm(
         self, rf, organization_factory, user_factory, charge_factory
     ):
