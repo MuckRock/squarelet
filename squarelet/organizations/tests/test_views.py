@@ -1005,13 +1005,37 @@ class TestCreate(ViewTestMixin):
     view = views.Create
     url = "/organizations/~create/"
 
-    def test(self, rf, user_factory):
-        user = user_factory()
+    def test_post_creates_org(self, rf, user_factory):
+        user = user_factory(email_verified=True)
         self.call_view(rf, user, {"name": "test"})
         organization = user.organizations.get(individual=False)
         assert organization.plan is None
         assert organization.has_admin(user)
         assert user.email in organization.receipt_emails.values_list("email", flat=True)
+
+    def test_get_unverified_email(self, rf, user_factory):
+        """User without verified email sees verification message"""
+        user = user_factory(email_verified=False)
+        response = self.call_view(rf, user)
+        assert response.status_code == 200
+        assert response.context_data["has_verified_email"] is False
+
+    def test_get_verified_email(self, rf, user_factory):
+        """User with verified email sees the creation form"""
+        user = user_factory(email_verified=True)
+        response = self.call_view(rf, user)
+        assert response.status_code == 200
+        assert response.context_data["has_verified_email"] is True
+        assert "form" in response.context_data
+
+    def test_post_creates_org_despite_matching_name(
+        self, rf, user_factory, organization_factory
+    ):
+        """POST creates org even when an org with a similar name exists"""
+        user = user_factory(email_verified=True)
+        organization_factory(name="Test Organization", individual=False)
+        self.call_view(rf, user, {"name": "Test Organization"})
+        assert user.organizations.filter(individual=False).exists()
 
 
 @pytest.mark.django_db()

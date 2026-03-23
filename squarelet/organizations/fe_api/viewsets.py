@@ -55,6 +55,19 @@ class OrganizationViewSet(viewsets.ReadOnlyModelViewSet):
     search_fields = ["name"]
     ordering_fields = ["name"]
 
+    def list(self, request, *args, **kwargs):
+        fuzzy = request.query_params.get("fuzzy", "").lower() == "true"
+        search = request.query_params.get("search", "").strip()
+        if fuzzy and search:
+            # Apply only DjangoFilterBackend (for individual, etc.) but skip
+            # SearchFilter so fuzzy_search handles the name matching
+            queryset = self.get_queryset()
+            queryset = DjangoFilterBackend().filter_queryset(request, queryset, self)
+            queryset = queryset.fuzzy_search(search)
+            serializer = self.get_serializer(queryset, many=True)
+            return Response({"results": serializer.data})
+        return super().list(request, *args, **kwargs)
+
 
 class InvitationViewSet(
     mixins.ListModelMixin,
