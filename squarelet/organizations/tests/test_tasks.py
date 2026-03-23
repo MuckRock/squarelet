@@ -91,11 +91,11 @@ class TestHandleChargeSucceeded:
         }
         product = {"name": "Organization"}
         mocker.patch(
-            "squarelet.organizations.tasks.stripe.Invoice.retrieve",
+            "squarelet.organizations.payments.providers.stripe_legacy.stripe.Invoice.retrieve",
             return_value=invoice,
         )
         mocker.patch(
-            "squarelet.organizations.tasks.stripe.Product.retrieve",
+            "squarelet.organizations.payments.providers.stripe_legacy.stripe.Product.retrieve",
             return_value=product,
         )
         mocked = mocker.patch("squarelet.organizations.models.Charge.send_receipt")
@@ -192,11 +192,11 @@ class TestHandleChargeSucceeded:
             },
         }
         mocker.patch(
-            "squarelet.organizations.tasks.stripe.Invoice.retrieve",
+            "squarelet.organizations.payments.providers.stripe_legacy.stripe.Invoice.retrieve",
             return_value=invoice,
         )
         mocker.patch(
-            "squarelet.organizations.tasks.stripe.Product.retrieve",
+            "squarelet.organizations.payments.providers.stripe_legacy.stripe.Product.retrieve",
             return_value={"name": "Professional"},
         )
 
@@ -222,7 +222,7 @@ class TestHandleChargeSucceeded:
             "lines": {"data": []},  # Missing invoice_lines
         }
         mocker.patch(
-            "squarelet.organizations.tasks.stripe.Invoice.retrieve",
+            "squarelet.organizations.payments.providers.stripe_legacy.stripe.Invoice.retrieve",
             return_value=invoice,
         )
         mocked = mocker.patch("squarelet.organizations.models.Charge.send_receipt")

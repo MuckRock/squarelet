@@ -23,11 +23,10 @@ from squarelet.organizations import wix
 from squarelet.organizations.models.invoice import Invoice
 from squarelet.organizations.models.organization import Organization
 from squarelet.organizations.models.payment import Charge, Plan, Subscription
+from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.users.models import User
 
 logger = logging.getLogger(__name__)
-stripe.api_version = "2018-09-24"
-stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
 @shared_task
@@ -64,15 +63,16 @@ def handle_charge_succeeded(charge_data):
 
     if charge_data["invoice"]:
         # fetch the invoice from stripe if one associated with the charge
-        invoice = stripe.Invoice.retrieve(charge_data["invoice"])
+        provider = get_payment_provider()
+        invoice = provider.get_invoice_service().retrieve(charge_data["invoice"])
         try:
             invoice_line = invoice["lines"]["data"][0]
             if "name" in invoice_line["plan"]:
                 plan_name = invoice_line["plan"]["name"]
             else:
-                plan_name = stripe.Product.retrieve(invoice_line["plan"]["product"])[
-                    "name"
-                ]
+                plan_name = provider.get_plan_service().retrieve_product(
+                    invoice_line["plan"]["product"]
+                )["name"]
             action = "Subscription Payment"
             description = f"Subscription Payment for {plan_name} plan"
         except (TypeError, IndexError):

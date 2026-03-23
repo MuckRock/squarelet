@@ -3,6 +3,7 @@
 # Django
 from django.conf import settings
 
+# Squarelet
 from squarelet.organizations.payments.base import PaymentProvider
 
 
@@ -27,6 +28,5 @@ def get_payment_provider() -> PaymentProvider:
         )
 
     raise ValueError(
-        f"Unknown STRIPE_PROVIDER '{provider_type}'. "
-        "Valid options: 'legacy'"
+        f"Unknown STRIPE_PROVIDER '{provider_type}'. " "Valid options: 'legacy'"
     )

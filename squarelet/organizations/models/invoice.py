@@ -1,5 +1,4 @@
 # Django
-from django.conf import settings
 from django.db import models
 from django.utils import timezone
 from django.utils.timezone import get_current_timezone
@@ -12,6 +11,7 @@ from datetime import datetime
 import stripe
 
 # Squarelet
+from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.querysets import InvoiceQuerySet
 
 
@@ -100,7 +100,9 @@ class Invoice(models.Model):
         Fetch the hosted invoice URL from Stripe.
         """
         try:
-            stripe_invoice = stripe.Invoice.retrieve(self.invoice_id)
+            stripe_invoice = (
+                get_payment_provider().get_invoice_service().retrieve(self.invoice_id)
+            )
             return stripe_invoice.get("hosted_invoice_url")
         except stripe.error.StripeError:
             return None
@@ -136,14 +138,7 @@ class Invoice(models.Model):
         """
         Mark this invoice as uncollectible in Stripe.
 
-        This method uses a direct API request to work with older Stripe API
-        versions (2018-09-24) that don't have the mark_uncollectible method
-        on the Invoice object.
-
         Raises:
             stripe.error.StripeError: If the Stripe API call fails
         """
-        stripe.api_key = settings.STRIPE_SECRET_KEY
-        stripe.api_version = "2018-09-24"
-
-        stripe.Invoice.mark_uncollectible(self.invoice_id)
+        get_payment_provider().get_invoice_service().mark_uncollectible(self.invoice_id)
