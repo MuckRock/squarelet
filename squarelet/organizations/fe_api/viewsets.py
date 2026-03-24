@@ -97,19 +97,17 @@ class InvitationViewSet(
                 status=status.HTTP_200_OK,
             )
 
-        self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        return Response(
-            serializer.data, status=status.HTTP_201_CREATED, headers=headers
-        )
-
-    def perform_create(self, serializer):
         invitation = serializer.save()
         # If a user was specified but no email, resolve from the user
         if invitation.user and not invitation.email:
             invitation.email = invitation.user.email
             invitation.save(update_fields=["email"])
         invitation.send()
+
+        headers = self.get_success_headers(serializer.data)
+        return Response(
+            serializer.data, status=status.HTTP_201_CREATED, headers=headers
+        )
 
     def get_queryset(self):
         user = self.request.user

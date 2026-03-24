@@ -14,6 +14,7 @@ from squarelet.organizations.models import (
     ProfileChangeRequest,
 )
 from squarelet.organizations.tasks import sync_wix_for_group_member
+from squarelet.organizations.models.payment import Charge
 
 # Register models with django-activity-stream
 registry.register(Organization)
@@ -146,3 +147,16 @@ def sync_wix_on_member_add(sender, instance, action, pk_set, reverse, **kwargs):
                         member_pk, g, p
                     )
                 )
+
+
+@receiver(
+    signals.post_save,
+    sender=Charge,
+    dispatch_uid="squarelet.organizations.signals.charge_created",
+)
+def charge_created(sender, instance, created, **kwargs):
+    """Un-hide individual orgs when a charge is created"""
+    # pylint: disable=unused-argument
+    if created and instance.organization.individual and instance.organization.hidden:
+        instance.organization.hidden = False
+        instance.organization.save(update_fields=["hidden"])

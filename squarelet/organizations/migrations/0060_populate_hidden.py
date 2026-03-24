@@ -3,7 +3,7 @@
 - Non-individual orgs: hidden=False (they don't use the hidden field).
 - Individual orgs: private=False (public by default going forward).
 - Individual orgs are un-hidden (hidden=False) if any of:
-    - The user has at least one verified primary email.
+    - The user has at least one verified email.
     - The organization has any Charge.
     - The user belongs to a verified_journalist org.
 - All other individual orgs remain hidden=True.
@@ -17,15 +17,12 @@ def populate_hidden(apps, schema_editor):
     EmailAddress = apps.get_model("account", "EmailAddress")
     Charge = apps.get_model("organizations", "Charge")
 
-    # Non-individual orgs: hidden=False
-    Organization.objects.filter(individual=False).update(hidden=False)
-
     # Individual orgs: set private=False (public by default)
+    Organization.objects.filter(individual=True).update(private=False)
 
-    # Un-hide individual orgs whose user has a verified primary email
+    # Un-hide individual orgs whose user has any verified email
     has_verified_email = EmailAddress.objects.filter(
         verified=True,
-        primary=True,
     ).values_list("user_id", flat=True)
     Organization.objects.filter(
         individual=True,
@@ -40,10 +37,9 @@ def populate_hidden(apps, schema_editor):
     ).update(hidden=False)
 
     # Un-hide individual orgs whose user belongs to a verified_journalist org
-    Organization.objects.filter(
-        individual=True,
-        verified_journalist=True
-    ).update(hidden=False)
+    Organization.objects.filter(individual=True, verified_journalist=True).update(
+        hidden=False
+    )
 
 
 def reverse_populate_hidden(apps, schema_editor):
