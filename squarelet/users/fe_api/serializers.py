@@ -8,12 +8,11 @@ from squarelet.users.models import User
 class UserSearchSerializer(serializers.ModelSerializer):
     """Lightweight serializer for search results — only fields used in UserSelect.svelte"""
 
-    uuid = serializers.UUIDField(read_only=True)
     avatar_url = serializers.CharField(read_only=True)
 
     class Meta:
         model = User
-        fields = ("id", "uuid", "username", "name", "email", "avatar_url")
+        fields = ("id", "username", "name", "email", "avatar_url")
         read_only_fields = fields
 
 
