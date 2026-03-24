@@ -59,7 +59,7 @@ class StripeLegacyCustomerService(CustomerService):
 class StripeLegacySubscriptionService(SubscriptionService):
     """Subscription operations using Stripe 2.x Plans API."""
 
-    def create(
+    def create(  # pylint: disable=too-many-positional-arguments
         self,
         stripe_customer,
         plan_id,
@@ -98,7 +98,7 @@ class StripeLegacySubscriptionService(SubscriptionService):
 class StripeLegacyChargeService(ChargeService):
     """Charge operations using Stripe 2.x direct charges."""
 
-    def create(
+    def create(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         amount,
         currency,

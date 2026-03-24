@@ -24,7 +24,8 @@ class TestChargeQuerySet:
         mock_stripe_customer = mocker.Mock()
         mock_stripe_customer.sources = mocker.Mock()
         mocker.patch(
-            "squarelet.organizations.payments.providers.stripe_legacy.stripe.Customer.retrieve",
+            "squarelet.organizations.payments.providers"
+            ".stripe_legacy.stripe.Customer.retrieve",
             return_value=mock_stripe_customer,
         )
 
@@ -37,7 +38,8 @@ class TestChargeQuerySet:
         timestamp = int(timezone.now().timestamp())
         mock_stripe_charge = mocker.Mock(id="ch_test123", created=timestamp)
         mock_charge_create = mocker.patch(
-            "squarelet.organizations.payments.providers.stripe_legacy.stripe.Charge.create",
+            "squarelet.organizations.payments.providers"
+            ".stripe_legacy.stripe.Charge.create",
             return_value=mock_stripe_charge,
         )
 
@@ -78,7 +80,8 @@ class TestChargeQuerySet:
         mock_stripe_customer.sources = mocker.Mock()
         mock_stripe_customer.sources.data = [mock_card]
         mocker.patch(
-            "squarelet.organizations.payments.providers.stripe_legacy.stripe.Customer.retrieve",
+            "squarelet.organizations.payments.providers"
+            ".stripe_legacy.stripe.Customer.retrieve",
             return_value=mock_stripe_customer,
         )
 
@@ -93,7 +96,8 @@ class TestChargeQuerySet:
         timestamp = int(timezone.now().timestamp())
         mock_stripe_charge = mocker.Mock(id="ch_saved_card", created=timestamp)
         mock_charge_create = mocker.patch(
-            "squarelet.organizations.payments.providers.stripe_legacy.stripe.Charge.create",
+            "squarelet.organizations.payments.providers"
+            ".stripe_legacy.stripe.Charge.create",
             return_value=mock_stripe_charge,
         )
 
@@ -120,7 +124,8 @@ class TestChargeQuerySet:
         mock_stripe_customer.sources = mocker.Mock()
         mock_stripe_customer.sources.data = [mock_card]
         mocker.patch(
-            "squarelet.organizations.payments.providers.stripe_legacy.stripe.Customer.retrieve",
+            "squarelet.organizations.payments.providers"
+            ".stripe_legacy.stripe.Customer.retrieve",
             return_value=mock_stripe_customer,
         )
         mocker.patch(
@@ -140,7 +145,8 @@ class TestChargeQuerySet:
         timestamp = int(timezone.now().timestamp())
         mock_stripe_charge = mocker.Mock(id="ch_metadata", created=timestamp)
         mock_charge_create = mocker.patch(
-            "squarelet.organizations.payments.providers.stripe_legacy.stripe.Charge.create",
+            "squarelet.organizations.payments.providers"
+            ".stripe_legacy.stripe.Charge.create",
             return_value=mock_stripe_charge,
         )
 
@@ -171,7 +177,8 @@ class TestChargeQuerySet:
         timestamp = int(timezone.now().timestamp())
         mock_stripe_charge = mocker.Mock(id="ch_custom", created=timestamp)
         mock_charge_create = mocker.patch(
-            "squarelet.organizations.payments.providers.stripe_legacy.stripe.Charge.create",
+            "squarelet.organizations.payments.providers"
+            ".stripe_legacy.stripe.Charge.create",
             return_value=mock_stripe_charge,
         )
 
@@ -202,7 +209,8 @@ class TestChargeQuerySet:
         timestamp = int(timezone.now().timestamp())
         mock_stripe_charge = mocker.Mock(id="ch_idempotent", created=timestamp)
         mock_charge_create = mocker.patch(
-            "squarelet.organizations.payments.providers.stripe_legacy.stripe.Charge.create",
+            "squarelet.organizations.payments.providers"
+            ".stripe_legacy.stripe.Charge.create",
             return_value=mock_stripe_charge,
         )
 
@@ -234,7 +242,8 @@ class TestChargeQuerySet:
         timestamp = int(timezone.now().timestamp())
         mock_stripe_charge = mocker.Mock(id="ch_descriptor", created=timestamp)
         mock_charge_create = mocker.patch(
-            "squarelet.organizations.payments.providers.stripe_legacy.stripe.Charge.create",
+            "squarelet.organizations.payments.providers"
+            ".stripe_legacy.stripe.Charge.create",
             return_value=mock_stripe_charge,
         )
 
@@ -262,7 +271,8 @@ class TestChargeQuerySet:
         timestamp = int(timezone.now().timestamp())
         mock_stripe_charge = mocker.Mock(id="ch_no_action", created=timestamp)
         mock_charge_create = mocker.patch(
-            "squarelet.organizations.payments.providers.stripe_legacy.stripe.Charge.create",
+            "squarelet.organizations.payments.providers"
+            ".stripe_legacy.stripe.Charge.create",
             return_value=mock_stripe_charge,
         )
 
@@ -293,7 +303,8 @@ class TestChargeQuerySet:
         timestamp = int(timezone.now().timestamp())
         mock_stripe_charge = mocker.Mock(id="ch_existing", created=timestamp)
         mocker.patch(
-            "squarelet.organizations.payments.providers.stripe_legacy.stripe.Charge.create",
+            "squarelet.organizations.payments.providers"
+            ".stripe_legacy.stripe.Charge.create",
             return_value=mock_stripe_charge,
         )
 
@@ -323,7 +334,8 @@ class TestChargeQuerySet:
         timestamp = int(timezone.now().timestamp())
         mock_stripe_charge = mocker.Mock(id="ch_zero_fee", created=timestamp)
         mock_charge_create = mocker.patch(
-            "squarelet.organizations.payments.providers.stripe_legacy.stripe.Charge.create",
+            "squarelet.organizations.payments.providers"
+            ".stripe_legacy.stripe.Charge.create",
             return_value=mock_stripe_charge,
         )
 
@@ -356,7 +368,8 @@ class TestChargeQuerySet:
             code="card_declined",
         )
         mocker.patch(
-            "squarelet.organizations.payments.providers.stripe_legacy.stripe.Charge.create",
+            "squarelet.organizations.payments.providers"
+            ".stripe_legacy.stripe.Charge.create",
             side_effect=card_error,
         )
 
@@ -387,7 +400,8 @@ class TestChargeQuerySet:
             message="An error occurred with our API",
         )
         mocker.patch(
-            "squarelet.organizations.payments.providers.stripe_legacy.stripe.Charge.create",
+            "squarelet.organizations.payments.providers"
+            ".stripe_legacy.stripe.Charge.create",
             side_effect=api_error,
         )
 
@@ -416,7 +430,8 @@ class TestChargeQuerySet:
         mock_stripe_customer.sources = mocker.Mock()
         mock_stripe_customer.sources.data = []  # No cards saved
         mocker.patch(
-            "squarelet.organizations.payments.providers.stripe_legacy.stripe.Customer.retrieve",
+            "squarelet.organizations.payments.providers"
+            ".stripe_legacy.stripe.Customer.retrieve",
             return_value=mock_stripe_customer,
         )
 
@@ -433,7 +448,8 @@ class TestChargeQuerySet:
             param="source",
         )
         mocker.patch(
-            "squarelet.organizations.payments.providers.stripe_legacy.stripe.Charge.create",
+            "squarelet.organizations.payments.providers"
+            ".stripe_legacy.stripe.Charge.create",
             side_effect=invalid_error,
         )
 
@@ -458,7 +474,8 @@ class TestChargeQuerySet:
         timestamp = int(timezone.now().timestamp())
         mock_stripe_charge = mocker.Mock(id="ch_large", created=timestamp)
         mock_charge_create = mocker.patch(
-            "squarelet.organizations.payments.providers.stripe_legacy.stripe.Charge.create",
+            "squarelet.organizations.payments.providers"
+            ".stripe_legacy.stripe.Charge.create",
             return_value=mock_stripe_charge,
         )
 

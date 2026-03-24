@@ -14,6 +14,8 @@ from squarelet.organizations.tests.factories import (
 )
 from squarelet.users.tests.factories import UserFactory
 
+# pylint: disable=too-many-public-methods
+
 
 class TestInvitationQuerySetStatus(TestCase):
     """Unit tests for Invitation queryset status filters"""
