@@ -155,8 +155,8 @@ def sync_wix_on_member_add(sender, instance, action, pk_set, reverse, **kwargs):
     dispatch_uid="squarelet.organizations.signals.charge_created",
 )
 def charge_created(sender, instance, created, **kwargs):
-    """Un-hide individual orgs when a charge is created"""
+    """Un-hide orgs (individual or not) when a charge is created"""
     # pylint: disable=unused-argument
-    if created and instance.organization.individual and instance.organization.hidden:
+    if created and instance.organization.hidden:
         instance.organization.hidden = False
         instance.organization.save(update_fields=["hidden"])

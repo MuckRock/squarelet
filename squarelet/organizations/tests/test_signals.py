@@ -23,8 +23,8 @@ def test_charge_unhides_individual_org(user_factory):
 
 
 @pytest.mark.django_db
-def test_charge_does_not_unhide_group_org():
-    """Creating a charge for a non-individual org should not change hidden"""
+def test_charge_unhides_group_org():
+    """Creating a charge for a non-individual org should also change hidden"""
     org = OrganizationFactory(individual=False, hidden=True)
 
     signals.charge_created(
@@ -32,4 +32,4 @@ def test_charge_does_not_unhide_group_org():
     )
 
     org.refresh_from_db()
-    assert org.hidden is True
+    assert org.hidden is False
