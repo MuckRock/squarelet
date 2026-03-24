@@ -3,19 +3,14 @@
 
   import Svelecte from "svelecte";
   import UserListItem from "./UserListItem.svelte";
-  import plusCircle from "@/icons/plus-circle.svg?raw";
 
   interface Props {
     onChange?: (selections: Selection[]) => void;
-    onReady?: (api: { clear: () => void }) => void;
-    disabled?: boolean;
   }
 
-  let { onChange, onReady, disabled = false }: Props = $props();
+  let { onChange }: Props = $props();
 
   let value: Selection[] = $state([]);
-
-  onReady?.({ clear: () => (value = []) });
   const fetchProps: RequestInit = { credentials: "include" };
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -59,7 +54,6 @@
   creatable
   name="invitees"
   placeholder="Search users or enter an email..."
-  {disabled}
   bind:value
   valueAsObject
   valueField="id"

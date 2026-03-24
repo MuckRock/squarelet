@@ -3,6 +3,7 @@ export interface User {
   uuid: string;
   username: string;
   name: string;
+  email: string;
   avatar_url: string;
 }
 
@@ -11,6 +12,7 @@ export type UserSelection = {
   id: number;
   username: string;
   name: string;
+  email: string;
   avatar_url: string;
 };
 

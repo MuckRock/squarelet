@@ -32,105 +32,31 @@ function main() {
   const submitBtn = form.querySelector<HTMLButtonElement>(
     '[name="action"][value="addmember"]',
   );
-  const orgId = form.dataset.orgId;
 
   // Hide the plain email fallback, show the Svelte widget
   form.querySelector(".email-fallback")?.setAttribute("hidden", "");
 
-  let selections: Selection[] = [];
-  let clearSelect: (() => void) | undefined;
-  const state = $state({ disabled: false });
+  // Create a hidden input to hold resolved emails for form submission
+  const hiddenInput = document.createElement("input");
+  hiddenInput.type = "hidden";
+  hiddenInput.name = "emails";
+  form.appendChild(hiddenInput);
 
   mount(UserSelect, {
     target: el,
     props: {
-      get disabled() {
-        return state.disabled;
-      },
       onChange(next: Selection[]) {
-        selections = next;
+        // Resolve all selections to email addresses
+        const emails = next.map((sel) =>
+          sel.type === "email" ? sel.email : sel.email,
+        );
+        hiddenInput.value = emails.join(", ");
         if (submitBtn) submitBtn.disabled = next.length === 0;
-      },
-      onReady(api: { clear: () => void }) {
-        clearSelect = api.clear;
       },
     },
   });
 
   if (submitBtn) submitBtn.disabled = true;
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    if (selections.length === 0) return;
-
-    // Disable form while requests are in flight
-    state.disabled = true;
-    if (submitBtn) submitBtn.disabled = true;
-
-    const role =
-      form.querySelector<HTMLSelectElement>('[name="role"]')?.value ?? "0";
-    const csrf =
-      form.querySelector<HTMLInputElement>('[name="csrfmiddlewaretoken"]')
-        ?.value ?? "";
-
-    const results = await Promise.allSettled(
-      selections.map((sel) => {
-        const body: Record<string, unknown> = {
-          organization: orgId,
-          role: parseInt(role),
-          request: false,
-        };
-        if (sel.type === "email") {
-          body.email = sel.email;
-        } else {
-          // Send user ID; backend resolves email in perform_create
-          body.user = sel.id;
-        }
-        return fetch("/fe_api/invitations/", {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-            "X-CSRFToken": csrf,
-          },
-          body: JSON.stringify(body),
-        }).then(async (r) => {
-          const data = await r.json();
-          if (!r.ok) throw r;
-          return data as { status?: string };
-        });
-      }),
-    );
-
-    const alreadyMembers = results.filter(
-      (r) => r.status === "fulfilled" && r.value.status === "already_member",
-    ).length;
-    const sent = results.filter(
-      (r) => r.status === "fulfilled" && r.value.status !== "already_member",
-    ).length;
-    const failed = results.length - sent - alreadyMembers;
-    if (sent > 0)
-      showAlert(`${sent} invitation${sent !== 1 ? "s" : ""} sent.`, "success", {
-        autoDismiss: true,
-      });
-    if (alreadyMembers > 0)
-      showAlert(
-        `${alreadyMembers} user${alreadyMembers !== 1 ? "s are" : " is"} already a member.`,
-        "info",
-        { autoDismiss: true },
-      );
-    if (failed > 0)
-      showAlert(
-        `${failed} invitation${failed !== 1 ? "s" : ""} failed to send.`,
-        "error",
-      );
-
-    // Re-enable and clear on completion
-    state.disabled = false;
-    clearSelect?.();
-    selections = [];
-    if (submitBtn) submitBtn.disabled = true;
-  });
 }
 
 window.addEventListener("DOMContentLoaded", main);

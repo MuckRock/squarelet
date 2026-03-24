@@ -74,7 +74,6 @@
     <div class="card">
       <form method="POST"
         id="invite-form"
-        data-org-id="{{ organization.pk }}"
         action="{% url "organizations:manage-members" slug=organization.slug %}">
         {% csrf_token %}
         <div id="user-select"></div>

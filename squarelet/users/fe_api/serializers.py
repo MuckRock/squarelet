@@ -1,21 +1,19 @@
 # Third Party
-from allauth.socialaccount.models import SocialAccount, SocialToken
 from rest_framework import serializers
 
 # Squarelet
-from squarelet.organizations.serializers import MembershipSerializer
 from squarelet.users.models import User
 
 
 class UserSearchSerializer(serializers.ModelSerializer):
-    """Lightweight serializer for search results — no email or sensitive fields"""
+    """Lightweight serializer for search results — only fields used in UserSelect.svelte"""
 
     uuid = serializers.UUIDField(read_only=True)
     avatar_url = serializers.CharField(read_only=True)
 
     class Meta:
         model = User
-        fields = ("id", "uuid", "username", "name", "avatar_url")
+        fields = ("id", "uuid", "username", "name", "email", "avatar_url")
         read_only_fields = fields
 
 
