@@ -40,12 +40,9 @@ def populate_hidden(apps, schema_editor):
     ).update(hidden=False)
 
     # Un-hide individual orgs whose user belongs to a verified_journalist org
-    verified_journalist_member_ids = Organization.objects.filter(
-        verified_journalist=True
-    ).values_list("users__pk", flat=True)
     Organization.objects.filter(
         individual=True,
-        users__in=verified_journalist_member_ids,
+        verified_journalist=True
     ).update(hidden=False)
 
 
