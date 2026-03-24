@@ -118,8 +118,8 @@ def test_search_excludes_hidden_users(client, user_with_org):
 
 
 @pytest.mark.django_db
-def test_search_list_uses_safe_fields(client, user_with_org):
-    """Search results should not expose email"""
+def test_search_list_fields(client, user_with_org):
+    """Search results should include fields needed by UserSelect"""
     user, _ = user_with_org
     other = User.objects.create_user(
         username="visible", email="visible@example.com", password="password"
@@ -131,7 +131,7 @@ def test_search_list_uses_safe_fields(client, user_with_org):
     response = client.get("/fe_api/users/?search=visible", format="json")
     results = response.data["results"]
     assert len(results) == 1
-    assert "email" not in results[0]
+    assert "email" in results[0]
     assert "username" in results[0]
     assert "name" in results[0]
     assert "avatar_url" in results[0]
