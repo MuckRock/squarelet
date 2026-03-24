@@ -13,13 +13,14 @@ describe("UserListItem", () => {
           uuid: "abc-123",
           username: "janedoe",
           name: "Jane Doe",
+          email: "janedoe@example.com",
           avatar_url: "/avatars/jane.png",
         },
       },
     });
 
     expect(target.textContent).toContain("Jane Doe");
-    expect(target.textContent).toContain("janedoe");
+    expect(target.textContent).toContain("janedoe@example.com");
   });
 
   it("falls back to username when name is empty", () => {
