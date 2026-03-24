@@ -1,6 +1,9 @@
 # Django
 from django.contrib.postgres.search import SearchQuery, SearchVector
 
+# Standard Library
+import re
+
 # Third Party
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
@@ -25,11 +28,14 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
             qs = User.objects.get_searchable(self.request.user)
             search = self.request.query_params.get("search", "").strip()
             if search:
-                # username and name use db_collation="case_insensitive",
-                # which PostgreSQL rejects for LIKE. Use full-text search
-                # with prefix matching instead.
-                vector = SearchVector("username", "name")
-                query = SearchQuery(f"{search}:*", search_type="raw")
-                qs = qs.annotate(search=vector).filter(search=query)
+                # Full-text search with prefix matching.
+                # Strip tsquery special characters so raw queries are safe.
+                sanitized = re.sub(r"[&|!<>():*@.\\\"]", " ", search).strip()
+                if sanitized:
+                    vector = SearchVector("username", "name", "email")
+                    terms = sanitized.split()
+                    tsquery = " & ".join(f"{t}:*" for t in terms)
+                    query = SearchQuery(tsquery, search_type="raw")
+                    qs = qs.annotate(search=vector).filter(search=query)
             return qs
         return User.objects.prefetch_related("organizations")
