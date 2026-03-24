@@ -416,7 +416,8 @@ class Plan(models.Model):
         _("slug"),
         populate_from="name",
         unique=True,
-        help_text=_("A uinique slug to identify the plan"),
+        editable=True,
+        help_text=_("A unique slug to identify the plan"),
     )
 
     minimum_users = models.PositiveSmallIntegerField(
