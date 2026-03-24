@@ -512,7 +512,7 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": False,
     "ALGORITHM": "RS256",
     "AUDIENCE": ["squarelet", "muckrock", "documentcloud"],
-    "ISSUER": ["squarelet"],
+    "ISSUER": "squarelet",
     "USER_ID_FIELD": "individual_organization_id",
     # These are set in `users/apps.py` as they need to fetch from the database
     "SIGNING_KEY": "",
