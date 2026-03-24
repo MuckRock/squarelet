@@ -294,6 +294,158 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
 
 
 @pytest.mark.django_db()
+class TestPlanDetailViewPurchaseRedirect(ViewTestMixin):
+    """Test purchase_redirect query parameter support"""
+
+    view = views.PlanDetailView
+    url = "/plans/{pk}/{slug}/"
+
+    def test_purchase_redirect_on_success(
+        self, rf, user_factory, organization_factory, plan_factory, mocker
+    ):
+        """After successful purchase, redirect to purchase_redirect URL instead of org page"""
+        user = user_factory()
+        org = organization_factory()
+        org.add_creator(user)
+        plan = plan_factory(for_groups=True, public=True)
+        mocker.patch.object(Organization, "set_subscription", return_value=None)
+
+        data = {
+            "organization": str(org.pk),
+            "payment_method": "new-card",
+            "stripe_token": "tok_visa",
+            "stripe_pk": "pk_test",
+            "purchase_redirect": "https://example.com/callback",
+        }
+        response = self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
+
+        assert response.status_code == 302
+        assert response.url == "https://example.com/callback"
+
+    def test_unsafe_purchase_redirect_ignored(
+        self, rf, user_factory, organization_factory, plan_factory, mocker
+    ):
+        """Unsafe redirect URLs (javascript:, data:, etc.) should be ignored"""
+        user = user_factory()
+        org = organization_factory()
+        org.add_creator(user)
+        plan = plan_factory(for_groups=True, public=True)
+        mocker.patch.object(Organization, "set_subscription", return_value=None)
+
+        data = {
+            "organization": str(org.pk),
+            "payment_method": "new-card",
+            "stripe_token": "tok_visa",
+            "stripe_pk": "pk_test",
+            "purchase_redirect": "javascript:alert(1)",
+        }
+        response = self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
+
+        assert response.status_code == 302
+        assert response.url == org.get_absolute_url()
+
+    def test_no_purchase_redirect_defaults_to_org(
+        self, rf, user_factory, organization_factory, plan_factory, mocker
+    ):
+        """Without purchase_redirect, redirect to org page as before"""
+        user = user_factory()
+        org = organization_factory()
+        org.add_creator(user)
+        plan = plan_factory(for_groups=True, public=True)
+        mocker.patch.object(Organization, "set_subscription", return_value=None)
+
+        data = {
+            "organization": str(org.pk),
+            "payment_method": "new-card",
+            "stripe_token": "tok_visa",
+            "stripe_pk": "pk_test",
+        }
+        response = self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
+
+        assert response.status_code == 302
+        assert response.url == org.get_absolute_url()
+
+    def test_purchase_redirect_in_form_initial(
+        self, rf, user_factory, plan_factory, mocker
+    ):
+        """GET request with purchase_redirect should set it as form initial value"""
+        user = user_factory()
+        plan = plan_factory(public=True)
+
+        mock_customer = mocker.MagicMock()
+        mock_customer.card = None
+        mocker.patch.object(
+            user.individual_organization, "customer", return_value=mock_customer
+        )
+
+        response = self.call_view(
+            rf,
+            user,
+            params={"purchase_redirect": "https://example.com/callback"},
+            pk=plan.pk,
+            slug=plan.slug,
+        )
+
+        assert response.status_code == 200
+        form = response.context_data["form"]
+        assert form.initial["purchase_redirect"] == "https://example.com/callback"
+
+    def test_empty_purchase_redirect_in_form_initial(
+        self, rf, user_factory, plan_factory, mocker
+    ):
+        """GET request without purchase_redirect should have empty initial value"""
+        user = user_factory()
+        plan = plan_factory(public=True)
+
+        mock_customer = mocker.MagicMock()
+        mock_customer.card = None
+        mocker.patch.object(
+            user.individual_organization, "customer", return_value=mock_customer
+        )
+
+        response = self.call_view(rf, user, pk=plan.pk, slug=plan.slug)
+
+        assert response.status_code == 200
+        form = response.context_data["form"]
+        assert form.initial.get("purchase_redirect", "") == ""
+
+
+@pytest.mark.django_db()
+class TestPlanRedirectViewQueryString(ViewTestMixin):
+    """Test that PlanRedirectView preserves query strings"""
+
+    view = views.PlanRedirectView
+    url = "/plans/{pk}/"
+
+    def test_redirect_preserves_query_string(self, rf, user_factory, plan_factory):
+        """PlanRedirectView should preserve purchase_redirect query parameter"""
+        user = user_factory()
+        plan = plan_factory(name="Test Plan", public=True)
+
+        response = self.call_view(
+            rf,
+            user,
+            params={"purchase_redirect": "https://example.com/callback"},
+            pk=plan.pk,
+        )
+
+        assert response.status_code == 301
+        assert "purchase_redirect=https" in response.url
+
+    def test_redirect_without_query_string(self, rf, user_factory, plan_factory):
+        """PlanRedirectView without query string should work as before"""
+        user = user_factory()
+        plan = plan_factory(name="Test Plan", public=True)
+
+        response = self.call_view(rf, user, pk=plan.pk)
+
+        assert response.status_code == 301
+        expected_url = reverse("plan_detail", kwargs={"pk": plan.pk, "slug": plan.slug})
+        assert response.url == expected_url
+        assert "?" not in response.url
+
+
+@pytest.mark.django_db()
 class TestPlanRedirectView(ViewTestMixin):
     """Test the Plan Redirect view that handles slug changes"""
 

@@ -1,5 +1,8 @@
 """Forms for plan purchase functionality"""
 
+# Standard Library
+from urllib.parse import urlparse
+
 # Django
 from django import forms
 from django.db.models import Q
@@ -70,6 +73,11 @@ class PlanPurchaseForm(StripeForm):
         label=_("Save as default card"),
         required=False,
         initial=True,
+    )
+
+    purchase_redirect = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(),
     )
 
     def __init__(self, *args, plan=None, user=None, **kwargs):
@@ -244,6 +252,16 @@ class PlanPurchaseForm(StripeForm):
             )
 
         return name
+
+    def clean_purchase_redirect(self):
+        """Validate that purchase_redirect is a safe absolute URL if provided"""
+        url = self.cleaned_data.get("purchase_redirect", "").strip()
+        if not url:
+            return ""
+        parsed = urlparse(url)
+        if parsed.scheme in ("http", "https") and parsed.netloc:
+            return url
+        return ""
 
     def clean_is_nonprofit(self):
         """Validate nonprofit checkbox is only used for Sunlight plans"""

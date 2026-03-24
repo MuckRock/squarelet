@@ -95,6 +95,20 @@ class Command(BaseCommand):
             },
         )
 
+        # Create a free group plan for e2e purchase redirect tests
+        Plan.objects.get_or_create(
+            slug="e2e-test-plan",
+            defaults={
+                "name": "E2E Test Plan",
+                "minimum_users": 1,
+                "base_price": 0,
+                "price_per_user": 0,
+                "for_individuals": False,
+                "for_groups": True,
+                "public": True,
+            },
+        )
+
         # Create users
         created_users = {}
         for user_spec in USERS:

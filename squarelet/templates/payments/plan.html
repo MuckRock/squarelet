@@ -89,7 +89,7 @@
         {% endif %}
         {% if matching_plan %}
           <p class="plan-switch-link">
-            <a href="{% url 'plan_detail' pk=matching_plan.pk slug=matching_plan.slug %}">
+            <a href="{% url 'plan_detail' pk=matching_plan.pk slug=matching_plan.slug %}{% pass_query %}">
               {% if plan.annual %}
                 {% trans "Also available as a monthly subscription" %}
               {% else %}
