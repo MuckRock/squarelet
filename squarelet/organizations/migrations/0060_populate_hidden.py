@@ -21,7 +21,6 @@ def populate_hidden(apps, schema_editor):
     Organization.objects.filter(individual=False).update(hidden=False)
 
     # Individual orgs: set private=False (public by default)
-    Organization.objects.filter(individual=True).update(private=False)
 
     # Un-hide individual orgs whose user has a verified primary email
     has_verified_email = EmailAddress.objects.filter(
