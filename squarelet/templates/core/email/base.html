@@ -239,12 +239,12 @@
                   </div>
                   <div class="body">{% block body %}{% endblock %}</div>
                   <div class="footer">
-                    {% block settings %}{% endblock %} {% if user %}
+                    {% block settings %}{% endblock %} {% block sent_to %}{% if user %}
                     <p>
                       {% trans "This email was sent to" %}
                       <a href="mailto:{{ user.email }}">{{ user.email }}</a>.
                     </p>
-                    {% endif %} {% blocktrans %}
+                    {% endif %}{% endblock %} {% blocktrans %}
                     <p>
                       Add
                       <a href="mailto:info@muckrock.com">info@muckrock.com</a>
