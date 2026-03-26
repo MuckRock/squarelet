@@ -7,7 +7,6 @@ from django.utils import timezone
 import logging
 import os.path
 import sys
-import uuid
 from datetime import timedelta
 from hashlib import md5
 from urllib.parse import quote
@@ -84,17 +83,6 @@ def retry_on_error(errors, func, *args, **kwargs):
         )
         return retry_on_error(errors, func, times=times, *args, **kwargs)
 
-
-def stripe_retry_on_error(func, *args, **kwargs):
-    """Retry stripe API calls on connection errors"""
-    if kwargs.get("idempotency_key") is True:
-        kwargs["idempotency_key"] = uuid.uuid4().hex
-    return retry_on_error(
-        (stripe.APIConnectionError, stripe.RateLimitError),
-        func,
-        *args,
-        **kwargs,
-    )
 
 
 def mailchimp_subscribe(emails, list_=settings.MAILCHIMP_LIST_DEFAULT):
