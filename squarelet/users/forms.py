@@ -271,7 +271,7 @@ class PremiumSubscriptionForm(StripeForm):
         try:
             organization.set_subscription(stripe_token, plan, plan.minimum_users, user)
             return True
-        except stripe.error.StripeError as exc:
+        except stripe.StripeError as exc:
             user_message = format_stripe_error(exc)
             self.add_error(None, user_message)
             return False

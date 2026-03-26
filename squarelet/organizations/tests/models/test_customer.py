@@ -101,7 +101,7 @@ class TestCustomer:
         # Mock stripe.Customer.retrieve to raise InvalidRequestError for old ID only
         def mock_retrieve(customer_id):
             if customer_id == old_customer_id:
-                error = stripe.error.InvalidRequestError(
+                error = stripe.InvalidRequestError(
                     "No such customer: 'cus_invalid_id'; a similar object "
                     "exists in live mode, but a test mode key was used "
                     "to make this request.",

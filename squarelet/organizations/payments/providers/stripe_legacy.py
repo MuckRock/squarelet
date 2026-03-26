@@ -79,7 +79,7 @@ class StripeLegacySubscriptionService(SubscriptionService):
     def retrieve(self, subscription_id):
         try:
             return stripe_retry_on_error(stripe.Subscription.retrieve, subscription_id)
-        except stripe.error.InvalidRequestError:  # pragma: no cover
+        except stripe.InvalidRequestError:  # pragma: no cover
             return None
 
     def modify(self, subscription_id, **kwargs):

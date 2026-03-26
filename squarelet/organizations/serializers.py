@@ -168,7 +168,7 @@ class ChargeSerializer(serializers.ModelSerializer):
                 validated_data.get("save_card"),
                 validated_data.get("metadata"),
             )
-        except stripe.error.StripeError as exc:
+        except stripe.StripeError as exc:
             user_message = format_stripe_error(exc)
             raise StripeError(user_message)
         # add the card display to the response, so the client has immediate access

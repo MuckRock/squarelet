@@ -103,7 +103,7 @@ class TestInvoiceAdmin:
         message_user_mock = mocker.patch.object(invoice_admin, "message_user")
 
         # Mock Stripe API to raise an error
-        stripe_error = stripe.error.InvalidRequestError(
+        stripe_error = stripe.InvalidRequestError(
             "Invoice is already paid", "invoice"
         )
         mocker.patch("stripe.Invoice.retrieve", side_effect=stripe_error)
