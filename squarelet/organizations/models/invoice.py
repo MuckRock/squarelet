@@ -103,7 +103,7 @@ class Invoice(models.Model):
             stripe_invoice = (
                 get_payment_provider().get_invoice_service().retrieve(self.invoice_id)
             )
-            return stripe_invoice.get("hosted_invoice_url")
+            return stripe_invoice.hosted_invoice_url if "hosted_invoice_url" in stripe_invoice else None
         except stripe.StripeError:
             return None
 
