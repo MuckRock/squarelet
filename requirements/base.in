@@ -2,8 +2,8 @@ Pillow
 argon2-cffi
 bcrypt
 bleach
+boto3
 celery
-cryptography
 django-allauth[socialaccount,mfa]
 django-activity-stream
 django-autocomplete-light
@@ -36,11 +36,11 @@ drf-nested-routers
 furl
 fuzzywuzzy
 html2text
+inflection
 ipdb
 markdown
 memoize
 psycopg2 --no-binary psycopg2
-pyairtable
 pycryptodome
 PyJWT>=2.8,<2.10
 python-Levenshtein
