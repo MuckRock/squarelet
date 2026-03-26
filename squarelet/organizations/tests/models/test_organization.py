@@ -447,7 +447,7 @@ class TestOrganization:
         # Mock the stripe_subscription property to return a mock
         # that raises error on delete
         mock_stripe_sub = mocker.MagicMock()
-        mock_stripe_sub.delete.side_effect = stripe.error.InvalidRequestError(
+        mock_stripe_sub.delete.side_effect = stripe.InvalidRequestError(
             "No such subscription", "subscription"
         )
         type(mocked_subscription).stripe_subscription = mocker.PropertyMock(

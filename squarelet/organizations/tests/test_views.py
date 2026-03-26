@@ -925,7 +925,7 @@ class TestUpdateSubscription(ViewTestMixin):
         mocked = mocker.patch(
             "squarelet.organizations.models.Organization.set_subscription"
         )
-        mocked.side_effect = stripe.error.StripeError("Error message")
+        mocked.side_effect = stripe.StripeError("Error message")
         user = user_factory()
         organization = organization_factory(admins=[user])
         data = {

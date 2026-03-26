@@ -325,13 +325,13 @@ def test_handle_invoice_failed_subscription_cancel_error(
     mocker.patch(
         "squarelet.organizations.models.organization.Organization."
         "subscription_cancelled",
-        side_effect=stripe.error.APIError("Cancellation failed"),
+        side_effect=stripe.APIError("Cancellation failed"),
     )
 
     invoice_data = {"id": 3, "customer": customer_id, "attempt_count": 4}
 
     # Should raise the error since it's not caught
-    with pytest.raises(stripe.error.APIError):
+    with pytest.raises(stripe.APIError):
         tasks.handle_invoice_failed(invoice_data)
 
 
@@ -811,7 +811,7 @@ class TestCheckOverdueInvoices:
         mock_mark_uncollectible = mocker.patch(
             "squarelet.organizations.models.invoice.Invoice."
             "mark_uncollectible_in_stripe",
-            side_effect=stripe.error.StripeError("API Error"),
+            side_effect=stripe.StripeError("API Error"),
         )
 
         # Should not raise exception

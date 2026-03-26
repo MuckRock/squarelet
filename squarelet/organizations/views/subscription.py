@@ -61,7 +61,7 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
                 max_users=form.cleaned_data.get("max_users"),
                 user=self.request.user,
             )
-        except stripe.error.StripeError as exc:
+        except stripe.StripeError as exc:
             user_message = format_stripe_error(exc)
             messages.error(self.request, f"Payment error: {user_message}")
         else:
@@ -171,7 +171,7 @@ def stripe_webhook(request):  # pylint: disable=too-many-branches
             exc_info=sys.exc_info(),
         )
         return HttpResponseBadRequest()
-    except stripe.error.SignatureVerificationError as exception:
+    except stripe.SignatureVerificationError as exception:
         logger.error(
             "Stripe Webhook: Signature Verification Error: %s",
             sig_header,
