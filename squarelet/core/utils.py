@@ -90,7 +90,7 @@ def stripe_retry_on_error(func, *args, **kwargs):
     if kwargs.get("idempotency_key") is True:
         kwargs["idempotency_key"] = uuid.uuid4().hex
     return retry_on_error(
-        (stripe.error.APIConnectionError, stripe.error.RateLimitError),
+        (stripe.APIConnectionError, stripe.RateLimitError),
         func,
         *args,
         **kwargs,
@@ -255,7 +255,7 @@ def format_stripe_error(error):
     """
     # CardErrors - show detailed user messages
     # These are user-facing errors where Stripe provides helpful messages
-    if isinstance(error, stripe.error.CardError):
+    if isinstance(error, stripe.CardError):
         # Stripe's user_message is already user-friendly for card errors
         user_message = str(error)
         logger.error("Stripe CardError: %s", error, exc_info=sys.exc_info())

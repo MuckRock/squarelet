@@ -247,7 +247,7 @@ def test_premium_subscription_form_save_stripe_error(plan_factory, user, mocker)
     mocker.patch.object(
         Organization,
         "set_subscription",
-        side_effect=stripe.error.StripeError("Payment failed"),
+        side_effect=stripe.StripeError("Payment failed"),
     )
 
     data = {

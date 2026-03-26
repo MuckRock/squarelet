@@ -173,7 +173,7 @@ def update_and_add_plans(apps, schema_editor):
                     product={"name": plan.name, "unit_label": "Seats"},
                     **kwargs,
                 )
-            except stripe.error.InvalidRequestError:
+            except stripe.InvalidRequestError:
                 # If the plan already exists, just skip
                 pass
 
@@ -268,7 +268,7 @@ def update_and_add_plans(apps, schema_editor):
                     product={"name": plan.name, "unit_label": "Seats"},
                     **kwargs,
                 )
-            except stripe.error.InvalidRequestError:
+            except stripe.InvalidRequestError:
                 # If the plan already exists, just skip
                 pass
 
@@ -332,7 +332,7 @@ def reverse_changes(apps, schema_editor):
                 product = stripe.Product.retrieve(id=stripe_plan.product)
                 stripe_plan.delete()
                 product.delete()
-            except stripe.error.InvalidRequestError:
+            except stripe.InvalidRequestError:
                 # If the plan or product do not exist, just skip
                 pass
 
@@ -358,7 +358,7 @@ def reverse_changes(apps, schema_editor):
                 product = stripe.Product.retrieve(id=stripe_plan.product)
                 stripe_plan.delete()
                 product.delete()
-            except stripe.error.InvalidRequestError:
+            except stripe.InvalidRequestError:
                 # If the plan or product do not exist, just skip
                 pass
 

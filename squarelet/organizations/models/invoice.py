@@ -104,7 +104,7 @@ class Invoice(models.Model):
                 get_payment_provider().get_invoice_service().retrieve(self.invoice_id)
             )
             return stripe_invoice.get("hosted_invoice_url")
-        except stripe.error.StripeError:
+        except stripe.StripeError:
             return None
 
     @classmethod
@@ -139,6 +139,6 @@ class Invoice(models.Model):
         Mark this invoice as uncollectible in Stripe.
 
         Raises:
-            stripe.error.StripeError: If the Stripe API call fails
+            stripe.StripeError: If the Stripe API call fails
         """
         get_payment_provider().get_invoice_service().mark_uncollectible(self.invoice_id)

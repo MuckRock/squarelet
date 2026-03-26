@@ -303,7 +303,7 @@ class TestSubscription:
         # Mock Invoice.retrieve to raise an error
         mocker.patch(
             "stripe.Invoice.retrieve",
-            side_effect=stripe.error.InvalidRequestError("No such invoice", "invoice"),
+            side_effect=stripe.InvalidRequestError("No such invoice", "invoice"),
         )
 
         # Start should still succeed

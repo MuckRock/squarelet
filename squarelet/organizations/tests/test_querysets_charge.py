@@ -362,7 +362,7 @@ class TestChargeQuerySet:
         self._mock_customer_with_card(mocker)
 
         # Mock Stripe to raise CardError
-        card_error = stripe.error.CardError(
+        card_error = stripe.CardError(
             message="Your card was declined",
             param="card",
             code="card_declined",
@@ -374,7 +374,7 @@ class TestChargeQuerySet:
         )
 
         # Act & Assert
-        with pytest.raises(stripe.error.CardError) as exc_info:
+        with pytest.raises(stripe.CardError) as exc_info:
             Charge.objects.make_charge(
                 organization=org,
                 token=None,
@@ -396,7 +396,7 @@ class TestChargeQuerySet:
         self._mock_customer_with_card(mocker)
 
         # Mock Stripe to raise APIError
-        api_error = stripe.error.APIError(
+        api_error = stripe.APIError(
             message="An error occurred with our API",
         )
         mocker.patch(
@@ -406,7 +406,7 @@ class TestChargeQuerySet:
         )
 
         # Act & Assert
-        with pytest.raises(stripe.error.APIError):
+        with pytest.raises(stripe.APIError):
             Charge.objects.make_charge(
                 organization=org,
                 token=None,
@@ -443,7 +443,7 @@ class TestChargeQuerySet:
         )
 
         # Mock charge creation to raise error
-        invalid_error = stripe.error.InvalidRequestError(
+        invalid_error = stripe.InvalidRequestError(
             message="Cannot charge a customer that has no active card",
             param="source",
         )
@@ -454,7 +454,7 @@ class TestChargeQuerySet:
         )
 
         # Act & Assert
-        with pytest.raises(stripe.error.InvalidRequestError):
+        with pytest.raises(stripe.InvalidRequestError):
             Charge.objects.make_charge(
                 organization=org,
                 token=None,  # No token provided
