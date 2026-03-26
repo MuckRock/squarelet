@@ -445,8 +445,8 @@ stack-data==0.3.0
     # via
     #   -r requirements/base.txt
     #   ipython
-stripe==8.11.0
-    # via -r requirements/base.txt
+stripe==15.0.0
+    # via -r /app/requirements/base.txt
 tinycss2==1.5.1
     # via
     #   -r requirements/base.txt
