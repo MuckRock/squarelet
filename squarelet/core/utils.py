@@ -84,7 +84,6 @@ def retry_on_error(errors, func, *args, **kwargs):
         return retry_on_error(errors, func, times=times, *args, **kwargs)
 
 
-
 def mailchimp_subscribe(emails, list_=settings.MAILCHIMP_LIST_DEFAULT):
     """Adds the email to the mailing list throught the MailChimp API.
     https://mailchimp.com/developer/marketing/api/lists/"""
