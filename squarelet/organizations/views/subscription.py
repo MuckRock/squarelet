@@ -182,9 +182,14 @@ def stripe_webhook(request):  # pylint: disable=too-many-branches
     # Now it's up to us to act on it.
     # https://docs.stripe.com/api/events/types
 
+    # Convert to a plain dict so Celery can serialize it regardless of stripe version
+    event_obj = event["data"]["object"]
+    if hasattr(event_obj, "to_dict"):
+        event_obj = event_obj.to_dict()
+
     # Log invoice-related webhooks with minimal noise
     if event_type.startswith("invoice."):
-        invoice_id = event["data"]["object"].get("id")
+        invoice_id = event_obj.get("id")
         if invoice_id:
             stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
             logger.info(
@@ -205,20 +210,20 @@ def stripe_webhook(request):  # pylint: disable=too-many-branches
         ) % {"address": request.META["REMOTE_ADDR"], "type": event_type, "data": event}
         logger.info(success_msg)
     if event_type == "charge.succeeded":
-        handle_charge_succeeded.delay(event["data"]["object"])
+        handle_charge_succeeded.delay(event_obj)
     elif event_type == "invoice.payment_failed":
-        handle_invoice_failed.delay(event["data"]["object"])
+        handle_invoice_failed.delay(event_obj)
     elif event_type == "invoice.created":
-        handle_invoice_created.delay(event["data"]["object"])
+        handle_invoice_created.delay(event_obj)
     elif event_type == "invoice.finalized":
-        handle_invoice_finalized.delay(event["data"]["object"])
+        handle_invoice_finalized.delay(event_obj)
     elif event_type == "invoice.paid":
         # Listening for invoice.paid ensures we handle payments that
         # when happen when users pay them through Stripe or when staff
         # manually mark them as paid through the Stripe dashboard
-        handle_invoice_paid.delay(event["data"]["object"])
+        handle_invoice_paid.delay(event_obj)
     elif event_type == "invoice.marked_uncollectible":
-        handle_invoice_marked_uncollectible.delay(event["data"]["object"])
+        handle_invoice_marked_uncollectible.delay(event_obj)
     elif event_type == "invoice.voided":
-        handle_invoice_voided.delay(event["data"]["object"])
+        handle_invoice_voided.delay(event_obj)
     return HttpResponse()
