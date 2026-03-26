@@ -87,10 +87,11 @@ class TestCustomer:
         mocked_customer = mocker.patch(
             "squarelet.organizations.models.Customer.stripe_customer"
         )
+        mocked_customer.id = "cus_test123"
+        mocked_modify = mocker.patch("stripe.Customer.modify")
         customer = customer_factory.build()
         customer.save_card(token)
-        assert mocked_customer.source == token
-        mocked_customer.save.assert_called_once()
+        mocked_modify.assert_called_once_with("cus_test123", source=token)
 
     @pytest.mark.django_db()
     def test_customer_invalid_clears_and_creates_new(self, customer_factory, mocker):
