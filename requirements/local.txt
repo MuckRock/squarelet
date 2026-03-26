@@ -591,8 +591,8 @@ stack-data==0.3.0
     # via
     #   -r requirements/base.txt
     #   ipython
-stripe==8.11.0
-    # via -r requirements/base.txt
+stripe==15.0.0
+    # via -r /app/requirements/base.txt
 termcolor==1.1.0
     # via pytest-sugar
 text-unidecode==1.3

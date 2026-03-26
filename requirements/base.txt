@@ -312,7 +312,7 @@ sqlparse==0.5.4
     #   django-request-token
 stack-data==0.3.0
     # via ipython
-stripe==8.11.0
+stripe==15.0.0
     # via -r requirements/base.in
 tinycss2==1.5.1
     # via
