@@ -306,9 +306,7 @@ class TestFormatStripeError:
 
     def test_invalid_request_error(self):
         """InvalidRequestError should show generic message"""
-        error = stripe.InvalidRequestError(
-            message="Invalid request", param="amount"
-        )
+        error = stripe.InvalidRequestError(message="Invalid request", param="amount")
         user_message = format_stripe_error(error)
 
         assert "contact" in user_message.lower() or "support" in user_message.lower()
