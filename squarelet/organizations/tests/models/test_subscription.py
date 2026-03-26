@@ -86,10 +86,11 @@ class TestSubscription:
         mocked_stripe_subscription = mocker.patch(
             "squarelet.organizations.models.Subscription.stripe_subscription"
         )
+        mocked_stripe_subscription.id = "sub_test123"
+        mocked_modify = mocker.patch("stripe.Subscription.modify")
         subscription = subscription_factory.build()
         subscription.cancel()
-        assert mocked_stripe_subscription.cancel_at_period_end
-        mocked_stripe_subscription.save.assert_called()
+        mocked_modify.assert_called_once_with("sub_test123", cancel_at_period_end=True)
         assert subscription.cancelled
         mocked_save.assert_called()
 

@@ -1605,7 +1605,7 @@ class TestStripeWebhook:
 
     def test_simple(self, rf):
         """Succesful request"""
-        event = {"type": "test"}
+        event = {"type": "test", "data": {"object": {}}}
         response = self.call_view(rf, event)
         assert response.status_code == 200
 
