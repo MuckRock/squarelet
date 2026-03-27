@@ -76,13 +76,10 @@ def create_member(headers, organization, user):
 def add_labels(headers, contact_id, plan):
     logger.warning("[WIX-SYNC] add labels")
     # Extract the tier name (essential, enhanced, enterprise) from the slug
-    # Handles: sunlight-essential, sunlight-essential-annual,
-    #          sunlight-nonprofit-essential, sunlight-nonprofit-essential-annual, etc.
-    plan_slug = (
-        plan.slug.replace("sunlight-", "")
-        .replace("nonprofit-", "")
-        .replace("-annual", "")
-    )
+    # Handles all variants: sunlight-essential, sunlight-enterprise-custom,
+    #          sunlight-nonprofit-enhanced-annual, etc.
+    tiers = ("enterprise", "enhanced", "essential")
+    plan_slug = next((tier for tier in tiers if tier in plan.slug), plan.slug)
     response = requests.post(
         f"https://www.wixapis.com/contacts/v4/contacts/{contact_id}/labels",
         headers=headers,
