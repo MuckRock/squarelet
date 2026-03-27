@@ -14,10 +14,9 @@ import logging
 import sys
 from datetime import date
 
-from dateutil.relativedelta import relativedelta
-
 # Third Party
 import stripe
+from dateutil.relativedelta import relativedelta
 from reversion.admin import VersionAdmin
 
 # Squarelet
