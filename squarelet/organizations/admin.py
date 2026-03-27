@@ -14,6 +14,8 @@ import logging
 import sys
 from datetime import date
 
+from dateutil.relativedelta import relativedelta
+
 # Third Party
 import stripe
 from reversion.admin import VersionAdmin
@@ -70,7 +72,7 @@ class PrettyJSONWidget(Textarea):
 
 class SubscriptionInline(admin.TabularInline):
     model = Subscription
-    readonly_fields = ("plan", "subscription_id", "update_on", "cancelled")
+    readonly_fields = ("subscription_id", "update_on")
     extra = 0
 
 
@@ -390,6 +392,38 @@ class OrganizationAdmin(VersionAdmin):
         if obj.verified_journalist and "verified_journalist" in form.changed_data:
             obj.subscribe()
         super().save_model(request, obj, form, change)
+
+    def save_formset(self, request, form, formset, change):
+        # Handle creating Subscriptions from the inline admin
+        if formset.model is Subscription:
+            instances = formset.save(commit=False)
+            # Set update_on for new subscriptions based on plan billing cycle
+            for instance in instances:
+                if not instance.pk:
+                    if instance.plan and instance.plan.annual:
+                        instance.update_on = date.today() + relativedelta(years=1)
+                    else:
+                        instance.update_on = date.today() + relativedelta(months=1)
+                instance.save()
+            formset.save_m2m()
+            # Try starting the subscription (creates in Stripe)
+            for instance in instances:
+                if not instance.subscription_id:
+                    try:
+                        instance.start()
+                    except Exception as exc:
+                        logger.error(
+                            "Failed to start subscription %s on Stripe: %s",
+                            instance,
+                            exc,
+                            exc_info=sys.exc_info(),
+                        )
+                        messages.error(
+                            request,
+                            f"Subscription saved but failed to start on Stripe: {exc}",
+                        )
+        else:
+            super().save_formset(request, form, formset, change)
 
     def get_fields(self, request, obj=None):
         """Only add user link for individual organizations"""

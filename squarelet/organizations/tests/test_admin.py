@@ -2,13 +2,17 @@
 from django.contrib.admin.sites import AdminSite
 from django.test import RequestFactory, override_settings
 
+# Standard Library
+from datetime import date
+
 # Third Party
 import pytest
 import stripe
+from dateutil.relativedelta import relativedelta
 
 # Squarelet
 from squarelet.organizations.admin import InvoiceAdmin, OrganizationAdmin
-from squarelet.organizations.models import Invoice, Organization
+from squarelet.organizations.models import Invoice, Organization, Subscription
 
 
 class TestInvoiceAdmin:
@@ -321,3 +325,146 @@ class TestOrganizationAdmin:
         display = org_admin.get_outstanding_invoices(org)
 
         assert display == "-"
+
+    @pytest.fixture
+    def subscription_formset(self):
+        """Create a real inline formset for Subscription"""
+
+        def _make_formset(org, new_plans=None, existing_subscriptions=None):
+            from django.forms import inlineformset_factory
+
+            new_plans = new_plans or []
+            existing_subscriptions = existing_subscriptions or []
+            total = len(new_plans) + len(existing_subscriptions)
+
+            FormSet = inlineformset_factory(
+                Organization,
+                Subscription,
+                fields=("plan", "cancelled"),
+                extra=total,
+                can_delete=True,
+            )
+
+            data = {
+                "subscriptions-TOTAL_FORMS": str(total),
+                "subscriptions-INITIAL_FORMS": str(len(existing_subscriptions)),
+                "subscriptions-MIN_NUM_FORMS": "0",
+                "subscriptions-MAX_NUM_FORMS": "1000",
+            }
+
+            for i, sub in enumerate(existing_subscriptions):
+                data[f"subscriptions-{i}-id"] = str(sub.pk)
+                data[f"subscriptions-{i}-organization"] = str(org.pk)
+                data[f"subscriptions-{i}-plan"] = str(sub.plan_id)
+                data[f"subscriptions-{i}-cancelled"] = "on" if sub.cancelled else ""
+
+            offset = len(existing_subscriptions)
+            for i, plan in enumerate(new_plans):
+                idx = offset + i
+                data[f"subscriptions-{idx}-id"] = ""
+                data[f"subscriptions-{idx}-organization"] = str(org.pk)
+                data[f"subscriptions-{idx}-plan"] = str(plan.pk)
+                data[f"subscriptions-{idx}-cancelled"] = ""
+
+            formset = FormSet(data, instance=org, prefix="subscriptions")
+            assert formset.is_valid(), formset.errors
+            return formset
+
+        return _make_formset
+
+    @pytest.mark.django_db
+    def test_save_formset_starts_new_subscription(
+        self,
+        org_admin,
+        organization_factory,
+        plan_factory,
+        request_factory,
+        subscription_formset,
+        mocker,
+    ):
+        """Should call start() on newly created subscriptions"""
+        org = organization_factory()
+        plan = plan_factory()
+
+        formset = subscription_formset(org, new_plans=[plan])
+        request = request_factory.get("/")
+        start_mock = mocker.patch.object(Subscription, "start")
+
+        org_admin.save_formset(request, None, formset, change=True)
+
+        subscription = Subscription.objects.get(organization=org, plan=plan)
+        assert subscription.update_on == date.today() + relativedelta(months=1)
+        start_mock.assert_called_once()
+
+    @pytest.mark.django_db
+    def test_save_formset_sets_annual_update_on(
+        self,
+        org_admin,
+        organization_factory,
+        plan_factory,
+        request_factory,
+        subscription_formset,
+        mocker,
+    ):
+        """Should set update_on to 1 year from today for annual plans"""
+        org = organization_factory()
+        plan = plan_factory(annual=True)
+
+        formset = subscription_formset(org, new_plans=[plan])
+        request = request_factory.get("/")
+        mocker.patch.object(Subscription, "start")
+
+        org_admin.save_formset(request, None, formset, change=True)
+
+        subscription = Subscription.objects.get(organization=org, plan=plan)
+        assert subscription.update_on == date.today() + relativedelta(years=1)
+
+    @pytest.mark.django_db
+    def test_save_formset_does_not_start_existing_subscription(
+        self,
+        org_admin,
+        subscription_factory,
+        request_factory,
+        subscription_formset,
+        mocker,
+    ):
+        """Should not call start() on existing subscriptions with a subscription_id"""
+        subscription = subscription_factory(subscription_id="sub_existing")
+
+        formset = subscription_formset(
+            subscription.organization, existing_subscriptions=[subscription]
+        )
+        request = request_factory.get("/")
+        start_mock = mocker.patch.object(Subscription, "start")
+
+        org_admin.save_formset(request, None, formset, change=True)
+
+        start_mock.assert_not_called()
+
+    @pytest.mark.django_db
+    def test_save_formset_handles_stripe_error(
+        self,
+        org_admin,
+        organization_factory,
+        plan_factory,
+        request_factory,
+        subscription_formset,
+        mocker,
+    ):
+        """Should show error message when start() fails"""
+        org = organization_factory()
+        plan = plan_factory()
+
+        formset = subscription_formset(org, new_plans=[plan])
+        request = request_factory.get("/")
+        mocker.patch.object(
+            Subscription, "start", side_effect=stripe.error.StripeError("API error")
+        )
+        messages_mock = mocker.patch("squarelet.organizations.admin.messages")
+
+        org_admin.save_formset(request, None, formset, change=True)
+
+        # Subscription should still be saved to DB despite Stripe error
+        assert Subscription.objects.filter(organization=org, plan=plan).exists()
+        messages_mock.error.assert_called_once()
+        assert "failed to start on Stripe" in str(messages_mock.error.call_args)
