@@ -80,6 +80,9 @@ class TestWix:
             ("sunlight-nonprofit-essential-annual", "essential"),
             ("sunlight-nonprofit-enhanced", "enhanced"),
             ("sunlight-nonprofit-enhanced-annual", "enhanced"),
+            ("sunlight-enterprise-acme", "enterprise"),
+            ("sunlight-enterprise-acme-annual", "enterprise"),
+            ("sunlight-nonprofit-enterprise-acme", "enterprise"),
         ],
     )
     def test_add_labels(self, requests_mock, plan_slug, expected_tier):
