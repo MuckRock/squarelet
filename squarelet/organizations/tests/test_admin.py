@@ -1,5 +1,6 @@
 # Django
 from django.contrib.admin.sites import AdminSite
+from django.forms import inlineformset_factory
 from django.test import RequestFactory, override_settings
 
 # Standard Library
@@ -331,13 +332,11 @@ class TestOrganizationAdmin:
         """Create a real inline formset for Subscription"""
 
         def _make_formset(org, new_plans=None, existing_subscriptions=None):
-            from django.forms import inlineformset_factory
-
             new_plans = new_plans or []
             existing_subscriptions = existing_subscriptions or []
             total = len(new_plans) + len(existing_subscriptions)
 
-            FormSet = inlineformset_factory(
+            formset_class = inlineformset_factory(
                 Organization,
                 Subscription,
                 fields=("plan", "cancelled"),
@@ -366,14 +365,14 @@ class TestOrganizationAdmin:
                 data[f"subscriptions-{idx}-plan"] = str(plan.pk)
                 data[f"subscriptions-{idx}-cancelled"] = ""
 
-            formset = FormSet(data, instance=org, prefix="subscriptions")
+            formset = formset_class(data, instance=org, prefix="subscriptions")
             assert formset.is_valid(), formset.errors
             return formset
 
         return _make_formset
 
     @pytest.mark.django_db
-    def test_save_formset_starts_new_subscription(
+    def test_save_formset_starts_new_subscription(  # pylint: disable=too-many-positional-arguments
         self,
         org_admin,
         organization_factory,
@@ -397,7 +396,7 @@ class TestOrganizationAdmin:
         start_mock.assert_called_once()
 
     @pytest.mark.django_db
-    def test_save_formset_sets_annual_update_on(
+    def test_save_formset_sets_annual_update_on(  # pylint: disable=too-many-positional-arguments
         self,
         org_admin,
         organization_factory,
@@ -420,7 +419,7 @@ class TestOrganizationAdmin:
         assert subscription.update_on == date.today() + relativedelta(years=1)
 
     @pytest.mark.django_db
-    def test_save_formset_does_not_start_existing_subscription(
+    def test_save_formset_does_not_start_existing_subscription(  # pylint: disable=too-many-positional-arguments
         self,
         org_admin,
         subscription_factory,
@@ -442,7 +441,7 @@ class TestOrganizationAdmin:
         start_mock.assert_not_called()
 
     @pytest.mark.django_db
-    def test_save_formset_handles_stripe_error(
+    def test_save_formset_handles_stripe_error(  # pylint: disable=too-many-positional-arguments
         self,
         org_admin,
         organization_factory,

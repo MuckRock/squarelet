@@ -411,7 +411,7 @@ class OrganizationAdmin(VersionAdmin):
                 if not instance.subscription_id:
                     try:
                         instance.start()
-                    except Exception as exc:
+                    except Exception as exc:  # pylint: disable=broad-exception-caught
                         logger.error(
                             "Failed to start subscription %s on Stripe: %s",
                             instance,
