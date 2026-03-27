@@ -15,6 +15,7 @@ def get_payment_provider() -> PaymentProvider:
     Currently only 'legacy' is supported; 'modern' will be added in Phase 3.
     """
     # imported here to avoid circular imports at module load time
+    # Squarelet
     from squarelet.organizations.payments.providers.stripe_legacy import (  # pylint: disable=import-outside-toplevel
         StripeLegacyProvider,
     )
