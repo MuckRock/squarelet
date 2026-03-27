@@ -1,17 +1,24 @@
 """Forms for plan purchase functionality"""
 
-# Standard Library
-from urllib.parse import urlparse
-
 # Django
 from django import forms
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
+# Standard Library
+import logging
+import sys
+from urllib.parse import urlparse
+
+# Third Party
+import stripe
+
 # Squarelet
 from squarelet.core.forms import StripeForm
 from squarelet.organizations.models import Organization, Plan
 from squarelet.users.forms import NewOrganizationModelChoiceField
+
+logger = logging.getLogger(__name__)
 
 
 class PlanPurchaseForm(StripeForm):
@@ -199,12 +206,20 @@ class PlanPurchaseForm(StripeForm):
             return org_cards
 
         for org in self.fields["organization"].queryset:
-            card = org.customer().card
-            if card:
-                org_cards[str(org.pk)] = {
-                    "last4": card.last4,
-                    "brand": card.brand,
-                }
+            try:
+                card = org.customer().card
+                if card:
+                    org_cards[str(org.pk)] = {
+                        "last4": card.last4,
+                        "brand": card.brand,
+                    }
+            except stripe.error.StripeError as exc:
+                logger.error(
+                    "Error fetching card for org %s: %s",
+                    org.pk,
+                    exc,
+                    exc_info=sys.exc_info(),
+                )
 
         return org_cards
 

@@ -303,7 +303,8 @@ class TestPlanDetailViewPurchaseRedirect(ViewTestMixin):
     def test_purchase_redirect_on_success(
         self, rf, user_factory, organization_factory, plan_factory, mocker
     ):
-        """After successful purchase, redirect to purchase_redirect URL instead of org page"""
+        """After successful purchase, redirect to purchase_redirect URL
+        instead of org page"""
         user = user_factory()
         org = organization_factory()
         org.add_creator(user)

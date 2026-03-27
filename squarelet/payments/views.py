@@ -263,9 +263,7 @@ class PlanDetailView(DetailView):
                 # Success - redirect to purchase_redirect if provided, else org
                 messages.success(request, _("Successfully subscribed"))
                 purchase_redirect = form.cleaned_data.get("purchase_redirect", "")
-                if purchase_redirect:
-                    return redirect(purchase_redirect)
-                return redirect(organization)
+                return redirect(purchase_redirect or organization)
 
             except Organization.DoesNotExist:
                 # Invalid organization
