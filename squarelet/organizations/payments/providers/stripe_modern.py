@@ -6,7 +6,11 @@ current Stripe API conventions. Translations from legacy parameter names
 to current ones are handled here so call sites remain unchanged.
 
 API version history tracked in this file:
-  2019-10-17 - initial version: `billing` -> `collection_method` on subscriptions
+  2019-10-17 - `billing` -> `collection_method` on subscriptions
+  2019-12-03 - deprecated Customer tax fields removed (not used here)
+  2020-08-27 - customer.sources and .subscriptions no longer auto-expand;
+               use stripe.Customer.retrieve_source/create_source and
+               stripe.Subscription.create(customer=id) instead
 """
 
 # Third Party
@@ -22,7 +26,7 @@ from squarelet.organizations.payments.base import (
     SubscriptionService,
 )
 
-CURRENT_API_VERSION = "2019-10-17"
+CURRENT_API_VERSION = "2020-08-27"
 
 
 class StripeModernCustomerService(CustomerService):
@@ -49,10 +53,12 @@ class StripeModernCustomerService(CustomerService):
         stripe.Customer.delete_source(customer_id, source_id)
 
     def retrieve_source(self, stripe_customer, source_id):
-        return stripe_customer.sources.retrieve(source_id)
+        # sources no longer auto-expand as of API version 2020-08-27
+        return stripe.Customer.retrieve_source(stripe_customer.id, source_id)
 
     def add_source(self, stripe_customer, token):
-        return stripe_customer.sources.create(source=token)
+        # sources no longer auto-expand as of API version 2020-08-27
+        return stripe.Customer.create_source(stripe_customer.id, source=token)
 
 
 class StripeModernSubscriptionService(SubscriptionService):
@@ -68,7 +74,9 @@ class StripeModernSubscriptionService(SubscriptionService):
         days_until_due,
     ):
         # `billing` was renamed to `collection_method` in API version 2019-10-17
-        return stripe_customer.subscriptions.create(
+        # subscriptions no longer auto-expand as of API version 2020-08-27
+        return stripe.Subscription.create(
+            customer=stripe_customer.id,
             items=[{"plan": plan_id, "quantity": quantity}],
             collection_method=billing,
             metadata=metadata,
