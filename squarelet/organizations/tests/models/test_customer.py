@@ -37,25 +37,33 @@ class TestCustomer:
 
     def test_card_existing(self, customer_factory, mocker):
         default_source = "default_source"
-        mocked = mocker.patch(
+        mocked_stripe_customer = mocker.patch(
             "squarelet.organizations.models.Customer.stripe_customer",
             default_source=default_source,
         )
-        mocked.sources.retrieve.return_value.object = "card"
+        mock_source = mocker.MagicMock(object="card")
+        mock_retrieve = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_customer_service.return_value.retrieve_source
+        mock_retrieve.return_value = mock_source
         customer = customer_factory.build()
-        assert mocked.sources.retrieve.return_value == customer.card
-        mocked.sources.retrieve.assert_called_with(default_source)
+        assert mock_source == customer.card
+        mock_retrieve.assert_called_once_with(mocked_stripe_customer, default_source)
 
     def test_card_ach(self, customer_factory, mocker):
         default_source = "default_source"
-        mocked = mocker.patch(
+        mocked_stripe_customer = mocker.patch(
             "squarelet.organizations.models.Customer.stripe_customer",
             default_source=default_source,
         )
-        mocked.sources.retrieve.return_value.object = "ach"
+        mock_source = mocker.MagicMock(object="ach")
+        mock_retrieve = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_customer_service.return_value.retrieve_source
+        mock_retrieve.return_value = mock_source
         customer = customer_factory.build()
         assert customer.card is None
-        mocked.sources.retrieve.assert_called_with(default_source)
+        mock_retrieve.assert_called_once_with(mocked_stripe_customer, default_source)
 
     def test_card_blank(self, customer_factory, mocker):
         mocker.patch(
