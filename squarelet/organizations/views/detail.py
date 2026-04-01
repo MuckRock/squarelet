@@ -18,6 +18,7 @@ from datetime import datetime
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import get_redirect_url, is_rate_limited, new_action
+from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.models import Invitation, Membership, Organization, Plan
 from squarelet.organizations.tasks import sync_wix
 
@@ -98,7 +99,11 @@ class Detail(AdminLinkMixin, DetailView):
             stripe_sub = getattr(subscription, "stripe_subscription", None)
             if stripe_sub:
                 # Try to get next charge date from Stripe subscription
-                time_stamp = getattr(stripe_sub, "current_period_end", None)
+                time_stamp = (
+                    get_payment_provider()
+                    .get_subscription_service()
+                    .get_current_period_end(stripe_sub)
+                )
                 if time_stamp:
                     tz_datetime = datetime.fromtimestamp(
                         time_stamp, tz=timezone.get_current_timezone()

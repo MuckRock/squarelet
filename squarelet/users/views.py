@@ -49,6 +49,7 @@ from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import new_action
 from squarelet.organizations.models import Invitation, ReceiptEmail
 from squarelet.organizations.models.payment import Plan
+from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.views import UpdateSubscription
 from squarelet.services.models import Service
 from squarelet.users.forms import (
@@ -174,7 +175,11 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
             stripe_sub = getattr(subscription, "stripe_subscription", None)
             if stripe_sub:
                 # Try to get next charge date from Stripe subscription
-                time_stamp = getattr(stripe_sub, "current_period_end", None)
+                time_stamp = (
+                    get_payment_provider()
+                    .get_subscription_service()
+                    .get_current_period_end(stripe_sub)
+                )
                 if time_stamp:
                     tz_datetime = datetime.fromtimestamp(
                         time_stamp, tz=timezone.get_current_timezone()

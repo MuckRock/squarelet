@@ -11,6 +11,20 @@ API version history tracked in this file:
   2020-08-27 - customer.sources and .subscriptions no longer auto-expand;
                use stripe.Customer.retrieve_source/create_source and
                stripe.Subscription.create(customer=id) instead
+  2022-08-01 - Checkout Session overhaul (not used here)
+  2022-11-15 - `charges` removed from PaymentIntent, Charge refunds no longer
+               auto-expand (neither used here)
+  2023-08-16 - automatic payment methods on by default for PaymentIntents
+               (not used here)
+  2024-04-10 - `rendering_options` -> `rendering` on invoices, `features`
+               renamed on Product (neither used here)
+  2024-09-30 - Acacia release, new monthly versioning model begins
+  2025-03-31 - basil: current_period_end/start moved from subscription root
+               to subscription items; handled via get_current_period_end()
+  2025-09-30 - clover: flexible billing mode default, iterations removed from
+               subscription schedules, Discount.coupon -> Discount.source
+               (none used here)
+  2026-03-25 - dahlia: cancellation_reason enum expanded (not checked here)
 """
 
 # Third Party
@@ -26,7 +40,7 @@ from squarelet.organizations.payments.base import (
     SubscriptionService,
 )
 
-CURRENT_API_VERSION = "2020-08-27"
+CURRENT_API_VERSION = "2026-03-25.dahlia"
 
 
 class StripeModernCustomerService(CustomerService):
@@ -104,6 +118,14 @@ class StripeModernSubscriptionService(SubscriptionService):
 
     def delete(self, stripe_subscription):
         stripe_subscription.delete()
+
+    def get_current_period_end(self, stripe_subscription):
+        # current_period_end moved from subscription root to subscription items
+        # in API version 2025-03-31.basil
+        items = getattr(stripe_subscription, "items", None)
+        if items and items.data:
+            return getattr(items.data[0], "current_period_end", None)
+        return None
 
 
 class StripeModernChargeService(ChargeService):

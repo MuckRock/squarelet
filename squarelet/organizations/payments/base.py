@@ -76,6 +76,15 @@ class SubscriptionService(ABC):
     def delete(self, stripe_subscription):
         """Immediately cancel and delete a subscription."""
 
+    @abstractmethod
+    def get_current_period_end(self, stripe_subscription):
+        """Return the current period end timestamp for a subscription.
+
+        The field location changed in API version 2025-03-31.basil:
+        prior versions expose it at the subscription root; basil and later
+        expose it on each subscription item.
+        """
+
 
 class ChargeService(ABC):
     """Manages Stripe Charge objects."""
