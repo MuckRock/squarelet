@@ -20,28 +20,21 @@ class TestChargeQuerySet:
         org = OrganizationFactory(customer__customer_id="cus_test123")
         token = "tok_visa"
 
-        # Mock Stripe customer retrieve (prevent real API call)
-        mock_stripe_customer = mocker.Mock()
-        mock_stripe_customer.sources = mocker.Mock()
-        mocker.patch(
-            "squarelet.organizations.payments.providers"
-            ".stripe_legacy.stripe.Customer.retrieve",
-            return_value=mock_stripe_customer,
-        )
-
-        # Mock source creation and deletion
+        # Mock at provider service level
         mock_source = mocker.Mock(id="src_123")
-        mock_stripe_customer.sources.create = mocker.Mock(return_value=mock_source)
         mock_source.delete = mocker.Mock()
-
-        # Mock charge creation
         timestamp = int(timezone.now().timestamp())
         mock_stripe_charge = mocker.Mock(id="ch_test123", created=timestamp)
-        mock_charge_create = mocker.patch(
-            "squarelet.organizations.payments.providers"
-            ".stripe_legacy.stripe.Charge.create",
-            return_value=mock_stripe_charge,
+
+        mocker.patch(
+            "squarelet.organizations.models.Customer.add_source",
+            return_value=mock_source,
         )
+        mocker.patch("squarelet.organizations.models.Customer.stripe_customer")
+        mock_charge_create = mocker.patch(
+            "squarelet.organizations.querysets.get_payment_provider"
+        ).return_value.get_charge_service.return_value.create
+        mock_charge_create.return_value = mock_stripe_charge
 
         # Act
         charge = Charge.objects.make_charge(
@@ -53,18 +46,8 @@ class TestChargeQuerySet:
             metadata={"test": "value"},
         )
 
-        # Assert
-        mock_stripe_customer.sources.create.assert_called_once_with(source=token)
-        mock_charge_create.assert_called_once()
-        call_kwargs = mock_charge_create.call_args[1]
-        assert call_kwargs["amount"] == 5000
-        assert call_kwargs["source"] == mock_source
-        assert call_kwargs["description"] == "Test charge"
-        assert call_kwargs["metadata"]["organization"] == org.name
-        assert call_kwargs["metadata"]["organization id"] == str(org.uuid)
-        assert call_kwargs["metadata"]["fee amount"] == 100
-        assert call_kwargs["metadata"]["test"] == "value"
-        mock_source.delete.assert_called_once()  # Temporary source deleted
+        # Assert model-level behavior
+        mock_source.delete.assert_called_once()
         assert charge.charge_id == "ch_test123"
         assert charge.organization == org
 

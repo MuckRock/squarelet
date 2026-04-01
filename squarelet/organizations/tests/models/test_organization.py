@@ -167,7 +167,9 @@ class TestOrganization:
         user = user_factory()
         organization = organization_factory()
         mocker.patch(
-            "squarelet.organizations.models.Customer.stripe_customer", card=None
+            "squarelet.organizations.models.Customer.stripe_customer",
+            card=None,
+            default_source=None,
         )
         mocker.patch("squarelet.organizations.models.Organization.change_logs")
         max_users = 10
@@ -212,7 +214,9 @@ class TestOrganization:
         plan = professional_plan_factory()
         organization = organization_factory(admins=[user], plans=[plan])
         mocker.patch(
-            "squarelet.organizations.models.Customer.stripe_customer", card=None
+            "squarelet.organizations.models.Customer.stripe_customer",
+            card=None,
+            default_source=None,
         )
         mocked = mocker.patch("squarelet.organizations.models.Subscription.cancel")
         mocker.patch("squarelet.organizations.models.Organization.change_logs")
@@ -230,7 +234,9 @@ class TestOrganization:
         plan = professional_plan_factory()
         organization = organization_factory(admins=[user], plans=[plan])
         mocker.patch(
-            "squarelet.organizations.models.Customer.stripe_customer", card=None
+            "squarelet.organizations.models.Customer.stripe_customer",
+            card=None,
+            default_source=None,
         )
         mocked = mocker.patch("squarelet.organizations.models.Subscription.modify")
         mocker.patch("squarelet.organizations.models.Organization.change_logs")
