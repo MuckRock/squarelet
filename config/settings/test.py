@@ -56,6 +56,11 @@ EMAIL_HOST = "localhost"
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-port
 EMAIL_PORT = 1025
 
+# DJANGO VITE
+# ------------------------------------------------------------------------------
+# Skip manifest lookup in tests — no built assets available
+DJANGO_VITE = {"default": {"dev_mode": True}}
+
 # Your stuff...
 # ------------------------------------------------------------------------------
 # Should not contact stripe during tests

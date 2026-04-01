@@ -46,7 +46,7 @@ class TestOrganizationAPI:
         )
         mocker.patch(
             "squarelet.organizations.models.Customer.stripe_customer",
-            default_source="default_source",
+            default_source=None,
         )
         user = user_factory(is_staff=True)
         data = {
