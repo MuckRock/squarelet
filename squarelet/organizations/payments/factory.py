@@ -14,11 +14,12 @@ def get_payment_provider() -> PaymentProvider:
     Reads STRIPE_PROVIDER from settings (default: 'legacy').
     Set STRIPE_PROVIDER='modern' to use the current-API provider.
     """
+    # pylint: disable=import-outside-toplevel
     # imported here to avoid circular imports at module load time
-    provider_type = getattr(settings, "STRIPE_PROVIDER", "legacy")
+    provider_type = settings.STRIPE_PROVIDER
 
     if provider_type == "legacy":
-        from squarelet.organizations.payments.providers.stripe_legacy import (  # pylint: disable=import-outside-toplevel
+        from squarelet.organizations.payments.providers.stripe_legacy import (
             StripeLegacyProvider,
         )
 
@@ -28,7 +29,7 @@ def get_payment_provider() -> PaymentProvider:
         )
 
     if provider_type == "modern":
-        from squarelet.organizations.payments.providers.stripe_modern import (  # pylint: disable=import-outside-toplevel
+        from squarelet.organizations.payments.providers.stripe_modern import (
             StripeModernProvider,
         )
 
