@@ -76,7 +76,8 @@ def test_user_detail_no_shared_org(client, user_with_org, user_without_org):
 @pytest.mark.django_db
 def test_user_list_unauthenticated(client):
     response = client.get("/fe_api/users/")
-    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["results"] == []
 
 
 @pytest.mark.django_db
@@ -118,9 +119,11 @@ def test_search_excludes_hidden_users(client, user_with_org):
 
 
 @pytest.mark.django_db
-def test_search_list_fields(client, user_with_org):
-    """Search results should include fields needed by UserSelect"""
-    user, _ = user_with_org
+def test_search_list_fields_verified(client, user_with_org):
+    """Verified journalists should see email in search results"""
+    user, org = user_with_org
+    org.verified_journalist = True
+    org.save()
     other = User.objects.create_user(
         username="visible", email="visible@example.com", password="password"
     )
@@ -132,6 +135,28 @@ def test_search_list_fields(client, user_with_org):
     results = response.data["results"]
     assert len(results) == 1
     assert "email" in results[0]
+    assert "username" in results[0]
+    assert "name" in results[0]
+    assert "avatar_url" in results[0]
+
+
+@pytest.mark.django_db
+def test_search_list_fields_non_verified(client, user_with_org):
+    """Non-verified users should not see email in search results"""
+    user, org = user_with_org
+    org.verified_journalist = False
+    org.save()
+    other = User.objects.create_user(
+        username="visible", email="visible@example.com", password="password"
+    )
+    other.individual_organization.hidden = False
+    other.individual_organization.save()
+
+    client.force_authenticate(user=user)
+    response = client.get("/fe_api/users/?search=visible", format="json")
+    results = response.data["results"]
+    assert len(results) == 1
+    assert "email" not in results[0]
     assert "username" in results[0]
     assert "name" in results[0]
     assert "avatar_url" in results[0]
