@@ -33,24 +33,34 @@ function main() {
     '[name="action"][value="addmember"]',
   );
 
-  // Hide the plain email fallback, show the Svelte widget
-  form.querySelector(".email-fallback")?.setAttribute("hidden", "");
+  // Hide the plain email fallback and disable its input so it doesn't submit
+  const fallback = form.querySelector(".email-fallback");
+  fallback?.setAttribute("hidden", "");
+  fallback?.querySelector("input")?.setAttribute("disabled", "");
 
-  // Create a hidden input to hold resolved emails for form submission
-  const hiddenInput = document.createElement("input");
-  hiddenInput.type = "hidden";
-  hiddenInput.name = "emails";
-  form.appendChild(hiddenInput);
+  // Create hidden inputs for emails and user IDs
+  const emailsInput = document.createElement("input");
+  emailsInput.type = "hidden";
+  emailsInput.name = "emails";
+  form.appendChild(emailsInput);
+
+  const userIdsInput = document.createElement("input");
+  userIdsInput.type = "hidden";
+  userIdsInput.name = "user_ids";
+  form.appendChild(userIdsInput);
 
   mount(UserSelect, {
     target: el,
     props: {
       onChange(next: Selection[]) {
-        // Resolve all selections to email addresses
-        const emails = next.map((sel) =>
-          sel.type === "email" ? sel.email : sel.email,
-        );
-        hiddenInput.value = emails.join(", ");
+        const emails = next
+          .filter((sel) => sel.type === "email")
+          .map((sel) => sel.email);
+        const userIds = next
+          .filter((sel) => sel.type === "user")
+          .map((sel) => sel.id);
+        emailsInput.value = emails.join(", ");
+        userIdsInput.value = userIds.join(", ");
         if (submitBtn) submitBtn.disabled = next.length === 0;
       },
     },

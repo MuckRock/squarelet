@@ -13,6 +13,7 @@ from squarelet.organizations.choices import InvitationRole
 from squarelet.organizations.forms import AddMemberForm
 from squarelet.organizations.mixins import OrganizationPermissionMixin
 from squarelet.organizations.models import Invitation, Membership, Organization
+from squarelet.users.models import User
 
 
 class ManageMembers(OrganizationPermissionMixin, DetailView):
@@ -42,11 +43,20 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
     def _handle_add_member(self, request):
         addmember_form = AddMemberForm(request.POST)
         if not addmember_form.is_valid():
-            messages.error(
-                request, addmember_form.errors.get("emails", ["Invalid input."])[0]
-            )
+            error_msg = (
+                addmember_form.errors.get("emails")
+                or addmember_form.errors.get("__all__")
+                or ["Invalid input."]
+            )[0]
+            messages.error(request, error_msg)
         else:
-            emails = addmember_form.cleaned_data["emails"]
+            emails = list(addmember_form.cleaned_data["emails"] or [])
+            # Resolve user IDs to email addresses
+            user_ids = addmember_form.cleaned_data.get("user_ids", [])
+            if user_ids:
+                emails.extend(
+                    User.objects.filter(id__in=user_ids).values_list("email", flat=True)
+                )
             role = addmember_form.cleaned_data.get("role")
             if not role:
                 role = InvitationRole.member

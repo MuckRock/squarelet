@@ -15,8 +15,8 @@
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  function fetchCallback(resp: { count: number; results: User[] }): User[] {
-    return resp.results;
+  function fetchCallback(resp: { count: number; results: User[] }): Selection[] {
+    return resp.results.map((u) => ({ ...u, type: "user" as const }));
   }
 
   /** Only allow creating items that look like email addresses.

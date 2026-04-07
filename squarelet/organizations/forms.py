@@ -268,7 +268,8 @@ class UpdateForm(forms.ModelForm):
 class AddMemberForm(forms.Form):
     """Add a member to the organization"""
 
-    emails = EmailsListField()
+    emails = EmailsListField(required=False)
+    user_ids = forms.CharField(required=False)
     role = forms.ChoiceField(
         label=_("Role"),
         choices=InvitationRole.choices,
@@ -280,6 +281,20 @@ class AddMemberForm(forms.Form):
             "Admins can also manage members and settings."
         ),
     )
+
+    def clean_user_ids(self):
+        raw = self.cleaned_data.get("user_ids", "")
+        if not raw.strip():
+            return []
+        return [int(uid) for uid in raw.split(",") if uid.strip().isdigit()]
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if not cleaned_data.get("emails") and not cleaned_data.get("user_ids"):
+            raise forms.ValidationError(
+                _("Select at least one user or enter an email address.")
+            )
+        return cleaned_data
 
 
 class MergeForm(forms.Form):

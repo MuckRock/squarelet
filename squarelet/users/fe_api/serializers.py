@@ -16,6 +16,14 @@ class UserSearchSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class UserSearchSerializerNoEmail(UserSearchSerializer):
+    """Search results without email — for non-verified users"""
+
+    class Meta(UserSearchSerializer.Meta):
+        fields = tuple(f for f in UserSearchSerializer.Meta.fields if f != "email")
+        read_only_fields = fields
+
+
 class UserSerializer(serializers.ModelSerializer):
     uuid = serializers.UUIDField(read_only=True)
     username = serializers.CharField(read_only=True)

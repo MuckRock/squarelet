@@ -303,8 +303,6 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
             .select_related("organization")
             .order_by("-created_at")
         )
-        print(pending_requests)
-
         return pending_requests
 
     def get_pending_invitations(self):
@@ -327,7 +325,6 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
             .select_related("organization")
             .order_by("-created_at")
         )
-        print(pending_invites)
         return pending_invites
 
 

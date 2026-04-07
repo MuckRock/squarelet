@@ -3,17 +3,12 @@ export interface User {
   uuid: string;
   username: string;
   name: string;
-  email: string;
+  email?: string;
   avatar_url: string;
 }
 
-export type UserSelection = {
+export type UserSelection = User & {
   type: "user";
-  id: number;
-  username: string;
-  name: string;
-  email: string;
-  avatar_url: string;
 };
 
 export type EmailSelection = {
