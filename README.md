@@ -207,7 +207,7 @@ End-to-end tests use [Playwright][playwright] and run against the Docker develop
 Install Playwright and the browser engines (host-side, not in Docker):
 
 ```bash
-npm install
+npm ci
 npx playwright install chromium firefox webkit
 ```
 

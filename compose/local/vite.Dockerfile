@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Install node modules
 COPY package*.json ./
-RUN npm install --include=dev
+RUN npm ci
 
 # Note: vite.config.js and src code will be mounted via volumes
 # COPY . .
