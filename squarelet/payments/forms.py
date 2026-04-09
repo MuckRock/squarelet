@@ -8,9 +8,9 @@ from django.utils.translation import gettext_lazy as _
 # Standard Library
 import logging
 import sys
-from urllib.parse import urlparse
 
 # Third Party
+from allauth.account.adapter import get_adapter
 import stripe
 
 # Squarelet
@@ -271,10 +271,8 @@ class PlanPurchaseForm(StripeForm):
     def clean_purchase_redirect(self):
         """Validate that purchase_redirect is a safe absolute URL if provided"""
         url = self.cleaned_data.get("purchase_redirect", "").strip()
-        if not url:
-            return ""
-        parsed = urlparse(url)
-        if parsed.scheme in ("http", "https") and parsed.netloc:
+        adapter = get_adapter()
+        if url and adapter.is_safe_url(url):
             return url
         return ""
 

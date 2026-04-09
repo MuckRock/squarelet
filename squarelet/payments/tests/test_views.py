@@ -10,6 +10,7 @@ from autoslug.utils import slugify
 from squarelet.core.tests.mixins import ViewTestMixin
 from squarelet.organizations.models import Organization, Plan
 from squarelet.payments import views
+from squarelet.services.models import Service
 
 # pylint: disable=too-many-positional-arguments
 
@@ -311,6 +312,15 @@ class TestPlanDetailViewPurchaseRedirect(ViewTestMixin):
         plan = plan_factory(for_groups=True, public=True)
         mocker.patch.object(Organization, "set_subscription", return_value=None)
 
+        # Register example.com as an allowed service host
+        Service.objects.create(
+            slug="example",
+            name="Example",
+            description="Test service",
+            provider_name="Test",
+            base_url="https://example.com",
+        )
+
         data = {
             "organization": str(org.pk),
             "payment_method": "new-card",
@@ -339,6 +349,29 @@ class TestPlanDetailViewPurchaseRedirect(ViewTestMixin):
             "stripe_token": "tok_visa",
             "stripe_pk": "pk_test",
             "purchase_redirect": "javascript:alert(1)",
+        }
+        response = self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
+
+        assert response.status_code == 302
+        assert response.url == org.get_absolute_url()
+
+    def test_unregistered_host_purchase_redirect_ignored(
+        self, rf, user_factory, organization_factory, plan_factory, mocker
+    ):
+        """Redirect URLs with hosts not in settings, services, or OIDC clients
+        should be ignored"""
+        user = user_factory()
+        org = organization_factory()
+        org.add_creator(user)
+        plan = plan_factory(for_groups=True, public=True)
+        mocker.patch.object(Organization, "set_subscription", return_value=None)
+
+        data = {
+            "organization": str(org.pk),
+            "payment_method": "new-card",
+            "stripe_token": "tok_visa",
+            "stripe_pk": "pk_test",
+            "purchase_redirect": "https://evil.example.com/steal",
         }
         response = self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
 
