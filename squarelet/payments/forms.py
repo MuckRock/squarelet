@@ -10,8 +10,8 @@ import logging
 import sys
 
 # Third Party
-from allauth.account.adapter import get_adapter
 import stripe
+from allauth.account.adapter import get_adapter
 
 # Squarelet
 from squarelet.core.forms import StripeForm
