@@ -15,10 +15,12 @@ from allauth.account.utils import get_login_redirect_url
 from allauth.mfa.adapter import DefaultMFAAdapter
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from furl import furl
+from oidc_provider.models import Client
 
 # Squarelet
 from squarelet.core.mail import Email
 from squarelet.organizations.models import Invitation
+from squarelet.services.models import Service
 from squarelet.users.onboarding import OnboardingStepRegistry
 
 
@@ -71,6 +73,23 @@ class AccountAdapter(DefaultAccountAdapter):
             furl(settings.BIGLOCALNEWS_API_URL).host,
             furl(settings.AGENDAWATCH_URL).host,
         ]
+
+        # Helper for extracting host from URL/URI
+        def append_host(uri):
+            host = furl(uri).host if uri else None
+            if host:
+                allowed_hosts.append(host)
+
+        # Include hosts from registered services
+        for base_url in Service.objects.values_list("base_url", flat=True):
+            append_host(base_url)
+
+        # Include hosts from OIDC client redirect URIs
+        for redirect_uris in Client.objects.values_list("_redirect_uris", flat=True):
+            for uri in redirect_uris.strip().splitlines():
+                uri = uri.strip()
+                append_host(uri)
+
         return url_has_allowed_host_and_scheme(url, allowed_hosts=allowed_hosts)
 
     def send_confirmation_mail(self, request, emailconfirmation, signup):
