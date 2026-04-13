@@ -119,6 +119,12 @@ class Detail(AdminLinkMixin, DetailView):
                 "has_email_domains": org.domains.exists(),
             }
 
+        # Wix sync context: True when org has a direct Wix plan or inherits one
+        # from a resource-sharing group/parent.  Used to show the staff toolbar button.
+        context["show_wix_sync"] = bool(
+            (org.plan and org.plan.wix) or org.get_wix_plans_from_groups()
+        )
+
         return context
 
     def handle_join(self, request):
@@ -269,13 +275,25 @@ class Detail(AdminLinkMixin, DetailView):
         return None
 
     def handle_sync_wix(self, request):
-        if self.request.user.is_staff and self.organization.plan.wix:
-            for wix_user in self.organization.users.all():
-                sync_wix.delay(
-                    self.organization.pk,
-                    self.organization.plan.pk,
-                    wix_user.pk,
-                )
+        if not self.request.user.is_staff:
+            return
+
+        org = self.organization
+        triggered = False
+
+        # Direct Wix plan on this org
+        if org.plan and org.plan.wix:
+            for wix_user in org.users.all():
+                sync_wix.delay(org.pk, org.plan.pk, wix_user.pk)
+            triggered = True
+
+        # Inherited Wix plans via resource-sharing groups / parent orgs
+        for group, plan in org.get_wix_plans_from_groups():
+            for wix_user in org.users.all():
+                sync_wix.delay(group.pk, plan.pk, wix_user.pk)
+            triggered = True
+
+        if triggered:
             messages.success(request, _("Wix sync started"))
 
     def post(self, request, *args, **kwargs):

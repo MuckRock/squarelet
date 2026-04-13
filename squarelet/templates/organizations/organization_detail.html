@@ -24,7 +24,7 @@
         <a href="{% url 'organizations:merge' %}" class="btn ghost">
           {% trans "Merge organization" %}
         </a>
-        {% if organization.plan.wix %}
+        {% if show_wix_sync %}
           <form method="post" style="display: inline;">
             {% csrf_token %}
             <button class="btn caution" type="submit" name="action" value="sync_wix">

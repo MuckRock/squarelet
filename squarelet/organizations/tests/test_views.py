@@ -491,6 +491,130 @@ class TestDetail(ViewTestMixin):
 
 
 @pytest.mark.django_db()
+class TestSyncWix(ViewTestMixin):
+    """Tests for the Wix sync staff action on the Organization detail page.
+
+    Covers Bug #637: orgs in a resource-sharing group with a Wix plan should
+    have the "Sync Wix" button available and the sync should work.
+    """
+
+    view = views.Detail
+    url = "/organizations/{slug}/"
+
+    @pytest.fixture(autouse=True)
+    def _setup_plan(self):
+        Plan.objects.get_or_create(
+            slug="organization", defaults={"name": "Organization"}
+        )
+
+    def test_staff_can_sync_wix_for_org_with_direct_wix_plan(
+        self, rf, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """Staff can trigger Wix sync for an org that has a direct Wix plan."""
+        mock_sync = mocker.patch("squarelet.organizations.tasks.sync_wix.delay")
+        staff_user = user_factory(is_staff=True)
+        wix_plan = plan_factory(wix=True)
+        member_user = user_factory()
+        org = organization_factory(plans=[wix_plan], users=[member_user])
+
+        response = self.call_view(
+            rf, staff_user, data={"action": "sync_wix"}, slug=org.slug
+        )
+
+        assert response.status_code == 302
+        mock_sync.assert_called_once_with(org.pk, wix_plan.pk, member_user.pk)
+
+    def test_staff_can_sync_wix_for_child_org_with_inherited_wix_plan(
+        self, rf, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """Staff can trigger Wix sync for a ChildOrg that inherits a Wix plan.
+
+        Reproduces Bug #637: the Wix sync action should work for ChildOrg even
+        when it has no direct plan – it should sync via the resource-sharing
+        ParentOrg's plan.
+        """
+        mock_sync = mocker.patch("squarelet.organizations.tasks.sync_wix.delay")
+        staff_user = user_factory(is_staff=True)
+        wix_plan = plan_factory(wix=True)
+        group = organization_factory(
+            collective_enabled=True, share_resources=True, plans=[wix_plan]
+        )
+        member_user = user_factory()
+        member_org = organization_factory(users=[member_user])
+        group.members.add(member_org)
+
+        # member_org has no direct plan; it inherits from group
+        response = self.call_view(
+            rf, staff_user, data={"action": "sync_wix"}, slug=member_org.slug
+        )
+
+        assert response.status_code == 302
+        # Should sync member_user via the group's plan
+        mock_sync.assert_called_once_with(group.pk, wix_plan.pk, member_user.pk)
+
+    def test_wix_sync_button_shown_in_context_for_org_with_inherited_plan(
+        self, rf, organization_factory, plan_factory, user_factory
+    ):
+        """The view context should signal that the Wix sync button can be shown
+        for a ChildOrg that inherits a Wix plan from its resource-sharing group.
+
+        Reproduces Bug #637: the template only checks organization.plan.wix which
+        is None for ChildOrg, so the button never appears.
+        """
+        staff_user = user_factory(is_staff=True)
+        wix_plan = plan_factory(wix=True)
+        group = organization_factory(
+            collective_enabled=True, share_resources=True, plans=[wix_plan]
+        )
+        member_org = organization_factory()
+        group.members.add(member_org)
+
+        response = self.call_view(rf, staff_user, slug=member_org.slug)
+
+        assert response.status_code == 200
+        # Context should indicate Wix sync is available even without a direct plan
+        assert response.context_data.get("show_wix_sync") is True
+
+    def test_wix_sync_button_shown_in_context_for_org_with_direct_plan(
+        self, rf, organization_factory, plan_factory, user_factory
+    ):
+        """The view context should signal Wix sync button for org with direct plan."""
+        staff_user = user_factory(is_staff=True)
+        wix_plan = plan_factory(wix=True)
+        org = organization_factory(plans=[wix_plan])
+
+        response = self.call_view(rf, staff_user, slug=org.slug)
+
+        assert response.status_code == 200
+        assert response.context_data.get("show_wix_sync") is True
+
+    def test_wix_sync_button_not_shown_when_no_wix_plan(
+        self, rf, organization_factory, plan_factory, user_factory
+    ):
+        """The view context should NOT signal Wix sync button when no Wix plan."""
+        staff_user = user_factory(is_staff=True)
+        non_wix_plan = plan_factory(wix=False)
+        org = organization_factory(plans=[non_wix_plan])
+
+        response = self.call_view(rf, staff_user, slug=org.slug)
+
+        assert response.status_code == 200
+        assert not response.context_data.get("show_wix_sync")
+
+    def test_wix_sync_button_not_shown_when_no_plan_at_all(
+        self, rf, organization_factory, user_factory
+    ):
+        """The view context should NOT signal Wix sync button when org has no plan."""
+        staff_user = user_factory(is_staff=True)
+        org = organization_factory()
+
+        response = self.call_view(rf, staff_user, slug=org.slug)
+
+        assert response.status_code == 200
+        assert not response.context_data.get("show_wix_sync")
+
+
+@pytest.mark.django_db()
 class TestJoinRequestModal(ViewTestMixin):
     """Test the join request modal context on organization detail page"""
 

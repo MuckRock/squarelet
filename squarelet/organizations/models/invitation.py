@@ -350,11 +350,6 @@ class OrganizationInvitation(models.Model):
     @transaction.atomic
     def accept(self):
         """Accept this invitation/request"""
-        # Prevent circular import
-        # pylint: disable=import-outside-toplevel
-        # Squarelet
-        from squarelet.organizations.tasks import sync_wix_for_group_member
-
         if not self.is_pending:
             raise ValueError("This invitation has already been processed")
 
@@ -363,22 +358,30 @@ class OrganizationInvitation(models.Model):
 
         # Create the relationship based on type
         if self.relationship_type == RelationshipType.member:
-            # Add to membership group (simple M2M)
+            # Add to membership group (simple M2M).
+            # Wix sync is triggered automatically by the m2m_changed signal
+            # in squarelet.organizations.signals.sync_wix_on_member_add.
             self.from_organization.members.add(self.to_organization)
         elif self.relationship_type == RelationshipType.child:
-            # Set parent relationship
+            # Set parent relationship (no M2M signal fires here, so we trigger
+            # Wix sync manually for this case).
+            # Prevent circular import
+            # pylint: disable=import-outside-toplevel
+            from squarelet.organizations.tasks import sync_wix_for_group_member
+
             self.to_organization.parent = self.from_organization
             self.to_organization.save()
 
-        # Trigger Wix sync if the group has a Wix plan and shares resources
-        group = self.from_organization
-        if group.share_resources and group.plan and group.plan.wix:
-            to_org_pk = self.to_organization.pk
-            group_pk = group.pk
-            plan_pk = group.plan.pk
-            transaction.on_commit(
-                lambda: sync_wix_for_group_member.delay(to_org_pk, group_pk, plan_pk)
-            )
+            group = self.from_organization
+            if group.share_resources and group.plan and group.plan.wix:
+                to_org_pk = self.to_organization.pk
+                group_pk = group.pk
+                plan_pk = group.plan.pk
+                transaction.on_commit(
+                    lambda: sync_wix_for_group_member.delay(
+                        to_org_pk, group_pk, plan_pk
+                    )
+                )
 
     @transaction.atomic
     def reject(self):
