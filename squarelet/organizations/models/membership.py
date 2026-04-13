@@ -94,9 +94,28 @@ class Membership(models.Model):
                         )
 
     def delete(self, *args, **kwargs):
+        # Prevents circular import
+        # pylint: disable=import-outside-toplevel
+        # Squarelet
+        from squarelet.organizations.tasks import unsync_wix
+
+        # Capture org/plan/user info before delete. Orgs can have BOTH a direct
+        # wix plan and group wix plans (often at different tiers), so always
+        # collect both.
+        org = self.organization
+        user_pk = self.user.pk
+        user_uuid = self.user.uuid
+        direct_plan_pk = org.plan.pk if org.plan and org.plan.wix else None
+        group_wix_plans = [(g.pk, p.pk) for g, p in org.get_wix_plans_from_groups()]
+
         with transaction.atomic():
             super().delete(*args, **kwargs)
-            transaction.on_commit(
-                lambda: send_cache_invalidations("user", self.user.uuid)
-            )
-            # TODO: We need to remove somebody's Wix membership here too
+            transaction.on_commit(lambda: send_cache_invalidations("user", user_uuid))
+            if direct_plan_pk is not None:
+                transaction.on_commit(
+                    lambda: unsync_wix.delay(org.pk, direct_plan_pk, user_pk)
+                )
+            for group_pk, gplan_pk in group_wix_plans:
+                transaction.on_commit(
+                    lambda g=group_pk, p=gplan_pk, u=user_pk: unsync_wix.delay(g, p, u)
+                )
