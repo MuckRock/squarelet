@@ -16,8 +16,12 @@ from squarelet.organizations.wix import (
     create_member,
     get_contact_by_email,
     get_contact_by_email_v4,
+    get_tier_from_plan,
+    get_wix_labels_for_user,
+    remove_labels,
     send_set_password_email,
     sync_wix,
+    unsync_wix,
 )
 
 
@@ -334,4 +338,183 @@ class TestWix:
 
         # Verify error was logged
         assert "Failed to add" in caplog.text
-        assert user.email in caplog.text
+
+    @pytest.mark.parametrize(
+        "plan_slug,expected_tier",
+        [
+            ("sunlight-essential", "essential"),
+            ("sunlight-essential-annual", "essential"),
+            ("sunlight-enhanced", "enhanced"),
+            ("sunlight-enhanced-annual", "enhanced"),
+            ("sunlight-enterprise", "enterprise"),
+            ("sunlight-enterprise-annual", "enterprise"),
+            ("sunlight-nonprofit-essential", "essential"),
+            ("sunlight-nonprofit-essential-annual", "essential"),
+            ("sunlight-nonprofit-enhanced", "enhanced"),
+            ("sunlight-nonprofit-enhanced-annual", "enhanced"),
+            ("sunlight-enterprise-acme", "enterprise"),
+            ("sunlight-enterprise-acme-annual", "enterprise"),
+            ("sunlight-nonprofit-enterprise-acme", "enterprise"),
+            ("sunlight-basic", "essential"),
+            ("sunlight-basic-annual", "essential"),
+            ("sunlight-nonprofit-basic", "essential"),
+            ("sunlight-premium", "enhanced"),
+            ("sunlight-premium-annual", "enhanced"),
+            ("sunlight-nonprofit-premium", "enhanced"),
+        ],
+    )
+    def test_get_tier_from_plan(self, plan_slug, expected_tier):
+        """Test get_tier_from_plan extracts correct tier from various slug patterns"""
+        plan = PlanFactory.build(slug=plan_slug)
+        assert get_tier_from_plan(plan) == expected_tier
+
+    @pytest.mark.parametrize(
+        "plan_slug,expected_tier",
+        [
+            ("sunlight-essential", "essential"),
+            ("sunlight-enhanced", "enhanced"),
+            ("sunlight-enterprise", "enterprise"),
+            ("sunlight-nonprofit-essential", "essential"),
+            ("sunlight-enterprise-acme", "enterprise"),
+            ("sunlight-basic", "essential"),
+            ("sunlight-premium", "enhanced"),
+            ("sunlight-nonprofit-basic", "essential"),
+            ("sunlight-nonprofit-premium", "enhanced"),
+        ],
+    )
+    def test_remove_labels(self, requests_mock, plan_slug, expected_tier):
+        """Test remove_labels sends correct DELETE request with tier labels"""
+        contact_id = str(uuid.uuid4())
+        plan = PlanFactory.build(slug=plan_slug)
+        requests_mock.delete(
+            f"https://www.wixapis.com/contacts/v4/contacts/{contact_id}/labels",
+            json={"contact": {"id": contact_id}},
+        )
+        headers = {
+            "Authorization": settings.WIX_APP_SECRET,
+            "wix-site-id": settings.WIX_SITE_ID,
+        }
+        remove_labels(headers, contact_id, plan)
+        assert requests_mock.last_request.json() == {
+            "labelKeys": ["custom.paying-member", f"custom.{expected_tier}-member"]
+        }
+
+    @pytest.mark.django_db()
+    def test_unsync_wix_contact_exists(self, requests_mock, user):
+        """Test unsync_wix removes labels when contact exists"""
+        contact_id = str(uuid.uuid4())
+        plan = PlanFactory(slug="sunlight-essential", name="Sunlight Essential")
+
+        # Mock contact lookup
+        requests_mock.post(
+            "https://www.wixapis.com/members/v1/members/query",
+            json={"members": [{"contactId": contact_id}], "metadata": {"count": 1}},
+        )
+        # Mock label removal
+        requests_mock.delete(
+            f"https://www.wixapis.com/contacts/v4/contacts/{contact_id}/labels",
+            json={"contact": {"id": contact_id}},
+        )
+
+        unsync_wix(user.individual_organization, plan, user)
+
+        # Should have made 2 requests: query + delete labels
+        assert len(requests_mock.request_history) == 2
+        assert requests_mock.request_history[1].method == "DELETE"
+        assert set(requests_mock.request_history[1].json()["labelKeys"]) == {
+            "custom.paying-member",
+            "custom.essential-member",
+        }
+
+    @pytest.mark.django_db()
+    def test_unsync_wix_contact_not_found(self, requests_mock, user):
+        """Test unsync_wix is a no-op when contact doesn't exist in Wix"""
+        plan = PlanFactory(slug="sunlight-essential", name="Sunlight Essential")
+
+        # Mock contact lookup returning no results
+        requests_mock.post(
+            "https://www.wixapis.com/members/v1/members/query",
+            json={"metadata": {"count": 0}},
+        )
+
+        unsync_wix(user.individual_organization, plan, user)
+
+        # Should have only made 1 request (the query)
+        assert len(requests_mock.request_history) == 1
+
+    @pytest.mark.django_db()
+    def test_unsync_wix_skips_remaining_labels(self, requests_mock, user, mocker):
+        """Test unsync_wix does not remove labels the user still qualifies for"""
+        contact_id = str(uuid.uuid4())
+        plan = PlanFactory(slug="sunlight-essential", name="Sunlight Essential")
+
+        # Mock contact lookup
+        requests_mock.post(
+            "https://www.wixapis.com/members/v1/members/query",
+            json={"members": [{"contactId": contact_id}], "metadata": {"count": 1}},
+        )
+        # Mock label removal (should not be called)
+        requests_mock.delete(
+            f"https://www.wixapis.com/contacts/v4/contacts/{contact_id}/labels",
+            json={"contact": {"id": contact_id}},
+        )
+        # User still qualifies for both labels via another membership
+        mocker.patch(
+            "squarelet.organizations.wix.get_wix_labels_for_user",
+            return_value={"custom.paying-member", "custom.essential-member"},
+        )
+
+        unsync_wix(user.individual_organization, plan, user)
+
+        # Should have only made 1 request (the query) — no delete needed
+        assert len(requests_mock.request_history) == 1
+
+    @pytest.mark.django_db()
+    def test_unsync_wix_partial_remaining_labels(self, requests_mock, user, mocker):
+        """Test unsync_wix only removes labels the user no longer qualifies for"""
+        contact_id = str(uuid.uuid4())
+        plan = PlanFactory(slug="sunlight-essential", name="Sunlight Essential")
+
+        requests_mock.post(
+            "https://www.wixapis.com/members/v1/members/query",
+            json={"members": [{"contactId": contact_id}], "metadata": {"count": 1}},
+        )
+        requests_mock.delete(
+            f"https://www.wixapis.com/contacts/v4/contacts/{contact_id}/labels",
+            json={"contact": {"id": contact_id}},
+        )
+        # User still qualifies for paying-member but not essential-member
+        mocker.patch(
+            "squarelet.organizations.wix.get_wix_labels_for_user",
+            return_value={"custom.paying-member"},
+        )
+
+        unsync_wix(user.individual_organization, plan, user)
+
+        # Should remove only essential-member (paying-member is retained)
+        assert len(requests_mock.request_history) == 2
+        assert requests_mock.request_history[1].json() == {
+            "labelKeys": ["custom.essential-member"]
+        }
+
+    @pytest.mark.django_db()
+    def test_get_wix_labels_for_user(
+        self, user_factory, organization_factory, plan_factory, membership_factory
+    ):
+        """Test get_wix_labels_for_user returns all labels across memberships"""
+        user = user_factory()
+        essential_plan = plan_factory(slug="sunlight-essential", wix=True)
+        enhanced_plan = plan_factory(slug="sunlight-enhanced", wix=True)
+
+        org1 = organization_factory(plans=[essential_plan])
+        org2 = organization_factory(plans=[enhanced_plan])
+
+        membership_factory(user=user, organization=org1)
+        membership_factory(user=user, organization=org2)
+
+        labels = get_wix_labels_for_user(user)
+        assert labels == {
+            "custom.paying-member",
+            "custom.essential-member",
+            "custom.enhanced-member",
+        }

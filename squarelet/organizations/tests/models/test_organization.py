@@ -523,6 +523,108 @@ class TestOrganization:
         # Verify local subscription was still deleted
         mocked_subscription.delete.assert_called()
 
+    @pytest.mark.django_db(transaction=True)
+    def test_subscription_cancelled_removes_wix_labels(
+        self, organization_factory, mocker, plan_factory, user_factory
+    ):
+        """Should trigger Wix unsync for all users when subscription is cancelled"""
+        wix_plan = plan_factory(wix=True)
+        user1 = user_factory()
+        user2 = user_factory()
+        organization = organization_factory(plans=[wix_plan], users=[user1, user2])
+
+        mocker.patch("squarelet.organizations.models.Organization.change_logs")
+        mocked_subscription = mocker.patch(
+            "squarelet.organizations.models.Organization.subscription"
+        )
+        mocked_subscription.subscription_id = "sub_test123"
+        mock_stripe_sub = mocker.MagicMock()
+        type(mocked_subscription).stripe_subscription = mocker.PropertyMock(
+            return_value=mock_stripe_sub
+        )
+
+        mock_unsync = mocker.patch("squarelet.organizations.tasks.unsync_wix.delay")
+
+        organization.subscription_cancelled()
+
+        # Should call unsync for each user
+        assert mock_unsync.call_count == 2
+        called_user_ids = {call.args[2] for call in mock_unsync.call_args_list}
+        assert called_user_ids == {user1.pk, user2.pk}
+
+    @pytest.mark.django_db
+    def test_subscription_cancelled_no_wix_no_unsync(
+        self, organization_factory, mocker, plan_factory, user_factory
+    ):
+        """Should not trigger Wix unsync when plan is not Wix"""
+        non_wix_plan = plan_factory(wix=False)
+        user = user_factory()
+        organization = organization_factory(plans=[non_wix_plan], users=[user])
+
+        mocker.patch("squarelet.organizations.models.Organization.change_logs")
+        mocked_subscription = mocker.patch(
+            "squarelet.organizations.models.Organization.subscription"
+        )
+        mocked_subscription.subscription_id = None
+
+        mock_unsync = mocker.patch("squarelet.organizations.tasks.unsync_wix.delay")
+
+        organization.subscription_cancelled()
+
+        mock_unsync.assert_not_called()
+
+    @pytest.mark.django_db(transaction=True)
+    def test_set_subscription_plan_change_removes_old_wix_labels(
+        self, organization_factory, mocker, user_factory, plan_factory
+    ):
+        """Downgrading from one Wix plan to another should unsync old and sync new"""
+        old_plan = plan_factory(slug="sunlight-enterprise", wix=True)
+        new_plan = plan_factory(slug="sunlight-essential", wix=True)
+        user = user_factory()
+        organization = organization_factory(admins=[user], plans=[old_plan])
+
+        mocker.patch(
+            "squarelet.organizations.models.Customer.stripe_customer", card=None
+        )
+        mocker.patch("squarelet.organizations.models.Subscription.modify")
+        mocker.patch("squarelet.organizations.models.Organization.change_logs")
+
+        mock_unsync = mocker.patch("squarelet.organizations.tasks.unsync_wix.delay")
+        mock_sync = mocker.patch("squarelet.organizations.tasks.sync_wix.delay")
+
+        organization.set_subscription(None, new_plan, 5, user)
+
+        # Should unsync old plan labels
+        assert mock_unsync.call_count >= 1
+        unsync_plan_ids = {call.args[1] for call in mock_unsync.call_args_list}
+        assert old_plan.pk in unsync_plan_ids
+
+        # Should sync new plan labels
+        assert mock_sync.call_count >= 1
+        sync_plan_ids = {call.args[1] for call in mock_sync.call_args_list}
+        assert new_plan.pk in sync_plan_ids
+
+    @pytest.mark.django_db(transaction=True)
+    def test_set_subscription_cancel_wix_removes_labels(
+        self, organization_factory, mocker, user_factory, plan_factory
+    ):
+        """Cancelling a Wix plan subscription should unsync labels"""
+        wix_plan = plan_factory(wix=True)
+        user = user_factory()
+        organization = organization_factory(admins=[user], plans=[wix_plan])
+
+        mocker.patch(
+            "squarelet.organizations.models.Customer.stripe_customer", card=None
+        )
+        mocker.patch("squarelet.organizations.models.Subscription.cancel")
+        mocker.patch("squarelet.organizations.models.Organization.change_logs")
+
+        mock_unsync = mocker.patch("squarelet.organizations.tasks.unsync_wix.delay")
+
+        organization.set_subscription(None, None, 5, user)
+
+        assert mock_unsync.call_count >= 1
+
     @pytest.mark.django_db()
     def test_set_receipt_emails(self, organization_factory):
         organization = organization_factory()

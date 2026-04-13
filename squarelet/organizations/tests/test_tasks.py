@@ -1336,3 +1336,108 @@ class TestSyncWixForGroupMember:
         tasks.sync_wix_for_group_member(member_org.id, group.id, non_wix_plan.id)
 
         mock_wix_sync.assert_not_called()
+
+
+class TestUnsyncWix:
+    """Unit tests for the unsync_wix task"""
+
+    @pytest.mark.django_db
+    @override_settings(ENV="prod")
+    def test_unsyncs_in_production(self, plan_factory, user_factory, mocker):
+        """Should unsync from Wix when running in production"""
+        plan = plan_factory(wix=True)
+        user = user_factory()
+        org = user.individual_organization
+
+        mock_wix_unsync = mocker.patch("squarelet.organizations.tasks.wix.unsync_wix")
+
+        tasks.unsync_wix(org.id, plan.id, user.id)
+
+        mock_wix_unsync.assert_called_once_with(org, plan, user)
+
+    @pytest.mark.django_db
+    @override_settings(ENV="staging")
+    def test_does_not_unsync_in_staging(self, plan_factory, user_factory, mocker):
+        """Should not unsync from Wix when running in staging"""
+        plan = plan_factory(wix=True)
+        user = user_factory()
+
+        mock_wix_unsync = mocker.patch("squarelet.organizations.tasks.wix.unsync_wix")
+
+        tasks.unsync_wix(user.individual_organization.id, plan.id, user.id)
+
+        mock_wix_unsync.assert_not_called()
+
+    @pytest.mark.django_db
+    @override_settings(ENV="dev")
+    def test_does_not_unsync_in_dev(self, plan_factory, user_factory, mocker):
+        """Should not unsync from Wix when running in dev"""
+        plan = plan_factory(wix=True)
+        user = user_factory()
+
+        mock_wix_unsync = mocker.patch("squarelet.organizations.tasks.wix.unsync_wix")
+
+        tasks.unsync_wix(user.individual_organization.id, plan.id, user.id)
+
+        mock_wix_unsync.assert_not_called()
+
+
+class TestUnsyncWixForGroupMember:
+    """Unit tests for the unsync_wix_for_group_member task"""
+
+    @pytest.mark.django_db
+    @override_settings(ENV="prod")
+    def test_unsyncs_in_production(
+        self, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """Should unsync all member org users from Wix in production"""
+        wix_plan = plan_factory(wix=True)
+        group = organization_factory(
+            collective_enabled=True, share_resources=True, plans=[wix_plan]
+        )
+        member_org = organization_factory(users=[user_factory(), user_factory()])
+        group.members.add(member_org)
+
+        mock_wix_unsync = mocker.patch("squarelet.organizations.tasks.wix.unsync_wix")
+
+        tasks.unsync_wix_for_group_member(member_org.id, group.id, wix_plan.id)
+
+        assert mock_wix_unsync.call_count == 2
+
+    @pytest.mark.django_db
+    @override_settings(ENV="staging")
+    def test_does_not_unsync_in_staging(
+        self, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """Should not unsync from Wix in staging"""
+        wix_plan = plan_factory(wix=True)
+        group = organization_factory(
+            collective_enabled=True, share_resources=True, plans=[wix_plan]
+        )
+        member_org = organization_factory(users=[user_factory()])
+        group.members.add(member_org)
+
+        mock_wix_unsync = mocker.patch("squarelet.organizations.tasks.wix.unsync_wix")
+
+        tasks.unsync_wix_for_group_member(member_org.id, group.id, wix_plan.id)
+
+        mock_wix_unsync.assert_not_called()
+
+    @pytest.mark.django_db
+    @override_settings(ENV="prod")
+    def test_skips_when_share_resources_false(
+        self, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """Should skip unsync if group no longer shares resources"""
+        wix_plan = plan_factory(wix=True)
+        group = organization_factory(
+            collective_enabled=True, share_resources=False, plans=[wix_plan]
+        )
+        member_org = organization_factory(users=[user_factory()])
+        group.members.add(member_org)
+
+        mock_wix_unsync = mocker.patch("squarelet.organizations.tasks.wix.unsync_wix")
+
+        tasks.unsync_wix_for_group_member(member_org.id, group.id, wix_plan.id)
+
+        mock_wix_unsync.assert_not_called()
