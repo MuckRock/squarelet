@@ -576,9 +576,10 @@ class TestSyncWix(ViewTestMixin):
         assert response.context_data.get("show_wix_sync") is True
 
     def test_wix_sync_button_shown_in_context_for_org_with_direct_plan(
-        self, rf, organization_factory, plan_factory, user_factory
+        self, rf, organization_factory, plan_factory, user_factory, mocker
     ):
         """The view context should signal Wix sync button for org with direct plan."""
+        mocker.patch("squarelet.organizations.models.Customer.card", None)
         staff_user = user_factory(is_staff=True)
         wix_plan = plan_factory(wix=True)
         org = organization_factory(plans=[wix_plan])
@@ -589,9 +590,10 @@ class TestSyncWix(ViewTestMixin):
         assert response.context_data.get("show_wix_sync") is True
 
     def test_wix_sync_button_not_shown_when_no_wix_plan(
-        self, rf, organization_factory, plan_factory, user_factory
+        self, rf, organization_factory, plan_factory, user_factory, mocker
     ):
         """The view context should NOT signal Wix sync button when no Wix plan."""
+        mocker.patch("squarelet.organizations.models.Customer.card", None)
         staff_user = user_factory(is_staff=True)
         non_wix_plan = plan_factory(wix=False)
         org = organization_factory(plans=[non_wix_plan])
@@ -1032,10 +1034,11 @@ class TestUpdateSubscription(ViewTestMixin):
         }
         response = self.call_view(rf, user, data, slug=organization.slug)
         assert response.status_code == 302
-        assert mocked.called_with(
+        mocked.assert_called_once_with(
             token=data["stripe_token"],
             plan=organization.plan,
-            max_user=data["max_users"],
+            max_users=data["max_users"],
+            user=user,
         )
         assert set(e.email for e in organization.receipt_emails.all()) == set(
             data["receipt_emails"].split("\n")

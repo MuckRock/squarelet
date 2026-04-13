@@ -921,6 +921,10 @@ class TestOrganizationWixSyncIntegration:
         member_org = organization_factory()
         group.members.add(member_org)
 
+        # The m2m_changed signal fires sync on the add above; reset to verify
+        # the save itself does not trigger additional syncs.
+        mock_sync.reset_mock()
+
         # Save without changing share_resources
         group.save()
 
