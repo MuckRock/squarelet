@@ -84,3 +84,77 @@ class TestMembership:
 
         # Should sync user via org's direct plan (not group's)
         mock_sync.assert_called_once_with(member_org.pk, org_wix_plan.pk, user.pk)
+
+    @pytest.mark.django_db(transaction=True)
+    def test_delete_triggers_unsync_for_wix_plan(
+        self, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """Test deleting membership triggers unsync for org with Wix plan"""
+        mock_unsync = mocker.patch("squarelet.organizations.tasks.unsync_wix.delay")
+        mocker.patch("squarelet.organizations.tasks.sync_wix.delay")
+        mocker.patch(
+            "squarelet.organizations.models.membership.send_cache_invalidations"
+        )
+
+        wix_plan = plan_factory(wix=True)
+        org = organization_factory(plans=[wix_plan])
+        user = user_factory()
+
+        membership = Membership.objects.create(user=user, organization=org, admin=False)
+        mock_unsync.reset_mock()
+
+        membership.delete()
+
+        mock_unsync.assert_called_once_with(org.pk, wix_plan.pk, user.pk)
+
+    @pytest.mark.django_db(transaction=True)
+    def test_delete_no_unsync_without_wix_plan(
+        self, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """Test deleting membership does not trigger unsync without Wix plan"""
+        mock_unsync = mocker.patch("squarelet.organizations.tasks.unsync_wix.delay")
+        mocker.patch(
+            "squarelet.organizations.models.membership.send_cache_invalidations"
+        )
+
+        non_wix_plan = plan_factory(wix=False)
+        org = organization_factory(plans=[non_wix_plan])
+        user = user_factory()
+
+        membership = Membership.objects.create(user=user, organization=org, admin=False)
+        mock_unsync.reset_mock()
+
+        membership.delete()
+
+        mock_unsync.assert_not_called()
+
+    @pytest.mark.django_db(transaction=True)
+    def test_delete_triggers_unsync_for_group_wix_plan(
+        self, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """Test deleting membership triggers unsync via group's Wix plan"""
+        mock_unsync = mocker.patch("squarelet.organizations.tasks.unsync_wix.delay")
+        mocker.patch("squarelet.organizations.tasks.sync_wix.delay")
+        mocker.patch(
+            "squarelet.organizations.models.membership.send_cache_invalidations"
+        )
+        mocker.patch(
+            "squarelet.organizations.models.organization.send_cache_invalidations"
+        )
+
+        wix_plan = plan_factory(wix=True)
+        group = organization_factory(
+            collective_enabled=True, share_resources=True, plans=[wix_plan]
+        )
+        member_org = organization_factory()
+        group.members.add(member_org)
+
+        user = user_factory()
+        membership = Membership.objects.create(
+            user=user, organization=member_org, admin=False
+        )
+        mock_unsync.reset_mock()
+
+        membership.delete()
+
+        mock_unsync.assert_called_once_with(group.pk, wix_plan.pk, user.pk)
