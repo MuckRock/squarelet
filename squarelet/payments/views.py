@@ -84,10 +84,15 @@ class PlanDetailView(DetailView):
         """Get the plan purchase form"""
         plan = self.get_object()
         user = self.request.user if self.request.user.is_authenticated else None
+        purchase_redirect = self.request.GET.get("purchase_redirect", "")
 
         if self.request.method == "POST":
             return PlanPurchaseForm(self.request.POST, plan=plan, user=user)
-        return PlanPurchaseForm(plan=plan, user=user)
+        return PlanPurchaseForm(
+            plan=plan,
+            user=user,
+            initial={"purchase_redirect": purchase_redirect},
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -255,9 +260,10 @@ class PlanDetailView(DetailView):
                         payment_method=payment_method,
                     )
 
-                # Success - redirect to organization page
+                # Success - redirect to purchase_redirect if provided, else org
                 messages.success(request, _("Successfully subscribed"))
-                return redirect(organization)
+                purchase_redirect = form.cleaned_data.get("purchase_redirect", "")
+                return redirect(purchase_redirect or organization)
 
             except Organization.DoesNotExist:
                 # Invalid organization
@@ -342,7 +348,10 @@ class PlanRedirectView(RedirectView):
 
             protect_private_plan(plan, self.request.user)
 
-            return reverse("plan_detail", kwargs={"pk": plan.pk, "slug": plan.slug})
+            url = reverse("plan_detail", kwargs={"pk": plan.pk, "slug": plan.slug})
+            if self.request.META.get("QUERY_STRING"):
+                url = f"{url}?{self.request.META['QUERY_STRING']}"
+            return url
 
         except Plan.DoesNotExist:
             raise Http404("No Plan found matching the query")

@@ -5,10 +5,20 @@ from django import forms
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
+# Standard Library
+import logging
+import sys
+
+# Third Party
+import stripe
+from allauth.account.adapter import get_adapter
+
 # Squarelet
 from squarelet.core.forms import StripeForm
 from squarelet.organizations.models import Organization, Plan
 from squarelet.users.forms import NewOrganizationModelChoiceField
+
+logger = logging.getLogger(__name__)
 
 
 class PlanPurchaseForm(StripeForm):
@@ -70,6 +80,11 @@ class PlanPurchaseForm(StripeForm):
         label=_("Save as default card"),
         required=False,
         initial=True,
+    )
+
+    purchase_redirect = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(),
     )
 
     def __init__(self, *args, plan=None, user=None, **kwargs):
@@ -191,12 +206,20 @@ class PlanPurchaseForm(StripeForm):
             return org_cards
 
         for org in self.fields["organization"].queryset:
-            card = org.customer().card
-            if card:
-                org_cards[str(org.pk)] = {
-                    "last4": card.last4,
-                    "brand": card.brand,
-                }
+            try:
+                card = org.customer().card
+                if card:
+                    org_cards[str(org.pk)] = {
+                        "last4": card.last4,
+                        "brand": card.brand,
+                    }
+            except stripe.error.StripeError as exc:
+                logger.error(
+                    "Error fetching card for org %s: %s",
+                    org.pk,
+                    exc,
+                    exc_info=sys.exc_info(),
+                )
 
         return org_cards
 
@@ -244,6 +267,14 @@ class PlanPurchaseForm(StripeForm):
             )
 
         return name
+
+    def clean_purchase_redirect(self):
+        """Validate that purchase_redirect is a safe absolute URL if provided"""
+        url = self.cleaned_data.get("purchase_redirect", "").strip()
+        adapter = get_adapter()
+        if url and adapter.is_safe_url(url):
+            return url
+        return ""
 
     def clean_is_nonprofit(self):
         """Validate nonprofit checkbox is only used for Sunlight plans"""
