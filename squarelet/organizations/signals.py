@@ -13,8 +13,8 @@ from squarelet.organizations.models import (
     Plan,
     ProfileChangeRequest,
 )
-from squarelet.organizations.tasks import sync_wix_for_group_member
 from squarelet.organizations.models.payment import Charge
+from squarelet.organizations.tasks import sync_wix_for_group_member
 
 # Register models with django-activity-stream
 registry.register(Organization)
