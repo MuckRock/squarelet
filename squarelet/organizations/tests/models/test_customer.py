@@ -91,6 +91,9 @@ class TestCustomer:
             new_callable=mocker.PropertyMock,
             return_value=None,
         )
+        mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_customer_service.return_value.get_card.return_value = None
         customer = customer_factory.build()
         assert customer.card is None
 
@@ -112,6 +115,9 @@ class TestCustomer:
             new_callable=mocker.PropertyMock,
             return_value=None,
         )
+        mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_customer_service.return_value.get_card.return_value = None
         customer = customer_factory.build()
         assert customer.payment_method_display == ""
 
