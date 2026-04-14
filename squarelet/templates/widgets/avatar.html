@@ -1,15 +1,16 @@
 {% load i18n %}
+{% load icon %}
 
 <div class="avatar-widget" data-avatar-widget>
   <div class="avatar-preview-wrapper {% if widget.has_file %}has-file{% endif %}">
     <img src="{{widget.value.url}}" alt="{% trans 'Current avatar' %}" class="avatar-preview" data-avatar-preview>
     <div class="avatar-placeholder" data-avatar-preview>
-      {% include "core/icons/person-24.svg" %}
+      {% icon "person-24" %}
     </div>
   </div>
   <div class="avatar-actions">
     <label class="avatar-upload ghost btn primary">
-      {% include 'core/icons/upload.svg' %}
+      {% icon "upload" %}
       {{ widget.upload_label }}
       <input
         type="file"
@@ -33,7 +34,7 @@
               class="danger ghost btn"
               data-avatar-clear-button
               {% if not widget.has_file %}disabled{% endif %}>
-        {% include "core/icons/x.svg" %}
+        {% icon "x" %}
         {% trans "Clear" %}
       </button>
     {% else %}
@@ -41,7 +42,7 @@
               class="danger ghost btn"
               data-avatar-clear-button
               {% if not widget.has_file %}disabled{% endif %}>
-        {% include "core/icons/x.svg" %}
+        {% icon "x" %}
         {% trans "Clear" %}
       </button>
     {% endif %}

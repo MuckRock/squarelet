@@ -1,6 +1,7 @@
 {% extends "account/onboarding/base.html" %}
 
 {% load i18n static airtable django_vite %}
+{% load icon %}
 
 {% block vite %}
 {{ block.super }}
@@ -10,7 +11,7 @@
 {% block onboarding_step %}
 <div class="step">
     <header>
-      <div class="icon">{% include "core/icons/verified.svg" %}</div>
+      <div class="icon">{% icon "verified" %}</div>
       <h2 class="title">{% blocktrans %}Request Verification{% endblocktrans %}</h2>
       <p class="detail">
         {% blocktrans %}

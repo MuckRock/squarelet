@@ -4,6 +4,7 @@
 {% load handleintent pass_query %}
 {% load markdown %}
 {% load humanize %}
+{% load icon %}
 
 {% block head_title %}{% trans "Select plan" %}{% endblock %}
 
@@ -108,7 +109,7 @@
           {% for benefit in plan.benefits %}
           <li class="checklist-item">
             <span class="icon">
-              {% include "core/icons/checkmark.svg" %}
+              {% icon "checkmark" %}
             </span>
             <span class="text">{{ benefit }}</span>
           </li>

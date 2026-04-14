@@ -2,6 +2,7 @@
 
 {% load i18n static %}
 {% load humanize %}
+{% load icon %}
 
 {% block javascript %}
   {{ block.super }}
@@ -389,42 +390,42 @@
 {% block onboarding_step %}
   <div class="step">
     <header>
-      <div class="icon"><img src="{% static "icons/premium.svg" %}" /></div>
+      <div class="icon"><img src="{% static "icons/premium-colored.svg" %}" /></div>
       <h1 class="title">{% blocktrans %}Subscribe to MuckRock Premium for advanced features and discount rates{% endblocktrans %}</h1>
     </header>
     <div class="tab-group">
       <div class="tabs">
         <div class="tab individual">
-          <span class="icon">{% include 'core/icons/person.svg' %}</span>
+          <span class="icon">{% icon "person" %}</span>
           {% trans "For yourself" %}
         </div>
         <div class="tab group">
-          <span class="icon">{% include 'core/icons/organization.svg' %}</span>
+          <span class="icon">{% icon "organization" %}</span>
           {% trans "For your organization" %}
         </div>
       </div>
       <div class="individual tab-content" id="individual">
         <ul class="individual benefits-list">
           <li>
-            <span class="checkmark icon">{% include "core/icons/checkmark.svg" %}</span>
+            <span class="checkmark icon">{% icon "checkmark" %}</span>
             <span class="benefit-text">
               {% blocktrans %}20 requests per month on MuckRock{% endblocktrans %}
             </span>
           </li>
           <li>
-            <span class="checkmark icon">{% include "core/icons/checkmark.svg" %}</span>
+            <span class="checkmark icon">{% icon "checkmark" %}</span>
             <span class="benefit-text">
               {% blocktrans %}Embargo requests for up to 30 days after completion{% endblocktrans %}
             </span>
           </li>
           <li>
-            <span class="checkmark icon">{% include "core/icons/checkmark.svg" %}</span>
+            <span class="checkmark icon">{% icon "checkmark" %}</span>
             <span class="benefit-text">
               {% blocktrans %}2,000 AI Credits per month on DocumentCloud{% endblocktrans %}
             </span>
           </li>
           <li>
-            <span class="checkmark icon">{% include "core/icons/checkmark.svg" %}</span>
+            <span class="checkmark icon">{% icon "checkmark" %}</span>
             <span class="benefit-text">
               {% blocktrans %}Search your private notes on DocumentCloud{% endblocktrans %}
             </span>
@@ -468,25 +469,25 @@
       <div class="group tab-content" id="group">
         <ul class="group benefits-list">
           <li>
-            <span class="checkmark icon">{% include "core/icons/checkmark.svg" %}</span>
+            <span class="checkmark icon">{% icon "checkmark" %}</span>
             <span class="benefit-text">
               {% blocktrans %}Share resources with unlimited members{% endblocktrans %}
             </span>
           </li>
           <li>
-            <span class="checkmark icon">{% include "core/icons/checkmark.svg" %}</span>
+            <span class="checkmark icon">{% icon "checkmark" %}</span>
             <span class="benefit-text">
               {% blocktrans %}50 requests per month on MuckRock{% endblocktrans %}
             </span>
           </li>
           <li>
-            <span class="checkmark icon">{% include "core/icons/checkmark.svg" %}</span>
+            <span class="checkmark icon">{% icon "checkmark" %}</span>
             <span class="benefit-text">
               {% blocktrans %}Permanently embargo requests{% endblocktrans %}
             </span>
           </li>
           <li>
-            <span class="checkmark icon">{% include "core/icons/checkmark.svg" %}</span>
+            <span class="checkmark icon">{% icon "checkmark" %}</span>
             <span class="benefit-text">
               {% blocktrans %}5,000 AI Credits per month on DocumentCloud{% endblocktrans %}
             </span>
