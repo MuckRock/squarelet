@@ -13,30 +13,49 @@ from squarelet.organizations.tests.factories import ChargeFactory, OrganizationF
 class TestChargeQuerySet:
     """Unit tests for ChargeQuerySet.make_charge()"""
 
+    def _mock_provider_charge(self, mocker, charge_id="ch_test", created=None):
+        """Return a mock charge and the provider create mock."""
+        if created is None:
+            created = int(timezone.now().timestamp())
+        mock_stripe_charge = mocker.Mock(id=charge_id, created=created)
+        mock_provider = mocker.patch(
+            "squarelet.organizations.querysets.get_payment_provider"
+        ).return_value
+        mock_provider.get_charge_service.return_value.create.return_value = (
+            mock_stripe_charge
+        )
+        return mock_stripe_charge, mock_provider
+
+    def _mock_customer_with_card(self, mocker):
+        """Mock Customer.card and stripe_customer for saved-card tests."""
+        mock_card = mocker.Mock(id="card_123")
+        mocker.patch(
+            "squarelet.organizations.models.payment.Customer.card",
+            new_callable=mocker.PropertyMock,
+            return_value=mock_card,
+        )
+        mocker.patch("squarelet.organizations.models.Customer.stripe_customer")
+        return mock_card
+
     @pytest.mark.django_db()
     def test_make_charge_with_new_card_token(self, mocker):
         """Test creating charge with new card token"""
-        # Arrange
         org = OrganizationFactory(customer__customer_id="cus_test123")
         token = "tok_visa"
 
-        # Mock at provider service level
-        mock_source = mocker.Mock(id="src_123")
-        mock_source.delete = mocker.Mock()
-        timestamp = int(timezone.now().timestamp())
-        mock_stripe_charge = mocker.Mock(id="ch_test123", created=timestamp)
-
+        mock_source = mocker.Mock(id="pm_123")
+        mock_stripe_charge, mock_provider = self._mock_provider_charge(
+            mocker, "ch_test123"
+        )
         mocker.patch(
             "squarelet.organizations.models.Customer.add_source",
             return_value=mock_source,
         )
         mocker.patch("squarelet.organizations.models.Customer.stripe_customer")
-        mock_charge_create = mocker.patch(
-            "squarelet.organizations.querysets.get_payment_provider"
-        ).return_value.get_charge_service.return_value.create
-        mock_charge_create.return_value = mock_stripe_charge
+        mock_remove_source = (
+            mock_provider.get_customer_service.return_value.remove_source
+        )
 
-        # Act
         charge = Charge.objects.make_charge(
             organization=org,
             token=token,
@@ -46,45 +65,20 @@ class TestChargeQuerySet:
             metadata={"test": "value"},
         )
 
-        # Assert model-level behavior
-        mock_source.delete.assert_called_once()
+        mock_remove_source.assert_called_once_with(mock_source)
         assert charge.charge_id == "ch_test123"
         assert charge.organization == org
 
     @pytest.mark.django_db()
     def test_make_charge_with_saved_card(self, mocker):
         """Test creating charge with saved card (no token)"""
-        # Arrange
         org = OrganizationFactory(customer__customer_id="cus_saved")
-
-        # Mock Stripe customer with saved card
-        mock_card = mocker.Mock(id="card_123")
-        mock_stripe_customer = mocker.Mock()
-        mock_stripe_customer.sources = mocker.Mock()
-        mock_stripe_customer.sources.data = [mock_card]
-        mocker.patch(
-            "squarelet.organizations.payments.providers"
-            ".stripe_legacy.stripe.Customer.retrieve",
-            return_value=mock_stripe_customer,
+        mock_card = self._mock_customer_with_card(mocker)
+        mock_stripe_charge, mock_provider = self._mock_provider_charge(
+            mocker, "ch_saved_card"
         )
+        mock_charge_create = mock_provider.get_charge_service.return_value.create
 
-        # Mock Customer.card property to return the mock card
-        mocker.patch(
-            "squarelet.organizations.models.payment.Customer.card",
-            new_callable=mocker.PropertyMock,
-            return_value=mock_card,
-        )
-
-        # Mock charge creation
-        timestamp = int(timezone.now().timestamp())
-        mock_stripe_charge = mocker.Mock(id="ch_saved_card", created=timestamp)
-        mock_charge_create = mocker.patch(
-            "squarelet.organizations.payments.providers"
-            ".stripe_legacy.stripe.Charge.create",
-            return_value=mock_stripe_charge,
-        )
-
-        # Act
         charge = Charge.objects.make_charge(
             organization=org,
             token=None,
@@ -94,46 +88,21 @@ class TestChargeQuerySet:
             metadata={},
         )
 
-        # Assert
         mock_charge_create.assert_called_once()
         call_kwargs = mock_charge_create.call_args[1]
         assert call_kwargs["source"] == mock_card
         assert charge.charge_id == "ch_saved_card"
 
-    def _mock_customer_with_card(self, mocker):
-        """Helper to mock Stripe customer with saved card"""
-        mock_card = mocker.Mock(id="card_123")
-        mock_stripe_customer = mocker.Mock()
-        mock_stripe_customer.sources = mocker.Mock()
-        mock_stripe_customer.sources.data = [mock_card]
-        mocker.patch(
-            "squarelet.organizations.payments.providers"
-            ".stripe_legacy.stripe.Customer.retrieve",
-            return_value=mock_stripe_customer,
-        )
-        mocker.patch(
-            "squarelet.organizations.models.payment.Customer.card",
-            new_callable=mocker.PropertyMock,
-            return_value=mock_card,
-        )
-        return mock_card
-
     @pytest.mark.django_db()
     def test_make_charge_includes_default_metadata(self, mocker):
         """Test charge includes organization metadata"""
-        # Arrange
         org = OrganizationFactory(name="Test Org", customer__customer_id="cus_meta")
         self._mock_customer_with_card(mocker)
-
-        timestamp = int(timezone.now().timestamp())
-        mock_stripe_charge = mocker.Mock(id="ch_metadata", created=timestamp)
-        mock_charge_create = mocker.patch(
-            "squarelet.organizations.payments.providers"
-            ".stripe_legacy.stripe.Charge.create",
-            return_value=mock_stripe_charge,
+        mock_stripe_charge, mock_provider = self._mock_provider_charge(
+            mocker, "ch_metadata"
         )
+        mock_charge_create = mock_provider.get_charge_service.return_value.create
 
-        # Act
         Charge.objects.make_charge(
             organization=org,
             token=None,
@@ -143,7 +112,6 @@ class TestChargeQuerySet:
             metadata={},
         )
 
-        # Assert
         call_kwargs = mock_charge_create.call_args[1]
         metadata = call_kwargs["metadata"]
         assert metadata["organization"] == "Test Org"
@@ -153,19 +121,13 @@ class TestChargeQuerySet:
     @pytest.mark.django_db()
     def test_make_charge_merges_custom_metadata(self, mocker):
         """Test custom metadata is merged with defaults"""
-        # Arrange
         org = OrganizationFactory(customer__customer_id="cus_custom")
         self._mock_customer_with_card(mocker)
-
-        timestamp = int(timezone.now().timestamp())
-        mock_stripe_charge = mocker.Mock(id="ch_custom", created=timestamp)
-        mock_charge_create = mocker.patch(
-            "squarelet.organizations.payments.providers"
-            ".stripe_legacy.stripe.Charge.create",
-            return_value=mock_stripe_charge,
+        mock_stripe_charge, mock_provider = self._mock_provider_charge(
+            mocker, "ch_custom"
         )
+        mock_charge_create = mock_provider.get_charge_service.return_value.create
 
-        # Act
         Charge.objects.make_charge(
             organization=org,
             token=None,
@@ -175,29 +137,22 @@ class TestChargeQuerySet:
             metadata={"custom_field": "custom_value", "action": "test-action"},
         )
 
-        # Assert
         call_kwargs = mock_charge_create.call_args[1]
         metadata = call_kwargs["metadata"]
         assert metadata["custom_field"] == "custom_value"
         assert metadata["action"] == "test-action"
-        assert metadata["organization"] == org.name  # Default still included
+        assert metadata["organization"] == org.name
 
     @pytest.mark.django_db()
     def test_make_charge_uses_idempotency_key(self, mocker):
         """Test idempotency key is UUID"""
-        # Arrange
         org = OrganizationFactory(customer__customer_id="cus_idem")
         self._mock_customer_with_card(mocker)
-
-        timestamp = int(timezone.now().timestamp())
-        mock_stripe_charge = mocker.Mock(id="ch_idempotent", created=timestamp)
-        mock_charge_create = mocker.patch(
-            "squarelet.organizations.payments.providers"
-            ".stripe_legacy.stripe.Charge.create",
-            return_value=mock_stripe_charge,
+        mock_stripe_charge, mock_provider = self._mock_provider_charge(
+            mocker, "ch_idempotent"
         )
+        mock_charge_create = mock_provider.get_charge_service.return_value.create
 
-        # Act
         Charge.objects.make_charge(
             organization=org,
             token=None,
@@ -207,30 +162,22 @@ class TestChargeQuerySet:
             metadata={},
         )
 
-        # Assert
         call_kwargs = mock_charge_create.call_args[1]
         idempotency_key = call_kwargs["idempotency_key"]
         assert isinstance(idempotency_key, str)
         assert len(idempotency_key) > 0
-        # UUID4 format check (simple validation)
         assert "-" in idempotency_key
 
     @pytest.mark.django_db()
     def test_make_charge_statement_descriptor_from_metadata(self, mocker):
         """Test statement descriptor from metadata action"""
-        # Arrange
         org = OrganizationFactory(customer__customer_id="cus_desc")
         self._mock_customer_with_card(mocker)
-
-        timestamp = int(timezone.now().timestamp())
-        mock_stripe_charge = mocker.Mock(id="ch_descriptor", created=timestamp)
-        mock_charge_create = mocker.patch(
-            "squarelet.organizations.payments.providers"
-            ".stripe_legacy.stripe.Charge.create",
-            return_value=mock_stripe_charge,
+        mock_stripe_charge, mock_provider = self._mock_provider_charge(
+            mocker, "ch_descriptor"
         )
+        mock_charge_create = mock_provider.get_charge_service.return_value.create
 
-        # Act
         Charge.objects.make_charge(
             organization=org,
             token=None,
@@ -240,26 +187,19 @@ class TestChargeQuerySet:
             metadata={"action": "Request Filing"},
         )
 
-        # Assert
         call_kwargs = mock_charge_create.call_args[1]
         assert call_kwargs["statement_descriptor_suffix"] == "Request Filing"
 
     @pytest.mark.django_db()
     def test_make_charge_statement_descriptor_empty_when_no_action(self, mocker):
         """Test statement descriptor empty when no action in metadata"""
-        # Arrange
         org = OrganizationFactory(customer__customer_id="cus_noact")
         self._mock_customer_with_card(mocker)
-
-        timestamp = int(timezone.now().timestamp())
-        mock_stripe_charge = mocker.Mock(id="ch_no_action", created=timestamp)
-        mock_charge_create = mocker.patch(
-            "squarelet.organizations.payments.providers"
-            ".stripe_legacy.stripe.Charge.create",
-            return_value=mock_stripe_charge,
+        mock_stripe_charge, mock_provider = self._mock_provider_charge(
+            mocker, "ch_no_action"
         )
+        mock_charge_create = mock_provider.get_charge_service.return_value.create
 
-        # Act
         Charge.objects.make_charge(
             organization=org,
             token=None,
@@ -269,29 +209,19 @@ class TestChargeQuerySet:
             metadata={},
         )
 
-        # Assert
         call_kwargs = mock_charge_create.call_args[1]
         assert call_kwargs["statement_descriptor_suffix"] == ""
 
     @pytest.mark.django_db()
     def test_make_charge_race_condition_with_webhook(self, mocker):
         """Test get_or_create handles webhook race condition"""
-        # Arrange
         org = OrganizationFactory(customer__customer_id="cus_race")
         self._mock_customer_with_card(mocker)
 
-        # Create existing charge (simulating webhook creating it first)
         existing_charge = ChargeFactory(charge_id="ch_existing", organization=org)
 
-        timestamp = int(timezone.now().timestamp())
-        mock_stripe_charge = mocker.Mock(id="ch_existing", created=timestamp)
-        mocker.patch(
-            "squarelet.organizations.payments.providers"
-            ".stripe_legacy.stripe.Charge.create",
-            return_value=mock_stripe_charge,
-        )
+        mock_stripe_charge, _ = self._mock_provider_charge(mocker, "ch_existing")
 
-        # Act
         charge = Charge.objects.make_charge(
             organization=org,
             token=None,
@@ -301,28 +231,19 @@ class TestChargeQuerySet:
             metadata={},
         )
 
-        # Assert
-        assert charge.id == existing_charge.id  # Same database record
-        assert (
-            Charge.objects.filter(charge_id="ch_existing").count() == 1
-        )  # No duplicate
+        assert charge.id == existing_charge.id
+        assert Charge.objects.filter(charge_id="ch_existing").count() == 1
 
     @pytest.mark.django_db()
     def test_make_charge_with_zero_fee_amount(self, mocker):
         """Test charge with zero fee amount"""
-        # Arrange
         org = OrganizationFactory(customer__customer_id="cus_zero")
         self._mock_customer_with_card(mocker)
-
-        timestamp = int(timezone.now().timestamp())
-        mock_stripe_charge = mocker.Mock(id="ch_zero_fee", created=timestamp)
-        mock_charge_create = mocker.patch(
-            "squarelet.organizations.payments.providers"
-            ".stripe_legacy.stripe.Charge.create",
-            return_value=mock_stripe_charge,
+        mock_stripe_charge, mock_provider = self._mock_provider_charge(
+            mocker, "ch_zero_fee"
         )
+        mock_charge_create = mock_provider.get_charge_service.return_value.create
 
-        # Act
         charge = Charge.objects.make_charge(
             organization=org,
             token=None,
@@ -332,7 +253,6 @@ class TestChargeQuerySet:
             metadata={},
         )
 
-        # Assert
         assert charge.fee_amount == 0
         call_kwargs = mock_charge_create.call_args[1]
         assert call_kwargs["metadata"]["fee amount"] == 0
@@ -340,23 +260,18 @@ class TestChargeQuerySet:
     @pytest.mark.django_db()
     def test_make_charge_stripe_card_error(self, mocker):
         """Test handling of Stripe card errors"""
-        # Arrange
         org = OrganizationFactory(customer__customer_id="cus_card_err")
         self._mock_customer_with_card(mocker)
 
-        # Mock Stripe to raise CardError
         card_error = stripe.CardError(
             message="Your card was declined",
             param="card",
             code="card_declined",
         )
         mocker.patch(
-            "squarelet.organizations.payments.providers"
-            ".stripe_legacy.stripe.Charge.create",
-            side_effect=card_error,
-        )
+            "squarelet.organizations.querysets.get_payment_provider"
+        ).return_value.get_charge_service.return_value.create.side_effect = card_error
 
-        # Act & Assert
         with pytest.raises(stripe.CardError) as exc_info:
             Charge.objects.make_charge(
                 organization=org,
@@ -368,27 +283,19 @@ class TestChargeQuerySet:
             )
 
         assert exc_info.value.code == "card_declined"
-        # Verify no Charge record was created
         assert not Charge.objects.filter(organization=org).exists()
 
     @pytest.mark.django_db()
     def test_make_charge_stripe_api_error(self, mocker):
         """Test handling of Stripe API errors"""
-        # Arrange
         org = OrganizationFactory(customer__customer_id="cus_api_err")
         self._mock_customer_with_card(mocker)
 
-        # Mock Stripe to raise APIError
-        api_error = stripe.APIError(
-            message="An error occurred with our API",
-        )
+        api_error = stripe.APIError(message="An error occurred with our API")
         mocker.patch(
-            "squarelet.organizations.payments.providers"
-            ".stripe_legacy.stripe.Charge.create",
-            side_effect=api_error,
-        )
+            "squarelet.organizations.querysets.get_payment_provider"
+        ).return_value.get_charge_service.return_value.create.side_effect = api_error
 
-        # Act & Assert
         with pytest.raises(stripe.APIError):
             Charge.objects.make_charge(
                 organization=org,
@@ -399,48 +306,33 @@ class TestChargeQuerySet:
                 metadata={},
             )
 
-        # Verify no Charge record was created
         assert not Charge.objects.filter(organization=org).exists()
 
     @pytest.mark.django_db()
     def test_make_charge_customer_without_card(self, mocker):
         """Test error when customer has no saved card"""
-        # Arrange
         org = OrganizationFactory(customer__customer_id="cus_no_card")
-
-        # Mock Stripe customer WITHOUT saved card
-        mock_stripe_customer = mocker.Mock()
-        mock_stripe_customer.sources = mocker.Mock()
-        mock_stripe_customer.sources.data = []  # No cards saved
-        mocker.patch(
-            "squarelet.organizations.payments.providers"
-            ".stripe_legacy.stripe.Customer.retrieve",
-            return_value=mock_stripe_customer,
-        )
-
-        # Mock Customer.card property to return None (no card)
+        mocker.patch("squarelet.organizations.models.Customer.stripe_customer")
         mocker.patch(
             "squarelet.organizations.models.payment.Customer.card",
             new_callable=mocker.PropertyMock,
             return_value=None,
         )
 
-        # Mock charge creation to raise error
         invalid_error = stripe.InvalidRequestError(
             message="Cannot charge a customer that has no active card",
             param="source",
         )
         mocker.patch(
-            "squarelet.organizations.payments.providers"
-            ".stripe_legacy.stripe.Charge.create",
-            side_effect=invalid_error,
+            "squarelet.organizations.querysets.get_payment_provider"
+        ).return_value.get_charge_service.return_value.create.side_effect = (
+            invalid_error
         )
 
-        # Act & Assert
         with pytest.raises(stripe.InvalidRequestError):
             Charge.objects.make_charge(
                 organization=org,
-                token=None,  # No token provided
+                token=None,
                 amount=1000,
                 fee_amount=0,
                 description="No card test",
@@ -450,29 +342,23 @@ class TestChargeQuerySet:
     @pytest.mark.django_db()
     def test_make_charge_large_amount(self, mocker):
         """Test charge with large amount"""
-        # Arrange
         org = OrganizationFactory(customer__customer_id="cus_large")
         self._mock_customer_with_card(mocker)
-
-        timestamp = int(timezone.now().timestamp())
-        mock_stripe_charge = mocker.Mock(id="ch_large", created=timestamp)
-        mock_charge_create = mocker.patch(
-            "squarelet.organizations.payments.providers"
-            ".stripe_legacy.stripe.Charge.create",
-            return_value=mock_stripe_charge,
+        mock_stripe_charge, mock_provider = self._mock_provider_charge(
+            mocker, "ch_large"
         )
+        mock_charge_create = mock_provider.get_charge_service.return_value.create
 
-        large_amount = 100000  # $1,000.00 in cents (reasonable large amount)
+        large_amount = 100000
         charge = Charge.objects.make_charge(
             organization=org,
             token=None,
             amount=large_amount,
-            fee_amount=5000,  # $50 fee (within smallint range)
+            fee_amount=5000,
             description="Large amount test",
             metadata={},
         )
 
-        # Assert
         call_kwargs = mock_charge_create.call_args[1]
         assert call_kwargs["amount"] == large_amount
         assert charge.amount == large_amount

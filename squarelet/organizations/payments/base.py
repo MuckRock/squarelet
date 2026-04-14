@@ -42,7 +42,15 @@ class CustomerService(ABC):
 
     @abstractmethod
     def add_source(self, stripe_customer, token):
-        """Add a non-default payment source to a customer."""
+        """Add a non-default payment source to a customer for a single charge."""
+
+    @abstractmethod
+    def remove_source(self, source_or_pm):
+        """Remove a temporary payment source or payment method after a one-time charge."""
+
+    @abstractmethod
+    def get_card(self, stripe_customer):
+        """Return the customer's default saved payment method or source, or None."""
 
 
 class SubscriptionService(ABC):

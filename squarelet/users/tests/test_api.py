@@ -28,6 +28,7 @@ class TestUserAPI:
         mocker.patch(
             "squarelet.organizations.models.Customer.stripe_customer",
             default_source=None,
+            invoice_settings=Mock(default_payment_method=None),
         )
         # user `individual_organization_id` instead of `uuid` because
         # the `uuid` AliasField fails only in tests for some reason
@@ -49,6 +50,7 @@ class TestUserAPI:
         mocker.patch(
             "squarelet.organizations.models.Customer.stripe_customer",
             default_source=None,
+            invoice_settings=Mock(default_payment_method=None),
         )
         client = APIClient()
         client.force_authenticate(user=user)
@@ -74,6 +76,7 @@ class TestUserAPI:
         mocker.patch(
             "squarelet.organizations.models.Customer.stripe_customer",
             default_source=None,
+            invoice_settings=Mock(default_payment_method=None),
         )
         client = APIClient()
         client.force_authenticate(user=user)
@@ -97,6 +100,7 @@ class TestUserAPI:
         mocker.patch(
             "squarelet.organizations.models.Customer.stripe_customer",
             default_source=None,
+            invoice_settings=Mock(default_payment_method=None),
         )
         # user `individual_organization_id` instead of `uuid` because
         # the `uuid` AliasField fails only in tests for some reason
@@ -116,6 +120,7 @@ class TestUserAPI:
         mocker.patch(
             "squarelet.organizations.models.Customer.stripe_customer",
             default_source=None,
+            invoice_settings=Mock(default_payment_method=None),
         )
         # user `individual_organization_id` instead of `uuid` because
         # the `uuid` AliasField fails only in tests for some reason
@@ -138,6 +143,7 @@ class TestUserAPI:
         mocker.patch(
             "squarelet.organizations.models.Customer.stripe_customer",
             default_source=None,
+            invoice_settings=Mock(default_payment_method=None),
         )
         # user `individual_organization_id` instead of `uuid` because
         # the `uuid` AliasField fails only in tests for some reason
@@ -159,6 +165,7 @@ class TestUserAPI:
         mocker.patch(
             "squarelet.organizations.models.Customer.stripe_customer",
             default_source=None,
+            invoice_settings=Mock(default_payment_method=None),
         )
         # user `individual_organization_id` instead of `uuid` because
         # the `uuid` AliasField fails only in tests for some reason
