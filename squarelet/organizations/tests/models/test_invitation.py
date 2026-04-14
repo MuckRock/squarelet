@@ -402,6 +402,76 @@ class TestOrganizationInvitationAccept:
 
         mock_sync.assert_not_called()
 
+    # --- Tests for child relationship type ---
+
+    @pytest.mark.django_db(transaction=True)
+    def test_accept_child_invitation_triggers_wix_sync(
+        self, organization_invitation_factory, plan_factory, mocker
+    ):
+        """Accepting a child invitation triggers Wix sync when parent has Wix plan.
+
+        Child relationships set the parent FK (not M2M), so Wix sync must be
+        triggered directly inside accept() rather than via the m2m_changed signal.
+        """
+        mock_sync = mocker.patch(
+            "squarelet.organizations.tasks.sync_wix_for_group_member.delay"
+        )
+        wix_plan = plan_factory(wix=True)
+        invitation = organization_invitation_factory(
+            from_organization__collective_enabled=True,
+            from_organization__share_resources=True,
+            from_organization__plans=[wix_plan],
+            relationship_type=RelationshipType.child,
+        )
+
+        invitation.accept()
+
+        mock_sync.assert_called_once_with(
+            invitation.to_organization.pk,
+            invitation.from_organization.pk,
+            wix_plan.pk,
+        )
+
+    @pytest.mark.django_db(transaction=True)
+    def test_accept_child_invitation_no_wix_sync_when_share_resources_false(
+        self, organization_invitation_factory, plan_factory, mocker
+    ):
+        """Child invitation accept does not trigger sync when share_resources=False"""
+        mock_sync = mocker.patch(
+            "squarelet.organizations.tasks.sync_wix_for_group_member.delay"
+        )
+        wix_plan = plan_factory(wix=True)
+        invitation = organization_invitation_factory(
+            from_organization__collective_enabled=True,
+            from_organization__share_resources=False,
+            from_organization__plans=[wix_plan],
+            relationship_type=RelationshipType.child,
+        )
+
+        invitation.accept()
+
+        mock_sync.assert_not_called()
+
+    @pytest.mark.django_db(transaction=True)
+    def test_accept_child_invitation_no_wix_sync_when_no_wix_plan(
+        self, organization_invitation_factory, plan_factory, mocker
+    ):
+        """Child invitation accept does not trigger sync when no Wix plan"""
+        mock_sync = mocker.patch(
+            "squarelet.organizations.tasks.sync_wix_for_group_member.delay"
+        )
+        non_wix_plan = plan_factory(wix=False)
+        invitation = organization_invitation_factory(
+            from_organization__collective_enabled=True,
+            from_organization__share_resources=True,
+            from_organization__plans=[non_wix_plan],
+            relationship_type=RelationshipType.child,
+        )
+
+        invitation.accept()
+
+        mock_sync.assert_not_called()
+
 
 class TestOrganizationInvitationReject:
     """Tests for OrganizationInvitation reject functionality"""

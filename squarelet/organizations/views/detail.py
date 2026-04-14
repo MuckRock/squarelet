@@ -119,6 +119,12 @@ class Detail(AdminLinkMixin, DetailView):
                 "has_email_domains": org.domains.exists(),
             }
 
+        # Wix sync context: True when org has a direct Wix plan or inherits one
+        # from a resource-sharing group/parent.  Used to show the staff toolbar button.
+        context["show_wix_sync"] = bool(
+            (org.plan and org.plan.wix) or org.get_wix_plans_from_groups()
+        )
+
         return context
 
     def handle_join(self, request):
@@ -268,14 +274,36 @@ class Detail(AdminLinkMixin, DetailView):
         messages.success(request, _("Auto-join has been disabled"))
         return None
 
+    def _sync_wix_for_org(self, org, plan):
+        """Queue a Wix sync for every user in *org* using *plan*."""
+        for wix_user in org.users.all():
+            sync_wix.delay(org.pk, plan.pk, wix_user.pk)
+
     def handle_sync_wix(self, request):
-        if self.request.user.is_staff and self.organization.plan.wix:
-            for wix_user in self.organization.users.all():
-                sync_wix.delay(
-                    self.organization.pk,
-                    self.organization.plan.pk,
-                    wix_user.pk,
-                )
+        if not self.request.user.is_staff:
+            return
+
+        org = self.organization
+        triggered = False
+
+        # Direct Wix plan on this org
+        if org.plan and org.plan.wix:
+            self._sync_wix_for_org(org, org.plan)
+            triggered = True
+
+            # Cascade to member orgs and child orgs when this org shares resources
+            if org.share_resources:
+                for member_org in org.members.all():
+                    self._sync_wix_for_org(member_org, org.plan)
+                for child_org in org.children.all():
+                    self._sync_wix_for_org(child_org, org.plan)
+
+        # Inherited Wix plans via resource-sharing groups / parent orgs
+        for _group, plan in org.get_wix_plans_from_groups():
+            self._sync_wix_for_org(org, plan)
+            triggered = True
+
+        if triggered:
             messages.success(request, _("Wix sync started"))
 
     def post(self, request, *args, **kwargs):

@@ -80,12 +80,16 @@ class Membership(models.Model):
                     )
                 else:
                     # Group Wix plans - sync new user to each group's plan
-                    for group, plan in group_wix_plans:
+                    for _, plan in group_wix_plans:
                         # Capture values to avoid closure issues
-                        group_pk, plan_pk, user_pk = group.pk, plan.pk, self.user.pk
+                        org_pk, plan_pk, user_pk = (
+                            self.organization.pk,
+                            plan.pk,
+                            self.user.pk,
+                        )
                         transaction.on_commit(
-                            lambda g=group_pk, p=plan_pk, u=user_pk: sync_wix.delay(
-                                g, p, u
+                            lambda o=org_pk, p=plan_pk, u=user_pk: sync_wix.delay(
+                                o, p, u
                             )
                         )
 

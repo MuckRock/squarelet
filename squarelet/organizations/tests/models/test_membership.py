@@ -40,6 +40,7 @@ class TestMembership:
     ):
         """Test new membership syncs user via group's Wix plan"""
         mock_sync = mocker.patch("squarelet.organizations.tasks.sync_wix.delay")
+        mocker.patch("squarelet.organizations.tasks.sync_wix_for_group_member.delay")
         mocker.patch(
             "squarelet.organizations.models.organization.send_cache_invalidations"
         )
@@ -55,8 +56,8 @@ class TestMembership:
 
         Membership.objects.create(user=user, organization=member_org, admin=False)
 
-        # Should sync user via group's plan
-        mock_sync.assert_called_once_with(group.pk, wix_plan.pk, user.pk)
+        # Should sync user under their org via group's plan
+        mock_sync.assert_called_once_with(member_org.pk, wix_plan.pk, user.pk)
 
     @pytest.mark.django_db(transaction=True)
     def test_save_prefers_direct_wix_plan_over_group(
@@ -64,6 +65,7 @@ class TestMembership:
     ):
         """Test new membership uses direct org Wix plan over group plan"""
         mock_sync = mocker.patch("squarelet.organizations.tasks.sync_wix.delay")
+        mocker.patch("squarelet.organizations.tasks.sync_wix_for_group_member.delay")
         mocker.patch(
             "squarelet.organizations.models.organization.send_cache_invalidations"
         )

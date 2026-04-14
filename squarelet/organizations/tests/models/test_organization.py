@@ -9,7 +9,7 @@ import stripe
 from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.models import Organization
 
-# pylint: disable=too-many-public-methods
+# pylint: disable=too-many-public-methods,too-many-lines
 
 
 class TestOrganization:
@@ -805,6 +805,170 @@ class TestOrganization:
 class TestOrganizationWixSyncIntegration:
     """Integration tests for Wix sync triggers in Organization model"""
 
+    # --- Tests for direct M2M assignment (Bug #637) ---
+
+    @pytest.mark.django_db(transaction=True)
+    def test_direct_member_add_triggers_wix_sync(
+        self, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """Directly adding a member org to group.members should trigger Wix sync.
+
+        This reproduces the bug where staff assigns ChildOrg to ParentOrg via
+        Django admin (bypassing OrganizationInvitation), and Wix sync is not triggered.
+        """
+        mock_sync = mocker.patch(
+            "squarelet.organizations.tasks.sync_wix_for_group_member.delay"
+        )
+        wix_plan = plan_factory(wix=True)
+        group = organization_factory(
+            collective_enabled=True, share_resources=True, plans=[wix_plan]
+        )
+        member_org = organization_factory(users=[user_factory()])
+
+        # Simulate admin directly assigning ChildOrg to ParentOrg.members
+        # (bypasses OrganizationInvitation.accept)
+        group.members.add(member_org)
+
+        # Should trigger Wix sync for member org's users via the group's plan
+        mock_sync.assert_called_once_with(member_org.pk, group.pk, wix_plan.pk)
+
+    @pytest.mark.django_db(transaction=True)
+    def test_direct_member_add_no_sync_when_share_resources_false(
+        self, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """
+        Direct member add should not trigger sync
+        when group has share_resources=False
+        """
+        mock_sync = mocker.patch(
+            "squarelet.organizations.tasks.sync_wix_for_group_member.delay"
+        )
+        wix_plan = plan_factory(wix=True)
+        group = organization_factory(
+            collective_enabled=True, share_resources=False, plans=[wix_plan]
+        )
+        member_org = organization_factory(users=[user_factory()])
+
+        group.members.add(member_org)
+
+        mock_sync.assert_not_called()
+
+    @pytest.mark.django_db(transaction=True)
+    def test_direct_member_add_no_sync_when_no_wix_plan(
+        self, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """Direct member add should not trigger sync when group has no Wix plan"""
+        mock_sync = mocker.patch(
+            "squarelet.organizations.tasks.sync_wix_for_group_member.delay"
+        )
+        non_wix_plan = plan_factory(wix=False)
+        group = organization_factory(
+            collective_enabled=True, share_resources=True, plans=[non_wix_plan]
+        )
+        member_org = organization_factory(users=[user_factory()])
+
+        group.members.add(member_org)
+
+        mock_sync.assert_not_called()
+
+    @pytest.mark.django_db(transaction=True)
+    def test_direct_member_add_no_sync_when_no_plan(
+        self, organization_factory, user_factory, mocker
+    ):
+        """Direct member add should not trigger sync when group has no plan at all"""
+        mock_sync = mocker.patch(
+            "squarelet.organizations.tasks.sync_wix_for_group_member.delay"
+        )
+        group = organization_factory(collective_enabled=True, share_resources=True)
+        member_org = organization_factory(users=[user_factory()])
+
+        group.members.add(member_org)
+
+        mock_sync.assert_not_called()
+
+    @pytest.mark.django_db(transaction=True)
+    def test_setting_parent_triggers_wix_sync(
+        self, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """Setting parent FK via admin should trigger Wix sync when parent
+        has a Wix plan with share_resources=True."""
+        mock_sync = mocker.patch(
+            "squarelet.organizations.tasks.sync_wix_for_group_member.delay"
+        )
+        wix_plan = plan_factory(wix=True)
+        parent = organization_factory(
+            collective_enabled=True, share_resources=True, plans=[wix_plan]
+        )
+        child = organization_factory(users=[user_factory()])
+
+        child.parent = parent
+        child.save()
+
+        mock_sync.assert_called_once_with(child.pk, parent.pk, wix_plan.pk)
+
+    @pytest.mark.django_db(transaction=True)
+    def test_setting_parent_no_sync_when_share_resources_false(
+        self, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """Setting parent FK should not trigger sync when parent has
+        share_resources=False."""
+        mock_sync = mocker.patch(
+            "squarelet.organizations.tasks.sync_wix_for_group_member.delay"
+        )
+        wix_plan = plan_factory(wix=True)
+        parent = organization_factory(
+            collective_enabled=True, share_resources=False, plans=[wix_plan]
+        )
+        child = organization_factory(users=[user_factory()])
+
+        child.parent = parent
+        child.save()
+
+        mock_sync.assert_not_called()
+
+    @pytest.mark.django_db(transaction=True)
+    def test_setting_parent_no_sync_when_no_wix_plan(
+        self, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """Setting parent FK should not trigger sync when parent has no Wix plan."""
+        mock_sync = mocker.patch(
+            "squarelet.organizations.tasks.sync_wix_for_group_member.delay"
+        )
+        non_wix_plan = plan_factory(wix=False)
+        parent = organization_factory(
+            collective_enabled=True, share_resources=True, plans=[non_wix_plan]
+        )
+        child = organization_factory(users=[user_factory()])
+
+        child.parent = parent
+        child.save()
+
+        mock_sync.assert_not_called()
+
+    @pytest.mark.django_db(transaction=True)
+    def test_saving_without_parent_change_no_sync(
+        self, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """Saving an org that already has a parent should not re-trigger sync."""
+        mock_sync = mocker.patch(
+            "squarelet.organizations.tasks.sync_wix_for_group_member.delay"
+        )
+        wix_plan = plan_factory(wix=True)
+        parent = organization_factory(
+            collective_enabled=True, share_resources=True, plans=[wix_plan]
+        )
+        child = organization_factory(users=[user_factory()], parent=parent)
+
+        # Reset after factory creation which triggers the signal
+        mock_sync.reset_mock()
+
+        # Save without changing parent
+        child.save()
+
+        mock_sync.assert_not_called()
+
+    # --- Tests for share_resources toggle (existing behaviour) ---
+
     @pytest.mark.django_db(transaction=True)
     def test_save_triggers_wix_sync_on_share_resources_toggle(
         self, organization_factory, plan_factory, mocker
@@ -840,6 +1004,10 @@ class TestOrganizationWixSyncIntegration:
         )
         member_org = organization_factory()
         group.members.add(member_org)
+
+        # The m2m_changed signal fires sync on the add above; reset to verify
+        # the save itself does not trigger additional syncs.
+        mock_sync.reset_mock()
 
         # Save without changing share_resources
         group.save()

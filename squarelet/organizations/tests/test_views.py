@@ -10,7 +10,7 @@ from django.utils import timezone
 
 # Standard Library
 import json
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 # Third Party
 import pytest
@@ -26,7 +26,7 @@ from .. import views
 from ..choices import InvitationRole
 from ..models import Organization, OrganizationEmailDomain, Plan, ReceiptEmail
 
-# pylint: disable=too-many-public-methods, too-many-lines
+# pylint: disable=too-many-public-methods, too-many-lines, too-many-positional-arguments
 
 
 def _assign_org_perm(user, codename):
@@ -491,6 +491,206 @@ class TestDetail(ViewTestMixin):
 
 
 @pytest.mark.django_db()
+class TestSyncWix(ViewTestMixin):
+    """Tests for the Wix sync staff action on the Organization detail page."""
+
+    view = views.Detail
+    url = "/organizations/{slug}/"
+
+    @pytest.fixture(autouse=True)
+    def _setup_plan(self):
+        Plan.objects.get_or_create(
+            slug="organization", defaults={"name": "Organization"}
+        )
+
+    def test_staff_can_sync_wix_for_org_with_direct_wix_plan(
+        self, rf, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """Staff can trigger Wix sync for an org that has a direct Wix plan."""
+        mock_sync = mocker.patch("squarelet.organizations.tasks.sync_wix.delay")
+        staff_user = user_factory(is_staff=True)
+        wix_plan = plan_factory(wix=True)
+        member_user = user_factory()
+        org = organization_factory(plans=[wix_plan], users=[member_user])
+
+        response = self.call_view(
+            rf, staff_user, data={"action": "sync_wix"}, slug=org.slug
+        )
+
+        assert response.status_code == 302
+        mock_sync.assert_called_once_with(org.pk, wix_plan.pk, member_user.pk)
+
+    def test_staff_can_sync_wix_for_child_org_with_inherited_wix_plan(
+        self, rf, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """Staff can trigger Wix sync for a ChildOrg that inherits a Wix plan."""
+        mock_sync = mocker.patch("squarelet.organizations.tasks.sync_wix.delay")
+        staff_user = user_factory(is_staff=True)
+        wix_plan = plan_factory(wix=True)
+        group = organization_factory(
+            collective_enabled=True, share_resources=True, plans=[wix_plan]
+        )
+        member_user = user_factory()
+        member_org = organization_factory(users=[member_user])
+        group.members.add(member_org)
+
+        # member_org has no direct plan; it inherits from group
+        response = self.call_view(
+            rf, staff_user, data={"action": "sync_wix"}, slug=member_org.slug
+        )
+
+        assert response.status_code == 302
+        # Should sync member_user under member_org via the group's plan
+        mock_sync.assert_called_once_with(member_org.pk, wix_plan.pk, member_user.pk)
+
+    def test_wix_sync_button_shown_in_context_for_org_with_inherited_plan(
+        self, rf, organization_factory, plan_factory, user_factory
+    ):
+        """
+        The view context should signal that the Wix sync button can be shown
+        for a ChildOrg that inherits a Wix plan from its resource-sharing group.
+        """
+        staff_user = user_factory(is_staff=True)
+        wix_plan = plan_factory(wix=True)
+        group = organization_factory(
+            collective_enabled=True, share_resources=True, plans=[wix_plan]
+        )
+        member_org = organization_factory()
+        group.members.add(member_org)
+
+        response = self.call_view(rf, staff_user, slug=member_org.slug)
+
+        assert response.status_code == 200
+        # Context should indicate Wix sync is available even without a direct plan
+        assert response.context_data.get("show_wix_sync") is True
+
+    def test_wix_sync_button_shown_in_context_for_org_with_direct_plan(
+        self, rf, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """The view context should signal Wix sync button for org with direct plan."""
+        mocker.patch("squarelet.organizations.models.Customer.card", None)
+        staff_user = user_factory(is_staff=True)
+        wix_plan = plan_factory(wix=True)
+        org = organization_factory(plans=[wix_plan])
+
+        response = self.call_view(rf, staff_user, slug=org.slug)
+
+        assert response.status_code == 200
+        assert response.context_data.get("show_wix_sync") is True
+
+    def test_wix_sync_button_not_shown_when_no_wix_plan(
+        self, rf, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """The view context should NOT signal Wix sync button when no Wix plan."""
+        mocker.patch("squarelet.organizations.models.Customer.card", None)
+        staff_user = user_factory(is_staff=True)
+        non_wix_plan = plan_factory(wix=False)
+        org = organization_factory(plans=[non_wix_plan])
+
+        response = self.call_view(rf, staff_user, slug=org.slug)
+
+        assert response.status_code == 200
+        assert not response.context_data.get("show_wix_sync")
+
+    def test_wix_sync_button_not_shown_when_no_plan_at_all(
+        self, rf, organization_factory, user_factory
+    ):
+        """The view context should NOT signal Wix sync button when org has no plan."""
+        staff_user = user_factory(is_staff=True)
+        org = organization_factory()
+
+        response = self.call_view(rf, staff_user, slug=org.slug)
+
+        assert response.status_code == 200
+        assert not response.context_data.get("show_wix_sync")
+
+    def test_sync_wix_cascades_to_member_orgs(
+        self, rf, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """Syncing Wix on a group should also sync users in its member orgs."""
+        mock_sync = mocker.patch("squarelet.organizations.tasks.sync_wix.delay")
+        mocker.patch("squarelet.organizations.tasks.sync_wix_for_group_member.delay")
+        staff_user = user_factory(is_staff=True)
+        wix_plan = plan_factory(wix=True)
+        group_user = user_factory()
+        group = organization_factory(
+            collective_enabled=True,
+            share_resources=True,
+            plans=[wix_plan],
+            users=[group_user],
+        )
+        member_user = user_factory()
+        member_org = organization_factory(users=[member_user])
+        group.members.add(member_org)
+
+        response = self.call_view(
+            rf, staff_user, data={"action": "sync_wix"}, slug=group.slug
+        )
+
+        assert response.status_code == 302
+        calls = mock_sync.call_args_list
+        # Should sync both the group's own user and the member org's user,
+        # each associated with their own org
+        assert call(group.pk, wix_plan.pk, group_user.pk) in calls
+        assert call(member_org.pk, wix_plan.pk, member_user.pk) in calls
+
+    def test_sync_wix_cascades_to_child_orgs(
+        self, rf, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """Syncing Wix on a parent should also sync users in its child orgs."""
+        mock_sync = mocker.patch("squarelet.organizations.tasks.sync_wix.delay")
+        mocker.patch("squarelet.organizations.tasks.sync_wix_for_group_member.delay")
+        staff_user = user_factory(is_staff=True)
+        wix_plan = plan_factory(wix=True)
+        parent_user = user_factory()
+        parent = organization_factory(
+            collective_enabled=True,
+            share_resources=True,
+            plans=[wix_plan],
+            users=[parent_user],
+        )
+        child_user = user_factory()
+        child_org = organization_factory(users=[child_user], parent=parent)
+
+        response = self.call_view(
+            rf, staff_user, data={"action": "sync_wix"}, slug=parent.slug
+        )
+
+        assert response.status_code == 302
+        calls = mock_sync.call_args_list
+        assert call(parent.pk, wix_plan.pk, parent_user.pk) in calls
+        assert call(child_org.pk, wix_plan.pk, child_user.pk) in calls
+
+    def test_sync_wix_no_cascade_when_share_resources_false(
+        self, rf, organization_factory, plan_factory, user_factory, mocker
+    ):
+        """Syncing Wix should not cascade to member/child orgs when
+        share_resources is False."""
+        mock_sync = mocker.patch("squarelet.organizations.tasks.sync_wix.delay")
+        mocker.patch("squarelet.organizations.tasks.sync_wix_for_group_member.delay")
+        staff_user = user_factory(is_staff=True)
+        wix_plan = plan_factory(wix=True)
+        group_user = user_factory()
+        group = organization_factory(
+            collective_enabled=True,
+            share_resources=False,
+            plans=[wix_plan],
+            users=[group_user],
+        )
+        member_user = user_factory()
+        member_org = organization_factory(users=[member_user])
+        group.members.add(member_org)
+
+        response = self.call_view(
+            rf, staff_user, data={"action": "sync_wix"}, slug=group.slug
+        )
+
+        assert response.status_code == 302
+        # Should only sync the group's own user, not member org's user
+        mock_sync.assert_called_once_with(group.pk, wix_plan.pk, group_user.pk)
+
+
+@pytest.mark.django_db()
 class TestJoinRequestModal(ViewTestMixin):
     """Test the join request modal context on organization detail page"""
 
@@ -908,7 +1108,7 @@ class TestUpdateSubscription(ViewTestMixin):
         }
         response = self.call_view(rf, user, data, slug=organization.slug)
         assert response.status_code == 302
-        mocked.assert_called_with(
+        mocked.assert_called_once_with(
             token=data["stripe_token"],
             plan=organization.plan,
             max_users=data["max_users"],
