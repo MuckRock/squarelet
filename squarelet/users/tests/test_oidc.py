@@ -1,5 +1,5 @@
 # Standard Library
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, Mock
 
 # Third Party
 import pytest
@@ -37,6 +37,7 @@ def test_scope_organizations(user_factory, mocker):
     mocker.patch(
         "squarelet.organizations.models.Customer.stripe_customer",
         default_source=None,
+        invoice_settings=Mock(default_payment_method=None),
     )
     user = user_factory()
     # client=None so both serializer calls take the same (no-entitlements) path.

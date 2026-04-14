@@ -3,6 +3,7 @@ import pytest
 
 # Squarelet
 from squarelet.organizations.payments.providers.stripe_modern import (
+    StripeModernChargeService,
     StripeModernCustomerService,
     StripeModernSubscriptionService,
 )
@@ -20,6 +21,11 @@ def subscription_service():
     return StripeModernSubscriptionService()
 
 
+@pytest.fixture
+def charge_service():
+    return StripeModernChargeService()
+
+
 class TestModernCustomerService:
     def test_retrieve_source(self, customer_service, mocker):
         customer_id = "cus_123"
@@ -30,14 +36,169 @@ class TestModernCustomerService:
         mock_retrieve.assert_called_once_with(customer_id, source_id)
         assert result == mock_retrieve.return_value
 
-    def test_add_source(self, customer_service, mocker):
+    def test_add_source_creates_and_attaches_payment_method(
+        self, customer_service, mocker
+    ):
         customer_id = "cus_123"
         token = "tok_123"
         mock_customer = mocker.MagicMock(id=customer_id)
-        mock_create = mocker.patch("stripe.Customer.create_source")
+        mock_pm = mocker.MagicMock(id="pm_123")
+        mock_create = mocker.patch(
+            "stripe.PaymentMethod.create", return_value=mock_pm
+        )
+        mock_attach = mocker.patch("stripe.PaymentMethod.attach")
         result = customer_service.add_source(mock_customer, token)
-        mock_create.assert_called_once_with(customer_id, source=token)
-        assert result == mock_create.return_value
+        mock_create.assert_called_once_with(type="card", card={"token": token})
+        mock_attach.assert_called_once_with("pm_123", customer=customer_id)
+        assert result == mock_pm
+
+    def test_remove_source_detaches_payment_method(self, customer_service, mocker):
+        mock_pm = mocker.MagicMock(id="pm_123")
+        mock_detach = mocker.patch("stripe.PaymentMethod.detach")
+        customer_service.remove_source(mock_pm)
+        mock_detach.assert_called_once_with("pm_123")
+
+    def test_save_card_creates_attaches_and_sets_default(
+        self, customer_service, mocker
+    ):
+        customer_id = "cus_123"
+        token = "tok_123"
+        mock_customer = mocker.MagicMock(id=customer_id)
+        mock_pm = mocker.MagicMock(id="pm_new")
+        mock_create = mocker.patch(
+            "stripe.PaymentMethod.create", return_value=mock_pm
+        )
+        mock_attach = mocker.patch("stripe.PaymentMethod.attach")
+        mock_modify = mocker.patch("stripe.Customer.modify")
+        customer_service.save_card(mock_customer, token)
+        mock_create.assert_called_once_with(type="card", card={"token": token})
+        mock_attach.assert_called_once_with("pm_new", customer=customer_id)
+        mock_modify.assert_called_once_with(
+            customer_id,
+            invoice_settings={"default_payment_method": "pm_new"},
+        )
+
+    def test_remove_card_detaches_payment_method(self, customer_service, mocker):
+        mock_detach = mocker.patch("stripe.PaymentMethod.detach")
+        mock_modify = mocker.patch("stripe.Customer.modify")
+        customer_service.remove_card("cus_123", "pm_abc")
+        mock_detach.assert_called_once_with("pm_abc")
+        mock_modify.assert_called_once_with(
+            "cus_123", invoice_settings={"default_payment_method": ""}
+        )
+
+    def test_remove_card_deletes_legacy_source(self, customer_service, mocker):
+        mock_delete = mocker.patch("stripe.Customer.delete_source")
+        customer_service.remove_card("cus_123", "card_abc")
+        mock_delete.assert_called_once_with("cus_123", "card_abc")
+
+    def test_get_card_returns_default_payment_method(self, customer_service, mocker):
+        pm_id = "pm_123"
+        mock_pm = mocker.MagicMock(id=pm_id, object="payment_method")
+        mock_customer = mocker.MagicMock()
+        mock_customer.invoice_settings.default_payment_method = pm_id
+        mock_customer.default_source = None
+        mock_retrieve = mocker.patch(
+            "stripe.PaymentMethod.retrieve", return_value=mock_pm
+        )
+        result = customer_service.get_card(mock_customer)
+        mock_retrieve.assert_called_once_with(pm_id)
+        assert result == mock_pm
+
+    def test_get_card_falls_back_to_source(self, customer_service, mocker):
+        mock_source = mocker.MagicMock(id="card_123", object="card")
+        mock_customer = mocker.MagicMock()
+        mock_customer.invoice_settings.default_payment_method = None
+        mock_customer.default_source = "card_123"
+        mock_retrieve = mocker.patch(
+            "stripe.Customer.retrieve_source", return_value=mock_source
+        )
+        result = customer_service.get_card(mock_customer)
+        mock_retrieve.assert_called_once_with(mock_customer.id, "card_123")
+        assert result == mock_source
+
+    def test_get_card_returns_none_when_no_saved_card(
+        self, customer_service, mocker
+    ):
+        mock_customer = mocker.MagicMock()
+        mock_customer.invoice_settings.default_payment_method = None
+        mock_customer.default_source = None
+        result = customer_service.get_card(mock_customer)
+        assert result is None
+
+    def test_get_card_returns_none_for_non_card_source(
+        self, customer_service, mocker
+    ):
+        mock_source = mocker.MagicMock(id="src_123", object="ach_debit")
+        mock_customer = mocker.MagicMock()
+        mock_customer.invoice_settings.default_payment_method = None
+        mock_customer.default_source = "src_123"
+        mocker.patch("stripe.Customer.retrieve_source", return_value=mock_source)
+        result = customer_service.get_card(mock_customer)
+        assert result is None
+
+
+class TestModernChargeService:
+    def test_create_uses_payment_intent(self, charge_service, mocker):
+        mock_source = mocker.MagicMock(id="pm_123")
+        mock_customer = mocker.MagicMock(id="cus_123")
+        mock_charge = mocker.MagicMock(id="ch_123", created=1700000000)
+        mock_intent = mocker.MagicMock(latest_charge=mock_charge)
+        mock_create = mocker.patch(
+            "stripe.PaymentIntent.create", return_value=mock_intent
+        )
+        result = charge_service.create(
+            amount=1000,
+            currency="usd",
+            customer=mock_customer,
+            description="Test",
+            source=mock_source,
+            metadata={"key": "val"},
+            statement_descriptor_suffix="Test",
+            idempotency_key="idem-123",
+        )
+        mock_create.assert_called_once_with(
+            amount=1000,
+            currency="usd",
+            customer="cus_123",
+            payment_method="pm_123",
+            description="Test",
+            metadata={"key": "val"},
+            statement_descriptor_suffix="Test",
+            confirm=True,
+            off_session=True,
+            expand=["latest_charge"],
+            idempotency_key="idem-123",
+        )
+        assert result == mock_charge
+
+    def test_create_works_with_legacy_source_id(self, charge_service, mocker):
+        """Card/Source objects saved before migration still work as payment_method."""
+        mock_source = mocker.MagicMock(id="card_abc")
+        mock_customer = mocker.MagicMock(id="cus_123")
+        mock_charge = mocker.MagicMock(id="ch_456")
+        mock_intent = mocker.MagicMock(latest_charge=mock_charge)
+        mock_create = mocker.patch(
+            "stripe.PaymentIntent.create", return_value=mock_intent
+        )
+        result = charge_service.create(
+            amount=500,
+            currency="usd",
+            customer=mock_customer,
+            description="Legacy",
+            source=mock_source,
+            metadata={},
+            statement_descriptor_suffix="",
+            idempotency_key="idem-456",
+        )
+        call_kwargs = mock_create.call_args[1]
+        assert call_kwargs["payment_method"] == "card_abc"
+        assert result == mock_charge
+
+    def test_retrieve_uses_charge_api(self, charge_service, mocker):
+        mock_retrieve = mocker.patch("stripe.Charge.retrieve")
+        charge_service.retrieve("ch_123")
+        mock_retrieve.assert_called_once_with("ch_123")
 
 
 class TestModernSubscriptionService:

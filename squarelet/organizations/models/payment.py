@@ -102,29 +102,24 @@ class Customer(models.Model):
 
     @mproperty
     def card(self):
-        """Retrieve the customer's default credit card on file, if there is one"""
-        if self.stripe_customer.default_source:
-            source = (
-                get_payment_provider()
-                .get_customer_service()
-                .retrieve_source(
-                    self.stripe_customer, self.stripe_customer.default_source
-                )
-            )
-            if source.object == "card":
-                return source
-            else:
-                return None
-        else:
-            return None
+        """Retrieve the customer's default saved payment method or source, if any."""
+        return (
+            get_payment_provider()
+            .get_customer_service()
+            .get_card(self.stripe_customer)
+        )
 
     @property
     def card_display(self):
         # pylint: disable=using-constant-test
-        if self.card:
-            return f"{self.card.brand}: x{self.card.last4}"
-        else:
+        card = self.card
+        if not card:
             return ""
+        # PaymentMethod objects nest card details under .card; Sources expose
+        # brand/last4 directly.
+        if getattr(card, "object", None) == "payment_method":
+            return f"{card.card.brand}: x{card.card.last4}"
+        return f"{card.brand}: x{card.last4}"
 
     def save_card(self, token):
         """Save a new default card"""
@@ -134,9 +129,11 @@ class Customer(models.Model):
 
     def remove_card(self):
         """Remove the default card"""
-        get_payment_provider().get_customer_service().remove_card(
-            self.customer_id, self.stripe_customer.default_source
-        )
+        card = self.card
+        if card:
+            get_payment_provider().get_customer_service().remove_card(
+                self.customer_id, card.id
+            )
 
     def add_source(self, token):
         """Add a non-default source"""

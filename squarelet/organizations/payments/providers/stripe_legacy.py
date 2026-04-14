@@ -48,6 +48,16 @@ class StripeLegacyCustomerService(CustomerService):
     def add_source(self, stripe_customer, token):
         return stripe_customer.sources.create(source=token)
 
+    def remove_source(self, source_or_pm):
+        source_or_pm.delete()
+
+    def get_card(self, stripe_customer):
+        if stripe_customer.default_source:
+            source = stripe_customer.sources.retrieve(stripe_customer.default_source)
+            if source.object == "card":
+                return source
+        return None
+
 
 class StripeLegacySubscriptionService(SubscriptionService):
     """Subscription operations using Stripe 2.x Plans API."""

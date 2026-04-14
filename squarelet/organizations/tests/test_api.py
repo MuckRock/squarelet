@@ -29,6 +29,7 @@ class TestOrganizationAPI:
         mocker.patch(
             "squarelet.organizations.models.Customer.stripe_customer",
             default_source=None,
+            invoice_settings=Mock(default_payment_method=None),
         )
         response = client.get(
             f"/api/organizations/{user.individual_organization.uuid}/"
@@ -40,14 +41,21 @@ class TestOrganizationAPI:
         assert response_json["individual"]
 
     def test_create_charge(self, user_factory, mocker):
-        mocked = mocker.patch(
-            "stripe.Charge.create",
-            return_value=Mock(id="charge_id", created=time.time()),
-        )
+        mock_card = Mock(id="card_123")
         mocker.patch(
             "squarelet.organizations.models.Customer.stripe_customer",
             default_source=None,
+            invoice_settings=Mock(default_payment_method=None),
         )
+        mocker.patch(
+            "squarelet.organizations.models.payment.Customer.card",
+            new_callable=mocker.PropertyMock,
+            return_value=mock_card,
+        )
+        mocked_charge_create = mocker.patch(
+            "squarelet.organizations.querysets.get_payment_provider"
+        ).return_value.get_charge_service.return_value.create
+        mocked_charge_create.return_value = Mock(id="charge_id", created=time.time())
         user = user_factory(is_staff=True)
         data = {
             "organization": str(user.individual_organization.uuid),
@@ -64,7 +72,7 @@ class TestOrganizationAPI:
         assert "card" in response_json
         for field in ("organization", "amount", "fee_amount", "description"):
             assert response_json[field] == data[field]
-        mocked.assert_called_once()
+        mocked_charge_create.assert_called_once()
         assert Charge.objects.filter(charge_id="charge_id").exists()
 
     def test_retrieve_consent(self, user_factory, client, mocker):
@@ -83,6 +91,7 @@ class TestOrganizationAPI:
         mocker.patch(
             "squarelet.organizations.models.Customer.stripe_customer",
             default_source=None,
+            invoice_settings=Mock(default_payment_method=None),
         )
         response = api_client.get(f"/api/organizations/{organization.uuid}/")
         assert response.status_code == status.HTTP_200_OK
@@ -99,6 +108,7 @@ class TestOrganizationAPI:
         mocker.patch(
             "squarelet.organizations.models.Customer.stripe_customer",
             default_source=None,
+            invoice_settings=Mock(default_payment_method=None),
         )
         response = api_client.get(f"/api/organizations/{organization.uuid}/")
         assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -120,6 +130,7 @@ class TestOrganizationAPI:
         mocker.patch(
             "squarelet.organizations.models.Customer.stripe_customer",
             default_source=None,
+            invoice_settings=Mock(default_payment_method=None),
         )
         response = api_client.get(f"/api/organizations/{organization.uuid}/")
         assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -140,6 +151,7 @@ class TestOrganizationAPI:
         mocker.patch(
             "squarelet.organizations.models.Customer.stripe_customer",
             default_source=None,
+            invoice_settings=Mock(default_payment_method=None),
         )
         response = api_client.get(f"/api/organizations/{organization.uuid}/")
         assert response.status_code == status.HTTP_404_NOT_FOUND

@@ -25,6 +25,16 @@ API version history tracked in this file:
                subscription schedules, Discount.coupon -> Discount.source
                (none used here)
   2026-03-25 - dahlia: cancellation_reason enum expanded (not checked here)
+
+Payment Intents migration (Phase 1):
+  ChargeService.create() now uses stripe.PaymentIntent.create(confirm=True,
+  off_session=True) instead of stripe.Charge.create(). The underlying Stripe
+  Charge object is returned via expand=["latest_charge"] so the interface is
+  unchanged. Phase 2 will add frontend confirmCardPayment() for 3DS/SCA.
+
+  Saved cards: new saves use PaymentMethods (pm_xxx) via save_card(). Existing
+  customers' Sources/Cards (card_xxx/src_xxx) continue to work as payment_method
+  in PaymentIntents per the Stripe transitioning guide.
 """
 
 # Third Party
@@ -60,19 +70,54 @@ class StripeModernCustomerService(CustomerService):
         return stripe.Customer.modify(customer_id, **kwargs)
 
     def save_card(self, stripe_customer, token):
-        """Set a card token as the customer's default source."""
-        stripe.Customer.modify(stripe_customer.id, source=token)
+        """Save a card token as the customer's default payment method."""
+        pm = stripe.PaymentMethod.create(type="card", card={"token": token})
+        stripe.PaymentMethod.attach(pm.id, customer=stripe_customer.id)
+        stripe.Customer.modify(
+            stripe_customer.id,
+            invoice_settings={"default_payment_method": pm.id},
+        )
 
     def remove_card(self, customer_id, source_id):
-        stripe.Customer.delete_source(customer_id, source_id)
+        """Remove a saved card. Handles both PaymentMethods (pm_) and Sources."""
+        if source_id and source_id.startswith("pm_"):
+            stripe.PaymentMethod.detach(source_id)
+            stripe.Customer.modify(
+                customer_id,
+                invoice_settings={"default_payment_method": ""},
+            )
+        else:
+            stripe.Customer.delete_source(customer_id, source_id)
 
     def retrieve_source(self, stripe_customer, source_id):
         # sources no longer auto-expand as of API version 2020-08-27
         return stripe.Customer.retrieve_source(stripe_customer.id, source_id)
 
     def add_source(self, stripe_customer, token):
-        # sources no longer auto-expand as of API version 2020-08-27
-        return stripe.Customer.create_source(stripe_customer.id, source=token)
+        """Create and attach a PaymentMethod for a single charge."""
+        pm = stripe.PaymentMethod.create(type="card", card={"token": token})
+        stripe.PaymentMethod.attach(pm.id, customer=stripe_customer.id)
+        return pm
+
+    def remove_source(self, source_or_pm):
+        """Detach a temporary PaymentMethod after a one-time charge."""
+        stripe.PaymentMethod.detach(source_or_pm.id)
+
+    def get_card(self, stripe_customer):
+        """Return the default PaymentMethod, falling back to a saved Source."""
+        invoice_settings = getattr(stripe_customer, "invoice_settings", None)
+        pm_id = invoice_settings and getattr(
+            invoice_settings, "default_payment_method", None
+        )
+        if pm_id:
+            return stripe.PaymentMethod.retrieve(pm_id)
+        if stripe_customer.default_source:
+            source = stripe.Customer.retrieve_source(
+                stripe_customer.id, stripe_customer.default_source
+            )
+            if source.object == "card":
+                return source
+        return None
 
 
 class StripeModernSubscriptionService(SubscriptionService):
@@ -129,7 +174,7 @@ class StripeModernSubscriptionService(SubscriptionService):
 
 
 class StripeModernChargeService(ChargeService):
-    """Charge operations using Stripe direct charges."""
+    """Charge operations using PaymentIntents."""
 
     def create(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
@@ -142,16 +187,24 @@ class StripeModernChargeService(ChargeService):
         statement_descriptor_suffix,
         idempotency_key,
     ):
-        return stripe.Charge.create(
+        # `source` is a PaymentMethod (pm_) or a legacy Source/Card (card_/src_)
+        # attached to the customer. Stripe accepts all as `payment_method` in
+        # PaymentIntents per the Payment Methods transitioning guide.
+        # off_session=True avoids requires_action for Phase 1 (no 3DS frontend).
+        intent = stripe.PaymentIntent.create(
             amount=amount,
             currency=currency,
-            customer=customer,
+            customer=customer.id,
+            payment_method=source.id,
             description=description,
-            source=source,
             metadata=metadata,
             statement_descriptor_suffix=statement_descriptor_suffix,
+            confirm=True,
+            off_session=True,
+            expand=["latest_charge"],
             idempotency_key=idempotency_key,
         )
+        return intent.latest_charge
 
     def retrieve(self, charge_id):
         return stripe.Charge.retrieve(charge_id)
