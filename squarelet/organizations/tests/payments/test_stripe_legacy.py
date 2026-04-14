@@ -33,6 +33,38 @@ class TestLegacyCustomerService:
         mock_customer.sources.create.assert_called_once_with(source=token)
         assert result == mock_customer.sources.create.return_value
 
+    def test_remove_source_calls_delete(self, customer_service, mocker):
+        mock_source = mocker.MagicMock()
+        customer_service.remove_source(mock_source)
+        mock_source.delete.assert_called_once()
+
+    def test_get_card_returns_card_source(self, customer_service, mocker):
+        mock_source = mocker.MagicMock(object="card")
+        mock_customer = mocker.MagicMock()
+        mock_customer.default_source = "card_123"
+        mock_customer.sources.retrieve.return_value = mock_source
+        result = customer_service.get_card(mock_customer)
+        mock_customer.sources.retrieve.assert_called_once_with("card_123")
+        assert result == mock_source
+
+    def test_get_card_returns_none_for_non_card_source(
+        self, customer_service, mocker
+    ):
+        mock_source = mocker.MagicMock(object="ach_debit")
+        mock_customer = mocker.MagicMock()
+        mock_customer.default_source = "src_123"
+        mock_customer.sources.retrieve.return_value = mock_source
+        result = customer_service.get_card(mock_customer)
+        assert result is None
+
+    def test_get_card_returns_none_when_no_default_source(
+        self, customer_service, mocker
+    ):
+        mock_customer = mocker.MagicMock()
+        mock_customer.default_source = None
+        result = customer_service.get_card(mock_customer)
+        assert result is None
+
 
 class TestLegacySubscriptionService:
     def test_create_uses_billing_parameter(self, subscription_service, mocker):

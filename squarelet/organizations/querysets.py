@@ -303,7 +303,7 @@ class ChargeQuerySet(models.QuerySet):
             )
         )
         if token:
-            source.delete()
+            get_payment_provider().get_customer_service().remove_source(source)
 
         # use get or create as there is a race condition from creating the charge on
         # stripe, to receiving the webhook and saving it to the database there,
