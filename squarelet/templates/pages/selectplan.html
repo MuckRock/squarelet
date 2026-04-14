@@ -3,6 +3,7 @@
 {% load i18n static django_vite %}
 {% load handleintent pass_query %}
 {% load humanize %}
+{% load icon %}
 
 {% block head_title %}{% trans "Select plan" %}{% endblock %}
 
@@ -46,7 +47,7 @@
       <ul class="checklist">
         <li class="checklist-item">
           <span class="checkmark icon">
-            {% include "core/icons/checkmark.svg" %}
+            {% icon "checkmark" %}
           </span>
           <span class="text">
             {% trans "Sign in to services and tools with your MuckRock account" %}
@@ -54,7 +55,7 @@
         </li>
         <li class="checklist-item">
           <span class="checkmark icon">
-            {% include "core/icons/checkmark.svg" %}
+            {% icon "checkmark" %}
           </span>
           <span class="text">
             {% trans "Join and create organizations to collaborate with others" %}
@@ -62,7 +63,7 @@
         </li>
         <li class="checklist-item">
           <span class="checkmark icon">
-            {% include "core/icons/checkmark.svg" %}
+            {% icon "checkmark" %}
           </span>
           <span class="text">
             {% trans "Create and file public records requests with MuckRock Requests" %}
@@ -70,7 +71,7 @@
         </li>
         <li class="checklist-item">
           <span class="checkmark icon">
-            {% include "core/icons/checkmark.svg" %}
+            {% icon "checkmark" %}
           </span>
           <span class="text">
             {% trans "Search documents and create projects with DocumentCloud" %}
@@ -114,7 +115,7 @@
       <div class="plan professional">
         <header>
           <span class="person icon">
-            {% include "core/icons/person.svg" %}
+            {% icon "person" %}
           </span>
           <h3>{% trans "Premium for professionals" %}</h3>
         </header>
@@ -122,7 +123,7 @@
           <ul class="checklist">
             <li class="checklist-item">
               <span class="checkmark icon">
-                {% include "core/icons/checkmark.svg" %}
+                {% icon "checkmark" %}
               </span>
               <span class="text">
                 {% trans "Includes 20 requests per month on MuckRock" %}
@@ -130,7 +131,7 @@
             </li>
             <li class="checklist-item">
               <span class="checkmark icon">
-                {% include "core/icons/checkmark.svg" %}
+                {% icon "checkmark" %}
               </span>
               <span class="text">
                 {% trans "Embargo requests for up to 30 days after completion" %}
@@ -138,7 +139,7 @@
             </li>
             <li class="checklist-item">
               <span class="checkmark icon">
-                {% include "core/icons/checkmark.svg" %}
+                {% icon "checkmark" %}
               </span>
               <span class="text">
                 {% trans "Search your private notes on DocumentCloud" %}
@@ -146,7 +147,7 @@
             </li>
             <li class="checklist-item">
               <span class="checkmark icon">
-                {% include "core/icons/checkmark.svg" %}
+                {% icon "checkmark" %}
               </span>
               <span class="text">
                 {% blocktrans %}
@@ -172,7 +173,7 @@
       <div class="plan organization">
         <header>
           <span class="organization icon">
-            {% include "core/icons/organization.svg" %}
+            {% icon "organization" %}
           </span>
           <h3>{% trans "Premium for organizations" %}</h3>
         </header>
@@ -180,7 +181,7 @@
           <ul class="checklist">
             <li class="checklist-item">
               <span class="checkmark icon">
-                {% include "core/icons/checkmark.svg" %}
+                {% icon "checkmark" %}
               </span>
               <span class="text">
                 {% trans "Share resources with unlimited members" %}
@@ -188,7 +189,7 @@
             </li>
             <li class="checklist-item">
               <span class="checkmark icon">
-                {% include "core/icons/checkmark.svg" %}
+                {% icon "checkmark" %}
               </span>
               <span class="text">
                 {% trans "Includes 50 requests per month on MuckRock" %}
@@ -196,7 +197,7 @@
             </li>
             <li class="checklist-item">
               <span class="checkmark icon">
-                {% include "core/icons/checkmark.svg" %}
+                {% icon "checkmark" %}
               </span>
               <span class="text">
                 {% trans "Permanently embargo requests" %}
@@ -204,7 +205,7 @@
             </li>
             <li class="checklist-item">
               <span class="checkmark icon">
-                {% include "core/icons/checkmark.svg" %}
+                {% icon "checkmark" %}
               </span>
               <span class="text">
                 {% blocktrans %}
@@ -258,7 +259,7 @@
               {% for benefit in tier.monthly.standard.benefits|default:tier.annual.standard.benefits %}
               <li class="checklist-item">
                 <span class="checkmark icon">
-                  {% include "core/icons/checkmark.svg" %}
+                  {% icon "checkmark" %}
                 </span>
                 <span class="text">{{ benefit }}</span>
               </li>
@@ -370,7 +371,7 @@
               <ul class="checklist">
                 <li class="checklist-item">
                   <span class="checkmark icon">
-                    {% include "core/icons/checkmark.svg" %}
+                    {% icon "checkmark" %}
                   </span>
                   <span class="text">
                     {% trans "Upload to DocumentCloud" %}
@@ -378,7 +379,7 @@
                 </li>
                 <li class="checklist-item">
                   <span class="checkmark icon">
-                    {% include "core/icons/checkmark.svg" %}
+                    {% icon "checkmark" %}
                   </span>
                   <span class="text">
                     {% trans "Publish and embed documents" %}

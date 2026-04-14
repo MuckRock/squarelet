@@ -1,5 +1,6 @@
 {% extends "mfa/recovery_codes/base.html" %}
 {% load i18n django_vite %}
+{% load icon %}
 
 {% block vite %}
 {{ block.super }}
@@ -10,7 +11,7 @@
 <div class="container" id="recovery-codes">
   <header>
     <a class="nav-link" href="{% url 'users:detail' user.username %}">
-      {% include "core/icons/arrow-left.svg" %}
+      {% icon "arrow-left" %}
       {% trans "Return to your account" %}
     </a>
   </header>

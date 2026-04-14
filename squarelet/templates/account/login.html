@@ -3,6 +3,7 @@
 {% load i18n %}
 {% load account socialaccount %}
 {% load handleintent pass_query %}
+{% load icon %}
 
 {% block title %}{% trans "Sign In" %}{% endblock %}
 
@@ -265,9 +266,9 @@
           <button class="ghost button" type="submit">
             <span class="social-icon">
               {% if provider.name == "Google" %}
-              {% include "core/icons/google.svg" %}
+              {% icon "google" %}
               {% elif provider.name == "GitHub" %}
-              {% include "core/icons/github.svg" %}
+              {% icon "github" %}
               {% endif %}
             </span>
             <span class="text">Sign in with {{ provider.name }}</span>

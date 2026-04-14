@@ -1,5 +1,6 @@
 {% extends "layouts/sidebar_layout.html" %}
 {% load i18n django_vite crispy_forms_tags planinfo rules %}
+{% load icon %}
 
 {% block title %}{{ organization.reference_name }}{% endblock %}
 
@@ -13,14 +14,14 @@
 {% block header %}
   <header>
     <h1>{{ organization.name }}</h1>
-    <span class="arrow">{% include "core/icons/chevron-right.svg" %}</span>
+    <span class="arrow">{% icon "chevron-right" %}</span>
     <h2>{% trans "Edit profile" %}</h2>
   </header>
 {% endblock header %}
 
 {% block sidebar %}
   <a href="{{ organization.get_absolute_url }}" class="btn small ghost primary">
-    {% include "core/icons/chevron-left.svg" %}
+    {% icon "chevron-left" %}
     {% trans "Back to team overview" %}
   </a>
 {% endblock %}
@@ -141,12 +142,12 @@
 
                       <div class="staff-actions-btn-group">
                         <button type="submit" class="btn small primary" name="action" value="accept">
-                          {% include "core/icons/check.svg" %}
+                          {% icon "check" %}
                           {% trans "Accept" %}
                         </button>
 
                         <button type="submit" class="btn small danger" name="action" value="reject">
-                          {% include "core/icons/x.svg" %}
+                          {% icon "x" %}
                           {% trans "Reject" %}
                         </button>
                       </div>

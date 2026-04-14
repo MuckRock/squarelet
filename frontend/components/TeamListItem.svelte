@@ -2,7 +2,7 @@
   import type { Organization } from "@/types";
 
   import "@/css/team_list_item.css";
-  import people from "@/icons/people.svg";
+  import people from "@/icons/people-colored.svg";
   import UnverifiedIcon from "@/icons/unverified.svelte";
   import VerifiedIcon from "@/icons/verified.svelte";
   import LockIcon from "@/icons/lock.svelte";
