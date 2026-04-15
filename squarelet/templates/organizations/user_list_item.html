@@ -1,5 +1,6 @@
 {# required css: css/user_list_item.css #}
-{% load thumbnail i18n %}
+{% load thumbnail i18n rules %}
+{% has_perm "organizations.can_manage_members" request.user organization as can_manage_members %}
 {% with avatar=user.avatar %}
 <div class="user">
     {% if avatar %}
@@ -22,7 +23,7 @@
             {% if membership.admin %}
             <span class="orange badge">{% trans "Admin" %}</span>
             {% endif %}
-            {% if user.has_mfa_enabled %}
+            {% if can_manage_members and user.has_mfa_enabled and membership %}
             <span class="green badge">{% trans "2FA" %}</span>
             {% endif %}
             {% if request.user.is_authenticated %}
