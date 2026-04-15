@@ -55,6 +55,7 @@
       </a>
     </li>
     {% endif %}
+    {% if user.is_authenticated %}
     <li>
       <a href="#members" class="nav-item">
         {% include "core/icons/people.svg" %}
@@ -65,6 +66,7 @@
         {% endif %}
       </a>
     </li>
+    {% endif %}
     <li>
       <a href="#verification" class="nav-item">
         {% if organization.verified_journalist %}
@@ -232,6 +234,7 @@
     </section>
     {% endif %}
 
+    {% if user.is_authenticated %}
     <section id="members">
       <header>
         <h2>
@@ -273,7 +276,7 @@
             <p>{% trans 'You have requested an invite.' %}</p>
           {% elif rejected_invite %}
             <p>{% trans 'Your request to join this organization was rejected. Please contact an admin if this is a mistake and you need to be added to this organization.' %}</p>
-          {% elif user.is_authenticated and not is_member %}
+          {% elif not is_member %}
             <form method="post">
               {% csrf_token %}
               <button class="btn primary" name="action" value="join" id="join-org-button">
@@ -343,6 +346,7 @@
         {% endif %}
       </main>
     </section>
+    {% endif %}
 
     <section id="verification">
       <header>

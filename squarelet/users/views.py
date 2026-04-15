@@ -155,7 +155,7 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         # Get the current plan and subscription, if any
         individual_org = user.individual_organization
         current_plan = None
-        upgrade_plan = Plan.objects.get(slug="professional")
+        upgrade_plan = Plan.objects.filter(slug="professional").first()
         subscription = None
         if hasattr(individual_org, "subscriptions"):
             subscription = individual_org.subscriptions.first()

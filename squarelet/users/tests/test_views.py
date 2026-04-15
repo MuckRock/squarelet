@@ -38,6 +38,15 @@ class TestUserDetailView(ViewTestMixin):
             user.organizations.filter(individual=False)
         )
 
+    def test_get_without_professional_plan(self, rf, user_factory, mocker):
+        """View should render even if the 'professional' upgrade plan is missing."""
+        user = user_factory()
+        mocker.patch("squarelet.organizations.models.payment.Plan.delete_stripe_plan")
+        Plan.objects.filter(slug="professional").delete()
+        response = self.call_view(rf, user, username=user.username)
+        assert response.status_code == 200
+        assert response.context_data["upgrade_plan"] is None
+
     def test_get_bad(self, rf, user_factory):
         user = user_factory()
         other_user = user_factory()
