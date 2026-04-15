@@ -135,6 +135,7 @@ class TestMembership:
         """Test deleting membership triggers unsync via group's Wix plan"""
         mock_unsync = mocker.patch("squarelet.organizations.tasks.unsync_wix.delay")
         mocker.patch("squarelet.organizations.tasks.sync_wix.delay")
+        mocker.patch("squarelet.organizations.tasks.sync_wix_for_group_member.delay")
         mocker.patch(
             "squarelet.organizations.models.membership.send_cache_invalidations"
         )
