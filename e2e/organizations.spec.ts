@@ -64,10 +64,10 @@ test.describe("Organization Viewing", () => {
       expect(response?.status()).toBe(404);
     });
 
-    test("sees only admins in member list", async ({ page }) => {
+    test("cannot see the org's member list", async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
-      await expect(page.locator("#members .user-list")).toBeVisible();
-      await expect(page.locator("#members .user-list .user")).toHaveCount(1); // only admins
+      await expect(page.locator("#members .user-list")).not.toBeVisible();
+      await expect(page.locator("#members .user-list .user")).not.toBeVisible();
     });
 
     test("sees org verification status", async ({ page }) => {
