@@ -109,6 +109,20 @@ class Command(BaseCommand):
             },
         )
 
+        # Create the professional plan (referenced by the user detail view
+        # as the individual upgrade option)
+        Plan.objects.get_or_create(
+            slug="professional",
+            defaults={
+                "name": "Professional",
+                "minimum_users": 1,
+                "base_price": 20,
+                "price_per_user": 5,
+                "for_individuals": True,
+                "for_groups": False,
+            },
+        )
+
         # Create users
         created_users = {}
         for user_spec in USERS:
