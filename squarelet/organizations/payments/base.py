@@ -13,6 +13,19 @@ introduce domain dataclasses as return types when the modern provider is built.
 from abc import ABC, abstractmethod
 
 
+class PaymentActionRequired(Exception):
+    """Raised when a PaymentIntent requires client-side 3DS/SCA confirmation.
+
+    Carries the client_secret needed for stripe.confirmCardPayment() and the
+    payment_intent_id for the follow-up confirmation request to squarelet.
+    """
+
+    def __init__(self, client_secret, payment_intent_id):
+        self.client_secret = client_secret
+        self.payment_intent_id = payment_intent_id
+        super().__init__(f"Payment requires action: {payment_intent_id}")
+
+
 class CustomerService(ABC):
     """Manages Stripe Customer objects and their payment sources."""
 
@@ -46,7 +59,11 @@ class CustomerService(ABC):
 
     @abstractmethod
     def remove_source(self, source_or_pm):
-        """Remove a temporary payment source or payment method after a one-time charge."""
+        """Remove a temporary payment source or payment method after a one-time charge.
+
+        Accepts either a payment source/method object (with an .id attribute) or,
+        for the modern provider only, a PM ID string.
+        """
 
     @abstractmethod
     def get_card(self, stripe_customer):
@@ -114,6 +131,16 @@ class ChargeService(ABC):
     @abstractmethod
     def retrieve(self, charge_id):
         """Retrieve an existing charge by ID."""
+
+    @abstractmethod
+    def confirm_payment_intent(self, payment_intent_id):
+        """Retrieve a confirmed PaymentIntent and return (latest_charge, pm_id).
+
+        Verifies the PaymentIntent has status 'succeeded' and returns the
+        underlying Charge object together with the payment_method ID used.
+        Raises ValueError if the PaymentIntent has not succeeded.
+        Only the modern provider supports this; legacy raises NotImplementedError.
+        """
 
 
 class InvoiceService(ABC):

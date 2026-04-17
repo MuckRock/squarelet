@@ -128,6 +128,11 @@ class StripeLegacyChargeService(ChargeService):
     def retrieve(self, charge_id):
         return stripe.Charge.retrieve(charge_id)
 
+    def confirm_payment_intent(self, payment_intent_id):
+        raise NotImplementedError(
+            "Legacy Stripe provider does not support Payment Intents"
+        )
+
 
 class StripeLegacyInvoiceService(InvoiceService):
     """Invoice operations using Stripe 2.x."""
