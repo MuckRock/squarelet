@@ -363,3 +363,109 @@ class TestChargeQuerySet:
         assert call_kwargs["amount"] == large_amount
         assert charge.amount == large_amount
         assert charge.fee_amount == 5000
+
+
+class TestConfirmPaymentIntent:
+    """Unit tests for ChargeQuerySet.confirm_payment_intent()"""
+
+    def _mock_provider_confirm(self, mocker, charge_id="ch_confirmed", pm_id="pm_123"):
+        """Return a mock (charge, pm_id) result and the provider confirm mock."""
+        import time
+        mock_stripe_charge = mocker.Mock(id=charge_id, created=int(time.time()))
+        mock_provider = mocker.patch(
+            "squarelet.organizations.querysets.get_payment_provider"
+        ).return_value
+        mock_provider.get_charge_service.return_value.confirm_payment_intent.return_value = (
+            mock_stripe_charge,
+            pm_id,
+        )
+        return mock_stripe_charge, mock_provider
+
+    @pytest.mark.django_db()
+    def test_confirm_creates_charge(self, mocker):
+        """Test that confirm_payment_intent creates a local Charge record."""
+        from squarelet.organizations.tests.factories import OrganizationFactory
+        org = OrganizationFactory()
+        mock_stripe_charge, mock_provider = self._mock_provider_confirm(
+            mocker, "ch_confirmed"
+        )
+
+        charge = Charge.objects.confirm_payment_intent(
+            payment_intent_id="pi_123",
+            organization=org,
+            amount=2000,
+            fee_amount=50,
+            description="Test confirm",
+            metadata={},
+            save_card=False,
+        )
+
+        assert charge.charge_id == "ch_confirmed"
+        assert charge.amount == 2000
+        assert charge.organization == org
+
+    @pytest.mark.django_db()
+    def test_confirm_detaches_temp_pm_when_not_saving_card(self, mocker):
+        """Temporary PM is removed after confirm when save_card=False."""
+        from squarelet.organizations.tests.factories import OrganizationFactory
+        org = OrganizationFactory()
+        mock_stripe_charge, mock_provider = self._mock_provider_confirm(
+            mocker, "ch_no_save", pm_id="pm_temp"
+        )
+        mock_remove_source = mock_provider.get_customer_service.return_value.remove_source
+
+        Charge.objects.confirm_payment_intent(
+            payment_intent_id="pi_123",
+            organization=org,
+            amount=1000,
+            fee_amount=0,
+            description="No save",
+            metadata={},
+            save_card=False,
+        )
+
+        mock_remove_source.assert_called_once_with("pm_temp")
+
+    @pytest.mark.django_db()
+    def test_confirm_does_not_detach_pm_when_saving_card(self, mocker):
+        """Saved card PM is not removed after confirm when save_card=True."""
+        from squarelet.organizations.tests.factories import OrganizationFactory
+        org = OrganizationFactory()
+        mock_stripe_charge, mock_provider = self._mock_provider_confirm(
+            mocker, "ch_with_save", pm_id="pm_saved"
+        )
+        mock_remove_source = mock_provider.get_customer_service.return_value.remove_source
+
+        Charge.objects.confirm_payment_intent(
+            payment_intent_id="pi_123",
+            organization=org,
+            amount=1000,
+            fee_amount=0,
+            description="Save card",
+            metadata={},
+            save_card=True,
+        )
+
+        mock_remove_source.assert_not_called()
+
+    @pytest.mark.django_db()
+    def test_confirm_race_condition_with_webhook(self, mocker):
+        """get_or_create handles webhook race on confirm path."""
+        from squarelet.organizations.tests.factories import ChargeFactory, OrganizationFactory
+        org = OrganizationFactory()
+        existing_charge = ChargeFactory(charge_id="ch_existing_confirm", organization=org)
+        mock_stripe_charge, _ = self._mock_provider_confirm(
+            mocker, "ch_existing_confirm", pm_id=None
+        )
+        # pm_id=None → no remove_source call expected
+        charge = Charge.objects.confirm_payment_intent(
+            payment_intent_id="pi_race",
+            organization=org,
+            amount=5000,
+            fee_amount=0,
+            description="Race confirm",
+            metadata={},
+            save_card=False,
+        )
+        assert charge.id == existing_charge.id
+        assert Charge.objects.filter(charge_id="ch_existing_confirm").count() == 1

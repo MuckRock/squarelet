@@ -26,11 +26,13 @@ API version history tracked in this file:
                (none used here)
   2026-03-25 - dahlia: cancellation_reason enum expanded (not checked here)
 
-Payment Intents migration (Phase 1):
-  ChargeService.create() now uses stripe.PaymentIntent.create(confirm=True,
-  off_session=True) instead of stripe.Charge.create(). The underlying Stripe
-  Charge object is returned via expand=["latest_charge"] so the interface is
-  unchanged. Phase 2 will add frontend confirmCardPayment() for 3DS/SCA.
+Payment Intents migration (Phase 2):
+  ChargeService.create() uses stripe.PaymentIntent.create(confirm=True) without
+  off_session=True. When Stripe requires 3DS/SCA, the intent status is
+  "requires_action" and PaymentActionRequired is raised carrying the
+  client_secret and payment_intent_id for client-side confirmCardPayment().
+  After the client confirms, confirm_payment_intent() retrieves the PI, verifies
+  it succeeded, and returns (latest_charge, payment_method_id).
 
   Saved cards: new saves use PaymentMethods (pm_xxx) via save_card(). Existing
   customers' Sources/Cards (card_xxx/src_xxx) continue to work as payment_method
@@ -45,6 +47,7 @@ from squarelet.organizations.payments.base import (
     ChargeService,
     CustomerService,
     InvoiceService,
+    PaymentActionRequired,
     PaymentProvider,
     PlanService,
     SubscriptionService,
@@ -100,8 +103,12 @@ class StripeModernCustomerService(CustomerService):
         return pm
 
     def remove_source(self, source_or_pm):
-        """Detach a temporary PaymentMethod after a one-time charge."""
-        stripe.PaymentMethod.detach(source_or_pm.id)
+        """Detach a temporary PaymentMethod after a one-time charge.
+
+        Accepts a PM object (with .id) or a PM ID string.
+        """
+        pm_id = source_or_pm if isinstance(source_or_pm, str) else source_or_pm.id
+        stripe.PaymentMethod.detach(pm_id)
 
     def get_card(self, stripe_customer):
         """Return the default PaymentMethod, falling back to a saved Source."""
@@ -190,7 +197,6 @@ class StripeModernChargeService(ChargeService):
         # `source` is a PaymentMethod (pm_) or a legacy Source/Card (card_/src_)
         # attached to the customer. Stripe accepts all as `payment_method` in
         # PaymentIntents per the Payment Methods transitioning guide.
-        # off_session=True avoids requires_action for Phase 1 (no 3DS frontend).
         intent = stripe.PaymentIntent.create(
             amount=amount,
             currency=currency,
@@ -200,14 +206,27 @@ class StripeModernChargeService(ChargeService):
             metadata=metadata,
             statement_descriptor_suffix=statement_descriptor_suffix,
             confirm=True,
-            off_session=True,
             expand=["latest_charge"],
             idempotency_key=idempotency_key,
         )
+        if intent.status == "requires_action":
+            raise PaymentActionRequired(intent.client_secret, intent.id)
         return intent.latest_charge
 
     def retrieve(self, charge_id):
         return stripe.Charge.retrieve(charge_id)
+
+    def confirm_payment_intent(self, payment_intent_id):
+        """Retrieve a succeeded PaymentIntent and return (latest_charge, pm_id)."""
+        intent = stripe.PaymentIntent.retrieve(
+            payment_intent_id, expand=["latest_charge"]
+        )
+        if intent.status != "succeeded":
+            raise ValueError(
+                f"PaymentIntent {payment_intent_id} has status {intent.status!r},"
+                " expected 'succeeded'"
+            )
+        return intent.latest_charge, intent.payment_method
 
 
 class StripeModernInvoiceService(InvoiceService):
