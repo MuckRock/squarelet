@@ -3,6 +3,7 @@ import pytest
 
 # Squarelet
 from squarelet.organizations.payments.providers.stripe_legacy import (
+    StripeLegacyChargeService,
     StripeLegacyCustomerService,
     StripeLegacySubscriptionService,
 )
@@ -11,6 +12,11 @@ from squarelet.organizations.payments.providers.stripe_legacy import (
 @pytest.fixture
 def customer_service():
     return StripeLegacyCustomerService()
+
+
+@pytest.fixture
+def charge_service():
+    return StripeLegacyChargeService()
 
 
 @pytest.fixture
@@ -64,6 +70,12 @@ class TestLegacyCustomerService:
         mock_customer.default_source = None
         result = customer_service.get_card(mock_customer)
         assert result is None
+
+
+class TestLegacyChargeService:
+    def test_confirm_payment_intent_raises_not_implemented(self, charge_service):
+        with pytest.raises(NotImplementedError):
+            charge_service.confirm_payment_intent("pi_123")
 
 
 class TestLegacySubscriptionService:

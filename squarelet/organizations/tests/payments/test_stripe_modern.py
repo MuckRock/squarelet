@@ -2,6 +2,7 @@
 import pytest
 
 # Squarelet
+from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.providers.stripe_modern import (
     StripeModernChargeService,
     StripeModernCustomerService,
@@ -55,6 +56,11 @@ class TestModernCustomerService:
         mock_detach = mocker.patch("stripe.PaymentMethod.detach")
         customer_service.remove_source(mock_pm)
         mock_detach.assert_called_once_with("pm_123")
+
+    def test_remove_source_accepts_string_id(self, customer_service, mocker):
+        mock_detach = mocker.patch("stripe.PaymentMethod.detach")
+        customer_service.remove_source("pm_456")
+        mock_detach.assert_called_once_with("pm_456")
 
     def test_save_card_creates_attaches_and_sets_default(
         self, customer_service, mocker
@@ -141,7 +147,9 @@ class TestModernChargeService:
         mock_source = mocker.MagicMock(id="pm_123")
         mock_customer = mocker.MagicMock(id="cus_123")
         mock_charge = mocker.MagicMock(id="ch_123", created=1700000000)
-        mock_intent = mocker.MagicMock(latest_charge=mock_charge)
+        mock_intent = mocker.MagicMock(
+            latest_charge=mock_charge, status="succeeded"
+        )
         mock_create = mocker.patch(
             "stripe.PaymentIntent.create", return_value=mock_intent
         )
@@ -164,18 +172,43 @@ class TestModernChargeService:
             metadata={"key": "val"},
             statement_descriptor_suffix="Test",
             confirm=True,
-            off_session=True,
             expand=["latest_charge"],
             idempotency_key="idem-123",
         )
         assert result == mock_charge
+
+    def test_create_raises_payment_action_required_for_3ds(
+        self, charge_service, mocker
+    ):
+        """When Stripe requires 3DS, PaymentActionRequired is raised."""
+        mock_source = mocker.MagicMock(id="pm_123")
+        mock_customer = mocker.MagicMock(id="cus_123")
+        mock_intent = mocker.MagicMock(
+            status="requires_action",
+            client_secret="pi_secret",
+            id="pi_123",
+        )
+        mocker.patch("stripe.PaymentIntent.create", return_value=mock_intent)
+        with pytest.raises(PaymentActionRequired) as exc_info:
+            charge_service.create(
+                amount=1000,
+                currency="usd",
+                customer=mock_customer,
+                description="Test",
+                source=mock_source,
+                metadata={},
+                statement_descriptor_suffix="",
+                idempotency_key="idem-123",
+            )
+        assert exc_info.value.client_secret == "pi_secret"
+        assert exc_info.value.payment_intent_id == "pi_123"
 
     def test_create_works_with_legacy_source_id(self, charge_service, mocker):
         """Card/Source objects saved before migration still work as payment_method."""
         mock_source = mocker.MagicMock(id="card_abc")
         mock_customer = mocker.MagicMock(id="cus_123")
         mock_charge = mocker.MagicMock(id="ch_456")
-        mock_intent = mocker.MagicMock(latest_charge=mock_charge)
+        mock_intent = mocker.MagicMock(latest_charge=mock_charge, status="succeeded")
         mock_create = mocker.patch(
             "stripe.PaymentIntent.create", return_value=mock_intent
         )
@@ -191,7 +224,33 @@ class TestModernChargeService:
         )
         call_kwargs = mock_create.call_args[1]
         assert call_kwargs["payment_method"] == "card_abc"
+        assert "off_session" not in call_kwargs
         assert result == mock_charge
+
+    def test_confirm_payment_intent_returns_charge_and_pm_id(
+        self, charge_service, mocker
+    ):
+        mock_charge = mocker.MagicMock(id="ch_123")
+        mock_intent = mocker.MagicMock(
+            status="succeeded",
+            latest_charge=mock_charge,
+            payment_method="pm_123",
+        )
+        mock_retrieve = mocker.patch(
+            "stripe.PaymentIntent.retrieve", return_value=mock_intent
+        )
+        charge, pm_id = charge_service.confirm_payment_intent("pi_123")
+        mock_retrieve.assert_called_once_with("pi_123", expand=["latest_charge"])
+        assert charge == mock_charge
+        assert pm_id == "pm_123"
+
+    def test_confirm_payment_intent_raises_on_non_succeeded(
+        self, charge_service, mocker
+    ):
+        mock_intent = mocker.MagicMock(status="requires_action")
+        mocker.patch("stripe.PaymentIntent.retrieve", return_value=mock_intent)
+        with pytest.raises(ValueError, match="requires_action"):
+            charge_service.confirm_payment_intent("pi_123")
 
     def test_retrieve_uses_charge_api(self, charge_service, mocker):
         mock_retrieve = mocker.patch("stripe.Charge.retrieve")

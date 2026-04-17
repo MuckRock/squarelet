@@ -9,6 +9,7 @@ from rest_framework.exceptions import APIException
 # Squarelet
 from squarelet.core.utils import format_stripe_error
 from squarelet.organizations.models import Charge, Membership, Organization
+from squarelet.organizations.payments.base import PaymentActionRequired
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
@@ -127,9 +128,23 @@ class StripeError(APIException):
     default_detail = "Stripe error"
 
 
+class PaymentActionRequiredError(APIException):
+    """HTTP 402 raised when a charge requires client-side 3DS/SCA confirmation."""
+
+    status_code = status.HTTP_402_PAYMENT_REQUIRED
+    default_detail = "Payment action required"
+
+    def __init__(self, exc):
+        self.detail = {
+            "client_secret": exc.client_secret,
+            "payment_intent_id": exc.payment_intent_id,
+        }
+
+
 class ChargeSerializer(serializers.ModelSerializer):
     token = serializers.CharField(write_only=True, required=False)
     save_card = serializers.BooleanField(write_only=True, required=False)
+    payment_intent_id = serializers.CharField(write_only=True, required=False)
     organization = serializers.SlugRelatedField(
         slug_field="uuid", queryset=Organization.objects.all()
     )
@@ -143,6 +158,7 @@ class ChargeSerializer(serializers.ModelSerializer):
             "description",
             "fee_amount",
             "organization",
+            "payment_intent_id",
             "save_card",
             "token",
             "metadata",
@@ -151,23 +167,41 @@ class ChargeSerializer(serializers.ModelSerializer):
         extra_kwargs = {"metadata": {"required": False}}
 
     def create(self, validated_data):
-        """Create the charge object locally and on stripe"""
+        """Create the charge object locally and on stripe.
+
+        Two code paths:
+        - Normal: call organization.charge(); may raise PaymentActionRequired if
+          3DS is needed, which returns HTTP 402 with client_secret/payment_intent_id.
+        - Confirm: called after client-side confirmCardPayment() with payment_intent_id;
+          retrieves the succeeded PaymentIntent and creates the local Charge record.
+        """
         organization = validated_data["organization"]
         request = self.context.get("request")
-        if request:
-            user = request.user
-        else:
-            user = None
+        user = request.user if request else None
+        payment_intent_id = validated_data.get("payment_intent_id")
         try:
-            charge = organization.charge(
-                validated_data["amount"],
-                validated_data["description"],
-                user,
-                validated_data.get("fee_amount", 0),
-                validated_data.get("token"),
-                validated_data.get("save_card"),
-                validated_data.get("metadata"),
-            )
+            if payment_intent_id:
+                charge = Charge.objects.confirm_payment_intent(
+                    payment_intent_id=payment_intent_id,
+                    organization=organization,
+                    amount=validated_data["amount"],
+                    fee_amount=validated_data.get("fee_amount", 0),
+                    description=validated_data["description"],
+                    metadata=validated_data.get("metadata") or {},
+                    save_card=bool(validated_data.get("save_card")),
+                )
+            else:
+                charge = organization.charge(
+                    validated_data["amount"],
+                    validated_data["description"],
+                    user,
+                    validated_data.get("fee_amount", 0),
+                    validated_data.get("token"),
+                    validated_data.get("save_card"),
+                    validated_data.get("metadata"),
+                )
+        except PaymentActionRequired as exc:
+            raise PaymentActionRequiredError(exc)
         except stripe.StripeError as exc:
             user_message = format_stripe_error(exc)
             raise StripeError(user_message)
@@ -179,8 +213,12 @@ class ChargeSerializer(serializers.ModelSerializer):
         return charge
 
     def validate(self, attrs):
-        """Must supply token if saving card"""
-        if attrs.get("save_card") and not attrs.get("token"):
+        """Must supply token if saving card (unless confirming a payment intent)."""
+        if (
+            attrs.get("save_card")
+            and not attrs.get("token")
+            and not attrs.get("payment_intent_id")
+        ):
             raise serializers.ValidationError(
                 "Must supply a token if save card is true"
             )
