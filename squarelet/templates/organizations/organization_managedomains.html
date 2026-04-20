@@ -1,5 +1,6 @@
 {% extends "layouts/sidebar_layout.html" %}
 {% load django_vite i18n %}
+{% load icon %}
 
 {% block title %}{{ organization.name }} | Manage Domains{% endblock %}
 
@@ -13,26 +14,26 @@
 {% block header %}
   <header>
     <h1>{{ organization.name }}</h1>
-    <span class="arrow">{% include "core/icons/chevron-right.svg" %}</span>
+    <span class="arrow">{% icon "chevron-right" %}</span>
     <h2>{% trans "Auto-join by email address" %}</h2>
   </header>
 {% endblock %}
 
 {% block sidebar %}
   <a href="{{ organization.get_absolute_url }}" class="btn small ghost primary">
-    {% include "core/icons/chevron-left.svg" %}
+    {% icon "chevron-left" %}
     {% trans "Back to team overview" %}
   </a>
   <ul>
     <li>
       <a href="#domains" class="nav-item">
-        {% include "core/icons/globe.svg" %}
+        {% icon "globe" %}
         {% trans "Trusted domains" %}
       </a>
     </li>
     <li>
       <a href="#add" class="nav-item">
-        {% include "core/icons/plus-circle.svg" %}
+        {% icon "plus-circle" %}
         {% trans "Add a domain" %}
       </a>
     </li>

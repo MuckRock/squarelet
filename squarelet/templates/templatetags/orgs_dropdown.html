@@ -1,4 +1,5 @@
 {% load static %}
+{% load icon %}
 {% for org in organizations %}
   <a href="{{ org.get_absolute_url }}" class="_cls-orgItem">
     <img src="{{ org.avatar_url }}" alt="{{ org.name }}">
@@ -11,7 +12,7 @@
   </a>
 {% empty %}
 <a href="{% url 'organizations:create' %}" class="btn primary ghost full">
-  {% include "core/icons/plus-circle.svg" %}
+  {% icon "plus-circle" %}
   Create an organization
 </a>
 {% endfor %}

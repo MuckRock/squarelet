@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static i18n avatar django_vite %}
+{% load icon %}
 
 {% block title %}Organizations{% endblock %}
 
@@ -45,41 +46,41 @@
   <aside class="sidebar">
     <nav>
       <a href="{% url "users:detail" username=user.username %}" class="btn small ghost primary">
-        {% include "core/icons/chevron-left.svg" %}
+        {% icon "chevron-left" %}
         {% trans "Back to your account" %}
       </a>
       <ul>
         <li>
           <a href="#org_search" class="nav-item">
-            {% include "core/icons/search.svg" %}
+            {% icon "search" %}
             {% trans "Search" %}
           </a>
         </li>
 
         <li>
           <a href="#your-orgs" class="nav-item">
-            {% include "core/icons/people.svg" %}
+            {% icon "people" %}
             {% trans "Your organizations" %}
           </a>
         </li>
 
         <li>
           <a href="#invitations" class="nav-item">
-            {% include "core/icons/mail.svg" %}
+            {% icon "mail" %}
             {% trans "Pending invitations" %}
           </a>
         </li>
 
         <li>
           <a href="#requests" class="nav-item">
-            {% include "core/icons/smiley.svg" %}
+            {% icon "smiley" %}
             {% trans "Pending requests" %}
           </a>
         </li>
       </ul>
 
       <a href="{% url "organizations:create" %}" class="btn ghost primary create">
-        {% include "core/icons/plus-circle.svg" %}
+        {% icon "plus-circle" %}
         {% trans "Create organization" %}
       </a>
     </nav>
@@ -133,7 +134,7 @@
               <form method="post" action="{% url "organizations:detail" slug=organization.slug %}" class="actions join">
                 {% csrf_token %}
                 <button class="btn small primary" name="action" value="join">
-                  <img src="{% static "icons/check.svg" %}">
+                  <img src="{% static "icons/check-colored.svg" %}">
                   {% trans "Join" %}
                 </button>
               </form>
@@ -152,7 +153,7 @@
             <h2>{% trans "Pending invitations" %}</h2>
             <div class="header-actions">
               <a href="{% url "users:invitations" username=user.username %}" class="btn ghost primary">
-                {% include "core/icons/history.svg" %}
+                {% icon "history" %}
                 {% trans "Invitation history" %}
               </a>
             </div>
@@ -187,7 +188,7 @@
             <h2>{% trans "Pending requests" %}</h2>
             <div class="header-actions">
               <a href="{% url "users:requests" username=user.username %}" class="btn ghost primary">
-                {% include "core/icons/history.svg" %}
+                {% icon "history" %}
                 {% trans "Request history" %}
               </a>
             </div>

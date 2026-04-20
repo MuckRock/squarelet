@@ -1,5 +1,5 @@
 {# required css: css/user_list_item.css #}
-{% load thumbnail i18n rules %}
+{% load icon thumbnail i18n rules %}
 {% has_perm "organizations.can_manage_members" request.user organization as can_manage_members %}
 {% with avatar=user.avatar %}
 <div class="user">
@@ -11,7 +11,7 @@
         {% endthumbnail %}
     {% else %}
         <a class="avatar" href="{% url "users:detail" username=user.username %}">
-            {% include 'core/icons/person-24.svg' %}
+            {% icon "person-24" %}
         </a>
     {% endif %}
     <div class="info">

@@ -1,5 +1,6 @@
 {% extends "layouts/sidebar_layout.html" %}
 {% load i18n static django_vite %}
+{% load icon %}
 {% block title %}{% trans 'Edit your profile' %}{% endblock %}
 
 {% block vite %}
@@ -10,14 +11,14 @@
 {% block header %}
   <header>
     <h1>{{user.get_full_name}}</h1>
-    <span class="arrow">{% include "core/icons/chevron-right.svg" %}</span>
+    <span class="arrow">{% icon "chevron-right" %}</span>
     <h2>{% trans "Edit your profile" %}</h2>
   </header>
 {% endblock %}
 
 {% block sidebar %}
 <a class="ghost btn small primary" href="{% url "users:detail" username=user.username %}">
-  {% include "core/icons/arrow-left.svg" %}
+  {% icon "arrow-left" %}
   {% trans "Back to your account" %}
 </a>
 {% endblock %}

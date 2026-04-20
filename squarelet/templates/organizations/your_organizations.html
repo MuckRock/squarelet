@@ -1,4 +1,5 @@
 {% load airtable i18n static %}
+{% load icon %}
 
 {% if show_invitations and potential_organizations %}
 <div class="org-list">
@@ -12,7 +13,7 @@
       <form method="post" action="{% url "organizations:detail" slug=organization.slug %}" class="actions join">
         {% csrf_token %}
         <button class="small btn primary" name="action" value="join">
-          <img src="{% static "icons/check.svg" %}">
+          <img src="{% static "icons/check-colored.svg" %}">
           {% trans "Join" %}
         </button>
       </form>
@@ -85,7 +86,7 @@
         </a>
         {% endif %}
         <a class="btn ghost primary small" href="{% url "organizations:manage-members" slug=org.slug %}">
-          {% include "core/icons/gear.svg" %}
+          {% icon "gear" %}
           {% trans "Manage" %}
         </a>
       </div>
@@ -112,7 +113,7 @@
         </a>
         {% endif %}
         <button class="btn danger ghost small" type="submit" name="action" value="leave">
-          {% include "core/icons/sign-out.svg" %}
+          {% icon "sign-out" %}
           {% trans "Leave" %}
         </button>
       </form>

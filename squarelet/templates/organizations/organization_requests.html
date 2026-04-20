@@ -1,5 +1,6 @@
 {% extends "core/invitation_history_base.html" %}
 {% load static i18n django_vite %}
+{% load icon %}
 
 {% block history_title %}{{ organization.name }} | {% trans 'Request History' %}{% endblock %}
 
@@ -9,7 +10,7 @@
 
 {% block back_link %}
 <a class="btn ghost primary" href="{% url "organizations:manage-members" slug=organization.slug %}">
-  {% include "core/icons/arrow-left.svg" %}
+  {% icon "arrow-left" %}
   {% trans "Back to manage members" %}
 </a>
 {% endblock %}
