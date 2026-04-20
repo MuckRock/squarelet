@@ -40,6 +40,9 @@ class Detail(AdminLinkMixin, DetailView):
         if user.is_authenticated:
             context["is_admin"] = org.has_admin(user)
             context["is_member"] = org.has_member(user)
+            context["has_verified_email"] = user.emailaddress_set.filter(
+                verified=True
+            ).exists()
 
             if user.has_perm("organizations.can_manage_members", org):
                 context["pending_requests"] = org.invitations.get_pending_requests()

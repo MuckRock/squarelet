@@ -114,8 +114,21 @@ test.describe("Organization Viewing", () => {
       await expect(page.locator("#members .user-list .user")).toHaveCount(1); // only admins
     });
 
-    test("sees admin emails", async ({ page }) => {
+    test("cannot see admin emails without a verified email", async ({ page }) => {
+      // Unverify e2e-regular's email so we can test the unverified case
+      runManageCommand(
+        `shell -c "from allauth.account.models import EmailAddress; EmailAddress.objects.filter(user__username='e2e-regular').update(verified=False)"`,
+      );
+
       await page.goto("/organizations/e2e-public-org/");
+      await expect(page.locator(".user .info .caption")).toHaveCount(0);
+
+      // Re-verify the email and confirm admin emails now appear
+      runManageCommand(
+        `shell -c "from allauth.account.models import EmailAddress; EmailAddress.objects.filter(user__username='e2e-regular').update(verified=True)"`,
+      );
+
+      await page.reload();
       await expect(page.locator(".user .info .caption").first()).toBeVisible();
     });
   });
