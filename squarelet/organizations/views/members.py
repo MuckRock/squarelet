@@ -246,9 +246,6 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["admin"] = self.request.user
-        context["has_verified_email"] = self.request.user.emailaddress_set.filter(
-            verified=True
-        ).exists()
         # Use member_users() for consistent sorting: current user, admins, then members
         users = self.object.member_users(self.request)
         context["members"] = [u.org_membership_list[0] for u in users]
