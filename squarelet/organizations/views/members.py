@@ -313,6 +313,16 @@ class InvitationAccept(DetailView):
         return handler(request, invitation)
 
     def _accept(self, request, invitation):
+        if (
+            invitation.role == InvitationRole.admin
+            and not request.user.emailaddress_set.filter(verified=True).exists()
+        ):
+            messages.error(
+                request,
+                "You must verify your email address before accepting "
+                "an admin invitation.",
+            )
+            return redirect("organizations:invitation", uuid=invitation.uuid)
         invitation.accept(request.user)
         messages.success(request, "Invitation accepted")
         return get_redirect_url(request, redirect(invitation.organization))

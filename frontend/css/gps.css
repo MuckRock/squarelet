@@ -442,6 +442,7 @@ strong {
 
 .empty {
   display: flex;
+  margin: 0 auto;
   width: 16.5rem;
   padding: 1.5rem;
   flex-direction: column;
@@ -453,12 +454,18 @@ strong {
   border: 1.282px solid var(--Gray-2, #d8dee2);
 }
 
+.empty--no-border {
+  border: none;
+}
+
 .empty p {
   align-self: stretch;
-  margin: 0;
-  color: var(--gray-4);
-  text-align: center;
   font-family: "Source Sans Pro";
+  line-height: 1.4;
+  color: var(--gray-4);
+  margin: 0 auto;
+  text-align: center;
+  max-width: 60ch;
 }
 
 .card {
