@@ -1641,9 +1641,40 @@ class TestInvitationAccept(ViewTestMixin):
     view = views.InvitationAccept
     url = "/organizations/{uuid}/invitation/"
 
+    def _create_verified_email(self, user):
+        EmailAddress.objects.update_or_create(
+            user=user,
+            email=user.email,
+            defaults={"verified": True, "primary": True},
+        )
+
     def test_accept(self, rf, invitation_factory, user_factory):
         invitation = invitation_factory()
         user = user_factory()
+        self.call_view(rf, user, {"action": "accept"}, uuid=invitation.uuid)
+        invitation.refresh_from_db()
+        assert invitation.accepted_at is not None
+        assert invitation.organization.has_member(user)
+
+    def test_accept_admin_requires_verified_email(
+        self, rf, invitation_factory, user_factory
+    ):
+        """Users without a verified email cannot accept admin invitations"""
+        invitation = invitation_factory(role=InvitationRole.admin)
+        user = user_factory()
+        response = self.call_view(rf, user, {"action": "accept"}, uuid=invitation.uuid)
+        invitation.refresh_from_db()
+        assert invitation.accepted_at is None
+        assert not invitation.organization.has_member(user)
+        assert response.status_code == 302
+
+    def test_accept_admin_with_verified_email(
+        self, rf, invitation_factory, user_factory
+    ):
+        """Users with a verified email can accept admin invitations"""
+        invitation = invitation_factory(role=InvitationRole.admin)
+        user = user_factory()
+        self._create_verified_email(user)
         self.call_view(rf, user, {"action": "accept"}, uuid=invitation.uuid)
         invitation.refresh_from_db()
         assert invitation.accepted_at is not None

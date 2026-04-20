@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static i18n avatar django_vite email_verification %}
+{% load static i18n avatar django_vite %}
 
 {% block title %}Organizations{% endblock %}
 
@@ -102,23 +102,6 @@
     </section>
 
     <section class="invites">
-      {% if not request.user|has_verified_email %}
-      <div class="empty">
-        <p>
-          {% blocktrans %}
-          You must verify your email address before you can send requests
-          or receive invitations to join an organization.
-          {% endblocktrans %}
-        </p>
-        <form class="email-actions" action="{% url "account_email" %}" method="post">
-          {% csrf_token %}
-          <input type="hidden" name="email" value="{{user.email}}" />
-          <button class="btn primary small" type="submit" name="action_send">
-            {% trans "Confirm your email address" %}
-          </button>
-        </form>
-      </div>
-      {% else %}
         {% if potential_orgs %}
         <div id="pre-approved" class="pre-approved">
           <header>
@@ -213,7 +196,6 @@
           </div>
           {% endif %}
         </div>
-      {% endif %}
     </section>
   </main>
 </article>
