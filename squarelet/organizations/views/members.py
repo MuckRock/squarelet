@@ -9,8 +9,7 @@ from django.views.generic import DetailView, ListView
 
 # Squarelet
 from squarelet.core.utils import get_redirect_url, new_action, pluralize
-from squarelet.organizations.choices import InvitationRole
-from squarelet.organizations.forms import AddMemberForm
+from squarelet.organizations.forms import AddMemberForm, InvitationAcceptForm
 from squarelet.organizations.mixins import OrganizationPermissionMixin
 from squarelet.organizations.models import Invitation, Membership, Organization
 
@@ -263,6 +262,14 @@ class InvitationAccept(DetailView):
     slug_field = "uuid"
     slug_url_kwarg = "uuid"
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.user.is_authenticated:
+            context["accept_form"] = InvitationAcceptForm(
+                invitation=self.object, user=self.request.user
+            )
+        return context
+
     def dispatch(self, request, *args, **kwargs):
         """
         If the user is not authenticated, store the invitation in the session,
@@ -280,15 +287,12 @@ class InvitationAccept(DetailView):
         invitation = self.get_object()
         action = request.POST.get("action")
         if action == "accept":
-            if (
-                invitation.role == InvitationRole.admin
-                and not request.user.emailaddress_set.filter(verified=True).exists()
-            ):
-                messages.error(
-                    request,
-                    "You must verify your email address before accepting "
-                    "an admin invitation.",
-                )
+            form = InvitationAcceptForm(
+                request.POST, invitation=invitation, user=request.user
+            )
+            if not form.is_valid():
+                for error in form.non_field_errors():
+                    messages.error(request, error)
                 return redirect("organizations:invitation", uuid=invitation.uuid)
             invitation.accept(request.user)
             messages.success(request, "Invitation accepted")

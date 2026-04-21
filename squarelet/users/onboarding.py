@@ -16,6 +16,7 @@ from allauth.mfa.totp.forms import ActivateTOTPForm
 from allauth.mfa.totp.internal.flows import activate_totp
 
 # Squarelet
+from squarelet.organizations.forms import InvitationAcceptForm
 from squarelet.organizations.models.payment import Plan
 from squarelet.users.forms import PremiumSubscriptionForm
 
@@ -161,6 +162,7 @@ class OrganizationJoinStep(OnboardingStep):
     def get_context_data(self, request):
         user = request.user
         invitations, potential_orgs = self._get_joinable_orgs(user)
+        InvitationAcceptForm.attach_to_invitations(invitations, user)
         return {
             "invitations": invitations,
             "potential_orgs": potential_orgs,

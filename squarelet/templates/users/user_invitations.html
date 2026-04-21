@@ -53,15 +53,7 @@
         {% if is_own_page %}
         <td class="invitation-actions">
           {% if not invitation.accepted_at and not invitation.rejected_at and not invitation.withdrawn_at %}
-            <form method="post" action="{% url "organizations:invitation" uuid=invitation.uuid %}">
-              {% csrf_token %}
-              <button class="btn small primary" type="submit" name="action" value="accept">
-                {% trans "Accept" %}
-              </button>
-              <button class="btn small danger ghost" type="submit" name="action" value="reject">
-                {% trans "Reject" %}
-              </button>
-            </form>
+            {{ invitation.accept_form }}
           {% elif invitation.rejected_at %}
             <form method="post" action="{% url "users:invitations" username=target_user.username %}">
               {% csrf_token %}
