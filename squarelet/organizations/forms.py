@@ -307,8 +307,10 @@ class InvitationAcceptForm(forms.Form):
         cleaned_data = super().clean()
         if self.requires_email_verification:
             raise forms.ValidationError(
-                _("You must verify your email address before accepting "
-                  "an admin invitation.")
+                _(
+                    "You must verify your email address before accepting "
+                    "an admin invitation."
+                )
             )
         return cleaned_data
 

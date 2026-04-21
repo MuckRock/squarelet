@@ -9,6 +9,7 @@ from django.views.generic import DetailView, ListView
 
 # Squarelet
 from squarelet.core.utils import get_redirect_url, new_action, pluralize
+from squarelet.organizations.choices import InvitationRole
 from squarelet.organizations.forms import AddMemberForm, InvitationAcceptForm
 from squarelet.organizations.mixins import OrganizationPermissionMixin
 from squarelet.organizations.models import Invitation, Membership, Organization
