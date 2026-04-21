@@ -2,7 +2,6 @@
 {% load static %}
 {% load thumbnail %}
 {% load i18n %}
-{% load email_verification %}
 
 {% block title %}Organization: {{ invitation.organization.name }}{% endblock %}
 
@@ -53,7 +52,7 @@
           out and sign back in with the account you'd like to use.
         {% endblocktrans %}
       </p>
-      {% if invitation.is_admin_role and not request.user|has_verified_email %}
+      {% if accept_form.requires_email_verification %}
       <p>
         {% blocktrans %}
           You must verify your email address before you can accept an admin invitation.
@@ -83,7 +82,7 @@
       {% endif %}
 
       {% if request.user.is_authenticated %}
-        {% if invitation.is_admin_role and not request.user|has_verified_email %}
+        {% if accept_form.requires_email_verification %}
         <div class="control-group">
           <form class="email-actions" action="{% url "account_email" %}" method="post">
             {% csrf_token %}

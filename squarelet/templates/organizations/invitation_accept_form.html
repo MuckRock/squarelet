@@ -1,0 +1,20 @@
+{% load i18n %}
+{% if requires_email_verification %}
+<form class="email-actions" action="{% url "account_email" %}" method="post">
+  {% csrf_token %}
+  <input type="hidden" name="email" value="{{ user.email }}" />
+  <button class="btn small primary" type="submit" name="action_send">
+    {% trans "Verify email to accept" %}
+  </button>
+</form>
+{% else %}
+<form method="post" action="{% url "organizations:invitation" uuid=invitation.uuid %}" class="actions">
+  {% csrf_token %}
+  <button class="btn small primary" type="submit" name="action" value="accept">
+    {% trans "Accept" %}
+  </button>
+  <button class="btn small danger ghost" type="submit" name="action" value="reject">
+    {% trans "Reject" %}
+  </button>
+</form>
+{% endif %}
