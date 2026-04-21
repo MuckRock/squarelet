@@ -1255,18 +1255,16 @@ class TestCreate(ViewTestMixin):
         assert user.email in organization.receipt_emails.values_list("email", flat=True)
 
     def test_get_unverified_email(self, rf, user_factory):
-        """User without verified email sees verification message"""
+        """User without verified email can still access the page"""
         user = user_factory(email_verified=False)
         response = self.call_view(rf, user)
         assert response.status_code == 200
-        assert response.context_data["has_verified_email"] is False
 
     def test_get_verified_email(self, rf, user_factory):
         """User with verified email sees the creation form"""
         user = user_factory(email_verified=True)
         response = self.call_view(rf, user)
         assert response.status_code == 200
-        assert response.context_data["has_verified_email"] is True
         assert "form" in response.context_data
 
     def test_post_creates_org_despite_matching_name(

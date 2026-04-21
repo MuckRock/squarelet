@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static i18n avatar django_vite %}
+{% load static i18n avatar django_vite email_verification %}
 
 {% block title %}Organizations{% endblock %}
 
@@ -102,7 +102,7 @@
     </section>
 
     <section class="invites">
-      {% if not has_verified_email %}
+      {% if not request.user|has_verified_email %}
       <div class="empty">
         <p>
           {% blocktrans %}

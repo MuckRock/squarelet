@@ -361,7 +361,6 @@ class List(ListView):
             + context["pending_invitations"]
             + context["potential_orgs"]
         )
-        context["has_verified_email"] = bool(user.get_verified_emails())
         context["admin_orgs"] = list(
             user.organizations.filter(individual=False, memberships__admin=True)
         )

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static i18n django_vite crispy_forms_tags %}
+{% load static i18n django_vite crispy_forms_tags email_verification %}
 {% block title %}Create organization{% endblock %}
 
 {% block vite %}
@@ -9,8 +9,8 @@
 
 {% block content %}
 
-<div class="_cls-content create-organization {% if not has_verified_email %}unverified{% endif %}">
-  {% if not has_verified_email %}
+<div class="_cls-content create-organization {% if not request.user|has_verified_email %}unverified{% endif %}">
+  {% if not request.user|has_verified_email %}
     <h2>{% trans "Email verification required" %}</h2>
     <p>
       {% blocktrans %}

@@ -15,13 +15,6 @@ class Create(LoginRequiredMixin, CreateView):
     form_class = CreateForm
     template_name = "organizations/organization_create_form.html"
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["has_verified_email"] = self.request.user.emailaddress_set.filter(
-            verified=True
-        ).exists()
-        return context
-
     @transaction.atomic
     def form_valid(self, form):
         """The organization creator is automatically a member and admin"""

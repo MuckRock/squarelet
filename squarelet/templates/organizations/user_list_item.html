@@ -1,5 +1,5 @@
 {# required css: css/user_list_item.css #}
-{% load thumbnail i18n rules %}
+{% load thumbnail i18n rules email_verification %}
 {% has_perm "organizations.can_manage_members" request.user organization as can_manage_members %}
 {% with avatar=user.avatar %}
 <div class="user">
@@ -26,7 +26,7 @@
             {% if can_manage_members and user.has_mfa_enabled and membership %}
             <span class="green badge">{% trans "2FA" %}</span>
             {% endif %}
-            {% if request.user.is_authenticated %}
+            {% if request.user|has_verified_email %}
             <span class="caption">{{ user.email }}</span>
             {% endif %}
         </div>
