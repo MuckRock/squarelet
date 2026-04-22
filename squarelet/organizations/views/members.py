@@ -287,7 +287,9 @@ class InvitationAccept(DetailView):
         context = super().get_context_data(**kwargs)
         if self.request.user.is_authenticated:
             context["accept_form"] = InvitationAcceptForm(
-                invitation=self.object, user=self.request.user
+                invitation=self.object,
+                user=self.request.user,
+                request=self.request,
             )
         return context
 
