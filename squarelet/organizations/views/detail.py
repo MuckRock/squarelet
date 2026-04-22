@@ -355,7 +355,7 @@ class List(ListView):
         if user.is_authenticated:
             context["pending_requests"] = list(user.get_pending_requests())
             context["pending_invitations"] = InvitationAcceptForm.attach_to_invitations(
-                list(user.get_pending_invitations()), user
+                list(user.get_pending_invitations()), user, request=self.request
             )
             context["potential_orgs"] = list(user.get_potential_organizations())
 
@@ -374,7 +374,7 @@ class List(ListView):
         )
         context["potential_organizations"] = list(user.get_potential_organizations())
         context["pending_invitations"] = InvitationAcceptForm.attach_to_invitations(
-            list(user.get_pending_invitations()), user
+            list(user.get_pending_invitations()), user, request=self.request
         )
 
         return context

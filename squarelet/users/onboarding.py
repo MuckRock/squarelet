@@ -162,7 +162,7 @@ class OrganizationJoinStep(OnboardingStep):
     def get_context_data(self, request):
         user = request.user
         invitations, potential_orgs = self._get_joinable_orgs(user)
-        InvitationAcceptForm.attach_to_invitations(invitations, user)
+        InvitationAcceptForm.attach_to_invitations(invitations, user, request=request)
         return {
             "invitations": invitations,
             "potential_orgs": potential_orgs,

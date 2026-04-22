@@ -2,6 +2,7 @@
 from django import forms
 from django.core.validators import validate_email
 from django.db.models.aggregates import Min
+from django.middleware.csrf import get_token
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
@@ -291,10 +292,11 @@ class InvitationAcceptForm(forms.Form):
 
     template_name = "organizations/invitation_accept_form.html"
 
-    def __init__(self, *args, invitation, user, **kwargs):
+    def __init__(self, *args, invitation, user, request=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.invitation = invitation
         self.user = user
+        self.request = request
 
     @property
     def requires_email_verification(self):
@@ -319,13 +321,17 @@ class InvitationAcceptForm(forms.Form):
         context["invitation"] = self.invitation
         context["user"] = self.user
         context["requires_email_verification"] = self.requires_email_verification
+        if self.request:
+            context["csrf_token"] = get_token(self.request)
         return context
 
     @classmethod
-    def attach_to_invitations(cls, invitations, user):
+    def attach_to_invitations(cls, invitations, user, request=None):
         """Attach an accept_form to each invitation in the list."""
         for invitation in invitations:
-            invitation.accept_form = cls(invitation=invitation, user=user)
+            invitation.accept_form = cls(
+                invitation=invitation, user=user, request=request
+            )
         return invitations
 
 

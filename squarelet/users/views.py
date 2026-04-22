@@ -139,7 +139,7 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         context["is_own_page"] = user == self.request.user
         context["potential_organizations"] = list(user.get_potential_organizations())
         context["pending_invitations"] = InvitationAcceptForm.attach_to_invitations(
-            list(user.get_pending_invitations()), user
+            list(user.get_pending_invitations()), user, request=self.request
         )
         context["pending_requests"] = list(user.get_pending_requests())
         context["verified"] = user.verified_journalist()
@@ -611,7 +611,7 @@ class UserInvitationsView(BaseUserInvitationRequestView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         InvitationAcceptForm.attach_to_invitations(
-            context["invitations"], self.request.user
+            context["invitations"], self.request.user, request=self.request
         )
         return context
 
