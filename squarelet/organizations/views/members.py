@@ -50,13 +50,17 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
             )[0]
             messages.error(request, error_msg)
         else:
-            emails = list(addmember_form.cleaned_data["emails"] or [])
-            # Resolve user IDs to email addresses
+            # Build (user, email) pairs. Free-form emails have user=None;
+            # selected users carry both the user object and their email so the
+            # invitation is tied to the account, not just the address.
+            invitees = [
+                (None, email)
+                for email in (addmember_form.cleaned_data["emails"] or [])
+            ]
             user_ids = addmember_form.cleaned_data.get("user_ids", [])
             if user_ids:
-                emails.extend(
-                    User.objects.filter(id__in=user_ids).values_list("email", flat=True)
-                )
+                for user_obj in User.objects.filter(id__in=user_ids):
+                    invitees.append((user_obj, user_obj.email))
             role = addmember_form.cleaned_data.get("role")
             if not role:
                 role = InvitationRole.member
@@ -64,9 +68,11 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
                 role = int(role)
             invitations_sent = 0
             invited_emails = []
-            for email in emails:
-                is_already_member = self.organization.has_member_by_email(email)
-                existing_open_invite = self.organization.get_existing_open_invite(email)
+            for user_obj, email in invitees:
+                if user_obj is not None:
+                    is_already_member = self.organization.has_member(user_obj)
+                else:
+                    is_already_member = self.organization.has_member_by_email(email)
                 if is_already_member:
                     messages.info(
                         self.request,
@@ -74,7 +80,11 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
                     )
                     continue
 
+                existing_open_invite = self.organization.get_existing_open_invite(email)
                 if existing_open_invite:
+                    if user_obj is not None and existing_open_invite.user is None:
+                        existing_open_invite.user = user_obj
+                        existing_open_invite.save()
                     existing_open_invite.send()
                     invitations_sent += 1
                     invited_emails.append(email)
@@ -83,6 +93,7 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
                 invitation = Invitation.objects.create(
                     organization=self.organization,
                     email=email,
+                    user=user_obj,
                     role=role,
                 )
                 invitation.send()
