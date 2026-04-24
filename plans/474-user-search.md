@@ -1,12 +1,12 @@
 # Issue 474: Search Existing Users When Creating Org Membership Invitations
 
-## Status — All implementation complete, refinements landed (2026-03-24)
+## Status — All implementation complete, refinements landed (2026-04-24)
 
 All seven parts are implemented and committed. E2e tests updated (switched from
 `pressSequentially` to `fill` for reliability). Backend also handles adding
 users who are already members of the org (returns `already_member` status).
 
-### Changes since initial completion (2026-03-12 → 2026-03-24)
+### Changes since initial completion (2026-03-12 → 2026-04-24)
 
 - **`charge_created` signal moved** from `squarelet/users/signals.py` to
   `squarelet/organizations/signals.py` and now unhides **both individual and
@@ -15,13 +15,16 @@ users who are already members of the org (returns `already_member` status).
   confirming any email address unhides the user.
 - **Migration 0060** fixed to actually set `private=False` on existing
   individual orgs (was a no-op before).
-- **User search includes email** — `SearchVector` in `UserViewSet` now searches
-  across `username`, `name`, **and** `email` fields.
 - **Removed unused `uuid` field** from `UserSearchSerializer`.
 - **Migration merge** — added `0061_merge_20260324.py` to resolve conflicts with
   upstream migration `0059_alter_organization_options`.
 - **`perform_create` inlined** in `InvitationViewSet` (previously described as
   moved; now fully inlined per review feedback).
+- **Email removed from search** (2026-04-24) — search results no longer expose
+  or search by email for anyone. `UserSearchSerializer` returns only `id`,
+  `username`, `name`, `avatar_url`; `SearchVector` covers `username` and `name`
+  only; `UserSearchSerializerNoEmail` and the `verified_journalist()` branch in
+  `get_serializer_class` were removed.
 - FE test reliability fixes.
 
 **Remaining:** Final review, open PR against master.
@@ -56,6 +59,7 @@ un-hides individuals with verified primary email, any charge, or membership in a
 ### 1b. Signal to un-hide users when conditions are met ✅
 
 **Files:**
+
 - `squarelet/users/signals.py` — `email_confirmed` sets `hidden=False` on any
   email confirm (primary restriction removed).
 - `squarelet/organizations/signals.py` — `charge_created` post_save handler for
@@ -119,9 +123,9 @@ name, avatar_url — no email). The `uuid` field was removed as unnecessary.
 Done. Rewired `get_queryset` to use `get_searchable` for list action,
 `get_serializer_class` returns `UserSearchSerializer` for list and
 `UserSerializer` for detail. Search uses PostgreSQL full-text `SearchVector`
-with prefix matching (`search_type="raw"` with `:*` suffix) across `username`,
-`name`, and `email` fields to avoid `LIKE`/`ILIKE` errors from the
-`case_insensitive` collation.
+with prefix matching (`search_type="raw"` with `:*` suffix) across `username`
+and `name` fields to avoid `LIKE`/`ILIKE` errors from the `case_insensitive`
+collation. Email is neither searched nor returned.
 
 Endpoint: `GET /fe_api/users/?search=<query>`
 
@@ -150,7 +154,7 @@ Done. Displays a single user in the dropdown list. Modelled after `TeamListItem.
   <img src={user.avatar_url} alt={user.name} class="avatar" />
   <div class="info">
     <span class="name">{user.name || user.username}</span>
-    <span class="username">@{user.username}</span>
+    <span class="username">{user.username}</span>
   </div>
 </div>
 ```
@@ -450,7 +454,7 @@ Not in scope for this plan (no existing frontend tests in the codebase).
 | `squarelet/organizations/migrations/0061_merge_20260324.py`         | Merge migration resolving upstream conflict ✅                 |
 | `squarelet/organizations/querysets.py`                              | Change `create_individual` default `private=True` → `False` ✅ |
 | `squarelet/users/signals.py`                                        | `email_confirmed` sets `hidden=False` on any email confirm ✅  |
-| `squarelet/organizations/signals.py`                                 | `charge_created` unhides org (individual or group) ✅          |
+| `squarelet/organizations/signals.py`                                | `charge_created` unhides org (individual or group) ✅          |
 | `squarelet/users/forms.py`                                          | Add `private` field to `UserUpdateForm` ✅                     |
 | `squarelet/users/views.py`                                          | Save `private` to `individual_organization` in update view ✅  |
 | `squarelet/users/managers.py`                                       | Add `get_searchable(user)` manager method ✅                   |

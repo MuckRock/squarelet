@@ -12,15 +12,7 @@ class UserSearchSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ("id", "username", "name", "email", "avatar_url")
-        read_only_fields = fields
-
-
-class UserSearchSerializerNoEmail(UserSearchSerializer):
-    """Search results without email — for non-verified users"""
-
-    class Meta(UserSearchSerializer.Meta):
-        fields = tuple(f for f in UserSearchSerializer.Meta.fields if f != "email")
+        fields = ("id", "username", "name", "avatar_url")
         read_only_fields = fields
 
 

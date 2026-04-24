@@ -9,11 +9,7 @@ from rest_framework import viewsets
 from rest_framework.permissions import AllowAny
 
 # Squarelet
-from squarelet.users.fe_api.serializers import (
-    UserSearchSerializer,
-    UserSearchSerializerNoEmail,
-    UserSerializer,
-)
+from squarelet.users.fe_api.serializers import UserSearchSerializer, UserSerializer
 from squarelet.users.models import User
 
 
@@ -24,12 +20,7 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_serializer_class(self):
         if self.action == "list":
-            if (
-                self.request.user.is_authenticated
-                and self.request.user.verified_journalist()
-            ):
-                return UserSearchSerializer
-            return UserSearchSerializerNoEmail
+            return UserSearchSerializer
         return UserSerializer
 
     def get_queryset(self):
@@ -43,7 +34,7 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
                 # Strip tsquery special characters so raw queries are safe.
                 sanitized = re.sub(r"[&|!<>():*@.\\\"]", " ", search).strip()
                 if sanitized:
-                    vector = SearchVector("username", "name", "email")
+                    vector = SearchVector("username", "name")
                     terms = sanitized.split()
                     tsquery = " & ".join(f"{t}:*" for t in terms)
                     query = SearchQuery(tsquery, search_type="raw")

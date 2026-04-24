@@ -14,9 +14,7 @@
   {/if}
   <div class="info">
     <span class="name">{user.name || user.username}</span>
-    {#if user.email}
-      <span class="username">{user.email}</span>
-    {:else if user.name}
+    {#if user.name}
       <span class="username">{user.username}</span>
     {/if}
   </div>
