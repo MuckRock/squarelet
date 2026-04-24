@@ -186,6 +186,26 @@ class MembershipsInline(admin.TabularInline):
     autocomplete_fields = ("from_organization",)
 
 
+class PlanFilter(admin.SimpleListFilter):
+    """Filter organizations by the plan they're subscribed to"""
+
+    title = "plan"
+    parameter_name = "plan"
+    template = "admin/dropdown_filter.html"
+
+    def lookups(self, request, model_admin):
+        plans = Plan.objects.order_by("name").values_list("pk", "name")
+        return [("none", "— No plan —"), *plans]
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value is None:
+            return queryset
+        if value == "none":
+            return queryset.filter(subscriptions__isnull=True)
+        return queryset.filter(subscriptions__plan_id=value).distinct()
+
+
 class OverdueInvoiceFilter(admin.SimpleListFilter):
     """Filter organizations by whether they have overdue invoices"""
 
@@ -306,6 +326,7 @@ class OrganizationAdmin(VersionAdmin):
         "get_outstanding_invoices",
     )
     list_filter = (
+        PlanFilter,
         "individual",
         "private",
         "verified_journalist",
