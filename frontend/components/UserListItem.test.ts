@@ -10,17 +10,16 @@ describe("UserListItem", () => {
       props: {
         user: {
           id: 1,
-          uuid: "abc-123",
           username: "janedoe",
           name: "Jane Doe",
-          email: "janedoe@example.com",
           avatar_url: "/avatars/jane.png",
         },
       },
     });
 
     expect(target.textContent).toContain("Jane Doe");
-    expect(target.textContent).toContain("janedoe@example.com");
+    expect(target.textContent).toContain("janedoe");
+    expect(target.textContent).not.toContain("@example.com");
   });
 
   it("falls back to username when name is empty", () => {
@@ -30,7 +29,6 @@ describe("UserListItem", () => {
       props: {
         user: {
           id: 2,
-          uuid: "def-456",
           username: "noname",
           name: "",
           avatar_url: "",
@@ -49,7 +47,6 @@ describe("UserListItem", () => {
       props: {
         user: {
           id: 3,
-          uuid: "ghi-789",
           username: "avataruser",
           name: "Avatar User",
           avatar_url: "/avatars/avatar.png",
