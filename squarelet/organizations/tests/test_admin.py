@@ -358,9 +358,7 @@ class TestPlanFilter:
         )
 
     @pytest.mark.django_db
-    def test_lookups_include_no_plan_and_each_plan(
-        self, request_factory, plan_factory
-    ):
+    def test_lookups_include_no_plan_and_each_plan(self, request_factory, plan_factory):
         plan_a = plan_factory(name="Plan A")
         plan_b = plan_factory(name="Plan B")
         request = request_factory.get("/")
