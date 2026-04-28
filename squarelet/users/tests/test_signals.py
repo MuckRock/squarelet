@@ -12,9 +12,41 @@ from squarelet.users import signals
 def test_email_confirmed(user_factory, mocker):
     mocked = mocker.patch("squarelet.users.signals.send_cache_invalidations")
     user = user_factory.build()
-    email = EmailAddress(user=user, primary=True)
+    email = EmailAddress(user=user, primary=False)
     signals.email_confirmed(None, email)
     mocked.assert_called_with("user", user.uuid)
+
+
+@pytest.mark.django_db
+def test_email_confirmed_unhides_user(user_factory, mocker):
+    """Confirming any email should set hidden=False on the individual org"""
+    mocker.patch("squarelet.users.signals.send_cache_invalidations")
+    user = user_factory()
+    assert user.individual_organization.hidden is True
+
+    email = EmailAddress.objects.get(user=user)
+
+    signals.email_confirmed(None, email)
+
+    user.individual_organization.refresh_from_db()
+    assert user.individual_organization.hidden is False
+
+
+@pytest.mark.django_db
+def test_email_confirmed_nonprimary_unhides_user(user_factory, mocker):
+    """Confirming a non-primary email should also unhide the user"""
+    mocker.patch("squarelet.users.signals.send_cache_invalidations")
+    user = user_factory()
+    assert user.individual_organization.hidden is True
+
+    email = EmailAddress.objects.create(
+        user=user, email="secondary@example.com", primary=False, verified=True
+    )
+
+    signals.email_confirmed(None, email)
+
+    user.individual_organization.refresh_from_db()
+    assert user.individual_organization.hidden is False
 
 
 @pytest.mark.django_db(transaction=True)

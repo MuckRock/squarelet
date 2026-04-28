@@ -1,7 +1,20 @@
 {# required: css/invitation_list_item.css #}
 {% load i18n %}
 <div class="invited">
-    {% if invitation.email %}
+    {% if invitation.user %}
+    <div class="person avatar">
+        {% include "core/icons/person-24.svg" %}
+    </div>
+    <div class="info">
+        <h3>{{ invitation.user.name|default:invitation.user.username }}</h3>
+        <div class="details">
+            <span class="username">{{ invitation.user.username }}</span>
+            {% if invitation.role == 1 %}
+            <span class="orange badge">{% trans "Admin" %}</span>
+            {% endif %}
+        </div>
+    </div>
+    {% elif invitation.email %}
     <div class="email avatar">
         {% include "core/icons/mail-24.svg" %}
     </div>

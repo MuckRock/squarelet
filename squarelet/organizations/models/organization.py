@@ -201,6 +201,15 @@ class Organization(AvatarMixin, models.Model):
         default=False,
         help_text=_("This organization is solely for the use of one user"),
     )
+    hidden = models.BooleanField(
+        _("hidden"),
+        default=True,
+        help_text=_(
+            "Individual accounts are hidden until the user has verified their "
+            "email, made a payment, or been verified by association. Hidden "
+            "accounts do not appear in search results."
+        ),
+    )
     private = models.BooleanField(
         _("private organization"),
         default=False,

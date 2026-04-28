@@ -250,6 +250,7 @@ class UserUpdateView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Updat
         # from the user model. User should really be an auth-oriented model.
         self.object.individual_organization.avatar = self.object.avatar
         self.object.individual_organization.name = self.object.username
+        self.object.individual_organization.private = form.cleaned_data["private"]
         self.object.individual_organization.save()
 
         if self.request.user != self.object:

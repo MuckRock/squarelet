@@ -48,11 +48,12 @@ class EmailsListField(forms.CharField):
         """Validates list of email addresses"""
         super().clean(value)
 
-        emails = self.email_separator_re.split(value)
+        if not value or not value.strip():
+            if self.required:
+                raise forms.ValidationError(_("Enter at least one e-mail address."))
+            return []
 
-        if not emails:
-            raise forms.ValidationError(_("Enter at least one e-mail address."))
-
+        emails = [e for e in self.email_separator_re.split(value.strip()) if e]
         for email in emails:
             validate_email(email)
 

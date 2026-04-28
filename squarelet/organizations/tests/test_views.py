@@ -1357,6 +1357,37 @@ class TestManageMembers(ViewTestMixin):  # pylint: disable=too-many-public-metho
         organization.refresh_from_db()
         assert organization.max_users == 5
 
+    def test_add_member_by_user_id_associates_user(
+        self, rf, mailoutbox, organization_factory, user_factory
+    ):
+        """Inviting via user_ids should attach the invited user to the invitation"""
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        invitee = user_factory(email="invitee@example.com")
+        data = {"action": "addmember", "user_ids": str(invitee.pk)}
+        self.call_view(rf, admin, data, slug=organization.slug)
+        invitation = organization.invitations.get()
+        assert invitation.user == invitee
+        assert invitation.email == invitee.email
+        mail = mailoutbox[0]
+        assert mail.to == [invitee.email]
+        self.assert_message(messages.SUCCESS, "1 invitation sent")
+
+    def test_add_member_by_user_id_skips_existing_member(
+        self, rf, organization_factory, user_factory
+    ):
+        """Inviting a user who is already a member should not create an invitation"""
+        admin = user_factory()
+        member = user_factory(email="member@example.com")
+        organization = organization_factory(admins=[admin], users=[member])
+        data = {"action": "addmember", "user_ids": str(member.pk)}
+        self.call_view(rf, admin, data, slug=organization.slug)
+        assert not organization.invitations.exists()
+        self.assert_message(
+            messages.INFO,
+            f"{member.email} is already a member of this organization.",
+        )
+
     def test_revoke_invite(
         self, rf, organization_factory, user_factory, invitation_factory
     ):

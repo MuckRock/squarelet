@@ -35,6 +35,12 @@ def user_without_org(db):
 @pytest.mark.django_db
 def test_list_users_authenticated(client, user_with_org, user_without_org):
     user, org = user_with_org
+    # Make both users visible (un-hide them)
+    user.individual_organization.hidden = False
+    user.individual_organization.save()
+    user_without_org.individual_organization.hidden = False
+    user_without_org.individual_organization.save()
+
     client.force_authenticate(user=user)
 
     response = client.get("/fe_api/users/")
@@ -70,4 +76,63 @@ def test_user_detail_no_shared_org(client, user_with_org, user_without_org):
 @pytest.mark.django_db
 def test_user_list_unauthenticated(client):
     response = client.get("/fe_api/users/")
-    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["results"] == []
+
+
+@pytest.mark.django_db
+def test_search_users_by_username(client, user_with_org):
+    """Search endpoint filters by username"""
+    user, _ = user_with_org
+    # Make user1 searchable (not hidden)
+    user.individual_organization.hidden = False
+    user.individual_organization.save()
+
+    other = User.objects.create_user(
+        username="searchable", email="search@example.com", password="password"
+    )
+    other.individual_organization.hidden = False
+    other.individual_organization.save()
+
+    client.force_authenticate(user=user)
+    response = client.get("/fe_api/users/?search=searchable", format="json")
+    assert response.status_code == status.HTTP_200_OK
+    results = response.data["results"]
+    assert len(results) == 1
+    assert results[0]["username"] == "searchable"
+
+
+@pytest.mark.django_db
+def test_search_excludes_hidden_users(client, user_with_org):
+    """Hidden users should not appear in search results"""
+    user, _ = user_with_org
+    hidden_user = User.objects.create_user(
+        username="hidden_guy", email="hidden@example.com", password="password"
+    )
+    # hidden_guy's individual_organization.hidden defaults to True
+
+    client.force_authenticate(user=user)
+    response = client.get("/fe_api/users/?search=hidden_guy", format="json")
+    assert response.status_code == status.HTTP_200_OK
+    results = response.data["results"]
+    assert len(results) == 0
+
+
+@pytest.mark.django_db
+def test_search_list_fields(client, user_with_org):
+    """Search results expose only safe public fields — no email"""
+    user, _ = user_with_org
+    other = User.objects.create_user(
+        username="visible", email="visible@example.com", password="password"
+    )
+    other.individual_organization.hidden = False
+    other.individual_organization.save()
+
+    client.force_authenticate(user=user)
+    response = client.get("/fe_api/users/?search=visible", format="json")
+    results = response.data["results"]
+    assert len(results) == 1
+    assert "email" not in results[0]
+    assert "username" in results[0]
+    assert "name" in results[0]
+    assert "avatar_url" in results[0]

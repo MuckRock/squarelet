@@ -8,6 +8,7 @@ export default defineConfig({
     alias: {
       "@": path.resolve("frontend"),
     },
+    conditions: ["browser"],
   },
   test: {
     environment: "jsdom",

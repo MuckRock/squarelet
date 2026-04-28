@@ -48,8 +48,11 @@ def user_signed_up(request, **kwargs):
 
 
 def email_confirmed(request, email_address, **kwargs):
-    if email_address.primary:
-        send_cache_invalidations("user", email_address.user.uuid)
+    send_cache_invalidations("user", email_address.user.uuid)
+    org = email_address.user.individual_organization
+    if org and org.pk and org.hidden:
+        org.hidden = False
+        org.save(update_fields=["hidden"])
 
 
 def email_changed(request, user, from_email_address, to_email_address, **kwargs):

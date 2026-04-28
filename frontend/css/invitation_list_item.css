@@ -14,7 +14,8 @@
 }
 
 .invited .email.avatar,
-.invited .link.avatar {
+.invited .link.avatar,
+.invited .person.avatar {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -48,6 +49,11 @@
 .invited .info .help {
   margin: 0;
   width: 100%;
+  font-size: var(--font-sm);
+  color: var(--gray-4);
+}
+
+.invited .info .details .username {
   font-size: var(--font-sm);
   color: var(--gray-4);
 }

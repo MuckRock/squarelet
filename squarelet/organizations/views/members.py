@@ -13,6 +13,7 @@ from squarelet.organizations.choices import InvitationRole
 from squarelet.organizations.forms import AddMemberForm
 from squarelet.organizations.mixins import OrganizationPermissionMixin
 from squarelet.organizations.models import Invitation, Membership, Organization
+from squarelet.users.models import User
 
 
 class ManageMembers(OrganizationPermissionMixin, DetailView):
@@ -42,68 +43,87 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
     def _handle_add_member(self, request):
         addmember_form = AddMemberForm(request.POST)
         if not addmember_form.is_valid():
-            messages.error(
-                request, addmember_form.errors.get("emails", ["Invalid input."])[0]
+            error_msg = (
+                addmember_form.errors.get("emails")
+                or addmember_form.errors.get("__all__")
+                or ["Invalid input."]
+            )[0]
+            messages.error(request, error_msg)
+            return redirect("organizations:manage-members", slug=self.organization.slug)
+
+        invitees = self._build_invitees(addmember_form)
+        role = addmember_form.cleaned_data.get("role")
+        role = int(role) if role else InvitationRole.member
+        invited_emails = [
+            email
+            for user_obj, email in invitees
+            if self._invite_one(user_obj, email, role)
+        ]
+        if invited_emails and request.user.is_staff:
+            self._log_invitations(request.user, invited_emails)
+        if invited_emails:
+            count = len(invited_emails)
+            messages.success(
+                self.request,
+                f"{count} {pluralize(count, 'invitation')} sent",
             )
-        else:
-            emails = addmember_form.cleaned_data["emails"]
-            role = addmember_form.cleaned_data.get("role")
-            if not role:
-                role = InvitationRole.member
-            else:
-                role = int(role)
-            invitations_sent = 0
-            invited_emails = []
-            for email in emails:
-                is_already_member = self.organization.has_member_by_email(email)
-                existing_open_invite = self.organization.get_existing_open_invite(email)
-                if is_already_member:
-                    messages.info(
-                        self.request,
-                        f"{email} is already a member of this organization.",
-                    )
-                    continue
-
-                if existing_open_invite:
-                    existing_open_invite.send()
-                    invitations_sent += 1
-                    invited_emails.append(email)
-                    continue
-
-                invitation = Invitation.objects.create(
-                    organization=self.organization,
-                    email=email,
-                    role=role,
-                )
-                invitation.send()
-                invitations_sent += 1
-                invited_emails.append(email)
-
-            # Log staff action to activity stream (once for the batch)
-            if invitations_sent > 0 and request.user.is_staff:
-                # Include up to 10 email addresses in the description
-                if len(invited_emails) <= 10:
-                    email_list = ", ".join(invited_emails)
-                else:
-                    email_list = (
-                        ", ".join(invited_emails[:10])
-                        + f" and {len(invited_emails) - 10} more"
-                    )
-                new_action(
-                    actor=request.user,
-                    verb="sent organization invitation",
-                    target=self.organization,
-                    description=email_list,
-                )
-
-            if invitations_sent > 0:
-                messages.success(
-                    self.request,
-                    f"{invitations_sent}"
-                    f" {pluralize(invitations_sent, 'invitation')} sent",
-                )
-
         return redirect("organizations:manage-members", slug=self.organization.slug)
+
+    def _build_invitees(self, form):
+        """Build (user, email) pairs from the form. Free-form emails have
+        user=None; selected users carry both the user and their email so the
+        invitation is tied to the account, not just the address."""
+        invitees = [(None, email) for email in (form.cleaned_data["emails"] or [])]
+        user_ids = form.cleaned_data.get("user_ids", [])
+        if user_ids:
+            for user_obj in User.objects.filter(id__in=user_ids):
+                invitees.append((user_obj, user_obj.email))
+        return invitees
+
+    def _invite_one(self, user_obj, email, role):
+        """Send one invitation. Returns True if an invitation was sent."""
+        if user_obj is not None:
+            is_already_member = self.organization.has_member(user_obj)
+        else:
+            is_already_member = self.organization.has_member_by_email(email)
+        if is_already_member:
+            messages.info(
+                self.request,
+                f"{email} is already a member of this organization.",
+            )
+            return False
+
+        existing_open_invite = self.organization.get_existing_open_invite(email)
+        if existing_open_invite:
+            if user_obj is not None and existing_open_invite.user is None:
+                existing_open_invite.user = user_obj
+                existing_open_invite.save()
+            existing_open_invite.send()
+            return True
+
+        invitation = Invitation.objects.create(
+            organization=self.organization,
+            email=email,
+            user=user_obj,
+            role=role,
+        )
+        invitation.send()
+        return True
+
+    def _log_invitations(self, actor, invited_emails):
+        """Log a staff-triggered invitation batch to the activity stream."""
+        if len(invited_emails) <= 10:
+            description = ", ".join(invited_emails)
+        else:
+            description = (
+                ", ".join(invited_emails[:10]) + f" and {len(invited_emails) - 10} more"
+            )
+        new_action(
+            actor=actor,
+            verb="sent organization invitation",
+            target=self.organization,
+            description=description,
+        )
 
     def _handle_add_member_link(self, request):
         # Create an invitation and display it to the admin
@@ -274,50 +294,47 @@ class InvitationAccept(DetailView):
         return super().dispatch(request, *args, **kwargs)
 
     def post(self, request, *args, **kwargs):
-        """Accept the invitation"""
+        """Accept, reject, or withdraw the invitation"""
         if not request.user.is_authenticated:
             return HttpResponseBadRequest()
         invitation = self.get_object()
-        action = request.POST.get("action")
-        if action == "accept":
-            invitation.accept(request.user)
-            messages.success(request, "Invitation accepted")
-
-            # If the referer is this invitation page itself, ignore it
-            invite_url = request.build_absolute_uri()
-            if request.META.get("HTTP_REFERER") == invite_url:
-                del request.META["HTTP_REFERER"]
-
-            return get_redirect_url(request, redirect(invitation.organization))
-        elif action == "reject":
-            # Associate the user with the invitation for auditing purposes
-            if invitation.user is None:
-                invitation.user = request.user
-                invitation.save()
-            invitation.reject()
-            messages.info(request, "Invitation rejected")
-
-            # If the referer is this invitation page itself, ignore it
-            invite_url = request.build_absolute_uri()
-            if request.META.get("HTTP_REFERER") == invite_url:
-                del request.META["HTTP_REFERER"]
-            return get_redirect_url(request, redirect(request.user))
-        elif action == "withdraw":
-            # Associate the user with the invitation for auditing purposes
-            if invitation.user is None:
-                invitation.user = request.user
-                invitation.save()
-            invitation.withdraw()
-            messages.info(request, "Invitation withdrawn")
-
-            # If the referer is this invitation page itself, ignore it
-            invite_url = request.build_absolute_uri()
-            if request.META.get("HTTP_REFERER") == invite_url:
-                del request.META["HTTP_REFERER"]
-            return get_redirect_url(request, redirect(request.user))
-        else:
+        handlers = {
+            "accept": self._accept,
+            "reject": self._reject,
+            "withdraw": self._withdraw,
+        }
+        handler = handlers.get(request.POST.get("action"))
+        if handler is None:
             messages.error(request, "Invalid choice")
             return get_redirect_url(request, redirect(request.user))
+        # Drop a self-referer so get_redirect_url doesn't loop back here
+        if request.META.get("HTTP_REFERER") == request.build_absolute_uri():
+            del request.META["HTTP_REFERER"]
+        return handler(request, invitation)
+
+    def _accept(self, request, invitation):
+        invitation.accept(request.user)
+        messages.success(request, "Invitation accepted")
+        return get_redirect_url(request, redirect(invitation.organization))
+
+    def _reject(self, request, invitation):
+        self._associate_user(invitation, request.user)
+        invitation.reject()
+        messages.info(request, "Invitation rejected")
+        return get_redirect_url(request, redirect(request.user))
+
+    def _withdraw(self, request, invitation):
+        self._associate_user(invitation, request.user)
+        invitation.withdraw()
+        messages.info(request, "Invitation withdrawn")
+        return get_redirect_url(request, redirect(request.user))
+
+    @staticmethod
+    def _associate_user(invitation, user):
+        """Attach the acting user to the invitation for auditing."""
+        if invitation.user is None:
+            invitation.user = user
+            invitation.save()
 
 
 class BaseOrgInvitationRequestView(OrganizationPermissionMixin, ListView):
