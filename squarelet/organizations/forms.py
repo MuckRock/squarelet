@@ -2,6 +2,7 @@
 from django import forms
 from django.core.validators import validate_email
 from django.db.models.aggregates import Min
+from django.middleware.csrf import get_token
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
@@ -280,6 +281,58 @@ class AddMemberForm(forms.Form):
             "Admins can also manage members and settings."
         ),
     )
+
+
+class InvitationAcceptForm(forms.Form):
+    """
+    Validates that a user can accept an invitation.
+    Admin-role invitations require the user to have a verified email address.
+    Exposes a class method to bind the class to an Invitation object.
+    """
+
+    template_name = "organizations/invitation_accept_form.html"
+
+    def __init__(self, *args, invitation, user, request=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.invitation = invitation
+        self.user = user
+        self.request = request
+
+    @property
+    def requires_email_verification(self):
+        return (
+            self.invitation.role == InvitationRole.admin
+            and not self.user.emailaddress_set.filter(verified=True).exists()
+        )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if self.requires_email_verification:
+            raise forms.ValidationError(
+                _(
+                    "You must verify your email address before accepting "
+                    "an admin invitation."
+                )
+            )
+        return cleaned_data
+
+    def get_context(self):
+        context = super().get_context()
+        context["invitation"] = self.invitation
+        context["user"] = self.user
+        context["requires_email_verification"] = self.requires_email_verification
+        if self.request:
+            context["csrf_token"] = get_token(self.request)
+        return context
+
+    @classmethod
+    def attach_to_invitations(cls, invitations, user, request=None):
+        """Attach an accept_form to each invitation in the list."""
+        for invitation in invitations:
+            invitation.accept_form = cls(
+                invitation=invitation, user=user, request=request
+            )
+        return invitations
 
 
 class MergeForm(forms.Form):

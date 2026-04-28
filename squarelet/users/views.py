@@ -47,6 +47,7 @@ from allauth.socialaccount.views import ConnectionsView
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import new_action
+from squarelet.organizations.forms import InvitationAcceptForm
 from squarelet.organizations.models import Invitation, ReceiptEmail
 from squarelet.organizations.models.payment import Plan
 from squarelet.organizations.views import UpdateSubscription
@@ -137,7 +138,9 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         )
         context["is_own_page"] = user == self.request.user
         context["potential_organizations"] = list(user.get_potential_organizations())
-        context["pending_invitations"] = list(user.get_pending_invitations())
+        context["pending_invitations"] = InvitationAcceptForm.attach_to_invitations(
+            list(user.get_pending_invitations()), user, request=self.request
+        )
         context["pending_requests"] = list(user.get_pending_requests())
         context["verified"] = user.verified_journalist()
         context["verified_organizations"] = list(
@@ -604,6 +607,13 @@ class UserInvitationsView(BaseUserInvitationRequestView):
     context_object_name = "invitations"
     is_request_view = False
     redirect_url_name = "users:invitations"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        InvitationAcceptForm.attach_to_invitations(
+            context["invitations"], self.request.user, request=self.request
+        )
+        return context
 
 
 class UserRequestsView(BaseUserInvitationRequestView):

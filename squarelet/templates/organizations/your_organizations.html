@@ -30,15 +30,7 @@
   {% for invite in pending_invitations %}
     <div class="invite">
       {% include "account/team_list_item.html" with organization=invite.organization %}
-      <form method="post" action="{% url "organizations:invitation" uuid=invite.uuid %}" class="actions actions-nowrap">
-        {% csrf_token %}
-        <button class="small btn primary" type="submit" name="action" value="accept">
-          {% trans "Accept" %}
-        </button>
-        <button class="small btn danger ghost" type="submit" name="action" value="reject">
-          {% trans "Reject" %}
-        </button>
-      </form>
+      {{ invite.accept_form }}
     </div>
   {% endfor %}
 </div>

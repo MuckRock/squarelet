@@ -18,6 +18,7 @@ from datetime import datetime
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import get_redirect_url, is_rate_limited, new_action
+from squarelet.organizations.forms import InvitationAcceptForm
 from squarelet.organizations.models import Invitation, Membership, Organization, Plan
 from squarelet.organizations.tasks import sync_wix
 
@@ -353,7 +354,9 @@ class List(ListView):
         context["potential_orgs"] = []
         if user.is_authenticated:
             context["pending_requests"] = list(user.get_pending_requests())
-            context["pending_invitations"] = list(user.get_pending_invitations())
+            context["pending_invitations"] = InvitationAcceptForm.attach_to_invitations(
+                list(user.get_pending_invitations()), user, request=self.request
+            )
             context["potential_orgs"] = list(user.get_potential_organizations())
 
         context["has_pending"] = bool(
@@ -370,7 +373,9 @@ class List(ListView):
             ).get_viewable(self.request.user)
         )
         context["potential_organizations"] = list(user.get_potential_organizations())
-        context["pending_invitations"] = list(user.get_pending_invitations())
+        context["pending_invitations"] = InvitationAcceptForm.attach_to_invitations(
+            list(user.get_pending_invitations()), user, request=self.request
+        )
 
         return context
 
