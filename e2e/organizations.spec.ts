@@ -469,8 +469,8 @@ test.describe("Member Management", () => {
     const anonContext = await browser.newContext({ ignoreHTTPSErrors: true });
     const anonPage = await anonContext.newPage();
     await anonPage.goto(`https://dev.squarelet.com${invitationPath}`);
-    await expect(anonPage.locator("form a:has-text('Sign Up')")).toBeVisible();
-    await expect(anonPage.locator("form a:has-text('Log In')")).toBeVisible();
+    await expect(anonPage.locator("a:has-text('Sign Up')")).toBeVisible();
+    await expect(anonPage.locator("a:has-text('Log In')")).toBeVisible();
     await anonContext.close();
 
     // Verify the link invitation shows "Copy link" (not "Resend") on manage-members
