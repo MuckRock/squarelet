@@ -400,5 +400,6 @@ def mkcert(c):
             '"*.dev.documentcloud.org" '
             "dev.muckrock.com "
             "dev.foiamachine.org "
-            "dev.mailhog.com"
+            "dev.mailhog.com "
+            "minio.documentcloud.org"
         )
