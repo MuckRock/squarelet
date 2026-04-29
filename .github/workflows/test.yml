@@ -47,7 +47,7 @@ jobs:
         run: pylint squarelet
 
       - name: Sort
-        run: isort --check-only squarelet config/urls.py config/settings
+        run: isort --check-only --diff squarelet config/urls.py config/settings
 
       - name: Format
         run: black --check squarelet --exclude migrations && black --check config/urls.py && black --check config/settings

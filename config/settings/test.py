@@ -62,3 +62,12 @@ EMAIL_PORT = 1025
 STRIPE_PUB_KEY = "pk_muckrock"
 STRIPE_SECRET_KEY = "sk_muckrock"
 STRIPE_WEBHOOK_SECRET = None
+
+# Frontend
+# ------------------------------------------------------------------------------
+# Don't look for built frontend assets during tests
+DJANGO_VITE = {
+    "default": {
+        "dev_mode": True,
+    }
+}
