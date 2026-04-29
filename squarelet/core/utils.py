@@ -7,7 +7,6 @@ from django.utils import timezone
 import logging
 import os.path
 import sys
-import uuid
 from datetime import timedelta
 from hashlib import md5
 from urllib.parse import quote
@@ -83,18 +82,6 @@ def retry_on_error(errors, func, *args, **kwargs):
             "Error, retrying #%d:\n\n%s", times, exc, exc_info=sys.exc_info()
         )
         return retry_on_error(errors, func, times=times, *args, **kwargs)
-
-
-def stripe_retry_on_error(func, *args, **kwargs):
-    """Retry stripe API calls on connection errors"""
-    if kwargs.get("idempotency_key") is True:
-        kwargs["idempotency_key"] = uuid.uuid4().hex
-    return retry_on_error(
-        (stripe.error.APIConnectionError, stripe.error.RateLimitError),
-        func,
-        *args,
-        **kwargs,
-    )
 
 
 def mailchimp_subscribe(emails, list_=settings.MAILCHIMP_LIST_DEFAULT):
@@ -255,7 +242,7 @@ def format_stripe_error(error):
     """
     # CardErrors - show detailed user messages
     # These are user-facing errors where Stripe provides helpful messages
-    if isinstance(error, stripe.error.CardError):
+    if isinstance(error, stripe.CardError):
         # Stripe's user_message is already user-friendly for card errors
         user_message = str(error)
         logger.error("Stripe CardError: %s", error, exc_info=sys.exc_info())

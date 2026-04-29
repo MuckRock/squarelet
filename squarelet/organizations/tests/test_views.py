@@ -1125,7 +1125,7 @@ class TestUpdateSubscription(ViewTestMixin):
         mocked = mocker.patch(
             "squarelet.organizations.models.Organization.set_subscription"
         )
-        mocked.side_effect = stripe.error.StripeError("Error message")
+        mocked.side_effect = stripe.StripeError("Error message")
         user = user_factory()
         organization = organization_factory(admins=[user])
         data = {
@@ -1834,7 +1834,7 @@ class TestStripeWebhook:
 
     def test_simple(self, rf):
         """Succesful request"""
-        event = {"type": "test"}
+        event = {"type": "test", "data": {"object": {}}}
         response = self.call_view(rf, event)
         assert response.status_code == 200
 

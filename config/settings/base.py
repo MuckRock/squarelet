@@ -572,3 +572,5 @@ OVERDUE_INVOICE_GRACE_PERIOD_DAYS = env.int(
 # Rate limits for users requesting to join an organization
 ORG_JOIN_REQUEST_LIMIT = env.int("ORG_JOIN_REQUEST_LIMIT", default=3)
 ORG_JOIN_REQUEST_WINDOW = env.int("ORG_JOIN_REQUEST_WINDOW", default=3600)
+
+STRIPE_PROVIDER = env("STRIPE_PROVIDER", default="modern")

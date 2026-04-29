@@ -43,23 +43,21 @@ class TestSubscription:
             latest_invoice=None,  # No invoice to avoid invoice creation path
         )
         mocked_customer = Mock()
-        mocked_customer.stripe_customer.subscriptions.create.return_value = (
-            mock_stripe_subscription
-        )
         mocker.patch(
             "squarelet.organizations.models.organization.Organization.customer",
             return_value=mocked_customer,
         )
+        mock_sub_service = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_subscription_service.return_value
+        mock_sub_service.create.return_value = mock_stripe_subscription
 
         subscription.start()
 
-        mocked_customer.stripe_customer.subscriptions.create.assert_called_with(
-            items=[
-                {
-                    "plan": subscription.plan.stripe_id,
-                    "quantity": subscription.organization.max_users,
-                }
-            ],
+        mock_sub_service.create.assert_called_with(
+            stripe_customer=mocked_customer.stripe_customer,
+            plan_id=subscription.plan.stripe_id,
+            quantity=subscription.organization.max_users,
             billing="charge_automatically",
             metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=None,
@@ -86,10 +84,11 @@ class TestSubscription:
         mocked_stripe_subscription = mocker.patch(
             "squarelet.organizations.models.Subscription.stripe_subscription"
         )
+        mocked_stripe_subscription.id = "sub_test123"
+        mocked_modify = mocker.patch("stripe.Subscription.modify")
         subscription = subscription_factory.build()
         subscription.cancel()
-        assert mocked_stripe_subscription.cancel_at_period_end
-        mocked_stripe_subscription.save.assert_called()
+        mocked_modify.assert_called_once_with("sub_test123", cancel_at_period_end=True)
         assert subscription.cancelled
         mocked_save.assert_called()
 
@@ -123,13 +122,15 @@ class TestSubscription:
         self, subscription_factory, professional_plan_factory, mocker
     ):
         mocked_save = mocker.patch("squarelet.organizations.models.Subscription.save")
-        mocked_modify = mocker.patch("stripe.Subscription.modify")
+        mock_sub_service = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_subscription_service.return_value
         mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
         plan = professional_plan_factory.build()
         subscription = subscription_factory.build(plan=plan)
         subscription.modify(plan)
         mocked_save.assert_called()
-        mocked_modify.assert_called_with(
+        mock_sub_service.modify.assert_called_with(
             subscription.subscription_id,
             cancel_at_period_end=False,
             items=[
@@ -168,14 +169,19 @@ class TestSubscription:
         )
 
         mocked_customer = Mock()
-        mocked_customer.stripe_customer.subscriptions.create.return_value = (
-            mock_stripe_subscription
-        )
         mocker.patch(
             "squarelet.organizations.models.organization.Organization.customer",
             return_value=mocked_customer,
         )
-        mocker.patch("stripe.Invoice.retrieve", return_value=mock_stripe_invoice)
+        mock_provider = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value
+        mock_provider.get_subscription_service.return_value.create.return_value = (
+            mock_stripe_subscription
+        )
+        mock_provider.get_invoice_service.return_value.retrieve.return_value = (
+            mock_stripe_invoice
+        )
         # Start the subscription
         subscription.start(payment_method="card")
 
@@ -223,26 +229,28 @@ class TestSubscription:
         )
 
         mocked_customer = Mock()
-        mocked_customer.stripe_customer.subscriptions.create.return_value = (
-            mock_stripe_subscription
-        )
         mocker.patch(
             "squarelet.organizations.models.organization.Organization.customer",
             return_value=mocked_customer,
         )
-        mocker.patch("stripe.Invoice.retrieve", return_value=mock_stripe_invoice)
+        mock_provider = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value
+        mock_provider.get_subscription_service.return_value.create.return_value = (
+            mock_stripe_subscription
+        )
+        mock_provider.get_invoice_service.return_value.retrieve.return_value = (
+            mock_stripe_invoice
+        )
 
         # Start the subscription with invoice payment
         subscription.start(payment_method="invoice")
 
         # Verify subscription was created with send_invoice billing
-        mocked_customer.stripe_customer.subscriptions.create.assert_called_with(
-            items=[
-                {
-                    "plan": subscription.plan.stripe_id,
-                    "quantity": subscription.organization.max_users,
-                }
-            ],
+        mock_provider.get_subscription_service.return_value.create.assert_called_with(
+            stripe_customer=mocked_customer.stripe_customer,
+            plan_id=subscription.plan.stripe_id,
+            quantity=subscription.organization.max_users,
             billing="send_invoice",
             metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=30,
@@ -292,18 +300,18 @@ class TestSubscription:
         )
 
         mocked_customer = Mock()
-        mocked_customer.stripe_customer.subscriptions.create.return_value = (
-            mock_stripe_subscription
-        )
         mocker.patch(
             "squarelet.organizations.models.organization.Organization.customer",
             return_value=mocked_customer,
         )
-
-        # Mock Invoice.retrieve to raise an error
-        mocker.patch(
-            "stripe.Invoice.retrieve",
-            side_effect=stripe.error.InvalidRequestError("No such invoice", "invoice"),
+        mock_provider = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value
+        mock_provider.get_subscription_service.return_value.create.return_value = (
+            mock_stripe_subscription
+        )
+        mock_provider.get_invoice_service.return_value.retrieve.side_effect = (
+            stripe.InvalidRequestError("No such invoice", "invoice")
         )
 
         # Start should still succeed

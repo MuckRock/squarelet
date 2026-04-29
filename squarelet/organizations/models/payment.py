@@ -63,7 +63,7 @@ class Customer(models.Model):
                         stripe_customer.id, name=self.organization.user_full_name
                     )
                 return stripe_customer
-            except stripe.error.InvalidRequestError as exc:
+            except stripe.InvalidRequestError as exc:
                 logger.error(
                     "[STRIPE CUSTOMER] Invalid Request Error "
                     "while fetching Customer %s "
@@ -254,7 +254,7 @@ class Subscription(models.Model):
                         "created" if created else "updated",
                         stripe_invoice.id,
                     )
-                except stripe.error.StripeError as exc:
+                except stripe.StripeError as exc:
                     # Log error but don't fail subscription creation
                     # Webhook will create the invoice as fallback
                     logger.error(
@@ -607,7 +607,7 @@ class Plan(models.Model):
                     product={"name": self.name, "unit_label": "Seats"},
                     **kwargs,
                 )
-            except stripe.error.InvalidRequestError:  # pragma: no cover
+            except stripe.InvalidRequestError:  # pragma: no cover
                 # if the plan already exists, just skip
                 pass
 
@@ -620,7 +620,7 @@ class Plan(models.Model):
             product = plan_service.retrieve_product(plan.product)
             plan_service.delete(plan)
             plan_service.delete_product(product)
-        except stripe.error.InvalidRequestError:
+        except stripe.InvalidRequestError:
             # if the plan or product do not exist, just skip
             pass
 

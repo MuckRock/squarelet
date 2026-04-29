@@ -1,8 +1,30 @@
 """
-Legacy Stripe provider wrapping the Stripe Python SDK.
+Modern Stripe provider targeting current API versions.
 
-All Stripe API calls rely on the SDK's built-in retry mechanism
-(max_network_retries=2 with exponential backoff by default since v11).
+Implements the same abstract interfaces as the legacy provider but uses
+current Stripe API conventions. Translations from legacy parameter names
+to current ones are handled here so call sites remain unchanged.
+
+API version history tracked in this file:
+  2019-10-17 - `billing` -> `collection_method` on subscriptions
+  2019-12-03 - deprecated Customer tax fields removed (not used here)
+  2020-08-27 - customer.sources and .subscriptions no longer auto-expand;
+               use stripe.Customer.retrieve_source/create_source and
+               stripe.Subscription.create(customer=id) instead
+  2022-08-01 - Checkout Session overhaul (not used here)
+  2022-11-15 - `charges` removed from PaymentIntent, Charge refunds no longer
+               auto-expand (neither used here)
+  2023-08-16 - automatic payment methods on by default for PaymentIntents
+               (not used here)
+  2024-04-10 - `rendering_options` -> `rendering` on invoices, `features`
+               renamed on Product (neither used here)
+  2024-09-30 - Acacia release, new monthly versioning model begins
+  2025-03-31 - basil: current_period_end/start moved from subscription root
+               to subscription items; handled via get_current_period_end()
+  2025-09-30 - clover: flexible billing mode default, iterations removed from
+               subscription schedules, Discount.coupon -> Discount.source
+               (none used here)
+  2026-03-25 - dahlia: cancellation_reason enum expanded (not checked here)
 """
 
 # Third Party
@@ -18,9 +40,11 @@ from squarelet.organizations.payments.base import (
     SubscriptionService,
 )
 
+CURRENT_API_VERSION = "2026-03-25.dahlia"
 
-class StripeLegacyCustomerService(CustomerService):
-    """Customer operations using Stripe 2.x Sources API."""
+
+class StripeModernCustomerService(CustomerService):
+    """Customer operations using current Stripe Payment Methods API."""
 
     def create(self, description, email, name):
         return stripe.Customer.create(
@@ -43,14 +67,16 @@ class StripeLegacyCustomerService(CustomerService):
         stripe.Customer.delete_source(customer_id, source_id)
 
     def retrieve_source(self, stripe_customer, source_id):
-        return stripe_customer.sources.retrieve(source_id)
+        # sources no longer auto-expand as of API version 2020-08-27
+        return stripe.Customer.retrieve_source(stripe_customer.id, source_id)
 
     def add_source(self, stripe_customer, token):
-        return stripe_customer.sources.create(source=token)
+        # sources no longer auto-expand as of API version 2020-08-27
+        return stripe.Customer.create_source(stripe_customer.id, source=token)
 
 
-class StripeLegacySubscriptionService(SubscriptionService):
-    """Subscription operations using Stripe 2.x Plans API."""
+class StripeModernSubscriptionService(SubscriptionService):
+    """Subscription operations using current Stripe API."""
 
     def create(  # pylint: disable=too-many-positional-arguments
         self,
@@ -61,9 +87,12 @@ class StripeLegacySubscriptionService(SubscriptionService):
         metadata,
         days_until_due,
     ):
-        return stripe_customer.subscriptions.create(
+        # `billing` was renamed to `collection_method` in API version 2019-10-17
+        # subscriptions no longer auto-expand as of API version 2020-08-27
+        return stripe.Subscription.create(
+            customer=stripe_customer.id,
             items=[{"plan": plan_id, "quantity": quantity}],
-            billing=billing,
+            collection_method=billing,
             metadata=metadata,
             days_until_due=days_until_due,
         )
@@ -75,6 +104,10 @@ class StripeLegacySubscriptionService(SubscriptionService):
             return None
 
     def modify(self, subscription_id, **kwargs):
+        # `billing` -> `collection_method` may appear in kwargs from direct
+        # modify() calls; translate if present
+        if "billing" in kwargs:
+            kwargs["collection_method"] = kwargs.pop("billing")
         return stripe.Subscription.modify(subscription_id, **kwargs)
 
     def cancel_at_period_end(self, stripe_subscription):
@@ -87,11 +120,16 @@ class StripeLegacySubscriptionService(SubscriptionService):
         stripe_subscription.delete()
 
     def get_current_period_end(self, stripe_subscription):
-        return getattr(stripe_subscription, "current_period_end", None)
+        # current_period_end moved from subscription root to subscription items
+        # in API version 2025-03-31.basil
+        items = getattr(stripe_subscription, "items", None)
+        if items and items.data:
+            return getattr(items.data[0], "current_period_end", None)
+        return None
 
 
-class StripeLegacyChargeService(ChargeService):
-    """Charge operations using Stripe 2.x direct charges."""
+class StripeModernChargeService(ChargeService):
+    """Charge operations using Stripe direct charges."""
 
     def create(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
@@ -119,8 +157,8 @@ class StripeLegacyChargeService(ChargeService):
         return stripe.Charge.retrieve(charge_id)
 
 
-class StripeLegacyInvoiceService(InvoiceService):
-    """Invoice operations using Stripe 2.x."""
+class StripeModernInvoiceService(InvoiceService):
+    """Invoice operations using current Stripe API."""
 
     def retrieve(self, invoice_id):
         return stripe.Invoice.retrieve(invoice_id)
@@ -129,14 +167,11 @@ class StripeLegacyInvoiceService(InvoiceService):
         stripe_invoice.pay(paid_out_of_band=paid_out_of_band)
 
     def mark_uncollectible(self, invoice_id):
-        """
-        Mark an invoice uncollectible via direct API request.
-        """
         stripe.Invoice.mark_uncollectible(invoice_id)
 
 
-class StripeLegacyPlanService(PlanService):
-    """Plan and Product operations using Stripe 2.x Plans API."""
+class StripeModernPlanService(PlanService):
+    """Plan and Product operations using Stripe Plans API."""
 
     def create(self, plan_id, currency, interval, product, **kwargs):
         return stripe.Plan.create(
@@ -160,22 +195,22 @@ class StripeLegacyPlanService(PlanService):
         stripe_product.delete()
 
 
-class StripeLegacyProvider(PaymentProvider):
+class StripeModernProvider(PaymentProvider):
     """
-    Payment provider wrapping Stripe Python 2.x / API version 2018-09-24.
+    Payment provider targeting current Stripe API versions.
 
-    Configures the global stripe module on instantiation and returns
-    service instances for each payment domain.
+    Translations from legacy parameter names to current API names are
+    handled within each service method so call sites remain unchanged.
     """
 
-    def __init__(self, api_key, api_version):
+    def __init__(self, api_key, api_version=CURRENT_API_VERSION):
         stripe.api_key = api_key
         stripe.api_version = api_version
-        self._customer_service = StripeLegacyCustomerService()
-        self._subscription_service = StripeLegacySubscriptionService()
-        self._charge_service = StripeLegacyChargeService()
-        self._invoice_service = StripeLegacyInvoiceService()
-        self._plan_service = StripeLegacyPlanService()
+        self._customer_service = StripeModernCustomerService()
+        self._subscription_service = StripeModernSubscriptionService()
+        self._charge_service = StripeModernChargeService()
+        self._invoice_service = StripeModernInvoiceService()
+        self._plan_service = StripeModernPlanService()
 
     def get_customer_service(self) -> CustomerService:
         return self._customer_service

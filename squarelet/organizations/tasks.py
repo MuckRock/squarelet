@@ -46,7 +46,7 @@ def restore_organization():
 
 @shared_task(
     name="squarelet.organizations.tasks.handle_charge_succeeded",
-    autoretry_for=(Organization.DoesNotExist, stripe.error.RateLimitError),
+    autoretry_for=(Organization.DoesNotExist, stripe.RateLimitError),
 )
 def handle_charge_succeeded(charge_data):
     """Handle receiving a charge.succeeded event from the Stripe webhook"""
@@ -395,7 +395,7 @@ def process_overdue_invoice(invoice_id):
                 "[STRIPE-PROCESS-OVERDUE-INVOICE] Marked invoice %s as uncollectible",
                 invoice.invoice_id,
             )
-        except stripe.error.StripeError as exc:
+        except stripe.StripeError as exc:
             logger.error(
                 "[STRIPE-PROCESS-OVERDUE-INVOICE] Failed to mark invoice %s "
                 "as uncollectible: %s",

@@ -240,12 +240,12 @@ class TestInvoice:
         # Mock the Stripe API request to raise an error
         mocker.patch(
             "stripe.Invoice.mark_uncollectible",
-            side_effect=stripe.error.InvalidRequestError(
+            side_effect=stripe.InvalidRequestError(
                 "This invoice has already been marked uncollectible",
                 "invoice",
             ),
         )
 
         # Should raise the Stripe error
-        with pytest.raises(stripe.error.InvalidRequestError):
+        with pytest.raises(stripe.InvalidRequestError):
             invoice.mark_uncollectible_in_stripe()

@@ -716,7 +716,7 @@ class InvoiceAdmin(VersionAdmin):
                 invoice.status = "paid"
                 invoice.save()
                 success_count += 1
-            except stripe.error.StripeError as exc:
+            except stripe.StripeError as exc:
                 logger.error(
                     "Failed to mark invoice %s as paid in Stripe: %s",
                     invoice.invoice_id,

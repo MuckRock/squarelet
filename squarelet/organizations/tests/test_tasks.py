@@ -325,13 +325,13 @@ def test_handle_invoice_failed_subscription_cancel_error(
     mocker.patch(
         "squarelet.organizations.models.organization.Organization."
         "subscription_cancelled",
-        side_effect=stripe.error.APIError("Cancellation failed"),
+        side_effect=stripe.APIError("Cancellation failed"),
     )
 
     invoice_data = {"id": 3, "customer": customer_id, "attempt_count": 4}
 
     # Should raise the error since it's not caught
-    with pytest.raises(stripe.error.APIError):
+    with pytest.raises(stripe.APIError):
         tasks.handle_invoice_failed(invoice_data)
 
 
@@ -811,7 +811,7 @@ class TestCheckOverdueInvoices:
         mock_mark_uncollectible = mocker.patch(
             "squarelet.organizations.models.invoice.Invoice."
             "mark_uncollectible_in_stripe",
-            side_effect=stripe.error.StripeError("API Error"),
+            side_effect=stripe.StripeError("API Error"),
         )
 
         # Should not raise exception
@@ -1032,7 +1032,7 @@ class TestCheckOverdueInvoices:
 
         # Mock the Stripe API call
         mock_stripe_invoice = mocker.Mock()
-        mock_stripe_invoice.get.return_value = "https://invoice.stripe.com/i/test"
+        mock_stripe_invoice.hosted_invoice_url = "https://invoice.stripe.com/i/test"
         mocker.patch("stripe.Invoice.retrieve", return_value=mock_stripe_invoice)
 
         mock_send_mail = mocker.patch("squarelet.organizations.tasks.send_mail")

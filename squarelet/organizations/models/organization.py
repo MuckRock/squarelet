@@ -615,7 +615,7 @@ class Organization(AvatarMixin, models.Model):
                         self.subscription.subscription_id,
                         self.uuid,
                     )
-            except stripe.error.StripeError as exc:
+            except stripe.StripeError as exc:
                 logger.error(
                     "Failed to cancel Stripe subscription %s for organization %s: %s",
                     self.subscription.subscription_id,
