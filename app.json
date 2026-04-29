@@ -5,7 +5,7 @@
   "repository": "https://github.com/muckrock/squarelet",
   "formation": {
     "web": {
-      "quantity": 1,
+      "quantity": 2,
       "size": "standard-1x"
     },
     "beat": {
