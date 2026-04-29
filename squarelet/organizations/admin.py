@@ -1,6 +1,6 @@
 # Django
 from django.contrib import admin, messages
-from django.db.models import Count, JSONField, Q, Sum
+from django.db.models import Count, Exists, JSONField, OuterRef, Q, Sum
 from django.forms.models import BaseInlineFormSet
 from django.forms.widgets import Textarea
 from django.http.response import HttpResponse
@@ -186,6 +186,26 @@ class MembershipsInline(admin.TabularInline):
     autocomplete_fields = ("from_organization",)
 
 
+class PlanFilter(admin.SimpleListFilter):
+    """Filter organizations by the plan they're subscribed to"""
+
+    title = "plan"
+    parameter_name = "plan"
+    template = "admin/dropdown_filter.html"
+
+    def lookups(self, request, model_admin):
+        plans = Plan.objects.order_by("name").values_list("pk", "name")
+        return [("none", "— No plan —"), *plans]
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value is None:
+            return queryset
+        if value == "none":
+            return queryset.filter(subscriptions__isnull=True)
+        return queryset.filter(subscriptions__plan_id=value).distinct()
+
+
 class OverdueInvoiceFilter(admin.SimpleListFilter):
     """Filter organizations by whether they have overdue invoices"""
 
@@ -305,7 +325,16 @@ class OrganizationAdmin(VersionAdmin):
         "get_subtypes",
         "get_outstanding_invoices",
     )
+
+    def get_list_display(self, request):
+        """Add cancelled column when filtering by plan"""
+        list_display = list(super().get_list_display(request))
+        if "plan" in request.GET and request.GET["plan"] != "none":
+            list_display.append("get_subscription_renews")
+        return list_display
+
     list_filter = (
+        PlanFilter,
         "individual",
         "private",
         "verified_journalist",
@@ -373,7 +402,7 @@ class OrganizationAdmin(VersionAdmin):
     )
 
     def get_queryset(self, request):
-        return (
+        qs = (
             super()
             .get_queryset(request)
             .prefetch_related("subtypes", "domains")
@@ -386,6 +415,18 @@ class OrganizationAdmin(VersionAdmin):
                 ),
             )
         )
+        plan_value = request.GET.get("plan")
+        if plan_value and plan_value != "none":
+            qs = qs.annotate(
+                subscription_cancelled=Exists(
+                    Subscription.objects.filter(
+                        organization_id=OuterRef("pk"),
+                        plan_id=plan_value,
+                        cancelled=True,
+                    )
+                )
+            )
+        return qs
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
@@ -436,6 +477,16 @@ class OrganizationAdmin(VersionAdmin):
 
     get_outstanding_invoices.short_description = "Outstanding Invoices"
     get_outstanding_invoices.admin_order_field = "outstanding_invoice_count"
+
+    def get_subscription_renews(self, obj):
+        cancelled = getattr(obj, "subscription_cancelled", None)
+        if cancelled is None:
+            return "-"
+        return not cancelled
+
+    get_subscription_renews.short_description = "Will Renew"
+    get_subscription_renews.boolean = True
+    get_subscription_renews.admin_order_field = "subscription_cancelled"
 
 
 @admin.register(Plan)
