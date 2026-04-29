@@ -2057,6 +2057,23 @@ a.service-provider:focus {
   box-shadow: none;
 }
 
+.oidc-authorization {
+  margin: 2em auto;
+  max-width: 48em;
+}
+
+.oidc-authorization li {
+  margin: 1em 0;
+}
+
+.oidc-authorization form {
+  display: flex;
+  gap: 2em;
+  button {
+    flex: 1 1 auto;
+  }
+}
+
 /* Help text */
 
 .help-text {
