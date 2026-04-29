@@ -601,6 +601,78 @@ def sync_wix_for_group_member(member_org_id, group_org_id, plan_id):
     retry_backoff=60,
     retry_kwargs={"max_retries": 3},
 )
+def unsync_wix(org_id, plan_id, user_id):
+    """Remove Wix labels for a user when they leave an organization or plan changes."""
+    if not is_production_env():
+        logger.info(
+            "[WIX-SYNC] Skipping Wix unsync in non-production environment (ENV=%s)",
+            settings.ENV,
+        )
+        return
+
+    org = Organization.objects.get(pk=org_id)
+    plan = Plan.objects.get(pk=plan_id)
+    user = User.objects.get(pk=user_id)
+    wix.unsync_wix(org, plan, user)
+
+
+@shared_task(
+    autoretry_for=(requests.exceptions.RequestException,),
+    retry_backoff=60,
+    retry_kwargs={"max_retries": 3},
+)
+def unsync_wix_for_group_member(member_org_id, group_org_id, plan_id):
+    """Remove Wix labels for all users of a member organization.
+
+    This is used when:
+    - An organization leaves a group that has a Wix plan
+    - A group's Wix plan subscription is cancelled
+    - share_resources is toggled off for a group with a Wix plan
+    """
+    if not is_production_env():
+        logger.info(
+            "[WIX-SYNC] Skipping group member Wix unsync "
+            "in non-production environment (ENV=%s)",
+            settings.ENV,
+        )
+        return
+
+    member_org = Organization.objects.get(pk=member_org_id)
+    group_org = Organization.objects.get(pk=group_org_id)
+    plan = Plan.objects.get(pk=plan_id)
+
+    if not group_org.share_resources:
+        logger.info(
+            "[WIX-SYNC] Group %s no longer shares resources, skipping unsync",
+            group_org_id,
+        )
+        return
+
+    if not plan.wix:
+        logger.info(
+            "[WIX-SYNC] Plan %s no longer has wix enabled, skipping unsync",
+            plan_id,
+        )
+        return
+
+    logger.info(
+        "[WIX-SYNC] Unsyncing %d users from member org %s "
+        "from group %s's Wix plan %s",
+        member_org.users.count(),
+        member_org_id,
+        group_org_id,
+        plan_id,
+    )
+
+    for user in member_org.users.all():
+        wix.unsync_wix(member_org, plan, user)
+
+
+@shared_task(
+    autoretry_for=(requests.exceptions.RequestException,),
+    retry_backoff=60,
+    retry_kwargs={"max_retries": 3},
+)
 def add_to_waitlist(org_id, plan_id, user_id):
     """Add user to waitlist in Wix"""
     # Only add to waitlist in production

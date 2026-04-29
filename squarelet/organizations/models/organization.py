@@ -579,6 +579,14 @@ class Organization(AvatarMixin, models.Model):
             # modify the subscription
             self.subscription.modify(plan)
 
+        # Remove old Wix labels when plan is changing away from a wix plan
+        if (
+            from_plan
+            and from_plan.wix
+            and (not plan or not plan.wix or from_plan.pk != plan.pk)
+        ):
+            self._dispatch_wix_unsync(from_plan)
+
         self.change_logs.create(
             user=user,
             reason=ChangeLogReason.updated,
@@ -587,6 +595,38 @@ class Organization(AvatarMixin, models.Model):
             to_plan=plan,
             to_max_users=self.max_users,
         )
+
+    def _dispatch_wix_unsync(self, plan):
+        """Dispatch Wix unsync tasks for this org's users and, if this org is a
+        resource-sharing group, its member/child orgs.
+
+        Tasks are deferred until after the current transaction commits so that
+        workers see the post-change state when computing which labels a user
+        still qualifies for.
+        """
+        # pylint: disable=import-outside-toplevel
+        # Squarelet
+        from squarelet.organizations.tasks import (
+            unsync_wix,
+            unsync_wix_for_group_member,
+        )
+
+        org_pk, plan_pk = self.pk, plan.pk
+        user_pks = list(self.users.values_list("pk", flat=True))
+        member_pks = child_pks = []
+        if self.collective_enabled and self.share_resources:
+            member_pks = list(self.members.values_list("pk", flat=True))
+            child_pks = list(self.children.values_list("pk", flat=True))
+
+        def _dispatch():
+            for user_pk in user_pks:
+                unsync_wix.delay(org_pk, plan_pk, user_pk)
+            for member_pk in member_pks:
+                unsync_wix_for_group_member.delay(member_pk, org_pk, plan_pk)
+            for child_pk in child_pks:
+                unsync_wix_for_group_member.delay(child_pk, org_pk, plan_pk)
+
+        transaction.on_commit(_dispatch)
 
     def subscription_cancelled(self):
         """The subscription was cancelled due to payment failure"""
@@ -597,6 +637,9 @@ class Organization(AvatarMixin, models.Model):
             from_max_users=self.max_users,
             to_max_users=self.max_users,
         )
+
+        # Capture plan before subscription delete clears it
+        cancelled_plan = self.plan if self.plan and self.plan.wix else None
 
         # Cancel subscription in Stripe if it exists
         if self.subscription and self.subscription.subscription_id:
@@ -626,6 +669,10 @@ class Organization(AvatarMixin, models.Model):
 
         # Delete local subscription record
         self.subscription.delete()
+
+        # Remove Wix labels now that subscription is gone
+        if cancelled_plan:
+            self._dispatch_wix_unsync(cancelled_plan)
 
     def has_active_subscription(self):
         """Check if the organization has an active subscription"""

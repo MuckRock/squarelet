@@ -73,29 +73,61 @@ def create_member(headers, organization, user):
     return response.json()["member"]["contactId"]
 
 
-def add_labels(headers, contact_id, plan):
-    logger.warning("[WIX-SYNC] add labels")
-    # Extract the tier name from the plan slug
-    # Maps legacy names (basic→essential, premium→enhanced) and current names
-    tier_labels = {
+def get_tier_from_plan(plan):
+    """Extract the tier name (essential, enhanced, enterprise) from a plan slug.
+
+    Handles all variants: sunlight-essential, sunlight-enterprise-custom,
+    sunlight-nonprofit-enhanced-annual, etc. Also maps legacy tier names
+    (basic→essential, premium→enhanced) to their current equivalents.
+    """
+    tier_aliases = {
         "enterprise": "enterprise",
         "enhanced": "enhanced",
         "essential": "essential",
         "basic": "essential",
         "premium": "enhanced",
     }
-    plan_slug = next(
-        (label for tier, label in tier_labels.items() if tier in plan.slug),
+    return next(
+        (label for alias, label in tier_aliases.items() if alias in plan.slug),
         plan.slug,
     )
+
+
+def add_labels(headers, contact_id, plan):
+    logger.warning("[WIX-SYNC] add labels")
+    tier = get_tier_from_plan(plan)
     response = requests.post(
         f"https://www.wixapis.com/contacts/v4/contacts/{contact_id}/labels",
         headers=headers,
-        json={"labelKeys": ["custom.paying-member", f"custom.{plan_slug}-member"]},
+        json={"labelKeys": ["custom.paying-member", f"custom.{tier}-member"]},
         timeout=(5, 15),
     )
     logger.warning(
         "[WIX-SYNC] add labels response %d %s", response.status_code, response.json()
+    )
+    response.raise_for_status()
+
+
+def remove_labels(headers, contact_id, plan, label_keys=None):
+    """Remove Wix labels from a contact.
+
+    If label_keys is provided, remove exactly those labels.
+    Otherwise, remove the default labels for the given plan.
+    """
+    logger.warning("[WIX-SYNC] remove labels")
+    if label_keys is None:
+        tier = get_tier_from_plan(plan)
+        label_keys = ["custom.paying-member", f"custom.{tier}-member"]
+    response = requests.delete(
+        f"https://www.wixapis.com/contacts/v4/contacts/{contact_id}/labels",
+        headers=headers,
+        json={"labelKeys": label_keys},
+        timeout=(5, 15),
+    )
+    logger.warning(
+        "[WIX-SYNC] remove labels response %d %s",
+        response.status_code,
+        response.json(),
     )
     response.raise_for_status()
 
@@ -137,6 +169,61 @@ def sync_wix(organization, plan, user):
         # only set password for new members
         send_set_password_email(headers, user.email)
     add_labels(headers, contact_id, plan)
+
+
+def unsync_wix(organization, plan, user):
+    """Remove Wix labels for a user when they leave an organization or plan changes.
+
+    The user's still-qualified labels are computed from their current memberships.
+    Callers must ensure any relevant membership/plan changes are persisted before
+    invoking this function (e.g. by dispatching the task via transaction.on_commit).
+    """
+    remaining_labels = get_wix_labels_for_user(user)
+
+    headers = {
+        "Authorization": settings.WIX_APP_SECRET,
+        "wix-site-id": settings.WIX_SITE_ID,
+    }
+
+    logger.warning(
+        "[WIX-SYNC] unsync wix org: %s plan: %s user: %s", organization, plan, user
+    )
+    contact_id = get_contact_by_email(headers, user.email)
+    if contact_id is None:
+        logger.warning(
+            "[WIX-SYNC] contact not found for %s, skipping label removal", user.email
+        )
+        return
+
+    # Compute which labels to actually remove
+    tier = get_tier_from_plan(plan)
+    plan_labels = {"custom.paying-member", f"custom.{tier}-member"}
+    labels_to_remove = sorted(plan_labels - remaining_labels)
+
+    if not labels_to_remove:
+        logger.warning(
+            "[WIX-SYNC] all labels for %s still needed, skipping removal", user.email
+        )
+        return
+
+    remove_labels(headers, contact_id, plan, label_keys=labels_to_remove)
+
+
+def get_wix_labels_for_user(user):
+    """Get all Wix labels a user qualifies for across all their memberships."""
+    labels = set()
+    for membership in user.memberships.select_related("organization___plan").all():
+        org = membership.organization
+        plan = org.plan
+        if plan and plan.wix:
+            tier = get_tier_from_plan(plan)
+            labels.add(f"custom.{tier}-member")
+            labels.add("custom.paying-member")
+        for _group, group_plan in org.get_wix_plans_from_groups():
+            tier = get_tier_from_plan(group_plan)
+            labels.add(f"custom.{tier}-member")
+            labels.add("custom.paying-member")
+    return labels
 
 
 def create_contact(headers, organization, user):
