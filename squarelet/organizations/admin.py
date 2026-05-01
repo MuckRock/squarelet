@@ -203,7 +203,14 @@ class PlanFilter(admin.SimpleListFilter):
             return queryset
         if value == "none":
             return queryset.filter(subscriptions__isnull=True)
-        return queryset.filter(subscriptions__plan_id=value).distinct()
+        return queryset.filter(
+            Exists(
+                Subscription.objects.filter(
+                    organization_id=OuterRef("pk"),
+                    plan_id=value,
+                )
+            )
+        )
 
 
 class OverdueInvoiceFilter(admin.SimpleListFilter):
