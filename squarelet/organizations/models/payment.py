@@ -16,6 +16,7 @@ from memoize import mproperty
 # Squarelet
 from squarelet.core.mail import ORG_TO_RECEIPTS, send_mail
 from squarelet.core.utils import is_production_env, mailchimp_journey
+from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.querysets import (
     ChargeQuerySet,
@@ -227,9 +228,43 @@ class Subscription(models.Model):
             # Save subscription before creating invoice
             self.save()
 
-            # Create Invoice record synchronously
+            # Check for 3DS/SCA on the first invoice payment.
+            # An incomplete subscription means the first charge requires
+            # customer authentication. invoice.payment_intent was removed in
+            # API version 2025-03-31.basil; the client_secret is now at
+            # invoice.confirmation_secret.client_secret. The secret has the
+            # form pi_xxx_secret_yyy, so the PaymentIntent ID is the prefix.
+            if getattr(stripe_subscription, "status", None) == "incomplete":
+                invoice_ref = stripe_subscription.latest_invoice
+                if invoice_ref is not None:
+                    invoice_id = (
+                        invoice_ref
+                        if isinstance(invoice_ref, str)
+                        else invoice_ref.id
+                    )
+                    fresh_invoice = (
+                        get_payment_provider()
+                        .get_invoice_service()
+                        .retrieve(invoice_id, expand=["confirmation_secret"])
+                    )
+                    cs = getattr(fresh_invoice, "confirmation_secret", None)
+                    if cs and not isinstance(cs, str):
+                        client_secret = getattr(cs, "client_secret", None)
+                        if client_secret:
+                            pi_id = client_secret.split("_secret_")[0]
+                            raise PaymentActionRequired(client_secret, pi_id)
+
+            # Create Invoice record synchronously — resolve ID first so we pass a
+            # string to retrieve() regardless of whether latest_invoice is expanded
             if stripe_subscription.latest_invoice:
                 try:
+                    invoice_ref = stripe_subscription.latest_invoice
+                    invoice_id = (
+                        invoice_ref
+                        if isinstance(invoice_ref, str)
+                        else invoice_ref.id
+                    )
+
                     # Import here to avoid circular imports
                     # pylint: disable=import-outside-toplevel
                     # Squarelet
@@ -239,7 +274,7 @@ class Subscription(models.Model):
                     stripe_invoice = (
                         get_payment_provider()
                         .get_invoice_service()
-                        .retrieve(stripe_subscription.latest_invoice)
+                        .retrieve(invoice_id)
                     )
 
                     # Create the Invoice record in database using centralized method

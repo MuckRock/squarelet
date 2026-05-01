@@ -18,8 +18,8 @@ from datetime import datetime
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import get_redirect_url, is_rate_limited, new_action
-from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.models import Invitation, Membership, Organization, Plan
+from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.tasks import sync_wix
 
 # How much to paginate organizations list by
@@ -94,7 +94,11 @@ class Detail(AdminLinkMixin, DetailView):
             customer = getattr(org, "customer", None)
             if callable(customer):
                 customer = customer()
-            context["current_plan_card"] = getattr(customer, "card", None)
+            if customer.card.object == "payment_method":
+                card = customer.card.card
+            else:
+                card = customer.card
+            context["current_plan_card"] = card
             # Stripe subscription may have next charge date
             stripe_sub = getattr(subscription, "stripe_subscription", None)
             if stripe_sub:

@@ -6,6 +6,7 @@ from django.http.response import (
     HttpResponse,
     HttpResponseBadRequest,
     HttpResponseNotAllowed,
+    JsonResponse,
 )
 from django.shortcuts import redirect
 from django.utils.decorators import method_decorator
@@ -32,6 +33,7 @@ from squarelet.core.utils import (
 from squarelet.organizations.forms import PaymentForm
 from squarelet.organizations.mixins import OrganizationPermissionMixin
 from squarelet.organizations.models import Charge, Organization
+from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.tasks import (
     handle_charge_succeeded,
     handle_invoice_created,
@@ -51,9 +53,13 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
     form_class = PaymentForm
     template_name = "organizations/organization_payment.html"
 
+    def _is_ajax(self):
+        return self.request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
     def form_valid(self, form):
         organization = self.object
         new_plan = form.cleaned_data.get("plan")
+        redirect_url = organization.get_absolute_url()
         try:
             organization.set_subscription(
                 token=form.cleaned_data["stripe_token"],
@@ -61,13 +67,35 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
                 max_users=form.cleaned_data.get("max_users"),
                 user=self.request.user,
             )
+        except PaymentActionRequired as exc:
+            if self._is_ajax():
+                return JsonResponse(
+                    {
+                        "client_secret": exc.client_secret,
+                        "payment_intent_id": exc.payment_intent_id,
+                        "redirect": redirect_url,
+                    },
+                    status=402,
+                )
+            messages.error(
+                self.request,
+                _("Your card requires additional authentication. Please try again."),
+            )
+            return redirect(organization)
         except stripe.StripeError as exc:
             user_message = format_stripe_error(exc)
+            if self._is_ajax():
+                return JsonResponse({"error": user_message}, status=400)
             messages.error(self.request, f"Payment error: {user_message}")
+            return redirect(organization)
         else:
             organization.set_receipt_emails(form.cleaned_data["receipt_emails"])
             if form.cleaned_data.get("remove_card_on_file"):
                 organization.remove_card()
+                if self._is_ajax():
+                    return JsonResponse(
+                        {"redirect": redirect_url, "message": str(_("Credit card removed"))}
+                    )
                 messages.success(self.request, _("Credit card removed"))
             else:
                 # Log staff action to activity stream
@@ -77,15 +105,14 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
                         verb="updated organization subscription",
                         target=organization,
                     )
-
-                messages.success(
-                    self.request,
-                    (
-                        _("Plan Updated")
-                        if organization.individual
-                        else _("Organization Updated")
-                    ),
+                success_msg = (
+                    _("Plan Updated") if organization.individual else _("Organization Updated")
                 )
+                if self._is_ajax():
+                    return JsonResponse(
+                        {"redirect": redirect_url, "message": str(success_msg)}
+                    )
+                messages.success(self.request, success_msg)
         return redirect(organization)
 
     def get_context_data(self, **kwargs):

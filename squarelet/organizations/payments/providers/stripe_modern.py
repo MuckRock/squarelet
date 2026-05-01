@@ -20,7 +20,9 @@ API version history tracked in this file:
                renamed on Product (neither used here)
   2024-09-30 - Acacia release, new monthly versioning model begins
   2025-03-31 - basil: current_period_end/start moved from subscription root
-               to subscription items; handled via get_current_period_end()
+               to subscription items; handled via get_current_period_end().
+               invoice.payment_intent removed; replaced by
+               invoice.confirmation_secret.client_secret for SCA/3DS flows.
   2025-09-30 - clover: flexible billing mode default, iterations removed from
                subscription schedules, Discount.coupon -> Discount.source
                (none used here)
@@ -141,12 +143,15 @@ class StripeModernSubscriptionService(SubscriptionService):
     ):
         # `billing` was renamed to `collection_method` in API version 2019-10-17
         # subscriptions no longer auto-expand as of API version 2020-08-27
+        # latest_invoice.confirmation_secret replaces latest_invoice.payment_intent
+        # for SCA/3DS detection as of API version 2025-03-31.basil
         return stripe.Subscription.create(
             customer=stripe_customer.id,
             items=[{"plan": plan_id, "quantity": quantity}],
             collection_method=billing,
             metadata=metadata,
             days_until_due=days_until_due,
+            expand=["latest_invoice.confirmation_secret"],
         )
 
     def retrieve(self, subscription_id):
@@ -232,7 +237,9 @@ class StripeModernChargeService(ChargeService):
 class StripeModernInvoiceService(InvoiceService):
     """Invoice operations using current Stripe API."""
 
-    def retrieve(self, invoice_id):
+    def retrieve(self, invoice_id, expand=None):
+        if expand:
+            return stripe.Invoice.retrieve(invoice_id, expand=expand)
         return stripe.Invoice.retrieve(invoice_id)
 
     def pay(self, stripe_invoice, paid_out_of_band=False):

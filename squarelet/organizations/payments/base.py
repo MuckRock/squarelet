@@ -147,8 +147,13 @@ class InvoiceService(ABC):
     """Manages Stripe Invoice objects."""
 
     @abstractmethod
-    def retrieve(self, invoice_id):
-        """Retrieve an existing invoice by ID."""
+    def retrieve(self, invoice_id, expand=None):
+        """Retrieve an existing invoice by ID.
+
+        Pass expand=['confirmation_secret'] to expand the confirmation secret
+        inline for 3DS/SCA detection on a newly created subscription invoice.
+        (invoice.payment_intent was removed in API version 2025-03-31.basil.)
+        """
 
     @abstractmethod
     def pay(self, stripe_invoice, paid_out_of_band=False):

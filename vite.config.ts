@@ -8,7 +8,9 @@ import { svelte } from "@sveltejs/vite-plugin-svelte";
 // adapted from https://rollupjs.org/configuration-options/#input
 // this creates an entrypoint for each .ts file in frontend/views
 const views = Object.fromEntries(
-  globSync("frontend/views/*.ts").map((file) => [
+  globSync("frontend/views/*.ts")
+    .filter((file) => !file.endsWith(".test.ts"))
+    .map((file) => [
     // This removes `src/` as well as the file extension from each
     // file, so e.g. src/nested/foo.js becomes nested/foo
     path.relative(
