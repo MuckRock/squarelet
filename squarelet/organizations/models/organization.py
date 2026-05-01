@@ -580,11 +580,7 @@ class Organization(AvatarMixin, models.Model):
             self.subscription.modify(plan)
 
         # Remove old Wix labels when plan changes
-        if (
-            from_plan
-            and from_plan.wix
-            and (not plan or from_plan.pk != plan.pk)
-        ):
+        if from_plan and from_plan.wix and (not plan or from_plan.pk != plan.pk):
             self._dispatch_wix_unsync(from_plan)
 
         self.change_logs.create(
