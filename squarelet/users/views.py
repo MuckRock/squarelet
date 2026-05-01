@@ -167,12 +167,9 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         context["upgrade_plan"] = upgrade_plan
         # Get card, next charge date, and cancelled status for active subscription
         if current_plan and subscription:
-            customer = getattr(individual_org, "customer", None)
-            if callable(customer):
-                customer = customer()
-            context["current_plan_card"] = getattr(customer, "card", None)
+            context["current_plan_card"] = individual_org.customer().card
             # Stripe subscription may have next charge date
-            stripe_sub = getattr(subscription, "stripe_subscription", None)
+            stripe_sub = subscription.stripe_subscription
             if stripe_sub:
                 # Try to get next charge date from Stripe subscription
                 time_stamp = (
@@ -186,7 +183,7 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
                     )
                     context["current_plan_next_charge_date"] = tz_datetime.date()
             # Check if the plan is cancelled
-            context["current_plan_cancelled"] = getattr(subscription, "cancelled", None)
+            context["current_plan_cancelled"] = subscription.cancelled
         # Cards for each non-individual org the user belongs to that has its own
         # paid plan. Plans the org inherits from parents/groups are intentionally
         # excluded here -- those are an org-level concept and confuse users when

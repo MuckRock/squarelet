@@ -114,10 +114,8 @@ class StripeModernCustomerService(CustomerService):
 
     def get_card(self, stripe_customer):
         """Return the default PaymentMethod, falling back to a saved Source."""
-        invoice_settings = getattr(stripe_customer, "invoice_settings", None)
-        pm_id = invoice_settings and getattr(
-            invoice_settings, "default_payment_method", None
-        )
+        invoice_settings = stripe_customer.invoice_settings
+        pm_id = invoice_settings and invoice_settings.default_payment_method
         if pm_id:
             return stripe.PaymentMethod.retrieve(pm_id)
         if stripe_customer.default_source:
@@ -179,9 +177,9 @@ class StripeModernSubscriptionService(SubscriptionService):
     def get_current_period_end(self, stripe_subscription):
         # current_period_end moved from subscription root to subscription items
         # in API version 2025-03-31.basil
-        items = getattr(stripe_subscription, "items", None)
+        items = stripe_subscription.items
         if items and items.data:
-            return getattr(items.data[0], "current_period_end", None)
+            return items.data[0].current_period_end
         return None
 
 

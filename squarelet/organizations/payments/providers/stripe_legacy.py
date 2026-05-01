@@ -97,7 +97,7 @@ class StripeLegacySubscriptionService(SubscriptionService):
         stripe_subscription.delete()
 
     def get_current_period_end(self, stripe_subscription):
-        return getattr(stripe_subscription, "current_period_end", None)
+        return stripe_subscription.current_period_end
 
 
 class StripeLegacyChargeService(ChargeService):
