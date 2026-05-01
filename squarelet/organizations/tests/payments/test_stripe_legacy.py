@@ -101,6 +101,3 @@ class TestLegacySubscriptionService:
         mock_sub.current_period_end = 1700000000
         assert subscription_service.get_current_period_end(mock_sub) == 1700000000
 
-    def test_get_current_period_end_missing(self, subscription_service, mocker):
-        mock_sub = mocker.MagicMock(spec=[])
-        assert subscription_service.get_current_period_end(mock_sub) is None

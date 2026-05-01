@@ -91,16 +91,14 @@ class Detail(AdminLinkMixin, DetailView):
         # Plan context - get card, next charge date,
         # and cancelled status for active subscription
         if current_plan and subscription:
-            customer = getattr(org, "customer", None)
-            if callable(customer):
-                customer = customer()
+            customer = org.customer()
             if customer.card.object == "payment_method":
                 card = customer.card.card
             else:
                 card = customer.card
             context["current_plan_card"] = card
             # Stripe subscription may have next charge date
-            stripe_sub = getattr(subscription, "stripe_subscription", None)
+            stripe_sub = subscription.stripe_subscription
             if stripe_sub:
                 # Try to get next charge date from Stripe subscription
                 time_stamp = (
@@ -114,7 +112,7 @@ class Detail(AdminLinkMixin, DetailView):
                     )
                     context["current_plan_next_charge_date"] = tz_datetime.date()
             # Check if the plan is cancelled
-            context["current_plan_cancelled"] = getattr(subscription, "cancelled", None)
+            context["current_plan_cancelled"] = subscription.cancelled
 
         # Verification context - let template handle URL generation
         context["show_verification_request"] = (
