@@ -118,7 +118,7 @@ class Customer(models.Model):
             return ""
         # PaymentMethod objects nest card details under .card; Sources expose
         # brand/last4 directly.
-        if getattr(card, "object", None) == "payment_method":
+        if card.object == "payment_method":
             return f"{card.card.brand}: x{card.card.last4}"
         return f"{card.brand}: x{card.last4}"
 
@@ -238,7 +238,7 @@ class Subscription(models.Model):
             # API version 2025-03-31.basil; the client_secret is now at
             # invoice.confirmation_secret.client_secret. The secret has the
             # form pi_xxx_secret_yyy, so the PaymentIntent ID is the prefix.
-            if getattr(stripe_subscription, "status", None) == "incomplete":
+            if stripe_subscription.status == "incomplete":
                 invoice_ref = stripe_subscription.latest_invoice
                 if invoice_ref is not None:
                     invoice_id = (
@@ -251,9 +251,9 @@ class Subscription(models.Model):
                         .get_invoice_service()
                         .retrieve(invoice_id, expand=["confirmation_secret"])
                     )
-                    cs = getattr(fresh_invoice, "confirmation_secret", None)
+                    cs = fresh_invoice.confirmation_secret
                     if cs and not isinstance(cs, str):
-                        client_secret = getattr(cs, "client_secret", None)
+                        client_secret = cs.client_secret
                         if client_secret:
                             pi_id = client_secret.split("_secret_")[0]
                             raise PaymentActionRequired(client_secret, pi_id)

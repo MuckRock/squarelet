@@ -334,6 +334,3 @@ class TestModernSubscriptionService:
         mock_sub.items.data = []
         assert subscription_service.get_current_period_end(mock_sub) is None
 
-    def test_get_current_period_end_no_items_attr(self, subscription_service, mocker):
-        mock_sub = mocker.MagicMock(spec=[])
-        assert subscription_service.get_current_period_end(mock_sub) is None
