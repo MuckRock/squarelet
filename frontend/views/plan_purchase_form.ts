@@ -315,37 +315,72 @@ function initPlanPurchaseForm(container: HTMLElement): void {
 
   // Form submission handling with Stripe
   if (stripe && cardElement && tokenInput) {
+    const getErrorDisplay = () =>
+      cardField?.querySelector('.card-element-errors') as HTMLElement | null;
+
+    const submitViaAjax = () => {
+      const errorDisplay = getErrorDisplay();
+      fetch(form.action || window.location.href, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: new FormData(form),
+      })
+        .then((response) =>
+          response.json().then((data) => ({ status: response.status, data }))
+        )
+        .then(({ status, data }) => {
+          if (status === 402) {
+            stripe
+              .confirmCardPayment(data.client_secret)
+              .then((result: any) => {
+                if (result.error) {
+                  if (errorDisplay) errorDisplay.textContent = result.error.message;
+                } else {
+                  window.location.href = data.redirect;
+                }
+              });
+          } else if (status >= 200 && status < 300) {
+            window.location.href = data.redirect;
+          } else {
+            if (errorDisplay) {
+              errorDisplay.textContent =
+                data.error || 'An error occurred. Please try again.';
+            }
+          }
+        })
+        .catch(() => {
+          if (errorDisplay) {
+            errorDisplay.textContent =
+              'A network error occurred. Please try again.';
+          }
+        });
+    };
+
     form.addEventListener('submit', function(event) {
       event.preventDefault();
-
-      if (tokenInput.value) {
-        // Token already exists, continue with normal submission
-        form.submit();
-        return;
-      }
 
       const payMethodInput = container.querySelector(
         'input[name=payment_method]:checked'
       ) as HTMLInputElement;
 
-      if (
-        payMethodInput != null &&
-        (['existing-card', 'invoice'].includes(payMethodInput.value))
-      ) {
-        // Do not try to get token if using a card on file or invoice
+      if (payMethodInput?.value === 'invoice') {
+        // Annual invoice billing — no immediate charge, submit normally
         form.submit();
+        return;
+      }
+
+      if (tokenInput.value || payMethodInput?.value === 'existing-card') {
+        // Token already set or using existing card — submit via AJAX
+        submitViaAjax();
       } else {
+        // New card — create token first, then AJAX submit
         stripe.createToken(cardElement).then(function(result: any) {
           if (result.error) {
-            // Inform the customer that there was an error
-            const displayError = cardField?.querySelector('.card-element-errors');
-            if (displayError) {
-              displayError.textContent = result.error.message;
-            }
+            const displayError = getErrorDisplay();
+            if (displayError) displayError.textContent = result.error.message;
           } else {
-            // Set the token value and submit the form
             tokenInput.value = result.token.id;
-            form.submit();
+            submitViaAjax();
           }
         });
       }

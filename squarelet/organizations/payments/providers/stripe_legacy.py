@@ -137,7 +137,9 @@ class StripeLegacyChargeService(ChargeService):
 class StripeLegacyInvoiceService(InvoiceService):
     """Invoice operations using Stripe 2.x."""
 
-    def retrieve(self, invoice_id):
+    def retrieve(self, invoice_id, expand=None):
+        if expand:
+            return stripe.Invoice.retrieve(invoice_id, expand=expand)
         return stripe.Invoice.retrieve(invoice_id)
 
     def pay(self, stripe_invoice, paid_out_of_band=False):
