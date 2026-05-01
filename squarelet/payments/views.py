@@ -3,7 +3,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.views import redirect_to_login
 from django.db import transaction
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
@@ -13,9 +13,13 @@ from django.views.generic import DetailView, RedirectView, TemplateView
 import logging
 import sys
 
+# Third Party
+import stripe
+
 # Squarelet
 from squarelet.organizations.models import Organization, Plan
 from squarelet.organizations.models.payment import Subscription
+from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.tasks import add_to_waitlist
 from squarelet.payments.forms import PlanPurchaseForm
 
@@ -156,6 +160,9 @@ class PlanDetailView(DetailView):
 
         return context
 
+    def _is_ajax(self):
+        return self.request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
     def _get_org_cards(self, individual_org, admin_orgs):
         """
         Collect saved purchase methods for template context.
@@ -252,17 +259,59 @@ class PlanDetailView(DetailView):
                     )
                 else:
                     # Non-Sunlight plans don't need transaction protection
-                    organization.set_subscription(
-                        token=stripe_token,
-                        plan=selected_plan,
-                        max_users=selected_plan.minimum_users,
-                        user=request.user,
-                        payment_method=payment_method,
-                    )
+                    try:
+                        organization.set_subscription(
+                            token=stripe_token,
+                            plan=selected_plan,
+                            max_users=selected_plan.minimum_users,
+                            user=request.user,
+                            payment_method=payment_method,
+                        )
+                    except PaymentActionRequired as exc:
+                        # Subscription saved but first invoice needs 3DS.
+                        # Transaction commits here (caught inside atomic block).
+                        redirect_url = organization.get_absolute_url()
+                        if self._is_ajax():
+                            return JsonResponse(
+                                {
+                                    "client_secret": exc.client_secret,
+                                    "payment_intent_id": exc.payment_intent_id,
+                                    "redirect": redirect_url,
+                                },
+                                status=402,
+                            )
+                        messages.error(
+                            request,
+                            _(
+                                "Your card requires additional authentication."
+                                " Please try again."
+                            ),
+                        )
+                        return redirect(plan)
+                    except stripe.StripeError as exc:
+                        logger.error(
+                            "Stripe error during subscription: %s",
+                            exc,
+                            exc_info=sys.exc_info(),
+                        )
+                        if self._is_ajax():
+                            return JsonResponse(
+                                {"error": str(exc)}, status=400
+                            )
+                        messages.error(request, str(exc))
+                        return redirect(plan)
 
                 # Success - redirect to purchase_redirect if provided, else org
                 messages.success(request, _("Successfully subscribed"))
                 purchase_redirect = form.cleaned_data.get("purchase_redirect", "")
+                redirect_url = purchase_redirect or organization.get_absolute_url()
+                if self._is_ajax():
+                    return JsonResponse(
+                        {
+                            "redirect": redirect_url,
+                            "message": str(_("Successfully subscribed")),
+                        }
+                    )
                 return redirect(purchase_redirect or organization)
 
             except Organization.DoesNotExist:
@@ -275,6 +324,8 @@ class PlanDetailView(DetailView):
                 )
 
         # If we get here, something went wrong - redirect back to plan
+        if self._is_ajax():
+            return JsonResponse({"error": str(_("Something went wrong"))}, status=400)
         messages.error(request, _("Something went wrong"))
         return redirect(plan)
 

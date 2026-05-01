@@ -278,6 +278,7 @@ class TestModernSubscriptionService:
             collection_method="charge_automatically",
             metadata={"action": "test"},
             days_until_due=None,
+            expand=["latest_invoice.confirmation_secret"],
         )
 
     def test_create_translates_send_invoice(self, subscription_service, mocker):
@@ -297,6 +298,7 @@ class TestModernSubscriptionService:
             collection_method="send_invoice",
             metadata={},
             days_until_due=30,
+            expand=["latest_invoice.confirmation_secret"],
         )
 
     def test_modify_translates_billing_to_collection_method(
