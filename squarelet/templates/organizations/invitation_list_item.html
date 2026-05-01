@@ -4,7 +4,7 @@
 <div class="invited">
     {% if invitation.user %}
     <div class="person avatar">
-        {% include "core/icons/person-24.svg" %}
+        {% icon "person-24" %}
     </div>
     <div class="info">
         <h3>{{ invitation.user.name|default:invitation.user.username }}</h3>
