@@ -496,9 +496,7 @@ class TestHandleInvoiceCreated:
         assert not Invoice.objects.filter(invoice_id="in_quote").exists()
 
     @pytest.mark.django_db(transaction=True)
-    def test_updates_existing_invoice(
-        self, organization_factory, subscription_factory
-    ):
+    def test_updates_existing_invoice(self, organization_factory, subscription_factory):
         timestamp = timezone.now().replace(microsecond=0)
         organization = organization_factory(customer__customer_id="cus_123")
         subscription = subscription_factory(
@@ -591,9 +589,7 @@ class TestHandleInvoiceUpdated:
     @pytest.mark.django_db
     def test_updates_invoice_amount(self, invoice_factory):
         """Amount changes on an existing invoice should be captured"""
-        invoice = invoice_factory(
-            invoice_id="in_123", amount=0, status="draft"
-        )
+        invoice = invoice_factory(invoice_id="in_123", amount=0, status="draft")
 
         invoice_data = {
             "id": "in_123",
@@ -611,9 +607,7 @@ class TestHandleInvoiceUpdated:
     @pytest.mark.django_db
     def test_updates_invoice_status(self, invoice_factory):
         """Status changes should be captured"""
-        invoice = invoice_factory(
-            invoice_id="in_123", status="draft"
-        )
+        invoice = invoice_factory(invoice_id="in_123", status="draft")
 
         invoice_data = {
             "id": "in_123",
