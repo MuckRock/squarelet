@@ -430,7 +430,8 @@ class TestHandleInvoiceCreated:
         assert invoice.status == "draft"
 
     @pytest.mark.django_db(transaction=True)
-    def test_handles_missing_subscription(self, organization_factory):
+    def test_skips_invoice_with_missing_subscription(self, organization_factory):
+        """Invoices referencing a non-existent subscription should not be created"""
         timestamp = timezone.now().replace(microsecond=0)
         organization_factory(customer__customer_id="cus_123")
 
@@ -449,22 +450,74 @@ class TestHandleInvoiceCreated:
 
         tasks.handle_invoice_created(invoice_data)
 
-        # Refresh from database to ensure we have the committed state
-        invoice = Invoice.objects.get(invoice_id="in_123")
-        assert invoice.subscription is None
+        assert not Invoice.objects.filter(invoice_id="in_123").exists()
 
     @pytest.mark.django_db(transaction=True)
-    def test_updates_existing_invoice(self, organization_factory):
+    def test_skips_invoice_without_subscription_parent(self, organization_factory):
+        """Manually-created invoices with no parent should not be tracked"""
+        timestamp = timezone.now().replace(microsecond=0)
+        organization_factory(customer__customer_id="cus_123")
+
+        invoice_data = {
+            "id": "in_manual",
+            "customer": "cus_123",
+            "parent": None,
+            "amount_due": 10000,
+            "due_date": None,
+            "status": "draft",
+            "created": int(timestamp.timestamp()),
+        }
+
+        tasks.handle_invoice_created(invoice_data)
+
+        assert not Invoice.objects.filter(invoice_id="in_manual").exists()
+
+    @pytest.mark.django_db(transaction=True)
+    def test_skips_invoice_with_non_subscription_parent(self, organization_factory):
+        """Invoices with a non-subscription parent type should not be tracked"""
+        timestamp = timezone.now().replace(microsecond=0)
+        organization_factory(customer__customer_id="cus_123")
+
+        invoice_data = {
+            "id": "in_quote",
+            "customer": "cus_123",
+            "parent": {
+                "type": "quote_details",
+                "quote_details": {"quote": "qt_123"},
+            },
+            "amount_due": 10000,
+            "due_date": None,
+            "status": "draft",
+            "created": int(timestamp.timestamp()),
+        }
+
+        tasks.handle_invoice_created(invoice_data)
+
+        assert not Invoice.objects.filter(invoice_id="in_quote").exists()
+
+    @pytest.mark.django_db(transaction=True)
+    def test_updates_existing_invoice(
+        self, organization_factory, subscription_factory
+    ):
         timestamp = timezone.now().replace(microsecond=0)
         organization = organization_factory(customer__customer_id="cus_123")
+        subscription = subscription_factory(
+            organization=organization, subscription_id="sub_123"
+        )
         existing_invoice = InvoiceFactory(
-            invoice_id="in_123", organization=organization, amount=5000
+            invoice_id="in_123",
+            organization=organization,
+            subscription=subscription,
+            amount=5000,
         )
 
         invoice_data = {
             "id": "in_123",
             "customer": "cus_123",
-            "subscription": None,
+            "parent": {
+                "type": "subscription_details",
+                "subscription_details": {"subscription": "sub_123"},
+            },
             "amount_due": 10000,
             "due_date": None,
             "status": "open",
@@ -500,8 +553,10 @@ class TestHandleInvoiceCreated:
         assert "no matching organization" in mock_logger.error.call_args[0][0]
 
     @pytest.mark.django_db(transaction=True)
-    def test_missing_subscription_logs_warning(self, organization_factory, mocker):
-        """Test that missing subscription logs a warning but continues"""
+    def test_missing_subscription_logs_warning_and_skips(
+        self, organization_factory, mocker
+    ):
+        """Missing subscription should log a warning and not create an invoice"""
         organization_factory(customer__customer_id="cus_123")
 
         mock_logger = mocker.patch("squarelet.organizations.tasks.logger")
@@ -526,9 +581,8 @@ class TestHandleInvoiceCreated:
         assert "STRIPE-WEBHOOK-INVOICE" in mock_logger.warning.call_args[0][0]
         assert "missing subscription" in mock_logger.warning.call_args[0][0]
 
-        # Verify invoice was still created
-        invoice = Invoice.objects.get(invoice_id="in_warn")
-        assert invoice.subscription is None
+        # Verify invoice was NOT created
+        assert not Invoice.objects.filter(invoice_id="in_warn").exists()
 
 
 class TestHandleInvoiceFinalized:

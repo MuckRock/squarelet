@@ -181,7 +181,7 @@ def handle_invoice_created(invoice_data):
         )
         return
 
-    # Get the subscription if available from the parent object
+    # Get the subscription from the parent object — only track subscription invoices
     subscription = None
     parent = invoice_data.get("parent")
     if parent and parent.get("type") == "subscription_details":
@@ -193,11 +193,22 @@ def handle_invoice_created(invoice_data):
                 invoice_id = invoice_data["id"]
                 stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
                 logger.warning(
-                    "[STRIPE-WEBHOOK-INVOICE] Invoice references missing subscription: "
-                    "%s (%s)",
+                    "[STRIPE-WEBHOOK-INVOICE] Invoice references missing subscription, "
+                    "skipping: %s (%s)",
                     invoice_id,
                     stripe_link,
                 )
+                return
+
+    if subscription is None:
+        invoice_id = invoice_data["id"]
+        stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
+        logger.info(
+            "[STRIPE-WEBHOOK-INVOICE] Skipping invoice with no subscription: %s (%s)",
+            invoice_id,
+            stripe_link,
+        )
+        return
 
     # Create or update the invoice
     # Note: Invoice may already exist if created synchronously during subscription start
