@@ -1053,6 +1053,74 @@ class TestCheckOverdueInvoices:
         mock_mark_uncollectible.assert_called_once()
         mock_send_mail.assert_called_once()
 
+    @pytest.mark.django_db(transaction=True)
+    @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=30)
+    def test_does_not_cancel_org_subscription_when_invoice_has_none(
+        self, invoice_factory, organization_factory, subscription_factory, mocker
+    ):
+        """Invoice with no subscription should not cancel the org's subscription"""
+        org = organization_factory()
+        org_subscription = subscription_factory(organization=org)
+        invoice = invoice_factory(
+            organization=org,
+            subscription=None,
+            status="open",
+            due_date=date.today() - timedelta(days=35),
+        )
+
+        mocker.patch("squarelet.organizations.tasks.send_mail")
+        mocker.patch(
+            "squarelet.organizations.models.invoice.Invoice."
+            "mark_uncollectible_in_stripe"
+        )
+        mock_subscription_cancelled = mocker.patch(
+            "squarelet.organizations.models.Organization.subscription_cancelled"
+        )
+
+        tasks.process_overdue_invoice(invoice.id)
+
+        # Should NOT cancel the org's unrelated subscription
+        mock_subscription_cancelled.assert_not_called()
+
+        # Org's subscription should still exist
+        assert Subscription.objects.filter(pk=org_subscription.pk).exists()
+
+    @pytest.mark.django_db(transaction=True)
+    @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=30)
+    def test_cancels_invoice_subscription_not_org_subscription(
+        self, invoice_factory, organization_factory, subscription_factory, mocker
+    ):
+        """Should cancel the invoice's subscription, not the org's current one"""
+        org = organization_factory()
+        org_subscription = subscription_factory(organization=org)
+        invoice_subscription = subscription_factory(organization=org)
+        invoice = invoice_factory(
+            organization=org,
+            subscription=invoice_subscription,
+            status="open",
+            due_date=date.today() - timedelta(days=35),
+        )
+
+        mocker.patch("squarelet.organizations.tasks.send_mail")
+        mocker.patch(
+            "squarelet.organizations.models.invoice.Invoice."
+            "mark_uncollectible_in_stripe"
+        )
+        # Mock Stripe deletion since subscription_cancelled tries to delete in Stripe
+        mocker.patch(
+            "squarelet.organizations.models.payment.Subscription.stripe_subscription",
+            new_callable=mocker.PropertyMock,
+            return_value=None,
+        )
+
+        tasks.process_overdue_invoice(invoice.id)
+
+        # The invoice's subscription should be deleted
+        assert not Subscription.objects.filter(pk=invoice_subscription.pk).exists()
+
+        # The org's other subscription should still exist
+        assert Subscription.objects.filter(pk=org_subscription.pk).exists()
+
     @pytest.mark.django_db
     @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=45)
     def test_respects_custom_grace_period(

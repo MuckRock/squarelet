@@ -422,9 +422,9 @@ def process_overdue_invoice(invoice_id):
             invoice.invoice_id,
         )
 
-        # Cancel subscription (same as credit card failures)
-        if organization.subscription:
-            organization.subscription_cancelled()
+        # Cancel the subscription linked to this invoice (not the org's current one)
+        if invoice.subscription:
+            organization.subscription_cancelled(invoice.subscription)
             # Clear subscription reference since it was deleted
             invoice.subscription = None
 
