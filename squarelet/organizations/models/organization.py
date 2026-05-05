@@ -591,9 +591,8 @@ class Organization(AvatarMixin, models.Model):
     def subscription_cancelled(self, subscription=None):
         """The subscription was cancelled due to payment failure
 
-        Args:
-            subscription: The specific subscription to cancel. If None,
-                cancels self.subscription (the org's current subscription).
+        Takes an arg for the specific subscription to cancel.
+        If None, cancels the org's current subscription.
         """
         subscription = subscription or self.subscription
 
