@@ -1250,6 +1250,29 @@ class TestCheckOverdueInvoices:
             == "https://invoice.stripe.com/i/test"
         )
 
+    @pytest.mark.django_db
+    @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=30)
+    def test_skips_zero_amount_invoice(
+        self, invoice_factory, organization_factory, mocker
+    ):
+        """$0 invoices should not trigger overdue processing"""
+        org = organization_factory()
+        invoice = invoice_factory(
+            organization=org,
+            status="open",
+            amount=0,
+            due_date=date.today() - timedelta(days=20),
+        )
+
+        mock_send_mail = mocker.patch("squarelet.organizations.tasks.send_mail")
+
+        tasks.process_overdue_invoice(invoice.id)
+
+        # Should NOT send email or set payment_failed
+        mock_send_mail.assert_not_called()
+        org.refresh_from_db()
+        assert not org.payment_failed
+
 
 class TestCheckOverdueInvoicesDispatcher:
     """Unit tests for the check_overdue_invoices dispatcher task"""
@@ -1341,6 +1364,36 @@ class TestCheckOverdueInvoicesDispatcher:
 
         # Should not dispatch any tasks
         mock_process.assert_not_called()
+
+    @pytest.mark.django_db
+    def test_does_not_dispatch_for_zero_amount_invoices(
+        self, invoice_factory, organization_factory, mocker
+    ):
+        """Should not dispatch tasks for $0 invoices"""
+        org = organization_factory()
+        # $0 invoice - should be skipped
+        invoice_factory(
+            organization=org,
+            status="open",
+            amount=0,
+            due_date=date.today() - timedelta(days=10),
+        )
+        # $100 invoice - should be dispatched
+        invoice_with_amount = invoice_factory(
+            organization=org,
+            status="open",
+            amount=10000,
+            due_date=date.today() - timedelta(days=10),
+        )
+
+        mock_process = mocker.patch(
+            "squarelet.organizations.tasks.process_overdue_invoice.delay"
+        )
+
+        tasks.check_overdue_invoices()
+
+        # Should only dispatch for the non-zero invoice
+        mock_process.assert_called_once_with(invoice_with_amount.id)
 
 
 class TestSyncWix:

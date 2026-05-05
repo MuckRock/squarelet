@@ -393,6 +393,14 @@ def process_overdue_invoice(invoice_id):
         )
         return
 
+    # Skip $0 invoices — no payment is owed
+    if invoice.amount == 0:
+        logger.info(
+            "[STRIPE-PROCESS-OVERDUE-INVOICE] Skipping $0 invoice %s",
+            invoice.invoice_id,
+        )
+        return
+
     organization = invoice.organization
     grace_period_days = settings.OVERDUE_INVOICE_GRACE_PERIOD_DAYS
     days_overdue = (date.today() - invoice.due_date).days
@@ -508,9 +516,9 @@ def process_overdue_invoice(invoice_id):
 @shared_task(name="squarelet.organizations.tasks.check_overdue_invoices")
 def check_overdue_invoices():
     """Find all overdue invoices and dispatch tasks to process them"""
-    # Get all open invoices that are past due (any amount)
+    # Get all open invoices that are past due with a non-zero amount
     all_overdue_invoices = Invoice.objects.filter(
-        status="open", due_date__lt=date.today()
+        status="open", due_date__lt=date.today(), amount__gt=0
     )
 
     invoice_count = all_overdue_invoices.count()
