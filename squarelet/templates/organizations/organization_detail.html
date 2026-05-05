@@ -1,5 +1,6 @@
 {% extends "layouts/sidebar_layout.html" %}
 {% load django_vite static thumbnail avatar i18n airtable rules %}
+{% load icon %}
 
 {% block title %}{% trans 'Organization' %}: {{ organization.name }}{% endblock %}
 
@@ -43,14 +44,14 @@
   <ul>
     <li>
       <a href="#profile" class="nav-item">
-        {% include 'core/icons/organization.svg' %}
+        {% icon "organization" %}
         {% trans "Profile" %}
       </a>
     </li>
     {% if can_view_subscription %}
     <li>
       <a href="#plan" class="nav-item">
-        {% include "core/icons/credit-card.svg" %}
+        {% icon "credit-card" %}
         {% trans "Plan" %}
       </a>
     </li>
@@ -58,7 +59,7 @@
     {% if user.is_authenticated %}
     <li>
       <a href="#members" class="nav-item">
-        {% include "core/icons/people.svg" %}
+        {% icon "people" %}
         {% if can_view_members %}
         {% trans "Members" %}
         {% else %}
@@ -70,9 +71,9 @@
     <li>
       <a href="#verification" class="nav-item">
         {% if organization.verified_journalist %}
-        {% include "core/icons/verification.svg" %}
+        {% icon "verification" %}
         {% else %}
-        {% include "core/icons/unverified.svg" %}
+        {% icon "unverified" %}
         {% endif %}
         {% trans "Verification" %}
       </a>
@@ -80,7 +81,7 @@
     {% if security_settings %}
     <li>
       <a href="#security" class="nav-item">
-        {% include "core/icons/shield-lock.svg" %}
+        {% icon "shield-lock" %}
         {% trans "Security" %}
       </a>
     </li>
@@ -101,7 +102,7 @@
         {% if can_change_organization %}
         <div class="header-actions">
           <a href="{% url 'organizations:update' organization.slug %}" class="btn ghost primary">
-            {% include "core/icons/pencil.svg" %}
+            {% icon "pencil" %}
             {% trans "Edit profile" %}
           </a>
         </div>
@@ -115,7 +116,7 @@
             <img src="{{ img.url }}" />
             {% endthumbnail %}
           {% else %}
-            {% include 'core/icons/people-24.svg' %}
+            {% icon "people-24" %}
           {% endif %}
           {% endwith %}
         </div>
@@ -125,7 +126,7 @@
           <div class="details">
             {% if organization.verified_journalist %}
               <div class="badge green">
-                {% include "core/icons/verification.svg" %}
+                {% icon "verification" %}
                 {% trans "Verified" %}
               </div>
             {% endif %}
@@ -150,12 +151,12 @@
         {% if can_edit_subscription %}
         <div class="header-actions">
           <a href="{% url 'select_plan' %}" class="btn ghost primary">
-            {% include "core/icons/list-unordered.svg" %}
+            {% icon "list-unordered" %}
             {% trans "View all plans" %}
           </a>
           {% if can_view_charge %}
           <a href="{% url 'users:receipts' username=user.username %}" class="btn ghost primary">
-            {% include "core/icons/log.svg" %}
+            {% icon "log" %}
             {% trans "View receipts" %}
           </a>
           {% endif %}
@@ -175,14 +176,14 @@
           <ul class="plan-details">
             {% if current_plan_next_charge_date %}
               <li class="plan-detail plan-next-charge">
-                <span class="icon">{% include "core/icons/calendar.svg" %}</span>
+                <span class="icon">{% icon "calendar" %}</span>
                 <span class="label">
                   Subscription {% if current_plan_cancelled %}ends{% else %}renews{% endif %} on <time title="{{current_plan_next_charge_date|date:"c"}}" datetime="{{current_plan_next_charge_date|date:"c"}}">{{current_plan_next_charge_date|date:"F j, Y"}}</time></span>
               </li>
             {% endif %}
             {% if current_plan_card %}
               <li class="plan-detail plan-card">
-                <span class="icon">{% include "core/icons/credit-card.svg" %}</span>
+                <span class="icon">{% icon "credit-card" %}</span>
                 <span class="label">{{current_plan_card.brand}} ending in {{current_plan_card.last4}}</span>
               </li>
             {% endif %}
@@ -192,7 +193,7 @@
               {% for benefit in current_plan.benefits %}
               <li class="checklist-item">
                 <span class="icon">
-                  {% include "core/icons/checkmark.svg" %}
+                  {% icon "checkmark" %}
                 </span>
                 <span class="text">{{ benefit }}</span>
               </li>
@@ -205,7 +206,7 @@
             <p>{% trans "This org is using MuckRock's" %} <span class="plan-name" id="free">{% trans "Free" %}</span> {% trans "plan." %}</p>
             {% if can_edit_subscription %}
             <a href="{% url 'organizations:payment' organization.slug %}" class="btn premium ghost">
-              {% include "core/icons/premium.svg" %}
+              {% icon "premium" %}
               {% trans "Upgrade" %}
             </a>
             {% endif %}
@@ -220,7 +221,7 @@
             {% for benefit in upgrade_plan.benefits %}
             <li class="checklist-item">
               <span class="icon">
-                {% include "core/icons/checkmark.svg" %}
+                {% icon "checkmark" %}
               </span>
               <span class="text">{{ benefit }}</span>
             </li>
@@ -255,11 +256,11 @@
         <div class="header-actions">
           {% if can_manage_members %}
             <a href="{% url 'organizations:manage-members' organization.slug %}#invite" class="btn ghost primary">
-              {% include "core/icons/plus-circle.svg" %}
+              {% icon "plus-circle" %}
               {% trans "Invite members" %}
             </a>
             <a href="{% url 'organizations:manage-members' organization.slug %}" class="btn ghost primary">
-              {% include "core/icons/people.svg" %}
+              {% icon "people" %}
               {% trans "Manage members" %}
             </a>
 
@@ -268,7 +269,7 @@
             <form class="_cls-infoSpaced" method="post">
               {% csrf_token %}
               <button class="btn danger ghost" name="action" value="leave">
-                {% include "core/icons/sign-out.svg" %}
+                {% icon "sign-out" %}
                 {% trans 'Leave org' %}
               </button>
             </form>
@@ -280,7 +281,7 @@
             <form method="post">
               {% csrf_token %}
               <button class="btn primary" name="action" value="join" id="join-org-button">
-                {% include "core/icons/plus-circle.svg" %}
+                {% icon "plus-circle" %}
                 {% if can_auto_join %}
                   {% trans "Join" %}
                 {% else %}
@@ -296,7 +297,7 @@
         {% if pending_requests and pending_requests.count > 0 %}
           <div class="notification-banner blue">
             <div class="banner-content">
-              <span class="icon">{% include "core/icons/person-add.svg" %}</span>
+              <span class="icon">{% icon "person-add" %}</span>
               <div class="banner-text">
                 <strong>
                   {% blocktrans count count=pending_requests.count %}
@@ -316,7 +317,7 @@
         {% if pending_invitations and pending_invitations.count > 0 %}
           <div class="notification-banner blue">
             <div class="banner-content">
-              <span class="icon">{% include "core/icons/mail.svg" %}</span>
+              <span class="icon">{% icon "mail" %}</span>
               <div class="banner-text">
                 <strong>
                   {% blocktrans count count=pending_invitations.count %}
@@ -352,20 +353,20 @@
       <header>
         <h2>{% trans "Verification" %}</h2>
         <a target="_blank" rel="noopener noreferrer" href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433" class="btn ghost primary">
-          {% include "core/icons/book.svg" %}
+          {% icon "book" %}
           {% trans "Learn about verification" %}
         </a>
       </header>
       <main class="verification-status">
         {% if organization.verified_journalist %}
           <div class="status verified">
-            {% include "core/icons/verified-24.svg" %}
+            {% icon "verified-24" %}
             <h3>{% trans "This organization is verified." %}</h3>
             <p class="help-text">{% trans "This organization has been verified as a newsroom with access to additional reporting and publishing tools." %}</p>
           </div>
         {% else %}
           <div class="status unverified">
-            {% include "core/icons/unverified-24.svg" %}
+            {% icon "unverified-24" %}
             <h3>{% trans "This organization is not verified." %}</h3>
             {% if show_verification_request %}
               <p class="help-text">{% trans "Request newsroom verification to access additional reporting and publishing tools." %}</p>

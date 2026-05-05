@@ -1,5 +1,6 @@
 {# required css: css/team_list_item.css #}
 {% load static i18n thumbnail %}
+{% load icon %}
 {% with count=organization.memberships.count avatar=organization.avatar %}
 <div class="team">
     {% if avatar %}
@@ -10,7 +11,7 @@
     {% endthumbnail %}
     {% else %}
     <a class="org-avatar" href="{% url "organizations:detail" slug=organization.slug %}">
-      {% include 'core/icons/people-24.svg' %}
+      {% icon "people-24" %}
     </a>
     {% endif %}
     <div class="info">
@@ -20,18 +21,18 @@
         <div class="status">
             {% if organization.private %}
             <div class="badge">
-                <span class="icon">{% include "core/icons/lock.svg" %}</span>
+                <span class="icon">{% icon "lock" %}</span>
                 {% trans "Private" %}
             </div>
             {% endif %}
             {% if organization.verified_journalist %}
             <div class="badge green">
-                <span class="icon">{% include "core/icons/verified.svg" %}</span>
+                <span class="icon">{% icon "verified" %}</span>
                 {% trans "Verified" %}
             </div>
             {% else %}
             <div class="badge">
-                <span class="icon">{% include "core/icons/unverified.svg" %}</span>
+                <span class="icon">{% icon "unverified" %}</span>
                 {% trans "Unverified" %}
             </div>
             <span class="membership">{{ count }} member{{ count|pluralize }}</span>

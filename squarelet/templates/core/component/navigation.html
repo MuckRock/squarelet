@@ -1,4 +1,5 @@
 {% load static i18n avatar pass_query handleintent orgs_dropdown %}
+{% load icon %}
 
 <header class="_cls-heading">
   <div class="_cls-headingContainer">
@@ -8,16 +9,16 @@
       </a>
       <button data-menu-open="false" class="_cls-navMenuButton _cls-nostyle">
         <img id="openMenu" title="Open Menu" src="{% static 'icons/three-bars.svg' %}" />
-        <img id="closeMenu" title="Close Menu" src="{% static 'icons/x.svg' %}" />
+        <img id="closeMenu" title="Close Menu" src="{% static 'icons/x-colored.svg' %}" />
       </button>
     </nav>
     <div class="_cls-navMenu">
       <nav class="_cls-navItems _cls-domainItems">
         <div class="_cls-servicesDropdown">
           <button class="_cls-navItem _cls-servicesToggle">
-            {% include "core/icons/apps.svg" %}
+            {% icon "apps" %}
             Products
-            {% include "core/icons/chevron-down.svg" %}
+            {% icon "chevron-down" %}
           </button>
           <div class="_cls-servicesMenu">
             {% services_dropdown %}
@@ -26,9 +27,9 @@
         {% if request.user.is_authenticated %}
           <div class="_cls-orgsDropdown">
             <button class="_cls-navItem _cls-orgsToggle">
-              {% include "core/icons/organization.svg" %}
+              {% icon "organization" %}
               Organizations
-              {% include "core/icons/chevron-down.svg" %}
+              {% icon "chevron-down" %}
             </button>
             <div class="_cls-orgsMenu">
               {% orgs_dropdown %}
@@ -36,7 +37,7 @@
           </div>
         {% else %}
           <a href="{% url 'organizations:list' %}" class="_cls-navItem">
-            <span class="icon">{% include 'core/icons/organization.svg' %}</span>
+            <span class="icon">{% icon "organization" %}</span>
             Organizations
           </a>
         {% endif %}

@@ -1,9 +1,10 @@
 {# required: css/invitation_list_item.css #}
 {% load i18n %}
+{% load icon %}
 <div class="invited">
     {% if invitation.user %}
     <div class="person avatar">
-        {% include "core/icons/person-24.svg" %}
+        {% icon "person-24" %}
     </div>
     <div class="info">
         <h3>{{ invitation.user.name|default:invitation.user.username }}</h3>
@@ -16,7 +17,7 @@
     </div>
     {% elif invitation.email %}
     <div class="email avatar">
-        {% include "core/icons/mail-24.svg" %}
+        {% icon "mail-24" %}
     </div>
     <div class="info">
         <h3>{{ invitation.email }}</h3>
@@ -28,7 +29,7 @@
     </div>
     {% else %}
     <div class="link avatar">
-        {% include "core/icons/link-24.svg" %}
+        {% icon "link-24" %}
     </div>
     <div class="info">
         <h3>{% trans "Generated link" %}</h3>

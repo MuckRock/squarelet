@@ -1,5 +1,6 @@
 {% extends "core/invitation_history_base.html" %}
 {% load static i18n django_vite %}
+{% load icon %}
 
 {% block history_title %}{% trans 'Invitations' %}{% endblock %}
 
@@ -9,7 +10,7 @@
 
 {% block back_link %}
 <a class="btn ghost primary" href="{% url "users:detail" username=target_user.username %}">
-  {% include "core/icons/arrow-left.svg" %}
+  {% icon "arrow-left" %}
   {% trans "Back to" %} {% if is_own_page %}{% trans "your account" %}{% else %}{{ target_user.username }}{% endif %}
 </a>
 {% endblock %}

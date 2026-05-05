@@ -1,6 +1,7 @@
 {% extends "account/onboarding/base.html" %}
 
 {% load i18n static django_vite %}
+{% load icon %}
 
 {% block title %}{% trans "Join an organization" %}{% endblock title %}
 
@@ -13,7 +14,7 @@
 <div class="message">
     <header>
       <div class="icon">
-        {% include 'core/icons/people.svg' %}
+        {% icon "people" %}
       </div>
       <h1>{% trans "Join your team on MuckRock to access collaboration, advanced features, and shared resources" %}</h1>
     </header>
@@ -31,7 +32,7 @@
           <form method="post" action="{% url "organizations:detail" slug=organization.slug %}" class="actions join">
             {% csrf_token %}
             <button class="button primary" name="action" value="join">
-              <img src="{% static "icons/check.svg" %}">
+              <img src="{% static "icons/check-colored.svg" %}">
               {% trans "Join" %}
             </button>
           </form>

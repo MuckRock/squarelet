@@ -1,5 +1,6 @@
 {% extends "mfa/recovery_codes/base.html" %}
 {% load i18n django_vite %}
+{% load icon %}
 
 {% block vite %}
   {{ block.super }}
@@ -10,7 +11,7 @@
 <div class="container" id="recovery-codes">
   <header>
     <a class="nav-link" href="{% url 'users:detail' user.username %}">
-      {% include "core/icons/arrow-left.svg" %}
+      {% icon "arrow-left" %}
       {% trans "Return to your account" %}
     </a>
     <h1>Recovery Codes</h1>
@@ -53,16 +54,16 @@
   <footer class="actions flex flex-row">
     {% if unused_codes %}
       <a href="{% url "mfa_download_recovery_codes" %}" class="btn primary">
-        {% include "core/icons/download.svg" %}
+        {% icon "download" %}
         {% trans "Download codes" %}
       </a>
       <button class="btn ghost primary" id="copy-recovery-codes">
-        {% include "core/icons/copy.svg" %}
+        {% icon "copy" %}
         {% trans "Copy codes" %}
       </button>
     {% endif %}
     <a href="{% url "mfa_generate_recovery_codes" %}" class="btn ghost primary">
-      {% include "core/icons/sync.svg" %}
+      {% icon "sync" %}
       {% trans "Generate new codes" %}
     </a>
   </footer>

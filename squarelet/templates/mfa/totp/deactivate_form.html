@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load i18n django_vite %}
+{% load icon %}
 
 {% block title %}
     {% translate "Disable Two-Factor Auth" %}
@@ -14,7 +15,7 @@
   <div class="container" id="deactivate-mfa">
     <header>
       <a class="nav-link" href="{% url 'users:detail' user.username %}">
-        {% include "core/icons/arrow-left.svg" %}
+        {% icon "arrow-left" %}
         {% trans "Return to your account" %}
       </a>
     </header>
