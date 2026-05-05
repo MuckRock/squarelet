@@ -226,6 +226,31 @@ def handle_invoice_created(invoice_data):
     )
 
 
+@shared_task(name="squarelet.organizations.tasks.handle_invoice_updated")
+def handle_invoice_updated(invoice_data):
+    """Handle receiving an invoice.updated event from the Stripe webhook"""
+    invoice_id = invoice_data["id"]
+    try:
+        invoice = Invoice.objects.get(invoice_id=invoice_id)
+    except Invoice.DoesNotExist:
+        stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
+        logger.info(
+            "[STRIPE-WEBHOOK-INVOICE] Received update event for invoice not tracked "
+            "in our system: %s (%s)",
+            invoice_id,
+            stripe_link,
+        )
+        return
+
+    Invoice.create_or_update_from_stripe(
+        invoice_data, invoice.organization, invoice.subscription
+    )
+    stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
+    logger.info(
+        "[STRIPE-WEBHOOK-INVOICE] Invoice updated: %s (%s)", invoice_id, stripe_link
+    )
+
+
 @shared_task(name="squarelet.organizations.tasks.handle_invoice_finalized")
 def handle_invoice_finalized(invoice_data):
     """Handle receiving an invoice.finalized event from the Stripe webhook"""
@@ -243,12 +268,9 @@ def handle_invoice_finalized(invoice_data):
         )
         return
 
-    invoice.status = invoice_data["status"]
-    if invoice_data.get("due_date"):
-        invoice.due_date = datetime.fromtimestamp(
-            invoice_data["due_date"], tz=get_current_timezone()
-        ).date()
-    invoice.save()
+    Invoice.create_or_update_from_stripe(
+        invoice_data, invoice.organization, invoice.subscription
+    )
     stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
     logger.info(
         "[STRIPE-WEBHOOK-INVOICE] Invoice finalized: %s (%s)", invoice_id, stripe_link
@@ -272,8 +294,9 @@ def handle_invoice_paid(invoice_data):
         )
         return
 
-    invoice.status = "paid"
-    invoice.save()
+    Invoice.create_or_update_from_stripe(
+        invoice_data, invoice.organization, invoice.subscription
+    )
 
     # Clear payment_failed flag on the organization
     organization = invoice.organization

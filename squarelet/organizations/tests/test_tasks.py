@@ -585,6 +585,72 @@ class TestHandleInvoiceCreated:
         assert not Invoice.objects.filter(invoice_id="in_warn").exists()
 
 
+class TestHandleInvoiceUpdated:
+    """Unit tests for the handle_invoice_updated task"""
+
+    @pytest.mark.django_db
+    def test_updates_invoice_amount(self, invoice_factory):
+        """Amount changes on an existing invoice should be captured"""
+        invoice = invoice_factory(
+            invoice_id="in_123", amount=0, status="draft"
+        )
+
+        invoice_data = {
+            "id": "in_123",
+            "amount_due": 1300000,
+            "status": "draft",
+            "due_date": None,
+            "created": int(invoice.created_at.timestamp()),
+        }
+
+        tasks.handle_invoice_updated(invoice_data)
+
+        invoice.refresh_from_db()
+        assert invoice.amount == 1300000
+
+    @pytest.mark.django_db
+    def test_updates_invoice_status(self, invoice_factory):
+        """Status changes should be captured"""
+        invoice = invoice_factory(
+            invoice_id="in_123", status="draft"
+        )
+
+        invoice_data = {
+            "id": "in_123",
+            "amount_due": invoice.amount,
+            "status": "open",
+            "due_date": None,
+            "created": int(invoice.created_at.timestamp()),
+        }
+
+        tasks.handle_invoice_updated(invoice_data)
+
+        invoice.refresh_from_db()
+        assert invoice.status == "open"
+
+    @pytest.mark.django_db
+    def test_invoice_not_found(self, mocker):
+        """Should log warning and return for invoices not in our DB"""
+        invoice_data = {
+            "id": "in_nonexistent",
+            "amount_due": 10000,
+            "status": "open",
+            "due_date": None,
+            "created": int(timezone.now().timestamp()),
+        }
+
+        mock_logger = mocker.patch("squarelet.organizations.tasks.logger")
+
+        tasks.handle_invoice_updated(invoice_data)
+
+        mock_logger.info.assert_called()
+        log_messages = [call[0][0] for call in mock_logger.info.call_args_list]
+        assert any("not tracked" in msg for msg in log_messages)
+
+        # Should not create an invoice
+        assert not Invoice.objects.filter(invoice_id="in_nonexistent").exists()
+
+
 class TestHandleInvoiceFinalized:
     """Unit tests for the handle_invoice_finalized task"""
 
@@ -597,8 +663,10 @@ class TestHandleInvoiceFinalized:
 
         invoice_data = {
             "id": "in_123",
+            "amount_due": invoice.amount,
             "status": "open",
             "due_date": int(due_timestamp.timestamp()),
+            "created": int(timestamp.timestamp()),
         }
 
         tasks.handle_invoice_finalized(invoice_data)
@@ -606,6 +674,30 @@ class TestHandleInvoiceFinalized:
         invoice.refresh_from_db()
         assert invoice.status == "open"
         assert invoice.due_date == due_timestamp.date()
+
+    @pytest.mark.django_db
+    @freeze_time("2025-01-15 12:00:00")
+    def test_updates_invoice_amount(self, invoice_factory):
+        """Finalization should update the invoice amount"""
+        timestamp = timezone.now().replace(microsecond=0)
+        due_timestamp = (timestamp + timedelta(days=30)).replace(microsecond=0)
+        invoice = invoice_factory(
+            invoice_id="in_123", status="draft", amount=5000, due_date=None
+        )
+
+        invoice_data = {
+            "id": "in_123",
+            "customer": invoice.organization.customers.first().customer_id,
+            "amount_due": 10000,
+            "status": "open",
+            "due_date": int(due_timestamp.timestamp()),
+            "created": int(timestamp.timestamp()),
+        }
+
+        tasks.handle_invoice_finalized(invoice_data)
+
+        invoice.refresh_from_db()
+        assert invoice.amount == 10000
 
     @pytest.mark.django_db()
     def test_invoice_not_found(self, mocker):
@@ -633,7 +725,21 @@ class TestHandleInvoicePaymentSucceeded:
     def test_marks_invoice_paid(self, invoice_factory):
         invoice = invoice_factory(invoice_id="in_123", status="open")
 
-        invoice_data = {"id": "in_123"}
+        invoice_data = {
+            "id": "in_123",
+            "amount_due": invoice.amount,
+            "status": "paid",
+            "due_date": (
+                int(
+                    timezone.datetime.combine(
+                        invoice.due_date, timezone.datetime.min.time()
+                    ).timestamp()
+                )
+                if invoice.due_date
+                else None
+            ),
+            "created": int(invoice.created_at.timestamp()),
+        }
 
         tasks.handle_invoice_paid(invoice_data)
 
@@ -641,11 +747,45 @@ class TestHandleInvoicePaymentSucceeded:
         assert invoice.status == "paid"
 
     @pytest.mark.django_db
+    def test_updates_invoice_amount(self, invoice_factory):
+        """Payment handler should update the invoice amount"""
+        invoice = invoice_factory(invoice_id="in_123", status="open", amount=0)
+
+        invoice_data = {
+            "id": "in_123",
+            "amount_due": 1300000,
+            "status": "paid",
+            "due_date": (
+                int(
+                    timezone.datetime.combine(
+                        invoice.due_date, timezone.datetime.min.time()
+                    ).timestamp()
+                )
+                if invoice.due_date
+                else None
+            ),
+            "created": int(invoice.created_at.timestamp()),
+        }
+
+        tasks.handle_invoice_paid(invoice_data)
+
+        invoice.refresh_from_db()
+        assert invoice.amount == 1300000
+
+    @pytest.mark.django_db
     def test_clears_payment_failed_flag(self, organization_factory, invoice_factory):
         organization = organization_factory(payment_failed=True)
-        invoice_factory(invoice_id="in_123", organization=organization, status="open")
+        invoice = invoice_factory(
+            invoice_id="in_123", organization=organization, status="open"
+        )
 
-        invoice_data = {"id": "in_123"}
+        invoice_data = {
+            "id": "in_123",
+            "amount_due": invoice.amount,
+            "status": "paid",
+            "due_date": None,
+            "created": int(invoice.created_at.timestamp()),
+        }
 
         tasks.handle_invoice_paid(invoice_data)
 
@@ -657,9 +797,17 @@ class TestHandleInvoicePaymentSucceeded:
         self, organization_factory, invoice_factory
     ):
         organization = organization_factory(payment_failed=False)
-        invoice_factory(invoice_id="in_123", organization=organization, status="open")
+        invoice = invoice_factory(
+            invoice_id="in_123", organization=organization, status="open"
+        )
 
-        invoice_data = {"id": "in_123"}
+        invoice_data = {
+            "id": "in_123",
+            "amount_due": invoice.amount,
+            "status": "paid",
+            "due_date": None,
+            "created": int(invoice.created_at.timestamp()),
+        }
 
         tasks.handle_invoice_paid(invoice_data)
 
