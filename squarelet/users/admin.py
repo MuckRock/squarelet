@@ -357,4 +357,16 @@ admin.site.unregister(Authenticator)
 
 @admin.register(Authenticator)
 class MyAuthenticatorAdmin(AuthenticatorAdmin):
-    search_fields = ("user__username", "user__email")
+    search_fields = ("username_deterministic", "email_deterministic")
+
+    def get_queryset(self, request):
+        """Add deterministic fields for username and email so they
+        can be searched"""
+        return (
+            super()
+            .get_queryset(request)
+            .annotate(
+                email_deterministic=Collate("user__email", "und-x-icu"),
+                username_deterministic=Collate("user__username", "und-x-icu"),
+            )
+        )
