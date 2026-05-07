@@ -181,7 +181,7 @@ def handle_invoice_created(invoice_data):
         )
         return
 
-    # Get the subscription if available from the parent object
+    # Get the subscription from the parent object — only track subscription invoices
     subscription = None
     parent = invoice_data.get("parent")
     if parent and parent.get("type") == "subscription_details":
@@ -193,11 +193,22 @@ def handle_invoice_created(invoice_data):
                 invoice_id = invoice_data["id"]
                 stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
                 logger.warning(
-                    "[STRIPE-WEBHOOK-INVOICE] Invoice references missing subscription: "
-                    "%s (%s)",
+                    "[STRIPE-WEBHOOK-INVOICE] Invoice references missing subscription, "
+                    "skipping: %s (%s)",
                     invoice_id,
                     stripe_link,
                 )
+                return
+
+    if subscription is None:
+        invoice_id = invoice_data["id"]
+        stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
+        logger.info(
+            "[STRIPE-WEBHOOK-INVOICE] Skipping invoice with no subscription: %s (%s)",
+            invoice_id,
+            stripe_link,
+        )
+        return
 
     # Create or update the invoice
     # Note: Invoice may already exist if created synchronously during subscription start
@@ -212,6 +223,31 @@ def handle_invoice_created(invoice_data):
         action,
         invoice_id,
         stripe_link,
+    )
+
+
+@shared_task(name="squarelet.organizations.tasks.handle_invoice_updated")
+def handle_invoice_updated(invoice_data):
+    """Handle receiving an invoice.updated event from the Stripe webhook"""
+    invoice_id = invoice_data["id"]
+    try:
+        invoice = Invoice.objects.get(invoice_id=invoice_id)
+    except Invoice.DoesNotExist:
+        stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
+        logger.info(
+            "[STRIPE-WEBHOOK-INVOICE] Received update event for invoice not tracked "
+            "in our system: %s (%s)",
+            invoice_id,
+            stripe_link,
+        )
+        return
+
+    Invoice.create_or_update_from_stripe(
+        invoice_data, invoice.organization, invoice.subscription
+    )
+    stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
+    logger.info(
+        "[STRIPE-WEBHOOK-INVOICE] Invoice updated: %s (%s)", invoice_id, stripe_link
     )
 
 
@@ -232,12 +268,9 @@ def handle_invoice_finalized(invoice_data):
         )
         return
 
-    invoice.status = invoice_data["status"]
-    if invoice_data.get("due_date"):
-        invoice.due_date = datetime.fromtimestamp(
-            invoice_data["due_date"], tz=get_current_timezone()
-        ).date()
-    invoice.save()
+    Invoice.create_or_update_from_stripe(
+        invoice_data, invoice.organization, invoice.subscription
+    )
     stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
     logger.info(
         "[STRIPE-WEBHOOK-INVOICE] Invoice finalized: %s (%s)", invoice_id, stripe_link
@@ -261,8 +294,9 @@ def handle_invoice_paid(invoice_data):
         )
         return
 
-    invoice.status = "paid"
-    invoice.save()
+    Invoice.create_or_update_from_stripe(
+        invoice_data, invoice.organization, invoice.subscription
+    )
 
     # Clear payment_failed flag on the organization
     organization = invoice.organization
@@ -359,6 +393,14 @@ def process_overdue_invoice(invoice_id):
         )
         return
 
+    # Skip $0 invoices — no payment is owed
+    if invoice.amount == 0:
+        logger.info(
+            "[STRIPE-PROCESS-OVERDUE-INVOICE] Skipping $0 invoice %s",
+            invoice.invoice_id,
+        )
+        return
+
     organization = invoice.organization
     grace_period_days = settings.OVERDUE_INVOICE_GRACE_PERIOD_DAYS
     days_overdue = (date.today() - invoice.due_date).days
@@ -380,9 +422,9 @@ def process_overdue_invoice(invoice_id):
             invoice.invoice_id,
         )
 
-        # Cancel subscription (same as credit card failures)
-        if organization.subscription:
-            organization.subscription_cancelled()
+        # Cancel the subscription linked to this invoice (not the org's current one)
+        if invoice.subscription:
+            organization.subscription_cancelled(invoice.subscription)
             # Clear subscription reference since it was deleted
             invoice.subscription = None
 
@@ -474,9 +516,9 @@ def process_overdue_invoice(invoice_id):
 @shared_task(name="squarelet.organizations.tasks.check_overdue_invoices")
 def check_overdue_invoices():
     """Find all overdue invoices and dispatch tasks to process them"""
-    # Get all open invoices that are past due (any amount)
+    # Get all open invoices that are past due with a non-zero amount
     all_overdue_invoices = Invoice.objects.filter(
-        status="open", due_date__lt=date.today()
+        status="open", due_date__lt=date.today(), amount__gt=0
     )
 
     invoice_count = all_overdue_invoices.count()

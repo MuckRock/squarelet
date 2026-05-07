@@ -39,6 +39,7 @@ from squarelet.organizations.tasks import (
     handle_invoice_finalized,
     handle_invoice_marked_uncollectible,
     handle_invoice_paid,
+    handle_invoice_updated,
     handle_invoice_voided,
 )
 
@@ -210,6 +211,8 @@ def stripe_webhook(request):  # pylint: disable=too-many-branches
         handle_invoice_failed.delay(event["data"]["object"])
     elif event_type == "invoice.created":
         handle_invoice_created.delay(event["data"]["object"])
+    elif event_type == "invoice.updated":
+        handle_invoice_updated.delay(event["data"]["object"])
     elif event_type == "invoice.finalized":
         handle_invoice_finalized.delay(event["data"]["object"])
     elif event_type == "invoice.paid":

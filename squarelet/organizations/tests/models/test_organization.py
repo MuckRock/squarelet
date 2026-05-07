@@ -392,6 +392,7 @@ class TestOrganization:
             "squarelet.organizations.models.Organization.subscription"
         )
         mocked_subscription.subscription_id = "sub_test123"
+        mocked_subscription.plan = plan
         # Mock the stripe_subscription property to return a mock Stripe subscription
         mock_stripe_sub = mocker.MagicMock()
         type(mocked_subscription).stripe_subscription = mocker.PropertyMock(

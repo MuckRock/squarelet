@@ -430,7 +430,8 @@ class TestHandleInvoiceCreated:
         assert invoice.status == "draft"
 
     @pytest.mark.django_db(transaction=True)
-    def test_handles_missing_subscription(self, organization_factory):
+    def test_skips_invoice_with_missing_subscription(self, organization_factory):
+        """Invoices referencing a non-existent subscription should not be created"""
         timestamp = timezone.now().replace(microsecond=0)
         organization_factory(customer__customer_id="cus_123")
 
@@ -449,22 +450,72 @@ class TestHandleInvoiceCreated:
 
         tasks.handle_invoice_created(invoice_data)
 
-        # Refresh from database to ensure we have the committed state
-        invoice = Invoice.objects.get(invoice_id="in_123")
-        assert invoice.subscription is None
+        assert not Invoice.objects.filter(invoice_id="in_123").exists()
 
     @pytest.mark.django_db(transaction=True)
-    def test_updates_existing_invoice(self, organization_factory):
+    def test_skips_invoice_without_subscription_parent(self, organization_factory):
+        """Manually-created invoices with no parent should not be tracked"""
+        timestamp = timezone.now().replace(microsecond=0)
+        organization_factory(customer__customer_id="cus_123")
+
+        invoice_data = {
+            "id": "in_manual",
+            "customer": "cus_123",
+            "parent": None,
+            "amount_due": 10000,
+            "due_date": None,
+            "status": "draft",
+            "created": int(timestamp.timestamp()),
+        }
+
+        tasks.handle_invoice_created(invoice_data)
+
+        assert not Invoice.objects.filter(invoice_id="in_manual").exists()
+
+    @pytest.mark.django_db(transaction=True)
+    def test_skips_invoice_with_non_subscription_parent(self, organization_factory):
+        """Invoices with a non-subscription parent type should not be tracked"""
+        timestamp = timezone.now().replace(microsecond=0)
+        organization_factory(customer__customer_id="cus_123")
+
+        invoice_data = {
+            "id": "in_quote",
+            "customer": "cus_123",
+            "parent": {
+                "type": "quote_details",
+                "quote_details": {"quote": "qt_123"},
+            },
+            "amount_due": 10000,
+            "due_date": None,
+            "status": "draft",
+            "created": int(timestamp.timestamp()),
+        }
+
+        tasks.handle_invoice_created(invoice_data)
+
+        assert not Invoice.objects.filter(invoice_id="in_quote").exists()
+
+    @pytest.mark.django_db(transaction=True)
+    def test_updates_existing_invoice(self, organization_factory, subscription_factory):
         timestamp = timezone.now().replace(microsecond=0)
         organization = organization_factory(customer__customer_id="cus_123")
+        subscription = subscription_factory(
+            organization=organization, subscription_id="sub_123"
+        )
         existing_invoice = InvoiceFactory(
-            invoice_id="in_123", organization=organization, amount=5000
+            invoice_id="in_123",
+            organization=organization,
+            subscription=subscription,
+            amount=5000,
         )
 
         invoice_data = {
             "id": "in_123",
             "customer": "cus_123",
-            "subscription": None,
+            "parent": {
+                "type": "subscription_details",
+                "subscription_details": {"subscription": "sub_123"},
+            },
             "amount_due": 10000,
             "due_date": None,
             "status": "open",
@@ -500,8 +551,10 @@ class TestHandleInvoiceCreated:
         assert "no matching organization" in mock_logger.error.call_args[0][0]
 
     @pytest.mark.django_db(transaction=True)
-    def test_missing_subscription_logs_warning(self, organization_factory, mocker):
-        """Test that missing subscription logs a warning but continues"""
+    def test_missing_subscription_logs_warning_and_skips(
+        self, organization_factory, mocker
+    ):
+        """Missing subscription should log a warning and not create an invoice"""
         organization_factory(customer__customer_id="cus_123")
 
         mock_logger = mocker.patch("squarelet.organizations.tasks.logger")
@@ -526,9 +579,70 @@ class TestHandleInvoiceCreated:
         assert "STRIPE-WEBHOOK-INVOICE" in mock_logger.warning.call_args[0][0]
         assert "missing subscription" in mock_logger.warning.call_args[0][0]
 
-        # Verify invoice was still created
-        invoice = Invoice.objects.get(invoice_id="in_warn")
-        assert invoice.subscription is None
+        # Verify invoice was NOT created
+        assert not Invoice.objects.filter(invoice_id="in_warn").exists()
+
+
+class TestHandleInvoiceUpdated:
+    """Unit tests for the handle_invoice_updated task"""
+
+    @pytest.mark.django_db
+    def test_updates_invoice_amount(self, invoice_factory):
+        """Amount changes on an existing invoice should be captured"""
+        invoice = invoice_factory(invoice_id="in_123", amount=0, status="draft")
+
+        invoice_data = {
+            "id": "in_123",
+            "amount_due": 1300000,
+            "status": "draft",
+            "due_date": None,
+            "created": int(invoice.created_at.timestamp()),
+        }
+
+        tasks.handle_invoice_updated(invoice_data)
+
+        invoice.refresh_from_db()
+        assert invoice.amount == 1300000
+
+    @pytest.mark.django_db
+    def test_updates_invoice_status(self, invoice_factory):
+        """Status changes should be captured"""
+        invoice = invoice_factory(invoice_id="in_123", status="draft")
+
+        invoice_data = {
+            "id": "in_123",
+            "amount_due": invoice.amount,
+            "status": "open",
+            "due_date": None,
+            "created": int(invoice.created_at.timestamp()),
+        }
+
+        tasks.handle_invoice_updated(invoice_data)
+
+        invoice.refresh_from_db()
+        assert invoice.status == "open"
+
+    @pytest.mark.django_db
+    def test_invoice_not_found(self, mocker):
+        """Should log warning and return for invoices not in our DB"""
+        invoice_data = {
+            "id": "in_nonexistent",
+            "amount_due": 10000,
+            "status": "open",
+            "due_date": None,
+            "created": int(timezone.now().timestamp()),
+        }
+
+        mock_logger = mocker.patch("squarelet.organizations.tasks.logger")
+
+        tasks.handle_invoice_updated(invoice_data)
+
+        mock_logger.info.assert_called()
+        log_messages = [call[0][0] for call in mock_logger.info.call_args_list]
+        assert any("not tracked" in msg for msg in log_messages)
+
+        # Should not create an invoice
+        assert not Invoice.objects.filter(invoice_id="in_nonexistent").exists()
 
 
 class TestHandleInvoiceFinalized:
@@ -543,8 +657,10 @@ class TestHandleInvoiceFinalized:
 
         invoice_data = {
             "id": "in_123",
+            "amount_due": invoice.amount,
             "status": "open",
             "due_date": int(due_timestamp.timestamp()),
+            "created": int(timestamp.timestamp()),
         }
 
         tasks.handle_invoice_finalized(invoice_data)
@@ -552,6 +668,30 @@ class TestHandleInvoiceFinalized:
         invoice.refresh_from_db()
         assert invoice.status == "open"
         assert invoice.due_date == due_timestamp.date()
+
+    @pytest.mark.django_db
+    @freeze_time("2025-01-15 12:00:00")
+    def test_updates_invoice_amount(self, invoice_factory):
+        """Finalization should update the invoice amount"""
+        timestamp = timezone.now().replace(microsecond=0)
+        due_timestamp = (timestamp + timedelta(days=30)).replace(microsecond=0)
+        invoice = invoice_factory(
+            invoice_id="in_123", status="draft", amount=5000, due_date=None
+        )
+
+        invoice_data = {
+            "id": "in_123",
+            "customer": invoice.organization.customers.first().customer_id,
+            "amount_due": 10000,
+            "status": "open",
+            "due_date": int(due_timestamp.timestamp()),
+            "created": int(timestamp.timestamp()),
+        }
+
+        tasks.handle_invoice_finalized(invoice_data)
+
+        invoice.refresh_from_db()
+        assert invoice.amount == 10000
 
     @pytest.mark.django_db()
     def test_invoice_not_found(self, mocker):
@@ -579,7 +719,21 @@ class TestHandleInvoicePaymentSucceeded:
     def test_marks_invoice_paid(self, invoice_factory):
         invoice = invoice_factory(invoice_id="in_123", status="open")
 
-        invoice_data = {"id": "in_123"}
+        invoice_data = {
+            "id": "in_123",
+            "amount_due": invoice.amount,
+            "status": "paid",
+            "due_date": (
+                int(
+                    timezone.datetime.combine(
+                        invoice.due_date, timezone.datetime.min.time()
+                    ).timestamp()
+                )
+                if invoice.due_date
+                else None
+            ),
+            "created": int(invoice.created_at.timestamp()),
+        }
 
         tasks.handle_invoice_paid(invoice_data)
 
@@ -587,11 +741,45 @@ class TestHandleInvoicePaymentSucceeded:
         assert invoice.status == "paid"
 
     @pytest.mark.django_db
+    def test_updates_invoice_amount(self, invoice_factory):
+        """Payment handler should update the invoice amount"""
+        invoice = invoice_factory(invoice_id="in_123", status="open", amount=0)
+
+        invoice_data = {
+            "id": "in_123",
+            "amount_due": 1300000,
+            "status": "paid",
+            "due_date": (
+                int(
+                    timezone.datetime.combine(
+                        invoice.due_date, timezone.datetime.min.time()
+                    ).timestamp()
+                )
+                if invoice.due_date
+                else None
+            ),
+            "created": int(invoice.created_at.timestamp()),
+        }
+
+        tasks.handle_invoice_paid(invoice_data)
+
+        invoice.refresh_from_db()
+        assert invoice.amount == 1300000
+
+    @pytest.mark.django_db
     def test_clears_payment_failed_flag(self, organization_factory, invoice_factory):
         organization = organization_factory(payment_failed=True)
-        invoice_factory(invoice_id="in_123", organization=organization, status="open")
+        invoice = invoice_factory(
+            invoice_id="in_123", organization=organization, status="open"
+        )
 
-        invoice_data = {"id": "in_123"}
+        invoice_data = {
+            "id": "in_123",
+            "amount_due": invoice.amount,
+            "status": "paid",
+            "due_date": None,
+            "created": int(invoice.created_at.timestamp()),
+        }
 
         tasks.handle_invoice_paid(invoice_data)
 
@@ -603,9 +791,17 @@ class TestHandleInvoicePaymentSucceeded:
         self, organization_factory, invoice_factory
     ):
         organization = organization_factory(payment_failed=False)
-        invoice_factory(invoice_id="in_123", organization=organization, status="open")
+        invoice = invoice_factory(
+            invoice_id="in_123", organization=organization, status="open"
+        )
 
-        invoice_data = {"id": "in_123"}
+        invoice_data = {
+            "id": "in_123",
+            "amount_due": invoice.amount,
+            "status": "paid",
+            "due_date": None,
+            "created": int(invoice.created_at.timestamp()),
+        }
 
         tasks.handle_invoice_paid(invoice_data)
 
@@ -851,6 +1047,74 @@ class TestCheckOverdueInvoices:
         mock_mark_uncollectible.assert_called_once()
         mock_send_mail.assert_called_once()
 
+    @pytest.mark.django_db(transaction=True)
+    @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=30)
+    def test_does_not_cancel_org_subscription_when_invoice_has_none(
+        self, invoice_factory, organization_factory, subscription_factory, mocker
+    ):
+        """Invoice with no subscription should not cancel the org's subscription"""
+        org = organization_factory()
+        org_subscription = subscription_factory(organization=org)
+        invoice = invoice_factory(
+            organization=org,
+            subscription=None,
+            status="open",
+            due_date=date.today() - timedelta(days=35),
+        )
+
+        mocker.patch("squarelet.organizations.tasks.send_mail")
+        mocker.patch(
+            "squarelet.organizations.models.invoice.Invoice."
+            "mark_uncollectible_in_stripe"
+        )
+        mock_subscription_cancelled = mocker.patch(
+            "squarelet.organizations.models.Organization.subscription_cancelled"
+        )
+
+        tasks.process_overdue_invoice(invoice.id)
+
+        # Should NOT cancel the org's unrelated subscription
+        mock_subscription_cancelled.assert_not_called()
+
+        # Org's subscription should still exist
+        assert Subscription.objects.filter(pk=org_subscription.pk).exists()
+
+    @pytest.mark.django_db(transaction=True)
+    @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=30)
+    def test_cancels_invoice_subscription_not_org_subscription(
+        self, invoice_factory, organization_factory, subscription_factory, mocker
+    ):
+        """Should cancel the invoice's subscription, not the org's current one"""
+        org = organization_factory()
+        org_subscription = subscription_factory(organization=org)
+        invoice_subscription = subscription_factory(organization=org)
+        invoice = invoice_factory(
+            organization=org,
+            subscription=invoice_subscription,
+            status="open",
+            due_date=date.today() - timedelta(days=35),
+        )
+
+        mocker.patch("squarelet.organizations.tasks.send_mail")
+        mocker.patch(
+            "squarelet.organizations.models.invoice.Invoice."
+            "mark_uncollectible_in_stripe"
+        )
+        # Mock Stripe deletion since subscription_cancelled tries to delete in Stripe
+        mocker.patch(
+            "squarelet.organizations.models.payment.Subscription.stripe_subscription",
+            new_callable=mocker.PropertyMock,
+            return_value=None,
+        )
+
+        tasks.process_overdue_invoice(invoice.id)
+
+        # The invoice's subscription should be deleted
+        assert not Subscription.objects.filter(pk=invoice_subscription.pk).exists()
+
+        # The org's other subscription should still exist
+        assert Subscription.objects.filter(pk=org_subscription.pk).exists()
+
     @pytest.mark.django_db
     @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=45)
     def test_respects_custom_grace_period(
@@ -1048,6 +1312,29 @@ class TestCheckOverdueInvoices:
             == "https://invoice.stripe.com/i/test"
         )
 
+    @pytest.mark.django_db
+    @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=30)
+    def test_skips_zero_amount_invoice(
+        self, invoice_factory, organization_factory, mocker
+    ):
+        """$0 invoices should not trigger overdue processing"""
+        org = organization_factory()
+        invoice = invoice_factory(
+            organization=org,
+            status="open",
+            amount=0,
+            due_date=date.today() - timedelta(days=20),
+        )
+
+        mock_send_mail = mocker.patch("squarelet.organizations.tasks.send_mail")
+
+        tasks.process_overdue_invoice(invoice.id)
+
+        # Should NOT send email or set payment_failed
+        mock_send_mail.assert_not_called()
+        org.refresh_from_db()
+        assert not org.payment_failed
+
 
 class TestCheckOverdueInvoicesDispatcher:
     """Unit tests for the check_overdue_invoices dispatcher task"""
@@ -1139,6 +1426,36 @@ class TestCheckOverdueInvoicesDispatcher:
 
         # Should not dispatch any tasks
         mock_process.assert_not_called()
+
+    @pytest.mark.django_db
+    def test_does_not_dispatch_for_zero_amount_invoices(
+        self, invoice_factory, organization_factory, mocker
+    ):
+        """Should not dispatch tasks for $0 invoices"""
+        org = organization_factory()
+        # $0 invoice - should be skipped
+        invoice_factory(
+            organization=org,
+            status="open",
+            amount=0,
+            due_date=date.today() - timedelta(days=10),
+        )
+        # $100 invoice - should be dispatched
+        invoice_with_amount = invoice_factory(
+            organization=org,
+            status="open",
+            amount=10000,
+            due_date=date.today() - timedelta(days=10),
+        )
+
+        mock_process = mocker.patch(
+            "squarelet.organizations.tasks.process_overdue_invoice.delay"
+        )
+
+        tasks.check_overdue_invoices()
+
+        # Should only dispatch for the non-zero invoice
+        mock_process.assert_called_once_with(invoice_with_amount.id)
 
 
 class TestSyncWix:

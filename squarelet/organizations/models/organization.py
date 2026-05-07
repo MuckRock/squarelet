@@ -588,44 +588,50 @@ class Organization(AvatarMixin, models.Model):
             to_max_users=self.max_users,
         )
 
-    def subscription_cancelled(self):
-        """The subscription was cancelled due to payment failure"""
+    def subscription_cancelled(self, subscription=None):
+        """The subscription was cancelled due to payment failure
+
+        Takes an arg for the specific subscription to cancel.
+        If None, cancels the org's current subscription.
+        """
+        subscription = subscription or self.subscription
+
         # Create change log entry
         self.change_logs.create(
             reason=ChangeLogReason.failed,
-            from_plan=self.plan,
+            from_plan=subscription.plan if subscription else self.plan,
             from_max_users=self.max_users,
             to_max_users=self.max_users,
         )
 
         # Cancel subscription in Stripe if it exists
-        if self.subscription and self.subscription.subscription_id:
+        if subscription and subscription.subscription_id:
             try:
-                stripe_sub = self.subscription.stripe_subscription
+                stripe_sub = subscription.stripe_subscription
                 if stripe_sub:
                     stripe_sub.delete()
                     logger.info(
                         "Cancelled Stripe subscription %s for organization %s",
-                        self.subscription.subscription_id,
+                        subscription.subscription_id,
                         self.uuid,
                     )
                 else:
                     logger.warning(
                         "Stripe subscription %s not found for organization %s",
-                        self.subscription.subscription_id,
+                        subscription.subscription_id,
                         self.uuid,
                     )
             except stripe.error.StripeError as exc:
                 logger.error(
                     "Failed to cancel Stripe subscription %s for organization %s: %s",
-                    self.subscription.subscription_id,
+                    subscription.subscription_id,
                     self.uuid,
                     exc,
                     exc_info=sys.exc_info(),
                 )
 
         # Delete local subscription record
-        self.subscription.delete()
+        subscription.delete()
 
     def has_active_subscription(self):
         """Check if the organization has an active subscription"""
