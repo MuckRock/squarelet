@@ -30,6 +30,7 @@ from squarelet.users.views import (
     UserOnboardingView,
 )
 from squarelet.users.viewsets import (
+    OIDCTokenExchangeView,
     RefreshTokenViewSet,
     UrlAuthTokenViewSet,
     UserViewSet,
@@ -89,6 +90,7 @@ urlpatterns = [
     path("api/", include(router.urls)),
     path("fe_api/", include((fe_api_router.urls, "fe_api"), namespace="fe_api")),
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("api/jwt/", OIDCTokenExchangeView.as_view(), name="token_oidc_exchange"),
     path("api/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("openid/", include("oidc_provider.urls", namespace="oidc_provider")),
     path("openid/jwt", token_view, name="oidc_jwt"),

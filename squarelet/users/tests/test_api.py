@@ -11,7 +11,7 @@ from unittest.mock import Mock
 import pytest
 from allauth.account.models import EmailAddress
 from oidc_provider.lib.utils.token import create_token
-from oidc_provider.models import UserConsent
+from oidc_provider.models import Token, UserConsent
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -164,3 +164,54 @@ class TestUserAPI:
         # the `uuid` AliasField fails only in tests for some reason
         response = api_client.get(f"/api/users/{user.individual_organization_id}/")
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.django_db()
+class TestOIDCTokenExchangeView:
+    def _make_token(self, user, client, expires_at):
+        return Token.objects.create(
+            user=user,
+            client=client,
+            access_token="test-oidc-access-token",
+            refresh_token="test-oidc-refresh-token",
+            expires_at=expires_at,
+            _id_token="",
+        )
+
+    def test_valid_token_returns_jwt(self, user_factory, client):
+        user = user_factory()
+        self._make_token(
+            user, client, expires_at=timezone.now() + timedelta(hours=1)
+        )
+        api_client = APIClient()
+        response = api_client.post(
+            "/api/jwt/", {"oidc_token": "test-oidc-access-token"}
+        )
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert "access_token" in data
+        assert "refresh_token" in data
+
+    def test_invalid_token_returns_400(self):
+        api_client = APIClient()
+        response = api_client.post("/api/jwt/", {"oidc_token": "nonexistent-token"})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.json() == {"error": "invalid token"}
+
+    def test_missing_token_returns_400(self):
+        api_client = APIClient()
+        response = api_client.post("/api/jwt/", {})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.json() == {"error": "invalid token"}
+
+    def test_expired_token_returns_400(self, user_factory, client):
+        user = user_factory()
+        self._make_token(
+            user, client, expires_at=timezone.now() - timedelta(hours=1)
+        )
+        api_client = APIClient()
+        response = api_client.post(
+            "/api/jwt/", {"oidc_token": "test-oidc-access-token"}
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.json() == {"error": "token expired"}
