@@ -1,6 +1,6 @@
 # Django
 from django.contrib import admin, messages
-from django.db.models import Count, Exists, JSONField, OuterRef, Q, Sum
+from django.db.models import Count, JSONField, Prefetch, Q, Sum
 from django.forms.models import BaseInlineFormSet
 from django.forms.widgets import Textarea
 from django.http.response import HttpResponse
@@ -203,14 +203,7 @@ class PlanFilter(admin.SimpleListFilter):
             return queryset
         if value == "none":
             return queryset.filter(subscriptions__isnull=True)
-        return queryset.filter(
-            Exists(
-                Subscription.objects.filter(
-                    organization_id=OuterRef("pk"),
-                    plan_id=value,
-                )
-            )
-        )
+        return queryset.filter(subscriptions__plan_id=value)
 
 
 class OverdueInvoiceFilter(admin.SimpleListFilter):
@@ -424,13 +417,11 @@ class OrganizationAdmin(VersionAdmin):
         )
         plan_value = request.GET.get("plan")
         if plan_value and plan_value != "none":
-            qs = qs.annotate(
-                subscription_cancelled=Exists(
-                    Subscription.objects.filter(
-                        organization_id=OuterRef("pk"),
-                        plan_id=plan_value,
-                        cancelled=True,
-                    )
+            qs = qs.prefetch_related(
+                Prefetch(
+                    "subscriptions",
+                    queryset=Subscription.objects.filter(plan_id=plan_value),
+                    to_attr="plan_subscriptions",
                 )
             )
         return qs
@@ -486,14 +477,13 @@ class OrganizationAdmin(VersionAdmin):
     get_outstanding_invoices.admin_order_field = "outstanding_invoice_count"
 
     def get_subscription_renews(self, obj):
-        cancelled = getattr(obj, "subscription_cancelled", None)
-        if cancelled is None:
-            return "-"
-        return not cancelled
+        subs = getattr(obj, "plan_subscriptions", None)
+        if subs is None:
+            return None
+        return not any(s.cancelled for s in subs)
 
     get_subscription_renews.short_description = "Will Renew"
     get_subscription_renews.boolean = True
-    get_subscription_renews.admin_order_field = "subscription_cancelled"
 
 
 @admin.register(Plan)
