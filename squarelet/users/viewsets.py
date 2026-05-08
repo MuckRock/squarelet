@@ -11,9 +11,11 @@ from django.utils.translation import gettext_lazy as _
 import sesame.utils
 from allauth.account.models import EmailAddress, EmailConfirmationHMAC
 from allauth.account.utils import setup_user_email
+from oidc_provider.models import Token
 from rest_framework import status, viewsets
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 # Squarelet
@@ -113,4 +115,27 @@ class RefreshTokenViewSet(viewsets.ViewSet):
         ).split(" ")
         return Response(
             {"refresh_token": str(token), "access_token": str(token.access_token)}
+        )
+
+
+class OIDCTokenExchangeView(APIView):
+
+    def post(self, request):
+        oidc_token = request.data.get("oidc_token")
+        # Validate against django-oidc-provider's token model
+
+        try:
+            token = Token.objects.get(access_token=oidc_token)
+        except Token.DoesNotExist:
+            return Response({"error": "invalid token"}, status=400)
+
+        if token.has_expired():
+            return Response({"error": "token expired"}, status=400)
+
+        refresh = RefreshToken.for_user(token.user)
+        return Response(
+            {
+                "access_token": str(refresh.access_token),
+                "refresh_token": str(refresh),
+            }
         )
