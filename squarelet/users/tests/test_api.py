@@ -180,9 +180,7 @@ class TestOIDCTokenExchangeView:
 
     def test_valid_token_returns_jwt(self, user_factory, client):
         user = user_factory()
-        self._make_token(
-            user, client, expires_at=timezone.now() + timedelta(hours=1)
-        )
+        self._make_token(user, client, expires_at=timezone.now() + timedelta(hours=1))
         api_client = APIClient()
         response = api_client.post(
             "/api/jwt/", {"oidc_token": "test-oidc-access-token"}
@@ -206,9 +204,7 @@ class TestOIDCTokenExchangeView:
 
     def test_expired_token_returns_400(self, user_factory, client):
         user = user_factory()
-        self._make_token(
-            user, client, expires_at=timezone.now() - timedelta(hours=1)
-        )
+        self._make_token(user, client, expires_at=timezone.now() - timedelta(hours=1))
         api_client = APIClient()
         response = api_client.post(
             "/api/jwt/", {"oidc_token": "test-oidc-access-token"}
