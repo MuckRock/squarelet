@@ -36,57 +36,59 @@ class TestCustomer:
         assert customer.customer_id == customer_id
 
     def test_card_existing(self, customer_factory, mocker):
-        default_source = "default_source"
-        mocked_stripe_customer = mocker.patch(
-            "squarelet.organizations.models.Customer.stripe_customer",
-            default_source=default_source,
+        mock_stripe_customer = mocker.patch(
+            "squarelet.organizations.models.Customer.stripe_customer"
         )
         mock_source = mocker.MagicMock(object="card")
-        mock_retrieve = mocker.patch(
+        mock_get_card = mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
-        ).return_value.get_customer_service.return_value.retrieve_source
-        mock_retrieve.return_value = mock_source
+        ).return_value.get_customer_service.return_value.get_card
+        mock_get_card.return_value = mock_source
         customer = customer_factory.build()
         assert mock_source == customer.card
-        mock_retrieve.assert_called_once_with(mocked_stripe_customer, default_source)
+        mock_get_card.assert_called_once_with(mock_stripe_customer)
 
     def test_card_ach(self, customer_factory, mocker):
-        default_source = "default_source"
-        mocked_stripe_customer = mocker.patch(
-            "squarelet.organizations.models.Customer.stripe_customer",
-            default_source=default_source,
+        mock_stripe_customer = mocker.patch(
+            "squarelet.organizations.models.Customer.stripe_customer"
         )
-        mock_source = mocker.MagicMock(object="ach")
-        mock_retrieve = mocker.patch(
+        mock_get_card = mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
-        ).return_value.get_customer_service.return_value.retrieve_source
-        mock_retrieve.return_value = mock_source
+        ).return_value.get_customer_service.return_value.get_card
+        mock_get_card.return_value = None
         customer = customer_factory.build()
         assert customer.card is None
-        mock_retrieve.assert_called_once_with(mocked_stripe_customer, default_source)
+        mock_get_card.assert_called_once_with(mock_stripe_customer)
 
     def test_card_blank(self, customer_factory, mocker):
         mocker.patch(
-            "squarelet.organizations.models.Customer.stripe_customer",
-            default_source=None,
+            "squarelet.organizations.models.Customer.stripe_customer"
         )
+        mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_customer_service.return_value.get_card.return_value = None
         customer = customer_factory.build()
         assert customer.card is None
 
     def test_card_display(self, customer_factory, mocker):
         brand = "Visa"
         last4 = "4242"
+        mock_card = mocker.MagicMock(object="card", brand=brand, last4=last4)
         mocker.patch(
-            "squarelet.organizations.models.Customer.card", brand=brand, last4=last4
+            "squarelet.organizations.models.Customer.card",
+            new_callable=mocker.PropertyMock,
+            return_value=mock_card,
         )
         customer = customer_factory.build(customer_id="customer_id")
         assert customer.card_display == f"{brand}: x{last4}"
 
     def test_card_display_empty(self, customer_factory, mocker):
         mocker.patch(
-            "squarelet.organizations.models.Customer.stripe_customer",
-            default_source=None,
+            "squarelet.organizations.models.Customer.stripe_customer"
         )
+        mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_customer_service.return_value.get_card.return_value = None
         customer = customer_factory.build()
         assert customer.card_display == ""
 
@@ -96,10 +98,17 @@ class TestCustomer:
             "squarelet.organizations.models.Customer.stripe_customer"
         )
         mocked_customer.id = "cus_test123"
-        mocked_modify = mocker.patch("stripe.Customer.modify")
+        mock_pm = mocker.MagicMock(id="pm_new")
+        mocker.patch("stripe.PaymentMethod.create", return_value=mock_pm)
+        mock_attach = mocker.patch("stripe.PaymentMethod.attach")
+        mock_modify = mocker.patch("stripe.Customer.modify")
         customer = customer_factory.build()
         customer.save_card(token)
-        mocked_modify.assert_called_once_with("cus_test123", source=token)
+        mock_attach.assert_called_once_with("pm_new", customer="cus_test123")
+        mock_modify.assert_called_once_with(
+            "cus_test123",
+            invoice_settings={"default_payment_method": "pm_new"},
+        )
 
     @pytest.mark.django_db()
     def test_customer_invalid_clears_and_creates_new(self, customer_factory, mocker):

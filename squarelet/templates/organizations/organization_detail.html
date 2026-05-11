@@ -181,7 +181,7 @@
             {% if current_plan_card %}
               <li class="plan-detail plan-card">
                 <span class="icon">{% include "core/icons/credit-card.svg" %}</span>
-                <span class="label">{{current_plan_card.brand}} ending in {{current_plan_card.last4}}</span>
+                <span class="label">{{current_plan_card.brand|capfirst}} ending in {{current_plan_card.last4}}</span>
               </li>
             {% endif %}
           </ul>

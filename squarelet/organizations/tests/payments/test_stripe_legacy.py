@@ -3,6 +3,7 @@ import pytest
 
 # Squarelet
 from squarelet.organizations.payments.providers.stripe_legacy import (
+    StripeLegacyChargeService,
     StripeLegacyCustomerService,
     StripeLegacySubscriptionService,
 )
@@ -13,6 +14,11 @@ from squarelet.organizations.payments.providers.stripe_legacy import (
 @pytest.fixture
 def customer_service():
     return StripeLegacyCustomerService()
+
+
+@pytest.fixture
+def charge_service():
+    return StripeLegacyChargeService()
 
 
 @pytest.fixture
@@ -34,6 +40,44 @@ class TestLegacyCustomerService:
         result = customer_service.add_source(mock_customer, token)
         mock_customer.sources.create.assert_called_once_with(source=token)
         assert result == mock_customer.sources.create.return_value
+
+    def test_remove_source_calls_delete(self, customer_service, mocker):
+        mock_source = mocker.MagicMock()
+        customer_service.remove_source(mock_source)
+        mock_source.delete.assert_called_once()
+
+    def test_get_card_returns_card_source(self, customer_service, mocker):
+        mock_source = mocker.MagicMock(object="card")
+        mock_customer = mocker.MagicMock()
+        mock_customer.default_source = "card_123"
+        mock_customer.sources.retrieve.return_value = mock_source
+        result = customer_service.get_card(mock_customer)
+        mock_customer.sources.retrieve.assert_called_once_with("card_123")
+        assert result == mock_source
+
+    def test_get_card_returns_none_for_non_card_source(
+        self, customer_service, mocker
+    ):
+        mock_source = mocker.MagicMock(object="ach_debit")
+        mock_customer = mocker.MagicMock()
+        mock_customer.default_source = "src_123"
+        mock_customer.sources.retrieve.return_value = mock_source
+        result = customer_service.get_card(mock_customer)
+        assert result is None
+
+    def test_get_card_returns_none_when_no_default_source(
+        self, customer_service, mocker
+    ):
+        mock_customer = mocker.MagicMock()
+        mock_customer.default_source = None
+        result = customer_service.get_card(mock_customer)
+        assert result is None
+
+
+class TestLegacyChargeService:
+    def test_confirm_payment_intent_raises_not_implemented(self, charge_service):
+        with pytest.raises(NotImplementedError):
+            charge_service.confirm_payment_intent("pi_123")
 
 
 class TestLegacySubscriptionService:
@@ -59,6 +103,3 @@ class TestLegacySubscriptionService:
         mock_sub.current_period_end = 1700000000
         assert subscription_service.get_current_period_end(mock_sub) == 1700000000
 
-    def test_get_current_period_end_missing(self, subscription_service, mocker):
-        mock_sub = mocker.MagicMock(spec=[])
-        assert subscription_service.get_current_period_end(mock_sub) is None

@@ -170,6 +170,7 @@ class TestOrganization:
             "squarelet.organizations.models.Customer.stripe_customer",
             card=None,
             default_source=None,
+            invoice_settings=Mock(default_payment_method=None),
         )
         mocker.patch("squarelet.organizations.models.Organization.change_logs")
         max_users = 10
@@ -217,6 +218,7 @@ class TestOrganization:
             "squarelet.organizations.models.Customer.stripe_customer",
             card=None,
             default_source=None,
+            invoice_settings=Mock(default_payment_method=None),
         )
         mocked = mocker.patch("squarelet.organizations.models.Subscription.cancel")
         mocker.patch("squarelet.organizations.models.Organization.change_logs")
@@ -237,6 +239,7 @@ class TestOrganization:
             "squarelet.organizations.models.Customer.stripe_customer",
             card=None,
             default_source=None,
+            invoice_settings=Mock(default_payment_method=None),
         )
         mocked = mocker.patch("squarelet.organizations.models.Subscription.modify")
         mocker.patch("squarelet.organizations.models.Organization.change_logs")

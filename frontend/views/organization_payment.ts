@@ -314,35 +314,36 @@ export class PlansView {
       });
 
       // Create a token or display an error when the form is submitted.
-      const form = document.getElementById("stripe-form");
+      const form = document.getElementById("stripe-form") as HTMLFormElement;
       form.addEventListener("submit", (event) => {
+        event.preventDefault();
+
         const ucofInput = document.querySelector(
           "input[name=use_card_on_file]:checked",
         ) as HTMLInputElement;
-
         const useCardOnFile = ucofInput != null && ucofInput.value == "True";
         const plan = this.getPlan();
-
         const ccEmpty = document
           .querySelector("#card-element")
           .classList.contains("StripeElement--empty");
-        if (isFree(plan) && ccEmpty) {
-          // if we are on a free plan, and no credit card is provided, do not try to
-          // handle the CC
-          return;
-        }
+        const errorElement = document.getElementById("card-errors");
 
-        if (!useCardOnFile) {
-          event.preventDefault();
+        const submitAjax = () =>
+          submitFormAjax(form, stripe, errorElement);
 
-          stripe.createToken(card).then(function (result) {
+        if (useCardOnFile || (isFree(plan) && ccEmpty)) {
+          // No new card — submit directly via AJAX
+          submitAjax();
+        } else {
+          // Create token for new card, then AJAX submit
+          stripe.createToken(card).then((result) => {
             if (result.error) {
-              // Inform the customer that there was an error.
-              const errorElement = document.getElementById("card-errors");
               errorElement.textContent = result.error.message;
             } else {
-              // Send the token to your server.
-              stripeTokenHandler(result.token);
+              (
+                document.getElementById("id_stripe_token") as HTMLInputElement
+              ).value = result.token.id;
+              submitAjax();
             }
           });
         }
@@ -352,17 +353,46 @@ export class PlansView {
 }
 
 /**
- * Set the hidden Stripe token input to reflect the given token, then submit the form.
- * @param token
+ * Submit the form via AJAX, handling 402 Payment Action Required (3DS).
+ * On 402: calls stripe.confirmCardPayment then redirects.
+ * On success: redirects to the URL in the JSON response.
+ * On error: displays the error message.
  */
-function stripeTokenHandler(token) {
-  // Insert the token ID into the form so it gets submitted to the server
-  const hiddenInput = document.getElementById(
-    "id_stripe_token",
-  ) as HTMLInputElement;
-  hiddenInput.value = token.id;
-  // Submit the form
-  (document.getElementById("stripe-form") as HTMLFormElement).submit();
+function submitFormAjax(
+  form: HTMLFormElement,
+  stripe: any,
+  errorElement: HTMLElement,
+): void {
+  fetch(form.action || window.location.href, {
+    method: "POST",
+    headers: { "X-Requested-With": "XMLHttpRequest" },
+    body: new FormData(form),
+  })
+    .then((response) =>
+      response.json().then((data) => ({ status: response.status, data })),
+    )
+    .then(({ status, data }) => {
+      if (status === 402) {
+        stripe
+          .confirmCardPayment(data.client_secret)
+          .then((result: { error?: { message: string } }) => {
+            if (result.error) {
+              errorElement.textContent = result.error.message;
+            } else {
+              window.location.href = data.redirect;
+            }
+          });
+      } else if (status >= 200 && status < 300) {
+        window.location.href = data.redirect;
+      } else {
+        errorElement.textContent =
+          data.error || "An error occurred. Please try again.";
+      }
+    })
+    .catch(() => {
+      errorElement.textContent =
+        "A network error occurred. Please try again.";
+    });
 }
 
 /**

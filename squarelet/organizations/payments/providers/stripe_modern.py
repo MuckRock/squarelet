@@ -20,11 +20,25 @@ API version history tracked in this file:
                renamed on Product (neither used here)
   2024-09-30 - Acacia release, new monthly versioning model begins
   2025-03-31 - basil: current_period_end/start moved from subscription root
-               to subscription items; handled via get_current_period_end()
+               to subscription items; handled via get_current_period_end().
+               invoice.payment_intent removed; replaced by
+               invoice.confirmation_secret.client_secret for SCA/3DS flows.
   2025-09-30 - clover: flexible billing mode default, iterations removed from
                subscription schedules, Discount.coupon -> Discount.source
                (none used here)
   2026-03-25 - dahlia: cancellation_reason enum expanded (not checked here)
+
+Payment Intents migration (Phase 2):
+  ChargeService.create() uses stripe.PaymentIntent.create(confirm=True) without
+  off_session=True. When Stripe requires 3DS/SCA, the intent status is
+  "requires_action" and PaymentActionRequired is raised carrying the
+  client_secret and payment_intent_id for client-side confirmCardPayment().
+  After the client confirms, confirm_payment_intent() retrieves the PI, verifies
+  it succeeded, and returns (latest_charge, payment_method_id).
+
+  Saved cards: new saves use PaymentMethods (pm_xxx) via save_card(). Existing
+  customers' Sources/Cards (card_xxx/src_xxx) continue to work as payment_method
+  in PaymentIntents per the Stripe transitioning guide.
 """
 
 # Third Party
@@ -35,6 +49,7 @@ from squarelet.organizations.payments.base import (
     ChargeService,
     CustomerService,
     InvoiceService,
+    PaymentActionRequired,
     PaymentProvider,
     PlanService,
     SubscriptionService,
@@ -60,19 +75,56 @@ class StripeModernCustomerService(CustomerService):
         return stripe.Customer.modify(customer_id, **kwargs)
 
     def save_card(self, stripe_customer, token):
-        """Set a card token as the customer's default source."""
-        stripe.Customer.modify(stripe_customer.id, source=token)
+        """Save a card token as the customer's default payment method."""
+        pm = stripe.PaymentMethod.create(type="card", card={"token": token})
+        stripe.PaymentMethod.attach(pm.id, customer=stripe_customer.id)
+        stripe.Customer.modify(
+            stripe_customer.id,
+            invoice_settings={"default_payment_method": pm.id},
+        )
 
     def remove_card(self, customer_id, source_id):
-        stripe.Customer.delete_source(customer_id, source_id)
+        """Remove a saved card. Handles both PaymentMethods (pm_) and Sources."""
+        if source_id and source_id.startswith("pm_"):
+            stripe.PaymentMethod.detach(source_id)
+            stripe.Customer.modify(
+                customer_id,
+                invoice_settings={"default_payment_method": ""},
+            )
+        else:
+            stripe.Customer.delete_source(customer_id, source_id)
 
     def retrieve_source(self, stripe_customer, source_id):
         # sources no longer auto-expand as of API version 2020-08-27
         return stripe.Customer.retrieve_source(stripe_customer.id, source_id)
 
     def add_source(self, stripe_customer, token):
-        # sources no longer auto-expand as of API version 2020-08-27
-        return stripe.Customer.create_source(stripe_customer.id, source=token)
+        """Create and attach a PaymentMethod for a single charge."""
+        pm = stripe.PaymentMethod.create(type="card", card={"token": token})
+        stripe.PaymentMethod.attach(pm.id, customer=stripe_customer.id)
+        return pm
+
+    def remove_source(self, source_or_pm):
+        """Detach a temporary PaymentMethod after a one-time charge.
+
+        Accepts a PM object (with .id) or a PM ID string.
+        """
+        pm_id = source_or_pm if isinstance(source_or_pm, str) else source_or_pm.id
+        stripe.PaymentMethod.detach(pm_id)
+
+    def get_card(self, stripe_customer):
+        """Return the default PaymentMethod, falling back to a saved Source."""
+        invoice_settings = stripe_customer.invoice_settings
+        pm_id = invoice_settings and invoice_settings.default_payment_method
+        if pm_id:
+            return stripe.PaymentMethod.retrieve(pm_id)
+        if stripe_customer.default_source:
+            source = stripe.Customer.retrieve_source(
+                stripe_customer.id, stripe_customer.default_source
+            )
+            if source.object == "card":
+                return source
+        return None
 
 
 class StripeModernSubscriptionService(SubscriptionService):
@@ -89,12 +141,15 @@ class StripeModernSubscriptionService(SubscriptionService):
     ):
         # `billing` was renamed to `collection_method` in API version 2019-10-17
         # subscriptions no longer auto-expand as of API version 2020-08-27
+        # latest_invoice.confirmation_secret replaces latest_invoice.payment_intent
+        # for SCA/3DS detection as of API version 2025-03-31.basil
         return stripe.Subscription.create(
             customer=stripe_customer.id,
             items=[{"plan": plan_id, "quantity": quantity}],
             collection_method=billing,
             metadata=metadata,
             days_until_due=days_until_due,
+            expand=["latest_invoice.confirmation_secret"],
         )
 
     def retrieve(self, subscription_id):
@@ -122,14 +177,14 @@ class StripeModernSubscriptionService(SubscriptionService):
     def get_current_period_end(self, stripe_subscription):
         # current_period_end moved from subscription root to subscription items
         # in API version 2025-03-31.basil
-        items = getattr(stripe_subscription, "items", None)
+        items = stripe_subscription.items
         if items and items.data:
-            return getattr(items.data[0], "current_period_end", None)
+            return items.data[0].current_period_end
         return None
 
 
 class StripeModernChargeService(ChargeService):
-    """Charge operations using Stripe direct charges."""
+    """Charge operations using PaymentIntents."""
 
     def create(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
@@ -142,25 +197,47 @@ class StripeModernChargeService(ChargeService):
         statement_descriptor_suffix,
         idempotency_key,
     ):
-        return stripe.Charge.create(
+        # `source` is a PaymentMethod (pm_) or a legacy Source/Card (card_/src_)
+        # attached to the customer. Stripe accepts all as `payment_method` in
+        # PaymentIntents per the Payment Methods transitioning guide.
+        intent = stripe.PaymentIntent.create(
             amount=amount,
             currency=currency,
-            customer=customer,
+            customer=customer.id,
+            payment_method=source.id,
             description=description,
-            source=source,
             metadata=metadata,
             statement_descriptor_suffix=statement_descriptor_suffix,
+            confirm=True,
+            expand=["latest_charge"],
             idempotency_key=idempotency_key,
         )
+        if intent.status == "requires_action":
+            raise PaymentActionRequired(intent.client_secret, intent.id)
+        return intent.latest_charge
 
     def retrieve(self, charge_id):
         return stripe.Charge.retrieve(charge_id)
+
+    def confirm_payment_intent(self, payment_intent_id):
+        """Retrieve a succeeded PaymentIntent and return (latest_charge, pm_id)."""
+        intent = stripe.PaymentIntent.retrieve(
+            payment_intent_id, expand=["latest_charge"]
+        )
+        if intent.status != "succeeded":
+            raise ValueError(
+                f"PaymentIntent {payment_intent_id} has status {intent.status!r},"
+                " expected 'succeeded'"
+            )
+        return intent.latest_charge, intent.payment_method
 
 
 class StripeModernInvoiceService(InvoiceService):
     """Invoice operations using current Stripe API."""
 
-    def retrieve(self, invoice_id):
+    def retrieve(self, invoice_id, expand=None):
+        if expand:
+            return stripe.Invoice.retrieve(invoice_id, expand=expand)
         return stripe.Invoice.retrieve(invoice_id)
 
     def pay(self, stripe_invoice, paid_out_of_band=False):

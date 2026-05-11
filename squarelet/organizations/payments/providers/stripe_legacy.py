@@ -48,6 +48,16 @@ class StripeLegacyCustomerService(CustomerService):
     def add_source(self, stripe_customer, token):
         return stripe_customer.sources.create(source=token)
 
+    def remove_source(self, source_or_pm):
+        source_or_pm.delete()
+
+    def get_card(self, stripe_customer):
+        if stripe_customer.default_source:
+            source = stripe_customer.sources.retrieve(stripe_customer.default_source)
+            if source.object == "card":
+                return source
+        return None
+
 
 class StripeLegacySubscriptionService(SubscriptionService):
     """Subscription operations using Stripe 2.x Plans API."""
@@ -87,7 +97,7 @@ class StripeLegacySubscriptionService(SubscriptionService):
         stripe_subscription.delete()
 
     def get_current_period_end(self, stripe_subscription):
-        return getattr(stripe_subscription, "current_period_end", None)
+        return stripe_subscription.current_period_end
 
 
 class StripeLegacyChargeService(ChargeService):
@@ -118,11 +128,18 @@ class StripeLegacyChargeService(ChargeService):
     def retrieve(self, charge_id):
         return stripe.Charge.retrieve(charge_id)
 
+    def confirm_payment_intent(self, payment_intent_id):
+        raise NotImplementedError(
+            "Legacy Stripe provider does not support Payment Intents"
+        )
+
 
 class StripeLegacyInvoiceService(InvoiceService):
     """Invoice operations using Stripe 2.x."""
 
-    def retrieve(self, invoice_id):
+    def retrieve(self, invoice_id, expand=None):
+        if expand:
+            return stripe.Invoice.retrieve(invoice_id, expand=expand)
         return stripe.Invoice.retrieve(invoice_id)
 
     def pay(self, stripe_invoice, paid_out_of_band=False):

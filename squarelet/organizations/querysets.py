@@ -303,11 +303,51 @@ class ChargeQuerySet(models.QuerySet):
             )
         )
         if token:
-            source.delete()
+            get_payment_provider().get_customer_service().remove_source(source)
 
         # use get or create as there is a race condition from creating the charge on
         # stripe, to receiving the webhook and saving it to the database there,
         # and saving it here
+        charge, _ = self.get_or_create(
+            charge_id=stripe_charge.id,
+            defaults={
+                "amount": amount,
+                "fee_amount": fee_amount,
+                "organization": organization,
+                "created_at": datetime.fromtimestamp(
+                    stripe_charge.created, tz=get_current_timezone()
+                ),
+                "description": description,
+                "metadata": default_metadata,
+            },
+        )
+        return charge
+
+    def confirm_payment_intent(
+        self,
+        payment_intent_id,
+        organization,
+        amount,
+        fee_amount,
+        description,
+        metadata,
+        save_card=False,
+    ):
+        """Create a local Charge after the client completes 3DS confirmation."""
+        default_metadata = {
+            "organization": organization.name,
+            "organization id": str(organization.uuid),
+            "fee amount": fee_amount,
+            **metadata,
+        }
+        provider = get_payment_provider()
+        stripe_charge, pm_id = (
+            provider.get_charge_service().confirm_payment_intent(payment_intent_id)
+        )
+        if not save_card and pm_id:
+            # Detach the temporary PM that was attached for this one-time charge
+            provider.get_customer_service().remove_source(pm_id)
+
         charge, _ = self.get_or_create(
             charge_id=stripe_charge.id,
             defaults={
