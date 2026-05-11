@@ -7,6 +7,8 @@ from squarelet.organizations.payments.providers.stripe_legacy import (
     StripeLegacySubscriptionService,
 )
 
+# pylint: disable=redefined-outer-name
+
 
 @pytest.fixture
 def customer_service():
