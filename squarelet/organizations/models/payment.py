@@ -304,15 +304,26 @@ class Subscription(models.Model):
                         exc_info=True,
                     )
 
-        # Trigger respective mailchimp journeys if this is the organization plan
+        # Trigger respective mailchimp journeys if this is the organization plan,
+        # but only if the org doesn't already have another active subscription
+        # granting the same entitlement (avoid duplicate journey triggers).
         if self.plan_id and self.plan.entitlements.filter(slug="organization").exists():
-            journey_key = (
-                "verified_premium_org"
-                if self.organization.verified_journalist
-                else "unverified_premium_org"
+            already_has_org_entitlement = (
+                self.organization.subscriptions.exclude(pk=self.pk)
+                .filter(
+                    plan__entitlements__slug="organization",
+                    cancelled=False,
+                )
+                .exists()
             )
-            for user in self.organization.users.all():
-                mailchimp_journey(user.email, journey_key)
+            if not already_has_org_entitlement:
+                journey_key = (
+                    "verified_premium_org"
+                    if self.organization.verified_journalist
+                    else "unverified_premium_org"
+                )
+                for user in self.organization.users.all():
+                    mailchimp_journey(user.email, journey_key)
 
         # Slack notification for new subscription
         self.send_slack_notification("started")

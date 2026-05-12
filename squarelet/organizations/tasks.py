@@ -150,7 +150,24 @@ def handle_invoice_failed(invoice_data):
     attempt = invoice_data["attempt_count"]
     if attempt == 4:
         subject = _("Your subscription has been cancelled")
-        organization.subscription_cancelled()
+        # Look up the specific subscription from the invoice data
+        subscription = None
+        parent = invoice_data.get("parent")
+        if parent and parent.get("type") == "subscription_details":
+            stripe_sub_id = parent.get("subscription_details", {}).get(
+                "subscription"
+            )
+            if stripe_sub_id:
+                try:
+                    subscription = Subscription.objects.get(
+                        subscription_id=stripe_sub_id
+                    )
+                except Subscription.DoesNotExist:
+                    logger.warning(
+                        "Invoice failed: no matching subscription for %s",
+                        stripe_sub_id,
+                    )
+        organization.subscription_cancelled(subscription=subscription)
     else:
         subject = _("Your payment has failed")
 
@@ -381,10 +398,13 @@ def process_overdue_invoice(invoice_id):
         )
 
         # Cancel subscription (same as credit card failures)
-        if organization.subscription:
-            organization.subscription_cancelled()
-            # Clear subscription reference since it was deleted
+        if invoice.subscription:
+            organization.subscription_cancelled(
+                subscription=invoice.subscription
+            )
             invoice.subscription = None
+        elif organization.subscriptions.exists():
+            organization.subscription_cancelled()
 
         # Mark invoice as uncollectible in Stripe
         try:
