@@ -7,7 +7,7 @@ import pytest
 import stripe
 
 # Squarelet
-from squarelet.organizations.admin import InvoiceAdmin, OrganizationAdmin
+from squarelet.organizations.admin import InvoiceAdmin, OrganizationAdmin, PlanFilter
 from squarelet.organizations.models import Invoice, Organization
 
 
@@ -340,3 +340,136 @@ class TestOrganizationAdmin:
         org_admin.save_model(request, org, mock_form, change=True)
 
         subscribe_mock.assert_called_once()
+
+
+class TestPlanFilter:
+    """Tests for the PlanFilter admin list filter."""
+
+    @pytest.fixture
+    def request_factory(self):
+        return RequestFactory()
+
+    def _filter(self, params):
+        return PlanFilter(
+            request=None,
+            params=params,
+            model=Organization,
+            model_admin=OrganizationAdmin(Organization, AdminSite()),
+        )
+
+    @pytest.mark.django_db
+    def test_lookups_include_no_plan_and_each_plan(self, request_factory, plan_factory):
+        plan_a = plan_factory(name="Plan A")
+        plan_b = plan_factory(name="Plan B")
+        request = request_factory.get("/")
+        lookups = self._filter({}).lookups(
+            request, OrganizationAdmin(Organization, AdminSite())
+        )
+        values = [value for value, _label in lookups]
+        labels = [label for _value, label in lookups]
+        assert "none" in values
+        assert plan_a.pk in values
+        assert plan_b.pk in values
+        assert "— No plan —" in labels
+
+    @pytest.mark.django_db
+    def test_filter_by_plan_returns_orgs_with_that_subscription(
+        self,
+        request_factory,
+        organization_factory,
+        plan_factory,
+        subscription_factory,
+    ):
+        pro_plan = plan_factory(name="Pro")
+        free_plan = plan_factory(name="Free")
+        pro_org = organization_factory()
+        free_org = organization_factory()
+        subscription_factory(organization=pro_org, plan=pro_plan)
+        subscription_factory(organization=free_org, plan=free_plan)
+
+        request = request_factory.get("/")
+        result = self._filter({"plan": [str(pro_plan.pk)]}).queryset(
+            request, Organization.objects.all()
+        )
+        assert pro_org in result
+        assert free_org not in result
+
+    @pytest.mark.django_db
+    def test_filter_by_plan_includes_cancelled_subscriptions(
+        self,
+        request_factory,
+        organization_factory,
+        plan_factory,
+        subscription_factory,
+    ):
+        """Cancelled subs still count as subscribed per design decision."""
+        pro_plan = plan_factory(name="Pro")
+        org = organization_factory()
+        subscription_factory(organization=org, plan=pro_plan, cancelled=True)
+
+        request = request_factory.get("/")
+        result = self._filter({"plan": [str(pro_plan.pk)]}).queryset(
+            request, Organization.objects.all()
+        )
+        assert org in result
+
+    @pytest.mark.django_db
+    def test_filter_by_none_returns_orgs_without_subscriptions(
+        self,
+        request_factory,
+        organization_factory,
+        plan_factory,
+        subscription_factory,
+    ):
+        plan = plan_factory(name="Pro")
+        subscribed = organization_factory()
+        unsubscribed = organization_factory()
+        subscription_factory(organization=subscribed, plan=plan)
+
+        request = request_factory.get("/")
+        result = self._filter({"plan": ["none"]}).queryset(
+            request, Organization.objects.all()
+        )
+        assert unsubscribed in result
+        assert subscribed not in result
+
+    @pytest.mark.django_db
+    def test_unset_filter_is_a_no_op(
+        self,
+        request_factory,
+        organization_factory,
+        plan_factory,
+        subscription_factory,
+    ):
+        plan = plan_factory(name="Pro")
+        subscribed = organization_factory()
+        unsubscribed = organization_factory()
+        subscription_factory(organization=subscribed, plan=plan)
+
+        request = request_factory.get("/")
+        result = self._filter({}).queryset(request, Organization.objects.all())
+        assert subscribed in result
+        assert unsubscribed in result
+
+    @pytest.mark.django_db
+    def test_filter_result_has_no_duplicate_rows(
+        self,
+        request_factory,
+        organization_factory,
+        plan_factory,
+        subscription_factory,
+    ):
+        plan = plan_factory(name="Pro")
+        other_plan = plan_factory(name="Other")
+        org = organization_factory()
+        subscription_factory(organization=org, plan=plan)
+        subscription_factory(organization=org, plan=other_plan)
+
+        request = request_factory.get("/")
+        result = self._filter({"plan": [str(plan.pk)]}).queryset(
+            request, Organization.objects.all()
+        )
+        assert list(result).count(org) == 1
+
+    def test_filter_is_registered_on_organization_admin(self):
+        assert PlanFilter in OrganizationAdmin.list_filter
