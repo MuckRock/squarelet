@@ -1865,3 +1865,69 @@ class TestUnsyncWixForGroupMember:
         tasks.unsync_wix_for_group_member(member_org.id, group.id, wix_plan.id)
 
         mock_wix_unsync.assert_not_called()
+
+
+class TestSubscriptionCancelledWithExplicitSubscription:
+    """Tests for Organization.subscription_cancelled() with explicit subscription arg"""
+
+    @pytest.mark.django_db
+    def test_with_explicit_sub_cancels_only_that_sub(
+        self, organization_factory, plan_factory, subscription_factory
+    ):
+        """Org with two subscriptions: cancelling one leaves the other."""
+        org = organization_factory()
+        plan_a = plan_factory()
+        plan_b = plan_factory()
+        sub_a = subscription_factory(organization=org, plan=plan_a)
+        sub_b = subscription_factory(organization=org, plan=plan_b)
+
+        org.subscription_cancelled(subscription=sub_a)
+
+        assert not Subscription.objects.filter(pk=sub_a.pk).exists()
+        assert Subscription.objects.filter(pk=sub_b.pk).exists()
+
+    @pytest.mark.django_db
+    def test_no_arg_backward_compat(
+        self, organization_factory, plan_factory, subscription_factory
+    ):
+        """Calling with no arg still cancels the first subscription."""
+        org = organization_factory()
+        plan = plan_factory()
+        sub = subscription_factory(organization=org, plan=plan)
+
+        org.subscription_cancelled()
+
+        assert not Subscription.objects.filter(pk=sub.pk).exists()
+
+    @pytest.mark.django_db
+    def test_handle_invoice_failed_passes_subscription(
+        self, organization_factory, plan_factory, subscription_factory, mocker
+    ):
+        """handle_invoice_failed passes the matching subscription to
+        subscription_cancelled on 4th failure."""
+        customer_id = "cus_test_sub_pass"
+        org = organization_factory(customer__customer_id=customer_id)
+        plan = plan_factory()
+        stripe_sub_id = "sub_test123"
+        subscription_factory(organization=org, plan=plan, subscription_id=stripe_sub_id)
+
+        mocked_cancel = mocker.patch(
+            "squarelet.organizations.models.organization."
+            "Organization.subscription_cancelled"
+        )
+        mocker.patch("squarelet.organizations.tasks.send_mail")
+
+        invoice_data = {
+            "id": "in_test",
+            "customer": customer_id,
+            "attempt_count": 4,
+            "parent": {
+                "type": "subscription_details",
+                "subscription_details": {"subscription": stripe_sub_id},
+            },
+        }
+        tasks.handle_invoice_failed(invoice_data)
+
+        mocked_cancel.assert_called_once()
+        call_kwargs = mocked_cancel.call_args[1]
+        assert call_kwargs["subscription"].subscription_id == stripe_sub_id

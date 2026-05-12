@@ -158,32 +158,6 @@ class Organization(AvatarMixin, models.Model):
         ),
     )
 
-    # TODO: remove these
-    _plan = models.ForeignKey(
-        verbose_name=_("plan"),
-        to="organizations.Plan",
-        on_delete=models.PROTECT,
-        related_name="+",
-        help_text=_("The current plan this organization is subscribed to"),
-        blank=True,
-        null=True,
-        db_column="plan_id",
-    )
-    next_plan = models.ForeignKey(
-        verbose_name=_("next plan"),
-        to="organizations.Plan",
-        on_delete=models.PROTECT,
-        related_name="pending_organizations",
-        help_text=_(
-            "The pending plan to be updated to on the next billing cycle - "
-            "used when downgrading a plan to let the organization finish out a "
-            "subscription is paid for"
-        ),
-        blank=True,
-        null=True,
-    )
-    # end remove these
-
     plans = models.ManyToManyField(
         verbose_name=_("plans"),
         to="organizations.Plan",
@@ -229,34 +203,7 @@ class Organization(AvatarMixin, models.Model):
         default=5,
         help_text=_("The number of resource blocks this organization receives monthly"),
     )
-    # TODO: this moved to subscription, remove
-    update_on = models.DateField(
-        _("date update"),
-        null=True,
-        blank=True,
-        help_text=_("Date when monthly requests are restored"),
-    )
 
-    # TODO: remove stripe properties that moved to other models
-    # moved to customer, remove
-    customer_id = models.CharField(
-        _("customer id"),
-        max_length=255,
-        unique=True,
-        blank=True,
-        null=True,
-        help_text=_("The organization's corresponding ID on stripe"),
-    )
-    # move to subscription, remove
-    subscription_id = models.CharField(
-        _("subscription id"),
-        max_length=255,
-        unique=True,
-        blank=True,
-        null=True,
-        help_text=_("The organization's corresponding subscription ID on stripe"),
-    )
-    # should this be moved to customer?
     payment_failed = models.BooleanField(
         _("payment failed"),
         default=False,
@@ -517,67 +464,67 @@ class Organization(AvatarMixin, models.Model):
                     break
         return users_list
 
-    def set_subscription(self, token, plan, max_users, user, payment_method=None):
-        # pylint: disable=import-outside-toplevel,too-many-branches
+    def add_subscription(self, plan, max_users, user, token=None, payment_method=None):
+        """Add a new subscription to a plan.
+
+        Raises ValueError if the org already has a non-cancelled subscription
+        for this plan.
+        """
+        # pylint: disable=import-outside-toplevel
         # Squarelet
         from squarelet.organizations.tasks import sync_wix, sync_wix_for_group_member
 
-        if self.individual:
-            max_users = 1
+        if self.subscriptions.filter(plan=plan, cancelled=False).exists():
+            raise ValueError(
+                f"Organization already has an active subscription to {plan}"
+            )
 
-        # Determine payment method
+        # Detect payment method if not explicitly provided
         if payment_method is None:
-            # Backward compatibility: auto-detect payment method if not
-            # explicitly provided
             if token or self.customer().card:
                 payment_method = "card"
             else:
-                # If we're missing a token and have no saved card,
-                # we can only issue an invoice
                 payment_method = "invoice"
-        else:
-            # Updated handling: users can explicitly select payment method
-            # "new-card" and "existing-card" both map to "card"
-            if payment_method in ("new-card", "existing-card"):
-                payment_method = "card"
-            # "invoice" stays as "invoice"
+        elif payment_method in ("new-card", "existing-card"):
+            payment_method = "card"
 
         if token:
-            # The user provided a new card: save it to the org's account
             self.save_card(token, user)
 
-        # store so we can log
-        from_plan, from_max_users = (self.plan, self.max_users)
+        customer = self.customer().stripe_customer
+        if not customer.email:
+            customer.email = self.email
+            customer.save()
 
-        self.max_users = max_users
-        self.save()
-        if plan and plan.wix:
-            # Sync direct org users
+        self.subscriptions.start(
+            organization=self, plan=plan, payment_method=payment_method
+        )
+
+        self.change_logs.create(
+            user=user,
+            reason=ChangeLogReason.updated,
+            to_plan=plan,
+            to_max_users=max_users,
+        )
+
+        if plan.wix:
             for wix_user in self.users.all():
                 sync_wix.delay(self.pk, plan.pk, wix_user.pk)
-
-            # If this org is a group that shares resources, sync member/child org users
             if self.collective_enabled and self.share_resources:
                 for member_org in self.members.all():
                     sync_wix_for_group_member.delay(member_org.pk, self.pk, plan.pk)
                 for child_org in self.children.all():
                     sync_wix_for_group_member.delay(child_org.pk, self.pk, plan.pk)
 
-        if not self.plan and plan:
-            # create a subscription going from no plan to plan
-            customer = self.customer().stripe_customer
-            if not customer.email:
-                customer.email = self.email
-                customer.save()
-            self.subscriptions.start(
-                organization=self, plan=plan, payment_method=payment_method
-            )
-        elif self.plan and not plan:
-            # cancel a subscription going from plan to no plan
-            self.subscription.cancel()
-        elif self.plan and plan:
-            # modify the subscription
-            self.subscription.modify(plan)
+    def remove_subscription(self, plan_or_subscription, user=None):
+        """Cancel the subscription for the given plan or Subscription instance."""
+        # pylint: disable=import-outside-toplevel
+        from squarelet.organizations.models.payment import Subscription as Sub
+
+        if isinstance(plan_or_subscription, Sub):
+            sub = plan_or_subscription
+        else:
+            sub = self.subscriptions.get(plan=plan_or_subscription)
 
         # Remove old Wix labels when plan changes
         if from_plan and from_plan.wix and (not plan or from_plan.pk != plan.pk):
@@ -586,11 +533,11 @@ class Organization(AvatarMixin, models.Model):
         self.change_logs.create(
             user=user,
             reason=ChangeLogReason.updated,
-            from_plan=from_plan,
-            from_max_users=from_max_users,
-            to_plan=plan,
+            from_plan=sub.plan,
+            from_max_users=self.max_users,
             to_max_users=self.max_users,
         )
+        sub.cancel()
 
     def _dispatch_wix_unsync(self, plan):
         """Dispatch Wix unsync tasks for this org's users and, if this org is a
@@ -653,6 +600,7 @@ class Organization(AvatarMixin, models.Model):
                     logger.info(
                         "Cancelled Stripe subscription %s for organization %s",
                         subscription.subscription_id,
+                        target.subscription_id,
                         self.uuid,
                     )
                 else:
@@ -677,9 +625,12 @@ class Organization(AvatarMixin, models.Model):
         if cancelled_plan:
             self._dispatch_wix_unsync(cancelled_plan)
 
-    def has_active_subscription(self):
+    def has_active_subscription(self, plan=None):
         """Check if the organization has an active subscription"""
-        return bool(self.subscription)
+        qs = self.subscriptions.filter(cancelled=False)
+        if plan is not None:
+            qs = qs.filter(plan=plan)
+        return qs.exists()
 
     def charge(
         self,
@@ -777,7 +728,7 @@ class Organization(AvatarMixin, models.Model):
         wix_plans = []
 
         # Check membership groups
-        for group in self.groups.filter(share_resources=True).select_related("_plan"):
+        for group in self.groups.filter(share_resources=True):
             if group.plan and group.plan.wix:
                 wix_plans.append((group, group.plan))
 
