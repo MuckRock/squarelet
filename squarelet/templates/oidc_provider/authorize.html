@@ -1,51 +1,47 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <div class="_cls-content card">
-    <h1>Request for access to your MuckRock account</h1>
+  <div class="_cls-content card oidc-authorization">
+    <h1>Allow <strong>{{ client.name }}</strong> to access your MuckRock account?</h1>
 
     <p>
-      The site <strong>{{ client.name }}</strong> is requesting permission to
-      access information from your MuckRock account.
+      <strong>{{ client.name }}</strong> is requesting permission to
+      access the following information from your MuckRock account:
     </p>
+
+    <ul>
+      <li>
+        <strong>Profile information</strong><br />
+        <em>Your full name, username, avatar URL and bio</em>
+      </li>
+      <li>
+        <strong>Contact information</strong><br />
+        <em>Your primary email address and whether it’s been confirmed</em>
+      </li>
+      <li>
+        <strong>Organizations</strong><br />
+        <em>A list of organizations you are a member of</em>
+      </li>
+      <li>
+        <strong>Account preferences</strong><br />
+        <em>Whether you’ve enabled automatic login links in emails</em>
+    </ul>
+
     <p>
-      By authorizing, you allow <strong>{{ client.name }}</strong> to receive
-      the following information:
+      This application will not have access to your password or any private
+      content within your account unless explicitly authorized.
     </p>
 
-    
-
-      <ul>
-        <li>
-          <strong>Profile information:</strong><br />
-          <em>Your full name, username, avatar URL and bio</em>
-        </li>
-        <li>
-          <strong>Contact information:</strong><br />
-          <em>Your primary email address and whether it’s been confirmed</em>
-        </li>
-        <li>
-          <strong>Organizations:</strong><br />
-          <em>A list of organizations you are a member of</em>
-        </li>
-        <li>
-          <strong>Account preferences:</strong><br />
-          <em>Whether you’ve enabled automatic login links in emails</em>
-      </ul>
-
-      <p>
-        This application will not have access to your password or any private
-        content within your account unless explicitly authorized.
-      </p>
-
-      <p>
+    <p>
+      <strong>
         Do you want to allow {{ client.name }} to access this information?
-      </p>
+      </strong>
+    </p>
     <form method="post" action="{% url 'oidc_provider:authorize' %}">
       {% csrf_token %}
       {{ hidden_inputs }}
+      <button class="btn caution" type="submit">Decline</button>
       <button class="btn primary" type="submit" name="allow" value="Authorize">Authorize</button>
-      <button class="btn danger" type="submit">Decline</button>
     </form>
   </div>
 {% endblock content %}
