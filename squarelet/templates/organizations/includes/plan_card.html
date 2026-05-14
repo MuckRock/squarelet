@@ -1,0 +1,129 @@
+{% load i18n %}
+{% load icon %}
+{% comment %}
+Plan card partial.
+
+Args:
+  org             — subject Organization (used for payment / receipts URLs).
+  plan            — own Plan or None.
+  inherited_plans — list of (source_org, plan) tuples; may be empty.
+  upgrade_plan    — Plan to advertise when there is no own plan (optional).
+  next_charge_date, card, cancelled — subscription details (optional, org only).
+  payment_url     — URL for the upgrade / billing-settings CTA (optional).
+  can_edit_subscription — bool gating the CTA. Default True.
+  subject         — "user" | "org". Controls copy. Default "org".
+{% endcomment %}
+
+{% if plan or upgrade_plan or not inherited_plans %}
+<main class="plan-card{% if not plan %} plan-card--no-subscription{% endif %}">
+  {% if plan %}
+    <div class="plan-overview">
+      <p>
+        {% if subject == "user" %}
+          {% trans "You are subscribed to the" %}
+        {% else %}
+          {% trans "Subscribed to the" %}
+        {% endif %}
+        <a class="plan-name"
+            id="{{ plan.slug }}"
+            href="{% url 'plan_detail' pk=plan.id slug=plan.slug %}">{{ plan.name }}</a>
+        {% trans "plan." %}
+      </p>
+      {% if payment_url and can_edit_subscription %}
+      <a href="{{ payment_url }}" class="btn ghost primary">
+        {% if subject == "user" %}{% trans "Change plan" %}{% else %}{% trans "Billing settings" %}{% endif %}
+      </a>
+      {% endif %}
+    </div>
+    {% if plan.benefits %}
+      <ul class="plan-benefits checklist">
+        {% for benefit in plan.benefits %}
+          <li class="checklist-item">
+            <span class="icon">{% icon "checkmark" %}</span>
+            <span class="text">{{ benefit }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% if next_charge_date or card %}
+      <ul class="plan-details">
+        {% if next_charge_date %}
+          <li class="plan-detail plan-next-charge">
+            <span class="icon">{% icon "calendar" %}</span>
+            <span class="label">
+              {% if cancelled %}{% trans "Subscription ends on" %}{% else %}{% trans "Subscription renews on" %}{% endif %}
+              <time title="{{ next_charge_date|date:"c" }}" datetime="{{ next_charge_date|date:"c" }}">{{ next_charge_date|date:"F j, Y" }}</time>
+            </span>
+          </li>
+        {% endif %}
+        {% if card %}
+          <li class="plan-detail plan-card-info">
+            <span class="icon">{% icon "credit-card" %}</span>
+            <span class="label">{{ card.brand }} {% trans "ending in" %} {{ card.last4 }}</span>
+          </li>
+        {% endif %}
+      </ul>
+    {% endif %}
+  {% else %}
+    <div class="plan-overview">
+      <p>
+        {% if subject == "user" %}
+          {% trans "You are using MuckRock&rsquo;s" %}
+          <span class="plan-name" id="free">{% trans "Free" %}</span>
+          {% trans "plan." %}
+        {% else %}
+          {% trans "No active subscription." %}
+        {% endif %}
+      </p>
+      {% if payment_url and can_edit_subscription %}
+        <a class="btn premium" href="{{ payment_url }}">{% trans "Upgrade" %}</a>
+      {% endif %}
+    </div>
+    {% if upgrade_plan %}
+      <div class="plan-upgrade">
+        <p>
+          {% trans "Upgrade to our" %}
+          <a class="plan-name" href="{% url 'plan_detail' pk=upgrade_plan.id slug=upgrade_plan.slug %}">{{ upgrade_plan.name }}</a>
+          {% trans "plan for additional benefits and features:" %}
+        </p>
+        {% if upgrade_plan.benefits %}
+          <ul class="plan-benefits checklist">
+            {% for benefit in upgrade_plan.benefits %}
+              <li class="checklist-item">
+                <span class="icon">{% icon "checkmark" %}</span>
+                <span class="text">{{ benefit }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+    {% endif %}
+  {% endif %}
+</main>
+{% endif %}
+
+{% for source_org, source_plan in inherited_plans %}
+  <main class="plan-card plan-card--inherited">
+    <p class="plan-overview">
+      {% if subject == "user" %}
+        {% trans "You inherit" %}
+      {% else %}
+        {% trans "Inherits" %}
+      {% endif %}
+      <a class="plan-name"
+         href="{% url 'plan_detail' pk=source_plan.id slug=source_plan.slug %}">{{ source_plan.name }}</a>
+      {% trans "benefits as a member of" %}
+      <a class="org-name" href="{{ source_org.get_absolute_url }}">{{ source_org.name }}</a>.
+    </p>
+    {% if source_plan.benefits %}
+      <ul class="plan-benefits checklist">
+        {% for benefit in source_plan.benefits %}
+          <li class="checklist-item">
+            <span class="icon">{% icon "checkmark" %}</span>
+            <span class="text">{{ benefit }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </main>
+{% endfor %}

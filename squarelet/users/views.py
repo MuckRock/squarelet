@@ -182,10 +182,29 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
                     context["current_plan_next_charge_date"] = tz_datetime.date()
             # Check if the plan is cancelled
             context["current_plan_cancelled"] = getattr(subscription, "cancelled", None)
+        # Cards for each non-individual org the user belongs to that has its own
+        # paid plan. Plans the org inherits from parents/groups are intentionally
+        # excluded here -- those are an org-level concept and confuse users when
+        # surfaced on their personal page.
+        context["premium_org_plans"] = self._get_premium_org_plans(user)
         # Autologin preference form
         context["autologin_form"] = UserAutologinPreferenceForm(instance=user)
         context["may_hijack"] = hijack_by_group(self.request.user, user)
         return context
+
+    @staticmethod
+    def _get_premium_org_plans(user):
+        """Return [(org, plan), ...] for non-individual orgs the user belongs to
+        that have their own paid plan. Shaped to plug straight into the plan
+        card partial's `inherited_plans` arg, since from the user's perspective
+        these benefits are inherited via membership."""
+        return [
+            (org, org.plan)
+            for org in user.organizations.filter(individual=False).select_related(
+                "_plan"
+            )
+            if org.plan is not None and not org.plan.free
+        ]
 
     def get_recovery_codes(self):
         "Get unused recovery codes"
