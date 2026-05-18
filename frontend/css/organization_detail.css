@@ -82,56 +82,6 @@ section#security main.security {
   flex: 0 1 16em;
 }
 
-/* Plan section */
-#organization_detail .plan {
-  padding-bottom: 0.5rem;
-}
-
-.divider {
-  border: none;
-  border-bottom: 1px solid var(--gray-2);
-  margin: 0.5rem 0;
-  padding: 0;
-}
-
-.plan-overview {
-  padding: 0.5rem 0;
-  flex-wrap: wrap;
-  gap: 0.5rem 1rem;
-  font-family: var(--font-sans, "Source Sans Pro");
-  font-size: var(--font-md, 1rem);
-  font-style: normal;
-  font-weight: 400;
-  line-height: var(--font-xl, 1.5rem); /* 150% */
-}
-
-.plan-upgrade {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.plan-overview p {
-  margin: 0;
-}
-
-.plan-name {
-  color: var(--green-4);
-}
-
-.plan-details {
-  display: flex;
-  gap: 1rem;
-  align-items: baseline;
-  font-size: var(--font-md);
-}
-
-.plan-benefits.checklist {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-  margin: 0.25rem 0;
-}
-
 /* Staff toolbar actions */
 .staff-actions {
   display: flex;

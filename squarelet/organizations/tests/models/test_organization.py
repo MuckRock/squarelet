@@ -802,6 +802,97 @@ class TestOrganization:
         assert wix_plan1 in plans_in_result
         assert wix_plan2 in plans_in_result
 
+    # Tests for get_inherited_plans()
+
+    @pytest.mark.django_db()
+    def test_get_inherited_plans_no_parent_or_groups(self, organization_factory):
+        """Returns empty when org has no parent and no groups"""
+        org = organization_factory()
+        assert org.get_inherited_plans() == []
+
+    @pytest.mark.django_db()
+    def test_get_inherited_plans_parent_without_share_resources(
+        self, organization_factory, plan_factory
+    ):
+        """Parent must have share_resources=True to inherit"""
+        paid_plan = plan_factory(base_price=100)
+        parent = organization_factory(share_resources=False, plans=[paid_plan])
+        child = organization_factory(parent=parent)
+
+        assert child.get_inherited_plans() == []
+
+    @pytest.mark.django_db()
+    def test_get_inherited_plans_parent_with_no_plan(self, organization_factory):
+        """Returns empty when sharing parent has no plan"""
+        parent = organization_factory(share_resources=True)
+        child = organization_factory(parent=parent)
+
+        assert child.get_inherited_plans() == []
+
+    @pytest.mark.django_db()
+    def test_get_inherited_plans_parent_with_paid_plan(
+        self, organization_factory, plan_factory
+    ):
+        """Returns (parent, plan) when parent shares a paid plan"""
+        paid_plan = plan_factory(base_price=100)
+        parent = organization_factory(share_resources=True, plans=[paid_plan])
+        child = organization_factory(parent=parent)
+
+        result = child.get_inherited_plans()
+        assert result == [(parent, paid_plan)]
+
+    @pytest.mark.django_db()
+    def test_get_inherited_plans_excludes_free_plan(
+        self, organization_factory, plan_factory
+    ):
+        """Free plans are not considered inherited benefits"""
+        free_plan = plan_factory(base_price=0, price_per_user=0)
+        parent = organization_factory(share_resources=True, plans=[free_plan])
+        child = organization_factory(parent=parent)
+
+        assert child.get_inherited_plans() == []
+
+    @pytest.mark.django_db()
+    def test_get_inherited_plans_recursive_grandparent(
+        self, organization_factory, plan_factory
+    ):
+        """Walks the parent chain when each ancestor shares resources"""
+        paid_plan = plan_factory(base_price=100)
+        grandparent = organization_factory(share_resources=True, plans=[paid_plan])
+        parent = organization_factory(parent=grandparent, share_resources=True)
+        child = organization_factory(parent=parent)
+
+        result = child.get_inherited_plans()
+        assert result == [(grandparent, paid_plan)]
+
+    @pytest.mark.django_db()
+    def test_get_inherited_plans_membership_group(
+        self, organization_factory, plan_factory
+    ):
+        """Returns plan from a membership group that shares resources"""
+        paid_plan = plan_factory(base_price=100)
+        group = organization_factory(share_resources=True, plans=[paid_plan])
+        member_org = organization_factory()
+        group.members.add(member_org)
+
+        result = member_org.get_inherited_plans()
+        assert result == [(group, paid_plan)]
+
+    @pytest.mark.django_db()
+    def test_get_inherited_plans_dedupes_overlapping_sources(
+        self, organization_factory, plan_factory
+    ):
+        """An org reachable via both a group and a parent appears once"""
+        paid_plan = plan_factory(base_price=100)
+        shared = organization_factory(share_resources=True, plans=[paid_plan])
+        # `shared` is both the parent's membership group and the parent's parent
+        parent = organization_factory(share_resources=True, parent=shared)
+        shared.members.add(parent)
+        child = organization_factory(parent=parent)
+
+        result = child.get_inherited_plans()
+        assert result == [(shared, paid_plan)]
+
 
 class TestOrganizationWixSyncIntegration:
     """Integration tests for Wix sync triggers in Organization model"""

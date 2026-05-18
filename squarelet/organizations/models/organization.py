@@ -746,6 +746,37 @@ class Organization(AvatarMixin, models.Model):
 
         return wix_plans
 
+    def get_inherited_plans(self, _seen=None):
+        """
+        Return [(source_org, plan), ...] for plans inherited from membership groups
+        or parent orgs that have share_resources=True.
+
+        Unlike get_wix_plans_from_groups, this is not filtered to Wix plans -- any
+        paid plan from a sharing source is included.
+        """
+        # Set up variables for recursive traversal
+        if _seen is None:
+            _seen = set()
+        inherited = []
+
+        def _add(source):
+            if source.pk in _seen:
+                return
+            _seen.add(source.pk)
+            if source.plan and not source.plan.free:
+                inherited.append((source, source.plan))
+
+        # Membership groups that share resources
+        for group in self.groups.filter(share_resources=True).select_related("_plan"):
+            _add(group)
+
+        # Parent hierarchy (recursive)
+        if self.parent and self.parent.share_resources:
+            _add(self.parent)
+            inherited.extend(self.parent.get_inherited_plans(_seen))
+
+        return inherited
+
     def has_member_by_email(self, email):
         """Check if a user with an email is already a member of the organization."""
         return Membership.objects.filter(

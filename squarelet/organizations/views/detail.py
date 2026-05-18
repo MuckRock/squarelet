@@ -125,6 +125,9 @@ class Detail(AdminLinkMixin, DetailView):
             (org.plan and org.plan.wix) or org.get_wix_plans_from_groups()
         )
 
+        # Plans inherited from sharing groups / parent orgs
+        context["inherited_plans"] = org.get_inherited_plans()
+
         return context
 
     def handle_join(self, request):
