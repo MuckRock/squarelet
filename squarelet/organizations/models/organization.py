@@ -847,7 +847,14 @@ class Organization(AvatarMixin, models.Model):
         if self.parent is None:
             self.parent = org.parent
 
-        m2m_relations = ["private_plans", "children", "groups", "members", "subtypes"]
+        m2m_relations = [
+            "private_plans",
+            "children",
+            "groups",
+            "members",
+            "subtypes",
+            "entitlement_grants",
+        ]
         for m2m in m2m_relations:
             getattr(self, m2m).add(*getattr(org, m2m).all())
             getattr(org, m2m).clear()

@@ -1,6 +1,3 @@
-# Django
-from django.db.models.expressions import F
-
 # Third Party
 import stripe
 from rest_framework import serializers, status
@@ -8,7 +5,12 @@ from rest_framework.exceptions import APIException
 
 # Squarelet
 from squarelet.core.utils import format_stripe_error
-from squarelet.organizations.models import Charge, Membership, Organization
+from squarelet.organizations.models import (
+    Charge,
+    Entitlement,
+    Membership,
+    Organization,
+)
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
@@ -85,19 +87,28 @@ class OrganizationDetailSerializer(OrganizationSerializer):
         return None
 
     def get_entitlements(self, obj):
+        # Get the client first
         client = self.context.get("client")
         if not client:
             request = self.context.get("request")
             if request and hasattr(request, "auth") and request.auth:
                 client = request.auth.client
+        # If we can't find a client, then no entitlements.
+        if not client:
+            return []
 
-        if client:
-            return list(
-                client.entitlements.filter(plans__organizations=obj)
-                .annotate(update_on=F("plans__subscriptions__update_on"))
-                .values("name", "slug", "description", "resources", "update_on")
+        # With a client, get entitlements for the org
+        entitlements = list(
+            Entitlement.objects.for_organization(obj, client=client).values(
+                "name", "slug", "description", "resources"
             )
-        return []
+        )
+
+        sub = obj.subscription
+        sub_update_on = sub.update_on if sub else None
+        for row in entitlements:
+            row["update_on"] = sub_update_on
+        return entitlements
 
     def get_card(self, obj):
         # this can be slow - goes to stripe for customer/card info - cache this

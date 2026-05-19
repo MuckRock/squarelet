@@ -164,6 +164,43 @@ class EntitlementQuerySet(models.QuerySet):
         else:
             return self.none()
 
+    def for_organization(self, org, client=None):
+        """Return the deduped union of plan-derived and grant-derived entitlements
+        currently available to `org`. Optionally scoped to a single OIDC client."""
+        # Lazy import to avoid a circular import (payment.py imports this module)
+        # pylint: disable=import-outside-toplevel
+        from squarelet.organizations.models.payment import EntitlementGrant
+
+        plan_q = Q(plans__organizations=org)
+        grant_pks = [g.pk for g in EntitlementGrant.objects.matching(org)]
+        grant_q = Q(grants__in=grant_pks)
+
+        qs = self.filter(plan_q | grant_q)
+        if client is not None:
+            qs = qs.filter(client=client)
+        return qs.distinct()
+
+
+class EntitlementGrantQuerySet(models.QuerySet):
+    def active(self):
+        return self.filter(active=True)
+
+    def matching(self, org):
+        """Return active grants applying to `org`, as a list.
+
+        Prefetches `organizations` and `entitlements` so callers can iterate
+        related rows without further queries.
+        """
+        org_type_filter = (
+            Q(for_individuals=True) if org.individual else Q(for_groups=True)
+        )
+        candidates = (
+            self.active()
+            .filter(org_type_filter)
+            .prefetch_related("organizations", "entitlements")
+        )
+        return [g for g in candidates if g.matches(org)]
+
 
 class InvitationQuerySet(models.QuerySet):
     def get_open(self):
