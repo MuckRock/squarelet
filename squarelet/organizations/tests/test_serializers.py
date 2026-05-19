@@ -35,18 +35,42 @@ class TestSerializerEntitlements:
         assert entitlement.slug in slugs
 
     @pytest.mark.django_db()
-    def test_serializer_grant_entitlement_update_on_is_none(self):
+    def test_serializer_returns_grant_update_on_when_no_subscription(self):
         client = ClientFactory()
         entitlement = EntitlementFactory(client=client)
         org = OrganizationFactory()
-        EntitlementGrantFactory(organizations=[org], entitlements=[entitlement])
+        update_on = timezone.now().date() + timedelta(days=14)
+        EntitlementGrantFactory(
+            organizations=[org], entitlements=[entitlement], update_on=update_on
+        )
 
         serializer = OrganizationDetailSerializer(org, context={"client": client})
         rows = [
             e for e in serializer.get_entitlements(org) if e["slug"] == entitlement.slug
         ]
         assert len(rows) == 1
-        assert rows[0]["update_on"] is None
+        assert rows[0]["update_on"] == update_on
+
+    @pytest.mark.django_db()
+    def test_serializer_picks_soonest_grant_update_on(self):
+        client = ClientFactory()
+        entitlement = EntitlementFactory(client=client)
+        org = OrganizationFactory()
+        sooner = timezone.now().date() + timedelta(days=7)
+        later = timezone.now().date() + timedelta(days=30)
+        EntitlementGrantFactory(
+            organizations=[org], entitlements=[entitlement], update_on=later
+        )
+        EntitlementGrantFactory(
+            organizations=[org], entitlements=[entitlement], update_on=sooner
+        )
+
+        serializer = OrganizationDetailSerializer(org, context={"client": client})
+        rows = [
+            e for e in serializer.get_entitlements(org) if e["slug"] == entitlement.slug
+        ]
+        assert len(rows) == 1
+        assert rows[0]["update_on"] == sooner
 
     @pytest.mark.django_db()
     def test_serializer_update_on_uses_subscription(self):

@@ -526,6 +526,7 @@ class EntitlementGrantAdmin(VersionAdmin):
         "for_groups",
         "require_verified",
         "require_active_subscription",
+        "update_on",
     )
     list_filter = (
         "active",
@@ -547,6 +548,16 @@ class EntitlementGrantAdmin(VersionAdmin):
         (
             "Rule-based grants",
             {"fields": ("require_verified", "require_active_subscription")},
+        ),
+        (
+            "Refresh",
+            {
+                "fields": ("update_on",),
+                "description": (
+                    "Leave blank to default to one month from creation. "
+                    "Resources tied to this grant refresh on this date."
+                ),
+            },
         ),
     )
 

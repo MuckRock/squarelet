@@ -14,7 +14,12 @@ from freezegun import freeze_time
 # Squarelet
 from squarelet.organizations import tasks
 from squarelet.organizations.models import Charge, Invoice, Subscription
-from squarelet.organizations.tests.factories import InvoiceFactory, SubscriptionFactory
+from squarelet.organizations.tests.factories import (
+    EntitlementGrantFactory,
+    InvoiceFactory,
+    OrganizationFactory,
+    SubscriptionFactory,
+)
 
 # pylint:disable=too-many-lines
 # TODO: Refactor this file and `tasks.py` into smaller files
@@ -57,6 +62,60 @@ def test_restore_organization(organization_plan_factory, mocker):
     assert set(patched.call_args[0][1]) == set(
         [subsc_update.organization.uuid, subsc_update_cancel.organization.uuid]
     )
+
+
+class TestRestoreOrganizationGrants:
+    """Coverage for grant refresh in restore_organization."""
+
+    @pytest.mark.django_db()
+    def test_bumps_expired_active_grant_and_broadcasts(self, mocker):
+        mock_send = mocker.patch(
+            "squarelet.organizations.tasks.send_cache_invalidations"
+        )
+        today = date.today()
+        org = OrganizationFactory(verified_journalist=True)
+        grant = EntitlementGrantFactory(
+            require_verified=True, update_on=today - timedelta(days=1)
+        )
+
+        tasks.restore_organization()
+
+        grant.refresh_from_db()
+        assert grant.update_on == today + relativedelta(months=1)
+        assert mock_send.call_args[0][0] == "organization"
+        assert str(org.uuid) in {str(u) for u in mock_send.call_args[0][1]}
+
+    @pytest.mark.django_db()
+    def test_future_grant_is_unchanged(self, mocker):
+        mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
+        today = date.today()
+        future = today + timedelta(days=14)
+        grant = EntitlementGrantFactory(require_verified=True, update_on=future)
+
+        tasks.restore_organization()
+
+        grant.refresh_from_db()
+        assert grant.update_on == future
+
+    @pytest.mark.django_db()
+    def test_inactive_expired_grant_bumped_but_not_broadcast(self, mocker):
+        mock_send = mocker.patch(
+            "squarelet.organizations.tasks.send_cache_invalidations"
+        )
+        today = date.today()
+        org = OrganizationFactory(verified_journalist=True)
+        grant = EntitlementGrantFactory(
+            organizations=[org],
+            active=False,
+            update_on=today - timedelta(days=1),
+        )
+
+        tasks.restore_organization()
+
+        grant.refresh_from_db()
+        assert grant.update_on == today + relativedelta(months=1)
+        broadcast_uuids = {str(u) for u in mock_send.call_args[0][1]}
+        assert str(org.uuid) not in broadcast_uuids
 
 
 class TestHandleChargeSucceeded:

@@ -22,7 +22,12 @@ from squarelet.oidc.middleware import send_cache_invalidations
 from squarelet.organizations import wix
 from squarelet.organizations.models.invoice import Invoice
 from squarelet.organizations.models.organization import Organization
-from squarelet.organizations.models.payment import Charge, Plan, Subscription
+from squarelet.organizations.models.payment import (
+    Charge,
+    EntitlementGrant,
+    Plan,
+    Subscription,
+)
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.users.models import User
 
@@ -31,17 +36,29 @@ logger = logging.getLogger(__name__)
 
 @shared_task
 def restore_organization():
-    """Monthly update of organizations subscriptions"""
-    subscriptions = Subscription.objects.filter(update_on__lte=date.today())
+    """Monthly refresh of subscriptions and entitlement grants"""
+    today = date.today()
 
-    # convert to a list so it can be serialized by celery
-    uuids = list(subscriptions.values_list("organization__uuid", flat=True))
-
-    # delete cancelled subscriptions first
+    # --- Subscriptions ---
+    subscriptions = Subscription.objects.filter(update_on__lte=today)
+    sub_uuids = list(subscriptions.values_list("organization__uuid", flat=True))
     subscriptions.filter(cancelled=True).delete()
-    subscriptions.update(update_on=date.today() + Interval("1 month"))
+    subscriptions.update(update_on=today + Interval("1 month"))
 
-    send_cache_invalidations("organization", uuids)
+    # --- Entitlement grants ---
+    # Snapshot the matching orgs for each active expired grant before bumping
+    # update_on, then bulk-bump in one query. Inactive expired grants get the
+    # bump too but contribute no UUIDs to the broadcast.
+    expired_grants = EntitlementGrant.objects.expired(today)
+    grant_uuids = set()
+    for grant in expired_grants.filter(active=True):
+        grant_uuids.update(
+            grant.matching_organizations().values_list("uuid", flat=True)
+        )
+    expired_grants.update(update_on=today + Interval("1 month"))
+
+    all_uuids = list({*sub_uuids, *grant_uuids})
+    send_cache_invalidations("organization", all_uuids)
 
 
 @shared_task(

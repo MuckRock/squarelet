@@ -1,7 +1,9 @@
 # Django
 from django.conf import settings
 from django.db import models, transaction
+from django.db.models import Q
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 # Standard Library
@@ -11,6 +13,7 @@ import sys
 # Third Party
 import stripe
 from autoslug import AutoSlugField
+from dateutil.relativedelta import relativedelta
 from memoize import mproperty
 
 # Squarelet
@@ -811,6 +814,13 @@ class EntitlementGrant(models.Model):
         help_text=_("Inactive grants do not apply to any organization"),
     )
 
+    update_on = models.DateField(
+        _("date update"),
+        null=True,
+        blank=True,
+        help_text=_("Date when this grant's resources next refresh"),
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -821,6 +831,11 @@ class EntitlementGrant(models.Model):
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        if self.update_on is None:
+            self.update_on = timezone.now().date() + relativedelta(months=1)
+        super().save(*args, **kwargs)
 
     def matches(self, org):
         if not self.active:
@@ -841,6 +856,43 @@ class EntitlementGrant(models.Model):
         if not checks:
             return False
         return all(checks)
+
+    def matching_organizations(self):
+        """Return queryset of organizations this grant currently matches.
+
+        Reverse of `matches(org)`. Used by the celery refresh task and by signal
+        handlers to compute the set of orgs whose cache must be invalidated.
+        """
+        # pylint: disable=import-outside-toplevel
+        from squarelet.organizations.models.organization import Organization
+
+        if not self.active:
+            return Organization.objects.none()
+
+        if self.for_individuals and self.for_groups:
+            eligible = Organization.objects.all()
+        elif self.for_individuals:
+            eligible = Organization.objects.filter(individual=True)
+        elif self.for_groups:
+            eligible = Organization.objects.filter(individual=False)
+        else:
+            return Organization.objects.none()
+
+        explicit_q = Q(entitlement_grants=self)
+
+        rule_clauses = []
+        if self.require_verified:
+            rule_clauses.append(Q(verified_journalist=True))
+        if self.require_active_subscription:
+            # Mirrors org.has_active_subscription() = bool(subscriptions.first())
+            rule_clauses.append(Q(subscriptions__isnull=False))
+
+        if rule_clauses:
+            rule_q = rule_clauses[0]
+            for clause in rule_clauses[1:]:
+                rule_q &= clause
+            return eligible.filter(explicit_q | rule_q).distinct()
+        return eligible.filter(explicit_q).distinct()
 
 
 class ReceiptEmail(models.Model):

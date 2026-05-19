@@ -1,8 +1,13 @@
 # Django
 from django.db.models import QuerySet
+from django.utils import timezone
+
+# Standard Library
+from datetime import timedelta
 
 # Third Party
 import pytest
+from dateutil.relativedelta import relativedelta
 
 # Squarelet
 from squarelet.oidc.tests.factories import ClientFactory
@@ -148,6 +153,92 @@ class TestEntitlementGrant:
             organizations=[individual], for_individuals=False, for_groups=True
         )
         assert grant.matches(individual) is False
+
+    @pytest.mark.django_db()
+    def test_update_on_defaults_to_one_month_out(self):
+        """A grant saved without update_on defaults to one month from today."""
+        grant = EntitlementGrantFactory()
+        expected = timezone.now().date() + relativedelta(months=1)
+        assert grant.update_on == expected
+
+    @pytest.mark.django_db()
+    def test_update_on_admin_provided_value_is_preserved(self):
+        """An admin-provided update_on is left alone on save."""
+        future = timezone.now().date() + timedelta(days=90)
+        grant = EntitlementGrantFactory(update_on=future)
+        assert grant.update_on == future
+
+
+class TestMatchingOrganizations:
+    """Tests for EntitlementGrant.matching_organizations"""
+
+    @pytest.mark.django_db()
+    def test_explicit_membership_only(self):
+        org = OrganizationFactory()
+        other = OrganizationFactory()
+        grant = EntitlementGrantFactory(organizations=[org])
+        matched = list(grant.matching_organizations())
+        assert org in matched
+        assert other not in matched
+
+    @pytest.mark.django_db()
+    def test_verified_rule(self):
+        verified = OrganizationFactory(verified_journalist=True)
+        unverified = OrganizationFactory(verified_journalist=False)
+        grant = EntitlementGrantFactory(require_verified=True)
+        matched = list(grant.matching_organizations())
+        assert verified in matched
+        assert unverified not in matched
+
+    @pytest.mark.django_db()
+    def test_active_subscription_rule(self):
+        subscribed = OrganizationFactory()
+        SubscriptionFactory(organization=subscribed)
+        unsubscribed = OrganizationFactory()
+        grant = EntitlementGrantFactory(require_active_subscription=True)
+        matched = list(grant.matching_organizations())
+        assert subscribed in matched
+        assert unsubscribed not in matched
+
+    @pytest.mark.django_db()
+    def test_org_type_filter(self):
+        individual = OrganizationFactory(individual=True, verified_journalist=True)
+        group = OrganizationFactory(individual=False, verified_journalist=True)
+        grant = EntitlementGrantFactory(
+            require_verified=True, for_individuals=False, for_groups=True
+        )
+        matched = list(grant.matching_organizations())
+        assert group in matched
+        assert individual not in matched
+
+    @pytest.mark.django_db()
+    def test_inactive_grant_matches_nobody(self):
+        org = OrganizationFactory(verified_journalist=True)
+        grant = EntitlementGrantFactory(
+            organizations=[org], require_verified=True, active=False
+        )
+        assert not list(grant.matching_organizations())
+
+    @pytest.mark.django_db()
+    def test_explicit_membership_respects_org_type_filter(self):
+        """An individual explicitly listed on a groups-only grant should not match."""
+        individual = OrganizationFactory(individual=True)
+        grant = EntitlementGrantFactory(
+            organizations=[individual], for_individuals=False, for_groups=True
+        )
+        assert individual not in grant.matching_organizations()
+
+    @pytest.mark.django_db()
+    def test_both_rules_and_logic(self):
+        verified_and_sub = OrganizationFactory(verified_journalist=True)
+        SubscriptionFactory(organization=verified_and_sub)
+        verified_only = OrganizationFactory(verified_journalist=True)
+        grant = EntitlementGrantFactory(
+            require_verified=True, require_active_subscription=True
+        )
+        matched = list(grant.matching_organizations())
+        assert verified_and_sub in matched
+        assert verified_only not in matched
 
 
 class TestEntitlementForOrganization:

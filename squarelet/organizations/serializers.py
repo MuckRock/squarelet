@@ -11,6 +11,7 @@ from squarelet.organizations.models import (
     Membership,
     Organization,
 )
+from squarelet.organizations.models.payment import EntitlementGrant
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
@@ -100,14 +101,28 @@ class OrganizationDetailSerializer(OrganizationSerializer):
         # With a client, get entitlements for the org
         entitlements = list(
             Entitlement.objects.for_organization(obj, client=client).values(
-                "name", "slug", "description", "resources"
+                "pk", "name", "slug", "description", "resources"
             )
         )
 
         sub = obj.subscription
         sub_update_on = sub.update_on if sub else None
+
+        # For grant-derived entitlements (no subscription), report the soonest
+        # matching grant's update_on per entitlement.
+        grant_update_on = {}
+        if sub_update_on is None:
+            for grant in EntitlementGrant.objects.matching(obj):
+                if grant.update_on is None:
+                    continue
+                for ent in grant.entitlements.all():
+                    existing = grant_update_on.get(ent.pk)
+                    if existing is None or grant.update_on < existing:
+                        grant_update_on[ent.pk] = grant.update_on
+
         for row in entitlements:
-            row["update_on"] = sub_update_on
+            row["update_on"] = sub_update_on or grant_update_on.get(row["pk"])
+            del row["pk"]
         return entitlements
 
     def get_card(self, obj):

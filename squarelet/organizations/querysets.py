@@ -185,6 +185,12 @@ class EntitlementGrantQuerySet(models.QuerySet):
     def active(self):
         return self.filter(active=True)
 
+    def expired(self, on_date=None):
+        """Grants whose update_on has arrived or passed."""
+        if on_date is None:
+            on_date = timezone.now().date()
+        return self.filter(update_on__lte=on_date)
+
     def matching(self, org):
         """Return active grants applying to `org`, as a list.
 
