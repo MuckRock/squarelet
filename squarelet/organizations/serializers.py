@@ -5,12 +5,7 @@ from rest_framework.exceptions import APIException
 
 # Squarelet
 from squarelet.core.utils import format_stripe_error
-from squarelet.organizations.models import (
-    Charge,
-    Entitlement,
-    Membership,
-    Organization,
-)
+from squarelet.organizations.models import Charge, Entitlement, Membership, Organization
 from squarelet.organizations.models.payment import EntitlementGrant
 
 

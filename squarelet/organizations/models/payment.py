@@ -864,6 +864,7 @@ class EntitlementGrant(models.Model):
         handlers to compute the set of orgs whose cache must be invalidated.
         """
         # pylint: disable=import-outside-toplevel
+        # Squarelet
         from squarelet.organizations.models.organization import Organization
 
         if not self.active:

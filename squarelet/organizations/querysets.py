@@ -169,6 +169,7 @@ class EntitlementQuerySet(models.QuerySet):
         currently available to `org`. Optionally scoped to a single OIDC client."""
         # Lazy import to avoid a circular import (payment.py imports this module)
         # pylint: disable=import-outside-toplevel
+        # Squarelet
         from squarelet.organizations.models.payment import EntitlementGrant
 
         plan_q = Q(plans__organizations=org)
