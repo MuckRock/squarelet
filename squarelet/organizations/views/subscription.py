@@ -215,9 +215,9 @@ def stripe_webhook(request):  # pylint: disable=too-many-branches
     elif event_type == "invoice.payment_failed":
         handle_invoice_failed.delay(event_obj)
     elif event_type == "invoice.created":
-        handle_invoice_created.delay(event_object)
+        handle_invoice_created.delay(event_obj)
     elif event_type == "invoice.updated":
-        handle_invoice_updated.delay(event_object)
+        handle_invoice_updated.delay(event_obj)
     elif event_type == "invoice.finalized":
         handle_invoice_finalized.delay(event_obj)
     elif event_type == "invoice.paid":
