@@ -236,7 +236,8 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
             return reverse("users:detail", kwargs={"username": request.user.username})
         messages.warning(
             request,
-            "Your session expired. Please sign in again to connect your Google account.",
+            "Your session expired. Please sign in again"
+            "to connect your Google account.",
         )
         return reverse("account_login")
 
