@@ -232,7 +232,14 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
         """
         Redirect to the user detail page after connecting a social account.
         """
-        return reverse("users:detail", kwargs={"username": request.user.username})
+        if request.user.is_authenticated and request.user.username:
+            return reverse("users:detail", kwargs={"username": request.user.username})
+        messages.warning(
+            request,
+            "Your session expired. Please sign in again"
+            "to connect your Google account.",
+        )
+        return reverse("account_login")
 
 
 class MfaAdapter(DefaultMFAAdapter):
