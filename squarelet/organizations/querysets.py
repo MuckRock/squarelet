@@ -55,15 +55,17 @@ class OrganizationQuerySet(models.QuerySet):
 
     def fuzzy_search(self, name, limit=10, score_cutoff=83):
         """Fuzzy search for non-individual organizations by name"""
-        group_orgs = self.filter(individual=False)
+        group_orgs = dict(
+            self.filter(individual=False).values_list("pk", "name").iterator()
+        )
         matching_orgs = process.extractBests(
             name,
-            {o: o.name for o in group_orgs},
+            group_orgs,
             limit=limit,
             scorer=fuzz.partial_ratio,
             score_cutoff=score_cutoff,
         )
-        matched_pks = [org.pk for _, _, org in matching_orgs]
+        matched_pks = [pk for _, _, pk in matching_orgs]
         if not matched_pks:
             return self.none()
         # Preserve match order using CASE/WHEN
