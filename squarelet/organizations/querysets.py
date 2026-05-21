@@ -172,11 +172,8 @@ class EntitlementQuerySet(models.QuerySet):
         # Squarelet
         from squarelet.organizations.models.payment import EntitlementGrant
 
-        plan_q = Q(plans__organizations=org)
-        grant_pks = [g.pk for g in EntitlementGrant.objects.matching(org)]
-        grant_q = Q(grants__in=grant_pks)
-
-        qs = self.filter(plan_q | grant_q)
+        matching_grants = EntitlementGrant.objects.for_org(org)
+        qs = self.filter(Q(plans__organizations=org) | Q(grants__in=matching_grants))
         if client is not None:
             qs = qs.filter(client=client)
         return qs.distinct()
@@ -192,21 +189,34 @@ class EntitlementGrantQuerySet(models.QuerySet):
             on_date = timezone.now().date()
         return self.filter(update_on__lte=on_date)
 
-    def matching(self, org):
-        """Return active grants applying to `org`, as a list.
+    def for_org(self, org):
+        """Active grants that apply to `org`. Pure SQL — no Python-level loop.
 
-        Prefetches `organizations` and `entitlements` so callers can iterate
-        related rows without further queries.
+        A grant matches when the org type is compatible AND either:
+        - the org is explicitly listed in `organizations`, OR
+        - the grant has at least one rule flag set and every active rule is
+          satisfied by this org's attributes.
         """
-        org_type_filter = (
+        org_type_q = (
             Q(for_individuals=True) if org.individual else Q(for_groups=True)
         )
-        candidates = (
-            self.active()
-            .filter(org_type_filter)
-            .prefetch_related("organizations", "entitlements")
+        explicit_q = org_type_q & Q(organizations=org)
+
+        at_least_one_rule = (
+            Q(require_verified=True) | Q(require_active_subscription=True)
         )
-        return [g for g in candidates if g.matches(org)]
+        # If the org fails a requirement, exclude grants that set that flag.
+        verified_ok = (
+            Q() if org.verified_journalist else Q(require_verified=False)
+        )
+        sub_ok = (
+            Q()
+            if org.has_active_subscription()
+            else Q(require_active_subscription=False)
+        )
+        rule_q = org_type_q & at_least_one_rule & verified_ok & sub_ok
+
+        return self.active().filter(explicit_q | rule_q).distinct()
 
 
 class InvitationQuerySet(models.QuerySet):

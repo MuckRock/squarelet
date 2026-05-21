@@ -51,10 +51,13 @@ def restore_organization():
     # bump too but contribute no UUIDs to the broadcast.
     expired_grants = EntitlementGrant.objects.expired(today)
     grant_uuids = set()
-    for grant in expired_grants.filter(active=True):
-        grant_uuids.update(
-            grant.matching_organizations().values_list("uuid", flat=True)
-        )
+    active_expired = list(expired_grants.filter(active=True))
+    if active_expired:
+        qs_list = [
+            g.matching_organizations().values("uuid") for g in active_expired
+        ]
+        union_qs = qs_list[0].union(*qs_list[1:])
+        grant_uuids = {row["uuid"] for row in union_qs}
     expired_grants.update(update_on=today + Interval("1 month"))
 
     all_uuids = list({*sub_uuids, *grant_uuids})

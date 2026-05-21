@@ -1,5 +1,6 @@
 # Third Party
 import stripe
+from django.db.models import Q
 from rest_framework import serializers, status
 from rest_framework.exceptions import APIException
 
@@ -93,11 +94,18 @@ class OrganizationDetailSerializer(OrganizationSerializer):
         if not client:
             return []
 
-        # With a client, get entitlements for the org
+        # Compute matching grants once; reused for both the entitlement query
+        # and the grant_update_on map below (avoids a second DB round-trip).
+        matching_grants = EntitlementGrant.objects.for_org(obj).prefetch_related(
+            "entitlements"
+        )
         entitlements = list(
-            Entitlement.objects.for_organization(obj, client=client).values(
-                "pk", "name", "slug", "description", "resources"
+            Entitlement.objects.filter(
+                Q(plans__organizations=obj) | Q(grants__in=matching_grants),
+                client=client,
             )
+            .distinct()
+            .values("pk", "name", "slug", "description", "resources")
         )
 
         sub = obj.subscription
@@ -107,7 +115,7 @@ class OrganizationDetailSerializer(OrganizationSerializer):
         # matching grant's update_on per entitlement.
         grant_update_on = {}
         if sub_update_on is None:
-            for grant in EntitlementGrant.objects.matching(obj):
+            for grant in matching_grants:
                 if grant.update_on is None:
                     continue
                 for ent in grant.entitlements.all():
