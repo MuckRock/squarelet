@@ -766,6 +766,10 @@ class Entitlement(models.Model):
         return self.plans.filter(public=True).exists()
 
 
+def default_grant_update_on():
+    return timezone.now().date() + relativedelta(months=1)
+
+
 class EntitlementGrant(models.Model):
     """Grants Entitlements to organizations, explicitly or by rule."""
 
@@ -818,6 +822,7 @@ class EntitlementGrant(models.Model):
         _("date update"),
         null=True,
         blank=True,
+        default=default_grant_update_on,
         help_text=_("Date when this grant's resources next refresh"),
     )
 
@@ -832,11 +837,6 @@ class EntitlementGrant(models.Model):
     def __str__(self):
         return self.name
 
-    def save(self, *args, **kwargs):
-        if self.update_on is None:
-            self.update_on = timezone.now().date() + relativedelta(months=1)
-        super().save(*args, **kwargs)
-
     def matches(self, org):
         if not self.active:
             return False
@@ -846,7 +846,7 @@ class EntitlementGrant(models.Model):
         if not org.individual and not self.for_groups:
             return False
         # Uses `.all()` so a prefetched `organizations` relation is reused.
-        if any(o.pk == org.pk for o in self.organizations.all()):
+        if self.organizations.filter(pk=org.pk).exists():
             return True
         checks = []
         if self.require_verified:
@@ -893,7 +893,7 @@ class EntitlementGrant(models.Model):
             for clause in rule_clauses[1:]:
                 rule_q &= clause
             return eligible.filter(explicit_q | rule_q).distinct()
-        return eligible.filter(explicit_q).distinct()
+        return eligible.filter(explicit_q)
 
 
 class ReceiptEmail(models.Model):
