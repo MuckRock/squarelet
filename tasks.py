@@ -164,12 +164,14 @@ def format(c):
     """Format your code"""
     c.run(
         DJANGO_RUN_USER.format(
-            cmd="black squarelet --exclude migrations && "
+            cmd='sh -c "'
+            "black squarelet --exclude migrations && "
             "black config/urls.py && "
             "black config/settings && "
             "isort squarelet && "
             "isort config/urls.py && "
             "isort config/settings"
+            '"'
         )
     )
 

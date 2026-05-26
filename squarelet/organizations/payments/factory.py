@@ -19,6 +19,7 @@ def get_payment_provider() -> PaymentProvider:
     provider_type = settings.STRIPE_PROVIDER
 
     if provider_type == "legacy":
+        # Squarelet
         from squarelet.organizations.payments.providers.stripe_legacy import (
             StripeLegacyProvider,
         )
@@ -29,6 +30,7 @@ def get_payment_provider() -> PaymentProvider:
         )
 
     if provider_type == "modern":
+        # Squarelet
         from squarelet.organizations.payments.providers.stripe_modern import (
             StripeModernProvider,
         )
