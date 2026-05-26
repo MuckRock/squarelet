@@ -361,6 +361,8 @@ class TestWix:
             ("sunlight-premium", "enhanced"),
             ("sunlight-premium-annual", "enhanced"),
             ("sunlight-nonprofit-premium", "enhanced"),
+            # Non-tiered plans fall back to the raw slug
+            ("election-accountability-cohort", "election-accountability-cohort"),
         ],
     )
     def test_get_tier_from_plan(self, plan_slug, expected_tier):
