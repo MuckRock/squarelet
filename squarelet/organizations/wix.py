@@ -212,13 +212,13 @@ def unsync_wix(organization, plan, user):
 def get_wix_labels_for_user(user):
     """Get all Wix labels a user qualifies for across all their memberships."""
     labels = set()
-    for membership in user.memberships.select_related("organization__plan").all():
+    for membership in user.memberships.prefetch_related("organization__plans").all():
         org = membership.organization
-        plan = org.plan
-        if plan and plan.wix:
-            tier = get_tier_from_plan(plan)
-            labels.add(f"custom.{tier}-member")
-            labels.add("custom.paying-member")
+        for plan in org.plans.all():
+            if plan and plan.wix:
+                tier = get_tier_from_plan(plan)
+                labels.add(f"custom.{tier}-member")
+                labels.add("custom.paying-member")
         for _group, group_plan in org.get_wix_plans_from_groups():
             tier = get_tier_from_plan(group_plan)
             labels.add(f"custom.{tier}-member")
