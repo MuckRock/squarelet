@@ -1295,8 +1295,11 @@ class TestCheckOverdueInvoices:
         )
 
         # Mock the Stripe API call
-        mock_stripe_invoice = mocker.Mock()
+        mock_stripe_invoice = mocker.MagicMock()
         mock_stripe_invoice.hosted_invoice_url = "https://invoice.stripe.com/i/test"
+        mock_stripe_invoice.__contains__.side_effect = (
+            lambda item: item == "hosted_invoice_url"
+        )
         mocker.patch("stripe.Invoice.retrieve", return_value=mock_stripe_invoice)
 
         mock_send_mail = mocker.patch("squarelet.organizations.tasks.send_mail")
