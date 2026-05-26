@@ -631,7 +631,7 @@ class Organization(AvatarMixin, models.Model):
         If None, cancels the org's current subscription.
         """
         subscription = subscription or self.subscription
-        
+
         # Create change log entry
         self.change_logs.create(
             reason=ChangeLogReason.failed,
