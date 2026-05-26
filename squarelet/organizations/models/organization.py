@@ -632,7 +632,7 @@ class Organization(AvatarMixin, models.Model):
                 cancels self.subscription (the org's current subscription).
         """
         subscription = subscription or self.subscription
-        
+
         # Create change log entry
         self.change_logs.create(
             reason=ChangeLogReason.failed,
