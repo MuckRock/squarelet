@@ -190,25 +190,21 @@ class EntitlementGrantQuerySet(models.QuerySet):
         return self.filter(update_on__lte=on_date)
 
     def for_org(self, org):
-        """Active grants that apply to `org`. Pure SQL — no Python-level loop.
+        """Active grants that apply to `org`.
 
         A grant matches when the org type is compatible AND either:
         - the org is explicitly listed in `organizations`, OR
         - the grant has at least one rule flag set and every active rule is
           satisfied by this org's attributes.
         """
-        org_type_q = (
-            Q(for_individuals=True) if org.individual else Q(for_groups=True)
-        )
+        org_type_q = Q(for_individuals=True) if org.individual else Q(for_groups=True)
         explicit_q = org_type_q & Q(organizations=org)
 
-        at_least_one_rule = (
-            Q(require_verified=True) | Q(require_active_subscription=True)
+        at_least_one_rule = Q(require_verified=True) | Q(
+            require_active_subscription=True
         )
         # If the org fails a requirement, exclude grants that set that flag.
-        verified_ok = (
-            Q() if org.verified_journalist else Q(require_verified=False)
-        )
+        verified_ok = Q() if org.verified_journalist else Q(require_verified=False)
         sub_ok = (
             Q()
             if org.has_active_subscription()

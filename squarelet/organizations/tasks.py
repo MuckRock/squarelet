@@ -53,9 +53,7 @@ def restore_organization():
     grant_uuids = set()
     active_expired = list(expired_grants.filter(active=True))
     if active_expired:
-        qs_list = [
-            g.matching_organizations().values("uuid") for g in active_expired
-        ]
+        qs_list = [g.matching_organizations().values("uuid") for g in active_expired]
         union_qs = qs_list[0].union(*qs_list[1:])
         grant_uuids = {row["uuid"] for row in union_qs}
     expired_grants.update(update_on=today + Interval("1 month"))
