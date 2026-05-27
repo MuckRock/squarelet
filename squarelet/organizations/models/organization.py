@@ -9,6 +9,7 @@ from django.utils.translation import gettext_lazy as _
 import logging
 import sys
 import uuid
+import warnings
 
 # Third Party
 import stripe
@@ -298,26 +299,28 @@ class Organization(AvatarMixin, models.Model):
                 lambda: send_cache_invalidations("organization", self.uuid)
             )
 
-            # If share_resources was toggled ON and org has a Wix plan, sync members
-            if (
-                share_resources_toggled_on
-                and self.collective_enabled
-                and self.plan
-                and self.plan.wix
-            ):
-                # Capture values for delayed execution
-                org_pk = self.pk
-                plan_pk = self.plan.pk
-                member_pks = list(self.members.values_list("pk", flat=True))
-                child_pks = list(self.children.values_list("pk", flat=True))
+            # If share_resources was toggled ON, sync all wix-enabled plans to members
+            if share_resources_toggled_on and self.collective_enabled:
+                wix_plan_pks = list(
+                    self.plans.filter(wix=True).values_list("pk", flat=True)
+                )
+                if wix_plan_pks:
+                    org_pk = self.pk
+                    member_pks = list(self.members.values_list("pk", flat=True))
+                    child_pks = list(self.children.values_list("pk", flat=True))
 
-                def trigger_syncs():
-                    for member_pk in member_pks:
-                        sync_wix_for_group_member.delay(member_pk, org_pk, plan_pk)
-                    for child_pk in child_pks:
-                        sync_wix_for_group_member.delay(child_pk, org_pk, plan_pk)
+                    def trigger_syncs():
+                        for plan_pk in wix_plan_pks:
+                            for member_pk in member_pks:
+                                sync_wix_for_group_member.delay(
+                                    member_pk, org_pk, plan_pk
+                                )
+                            for child_pk in child_pks:
+                                sync_wix_for_group_member.delay(
+                                    child_pk, org_pk, plan_pk
+                                )
 
-                transaction.on_commit(trigger_syncs)
+                    transaction.on_commit(trigger_syncs)
 
     def get_absolute_url(self):
         """The url for this object"""
@@ -412,10 +415,23 @@ class Organization(AvatarMixin, models.Model):
 
     @mproperty
     def plan(self):
+        warnings.warn(
+            "Organization.plan is deprecated; use Organization.plans.first() "
+            "or iterate Organization.plans.all() for multi-subscription support.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self.plans.first()
 
     @mproperty
     def subscription(self):
+        warnings.warn(
+            "Organization.subscription is deprecated; use "
+            "Organization.subscriptions.first() or iterate "
+            "Organization.subscriptions.all() for multi-subscription support.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self.subscriptions.first()
 
     def member_users(self, request=None):
@@ -714,13 +730,13 @@ class Organization(AvatarMixin, models.Model):
 
         # Check membership groups
         for group in self.groups.filter(share_resources=True):
-            if group.plan and group.plan.wix:
-                wix_plans.append((group, group.plan))
+            for plan in group.plans.filter(wix=True):
+                wix_plans.append((group, plan))
 
         # Check parent hierarchy (recursive)
         if self.parent and self.parent.share_resources:
-            if self.parent.plan and self.parent.plan.wix:
-                wix_plans.append((self.parent, self.parent.plan))
+            for plan in self.parent.plans.filter(wix=True):
+                wix_plans.append((self.parent, plan))
             # Also get parent's groups recursively
             wix_plans.extend(self.parent.get_wix_plans_from_groups())
 
@@ -748,7 +764,9 @@ class Organization(AvatarMixin, models.Model):
         """Merge another organization into this one"""
 
         if org.subscriptions.exists():
-            raise ValueError(f"{org} has an active subscription and may not be merged")
+            raise ValueError(
+                f"{org} has active subscriptions and may not be merged"
+            )
         if org.merged is not None:
             raise ValueError(
                 f"{org} has already been merged, and may not be merged again"
