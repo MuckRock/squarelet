@@ -1350,7 +1350,11 @@ class TestHandleCustomerUpdated:
         mock_pm.card.last4 = "4242"
         mock_pm.card.exp_month = 12
         mock_pm.card.exp_year = 2028
-        mocker.patch("stripe.PaymentMethod.retrieve", return_value=mock_pm)
+        mocker.patch(
+            "squarelet.organizations.tasks.get_payment_provider"
+        ).return_value.get_customer_service.return_value.retrieve_payment_method.return_value = (
+            mock_pm
+        )
 
         tasks.handle_customer_updated(
             {
@@ -1369,7 +1373,6 @@ class TestHandleCustomerUpdated:
     @pytest.mark.django_db
     def test_clears_when_no_pm(self, customer_factory, mocker):
         """Clears cached card fields when no default PM is set"""
-        mocker.patch("stripe.PaymentMethod.retrieve")
         customer = customer_factory(
             customer_id="cus_clear",
             card_brand="Visa",
@@ -1390,9 +1393,40 @@ class TestHandleCustomerUpdated:
         assert customer.stripe_payment_method_id == ""
 
     @pytest.mark.django_db
+    def test_with_legacy_source(self, customer_factory, mocker):
+        """Updates cached card fields from a legacy Source when no pm_ ID exists"""
+        customer = customer_factory(customer_id="cus_legacy")
+        mock_source = mocker.MagicMock()
+        mock_source.object = "card"
+        mock_source.brand = "Mastercard"
+        mock_source.last4 = "5555"
+        mock_source.exp_month = 6
+        mock_source.exp_year = 2026
+        mock_source.id = "card_abc123"
+
+        mock_service = mocker.patch(
+            "squarelet.organizations.tasks.get_payment_provider"
+        ).return_value.get_customer_service.return_value
+        mock_service.retrieve_source.return_value = mock_source
+
+        tasks.handle_customer_updated(
+            {
+                "id": "cus_legacy",
+                "invoice_settings": {"default_payment_method": None},
+                "default_source": "card_abc123",
+            }
+        )
+
+        customer.refresh_from_db()
+        assert customer.card_brand == "Mastercard"
+        assert customer.card_last4 == "5555"
+        assert customer.card_exp_month == 6
+        assert customer.card_exp_year == 2026
+        assert customer.stripe_payment_method_id == "card_abc123"
+
+    @pytest.mark.django_db
     def test_unknown_customer(self, mocker):
         """Logs a warning and returns gracefully for unknown customer"""
-        mocker.patch("stripe.PaymentMethod.retrieve")
         mock_logger = mocker.patch("squarelet.organizations.tasks.logger")
         tasks.handle_customer_updated({"id": "cus_unknown", "invoice_settings": {}})
         mock_logger.warning.assert_called_once()

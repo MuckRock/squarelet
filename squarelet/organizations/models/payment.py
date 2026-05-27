@@ -120,15 +120,7 @@ class Customer(models.Model):
     def card_display(self):
         if self.card_brand and self.card_last4:
             return f"{self.card_brand}: x{self.card_last4}"
-        # Fallback: live API for customers not yet cached
-        card = self.card
-        if not card:
-            return ""
-        # PaymentMethod objects nest card details under .card; Sources expose
-        # brand/last4 directly.
-        if card.object == "payment_method":
-            return f"{card.card.brand}: x{card.card.last4}"
-        return f"{card.brand}: x{card.last4}"
+        return ""
 
     def save_card(self, token):
         """Save a new default card"""
@@ -154,10 +146,6 @@ class Customer(models.Model):
     def remove_card(self):
         """Remove the default card"""
         pm_id = self.stripe_payment_method_id
-        if not pm_id:
-            card = self.card
-            if card:
-                pm_id = card.id
         if pm_id:
             get_payment_provider().get_customer_service().remove_card(
                 self.customer_id, pm_id

@@ -265,16 +265,36 @@ def handle_customer_updated(customer_data):
         )
         return
 
+    customer_service = get_payment_provider().get_customer_service()
     pm_id = (
         customer_data.get("invoice_settings", {}) or {}
     ).get("default_payment_method")
+    default_source = customer_data.get("default_source")
+
     if pm_id and isinstance(pm_id, str) and pm_id.startswith("pm_"):
-        pm = stripe.PaymentMethod.retrieve(pm_id)
+        # Modern PaymentMethod — card details nested under .card
+        pm = customer_service.retrieve_payment_method(pm_id)
         customer.card_brand = pm.card.brand or ""
         customer.card_last4 = pm.card.last4 or ""
         customer.card_exp_month = pm.card.exp_month
         customer.card_exp_year = pm.card.exp_year
         customer.stripe_payment_method_id = pm_id
+    elif default_source and isinstance(default_source, str):
+        # Legacy Source — retrieve and read brand/last4 directly
+        stripe_customer = customer_service.retrieve(customer_id)
+        source = customer_service.retrieve_source(stripe_customer, default_source)
+        if source.object == "card":
+            customer.card_brand = source.brand or ""
+            customer.card_last4 = source.last4 or ""
+            customer.card_exp_month = source.exp_month
+            customer.card_exp_year = source.exp_year
+            customer.stripe_payment_method_id = source.id
+        else:
+            customer.card_brand = ""
+            customer.card_last4 = ""
+            customer.card_exp_month = None
+            customer.card_exp_year = None
+            customer.stripe_payment_method_id = ""
     else:
         customer.card_brand = ""
         customer.card_last4 = ""
@@ -297,6 +317,9 @@ def handle_customer_updated(customer_data):
 
 @shared_task(
     name="squarelet.organizations.tasks.handle_subscription_updated",
+    autoretry_for=(stripe.RateLimitError,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 3},
 )
 def handle_subscription_updated(subscription_data):
     """Handle receiving a customer.subscription.updated event from Stripe"""
@@ -333,6 +356,9 @@ def handle_subscription_updated(subscription_data):
 
 @shared_task(
     name="squarelet.organizations.tasks.handle_subscription_deleted",
+    autoretry_for=(stripe.RateLimitError,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 3},
 )
 def handle_subscription_deleted(subscription_data):
     """Handle receiving a customer.subscription.deleted event from Stripe"""

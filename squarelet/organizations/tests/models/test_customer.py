@@ -128,18 +128,10 @@ class TestCustomer:
         assert customer.card_display == "Visa: x4242"
         mock_card_prop.assert_not_called()
 
-    def test_card_display_fallback(self, customer_factory, mocker):
-        """card_display falls back to live API when cache is empty"""
-        mock_card = mocker.MagicMock(object="payment_method")
-        mock_card.card.brand = "Mastercard"
-        mock_card.card.last4 = "5555"
-        mocker.patch(
-            "squarelet.organizations.models.Customer.card",
-            new_callable=mocker.PropertyMock,
-            return_value=mock_card,
-        )
+    def test_card_display_empty_cache(self, customer_factory):
+        """card_display returns empty string when cache is unpopulated"""
         customer = customer_factory.build(card_brand="", card_last4="")
-        assert customer.card_display == "Mastercard: x5555"
+        assert customer.card_display == ""
 
     @pytest.mark.django_db(transaction=True)
     def test_save_card_populates_cache(self, customer_factory, mocker):
