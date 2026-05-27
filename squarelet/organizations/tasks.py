@@ -67,15 +67,15 @@ def handle_charge_succeeded(charge_data):
         invoice = provider.get_invoice_service().retrieve(charge_data["invoice"])
         try:
             invoice_line = invoice["lines"]["data"][0]
-            if "name" in invoice_line["plan"]:
-                plan_name = invoice_line["plan"]["name"]
-            else:
-                plan_name = provider.get_plan_service().retrieve_product(
-                    invoice_line["plan"]["product"]
-                )["name"]
+            # invoice_line["plan"] was removed in Stripe API 2025-03-31.basil;
+            # plan/price info is now at invoice_line["pricing"]["price_details"]
+            price_details = invoice_line["pricing"]["price_details"]
+            plan_name = provider.get_plan_service().retrieve_product(
+                price_details["product"]
+            )["name"]
             action = "Subscription Payment"
             description = f"Subscription Payment for {plan_name} plan"
-        except (TypeError, IndexError):
+        except (TypeError, IndexError, KeyError):
             # The invoice data doesn't exist
             invoice_line = None
             plan_name = None
@@ -91,7 +91,9 @@ def handle_charge_succeeded(charge_data):
     if (
         charge_data["invoice"]
         and invoice_line
-        and invoice_line["plan"]["id"].lower().startswith(("donate", "crowdfund"))
+        and invoice_line["pricing"]["price_details"]["price"]
+        .lower()
+        .startswith(("donate", "crowdfund"))
     ):
         return
     if not charge_data["invoice"] and charge_data["metadata"].get(
