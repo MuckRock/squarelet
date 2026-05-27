@@ -27,7 +27,7 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
         if self.action == "list":
             if not self.request.user.is_authenticated:
                 return User.objects.none()
-            qs = User.objects.get_searchable(self.request.user)
+            qs = User.objects.get_searchable(self.request.user).filter(is_active=True)
             search = self.request.query_params.get("search", "").strip()
             if search:
                 # Full-text search with prefix matching.
