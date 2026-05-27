@@ -73,6 +73,7 @@ class Invoice(models.Model):
         blank=True,
         help_text=_("Date when the last overdue warning email was sent"),
     )
+    hosted_invoice_url = models.URLField(blank=True, default="")
 
     class Meta:
         ordering = ("-created_at",)
@@ -96,14 +97,18 @@ class Invoice(models.Model):
         return False
 
     def get_hosted_invoice_url(self):
-        """
-        Fetch the hosted invoice URL from Stripe.
-        """
+        """Return the hosted invoice URL, reading from cache or fetching live."""
+        if self.hosted_invoice_url:
+            return self.hosted_invoice_url
         try:
             stripe_invoice = (
                 get_payment_provider().get_invoice_service().retrieve(self.invoice_id)
             )
-            return getattr(stripe_invoice, "hosted_invoice_url", None)
+            url = getattr(stripe_invoice, "hosted_invoice_url", None)
+            if url:
+                self.hosted_invoice_url = url
+                self.save(update_fields=["hosted_invoice_url"])
+            return url
         except stripe.StripeError:
             return None
 
@@ -122,6 +127,11 @@ class Invoice(models.Model):
         created_at = datetime.fromtimestamp(
             stripe_invoice["created"], tz=get_current_timezone()
         )
+        hosted_url = (
+            getattr(stripe_invoice, "hosted_invoice_url", None)
+            or stripe_invoice.get("hosted_invoice_url", "")
+            or ""
+        )
         return cls.objects.update_or_create(
             invoice_id=stripe_invoice["id"],
             defaults={
@@ -131,6 +141,7 @@ class Invoice(models.Model):
                 "status": stripe_invoice["status"],
                 "due_date": due_date,
                 "created_at": created_at,
+                "hosted_invoice_url": hosted_url,
             },
         )
 

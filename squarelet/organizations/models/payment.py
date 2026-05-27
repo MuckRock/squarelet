@@ -2,11 +2,13 @@
 from django.conf import settings
 from django.db import models, transaction
 from django.urls import reverse
+from django.utils.timezone import get_current_timezone
 from django.utils.translation import gettext_lazy as _
 
 # Standard Library
 import logging
 import sys
+from datetime import datetime
 
 # Third Party
 import stripe
@@ -45,6 +47,14 @@ class Customer(models.Model):
         unique=True,
         null=True,
         help_text=_("The customer's corresponding ID on stripe"),
+    )
+
+    card_brand = models.CharField(max_length=20, blank=True, default="")
+    card_last4 = models.CharField(max_length=4, blank=True, default="")
+    card_exp_month = models.PositiveSmallIntegerField(null=True, blank=True)
+    card_exp_year = models.PositiveSmallIntegerField(null=True, blank=True)
+    stripe_payment_method_id = models.CharField(
+        max_length=255, blank=True, default=""
     )
 
     def __str__(self):
@@ -108,7 +118,9 @@ class Customer(models.Model):
 
     @property
     def card_display(self):
-        # pylint: disable=using-constant-test
+        if self.card_brand and self.card_last4:
+            return f"{self.card_brand}: x{self.card_last4}"
+        # Fallback: live API for customers not yet cached
         card = self.card
         if not card:
             return ""
@@ -120,16 +132,49 @@ class Customer(models.Model):
 
     def save_card(self, token):
         """Save a new default card"""
-        get_payment_provider().get_customer_service().save_card(
+        pm = get_payment_provider().get_customer_service().save_card(
             self.stripe_customer, token
         )
+        if pm is not None:
+            self.card_brand = pm.card.brand or ""
+            self.card_last4 = pm.card.last4 or ""
+            self.card_exp_month = pm.card.exp_month
+            self.card_exp_year = pm.card.exp_year
+            self.stripe_payment_method_id = pm.id or ""
+            self.save(
+                update_fields=[
+                    "card_brand",
+                    "card_last4",
+                    "card_exp_month",
+                    "card_exp_year",
+                    "stripe_payment_method_id",
+                ]
+            )
 
     def remove_card(self):
         """Remove the default card"""
-        card = self.card
-        if card:
+        pm_id = self.stripe_payment_method_id
+        if not pm_id:
+            card = self.card
+            if card:
+                pm_id = card.id
+        if pm_id:
             get_payment_provider().get_customer_service().remove_card(
-                self.customer_id, card.id
+                self.customer_id, pm_id
+            )
+            self.card_brand = ""
+            self.card_last4 = ""
+            self.card_exp_month = None
+            self.card_exp_year = None
+            self.stripe_payment_method_id = ""
+            self.save(
+                update_fields=[
+                    "card_brand",
+                    "card_last4",
+                    "card_exp_month",
+                    "card_exp_year",
+                    "stripe_payment_method_id",
+                ]
             )
 
     def add_source(self, token):
@@ -176,6 +221,9 @@ class Subscription(models.Model):
     # the subscription is deleted from the database.
     cancelled = models.BooleanField(default=False)
 
+    stripe_status = models.CharField(max_length=30, blank=True, default="")
+    current_period_end = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         unique_together = ("organization", "plan")
         ordering = ("plan",)
@@ -193,6 +241,18 @@ class Subscription(models.Model):
                 .retrieve(self.subscription_id)
             )
         return None
+
+    def _cache_stripe_subscription_fields(self, stripe_sub):
+        """Cache subscription status and period end from a Stripe subscription."""
+        self.stripe_status = stripe_sub.status or ""
+        ts = (
+            get_payment_provider()
+            .get_subscription_service()
+            .get_current_period_end(stripe_sub)
+        )
+        self.current_period_end = (
+            datetime.fromtimestamp(ts, tz=get_current_timezone()) if ts else None
+        )
 
     def start(self, payment_method="card"):
         # pylint: disable=using-constant-test
@@ -225,6 +285,7 @@ class Subscription(models.Model):
                 )
             )
             self.subscription_id = stripe_subscription.id
+            self._cache_stripe_subscription_fields(stripe_subscription)
             # Save subscription before creating invoice
             self.save()
 
