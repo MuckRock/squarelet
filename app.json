@@ -38,6 +38,7 @@
     }
   ],
   "scripts": {
-    "postdeploy": "./postdeploy.sh"
+    "postdeploy": "./postdeploy.sh",
+    "pr-predestroy": "./predestroy.sh"
   }
 }
