@@ -82,6 +82,7 @@ class StripeModernCustomerService(CustomerService):
             stripe_customer.id,
             invoice_settings={"default_payment_method": pm.id},
         )
+        return pm
 
     def remove_card(self, customer_id, source_id):
         """Remove a saved card. Handles both PaymentMethods (pm_) and Sources."""
@@ -125,6 +126,10 @@ class StripeModernCustomerService(CustomerService):
             if source.object == "card":
                 return source
         return None
+
+    def retrieve_payment_method(self, pm_id):
+        """Retrieve a PaymentMethod object by ID."""
+        return stripe.PaymentMethod.retrieve(pm_id)
 
 
 class StripeModernSubscriptionService(SubscriptionService):

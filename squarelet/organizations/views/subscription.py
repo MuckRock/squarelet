@@ -36,12 +36,15 @@ from squarelet.organizations.models import Charge, Organization
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.tasks import (
     handle_charge_succeeded,
+    handle_customer_updated,
     handle_invoice_created,
     handle_invoice_failed,
     handle_invoice_finalized,
     handle_invoice_marked_uncollectible,
     handle_invoice_paid,
     handle_invoice_voided,
+    handle_subscription_deleted,
+    handle_subscription_updated,
 )
 
 logger = logging.getLogger(__name__)
@@ -238,6 +241,12 @@ def stripe_webhook(request):  # pylint: disable=too-many-branches
         logger.info(success_msg)
     if event_type == "charge.succeeded":
         handle_charge_succeeded.delay(event_obj)
+    elif event_type == "customer.updated":
+        handle_customer_updated.delay(event_obj)
+    elif event_type == "customer.subscription.updated":
+        handle_subscription_updated.delay(event_obj)
+    elif event_type == "customer.subscription.deleted":
+        handle_subscription_deleted.delay(event_obj)
     elif event_type == "invoice.payment_failed":
         handle_invoice_failed.delay(event_obj)
     elif event_type == "invoice.created":

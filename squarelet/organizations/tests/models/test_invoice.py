@@ -34,6 +34,7 @@ def create_mock_stripe_invoice(invoice_id, amount_due, status, created, due_date
     )
     # Also support property access (e.g., mock_invoice.id)
     mock_invoice.id = invoice_id
+    mock_invoice.hosted_invoice_url = None
     return mock_invoice
 
 
@@ -249,3 +250,41 @@ class TestInvoice:
         # Should raise the Stripe error
         with pytest.raises(stripe.InvalidRequestError):
             invoice.mark_uncollectible_in_stripe()
+
+    @pytest.mark.django_db
+    def test_create_or_update_includes_hosted_url(self, organization_factory):
+        """create_or_update_from_stripe stores hosted_invoice_url"""
+        organization = organization_factory()
+        stripe_invoice_dict = {
+            "id": "in_hosted_test",
+            "amount_due": 5000,
+            "status": "open",
+            "created": 1234567890,
+            "due_date": None,
+            "hosted_invoice_url": "https://invoice.stripe.com/i/test",
+        }
+        invoice, created = Invoice.create_or_update_from_stripe(
+            stripe_invoice_dict, organization
+        )
+        assert created is True
+        assert invoice.hosted_invoice_url == "https://invoice.stripe.com/i/test"
+
+    @pytest.mark.django_db
+    def test_get_hosted_invoice_url_uses_cache(self, invoice_factory, mocker):
+        """get_hosted_invoice_url returns cached value without calling Stripe"""
+        mock_retrieve = mocker.patch(
+            "squarelet.organizations.models.invoice.get_payment_provider"
+        )
+        invoice = invoice_factory(
+            invoice_id="in_cached",
+            hosted_invoice_url="https://invoice.stripe.com/i/cached",
+        )
+        url = invoice.get_hosted_invoice_url()
+        assert url == "https://invoice.stripe.com/i/cached"
+        mock_retrieve.assert_not_called()
+
+    @pytest.mark.django_db
+    def test_get_hosted_invoice_url_empty_cache_returns_none(self, invoice_factory):
+        """get_hosted_invoice_url returns None when field is unpopulated"""
+        invoice = invoice_factory(invoice_id="in_empty_url", hosted_invoice_url="")
+        assert invoice.get_hosted_invoice_url() is None

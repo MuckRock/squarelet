@@ -58,6 +58,10 @@ class StripeLegacyCustomerService(CustomerService):
                 return source
         return None
 
+    def retrieve_payment_method(self, pm_id):
+        """Retrieve a PaymentMethod object by ID."""
+        return stripe.PaymentMethod.retrieve(pm_id)
+
 
 class StripeLegacySubscriptionService(SubscriptionService):
     """Subscription operations using Stripe 2.x Plans API."""

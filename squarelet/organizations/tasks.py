@@ -22,7 +22,7 @@ from squarelet.oidc.middleware import send_cache_invalidations
 from squarelet.organizations import wix
 from squarelet.organizations.models.invoice import Invoice
 from squarelet.organizations.models.organization import Organization
-from squarelet.organizations.models.payment import Charge, Plan, Subscription
+from squarelet.organizations.models.payment import Charge, Customer, Plan, Subscription
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.users.models import User
 
@@ -237,10 +237,147 @@ def handle_invoice_finalized(invoice_data):
         invoice.due_date = datetime.fromtimestamp(
             invoice_data["due_date"], tz=get_current_timezone()
         ).date()
+    url = invoice_data.get("hosted_invoice_url", "")
+    if url:
+        invoice.hosted_invoice_url = url
     invoice.save()
     stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
     logger.info(
         "[STRIPE-WEBHOOK-INVOICE] Invoice finalized: %s (%s)", invoice_id, stripe_link
+    )
+
+
+@shared_task(
+    name="squarelet.organizations.tasks.handle_customer_updated",
+    autoretry_for=(stripe.RateLimitError,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 3},
+)
+def handle_customer_updated(customer_data):
+    """Handle receiving a customer.updated event from the Stripe webhook"""
+    customer_id = customer_data.get("id")
+    try:
+        customer = Customer.objects.get(customer_id=customer_id)
+    except Customer.DoesNotExist:
+        logger.warning(
+            "[STRIPE-WEBHOOK-CUSTOMER] customer.updated for unknown customer: %s",
+            customer_id,
+        )
+        return
+
+    customer_service = get_payment_provider().get_customer_service()
+    pm_id = (
+        customer_data.get("invoice_settings", {}) or {}
+    ).get("default_payment_method")
+    default_source = customer_data.get("default_source")
+
+    if pm_id and isinstance(pm_id, str) and pm_id.startswith("pm_"):
+        # Modern PaymentMethod — card details nested under .card
+        pm = customer_service.retrieve_payment_method(pm_id)
+        customer.card_brand = pm.card.brand or ""
+        customer.card_last4 = pm.card.last4 or ""
+        customer.card_exp_month = pm.card.exp_month
+        customer.card_exp_year = pm.card.exp_year
+        customer.stripe_payment_method_id = pm_id
+    elif default_source and isinstance(default_source, str):
+        # Legacy Source — retrieve and read brand/last4 directly
+        stripe_customer = customer_service.retrieve(customer_id)
+        source = customer_service.retrieve_source(stripe_customer, default_source)
+        if source.object == "card":
+            customer.card_brand = source.brand or ""
+            customer.card_last4 = source.last4 or ""
+            customer.card_exp_month = source.exp_month
+            customer.card_exp_year = source.exp_year
+            customer.stripe_payment_method_id = source.id
+        else:
+            customer.card_brand = ""
+            customer.card_last4 = ""
+            customer.card_exp_month = None
+            customer.card_exp_year = None
+            customer.stripe_payment_method_id = ""
+    else:
+        customer.card_brand = ""
+        customer.card_last4 = ""
+        customer.card_exp_month = None
+        customer.card_exp_year = None
+        customer.stripe_payment_method_id = ""
+    customer.save(
+        update_fields=[
+            "card_brand",
+            "card_last4",
+            "card_exp_month",
+            "card_exp_year",
+            "stripe_payment_method_id",
+        ]
+    )
+    logger.info(
+        "[STRIPE-WEBHOOK-CUSTOMER] customer.updated cached card for: %s", customer_id
+    )
+
+
+@shared_task(
+    name="squarelet.organizations.tasks.handle_subscription_updated",
+    autoretry_for=(stripe.RateLimitError,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 3},
+)
+def handle_subscription_updated(subscription_data):
+    """Handle receiving a customer.subscription.updated event from Stripe"""
+    subscription_id = subscription_data.get("id")
+    try:
+        subscription = Subscription.objects.get(subscription_id=subscription_id)
+    except Subscription.DoesNotExist:
+        logger.warning(
+            "[STRIPE-WEBHOOK-SUBSCRIPTION] subscription.updated for unknown "
+            "subscription: %s",
+            subscription_id,
+        )
+        return
+
+    subscription.stripe_status = subscription_data.get("status", "")
+    # current_period_end moved to items in basil; fall back to root for older envs
+    ts = None
+    items = subscription_data.get("items", {})
+    if items:
+        data = items.get("data", [])
+        if data:
+            ts = data[0].get("current_period_end")
+    if ts is None:
+        ts = subscription_data.get("current_period_end")
+    subscription.current_period_end = (
+        datetime.fromtimestamp(ts, tz=get_current_timezone()) if ts else None
+    )
+    subscription.save(update_fields=["stripe_status", "current_period_end"])
+    logger.info(
+        "[STRIPE-WEBHOOK-SUBSCRIPTION] subscription.updated cached status for: %s",
+        subscription_id,
+    )
+
+
+@shared_task(
+    name="squarelet.organizations.tasks.handle_subscription_deleted",
+    autoretry_for=(stripe.RateLimitError,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 3},
+)
+def handle_subscription_deleted(subscription_data):
+    """Handle receiving a customer.subscription.deleted event from Stripe"""
+    subscription_id = subscription_data.get("id")
+    try:
+        subscription = Subscription.objects.get(subscription_id=subscription_id)
+    except Subscription.DoesNotExist:
+        logger.warning(
+            "[STRIPE-WEBHOOK-SUBSCRIPTION] subscription.deleted for unknown "
+            "subscription: %s",
+            subscription_id,
+        )
+        return
+
+    subscription.stripe_status = subscription_data.get("status", "canceled")
+    subscription.save(update_fields=["stripe_status"])
+    logger.info(
+        "[STRIPE-WEBHOOK-SUBSCRIPTION] subscription.deleted cached status for: %s",
+        subscription_id,
     )
 
 
