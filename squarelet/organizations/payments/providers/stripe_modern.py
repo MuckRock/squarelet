@@ -127,6 +127,10 @@ class StripeModernCustomerService(CustomerService):
                 return source
         return None
 
+    def retrieve_payment_method(self, pm_id):
+        """Retrieve a PaymentMethod object by ID."""
+        return stripe.PaymentMethod.retrieve(pm_id)
+
 
 class StripeModernSubscriptionService(SubscriptionService):
     """Subscription operations using current Stripe API."""

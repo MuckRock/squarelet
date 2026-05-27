@@ -7,9 +7,6 @@ from django.utils.translation import gettext_lazy as _
 # Standard Library
 from datetime import datetime
 
-# Third Party
-import stripe
-
 # Squarelet
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.querysets import InvoiceQuerySet
@@ -97,20 +94,8 @@ class Invoice(models.Model):
         return False
 
     def get_hosted_invoice_url(self):
-        """Return the hosted invoice URL, reading from cache or fetching live."""
-        if self.hosted_invoice_url:
-            return self.hosted_invoice_url
-        try:
-            stripe_invoice = (
-                get_payment_provider().get_invoice_service().retrieve(self.invoice_id)
-            )
-            return (
-                stripe_invoice.hosted_invoice_url
-                if "hosted_invoice_url" in stripe_invoice
-                else None
-            )
-        except stripe.StripeError:
-            return None
+        """Return the cached hosted invoice URL, or None if not yet populated."""
+        return self.hosted_invoice_url or None
 
     @classmethod
     def create_or_update_from_stripe(
@@ -127,11 +112,7 @@ class Invoice(models.Model):
         created_at = datetime.fromtimestamp(
             stripe_invoice["created"], tz=get_current_timezone()
         )
-        hosted_url = (
-            getattr(stripe_invoice, "hosted_invoice_url", None)
-            or stripe_invoice.get("hosted_invoice_url", "")
-            or ""
-        )
+        hosted_url = stripe_invoice.get("hosted_invoice_url", "") or ""
         return cls.objects.update_or_create(
             invoice_id=stripe_invoice["id"],
             defaults={

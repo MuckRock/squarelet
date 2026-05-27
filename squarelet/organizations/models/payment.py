@@ -181,6 +181,7 @@ class Customer(models.Model):
     # def card_display(self):
     #     if self.card_brand and self.card_last4:
     #         return f"{self.card_brand}: x{self.card_last4}"
+    #    return ""
 
     def save_card(self, token):
         """Save a new default card"""
@@ -218,10 +219,6 @@ class Customer(models.Model):
     # def remove_card(self):
     #     """Remove the default card"""
     #     pm_id = self.stripe_payment_method_id
-    #     if not pm_id:
-    #         card = self.card
-    #         if card:
-    #             pm_id = card.id
     #     if pm_id:
     #         get_payment_provider().get_customer_service().remove_card(
     #             self.customer_id, pm_id

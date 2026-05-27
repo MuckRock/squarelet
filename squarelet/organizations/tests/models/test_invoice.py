@@ -284,19 +284,7 @@ class TestInvoice:
         mock_retrieve.assert_not_called()
 
     @pytest.mark.django_db
-    def test_get_hosted_invoice_url_fallback_caches_result(
-        self, invoice_factory, mocker
-    ):
-        """get_hosted_invoice_url fetches live and caches when field is empty"""
-        live_url = "https://invoice.stripe.com/i/live"
-        mock_stripe_inv = mocker.MagicMock(hosted_invoice_url=live_url)
-        mocker.patch(
-            "squarelet.organizations.models.invoice.get_payment_provider"
-        ).return_value.get_invoice_service.return_value.retrieve.return_value = (
-            mock_stripe_inv
-        )
+    def test_get_hosted_invoice_url_empty_cache_returns_none(self, invoice_factory):
+        """get_hosted_invoice_url returns None when field is unpopulated"""
         invoice = invoice_factory(invoice_id="in_empty_url", hosted_invoice_url="")
-        url = invoice.get_hosted_invoice_url()
-        assert url == live_url
-        invoice.refresh_from_db()
-        assert invoice.hosted_invoice_url == live_url
+        assert invoice.get_hosted_invoice_url() is None
