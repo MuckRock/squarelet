@@ -1,5 +1,5 @@
 # Django
-from django.db.models.expressions import F
+from django.db.models import OuterRef, Subquery
 
 # Third Party
 import stripe
@@ -86,6 +86,10 @@ class OrganizationDetailSerializer(OrganizationSerializer):
         return None
 
     def get_entitlements(self, obj):
+        # pylint: disable=import-outside-toplevel
+        # Squarelet
+        from squarelet.organizations.models.payment import Subscription
+
         client = self.context.get("client")
         if not client:
             request = self.context.get("request")
@@ -93,10 +97,20 @@ class OrganizationDetailSerializer(OrganizationSerializer):
                 client = request.auth.client
 
         if client:
+            earliest_update_on = (
+                Subscription.objects.filter(
+                    organization=obj,
+                    plan__entitlements=OuterRef("pk"),
+                    cancelled=False,
+                )
+                .order_by("update_on")
+                .values("update_on")[:1]
+            )
             return list(
                 client.entitlements.filter(plans__organizations=obj)
-                .annotate(update_on=F("plans__subscriptions__update_on"))
+                .annotate(update_on=Subquery(earliest_update_on))
                 .values("name", "slug", "description", "resources", "update_on")
+                .distinct()
             )
         return []
 
