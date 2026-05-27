@@ -41,7 +41,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
                 return self.queryset.filter(
                     users__userconsent__client=client,
                     users__userconsent__expires_at__gt=timezone.now(),
-                )
+                ).distinct()
         return self.queryset
 
 
