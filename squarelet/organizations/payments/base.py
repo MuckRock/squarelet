@@ -69,6 +69,10 @@ class CustomerService(ABC):
     def get_payment_method(self, stripe_customer):
         """Return the customer's default saved payment method or source, or None."""
 
+    @abstractmethod
+    def retrieve_payment_method(self, pm_id):
+        """Retrieve a PaymentMethod object by ID."""
+
 
 class SubscriptionService(ABC):
     """Manages Stripe Subscription objects."""
