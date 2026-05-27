@@ -84,7 +84,12 @@ class TestHandleChargeSucceeded:
                 "data": [
                     {
                         "amount": 2500,
-                        "plan": {"id": "org", "product": "prod_BTLmRCZ5cpxsPH"},
+                        "pricing": {
+                            "price_details": {
+                                "price": "squarelet_plan_organization",
+                                "product": "prod_BTLmRCZ5cpxsPH",
+                            }
+                        },
                     }
                 ]
             },
@@ -92,12 +97,12 @@ class TestHandleChargeSucceeded:
         product = {"name": "Organization"}
         mocker.patch(
             "squarelet.organizations.payments.providers"
-            ".stripe_legacy.stripe.Invoice.retrieve",
+            ".stripe_modern.stripe.Invoice.retrieve",
             return_value=invoice,
         )
         mocker.patch(
             "squarelet.organizations.payments.providers"
-            ".stripe_legacy.stripe.Product.retrieve",
+            ".stripe_modern.stripe.Product.retrieve",
             return_value=product,
         )
         mocked = mocker.patch("squarelet.organizations.models.Charge.send_receipt")
@@ -188,19 +193,24 @@ class TestHandleChargeSucceeded:
                 "data": [
                     {
                         "amount": 2500,
-                        "plan": {"id": "donate", "product": "prod_BTLmRCZ5cpxsPH"},
+                        "pricing": {
+                            "price_details": {
+                                "price": "donate_monthly",
+                                "product": "prod_BTLmRCZ5cpxsPH",
+                            }
+                        },
                     }
                 ]
             },
         }
         mocker.patch(
             "squarelet.organizations.payments.providers"
-            ".stripe_legacy.stripe.Invoice.retrieve",
+            ".stripe_modern.stripe.Invoice.retrieve",
             return_value=invoice,
         )
         mocker.patch(
             "squarelet.organizations.payments.providers"
-            ".stripe_legacy.stripe.Product.retrieve",
+            ".stripe_modern.stripe.Product.retrieve",
             return_value={"name": "Professional"},
         )
 
@@ -227,13 +237,48 @@ class TestHandleChargeSucceeded:
         }
         mocker.patch(
             "squarelet.organizations.payments.providers"
-            ".stripe_legacy.stripe.Invoice.retrieve",
+            ".stripe_modern.stripe.Invoice.retrieve",
             return_value=invoice,
         )
         mocked = mocker.patch("squarelet.organizations.models.Charge.send_receipt")
 
         # This should not raise any errors
         tasks.handle_charge_succeeded(charge_data)
+        mocked.assert_called_once()
+
+    @pytest.mark.django_db()
+    def test_invoice_line_missing_pricing_field(self, organization_factory, mocker):
+        """Regression test: invoice line without pricing.price_details should not
+        raise KeyError — falls back to charge description gracefully."""
+        timestamp = timezone.now().replace(microsecond=0)
+        charge_data = {
+            "amount": 2500,
+            "created": int(timestamp.timestamp()),
+            "customer": "cus_Bp0Alb14pfVB9D",
+            "description": "Payment for invoice E28A672-0040",
+            "id": "ch_EwJiGXbaafREhT",
+            "invoice": "in_EwIgmFCn7cnZFB",
+            "metadata": {},
+            "object": "charge",
+        }
+        organization_factory(customer__customer_id=charge_data["customer"])
+        # Simulate a line item that lacks the pricing field entirely,
+        # as would occur with old Stripe API versions or unexpected payloads.
+        invoice = {
+            "id": "in_EwIgmFCn7cnZFB",
+            "lines": {"data": [{"amount": 2500}]},
+        }
+        mocker.patch(
+            "squarelet.organizations.payments.providers"
+            ".stripe_modern.stripe.Invoice.retrieve",
+            return_value=invoice,
+        )
+        mocked = mocker.patch("squarelet.organizations.models.Charge.send_receipt")
+
+        tasks.handle_charge_succeeded(charge_data)
+
+        charge = Charge.objects.get(charge_id=charge_data["id"])
+        assert charge.description == charge_data["description"]
         mocked.assert_called_once()
 
     @pytest.mark.django_db()
