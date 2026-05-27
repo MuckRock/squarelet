@@ -41,6 +41,7 @@ class TestSubscription:
         stripe_subscription_id = "sub_test123"
         mock_stripe_subscription = Mock(
             id=stripe_subscription_id,
+            status="active",
             latest_invoice=None,  # No invoice to avoid invoice creation path
         )
         mocked_customer = Mock()
@@ -52,6 +53,7 @@ class TestSubscription:
             "squarelet.organizations.models.payment.get_payment_provider"
         ).return_value.get_subscription_service.return_value
         mock_sub_service.create.return_value = mock_stripe_subscription
+        mock_sub_service.get_current_period_end.return_value = None
 
         subscription.start()
 
@@ -247,7 +249,7 @@ class TestSubscription:
         stripe_subscription_id = "sub_test123"
         stripe_invoice_id = "in_test123"
         mock_stripe_subscription = Mock(
-            id=stripe_subscription_id, latest_invoice=stripe_invoice_id
+            id=stripe_subscription_id, status="active", latest_invoice=stripe_invoice_id
         )
         # Mock stripe invoice using helper function
         mock_stripe_invoice = create_mock_stripe_invoice(
@@ -268,6 +270,9 @@ class TestSubscription:
         ).return_value
         mock_provider.get_subscription_service.return_value.create.return_value = (
             mock_stripe_subscription
+        )
+        mock_provider.get_subscription_service.return_value.get_current_period_end.return_value = (
+            None
         )
         mock_provider.get_invoice_service.return_value.retrieve.return_value = (
             mock_stripe_invoice
@@ -307,7 +312,7 @@ class TestSubscription:
         stripe_subscription_id = "sub_annual123"
         stripe_invoice_id = "in_annual123"
         mock_stripe_subscription = Mock(
-            id=stripe_subscription_id, latest_invoice=stripe_invoice_id
+            id=stripe_subscription_id, status="active", latest_invoice=stripe_invoice_id
         )
         # Mock stripe invoice using helper function
         mock_stripe_invoice = create_mock_stripe_invoice(
@@ -328,6 +333,9 @@ class TestSubscription:
         ).return_value
         mock_provider.get_subscription_service.return_value.create.return_value = (
             mock_stripe_subscription
+        )
+        mock_provider.get_subscription_service.return_value.get_current_period_end.return_value = (
+            None
         )
         mock_provider.get_invoice_service.return_value.retrieve.return_value = (
             mock_stripe_invoice
@@ -388,7 +396,7 @@ class TestSubscription:
         # Mock Stripe subscription creation
         stripe_subscription_id = "sub_test123"
         mock_stripe_subscription = Mock(
-            id=stripe_subscription_id, latest_invoice="in_test123"
+            id=stripe_subscription_id, status="active", latest_invoice="in_test123"
         )
 
         mocked_customer = Mock()
@@ -402,6 +410,9 @@ class TestSubscription:
         mock_provider.get_subscription_service.return_value.create.return_value = (
             mock_stripe_subscription
         )
+        mock_provider.get_subscription_service.return_value.get_current_period_end.return_value = (
+            None
+        )
         mock_provider.get_invoice_service.return_value.retrieve.side_effect = (
             stripe.InvalidRequestError("No such invoice", "invoice")
         )
@@ -414,3 +425,46 @@ class TestSubscription:
 
         # Invoice won't be created due to error (webhook will handle it)
         assert Invoice.objects.count() == 0
+
+    @pytest.mark.django_db()
+    def test_start_caches_stripe_status(
+        self, subscription_factory, professional_plan_factory, mocker
+    ):
+        """start() caches stripe_status and current_period_end from Stripe response"""
+        from datetime import datetime, timezone as dt_timezone
+
+        plan = professional_plan_factory()
+        subscription = subscription_factory(plan=plan)
+
+        period_end_ts = 1800000000
+        mock_stripe_sub = Mock(
+            id="sub_cached",
+            status="active",
+            latest_invoice=None,
+        )
+        mock_items_data = Mock()
+        mock_items_data.current_period_end = period_end_ts
+        mock_stripe_sub.items.data = [mock_items_data]
+
+        mocker.patch(
+            "squarelet.organizations.models.organization.Organization.customer",
+            return_value=Mock(),
+        )
+        mock_provider = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value
+        mock_provider.get_subscription_service.return_value.create.return_value = (
+            mock_stripe_sub
+        )
+        mock_provider.get_subscription_service.return_value.get_current_period_end.return_value = (
+            period_end_ts
+        )
+
+        subscription.start()
+
+        subscription.refresh_from_db()
+        assert subscription.stripe_status == "active"
+        assert subscription.current_period_end == datetime.fromtimestamp(
+            period_end_ts,
+            tz=dt_timezone.utc,
+        ).astimezone()
