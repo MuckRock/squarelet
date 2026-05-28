@@ -38,6 +38,7 @@ jobs:
         run: |
           echo "127.0.0.1 dev.squarelet.com" | sudo tee -a /etc/hosts
           echo "127.0.0.1 dev.mailhog.com" | sudo tee -a /etc/hosts
+          echo "127.0.0.1 minio.documentcloud.org" | sudo tee -a /etc/hosts
 
       - name: Generate environment files
         run: python initialize_dotenvs.py
@@ -53,7 +54,7 @@ jobs:
             -keyout config/certs/dev.squarelet.com-key.pem \
             -out config/certs/dev.squarelet.com.pem \
             -subj "/CN=dev.squarelet.com" \
-            -addext "subjectAltName=DNS:dev.squarelet.com,DNS:*.dev.documentcloud.org,DNS:dev.muckrock.com,DNS:dev.foiamachine.org,DNS:dev.mailhog.com"
+            -addext "subjectAltName=DNS:dev.squarelet.com,DNS:*.dev.documentcloud.org,DNS:dev.muckrock.com,DNS:dev.foiamachine.org,DNS:dev.mailhog.com,DNS:minio.documentcloud.org"
 
       - name: Build and start services
         run: docker compose -f local.yml up -d --build
