@@ -336,8 +336,6 @@ mccabe==0.6.1
     #   pylint
 mdurl==0.1.2
     # via markdown-it-py
-memoize==1.0.0
-    # via -r requirements/base.txt
 more-itertools==10.8.0
     # via
     #   -r requirements/base.txt
