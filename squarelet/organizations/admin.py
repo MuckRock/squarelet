@@ -24,6 +24,7 @@ from squarelet.organizations.models import (
     Charge,
     Customer,
     Entitlement,
+    EntitlementGrant,
     Invitation,
     Invoice,
     Membership,
@@ -514,6 +515,51 @@ class EntitlementAdmin(VersionAdmin):
     list_filter = ("client",)
     search_fields = ("name",)
     autocomplete_fields = ("client",)
+
+
+@admin.register(EntitlementGrant)
+class EntitlementGrantAdmin(VersionAdmin):
+    list_display = (
+        "name",
+        "active",
+        "for_individuals",
+        "for_groups",
+        "require_verified",
+        "require_active_subscription",
+        "update_on",
+    )
+    list_filter = (
+        "active",
+        "for_individuals",
+        "for_groups",
+        "require_verified",
+        "require_active_subscription",
+    )
+    search_fields = ("name", "description")
+    autocomplete_fields = ("entitlements", "organizations")
+    filter_horizontal = ("entitlements", "organizations")
+    fieldsets = (
+        (None, {"fields": ("name", "description", "active", "entitlements")}),
+        (
+            "Eligible organization types",
+            {"fields": ("for_individuals", "for_groups")},
+        ),
+        ("Explicit grants", {"fields": ("organizations",)}),
+        (
+            "Rule-based grants",
+            {"fields": ("require_verified", "require_active_subscription")},
+        ),
+        (
+            "Refresh",
+            {
+                "fields": ("update_on",),
+                "description": (
+                    "Leave blank to default to one month from creation. "
+                    "Resources tied to this grant refresh on this date."
+                ),
+            },
+        ),
+    )
 
 
 def make_metadata_filter(field):

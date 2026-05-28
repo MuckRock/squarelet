@@ -39,7 +39,8 @@ def test_scope_organizations(user_factory, mocker):
         default_source=None,
     )
     user = user_factory()
-    token = MagicMock(user=user)
+    # client=None so both serializer calls take the same (no-entitlements) path.
+    token = MagicMock(user=user, client=None)
     claims = oidc.CustomScopeClaims(token)
     info = claims.scope_organizations()
     assert info["organizations"] == [

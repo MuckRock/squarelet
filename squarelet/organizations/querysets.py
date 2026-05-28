@@ -168,6 +168,56 @@ class EntitlementQuerySet(models.QuerySet):
         else:
             return self.none()
 
+    def for_organization(self, org, client=None):
+        """Return the deduped union of plan-derived and grant-derived entitlements
+        currently available to `org`. Optionally scoped to a single OIDC client."""
+        # Lazy import to avoid a circular import (payment.py imports this module)
+        # pylint: disable=import-outside-toplevel
+        # Squarelet
+        from squarelet.organizations.models.payment import EntitlementGrant
+
+        matching_grants = EntitlementGrant.objects.for_org(org)
+        qs = self.filter(Q(plans__organizations=org) | Q(grants__in=matching_grants))
+        if client is not None:
+            qs = qs.filter(client=client)
+        return qs.distinct()
+
+
+class EntitlementGrantQuerySet(models.QuerySet):
+    def active(self):
+        return self.filter(active=True)
+
+    def expired(self, on_date=None):
+        """Grants whose update_on has arrived or passed."""
+        if on_date is None:
+            on_date = timezone.now().date()
+        return self.filter(update_on__lte=on_date)
+
+    def for_org(self, org):
+        """Active grants that apply to `org`.
+
+        A grant matches when the org type is compatible AND either:
+        - the org is explicitly listed in `organizations`, OR
+        - the grant has at least one rule flag set and every active rule is
+          satisfied by this org's attributes.
+        """
+        org_type_q = Q(for_individuals=True) if org.individual else Q(for_groups=True)
+        explicit_q = org_type_q & Q(organizations=org)
+
+        at_least_one_rule = Q(require_verified=True) | Q(
+            require_active_subscription=True
+        )
+        # If the org fails a requirement, exclude grants that set that flag.
+        verified_ok = Q() if org.verified_journalist else Q(require_verified=False)
+        sub_ok = (
+            Q()
+            if org.has_active_subscription()
+            else Q(require_active_subscription=False)
+        )
+        rule_q = org_type_q & at_least_one_rule & verified_ok & sub_ok
+
+        return self.active().filter(explicit_q | rule_q).distinct()
+
 
 class InvitationQuerySet(models.QuerySet):
     def get_open(self):

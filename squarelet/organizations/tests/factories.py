@@ -196,6 +196,26 @@ class EntitlementFactory(factory.django.DjangoModelFactory):
         model = "organizations.Entitlement"
 
 
+class EntitlementGrantFactory(factory.django.DjangoModelFactory):
+    name = factory.Sequence(lambda n: f"Grant {n}")
+    description = factory.Sequence(lambda n: f"Grant description {n}")
+
+    class Meta:
+        model = "organizations.EntitlementGrant"
+
+    @factory.post_generation
+    def entitlements(self, create, extracted, **kwargs):
+        if not create or not extracted:
+            return
+        self.entitlements.set(extracted)
+
+    @factory.post_generation
+    def organizations(self, create, extracted, **kwargs):
+        if not create or not extracted:
+            return
+        self.organizations.set(extracted)
+
+
 class EmailDomainFactory(factory.django.DjangoModelFactory):
     organization = factory.SubFactory(
         "squarelet.organizations.tests.factories.OrganizationFactory"
