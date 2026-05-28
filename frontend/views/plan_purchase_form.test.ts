@@ -137,6 +137,14 @@ describe('Plan Purchase Form', () => {
     // @ts-ignore - Mock global Stripe
     global.Stripe = vi.fn(() => mockStripe);
 
+    // Mock fetch for submitViaAjax
+    global.fetch = vi.fn(() =>
+      Promise.resolve({
+        status: 200,
+        json: () => Promise.resolve({ redirect: '/success' }),
+      } as Response)
+    );
+
     // Clear the DOM
     document.body.innerHTML = '';
   });
@@ -332,7 +340,6 @@ describe('Plan Purchase Form', () => {
       const form = document.querySelector('form') as HTMLFormElement;
       const select = document.querySelector('.org-select') as HTMLSelectElement;
       const tokenInput = document.querySelector('#id_stripe_token') as HTMLInputElement;
-      const formSubmitSpy = vi.spyOn(form, 'submit').mockImplementation(() => {});
 
       // Select an organization and new card payment method
       select.value = 'org-1';
@@ -344,14 +351,12 @@ describe('Plan Purchase Form', () => {
       // Submit the form
       form.dispatchEvent(new Event('submit'));
 
-      // Wait for async token creation
+      // Wait for async token creation and fetch
       await new Promise(resolve => setTimeout(resolve, 0));
 
       expect(mockStripe.createToken).toHaveBeenCalledWith(mockElement);
       expect(tokenInput.value).toBe('tok_test123');
-      expect(formSubmitSpy).toHaveBeenCalled();
-
-      formSubmitSpy.mockRestore();
+      expect(global.fetch).toHaveBeenCalled();
     });
 
     it('should skip token creation when using existing card', async () => {
@@ -360,7 +365,6 @@ describe('Plan Purchase Form', () => {
 
       const form = document.querySelector('form') as HTMLFormElement;
       const select = document.querySelector('.org-select') as HTMLSelectElement;
-      const formSubmitSpy = vi.spyOn(form, 'submit').mockImplementation(() => {});
 
       select.value = 'org-1';
       select.dispatchEvent(new Event('change'));
@@ -373,9 +377,7 @@ describe('Plan Purchase Form', () => {
       await new Promise(resolve => setTimeout(resolve, 0));
 
       expect(mockStripe.createToken).not.toHaveBeenCalled();
-      expect(formSubmitSpy).toHaveBeenCalled();
-
-      formSubmitSpy.mockRestore();
+      expect(global.fetch).toHaveBeenCalled();
     });
 
     it('should display token creation errors', async () => {
