@@ -295,9 +295,7 @@ class PlanDetailView(DetailView):
                             exc_info=sys.exc_info(),
                         )
                         if self._is_ajax():
-                            return JsonResponse(
-                                {"error": str(exc)}, status=400
-                            )
+                            return JsonResponse({"error": str(exc)}, status=400)
                         messages.error(request, str(exc))
                         return redirect(plan)
 

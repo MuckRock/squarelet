@@ -101,9 +101,7 @@ class Customer(models.Model):
     def card(self):
         """Retrieve the customer's default saved payment method or source, if any."""
         return (
-            get_payment_provider()
-            .get_customer_service()
-            .get_card(self.stripe_customer)
+            get_payment_provider().get_customer_service().get_card(self.stripe_customer)
         )
 
     @property
@@ -238,9 +236,7 @@ class Subscription(models.Model):
                 invoice_ref = stripe_subscription.latest_invoice
                 if invoice_ref is not None:
                     invoice_id = (
-                        invoice_ref
-                        if isinstance(invoice_ref, str)
-                        else invoice_ref.id
+                        invoice_ref if isinstance(invoice_ref, str) else invoice_ref.id
                     )
                     fresh_invoice = (
                         get_payment_provider()
@@ -260,9 +256,7 @@ class Subscription(models.Model):
                 try:
                     invoice_ref = stripe_subscription.latest_invoice
                     invoice_id = (
-                        invoice_ref
-                        if isinstance(invoice_ref, str)
-                        else invoice_ref.id
+                        invoice_ref if isinstance(invoice_ref, str) else invoice_ref.id
                     )
 
                     # Import here to avoid circular imports

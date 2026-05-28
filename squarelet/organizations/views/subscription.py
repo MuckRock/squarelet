@@ -94,7 +94,10 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
                 organization.remove_card()
                 if self._is_ajax():
                     return JsonResponse(
-                        {"redirect": redirect_url, "message": str(_("Credit card removed"))}
+                        {
+                            "redirect": redirect_url,
+                            "message": str(_("Credit card removed")),
+                        }
                     )
                 messages.success(self.request, _("Credit card removed"))
             else:
@@ -106,7 +109,9 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
                         target=organization,
                     )
                 success_msg = (
-                    _("Plan Updated") if organization.individual else _("Organization Updated")
+                    _("Plan Updated")
+                    if organization.individual
+                    else _("Organization Updated")
                 )
                 if self._is_ajax():
                     return JsonResponse(
