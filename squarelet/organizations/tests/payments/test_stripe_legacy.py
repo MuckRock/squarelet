@@ -55,9 +55,7 @@ class TestLegacyCustomerService:
         mock_customer.sources.retrieve.assert_called_once_with("card_123")
         assert result == mock_source
 
-    def test_get_card_returns_none_for_non_card_source(
-        self, customer_service, mocker
-    ):
+    def test_get_card_returns_none_for_non_card_source(self, customer_service, mocker):
         mock_source = mocker.MagicMock(object="ach_debit")
         mock_customer = mocker.MagicMock()
         mock_customer.default_source = "src_123"
@@ -102,4 +100,3 @@ class TestLegacySubscriptionService:
         mock_sub = mocker.MagicMock()
         mock_sub.current_period_end = 1700000000
         assert subscription_service.get_current_period_end(mock_sub) == 1700000000
-

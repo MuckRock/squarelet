@@ -395,8 +395,8 @@ class ChargeQuerySet(models.QuerySet):
             **metadata,
         }
         provider = get_payment_provider()
-        stripe_charge, pm_id = (
-            provider.get_charge_service().confirm_payment_intent(payment_intent_id)
+        stripe_charge, pm_id = provider.get_charge_service().confirm_payment_intent(
+            payment_intent_id
         )
         if not save_card and pm_id:
             # Detach the temporary PM that was attached for this one-time charge
