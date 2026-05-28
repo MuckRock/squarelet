@@ -170,6 +170,10 @@ class InvoiceService(ABC):
         """Mark an invoice as paid."""
 
     @abstractmethod
+    def modify(self, invoice_id, **kwargs):
+        """Modify an existing invoice (only valid while in draft state)."""
+
+    @abstractmethod
     def mark_uncollectible(self, invoice_id):
         """Mark an invoice as uncollectible."""
 
