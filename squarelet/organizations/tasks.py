@@ -463,6 +463,14 @@ def process_overdue_invoice(invoice_id):
             # Clear subscription reference since it was deleted
             invoice.subscription = None
         elif organization.subscriptions.exists():
+            first_sub = organization.subscriptions.first()
+            logger.warning(
+                "[STRIPE-PROCESS-OVERDUE-INVOICE] No subscription linked to "
+                "invoice %s; cancelling first subscription %s for org %s",
+                invoice.invoice_id,
+                first_sub.subscription_id if first_sub else None,
+                organization.uuid,
+            )
             organization.subscription_cancelled()
 
         # Mark invoice as uncollectible in Stripe
