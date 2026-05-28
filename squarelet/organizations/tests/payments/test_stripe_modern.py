@@ -44,9 +44,7 @@ class TestModernCustomerService:
         token = "tok_123"
         mock_customer = mocker.MagicMock(id=customer_id)
         mock_pm = mocker.MagicMock(id="pm_123")
-        mock_create = mocker.patch(
-            "stripe.PaymentMethod.create", return_value=mock_pm
-        )
+        mock_create = mocker.patch("stripe.PaymentMethod.create", return_value=mock_pm)
         mock_attach = mocker.patch("stripe.PaymentMethod.attach")
         result = customer_service.add_source(mock_customer, token)
         mock_create.assert_called_once_with(type="card", card={"token": token})
@@ -71,9 +69,7 @@ class TestModernCustomerService:
         token = "tok_123"
         mock_customer = mocker.MagicMock(id=customer_id)
         mock_pm = mocker.MagicMock(id="pm_new")
-        mock_create = mocker.patch(
-            "stripe.PaymentMethod.create", return_value=mock_pm
-        )
+        mock_create = mocker.patch("stripe.PaymentMethod.create", return_value=mock_pm)
         mock_attach = mocker.patch("stripe.PaymentMethod.attach")
         mock_modify = mocker.patch("stripe.Customer.modify")
         customer_service.save_card(mock_customer, token)
@@ -123,18 +119,14 @@ class TestModernCustomerService:
         mock_retrieve.assert_called_once_with(mock_customer.id, "card_123")
         assert result == mock_source
 
-    def test_get_card_returns_none_when_no_saved_card(
-        self, customer_service, mocker
-    ):
+    def test_get_card_returns_none_when_no_saved_card(self, customer_service, mocker):
         mock_customer = mocker.MagicMock()
         mock_customer.invoice_settings.default_payment_method = None
         mock_customer.default_source = None
         result = customer_service.get_card(mock_customer)
         assert result is None
 
-    def test_get_card_returns_none_for_non_card_source(
-        self, customer_service, mocker
-    ):
+    def test_get_card_returns_none_for_non_card_source(self, customer_service, mocker):
         mock_source = mocker.MagicMock(id="src_123", object="ach_debit")
         mock_customer = mocker.MagicMock()
         mock_customer.invoice_settings.default_payment_method = None
@@ -149,9 +141,7 @@ class TestModernChargeService:
         mock_source = mocker.MagicMock(id="pm_123")
         mock_customer = mocker.MagicMock(id="cus_123")
         mock_charge = mocker.MagicMock(id="ch_123", created=1700000000)
-        mock_intent = mocker.MagicMock(
-            latest_charge=mock_charge, status="succeeded"
-        )
+        mock_intent = mocker.MagicMock(latest_charge=mock_charge, status="succeeded")
         mock_create = mocker.patch(
             "stripe.PaymentIntent.create", return_value=mock_intent
         )
@@ -333,4 +323,3 @@ class TestModernSubscriptionService:
         mock_sub = mocker.MagicMock()
         mock_sub.items.data = []
         assert subscription_service.get_current_period_end(mock_sub) is None
-

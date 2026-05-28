@@ -61,9 +61,7 @@ class TestCustomer:
         mock_get_card.assert_called_once_with(mock_stripe_customer)
 
     def test_card_blank(self, customer_factory, mocker):
-        mocker.patch(
-            "squarelet.organizations.models.Customer.stripe_customer"
-        )
+        mocker.patch("squarelet.organizations.models.Customer.stripe_customer")
         mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
         ).return_value.get_customer_service.return_value.get_card.return_value = None
@@ -83,9 +81,7 @@ class TestCustomer:
         assert customer.card_display == f"{brand}: x{last4}"
 
     def test_card_display_empty(self, customer_factory, mocker):
-        mocker.patch(
-            "squarelet.organizations.models.Customer.stripe_customer"
-        )
+        mocker.patch("squarelet.organizations.models.Customer.stripe_customer")
         mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
         ).return_value.get_customer_service.return_value.get_card.return_value = None
