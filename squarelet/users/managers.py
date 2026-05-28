@@ -1,7 +1,7 @@
 # Django
 from django.contrib.auth.models import UserManager as AuthUserManager
 from django.core.exceptions import ValidationError
-from django.db import transaction, IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 
 # Squarelet
