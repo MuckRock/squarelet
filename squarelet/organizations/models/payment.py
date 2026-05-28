@@ -9,12 +9,12 @@ from django.utils.translation import gettext_lazy as _
 # Standard Library
 import logging
 import sys
+from functools import cached_property
 
 # Third Party
 import stripe
 from autoslug import AutoSlugField
 from dateutil.relativedelta import relativedelta
-from memoize import mproperty
 
 # Squarelet
 from squarelet.core.mail import ORG_TO_RECEIPTS, send_mail
@@ -54,7 +54,7 @@ class Customer(models.Model):
     def __str__(self):
         return f"{self.organization.name}'s Customer"
 
-    @mproperty
+    @cached_property
     def stripe_customer(self):
         """Retrieve the customer from Stripe or create one if it doesn't exist"""
         customer_service = get_payment_provider().get_customer_service()
@@ -101,7 +101,7 @@ class Customer(models.Model):
             customer.save()
             return stripe_customer
 
-    @mproperty
+    @cached_property
     def card(self):
         """Retrieve the customer's default saved payment method or source, if any."""
         return (
@@ -185,7 +185,7 @@ class Subscription(models.Model):
         plan_name = self.plan.name if self.plan else "Free"
         return f"Subscription: {self.organization} to {plan_name}"
 
-    @mproperty
+    @cached_property
     def stripe_subscription(self):
         if self.subscription_id:
             return (
@@ -697,7 +697,7 @@ class Charge(models.Model):
     def get_absolute_url(self):
         return reverse("organizations:charge", kwargs={"pk": self.pk})
 
-    @mproperty
+    @cached_property
     def charge(self):
         return get_payment_provider().get_charge_service().retrieve(self.charge_id)
 
