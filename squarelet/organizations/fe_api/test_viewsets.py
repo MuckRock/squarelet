@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 
 # Squarelet
 from squarelet.organizations.models import Membership, Organization
+from squarelet.organizations.tests.factories import OrganizationFactory
 from squarelet.users.models import User
 
 
@@ -32,6 +33,19 @@ def test_organization_viewset_admins_field(api_client):
     data = response.data
     assert user.id in data["admins"]
     assert member.id not in data["admins"]
+
+
+@pytest.mark.django_db
+def test_fuzzy_search_with_prefetch_related(api_client):
+    """fuzzy_search via the list view must not raise ValueError due to
+    prefetch_related() being incompatible with iterator()."""
+    OrganizationFactory(name="MuckRock Foundation", individual=False)
+    response = api_client.get(
+        "/fe_api/organizations/", {"fuzzy": "true", "search": "MuckRock"}
+    )
+    assert response.status_code == status.HTTP_200_OK
+    names = [r["name"] for r in response.data["results"]]
+    assert "MuckRock Foundation" in names
 
 
 @pytest.mark.django_db
