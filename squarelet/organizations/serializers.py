@@ -135,6 +135,7 @@ class PaymentActionRequiredError(APIException):
     default_detail = "Payment action required"
 
     def __init__(self, exc):
+        super().__init__(self.default_detail)
         self.detail = {
             "client_secret": exc.client_secret,
             "payment_intent_id": exc.payment_intent_id,

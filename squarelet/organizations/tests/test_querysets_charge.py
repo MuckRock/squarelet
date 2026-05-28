@@ -1,6 +1,9 @@
 # Django
 from django.utils import timezone
 
+# Standard Library
+import time
+
 # Third Party
 import pytest
 import stripe
@@ -44,7 +47,7 @@ class TestChargeQuerySet:
         token = "tok_visa"
 
         mock_source = mocker.Mock(id="pm_123")
-        mock_stripe_charge, mock_provider = self._mock_provider_charge(
+        _, mock_provider = self._mock_provider_charge(
             mocker, "ch_test123"
         )
         mocker.patch(
@@ -74,7 +77,7 @@ class TestChargeQuerySet:
         """Test creating charge with saved card (no token)"""
         org = OrganizationFactory(customer__customer_id="cus_saved")
         mock_card = self._mock_customer_with_card(mocker)
-        mock_stripe_charge, mock_provider = self._mock_provider_charge(
+        _, mock_provider = self._mock_provider_charge(
             mocker, "ch_saved_card"
         )
         mock_charge_create = mock_provider.get_charge_service.return_value.create
@@ -98,7 +101,7 @@ class TestChargeQuerySet:
         """Test charge includes organization metadata"""
         org = OrganizationFactory(name="Test Org", customer__customer_id="cus_meta")
         self._mock_customer_with_card(mocker)
-        mock_stripe_charge, mock_provider = self._mock_provider_charge(
+        _, mock_provider = self._mock_provider_charge(
             mocker, "ch_metadata"
         )
         mock_charge_create = mock_provider.get_charge_service.return_value.create
@@ -123,7 +126,7 @@ class TestChargeQuerySet:
         """Test custom metadata is merged with defaults"""
         org = OrganizationFactory(customer__customer_id="cus_custom")
         self._mock_customer_with_card(mocker)
-        mock_stripe_charge, mock_provider = self._mock_provider_charge(
+        _, mock_provider = self._mock_provider_charge(
             mocker, "ch_custom"
         )
         mock_charge_create = mock_provider.get_charge_service.return_value.create
@@ -148,7 +151,7 @@ class TestChargeQuerySet:
         """Test idempotency key is UUID"""
         org = OrganizationFactory(customer__customer_id="cus_idem")
         self._mock_customer_with_card(mocker)
-        mock_stripe_charge, mock_provider = self._mock_provider_charge(
+        _, mock_provider = self._mock_provider_charge(
             mocker, "ch_idempotent"
         )
         mock_charge_create = mock_provider.get_charge_service.return_value.create
@@ -173,7 +176,7 @@ class TestChargeQuerySet:
         """Test statement descriptor from metadata action"""
         org = OrganizationFactory(customer__customer_id="cus_desc")
         self._mock_customer_with_card(mocker)
-        mock_stripe_charge, mock_provider = self._mock_provider_charge(
+        _, mock_provider = self._mock_provider_charge(
             mocker, "ch_descriptor"
         )
         mock_charge_create = mock_provider.get_charge_service.return_value.create
@@ -195,7 +198,7 @@ class TestChargeQuerySet:
         """Test statement descriptor empty when no action in metadata"""
         org = OrganizationFactory(customer__customer_id="cus_noact")
         self._mock_customer_with_card(mocker)
-        mock_stripe_charge, mock_provider = self._mock_provider_charge(
+        _, mock_provider = self._mock_provider_charge(
             mocker, "ch_no_action"
         )
         mock_charge_create = mock_provider.get_charge_service.return_value.create
@@ -220,7 +223,7 @@ class TestChargeQuerySet:
 
         existing_charge = ChargeFactory(charge_id="ch_existing", organization=org)
 
-        mock_stripe_charge, _ = self._mock_provider_charge(mocker, "ch_existing")
+        self._mock_provider_charge(mocker, "ch_existing")
 
         charge = Charge.objects.make_charge(
             organization=org,
@@ -239,7 +242,7 @@ class TestChargeQuerySet:
         """Test charge with zero fee amount"""
         org = OrganizationFactory(customer__customer_id="cus_zero")
         self._mock_customer_with_card(mocker)
-        mock_stripe_charge, mock_provider = self._mock_provider_charge(
+        _, mock_provider = self._mock_provider_charge(
             mocker, "ch_zero_fee"
         )
         mock_charge_create = mock_provider.get_charge_service.return_value.create
@@ -344,7 +347,7 @@ class TestChargeQuerySet:
         """Test charge with large amount"""
         org = OrganizationFactory(customer__customer_id="cus_large")
         self._mock_customer_with_card(mocker)
-        mock_stripe_charge, mock_provider = self._mock_provider_charge(
+        _, mock_provider = self._mock_provider_charge(
             mocker, "ch_large"
         )
         mock_charge_create = mock_provider.get_charge_service.return_value.create
@@ -370,27 +373,21 @@ class TestConfirmPaymentIntent:
 
     def _mock_provider_confirm(self, mocker, charge_id="ch_confirmed", pm_id="pm_123"):
         """Return a mock (charge, pm_id) result and the provider confirm mock."""
-        import time
-
         mock_stripe_charge = mocker.Mock(id=charge_id, created=int(time.time()))
         mock_provider = mocker.patch(
             "squarelet.organizations.querysets.get_payment_provider"
         ).return_value
-        mock_provider.get_charge_service.return_value.confirm_payment_intent.return_value = (
-            mock_stripe_charge,
-            pm_id,
+        confirm_mock = (
+            mock_provider.get_charge_service.return_value.confirm_payment_intent
         )
+        confirm_mock.return_value = (mock_stripe_charge, pm_id)
         return mock_stripe_charge, mock_provider
 
     @pytest.mark.django_db()
     def test_confirm_creates_charge(self, mocker):
         """Test that confirm_payment_intent creates a local Charge record."""
-        from squarelet.organizations.tests.factories import OrganizationFactory
-
         org = OrganizationFactory()
-        mock_stripe_charge, mock_provider = self._mock_provider_confirm(
-            mocker, "ch_confirmed"
-        )
+        self._mock_provider_confirm(mocker, "ch_confirmed")
 
         charge = Charge.objects.confirm_payment_intent(
             payment_intent_id="pi_123",
@@ -409,10 +406,8 @@ class TestConfirmPaymentIntent:
     @pytest.mark.django_db()
     def test_confirm_detaches_temp_pm_when_not_saving_card(self, mocker):
         """Temporary PM is removed after confirm when save_card=False."""
-        from squarelet.organizations.tests.factories import OrganizationFactory
-
         org = OrganizationFactory()
-        mock_stripe_charge, mock_provider = self._mock_provider_confirm(
+        _, mock_provider = self._mock_provider_confirm(
             mocker, "ch_no_save", pm_id="pm_temp"
         )
         mock_remove_source = (
@@ -434,10 +429,8 @@ class TestConfirmPaymentIntent:
     @pytest.mark.django_db()
     def test_confirm_does_not_detach_pm_when_saving_card(self, mocker):
         """Saved card PM is not removed after confirm when save_card=True."""
-        from squarelet.organizations.tests.factories import OrganizationFactory
-
         org = OrganizationFactory()
-        mock_stripe_charge, mock_provider = self._mock_provider_confirm(
+        _, mock_provider = self._mock_provider_confirm(
             mocker, "ch_with_save", pm_id="pm_saved"
         )
         mock_remove_source = (
@@ -459,18 +452,11 @@ class TestConfirmPaymentIntent:
     @pytest.mark.django_db()
     def test_confirm_race_condition_with_webhook(self, mocker):
         """get_or_create handles webhook race on confirm path."""
-        from squarelet.organizations.tests.factories import (
-            ChargeFactory,
-            OrganizationFactory,
-        )
-
         org = OrganizationFactory()
         existing_charge = ChargeFactory(
             charge_id="ch_existing_confirm", organization=org
         )
-        mock_stripe_charge, _ = self._mock_provider_confirm(
-            mocker, "ch_existing_confirm", pm_id=None
-        )
+        self._mock_provider_confirm(mocker, "ch_existing_confirm", pm_id=None)
         # pm_id=None → no remove_source call expected
         charge = Charge.objects.confirm_payment_intent(
             payment_intent_id="pi_race",

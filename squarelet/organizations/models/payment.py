@@ -106,7 +106,6 @@ class Customer(models.Model):
 
     @property
     def card_display(self):
-        # pylint: disable=using-constant-test
         card = self.card
         if not card:
             return ""
