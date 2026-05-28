@@ -483,6 +483,7 @@ class Organization(AvatarMixin, models.Model):
     def add_subscription(self, plan, max_users, user, token=None, payment_method=None):
         """Add a new subscription to a plan.
 
+        Saves max_users to the organization before starting the subscription.
         Raises ValueError if the org already has a non-cancelled subscription
         for this plan.
         """
@@ -494,6 +495,9 @@ class Organization(AvatarMixin, models.Model):
             raise ValueError(
                 f"Organization already has an active subscription to {plan}"
             )
+
+        self.max_users = max_users
+        self.save()
 
         # Detect payment method if not explicitly provided
         if payment_method is None:
