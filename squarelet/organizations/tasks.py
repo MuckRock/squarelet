@@ -214,6 +214,25 @@ def handle_invoice_created(invoice_data):
         stripe_link,
     )
 
+    # Propagate subscription metadata to the invoice while it is still in draft.
+    # Stripe does not inherit subscription metadata automatically.
+    if subscription:
+        metadata = {
+            "organization": str(organization.uuid),
+            "plan": str(subscription.plan),
+            "subscription_id": subscription.subscription_id,
+        }
+        try:
+            get_payment_provider().get_invoice_service().modify(
+                invoice_id, metadata=metadata
+            )
+        except stripe.StripeError as exc:
+            logger.warning(
+                "[STRIPE-WEBHOOK-INVOICE] Failed to set metadata on invoice %s: %s",
+                invoice_id,
+                exc,
+            )
+
 
 @shared_task(name="squarelet.organizations.tasks.handle_invoice_finalized")
 def handle_invoice_finalized(invoice_data):

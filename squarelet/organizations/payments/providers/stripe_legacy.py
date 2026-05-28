@@ -149,6 +149,9 @@ class StripeLegacyInvoiceService(InvoiceService):
     def pay(self, stripe_invoice, paid_out_of_band=False):
         stripe_invoice.pay(paid_out_of_band=paid_out_of_band)
 
+    def modify(self, invoice_id, **kwargs):
+        return stripe.Invoice.modify(invoice_id, **kwargs)
+
     def mark_uncollectible(self, invoice_id):
         """
         Mark an invoice uncollectible via direct API request.
