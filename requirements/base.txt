@@ -200,8 +200,6 @@ markdown==3.8.1
     # via -r requirements/base.in
 matplotlib-inline==0.1.3
     # via ipython
-memoize==1.0.0
-    # via -r requirements/base.in
 more-itertools==10.8.0
     # via cssutils
 oauthlib==3.3.1

@@ -13,7 +13,7 @@ from django.utils.translation import gettext_lazy as _
 # Third Party
 import sesame
 from allauth.mfa.utils import is_mfa_enabled
-from memoize import mproperty
+from functools import cached_property
 from sorl.thumbnail import ImageField
 
 # Squarelet
@@ -226,7 +226,7 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
 
     # This memoized property will only query for
     # the primary email address once per request
-    @mproperty
+    @cached_property
     def primary_email(self):
         """A user's primary email object"""
         return self.emailaddress_set.filter(primary=True).first()

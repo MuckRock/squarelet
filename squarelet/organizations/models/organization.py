@@ -13,7 +13,7 @@ import uuid
 # Third Party
 import stripe
 from autoslug import AutoSlugField
-from memoize import mproperty
+from functools import cached_property
 from sorl.thumbnail import ImageField
 
 # Squarelet
@@ -433,7 +433,7 @@ class Organization(AvatarMixin, models.Model):
         if user.email:
             self.receipt_emails.create(email=user.email)
 
-    @mproperty
+    @cached_property
     def reference_name(self):
         if self.individual:
             return _("Your account")
@@ -463,11 +463,11 @@ class Organization(AvatarMixin, models.Model):
         self.customer().remove_card()
         send_cache_invalidations("organization", self.uuid)
 
-    @mproperty
+    @cached_property
     def plan(self):
         return self.plans.first()
 
-    @mproperty
+    @cached_property
     def subscription(self):
         return self.subscriptions.first()
 

@@ -39,7 +39,6 @@ html2text
 inflection
 ipdb
 markdown
-memoize
 psycopg2 --no-binary psycopg2
 pycryptodome
 PyJWT>=2.8,<2.10
