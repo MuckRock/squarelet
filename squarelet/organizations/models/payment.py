@@ -196,7 +196,6 @@ class Subscription(models.Model):
         return None
 
     def start(self, payment_method="card"):
-        # pylint: disable=using-constant-test
         if self.stripe_subscription:
             logger.error(
                 "Trying to start an existing subscription: %s %s",
@@ -230,76 +229,11 @@ class Subscription(models.Model):
             self.save()
 
             # Check for 3DS/SCA on the first invoice payment.
-            # An incomplete subscription means the first charge requires
-            # customer authentication. invoice.payment_intent was removed in
-            # API version 2025-03-31.basil; the client_secret is now at
-            # invoice.confirmation_secret.client_secret. The secret has the
-            # form pi_xxx_secret_yyy, so the PaymentIntent ID is the prefix.
             if stripe_subscription.status == "incomplete":
-                invoice_ref = stripe_subscription.latest_invoice
-                if invoice_ref is not None:
-                    invoice_id = (
-                        invoice_ref if isinstance(invoice_ref, str) else invoice_ref.id
-                    )
-                    fresh_invoice = (
-                        get_payment_provider()
-                        .get_invoice_service()
-                        .retrieve(invoice_id, expand=["confirmation_secret"])
-                    )
-                    cs = fresh_invoice.confirmation_secret
-                    if cs and not isinstance(cs, str):
-                        client_secret = cs.client_secret
-                        if client_secret:
-                            pi_id = client_secret.split("_secret_")[0]
-                            raise PaymentActionRequired(client_secret, pi_id)
+                self._check_3ds_action_required(stripe_subscription)
 
-            # Create Invoice record synchronously — resolve ID first so we pass a
-            # string to retrieve() regardless of whether latest_invoice is expanded
-            if stripe_subscription.latest_invoice:
-                try:
-                    invoice_ref = stripe_subscription.latest_invoice
-                    invoice_id = (
-                        invoice_ref if isinstance(invoice_ref, str) else invoice_ref.id
-                    )
-
-                    # Import here to avoid circular imports
-                    # pylint: disable=import-outside-toplevel
-                    # Squarelet
-                    from squarelet.organizations.models import Invoice
-
-                    # Retrieve the full invoice object from Stripe
-                    stripe_invoice = (
-                        get_payment_provider()
-                        .get_invoice_service()
-                        .retrieve(invoice_id)
-                    )
-
-                    # Create the Invoice record in database using centralized method
-                    _, created = Invoice.create_or_update_from_stripe(
-                        stripe_invoice, self.organization, self
-                    )
-                    logger.info(
-                        "[SUBSCRIPTION-START] Invoice %s synchronously: %s",
-                        "created" if created else "updated",
-                        stripe_invoice.id,
-                    )
-                except stripe.StripeError as exc:
-                    # Log error but don't fail subscription creation
-                    # Webhook will create the invoice as fallback
-                    logger.error(
-                        "[SUBSCRIPTION-START] Failed to retrieve invoice %s: %s",
-                        stripe_subscription.latest_invoice,
-                        exc,
-                        exc_info=True,
-                    )
-                except Exception as exc:  # pylint: disable=broad-except
-                    # Catch any other errors to prevent subscription creation failure
-                    logger.error(
-                        "[SUBSCRIPTION-START] Unexpected error creating invoice %s: %s",
-                        stripe_subscription.latest_invoice,
-                        exc,
-                        exc_info=True,
-                    )
+            # Create Invoice record synchronously; webhook is the fallback.
+            self._sync_latest_invoice(stripe_subscription)
 
         # Trigger respective mailchimp journeys if this is the organization plan
         if self.plan_id and self.plan.entitlements.filter(slug="organization").exists():
@@ -314,8 +248,71 @@ class Subscription(models.Model):
         # Slack notification for new subscription
         self.send_slack_notification("started")
 
+    def _check_3ds_action_required(self, stripe_subscription):
+        """Raise PaymentActionRequired if the first invoice requires 3DS authentication.
+
+        invoice.confirmation_secret.client_secret has the form pi_xxx_secret_yyy;
+        the PaymentIntent ID is the prefix before '_secret_'.
+        """
+        invoice_ref = stripe_subscription.latest_invoice
+        if invoice_ref is None:
+            return
+        invoice_id = invoice_ref if isinstance(invoice_ref, str) else invoice_ref.id
+        fresh_invoice = (
+            get_payment_provider()
+            .get_invoice_service()
+            .retrieve(invoice_id, expand=["confirmation_secret"])
+        )
+        cs = fresh_invoice.confirmation_secret
+        if cs and not isinstance(cs, str):
+            client_secret = cs.client_secret
+            if client_secret:
+                pi_id = client_secret.split("_secret_")[0]
+                raise PaymentActionRequired(client_secret, pi_id)
+
+    def _sync_latest_invoice(self, stripe_subscription):
+        """Create or update the local Invoice record for the subscription's
+        first invoice.
+
+        Logs and swallows errors so that a retrieval failure does not prevent the
+        subscription from being saved — the webhook handler is the fallback.
+        """
+        invoice_ref = stripe_subscription.latest_invoice
+        if not invoice_ref:
+            return
+        invoice_id = invoice_ref if isinstance(invoice_ref, str) else invoice_ref.id
+        try:
+            # Import here to avoid circular imports
+            # pylint: disable=import-outside-toplevel
+            from squarelet.organizations.models import Invoice  # Squarelet
+
+            stripe_invoice = (
+                get_payment_provider().get_invoice_service().retrieve(invoice_id)
+            )
+            _, created = Invoice.create_or_update_from_stripe(
+                stripe_invoice, self.organization, self
+            )
+            logger.info(
+                "[SUBSCRIPTION-START] Invoice %s synchronously: %s",
+                "created" if created else "updated",
+                stripe_invoice.id,
+            )
+        except stripe.StripeError as exc:
+            logger.error(
+                "[SUBSCRIPTION-START] Failed to retrieve invoice %s: %s",
+                stripe_subscription.latest_invoice,
+                exc,
+                exc_info=True,
+            )
+        except Exception as exc:  # pylint: disable=broad-except
+            logger.error(
+                "[SUBSCRIPTION-START] Unexpected error creating invoice %s: %s",
+                stripe_subscription.latest_invoice,
+                exc,
+                exc_info=True,
+            )
+
     def cancel(self):
-        # pylint: disable=using-constant-test
         if self.stripe_subscription:
             get_payment_provider().get_subscription_service().cancel_at_period_end(
                 self.stripe_subscription
@@ -352,7 +349,6 @@ class Subscription(models.Model):
 
     def stripe_modify(self):
         """Update stripe subscription to match local subscription"""
-        # pylint: disable=using-constant-test
         if self.stripe_subscription:
             get_payment_provider().get_subscription_service().modify(
                 self.subscription_id,

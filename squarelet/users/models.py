@@ -10,10 +10,12 @@ from django.templatetags.static import static
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
+# Standard Library
+from functools import cached_property
+
 # Third Party
 import sesame
 from allauth.mfa.utils import is_mfa_enabled
-from functools import cached_property
 from sorl.thumbnail import ImageField
 
 # Squarelet
