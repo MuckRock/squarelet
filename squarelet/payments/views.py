@@ -191,115 +191,33 @@ class PlanDetailView(DetailView):
 
         return org_cards
 
-    def post(self, request, *args, **kwargs):
-        """
-        Handle form submission for subscribing to the plan.
-        Uses PlanPurchaseForm for validation and data extraction.
-        """
+    def post(self, request, *args, **kwargs):  # pylint: disable=too-many-return-statements
+        """Handle form submission for subscribing to the plan."""
         self.object = self.get_object()
         plan = self.object
 
         if not request.user.is_authenticated:
-            # Redirect unauthenticated users to login, then back to this page
             return redirect_to_login(request.get_full_path())
 
         form = self.get_form()
-
         if not form.is_valid():
-            # Re-render with form errors
             return self.render_to_response(self.get_context_data(form=form))
 
         with transaction.atomic():
             try:
-                # Get form results
                 result = form.save(request.user)
                 organization = result["organization"]
-                selected_plan = result["plan"]
-                payment_method = result["payment_method"]
-                stripe_token = result["stripe_token"]
 
-                # Check if already subscribed (check original plan)
                 if organization.subscriptions.filter(
                     plan=plan, cancelled=False
                 ).exists():
                     messages.warning(request, _("Already subscribed"))
                     return redirect(plan)
 
-                # For Sunlight plans, use transaction with
-                # row locking to prevent race conditions
-                if plan.slug.startswith("sunlight-") and plan.wix:
-                    # Lock subscription records to prevent concurrent subscriptions
-                    locked_count = (
-                        Subscription.objects.select_for_update().sunlight_active_count()
-                    )
+                early_response = self._subscribe(request, plan, result)
+                if early_response is not None:
+                    return early_response
 
-                    if locked_count >= settings.MAX_SUNLIGHT_SUBSCRIPTIONS:
-                        # Limit reached - add to waitlist
-                        transaction.on_commit(
-                            lambda: add_to_waitlist.delay(
-                                organization.pk, plan.pk, request.user.pk
-                            )
-                        )
-                        messages.success(
-                            request,
-                            _("You have been added to the waitlist."),
-                        )
-                        return redirect(plan)
-
-                    # Set subscription inside transaction to prevent race
-                    # between getting a correct count and activating the subscription
-                    transaction.on_commit(
-                        lambda: organization.set_subscription(
-                            token=stripe_token,
-                            plan=selected_plan,
-                            max_users=selected_plan.minimum_users,
-                            user=request.user,
-                            payment_method=payment_method,
-                        )
-                    )
-                else:
-                    # Non-Sunlight plans don't need transaction protection
-                    try:
-                        organization.set_subscription(
-                            token=stripe_token,
-                            plan=selected_plan,
-                            max_users=selected_plan.minimum_users,
-                            user=request.user,
-                            payment_method=payment_method,
-                        )
-                    except PaymentActionRequired as exc:
-                        # Subscription saved but first invoice needs 3DS.
-                        # Transaction commits here (caught inside atomic block).
-                        redirect_url = organization.get_absolute_url()
-                        if self._is_ajax():
-                            return JsonResponse(
-                                {
-                                    "client_secret": exc.client_secret,
-                                    "payment_intent_id": exc.payment_intent_id,
-                                    "redirect": redirect_url,
-                                },
-                                status=402,
-                            )
-                        messages.error(
-                            request,
-                            _(
-                                "Your card requires additional authentication."
-                                " Please try again."
-                            ),
-                        )
-                        return redirect(plan)
-                    except stripe.StripeError as exc:
-                        logger.error(
-                            "Stripe error during subscription: %s",
-                            exc,
-                            exc_info=sys.exc_info(),
-                        )
-                        if self._is_ajax():
-                            return JsonResponse({"error": str(exc)}, status=400)
-                        messages.error(request, str(exc))
-                        return redirect(plan)
-
-                # Success - redirect to purchase_redirect if provided, else org
                 messages.success(request, _("Successfully subscribed"))
                 purchase_redirect = form.cleaned_data.get("purchase_redirect", "")
                 redirect_url = purchase_redirect or organization.get_absolute_url()
@@ -313,19 +231,96 @@ class PlanDetailView(DetailView):
                 return redirect(purchase_redirect or organization)
 
             except Organization.DoesNotExist:
-                # Invalid organization
                 pass
             except Exception as exc:  # pylint: disable=broad-except
-                # Handle other errors
                 logger.error(
                     "Subscription creation failed: %s", exc, exc_info=sys.exc_info()
                 )
 
-        # If we get here, something went wrong - redirect back to plan
         if self._is_ajax():
             return JsonResponse({"error": str(_("Something went wrong"))}, status=400)
         messages.error(request, _("Something went wrong"))
         return redirect(plan)
+
+    def _subscribe(self, request, plan, result):
+        """
+        Dispatch to the Sunlight or regular subscription path.
+
+        Returns an HttpResponse for early exits (waitlist, 3DS, Stripe errors),
+        or None to signal the caller should build the success response.
+        """
+        if plan.slug.startswith("sunlight-") and plan.wix:
+            return self._handle_sunlight_subscription(request, plan, result)
+        return self._handle_regular_subscription(request, plan, result)
+
+    def _handle_sunlight_subscription(self, request, plan, result):
+        """Rate-limit with row locking; add to waitlist or defer subscription."""
+        organization = result["organization"]
+        selected_plan = result["plan"]
+        stripe_token = result["stripe_token"]
+        payment_method = result["payment_method"]
+
+        locked_count = Subscription.objects.select_for_update().sunlight_active_count()
+        if locked_count >= settings.MAX_SUNLIGHT_SUBSCRIPTIONS:
+            transaction.on_commit(
+                lambda: add_to_waitlist.delay(organization.pk, plan.pk, request.user.pk)
+            )
+            messages.success(request, _("You have been added to the waitlist."))
+            return redirect(plan)
+        transaction.on_commit(
+            lambda: organization.set_subscription(
+                token=stripe_token,
+                plan=selected_plan,
+                max_users=selected_plan.minimum_users,
+                user=request.user,
+                payment_method=payment_method,
+            )
+        )
+        return None
+
+    def _handle_regular_subscription(self, request, plan, result):
+        """Call set_subscription directly; return error response or None on success."""
+        organization = result["organization"]
+        selected_plan = result["plan"]
+        stripe_token = result["stripe_token"]
+        payment_method = result["payment_method"]
+
+        try:
+            organization.set_subscription(
+                token=stripe_token,
+                plan=selected_plan,
+                max_users=selected_plan.minimum_users,
+                user=request.user,
+                payment_method=payment_method,
+            )
+            return None
+        except PaymentActionRequired as exc:
+            # Subscription saved but first invoice needs 3DS.
+            redirect_url = organization.get_absolute_url()
+            if self._is_ajax():
+                return JsonResponse(
+                    {
+                        "client_secret": exc.client_secret,
+                        "payment_intent_id": exc.payment_intent_id,
+                        "redirect": redirect_url,
+                    },
+                    status=402,
+                )
+            messages.error(
+                request,
+                _("Your card requires additional authentication. Please try again."),
+            )
+            return redirect(plan)
+        except stripe.StripeError as exc:
+            logger.error(
+                "Stripe error during subscription: %s",
+                exc,
+                exc_info=sys.exc_info(),
+            )
+            if self._is_ajax():
+                return JsonResponse({"error": str(exc)}, status=400)
+            messages.error(request, str(exc))
+            return redirect(plan)
 
 
 class SunlightResearchPlansView(TemplateView):

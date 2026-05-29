@@ -58,6 +58,7 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
         return self.request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
     def form_valid(self, form):
+        # pylint: disable=too-many-return-statements
         organization = self.object
         new_plan = form.cleaned_data.get("plan")
         redirect_url = organization.get_absolute_url()
