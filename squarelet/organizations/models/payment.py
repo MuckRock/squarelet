@@ -7,11 +7,11 @@ from django.utils.translation import gettext_lazy as _
 # Standard Library
 import logging
 import sys
+from functools import cached_property
 
 # Third Party
 import stripe
 from autoslug import AutoSlugField
-from functools import cached_property
 
 # Squarelet
 from squarelet.core.mail import ORG_TO_RECEIPTS, send_mail
@@ -192,7 +192,6 @@ class Subscription(models.Model):
         return None
 
     def start(self, payment_method="card"):
-        # pylint: disable=using-constant-test
         if self.stripe_subscription:
             logger.error(
                 "Trying to start an existing subscription: %s %s",
@@ -311,7 +310,6 @@ class Subscription(models.Model):
         self.send_slack_notification("started")
 
     def cancel(self):
-        # pylint: disable=using-constant-test
         if self.stripe_subscription:
             get_payment_provider().get_subscription_service().cancel_at_period_end(
                 self.stripe_subscription
@@ -348,7 +346,6 @@ class Subscription(models.Model):
 
     def stripe_modify(self):
         """Update stripe subscription to match local subscription"""
-        # pylint: disable=using-constant-test
         if self.stripe_subscription:
             get_payment_provider().get_subscription_service().modify(
                 self.subscription_id,

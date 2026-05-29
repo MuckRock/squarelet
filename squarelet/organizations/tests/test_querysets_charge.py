@@ -47,9 +47,7 @@ class TestChargeQuerySet:
         token = "tok_visa"
 
         mock_source = mocker.Mock(id="pm_123")
-        _, mock_provider = self._mock_provider_charge(
-            mocker, "ch_test123"
-        )
+        _, mock_provider = self._mock_provider_charge(mocker, "ch_test123")
         mocker.patch(
             "squarelet.organizations.models.Customer.add_source",
             return_value=mock_source,
@@ -77,9 +75,7 @@ class TestChargeQuerySet:
         """Test creating charge with saved card (no token)"""
         org = OrganizationFactory(customer__customer_id="cus_saved")
         mock_card = self._mock_customer_with_card(mocker)
-        _, mock_provider = self._mock_provider_charge(
-            mocker, "ch_saved_card"
-        )
+        _, mock_provider = self._mock_provider_charge(mocker, "ch_saved_card")
         mock_charge_create = mock_provider.get_charge_service.return_value.create
 
         charge = Charge.objects.make_charge(
@@ -101,9 +97,7 @@ class TestChargeQuerySet:
         """Test charge includes organization metadata"""
         org = OrganizationFactory(name="Test Org", customer__customer_id="cus_meta")
         self._mock_customer_with_card(mocker)
-        _, mock_provider = self._mock_provider_charge(
-            mocker, "ch_metadata"
-        )
+        _, mock_provider = self._mock_provider_charge(mocker, "ch_metadata")
         mock_charge_create = mock_provider.get_charge_service.return_value.create
 
         Charge.objects.make_charge(
@@ -126,9 +120,7 @@ class TestChargeQuerySet:
         """Test custom metadata is merged with defaults"""
         org = OrganizationFactory(customer__customer_id="cus_custom")
         self._mock_customer_with_card(mocker)
-        _, mock_provider = self._mock_provider_charge(
-            mocker, "ch_custom"
-        )
+        _, mock_provider = self._mock_provider_charge(mocker, "ch_custom")
         mock_charge_create = mock_provider.get_charge_service.return_value.create
 
         Charge.objects.make_charge(
@@ -151,9 +143,7 @@ class TestChargeQuerySet:
         """Test idempotency key is UUID"""
         org = OrganizationFactory(customer__customer_id="cus_idem")
         self._mock_customer_with_card(mocker)
-        _, mock_provider = self._mock_provider_charge(
-            mocker, "ch_idempotent"
-        )
+        _, mock_provider = self._mock_provider_charge(mocker, "ch_idempotent")
         mock_charge_create = mock_provider.get_charge_service.return_value.create
 
         Charge.objects.make_charge(
@@ -176,9 +166,7 @@ class TestChargeQuerySet:
         """Test statement descriptor from metadata action"""
         org = OrganizationFactory(customer__customer_id="cus_desc")
         self._mock_customer_with_card(mocker)
-        _, mock_provider = self._mock_provider_charge(
-            mocker, "ch_descriptor"
-        )
+        _, mock_provider = self._mock_provider_charge(mocker, "ch_descriptor")
         mock_charge_create = mock_provider.get_charge_service.return_value.create
 
         Charge.objects.make_charge(
@@ -198,9 +186,7 @@ class TestChargeQuerySet:
         """Test statement descriptor empty when no action in metadata"""
         org = OrganizationFactory(customer__customer_id="cus_noact")
         self._mock_customer_with_card(mocker)
-        _, mock_provider = self._mock_provider_charge(
-            mocker, "ch_no_action"
-        )
+        _, mock_provider = self._mock_provider_charge(mocker, "ch_no_action")
         mock_charge_create = mock_provider.get_charge_service.return_value.create
 
         Charge.objects.make_charge(
@@ -242,9 +228,7 @@ class TestChargeQuerySet:
         """Test charge with zero fee amount"""
         org = OrganizationFactory(customer__customer_id="cus_zero")
         self._mock_customer_with_card(mocker)
-        _, mock_provider = self._mock_provider_charge(
-            mocker, "ch_zero_fee"
-        )
+        _, mock_provider = self._mock_provider_charge(mocker, "ch_zero_fee")
         mock_charge_create = mock_provider.get_charge_service.return_value.create
 
         charge = Charge.objects.make_charge(
@@ -347,9 +331,7 @@ class TestChargeQuerySet:
         """Test charge with large amount"""
         org = OrganizationFactory(customer__customer_id="cus_large")
         self._mock_customer_with_card(mocker)
-        _, mock_provider = self._mock_provider_charge(
-            mocker, "ch_large"
-        )
+        _, mock_provider = self._mock_provider_charge(mocker, "ch_large")
         mock_charge_create = mock_provider.get_charge_service.return_value.create
 
         large_amount = 100000

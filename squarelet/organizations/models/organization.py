@@ -9,11 +9,11 @@ from django.utils.translation import gettext_lazy as _
 import logging
 import sys
 import uuid
+from functools import cached_property
 
 # Third Party
 import stripe
 from autoslug import AutoSlugField
-from functools import cached_property
 from sorl.thumbnail import ImageField
 
 # Squarelet
