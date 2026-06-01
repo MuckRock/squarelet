@@ -1,7 +1,9 @@
 # Django
 from django.conf import settings
 from django.db import models, transaction
+from django.db.models import Q
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 # Standard Library
@@ -11,6 +13,7 @@ import sys
 # Third Party
 import stripe
 from autoslug import AutoSlugField
+from dateutil.relativedelta import relativedelta
 from memoize import mproperty
 
 # Squarelet
@@ -19,6 +22,7 @@ from squarelet.core.utils import is_production_env, mailchimp_journey
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.querysets import (
     ChargeQuerySet,
+    EntitlementGrantQuerySet,
     EntitlementQuerySet,
     PlanQuerySet,
     SubscriptionQuerySet,
@@ -760,6 +764,136 @@ class Entitlement(models.Model):
     @property
     def public(self):
         return self.plans.filter(public=True).exists()
+
+
+def default_grant_update_on():
+    return timezone.now().date() + relativedelta(months=1)
+
+
+class EntitlementGrant(models.Model):
+    """Grants Entitlements to organizations, explicitly or by rule."""
+
+    name = models.CharField(_("name"), max_length=255)
+    description = models.TextField(_("description"), blank=True, default="")
+
+    entitlements = models.ManyToManyField(
+        verbose_name=_("entitlements"),
+        to="organizations.Entitlement",
+        related_name="grants",
+        help_text=_("Entitlements this grant extends"),
+    )
+    organizations = models.ManyToManyField(
+        verbose_name=_("organizations"),
+        to="organizations.Organization",
+        related_name="entitlement_grants",
+        blank=True,
+        help_text=_("Organizations explicitly granted these entitlements"),
+    )
+
+    require_verified = models.BooleanField(
+        _("require verified"),
+        default=False,
+        help_text=_("Match organizations whose verified_journalist=True"),
+    )
+    require_active_subscription = models.BooleanField(
+        _("require active subscription"),
+        default=False,
+        help_text=_("Match organizations with at least one active subscription"),
+    )
+
+    for_individuals = models.BooleanField(
+        _("for individuals"),
+        default=True,
+        help_text=_("Apply this grant to individual organizations"),
+    )
+    for_groups = models.BooleanField(
+        _("for groups"),
+        default=True,
+        help_text=_("Apply this grant to non-individual organizations"),
+    )
+
+    active = models.BooleanField(
+        _("active"),
+        default=True,
+        help_text=_("Inactive grants do not apply to any organization"),
+    )
+
+    update_on = models.DateField(
+        _("date update"),
+        null=True,
+        blank=True,
+        default=default_grant_update_on,
+        help_text=_("Date when this grant's resources next refresh"),
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    objects = EntitlementGrantQuerySet.as_manager()
+
+    class Meta:
+        ordering = ("-created_at", "name")
+
+    def __str__(self):
+        return self.name
+
+    def matches(self, org):
+        if not self.active:
+            return False
+        # Org-type filter applies to both explicit and rule-based matches.
+        if org.individual and not self.for_individuals:
+            return False
+        if not org.individual and not self.for_groups:
+            return False
+        # Uses `.all()` so a prefetched `organizations` relation is reused.
+        if self.organizations.filter(pk=org.pk).exists():
+            return True
+        checks = []
+        if self.require_verified:
+            checks.append(bool(org.verified_journalist))
+        if self.require_active_subscription:
+            checks.append(org.has_active_subscription())
+        if not checks:
+            return False
+        return all(checks)
+
+    def matching_organizations(self):
+        """Return queryset of organizations this grant currently matches.
+
+        Reverse of `matches(org)`. Used by the celery refresh task and by signal
+        handlers to compute the set of orgs whose cache must be invalidated.
+        """
+        # pylint: disable=import-outside-toplevel
+        # Squarelet
+        from squarelet.organizations.models.organization import Organization
+
+        if not self.active:
+            return Organization.objects.none()
+
+        if self.for_individuals and self.for_groups:
+            eligible = Organization.objects.all()
+        elif self.for_individuals:
+            eligible = Organization.objects.filter(individual=True)
+        elif self.for_groups:
+            eligible = Organization.objects.filter(individual=False)
+        else:
+            return Organization.objects.none()
+
+        explicit_q = Q(entitlement_grants=self)
+
+        rule_clauses = []
+        if self.require_verified:
+            rule_clauses.append(Q(verified_journalist=True))
+        if self.require_active_subscription:
+            # Mirrors org.has_active_subscription() = bool(subscriptions.first())
+            rule_clauses.append(Q(subscriptions__isnull=False))
+
+        if rule_clauses:
+            rule_q = rule_clauses[0]
+            for clause in rule_clauses[1:]:
+                rule_q &= clause
+            return eligible.filter(explicit_q | rule_q).distinct()
+        return eligible.filter(explicit_q)
 
 
 class ReceiptEmail(models.Model):

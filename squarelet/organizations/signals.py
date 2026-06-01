@@ -7,13 +7,14 @@ from django.dispatch import receiver
 from actstream import registry
 
 # Squarelet
+from squarelet.oidc.middleware import send_cache_invalidations
 from squarelet.organizations.models import (
     Invitation,
     Organization,
     Plan,
     ProfileChangeRequest,
 )
-from squarelet.organizations.models.payment import Charge
+from squarelet.organizations.models.payment import Charge, EntitlementGrant
 from squarelet.organizations.tasks import sync_wix_for_group_member
 
 # Register models with django-activity-stream
@@ -160,3 +161,131 @@ def charge_created(sender, instance, created, **kwargs):
     if created and instance.organization.hidden:
         instance.organization.hidden = False
         instance.organization.save(update_fields=["hidden"])
+
+
+# --- EntitlementGrant cache invalidation -------------------------------------
+#
+# Admin actions on grants (create, edit, toggle active, delete, M2M edits)
+# change the set of orgs that match a grant. Each change broadcasts cache
+# invalidations for the affected orgs so OIDC clients re-fetch entitlements
+# immediately. The monthly `restore_organization` task handles the scheduled
+# refresh cycle; these signals handle the interactive path.
+
+
+def _invalidate_orgs(uuids):
+    """Defer a cache-invalidation broadcast for the given org UUIDs."""
+    uuid_list = list({str(u) for u in uuids})
+    if not uuid_list:
+        return
+    transaction.on_commit(lambda: send_cache_invalidations("organization", uuid_list))
+
+
+@receiver(
+    signals.pre_save,
+    sender=EntitlementGrant,
+    dispatch_uid="squarelet.organizations.signals.entitlementgrant_stash_pre_save",
+)
+def entitlementgrant_stash_pre_save(sender, instance, **kwargs):
+    """Stash the orgs this grant matched *before* the save.
+
+    Needed because toggling active=False or flipping rules can shrink the
+    matching set — post_save alone wouldn't see who used to match.
+    """
+    # pylint: disable=unused-argument,protected-access
+    if instance.pk is None:
+        instance._pre_save_match_uuids = []
+        return
+    try:
+        old = EntitlementGrant.objects.get(pk=instance.pk)
+    except EntitlementGrant.DoesNotExist:
+        instance._pre_save_match_uuids = []
+        return
+    instance._pre_save_match_uuids = list(
+        old.matching_organizations().values_list("uuid", flat=True)
+    )
+
+
+@receiver(
+    signals.post_save,
+    sender=EntitlementGrant,
+    dispatch_uid="squarelet.organizations.signals.entitlementgrant_invalidate_on_save",
+)
+def entitlementgrant_invalidate_on_save(sender, instance, **kwargs):
+    """Broadcast for the union of pre-save and post-save matches."""
+    # pylint: disable=unused-argument
+    pre = getattr(instance, "_pre_save_match_uuids", []) or []
+    post = list(instance.matching_organizations().values_list("uuid", flat=True))
+    _invalidate_orgs(set(pre) | set(post))
+
+
+@receiver(
+    signals.pre_delete,
+    sender=EntitlementGrant,
+    dispatch_uid="squarelet.organizations.signals.entitlementgrant_stash_pre_delete",
+)
+def entitlementgrant_stash_pre_delete(sender, instance, **kwargs):
+    """Stash the orgs this grant matched before delete cascades the M2M."""
+    # pylint: disable=unused-argument,protected-access
+    instance._pre_delete_match_uuids = list(
+        instance.matching_organizations().values_list("uuid", flat=True)
+    )
+
+
+@receiver(
+    signals.post_delete,
+    sender=EntitlementGrant,
+    dispatch_uid=(
+        "squarelet.organizations.signals.entitlementgrant_invalidate_on_delete"
+    ),
+)
+def entitlementgrant_invalidate_on_delete(sender, instance, **kwargs):
+    """Broadcast for orgs that matched immediately before the delete."""
+    # pylint: disable=unused-argument
+    _invalidate_orgs(getattr(instance, "_pre_delete_match_uuids", []) or [])
+
+
+@receiver(
+    signals.m2m_changed,
+    sender=EntitlementGrant.organizations.through,
+    dispatch_uid=(
+        "squarelet.organizations.signals.entitlementgrant_organizations_m2m_changed"
+    ),
+)
+def entitlementgrant_organizations_m2m_changed(
+    sender, instance, action, pk_set, reverse, **kwargs
+):
+    """Broadcast when orgs are added to or removed from a grant's M2M."""
+    # pylint: disable=unused-argument
+    if action not in {"post_add", "post_remove", "post_clear"}:
+        return
+    if reverse:
+        # Reverse: instance is an Organization that just gained/lost a grant.
+        _invalidate_orgs([instance.uuid])
+        return
+    if not pk_set:
+        # v1: bare `clear()` is not handled — the admin UI uses add/remove.
+        return
+    uuids = list(
+        Organization.objects.filter(pk__in=pk_set).values_list("uuid", flat=True)
+    )
+    _invalidate_orgs(uuids)
+
+
+@receiver(
+    signals.m2m_changed,
+    sender=EntitlementGrant.entitlements.through,
+    dispatch_uid=(
+        "squarelet.organizations.signals.entitlementgrant_entitlements_m2m_changed"
+    ),
+)
+def entitlementgrant_entitlements_m2m_changed(
+    sender, instance, action, reverse, **kwargs
+):
+    """Broadcast for currently-matching orgs when a grant's entitlements change."""
+    # pylint: disable=unused-argument
+    if action not in {"post_add", "post_remove", "post_clear"}:
+        return
+    if reverse:
+        return  # v1: skip reverse path
+    uuids = list(instance.matching_organizations().values_list("uuid", flat=True))
+    _invalidate_orgs(uuids)

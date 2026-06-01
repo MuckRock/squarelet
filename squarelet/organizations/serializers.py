@@ -1,5 +1,5 @@
 # Django
-from django.db.models.expressions import F
+from django.db.models import Q
 
 # Third Party
 import stripe
@@ -8,7 +8,8 @@ from rest_framework.exceptions import APIException
 
 # Squarelet
 from squarelet.core.utils import format_stripe_error
-from squarelet.organizations.models import Charge, Membership, Organization
+from squarelet.organizations.models import Charge, Entitlement, Membership, Organization
+from squarelet.organizations.models.payment import EntitlementGrant
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
@@ -85,19 +86,49 @@ class OrganizationDetailSerializer(OrganizationSerializer):
         return None
 
     def get_entitlements(self, obj):
+        # Get the client first
         client = self.context.get("client")
         if not client:
             request = self.context.get("request")
             if request and hasattr(request, "auth") and request.auth:
                 client = request.auth.client
+        # If we can't find a client, then no entitlements.
+        if not client:
+            return []
 
-        if client:
-            return list(
-                client.entitlements.filter(plans__organizations=obj)
-                .annotate(update_on=F("plans__subscriptions__update_on"))
-                .values("name", "slug", "description", "resources", "update_on")
+        # Compute matching grants once; reused for both the entitlement query
+        # and the grant_update_on map below (avoids a second DB round-trip).
+        matching_grants = EntitlementGrant.objects.for_org(obj).prefetch_related(
+            "entitlements"
+        )
+        entitlements = list(
+            Entitlement.objects.filter(
+                Q(plans__organizations=obj) | Q(grants__in=matching_grants),
+                client=client,
             )
-        return []
+            .distinct()
+            .values("pk", "name", "slug", "description", "resources")
+        )
+
+        sub = obj.subscription
+        sub_update_on = sub.update_on if sub else None
+
+        # For grant-derived entitlements (no subscription), report the soonest
+        # matching grant's update_on per entitlement.
+        grant_update_on = {}
+        if sub_update_on is None:
+            for grant in matching_grants:
+                if grant.update_on is None:
+                    continue
+                for ent in grant.entitlements.all():
+                    existing = grant_update_on.get(ent.pk)
+                    if existing is None or grant.update_on < existing:
+                        grant_update_on[ent.pk] = grant.update_on
+
+        for row in entitlements:
+            row["update_on"] = sub_update_on or grant_update_on.get(row["pk"])
+            del row["pk"]
+        return entitlements
 
     def get_card(self, obj):
         # this can be slow - goes to stripe for customer/card info - cache this
