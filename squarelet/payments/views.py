@@ -191,7 +191,9 @@ class PlanDetailView(DetailView):
 
         return org_cards
 
-    def post(self, request, *args, **kwargs):  # pylint: disable=too-many-return-statements
+    def post(
+        self, request, *args, **kwargs
+    ):  # pylint: disable=too-many-return-statements
         """Handle form submission for subscribing to the plan."""
         self.object = self.get_object()
         plan = self.object

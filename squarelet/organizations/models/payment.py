@@ -284,6 +284,7 @@ class Subscription(models.Model):
         try:
             # Import here to avoid circular imports
             # pylint: disable=import-outside-toplevel
+            # Squarelet
             from squarelet.organizations.models import Invoice  # Squarelet
 
             stripe_invoice = (
