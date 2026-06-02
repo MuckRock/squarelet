@@ -125,13 +125,15 @@ class OIDCTokenExchangeView(APIView):
         # Validate against django-oidc-provider's token model
 
         try:
-            token = Token.objects.get(access_token=oidc_token)
+            token = Token.objects.select_related("client").get(access_token=oidc_token)
         except Token.DoesNotExist:
             return Response({"error": "invalid token"}, status=400)
 
         if token.has_expired():
             return Response({"error": "token expired"}, status=400)
 
+        if "read_auth_token" not in token.client.scope:
+            return Response({"error": "first party clients only"}, status=403)
         refresh = RefreshToken.for_user(token.user)
         return Response(
             {

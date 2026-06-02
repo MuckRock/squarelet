@@ -20,6 +20,7 @@ class ClientFactory(factory.django.DjangoModelFactory):
     website_url = factory.Faker("url")
     terms_url = factory.Faker("url")
     contact_email = factory.Faker("email")
+    _scope = ""
 
     class Meta:
         model = "oidc_provider.Client"
