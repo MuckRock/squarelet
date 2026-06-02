@@ -171,6 +171,7 @@ def format(c):
             "isort -rc squarelet && "
             "isort config/urls.py && "
             "isort -rc config/settings"
+            '"'
         )
     )
 
