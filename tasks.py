@@ -170,14 +170,7 @@ def format(c):
             "black config/settings && "
             "isort -rc squarelet && "
             "isort config/urls.py && "
-<<<<<<< HEAD
-            "isort config/settings"
-            '"'
-||||||| parent of 0b13b89d (pylint clean up)
-            "isort config/settings"
-=======
             "isort -rc config/settings"
->>>>>>> 0b13b89d (pylint clean up)
         )
     )
 
