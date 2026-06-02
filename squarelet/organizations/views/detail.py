@@ -92,7 +92,9 @@ class Detail(AdminLinkMixin, DetailView):
         # and cancelled status for active subscription
         if current_plan and subscription:
             customer = org.customer()
-            if customer.card.object == "payment_method":
+            if customer.card is None:
+                card = None
+            elif customer.card.object == "payment_method":
                 card = customer.card.card
             else:
                 card = customer.card
