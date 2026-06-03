@@ -19,7 +19,7 @@ import stripe
 from reversion.admin import VersionAdmin
 
 # Squarelet
-from squarelet.core.utils import get_stripe_dashboard_url
+from squarelet.core.utils import get_stripe_dashboard_url, new_action
 from squarelet.organizations.models import (
     Charge,
     Customer,
@@ -516,6 +516,33 @@ class EntitlementAdmin(VersionAdmin):
     search_fields = ("name",)
     autocomplete_fields = ("client",)
 
+    def save_model(self, request, obj, form, change):
+        old_resources = None
+        if change and "resources" in form.changed_data:
+            try:
+                old_resources = Entitlement.objects.get(pk=obj.pk).resources
+            except Entitlement.DoesNotExist:
+                pass
+
+        super().save_model(request, obj, form, change)
+
+        if not change:
+            new_action(request.user, "created entitlement", action_object=obj)
+        elif form.changed_data:
+            description = f"Changed fields: {', '.join(form.changed_data)}"
+            if old_resources is not None:
+                description += f"\nresources: {old_resources} → {obj.resources}"
+            new_action(
+                request.user,
+                "updated entitlement",
+                action_object=obj,
+                description=description,
+            )
+
+    def delete_model(self, request, obj):
+        new_action(request.user, "deleted entitlement", description=str(obj))
+        super().delete_model(request, obj)
+
 
 @admin.register(EntitlementGrant)
 class EntitlementGrantAdmin(VersionAdmin):
@@ -560,6 +587,22 @@ class EntitlementGrantAdmin(VersionAdmin):
             },
         ),
     )
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if not change:
+            new_action(request.user, "created entitlement grant", action_object=obj)
+        elif form.changed_data:
+            new_action(
+                request.user,
+                "updated entitlement grant",
+                action_object=obj,
+                description=f"Changed fields: {', '.join(form.changed_data)}",
+            )
+
+    def delete_model(self, request, obj):
+        new_action(request.user, "deleted entitlement grant", description=str(obj))
+        super().delete_model(request, obj)
 
 
 def make_metadata_filter(field):
