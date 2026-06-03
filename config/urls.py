@@ -14,7 +14,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 # Squarelet
 from squarelet.core.views import HomeView, SelectPlanView
-from squarelet.oidc.views import OIDCRedirectURIUpdater, token_view
+from squarelet.oidc.views import OIDCRedirectURIUpdater
 from squarelet.organizations.fe_api.viewsets import (
     InvitationViewSet as FEInvitationViewSet,
     OrganizationViewSet as FEOrganizationViewSet,
@@ -93,7 +93,6 @@ urlpatterns = [
     path("api/jwt/", OIDCTokenExchangeView.as_view(), name="token_oidc_exchange"),
     path("api/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("openid/", include("oidc_provider.urls", namespace="oidc_provider")),
-    path("openid/jwt", token_view, name="oidc_jwt"),
     path("hijack/", include("hijack.urls", namespace="hijack")),
     re_path(r"^robots\.txt", include("robots.urls")),
     re_path(
