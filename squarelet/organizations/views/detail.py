@@ -39,28 +39,7 @@ class Detail(AdminLinkMixin, DetailView):
         org = self.object
         user = self.request.user
         if user.is_authenticated:
-            context["is_admin"] = org.has_admin(user)
-            context["is_member"] = org.has_member(user)
-
-            if user.has_perm("organizations.can_manage_members", org):
-                context["pending_requests"] = org.invitations.get_pending_requests()
-                context["pending_invitations"] = (
-                    org.invitations.get_pending_invitations()
-                )
-
-            # Join requests
-            context["requested_invite"] = user.invitations.filter(
-                organization=org
-            ).get_pending_requests()
-
-            # Rejected requests
-            context["rejected_invite"] = user.invitations.filter(
-                organization=org
-            ).get_rejected_requests()
-
-            context["can_auto_join"] = (
-                user.can_auto_join(org) and not context["is_member"]
-            )
+            context.update(self._get_membership_context(user, org))
 
         users = org.member_users(self.request)
         admins = [
@@ -83,61 +62,78 @@ class Detail(AdminLinkMixin, DetailView):
                 upgrade_plan = None
         context["current_plan"] = current_plan
         context["upgrade_plan"] = upgrade_plan
-
-        # Add member counts
         context["member_count"] = len(users)
         context["admin_count"] = len(admins)
 
-        # Plan context - get card, next charge date,
-        # and cancelled status for active subscription
         if current_plan and subscription:
-            customer = org.customer()
-            if customer.card is None:
-                card = None
-            elif customer.card.object == "payment_method":
-                card = customer.card.card
-            else:
-                card = customer.card
-            context["current_plan_card"] = card
-            # Stripe subscription may have next charge date
-            stripe_sub = subscription.stripe_subscription
-            if stripe_sub:
-                # Try to get next charge date from Stripe subscription
-                time_stamp = (
-                    get_payment_provider()
-                    .get_subscription_service()
-                    .get_current_period_end(stripe_sub)
-                )
-                if time_stamp:
-                    tz_datetime = datetime.fromtimestamp(
-                        time_stamp, tz=timezone.get_current_timezone()
-                    )
-                    context["current_plan_next_charge_date"] = tz_datetime.date()
-            # Check if the plan is cancelled
-            context["current_plan_cancelled"] = subscription.cancelled
+            context.update(self._get_subscription_context(org, subscription))
 
-        # Verification context - let template handle URL generation
         context["show_verification_request"] = (
             user.has_perm("organizations.change_organization", org)
-        ) and not org.verified_journalist
+            and not org.verified_journalist
+        )
 
-        # Security settings context
         if user.has_perm("organizations.can_manage_domains", org):
             context["security_settings"] = {
                 "allow_auto_join": org.allow_auto_join,
                 "has_email_domains": org.domains.exists(),
             }
 
-        # Wix sync context: True when org has a direct Wix plan or inherits one
-        # from a resource-sharing group/parent.  Used to show the staff toolbar button.
         context["show_wix_sync"] = bool(
             (org.plan and org.plan.wix) or org.get_wix_plans_from_groups()
         )
-
-        # Plans inherited from sharing groups / parent orgs
         context["inherited_plans"] = org.get_inherited_plans()
 
         return context
+
+    def _get_membership_context(self, user, org):
+        """Return context dict for the authenticated user's relationship to org."""
+        is_member = org.has_member(user)
+        ctx = {
+            "is_admin": org.has_admin(user),
+            "is_member": is_member,
+            "requested_invite": user.invitations.filter(
+                organization=org
+            ).get_pending_requests(),
+            "rejected_invite": user.invitations.filter(
+                organization=org
+            ).get_rejected_requests(),
+            "can_auto_join": user.can_auto_join(org) and not is_member,
+        }
+        if user.has_perm("organizations.can_manage_members", org):
+            ctx["pending_requests"] = org.invitations.get_pending_requests()
+            ctx["pending_invitations"] = org.invitations.get_pending_invitations()
+        return ctx
+
+    def _get_subscription_context(self, org, subscription):
+        """Return context dict for card, next charge date, and cancellation status."""
+        customer = org.customer()
+        if customer.card is None:
+            card = None
+        elif customer.card.object == "payment_method":
+            card = customer.card.card
+        else:
+            card = customer.card
+
+        ctx = {
+            "current_plan_card": card,
+            "current_plan_cancelled": subscription.cancelled,
+        }
+
+        stripe_sub = subscription.stripe_subscription
+        if stripe_sub:
+            time_stamp = (
+                get_payment_provider()
+                .get_subscription_service()
+                .get_current_period_end(stripe_sub)
+            )
+            if time_stamp:
+                tz_datetime = datetime.fromtimestamp(
+                    time_stamp, tz=timezone.get_current_timezone()
+                )
+                ctx["current_plan_next_charge_date"] = tz_datetime.date()
+
+        return ctx
 
     def handle_join(self, request):
         user = request.user
