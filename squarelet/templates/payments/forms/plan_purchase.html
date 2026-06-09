@@ -6,7 +6,7 @@
     {{ hidden }}
   {% endfor %}
 
-  {% if form.organization.field.queryset.exists %}
+  {% if form.organization.field.queryset.exists or form.plan.for_groups %}
     {# Organization selection #}
     <div class="organization-selection">
       <label for="{{ form.organization.id_for_label }}">
@@ -148,15 +148,9 @@
       <span class="discounted-price" style="display:none;"></span>
       <span class="pay-period">/&nbsp;{% if form.plan.annual %}{% trans "year" %}{% else %}{% trans "month" %}{% endif %}</span>
     </div>
-    {% if form.organization.field.queryset.exists %}
-      <button type="submit" class="btn premium" disabled>
-        {% trans "Subscribe" %}
-      </button>
-    {% else %}
-      <button type="submit" class="btn premium" disabled>
-        {% trans "Subscribe" %}
-      </button>
-    {% endif %}
+    <button type="submit" class="btn premium" disabled>
+      {% trans "Subscribe" %}
+    </button>
   </div>
 
   {# JSON data for JavaScript #}
