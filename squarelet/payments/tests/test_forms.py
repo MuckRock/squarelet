@@ -214,7 +214,7 @@ class TestPlanPurchaseFormValidation:
 
     def test_new_organization_requires_name(self, user_factory, plan_factory):
         """Creating new organization requires name"""
-        user = user_factory()
+        user = user_factory(email_verified=True)
         plan = plan_factory(for_groups=True, public=True)
 
         data = {
@@ -228,6 +228,59 @@ class TestPlanPurchaseFormValidation:
         form = PlanPurchaseForm(data, plan=plan, user=user)
         assert not form.is_valid()
         assert "new_organization_name" in form.errors
+
+    def test_new_organization_requires_verified_email(self, user_factory, plan_factory):
+        """Creating a new organization requires a verified email address"""
+        user = user_factory(email_verified=False)
+        plan = plan_factory(for_groups=True, public=True)
+
+        data = {
+            "organization": "new",
+            "new_organization_name": "My New Org",
+            "payment_method": "new-card",
+            "stripe_token": "tok_visa",
+            "stripe_pk": "pk_test",
+        }
+
+        form = PlanPurchaseForm(data, plan=plan, user=user)
+        assert not form.is_valid()
+        assert "organization" in form.errors
+
+    def test_new_organization_allowed_with_verified_email(
+        self, user_factory, plan_factory
+    ):
+        """Verified users may create a new organization"""
+        user = user_factory(email_verified=True)
+        plan = plan_factory(for_groups=True, public=True)
+
+        data = {
+            "organization": "new",
+            "new_organization_name": "My New Org",
+            "payment_method": "new-card",
+            "stripe_token": "tok_visa",
+            "stripe_pk": "pk_test",
+        }
+
+        form = PlanPurchaseForm(data, plan=plan, user=user)
+        assert form.is_valid(), f"Form errors: {form.errors}"
+
+    def test_existing_org_allowed_without_verified_email(
+        self, user_factory, plan_factory
+    ):
+        """The verified-email constraint only applies to creating new orgs;
+        an unverified user may still subscribe an existing organization."""
+        user = user_factory(email_verified=False)
+        plan = plan_factory(public=True, for_individuals=True)
+
+        data = {
+            "organization": str(user.individual_organization.pk),
+            "payment_method": "new-card",
+            "stripe_token": "tok_visa",
+            "stripe_pk": "pk_test",
+        }
+
+        form = PlanPurchaseForm(data, plan=plan, user=user)
+        assert form.is_valid(), f"Form errors: {form.errors}"
 
     def test_existing_card_valid_when_org_has_card(
         self, user_factory, plan_factory, mocker
@@ -294,6 +347,10 @@ class TestPlanPurchaseFormTemplate:
         """Template should render non-field errors"""
         assert "form.non_field_errors" in self.template_content
 
+    def test_template_gates_new_org_option_on_verified_email(self):
+        """The create-new-organization option must be gated on a verified email"""
+        assert "has_verified_email" in self.template_content
+
 
 @pytest.mark.django_db
 class TestPlanPurchaseFormSave:
@@ -323,7 +380,7 @@ class TestPlanPurchaseFormSave:
 
     def test_save_creates_new_organization(self, user_factory, plan_factory):
         """Save creates new organization when selected"""
-        user = user_factory()
+        user = user_factory(email_verified=True)
         plan = plan_factory(for_groups=True, public=True)
 
         data = {

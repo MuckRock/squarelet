@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { login } from "./helpers";
+import { login, runManageCommand } from "./helpers";
 
 test.describe("Plan purchase redirects", () => {
   test("purchase_redirect query param is preserved in hidden form input", async ({ page }) => {
@@ -50,6 +50,38 @@ test.describe("Plan purchase organization selection", () => {
       await expect(
         page.locator(`${orgForm} .no-subscription-options`),
       ).toHaveCount(0);
+    });
+  });
+
+  test.describe("Group plan, user with no group orgs and unverified email", () => {
+    // A user must verify their email before they can create an organization.
+    // With no eligible orgs and an unverified email, the create-new option must
+    // be withheld and an email-verification message shown instead.
+    test.beforeEach(async ({ page }) => {
+      runManageCommand(
+        `shell -c "from allauth.account.models import EmailAddress; EmailAddress.objects.filter(user__username='e2e-regular').update(verified=False)"`,
+      );
+      await login(page, "e2e-regular");
+      await page.goto("/plans/e2e-test-plan/");
+    });
+
+    test.afterEach(() => {
+      // Restore the verified email so other tests see the seeded state
+      runManageCommand(
+        `shell -c "from allauth.account.models import EmailAddress; EmailAddress.objects.filter(user__username='e2e-regular').update(verified=True)"`,
+      );
+    });
+
+    test("does not offer the create-new-organization option", async ({ page }) => {
+      await expect(
+        page.locator(`${orgForm} select.org-select option[value="new"]`),
+      ).toHaveCount(0);
+    });
+
+    test("shows the email-verification message", async ({ page }) => {
+      await expect(
+        page.locator(`${orgForm} .no-subscription-options.unverified-email`),
+      ).toBeVisible();
     });
   });
 
