@@ -9,6 +9,7 @@ from django.http.response import (
     HttpResponseForbidden,
     HttpResponseNotAllowed,
     HttpResponseRedirect,
+    JsonResponse,
 )
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -391,6 +392,7 @@ class UserOnboardingView(TemplateView):
 
         self._initialize_onboarding_session(request)
 
+        is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
         step = request.POST.get("step")
         current_step_name, _ = self.get_onboarding_step(request)
         # Make sure the form data matches the session state
@@ -399,8 +401,29 @@ class UserOnboardingView(TemplateView):
             # error and we need to re-render the current step with errors
             success = self.step_registry.handle_post(request, step)
             if success is False:
+                payment_exc = getattr(request, "_payment_action_required", None)
+                if is_ajax and payment_exc:
+                    return JsonResponse(
+                        {
+                            "client_secret": payment_exc.client_secret,
+                            "redirect": reverse("account_onboarding"),
+                        },
+                        status=402,
+                    )
+                if is_ajax:
+                    form = getattr(request, "_subscription_form_errors", None)
+                    if form:
+                        errors = form.non_field_errors()
+                        error_msg = errors[0] if errors else _(
+                            "An error occurred. Please try again."
+                        )
+                    else:
+                        error_msg = _("An error occurred. Please try again.")
+                    return JsonResponse({"error": str(error_msg)}, status=400)
                 context = self.get_context_data(**kwargs)
                 return self.render_to_response(context)
+            if is_ajax:
+                return JsonResponse({"redirect": reverse("account_onboarding")})
         # Often times, a user confirms their email in another tab and thus
         # a mismatch gets thrown erroneously. This should redirect them.
         elif step == "confirm_email":
