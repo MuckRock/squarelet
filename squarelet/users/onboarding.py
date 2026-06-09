@@ -329,6 +329,7 @@ class SubscriptionStep(OnboardingStep):
             try:
                 saved = form.save(request.user)
             except PaymentActionRequired as exc:
+                # pylint: disable=protected-access
                 request._payment_action_required = exc
                 request._subscription_form_errors = form
                 request._subscription_form_plan = plan
@@ -340,6 +341,7 @@ class SubscriptionStep(OnboardingStep):
                 request.session.modified = True
                 return True
         # Store the form with errors for re-rendering
+        # pylint: disable=protected-access
         request._subscription_form_errors = form
         request._subscription_form_plan = plan
         messages.error(request, "Error creating subscription. Please try again.")

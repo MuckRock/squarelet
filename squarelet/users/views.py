@@ -387,6 +387,7 @@ class UserOnboardingView(TemplateView):
 
     def post(self, request, *args, **kwargs):
         """Handle POST requests for onboarding steps"""
+        # pylint: disable=too-many-return-statements
         if not request.user.is_authenticated:
             return redirect("account_login")
 
@@ -394,7 +395,7 @@ class UserOnboardingView(TemplateView):
 
         is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
         step = request.POST.get("step")
-        current_step_name, _ = self.get_onboarding_step(request)
+        current_step_name, _context = self.get_onboarding_step(request)
         # Make sure the form data matches the session state
         if step and step == current_step_name:
             # If registry step returns False, it means there was a validation
@@ -414,8 +415,10 @@ class UserOnboardingView(TemplateView):
                     form = getattr(request, "_subscription_form_errors", None)
                     if form:
                         errors = form.non_field_errors()
-                        error_msg = errors[0] if errors else _(
-                            "An error occurred. Please try again."
+                        error_msg = (
+                            errors[0]
+                            if errors
+                            else _("An error occurred. Please try again.")
                         )
                     else:
                         error_msg = _("An error occurred. Please try again.")
