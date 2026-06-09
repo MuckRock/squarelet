@@ -17,6 +17,7 @@ from allauth.mfa.totp.internal.flows import activate_totp
 
 # Squarelet
 from squarelet.organizations.models.payment import Plan
+from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.users.forms import PremiumSubscriptionForm
 
 logger = logging.getLogger(__name__)
@@ -324,18 +325,25 @@ class SubscriptionStep(OnboardingStep):
             return False  # Let the view re-render with the error
 
         form = PremiumSubscriptionForm(request.POST, plan=plan, user=request.user)
-        if form.is_valid() and form.save(request.user):
-            # Create a subscription for the selected organization
-            messages.success(request, "Subscription created successfully.")
-            request.session["onboarding"]["subscription"] = "completed"
-            request.session.modified = True
-            return True
-        else:
-            # Store the form with errors for re-rendering
-            setattr(request, "_subscription_form_errors", form)
-            setattr(request, "_subscription_form_plan", plan)
-            messages.error(request, "Error creating subscription. Please try again.")
-            return False
+        if form.is_valid():
+            try:
+                saved = form.save(request.user)
+            except PaymentActionRequired as exc:
+                request._payment_action_required = exc
+                request._subscription_form_errors = form
+                request._subscription_form_plan = plan
+                return False
+            if saved:
+                # Create a subscription for the selected organization
+                messages.success(request, "Subscription created successfully.")
+                request.session["onboarding"]["subscription"] = "completed"
+                request.session.modified = True
+                return True
+        # Store the form with errors for re-rendering
+        request._subscription_form_errors = form
+        request._subscription_form_plan = plan
+        messages.error(request, "Error creating subscription. Please try again.")
+        return False
 
 
 class MFAOptInStep(OnboardingStep):

@@ -87,22 +87,63 @@
         });
         // We don't want the browser to fill this in with old values
         tokenInput.value = "";
+        // Submit form via AJAX, handling 3DS if required
+        function submitViaAjax() {
+          const errorDisplay = cardField.querySelector(".card-element-errors");
+          fetch(form.action, {
+            method: "POST",
+            headers: {"X-Requested-With": "XMLHttpRequest"},
+            body: new FormData(form),
+          })
+          .then(function(response) {
+            return response.json().then(function(data) {
+              return {status: response.status, data: data};
+            });
+          })
+          .then(function(result) {
+            if (result.status === 402) {
+              // Card requires 3DS authentication
+              stripe.confirmCardPayment(result.data.client_secret)
+                .then(function(confirmation) {
+                  if (confirmation.error) {
+                    if (errorDisplay) {
+                      errorDisplay.textContent = confirmation.error.message;
+                    }
+                  } else {
+                    window.location.href = result.data.redirect;
+                  }
+                });
+            } else if (result.status >= 200 && result.status < 300) {
+              window.location.href = result.data.redirect;
+            } else {
+              if (errorDisplay) {
+                errorDisplay.textContent =
+                  result.data.error || "An error occurred. Please try again.";
+              }
+            }
+          })
+          .catch(function() {
+            if (errorDisplay) {
+              errorDisplay.textContent =
+                "A network error occurred. Please try again.";
+            }
+          });
+        }
         // Create a token or display an error when submitting the form
         form.addEventListener("submit", function(event) {
           event.preventDefault();
+          const errorDisplay = cardField.querySelector(".card-element-errors");
           if (tokenInput.value) {
-            // Token already exists, continue with normal submission
-            return true;
+            // Token already set, submit via AJAX
+            submitViaAjax();
+            return;
           }
           stripe.createToken(cardElement).then(function(result) {
             if (result.error) {
-              // Inform the customer that there was an error
-              const displayError = cardField.querySelector(".card-element-errors");
-              displayError.textContent = result.error.message;
+              if (errorDisplay) errorDisplay.textContent = result.error.message;
             } else {
-              // Set the token value and submit the form
               tokenInput.value = result.token.id;
-              form.submit();
+              submitViaAjax();
             }
           });
         });
