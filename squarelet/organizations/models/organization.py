@@ -33,7 +33,7 @@ from squarelet.organizations.querysets import OrganizationQuerySet
 
 logger = logging.getLogger(__name__)
 
-# pylint:disable=too-many-positional-arguments
+# pylint:disable=too-many-positional-arguments,too-many-lines
 
 
 def organization_file_path(instance, filename):

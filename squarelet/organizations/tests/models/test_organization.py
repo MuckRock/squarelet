@@ -591,7 +591,8 @@ class TestOrganization:
         organization = organization_factory(admins=[user], plans=[old_plan])
 
         mocker.patch(
-            "squarelet.organizations.models.Customer.stripe_customer", card=None
+            "squarelet.organizations.models.Customer.stripe_customer",
+            default_source=None,
         )
         mocker.patch("squarelet.organizations.models.Subscription.modify")
         mocker.patch("squarelet.organizations.models.Organization.change_logs")
@@ -621,7 +622,8 @@ class TestOrganization:
         organization = organization_factory(admins=[user], plans=[wix_plan])
 
         mocker.patch(
-            "squarelet.organizations.models.Customer.stripe_customer", card=None
+            "squarelet.organizations.models.Customer.stripe_customer",
+            default_source=None,
         )
         mocker.patch("squarelet.organizations.models.Subscription.cancel")
         mocker.patch("squarelet.organizations.models.Organization.change_logs")
