@@ -109,13 +109,9 @@
     <div class="control-group">
     {% if request.user.is_authenticated %}
       {% if accept_form.requires_email_verification %}
-        <form class="email-actions" action="{% url "account_email" %}" method="post">
-          {% csrf_token %}
-          <input type="hidden" name="email" value="{{request.user.email}}" />
-          <button class="button primary" type="submit" name="action_send">
-            {% trans "Verify your email address" %}
-          </button>
-        </form>
+        <a class="button primary" href="{% url "users:redirect" %}#accounts">
+          {% trans "Confirm your email address" %}
+        </a>
       {% else %}
         <form method="post">
           {% csrf_token %}
