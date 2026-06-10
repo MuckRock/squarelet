@@ -25,6 +25,7 @@ USERS = [
     {"username": "e2e-member", "is_staff": False},
     {"username": "e2e-regular", "is_staff": False},
     {"username": "e2e-requester", "is_staff": False},
+    {"username": "e2e-unverified", "is_staff": False, "verified": False},
 ]
 
 # DB-assigned Organization permissions for the e2e-staff user
@@ -148,7 +149,7 @@ class Command(BaseCommand):
                 user=user,
                 email=email,
                 primary=True,
-                verified=True,
+                verified=user_spec.get("verified", True),
             )
 
             # Set last_mfa_prompt so the MFA onboarding step is snoozed,
