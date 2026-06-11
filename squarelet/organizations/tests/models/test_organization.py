@@ -596,6 +596,7 @@ class TestOrganization:
         mocker.patch(
             "squarelet.organizations.models.Customer.stripe_customer",
             default_source=None,
+            invoice_settings=None,
         )
         mocker.patch("squarelet.organizations.models.Subscription.modify")
         mocker.patch("squarelet.organizations.models.Organization.change_logs")
@@ -627,6 +628,7 @@ class TestOrganization:
         mocker.patch(
             "squarelet.organizations.models.Customer.stripe_customer",
             default_source=None,
+            invoice_settings=None,
         )
         mocker.patch("squarelet.organizations.models.Subscription.cancel")
         mocker.patch("squarelet.organizations.models.Organization.change_logs")

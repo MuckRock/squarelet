@@ -269,6 +269,7 @@ class TestModernSubscriptionService:
             metadata={"action": "test"},
             days_until_due=None,
             expand=["latest_invoice.confirmation_secret"],
+            payment_settings={"payment_method_types": ["card"]},
         )
 
     def test_create_translates_send_invoice(self, subscription_service, mocker):
