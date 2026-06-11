@@ -164,6 +164,10 @@ class TestModernChargeService:
             metadata={"key": "val"},
             statement_descriptor_suffix="Test",
             confirm=True,
+            automatic_payment_methods={
+                "enabled": True,
+                "allow_redirects": "never",
+            },
             expand=["latest_charge"],
             idempotency_key="idem-123",
         )
@@ -269,7 +273,6 @@ class TestModernSubscriptionService:
             metadata={"action": "test"},
             days_until_due=None,
             expand=["latest_invoice.confirmation_secret"],
-            payment_settings={"payment_method_types": ["card"]},
         )
 
     def test_create_translates_send_invoice(self, subscription_service, mocker):
