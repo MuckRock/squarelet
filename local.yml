@@ -24,6 +24,7 @@ services:
           - www.dev.documentcloud.org
           - dev.muckrock.com
           - dev.foiamachine.org
+          - minio.documentcloud.org
 
   squarelet_mailhog:
     image: mailhog/mailhog:v1.0.0
