@@ -185,9 +185,12 @@ class TestOIDCTokenExchangeView:
             _id_token="",
         )
 
-    def test_valid_token_returns_jwt(self, user_factory, client):
+    def test_valid_token_returns_jwt(self, user_factory):
         user = user_factory()
-        self._make_token(user, client, expires_at=timezone.now() + timedelta(hours=1))
+        first_party_client = ClientFactory(_scope="read_auth_token")
+        self._make_token(
+            user, first_party_client, expires_at=timezone.now() + timedelta(hours=1)
+        )
         api_client = APIClient()
         response = api_client.post(
             "/api/jwt/", {"oidc_token": "test-oidc-access-token"}
@@ -209,12 +212,28 @@ class TestOIDCTokenExchangeView:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.json() == {"error": "invalid token"}
 
-    def test_expired_token_returns_400(self, user_factory, client):
+    def test_expired_token_returns_400(self, user_factory):
         user = user_factory()
-        self._make_token(user, client, expires_at=timezone.now() - timedelta(hours=1))
+        first_party_client = ClientFactory(_scope="read_auth_token")
+        self._make_token(
+            user, first_party_client, expires_at=timezone.now() - timedelta(hours=1)
+        )
         api_client = APIClient()
         response = api_client.post(
             "/api/jwt/", {"oidc_token": "test-oidc-access-token"}
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.json() == {"error": "token expired"}
+
+    def test_third_party_client_returns_403(self, user_factory):
+        user = user_factory()
+        third_party_client = ClientFactory()  # no read_auth_token scope
+        self._make_token(
+            user, third_party_client, expires_at=timezone.now() + timedelta(hours=1)
+        )
+        api_client = APIClient()
+        response = api_client.post(
+            "/api/jwt/", {"oidc_token": "test-oidc-access-token"}
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.json() == {"error": "first party clients only"}
