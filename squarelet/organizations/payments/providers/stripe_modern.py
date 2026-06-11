@@ -143,6 +143,12 @@ class StripeModernSubscriptionService(SubscriptionService):
         # subscriptions no longer auto-expand as of API version 2020-08-27
         # latest_invoice.confirmation_secret replaces latest_invoice.payment_intent
         # for SCA/3DS detection as of API version 2025-03-31.basil
+        kwargs = {}
+        if billing == "charge_automatically":
+            # Restrict to card-only for automatic billing so Stripe doesn't
+            # attach redirect-based payment methods that would require a
+            # return_url on the resulting PaymentIntent.
+            kwargs["payment_settings"] = {"payment_method_types": ["card"]}
         return stripe.Subscription.create(
             customer=stripe_customer.id,
             items=[{"plan": plan_id, "quantity": quantity}],
@@ -150,6 +156,7 @@ class StripeModernSubscriptionService(SubscriptionService):
             metadata=metadata,
             days_until_due=days_until_due,
             expand=["latest_invoice.confirmation_secret"],
+            **kwargs,
         )
 
     def retrieve(self, subscription_id):
