@@ -270,29 +270,29 @@ class PlanDetailView(DetailView):
             messages.success(request, _("You have been added to the waitlist."))
             return redirect(plan)
         transaction.on_commit(
-            lambda: organization.set_subscription(
+            lambda: organization.add_subscription(
+                selected_plan,
+                selected_plan.minimum_users,
+                request.user,
                 token=stripe_token,
-                plan=selected_plan,
-                max_users=selected_plan.minimum_users,
-                user=request.user,
                 payment_method=payment_method,
             )
         )
         return None
 
     def _handle_regular_subscription(self, request, plan, result):
-        """Call set_subscription directly; return error response or None on success."""
+        """Call add_subscription directly; return error response or None on success."""
         organization = result["organization"]
         selected_plan = result["plan"]
         stripe_token = result["stripe_token"]
         payment_method = result["payment_method"]
 
         try:
-            organization.set_subscription(
+            organization.add_subscription(
+                selected_plan,
+                selected_plan.minimum_users,
+                request.user,
                 token=stripe_token,
-                plan=selected_plan,
-                max_users=selected_plan.minimum_users,
-                user=request.user,
                 payment_method=payment_method,
             )
             return None
