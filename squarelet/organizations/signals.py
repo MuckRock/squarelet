@@ -141,7 +141,7 @@ def sync_wix_on_member_add(sender, instance, action, pk_set, reverse, **kwargs):
         member_pk = member_org.pk
         for group_pk in pk_set:
             group = (
-                Organization.objects.filter(pk=group_pk).select_related("_plan").first()
+                Organization.objects.filter(pk=group_pk).prefetch_related("plans").first()
             )
             if should_sync_wix(group):
                 plan_pk = group.plan.pk
