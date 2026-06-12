@@ -635,7 +635,6 @@ class Organization(AvatarMixin, models.Model):
                     logger.info(
                         "Cancelled Stripe subscription %s for organization %s",
                         subscription.subscription_id,
-                        target.subscription_id,
                         self.uuid,
                     )
                 else:
