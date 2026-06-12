@@ -81,7 +81,8 @@ class Detail(AdminLinkMixin, DetailView):
             }
 
         context["show_wix_sync"] = bool(
-            (org.plan and org.plan.wix) or org.get_wix_plans_from_groups()
+            org.subscriptions.filter(plan__wix=True).exists()
+            or org.get_wix_plans_from_groups()
         )
         context["inherited_plans"] = org.get_inherited_plans()
 
@@ -295,17 +296,17 @@ class Detail(AdminLinkMixin, DetailView):
         org = self.organization
         triggered = False
 
-        # Direct Wix plan on this org
-        if org.plan and org.plan.wix:
-            self._sync_wix_for_org(org, org.plan)
+        # Direct Wix plans on this org
+        for sub in org.subscriptions.filter(plan__wix=True).select_related("plan"):
+            self._sync_wix_for_org(org, sub.plan)
             triggered = True
 
             # Cascade to member orgs and child orgs when this org shares resources
             if org.share_resources:
                 for member_org in org.members.all():
-                    self._sync_wix_for_org(member_org, org.plan)
+                    self._sync_wix_for_org(member_org, sub.plan)
                 for child_org in org.children.all():
-                    self._sync_wix_for_org(child_org, org.plan)
+                    self._sync_wix_for_org(child_org, sub.plan)
 
         # Inherited Wix plans via resource-sharing groups / parent orgs
         for _group, plan in org.get_wix_plans_from_groups():

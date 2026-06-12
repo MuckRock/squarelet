@@ -269,7 +269,9 @@ class PremiumSubscriptionForm(StripeForm):
                     if not organization.receipt_emails.filter(email=email).exists():
                         organization.receipt_emails.create(email=email)
         try:
-            organization.add_subscription(plan, plan.minimum_users, user, token=stripe_token)
+            organization.add_subscription(
+                plan, plan.minimum_users, user, token=stripe_token
+            )
             return True
         except stripe.StripeError as exc:
             user_message = format_stripe_error(exc)

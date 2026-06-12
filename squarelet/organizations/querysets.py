@@ -91,7 +91,7 @@ class OrganizationQuerySet(models.QuerySet):
         user.individual_organization.change_logs.create(
             reason=ChangeLogReason.created,
             user=user,
-            to_plan=user.individual_organization.plan,
+            to_plan=user.individual_organization.plans.first(),
             to_max_users=user.individual_organization.max_users,
         )
         return user.individual_organization
@@ -439,7 +439,6 @@ class SubscriptionQuerySet(models.QuerySet):
         return self.filter(
             plan__slug__startswith="sunlight-",
             plan__wix=True,
-            cancelled=False,
         ).count()
 
 

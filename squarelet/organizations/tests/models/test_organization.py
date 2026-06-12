@@ -1366,4 +1366,3 @@ class TestMultipleSubscriptions:
 
         assert not org.has_active_subscription(plan=plan)
         assert not org.has_active_subscription()
-
