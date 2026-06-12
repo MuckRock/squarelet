@@ -60,15 +60,21 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
     def form_valid(self, form):
         # pylint: disable=too-many-return-statements
         organization = self.object
+        token = form.cleaned_data["stripe_token"]
         new_plan = form.cleaned_data.get("plan")
+        max_users = form.cleaned_data.get("max_users")
+        user = self.request.user
+        current_plan = organization.plan
         redirect_url = organization.get_absolute_url()
         try:
-            organization.set_subscription(
-                token=form.cleaned_data["stripe_token"],
-                plan=new_plan,
-                max_users=form.cleaned_data.get("max_users"),
-                user=self.request.user,
-            )
+            if not current_plan and new_plan:
+                organization.add_subscription(new_plan, max_users, user, token=token)
+            elif current_plan and not new_plan:
+                organization.remove_subscription(current_plan, user)
+            elif current_plan and new_plan:
+                if token:
+                    organization.save_card(token, user)
+                organization.modify_subscription(current_plan, new_plan, max_users, user)
         except PaymentActionRequired as exc:
             if self._is_ajax():
                 return JsonResponse(
