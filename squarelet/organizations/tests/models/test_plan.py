@@ -133,20 +133,20 @@ class TestPlan:
 
     @override_settings(MAX_SUNLIGHT_SUBSCRIPTIONS=15)
     @pytest.mark.django_db
-    def test_has_available_slots_excludes_cancelled(
+    def test_has_available_slots_includes_cancelled(
         self, plan_factory, subscription_factory
     ):
-        """Cancelled subscriptions don't count toward limit"""
+        """cancelled=True means pending cancellation — counts toward limit."""
         sunlight_plan = plan_factory(slug="sunlight-essential-monthly", wix=True)
 
-        # Create 14 active and 10 cancelled subscriptions
-        for _ in range(14):
-            subscription_factory(plan=sunlight_plan, cancelled=False)
+        # Create 10 active and 5 pending-cancellation subscriptions (total 15 = limit)
         for _ in range(10):
+            subscription_factory(plan=sunlight_plan, cancelled=False)
+        for _ in range(5):
             subscription_factory(plan=sunlight_plan, cancelled=True)
 
-        # Should still have slots available (14 < 15)
-        assert sunlight_plan.has_available_slots() is True
+        # 15 total subscriptions = at the limit, no slots available
+        assert sunlight_plan.has_available_slots() is False
 
     def test_is_sunlight_plan_for_regular_sunlight(self, plan_factory):
         """Regular Sunlight plans should be identified as Sunlight plans"""

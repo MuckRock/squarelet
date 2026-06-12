@@ -124,7 +124,8 @@ class OrganizationDetailSerializer(OrganizationSerializer):
             .values("pk", "name", "slug", "description", "resources")
         )
 
-        sub = obj.subscription
+        # This needs to take all subscriptions into account
+        sub = obj.subscriptions.first()
         sub_update_on = sub.update_on if sub else None
 
         # For grant-derived entitlements (no subscription), report the soonest
