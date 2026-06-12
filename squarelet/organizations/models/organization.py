@@ -9,7 +9,6 @@ from django.utils.translation import gettext_lazy as _
 import logging
 import sys
 import uuid
-import warnings
 from functools import cached_property
 
 # Third Party
@@ -34,7 +33,7 @@ from squarelet.organizations.querysets import OrganizationQuerySet
 
 logger = logging.getLogger(__name__)
 
-# pylint:disable=too-many-positional-arguments,too-many-lines
+# pylint:disable=too-many-positional-arguments
 
 
 def organization_file_path(instance, filename):
