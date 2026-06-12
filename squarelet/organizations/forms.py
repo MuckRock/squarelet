@@ -129,7 +129,7 @@ class PaymentForm(StripeForm):
         # on a private plan, plus private plans they have been given access to
         plans = Plan.objects.choices(self.organization)
         self.fields["plan"].queryset = plans
-        self.fields["plan"].default = self.organization.plan
+        self.fields["plan"].default = self.organization.plans.first()
         if self.organization.individual:
             del self.fields["max_users"]
         else:
@@ -159,8 +159,10 @@ class PaymentForm(StripeForm):
         data = super().clean()
         plan = data.get("plan")
 
-        payment_required = plan != self.organization.plan and (
-            plan and plan.requires_payment()
+        payment_required = (
+            plan
+            and plan.requires_payment()
+            and not self.organization.subscriptions.filter(plan=plan).exists()
         )
         payment_supplied = data.get("use_card_on_file") or data.get("stripe_token")
 

@@ -23,7 +23,7 @@ class Create(LoginRequiredMixin, CreateView):
         organization.change_logs.create(
             reason=ChangeLogReason.created,
             user=self.request.user,
-            to_plan=organization.plan,
+            to_plan=organization.plans.first(),
             to_max_users=organization.max_users,
         )
         return redirect(organization)

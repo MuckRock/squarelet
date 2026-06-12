@@ -64,7 +64,7 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
         new_plan = form.cleaned_data.get("plan")
         max_users = form.cleaned_data.get("max_users")
         user = self.request.user
-        current_plan = organization.plan
+        current_plan = organization.plans.first()
         redirect_url = organization.get_absolute_url()
         try:
             if not current_plan and new_plan:
@@ -74,7 +74,9 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
             elif current_plan and new_plan:
                 if token:
                     organization.save_card(token, user)
-                organization.modify_subscription(current_plan, new_plan, max_users, user)
+                organization.modify_subscription(
+                    current_plan, new_plan, max_users, user
+                )
         except PaymentActionRequired as exc:
             if self._is_ajax():
                 return JsonResponse(
@@ -137,7 +139,7 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
 
     def get_initial(self):
         return {
-            "plan": self.object.plan,
+            "plan": self.object.plans.first(),
             "max_users": self.object.max_users,
             "receipt_emails": "\n".join(
                 r.email for r in self.object.receipt_emails.all()

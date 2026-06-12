@@ -52,7 +52,16 @@ class Membership(models.Model):
         from squarelet.organizations.tasks import sync_wix
 
         is_new = self.pk is None
-        is_wix = self.organization.plan and self.organization.plan.wix
+        direct_wix_plan_pks = (
+            list(
+                self.organization.subscriptions.filter(plan__wix=True).values_list(
+                    "plan_id", flat=True
+                )
+            )
+            if is_new
+            else []
+        )
+        is_wix = bool(direct_wix_plan_pks)
 
         # Check group Wix plans if no direct Wix plan (before save, while we can check)
         group_wix_plans = []
@@ -70,14 +79,14 @@ class Membership(models.Model):
             # Trigger Wix sync if this is a new membership
             if is_new:
                 if is_wix:
-                    # Direct org Wix plan
-                    transaction.on_commit(
-                        lambda: sync_wix.delay(
-                            self.organization.pk,
-                            self.organization.plan.pk,
-                            self.user.pk,
+                    # Direct org Wix plans — one sync task per plan
+                    org_pk, user_pk = self.organization.pk, self.user.pk
+                    for plan_pk in direct_wix_plan_pks:
+                        transaction.on_commit(
+                            lambda o=org_pk, p=plan_pk, u=user_pk: sync_wix.delay(
+                                o, p, u
+                            )
                         )
-                    )
                 else:
                     # Group Wix plans - sync new user to each group's plan
                     for _, plan in group_wix_plans:
@@ -105,15 +114,17 @@ class Membership(models.Model):
         org = self.organization
         user_pk = self.user.pk
         user_uuid = self.user.uuid
-        direct_plan_pk = org.plan.pk if org.plan and org.plan.wix else None
+        direct_plan_pks = list(
+            org.subscriptions.filter(plan__wix=True).values_list("plan_id", flat=True)
+        )
         group_wix_plans = [(g.pk, p.pk) for g, p in org.get_wix_plans_from_groups()]
 
         with transaction.atomic():
             super().delete(*args, **kwargs)
             transaction.on_commit(lambda: send_cache_invalidations("user", user_uuid))
-            if direct_plan_pk is not None:
+            for plan_pk in direct_plan_pks:
                 transaction.on_commit(
-                    lambda: unsync_wix.delay(org.pk, direct_plan_pk, user_pk)
+                    lambda p=plan_pk: unsync_wix.delay(org.pk, p, user_pk)
                 )
             for group_pk, gplan_pk in group_wix_plans:
                 transaction.on_commit(

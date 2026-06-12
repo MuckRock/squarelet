@@ -1088,7 +1088,7 @@ class TestUpdateSubscription(ViewTestMixin):
         assert response.status_code == 200
         assert response.context_data["failed_receipt_emails"][0] == failed_email
         initial = response.context_data["form"].initial
-        assert initial["plan"] == organization.plan
+        assert initial["plan"] == organization.plans.first()
         assert initial["max_users"] == organization.max_users
         assert len(initial["receipt_emails"].split("\n")) == 2
 
@@ -1239,7 +1239,7 @@ class TestCreate(ViewTestMixin):
         user = user_factory(email_verified=True)
         self.call_view(rf, user, {"name": "test"})
         organization = user.organizations.get(individual=False)
-        assert organization.plan is None
+        assert not organization.subscriptions.exists()
         assert organization.has_admin(user)
         assert user.email in organization.receipt_emails.values_list("email", flat=True)
 

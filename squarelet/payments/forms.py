@@ -162,7 +162,6 @@ class PlanPurchaseForm(StripeForm):
             if self.plan:
                 subscribed_orgs = Organization.objects.filter(
                     subscriptions__plan=self.plan,
-                    subscriptions__cancelled=False,
                 )
                 base_queryset = base_queryset.exclude(pk__in=subscribed_orgs)
 

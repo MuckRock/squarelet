@@ -61,15 +61,17 @@ class Command(BaseCommand):
                     ]
                 )
             if organization.user_count() > organization.max_users:
-                if not organization.plan or organization.plan.free:
+                active_subs = list(organization.subscriptions.select_related("plan"))
+                paid_subs = [s for s in active_subs if not s.plan.free]
+                if not paid_subs:
                     organization.max_users = organization.user_count()
                     organization.save()
                 else:
                     self.stdout.write(
                         f"WARNING: Organization {organization.name} "
                         f"({organization.pk}) has {organization.user_count()} users, "
-                        f"but max users is {organization.max_users} with plan "
-                        f"{organization.plan}"
+                        f"but max users is {organization.max_users} with plans "
+                        f"{', '.join(str(s.plan) for s in paid_subs)}"
                     )
             # we do not send the batched invalidations, but just delete them
             delete_cache_invalidation_set()

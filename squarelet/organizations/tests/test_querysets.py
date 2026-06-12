@@ -205,7 +205,10 @@ class TestOrganizationQuerySet(TestCase):
 
         # Verify change log was created
         assert org.change_logs.filter(
-            reason=ChangeLogReason.created, user=user, to_plan=org.plan, to_max_users=1
+            reason=ChangeLogReason.created,
+            user=user,
+            to_plan=org.plans.first(),
+            to_max_users=1,
         ).exists()
 
     @pytest.mark.django_db

@@ -243,7 +243,6 @@ class Subscription(models.Model):
                 self.organization.subscriptions.exclude(pk=self.pk)
                 .filter(
                     plan__entitlements__slug="organization",
-                    cancelled=False,
                 )
                 .exists()
             )
