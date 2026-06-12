@@ -116,7 +116,7 @@ class PlanDetailView(DetailView):
             # Check user's individual organization
             individual_org = user.individual_organization
             individual_subscription = individual_org.subscriptions.filter(
-                plan=plan, cancelled=False
+                plan=plan
             ).first()
             if individual_subscription:
                 existing_subscriptions.append((individual_subscription, individual_org))
@@ -135,9 +135,7 @@ class PlanDetailView(DetailView):
                 admin_orgs = admin_orgs_base
 
             for org in admin_orgs:
-                org_subscription = org.subscriptions.filter(
-                    plan=plan, cancelled=False
-                ).first()
+                org_subscription = org.subscriptions.filter(plan=plan).first()
                 if org_subscription:
                     existing_subscriptions.append((org_subscription, org))
 
@@ -210,9 +208,7 @@ class PlanDetailView(DetailView):
                 result = form.save(request.user)
                 organization = result["organization"]
 
-                if organization.subscriptions.filter(
-                    plan=plan, cancelled=False
-                ).exists():
+                if organization.subscriptions.filter(plan=plan).exists():
                     messages.warning(request, _("Already subscribed"))
                     return redirect(plan)
 
@@ -346,7 +342,7 @@ class SunlightResearchPlansView(TemplateView):
             # Check user's individual organization
             individual_org = self.request.user.individual_organization
             individual_subscriptions = individual_org.subscriptions.filter(
-                plan__slug__startswith="sunlight-", plan__wix=True, cancelled=False
+                plan__slug__startswith="sunlight-", plan__wix=True
             ).select_related("plan")
 
             for subscription in individual_subscriptions:
@@ -359,7 +355,7 @@ class SunlightResearchPlansView(TemplateView):
 
             for org in admin_orgs:
                 org_subscriptions = org.subscriptions.filter(
-                    plan__slug__startswith="sunlight-", plan__wix=True, cancelled=False
+                    plan__slug__startswith="sunlight-", plan__wix=True
                 ).select_related("plan")
 
                 for subscription in org_subscriptions:

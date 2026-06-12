@@ -422,27 +422,6 @@ class Organization(AvatarMixin, models.Model):
         self.customer().remove_card()
         send_cache_invalidations("organization", self.uuid)
 
-    @cached_property
-    def plan(self):
-        warnings.warn(
-            "Organization.plan is deprecated; use Organization.plans.first() "
-            "or iterate Organization.plans.all() for multi-subscription support.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.plans.first()
-
-    @cached_property
-    def subscription(self):
-        warnings.warn(
-            "Organization.subscription is deprecated; use "
-            "Organization.subscriptions.first() or iterate "
-            "Organization.subscriptions.all() for multi-subscription support.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.subscriptions.first()
-
     def member_users(self, request=None):
         """Get all member users for this organization.
 
@@ -491,7 +470,7 @@ class Organization(AvatarMixin, models.Model):
         # Squarelet
         from squarelet.organizations.tasks import sync_wix, sync_wix_for_group_member
 
-        if self.subscriptions.filter(plan=plan, cancelled=False).exists():
+        if self.subscriptions.filter(plan=plan).exists():
             raise ValueError(
                 f"Organization already has an active subscription to {plan}"
             )
@@ -539,6 +518,7 @@ class Organization(AvatarMixin, models.Model):
     def remove_subscription(self, plan_or_subscription, user=None):
         """Cancel the subscription for the given plan or Subscription instance."""
         # pylint: disable=import-outside-toplevel
+        # Squarelet
         from squarelet.organizations.models.payment import Subscription as Sub
 
         if isinstance(plan_or_subscription, Sub):
@@ -563,7 +543,7 @@ class Organization(AvatarMixin, models.Model):
     def modify_subscription(self, old_plan, new_plan, max_users, user):
         """Modify the subscription for old_plan to new_plan."""
         try:
-            sub = self.subscriptions.get(plan=old_plan, cancelled=False)
+            sub = self.subscriptions.get(plan=old_plan)
         except self.subscriptions.model.DoesNotExist:
             raise ValueError(
                 f"Organization does not have an active subscription to {old_plan}"
@@ -616,20 +596,24 @@ class Organization(AvatarMixin, models.Model):
 
         Args:
             subscription: The specific subscription to cancel. If None,
-                cancels self.subscription (the org's current subscription).
+                cancels self.subscriptions.first() (the org's current subscription).
         """
-        subscription = subscription or self.subscription
+        subscription = subscription or self.subscriptions.first()
 
         # Create change log entry
         self.change_logs.create(
             reason=ChangeLogReason.failed,
-            from_plan=subscription.plan if subscription else self.plan,
+            from_plan=subscription.plan if subscription else None,
             from_max_users=self.max_users,
             to_max_users=self.max_users,
         )
 
         # Capture plan before subscription delete clears it
-        cancelled_plan = self.plan if self.plan and self.plan.wix else None
+        cancelled_plan = (
+            subscription.plan
+            if subscription and subscription.plan and subscription.plan.wix
+            else None
+        )
 
         # Cancel subscription in Stripe if it exists
         if subscription and subscription.subscription_id:
@@ -666,7 +650,7 @@ class Organization(AvatarMixin, models.Model):
 
     def has_active_subscription(self, plan=None):
         """Check if the organization has an active subscription"""
-        qs = self.subscriptions.filter(cancelled=False)
+        qs = self.subscriptions.all()
         if plan is not None:
             qs = qs.filter(plan=plan)
         return qs.exists()
@@ -797,8 +781,9 @@ class Organization(AvatarMixin, models.Model):
             if source.pk in _seen:
                 return
             _seen.add(source.pk)
-            if source.plan and not source.plan.free:
-                inherited.append((source, source.plan))
+            for plan in source.plans.all():
+                if not plan.free:
+                    inherited.append((source, plan))
 
         # Membership groups that share resources
         for group in self.groups.filter(share_resources=True).prefetch_related("plans"):

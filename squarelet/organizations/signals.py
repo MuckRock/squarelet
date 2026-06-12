@@ -29,7 +29,11 @@ registry.register(EntitlementGrant)
 
 def should_sync_wix(org):
     """Should we sync this org with Wix?"""
-    return org and org.share_resources and org.plan and org.plan.wix
+    return (
+        org
+        and org.share_resources
+        and org.subscriptions.filter(plan__wix=True).exists()
+    )
 
 
 @receiver(
@@ -98,10 +102,13 @@ def sync_wix_on_parent_change(sender, instance, **kwargs):
 
     child_pk = instance.pk
     parent_pk = parent.pk
-    plan_pk = parent.plan.pk
-    transaction.on_commit(
-        lambda: sync_wix_for_group_member.delay(child_pk, parent_pk, plan_pk)
-    )
+    for sub in parent.subscriptions.filter(plan__wix=True).select_related("plan"):
+        plan_pk = sub.plan.pk
+        transaction.on_commit(
+            lambda c=child_pk, par=parent_pk, p=plan_pk: sync_wix_for_group_member.delay(
+                c, par, p
+            )
+        )
 
 
 @receiver(
@@ -129,27 +136,29 @@ def sync_wix_on_member_add(sender, instance, action, pk_set, reverse, **kwargs):
         if not should_sync_wix(group):
             return
         group_pk = group.pk
-        plan_pk = group.plan.pk
-        for member_pk in pk_set:
-            transaction.on_commit(
-                lambda m=member_pk: sync_wix_for_group_member.delay(
-                    m, group_pk, plan_pk
+        for sub in group.subscriptions.filter(plan__wix=True).select_related("plan"):
+            plan_pk = sub.plan.pk
+            for member_pk in pk_set:
+                transaction.on_commit(
+                    lambda m=member_pk, g=group_pk, p=plan_pk: (
+                        sync_wix_for_group_member.delay(m, g, p)
+                    )
                 )
-            )
     else:
         member_org = instance
         member_pk = member_org.pk
         for group_pk in pk_set:
-            group = (
-                Organization.objects.filter(pk=group_pk).prefetch_related("plans").first()
-            )
+            group = Organization.objects.filter(pk=group_pk).first()
             if should_sync_wix(group):
-                plan_pk = group.plan.pk
-                transaction.on_commit(
-                    lambda g=group_pk, p=plan_pk: sync_wix_for_group_member.delay(
-                        member_pk, g, p
+                for sub in group.subscriptions.filter(plan__wix=True).select_related(
+                    "plan"
+                ):
+                    plan_pk = sub.plan.pk
+                    transaction.on_commit(
+                        lambda g=group_pk, p=plan_pk: sync_wix_for_group_member.delay(
+                            member_pk, g, p
+                        )
                     )
-                )
 
 
 @receiver(

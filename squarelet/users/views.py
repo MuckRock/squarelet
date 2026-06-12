@@ -206,11 +206,10 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         card partial's `inherited_plans` arg, since from the user's perspective
         these benefits are inherited via membership."""
         return [
-            (org, org.plan)
-            for org in user.organizations.filter(individual=False).prefetch_related(
-                "plans"
-            )
-            if org.plan is not None and not org.plan.free
+            (org, sub.plan)
+            for org in user.organizations.filter(individual=False)
+            for sub in org.subscriptions.select_related("plan")
+            if not sub.plan.free
         ]
 
     def get_recovery_codes(self):
