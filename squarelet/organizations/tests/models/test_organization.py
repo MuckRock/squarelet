@@ -140,7 +140,7 @@ class TestOrganization:
     @pytest.mark.django_db()
     def test_subscription_blank(self, organization_factory):
         organization = organization_factory()
-        assert organization.subscription is None
+        assert organization.subscriptions.first() is None
 
     @pytest.mark.django_db()
     def test_save_card(self, organization_factory, mocker, user_factory):
@@ -495,6 +495,7 @@ class TestOrganization:
         assert not Subscription.objects.filter(pk=sub.pk).exists()
 
     @pytest.mark.django_db(transaction=True)
+    @pytest.mark.django_db(transaction=True)
     def test_subscription_cancelled_removes_wix_labels(
         self, organization_factory, mocker, plan_factory, user_factory
     ):
@@ -505,25 +506,19 @@ class TestOrganization:
         organization = organization_factory(plans=[wix_plan], users=[user1, user2])
 
         mocker.patch("squarelet.organizations.models.Organization.change_logs")
-        mocked_subscription = mocker.patch(
-            "squarelet.organizations.models.Organization.subscription"
-        )
-        mocked_subscription.subscription_id = "sub_test123"
-        mock_stripe_sub = mocker.MagicMock()
-        type(mocked_subscription).stripe_subscription = mocker.PropertyMock(
-            return_value=mock_stripe_sub
-        )
+        sub = organization.subscriptions.first()
+        sub.__dict__["stripe_subscription"] = None  # no Stripe sub to cancel
 
         mock_unsync = mocker.patch("squarelet.organizations.tasks.unsync_wix.delay")
 
-        organization.subscription_cancelled()
+        organization.subscription_cancelled(subscription=sub)
 
         # Should call unsync for each user
         assert mock_unsync.call_count == 2
         called_user_ids = {call.args[2] for call in mock_unsync.call_args_list}
         assert called_user_ids == {user1.pk, user2.pk}
 
-    @pytest.mark.django_db
+    @pytest.mark.django_db(transaction=True)
     def test_subscription_cancelled_no_wix_no_unsync(
         self, organization_factory, mocker, plan_factory, user_factory
     ):
@@ -533,14 +528,12 @@ class TestOrganization:
         organization = organization_factory(plans=[non_wix_plan], users=[user])
 
         mocker.patch("squarelet.organizations.models.Organization.change_logs")
-        mocked_subscription = mocker.patch(
-            "squarelet.organizations.models.Organization.subscription"
-        )
-        mocked_subscription.subscription_id = None
+        sub = organization.subscriptions.first()
+        sub.__dict__["stripe_subscription"] = None
 
         mock_unsync = mocker.patch("squarelet.organizations.tasks.unsync_wix.delay")
 
-        organization.subscription_cancelled()
+        organization.subscription_cancelled(subscription=sub)
 
         mock_unsync.assert_not_called()
 
@@ -1356,13 +1349,13 @@ class TestMultipleSubscriptions:
         assert not org.has_active_subscription(plan=plan_b)
 
     @pytest.mark.django_db
-    def test_has_active_subscription_excludes_cancelled(
+    def test_has_active_subscription_includes_cancelled(
         self, organization_factory, plan_factory, subscription_factory
     ):
-        """has_active_subscription returns False for a cancelled subscription."""
+        """cancelled=True means pending cancellation at period end — still active."""
         org = organization_factory()
         plan = plan_factory()
         subscription_factory(organization=org, plan=plan, cancelled=True)
 
-        assert not org.has_active_subscription(plan=plan)
-        assert not org.has_active_subscription()
+        assert org.has_active_subscription(plan=plan)
+        assert org.has_active_subscription()
