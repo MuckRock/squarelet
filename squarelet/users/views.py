@@ -206,8 +206,8 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         these benefits are inherited via membership."""
         return [
             (org, org.plan)
-            for org in user.organizations.filter(individual=False).select_related(
-                "_plan"
+            for org in user.organizations.filter(individual=False).prefetch_related(
+                "plans"
             )
             if org.plan is not None and not org.plan.free
         ]
