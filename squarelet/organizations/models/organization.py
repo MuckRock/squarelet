@@ -546,10 +546,6 @@ class Organization(AvatarMixin, models.Model):
         else:
             sub = self.subscriptions.get(plan=plan_or_subscription)
 
-        # Remove old Wix labels when plan changes
-        if from_plan and from_plan.wix and (not plan or from_plan.pk != plan.pk):
-            self._dispatch_wix_unsync(from_plan)
-
         self.change_logs.create(
             user=user,
             reason=ChangeLogReason.updated,
@@ -558,6 +554,25 @@ class Organization(AvatarMixin, models.Model):
             to_max_users=self.max_users,
         )
         sub.cancel()
+
+    def modify_subscription(self, old_plan, new_plan, max_users, user):
+        """Modify the subscription for old_plan to new_plan."""
+        try:
+            sub = self.subscriptions.get(plan=old_plan, cancelled=False)
+        except self.subscriptions.model.DoesNotExist:
+            raise ValueError(
+                f"Organization does not have an active subscription to {old_plan}"
+            )
+
+        self.change_logs.create(
+            user=user,
+            reason=ChangeLogReason.updated,
+            from_plan=old_plan,
+            from_max_users=self.max_users,
+            to_plan=new_plan,
+            to_max_users=max_users,
+        )
+        sub.modify(new_plan)
 
     def _dispatch_wix_unsync(self, plan):
         """Dispatch Wix unsync tasks for this org's users and, if this org is a
