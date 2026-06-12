@@ -354,23 +354,11 @@ class TestOrganization:
         mocked_change_logs = mocker.patch(
             "squarelet.organizations.models.Organization.change_logs"
         )
-        mocked_subscription = mocker.patch(
-            "squarelet.organizations.models.Organization.subscription"
-        )
-        mocked_subscription.subscription_id = "sub_test123"
-        mocked_subscription.plan = plan
-        # Mock the stripe_subscription property to return a mock Stripe subscription
+        # Inject mock Stripe subscription via cached_property's __dict__ slot
         mock_stripe_sub = mocker.MagicMock()
-        mock_provider = mocker.MagicMock()
-        mock_provider.get_subscription_service.return_value.retrieve.return_value = (
-            mock_stripe_sub
-        )
-        mocker.patch(
-            "squarelet.organizations.models.payment.get_payment_provider",
-            return_value=mock_provider,
-        )
+        sub.__dict__["stripe_subscription"] = mock_stripe_sub
 
-        organization.subscription_cancelled()
+        organization.subscription_cancelled(subscription=sub)
 
         mocked_change_logs.create.assert_called_with(
             reason=ChangeLogReason.failed,
@@ -381,7 +369,6 @@ class TestOrganization:
         # Should cancel in Stripe first by calling delete on the stripe_subscription
         mock_stripe_sub.delete.assert_called_once()
         # Local subscription should be deleted
-
         assert not Subscription.objects.filter(pk=sub.pk).exists()
 
     @pytest.mark.django_db

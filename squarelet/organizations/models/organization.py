@@ -546,6 +546,8 @@ class Organization(AvatarMixin, models.Model):
         else:
             sub = self.subscriptions.get(plan=plan_or_subscription)
 
+        cancelled_plan = sub.plan if sub.plan and sub.plan.wix else None
+
         self.change_logs.create(
             user=user,
             reason=ChangeLogReason.updated,
@@ -554,6 +556,9 @@ class Organization(AvatarMixin, models.Model):
             to_max_users=self.max_users,
         )
         sub.cancel()
+
+        if cancelled_plan:
+            self._dispatch_wix_unsync(cancelled_plan)
 
     def modify_subscription(self, old_plan, new_plan, max_users, user):
         """Modify the subscription for old_plan to new_plan."""
@@ -796,7 +801,7 @@ class Organization(AvatarMixin, models.Model):
                 inherited.append((source, source.plan))
 
         # Membership groups that share resources
-        for group in self.groups.filter(share_resources=True).select_related("_plan"):
+        for group in self.groups.filter(share_resources=True).prefetch_related("plans"):
             _add(group)
 
         # Parent hierarchy (recursive)
