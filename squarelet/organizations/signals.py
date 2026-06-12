@@ -105,8 +105,8 @@ def sync_wix_on_parent_change(sender, instance, **kwargs):
     for sub in parent.subscriptions.filter(plan__wix=True).select_related("plan"):
         plan_pk = sub.plan.pk
         transaction.on_commit(
-            lambda c=child_pk, par=parent_pk, p=plan_pk: sync_wix_for_group_member.delay(
-                c, par, p
+            lambda c=child_pk, par=parent_pk, p=plan_pk: (
+                sync_wix_for_group_member.delay(c, par, p)
             )
         )
 
