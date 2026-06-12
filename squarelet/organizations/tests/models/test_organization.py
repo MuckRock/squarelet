@@ -7,9 +7,9 @@ import stripe
 
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason
-from squarelet.organizations.models import Organization
+from squarelet.organizations.models import Organization, Subscription
 
-# pylint: disable=too-many-public-methods,too-many-lines
+# pylint: disable=too-many-public-methods,too-many-lines,too-many-positional-arguments
 
 
 class TestOrganization:
@@ -441,7 +441,6 @@ class TestOrganization:
         # Should cancel in Stripe first by calling delete on the stripe_subscription
         mock_stripe_sub.delete.assert_called_once()
         # Local subscription should be deleted
-        from squarelet.organizations.models import Subscription
 
         assert not Subscription.objects.filter(pk=sub.pk).exists()
 
@@ -463,8 +462,6 @@ class TestOrganization:
         mocker.patch("squarelet.organizations.models.Organization.change_logs")
 
         organization.subscription_cancelled()
-
-        from squarelet.organizations.models import Subscription
 
         # Should still delete local subscription
         assert not Subscription.objects.filter(pk=sub.pk).exists()
@@ -501,8 +498,6 @@ class TestOrganization:
 
         organization.subscription_cancelled()
 
-        from squarelet.organizations.models import Subscription
-
         # Should attempt to delete the Stripe subscription
         mock_stripe_sub.delete.assert_called_once()
         # Should still delete local subscription despite error
@@ -537,8 +532,6 @@ class TestOrganization:
 
         organization.subscription_cancelled()
 
-        from squarelet.organizations.models import Subscription
-
         # Verify delete was called on the stripe_subscription instance
         mock_stripe_sub.delete.assert_called_once()
         # Verify local subscription was deleted
@@ -570,8 +563,6 @@ class TestOrganization:
 
         # Should not raise an error
         organization.subscription_cancelled()
-
-        from squarelet.organizations.models import Subscription
 
         # Verify local subscription was still deleted
         assert not Subscription.objects.filter(pk=sub.pk).exists()
@@ -1321,8 +1312,6 @@ class TestMultipleSubscriptions:
         self, organization_factory, plan_factory, user_factory, mocker
     ):
         """add_subscription creates a new Subscription for an org with none."""
-        from squarelet.organizations.models import Subscription
-
         org = organization_factory()
         plan = plan_factory()
         user = user_factory()
@@ -1357,8 +1346,6 @@ class TestMultipleSubscriptions:
         self, organization_factory, plan_factory, user_factory, mocker
     ):
         """add_subscription allows adding a second plan if it differs."""
-        from squarelet.organizations.models import Subscription
-
         org = organization_factory()
         plan_a = plan_factory()
         plan_b = plan_factory()
@@ -1387,8 +1374,6 @@ class TestMultipleSubscriptions:
         mocker,
     ):
         """remove_subscription by plan cancels that sub and leaves others."""
-        from squarelet.organizations.models import Subscription
-
         org = organization_factory()
         plan_a = plan_factory()
         plan_b = plan_factory()
