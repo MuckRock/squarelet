@@ -2368,32 +2368,25 @@ class TestUserInvitationsView(ViewTestMixin):
         # Only invitations should appear, not requests
         assert len(response.context_data["invitations"]) == 2
 
-    def test_get_invitations_filters_by_verified_email(
-        self, rf, user_factory, organization_factory, invitation_factory, mocker
+    def test_get_invitations_excludes_other_emails(
+        self, rf, user_factory, organization_factory, invitation_factory
     ):
-        """View only shows invitations for verified emails"""
-        user = user_factory(email="verified@example.com", email_verified=True)
+        """View only shows invitations addressed to the user's own emails"""
+        user = user_factory(email="user@example.com", email_verified=True)
         org = organization_factory()
 
-        # Mock get_verified_emails to return only verified email
-        mocker.patch.object(
-            user, "get_verified_emails", return_value=["verified@example.com"]
-        )
-
-        # Create invitation for verified email (should appear)
+        # Invitation to the user's email (should appear)
+        invitation_factory(email="user@example.com", organization=org, request=False)
+        # Invitation to an email the user doesn't own (should NOT appear)
         invitation_factory(
-            email="verified@example.com", organization=org, request=False
-        )
-        # Create invitation for unverified email (should NOT appear)
-        invitation_factory(
-            email="unverified@example.com", organization=org, request=False
+            email="someone-else@example.com", organization=org, request=False
         )
 
         response = self.call_view(rf, user, username=user.username)
 
         assert response.status_code == 200
         assert len(response.context_data["invitations"]) == 1
-        assert response.context_data["invitations"][0].email == "verified@example.com"
+        assert response.context_data["invitations"][0].email == "user@example.com"
 
     def test_get_invitations_includes_user_field_invitations(
         self, rf, user_factory, organization_factory, invitation_factory
@@ -2447,17 +2440,19 @@ class TestUserInvitationsView(ViewTestMixin):
         assert response.context_data["is_paginated"] is True
         assert len(response.context_data["invitations"]) == 20
 
-    def test_get_invitations_no_verified_emails(self, rf, user_factory, mocker):
-        """User with no verified emails should see empty list"""
+    def test_get_invitations_unverified_email(
+        self, rf, user_factory, organization_factory, invitation_factory
+    ):
+        """Invitations to an unverified email are still shown to the user"""
         user = user_factory(email_verified=False)
+        org = organization_factory()
 
-        # Mock no verified emails
-        mocker.patch.object(user, "get_verified_emails", return_value=[])
+        invitation_factory(email=user.email, organization=org, request=False)
 
         response = self.call_view(rf, user, username=user.username)
 
         assert response.status_code == 200
-        assert len(response.context_data["invitations"]) == 0
+        assert len(response.context_data["invitations"]) == 1
 
     def test_staff_can_view_other_users_invitations(
         self, rf, user_factory, organization_factory, invitation_factory
@@ -2628,30 +2623,25 @@ class TestUserRequestsView(ViewTestMixin):
         # Only requests should appear, not invitations
         assert len(response.context_data["requests"]) == 3
 
-    def test_get_requests_filters_by_verified_email(
-        self, rf, user_factory, organization_factory, invitation_factory, mocker
+    def test_get_requests_excludes_other_emails(
+        self, rf, user_factory, organization_factory, invitation_factory
     ):
-        """View only shows requests for verified emails"""
-        user = user_factory(email="verified@example.com", email_verified=True)
+        """View only shows requests addressed to the user's own emails"""
+        user = user_factory(email="user@example.com", email_verified=True)
         org = organization_factory()
 
-        # Mock get_verified_emails to return only verified email
-        mocker.patch.object(
-            user, "get_verified_emails", return_value=["verified@example.com"]
-        )
-
-        # Create request for verified email (should appear)
-        invitation_factory(email="verified@example.com", organization=org, request=True)
-        # Create request for unverified email (should NOT appear)
+        # Request to the user's email (should appear)
+        invitation_factory(email="user@example.com", organization=org, request=True)
+        # Request to an email the user doesn't own (should NOT appear)
         invitation_factory(
-            email="unverified@example.com", organization=org, request=True
+            email="someone-else@example.com", organization=org, request=True
         )
 
         response = self.call_view(rf, user, username=user.username)
 
         assert response.status_code == 200
         assert len(response.context_data["requests"]) == 1
-        assert response.context_data["requests"][0].email == "verified@example.com"
+        assert response.context_data["requests"][0].email == "user@example.com"
 
     def test_get_requests_includes_user_field_requests(
         self, rf, user_factory, organization_factory, invitation_factory
@@ -2705,17 +2695,19 @@ class TestUserRequestsView(ViewTestMixin):
         assert response.context_data["is_paginated"] is True
         assert len(response.context_data["requests"]) == 20
 
-    def test_get_requests_no_verified_emails(self, rf, user_factory, mocker):
-        """User with no verified emails should see empty list"""
+    def test_get_requests_unverified_email(
+        self, rf, user_factory, organization_factory, invitation_factory
+    ):
+        """Requests from an unverified user are still shown to them"""
         user = user_factory(email_verified=False)
+        org = organization_factory()
 
-        # Mock no verified emails
-        mocker.patch.object(user, "get_verified_emails", return_value=[])
+        invitation_factory(email=user.email, organization=org, request=True)
 
         response = self.call_view(rf, user, username=user.username)
 
         assert response.status_code == 200
-        assert len(response.context_data["requests"]) == 0
+        assert len(response.context_data["requests"]) == 1
 
     def test_staff_can_view_other_users_requests(
         self, rf, user_factory, organization_factory, invitation_factory

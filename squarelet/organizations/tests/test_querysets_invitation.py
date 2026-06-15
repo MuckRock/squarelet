@@ -146,16 +146,17 @@ class TestInvitationQuerySetStatus(TestCase):
         assert queryset.count() == 2
 
     @pytest.mark.django_db
-    def test_for_user_no_verified_emails(self):
-        """Test for_user() returns empty queryset when user has no verified emails"""
+    def test_for_user_unverified_email(self):
+        """for_user() matches invitations to a user's email even if unverified"""
         user = UserFactory(email="user@example.com", email_verified=False)
         org = OrganizationFactory()
 
-        # Create invitation that would match if email was verified
-        InvitationFactory(email="user@example.com", organization=org)
+        # Invitation to the user's email, which they have not yet verified
+        invitation = InvitationFactory(email="user@example.com", organization=org)
 
         queryset = Invitation.objects.for_user(user)
-        assert queryset.count() == 0
+        assert invitation in queryset
+        assert queryset.count() == 1
 
     @pytest.mark.django_db
     def test_for_user_multiple_verified_emails(self):
@@ -167,12 +168,10 @@ class TestInvitationQuerySetStatus(TestCase):
         invitation1 = InvitationFactory(email="primary@example.com", organization=org)
         InvitationFactory(email="secondary@example.com", organization=org)
 
-        # Mock get_verified_emails to return multiple emails
-        # In real code, this would involve creating EmailAddress records
-        # For now, we'll just test the primary email case
+        # The user only owns primary@example.com, so the invitation addressed
+        # to secondary@example.com (an email they don't have) is not matched.
         queryset = Invitation.objects.for_user(user)
         assert invitation1 in queryset
-        # invitation2 won't be included unless secondary email is verified
         assert queryset.count() == 1
 
     @pytest.mark.django_db
@@ -280,28 +279,30 @@ class TestInvitationQuerySetStatus(TestCase):
         assert queryset[2] == request1
 
     @pytest.mark.django_db
-    def test_get_user_invitations_no_verified_emails(self):
-        """Test get_user_invitations() returns empty when no verified emails"""
+    def test_get_user_invitations_unverified_email(self):
+        """get_user_invitations() matches a user's email even if unverified"""
         user = UserFactory(email="user@example.com", email_verified=False)
         org = OrganizationFactory()
 
-        # Create invitation that would match if verified
-        InvitationFactory(email="user@example.com", organization=org)
+        # Invitation to the user's email, which they have not yet verified
+        invitation = InvitationFactory(email="user@example.com", organization=org)
 
         queryset = Invitation.objects.get_user_invitations(user)
-        assert queryset.count() == 0
+        assert invitation in queryset
+        assert queryset.count() == 1
 
     @pytest.mark.django_db
-    def test_get_user_requests_no_verified_emails(self):
-        """Test get_user_requests() returns empty when no verified emails"""
+    def test_get_user_requests_unverified_email(self):
+        """get_user_requests() matches a user's requests even if unverified"""
         user = UserFactory(email="user@example.com", email_verified=False)
         org = OrganizationFactory()
 
-        # Create request that would match if verified
-        InvitationRequestFactory(user=user, organization=org)
+        # Request from the user, who has not yet verified their email
+        request = InvitationRequestFactory(user=user, organization=org)
 
         queryset = Invitation.objects.get_user_requests(user)
-        assert queryset.count() == 0
+        assert request in queryset
+        assert queryset.count() == 1
 
     @pytest.mark.django_db
     def test_get_org_invitations_filters_by_request_false(self):
@@ -467,16 +468,17 @@ class TestInvitationQuerySetForUser(TestCase):
         assert queryset.count() == 2
 
     @pytest.mark.django_db
-    def test_for_user_no_verified_emails(self):
-        """Test for_user() returns empty queryset when user has no verified emails"""
+    def test_for_user_unverified_email(self):
+        """for_user() matches invitations to a user's email even if unverified"""
         user = UserFactory(email="user@example.com", email_verified=False)
         org = OrganizationFactory()
 
-        # Create invitation that would match if email was verified
-        InvitationFactory(email="user@example.com", organization=org)
+        # Invitation to the user's email, which they have not yet verified
+        invitation = InvitationFactory(email="user@example.com", organization=org)
 
         queryset = Invitation.objects.for_user(user)
-        assert queryset.count() == 0
+        assert invitation in queryset
+        assert queryset.count() == 1
 
     @pytest.mark.django_db
     def test_for_user_multiple_verified_emails(self):
@@ -488,12 +490,10 @@ class TestInvitationQuerySetForUser(TestCase):
         invitation1 = InvitationFactory(email="primary@example.com", organization=org)
         InvitationFactory(email="secondary@example.com", organization=org)
 
-        # Mock get_verified_emails to return multiple emails
-        # In real code, this would involve creating EmailAddress records
-        # For now, we'll just test the primary email case
+        # The user only owns primary@example.com, so the invitation addressed
+        # to secondary@example.com (an email they don't have) is not matched.
         queryset = Invitation.objects.for_user(user)
         assert invitation1 in queryset
-        # invitation2 won't be included unless secondary email is verified
         assert queryset.count() == 1
 
 
@@ -605,25 +605,27 @@ class TestInvitationQuerySetUserInvitations(TestCase):
         assert queryset[2] == request1
 
     @pytest.mark.django_db
-    def test_get_user_invitations_no_verified_emails(self):
-        """Test get_user_invitations() returns empty when no verified emails"""
+    def test_get_user_invitations_unverified_email(self):
+        """get_user_invitations() matches a user's email even if unverified"""
         user = UserFactory(email="user@example.com", email_verified=False)
         org = OrganizationFactory()
 
-        # Create invitation that would match if verified
-        InvitationFactory(email="user@example.com", organization=org)
+        # Invitation to the user's email, which they have not yet verified
+        invitation = InvitationFactory(email="user@example.com", organization=org)
 
         queryset = Invitation.objects.get_user_invitations(user)
-        assert queryset.count() == 0
+        assert invitation in queryset
+        assert queryset.count() == 1
 
     @pytest.mark.django_db
-    def test_get_user_requests_no_verified_emails(self):
-        """Test get_user_requests() returns empty when no verified emails"""
+    def test_get_user_requests_unverified_email(self):
+        """get_user_requests() matches a user's requests even if unverified"""
         user = UserFactory(email="user@example.com", email_verified=False)
         org = OrganizationFactory()
 
-        # Create request that would match if verified
-        InvitationRequestFactory(user=user, organization=org)
+        # Request from the user, who has not yet verified their email
+        request = InvitationRequestFactory(user=user, organization=org)
 
         queryset = Invitation.objects.get_user_requests(user)
-        assert queryset.count() == 0
+        assert request in queryset
+        assert queryset.count() == 1

@@ -243,10 +243,12 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
     def verified_journalist(self):
         return self.organizations.filter(verified_journalist=True).exists()
 
-    def get_verified_emails(self):
-        """Returns a list of all verified emails"""
-        verified_email_qs = self.emailaddress_set.filter(verified=True)
-        return list(verified_email_qs.values_list("email", flat=True))
+    def get_emails(self, verified=False):
+        """Returns a list of the user's emails."""
+        emails = self.emailaddress_set.all()
+        if verified:
+            emails = emails.filter(verified=True)
+        return list(emails.values_list("email", flat=True))
 
     # TODO: remove after retiring Election Hub (#229)
     def is_hub_eligible(self):
@@ -286,17 +288,17 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         )
 
     def get_pending_requests(self):
-        verified_emails = self.get_verified_emails()
+        # Match against all emails (verified or not) and the user field so that
+        # users who haven't confirmed their email can still see their requests.
+        # Accepting an admin-role invitation is separately gated behind email
+        # verification (see InvitationAcceptForm.requires_email_verification).
+        emails = self.get_emails()
 
-        if not verified_emails:
-            # If the user has no verified emails, they cannot have pending invites
-            return Invitation.objects.none()
-
-        # Query for request Invitations matching any verified email
+        # Query for request Invitations matching any of the user's emails
         # that are not accepted or rejected
         pending_requests = (
             Invitation.objects.filter(
-                email__in=verified_emails,
+                Q(email__in=emails) | Q(user=self),
                 request=True,
                 accepted_at__isnull=True,
                 rejected_at__isnull=True,
@@ -308,17 +310,18 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         return pending_requests
 
     def get_pending_invitations(self):
-        verified_emails = self.get_verified_emails()
+        # Match against all emails (verified or not) and the user field so that
+        # users who haven't confirmed their email can still see their
+        # invitations.  Accepting an admin-role invitation is separately gated
+        # behind email verification (see
+        # InvitationAcceptForm.requires_email_verification).
+        emails = self.get_emails()
 
-        if not verified_emails:
-            # If the user has no verified emails, they cannot have pending invites
-            return Invitation.objects.none()
-
-        # Query for non-request Invitations matching any verified email
+        # Query for non-request Invitations matching any of the user's emails
         # that are not accepted or rejected
         pending_invites = (
             Invitation.objects.filter(
-                email__in=verified_emails,
+                Q(email__in=emails) | Q(user=self),
                 request=False,
                 accepted_at__isnull=True,
                 rejected_at__isnull=True,
