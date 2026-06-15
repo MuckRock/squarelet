@@ -12,6 +12,7 @@ import sys
 # Third Party
 import stripe
 from allauth.account.adapter import get_adapter
+from allauth.account.utils import has_verified_email
 
 # Squarelet
 from squarelet.core.forms import StripeForm
@@ -193,6 +194,16 @@ class PlanPurchaseForm(StripeForm):
         if not self.plan or not self.plan.is_sunlight_plan or is_nonprofit_variant:
             del self.fields["is_nonprofit"]
 
+    def user_has_verified_email(self):
+        """
+        Whether the form's user has a verified email address.
+
+        Used by the template to decide whether to offer the
+        "Create a new organization" option, mirroring the server-side
+        constraint enforced in clean().
+        """
+        return has_verified_email(self.user)
+
     def get_org_cards_data(self):
         """
         Build a mapping of organization IDs to their saved card info.
@@ -297,6 +308,16 @@ class PlanPurchaseForm(StripeForm):
         payment_method = data.get("payment_method")
         stripe_token = data.get("stripe_token")
 
+        # Users must verify an email address before creating a new organization
+        if organization == "new" and not has_verified_email(self.user):
+            self.add_error(
+                "organization",
+                _(
+                    "You must verify your email address before "
+                    "creating an organization."
+                ),
+            )
+
         # Validate payment method matches available options
         if payment_method == "existing-card":
             if organization and organization != "new":
@@ -355,6 +376,16 @@ class PlanPurchaseForm(StripeForm):
         organization = self.cleaned_data.get("organization")
 
         if organization == "new":
+            # Defense in depth: clean() rejects new-org creation for users
+            # without a verified email, but guard here as well since this is
+            # the actual creation point.
+            if not has_verified_email(user):
+                raise forms.ValidationError(
+                    _(
+                        "You must verify your email address before "
+                        "creating an organization."
+                    )
+                )
             new_org = Organization.objects.create(
                 name=self.cleaned_data["new_organization_name"],
                 private=False,

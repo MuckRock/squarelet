@@ -26,7 +26,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         self, rf, user_factory, plan_factory, mocker
     ):
         """Test creating a new organization during plan subscription"""
-        user = user_factory()
+        user = user_factory(email_verified=True)
         plan = plan_factory(for_groups=True, public=True)
 
         # Mock the set_subscription method to avoid Stripe calls
@@ -83,11 +83,38 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         # Verify no organization was created
         assert not Organization.objects.filter(name="").exists()
 
+    def test_unverified_user_cannot_create_organization(
+        self, rf, user_factory, plan_factory, mocker
+    ):
+        """A user without a verified email may not create a new organization"""
+        user = user_factory(email_verified=False)
+        plan = plan_factory(for_groups=True, public=True)
+
+        # Guard against any subscription side effects
+        mock_set_subscription = mocker.patch.object(
+            Organization, "set_subscription", return_value=None
+        )
+
+        data = {
+            "organization": "new",
+            "new_organization_name": "Should Not Exist",
+            "payment_method": "new-card",
+            "stripe_token": "tok_visa",
+            "stripe_pk": "pk_test",
+        }
+
+        response = self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
+
+        # Form is invalid: re-renders (200), no org created, no subscription
+        assert response.status_code == 200
+        assert not Organization.objects.filter(name="Should Not Exist").exists()
+        mock_set_subscription.assert_not_called()
+
     def test_new_organization_adds_user_as_admin(
         self, rf, user_factory, plan_factory, mocker
     ):
         """Test that user is added as admin when creating new organization"""
-        user = user_factory()
+        user = user_factory(email_verified=True)
         plan = plan_factory(for_groups=True, public=True)
 
         # Mock set_subscription
