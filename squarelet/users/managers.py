@@ -1,6 +1,7 @@
 # Django
 from django.contrib.auth.models import UserManager as AuthUserManager
-from django.db import transaction
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 
 # Squarelet
@@ -38,7 +39,12 @@ class UserManager(AuthUserManager):
             user.set_unusable_password()
 
         # all users must have an individual organization
-        Organization.objects.create_individual(user, uuid)
+        try:
+            Organization.objects.create_individual(user, uuid)
+        except IntegrityError:
+            raise ValidationError(
+                {"username": "A user with that username already exists."}
+            )
 
         return user
 
