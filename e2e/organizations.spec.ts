@@ -1074,4 +1074,71 @@ test.describe("Invitations for unverified users", () => {
     await expect(invitation).toBeVisible();
     await expect(invitation.locator('button[value="accept"]')).toBeVisible();
   });
+
+  // Look up the invitation-link landing page (/organizations/<uuid>/invitation/)
+  // for the pending invitation addressed to the given email.
+  function invitationPathFor(email: string): string {
+    const out = runManageCommand(
+      `shell -c "from squarelet.organizations.models.invitation import Invitation;` +
+        ` print(Invitation.objects.get_pending().filter(email='${email}',` +
+        ` organization__slug='e2e-public-org').latest('created_at').uuid)"`,
+    );
+    const match = out.match(/[0-9a-f-]{36}/);
+    if (!match) {
+      throw new Error(`No pending invitation found for ${email}: ${out}`);
+    }
+    return `/organizations/${match[0]}/invitation/`;
+  }
+
+  test("can accept a member invitation from the email-link page", async ({
+    page,
+  }) => {
+    await inviteUnverifiedMember(page);
+    const invitationPath = invitationPathFor("e2e-unverified@example.com");
+
+    await login(page, "e2e-unverified");
+    await page.goto(invitationPath);
+
+    // The shared accept-form partial renders working Accept/Reject controls
+    const controls = page.locator(".control-group");
+    await expect(controls.locator('button[value="accept"]')).toBeVisible();
+    await controls.locator('button[value="accept"]').click();
+    await expectFlashMessage(page, "success");
+
+    // The user is now a member of the organization
+    await login(page, "e2e-admin");
+    await page.goto("/organizations/e2e-public-org/manage-members/");
+    await expect(
+      page.locator(".membership", {
+        has: page.locator("h3", { hasText: "e2e-unverified" }),
+      }),
+    ).toBeVisible();
+  });
+
+  test("admin invitation email-link page shows the verification gate", async ({
+    page,
+  }) => {
+    // Admin sends an admin-role invitation to e2e-unverified
+    await login(page, "e2e-admin");
+    await clearPendingInvitations(page);
+    await page.locator("#user-select input").fill("e2e-unverified@example.com");
+    await expect(page.locator("button.creatable-row")).toBeEnabled({
+      timeout: 5_000,
+    });
+    await page.locator("button.creatable-row").click();
+    await page.locator("select[name='role']").selectOption("1");
+    await page.locator('button[value="addmember"]').click();
+    await expectFlashMessage(page, "success");
+
+    const invitationPath = invitationPathFor("e2e-unverified@example.com");
+
+    await login(page, "e2e-unverified");
+    await page.goto(invitationPath);
+
+    // The shared partial gates acceptance behind email confirmation, the same
+    // as every other accept surface — no accept button, a confirm-email link.
+    const controls = page.locator(".control-group");
+    await expect(controls.locator('button[value="accept"]')).toHaveCount(0);
+    await expect(controls.locator('a[href$="#accounts"]')).toBeVisible();
+  });
 });
