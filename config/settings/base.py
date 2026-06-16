@@ -574,3 +574,9 @@ ORG_JOIN_REQUEST_LIMIT = env.int("ORG_JOIN_REQUEST_LIMIT", default=3)
 ORG_JOIN_REQUEST_WINDOW = env.int("ORG_JOIN_REQUEST_WINDOW", default=3600)
 
 STRIPE_PROVIDER = env("STRIPE_PROVIDER", default="modern")
+
+
+# Zendesk
+ZENDESK_SUBDOMAIN = env("ZENDESK_SUBDOMAIN", default="")
+ZENDESK_EMAIL = env("ZENDESK_EMAIL", default="")
+ZENDESK_TOKEN = env("ZENDESK_TOKEN", default="")
