@@ -1,5 +1,4 @@
 # Django
-from django.conf import settings
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.utils.translation import gettext_lazy as _
@@ -7,7 +6,7 @@ from django.views import View
 from django.views.generic import CreateView, UpdateView
 
 # Squarelet
-from squarelet.core.utils import create_zendesk_ticket, new_action
+from squarelet.core.utils import new_action
 from squarelet.organizations.forms import ProfileChangeRequestForm, UpdateForm
 from squarelet.organizations.mixins import OrganizationPermissionMixin
 from squarelet.organizations.models import Organization, ProfileChangeRequest
@@ -95,23 +94,16 @@ class RequestProfileChange(OrganizationPermissionMixin, CreateView):
         profile_change_request.organization = self.get_organization()
         profile_change_request.user = self.request.user
         profile_change_request.save()
-        org = profile_change_request.organization
-
-        # These need to be above the staff check because
-        # Otherwise it will be undefined for anyone aside from a staff user
-        # When Zendesk ticket creation occurs
-        changed_fields = [
-            field
-            for field in ProfileChangeRequest.FIELDS
-            if getattr(profile_change_request, field)
-        ]
-        # Also check URL since it's handled separately
-        if form.cleaned_data.get("url"):
-            changed_fields.append("url")
 
         # Log staff action when editing protected fields
         if self.request.user.is_staff:
-
+            changed_fields = [
+                field
+                for field in ProfileChangeRequest.FIELDS
+                if getattr(profile_change_request, field)
+            ]
+            if form.cleaned_data.get("url"):
+                changed_fields.append("url")
             if changed_fields:
                 new_action(
                     actor=self.request.user,
@@ -121,21 +113,6 @@ class RequestProfileChange(OrganizationPermissionMixin, CreateView):
                     description=f"Changed fields: {', '.join(changed_fields)}",
                 )
 
-        ticket = create_zendesk_ticket(
-            subject=f"Profile change request: {org.name}",
-            description=(
-                f"Organization: {org.name} ({org.slug})\n"
-                f"Requested by: {self.request.user.email}\n"
-                f"Fields: {', '.join(changed_fields)}\n"
-                f"Explanation: {profile_change_request.explanation}\n\n"
-                f"Review at: {settings.SQUARELET_URL}/organizations/{org.slug}/update/"
-            ),
-            tags=["profile-change-request"],
-        )
-        if ticket:
-            profile_change_request.ticket_id = ticket.ticket.id
-            profile_change_request.save(update_fields=["ticket_id"])
-
         messages.success(
             self.request,
             _(
@@ -143,7 +120,6 @@ class RequestProfileChange(OrganizationPermissionMixin, CreateView):
                 "reviewed by staff."
             ),
         )
-
         return redirect(
             "organizations:update", slug=profile_change_request.organization.slug
         )

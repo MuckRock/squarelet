@@ -121,21 +121,17 @@ class ProfileChangeRequest(models.Model):
                 field: getattr(self.organization, field) for field in self.FIELDS
             }
 
-        # only create one ticket, and don't create tickets for staff changes
         if not self.ticket_id and not self.user.is_staff:
             description = render_to_string(
                 "organizations/change_request.txt",
                 {"user": self.user, "organization": self.organization, "change": self},
             )
-            try:
-                audit = create_zendesk_ticket(
-                    subject=f"Change request: {self.organization}",
-                    description=description,
-                )
+            audit = create_zendesk_ticket(
+                subject=f"Change request: {self.organization}",
+                description=description,
+            )
+            if audit:  # This won't exist on dev env
                 self.ticket_id = audit.ticket.id
-            except Exception:  # pylint: disable=broad-except
-                # Silently fail if zendesk ticket creation fails
-                pass
 
         super().save(*args, **kwargs)
 
