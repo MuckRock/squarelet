@@ -187,7 +187,6 @@ def create_zendesk_ticket(subject, description, priority="normal", tags=None):
         getattr(settings, attr, None)
         for attr in ["ZENDESK_EMAIL", "ZENDESK_TOKEN", "ZENDESK_SUBDOMAIN"]
     )
-
     if not is_production_env() or missing_config:
         logger.info(
             "Skipping Zendesk ticket creation (dev_env=%s, missing_config=%s): %s",
@@ -196,7 +195,6 @@ def create_zendesk_ticket(subject, description, priority="normal", tags=None):
             subject,
         )
         return None
-
     try:
         # Initialize Zenpy client
         zenpy_client = Zenpy(
@@ -218,7 +216,7 @@ def create_zendesk_ticket(subject, description, priority="normal", tags=None):
 
         logger.info(
             "Created Zendesk ticket #%s: %s",
-            created_ticket.id,
+            created_ticket.ticket.id,
             subject,
         )
 
