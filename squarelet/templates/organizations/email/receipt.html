@@ -50,52 +50,54 @@
       {% endif %}
     </p>
     {% block description %}
-      <p>{% trans "This receipt confirms your payment to MuckRock." %}</p>
+      {% if plan %}
+        <p>
+          {% blocktrans with plan_name=plan.name %}This receipt confirms your subscription to the {{ plan_name }} plan.{% endblocktrans %}
+        </p>
+        {% if plan.short_description %}
+          <p>{{ plan.short_description }}</p>
+        {% endif %}
+        {% if plan.benefits %}
+          <p>{% trans "Your plan includes:" %}</p>
+          <ul>
+            {% for benefit in plan.benefits %}
+              <li>{{ benefit }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      {% else %}
+        <p>{% trans "This receipt confirms your payment to MuckRock." %}</p>
+      {% endif %}
     {% endblock %}
-    {% if individual_subscription %}
+    {% if charge.organization.individual %}
       {% url "users:payment_redirect" as user_payment_url %}
       {% blocktrans with user_payment_url=user_payment_url %}
         <p>
-          Your account includes up to 20 requests per month, the ability to
-          embargo requests, and access to priority support. It also includes, upon
-          account verification, access to DocumentCloud, including 
-          2,000 AI credits per month which you can use to perform advanced 
-          OCR or run other premium Add-Ons.  
-        </p>
-
-        <p>
-          You can manage your account
-          from <a href="{{ user_payment_url }}"q>your settings</a>, including
-          upgrading, downgrading, and cancelling your account.
+          You can manage your subscription from
+          <a href="{{ user_payment_url }}">your settings</a>, including
+          upgrading, downgrading, and cancelling at any time.
         </p>
       {% endblocktrans %}
-    {% endif %}
-    {% if group_subscription %}
+    {% else %}
       {% url "organizations:payment" slug=charge.organization.slug as org_payment_url %}
       {% url "organizations:manage-members" slug=charge.organization.slug as org_member_url %}
-      {% blocktrans with org_payment_url=org_payment_url org_payment_url=org_payment_url %}
+      {% blocktrans with org_payment_url=org_payment_url org_member_url=org_member_url %}
         <p>
-          Your account starts with 5 members and 50 collective requests 
-          per month on MuckRock, the ability to embargo requests and 
-          access to priority support. It also includes, upon
-          account verification, access to DocumentCloud including 5,000
-          AI credits per month which you can use to run advanced OCR 
-          or run other premium Add-Ons. Additional members can be added 
-          for $10/each, which includes 5 additional requests and 500 advanced 
-          OCR pages per member added. To update your account payment settings, 
-          such as adjusting receipt delivery preferences, updating the card on file 
-          or canceling your account, please visit the 
+          To update your account payment settings — such as adjusting receipt
+          delivery preferences, updating the card on file, or cancelling your
+          subscription — please visit the
           <a href="{{ org_payment_url }}">account payment settings page</a>.
-          To add or remove members to your organization please visit the <a href="{{ org_member_url }}"> membership management page</a>.
+          To add or remove members from your organization, please visit the
+          <a href="{{ org_member_url }}">membership management page</a>.
         </p>
       {% endblocktrans %}
     {% endif %}
-    {% blocktrans %}
-      <p>
-        For concerns or more information about this charge, please contact
-        <a href="mailto:info@muckrock.com">info@muckrock.com</a>.
-      </p>
-      <p>Thank you,<br/>The MuckRock Team</p>
-    {% endblocktrans %}
+    <p>
+      {% blocktrans %}For more information about this charge or to dispute it, please contact <a href="mailto:info@muckrock.com">info@muckrock.com</a>.{% endblocktrans %}
+    </p>
+    <p>
+      {% blocktrans %}For details on how subscriptions are billed and cancelled, see our <a href="https://www.muckrock.com/tos/#payments">Payments Policy</a>.{% endblocktrans %}
+    </p>
+    <p>{% blocktrans %}Thank you,<br/>The MuckRock Team{% endblocktrans %}</p>
   </div>
 {% endblock %}

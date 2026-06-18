@@ -1,8 +1,18 @@
+# Django
+from django.urls import reverse
+
 # Standard Library
 from unittest.mock import PropertyMock
 
 # Third Party
 import pytest
+
+# pylint: disable=too-many-positional-arguments
+
+
+def receipt_html(mailoutbox):
+    """Return the rendered HTML body of the most recent receipt email."""
+    return mailoutbox[-1].alternatives[0][0]
 
 
 class TestCharge:
@@ -80,6 +90,119 @@ class TestCharge:
             "b@example.com",
             "c@example.com",
         }
+
+    @pytest.mark.django_db()
+    def test_send_receipt_describes_plan(
+        self, charge_factory, plan_factory, mailoutbox, mocker
+    ):
+        """The receipt names the purchased plan and lists its benefits."""
+        mocked = mocker.patch(
+            "squarelet.organizations.models.Charge.charge", new_callable=PropertyMock
+        )
+        mocked.return_value = {"source": {"brand": "Visa", "last4": "1234"}}
+
+        plan_factory(
+            name="Sunlight Research Center - Basic",
+            short_description="Investigative research tools.",
+            benefits=["Unlimited requests", "Priority support"],
+        )
+        charge = charge_factory(metadata={"plan": "Sunlight Research Center - Basic"})
+        charge.organization.set_receipt_emails(["receipts@example.com"])
+        charge.send_receipt()
+
+        html = receipt_html(mailoutbox)
+        assert "Sunlight Research Center - Basic" in html
+        assert "Investigative research tools." in html
+        assert "Unlimited requests" in html
+        assert "Priority support" in html
+
+    @pytest.mark.django_db()
+    def test_send_receipt_individual_management_links(
+        self,
+        charge_factory,
+        plan_factory,
+        individual_organization_factory,
+        mailoutbox,
+        mocker,
+    ):
+        """Individual receipts link to the user settings page."""
+        mocked = mocker.patch(
+            "squarelet.organizations.models.Charge.charge", new_callable=PropertyMock
+        )
+        mocked.return_value = {"source": {"brand": "Visa", "last4": "1234"}}
+
+        plan_factory(name="Professional")
+        organization = individual_organization_factory()
+        charge = charge_factory(
+            organization=organization, metadata={"plan": "Professional"}
+        )
+        organization.set_receipt_emails(["receipts@example.com"])
+        charge.send_receipt()
+
+        html = receipt_html(mailoutbox)
+        assert reverse("users:payment_redirect") in html
+
+    @pytest.mark.django_db()
+    def test_send_receipt_group_management_links(
+        self, charge_factory, plan_factory, organization_factory, mailoutbox, mocker
+    ):
+        """Group receipts link to the org payment and member management pages."""
+        mocked = mocker.patch(
+            "squarelet.organizations.models.Charge.charge", new_callable=PropertyMock
+        )
+        mocked.return_value = {"source": {"brand": "Visa", "last4": "1234"}}
+
+        plan_factory(name="Organization")
+        organization = organization_factory(individual=False)
+        charge = charge_factory(
+            organization=organization, metadata={"plan": "Organization"}
+        )
+        organization.set_receipt_emails(["receipts@example.com"])
+        charge.send_receipt()
+
+        html = receipt_html(mailoutbox)
+        assert (
+            reverse("organizations:payment", kwargs={"slug": organization.slug}) in html
+        )
+        assert (
+            reverse("organizations:manage-members", kwargs={"slug": organization.slug})
+            in html
+        )
+
+    @pytest.mark.django_db()
+    def test_send_receipt_includes_guidance(
+        self, charge_factory, plan_factory, mailoutbox, mocker
+    ):
+        """Every receipt explains how to dispute a charge and links to the
+        cancellation policy."""
+        mocked = mocker.patch(
+            "squarelet.organizations.models.Charge.charge", new_callable=PropertyMock
+        )
+        mocked.return_value = {"source": {"brand": "Visa", "last4": "1234"}}
+
+        plan_factory(name="Professional")
+        charge = charge_factory(metadata={"plan": "Professional"})
+        charge.organization.set_receipt_emails(["receipts@example.com"])
+        charge.send_receipt()
+
+        html = receipt_html(mailoutbox)
+        assert "info@muckrock.com" in html
+        assert "https://www.muckrock.com/tos/#payments" in html
+
+    @pytest.mark.django_db()
+    def test_send_receipt_without_plan(self, charge_factory, mailoutbox, mocker):
+        """A charge with no matching plan still renders the generic receipt."""
+        mocked = mocker.patch(
+            "squarelet.organizations.models.Charge.charge", new_callable=PropertyMock
+        )
+        mocked.return_value = {"source": {"brand": "Visa", "last4": "1234"}}
+
+        charge = charge_factory(metadata={})
+        charge.organization.set_receipt_emails(["receipts@example.com"])
+        charge.send_receipt()
+
+        html = receipt_html(mailoutbox)
+        assert "This receipt confirms your payment to MuckRock." in html
 
     def test_items_no_fee(self, charge_factory):
         charge = charge_factory.build()
