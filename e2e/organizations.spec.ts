@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import {
   login,
   inviteByEmail,
@@ -465,8 +465,9 @@ test.describe("Member Management", () => {
     const anonContext = await browser.newContext({ ignoreHTTPSErrors: true });
     const anonPage = await anonContext.newPage();
     await anonPage.goto(`https://dev.squarelet.com${invitationPath}`);
-    await expect(anonPage.locator("form a:has-text('Sign Up')")).toBeVisible();
-    await expect(anonPage.locator("form a:has-text('Log In')")).toBeVisible();
+    const controls = anonPage.locator(".control-group");
+    await expect(controls.locator("a:has-text('Sign Up')")).toBeVisible();
+    await expect(controls.locator("a:has-text('Log In')")).toBeVisible();
     await anonContext.close();
 
     // Verify the link invitation shows "Copy link" (not "Resend") on manage-members
@@ -930,5 +931,214 @@ test.describe("Auto-Join Domain Management", () => {
 
     // Verify auto-join is now disabled on the detail page
     await expect(page.locator('button[value="enable_autojoin"]')).toBeVisible();
+  });
+});
+
+test.describe("Invitations for unverified users", () => {
+  // e2e-unverified is seeded with an unconfirmed email and no team
+  // memberships.  clear_invitations also resets memberships back to the
+  // seeded state, removing anything accepted during a test.
+  test.afterEach(() => {
+    runManageCommand("seed_e2e_data --action clear_invitations");
+  });
+
+  // Revoke any stale pending invitations on manage-members before inviting.
+  async function clearPendingInvitations(page: Page) {
+    await page.goto("/organizations/e2e-public-org/manage-members/");
+    while (await page.locator('button[value="revokeinvite"]').count()) {
+      await page.locator('button[value="revokeinvite"]').first().click();
+      await page.goto("/organizations/e2e-public-org/manage-members/");
+    }
+  }
+
+  // Send a member-role invitation (the default role) to e2e-unverified —
+  // the shared setup for the render-surface tests below.
+  async function inviteUnverifiedMember(page: Page) {
+    await login(page, "e2e-admin");
+    await clearPendingInvitations(page);
+    await inviteByEmail(page, "e2e-unverified@example.com");
+    await expectFlashMessage(page, "success");
+  }
+
+  test("can see and accept a member invitation", async ({ page }) => {
+    await inviteUnverifiedMember(page);
+
+    // The unverified user logs in and views their account page
+    await login(page, "e2e-unverified");
+    await page.goto("/users/e2e-unverified/");
+
+    // The member invitation is visible and can be accepted
+    const invitation = page.locator(".invite", {
+      has: page.locator("text=e2e-public-org"),
+    });
+    await expect(invitation).toBeVisible();
+    await expect(invitation.locator('button[value="accept"]')).toBeVisible();
+
+    await invitation.locator('button[value="accept"]').click();
+    await expectFlashMessage(page, "success");
+
+    // The user is now a member of the organization
+    await login(page, "e2e-admin");
+    await page.goto("/organizations/e2e-public-org/manage-members/");
+    const membership = page.locator(".membership", {
+      has: page.locator("h3", { hasText: "e2e-unverified" }),
+    });
+    await expect(membership).toBeVisible();
+  });
+
+  test("sees an admin invitation but cannot accept it without verifying", async ({
+    page,
+  }) => {
+    // Admin sends an admin-role invitation to e2e-unverified
+    await login(page, "e2e-admin");
+    await clearPendingInvitations(page);
+    await page.locator("#user-select input").fill("e2e-unverified@example.com");
+    await expect(page.locator("button.creatable-row")).toBeEnabled({
+      timeout: 5_000,
+    });
+    await page.locator("button.creatable-row").click();
+    await page.locator("select[name='role']").selectOption("1");
+    await page.locator('button[value="addmember"]').click();
+    await expectFlashMessage(page, "success");
+
+    // The unverified user logs in and views their account page
+    await login(page, "e2e-unverified");
+    await page.goto("/users/e2e-unverified/");
+
+    // The admin invitation is visible...
+    const invitation = page.locator(".invite", {
+      has: page.locator("text=e2e-public-org"),
+    });
+    await expect(invitation).toBeVisible();
+
+    // ...but it offers an email-confirmation prompt instead of an accept button
+    await expect(invitation.locator('button[value="accept"]')).toHaveCount(0);
+    await expect(invitation.locator('a[href$="#accounts"]')).toBeVisible();
+  });
+
+  test("see a member invitation on the organizations list page", async ({
+    page,
+  }) => {
+    await inviteUnverifiedMember(page);
+
+    await login(page, "e2e-unverified");
+    await page.goto("/organizations/");
+
+    // The invitation appears in the pending-invitations section and is acceptable
+    const invitation = page.locator("#invitations .invite", {
+      has: page.locator("text=e2e-public-org"),
+    });
+    await expect(invitation).toBeVisible();
+    await expect(invitation.locator('button[value="accept"]')).toBeVisible();
+  });
+
+  test("see a member invitation in their invitation history", async ({
+    page,
+  }) => {
+    await inviteUnverifiedMember(page);
+
+    await login(page, "e2e-unverified");
+    await page.goto("/users/e2e-unverified/invitations/");
+
+    // The invitation is listed and can be accepted from the history page
+    await expect(
+      page.locator(".invitation-history-table tbody tr"),
+    ).toHaveCount(1);
+    await expect(
+      page.locator(".invitation-actions button[value='accept']"),
+    ).toBeVisible();
+  });
+
+  test("see a member invitation during onboarding", async ({ page }) => {
+    await inviteUnverifiedMember(page);
+
+    // Logging in redirects the unverified user into onboarding
+    await login(page, "e2e-unverified");
+
+    // The first onboarding step asks them to confirm their email — advance past it
+    const confirmStep = page.locator(
+      "input[name='step'][value='confirm_email']",
+    );
+    if (await confirmStep.count()) {
+      await page
+        .locator(
+          "form:has(input[name='step'][value='confirm_email']) button[type='submit']",
+        )
+        .click();
+    }
+
+    // The join-organization step surfaces the pending invitation
+    const invitation = page.locator(".invite", {
+      has: page.locator("text=e2e-public-org"),
+    });
+    await expect(invitation).toBeVisible();
+    await expect(invitation.locator('button[value="accept"]')).toBeVisible();
+  });
+
+  // Look up the invitation-link landing page (/organizations/<uuid>/invitation/)
+  // for the pending invitation addressed to the given email.
+  function invitationPathFor(email: string): string {
+    const out = runManageCommand(
+      `shell -c "from squarelet.organizations.models.invitation import Invitation;` +
+        ` print(Invitation.objects.get_pending().filter(email='${email}',` +
+        ` organization__slug='e2e-public-org').latest('created_at').uuid)"`,
+    );
+    const match = out.match(/[0-9a-f-]{36}/);
+    if (!match) {
+      throw new Error(`No pending invitation found for ${email}: ${out}`);
+    }
+    return `/organizations/${match[0]}/invitation/`;
+  }
+
+  test("can accept a member invitation from the email-link page", async ({
+    page,
+  }) => {
+    await inviteUnverifiedMember(page);
+    const invitationPath = invitationPathFor("e2e-unverified@example.com");
+
+    await login(page, "e2e-unverified");
+    await page.goto(invitationPath);
+
+    // The shared accept-form partial renders working Accept/Reject controls
+    const controls = page.locator(".control-group");
+    await expect(controls.locator('button[value="accept"]')).toBeVisible();
+    await controls.locator('button[value="accept"]').click();
+    await expectFlashMessage(page, "success");
+
+    // The user is now a member of the organization
+    await login(page, "e2e-admin");
+    await page.goto("/organizations/e2e-public-org/manage-members/");
+    await expect(
+      page.locator(".membership", {
+        has: page.locator("h3", { hasText: "e2e-unverified" }),
+      }),
+    ).toBeVisible();
+  });
+
+  test("admin invitation email-link page shows the verification gate", async ({
+    page,
+  }) => {
+    // Admin sends an admin-role invitation to e2e-unverified
+    await login(page, "e2e-admin");
+    await clearPendingInvitations(page);
+    await page.locator("#user-select input").fill("e2e-unverified@example.com");
+    await expect(page.locator("button.creatable-row")).toBeEnabled({
+      timeout: 5_000,
+    });
+    await page.locator("button.creatable-row").click();
+    await page.locator("select[name='role']").selectOption("1");
+    await page.locator('button[value="addmember"]').click();
+    await expectFlashMessage(page, "success");
+
+    const invitationPath = invitationPathFor("e2e-unverified@example.com");
+
+    await login(page, "e2e-unverified");
+    await page.goto(invitationPath);
+
+    // The shared partial gates acceptance behind email confirmation, the same
+    // as every other accept surface — no accept button, a confirm-email link.
+    const controls = page.locator(".control-group");
+    await expect(controls.locator('button[value="accept"]')).toHaveCount(0);
+    await expect(controls.locator('a[href$="#accounts"]')).toBeVisible();
   });
 });

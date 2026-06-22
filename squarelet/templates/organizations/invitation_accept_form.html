@@ -1,0 +1,16 @@
+{% load i18n %}
+{% if requires_email_verification %}
+<a class="btn small primary" href="{% url "users:redirect" %}#accounts">
+  {% trans "Confirm email to accept" %}
+</a>
+{% else %}
+<form method="post" action="{% url "organizations:invitation" uuid=invitation.uuid %}" class="actions">
+  {% csrf_token %}
+  <button class="btn small primary" type="submit" name="action" value="accept">
+    {% trans "Accept" %}
+  </button>
+  <button class="btn small danger ghost" type="submit" name="action" value="reject">
+    {% trans "Reject" %}
+  </button>
+</form>
+{% endif %}

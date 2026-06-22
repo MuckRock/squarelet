@@ -245,11 +245,16 @@ class InvitationQuerySet(models.QuerySet):
         return self.exclude(rejected_at=None)
 
     def for_user(self, user):
-        """Filter invitations/requests for a user's verified emails or user field"""
-        verified_emails = user.get_verified_emails()
-        if not verified_emails:
-            return self.none()
-        return self.filter(Q(email__in=verified_emails) | Q(user=user))
+        """Filter invitations/requests for a user's emails or user field
+
+        Matches against all of the user's email addresses (verified or not) so
+        that users who haven't confirmed their email can still see their
+        invitations.  Accepting an admin-role invitation is separately gated
+        behind email verification (see
+        InvitationAcceptForm.requires_email_verification).
+        """
+        emails = user.get_emails()
+        return self.filter(Q(email__in=emails) | Q(user=user))
 
     def get_user_invitations(self, user):
         """Get all invitations (request=False) for a user"""

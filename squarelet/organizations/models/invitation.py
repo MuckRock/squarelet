@@ -103,6 +103,10 @@ class Invitation(models.Model):
     def __str__(self):
         return f"Invitation: {self.uuid}"
 
+    @property
+    def is_admin_role(self):
+        return self.role == InvitationRole.admin
+
     def send(self):
 
         if self.request:
