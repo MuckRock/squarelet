@@ -1,6 +1,7 @@
 # Django
 from celery import shared_task
 from django.conf import settings
+from django.db.models import F
 from django.utils.timezone import get_current_timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -40,25 +41,48 @@ def restore_organization():
     today = date.today()
 
     # --- Subscriptions ---
-    subscriptions = Subscription.objects.filter(update_on__lte=today)
-    sub_uuids = list(subscriptions.values_list("organization__uuid", flat=True))
-    subscriptions.filter(cancelled=True).delete()
-    subscriptions.update(update_on=today + Interval("1 month"))
+    due_org_ids = list(
+        Organization.objects.filter(update_on__lte=today).values_list("id", flat=True)
+    )
+    due_org_uuids = list(
+        Organization.objects.filter(id__in=due_org_ids).values_list("uuid", flat=True)
+    )
 
-    # --- Entitlement grants ---
-    # Snapshot the matching orgs for each active expired grant before bumping
-    # update_on, then bulk-bump in one query. Inactive expired grants get the
-    # bump too but contribute no UUIDs to the broadcast.
-    expired_grants = EntitlementGrant.objects.expired(today)
+    # Delete cancelled subscriptions for due orgs
+    Subscription.objects.filter(
+        organization_id__in=due_org_ids, cancelled=True
+    ).delete()
+
+    # Determine which orgs still have active subscriptions
+    orgs_with_subs = set(
+        Subscription.objects.filter(organization_id__in=due_org_ids).values_list(
+            "organization_id", flat=True
+        )
+    )
+    orgs_without_subs = set(due_org_ids) - orgs_with_subs
+
+    # Advance anchor date for orgs that still have subscriptions
+    Organization.objects.filter(id__in=orgs_with_subs).update(
+        update_on=F("update_on") + Interval("1 month")
+    )
+    # Clear anchor for orgs whose last subscription was just cancelled
+    Organization.objects.filter(id__in=orgs_without_subs).update(update_on=None)
+
+    # --- Grant-only orgs ---
+    # Orgs that have entitlement grants but no subscription have no stored
+    # update_on.  Their resources refresh on the 1st of each month.
     grant_uuids = set()
-    active_expired = list(expired_grants.filter(active=True))
-    if active_expired:
-        qs_list = [g.matching_organizations().values("uuid") for g in active_expired]
-        union_qs = qs_list[0].union(*qs_list[1:])
-        grant_uuids = {row["uuid"] for row in union_qs}
-    expired_grants.update(update_on=today + Interval("1 month"))
+    if today.day == 1:
+        active_grants = list(EntitlementGrant.objects.filter(active=True))
+        if active_grants:
+            qs_list = [
+                g.matching_organizations().filter(update_on__isnull=True).values("uuid")
+                for g in active_grants
+            ]
+            union_qs = qs_list[0].union(*qs_list[1:])
+            grant_uuids = {row["uuid"] for row in union_qs}
 
-    all_uuids = list({*sub_uuids, *grant_uuids})
+    all_uuids = list({*due_org_uuids, *grant_uuids})
     send_cache_invalidations("organization", all_uuids)
 
 

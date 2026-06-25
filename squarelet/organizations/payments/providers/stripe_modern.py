@@ -138,19 +138,24 @@ class StripeModernSubscriptionService(SubscriptionService):
         billing,
         metadata,
         days_until_due,
+        billing_cycle_anchor=None,
     ):
         # `billing` was renamed to `collection_method` in API version 2019-10-17
         # subscriptions no longer auto-expand as of API version 2020-08-27
         # latest_invoice.confirmation_secret replaces latest_invoice.payment_intent
         # for SCA/3DS detection as of API version 2025-03-31.basil
-        return stripe.Subscription.create(
-            customer=stripe_customer.id,
-            items=[{"plan": plan_id, "quantity": quantity}],
-            collection_method=billing,
-            metadata=metadata,
-            days_until_due=days_until_due,
-            expand=["latest_invoice.confirmation_secret"],
-        )
+        params = {
+            "customer": stripe_customer.id,
+            "items": [{"plan": plan_id, "quantity": quantity}],
+            "collection_method": billing,
+            "metadata": metadata,
+            "days_until_due": days_until_due,
+            "expand": ["latest_invoice.confirmation_secret"],
+        }
+        if billing_cycle_anchor is not None:
+            params["billing_cycle_anchor"] = billing_cycle_anchor
+            params["proration_behavior"] = "create_prorations"
+        return stripe.Subscription.create(**params)
 
     def retrieve(self, subscription_id):
         try:

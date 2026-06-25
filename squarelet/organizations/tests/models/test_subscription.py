@@ -61,6 +61,7 @@ class TestSubscription:
             billing="charge_automatically",
             metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=None,
+            billing_cycle_anchor=None,
         )
         assert subscription.subscription_id == stripe_subscription_id
 
@@ -254,6 +255,7 @@ class TestSubscription:
             billing="send_invoice",
             metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=30,
+            billing_cycle_anchor=None,
         )
 
         # Verify Invoice record was created

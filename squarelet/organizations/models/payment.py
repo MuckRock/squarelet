@@ -3,12 +3,13 @@ from django.conf import settings
 from django.db import models, transaction
 from django.db.models import Q
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 # Standard Library
+import calendar
 import logging
 import sys
+from datetime import date, datetime, timezone as dt_timezone
 from functools import cached_property
 
 # Third Party
@@ -142,6 +143,25 @@ class Customer(models.Model):
         )
 
 
+def _next_anchor_timestamp(anchor_day, today):
+    """Return a Unix timestamp for the next occurrence of anchor_day strictly
+    after today."""
+    try:
+        candidate = today.replace(day=anchor_day)
+    except ValueError:
+        candidate = today.replace(day=calendar.monthrange(today.year, today.month)[1])
+    if candidate <= today:
+        next_month = today + relativedelta(months=1)
+        try:
+            candidate = next_month.replace(day=anchor_day)
+        except ValueError:
+            candidate = next_month.replace(
+                day=calendar.monthrange(next_month.year, next_month.month)[1]
+            )
+    aware = datetime.combine(candidate, datetime.min.time(), tzinfo=dt_timezone.utc)
+    return int(aware.timestamp())
+
+
 class Subscription(models.Model):
     """Through table for organization plans"""
 
@@ -168,9 +188,6 @@ class Subscription(models.Model):
         null=True,
         help_text=_("The subscription ID on stripe"),
     )
-    update_on = models.DateField(
-        _("date update"), help_text=_("Date when monthly resources are restored")
-    )
 
     # The cancelled flag is used to mark subscriptions that are ready for cancellation.
     # Cancellation happens at the end of the billing period; at that point,
@@ -195,7 +212,7 @@ class Subscription(models.Model):
             )
         return None
 
-    def start(self, payment_method="card"):
+    def start(self, payment_method="card", billing_cycle_anchor=None):
         if self.stripe_subscription:
             logger.error(
                 "Trying to start an existing subscription: %s %s",
@@ -212,6 +229,12 @@ class Subscription(models.Model):
                 billing = "charge_automatically"
                 days_until_due = None
 
+            anchor_ts = None
+            if billing_cycle_anchor is not None:
+                anchor_ts = _next_anchor_timestamp(
+                    billing_cycle_anchor.day, date.today()
+                )
+
             stripe_subscription = (
                 get_payment_provider()
                 .get_subscription_service()
@@ -222,6 +245,7 @@ class Subscription(models.Model):
                     billing=billing,
                     metadata={"action": f"Subscription ({self.plan})"},
                     days_until_due=days_until_due,
+                    billing_cycle_anchor=anchor_ts,
                 )
             )
             self.subscription_id = stripe_subscription.id
@@ -798,10 +822,6 @@ class Entitlement(models.Model):
         return self.plans.filter(public=True).exists()
 
 
-def default_grant_update_on():
-    return timezone.now().date() + relativedelta(months=1)
-
-
 class EntitlementGrant(models.Model):
     """Grants Entitlements to organizations, explicitly or by rule."""
 
@@ -848,14 +868,6 @@ class EntitlementGrant(models.Model):
         _("active"),
         default=True,
         help_text=_("Inactive grants do not apply to any organization"),
-    )
-
-    update_on = models.DateField(
-        _("date update"),
-        null=True,
-        blank=True,
-        default=default_grant_update_on,
-        help_text=_("Date when this grant's resources next refresh"),
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
