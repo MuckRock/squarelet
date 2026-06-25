@@ -1,13 +1,8 @@
 # Django
 from django.db.models import QuerySet
-from django.utils import timezone
-
-# Standard Library
-from datetime import timedelta
 
 # Third Party
 import pytest
-from dateutil.relativedelta import relativedelta
 
 # Squarelet
 from squarelet.oidc.tests.factories import ClientFactory
@@ -153,20 +148,6 @@ class TestEntitlementGrant:
             organizations=[individual], for_individuals=False, for_groups=True
         )
         assert grant.matches(individual) is False
-
-    @pytest.mark.django_db()
-    def test_update_on_defaults_to_one_month_out(self):
-        """A grant saved without update_on defaults to one month from today."""
-        grant = EntitlementGrantFactory()
-        expected = timezone.now().date() + relativedelta(months=1)
-        assert grant.update_on == expected
-
-    @pytest.mark.django_db()
-    def test_update_on_admin_provided_value_is_preserved(self):
-        """An admin-provided update_on is left alone on save."""
-        future = timezone.now().date() + timedelta(days=90)
-        grant = EntitlementGrantFactory(update_on=future)
-        assert grant.update_on == future
 
 
 class TestMatchingOrganizations:

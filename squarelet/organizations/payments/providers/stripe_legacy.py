@@ -70,13 +70,17 @@ class StripeLegacySubscriptionService(SubscriptionService):
         billing,
         metadata,
         days_until_due,
+        billing_cycle_anchor=None,
     ):
-        return stripe_customer.subscriptions.create(
-            items=[{"plan": plan_id, "quantity": quantity}],
-            billing=billing,
-            metadata=metadata,
-            days_until_due=days_until_due,
-        )
+        params = {
+            "items": [{"plan": plan_id, "quantity": quantity}],
+            "billing": billing,
+            "metadata": metadata,
+            "days_until_due": days_until_due,
+        }
+        if billing_cycle_anchor is not None:
+            params["billing_cycle_anchor"] = billing_cycle_anchor
+        return stripe_customer.subscriptions.create(**params)
 
     def retrieve(self, subscription_id):
         try:
