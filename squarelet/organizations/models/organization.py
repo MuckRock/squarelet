@@ -9,11 +9,13 @@ from django.utils.translation import gettext_lazy as _
 import logging
 import sys
 import uuid
+from datetime import date
 from functools import cached_property
 
 # Third Party
 import stripe
 from autoslug import AutoSlugField
+from dateutil.relativedelta import relativedelta
 from sorl.thumbnail import ImageField
 
 # Squarelet
@@ -239,6 +241,15 @@ class Organization(AvatarMixin, models.Model):
 
     # TODO: Remove default avatar
     default_avatar = static("images/avatars/organization.png")
+
+    update_on = models.DateField(
+        _("date update"),
+        null=True,
+        blank=True,
+        help_text=_(
+            "Anchor date for monthly resource refreshes across all subscriptions"
+        ),
+    )
 
     allow_auto_join = models.BooleanField(
         default=False,
@@ -474,6 +485,8 @@ class Organization(AvatarMixin, models.Model):
                 f"Organization already has an active subscription to {plan}"
             )
 
+        is_first = not self.subscriptions.exists()
+
         self.max_users = max_users
         self.save()
 
@@ -494,9 +507,17 @@ class Organization(AvatarMixin, models.Model):
             customer.email = self.email
             customer.save()
 
+        # update_on must be None when start() is called so the first subscription
+        # receives no billing_cycle_anchor (Stripe sets its own anchor). Only after
+        # the subscription exists do we record the anchor for subsequent subscriptions
+        # to align to.
         self.subscriptions.start(
             organization=self, plan=plan, payment_method=payment_method
         )
+
+        if is_first:
+            self.update_on = date.today() + relativedelta(months=1)
+            self.save(update_fields=["update_on"])
 
         self.change_logs.create(
             user=user,

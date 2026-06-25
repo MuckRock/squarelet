@@ -1,5 +1,5 @@
-# Django
-from django.db.models import Q
+# Standard Library
+from datetime import date
 
 # Third Party
 import stripe
@@ -8,9 +8,17 @@ from rest_framework.exceptions import APIException
 
 # Squarelet
 from squarelet.core.utils import format_stripe_error
-from squarelet.organizations.models import Charge, Entitlement, Membership, Organization
+from squarelet.organizations.models import Charge, Membership, Organization
 from squarelet.organizations.models.payment import EntitlementGrant
 from squarelet.organizations.payments.base import PaymentActionRequired
+
+
+def _default_update_on():
+    """First day of next month — the refresh date for grant-only organizations."""
+    today = date.today()
+    if today.month == 12:
+        return date(today.year + 1, 1, 1)
+    return date(today.year, today.month + 1, 1)
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
@@ -87,8 +95,8 @@ class OrganizationDetailSerializer(OrganizationSerializer):
             "location",
         )
 
-    def get_update_on(self, _obj):
-        return None
+    def get_update_on(self, obj):
+        return obj.update_on or _default_update_on()
 
     def get_location(self, obj):
         if not (obj.city or obj.state or obj.country):
@@ -110,40 +118,41 @@ class OrganizationDetailSerializer(OrganizationSerializer):
         if not client:
             return []
 
-        # Compute matching grants once; reused for both the entitlement query
-        # and the grant_update_on map below (avoids a second DB round-trip).
+        update_on = obj.update_on or _default_update_on()
+        result = []
+
+        # Plan-based: one entry per subscription's entitlements (no dedup)
+        for sub in obj.subscriptions.prefetch_related("plan__entitlements").all():
+            for ent in sub.plan.entitlements.filter(client=client):
+                result.append(
+                    {
+                        "name": ent.name,
+                        "slug": ent.slug,
+                        "description": ent.description,
+                        "resources": ent.resources,
+                        "update_on": update_on,
+                    }
+                )
+
+        # Grant-based: deduplicated by entitlement pk
         matching_grants = EntitlementGrant.objects.for_org(obj).prefetch_related(
             "entitlements"
         )
-        entitlements = list(
-            Entitlement.objects.filter(
-                Q(plans__organizations=obj) | Q(grants__in=matching_grants),
-                client=client,
-            )
-            .distinct()
-            .values("pk", "name", "slug", "description", "resources")
-        )
-
-        # This needs to take all subscriptions into account
-        sub = obj.subscriptions.first()
-        sub_update_on = sub.update_on if sub else None
-
-        # For grant-derived entitlements (no subscription), report the soonest
-        # matching grant's update_on per entitlement.
-        grant_update_on = {}
-        if sub_update_on is None:
-            for grant in matching_grants:
-                if grant.update_on is None:
-                    continue
-                for ent in grant.entitlements.all():
-                    existing = grant_update_on.get(ent.pk)
-                    if existing is None or grant.update_on < existing:
-                        grant_update_on[ent.pk] = grant.update_on
-
-        for row in entitlements:
-            row["update_on"] = sub_update_on or grant_update_on.get(row["pk"])
-            del row["pk"]
-        return entitlements
+        grant_ent_pks_seen = set()
+        for grant in matching_grants:
+            for ent in grant.entitlements.filter(client=client):
+                if ent.pk not in grant_ent_pks_seen:
+                    grant_ent_pks_seen.add(ent.pk)
+                    result.append(
+                        {
+                            "name": ent.name,
+                            "slug": ent.slug,
+                            "description": ent.description,
+                            "resources": ent.resources,
+                            "update_on": update_on,
+                        }
+                    )
+        return result
 
     def get_card(self, obj):
         # this can be slow - goes to stripe for customer/card info - cache this
