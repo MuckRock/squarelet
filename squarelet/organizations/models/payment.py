@@ -6,10 +6,9 @@ from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
 # Standard Library
-import calendar
 import logging
 import sys
-from datetime import date, datetime, timezone as dt_timezone
+from datetime import datetime, time, timezone as dt_timezone
 from functools import cached_property
 
 # Third Party
@@ -143,22 +142,9 @@ class Customer(models.Model):
         )
 
 
-def _next_anchor_timestamp(anchor_day, today):
-    """Return a Unix timestamp for the next occurrence of anchor_day strictly
-    after today."""
-    try:
-        candidate = today.replace(day=anchor_day)
-    except ValueError:
-        candidate = today.replace(day=calendar.monthrange(today.year, today.month)[1])
-    if candidate <= today:
-        next_month = today + relativedelta(months=1)
-        try:
-            candidate = next_month.replace(day=anchor_day)
-        except ValueError:
-            candidate = next_month.replace(
-                day=calendar.monthrange(next_month.year, next_month.month)[1]
-            )
-    aware = datetime.combine(candidate, datetime.min.time(), tzinfo=dt_timezone.utc)
+def _anchor_timestamp(anchor_date):
+    """Return a UTC Unix timestamp for midnight on the given date."""
+    aware = datetime.combine(anchor_date, time(0, 0), tzinfo=dt_timezone.utc)
     return int(aware.timestamp())
 
 
@@ -231,9 +217,7 @@ class Subscription(models.Model):
 
             anchor_ts = None
             if billing_cycle_anchor is not None:
-                anchor_ts = _next_anchor_timestamp(
-                    billing_cycle_anchor.day, date.today()
-                )
+                anchor_ts = _anchor_timestamp(billing_cycle_anchor)
 
             stripe_subscription = (
                 get_payment_provider()
