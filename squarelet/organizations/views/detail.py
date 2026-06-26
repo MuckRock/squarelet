@@ -60,7 +60,8 @@ class Detail(AdminLinkMixin, DetailView):
         if hasattr(org, "subscriptions"):
             subscription = org.subscriptions.first()
             if subscription and hasattr(subscription, "plan"):
-                current_plan = subscription.plan
+                # Temporarily wrap this in a list to support the new plan card template, which expects a list of plans
+                current_plan = [subscription.plan]
                 upgrade_plan = None
         context["current_plan"] = current_plan
         context["upgrade_plan"] = upgrade_plan
