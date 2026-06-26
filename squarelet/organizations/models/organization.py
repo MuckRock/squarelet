@@ -35,7 +35,8 @@ from squarelet.organizations.querysets import OrganizationQuerySet
 
 logger = logging.getLogger(__name__)
 
-# pylint:disable=too-many-positional-arguments
+# This should be refactored
+# pylint:disable=too-many-positional-arguments, too-many-lines
 
 
 def organization_file_path(instance, filename):
@@ -476,10 +477,6 @@ class Organization(AvatarMixin, models.Model):
         Raises ValueError if the org already has a non-cancelled subscription
         for this plan.
         """
-        # pylint: disable=import-outside-toplevel
-        # Squarelet
-        from squarelet.organizations.tasks import sync_wix, sync_wix_for_group_member
-
         if self.subscriptions.filter(plan=plan).exists():
             raise ValueError(
                 f"Organization already has an active subscription to {plan}"
@@ -527,13 +524,22 @@ class Organization(AvatarMixin, models.Model):
         )
 
         if plan.wix:
-            for wix_user in self.users.all():
-                sync_wix.delay(self.pk, plan.pk, wix_user.pk)
-            if self.collective_enabled and self.share_resources:
-                for member_org in self.members.all():
-                    sync_wix_for_group_member.delay(member_org.pk, self.pk, plan.pk)
-                for child_org in self.children.all():
-                    sync_wix_for_group_member.delay(child_org.pk, self.pk, plan.pk)
+            self._dispatch_wix_sync(plan)
+
+    def _dispatch_wix_sync(self, plan):
+        """Dispatch Wix sync tasks for this org's users and, if this org is a
+        resource-sharing group, its member/child orgs."""
+        # pylint: disable=import-outside-toplevel
+        # Squarelet
+        from squarelet.organizations.tasks import sync_wix, sync_wix_for_group_member
+
+        for wix_user in self.users.all():
+            sync_wix.delay(self.pk, plan.pk, wix_user.pk)
+        if self.collective_enabled and self.share_resources:
+            for member_org in self.members.all():
+                sync_wix_for_group_member.delay(member_org.pk, self.pk, plan.pk)
+            for child_org in self.children.all():
+                sync_wix_for_group_member.delay(child_org.pk, self.pk, plan.pk)
 
     def remove_subscription(self, plan_or_subscription, user=None):
         """Cancel the subscription for the given plan or Subscription instance."""

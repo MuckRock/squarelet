@@ -14,7 +14,6 @@ from functools import cached_property
 # Third Party
 import stripe
 from autoslug import AutoSlugField
-from dateutil.relativedelta import relativedelta
 
 # Squarelet
 from squarelet.core.mail import ORG_TO_RECEIPTS, send_mail
