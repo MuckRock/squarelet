@@ -1,11 +1,22 @@
-{% extends "base.html" %}
-{% load i18n django_vite crispy_forms_tags planinfo %}
+{% extends "layouts/sidebar_layout.html" %}
+{% load avatar humanize django_vite i18n crispy_forms_tags planinfo %}
+{% load icon %}
 
-{% block title %}{{ organization.reference_name }}{% endblock %}
+{% block title %}{{ organization.name }} | Manage Subscriptions{% endblock %}
 
 {% block vite %}
 {{ block.super }}
 {% vite_asset "frontend/views/organization_payment.ts" %}
+{% endblock vite %}
+
+{% block layout_id %}manage_billing{% endblock %}
+
+{% block header %}
+  <header>
+    <h1>{{ organization.name }}</h1>
+    <span class="arrow">{% icon "chevron-right" %}</span>
+    <h2>{% trans "Subscriptions" %}</h2>
+  </header>
 {% endblock %}
 
 {% block content %}
@@ -32,31 +43,57 @@
 <form id="stripe-form" method="post" enctype="multipart/form-data">
     {% crispy form form.helper %}
 
-    {% if form.stripe_token %}
-    <div id="_id-planProjection" class="_cls-planProjection">
-        <b>Cost: <span id="_id-totalCost"></span></b>
-        <div class="_cls-breakdown" id="_id-costBreakdown"></div>
-    </div>
-    <div id="card-container">
-        <h3 class="_cls-smallHeading">{% blocktrans %}Billing information{% endblocktrans %}</h3>
-        <div class="_cls-field">
-        <div id="card-element" class="_cls-fieldInput"></div>
-        </div>
-        <!-- Used to display Element errors. -->
-        <div id="card-errors" role="alert"></div>
-    </div>
-    {% endif %}
+    <li>
+      <a href="#payment" class="nav-item">
+        {% icon "gear" %}
+        {% trans "Payment settings" %}
+      </a>
+    </li>
 
-    <div class="control-group" style="margin-top: 2em;">
-    <div class="_cls-actionSmall">
-        <button type="submit" class="btn">{% trans 'Update' %}</button>
-        <a href="{{ organization.get_absolute_url }}" class="_cls-altAction">
-        {% trans 'Cancel' %}
-        </a>
-    </div>
-    </div>
+    <li>
+      <a href="#recent" class="nav-item">
+        {% icon "log" %}
+        {% trans "Recent payments" %}
+      </a>
+    </li>
+  </ul>
+{% endblock sidebar %}
 
-</form>
-</div>
-{% planinfo organization=organization %}
-{% endblock content %}
+{% block main %}
+  <section id="plans">
+    <header>
+      <div class="title">
+        <h2>{% trans "Your plans" %}</h2>
+      </div>
+    </header>
+
+    <div class="card">
+    </div>
+  </section>
+
+  <section id="payment">
+    <header>
+      <div class="title">
+        <h2>{% trans "Payment settings" %}</h2>
+      </div>
+    </header>
+
+    <div class="card">
+    </div>
+  </section>
+
+  <section id="recent">
+    <header>
+      <div class="title">
+        <h2>{% trans "Recent payments" %}</h2>
+      </div>
+      <a href="{% url "organizations:org-requests" slug=organization.slug %}" class="btn small ghost primary">
+        {% icon "log" %}
+        {% trans "View all" %}
+      </a>
+    </header>
+
+    <div class="card">
+    </div>
+  </section>
+{% endblock main %}
