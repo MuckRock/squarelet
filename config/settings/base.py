@@ -580,3 +580,7 @@ STRIPE_PROVIDER = env("STRIPE_PROVIDER", default="modern")
 ZENDESK_SUBDOMAIN = env("ZENDESK_SUBDOMAIN", default="")
 ZENDESK_EMAIL = env("ZENDESK_EMAIL", default="")
 ZENDESK_TOKEN = env("ZENDESK_TOKEN", default="")
+
+# Odoo
+ODOO_API_KEY = env("ODOO_API_KEY", default="")
+ODOO_SYNC_REPORT_EMAIL = env("ODOO_SYNC_REPORT_EMAIL", default="info@muckrock.com")
