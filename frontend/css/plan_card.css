@@ -19,7 +19,7 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem 1rem;
+  gap: 1rem 1rem;
   font-size: var(--font-md, 1rem);
 }
 
@@ -60,16 +60,60 @@ a.plan-name {
   padding: 0;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 1rem;
   margin: 0.25rem 0;
 }
 
-.plan-detail .icon {
+.plan-card h3 {
+  font-weight: 600;
+  font-size: var(--font-md, 1rem);
+  color: var(--gray-5, #233944);
+  margin: 0;
+  flex: 1 0 0;
+  white-space: nowrap;
+}
+
+.plan-card .caption {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0;
+}
+
+.plan-card .caption .icon {
   display: inline-flex;
   align-items: center;
   color: var(--gray-4, #5c717c);
-  width: var(--font-sm, 1rem);
-  height: var(--font-sm, 1rem);
+  width: var(--font-md, 1em);
+  height: var(--font-md, 1em);
+}
+
+.plan-list {
+  margin: 0;
+  padding: 0;
+  list-style-type: none;
+  display: flex;
+  gap: 0.5rem 1.5rem;
+  flex: 1 0 100%;
+}
+
+.plan-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1 0 100%;
+}
+
+.plan-info {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.plan-name {
+  color: var(--blue-4, #1367d0);
 }
 
 /* Plan benefits checklist */
