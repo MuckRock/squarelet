@@ -52,7 +52,7 @@
     <li>
       <a href="#plan" class="nav-item">
         {% icon "credit-card" %}
-        {% trans "Plan" %}
+        {% trans "Plans" %}
       </a>
     </li>
     {% endif %}
@@ -145,19 +145,20 @@
     </section>
 
     {% if can_view_subscription %}
+    {% url 'organizations:payment' organization.slug as payment_url %}
     <section id="plan">
       <header>
-        <h2>{% trans "Plan" %}</h2>
+        <h2>{% trans "Plans" %}</h2>
         {% if can_edit_subscription %}
         <div class="header-actions">
-          <a href="{% url 'select_plan' %}" class="btn ghost primary">
-            {% icon "list-unordered" %}
-            {% trans "View all plans" %}
+          <a href="{{ payment_url }}" class="btn ghost primary">
+            {% icon "gear" %}
+            {% trans "Manage plans" %}
           </a>
           {% if can_view_charge %}
           <a href="{% url 'users:receipts' username=user.username %}" class="btn ghost primary">
             {% icon "log" %}
-            {% trans "View receipts" %}
+            {% trans "View payments" %}
           </a>
           {% endif %}
         </div>
