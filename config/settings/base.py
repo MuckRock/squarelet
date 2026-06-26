@@ -359,6 +359,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "squarelet.users.tasks.permission_digest",
         "schedule": crontab(day_of_week="mon", hour=7, minute=0),
     },
+    "sync_odoo_daily": {
+        "task": "squarelet.core.tasks.sync_odoo_daily",
+        "schedule": crontab(hour=3, minute=0),
+    },
 }
 
 # django-allauth
@@ -580,3 +584,9 @@ STRIPE_PROVIDER = env("STRIPE_PROVIDER", default="modern")
 ZENDESK_SUBDOMAIN = env("ZENDESK_SUBDOMAIN", default="")
 ZENDESK_EMAIL = env("ZENDESK_EMAIL", default="")
 ZENDESK_TOKEN = env("ZENDESK_TOKEN", default="")
+
+# Odoo
+ODOO_API_KEY = env("ODOO_API_KEY", default="")
+ODOO_SYNC_REPORT_EMAIL = env("ODOO_SYNC_REPORT_EMAIL", default="info@muckrock.com")
+ODOO_TIMEOUT = env.int("ODOO_TIMEOUT", default=30)
+ODOO_URL = env("ODOO_URL", default="https://muckrock-odoo.odoo.com")

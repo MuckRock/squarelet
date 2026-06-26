@@ -16,6 +16,8 @@ import actstream
 import requests
 import stripe
 from inflection import pluralize as inflection_pluralize
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from zenpy import Zenpy
 from zenpy.lib.api_objects import Ticket
 
@@ -340,3 +342,26 @@ def is_rate_limited(
         return True
 
     return False
+
+
+def requests_retry_session(
+    retries=3,
+    backoff_factor=0.3,
+    status_forcelist=(429, 500, 502, 503, 504),
+    session=None,
+):
+    """Automatic retries for HTTP requests.
+    See: https://www.peterbe.com/plog/best-practice-with-retries-with-requests
+    """
+    session = session or requests.Session()
+    retry = Retry(
+        total=retries,
+        read=retries,
+        connect=retries,
+        backoff_factor=backoff_factor,
+        status_forcelist=status_forcelist,
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    return session
