@@ -5,7 +5,7 @@ Plan card partial.
 
 Args:
   org             — subject Organization (used for payment / receipts URLs).
-  plan            — own Plan or None.
+  plans           — list of own Plans or empty list.
   inherited_plans — list of (source_org, plan) tuples; may be empty.
   upgrade_plan    — Plan to advertise when there is no own plan (optional).
   next_charge_date, card, cancelled — subscription details (optional, org only).
@@ -14,56 +14,57 @@ Args:
   subject         — "user" | "org". Controls copy. Default "org".
 {% endcomment %}
 
-{% if plan or upgrade_plan or not inherited_plans %}
-<main class="plan-card{% if not plan %} plan-card--no-subscription{% endif %}">
-  {% if plan %}
+{% if plans or upgrade_plan or not inherited_plans %}
+<main class="plan-card{% if not plans %} plan-card--no-subscription{% endif %}">
+  {% if plans %}
     <div class="plan-overview">
-      <p>
-        {% if subject == "user" %}
-          {% trans "You are subscribed to the" %}
-        {% else %}
-          {% trans "Subscribed to the" %}
-        {% endif %}
-        <a class="plan-name"
-            id="{{ plan.slug }}"
-            href="{% url 'plan_detail' pk=plan.id slug=plan.slug %}">{{ plan.name }}</a>
-        {% trans "plan." %}
-      </p>
-      {% if payment_url and can_edit_subscription %}
-      <a href="{{ payment_url }}" class="btn ghost primary">
-        {% if subject == "user" %}{% trans "Change plan" %}{% else %}{% trans "Billing settings" %}{% endif %}
-      </a>
+      {% if card %}
+        <div class="plan-detail">
+          <h3>{% trans "Payment card" %}</h3>
+          <span class="caption">
+            <span class="icon">{% icon "credit-card" %}</span>
+            <span class="text">
+              {{ card.brand }} {% trans "ending in" %} <strong>{{ card.last4 }}</strong>
+            </span>
+          </span>
+        </div>
+        <a href="{{ payment_url }}" class="btn ghost primary">
+          {% trans "Add new card" %}
+        </a>
       {% endif %}
-    </div>
-    {% if plan.benefits %}
-      <ul class="plan-benefits checklist">
-        {% for benefit in plan.benefits %}
-          <li class="checklist-item">
-            <span class="icon">{% icon "checkmark" %}</span>
-            <span class="text">{{ benefit }}</span>
+
+      <div class="plan-detail">
+        <h3>{% trans "Your plans" %}</h3>
+        <span class="caption">
+          {% trans "Modify or cancel your organization's subscriptions" %}
+        </span>
+      </div>
+
+      <ul class="plan-list">
+        {% for plan in plans %}
+          <li class="plan-item">
+            <div class="plan-info">
+              <span class="plan-name">{{ plan.name }}</span>
+              <span class="caption">
+                <span class="icon">{% icon "calendar" %}</span>
+                {{ plan.annual|yesno:_("Annual,Monthly") }}
+              </span>
+            </div>
+
+            {%if plan.cancelled %}
+              <span class="red badge">
+                {% trans "Cancelled" %}
+              </span>
+            {% else %}
+              <a href="{{ payment_url }}#{{ plan.slug }}" class="btn ghost">
+                {% icon "gear" %}
+                {% trans "Manage" %}
+              </a>
+            {% endif %}
           </li>
         {% endfor %}
       </ul>
-    {% endif %}
-    {% if next_charge_date or card %}
-      <ul class="plan-details">
-        {% if next_charge_date %}
-          <li class="plan-detail plan-next-charge">
-            <span class="icon">{% icon "calendar" %}</span>
-            <span class="label">
-              {% if cancelled %}{% trans "Subscription ends on" %}{% else %}{% trans "Subscription renews on" %}{% endif %}
-              <time title="{{ next_charge_date|date:"c" }}" datetime="{{ next_charge_date|date:"c" }}">{{ next_charge_date|date:"F j, Y" }}</time>
-            </span>
-          </li>
-        {% endif %}
-        {% if card %}
-          <li class="plan-detail plan-card-info">
-            <span class="icon">{% icon "credit-card" %}</span>
-            <span class="label">{{ card_brand }} {% trans "ending in" %} {{ card_last4 }}</span>
-          </li>
-        {% endif %}
-      </ul>
-    {% endif %}
+    </div>
   {% else %}
     <div class="plan-overview">
       <p>
