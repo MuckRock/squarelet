@@ -94,3 +94,56 @@ class TestSerializerEntitlements:
         org = OrganizationFactory()
         serializer = OrganizationDetailSerializer(org, context={})
         assert not serializer.get_entitlements(org)
+
+
+class TestSerializerProfile:
+    """Tests for url and location fields on OrganizationDetailSerializer"""
+
+    @pytest.fixture(autouse=True)
+    def _mock_card(self, mocker):
+        # Avoid hitting Stripe when serializing the card field
+        mocker.patch(
+            "squarelet.organizations.models.payment.Customer.card_display",
+            new_callable=mocker.PropertyMock,
+            return_value=None,
+        )
+
+    @pytest.mark.django_db()
+    def test_serializer_includes_urls(self):
+        org = OrganizationFactory()
+        org.urls.create(url="https://example.org")
+        org.urls.create(url="https://example.org/blog")
+
+        data = OrganizationDetailSerializer(org, context={}).data
+        assert sorted(data["urls"]) == [
+            "https://example.org",
+            "https://example.org/blog",
+        ]
+
+    @pytest.mark.django_db()
+    def test_serializer_urls_empty_when_none(self):
+        org = OrganizationFactory()
+        data = OrganizationDetailSerializer(org, context={}).data
+        assert data["urls"] == []
+
+    @pytest.mark.django_db()
+    def test_serializer_includes_location(self):
+        org = OrganizationFactory(city="Boston", state="MA", country="US")
+        data = OrganizationDetailSerializer(org, context={}).data
+        assert data["location"] == {
+            "city": "Boston",
+            "state": "MA",
+            "country": "US",
+        }
+
+    @pytest.mark.django_db()
+    def test_serializer_location_null_when_unset(self):
+        org = OrganizationFactory()
+        data = OrganizationDetailSerializer(org, context={}).data
+        assert data["location"] is None
+
+    @pytest.mark.django_db()
+    def test_serializer_location_partial(self):
+        org = OrganizationFactory(country="US")
+        data = OrganizationDetailSerializer(org, context={}).data
+        assert data["location"] == {"city": "", "state": "", "country": "US"}

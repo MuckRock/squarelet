@@ -74,6 +74,8 @@ class OrganizationDetailSerializer(OrganizationSerializer):
     update_on = serializers.SerializerMethodField()
     entitlements = serializers.SerializerMethodField()
     card = serializers.SerializerMethodField()
+    urls = serializers.SlugRelatedField(many=True, read_only=True, slug_field="url")
+    location = serializers.SerializerMethodField()
 
     class Meta:
         model = Organization
@@ -81,10 +83,21 @@ class OrganizationDetailSerializer(OrganizationSerializer):
             "entitlements",
             "card",
             "update_on",
+            "urls",
+            "location",
         )
 
     def get_update_on(self, _obj):
         return None
+
+    def get_location(self, obj):
+        if not (obj.city or obj.state or obj.country):
+            return None
+        return {
+            "city": obj.city,
+            "state": obj.state,
+            "country": obj.country,
+        }
 
     def get_entitlements(self, obj):
         # Get the client first
