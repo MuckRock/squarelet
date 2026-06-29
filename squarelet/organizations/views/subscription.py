@@ -52,7 +52,7 @@ from squarelet.organizations.tasks import (
 logger = logging.getLogger(__name__)
 
 
-class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
+class UpdateSubscriptions(OrganizationPermissionMixin, UpdateView):
     permission_required = "organizations.can_edit_subscription"
     queryset = Organization.objects.filter(individual=False)
     form_class = PaymentForm
