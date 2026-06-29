@@ -14,9 +14,9 @@ Args:
   subject         — "user" | "org". Controls copy. Default "org".
 {% endcomment %}
 
-{% if plans or upgrade_plan or not inherited_plans %}
-<main class="plan-card{% if not plans %} plan-card--no-subscription{% endif %}">
-  {% if plans %}
+{% if subscriptions or upgrade_plan or not inherited_plans %}
+<main class="plan-card{% if not subscriptions %} plan-card--no-subscription{% endif %}">
+  {% if subscriptions %}
     <div class="plan-overview">
       {% if card %}
         <div class="plan-detail">
@@ -41,22 +41,22 @@ Args:
       </div>
 
       <ul class="plan-list">
-        {% for plan in plans %}
+        {% for subscription in subscriptions %}
           <li class="plan-item">
             <div class="plan-info">
-              <span class="plan-name">{{ plan.name }}</span>
+              <span class="plan-name">{{ subscription.plan.name }}</span>
               <span class="caption">
                 <span class="icon">{% icon "calendar" %}</span>
-                {{ plan.annual|yesno:_("Annual,Monthly") }}
+                {{ subscription.plan.annual|yesno:_("Annual,Monthly") }}
               </span>
             </div>
 
-            {%if plan.cancelled %}
+            {%if subscription.plan.cancelled %}
               <span class="red badge">
                 {% trans "Cancelled" %}
               </span>
             {% else %}
-              <a href="{{ payment_url }}#{{ plan.slug }}" class="btn ghost">
+              <a href="{{ payment_url }}#{{ subscription.plan.slug }}" class="btn ghost">
                 {% icon "gear" %}
                 {% trans "Manage" %}
               </a>
