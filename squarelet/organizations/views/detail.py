@@ -2,6 +2,7 @@
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.db.models import Value as V
 from django.db.models.functions import Lower, StrIndex
 from django.http import JsonResponse
@@ -189,10 +190,28 @@ class Detail(AdminLinkMixin, DetailView):
             )
             return
 
-        # Create join request, assuming they aren't rate limited
-        invitation = self.organization.invitations.create(
-            email=request.user.email, user=request.user, request=True
-        )
+        # Create join request, assuming they aren't rate limited.
+        # Lock the user row for the duration of the transaction so that
+        # concurrent join submissions (e.g. a double-clicked button) are
+        # serialized. Once serialized, the pending-request check below ensures
+        # at most one pending request to join an organization can exist.
+        with transaction.atomic():
+            get_user_model().objects.select_for_update().get(pk=user.pk)
+            already_pending = (
+                self.organization.invitations.get_pending_requests()
+                .filter(user=user)
+                .exists()
+            )
+            if already_pending:
+                messages.info(
+                    request,
+                    _("You already have a pending request to join this organization."),
+                )
+                return
+            invitation = self.organization.invitations.create(
+                email=user.email, user=user, request=True
+            )
+
         messages.success(
             request,
             _(
