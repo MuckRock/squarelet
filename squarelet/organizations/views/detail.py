@@ -53,23 +53,18 @@ class Detail(AdminLinkMixin, DetailView):
             context["users"] = admins
         context["admins"] = admins
 
-        # Get the current plan and subscription, if any
-        current_plan = None
+        # Get subscriptions, if any
         upgrade_plan = Plan.objects.get(slug="organization")
-        subscription = None
+        subscriptions = None
         if hasattr(org, "subscriptions"):
-            subscription = org.subscriptions.first()
-            if subscription and hasattr(subscription, "plan"):
-                # Temporarily wrap this in a list to support the new plan card template, which expects a list of plans
-                current_plan = [subscription.plan]
-                upgrade_plan = None
-        context["current_plan"] = current_plan
+            subscriptions = org.subscriptions.all()
+        context["subscriptions"] = subscriptions
         context["upgrade_plan"] = upgrade_plan
         context["member_count"] = len(users)
         context["admin_count"] = len(admins)
 
-        if current_plan and subscription:
-            context.update(self._get_subscription_context(org, subscription))
+        if subscriptions:
+            context.update(self._get_subscription_context(org))
 
         # Any member (not just admins) may request verification, but only if
         # they have confirmed an email address on their account.
@@ -115,28 +110,14 @@ class Detail(AdminLinkMixin, DetailView):
             ctx["pending_invitations"] = org.invitations.get_pending_invitations()
         return ctx
 
-    def _get_subscription_context(self, org, subscription):
+    def _get_subscription_context(self, org):
         """Return context dict for card, next charge date, and cancellation status."""
         customer = org.customer()
         ctx = {
             "current_plan_card": bool(customer.stripe_payment_method_id),
             "current_plan_card_brand": customer.payment_brand,
             "current_plan_card_last4": customer.payment_last4,
-            "current_plan_cancelled": subscription.cancelled,
         }
-
-        stripe_sub = subscription.stripe_subscription
-        if stripe_sub:
-            time_stamp = (
-                get_payment_provider()
-                .get_subscription_service()
-                .get_current_period_end(stripe_sub)
-            )
-            if time_stamp:
-                tz_datetime = datetime.fromtimestamp(
-                    time_stamp, tz=timezone.get_current_timezone()
-                )
-                ctx["current_plan_next_charge_date"] = tz_datetime.date()
 
         return ctx
 
