@@ -1,4 +1,6 @@
 import "@/css/sidebar_layout.css";
+import "@/css/organization_payment.css";
+
 
 import { d, exists, on } from "../util";
 // import { StripeAPIError } from 'stripe/lib/Error';
