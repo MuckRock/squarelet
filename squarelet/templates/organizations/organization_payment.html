@@ -67,8 +67,45 @@
       </div>
     </header>
 
-    <div class="card">
-    </div>
+    {% for subscription in subscriptions %}
+      {% with annual=subscription.plan.annual %}
+        <main id="{{ subscription.plan.slug }}" class="subscription-card">
+          <h3>{{ subscription.plan.name }}</h3>
+          <div class="subscription-frequency">
+            <span class="blue badge">
+              {{ annual|yesno:_("Annual,Monthly") }}
+            </span>
+            <a href="#" class="btn ghost primary small">
+              {{ annual|yesno:_("Change to monthly,Change to annual") }}
+            </a>
+          </div>
+          <div class="subscription-details">
+            <span class="subscription-detail">
+              <span class="icon">
+                {% icon "tag" %}
+              </span>
+              <span>
+                <strong>${{ subscription.cost|floatformat:2|intcomma }}</strong>
+                {{ annual|yesno:_("per year,per month") }}
+              </span>
+            </span>
+            <span class="subscription-detail">
+              <span class="icon">
+                {% icon "calendar" %}
+              </span>
+              <span>
+                {{ subscription.plan.cancelled|yesno:_("Ends on,Renews on") }}
+                <strong>{{ subscription.next_date }}</strong>
+              </span>
+            </span>
+          </div>
+          <a href="#" class="btn ghost danger small">
+            {% icon "x-circle" %}
+            {% trans "Cancel plan" %}
+          </a>
+        </main>
+      {% endwith %}
+    {% endfor %}
   </section>
 
   <section id="payment">
