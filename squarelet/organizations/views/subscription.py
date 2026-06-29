@@ -9,6 +9,7 @@ from django.http.response import (
     JsonResponse,
 )
 from django.shortcuts import redirect
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.clickjacking import xframe_options_sameorigin
@@ -19,6 +20,7 @@ from django.views.generic import DetailView, UpdateView
 import json
 import logging
 import sys
+from datetime import datetime
 
 # Third Party
 import stripe
@@ -35,6 +37,7 @@ from squarelet.organizations.mixins import OrganizationPermissionMixin
 from squarelet.organizations.models import Charge, Organization
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.exceptions import SubscriptionError
+from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.tasks import (
     handle_charge_succeeded,
     handle_customer_updated,
@@ -144,6 +147,12 @@ class UpdateSubscriptions(OrganizationPermissionMixin, UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        subscriptions = self.object.subscriptions.all()
+        for subscription in subscriptions:
+            subscription.next_date = self.get_subscription_next_date(subscription)
+            subscription.cost = self.get_subscription_cost(subscription)
+        context["subscriptions"] = subscriptions
+
         context["failed_receipt_emails"] = self.object.receipt_emails.filter(
             failed=True
         )
@@ -155,6 +164,33 @@ class UpdateSubscriptions(OrganizationPermissionMixin, UpdateView):
             self.object.subscriptions.filter(plan=plan).first() if plan else None
         )
         return context
+    
+    def get_subscription_next_date(self, subscription):
+        stripe_sub = subscription.stripe_subscription
+        if stripe_sub:
+            time_stamp = (
+                get_payment_provider()
+                .get_subscription_service()
+                .get_current_period_end(stripe_sub)
+            )
+            if time_stamp:
+                tz_datetime = datetime.fromtimestamp(
+                    time_stamp, tz=timezone.get_current_timezone()
+                )
+                return tz_datetime.date()
+        return None
+
+    # Same calculation that's done in new PlansView().updateTotalCost()
+    def get_subscription_cost(self, subscription):
+        stripe_sub = subscription.stripe_subscription
+        if stripe_sub:
+            base_price = subscription.plan.base_price
+            min_users = subscription.plan.minimum_users
+            price_per_user = subscription.plan.price_per_user
+            max_users = self.object.max_users
+            cost = base_price + (max_users - min_users) * price_per_user
+            return cost
+        return None
 
     def get_initial(self):
         plan = self.object.plans.first()
