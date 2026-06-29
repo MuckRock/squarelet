@@ -69,9 +69,15 @@ class Detail(AdminLinkMixin, DetailView):
         if current_plan and subscription:
             context.update(self._get_subscription_context(org, subscription))
 
+        # Any member (not just admins) may request verification, but only if
+        # they have confirmed an email address on their account.
         context["show_verification_request"] = (
-            user.has_perm("organizations.change_organization", org)
+            user.is_authenticated
+            and org.has_member(user)
             and not org.verified_journalist
+        )
+        context["has_verified_email"] = (
+            user.is_authenticated and user.has_verified_email()
         )
 
         if user.has_perm("organizations.can_manage_domains", org):
@@ -384,6 +390,7 @@ class List(ListView):
         context["pending_invitations"] = InvitationAcceptForm.attach_to_invitations(
             list(user.get_pending_invitations()), user, request=self.request
         )
+        context["has_verified_email"] = user.has_verified_email()
 
         return context
 

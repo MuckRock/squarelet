@@ -303,9 +303,14 @@
             <h3>{% trans "This organization is not verified." %}</h3>
             {% if show_verification_request %}
               <p class="help-text">{% trans "Request newsroom verification to access additional reporting and publishing tools." %}</p>
-              <a target="_blank" rel="noopener noreferrer" class="btn primary" href="{% airtable_verification_url organization %}">
-                {% trans "Request verification" %}
-              </a>
+              {% if has_verified_email %}
+                <a target="_blank" rel="noopener noreferrer" class="btn primary" href="{% airtable_verification_url organization %}">
+                  {% trans "Request verification" %}
+                </a>
+              {% else %}
+                <button class="btn primary" disabled>{% trans "Request verification" %}</button>
+                <p class="help-text error">{% trans "Confirm your account's email address before requesting verification." %}</p>
+              {% endif %}
             {% endif %}
           </div>
         {% endif %}
