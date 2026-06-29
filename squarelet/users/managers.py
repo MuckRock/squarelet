@@ -3,10 +3,17 @@ from django.contrib.auth.models import UserManager as AuthUserManager
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Q
+from django.utils.translation import gettext_lazy as _
+
+# Standard Library
+import logging
+import sys
 
 # Squarelet
 from squarelet.core.utils import mailchimp_journey
 from squarelet.organizations.models import Organization
+
+logger = logging.getLogger(__name__)
 
 
 class UserManager(AuthUserManager):
@@ -39,12 +46,25 @@ class UserManager(AuthUserManager):
             user.set_unusable_password()
 
         # all users must have an individual organization
+        # Wrap in a savepoint so that a failed insert (e.g. a username
+        # collision, including races that slip past form/serializer
+        # validation) rolls back cleanly. Without the savepoint the
+        # IntegrityError poisons the surrounding ATOMIC_REQUESTS transaction
+        # and orphans the just-created organization.
         try:
-            Organization.objects.create_individual(user, uuid)
-        except IntegrityError:
-            raise ValidationError(
-                {"username": "A user with that username already exists."}
+            with transaction.atomic():
+                Organization.objects.create_individual(user, uuid)
+        except IntegrityError as exc:
+            logger.warning(
+                "Could not create individual organization for username %r: %s",
+                username,
+                exc,
+                exc_info=sys.exc_info(),
             )
+            raise ValidationError(
+                {"username": _("A user with that username already exists.")},
+                code="duplicate_username",
+            ) from exc
 
         return user
 
