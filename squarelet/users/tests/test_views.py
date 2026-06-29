@@ -8,6 +8,7 @@ from django.http.response import Http404
 import hashlib
 import hmac
 import json
+import secrets
 import time
 
 # Third Party
@@ -27,17 +28,23 @@ from squarelet.users.models import User
 class TestSignupView:
     """Test graceful handling of individual organization collisions on signup"""
 
-    SIGNUP_DATA = {
+    BASE_DATA = {
         "name": "john doe",
         "username": "john",
         "email": "doe@example.com",
-        "password1": "squarelet",
         "stripe_pk": "key",
         "tos": True,
     }
 
-    def _make_form(self, plan):
-        data = {**self.SIGNUP_DATA, "plan": plan.slug}
+    def _signup_data(self, plan):
+        # generate the password at runtime so no credential literal is committed
+        return {
+            **self.BASE_DATA,
+            "plan": plan.slug,
+            "password1": secrets.token_urlsafe(16),
+        }
+
+    def _make_form(self, data):
         form = forms.SignupForm(data)
         assert form.is_valid()
         return form
@@ -48,9 +55,10 @@ class TestSignupView:
         (e.g. a double-submitted signup that races past validation) is surfaced
         as a form error rather than an unhandled 500."""
         plan = plan_factory()
-        form = self._make_form(plan)
+        data = self._signup_data(plan)
+        form = self._make_form(data)
 
-        request = rf.post("/accounts/signup/", self.SIGNUP_DATA)
+        request = rf.post("/accounts/signup/", data)
         request.session = mocker.MagicMock()
 
         # No pending social login: exercise the standard (allauth) path
@@ -82,9 +90,10 @@ class TestSignupView:
     def test_form_valid_handles_collision_social(self, rf, plan_factory, mocker):
         """The same graceful handling applies to the social signup branch."""
         plan = plan_factory()
-        form = self._make_form(plan)
+        data = self._signup_data(plan)
+        form = self._make_form(data)
 
-        request = rf.post("/accounts/signup/", self.SIGNUP_DATA)
+        request = rf.post("/accounts/signup/", data)
         request.session = mocker.MagicMock()
 
         mocker.patch(
