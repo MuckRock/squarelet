@@ -53,3 +53,7 @@
   width: var(--font-md, 0.75em);
   height: var(--font-md, 0.75em);
 }
+
+.subscription-detail .emails :not(:last-child):after {
+  content: ",";
+}

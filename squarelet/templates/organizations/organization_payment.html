@@ -72,40 +72,40 @@
         <main id="{{ subscription.plan.slug }}" class="subscription-card">
           <div class="subscription-row">
             <h3 class="plan-name">{{ subscription.plan.name }}</h3>
-          <div class="subscription-frequency">
-            <span class="blue badge">
-              {{ annual|yesno:_("Annual,Monthly") }}
-            </span>
-            <a href="#" class="btn ghost primary small">
-              {{ annual|yesno:_("Change to monthly,Change to annual") }}
-            </a>
-          </div>
+            <div class="subscription-frequency">
+              <span class="blue badge">
+                {{ annual|yesno:_("Annual,Monthly") }}
+              </span>
+              <a href="#" class="btn ghost primary small">
+                {{ annual|yesno:_("Change to monthly,Change to annual") }}
+              </a>
+            </div>
           </div>
           <div class="subscription-row">
             <div class="subscription-group">
-            <span class="subscription-detail">
-              <span class="icon">
-                {% icon "tag" %}
+              <span class="subscription-detail">
+                <span class="icon">
+                  {% icon "tag" %}
+                </span>
+                <span>
+                  <strong>${{ subscription.cost|floatformat:2|intcomma }}</strong>
+                  {{ annual|yesno:_("per year,per month") }}
+                </span>
               </span>
-              <span>
-                <strong>${{ subscription.cost|floatformat:2|intcomma }}</strong>
-                {{ annual|yesno:_("per year,per month") }}
+              <span class="subscription-detail">
+                <span class="icon">
+                  {% icon "calendar" %}
+                </span>
+                <span>
+                  {{ subscription.plan.cancelled|yesno:_("Ends on,Renews on") }}
+                  <strong>{{ subscription.next_date }}</strong>
+                </span>
               </span>
-            </span>
-            <span class="subscription-detail">
-              <span class="icon">
-                {% icon "calendar" %}
-              </span>
-              <span>
-                {{ subscription.plan.cancelled|yesno:_("Ends on,Renews on") }}
-                <strong>{{ subscription.next_date }}</strong>
-              </span>
-            </span>
-          </div>
-          <a href="#" class="btn ghost danger small">
-            {% icon "x-circle" %}
-            {% trans "Cancel plan" %}
-          </a>
+            </div>
+            <a href="#" class="btn ghost danger small">
+              {% icon "x-circle" %}
+              {% trans "Cancel plan" %}
+            </a>
           </div>
         </main>
       {% endwith %}
@@ -119,8 +119,47 @@
       </div>
     </header>
 
-    <div class="card">
-    </div>
+    <main class="subscription-card">
+      {% if card %}
+        <div class="subscription-row">
+          <div class="subscription-group">
+            <h3>{% trans "Payment card" %}</h3>
+            <span class="subscription-detail">
+              <span class="icon">
+                {% icon "credit-card" %}
+              </span>
+              <span>
+                {{ card.brand }} {% trans "ending in" %} <strong>{{ card.last4 }}</strong>
+              </span>
+            </span>
+          </div>
+
+          <a href="#" class="btn ghost primary small">
+            {% trans "Add new card" %}
+          </a>
+        </div>
+      {% endif %}
+
+      <div class="subscription-row">
+        <div class="subscription-group">
+          <h3>{% trans "Receipt emails" %}</h3>
+          <span class="subscription-detail">
+            <span class="icon">
+              {% icon "mail" %}
+            </span>
+            <span class="emails">
+              {% for email in receipt_emails %}
+                <span>{{ email.email }}</span>
+              {% endfor %}
+            </span>
+          </span>
+        </div>
+
+        <a href="#" class="btn ghost primary small">
+          {% trans "Change email" %}
+        </a>
+      </div>
+    </main>
   </section>
 
   <section id="recent">
