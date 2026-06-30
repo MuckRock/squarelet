@@ -1088,15 +1088,12 @@ class TestUpdateSubscription(ViewTestMixin):
         assert response.status_code == 200
         assert response.context_data["failed_receipt_emails"][0] == failed_email
         initial = response.context_data["form"].initial
-        assert initial["plan"] == organization.plan
+        assert initial["plan"] == organization.plans.first()
         assert initial["max_users"] == organization.max_users
         assert len(initial["receipt_emails"].split("\n")) == 2
 
     def test_post_admin(self, rf, organization_factory, user_factory, mocker):
         mocker.patch("squarelet.organizations.models.Customer.card", None)
-        mocked = mocker.patch(
-            "squarelet.organizations.models.Organization.set_subscription"
-        )
         user = user_factory()
         organization = organization_factory(admins=[user])
         data = {
@@ -1108,29 +1105,24 @@ class TestUpdateSubscription(ViewTestMixin):
         }
         response = self.call_view(rf, user, data, slug=organization.slug)
         assert response.status_code == 302
-        mocked.assert_called_once_with(
-            token=data["stripe_token"],
-            plan=organization.plan,
-            max_users=data["max_users"],
-            user=user,
-        )
         assert set(e.email for e in organization.receipt_emails.all()) == set(
             data["receipt_emails"].split("\n")
         )
 
     def test_post_admin_stripe_error(
-        self, rf, organization_factory, user_factory, mocker
+        self, rf, organization_factory, user_factory, plan_factory, mocker
     ):
         mocker.patch("squarelet.organizations.models.Customer.card", None)
         mocked = mocker.patch(
-            "squarelet.organizations.models.Organization.set_subscription"
+            "squarelet.organizations.models.Organization.add_subscription"
         )
         mocked.side_effect = stripe.StripeError("Error message")
         user = user_factory()
+        plan = plan_factory()
         organization = organization_factory(admins=[user])
         data = {
             "stripe_token": "token",
-            "plan": "",
+            "plan": plan.pk,
             "max_users": 6,
             "receipt_emails": "receipt1@example.com\nreceipt2@example.com",
             "stripe_pk": "key",
@@ -1152,7 +1144,6 @@ class TestUpdateSubscription(ViewTestMixin):
     ):
         """Staff updating subscription should create activity stream action"""
         mocker.patch("squarelet.organizations.models.Customer.card", None)
-        mocker.patch("squarelet.organizations.models.Organization.set_subscription")
         staff_member = user_factory(is_staff=True)
         staff_member = _assign_org_perm(staff_member, "can_edit_subscription")
         organization = organization_factory()
@@ -1180,7 +1171,6 @@ class TestUpdateSubscription(ViewTestMixin):
     ):
         """Non-staff admin updating subscription should not create action"""
         mocker.patch("squarelet.organizations.models.Customer.card", None)
-        mocker.patch("squarelet.organizations.models.Organization.set_subscription")
         regular_admin = user_factory(is_staff=False)
         organization = organization_factory(admins=[regular_admin])
         data = {
@@ -1218,7 +1208,6 @@ class TestUpdateSubscription(ViewTestMixin):
             new_callable=mocker.PropertyMock,
             return_value="Card ending in 1234",
         )
-        mocker.patch("squarelet.organizations.models.Organization.set_subscription")
         mocked_remove = mocker.patch(
             "squarelet.organizations.models.Organization.remove_card"
         )
@@ -1250,7 +1239,7 @@ class TestCreate(ViewTestMixin):
         user = user_factory(email_verified=True)
         self.call_view(rf, user, {"name": "test"})
         organization = user.organizations.get(individual=False)
-        assert organization.plan is None
+        assert not organization.subscriptions.exists()
         assert organization.has_admin(user)
         assert user.email in organization.receipt_emails.values_list("email", flat=True)
 

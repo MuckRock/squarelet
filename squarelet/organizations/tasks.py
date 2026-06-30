@@ -1,6 +1,7 @@
 # Django
 from celery import shared_task
 from django.conf import settings
+from django.db.models import F
 from django.utils.timezone import get_current_timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -40,25 +41,48 @@ def restore_organization():
     today = date.today()
 
     # --- Subscriptions ---
-    subscriptions = Subscription.objects.filter(update_on__lte=today)
-    sub_uuids = list(subscriptions.values_list("organization__uuid", flat=True))
-    subscriptions.filter(cancelled=True).delete()
-    subscriptions.update(update_on=today + Interval("1 month"))
+    due_org_ids = list(
+        Organization.objects.filter(update_on__lte=today).values_list("id", flat=True)
+    )
+    due_org_uuids = list(
+        Organization.objects.filter(id__in=due_org_ids).values_list("uuid", flat=True)
+    )
 
-    # --- Entitlement grants ---
-    # Snapshot the matching orgs for each active expired grant before bumping
-    # update_on, then bulk-bump in one query. Inactive expired grants get the
-    # bump too but contribute no UUIDs to the broadcast.
-    expired_grants = EntitlementGrant.objects.expired(today)
+    # Delete cancelled subscriptions for due orgs
+    Subscription.objects.filter(
+        organization_id__in=due_org_ids, cancelled=True
+    ).delete()
+
+    # Determine which orgs still have active subscriptions
+    orgs_with_subs = set(
+        Subscription.objects.filter(organization_id__in=due_org_ids).values_list(
+            "organization_id", flat=True
+        )
+    )
+    orgs_without_subs = set(due_org_ids) - orgs_with_subs
+
+    # Advance anchor date for orgs that still have subscriptions
+    Organization.objects.filter(id__in=orgs_with_subs).update(
+        update_on=F("update_on") + Interval("1 month")
+    )
+    # Clear anchor for orgs whose last subscription was just cancelled
+    Organization.objects.filter(id__in=orgs_without_subs).update(update_on=None)
+
+    # --- Grant-only orgs ---
+    # Orgs that have entitlement grants but no subscription have no stored
+    # update_on.  Their resources refresh on the 1st of each month.
     grant_uuids = set()
-    active_expired = list(expired_grants.filter(active=True))
-    if active_expired:
-        qs_list = [g.matching_organizations().values("uuid") for g in active_expired]
-        union_qs = qs_list[0].union(*qs_list[1:])
-        grant_uuids = {row["uuid"] for row in union_qs}
-    expired_grants.update(update_on=today + Interval("1 month"))
+    if today.day == 1:
+        active_grants = list(EntitlementGrant.objects.filter(active=True))
+        if active_grants:
+            qs_list = [
+                g.matching_organizations().filter(update_on__isnull=True).values("uuid")
+                for g in active_grants
+            ]
+            union_qs = qs_list[0].union(*qs_list[1:])
+            grant_uuids = {row["uuid"] for row in union_qs}
 
-    all_uuids = list({*sub_uuids, *grant_uuids})
+    all_uuids = list({*due_org_uuids, *grant_uuids})
     send_cache_invalidations("organization", all_uuids)
 
 
@@ -170,7 +194,22 @@ def handle_invoice_failed(invoice_data):
     attempt = invoice_data["attempt_count"]
     if attempt == 4:
         subject = _("Your subscription has been cancelled")
-        organization.subscription_cancelled()
+        # Look up the specific subscription from the invoice data
+        subscription = None
+        parent = invoice_data.get("parent")
+        if parent and parent.get("type") == "subscription_details":
+            stripe_sub_id = parent.get("subscription_details", {}).get("subscription")
+            if stripe_sub_id:
+                try:
+                    subscription = Subscription.objects.get(
+                        subscription_id=stripe_sub_id
+                    )
+                except Subscription.DoesNotExist:
+                    logger.warning(
+                        "Invoice failed: no matching subscription for %s",
+                        stripe_sub_id,
+                    )
+        organization.subscription_cancelled(subscription=subscription)
     else:
         subject = _("Your payment has failed")
 
@@ -392,6 +431,29 @@ def handle_invoice_voided(invoice_data):
     )
 
 
+def _cancel_subscription_for_invoice(invoice, organization):
+    """Cancel the subscription associated with an overdue invoice."""
+    if invoice.subscription:
+        organization.subscription_cancelled(invoice.subscription)
+        invoice.subscription = None
+
+
+def _should_send_overdue_email(organization, invoice, email_interval_days):
+    """Return True if an overdue warning email should be sent now."""
+    if not organization.payment_failed:
+        organization.payment_failed = True
+        organization.save()
+        logger.info(
+            "[STRIPE-PROCESS-OVERDUE-INVOICE] Set payment_failed flag for org %s",
+            organization.uuid,
+        )
+        return True
+    if invoice.last_overdue_email_sent is None:
+        return True
+    days_since_last_email = (date.today() - invoice.last_overdue_email_sent).days
+    return days_since_last_email >= email_interval_days
+
+
 @shared_task(name="squarelet.organizations.tasks.process_overdue_invoice")
 def process_overdue_invoice(invoice_id):
     """Process a single overdue invoice"""
@@ -404,7 +466,6 @@ def process_overdue_invoice(invoice_id):
         )
         return
 
-    # Skip if invoice is not open
     if invoice.status != "open":
         logger.info(
             "[STRIPE-PROCESS-OVERDUE-INVOICE] Skipping invoice %s (status: %s)",
@@ -413,7 +474,6 @@ def process_overdue_invoice(invoice_id):
         )
         return
 
-    # Skip $0 invoices — no payment is owed
     if invoice.amount == 0:
         logger.info(
             "[STRIPE-PROCESS-OVERDUE-INVOICE] Skipping $0 invoice %s",
@@ -433,7 +493,6 @@ def process_overdue_invoice(invoice_id):
         days_overdue,
     )
 
-    # If at or past grace period, cancel subscription
     if days_overdue >= grace_period_days:
         logger.info(
             "[STRIPE-PROCESS-OVERDUE-INVOICE] Cancelling subscription for "
@@ -441,14 +500,7 @@ def process_overdue_invoice(invoice_id):
             organization.uuid,
             invoice.invoice_id,
         )
-
-        # Cancel the subscription linked to this invoice (not the org's current one)
-        if invoice.subscription:
-            organization.subscription_cancelled(invoice.subscription)
-            # Clear subscription reference since it was deleted
-            invoice.subscription = None
-
-        # Mark invoice as uncollectible in Stripe
+        _cancel_subscription_for_invoice(invoice, organization)
         try:
             invoice.mark_uncollectible_in_stripe()
             invoice.status = "uncollectible"
@@ -465,8 +517,6 @@ def process_overdue_invoice(invoice_id):
                 exc,
                 exc_info=sys.exc_info(),
             )
-
-        # Send cancellation email
         send_mail(
             subject=_("Your subscription has been cancelled due to non-payment"),
             template="organizations/email/invoice_cancelled.html",
@@ -478,34 +528,8 @@ def process_overdue_invoice(invoice_id):
             },
         )
     else:
-        # Within grace period - set payment_failed flag and send intermittent warnings
-        # Calculate email interval (send ~3 reminders during grace period)
         email_interval_days = max(1, grace_period_days // 10)
-
-        # Check if we should send an email
-        should_send_email = False
-        if not organization.payment_failed:
-            # First time overdue - always send and set flag
-            should_send_email = True
-            organization.payment_failed = True
-            organization.save()
-            logger.info(
-                "[STRIPE-PROCESS-OVERDUE-INVOICE] Set payment_failed flag for org %s",
-                organization.uuid,
-            )
-        elif invoice.last_overdue_email_sent is None:
-            # No email sent yet for this invoice - send one
-            should_send_email = True
-        else:
-            # Check if enough time has passed since last email
-            days_since_last_email = (
-                date.today() - invoice.last_overdue_email_sent
-            ).days
-            if days_since_last_email >= email_interval_days:
-                should_send_email = True
-
-        if should_send_email:
-            # Send overdue invoice email
+        if _should_send_overdue_email(organization, invoice, email_interval_days):
             send_mail(
                 subject=_("Your invoice is overdue"),
                 template="organizations/email/invoice_overdue.html",
@@ -519,11 +543,8 @@ def process_overdue_invoice(invoice_id):
                     "hosted_invoice_url": invoice.get_hosted_invoice_url(),
                 },
             )
-
-            # Update last email sent date
             invoice.last_overdue_email_sent = date.today()
             invoice.save()
-
             logger.info(
                 "[STRIPE-PROCESS-OVERDUE-INVOICE] Sent overdue email for "
                 "invoice %s (days overdue: %d, interval: %d days)",

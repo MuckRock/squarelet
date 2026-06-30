@@ -3,18 +3,17 @@ from django.conf import settings
 from django.db import models, transaction
 from django.db.models import Q
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 # Standard Library
 import logging
 import sys
+from datetime import datetime, time, timezone as dt_timezone
 from functools import cached_property
 
 # Third Party
 import stripe
 from autoslug import AutoSlugField
-from dateutil.relativedelta import relativedelta
 
 # Squarelet
 from squarelet.core.mail import ORG_TO_RECEIPTS, send_mail
@@ -142,6 +141,12 @@ class Customer(models.Model):
         )
 
 
+def _anchor_timestamp(anchor_date):
+    """Return a UTC Unix timestamp for midnight on the given date."""
+    aware = datetime.combine(anchor_date, time(0, 0), tzinfo=dt_timezone.utc)
+    return int(aware.timestamp())
+
+
 class Subscription(models.Model):
     """Through table for organization plans"""
 
@@ -168,9 +173,6 @@ class Subscription(models.Model):
         null=True,
         help_text=_("The subscription ID on stripe"),
     )
-    update_on = models.DateField(
-        _("date update"), help_text=_("Date when monthly resources are restored")
-    )
 
     # The cancelled flag is used to mark subscriptions that are ready for cancellation.
     # Cancellation happens at the end of the billing period; at that point,
@@ -195,7 +197,7 @@ class Subscription(models.Model):
             )
         return None
 
-    def start(self, payment_method="card"):
+    def start(self, payment_method="card", billing_cycle_anchor=None):
         if self.stripe_subscription:
             logger.error(
                 "Trying to start an existing subscription: %s %s",
@@ -212,6 +214,10 @@ class Subscription(models.Model):
                 billing = "charge_automatically"
                 days_until_due = None
 
+            anchor_ts = None
+            if billing_cycle_anchor is not None:
+                anchor_ts = _anchor_timestamp(billing_cycle_anchor)
+
             stripe_subscription = (
                 get_payment_provider()
                 .get_subscription_service()
@@ -222,6 +228,7 @@ class Subscription(models.Model):
                     billing=billing,
                     metadata={"action": f"Subscription ({self.plan})"},
                     days_until_due=days_until_due,
+                    billing_cycle_anchor=anchor_ts,
                 )
             )
             self.subscription_id = stripe_subscription.id
@@ -235,15 +242,25 @@ class Subscription(models.Model):
             # Create Invoice record synchronously; webhook is the fallback.
             self._sync_latest_invoice(stripe_subscription)
 
-        # Trigger respective mailchimp journeys if this is the organization plan
+        # Trigger respective mailchimp journeys if this is the organization plan,
+        # but only if the org doesn't already have another active subscription
+        # granting the same entitlement (avoid duplicate journey triggers).
         if self.plan_id and self.plan.entitlements.filter(slug="organization").exists():
-            journey_key = (
-                "verified_premium_org"
-                if self.organization.verified_journalist
-                else "unverified_premium_org"
+            already_has_org_entitlement = (
+                self.organization.subscriptions.exclude(pk=self.pk)
+                .filter(
+                    plan__entitlements__slug="organization",
+                )
+                .exists()
             )
-            for user in self.organization.users.all():
-                mailchimp_journey(user.email, journey_key)
+            if not already_has_org_entitlement:
+                journey_key = (
+                    "verified_premium_org"
+                    if self.organization.verified_journalist
+                    else "unverified_premium_org"
+                )
+                for user in self.organization.users.all():
+                    mailchimp_journey(user.email, journey_key)
 
         # Slack notification for new subscription
         self.send_slack_notification("started")
@@ -788,10 +805,6 @@ class Entitlement(models.Model):
         return self.plans.filter(public=True).exists()
 
 
-def default_grant_update_on():
-    return timezone.now().date() + relativedelta(months=1)
-
-
 class EntitlementGrant(models.Model):
     """Grants Entitlements to organizations, explicitly or by rule."""
 
@@ -838,14 +851,6 @@ class EntitlementGrant(models.Model):
         _("active"),
         default=True,
         help_text=_("Inactive grants do not apply to any organization"),
-    )
-
-    update_on = models.DateField(
-        _("date update"),
-        null=True,
-        blank=True,
-        default=default_grant_update_on,
-        help_text=_("Date when this grant's resources next refresh"),
     )
 
     created_at = models.DateTimeField(auto_now_add=True)

@@ -6,11 +6,10 @@ from django.utils import timezone
 from django.utils.timezone import get_current_timezone
 
 # Standard Library
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from uuid import uuid4
 
 # Third Party
-from dateutil.relativedelta import relativedelta
 from fuzzywuzzy import fuzz, process
 
 # Squarelet
@@ -91,7 +90,7 @@ class OrganizationQuerySet(models.QuerySet):
         user.individual_organization.change_logs.create(
             reason=ChangeLogReason.created,
             user=user,
-            to_plan=user.individual_organization.plan,
+            to_plan=user.individual_organization.plans.first(),
             to_max_users=user.individual_organization.max_users,
         )
         return user.individual_organization
@@ -186,12 +185,6 @@ class EntitlementQuerySet(models.QuerySet):
 class EntitlementGrantQuerySet(models.QuerySet):
     def active(self):
         return self.filter(active=True)
-
-    def expired(self, on_date=None):
-        """Grants whose update_on has arrived or passed."""
-        if on_date is None:
-            on_date = timezone.now().date()
-        return self.filter(update_on__lte=on_date)
 
     def for_org(self, org):
         """Active grants that apply to `org`.
@@ -428,9 +421,11 @@ class SubscriptionQuerySet(models.QuerySet):
         subscription = self.model(
             organization=organization,
             plan=plan,
-            update_on=date.today() + relativedelta(months=1),
         )
-        subscription.start(payment_method=payment_method)
+        subscription.start(
+            payment_method=payment_method,
+            billing_cycle_anchor=organization.update_on,
+        )
         subscription.save()
         return subscription
 
@@ -439,7 +434,6 @@ class SubscriptionQuerySet(models.QuerySet):
         return self.filter(
             plan__slug__startswith="sunlight-",
             plan__wix=True,
-            cancelled=False,
         ).count()
 
 

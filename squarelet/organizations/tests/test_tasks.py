@@ -33,89 +33,121 @@ def test_restore_organization(organization_plan_factory, mocker):
     today = date.today()
     organization_plan = organization_plan_factory()
 
+    # Org whose anchor is due today and whose only sub is cancelled -> anchor clears
     subsc_update_cancel = SubscriptionFactory(
-        update_on=today - timedelta(1), plan=organization_plan, cancelled=True
+        plan=organization_plan,
+        cancelled=True,
+        organization__update_on=today - timedelta(1),
     )
+    org_cancel = subsc_update_cancel.organization
+
+    # Org whose anchor is not due yet -> untouched
     subsc_update_later = SubscriptionFactory(
-        update_on=today + timedelta(1), plan=organization_plan
+        plan=organization_plan,
+        organization__update_on=today + timedelta(1),
     )
+    org_later = subsc_update_later.organization
+
+    # Org whose anchor is due today and still has an active sub -> anchor advances
     subsc_update = SubscriptionFactory(
-        update_on=today - timedelta(1), plan=organization_plan
+        plan=organization_plan,
+        organization__update_on=today - timedelta(1),
     )
+    org_due = subsc_update.organization
 
     tasks.restore_organization()
 
-    subsc_update_later.refresh_from_db()
-    subsc_update.refresh_from_db()
+    org_cancel.refresh_from_db()
+    org_later.refresh_from_db()
+    org_due.refresh_from_db()
 
-    # update cancel should have been deleted
+    # cancelled sub in due org should have been deleted
     assert not Subscription.objects.filter(pk=subsc_update_cancel.pk).exists()
+    # org with no remaining subs loses its anchor
+    assert org_cancel.update_on is None
 
-    # update later should have not been changed
-    assert subsc_update_later.plan == organization_plan
-    assert subsc_update_later.update_on == today + timedelta(1)
+    # org not yet due is untouched
+    assert org_later.update_on == today + timedelta(1)
 
-    assert subsc_update.plan == organization_plan
-    assert subsc_update.update_on == today + relativedelta(months=1)
+    # org with active sub gets its anchor advanced by one month from its previous value
+    assert org_due.update_on == (today - timedelta(1)) + relativedelta(months=1)
 
     assert patched.call_args[0][0] == "organization"
-    assert set(patched.call_args[0][1]) == set(
-        [subsc_update.organization.uuid, subsc_update_cancel.organization.uuid]
-    )
+    assert set(patched.call_args[0][1]) == {
+        org_due.uuid,
+        org_cancel.uuid,
+    }
 
 
 class TestRestoreOrganizationGrants:
-    """Coverage for grant refresh in restore_organization."""
+    """Coverage for grant-only org refresh in restore_organization."""
 
     @pytest.mark.django_db()
-    def test_bumps_expired_active_grant_and_broadcasts(self, mocker):
+    @freeze_time("2026-07-01")
+    def test_grant_only_org_notified_on_first_of_month(self, mocker):
+        """Verified org with no subscription is notified on the 1st."""
         mock_send = mocker.patch(
             "squarelet.organizations.tasks.send_cache_invalidations"
         )
-        today = date.today()
         org = OrganizationFactory(verified_journalist=True)
-        grant = EntitlementGrantFactory(
-            require_verified=True, update_on=today - timedelta(days=1)
-        )
+        EntitlementGrantFactory(require_verified=True)
 
         tasks.restore_organization()
 
-        grant.refresh_from_db()
-        assert grant.update_on == today + relativedelta(months=1)
         assert mock_send.call_args[0][0] == "organization"
         assert str(org.uuid) in {str(u) for u in mock_send.call_args[0][1]}
 
     @pytest.mark.django_db()
-    def test_future_grant_is_unchanged(self, mocker):
-        mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
-        today = date.today()
-        future = today + timedelta(days=14)
-        grant = EntitlementGrantFactory(require_verified=True, update_on=future)
-
-        tasks.restore_organization()
-
-        grant.refresh_from_db()
-        assert grant.update_on == future
-
-    @pytest.mark.django_db()
-    def test_inactive_expired_grant_bumped_but_not_broadcast(self, mocker):
+    @freeze_time("2026-07-15")
+    def test_grant_only_org_not_notified_mid_month(self, mocker):
+        """Grant-only orgs are not notified on non-1st days."""
         mock_send = mocker.patch(
             "squarelet.organizations.tasks.send_cache_invalidations"
         )
-        today = date.today()
         org = OrganizationFactory(verified_journalist=True)
-        grant = EntitlementGrantFactory(
-            organizations=[org],
-            active=False,
-            update_on=today - timedelta(days=1),
-        )
+        EntitlementGrantFactory(require_verified=True)
 
         tasks.restore_organization()
 
-        grant.refresh_from_db()
-        assert grant.update_on == today + relativedelta(months=1)
-        broadcast_uuids = {str(u) for u in mock_send.call_args[0][1]}
-        assert str(org.uuid) not in broadcast_uuids
+        all_uuids = {str(u) for u in mock_send.call_args[0][1]}
+        assert str(org.uuid) not in all_uuids
+
+    @pytest.mark.django_db()
+    @freeze_time("2026-07-01")
+    def test_inactive_grant_org_not_notified(self, mocker):
+        """Inactive grants do not trigger notification."""
+        mock_send = mocker.patch(
+            "squarelet.organizations.tasks.send_cache_invalidations"
+        )
+        org = OrganizationFactory(verified_journalist=True)
+        EntitlementGrantFactory(require_verified=True, active=False)
+
+        tasks.restore_organization()
+
+        all_uuids = {str(u) for u in mock_send.call_args[0][1]}
+        assert str(org.uuid) not in all_uuids
+
+    @pytest.mark.django_db()
+    @freeze_time("2026-07-01")
+    def test_org_with_subscription_not_double_counted(self, mocker):
+        """Org with a subscription is covered by the subscription section, not
+        grants."""
+        mock_send = mocker.patch(
+            "squarelet.organizations.tasks.send_cache_invalidations"
+        )
+        mocker.patch("stripe.Plan.create")
+        org = OrganizationFactory(
+            verified_journalist=True,
+            update_on=date(2026, 7, 1),
+        )
+        SubscriptionFactory(organization=org)
+        EntitlementGrantFactory(require_verified=True)
+
+        tasks.restore_organization()
+
+        # Org is notified (via subscription path), not via grant path
+        all_uuids = {str(u) for u in mock_send.call_args[0][1]}
+        assert str(org.uuid) in all_uuids
 
 
 class TestHandleChargeSucceeded:
@@ -1865,3 +1897,69 @@ class TestUnsyncWixForGroupMember:
         tasks.unsync_wix_for_group_member(member_org.id, group.id, wix_plan.id)
 
         mock_wix_unsync.assert_not_called()
+
+
+class TestSubscriptionCancelledWithExplicitSubscription:
+    """Tests for Organization.subscription_cancelled() with explicit subscription arg"""
+
+    @pytest.mark.django_db
+    def test_with_explicit_sub_cancels_only_that_sub(
+        self, organization_factory, plan_factory, subscription_factory
+    ):
+        """Org with two subscriptions: cancelling one leaves the other."""
+        org = organization_factory()
+        plan_a = plan_factory()
+        plan_b = plan_factory()
+        sub_a = subscription_factory(organization=org, plan=plan_a)
+        sub_b = subscription_factory(organization=org, plan=plan_b)
+
+        org.subscription_cancelled(subscription=sub_a)
+
+        assert not Subscription.objects.filter(pk=sub_a.pk).exists()
+        assert Subscription.objects.filter(pk=sub_b.pk).exists()
+
+    @pytest.mark.django_db
+    def test_no_arg_backward_compat(
+        self, organization_factory, plan_factory, subscription_factory
+    ):
+        """Calling with no arg still cancels the first subscription."""
+        org = organization_factory()
+        plan = plan_factory()
+        sub = subscription_factory(organization=org, plan=plan)
+
+        org.subscription_cancelled()
+
+        assert not Subscription.objects.filter(pk=sub.pk).exists()
+
+    @pytest.mark.django_db
+    def test_handle_invoice_failed_passes_subscription(
+        self, organization_factory, plan_factory, subscription_factory, mocker
+    ):
+        """handle_invoice_failed passes the matching subscription to
+        subscription_cancelled on 4th failure."""
+        customer_id = "cus_test_sub_pass"
+        org = organization_factory(customer__customer_id=customer_id)
+        plan = plan_factory()
+        stripe_sub_id = "sub_test123"
+        subscription_factory(organization=org, plan=plan, subscription_id=stripe_sub_id)
+
+        mocked_cancel = mocker.patch(
+            "squarelet.organizations.models.organization."
+            "Organization.subscription_cancelled"
+        )
+        mocker.patch("squarelet.organizations.tasks.send_mail")
+
+        invoice_data = {
+            "id": "in_test",
+            "customer": customer_id,
+            "attempt_count": 4,
+            "parent": {
+                "type": "subscription_details",
+                "subscription_details": {"subscription": stripe_sub_id},
+            },
+        }
+        tasks.handle_invoice_failed(invoice_data)
+
+        mocked_cancel.assert_called_once()
+        call_kwargs = mocked_cancel.call_args[1]
+        assert call_kwargs["subscription"].subscription_id == stripe_sub_id

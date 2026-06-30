@@ -94,7 +94,6 @@ class SubscriptionFactory(factory.django.DjangoModelFactory):
         "squarelet.organizations.tests.factories.OrganizationFactory"
     )
     plan = factory.SubFactory("squarelet.organizations.tests.factories.PlanFactory")
-    update_on = factory.LazyFunction(date.today)
 
     class Meta:
         model = "organizations.Subscription"

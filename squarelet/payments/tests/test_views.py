@@ -29,9 +29,9 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         user = user_factory(email_verified=True)
         plan = plan_factory(for_groups=True, public=True)
 
-        # Mock the set_subscription method to avoid Stripe calls
-        mock_set_subscription = mocker.patch.object(
-            Organization, "set_subscription", return_value=None
+        # Mock the add_subscription method to avoid Stripe calls
+        mock_add_subscription = mocker.patch.object(
+            Organization, "add_subscription", return_value=None
         )
 
         data = {
@@ -50,11 +50,11 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         assert org.has_admin(user)
 
         # Verify subscription was created
-        mock_set_subscription.assert_called_once_with(
+        mock_add_subscription.assert_called_once_with(
+            plan,
+            plan.minimum_users,
+            user,
             token="tok_visa",
-            plan=plan,
-            max_users=plan.minimum_users,
-            user=user,
             payment_method="new-card",
         )
 
@@ -91,8 +91,8 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         plan = plan_factory(for_groups=True, public=True)
 
         # Guard against any subscription side effects
-        mock_set_subscription = mocker.patch.object(
-            Organization, "set_subscription", return_value=None
+        mock_add_subscription = mocker.patch.object(
+            Organization, "add_subscription", return_value=None
         )
 
         data = {
@@ -108,7 +108,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         # Form is invalid: re-renders (200), no org created, no subscription
         assert response.status_code == 200
         assert not Organization.objects.filter(name="Should Not Exist").exists()
-        mock_set_subscription.assert_not_called()
+        mock_add_subscription.assert_not_called()
 
     def test_new_organization_adds_user_as_admin(
         self, rf, user_factory, plan_factory, mocker
@@ -117,8 +117,8 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         user = user_factory(email_verified=True)
         plan = plan_factory(for_groups=True, public=True)
 
-        # Mock set_subscription
-        mocker.patch.object(Organization, "set_subscription", return_value=None)
+        # Mock add_subscription
+        mocker.patch.object(Organization, "add_subscription", return_value=None)
 
         data = {
             "organization": "new",
@@ -148,9 +148,9 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         org.add_creator(user)
         plan = plan_factory(for_groups=True, public=True)
 
-        # Mock set_subscription
-        mock_set_subscription = mocker.patch.object(
-            Organization, "set_subscription", return_value=None
+        # Mock add_subscription
+        mock_add_subscription = mocker.patch.object(
+            Organization, "add_subscription", return_value=None
         )
 
         data = {
@@ -163,11 +163,11 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         response = self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
 
         # Verify subscription was created with existing org
-        mock_set_subscription.assert_called_once_with(
+        mock_add_subscription.assert_called_once_with(
+            plan,
+            plan.minimum_users,
+            user,
             token="tok_visa",
-            plan=plan,
-            max_users=plan.minimum_users,
-            user=user,
             payment_method="new-card",
         )
 
@@ -294,9 +294,9 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         org.add_creator(user)
         plan = plan_factory(for_groups=True, public=True, annual=True)
 
-        # Mock set_subscription
-        mock_set_subscription = mocker.patch.object(
-            Organization, "set_subscription", return_value=None
+        # Mock add_subscription
+        mock_add_subscription = mocker.patch.object(
+            Organization, "add_subscription", return_value=None
         )
 
         data = {
@@ -307,12 +307,12 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
 
         response = self.call_view(rf, user, data=data, pk=plan.pk, slug=plan.slug)
 
-        # Should succeed and call set_subscription with invoice payment method
-        mock_set_subscription.assert_called_once_with(
+        # Should succeed and call add_subscription with invoice payment method
+        mock_add_subscription.assert_called_once_with(
+            plan,
+            plan.minimum_users,
+            user,
             token="",
-            plan=plan,
-            max_users=plan.minimum_users,
-            user=user,
             payment_method="invoice",
         )
 
@@ -337,7 +337,7 @@ class TestPlanDetailViewPurchaseRedirect(ViewTestMixin):
         org = organization_factory()
         org.add_creator(user)
         plan = plan_factory(for_groups=True, public=True)
-        mocker.patch.object(Organization, "set_subscription", return_value=None)
+        mocker.patch.object(Organization, "add_subscription", return_value=None)
 
         # Register example.com as an allowed service host
         Service.objects.create(
@@ -368,7 +368,7 @@ class TestPlanDetailViewPurchaseRedirect(ViewTestMixin):
         org = organization_factory()
         org.add_creator(user)
         plan = plan_factory(for_groups=True, public=True)
-        mocker.patch.object(Organization, "set_subscription", return_value=None)
+        mocker.patch.object(Organization, "add_subscription", return_value=None)
 
         data = {
             "organization": str(org.pk),
@@ -391,7 +391,7 @@ class TestPlanDetailViewPurchaseRedirect(ViewTestMixin):
         org = organization_factory()
         org.add_creator(user)
         plan = plan_factory(for_groups=True, public=True)
-        mocker.patch.object(Organization, "set_subscription", return_value=None)
+        mocker.patch.object(Organization, "add_subscription", return_value=None)
 
         data = {
             "organization": str(org.pk),
@@ -413,7 +413,7 @@ class TestPlanDetailViewPurchaseRedirect(ViewTestMixin):
         org = organization_factory()
         org.add_creator(user)
         plan = plan_factory(for_groups=True, public=True)
-        mocker.patch.object(Organization, "set_subscription", return_value=None)
+        mocker.patch.object(Organization, "add_subscription", return_value=None)
 
         data = {
             "organization": str(org.pk),

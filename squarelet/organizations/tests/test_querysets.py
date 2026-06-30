@@ -205,7 +205,10 @@ class TestOrganizationQuerySet(TestCase):
 
         # Verify change log was created
         assert org.change_logs.filter(
-            reason=ChangeLogReason.created, user=user, to_plan=org.plan, to_max_users=1
+            reason=ChangeLogReason.created,
+            user=user,
+            to_plan=org.plans.first(),
+            to_max_users=1,
         ).exists()
 
     @pytest.mark.django_db
@@ -369,18 +372,18 @@ class TestSubscriptionQuerySet(TestCase):
         assert count == 3
 
     @pytest.mark.django_db
-    def test_sunlight_active_count_excludes_cancelled(self):
-        """Test count excludes cancelled Sunlight subscriptions"""
+    def test_sunlight_active_count_includes_cancelled(self):
+        """cancelled=True means pending cancellation — still counts toward limit."""
         sunlight_plan = PlanFactory(slug="sunlight-essential-monthly", wix=True)
 
-        # Create active and cancelled subscriptions
+        # Create active and pending-cancellation subscriptions
         SubscriptionFactory(plan=sunlight_plan, cancelled=False)
         SubscriptionFactory(plan=sunlight_plan, cancelled=False)
         SubscriptionFactory(plan=sunlight_plan, cancelled=True)
         SubscriptionFactory(plan=sunlight_plan, cancelled=True)
 
         count = Subscription.objects.sunlight_active_count()
-        assert count == 2
+        assert count == 4
 
     @pytest.mark.django_db
     def test_sunlight_active_count_excludes_non_wix(self):
@@ -400,14 +403,14 @@ class TestSubscriptionQuerySet(TestCase):
         sunlight_plan = PlanFactory(slug="sunlight-essential-monthly", wix=True)
         regular_plan = PlanFactory(slug="professional", wix=False)
 
-        # Create mix of subscriptions
+        # Create mix of subscriptions (cancelled Sunlight still counts)
         SubscriptionFactory(plan=sunlight_plan, cancelled=False)
         SubscriptionFactory(plan=sunlight_plan, cancelled=False)
         SubscriptionFactory(plan=sunlight_plan, cancelled=True)
         SubscriptionFactory(plan=regular_plan, cancelled=False)
 
         count = Subscription.objects.sunlight_active_count()
-        assert count == 2
+        assert count == 3
 
 
 class TestPlanQuerySet(TestCase):

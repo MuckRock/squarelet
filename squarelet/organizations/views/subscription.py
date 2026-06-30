@@ -57,18 +57,29 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
     def _is_ajax(self):
         return self.request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
+    def _apply_subscription_change(self, organization, current_plan, user, form):
+        """Dispatch add/remove/modify based on current vs new plan."""
+        token = form.cleaned_data["stripe_token"]
+        new_plan = form.cleaned_data.get("plan")
+        max_users = form.cleaned_data.get("max_users")
+
+        if not current_plan and new_plan:
+            organization.add_subscription(new_plan, max_users, user, token=token)
+        elif current_plan and not new_plan:
+            organization.remove_subscription(current_plan, user)
+        elif current_plan and new_plan:
+            if token:
+                organization.save_card(token, user)
+            organization.modify_subscription(current_plan, new_plan, max_users, user)
+
     def form_valid(self, form):
         # pylint: disable=too-many-return-statements
         organization = self.object
-        new_plan = form.cleaned_data.get("plan")
+        user = self.request.user
+        current_plan = organization.plans.first()
         redirect_url = organization.get_absolute_url()
         try:
-            organization.set_subscription(
-                token=form.cleaned_data["stripe_token"],
-                plan=new_plan,
-                max_users=form.cleaned_data.get("max_users"),
-                user=self.request.user,
-            )
+            self._apply_subscription_change(organization, current_plan, user, form)
         except PaymentActionRequired as exc:
             if self._is_ajax():
                 return JsonResponse(
@@ -131,7 +142,7 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
 
     def get_initial(self):
         return {
-            "plan": self.object.plan,
+            "plan": self.object.plans.first(),
             "max_users": self.object.max_users,
             "receipt_emails": "\n".join(
                 r.email for r in self.object.receipt_emails.all()
