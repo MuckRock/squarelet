@@ -147,12 +147,28 @@ class UpdateSubscriptions(OrganizationPermissionMixin, UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+
+        # Get subscriptions and add renewal/cancellation date and cost data
         subscriptions = self.object.subscriptions.all()
         for subscription in subscriptions:
             subscription.next_date = self.get_subscription_next_date(subscription)
             subscription.cost = self.get_subscription_cost(subscription)
         context["subscriptions"] = subscriptions
 
+        # Get card on file
+        customer = self.object.customer()
+        if customer.card is None:
+            card = None
+        elif customer.card.object == "payment_method":
+            card = customer.card.card
+        else:
+            card = customer.card
+        context["card"] = card
+
+        # Get all receipt emails
+        context["receipt_emails"] = self.object.receipt_emails.all()
+
+        # Get failed receipt emails
         context["failed_receipt_emails"] = self.object.receipt_emails.filter(
             failed=True
         )
