@@ -72,7 +72,7 @@ class PrettyJSONWidget(Textarea):
 
 class SubscriptionInline(admin.TabularInline):
     model = Subscription
-    readonly_fields = ("plan", "subscription_id", "update_on", "cancelled")
+    readonly_fields = ("plan", "subscription_id", "cancelled")
     extra = 0
 
 
@@ -358,6 +358,7 @@ class OrganizationAdmin(VersionAdmin):
         "hub_eligible",
         "allow_auto_join",
         "max_users",
+        "update_on",
         "payment_failed",
         "subtypes",
         "wikidata_id",
@@ -376,6 +377,7 @@ class OrganizationAdmin(VersionAdmin):
         "uuid",
         "slug",
         "max_users",
+        "update_on",
         "created_at",
         "updated_at",
         "individual",
@@ -553,7 +555,6 @@ class EntitlementGrantAdmin(VersionAdmin):
         "for_groups",
         "require_verified",
         "require_active_subscription",
-        "update_on",
     )
     list_filter = (
         "active",
@@ -575,16 +576,6 @@ class EntitlementGrantAdmin(VersionAdmin):
         (
             "Rule-based grants",
             {"fields": ("require_verified", "require_active_subscription")},
-        ),
-        (
-            "Refresh",
-            {
-                "fields": ("update_on",),
-                "description": (
-                    "Leave blank to default to one month from creation. "
-                    "Resources tied to this grant refresh on this date."
-                ),
-            },
         ),
     )
 
