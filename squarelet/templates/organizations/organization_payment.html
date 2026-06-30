@@ -70,7 +70,8 @@
     {% for subscription in subscriptions %}
       {% with annual=subscription.plan.annual %}
         <main id="{{ subscription.plan.slug }}" class="subscription-card">
-          <h3>{{ subscription.plan.name }}</h3>
+          <div class="subscription-row">
+            <h3 class="plan-name">{{ subscription.plan.name }}</h3>
           <div class="subscription-frequency">
             <span class="blue badge">
               {{ annual|yesno:_("Annual,Monthly") }}
@@ -79,7 +80,9 @@
               {{ annual|yesno:_("Change to monthly,Change to annual") }}
             </a>
           </div>
-          <div class="subscription-details">
+          </div>
+          <div class="subscription-row">
+            <div class="subscription-group">
             <span class="subscription-detail">
               <span class="icon">
                 {% icon "tag" %}
@@ -103,6 +106,7 @@
             {% icon "x-circle" %}
             {% trans "Cancel plan" %}
           </a>
+          </div>
         </main>
       {% endwith %}
     {% endfor %}
