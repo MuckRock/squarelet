@@ -28,7 +28,7 @@ Args:
             </span>
           </span>
         </div>
-        <a href="{{ payment_url }}" class="btn ghost primary">
+        <a href="{{ payment_url }}" class="btn ghost primary small">
           {% trans "Add new card" %}
         </a>
       {% endif %}
@@ -51,12 +51,12 @@ Args:
               </span>
             </div>
 
-            {%if subscription.plan.cancelled %}
+            {% if subscription.plan.cancelled %}
               <span class="red badge">
                 {% trans "Cancelled" %}
               </span>
             {% else %}
-              <a href="{{ payment_url }}#{{ subscription.plan.slug }}" class="btn ghost">
+              <a href="{{ payment_url }}#{{ subscription.plan.slug }}" class="btn ghost small">
                 {% icon "gear" %}
                 {% trans "Manage" %}
               </a>
