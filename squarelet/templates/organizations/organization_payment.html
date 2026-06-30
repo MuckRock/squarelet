@@ -77,7 +77,9 @@
                 {{ annual|yesno:_("Annual,Monthly") }}
               </span>
               <a href="#" class="btn ghost primary small">
-                {{ annual|yesno:_("Change to monthly,Change to annual") }}
+                {% blocktrans with annual|yesno:_("monthly,annual") as frequency %}
+                  Change to {{ frequency }}
+                {% endblocktrans %}
               </a>
             </div>
           </div>
@@ -129,7 +131,9 @@
                 {% icon "credit-card" %}
               </span>
               <span>
-                {{ card.brand }} {% trans "ending in" %} <strong>{{ card.last4 }}</strong>
+                {% blocktrans with card.brand as brand and card.last4 as last4 %}
+                  {{ brand }} ending in <strong>{{ last4 }}</strong>
+                {% endblocktrans %}
               </span>
             </span>
           </div>
