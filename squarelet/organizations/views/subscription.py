@@ -172,13 +172,11 @@ class UpdateSubscriptions(OrganizationPermissionMixin, UpdateView):
         context["failed_receipt_emails"] = self.object.receipt_emails.filter(
             failed=True
         )
-        # Provide a single subscription for the template to check cancelled status.
-        # In the multi-subscription world this will need to be revisited, but for
-        # now the template only needs to know about the primary (first) subscription.
-        plan = self.object.plans.first()
-        context["current_subscription"] = (
-            self.object.subscriptions.filter(plan=plan).first() if plan else None
-        )
+
+        # Get five most recent payments
+        payments = self.object.charges.order_by("-created_at").all()[:5]
+        context["payments"] = payments
+
         return context
     
     def get_subscription_next_date(self, subscription):
