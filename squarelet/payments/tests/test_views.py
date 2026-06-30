@@ -91,8 +91,8 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         plan = plan_factory(for_groups=True, public=True)
 
         # Guard against any subscription side effects
-        mock_set_subscription = mocker.patch.object(
-            Organization, "set_subscription", return_value=None
+        mock_add_subscription = mocker.patch.object(
+            Organization, "add_subscription", return_value=None
         )
 
         data = {
@@ -108,7 +108,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         # Form is invalid: re-renders (200), no org created, no subscription
         assert response.status_code == 200
         assert not Organization.objects.filter(name="Should Not Exist").exists()
-        mock_set_subscription.assert_not_called()
+        mock_add_subscription.assert_not_called()
 
     def test_new_organization_adds_user_as_admin(
         self, rf, user_factory, plan_factory, mocker
