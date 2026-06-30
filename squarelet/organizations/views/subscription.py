@@ -184,12 +184,13 @@ class UpdateSubscriptions(OrganizationPermissionMixin, UpdateView):
     def get_subscription_cost(self, subscription):
         stripe_sub = subscription.stripe_subscription
         if stripe_sub:
-            base_price = subscription.plan.base_price
-            min_users = subscription.plan.minimum_users
-            price_per_user = subscription.plan.price_per_user
-            max_users = self.object.max_users
-            cost = base_price + (max_users - min_users) * price_per_user
-            return cost
+            # base_price = subscription.plan.base_price
+            # min_users = subscription.plan.minimum_users
+            # price_per_user = subscription.plan.price_per_user
+            # max_users = self.object.max_users
+            # cost = base_price + (max_users - min_users) * price_per_user
+            # return cost
+            return subscription.plan.base_price
         return None
 
     def get_initial(self):
