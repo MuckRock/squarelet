@@ -473,7 +473,6 @@ class Organization(AvatarMixin, models.Model):
     def add_subscription(self, plan, max_users, user, token=None, payment_method=None):
         """Add a new subscription to a plan.
 
-        Saves max_users to the organization before starting the subscription.
         Raises ValueError if the org already has a non-cancelled subscription
         for this plan.
         """
@@ -483,9 +482,6 @@ class Organization(AvatarMixin, models.Model):
             )
 
         is_first = not self.subscriptions.exists()
-
-        self.max_users = max_users
-        self.save()
 
         # Detect payment method if not explicitly provided
         if payment_method is None:
@@ -509,7 +505,10 @@ class Organization(AvatarMixin, models.Model):
         # the subscription exists do we record the anchor for subsequent subscriptions
         # to align to.
         self.subscriptions.start(
-            organization=self, plan=plan, payment_method=payment_method
+            organization=self,
+            plan=plan,
+            payment_method=payment_method,
+            quantity=max_users,
         )
 
         if is_first:
@@ -583,6 +582,7 @@ class Organization(AvatarMixin, models.Model):
             to_plan=new_plan,
             to_max_users=max_users,
         )
+        sub.quantity = max_users
         sub.modify(new_plan)
 
     def _dispatch_wix_unsync(self, plan):

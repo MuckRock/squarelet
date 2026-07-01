@@ -57,7 +57,7 @@ class TestSubscription:
         mock_sub_service.create.assert_called_with(
             stripe_customer=mocked_customer.stripe_customer,
             plan_id=subscription.plan.stripe_id,
-            quantity=subscription.organization.max_users,
+            quantity=subscription.quantity,
             billing="charge_automatically",
             metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=None,
@@ -138,7 +138,7 @@ class TestSubscription:
                 {
                     "id": subscription.stripe_subscription["items"]["data"][0].id,
                     "plan": subscription.plan.stripe_id,
-                    "quantity": subscription.organization.max_users,
+                    "quantity": subscription.quantity,
                 }
             ],
             billing="charge_automatically",
@@ -251,7 +251,7 @@ class TestSubscription:
         mock_provider.get_subscription_service.return_value.create.assert_called_with(
             stripe_customer=mocked_customer.stripe_customer,
             plan_id=subscription.plan.stripe_id,
-            quantity=subscription.organization.max_users,
+            quantity=subscription.quantity,
             billing="send_invoice",
             metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=30,

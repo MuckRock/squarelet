@@ -118,6 +118,7 @@ class OrganizationDetailSerializer(OrganizationSerializer):
                         "description": ent.description,
                         "resources": ent.resources,
                         "update_on": update_on,
+                        "quantity": sub.quantity,
                     }
                 )
 
@@ -137,6 +138,7 @@ class OrganizationDetailSerializer(OrganizationSerializer):
                             "description": ent.description,
                             "resources": ent.resources,
                             "update_on": update_on,
+                            "quantity": 1,
                         }
                     )
         return result

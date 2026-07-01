@@ -179,6 +179,14 @@ class Subscription(models.Model):
     # the subscription is deleted from the database.
     cancelled = models.BooleanField(default=False)
 
+    quantity = models.PositiveIntegerField(
+        _("quantity"),
+        default=1,
+        help_text=_(
+            "Number of units of this plan's resources granted to the organization"
+        ),
+    )
+
     class Meta:
         unique_together = ("organization", "plan")
         ordering = ("plan",)
@@ -224,7 +232,7 @@ class Subscription(models.Model):
                 .create(
                     stripe_customer=self.organization.customer().stripe_customer,
                     plan_id=self.plan.stripe_id,
-                    quantity=self.organization.max_users,
+                    quantity=self.quantity,
                     billing=billing,
                     metadata={"action": f"Subscription ({self.plan})"},
                     days_until_due=days_until_due,
@@ -375,7 +383,7 @@ class Subscription(models.Model):
                     {
                         "id": self.stripe_subscription["items"]["data"][0].id,
                         "plan": self.plan.stripe_id,
-                        "quantity": self.organization.max_users,
+                        "quantity": self.quantity,
                     }
                 ],
                 billing="send_invoice" if self.plan.annual else "charge_automatically",
