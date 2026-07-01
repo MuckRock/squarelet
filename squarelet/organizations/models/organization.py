@@ -9,13 +9,12 @@ from django.utils.translation import gettext_lazy as _
 import logging
 import sys
 import uuid
-from datetime import date
+from datetime import datetime, timezone as dt_timezone
 from functools import cached_property
 
 # Third Party
 import stripe
 from autoslug import AutoSlugField
-from dateutil.relativedelta import relativedelta
 from sorl.thumbnail import ImageField
 
 # Squarelet
@@ -504,15 +503,18 @@ class Organization(AvatarMixin, models.Model):
         # receives no billing_cycle_anchor (Stripe sets its own anchor). Only after
         # the subscription exists do we record the anchor for subsequent subscriptions
         # to align to.
-        self.subscriptions.start(
+        _, stripe_subscription = self.subscriptions.start(
             organization=self,
             plan=plan,
             payment_method=payment_method,
             quantity=max_users,
         )
 
-        if is_first:
-            self.update_on = date.today() + relativedelta(months=1)
+        if is_first and stripe_subscription:
+            self.update_on = datetime.fromtimestamp(
+                stripe_subscription.current_period_end,
+                tz=dt_timezone.utc,
+            ).date()
             self.save(update_fields=["update_on"])
 
         self.change_logs.create(

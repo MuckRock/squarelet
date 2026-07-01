@@ -160,36 +160,63 @@ class TestOrganization:
         customer.save_card.assert_called_with(token)
         mocked_sci.assert_called_with("organization", organization.uuid)
 
+    def _setup_stripe_mock(self, mocker, period_end=1_800_000_000, status="active"):
+        """Mock the Stripe customer and subscription service. Returns
+        (mock_customer, mock_sub_service, mock_stripe_sub)."""
+        mock_customer = mocker.MagicMock()
+        mocker.patch(
+            "squarelet.organizations.models.organization.Organization.customer",
+            return_value=mock_customer,
+        )
+        mock_stripe_sub = Mock(
+            id="sub_test123",
+            status=status,
+            current_period_end=period_end,
+            latest_invoice=None,
+        )
+        mock_sub_service = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_subscription_service.return_value
+        mock_sub_service.create.return_value = mock_stripe_sub
+        return mock_customer, mock_sub_service, mock_stripe_sub
+
     @pytest.mark.django_db
     def test_add_subscription(
         self, organization_factory, mocker, user_factory, professional_plan_factory
     ):
-        mocker.patch("stripe.Plan.create")
+        """Adding a subscription creates a Subscription record, passes quantity to
+        Stripe, and sets org.update_on from Stripe's current_period_end."""
+        from datetime import datetime, timezone as dt_timezone
+
         user = user_factory()
         organization = organization_factory(admins=[user])
         plan = professional_plan_factory()
-        mocked_save_card = mocker.patch(
-            "squarelet.organizations.models.Organization.save_card"
+        max_users = 5
+        period_end = 1_800_000_000
+
+        mock_customer, mock_sub_service, _ = self._setup_stripe_mock(
+            mocker, period_end=period_end
         )
-        mocked_customer = mocker.patch(
-            "squarelet.organizations.models.Customer.stripe_customer", email=None
-        )
-        mocked_subscriptions = mocker.patch(
-            "squarelet.organizations.models.Organization.subscriptions"
-        )
-        mocked_subscriptions.filter.return_value.exists.return_value = False
-        mocker.patch("squarelet.organizations.models.Organization.change_logs")
-        max_users = 10
-        token = "token"
-        organization.add_subscription(plan, max_users, user, token=token)
-        mocked_save_card.assert_called_with(token, user)
-        assert mocked_customer.email == organization.email
-        mocked_customer.save.assert_called()
-        mocked_subscriptions.start.assert_called_with(
-            organization=organization,
-            plan=plan,
-            payment_method="card",
+        mocker.patch("squarelet.organizations.models.Organization.save_card")
+
+        organization.add_subscription(plan, max_users, user, token="tok_visa")
+
+        sub = organization.subscriptions.get(plan=plan)
+        assert sub.quantity == max_users
+
+        organization.refresh_from_db()
+        assert organization.update_on == datetime.fromtimestamp(
+            period_end, tz=dt_timezone.utc
+        ).date()
+
+        mock_sub_service.create.assert_called_with(
+            stripe_customer=mock_customer.stripe_customer,
+            plan_id=plan.stripe_id,
             quantity=max_users,
+            billing="charge_automatically",
+            metadata={"action": f"Subscription ({plan.name})"},
+            days_until_due=None,
+            billing_cycle_anchor=None,
         )
 
     @pytest.mark.django_db
@@ -222,122 +249,108 @@ class TestOrganization:
 
     @pytest.mark.django_db
     def test_add_subscription_with_invoice_payment_method(
-        self, organization_factory, mocker, user_factory, professional_plan_factory
+        self, organization_factory, mocker, user_factory, plan_factory
     ):
-        """Test that explicitly passing payment_method='invoice' uses invoice billing"""
+        """Annual plan with payment_method='invoice' uses send_invoice billing."""
         mocker.patch("stripe.Plan.create")
         user = user_factory()
         organization = organization_factory(admins=[user])
-        plan = professional_plan_factory()
+        plan = plan_factory(annual=True, base_price=240, minimum_users=1)
 
-        mocker.patch(
-            "squarelet.organizations.models.Customer.stripe_customer",
-            email=None,
-        )
-        mocked_subscriptions = mocker.patch(
-            "squarelet.organizations.models.Organization.subscriptions"
-        )
-        mocked_subscriptions.filter.return_value.exists.return_value = False
-        mocker.patch("squarelet.organizations.models.Organization.change_logs")
+        mock_customer, mock_sub_service, _ = self._setup_stripe_mock(mocker)
 
-        organization.add_subscription(plan, 10, user, payment_method="invoice")
+        organization.add_subscription(plan, 1, user, payment_method="invoice")
 
-        # Should pass "invoice" to subscriptions.start, not "card"
-        mocked_subscriptions.start.assert_called_with(
-            organization=organization, plan=plan, payment_method="invoice", quantity=10
+        assert organization.subscriptions.filter(plan=plan).exists()
+        mock_sub_service.create.assert_called_with(
+            stripe_customer=mock_customer.stripe_customer,
+            plan_id=plan.stripe_id,
+            quantity=1,
+            billing="send_invoice",
+            metadata={"action": f"Subscription ({plan.name})"},
+            days_until_due=30,
+            billing_cycle_anchor=None,
         )
 
     @pytest.mark.django_db
     def test_add_subscription_with_existing_card_payment_method(
         self, organization_factory, mocker, user_factory, professional_plan_factory
     ):
-        """Test that payment_method='existing-card' maps to 'card'"""
-        mocker.patch("stripe.Plan.create")
+        """payment_method='existing-card' is normalised to card billing."""
         user = user_factory()
         organization = organization_factory(admins=[user])
         plan = professional_plan_factory()
 
-        mocker.patch(
-            "squarelet.organizations.models.Customer.stripe_customer",
-            email=None,
-        )
-        mocked_subscriptions = mocker.patch(
-            "squarelet.organizations.models.Organization.subscriptions"
-        )
-        mocked_subscriptions.filter.return_value.exists.return_value = False
-        mocker.patch("squarelet.organizations.models.Organization.change_logs")
+        mock_customer, mock_sub_service, _ = self._setup_stripe_mock(mocker)
 
-        organization.add_subscription(plan, 10, user, payment_method="existing-card")
+        organization.add_subscription(plan, 3, user, payment_method="existing-card")
 
-        # "existing-card" should be mapped to "card"
-        mocked_subscriptions.start.assert_called_with(
-            organization=organization, plan=plan, payment_method="card", quantity=10
+        assert organization.subscriptions.filter(plan=plan).exists()
+        mock_sub_service.create.assert_called_with(
+            stripe_customer=mock_customer.stripe_customer,
+            plan_id=plan.stripe_id,
+            quantity=3,
+            billing="charge_automatically",
+            metadata={"action": f"Subscription ({plan.name})"},
+            days_until_due=None,
+            billing_cycle_anchor=None,
         )
 
     @pytest.mark.django_db
     def test_add_subscription_with_new_card_payment_method(
         self, organization_factory, mocker, user_factory, professional_plan_factory
     ):
-        """Test that payment_method='new-card' maps to 'card'"""
-        mocker.patch("stripe.Plan.create")
+        """payment_method='new-card' saves the card and uses card billing."""
         user = user_factory()
         organization = organization_factory(admins=[user])
         plan = professional_plan_factory()
 
+        mock_customer, mock_sub_service, _ = self._setup_stripe_mock(mocker)
         mocked_save_card = mocker.patch(
             "squarelet.organizations.models.Organization.save_card"
         )
-        mocker.patch(
-            "squarelet.organizations.models.Customer.stripe_customer",
-            email=None,
-        )
-        mocked_subscriptions = mocker.patch(
-            "squarelet.organizations.models.Organization.subscriptions"
-        )
-        mocked_subscriptions.filter.return_value.exists.return_value = False
-        mocker.patch("squarelet.organizations.models.Organization.change_logs")
 
         token = "tok_test123"
         organization.add_subscription(
-            plan, 10, user, token=token, payment_method="new-card"
+            plan, 2, user, token=token, payment_method="new-card"
         )
 
         mocked_save_card.assert_called_with(token, user)
-        # "new-card" should be mapped to "card"
-        mocked_subscriptions.start.assert_called_with(
-            organization=organization, plan=plan, payment_method="card", quantity=10
+        assert organization.subscriptions.filter(plan=plan).exists()
+        mock_sub_service.create.assert_called_with(
+            stripe_customer=mock_customer.stripe_customer,
+            plan_id=plan.stripe_id,
+            quantity=2,
+            billing="charge_automatically",
+            metadata={"action": f"Subscription ({plan.name})"},
+            days_until_due=None,
+            billing_cycle_anchor=None,
         )
 
     @pytest.mark.django_db
     def test_add_subscription_auto_detects_card(
         self, organization_factory, mocker, user_factory, professional_plan_factory
     ):
-        """When payment_method not provided, auto-detect based on saved card"""
-        mocker.patch("stripe.Plan.create")
+        """When no payment_method is provided and a card is on file, card billing
+        is auto-detected and used."""
         user = user_factory()
         organization = organization_factory(admins=[user])
         plan = professional_plan_factory()
 
-        mocked_customer_obj = mocker.MagicMock()
-        mocked_customer_obj.email = None
-        mocked_customer_obj.card = mocker.MagicMock()
+        mock_customer, mock_sub_service, _ = self._setup_stripe_mock(mocker)
+        mock_customer.card = mocker.MagicMock()  # card on file
 
-        mocker.patch(
-            "squarelet.organizations.models.Organization.customer",
-            return_value=mocked_customer_obj,
-        )
+        organization.add_subscription(plan, 4, user)
 
-        mocked_subscriptions = mocker.patch(
-            "squarelet.organizations.models.Organization.subscriptions"
-        )
-        mocked_subscriptions.filter.return_value.exists.return_value = False
-        mocker.patch("squarelet.organizations.models.Organization.change_logs")
-
-        organization.add_subscription(plan, 10, user)
-
-        # Should default to "card" since a card is on file
-        mocked_subscriptions.start.assert_called_with(
-            organization=organization, plan=plan, payment_method="card", quantity=10
+        assert organization.subscriptions.filter(plan=plan).exists()
+        mock_sub_service.create.assert_called_with(
+            stripe_customer=mock_customer.stripe_customer,
+            plan_id=plan.stripe_id,
+            quantity=4,
+            billing="charge_automatically",
+            metadata={"action": f"Subscription ({plan.name})"},
+            days_until_due=None,
+            billing_cycle_anchor=None,
         )
 
     @pytest.mark.django_db
