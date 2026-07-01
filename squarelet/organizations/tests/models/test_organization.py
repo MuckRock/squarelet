@@ -186,7 +186,10 @@ class TestOrganization:
         assert mocked_customer.email == organization.email
         mocked_customer.save.assert_called()
         mocked_subscriptions.start.assert_called_with(
-            organization=organization, plan=plan, payment_method="card"
+            organization=organization,
+            plan=plan,
+            payment_method="card",
+            quantity=max_users,
         )
 
     @pytest.mark.django_db
@@ -241,7 +244,7 @@ class TestOrganization:
 
         # Should pass "invoice" to subscriptions.start, not "card"
         mocked_subscriptions.start.assert_called_with(
-            organization=organization, plan=plan, payment_method="invoice"
+            organization=organization, plan=plan, payment_method="invoice", quantity=10
         )
 
     @pytest.mark.django_db
@@ -268,7 +271,7 @@ class TestOrganization:
 
         # "existing-card" should be mapped to "card"
         mocked_subscriptions.start.assert_called_with(
-            organization=organization, plan=plan, payment_method="card"
+            organization=organization, plan=plan, payment_method="card", quantity=10
         )
 
     @pytest.mark.django_db
@@ -302,7 +305,7 @@ class TestOrganization:
         mocked_save_card.assert_called_with(token, user)
         # "new-card" should be mapped to "card"
         mocked_subscriptions.start.assert_called_with(
-            organization=organization, plan=plan, payment_method="card"
+            organization=organization, plan=plan, payment_method="card", quantity=10
         )
 
     @pytest.mark.django_db
@@ -334,7 +337,7 @@ class TestOrganization:
 
         # Should default to "card" since a card is on file
         mocked_subscriptions.start.assert_called_with(
-            organization=organization, plan=plan, payment_method="card"
+            organization=organization, plan=plan, payment_method="card", quantity=10
         )
 
     @pytest.mark.django_db
