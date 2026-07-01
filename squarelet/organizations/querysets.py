@@ -417,10 +417,11 @@ class ChargeQuerySet(models.QuerySet):
 
 
 class SubscriptionQuerySet(models.QuerySet):
-    def start(self, organization, plan, payment_method="card"):
+    def start(self, organization, plan, payment_method="card", quantity=1):
         subscription = self.model(
             organization=organization,
             plan=plan,
+            quantity=quantity,
         )
         subscription.start(
             payment_method=payment_method,
