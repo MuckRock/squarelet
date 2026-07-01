@@ -553,7 +553,7 @@ class Organization(AvatarMixin, models.Model):
         else:
             sub = self.subscriptions.get(plan=plan_or_subscription)
 
-        cancelled_plan = sub.plan if sub.plan and sub.plan.wix else None
+        wix_unsync_plan = sub.plan if sub.plan and sub.plan.wix else None
 
         self.change_logs.create(
             user=user,
@@ -564,8 +564,8 @@ class Organization(AvatarMixin, models.Model):
         )
         sub.cancel()
 
-        if cancelled_plan:
-            self._dispatch_wix_unsync(cancelled_plan)
+        if wix_unsync_plan:
+            self._dispatch_wix_unsync(wix_unsync_plan)
 
     def modify_subscription(self, old_plan, new_plan, max_users, user):
         """Modify the subscription for old_plan to new_plan."""
