@@ -423,12 +423,12 @@ class SubscriptionQuerySet(models.QuerySet):
             plan=plan,
             quantity=quantity,
         )
-        subscription.start(
+        stripe_subscription = subscription.start(
             payment_method=payment_method,
             billing_cycle_anchor=organization.update_on,
         )
         subscription.save()
-        return subscription
+        return subscription, stripe_subscription
 
     def sunlight_active_count(self):
         """Count active Sunlight subscriptions across all variants"""

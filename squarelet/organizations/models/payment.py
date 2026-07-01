@@ -206,13 +206,16 @@ class Subscription(models.Model):
         return None
 
     def start(self, payment_method="card", billing_cycle_anchor=None):
+        """Start the Stripe subscription. Returns the Stripe subscription object
+        for paid plans, or None for free plans."""
         if self.stripe_subscription:
             logger.error(
                 "Trying to start an existing subscription: %s %s",
                 self.pk,
                 self.subscription_id,
             )
-            return
+            return None
+        stripe_subscription = None
         if self.plan and not self.plan.free:
             # Annual plans support payment by invoice
             if self.plan.annual and payment_method == "invoice":
@@ -272,6 +275,7 @@ class Subscription(models.Model):
 
         # Slack notification for new subscription
         self.send_slack_notification("started")
+        return stripe_subscription
 
     def _check_3ds_action_required(self, stripe_subscription):
         """Raise PaymentActionRequired if the first invoice requires 3DS authentication.
