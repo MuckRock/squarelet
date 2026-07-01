@@ -193,12 +193,48 @@ class TestDetail(ViewTestMixin):
     def test_verification_context_for_member(
         self, rf, organization_factory, user_factory
     ):
-        """Test that members don't see verification request prompt"""
+        """Test that members (not just admins) see the verification request"""
         member = user_factory()
         organization = organization_factory(users=[member], verified_journalist=False)
         response = self.call_view(rf, member, slug=organization.slug)
         assert response.status_code == 200
+        assert response.context_data["show_verification_request"] is True
+
+    def test_verification_context_for_non_member(
+        self, rf, organization_factory, user_factory
+    ):
+        """Test that non-members don't see the verification request prompt.
+
+        Use a staff user, since they can view an unverified org they don't
+        belong to (regular non-members can only view verified orgs).
+        """
+        staff_user = user_factory(is_staff=True)
+        organization = organization_factory(verified_journalist=False)
+        response = self.call_view(rf, staff_user, slug=organization.slug)
+        assert response.status_code == 200
         assert response.context_data["show_verification_request"] is False
+
+    def test_has_verified_email_context_true(
+        self, rf, organization_factory, user_factory
+    ):
+        """Members with a confirmed email can request verification"""
+        member = user_factory(email_verified=True)
+        organization = organization_factory(users=[member], verified_journalist=False)
+        response = self.call_view(rf, member, slug=organization.slug)
+        assert response.status_code == 200
+        assert response.context_data["show_verification_request"] is True
+        assert response.context_data["has_verified_email"] is True
+
+    def test_has_verified_email_context_false(
+        self, rf, organization_factory, user_factory
+    ):
+        """Members without a confirmed email cannot request verification"""
+        member = user_factory(email_verified=False)
+        organization = organization_factory(users=[member], verified_journalist=False)
+        response = self.call_view(rf, member, slug=organization.slug)
+        assert response.status_code == 200
+        assert response.context_data["show_verification_request"] is True
+        assert response.context_data["has_verified_email"] is False
 
     def test_security_settings_context_for_admin(
         self, rf, organization_factory, user_factory

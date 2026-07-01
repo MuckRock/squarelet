@@ -243,6 +243,10 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
     def verified_journalist(self):
         return self.organizations.filter(verified_journalist=True).exists()
 
+    def has_verified_email(self):
+        """Whether the user has at least one confirmed email address."""
+        return self.emailaddress_set.filter(verified=True).exists()
+
     def get_emails(self, verified=False):
         """Returns a list of the user's emails."""
         emails = self.emailaddress_set.all()

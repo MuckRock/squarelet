@@ -34,6 +34,18 @@ def test_get_full_name(user_factory):
     assert user.get_full_name() == user.name
 
 
+@pytest.mark.django_db()
+def test_has_verified_email_true(user_factory):
+    user = user_factory(email_verified=True)
+    assert user.has_verified_email() is True
+
+
+@pytest.mark.django_db()
+def test_has_verified_email_false(user_factory):
+    user = user_factory(email_verified=False)
+    assert user.has_verified_email() is False
+
+
 def test_safe_name_with_name(user_factory):
     user = user_factory.build()
     assert user.safe_name() == user.name
