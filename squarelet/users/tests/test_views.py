@@ -1,12 +1,14 @@
 # Django
 from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
+from django.core.exceptions import ValidationError
 from django.http.response import Http404
 
 # Standard Library
 import hashlib
 import hmac
 import json
+import secrets
 import time
 
 # Third Party
@@ -17,9 +19,106 @@ from allauth.account.models import EmailAddress
 from squarelet.core.tests.mixins import ViewTestMixin
 from squarelet.organizations.models import Invitation
 from squarelet.organizations.models.payment import Plan
-from squarelet.users import views
+from squarelet.users import forms, views
+from squarelet.users.models import User
 
 # pylint: disable=too-many-positional-arguments, too-many-lines
+
+
+class TestSignupView:
+    """Test graceful handling of individual organization collisions on signup"""
+
+    BASE_DATA = {
+        "name": "john doe",
+        "username": "john",
+        "email": "doe@example.com",
+        "stripe_pk": "key",
+        "tos": True,
+    }
+
+    def _signup_data(self, plan):
+        # generate the password at runtime so no credential literal is committed
+        return {
+            **self.BASE_DATA,
+            "plan": plan.slug,
+            "password1": secrets.token_urlsafe(16),
+        }
+
+    def _make_form(self, data):
+        form = forms.SignupForm(data)
+        assert form.is_valid()
+        return form
+
+    @pytest.mark.django_db
+    def test_form_valid_handles_collision(self, rf, plan_factory, mocker):
+        """A ValidationError raised while creating the individual organization
+        (e.g. a double-submitted signup that races past validation) is surfaced
+        as a form error rather than an unhandled 500."""
+        plan = plan_factory()
+        data = self._signup_data(plan)
+        form = self._make_form(data)
+
+        request = rf.post("/accounts/signup/", data)
+        request.session = mocker.MagicMock()
+
+        # No pending social login: exercise the standard (allauth) path
+        mocker.patch(
+            "squarelet.users.views.flows.signup.get_pending_signup",
+            return_value=None,
+        )
+        # Simulate the collision surfacing from the manager
+        mocker.patch.object(
+            User.objects,
+            "register_user",
+            side_effect=ValidationError(
+                {"username": ["A user with that username already exists."]}
+            ),
+        )
+
+        view = views.SignupView()
+        view.request = request
+        sentinel = object()
+        form_invalid = mocker.patch.object(view, "form_invalid", return_value=sentinel)
+
+        response = view.form_valid(form)
+
+        assert response is sentinel
+        form_invalid.assert_called_once_with(form)
+        assert "username" in form.errors
+
+    @pytest.mark.django_db
+    def test_form_valid_handles_collision_social(self, rf, plan_factory, mocker):
+        """The same graceful handling applies to the social signup branch."""
+        plan = plan_factory()
+        data = self._signup_data(plan)
+        form = self._make_form(data)
+
+        request = rf.post("/accounts/signup/", data)
+        request.session = mocker.MagicMock()
+
+        mocker.patch(
+            "squarelet.users.views.flows.signup.get_pending_signup",
+            return_value=mocker.MagicMock(),
+        )
+        mocker.patch("squarelet.users.views.flows.signup.clear_pending_signup")
+        mocker.patch.object(
+            User.objects,
+            "register_user",
+            side_effect=ValidationError(
+                {"username": ["A user with that username already exists."]}
+            ),
+        )
+
+        view = views.SignupView()
+        view.request = request
+        sentinel = object()
+        form_invalid = mocker.patch.object(view, "form_invalid", return_value=sentinel)
+
+        response = view.form_valid(form)
+
+        assert response is sentinel
+        form_invalid.assert_called_once_with(form)
+        assert "username" in form.errors
 
 
 @pytest.mark.django_db()
