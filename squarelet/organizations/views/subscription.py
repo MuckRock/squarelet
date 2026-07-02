@@ -15,6 +15,7 @@ from django.utils.translation import gettext_lazy as _
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import DetailView, UpdateView
+from django.urls import reverse
 
 # Standard Library
 import json
@@ -238,7 +239,7 @@ class UpdateCard(OrganizationPermissionMixin, UpdateView):
     def form_valid(self, form):
         organization = self.object
         user = self.request.user
-        redirect_url = organization.get_absolute_url()
+        redirect_url = reverse("organizations:subscriptions", args=[organization.slug])
         token = form.cleaned_data["stripe_token"]
         try:
             organization.save_card(token, user)
