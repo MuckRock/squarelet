@@ -145,13 +145,13 @@
     </section>
 
     {% if can_view_subscription %}
-    {% url 'organizations:payment' organization.slug as payment_url %}
+    {% url 'organizations:subscriptions' organization.slug as subscriptions_url %}
     <section id="plan">
       <header>
         <h2>{% trans "Plans" %}</h2>
         {% if can_edit_subscription %}
         <div class="header-actions">
-          <a href="{{ payment_url }}" class="btn ghost primary">
+          <a href="{{ subscriptions_url }}" class="btn ghost primary">
             {% icon "gear" %}
             {% trans "Manage plans" %}
           </a>

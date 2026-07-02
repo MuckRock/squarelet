@@ -16,6 +16,9 @@ urlpatterns = [
         "~charge-pdf/<int:pk>/", view=views.PDFChargeDetail.as_view(), name="charge-pdf"
     ),
     path(
+        "<slug:slug>/subscriptions/", view=views.ManageSubscriptions.as_view(), name="subscriptions"
+    ),
+    path(
         "<slug:slug>/payment/", view=views.UpdateSubscription.as_view(), name="payment"
     ),
     path("<slug:slug>/update/", view=views.Update.as_view(), name="update"),

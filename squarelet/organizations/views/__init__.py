@@ -14,6 +14,7 @@ from .profile import RequestProfileChange, ReviewProfileChange, Update
 from .subscription import (
     ChargeDetail,
     PDFChargeDetail,
+    ManageSubscriptions,
     UpdateSubscription,
     stripe_webhook,
 )
@@ -24,6 +25,7 @@ __all__ = [
     "List",
     "autocomplete",
     # Subscription views
+    "ManageSubscriptions",
     "UpdateSubscription",
     "ChargeDetail",
     "PDFChargeDetail",
