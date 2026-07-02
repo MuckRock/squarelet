@@ -21,6 +21,7 @@ urlpatterns = [
     path(
         "<slug:slug>/payment/", view=views.UpdateSubscription.as_view(), name="payment"
     ),
+    path("<slug:slug>/card/", view=views.UpdateCard.as_view(), name="update-card"),
     path("<slug:slug>/update/", view=views.Update.as_view(), name="update"),
     path(
         "<slug:slug>/request-profile-change/",

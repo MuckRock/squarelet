@@ -224,6 +224,50 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
             ),
         }
 
+class UpdateCard(OrganizationPermissionMixin, UpdateView):
+    """Update the credit card on file for an organization."""
+
+    permission_required = "organizations.can_edit_subscription"
+    queryset = Organization.objects.filter(individual=False)
+    form_class = CardForm
+    template_name = "organizations/organization_updatecard.html"
+
+    def _is_ajax(self):
+        return self.request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
+    def form_valid(self, form):
+        organization = self.object
+        user = self.request.user
+        redirect_url = organization.get_absolute_url()
+        token = form.cleaned_data["stripe_token"]
+        try:
+            organization.save_card(token, user)
+        except stripe.StripeError as exc:
+            user_message = format_stripe_error(exc)
+            if self._is_ajax():
+                return JsonResponse({"error": user_message}, status=400)
+            messages.error(self.request, f"Payment error: {user_message}")
+            return redirect(organization)
+        else:
+            success_msg = _("Credit card updated")
+            if self._is_ajax():
+                return JsonResponse(
+                    {"redirect": redirect_url, "message": str(success_msg)}
+                )
+            messages.success(self.request, success_msg)
+        return redirect(organization)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        customer = self.object.customer()
+        if customer.card is None:
+            card = None
+        elif customer.card.object == "payment_method":
+            card = customer.card.card
+        else:
+            card = customer.card
+        context["card"] = card
+        return context
 
 @method_decorator(xframe_options_sameorigin, name="dispatch")
 class ChargeDetail(UserPassesTestMixin, DetailView):
