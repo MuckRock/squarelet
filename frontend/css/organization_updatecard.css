@@ -15,8 +15,15 @@
   padding: 1rem;
 }
 
+.update-card h1 {
+  font-size: var(--font-xl, 24px);
+  font-weight: 400;
+  margin: 0.5rem 0 0;
+}
+
 .update-card h2 {
-  margin: 0.5rem 0 2rem;
+  font-size: var(--font-xl, 24px);
+  margin: 0.25rem 0 2rem;
 }
 
 .card-row {
