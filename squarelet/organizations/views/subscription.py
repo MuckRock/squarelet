@@ -54,8 +54,7 @@ from squarelet.organizations.tasks import (
 
 logger = logging.getLogger(__name__)
 
-
-class UpdateSubscriptions(OrganizationPermissionMixin, UpdateView):
+class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
     permission_required = "organizations.can_edit_subscription"
     queryset = Organization.objects.filter(individual=False)
     form_class = PaymentForm
@@ -147,65 +146,10 @@ class UpdateSubscriptions(OrganizationPermissionMixin, UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-
-        # Get subscriptions and add renewal/cancellation date and cost data
-        subscriptions = self.object.subscriptions.all()
-        for subscription in subscriptions:
-            subscription.next_date = self.get_subscription_next_date(subscription)
-            subscription.cost = self.get_subscription_cost(subscription)
-        context["subscriptions"] = subscriptions
-
-        # Get card on file
-        customer = self.object.customer()
-        if customer.card is None:
-            card = None
-        elif customer.card.object == "payment_method":
-            card = customer.card.card
-        else:
-            card = customer.card
-        context["card"] = card
-
-        # Get all receipt emails
-        context["receipt_emails"] = self.object.receipt_emails.all()
-
-        # Get failed receipt emails
         context["failed_receipt_emails"] = self.object.receipt_emails.filter(
             failed=True
         )
-
-        # Get five most recent payments
-        payments = self.object.charges.order_by("-created_at").all()[:5]
-        context["payments"] = payments
-
         return context
-    
-    def get_subscription_next_date(self, subscription):
-        stripe_sub = subscription.stripe_subscription
-        if stripe_sub:
-            time_stamp = (
-                get_payment_provider()
-                .get_subscription_service()
-                .get_current_period_end(stripe_sub)
-            )
-            if time_stamp:
-                tz_datetime = datetime.fromtimestamp(
-                    time_stamp, tz=timezone.get_current_timezone()
-                )
-                return tz_datetime.date()
-        return None
-
-    # Same calculation that's done in new PlansView().updateTotalCost()
-    def get_subscription_cost(self, subscription):
-        stripe_sub = subscription.stripe_subscription
-        if stripe_sub:
-            # base_price = subscription.plan.base_price
-            # min_users = subscription.plan.minimum_users
-            # price_per_user = subscription.plan.price_per_user
-            # max_users = self.object.max_users
-            # cost = base_price + (max_users - min_users) * price_per_user
-            # return cost
-            return subscription.plan.base_price
-        return None
 
     def get_initial(self):
         plan = self.object.plans.first()

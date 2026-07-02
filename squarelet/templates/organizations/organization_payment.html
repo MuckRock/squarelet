@@ -1,22 +1,11 @@
-{% extends "layouts/sidebar_layout.html" %}
-{% load avatar humanize django_vite i18n crispy_forms_tags planinfo %}
-{% load icon %}
+{% extends "base.html" %}
+{% load i18n django_vite crispy_forms_tags planinfo %}
 
-{% block title %}{{ organization.name }} | Manage Subscriptions{% endblock %}
+{% block title %}{{ organization.reference_name }}{% endblock %}
 
 {% block vite %}
 {{ block.super }}
 {% vite_asset "frontend/views/organization_payment.ts" %}
-{% endblock vite %}
-
-{% block layout_id %}manage_billing{% endblock %}
-
-{% block header %}
-  <header>
-    <h1>{{ organization.name }}</h1>
-    <span class="arrow">{% icon "chevron-right" %}</span>
-    <h2>{% trans "Subscriptions" %}</h2>
-  </header>
 {% endblock %}
 
 {% block content %}
@@ -112,72 +101,46 @@
         </main>
       {% endwith %}
     {% endfor %}
-  </section>
+    </ul>
+{% endif %}
+<div class="_cls-planInfo">
+    {% trans "Current plan" %}: <b>{{ organization.plan|default:"Free" }}</b>
+    {% if organization.subscription.cancelled %}
+    <div class="_cls-info _cls-infoSpaced">
+        {% blocktrans with update_on=organization.subscription.update_on|date:"m/d/Y" %}
+        Subscription ends on {{ update_on }}
+        {% endblocktrans %}
+    </div>
+    {% endif %}
+</div>
+<form id="stripe-form" method="post" enctype="multipart/form-data">
+    {% crispy form form.helper %}
 
-  <section id="payment">
-    <header>
-      <div class="title">
-        <h2>{% trans "Payment settings" %}</h2>
-      </div>
-    </header>
-
-    <main class="subscription-card">
-      {% if card %}
-        <div class="subscription-row">
-          <div class="subscription-group">
-            <h3>{% trans "Payment card" %}</h3>
-            <span class="subscription-detail">
-              <span class="icon">
-                {% icon "credit-card" %}
-              </span>
-              <span>
-                {% blocktrans with card.brand as brand and card.last4 as last4 %}
-                  {{ brand }} ending in <strong>{{ last4 }}</strong>
-                {% endblocktrans %}
-              </span>
-            </span>
-          </div>
-
-          <a href="#" class="btn ghost primary small">
-            {% trans "Add new card" %}
-          </a>
+    {% if form.stripe_token %}
+    <div id="_id-planProjection" class="_cls-planProjection">
+        <b>Cost: <span id="_id-totalCost"></span></b>
+        <div class="_cls-breakdown" id="_id-costBreakdown"></div>
+    </div>
+    <div id="card-container">
+        <h3 class="_cls-smallHeading">{% blocktrans %}Billing information{% endblocktrans %}</h3>
+        <div class="_cls-field">
+        <div id="card-element" class="_cls-fieldInput"></div>
         </div>
-      {% endif %}
+        <!-- Used to display Element errors. -->
+        <div id="card-errors" role="alert"></div>
+    </div>
+    {% endif %}
 
-      <div class="subscription-row">
-        <div class="subscription-group">
-          <h3>{% trans "Receipt emails" %}</h3>
-          <span class="subscription-detail">
-            <span class="icon">
-              {% icon "mail" %}
-            </span>
-            <span class="emails">
-              {% for email in receipt_emails %}
-                <span>{{ email.email }}</span>
-              {% endfor %}
-            </span>
-          </span>
-        </div>
-
-        <a href="#" class="btn ghost primary small">
-          {% trans "Change email" %}
+    <div class="control-group" style="margin-top: 2em;">
+    <div class="_cls-actionSmall">
+        <button type="submit" class="btn">{% trans 'Update' %}</button>
+        <a href="{{ organization.get_absolute_url }}" class="_cls-altAction">
+        {% trans 'Cancel' %}
         </a>
-      </div>
-    </main>
-  </section>
+    </div>
+    </div>
 
-  <section id="recent">
-    <header>
-      <div class="title">
-        <h2>{% trans "Recent payments" %}</h2>
-      </div>
-      <a href="#" class="btn small ghost primary">
-        {% icon "log" %}
-        {% trans "View all" %}
-      </a>
-    </header>
-
-    <main class="subscription-card">
-    </main>
-  </section>
-{% endblock main %}
+</form>
+</div>
+{% planinfo organization=organization %}
+{% endblock content %}
