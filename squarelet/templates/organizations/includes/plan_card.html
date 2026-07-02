@@ -4,14 +4,15 @@
 Plan card partial.
 
 Args:
-  org             — subject Organization (used for payment / receipts URLs).
-  plans           — list of own Plans or empty list.
-  inherited_plans — list of (source_org, plan) tuples; may be empty.
-  upgrade_plan    — Plan to advertise when there is no own plan (optional).
+  org               — subject Organization (used for payment / receipts URLs).
+  plans             — list of own Plans or empty list.
+  inherited_plans.  — list of (source_org, plan) tuples; may be empty.
+  upgrade_plan      — Plan to advertise when there is no own plan (optional).
   next_charge_date, card, cancelled — subscription details (optional, org only).
-  payment_url     — URL for the upgrade / billing-settings CTA (optional).
+  subscriptions_url — URL for the upgrade / billing-settings CTA (optional).
+  card_url          — URL for the card management CTA (optional).
   can_edit_subscription — bool gating the CTA. Default True.
-  subject         — "user" | "org". Controls copy. Default "org".
+  subject           — "user" | "org". Controls copy. Default "org".
 {% endcomment %}
 
 {% if subscriptions or upgrade_plan or not inherited_plans %}
@@ -28,7 +29,7 @@ Args:
             </span>
           </span>
         </div>
-        <a href="{{ payment_url }}" class="btn ghost primary small">
+        <a href="{{ card_url }}" class="btn ghost primary small">
           {% trans "Add new card" %}
         </a>
       {% endif %}
@@ -56,7 +57,7 @@ Args:
                 {% trans "Cancelled" %}
               </span>
             {% else %}
-              <a href="{{ payment_url }}#{{ subscription.plan.slug }}" class="btn ghost small">
+              <a href="{{ subscriptions_url }}#{{ subscription.plan.slug }}" class="btn ghost small">
                 {% icon "gear" %}
                 {% trans "Manage" %}
               </a>
@@ -76,8 +77,8 @@ Args:
           {% trans "No active subscription." %}
         {% endif %}
       </p>
-      {% if payment_url and can_edit_subscription %}
-        <a class="btn premium" href="{{ payment_url }}">{% trans "Upgrade" %}</a>
+      {% if subscriptions_url and can_edit_subscription %}
+        <a class="btn premium" href="{{ subscriptions_url }}">{% trans "Upgrade" %}</a>
       {% endif %}
     </div>
     {% if upgrade_plan %}

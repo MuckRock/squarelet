@@ -146,6 +146,7 @@
 
     {% if can_view_subscription %}
     {% url 'organizations:subscriptions' organization.slug as subscriptions_url %}
+    {% url 'organizations:update-card' organization.slug as card_url %}
     <section id="plan">
       <header>
         <h2>{% trans "Plans" %}</h2>
