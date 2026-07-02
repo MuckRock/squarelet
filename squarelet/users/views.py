@@ -53,7 +53,7 @@ from squarelet.organizations.forms import InvitationAcceptForm
 from squarelet.organizations.models import Invitation, ReceiptEmail
 from squarelet.organizations.models.payment import Plan
 from squarelet.organizations.payments.factory import get_payment_provider
-from squarelet.organizations.views import UpdateSubscriptions
+from squarelet.organizations.views import UpdateSubscription
 from squarelet.services.models import Service
 from squarelet.users.forms import (
     SignupForm,
@@ -586,8 +586,8 @@ class Receipts(LoginRequiredMixin, StaffAccessMixin, TemplateView):
         return context
 
 
-class UserPaymentView(LoginRequiredMixin, StaffAccessMixin, UpdateSubscriptions):
-    """UpdateSubscriptions with staff access control"""
+class UserPaymentView(LoginRequiredMixin, StaffAccessMixin, UpdateSubscription):
+    """UpdateSubscription with staff access control"""
 
     def get_object(self, queryset=None):
         username = self.kwargs.get("username")
