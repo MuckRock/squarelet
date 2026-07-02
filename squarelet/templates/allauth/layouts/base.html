@@ -22,7 +22,9 @@
 {% block container %}
   <div class="container">
     <header>
-      <a href="{% url 'users:detail' user.username %}">{% trans "&larr; Return to account" %}</a>
+      {% if user.is_authenticated and user.username %}
+        <a href="{% url 'users:detail' user.username %}">{% trans "&larr; Return to account" %}</a>
+      {% endif %}
     </header>
     {% block content %}
     {% endblock content %}
