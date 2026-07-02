@@ -191,6 +191,25 @@ class PaymentForm(StripeForm):
 
         return data
 
+class CardForm(StripeForm):
+    """Update the credit card on file for an organization."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # This form is only for replacing the current card, so these fields aren't used
+        self.fields.pop("use_card_on_file", None)
+        self.fields.pop("remove_card_on_file", None)
+
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Field("stripe_pk"),
+            Field("stripe_token"),
+        )
+        self.helper.form_tag = False
+
+    def clean(self):
+        return super().clean()
+
 
 class UpdateForm(forms.ModelForm):
     """Update misc information for an organization"""
