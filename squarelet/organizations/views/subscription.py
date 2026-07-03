@@ -66,8 +66,8 @@ class ManageSubscriptions(OrganizationPermissionMixin, DetailView):
         # Get subscriptions and add renewal/cancellation date and cost data
         subscriptions = self.object.subscriptions.all()
         for subscription in subscriptions:
-            subscription.next_date = self.get_subscription_next_date(subscription)
-            subscription.cost = self.get_subscription_cost(subscription)
+            subscription.next_date = get_subscription_next_date(subscription)
+            subscription.cost = subscription.plan.base_price
         context["subscriptions"] = subscriptions
 
         # Get card on file
@@ -93,27 +93,6 @@ class ManageSubscriptions(OrganizationPermissionMixin, DetailView):
         context["payments"] = payments
 
         return context
-    
-    def get_subscription_next_date(self, subscription):
-        stripe_sub = subscription.stripe_subscription
-        if stripe_sub:
-            time_stamp = (
-                get_payment_provider()
-                .get_subscription_service()
-                .get_current_period_end(stripe_sub)
-            )
-            if time_stamp:
-                tz_datetime = datetime.fromtimestamp(
-                    time_stamp, tz=timezone.get_current_timezone()
-                )
-                return tz_datetime.date()
-        return None
-
-    def get_subscription_cost(self, subscription):
-        stripe_sub = subscription.stripe_subscription
-        if stripe_sub:
-            return subscription.plan.base_price
-        return None
 
 
 class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
@@ -394,3 +373,19 @@ def stripe_webhook(request):
     if handler:
         handler.delay(event_obj)
     return HttpResponse()
+
+
+def get_subscription_next_date(subscription):
+    stripe_sub = subscription.stripe_subscription
+    if stripe_sub:
+        time_stamp = (
+            get_payment_provider()
+            .get_subscription_service()
+            .get_current_period_end(stripe_sub)
+        )
+        if time_stamp:
+            tz_datetime = datetime.fromtimestamp(
+                time_stamp, tz=timezone.get_current_timezone()
+            )
+            return tz_datetime.date()
+    return None
