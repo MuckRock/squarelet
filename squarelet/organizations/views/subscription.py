@@ -14,7 +14,7 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.csrf import csrf_exempt
-from django.views.generic import DetailView, UpdateView
+from django.views.generic import DetailView, UpdateView, DeleteView
 from django.urls import reverse
 
 # Standard Library
@@ -33,9 +33,10 @@ from squarelet.core.utils import (
     get_stripe_dashboard_url,
     new_action,
 )
-from squarelet.organizations.forms import CardForm, PaymentForm
+from squarelet.organizations.forms import CardForm, PaymentForm, CancelSubscriptionForm
 from squarelet.organizations.mixins import OrganizationPermissionMixin
 from squarelet.organizations.models import Charge, Organization
+from squarelet.organizations.models.payment import Plan
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.payments.factory import get_payment_provider
@@ -248,6 +249,24 @@ class UpdateCard(OrganizationPermissionMixin, UpdateView):
             card = customer.card
         context["card"] = card
         return context
+    
+class CancelSubscription(OrganizationPermissionMixin, DeleteView):
+    permission_required = "organizations.can_edit_subscription"
+    queryset = Plan.objects.all()
+    form_class = CancelSubscriptionForm
+    template_name = "organizations/organization_cancelsubscription.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["subject"] = "org"
+
+        subscription = self.object.subscriptions.first()
+        if subscription:
+                context["organization"] = subscription.organization
+                context["next_date"] = get_subscription_next_date(subscription)
+                
+        return context
+
 
 @method_decorator(xframe_options_sameorigin, name="dispatch")
 class ChargeDetail(UserPassesTestMixin, DetailView):
