@@ -53,6 +53,19 @@
   height: var(--font-md, 0.75em);
 }
 
+.modal-layout .help {
+  font-weight: var(--font-regular, 400);
+  font-size: var(--font-sm, 0.875em);
+}
+
+.modal-layout .plan.professional {
+  color: var(--blue-4);
+}
+
+.modal-layout .plan.organization {
+  color: var(--purple-4);
+}
+
 .modal-layout p {
   margin: 0;
 }
