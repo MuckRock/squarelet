@@ -1,0 +1,49 @@
+{% extends "layouts/modal_layout.html" %}
+{% load django_vite i18n crispy_forms_tags %}
+{% load icon %}
+
+{% block title %}{{ plan.name }} | Cancel Subscription{% endblock %}
+
+{% block layout_id %}cancel_subscription{% endblock %}
+
+{% block content %}
+{% endblock content %}
+
+{% block header %}
+  {% url 'organizations:subscriptions' organization.slug as subscriptions_url %}
+  <a href="{{ subscriptions_url }}" class="btn small ghost primary">
+    {% icon "chevron-left" %}
+    {% trans "Back to your subscriptions" %}
+  </a>
+
+  <h1>{{ organization.name }}</h1>
+  <h2>{% trans "Cancel subscription" %}</h2>
+{% endblock header %}
+
+{% block main %}
+  {% url 'organizations:subscriptions' organization.slug as subscriptions_url %}
+  <form id="cancel-subscription-form" method="post" enctype="multipart/form-data">
+    {% crispy form form.helper %}
+    <div>
+      <h3 class="plan {% if subject == "org" %}organization{% else %}professional{% endif %}">
+        {{ plan.name }}
+      </h3>
+      <p>{% trans "Are you sure you want to cancel this plan?" %}</p>
+    </div>
+    <p class="help">
+      {% blocktrans with date=next_date %}
+        Your plan is paid through <strong>{{ date }}.</strong>
+      {% endblocktrans %}
+    </p>
+    <div class="buttons">
+      <button type="submit" class="btn primary caution">
+        {% icon "x-circle" %}
+        {% trans "Cancel plan" %}
+      </button>
+
+      <a href="{{ subscriptions_url }}" class="btn ghost primary">
+        {% trans "Keep plan" %}
+      </a>
+    </div>
+  </form>
+{% endblock main %}

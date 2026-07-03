@@ -17,6 +17,7 @@ from .subscription import (
     ManageSubscriptions,
     UpdateSubscription,
     UpdateCard,
+    CancelSubscription,
     stripe_webhook,
 )
 
@@ -29,6 +30,7 @@ __all__ = [
     "ManageSubscriptions",
     "UpdateSubscription",
     "UpdateCard",
+    "CancelSubscription",
     "ChargeDetail",
     "PDFChargeDetail",
     "stripe_webhook",

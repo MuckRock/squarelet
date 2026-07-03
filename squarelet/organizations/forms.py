@@ -210,6 +210,17 @@ class CardForm(StripeForm):
     def clean(self):
         return super().clean()
 
+class CancelSubscriptionForm(forms.Form):
+    """Cancel a subscription."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+
+    def clean(self):
+        return super().clean()
+
 
 class UpdateForm(forms.ModelForm):
     """Update misc information for an organization"""
