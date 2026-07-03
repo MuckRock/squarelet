@@ -93,7 +93,8 @@
                 </span>
               </span>
             </div>
-            <a href="#" class="btn ghost danger small">
+            {% url 'organizations:cancel-subscription' subscription.plan.id as cancel_url %}
+            <a href="{{ cancel_url }}" class="btn ghost danger small">
               {% icon "x-circle" %}
               {% trans "Cancel plan" %}
             </a>
