@@ -19,15 +19,21 @@
   padding: 1rem;
 }
 
+.modal-layout :is(h1, h2, h3) {
+  margin: 0;
+}
+
 .modal-layout h1 {
   font-size: var(--font-xl, 24px);
   font-weight: 400;
-  margin: 0;
 }
 
 .modal-layout h2 {
   font-size: var(--font-xl, 24px);
-  margin: 0;
+}
+
+.modal-layout h3 {
+  font-size: var(--font-md, 16px);
 }
 
 .modal-layout .info {
@@ -61,4 +67,5 @@
   display: flex;
   gap: 1rem;
   align-items: center;
+  margin-top: 0.5rem;
 }
