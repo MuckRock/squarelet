@@ -82,3 +82,15 @@
   align-items: center;
   margin-top: 0.5rem;
 }
+
+.modal-layout .footer {
+  margin-top: 2rem;
+  font-weight: 600;
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-size: var(--font-md, 16px);
+}
+
+.modal-layout .footer a {
+  color: var(--gray-5, #233944);
+  text-decoration-color: var(--gray-5, #233944);
+}
