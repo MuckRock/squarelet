@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "layouts/modal_layout.html" %}
 {% load django_vite i18n crispy_forms_tags %}
 {% load icon %}
 
@@ -11,57 +11,53 @@
 
 {% block layout_id %}update_card{% endblock %}
 
-{% block content %}
-  <div class="_cls-content update-card">
-    {% url 'organizations:subscriptions' organization.slug as subscriptions_url %}
-    <a href="{{ subscriptions_url }}" class="btn small ghost primary">
-      {% icon "chevron-left" %}
-      {% trans "Back to your subscriptions" %}
-    </a>
+{% block header %}
+  {% url 'organizations:subscriptions' organization.slug as subscriptions_url %}
+  <a href="{{ subscriptions_url }}" class="btn small ghost primary">
+    {% icon "chevron-left" %}
+    {% trans "Back to your subscriptions" %}
+  </a>
+  <h1>{{ organization.name }}</h1>
+  <h2>{% trans "Change payment card" %}</h2>
+{% endblock header %}
 
-    <header>
-      <h1>{{ organization.name }}</h1>
-      <h2>{% trans "Change payment card" %}</h2>
-    </header>
+{% block main %}
+  {% url 'organizations:subscriptions' organization.slug as subscriptions_url %}
+  {% if card %}
+    <div class="info">
+      <span class="icon">{% icon "credit-card" %}</span>
+      <span class="card-info">
+        {% blocktrans with card.brand as brand and card.last4 as last4 %}
+          Current card: {{ brand }} ending in <strong>{{ last4 }}</strong>
+        {% endblocktrans %}
+      </span>
+    </div>
+  {% endif %}
 
-    <main>
-      {% if card %}
-        <div class="card-row">
-          <span class="icon">{% icon "credit-card" %}</span>
-          <span class="card-info">
-            {% blocktrans with card.brand as brand and card.last4 as last4 %}
-              Current card: {{ brand }} ending in <strong>{{ last4 }}</strong>
-            {% endblocktrans %}
-          </span>
-        </div>
-      {% endif %}
+  <form id="stripe-form" method="post" enctype="multipart/form-data">
+    {% crispy form form.helper %}
 
-      <form id="stripe-form" method="post" enctype="multipart/form-data">
-        {% crispy form form.helper %}
-  
-        <div class="card-field">
-          <p>{% trans "Enter your new credit card details below." %}</p>
-          <div class="_cls-field">
-            <div class="_cls-fieldInput" id="card-element"></div>
-          </div>
-          <div id="card-errors" role="alert">
-            {% if form.stripe_token.errors %}
-              {% for error in form.stripe_token.errors %}{{ error }}{% endfor %}
-            {% endif %}
-          </div>
-        </div>
-  
-        <div class="buttons">
-          <button type="submit" class="btn primary">
-            {% icon "check" %}
-            {% trans "Update card" %}
-          </button>
-          
-          <a href="{{ subscriptions_url }}" class="btn ghost primary">
-            {% trans "Cancel" %}
-          </a>
-        </div>
-      </form>
-    </main>
-  </div>
-{% endblock content %}
+    <div class="card-field">
+      <p>{% trans "Enter your new credit card details below." %}</p>
+      <div class="_cls-field">
+        <div class="_cls-fieldInput" id="card-element"></div>
+      </div>
+      <div id="card-errors" role="alert">
+        {% if form.stripe_token.errors %}
+          {% for error in form.stripe_token.errors %}{{ error }}{% endfor %}
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="buttons">
+      <button type="submit" class="btn primary">
+        {% icon "check" %}
+        {% trans "Update card" %}
+      </button>
+
+      <a href="{{ subscriptions_url }}" class="btn ghost primary">
+        {% trans "Cancel" %}
+      </a>
+    </div>
+  </form>
+{% endblock main %}
