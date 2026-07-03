@@ -37,6 +37,7 @@ from squarelet.organizations.forms import (
     CardForm, 
     PaymentForm, 
     UpdateSubscriptionFrequencyForm, 
+    UpdateReceiptEmailForm,
     CancelSubscriptionForm,
 )
 from squarelet.organizations.mixins import OrganizationPermissionMixin
@@ -271,6 +272,29 @@ class UpdateSubscriptionFrequency(OrganizationPermissionMixin, UpdateView):
             context["next_date"] = get_subscription_next_date(subscription)
 
         return context
+
+
+class UpdateReceiptEmail(OrganizationPermissionMixin, UpdateView):
+    permission_required = "organizations.can_edit_subscription"
+    queryset = Organization.objects.filter(individual=False)
+    form_class = UpdateReceiptEmailForm
+    template_name = "organizations/organization_updatereceiptemail.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["subject"] = "org"
+        return context
+    
+    def form_valid(self, form):
+        self.object.set_receipt_emails(form.cleaned_data["receipt_emails"])
+        return redirect('organizations:subscriptions', slug=self.object.slug)
+
+    def get_initial(self):
+        return {
+            "receipt_emails": ", ".join(
+                r.email for r in self.object.receipt_emails.all()
+            ),
+        }
 
     
 class CancelSubscription(OrganizationPermissionMixin, DeleteView):
