@@ -33,7 +33,12 @@ from squarelet.core.utils import (
     get_stripe_dashboard_url,
     new_action,
 )
-from squarelet.organizations.forms import CardForm, PaymentForm, CancelSubscriptionForm
+from squarelet.organizations.forms import (
+    CardForm, 
+    PaymentForm, 
+    UpdateSubscriptionFrequencyForm, 
+    CancelSubscriptionForm,
+)
 from squarelet.organizations.mixins import OrganizationPermissionMixin
 from squarelet.organizations.models import Charge, Organization
 from squarelet.organizations.models.payment import Plan
@@ -250,6 +255,24 @@ class UpdateCard(OrganizationPermissionMixin, UpdateView):
         context["card"] = card
         return context
     
+class UpdateSubscriptionFrequency(OrganizationPermissionMixin, UpdateView):
+    permission_required = "organizations.can_edit_subscription"
+    queryset = Plan.objects.all()
+    form_class = UpdateSubscriptionFrequencyForm
+    template_name = "organizations/organization_updatesubscriptionfrequency.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["subject"] = "org"
+
+        subscription = self.object.subscriptions.first()
+        if subscription:
+            context["organization"] = subscription.organization
+            context["next_date"] = get_subscription_next_date(subscription)
+
+        return context
+
+    
 class CancelSubscription(OrganizationPermissionMixin, DeleteView):
     permission_required = "organizations.can_edit_subscription"
     queryset = Plan.objects.all()
@@ -264,7 +287,7 @@ class CancelSubscription(OrganizationPermissionMixin, DeleteView):
         if subscription:
                 context["organization"] = subscription.organization
                 context["next_date"] = get_subscription_next_date(subscription)
-                
+
         return context
 
 
