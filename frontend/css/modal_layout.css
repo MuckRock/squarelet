@@ -1,0 +1,64 @@
+.modal-layout header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  margin: 0.5rem 0 2rem;
+}
+
+.modal-layout main {
+  box-sizing: border-box;
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid var(--gray-2, #d8dee2);
+  background: var(--white, #fff);
+  box-shadow: var(--shadow-1);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem 1rem;
+  padding: 1rem;
+}
+
+.modal-layout h1 {
+  font-size: var(--font-xl, 24px);
+  font-weight: 400;
+  margin: 0;
+}
+
+.modal-layout h2 {
+  font-size: var(--font-xl, 24px);
+  margin: 0;
+}
+
+.modal-layout .info {
+  flex: 0 1 auto;
+  font-size: var(--font-sm);
+  opacity: 0.7;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--gray-5);
+}
+
+.modal-layout .info .icon {
+  display: inline-flex;
+  align-items: center;
+  width: var(--font-md, 0.75em);
+  height: var(--font-md, 0.75em);
+}
+
+.modal-layout p {
+  margin: 0;
+}
+
+.modal-layout form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.modal-layout .buttons {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
