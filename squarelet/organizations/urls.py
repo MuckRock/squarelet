@@ -28,6 +28,11 @@ urlpatterns = [
         name="update-frequency",
     ),
     path("<slug:slug>/card/", view=views.UpdateCard.as_view(), name="update-card"),
+    path(
+        "<slug:slug>/receipts/",
+        view=views.UpdateReceiptEmail.as_view(),
+        name="update-receipt-email",
+    ),
     path("<slug:slug>/update/", view=views.Update.as_view(), name="update"),
     path(
         "<slug:slug>/request-profile-change/",

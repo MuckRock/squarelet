@@ -1,0 +1,50 @@
+{% extends "layouts/modal_layout.html" %}
+{% load django_vite i18n crispy_forms_tags %}
+{% load icon %}
+
+{% block title %}{{ organization.name }} | Update Receipt Emails{% endblock %}
+
+{% block vite %}
+{{ block.super }}
+{% endblock vite %}
+
+{% block layout_id %}update_receipt_emails{% endblock %}
+
+{% block header %}
+  {% url 'organizations:subscriptions' organization.slug as subscriptions_url %}
+  <a href="{{ subscriptions_url }}" class="btn small ghost primary">
+    {% icon "chevron-left" %}
+    {% trans "Back to your subscriptions" %}
+  </a>
+  <h1>{{ organization.name }}</h1>
+  <h2>{% trans "Change receipt emails" %}</h2>
+{% endblock header %}
+
+{% block main %}
+  {% url 'organizations:subscriptions' organization.slug as subscriptions_url %}
+  {% if card %}
+    <div class="info">
+      <span class="icon">{% icon "credit-card" %}</span>
+      <span class="card-info">
+        {% blocktrans with card.brand as brand and card.last4 as last4 %}
+          Current card: {{ brand }} ending in <strong>{{ last4 }}</strong>
+        {% endblocktrans %}
+      </span>
+    </div>
+  {% endif %}
+
+  <form id="stripe-form" method="post" enctype="multipart/form-data">
+    {% crispy form form.helper %}
+
+    <div class="buttons">
+      <button type="submit" class="btn primary">
+        {% icon "check" %}
+        {% trans "Update email" %}
+      </button>
+
+      <a href="{{ subscriptions_url }}" class="btn ghost primary">
+        {% trans "Cancel" %}
+      </a>
+    </div>
+  </form>
+{% endblock main %}
