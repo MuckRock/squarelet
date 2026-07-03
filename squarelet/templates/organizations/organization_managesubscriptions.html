@@ -150,7 +150,8 @@
           </span>
         </div>
 
-        <a href="#" class="btn ghost primary small">
+        {% url 'organizations:update-receipt-email' organization.slug as receipt_email_url %}
+        <a href="{{ receipt_email_url }}" class="btn ghost primary small">
           {% trans "Change email" %}
         </a>
       </div>
