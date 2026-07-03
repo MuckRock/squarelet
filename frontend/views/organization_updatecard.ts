@@ -1,6 +1,3 @@
-import "@/css/sidebar_layout.css";
-import "@/css/organization_updatecard.css";
-
 import { d, exists, on } from "../util";
 
 const Stripe = window["Stripe"] as any;
