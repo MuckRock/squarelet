@@ -619,32 +619,35 @@ class Organization(AvatarMixin, models.Model):
 
         transaction.on_commit(_dispatch)
 
-    def subscription_cancelled(self, subscription=None):
+    def subscription_cancelled(self, subscription):
         """The subscription was cancelled due to payment failure
 
         Args:
-            subscription: The specific subscription to cancel. If None,
-                cancels self.subscriptions.first() (the org's current subscription).
+            subscription: The specific Subscription instance to cancel.
         """
-        subscription = subscription or self.subscriptions.first()
+        if subscription is None:
+            logger.error(
+                "subscription_cancelled called with no subscription for "
+                "organization %s — aborting to avoid cancelling unrelated subscription",
+                self.uuid,
+            )
+            return
 
         # Create change log entry
         self.change_logs.create(
             reason=ChangeLogReason.failed,
-            from_plan=subscription.plan if subscription else None,
+            from_plan=subscription.plan,
             from_max_users=self.max_users,
             to_max_users=self.max_users,
         )
 
         # Capture plan before subscription delete clears it
         cancelled_plan = (
-            subscription.plan
-            if subscription and subscription.plan and subscription.plan.wix
-            else None
+            subscription.plan if subscription.plan and subscription.plan.wix else None
         )
 
         # Cancel subscription in Stripe if it exists
-        if subscription and subscription.subscription_id:
+        if subscription.subscription_id:
             try:
                 stripe_sub = subscription.stripe_subscription
                 if stripe_sub:

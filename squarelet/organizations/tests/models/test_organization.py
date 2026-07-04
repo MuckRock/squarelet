@@ -1,4 +1,5 @@
 # Standard Library
+from datetime import datetime, timezone as dt_timezone
 from unittest.mock import Mock
 
 # Third Party
@@ -185,7 +186,6 @@ class TestOrganization:
     ):
         """Adding a subscription creates a Subscription record, passes quantity to
         Stripe, and sets org.update_on from Stripe's current_period_end."""
-        from datetime import datetime, timezone as dt_timezone
 
         user = user_factory()
         organization = organization_factory(admins=[user])
@@ -204,9 +204,10 @@ class TestOrganization:
         assert sub.quantity == max_users
 
         organization.refresh_from_db()
-        assert organization.update_on == datetime.fromtimestamp(
-            period_end, tz=dt_timezone.utc
-        ).date()
+        assert (
+            organization.update_on
+            == datetime.fromtimestamp(period_end, tz=dt_timezone.utc).date()
+        )
 
         mock_sub_service.create.assert_called_with(
             stripe_customer=mock_customer.stripe_customer,
@@ -365,7 +366,7 @@ class TestOrganization:
             organization=organization, plan=plan, subscription_id=None
         )
 
-        organization.subscription_cancelled()
+        organization.subscription_cancelled(subscription=sub)
 
         # Should still delete local subscription
         assert not Subscription.objects.filter(pk=sub.pk).exists()
@@ -399,7 +400,7 @@ class TestOrganization:
             return_value=mock_provider,
         )
 
-        organization.subscription_cancelled()
+        organization.subscription_cancelled(subscription=sub)
 
         # Should attempt to delete the Stripe subscription
         mock_stripe_sub.delete.assert_called_once()
@@ -432,7 +433,7 @@ class TestOrganization:
             return_value=mock_provider,
         )
 
-        organization.subscription_cancelled()
+        organization.subscription_cancelled(subscription=sub)
 
         # Verify delete was called on the stripe_subscription instance
         mock_stripe_sub.delete.assert_called_once()
@@ -463,7 +464,7 @@ class TestOrganization:
         )
 
         # Should not raise an error
-        organization.subscription_cancelled()
+        organization.subscription_cancelled(subscription=sub)
 
         # Verify local subscription was still deleted
         assert not Subscription.objects.filter(pk=sub.pk).exists()
@@ -510,7 +511,7 @@ class TestOrganization:
 
     @pytest.mark.django_db(transaction=True)
     def test_modify_subscription_changes_plan(
-        self, organization_factory, mocker, user_factory, plan_factory
+        self, organization_factory, user_factory, plan_factory
     ):
         """modify_subscription updates the subscription to the new plan"""
         old_plan = plan_factory(slug="sunlight-enterprise", wix=True)
@@ -1259,7 +1260,6 @@ class TestMultipleSubscriptions:
         plan_factory,
         subscription_factory,
         user_factory,
-        mocker,
     ):
         """modify_subscription updates the plan on the matching subscription."""
         org = organization_factory()

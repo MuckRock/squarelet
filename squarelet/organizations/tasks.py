@@ -205,10 +205,23 @@ def handle_invoice_failed(invoice_data):
                         subscription_id=stripe_sub_id
                     )
                 except Subscription.DoesNotExist:
-                    logger.warning(
-                        "Invoice failed: no matching subscription for %s",
+                    logger.error(
+                        "Invoice failed (%s): no local subscription found for "
+                        "Stripe subscription %s on organization %s — "
+                        "manual intervention required",
+                        invoice_data["id"],
                         stripe_sub_id,
+                        organization.uuid,
                     )
+                    return
+        if subscription is None:
+            logger.error(
+                "Invoice failed (%s): could not determine subscription for "
+                "organization %s — manual intervention required",
+                invoice_data["id"],
+                organization.uuid,
+            )
+            return
         organization.subscription_cancelled(subscription=subscription)
     else:
         subject = _("Your payment has failed")
