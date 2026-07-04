@@ -568,7 +568,17 @@ class Organization(AvatarMixin, models.Model):
             self._dispatch_wix_unsync(wix_unsync_plan)
 
     def modify_subscription(self, old_plan, new_plan, max_users, user):
-        """Modify the subscription for old_plan to new_plan."""
+        """Modify the subscription for old_plan to new_plan.
+
+        This updates the existing Stripe subscription in-place rather than
+        cancelling and recreating it, which preserves the billing cycle anchor
+        and generates prorations. A remove+add would create a new subscription
+        with a new anchor and charge the customer immediately.
+
+        When the multi-subscription view is built, this method may become
+        unnecessary if upgrades/downgrades are replaced by explicit
+        add/remove actions — but verify that use case is gone before removing.
+        """
         try:
             sub = self.subscriptions.get(plan=old_plan)
         except self.subscriptions.model.DoesNotExist:
