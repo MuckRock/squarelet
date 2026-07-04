@@ -422,13 +422,24 @@ def test_handle_invoice_failed(organization_factory, user_factory, mailoutbox):
 
 @pytest.mark.django_db()
 def test_handle_invoice_failed_attempt_4_subscription_cancelled(
-    organization_factory, user_factory, mailoutbox, mocker
+    organization_factory,
+    user_factory,
+    subscription_factory,
+    plan_factory,
+    mailoutbox,
+    mocker,
 ):
     """Test 4th failed attempt cancels subscription"""
+    # pylint:disable=too-many-positional-arguments
     user = user_factory()
     customer_id = "cus_cancel"
     organization = organization_factory(
         admins=[user], customer__customer_id=customer_id
+    )
+    plan = plan_factory()
+    stripe_sub_id = "sub_cancel123"
+    subscription_factory(
+        organization=organization, plan=plan, subscription_id=stripe_sub_id
     )
 
     # Mock subscription_cancelled at the class level
@@ -437,7 +448,15 @@ def test_handle_invoice_failed_attempt_4_subscription_cancelled(
         "subscription_cancelled"
     )
 
-    invoice_data = {"id": 2, "customer": customer_id, "attempt_count": 4}
+    invoice_data = {
+        "id": 2,
+        "customer": customer_id,
+        "attempt_count": 4,
+        "parent": {
+            "type": "subscription_details",
+            "subscription_details": {"subscription": stripe_sub_id},
+        },
+    }
     tasks.handle_invoice_failed(invoice_data)
 
     organization.refresh_from_db()
@@ -450,12 +469,20 @@ def test_handle_invoice_failed_attempt_4_subscription_cancelled(
 
 @pytest.mark.django_db()
 def test_handle_invoice_failed_subscription_cancel_error(
-    organization_factory, user_factory, mocker
+    organization_factory, user_factory, subscription_factory, plan_factory, mocker
 ):
     """Test that error is raised if subscription_cancelled raises error"""
     user = user_factory()
     customer_id = "cus_cancel_err"
-    organization_factory(admins=[user], customer__customer_id=customer_id)
+    organization = organization_factory(
+        admins=[user],
+        customer__customer_id=customer_id,
+    )
+    plan = plan_factory()
+    stripe_sub_id = "sub_cancel_err123"
+    subscription_factory(
+        organization=organization, plan=plan, subscription_id=stripe_sub_id
+    )
 
     # Mock subscription_cancelled to raise an error at class level
     mocker.patch(
@@ -464,7 +491,15 @@ def test_handle_invoice_failed_subscription_cancel_error(
         side_effect=stripe.APIError("Cancellation failed"),
     )
 
-    invoice_data = {"id": 3, "customer": customer_id, "attempt_count": 4}
+    invoice_data = {
+        "id": 3,
+        "customer": customer_id,
+        "attempt_count": 4,
+        "parent": {
+            "type": "subscription_details",
+            "subscription_details": {"subscription": stripe_sub_id},
+        },
+    }
 
     # Should raise the error since it's not caught
     with pytest.raises(stripe.APIError):
@@ -1917,19 +1952,6 @@ class TestSubscriptionCancelledWithExplicitSubscription:
 
         assert not Subscription.objects.filter(pk=sub_a.pk).exists()
         assert Subscription.objects.filter(pk=sub_b.pk).exists()
-
-    @pytest.mark.django_db
-    def test_no_arg_backward_compat(
-        self, organization_factory, plan_factory, subscription_factory
-    ):
-        """Calling with no arg still cancels the first subscription."""
-        org = organization_factory()
-        plan = plan_factory()
-        sub = subscription_factory(organization=org, plan=plan)
-
-        org.subscription_cancelled()
-
-        assert not Subscription.objects.filter(pk=sub.pk).exists()
 
     @pytest.mark.django_db
     def test_handle_invoice_failed_passes_subscription(
