@@ -47,3 +47,12 @@
   display: flex;
   justify-content: flex-end;
 }
+
+.receipts-card nav {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
