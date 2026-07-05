@@ -33,6 +33,7 @@ urlpatterns = [
         view=views.UpdateReceiptEmail.as_view(),
         name="update-receipt-email",
     ),
+    path("<slug:slug>/payments/", view=views.PaymentsList.as_view(), name="payments"),
     path("<slug:slug>/update/", view=views.Update.as_view(), name="update"),
     path(
         "<slug:slug>/request-profile-change/",

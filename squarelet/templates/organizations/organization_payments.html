@@ -1,0 +1,34 @@
+{% extends "layouts/sidebar_layout.html" %}
+{% load avatar humanize django_vite i18n crispy_forms_tags planinfo %}
+{% load icon %}
+
+{% block title %}{{ organization.name }} | Payments{% endblock %}
+
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/organization_payments.ts" %}
+{% endblock vite %}
+
+
+{% block layout_id %}payments{% endblock %}
+
+{% block header %}
+  <header>
+    <h1>{{ organization.name }}</h1>
+    <span class="arrow">{% icon "chevron-right" %}</span>
+    <h2>{% trans "Payment history" %}</h2>
+  </header>
+{% endblock %}
+
+{% block sidebar %}
+  <a href="{{ organization.get_absolute_url }}" class="btn small ghost primary">
+    {% icon "chevron-left" %}
+    {% trans "Back to subscriptions" %}
+  </a>
+{% endblock sidebar %}
+
+{% block main %}
+  <section>
+    {% include "organizations/includes/receipts_card.html" with payments=object_list page_obj=page_obj %}
+  </section>
+{% endblock main %}
