@@ -96,13 +96,7 @@ class ManageSubscriptions(OrganizationPermissionMixin, DetailView):
         )
 
         # Get five most recent payments
-        # payments = self.object.charges.order_by("-created_at").all()[:5]
-        payments = [{
-            'pk': 1,
-            'created_at': datetime(2024, 6, 1),
-            'description': 'Sunlight Research Center – Premium',
-            'amount_dollars': 1380.00,
-        }]
+        payments = self.object.charges.order_by("-created_at").all()[:5]
         context["payments"] = payments
 
         return context
