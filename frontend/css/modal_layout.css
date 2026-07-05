@@ -1,9 +1,17 @@
 .modal-layout header {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
   align-items: flex-start;
-  gap: 0.25rem;
+  gap: 0.25rem 1rem;
   margin: 0.5rem 0 2rem;
+}
+
+.modal-layout header .arrow {
+  fill: var(--gray-4, #5c717c);
+  width: var(--font-md, 1rem);
+  height: var(--font-md, 1rem);
+  align-self: center;
 }
 
 .modal-layout main {

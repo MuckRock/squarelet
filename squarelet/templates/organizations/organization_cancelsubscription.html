@@ -10,13 +10,8 @@
 {% endblock content %}
 
 {% block header %}
-  {% url 'organizations:subscriptions' organization.slug as subscriptions_url %}
-  <a href="{{ subscriptions_url }}" class="btn small ghost primary">
-    {% icon "chevron-left" %}
-    {% trans "Back to your subscriptions" %}
-  </a>
-
   <h1>{{ organization.name }}</h1>
+  <span class="arrow">{% icon "chevron-right" %}</span>
   <h2>{% trans "Cancel subscription" %}</h2>
 {% endblock header %}
 
