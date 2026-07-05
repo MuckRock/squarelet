@@ -14,7 +14,7 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.csrf import csrf_exempt
-from django.views.generic import DetailView, UpdateView, DeleteView
+from django.views.generic import DetailView, ListView, UpdateView, DeleteView
 from django.urls import reverse
 
 # Standard Library
@@ -96,7 +96,13 @@ class ManageSubscriptions(OrganizationPermissionMixin, DetailView):
         )
 
         # Get five most recent payments
-        payments = self.object.charges.order_by("-created_at").all()[:5]
+        # payments = self.object.charges.order_by("-created_at").all()[:5]
+        payments = [{
+            'pk': 1,
+            'created_at': datetime(2024, 6, 1),
+            'description': 'Sunlight Research Center – Premium',
+            'amount_dollars': 1380.00,
+        }]
         context["payments"] = payments
 
         return context
@@ -314,6 +320,19 @@ class CancelSubscription(OrganizationPermissionMixin, DeleteView):
 
         return context
 
+
+class PaymentsList(ListView):
+    permission_required = "organizations.can_view_charge"
+    queryset = Charge.objects.all()
+    template_name = "organizations/organization_payments.html"
+    paginate_by = 20
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["subject"] = "org"
+        context["organization"] = Organization.objects.get(slug=self.kwargs["slug"])
+        return context
+    
 
 @method_decorator(xframe_options_sameorigin, name="dispatch")
 class ChargeDetail(UserPassesTestMixin, DetailView):
