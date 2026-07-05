@@ -1,0 +1,49 @@
+.receipts-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem 1rem;
+  padding: 1rem;
+}
+
+.receipts-card table {
+  font-size: var(--font-sm);
+  border-spacing: 0;
+}
+
+/* Visually hidden table header for accessibility */
+.receipts-card thead {
+  width: 1cm;
+  height: 1cm;
+  overflow: hidden;
+  position: absolute;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+}
+
+.receipts-card td {
+  padding: 0;
+}
+
+.receipts-card tr:not(:last-child) td {
+  padding-bottom: 1rem;
+}
+
+.receipts-card time {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.receipts-card .description {
+  padding-inline: 0.5rem;
+}
+
+.receipts-card .amount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.receipts-card .actions {
+  display: flex;
+  justify-content: flex-end;
+}
