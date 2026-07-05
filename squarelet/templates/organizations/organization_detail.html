@@ -157,7 +157,7 @@
             {% trans "Manage plans" %}
           </a>
           {% if can_view_charge %}
-          <a href="{% url 'users:receipts' username=user.username %}" class="btn ghost primary">
+          <a href="{% url 'organizations:payments' organization.slug %}" class="btn ghost primary">
             {% icon "log" %}
             {% trans "View payments" %}
           </a>

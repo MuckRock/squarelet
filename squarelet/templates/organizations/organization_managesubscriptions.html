@@ -163,13 +163,13 @@
       <div class="title">
         <h2>{% trans "Recent payments" %}</h2>
       </div>
-      <a href="#" class="btn small ghost primary">
+      {% url 'organizations:payments' organization.slug as payments_url %}
+      <a href="{{ payments_url }}" class="btn small ghost primary">
         {% icon "log" %}
         {% trans "View all" %}
       </a>
     </header>
 
-    <main class="subscription-card">
-    </main>
+    {% include "organizations/includes/receipts_card.html" with payments=payments %}
   </section>
 {% endblock main %}
