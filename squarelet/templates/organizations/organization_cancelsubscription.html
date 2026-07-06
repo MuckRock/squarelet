@@ -2,7 +2,7 @@
 {% load django_vite i18n crispy_forms_tags %}
 {% load icon %}
 
-{% block title %}{{ plan.name }} | Cancel Subscription{% endblock %}
+{% block title %}{{ subscription.plan.name }} | Cancel Subscription{% endblock %}
 
 {% block layout_id %}cancel_subscription{% endblock %}
 
@@ -21,7 +21,7 @@
     {% crispy form form.helper %}
     <div>
       <h3 class="plan {% if subject == "org" %}organization{% else %}professional{% endif %}">
-        {{ plan.name }}
+        {{ subscription.plan.name }}
       </h3>
       <p>{% trans "Are you sure you want to cancel this plan?" %}</p>
     </div>

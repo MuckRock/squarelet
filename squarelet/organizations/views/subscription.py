@@ -15,7 +15,7 @@ from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.csrf import csrf_exempt
-from django.views.generic import DeleteView, DetailView, ListView, UpdateView
+from django.views.generic import DetailView, ListView, UpdateView
 
 # Standard Library
 import json
@@ -296,22 +296,34 @@ class UpdateReceiptEmail(OrganizationPermissionMixin, UpdateView):
         }
 
 
-class CancelSubscription(OrganizationPermissionMixin, DeleteView):
+class CancelSubscription(OrganizationPermissionMixin, UpdateView):
     permission_required = "organizations.can_edit_subscription"
-    queryset = Plan.objects.all()
     form_class = CancelSubscriptionForm
     template_name = "organizations/organization_cancelsubscription.html"
+
+    def get_queryset(self):
+        return Organization.objects.filter(slug=self.kwargs["slug"])
+
+    def get_object(self, queryset=None):
+        if queryset is None:
+            queryset = self.get_queryset()
+        return queryset.get()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["subject"] = "org"
-
-        subscription = self.object.subscriptions.first()
+        subscription = self.object.subscriptions.filter(id=self.kwargs["pk"]).first()
         if subscription:
-            context["organization"] = subscription.organization
+            context["subscription"] = subscription
             context["next_date"] = get_subscription_next_date(subscription)
-
         return context
+
+    def form_valid(self, form):
+        subscription = self.object.subscriptions.filter(id=self.kwargs["pk"]).first()
+        if subscription:
+            subscription.cancel()
+        messages.success(self.request, _("Subscription cancelled."))
+        return redirect("organizations:subscriptions", slug=self.object.slug)
 
 
 class PaymentsList(ListView):
