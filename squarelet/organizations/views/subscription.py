@@ -319,9 +319,10 @@ class CancelSubscription(OrganizationPermissionMixin, UpdateView):
         return context
 
     def form_valid(self, form):
+        organization = self.object
         subscription = self.object.subscriptions.filter(id=self.kwargs["pk"]).first()
         if subscription:
-            subscription.cancel()
+            organization.remove_subscription(subscription)
         messages.success(self.request, _("Subscription cancelled."))
         return redirect("organizations:subscriptions", slug=self.object.slug)
 
