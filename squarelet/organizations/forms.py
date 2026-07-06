@@ -264,8 +264,12 @@ class UpdateReceiptEmailForm(forms.ModelForm):
         return emails
 
 
-class CancelSubscriptionForm(forms.Form):
+class CancelSubscriptionForm(forms.ModelForm):
     """Cancel a subscription."""
+
+    class Meta:
+        model = Organization
+        fields = []
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
