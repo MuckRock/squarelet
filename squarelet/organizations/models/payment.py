@@ -712,6 +712,7 @@ class Charge(models.Model):
         merged = list(existing) + [e for e in current_emails if e not in seen]
         self.metadata["receipt_emails"] = merged
         self.save(update_fields=["metadata"])
+        plan = Plan.objects.filter(name=self.metadata.get("plan")).first()
 
         send_mail(
             subject=_("Receipt"),
@@ -720,8 +721,7 @@ class Charge(models.Model):
             organization_to=ORG_TO_RECEIPTS,
             extra_context={
                 "charge": self,
-                "individual_subscription": self.description == "Professional",
-                "group_subscription": self.description.startswith("Organization"),
+                "plan": plan,
                 "receipt_emails": current_emails,
             },
         )
