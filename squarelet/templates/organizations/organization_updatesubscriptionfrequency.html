@@ -2,7 +2,7 @@
 {% load django_vite i18n crispy_forms_tags humanize %}
 {% load icon %}
 
-{% block title %}{{ plan.name }} | Change Billing Frequency{% endblock %}
+{% block title %}{{ subscription.plan.name }} | Change Billing Frequency{% endblock %}
 
 {% block layout_id %}update_frequency{% endblock %}
 
@@ -10,14 +10,14 @@
 {% endblock content %}
 
 {% block header %}
-  <h1>{{ organization.name }}</h1>
+  <h1>{{ subscription.organization.name }}</h1>
   <span class="arrow">{% icon "chevron-right" %}</span>
   <h2>{% trans "Change billing frequency" %}</h2>
 {% endblock header %}
 
 {% block main %}
   {% url 'organizations:subscriptions' organization.slug as subscriptions_url %}
-  {% with currentfreq=plan.annual|yesno:_("annual,monthly") newfreq=plan.annual|yesno:_("monthly,annual") %}
+  {% with plan=subscription.plan currentfreq=plan.annual|yesno:_("annual,monthly") newfreq=plan.annual|yesno:_("monthly,annual") %}
     <form id="change-frequency-form" method="post" enctype="multipart/form-data">
       {% crispy form form.helper %}
       <div>
