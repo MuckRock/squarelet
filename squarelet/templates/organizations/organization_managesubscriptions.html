@@ -102,6 +102,10 @@
           </div>
         </main>
       {% endwith %}
+    {% empty %}
+      <main class="subscription-card">
+        <p class="empty empty--no-border">{% trans "You have no active subscriptions." %}</p>
+      </main>
     {% endfor %}
   </section>
 
