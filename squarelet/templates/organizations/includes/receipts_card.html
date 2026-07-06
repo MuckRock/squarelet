@@ -36,6 +36,12 @@
             </div>
           </td>
         </tr>
+      {% empty %}
+        <tr>
+          <td colspan="4" class="empty empty--no-border">
+            {% trans "No payments to show." %}
+          </td>
+        </tr>
       {% endfor %}
     </tbody>
     {% if page_obj %}
