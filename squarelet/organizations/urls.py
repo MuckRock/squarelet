@@ -24,12 +24,12 @@ urlpatterns = [
         "<slug:slug>/payment/", view=views.UpdateSubscription.as_view(), name="payment"
     ),
     path(
-        "~cancel/<int:pk>/",
+        "<slug:slug>/cancel/<int:pk>/",
         view=views.CancelSubscription.as_view(),
         name="cancel-subscription",
     ),
     path(
-        "~update-frequency/<int:pk>/",
+        "<slug:slug>/update-frequency/<int:pk>/",
         view=views.UpdateSubscriptionFrequency.as_view(),
         name="update-frequency",
     ),
