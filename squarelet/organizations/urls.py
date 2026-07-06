@@ -16,12 +16,18 @@ urlpatterns = [
         "~charge-pdf/<int:pk>/", view=views.PDFChargeDetail.as_view(), name="charge-pdf"
     ),
     path(
-        "<slug:slug>/subscriptions/", view=views.ManageSubscriptions.as_view(), name="subscriptions"
+        "<slug:slug>/subscriptions/",
+        view=views.ManageSubscriptions.as_view(),
+        name="subscriptions",
     ),
     path(
         "<slug:slug>/payment/", view=views.UpdateSubscription.as_view(), name="payment"
     ),
-    path("~cancel/<int:pk>/", view=views.CancelSubscription.as_view(), name="cancel-subscription"),
+    path(
+        "~cancel/<int:pk>/",
+        view=views.CancelSubscription.as_view(),
+        name="cancel-subscription",
+    ),
     path(
         "~update-frequency/<int:pk>/",
         view=views.UpdateSubscriptionFrequency.as_view(),
