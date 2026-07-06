@@ -317,9 +317,11 @@ class CancelSubscription(OrganizationPermissionMixin, DeleteView):
 
 class PaymentsList(ListView):
     permission_required = "organizations.can_view_charge"
-    queryset = Charge.objects.all()
     template_name = "organizations/organization_payments.html"
     paginate_by = 20
+
+    def get_queryset(self):
+        return Charge.objects.filter(organization__slug=self.kwargs["slug"])
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
