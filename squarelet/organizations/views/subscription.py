@@ -9,13 +9,13 @@ from django.http.response import (
     JsonResponse,
 )
 from django.shortcuts import redirect
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.csrf import csrf_exempt
-from django.views.generic import DetailView, ListView, UpdateView, DeleteView
-from django.urls import reverse
+from django.views.generic import DeleteView, DetailView, ListView, UpdateView
 
 # Standard Library
 import json
@@ -34,11 +34,11 @@ from squarelet.core.utils import (
     new_action,
 )
 from squarelet.organizations.forms import (
-    CardForm, 
-    PaymentForm, 
-    UpdateSubscriptionFrequencyForm, 
-    UpdateReceiptEmailForm,
     CancelSubscriptionForm,
+    CardForm,
+    PaymentForm,
+    UpdateReceiptEmailForm,
+    UpdateSubscriptionFrequencyForm,
 )
 from squarelet.organizations.mixins import OrganizationPermissionMixin
 from squarelet.organizations.models import Charge, Organization
@@ -61,6 +61,7 @@ from squarelet.organizations.tasks import (
 )
 
 logger = logging.getLogger(__name__)
+
 
 class ManageSubscriptions(OrganizationPermissionMixin, DetailView):
     permission_required = "organizations.can_edit_subscription"
@@ -211,6 +212,7 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
             ),
         }
 
+
 class UpdateCard(OrganizationPermissionMixin, UpdateView):
     """Update the credit card on file for an organization."""
 
@@ -255,7 +257,8 @@ class UpdateCard(OrganizationPermissionMixin, UpdateView):
             card = customer.card
         context["card"] = card
         return context
-    
+
+
 class UpdateSubscriptionFrequency(OrganizationPermissionMixin, UpdateView):
     permission_required = "organizations.can_edit_subscription"
     queryset = Plan.objects.all()
@@ -284,10 +287,10 @@ class UpdateReceiptEmail(OrganizationPermissionMixin, UpdateView):
         context = super().get_context_data(**kwargs)
         context["subject"] = "org"
         return context
-    
+
     def form_valid(self, form):
         self.object.set_receipt_emails(form.cleaned_data["receipt_emails"])
-        return redirect('organizations:subscriptions', slug=self.object.slug)
+        return redirect("organizations:subscriptions", slug=self.object.slug)
 
     def get_initial(self):
         return {
@@ -296,7 +299,7 @@ class UpdateReceiptEmail(OrganizationPermissionMixin, UpdateView):
             ),
         }
 
-    
+
 class CancelSubscription(OrganizationPermissionMixin, DeleteView):
     permission_required = "organizations.can_edit_subscription"
     queryset = Plan.objects.all()
@@ -309,8 +312,8 @@ class CancelSubscription(OrganizationPermissionMixin, DeleteView):
 
         subscription = self.object.subscriptions.first()
         if subscription:
-                context["organization"] = subscription.organization
-                context["next_date"] = get_subscription_next_date(subscription)
+            context["organization"] = subscription.organization
+            context["next_date"] = get_subscription_next_date(subscription)
 
         return context
 
@@ -328,7 +331,7 @@ class PaymentsList(ListView):
         context["subject"] = "org"
         context["organization"] = Organization.objects.get(slug=self.kwargs["slug"])
         return context
-    
+
 
 @method_decorator(xframe_options_sameorigin, name="dispatch")
 class ChargeDetail(UserPassesTestMixin, DetailView):

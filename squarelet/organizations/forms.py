@@ -194,6 +194,7 @@ class PaymentForm(StripeForm):
 
         return data
 
+
 class CardForm(StripeForm):
     """Update the credit card on file for an organization."""
 
@@ -210,9 +211,6 @@ class CardForm(StripeForm):
         )
         self.helper.form_tag = False
 
-    def clean(self):
-        return super().clean()
-
 
 class UpdateSubscriptionFrequencyForm(forms.ModelForm):
     """Update the frequency of a subscription."""
@@ -226,9 +224,6 @@ class UpdateSubscriptionFrequencyForm(forms.ModelForm):
         self.helper = FormHelper()
         self.helper.form_tag = False
 
-    def clean(self):
-        return super().clean()
-    
 
 class UpdateReceiptEmailForm(forms.ModelForm):
     """Update the receipt email for an organization."""
@@ -255,7 +250,7 @@ class UpdateReceiptEmailForm(forms.ModelForm):
 
     def clean_receipt_emails(self):
         """Make sure each entry is a valid email"""
-        emails = re.split(r',\s*', self.cleaned_data["receipt_emails"])
+        emails = re.split(r",\s*", self.cleaned_data["receipt_emails"])
         emails = [e.strip() for e in emails if e.strip()]
         bad_emails = []
         for email in emails:
@@ -268,9 +263,6 @@ class UpdateReceiptEmailForm(forms.ModelForm):
             raise forms.ValidationError(f"Invalid email: {bad_emails_str}")
         return emails
 
-    def clean(self):
-        return super().clean()
-
 
 class CancelSubscriptionForm(forms.Form):
     """Cancel a subscription."""
@@ -279,9 +271,6 @@ class CancelSubscriptionForm(forms.Form):
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.form_tag = False
-
-    def clean(self):
-        return super().clean()
 
 
 class UpdateForm(forms.ModelForm):

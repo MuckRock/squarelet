@@ -7,14 +7,12 @@ from django.db.models import Value as V
 from django.db.models.functions import Lower, StrIndex
 from django.http import JsonResponse
 from django.shortcuts import redirect
-from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import DetailView, ListView
 
 # Standard Library
 import logging
-from datetime import datetime
 
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
