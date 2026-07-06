@@ -77,8 +77,8 @@ Args:
           {% trans "No active subscription." %}
         {% endif %}
       </p>
-      {% if subscriptions_url and can_edit_subscription %}
-        <a class="btn premium" href="{{ subscriptions_url }}">{% trans "Upgrade" %}</a>
+      {% if payment_url and can_edit_subscription %}
+        <a class="btn premium" href="{{ payment_url }}">{% trans "Upgrade" %}</a>
       {% endif %}
     </div>
     {% if upgrade_plan %}
