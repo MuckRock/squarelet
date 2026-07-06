@@ -57,21 +57,27 @@
     </header>
 
     {% for subscription in subscriptions %}
-      {% with annual=subscription.plan.annual %}
+      {% with annual=subscription.plan.annual cancelled=subscription.cancelled %}
         <main id="{{ subscription.plan.slug }}" class="subscription-card">
           <div class="subscription-row">
             <h3 class="plan-name">{{ subscription.plan.name }}</h3>
-            <div class="subscription-frequency">
-              <span class="blue badge">
-                {{ annual|yesno:_("Annual,Monthly") }}
+            {% if cancelled %}
+              <span class="red badge">
+                {% trans "Cancelled" %}
               </span>
-              {% url 'organizations:update-frequency' organization.slug subscription.id as update_url %}
-              <a href="{{ update_url }}" class="btn ghost primary small">
-                {% blocktrans with annual|yesno:_("monthly,annual") as frequency %}
-                  Change to {{ frequency }}
-                {% endblocktrans %}
-              </a>
-            </div>
+            {% else %}
+              <div class="subscription-frequency">
+                <span class="blue badge">
+                  {{ annual|yesno:_("Annual,Monthly") }}
+                </span>
+                {% url 'organizations:update-frequency' organization.slug subscription.plan.id as update_url %}
+                <a href="{{ update_url }}" class="btn ghost primary small">
+                  {% blocktrans with annual|yesno:_("monthly,annual") as frequency %}
+                    Change to {{ frequency }}
+                  {% endblocktrans %}
+                </a>
+              </div>
+            {% endif %}
           </div>
           <div class="subscription-row">
             <div class="subscription-group">
@@ -89,16 +95,18 @@
                   {% icon "calendar" %}
                 </span>
                 <span>
-                  {{ subscription.plan.cancelled|yesno:_("Ends on,Renews on") }}
+                  {{ cancelled|yesno:_("Ends on,Renews on") }}
                   <strong>{{ subscription.next_date }}</strong>
                 </span>
               </span>
             </div>
-            {% url 'organizations:cancel-subscription' organization.slug subscription.id as cancel_url %}
-            <a href="{{ cancel_url }}" class="btn ghost danger small">
-              {% icon "x-circle" %}
-              {% trans "Cancel plan" %}
-            </a>
+            {% if not cancelled %}
+              {% url 'organizations:cancel-subscription' organization.slug subscription.id as cancel_url %}
+              <a href="{{ cancel_url }}" class="btn ghost danger small">
+                {% icon "x-circle" %}
+                {% trans "Cancel plan" %}
+              </a>
+            {% endif %}
           </div>
         </main>
       {% endwith %}
