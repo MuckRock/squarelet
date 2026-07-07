@@ -1,7 +1,7 @@
 # Django
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth.mixins import UserPassesTestMixin, PermissionRequiredMixin
+from django.contrib.auth.mixins import PermissionRequiredMixin, UserPassesTestMixin
 from django.http.response import (
     HttpResponse,
     HttpResponseBadRequest,
@@ -9,13 +9,12 @@ from django.http.response import (
     JsonResponse,
 )
 from django.shortcuts import redirect
-from django.urls import reverse
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.csrf import csrf_exempt
-from django.views.generic import DetailView, ListView, UpdateView
+from django.views.generic import DetailView, UpdateView
 
 # Standard Library
 import json
@@ -33,15 +32,9 @@ from squarelet.core.utils import (
     get_stripe_dashboard_url,
     new_action,
 )
-from squarelet.organizations.forms import (
-    CancelSubscriptionForm,
-    CardForm,
-    PaymentForm,
-    UpdateReceiptEmailForm,
-    UpdateSubscriptionFrequencyForm,
-)
+from squarelet.organizations.forms import PaymentForm
 from squarelet.organizations.mixins import OrganizationPermissionMixin
-from squarelet.organizations.models import Charge, Organization, Subscription
+from squarelet.organizations.models import Charge, Organization
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.payments.factory import get_payment_provider
@@ -58,48 +51,16 @@ from squarelet.organizations.tasks import (
     handle_subscription_deleted,
     handle_subscription_updated,
 )
+from squarelet.subscriptions.views import (
+    BaseCancelSubscription,
+    BaseManageSubscriptions,
+    BasePaymentsList,
+    BaseUpdateCard,
+    BaseUpdateReceiptEmail,
+    BaseUpdateSubscriptionFrequency,
+)
 
 logger = logging.getLogger(__name__)
-
-
-class ManageSubscriptions(OrganizationPermissionMixin, DetailView):
-    permission_required = "organizations.can_edit_subscription"
-    queryset = Organization.objects.filter(individual=False)
-    template_name = "organizations/organization_managesubscriptions.html"
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-
-        # Get subscriptions and add renewal/cancellation date and cost data
-        subscriptions = self.object.subscriptions.all()
-        for subscription in subscriptions:
-            subscription.next_date = get_subscription_next_date(subscription)
-            subscription.cost = subscription.plan.base_price
-        context["subscriptions"] = subscriptions
-
-        # Get card on file
-        customer = self.object.customer()
-        if customer.card is None:
-            card = None
-        elif customer.card.object == "payment_method":
-            card = customer.card.card
-        else:
-            card = customer.card
-        context["card"] = card
-
-        # Get all receipt emails
-        context["receipt_emails"] = self.object.receipt_emails.all()
-
-        # Get failed receipt emails
-        context["failed_receipt_emails"] = self.object.receipt_emails.filter(
-            failed=True
-        )
-
-        # Get five most recent payments
-        payments = self.object.charges.order_by("-created_at").all()[:5]
-        context["payments"] = payments
-
-        return context
 
 
 class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
@@ -212,145 +173,50 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
         }
 
 
-class UpdateCard(OrganizationPermissionMixin, UpdateView):
-    """Update the credit card on file for an organization."""
+class OrgSubscriptionView(OrganizationPermissionMixin):
+    """Base class for org subscription views."""
 
-    permission_required = "organizations.can_edit_subscription"
     queryset = Organization.objects.filter(individual=False)
-    form_class = CardForm
-    template_name = "organizations/organization_updatecard.html"
-
-    def _is_ajax(self):
-        return self.request.headers.get("X-Requested-With") == "XMLHttpRequest"
-
-    def form_valid(self, form):
-        organization = self.object
-        user = self.request.user
-        redirect_url = reverse("organizations:subscriptions", args=[organization.slug])
-        token = form.cleaned_data["stripe_token"]
-        try:
-            organization.save_card(token, user)
-        except stripe.StripeError as exc:
-            user_message = format_stripe_error(exc)
-            if self._is_ajax():
-                return JsonResponse({"error": user_message}, status=400)
-            messages.error(self.request, f"Payment error: {user_message}")
-            return redirect(organization)
-        else:
-            success_msg = _("Credit card updated")
-            if self._is_ajax():
-                return JsonResponse(
-                    {"redirect": redirect_url, "message": str(success_msg)}
-                )
-            messages.success(self.request, success_msg)
-        return redirect(organization)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        customer = self.object.customer()
-        if customer.card is None:
-            card = None
-        elif customer.card.object == "payment_method":
-            card = customer.card.card
-        else:
-            card = customer.card
-        context["card"] = card
-        return context
-
-
-class UpdateSubscriptionFrequency(OrganizationPermissionMixin, UpdateView):
+    subject = "organizations"
     permission_required = "organizations.can_edit_subscription"
-    form_class = UpdateSubscriptionFrequencyForm
-    template_name = "organizations/organization_updatesubscriptionfrequency.html"
-
-    def get_queryset(self):
-        return Organization.objects.filter(slug=self.kwargs["slug"])
-
-    def get_object(self, queryset=None):
-        if queryset is None:
-            queryset = self.get_queryset()
-        return queryset.get()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-
-        subscription = self.object.subscriptions.filter(id=self.kwargs["pk"]).first()
-        context["subscription"] = subscription
-        context["next_date"] = get_subscription_next_date(subscription)
-
+        context["subject"] = self.subject
         return context
 
 
-class UpdateReceiptEmail(OrganizationPermissionMixin, UpdateView):
-    permission_required = "organizations.can_edit_subscription"
-    queryset = Organization.objects.filter(individual=False)
-    form_class = UpdateReceiptEmailForm
-    template_name = "organizations/organization_updatereceiptemail.html"
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["subject"] = "org"
-        return context
-
-    def form_valid(self, form):
-        self.object.set_receipt_emails(form.cleaned_data["receipt_emails"])
-        return redirect("organizations:subscriptions", slug=self.object.slug)
-
-    def get_initial(self):
-        return {
-            "receipt_emails": ", ".join(
-                r.email for r in self.object.receipt_emails.all()
-            ),
-        }
+class ManageSubscriptions(OrgSubscriptionView, BaseManageSubscriptions):
+    pass
 
 
-class CancelSubscription(OrganizationPermissionMixin, UpdateView):
-    permission_required = "organizations.can_edit_subscription"
-    form_class = CancelSubscriptionForm
-    template_name = "organizations/organization_cancelsubscription.html"
-
-    def get_queryset(self):
-        return Organization.objects.filter(slug=self.kwargs["slug"])
-
-    def get_object(self, queryset=None):
-        if queryset is None:
-            queryset = self.get_queryset()
-        return queryset.get()
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["subject"] = "org"
-        subscription = self.object.subscriptions.filter(id=self.kwargs["pk"]).first()
-        if subscription:
-            context["subscription"] = subscription
-            context["next_date"] = get_subscription_next_date(subscription)
-        return context
-
-    def form_valid(self, form):
-        organization = self.object
-        subscription = self.object.subscriptions.filter(id=self.kwargs["pk"]).first()
-        if subscription:
-            organization.remove_subscription(subscription)
-        messages.success(self.request, _("Subscription cancelled."))
-        return redirect("organizations:subscriptions", slug=self.object.slug)
+class UpdateCard(OrgSubscriptionView, BaseUpdateCard):
+    pass
 
 
-class PaymentsList(PermissionRequiredMixin, ListView):
-    template_name = "organizations/organization_payments.html"
-    paginate_by = 20
+class UpdateSubscriptionFrequency(OrgSubscriptionView, BaseUpdateSubscriptionFrequency):
+    pass
+
+
+class UpdateReceiptEmail(OrgSubscriptionView, BaseUpdateReceiptEmail):
+    pass
+
+
+class CancelSubscription(OrgSubscriptionView, BaseCancelSubscription):
+    pass
+
+
+class PaymentsList(PermissionRequiredMixin, BasePaymentsList):
+    subject = "organizations"
 
     def has_permission(self):
         user = self.request.user
         organization = Organization.objects.get(slug=self.kwargs["slug"])
         return user.has_perm("organizations.can_view_charge", organization)
 
-    def get_queryset(self):
-        return Charge.objects.filter(organization__slug=self.kwargs["slug"])
-
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["subject"] = "org"
-        context["organization"] = Organization.objects.get(slug=self.kwargs["slug"])
+        context["subject"] = self.subject
         return context
 
 
