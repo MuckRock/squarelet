@@ -102,22 +102,30 @@ class Customer(models.Model):
             return stripe_customer
 
     @cached_property
-    def card(self):
+    def source(self):
         """Retrieve the customer's default saved payment method or source, if any."""
         return (
             get_payment_provider().get_customer_service().get_card(self.stripe_customer)
         )
 
+    @cached_property
+    def card(self):
+        """Retrieve the card from the source - old style sources are cards directly,
+        new style cards have them in a sub-object
+        """
+        source = self.source
+        if source is None:
+            return None
+        elif source.object == "payment_method":
+            return source.card
+        else:
+            return source
+
     @property
     def card_display(self):
-        card = self.card
-        if not card:
+        if not self.card:
             return ""
-        # PaymentMethod objects nest card details under .card; Sources expose
-        # brand/last4 directly.
-        if card.object == "payment_method":
-            return f"{card.card.brand}: x{card.card.last4}"
-        return f"{card.brand}: x{card.last4}"
+        return f"{self.card.brand}: x{self.card.last4}"
 
     def save_card(self, token):
         """Save a new default card"""
@@ -127,10 +135,10 @@ class Customer(models.Model):
 
     def remove_card(self):
         """Remove the default card"""
-        card = self.card
-        if card:
+        source = self.source
+        if source:
             get_payment_provider().get_customer_service().remove_card(
-                self.customer_id, card.id
+                self.customer_id, source.id
             )
 
     def add_source(self, token):

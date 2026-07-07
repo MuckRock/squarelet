@@ -35,7 +35,7 @@ class TestCustomer:
         customer.refresh_from_db()
         assert customer.customer_id == customer_id
 
-    def test_card_existing(self, customer_factory, mocker):
+    def test_source_existing(self, customer_factory, mocker):
         mock_stripe_customer = mocker.patch(
             "squarelet.organizations.models.Customer.stripe_customer"
         )
@@ -45,10 +45,10 @@ class TestCustomer:
         ).return_value.get_customer_service.return_value.get_card
         mock_get_card.return_value = mock_source
         customer = customer_factory.build()
-        assert mock_source == customer.card
+        assert mock_source == customer.source
         mock_get_card.assert_called_once_with(mock_stripe_customer)
 
-    def test_card_ach(self, customer_factory, mocker):
+    def test_source_none(self, customer_factory, mocker):
         mock_stripe_customer = mocker.patch(
             "squarelet.organizations.models.Customer.stripe_customer"
         )
@@ -57,21 +57,45 @@ class TestCustomer:
         ).return_value.get_customer_service.return_value.get_card
         mock_get_card.return_value = None
         customer = customer_factory.build()
-        assert customer.card is None
+        assert customer.source is None
         mock_get_card.assert_called_once_with(mock_stripe_customer)
 
-    def test_card_blank(self, customer_factory, mocker):
-        mocker.patch("squarelet.organizations.models.Customer.stripe_customer")
+    def test_card_legacy_source(self, customer_factory, mocker):
+        """Legacy Source objects are returned as-is from customer.card."""
+        mock_source = mocker.MagicMock(object="card")
         mocker.patch(
-            "squarelet.organizations.models.payment.get_payment_provider"
-        ).return_value.get_customer_service.return_value.get_card.return_value = None
+            "squarelet.organizations.models.Customer.source",
+            new_callable=mocker.PropertyMock,
+            return_value=mock_source,
+        )
+        customer = customer_factory.build()
+        assert customer.card is mock_source
+
+    def test_card_payment_method(self, customer_factory, mocker):
+        """PaymentMethod sources expose card details via .card sub-object."""
+        mock_card_details = mocker.MagicMock(brand="Visa", last4="4242")
+        mock_source = mocker.MagicMock(object="payment_method", card=mock_card_details)
+        mocker.patch(
+            "squarelet.organizations.models.Customer.source",
+            new_callable=mocker.PropertyMock,
+            return_value=mock_source,
+        )
+        customer = customer_factory.build()
+        assert customer.card is mock_card_details
+
+    def test_card_none(self, customer_factory, mocker):
+        mocker.patch(
+            "squarelet.organizations.models.Customer.source",
+            new_callable=mocker.PropertyMock,
+            return_value=None,
+        )
         customer = customer_factory.build()
         assert customer.card is None
 
     def test_card_display(self, customer_factory, mocker):
         brand = "Visa"
         last4 = "4242"
-        mock_card = mocker.MagicMock(object="card", brand=brand, last4=last4)
+        mock_card = mocker.MagicMock(brand=brand, last4=last4)
         mocker.patch(
             "squarelet.organizations.models.Customer.card",
             new_callable=mocker.PropertyMock,
@@ -81,10 +105,11 @@ class TestCustomer:
         assert customer.card_display == f"{brand}: x{last4}"
 
     def test_card_display_empty(self, customer_factory, mocker):
-        mocker.patch("squarelet.organizations.models.Customer.stripe_customer")
         mocker.patch(
-            "squarelet.organizations.models.payment.get_payment_provider"
-        ).return_value.get_customer_service.return_value.get_card.return_value = None
+            "squarelet.organizations.models.Customer.source",
+            new_callable=mocker.PropertyMock,
+            return_value=None,
+        )
         customer = customer_factory.build()
         assert customer.card_display == ""
 

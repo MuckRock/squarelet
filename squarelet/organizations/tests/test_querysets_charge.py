@@ -30,15 +30,15 @@ class TestChargeQuerySet:
         return mock_stripe_charge, mock_provider
 
     def _mock_customer_with_card(self, mocker):
-        """Mock Customer.card and stripe_customer for saved-card tests."""
-        mock_card = mocker.Mock(id="card_123")
+        """Mock Customer.source and stripe_customer for saved-card tests."""
+        mock_source = mocker.Mock(id="card_123")
         mocker.patch(
-            "squarelet.organizations.models.payment.Customer.card",
+            "squarelet.organizations.models.payment.Customer.source",
             new_callable=mocker.PropertyMock,
-            return_value=mock_card,
+            return_value=mock_source,
         )
         mocker.patch("squarelet.organizations.models.Customer.stripe_customer")
-        return mock_card
+        return mock_source
 
     @pytest.mark.django_db()
     def test_make_charge_with_new_card_token(self, mocker):
@@ -301,7 +301,7 @@ class TestChargeQuerySet:
         org = OrganizationFactory(customer__customer_id="cus_no_card")
         mocker.patch("squarelet.organizations.models.Customer.stripe_customer")
         mocker.patch(
-            "squarelet.organizations.models.payment.Customer.card",
+            "squarelet.organizations.models.payment.Customer.source",
             new_callable=mocker.PropertyMock,
             return_value=None,
         )
