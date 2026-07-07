@@ -53,16 +53,12 @@ class Detail(AdminLinkMixin, DetailView):
 
         # Get subscriptions, if any
         upgrade_plan = Plan.objects.get(slug="organization")
-        subscriptions = None
-        if hasattr(org, "subscriptions"):
-            subscriptions = org.subscriptions.all()
-        context["subscriptions"] = subscriptions
+        context["subscriptions"] = org.subscriptions.all()
         context["upgrade_plan"] = upgrade_plan
         context["member_count"] = len(users)
         context["admin_count"] = len(admins)
 
-        if subscriptions:
-            context.update(self._get_subscription_context(org))
+        context.update(self._get_subscription_context(org))
 
         # Any member (not just admins) may request verification, but only if
         # they have confirmed an email address on their account.
