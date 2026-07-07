@@ -70,7 +70,7 @@
                 <span class="blue badge">
                   {{ annual|yesno:_("Annual,Monthly") }}
                 </span>
-                {% url 'organizations:update-frequency' organization.slug subscription.plan.id as update_url %}
+                {% url 'organizations:update-frequency' organization.slug subscription.id as update_url %}
                 <a href="{{ update_url }}" class="btn ghost primary small">
                   {% blocktrans with annual|yesno:_("monthly,annual") as frequency %}
                     Change to {{ frequency }}
