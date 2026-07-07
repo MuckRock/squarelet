@@ -46,7 +46,7 @@ class CustomerService(ABC):
         """Set a card token as the customer's default payment source."""
 
     @abstractmethod
-    def remove_card(self, customer_id, source_id):
+    def remove_payment_method(self, customer_id, source_id):
         """Remove a payment source from a customer."""
 
     @abstractmethod
@@ -66,7 +66,7 @@ class CustomerService(ABC):
         """
 
     @abstractmethod
-    def get_card(self, stripe_customer):
+    def get_payment_method(self, stripe_customer):
         """Return the customer's default saved payment method or source, or None."""
 
 

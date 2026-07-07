@@ -177,7 +177,10 @@ class PaymentForm(StripeForm):
                 None, _("You cannot remove your card on file if you have a paid plan")
             )
 
-        if data.get("remove_card_on_file") and not self.organization.customer().card:
+        if (
+            data.get("remove_card_on_file")
+            and not self.organization.customer().payment_details
+        ):
             self.add_error(None, _("You do not have a card on file to remove"))
 
         if plan and "max_users" in data and data["max_users"] < plan.minimum_users:

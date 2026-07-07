@@ -118,7 +118,7 @@ class Detail(AdminLinkMixin, DetailView):
         """Return context dict for card, next charge date, and cancellation status."""
         customer = org.customer()
         ctx = {
-            "current_plan_card": customer.card,
+            "current_plan_card": customer.payment_details,
             "current_plan_cancelled": subscription.cancelled,
         }
 

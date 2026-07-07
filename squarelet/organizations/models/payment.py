@@ -30,6 +30,8 @@ from squarelet.organizations.querysets import (
 
 logger = logging.getLogger(__name__)
 
+# pylint: disable=too-many-lines
+
 
 class Customer(models.Model):
     """A customer on stripe"""
@@ -101,30 +103,63 @@ class Customer(models.Model):
             return stripe_customer
 
     @cached_property
-    def source(self):
-        """Retrieve the customer's default saved payment method or source, if any."""
+    def payment_method(self):
+        """Retrieve the customer's default saved payment method or source, if any.
+
+        Returns the raw Stripe PaymentMethod or legacy Source object.
+        May be any payment method type (card, us_bank_account, etc.).
+        """
         return (
-            get_payment_provider().get_customer_service().get_card(self.stripe_customer)
+            get_payment_provider()
+            .get_customer_service()
+            .get_payment_method(self.stripe_customer)
         )
 
     @cached_property
     def card(self):
-        """Retrieve the card from the source - old style sources are cards directly,
-        new style cards have them in a sub-object
+        """Return card details if the default payment method is a card, else None.
+
+        For card-specific logic only. Use payment_details for display-agnostic
+        access to the payment method sub-object.
         """
-        source = self.source
-        if source is None:
+        pm = self.payment_method
+        if pm is None:
             return None
-        elif source.object == "payment_method":
-            return source.card
-        else:
-            return source
+        if pm.object == "payment_method" and pm.type == "card":
+            return pm.card
+        if pm.object == "card":
+            return pm
+        return None
+
+    @cached_property
+    def payment_details(self):
+        """Return the display sub-object for the default payment method, or None.
+
+        Returns the appropriate sub-object exposing .last4 and type-specific fields:
+          - card PaymentMethod      → pm.card             (.brand, .last4)
+          - bank account PM         → pm.us_bank_account  (.bank_name, .last4)
+          - legacy Source/card      → source              (.brand, .last4)
+        """
+        pm = self.payment_method
+        if pm is None:
+            return None
+        if pm.object == "payment_method":
+            if pm.type == "card":
+                return pm.card
+            if pm.type == "us_bank_account":
+                return pm.us_bank_account
+            return None
+        if pm.object == "card":
+            return pm
+        return None
 
     @property
-    def card_display(self):
-        if not self.card:
+    def payment_method_display(self):
+        details = self.payment_details
+        if not details:
             return ""
-        return f"{self.card.brand}: x{self.card.last4}"
+        brand = getattr(details, "brand", None) or getattr(details, "bank_name", "")
+        return f"{brand}: x{details.last4}"
 
     def save_card(self, token):
         """Save a new default card"""
@@ -132,12 +167,12 @@ class Customer(models.Model):
             self.stripe_customer, token
         )
 
-    def remove_card(self):
-        """Remove the default card"""
-        source = self.source
-        if source:
-            get_payment_provider().get_customer_service().remove_card(
-                self.customer_id, source.id
+    def remove_payment_method(self):
+        """Remove the default payment method"""
+        pm = self.payment_method
+        if pm:
+            get_payment_provider().get_customer_service().remove_payment_method(
+                self.customer_id, pm.id
             )
 
     def add_source(self, token):

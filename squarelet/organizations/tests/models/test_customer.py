@@ -40,31 +40,31 @@ class TestCustomer:
             "squarelet.organizations.models.Customer.stripe_customer"
         )
         mock_source = mocker.MagicMock(object="card")
-        mock_get_card = mocker.patch(
+        mock_get_payment_method = mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
-        ).return_value.get_customer_service.return_value.get_card
-        mock_get_card.return_value = mock_source
+        ).return_value.get_customer_service.return_value.get_payment_method
+        mock_get_payment_method.return_value = mock_source
         customer = customer_factory.build()
-        assert mock_source == customer.source
-        mock_get_card.assert_called_once_with(mock_stripe_customer)
+        assert mock_source == customer.payment_method
+        mock_get_payment_method.assert_called_once_with(mock_stripe_customer)
 
     def test_source_none(self, customer_factory, mocker):
         mock_stripe_customer = mocker.patch(
             "squarelet.organizations.models.Customer.stripe_customer"
         )
-        mock_get_card = mocker.patch(
+        mock_get_payment_method = mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
-        ).return_value.get_customer_service.return_value.get_card
-        mock_get_card.return_value = None
+        ).return_value.get_customer_service.return_value.get_payment_method
+        mock_get_payment_method.return_value = None
         customer = customer_factory.build()
-        assert customer.source is None
-        mock_get_card.assert_called_once_with(mock_stripe_customer)
+        assert customer.payment_method is None
+        mock_get_payment_method.assert_called_once_with(mock_stripe_customer)
 
     def test_card_legacy_source(self, customer_factory, mocker):
         """Legacy Source objects are returned as-is from customer.card."""
         mock_source = mocker.MagicMock(object="card")
         mocker.patch(
-            "squarelet.organizations.models.Customer.source",
+            "squarelet.organizations.models.Customer.payment_method",
             new_callable=mocker.PropertyMock,
             return_value=mock_source,
         )
@@ -74,9 +74,11 @@ class TestCustomer:
     def test_card_payment_method(self, customer_factory, mocker):
         """PaymentMethod sources expose card details via .card sub-object."""
         mock_card_details = mocker.MagicMock(brand="Visa", last4="4242")
-        mock_source = mocker.MagicMock(object="payment_method", card=mock_card_details)
+        mock_source = mocker.MagicMock(
+            object="payment_method", type="card", card=mock_card_details
+        )
         mocker.patch(
-            "squarelet.organizations.models.Customer.source",
+            "squarelet.organizations.models.Customer.payment_method",
             new_callable=mocker.PropertyMock,
             return_value=mock_source,
         )
@@ -85,7 +87,7 @@ class TestCustomer:
 
     def test_card_none(self, customer_factory, mocker):
         mocker.patch(
-            "squarelet.organizations.models.Customer.source",
+            "squarelet.organizations.models.Customer.payment_method",
             new_callable=mocker.PropertyMock,
             return_value=None,
         )
@@ -97,21 +99,21 @@ class TestCustomer:
         last4 = "4242"
         mock_card = mocker.MagicMock(brand=brand, last4=last4)
         mocker.patch(
-            "squarelet.organizations.models.Customer.card",
+            "squarelet.organizations.models.Customer.payment_details",
             new_callable=mocker.PropertyMock,
             return_value=mock_card,
         )
         customer = customer_factory.build(customer_id="customer_id")
-        assert customer.card_display == f"{brand}: x{last4}"
+        assert customer.payment_method_display == f"{brand}: x{last4}"
 
     def test_card_display_empty(self, customer_factory, mocker):
         mocker.patch(
-            "squarelet.organizations.models.Customer.source",
+            "squarelet.organizations.models.Customer.payment_details",
             new_callable=mocker.PropertyMock,
             return_value=None,
         )
         customer = customer_factory.build()
-        assert customer.card_display == ""
+        assert customer.payment_method_display == ""
 
     def test_save_card(self, customer_factory, mocker):
         token = "token"

@@ -604,7 +604,7 @@ class TestSyncWix(ViewTestMixin):
         self, rf, organization_factory, plan_factory, user_factory, mocker
     ):
         """The view context should signal Wix sync button for org with direct plan."""
-        mocker.patch("squarelet.organizations.models.Customer.card", None)
+        mocker.patch("squarelet.organizations.models.Customer.payment_details", None)
         staff_user = user_factory(is_staff=True)
         wix_plan = plan_factory(wix=True)
         org = organization_factory(plans=[wix_plan])
@@ -618,7 +618,7 @@ class TestSyncWix(ViewTestMixin):
         self, rf, organization_factory, plan_factory, user_factory, mocker
     ):
         """The view context should NOT signal Wix sync button when no Wix plan."""
-        mocker.patch("squarelet.organizations.models.Customer.card", None)
+        mocker.patch("squarelet.organizations.models.Customer.payment_details", None)
         staff_user = user_factory(is_staff=True)
         non_wix_plan = plan_factory(wix=False)
         org = organization_factory(plans=[non_wix_plan])
@@ -1143,7 +1143,7 @@ class TestUpdateSubscription(ViewTestMixin):
         assert response.status_code == 302
 
     def test_get_admin(self, rf, organization_factory, user_factory, mocker):
-        mocker.patch("squarelet.organizations.models.Customer.card", None)
+        mocker.patch("squarelet.organizations.models.Customer.payment_details", None)
         user = user_factory()
         organization = organization_factory(admins=[user])
         ReceiptEmail.objects.create(
@@ -1183,7 +1183,7 @@ class TestUpdateSubscription(ViewTestMixin):
         assert initial["max_users"] == 10
 
     def test_post_admin(self, rf, organization_factory, user_factory, mocker):
-        mocker.patch("squarelet.organizations.models.Customer.card", None)
+        mocker.patch("squarelet.organizations.models.Customer.payment_details", None)
         user = user_factory()
         organization = organization_factory(admins=[user])
         data = {
@@ -1202,7 +1202,7 @@ class TestUpdateSubscription(ViewTestMixin):
     def test_post_admin_stripe_error(
         self, rf, organization_factory, user_factory, plan_factory, mocker
     ):
-        mocker.patch("squarelet.organizations.models.Customer.card", None)
+        mocker.patch("squarelet.organizations.models.Customer.payment_details", None)
         mocked = mocker.patch(
             "squarelet.organizations.models.Organization.add_subscription"
         )
@@ -1233,7 +1233,7 @@ class TestUpdateSubscription(ViewTestMixin):
         self, rf, organization_factory, user_factory, mocker
     ):
         """Staff updating subscription should create activity stream action"""
-        mocker.patch("squarelet.organizations.models.Customer.card", None)
+        mocker.patch("squarelet.organizations.models.Customer.payment_details", None)
         staff_member = user_factory(is_staff=True)
         staff_member = _assign_org_perm(staff_member, "can_edit_subscription")
         organization = organization_factory()
@@ -1260,7 +1260,7 @@ class TestUpdateSubscription(ViewTestMixin):
         self, rf, organization_factory, user_factory, mocker
     ):
         """Non-staff admin updating subscription should not create action"""
-        mocker.patch("squarelet.organizations.models.Customer.card", None)
+        mocker.patch("squarelet.organizations.models.Customer.payment_details", None)
         regular_admin = user_factory(is_staff=False)
         organization = organization_factory(admins=[regular_admin])
         data = {
@@ -1286,20 +1286,20 @@ class TestUpdateSubscription(ViewTestMixin):
         # Mock customer with card on file
         mock_card = mocker.Mock(id="card_123")
         mock_customer = mocker.Mock()
-        mock_customer.card = mock_card
-        mock_customer.card_display = "Card ending in 1234"
+        mock_customer.payment_details = mock_card
+        mock_customer.payment_method_display = "Card ending in 1234"
         mocker.patch(
-            "squarelet.organizations.models.Customer.card",
+            "squarelet.organizations.models.Customer.payment_details",
             new_callable=mocker.PropertyMock,
             return_value=mock_card,
         )
         mocker.patch(
-            "squarelet.organizations.models.Customer.card_display",
+            "squarelet.organizations.models.Customer.payment_method_display",
             new_callable=mocker.PropertyMock,
             return_value="Card ending in 1234",
         )
         mocked_remove = mocker.patch(
-            "squarelet.organizations.models.Organization.remove_card"
+            "squarelet.organizations.models.Organization.remove_payment_method"
         )
         user = user_factory()
         organization = organization_factory(admins=[user])

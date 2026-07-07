@@ -229,7 +229,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
 
         # Mock that organization has NO card
         mock_customer = mocker.MagicMock()
-        mock_customer.card = None
+        mock_customer.payment_details = None
         mocker.patch.object(Organization, "customer", return_value=mock_customer)
 
         data = {
@@ -434,7 +434,7 @@ class TestPlanDetailViewPurchaseRedirect(ViewTestMixin):
         plan = plan_factory(public=True)
 
         mock_customer = mocker.MagicMock()
-        mock_customer.card = None
+        mock_customer.payment_details = None
         mocker.patch.object(
             user.individual_organization, "customer", return_value=mock_customer
         )
@@ -459,7 +459,7 @@ class TestPlanDetailViewPurchaseRedirect(ViewTestMixin):
         plan = plan_factory(public=True)
 
         mock_customer = mocker.MagicMock()
-        mock_customer.card = None
+        mock_customer.payment_details = None
         mocker.patch.object(
             user.individual_organization, "customer", return_value=mock_customer
         )
@@ -622,7 +622,7 @@ class TestPlanDetailViewWithSlug(ViewTestMixin):
 
         # Mock Stripe customer to avoid API calls
         mock_customer = mocker.MagicMock()
-        mock_customer.card = None
+        mock_customer.payment_details = None
         mocker.patch.object(
             user.individual_organization, "customer", return_value=mock_customer
         )
@@ -657,7 +657,7 @@ class TestPlanDetailViewWithSlug(ViewTestMixin):
 
         # Mock Stripe customer to avoid API calls
         mock_customer = mocker.MagicMock()
-        mock_customer.card = None
+        mock_customer.payment_details = None
         mocker.patch.object(
             user.individual_organization, "customer", return_value=mock_customer
         )
@@ -743,7 +743,7 @@ class TestEnterpriseTemplateSelection(ViewTestMixin):
 
         # Mock Stripe customer to avoid API calls
         mock_customer = mocker.MagicMock()
-        mock_customer.card = None
+        mock_customer.payment_details = None
         mocker.patch.object(
             user.individual_organization, "customer", return_value=mock_customer
         )
@@ -770,7 +770,7 @@ class TestEnterpriseTemplateSelection(ViewTestMixin):
 
         # Mock Stripe customer to avoid API calls
         mock_customer = mocker.MagicMock()
-        mock_customer.card = None
+        mock_customer.payment_details = None
         mocker.patch.object(
             user.individual_organization, "customer", return_value=mock_customer
         )
@@ -796,7 +796,7 @@ class TestEnterpriseTemplateSelection(ViewTestMixin):
 
         # Mock Stripe customer to avoid API calls
         mock_customer = mocker.MagicMock()
-        mock_customer.card = None
+        mock_customer.payment_details = None
         mocker.patch.object(
             user.individual_organization, "customer", return_value=mock_customer
         )

@@ -147,7 +147,7 @@ class TestOrganization:
     def test_save_card(self, organization_factory, mocker, user_factory):
         token = "token"
         user = user_factory()
-        customer = Mock(card_display="Visa: x4242")
+        customer = Mock(payment_method_display="Visa: x4242")
         mocker.patch(
             "squarelet.organizations.models.Organization.customer",
             return_value=customer,
@@ -317,7 +317,7 @@ class TestOrganization:
         plan = professional_plan_factory()
 
         mock_customer, mock_sub_service, _ = self._setup_stripe_mock(mocker)
-        mock_customer.card = mocker.MagicMock()  # card on file
+        mock_customer.payment_details = mocker.MagicMock()  # payment method on file
 
         organization.add_subscription(plan, 4, user)
 

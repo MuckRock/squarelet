@@ -174,7 +174,7 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         context["upgrade_plan"] = upgrade_plan
         # Get card, next charge date, and cancelled status for active subscription
         if current_plan and subscription:
-            context["current_plan_card"] = individual_org.customer().card
+            context["current_plan_card"] = individual_org.customer().payment_details
             # Stripe subscription may have next charge date
             stripe_sub = subscription.stripe_subscription
             if stripe_sub:

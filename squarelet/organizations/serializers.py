@@ -163,7 +163,7 @@ class OrganizationDetailSerializer(OrganizationSerializer):
 
     def get_card(self, obj):
         # this can be slow - goes to stripe for customer/card info - cache this
-        return obj.customer().card_display
+        return obj.customer().payment_method_display
 
 
 class MembershipSerializer(serializers.ModelSerializer):
@@ -269,7 +269,7 @@ class ChargeSerializer(serializers.ModelSerializer):
             raise StripeError(user_message)
         # add the card display to the response, so the client has immediate access
         # to the newly saved card
-        data = {"card": organization.customer().card_display}
+        data = {"card": organization.customer().payment_method_display}
         data.update(self.data)
         self._data = data
         return charge
