@@ -35,6 +35,14 @@
   font-weight: var(--font-semibold, 600);
 }
 
+.plan-name.professional {
+  color: var(--blue-4);
+}
+
+.plan-name.organization {
+  color: var(--purple-4);
+}
+
 a.plan-name {
   color: var(--blue-3);
 }
@@ -111,10 +119,6 @@ a.plan-name {
   flex-direction: row;
   align-items: center;
   gap: 0.75rem;
-}
-
-.plan-name {
-  color: var(--blue-4, #1367d0);
 }
 
 /* Plan benefits checklist */
