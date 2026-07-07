@@ -9,10 +9,8 @@ Args:
   inherited_plans.  — list of (source_org, plan) tuples; may be empty.
   upgrade_plan      — Plan to advertise when there is no own plan (optional).
   next_charge_date, card, cancelled — subscription details (optional, org only).
-  subscriptions_url — URL for the upgrade / billing-settings CTA (optional).
-  card_url          — URL for the card management CTA (optional).
   can_edit_subscription — bool gating the CTA. Default True.
-  subject           — "user" | "org". Controls copy. Default "org".
+  subject           — "users" | "organizations". Controls copy and links
 {% endcomment %}
 
 {% if subscriptions or upgrade_plan or not inherited_plans %}
@@ -28,7 +26,7 @@ Args:
               {{ card.brand }} {% trans "ending in" %} <strong>{{ card.last4 }}</strong>
             </span>
           </span>
-          <a href="{{ card_url }}" class="btn ghost primary small">
+          <a href="{% url subject|add:':update-card' org.slug %}" class="btn ghost primary small">
             {% trans "Add new card" %}
           </a>
         </div>
@@ -37,7 +35,7 @@ Args:
       <div class="plan-detail">
         <h3>{% trans "Your plans" %}</h3>
         <span class="caption">
-          {% trans "Modify or cancel your" %} {% if subject == "org" %}{% trans "organization's " %}{% endif %}{% trans "subscriptions" %}
+          {% trans "Modify or cancel your" %} {% if subject == "organizations" %}{% trans "organization's " %}{% endif %}{% trans "subscriptions" %}
         </span>
       </div>
 
@@ -57,7 +55,7 @@ Args:
                 {% trans "Cancelled" %}
               </span>
             {% else %}
-              <a href="{{ subscriptions_url }}#{{ subscription.plan.slug }}" class="btn ghost small">
+              <a href="{% url subject|add:':subscriptions' org.slug %}#{{ subscription.plan.slug }}" class="btn ghost small">
                 {% icon "gear" %}
                 {% trans "Manage" %}
               </a>
@@ -69,7 +67,7 @@ Args:
   {% else %}
     <div class="plan-overview">
       <p>
-        {% if subject == "user" %}
+        {% if subject == "users" %}
           {% trans "You are using MuckRock&rsquo;s" %}
           <span class="plan-name" id="free">{% trans "Free" %}</span>
           {% trans "plan." %}
@@ -77,8 +75,8 @@ Args:
           {% trans "No active subscription." %}
         {% endif %}
       </p>
-      {% if payment_url and can_edit_subscription %}
-        <a class="btn premium" href="{{ payment_url }}">{% trans "Upgrade" %}</a>
+      {% if can_edit_subscription %}
+        <a class="btn premium" href="{% url subject|add:':payment' org.slug %}">{% trans "Upgrade" %}</a>
       {% endif %}
     </div>
     {% if upgrade_plan %}
@@ -107,7 +105,7 @@ Args:
 {% for source_org, source_plan in inherited_plans %}
   <main class="plan-card plan-card--inherited">
     <p class="plan-overview">
-      {% if subject == "user" %}
+      {% if subject == "users" %}
         {% trans "You inherit" %}
       {% else %}
         {% trans "Inherits" %}
