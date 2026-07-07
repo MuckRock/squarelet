@@ -169,17 +169,13 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         # Get the current plan and subscription, if any
         individual_org = user.individual_organization
         upgrade_plan = Plan.objects.filter(slug="professional").first()
-        subscriptions = None
-        if hasattr(individual_org, "subscriptions"):
-            subscriptions = individual_org.subscriptions.all()
-        context["subscriptions"] = subscriptions
+        context["subscriptions"] = individual_org.subscriptions.all()
         context["upgrade_plan"] = upgrade_plan
         # Get card for active subscription
-        if subscriptions:
-            customer = individual_org.customer()
-            context["current_plan_card"] = bool(customer.stripe_payment_method_id)
-            context["current_plan_card_brand"] = customer.payment_brand
-            context["current_plan_card_last4"] = customer.payment_last4
+        customer = individual_org.customer()
+        context["current_plan_card"] = bool(customer.stripe_payment_method_id)
+        context["current_plan_card_brand"] = customer.payment_brand
+        context["current_plan_card_last4"] = customer.payment_last4
 
         # Cards for each non-individual org the user belongs to that has its own
         # paid plan. Plans the org inherits from parents/groups are intentionally
