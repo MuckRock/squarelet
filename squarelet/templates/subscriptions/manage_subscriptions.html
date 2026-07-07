@@ -64,7 +64,7 @@
       {% with annual=subscription.plan.annual cancelled=subscription.cancelled %}
         <main id="{{ subscription.plan.slug }}" class="subscription-card">
           <div class="subscription-row">
-            <h3 class="plan-name">{{ subscription.plan.name }}</h3>
+            <h3 class="{% if subject == "organizations" %}organization{% else %}professional{% endif %}">{{ subscription.plan.name }}</h3>
             {% if cancelled %}
               <span class="red badge">
                 {% trans "Cancelled" %}

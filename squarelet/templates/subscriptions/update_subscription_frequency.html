@@ -20,7 +20,7 @@
     <form id="change-frequency-form" method="post" enctype="multipart/form-data">
       {% crispy form form.helper %}
       <div>
-        <h3 class="plan {% if subject == "org" %}organization{% else %}professional{% endif %}">
+        <h3 class="plan {% if subject == "organizations" %}organization{% else %}professional{% endif %}">
           {{ plan.name }}
         </h3>
         <p>

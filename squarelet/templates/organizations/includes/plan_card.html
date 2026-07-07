@@ -43,7 +43,7 @@ Args:
         {% for subscription in subscriptions %}
           <li class="plan-item">
             <div class="plan-info">
-              <span class="plan-name">{{ subscription.plan.name }}</span>
+              <span class="plan-name {% if subject == "organizations" %}organization{% else %}professional{% endif %}">{{ subscription.plan.name }}</span>
               <span class="caption">
                 <span class="icon">{% icon "calendar" %}</span>
                 {{ subscription.plan.annual|yesno:_("Annual,Monthly") }}
