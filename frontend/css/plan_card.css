@@ -59,8 +59,9 @@ a.plan-name {
   flex: 1 0 100%;
   padding: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 1rem;
+  gap: 0.25rem 1rem;
   margin: 0.25rem 0;
 }
 
@@ -129,6 +130,10 @@ a.plan-name {
 @media (max-width: 28rem) {
   .plan-benefits.checklist {
     column-count: 1;
+  }
+
+  .plan-card .caption {
+    flex: 1 0 auto;
   }
 }
 
