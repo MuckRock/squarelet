@@ -70,7 +70,7 @@
                 <span class="blue badge">
                   {{ annual|yesno:_("Annual,Monthly") }}
                 </span>
-                {% url 'organizations:update-frequency' organization.slug subscription.id as update_url %}
+                {% url subject|add:':update-frequency' organization.slug subscription.id as update_url %}
                 <a href="{{ update_url }}" class="btn ghost primary small">
                   {% blocktrans with annual|yesno:_("monthly,annual") as frequency %}
                     Change to {{ frequency }}
@@ -101,7 +101,7 @@
               </span>
             </div>
             {% if not cancelled %}
-              {% url 'organizations:cancel-subscription' organization.slug subscription.id as cancel_url %}
+              {% url subject|add:':cancel-subscription' organization.slug subscription.id as cancel_url %}
               <a href="{{ cancel_url }}" class="btn ghost danger small">
                 {% icon "x-circle" %}
                 {% trans "Cancel plan" %}
@@ -141,7 +141,7 @@
             </span>
           </div>
 
-          <a href="{% url 'organizations:update-card' organization.slug %}" class="btn ghost primary small">
+          <a href="{% url subject|add:':update-card' organization.slug %}" class="btn ghost primary small">
             {% trans "Add new card" %}
           </a>
         </div>
@@ -162,7 +162,7 @@
           </span>
         </div>
 
-        {% url 'organizations:update-receipt-email' organization.slug as receipt_email_url %}
+        {% url subject|add:':update-receipt-email' organization.slug as receipt_email_url %}
         <a href="{{ receipt_email_url }}" class="btn ghost primary small">
           {% trans "Change email" %}
         </a>
@@ -175,7 +175,7 @@
       <div class="title">
         <h2>{% trans "Recent payments" %}</h2>
       </div>
-      {% url 'organizations:payments' organization.slug as payments_url %}
+      {% url subject|add:':payments' organization.slug as payments_url %}
       <a href="{{ payments_url }}" class="btn small ghost primary">
         {% icon "log" %}
         {% trans "View all" %}
