@@ -8,7 +8,7 @@ import re
 
 # Third Party
 from crispy_forms.helper import FormHelper
-from crispy_forms.layout import Field as CrispyField, Fieldset, Layout
+from crispy_forms.layout import Field as CrispyField, Layout
 
 # Squarelet
 from squarelet.core.forms import StripeForm

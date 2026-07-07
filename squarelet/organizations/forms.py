@@ -6,9 +6,6 @@ from django.middleware.csrf import get_token
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
-# Standard Library
-import re
-
 # Third Party
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Field as CrispyField, Fieldset, Layout
