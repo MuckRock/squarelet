@@ -110,15 +110,8 @@ class Detail(AdminLinkMixin, DetailView):
     def _get_subscription_context(self, org, subscription):
         """Return context dict for card, next charge date, and cancellation status."""
         customer = org.customer()
-        if customer.card is None:
-            card = None
-        elif customer.card.object == "payment_method":
-            card = customer.card.card
-        else:
-            card = customer.card
-
         ctx = {
-            "current_plan_card": card,
+            "current_plan_card": customer.card,
             "current_plan_cancelled": subscription.cancelled,
         }
 
