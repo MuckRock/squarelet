@@ -66,7 +66,7 @@ urlpatterns = [
         name="update-frequency",
     ),
     path(
-        "<slug:slug>/receipts/",
+        "<slug:slug>/receipt-email/",
         view=views.UpdateReceiptEmail.as_view(),
         name="update-receipt-email",
     ),

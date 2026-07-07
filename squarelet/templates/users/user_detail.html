@@ -138,7 +138,7 @@
             {% icon "gear" %}
             {% trans "Manage plans" %}
           </a>
-          <a href="{% url "users:receipts" username=user.username %}" class="btn ghost primary">
+          <a href="{% url "users:payments" user.username %}" class="btn ghost primary">
             {% icon "log" %}
             {% trans "View payments" %}
           </a>
