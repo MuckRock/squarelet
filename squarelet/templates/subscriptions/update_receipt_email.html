@@ -17,7 +17,6 @@
 {% endblock header %}
 
 {% block main %}
-  {% url 'organizations:subscriptions' organization.slug as subscriptions_url %}
   {% if card %}
     <div class="info">
       <span class="icon">{% icon "credit-card" %}</span>
@@ -38,7 +37,7 @@
         {% trans "Update email" %}
       </button>
 
-      <a href="{{ subscriptions_url }}" class="btn ghost primary">
+      <a href="{% url subject|add:':subscriptions' organization.slug %}" class="btn ghost primary">
         {% trans "Cancel" %}
       </a>
     </div>

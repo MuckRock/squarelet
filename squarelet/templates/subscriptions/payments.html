@@ -21,7 +21,7 @@
 {% endblock %}
 
 {% block sidebar %}
-  <a href="{{ organization.get_absolute_url }}" class="btn small ghost primary">
+  <a href="{% url subject|add:':subscriptions' organization.slug %}" class="btn small ghost primary">
     {% icon "chevron-left" %}
     {% trans "Back to subscriptions" %}
   </a>

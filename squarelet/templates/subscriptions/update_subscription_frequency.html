@@ -16,7 +16,6 @@
 {% endblock header %}
 
 {% block main %}
-  {% url 'organizations:subscriptions' organization.slug as subscriptions_url %}
   {% with plan=subscription.plan currentfreq=plan.annual|yesno:_("annual,monthly") newfreq=plan.annual|yesno:_("monthly,annual") %}
     <form id="change-frequency-form" method="post" enctype="multipart/form-data">
       {% crispy form form.helper %}
@@ -43,7 +42,7 @@
           {% endblocktrans %}
         </button>
 
-        <a href="{{ subscriptions_url }}" class="btn ghost primary">
+        <a href="{% url subject|add:':subscriptions' organization.slug %}" class="btn ghost primary">
           {% blocktrans with frequency=currentfreq %}
             Keep {{ frequency }}
           {% endblocktrans %}
