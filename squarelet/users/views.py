@@ -14,7 +14,6 @@ from django.http.response import (
 )
 from django.shortcuts import redirect
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import (
     DetailView,
@@ -31,7 +30,6 @@ import json
 import logging
 import sys
 import time
-from datetime import datetime
 
 # Third Party
 from allauth.account.utils import get_next_redirect_url, send_email_confirmation

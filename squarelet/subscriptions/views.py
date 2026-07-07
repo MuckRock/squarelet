@@ -15,7 +15,6 @@ import stripe
 
 # Squarelet
 from squarelet.core.utils import format_stripe_error
-from squarelet.organizations.mixins import OrganizationPermissionMixin
 from squarelet.organizations.models import Charge, Organization
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.subscriptions.forms import (
@@ -98,7 +97,9 @@ class BaseUpdateCard(UpdateView):
     def form_valid(self, form):
         organization = self.object
         user = self.request.user
-        redirect_url = reverse(f"{self.subject}:subscriptions", args=[organization.slug])
+        redirect_url = reverse(
+            f"{self.subject}:subscriptions", args=[organization.slug]
+        )
         token = form.cleaned_data["stripe_token"]
         try:
             organization.save_card(token, user)
