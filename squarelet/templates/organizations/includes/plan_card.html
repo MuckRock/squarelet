@@ -28,16 +28,16 @@ Args:
               {{ card.brand }} {% trans "ending in" %} <strong>{{ card.last4 }}</strong>
             </span>
           </span>
+          <a href="{{ card_url }}" class="btn ghost primary small">
+            {% trans "Add new card" %}
+          </a>
         </div>
-        <a href="{{ card_url }}" class="btn ghost primary small">
-          {% trans "Add new card" %}
-        </a>
       {% endif %}
 
       <div class="plan-detail">
         <h3>{% trans "Your plans" %}</h3>
         <span class="caption">
-          {% trans "Modify or cancel your organization's subscriptions" %}
+          {% trans "Modify or cancel your" %} {% if subject == "org" %}{% trans "organization's " %}{% endif %}{% trans "subscriptions" %}
         </span>
       </div>
 
