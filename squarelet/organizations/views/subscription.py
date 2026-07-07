@@ -1,7 +1,7 @@
 # Django
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth.mixins import UserPassesTestMixin
+from django.contrib.auth.mixins import UserPassesTestMixin, PermissionRequiredMixin
 from django.http.response import (
     HttpResponse,
     HttpResponseBadRequest,
@@ -327,10 +327,14 @@ class CancelSubscription(OrganizationPermissionMixin, UpdateView):
         return redirect("organizations:subscriptions", slug=self.object.slug)
 
 
-class PaymentsList(ListView):
-    permission_required = "organizations.can_view_charge"
+class PaymentsList(PermissionRequiredMixin, ListView):
     template_name = "organizations/organization_payments.html"
     paginate_by = 20
+
+    def has_permission(self):
+        user = self.request.user
+        organization = Organization.objects.get(slug=self.kwargs["slug"])
+        return user.has_perm("organizations.can_view_charge", organization)
 
     def get_queryset(self):
         return Charge.objects.filter(organization__slug=self.kwargs["slug"])
