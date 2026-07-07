@@ -1,3 +1,7 @@
+.modal-layout {
+  box-sizing: border-box;
+}
+
 .modal-layout header {
   display: flex;
   flex-direction: row;

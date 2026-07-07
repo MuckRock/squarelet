@@ -28,6 +28,8 @@
 
 .subscription-row {
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0;
   justify-content: space-between;
   align-items: center;
 }
@@ -35,6 +37,12 @@
 .subscription-group {
   display: flex;
   gap: 1rem;
+}
+
+@media (max-width: 28rem) {
+  .subscription-group {
+    flex: 1 0 100%;
+  }
 }
 
 .subscription-detail {
