@@ -1,12 +1,8 @@
 {% extends "layouts/modal_layout.html" %}
-{% load django_vite i18n crispy_forms_tags %}
+{% load i18n crispy_forms_tags %}
 {% load icon %}
 
 {% block title %}{{ organization.name }} | Update Receipt Emails{% endblock %}
-
-{% block vite %}
-{{ block.super }}
-{% endblock vite %}
 
 {% block layout_id %}update_receipt_emails{% endblock %}
 
