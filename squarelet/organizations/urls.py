@@ -35,7 +35,7 @@ urlpatterns = [
     ),
     path("<slug:slug>/card/", view=views.UpdateCard.as_view(), name="update-card"),
     path(
-        "<slug:slug>/receipts/",
+        "<slug:slug>/receipt-email/",
         view=views.UpdateReceiptEmail.as_view(),
         name="update-receipt-email",
     ),
