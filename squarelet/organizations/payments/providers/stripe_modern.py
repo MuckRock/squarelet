@@ -83,7 +83,7 @@ class StripeModernCustomerService(CustomerService):
             invoice_settings={"default_payment_method": pm.id},
         )
 
-    def remove_card(self, customer_id, source_id):
+    def remove_payment_method(self, customer_id, source_id):
         """Remove a saved card. Handles both PaymentMethods (pm_) and Sources."""
         if source_id and source_id.startswith("pm_"):
             stripe.PaymentMethod.detach(source_id)
@@ -112,8 +112,8 @@ class StripeModernCustomerService(CustomerService):
         pm_id = source_or_pm if isinstance(source_or_pm, str) else source_or_pm.id
         stripe.PaymentMethod.detach(pm_id)
 
-    def get_card(self, stripe_customer):
-        """Return the default PaymentMethod, falling back to a saved Source."""
+    def get_payment_method(self, stripe_customer):
+        """Return the default PaymentMethod or legacy Source, or None."""
         invoice_settings = stripe_customer.invoice_settings
         pm_id = invoice_settings and invoice_settings.default_payment_method
         if pm_id:

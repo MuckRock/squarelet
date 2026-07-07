@@ -30,10 +30,10 @@ class TestChargeQuerySet:
         return mock_stripe_charge, mock_provider
 
     def _mock_customer_with_card(self, mocker):
-        """Mock Customer.source and stripe_customer for saved-card tests."""
+        """Mock Customer.payment_method and stripe_customer for saved-card tests."""
         mock_source = mocker.Mock(id="card_123")
         mocker.patch(
-            "squarelet.organizations.models.payment.Customer.source",
+            "squarelet.organizations.models.payment.Customer.payment_method",
             new_callable=mocker.PropertyMock,
             return_value=mock_source,
         )
@@ -301,7 +301,7 @@ class TestChargeQuerySet:
         org = OrganizationFactory(customer__customer_id="cus_no_card")
         mocker.patch("squarelet.organizations.models.Customer.stripe_customer")
         mocker.patch(
-            "squarelet.organizations.models.payment.Customer.source",
+            "squarelet.organizations.models.payment.Customer.payment_method",
             new_callable=mocker.PropertyMock,
             return_value=None,
         )

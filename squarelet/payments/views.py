@@ -170,22 +170,28 @@ class PlanDetailView(DetailView):
         """
         org_cards = {}
 
-        # Add individual org if it has a card
+        # Add individual org if it has a payment method on file
         if individual_org:
-            individual_card = individual_org.customer().card
+            individual_card = individual_org.customer().payment_details
             if individual_card:
                 org_cards[str(individual_org.pk)] = {
                     "last4": individual_card.last4,
-                    "brand": individual_card.brand,
+                    "brand": (
+                        getattr(individual_card, "brand", None)
+                        or getattr(individual_card, "bank_name", "")
+                    ),
                 }
 
-        # Add admin organizations that have cards
+        # Add admin organizations that have a payment method on file
         for org in admin_orgs:
-            org_card = org.customer().card
+            org_card = org.customer().payment_details
             if org_card:
                 org_cards[str(org.pk)] = {
                     "last4": org_card.last4,
-                    "brand": org_card.brand,
+                    "brand": (
+                        getattr(org_card, "brand", None)
+                        or getattr(org_card, "bank_name", "")
+                    ),
                 }
 
         return org_cards

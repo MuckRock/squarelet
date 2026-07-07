@@ -48,7 +48,7 @@ class TestOrganizationAPI:
             invoice_settings=Mock(default_payment_method=None),
         )
         mocker.patch(
-            "squarelet.organizations.models.payment.Customer.card",
+            "squarelet.organizations.models.payment.Customer.payment_details",
             new_callable=mocker.PropertyMock,
             return_value=mock_card,
         )

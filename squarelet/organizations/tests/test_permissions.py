@@ -447,7 +447,7 @@ class TestUpdateSubscriptionViewPermission(ViewTestMixin):
 
     def test_accessible_by_admin(self, rf, organization_factory, user_factory, mocker):
         """Admin can access UpdateSubscription"""
-        mocker.patch("squarelet.organizations.models.Customer.card", None)
+        mocker.patch("squarelet.organizations.models.Customer.payment_details", None)
         admin = user_factory()
         org = organization_factory(admins=[admin])
         response = self.call_view(rf, admin, slug=org.slug)
@@ -473,7 +473,7 @@ class TestUpdateSubscriptionViewPermission(ViewTestMixin):
         self, rf, organization_factory, user_factory, mocker
     ):
         """Staff with DB-assigned permission can access UpdateSubscription"""
-        mocker.patch("squarelet.organizations.models.Customer.card", None)
+        mocker.patch("squarelet.organizations.models.Customer.payment_details", None)
         staff = user_factory(is_staff=True)
         org = organization_factory()
         ct = ContentType.objects.get_for_model(Organization)

@@ -426,12 +426,12 @@ class Organization(AvatarMixin, models.Model):
         self.change_logs.create(
             user=user,
             reason=ChangeLogReason.credit_card,
-            credit_card=self.customer().card_display,
+            credit_card=self.customer().payment_method_display,
             to_max_users=self.max_users,
         )
 
-    def remove_card(self):
-        self.customer().remove_card()
+    def remove_payment_method(self):
+        self.customer().remove_payment_method()
         send_cache_invalidations("organization", self.uuid)
 
     def member_users(self, request=None):
@@ -496,7 +496,7 @@ class Organization(AvatarMixin, models.Model):
 
         # Detect payment method if not explicitly provided
         if payment_method is None:
-            if token or self.customer().card:
+            if token or self.customer().payment_details:
                 payment_method = "card"
             else:
                 payment_method = "invoice"

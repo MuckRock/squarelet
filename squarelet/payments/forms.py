@@ -218,11 +218,14 @@ class PlanPurchaseForm(StripeForm):
 
         for org in self.fields["organization"].queryset:
             try:
-                card = org.customer().card
+                card = org.customer().payment_details
                 if card:
                     org_cards[str(org.pk)] = {
                         "last4": card.last4,
-                        "brand": card.brand,
+                        "brand": (
+                            getattr(card, "brand", None)
+                            or getattr(card, "bank_name", "")
+                        ),
                     }
             except stripe.error.StripeError as exc:
                 logger.error(
@@ -321,7 +324,7 @@ class PlanPurchaseForm(StripeForm):
         # Validate payment method matches available options
         if payment_method == "existing-card":
             if organization and organization != "new":
-                if not organization.customer().card:
+                if not organization.customer().payment_details:
                     self.add_error(
                         "payment_method",
                         _("No payment method on file. Please add a card."),

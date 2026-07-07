@@ -30,13 +30,13 @@ class StripeForm(forms.Form):
         card = None
         if self.organization:
             customer = self.organization.customer()
-            card = customer.card
+            card = customer.payment_details
         if card:
             self.fields["use_card_on_file"].choices = (
-                (True, customer.card_display),
+                (True, customer.payment_method_display),
                 (False, _("New Card")),
             )
-            self.fields["remove_card_on_file"].label = customer.card_display
+            self.fields["remove_card_on_file"].label = customer.payment_method_display
         else:
             del self.fields["use_card_on_file"]
             del self.fields["remove_card_on_file"]

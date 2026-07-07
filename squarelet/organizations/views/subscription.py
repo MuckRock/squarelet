@@ -110,7 +110,7 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
         else:
             organization.set_receipt_emails(form.cleaned_data["receipt_emails"])
             if form.cleaned_data.get("remove_card_on_file"):
-                organization.remove_card()
+                organization.remove_payment_method()
                 if self._is_ajax():
                     return JsonResponse(
                         {

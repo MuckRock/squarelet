@@ -331,7 +331,7 @@ class ChargeQuerySet(models.QuerySet):
         if token:
             source = customer.add_source(token)
         else:
-            source = customer.source
+            source = customer.payment_method
 
         default_metadata = {
             "organization": organization.name,

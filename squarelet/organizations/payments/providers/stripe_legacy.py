@@ -39,7 +39,7 @@ class StripeLegacyCustomerService(CustomerService):
         """Set a card token as the customer's default source."""
         stripe.Customer.modify(stripe_customer.id, source=token)
 
-    def remove_card(self, customer_id, source_id):
+    def remove_payment_method(self, customer_id, source_id):
         stripe.Customer.delete_source(customer_id, source_id)
 
     def retrieve_source(self, stripe_customer, source_id):
@@ -51,7 +51,7 @@ class StripeLegacyCustomerService(CustomerService):
     def remove_source(self, source_or_pm):
         source_or_pm.delete()
 
-    def get_card(self, stripe_customer):
+    def get_payment_method(self, stripe_customer):
         if stripe_customer.default_source:
             source = stripe_customer.sources.retrieve(stripe_customer.default_source)
             if source.object == "card":

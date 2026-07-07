@@ -184,7 +184,7 @@ class TestPlanPurchaseFormValidation:
 
         # Mock that organization has NO card
         mock_customer = mocker.MagicMock()
-        mock_customer.card = None
+        mock_customer.payment_details = None
         mocker.patch.object(Organization, "customer", return_value=mock_customer)
 
         data = {
@@ -299,7 +299,7 @@ class TestPlanPurchaseFormValidation:
         mock_card.last4 = "4242"
         mock_card.brand = "Visa"
         mock_customer = mocker.MagicMock()
-        mock_customer.card = mock_card
+        mock_customer.payment_details = mock_card
         mocker.patch.object(Organization, "customer", return_value=mock_customer)
 
         data = {
@@ -424,7 +424,7 @@ class TestPlanPurchaseFormOrgCards:
         mock_card.brand = "Visa"
 
         mock_customer = mocker.MagicMock()
-        mock_customer.card = mock_card
+        mock_customer.payment_details = mock_card
 
         mocker.patch.object(Organization, "customer", return_value=mock_customer)
 
