@@ -22,7 +22,11 @@
 {% block sidebar %}
   <a href="{{ organization.get_absolute_url }}" class="btn small ghost primary">
     {% icon "chevron-left" %}
-    {% trans "Back to team overview" %}
+    {% if subject == "organizations" %}
+      {% trans "Back to team overview" %}
+    {% else %}
+      {% trans "Back to your account" %}
+    {% endif %}
   </a>
   <ul>
     <li>

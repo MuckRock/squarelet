@@ -23,7 +23,11 @@
 {% block sidebar %}
   <a href="{% url subject|add:':subscriptions' organization.slug %}" class="btn small ghost primary">
     {% icon "chevron-left" %}
-    {% trans "Back to subscriptions" %}
+    {% if subject == "users" %}
+      {% trans "Back to your subscriptions" %}
+    {% else %}
+      {% trans "Back to subscriptions" %}
+    {% endif %}
   </a>
 {% endblock sidebar %}
 
