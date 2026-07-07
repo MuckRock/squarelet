@@ -130,7 +130,7 @@ class BaseUpdateCard(UpdateView):
         return context
 
 
-class BaseUpdateReceiptEmail(OrganizationPermissionMixin, UpdateView):
+class BaseUpdateReceiptEmail(UpdateView):
     form_class = UpdateReceiptEmailForm
     template_name = "subscriptions/update_receipt_email.html"
 
