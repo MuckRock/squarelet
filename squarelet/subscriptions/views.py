@@ -98,7 +98,7 @@ class BaseUpdateCard(UpdateView):
     def form_valid(self, form):
         organization = self.object
         user = self.request.user
-        redirect_url = reverse("organizations:subscriptions", args=[organization.slug])
+        redirect_url = reverse(f"{self.subject}:subscriptions", args=[organization.slug])
         token = form.cleaned_data["stripe_token"]
         try:
             organization.save_card(token, user)
@@ -107,7 +107,7 @@ class BaseUpdateCard(UpdateView):
             if self._is_ajax():
                 return JsonResponse({"error": user_message}, status=400)
             messages.error(self.request, f"Payment error: {user_message}")
-            return redirect(organization)
+            return redirect(redirect_url)
         else:
             success_msg = _("Credit card updated")
             if self._is_ajax():
@@ -115,7 +115,7 @@ class BaseUpdateCard(UpdateView):
                     {"redirect": redirect_url, "message": str(success_msg)}
                 )
             messages.success(self.request, success_msg)
-        return redirect(organization)
+        return redirect(redirect_url)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -136,7 +136,7 @@ class BaseUpdateReceiptEmail(UpdateView):
 
     def form_valid(self, form):
         self.object.set_receipt_emails(form.cleaned_data["receipt_emails"])
-        return redirect("organizations:subscriptions", slug=self.object.slug)
+        return redirect(f"{self.subject}:subscriptions", slug=self.object.slug)
 
     def get_initial(self):
         return {
@@ -172,7 +172,7 @@ class BaseCancelSubscription(UpdateView):
         if subscription:
             organization.remove_subscription(subscription)
         messages.success(self.request, _("Subscription cancelled."))
-        return redirect("organizations:subscriptions", slug=self.object.slug)
+        return redirect(f"{self.subject}:subscriptions", slug=self.object.slug)
 
 
 class BasePaymentsList(ListView):
