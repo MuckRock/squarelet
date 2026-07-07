@@ -32,7 +32,7 @@
     <li>
       <a href="#plan" class="nav-item">
         {% icon "credit-card" %}
-        {% trans "Plan" %}
+        {% trans "Plans" %}
       </a>
     </li>
     <li>
@@ -132,14 +132,15 @@
 
     <section id="plan">
       <header>
-        <h2>{% trans "Plan" %}</h2>
+        <h2>{% trans "Plans" %}</h2>
         <div class="header-actions">
-          <a href="{% url "select_plan" %}" class="btn ghost primary">
-            {% trans "View plans" %}
+          <a href="{% url 'users:subscriptions' user.username %}" class="btn ghost primary">
+            {% icon "gear" %}
+            {% trans "Manage plans" %}
           </a>
           <a href="{% url "users:receipts" username=user.username %}" class="btn ghost primary">
             {% icon "log" %}
-            {% trans "View receipts" %}
+            {% trans "View payments" %}
           </a>
         </div>
       </header>
