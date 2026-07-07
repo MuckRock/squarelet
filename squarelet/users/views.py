@@ -55,6 +55,14 @@ from squarelet.organizations.models.payment import Plan
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.views import UpdateSubscription
 from squarelet.services.models import Service
+from squarelet.subscriptions.views import (
+    BaseCancelSubscription,
+    BaseManageSubscriptions,
+    BasePaymentsList,
+    BaseUpdateCard,
+    BaseUpdateReceiptEmail,
+    BaseUpdateSubscriptionFrequency,
+)
 from squarelet.users.forms import (
     SignupForm,
     UserAutologinPreferenceForm,
@@ -665,3 +673,41 @@ class UserRequestsView(BaseUserInvitationRequestView):
     context_object_name = "requests"
     is_request_view = True
     redirect_url_name = "users:requests"
+
+
+class IndividualSubscriptionView:
+    """Base class for individual subscription views."""
+
+    queryset = Organization.objects.filter(individual=True)
+    subject = "users"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["subject"] = self.subject
+        return context
+
+
+class ManageSubscriptions(IndividualSubscriptionView, BaseManageSubscriptions):
+    pass
+
+
+class CancelSubscription(IndividualSubscriptionView, BaseCancelSubscription):
+    pass
+
+
+class UpdateSubscriptionFrequency(
+    IndividualSubscriptionView, BaseUpdateSubscriptionFrequency
+):
+    pass
+
+
+class UpdateCard(IndividualSubscriptionView, BaseUpdateCard):
+    pass
+
+
+class UpdateReceiptEmail(IndividualSubscriptionView, BaseUpdateReceiptEmail):
+    pass
+
+
+class PaymentsList(IndividualSubscriptionView, BasePaymentsList):
+    pass
