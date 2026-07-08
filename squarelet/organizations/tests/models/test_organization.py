@@ -171,13 +171,19 @@ class TestOrganization:
         mock_stripe_sub = Mock(
             id="sub_test123",
             status=status,
-            current_period_end=period_end,
             latest_invoice=None,
         )
+        # Patch the subscription service used by Subscription.start() in payment.py
         mock_sub_service = mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
         ).return_value.get_subscription_service.return_value
         mock_sub_service.create.return_value = mock_stripe_sub
+        # Patch the provider reference used by add_subscription() in organization.py
+        # for get_current_period_end (field moved to subscription items in basil API)
+        mock_org_sub_service = mocker.patch(
+            "squarelet.organizations.models.organization.get_payment_provider"
+        ).return_value.get_subscription_service.return_value
+        mock_org_sub_service.get_current_period_end.return_value = period_end
         return mock_customer, mock_sub_service, mock_stripe_sub
 
     @pytest.mark.django_db

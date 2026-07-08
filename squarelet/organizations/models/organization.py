@@ -30,6 +30,7 @@ from squarelet.organizations.choices import (
 from squarelet.organizations.models.invitation import Invitation
 from squarelet.organizations.models.membership import Membership
 from squarelet.organizations.models.payment import Charge, ReceiptEmail
+from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.querysets import OrganizationQuerySet
 
 logger = logging.getLogger(__name__)
@@ -511,8 +512,13 @@ class Organization(AvatarMixin, models.Model):
         )
 
         if is_first and stripe_subscription:
+            period_end = (
+                get_payment_provider()
+                .get_subscription_service()
+                .get_current_period_end(stripe_subscription)
+            )
             self.update_on = datetime.fromtimestamp(
-                stripe_subscription.current_period_end,
+                period_end,
                 tz=dt_timezone.utc,
             ).date()
             self.save(update_fields=["update_on"])
