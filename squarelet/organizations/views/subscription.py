@@ -32,6 +32,7 @@ from squarelet.core.utils import (
 )
 from squarelet.organizations.forms import PaymentForm
 from squarelet.organizations.mixins import OrganizationPermissionMixin
+from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.models import Charge, Organization
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.tasks import (
@@ -94,6 +95,11 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
                 self.request,
                 _("Your card requires additional authentication. Please try again."),
             )
+            return redirect(organization)
+        except SubscriptionError as exc:
+            if self._is_ajax():
+                return JsonResponse({"error": str(exc)}, status=400)
+            messages.error(self.request, str(exc))
             return redirect(organization)
         except stripe.StripeError as exc:
             user_message = format_stripe_error(exc)

@@ -1,7 +1,7 @@
 # Django
 from django import forms
 from django.core.validators import validate_email
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
@@ -15,14 +15,13 @@ from allauth.account.utils import setup_user_email
 from allauth.mfa.base import forms as mfa
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import HTML, Layout
-from psycopg2 import errors
-from psycopg2.errorcodes import UNIQUE_VIOLATION
 
 # Squarelet
 from squarelet.core.forms import AvatarWidget, StripeForm
 from squarelet.core.layout import Field
 from squarelet.core.utils import format_stripe_error
 from squarelet.organizations.models import Plan
+from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.models.organization import Organization
 from squarelet.users.models import User
 
@@ -277,8 +276,8 @@ class PremiumSubscriptionForm(StripeForm):
             user_message = format_stripe_error(exc)
             self.add_error(None, user_message)
             return False
-        except errors.lookup(UNIQUE_VIOLATION) as exc:
-            # Organizations can only have one subscription
+        except (SubscriptionError, IntegrityError) as exc:
+            # Organizations can only have one subscription per plan
             logger.error("Error creating subscription: %s", exc)
             self.add_error(None, _("This organization already has a subscription."))
             return False
