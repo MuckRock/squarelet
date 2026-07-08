@@ -475,8 +475,8 @@ class Organization(AvatarMixin, models.Model):
     def add_subscription(self, plan, max_users, user, token=None, payment_method=None):
         """Add a new subscription to a plan.
 
-        Raises ValueError if the org already has a non-cancelled subscription
-        for this plan.
+        Raises SubscriptionError if the org already has a non-cancelled
+        subscription for this plan.
         """
         # Lock this org row to serialize concurrent subscription attempts
         # (e.g. double form submit), preventing a race between the exists()
@@ -487,6 +487,10 @@ class Organization(AvatarMixin, models.Model):
             raise SubscriptionError(
                 f"Organization already has an active subscription to {plan}"
             )
+
+        # max_users is absent from the PaymentForm for individual orgs
+        if max_users is None:
+            max_users = plan.minimum_users
 
         is_first = not self.subscriptions.exists()
 

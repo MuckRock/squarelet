@@ -1233,6 +1233,30 @@ class TestMultipleSubscriptions:
         assert Subscription.objects.filter(organization=org).count() == 2
 
     @pytest.mark.django_db
+    def test_add_subscription_none_max_users_uses_plan_minimum(
+        self,
+        individual_organization_factory,
+        plan_factory,
+        user_factory,
+        mocker,
+    ):
+        """add_subscription with max_users=None (individual org form omits the field)
+        falls back to plan.minimum_users instead of inserting NULL for quantity."""
+        org = individual_organization_factory()
+        plan = plan_factory(minimum_users=1)
+        user = user_factory()
+
+        mocker.patch(
+            "squarelet.organizations.models.Customer.stripe_customer",
+            email="test@example.com",
+        )
+
+        org.add_subscription(plan, None, user, payment_method="invoice")
+
+        sub = Subscription.objects.get(organization=org, plan=plan)
+        assert sub.quantity == plan.minimum_users
+
+    @pytest.mark.django_db
     def test_remove_subscription_by_plan(
         self,
         organization_factory,
