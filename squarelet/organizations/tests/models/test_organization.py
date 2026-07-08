@@ -8,6 +8,7 @@ import stripe
 
 # Squarelet
 from squarelet.organizations.models import Organization, Subscription
+from squarelet.organizations.payments.exceptions import SubscriptionError
 
 # pylint: disable=too-many-public-methods,too-many-lines,too-many-positional-arguments
 
@@ -1207,7 +1208,7 @@ class TestMultipleSubscriptions:
         user = user_factory()
         subscription_factory(organization=org, plan=plan)
 
-        with pytest.raises(ValueError, match="already has an active subscription"):
+        with pytest.raises(SubscriptionError, match="already has an active subscription"):
             org.add_subscription(plan, org.max_users, user)
 
     @pytest.mark.django_db

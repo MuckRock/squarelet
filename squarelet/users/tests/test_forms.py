@@ -8,11 +8,10 @@ from unittest.mock import MagicMock
 # Third Party
 import pytest
 import stripe
-from psycopg2 import errors
-from psycopg2.errorcodes import UNIQUE_VIOLATION
 
 # Squarelet
 from squarelet.organizations.models import Organization
+from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.users import forms
 from squarelet.users.models import User
 
@@ -422,17 +421,13 @@ def test_premium_subscription_form_save_new_organization(plan_factory, user, moc
 
 @pytest.mark.django_db
 def test_premium_subscription_form_save_unique_violation(plan_factory, user, mocker):
-    """Test handling unique violation errors (organization already has subscription)"""
-
-    class MockUniqueViolation(errors.lookup(UNIQUE_VIOLATION)):
-        pass
-
+    """Test handling duplicate subscription errors (organization already has subscription)"""
     plan = plan_factory(slug="professional")
     mocker.patch.object(
         Organization,
         "add_subscription",
-        side_effect=MockUniqueViolation(
-            "duplicate key value violates unique constraint"
+        side_effect=SubscriptionError(
+            "Organization already has an active subscription"
         ),
     )
 
