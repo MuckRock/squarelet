@@ -2,7 +2,6 @@
 # Django
 from django.forms import HiddenInput, ValidationError
 
-# Standard Library
 from unittest.mock import MagicMock
 
 # Third Party
@@ -421,7 +420,8 @@ def test_premium_subscription_form_save_new_organization(plan_factory, user, moc
 
 @pytest.mark.django_db
 def test_premium_subscription_form_save_unique_violation(plan_factory, user, mocker):
-    """Test handling duplicate subscription errors (organization already has subscription)"""
+    """Test handling duplicate subscription errors (organization already has
+    subscription)"""
     plan = plan_factory(slug="professional")
     mocker.patch.object(
         Organization,

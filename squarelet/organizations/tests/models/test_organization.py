@@ -1208,7 +1208,9 @@ class TestMultipleSubscriptions:
         user = user_factory()
         subscription_factory(organization=org, plan=plan)
 
-        with pytest.raises(SubscriptionError, match="already has an active subscription"):
+        with pytest.raises(
+            SubscriptionError, match="already has an active subscription"
+        ):
             org.add_subscription(plan, org.max_users, user)
 
     @pytest.mark.django_db
