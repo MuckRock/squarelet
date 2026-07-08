@@ -21,8 +21,8 @@ from squarelet.core.forms import AvatarWidget, StripeForm
 from squarelet.core.layout import Field
 from squarelet.core.utils import format_stripe_error
 from squarelet.organizations.models import Plan
-from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.models.organization import Organization
+from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.users.models import User
 
 logger = logging.getLogger(__name__)
