@@ -279,6 +279,7 @@ class PlanDetailView(DetailView):
 
     def _handle_regular_subscription(self, request, plan, result):
         """Call add_subscription directly; return error response or None on success."""
+        # pylint: disable=too-many-return-statements
         organization = result["organization"]
         selected_plan = result["plan"]
         stripe_token = result["stripe_token"]
