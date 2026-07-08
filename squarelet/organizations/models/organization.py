@@ -30,6 +30,7 @@ from squarelet.organizations.choices import (
 from squarelet.organizations.models.invitation import Invitation
 from squarelet.organizations.models.membership import Membership
 from squarelet.organizations.models.payment import Charge, ReceiptEmail
+from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.querysets import OrganizationQuerySet
 
@@ -470,14 +471,20 @@ class Organization(AvatarMixin, models.Model):
                     break
         return users_list
 
+    @transaction.atomic
     def add_subscription(self, plan, max_users, user, token=None, payment_method=None):
         """Add a new subscription to a plan.
 
         Raises ValueError if the org already has a non-cancelled subscription
         for this plan.
         """
+        # Lock this org row to serialize concurrent subscription attempts
+        # (e.g. double form submit), preventing a race between the exists()
+        # check and the INSERT.
+        Organization.objects.select_for_update().filter(pk=self.pk).get()
+
         if self.subscriptions.filter(plan=plan).exists():
-            raise ValueError(
+            raise SubscriptionError(
                 f"Organization already has an active subscription to {plan}"
             )
 

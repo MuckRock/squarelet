@@ -20,6 +20,7 @@ import stripe
 from squarelet.organizations.models import Organization, Plan
 from squarelet.organizations.models.payment import Subscription
 from squarelet.organizations.payments.base import PaymentActionRequired
+from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.tasks import add_to_waitlist
 from squarelet.payments.forms import PlanPurchaseForm
 
@@ -308,6 +309,12 @@ class PlanDetailView(DetailView):
                 request,
                 _("Your card requires additional authentication. Please try again."),
             )
+            return redirect(plan)
+        except SubscriptionError as exc:
+            logger.error("Duplicate subscription attempt: %s", exc)
+            if self._is_ajax():
+                return JsonResponse({"error": str(exc)}, status=400)
+            messages.error(request, str(exc))
             return redirect(plan)
         except stripe.StripeError as exc:
             logger.error(
