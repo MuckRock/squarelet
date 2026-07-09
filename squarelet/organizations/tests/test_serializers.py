@@ -108,7 +108,7 @@ class TestSerializerProfile:
     def _mock_card(self, mocker):
         # Avoid hitting Stripe when serializing the card field
         mocker.patch(
-            "squarelet.organizations.models.payment.Customer.card_display",
+            "squarelet.organizations.models.payment.Customer.payment_method_display",
             new_callable=mocker.PropertyMock,
             return_value=None,
         )
