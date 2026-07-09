@@ -1,7 +1,7 @@
 # Django
 from celery import shared_task
 from django.conf import settings
-from django.db.models import F
+from django.db.models import F, Q
 from django.utils.timezone import get_current_timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -48,9 +48,13 @@ def restore_organization():
         Organization.objects.filter(id__in=due_org_ids).values_list("uuid", flat=True)
     )
 
-    # Delete cancelled subscriptions for due orgs
+    # Delete cancelled subscriptions for due orgs where the Stripe cancellation
+    # date has passed (or is null, which covers free plans and legacy records).
     Subscription.objects.filter(
-        organization_id__in=due_org_ids, cancelled=True
+        organization_id__in=due_org_ids,
+        cancelled=True,
+    ).filter(
+        Q(cancel_at__lte=today) | Q(cancel_at__isnull=True)
     ).delete()
 
     # Determine which orgs still have active subscriptions

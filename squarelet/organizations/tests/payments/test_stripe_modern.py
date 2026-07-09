@@ -329,6 +329,18 @@ class TestModernSubscriptionService:
         subscription_service.modify("sub_123", cancel_at_period_end=True)
         mock_modify.assert_called_once_with("sub_123", cancel_at_period_end=True)
 
+    def test_cancel_at_period_end_returns_updated_subscription(
+        self, subscription_service, mocker
+    ):
+        mock_sub = mocker.MagicMock(id="sub_123")
+        mock_updated = mocker.MagicMock(cancel_at=1_800_000_000)
+        mock_modify = mocker.patch(
+            "stripe.Subscription.modify", return_value=mock_updated
+        )
+        result = subscription_service.cancel_at_period_end(mock_sub)
+        mock_modify.assert_called_once_with("sub_123", cancel_at_period_end=True)
+        assert result is mock_updated
+
     def test_get_current_period_end(self, subscription_service, mocker):
         mock_item = mocker.MagicMock(current_period_end=1700000000)
         mock_sub = mocker.MagicMock()

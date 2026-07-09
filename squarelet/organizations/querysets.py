@@ -425,7 +425,7 @@ class SubscriptionQuerySet(models.QuerySet):
         )
         stripe_subscription = subscription.start(
             payment_method=payment_method,
-            billing_cycle_anchor=organization.update_on,
+            billing_cycle_anchor=organization.billing_anchor,
         )
         subscription.save()
         return subscription, stripe_subscription

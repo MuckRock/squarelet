@@ -173,7 +173,7 @@ class StripeModernSubscriptionService(SubscriptionService):
         return stripe.Subscription.modify(subscription_id, **kwargs)
 
     def cancel_at_period_end(self, stripe_subscription):
-        stripe.Subscription.modify(
+        return stripe.Subscription.modify(
             stripe_subscription.id,
             cancel_at_period_end=True,
         )

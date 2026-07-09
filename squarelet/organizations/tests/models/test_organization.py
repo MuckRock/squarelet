@@ -211,10 +211,9 @@ class TestOrganization:
         assert sub.quantity == max_users
 
         organization.refresh_from_db()
-        assert (
-            organization.update_on
-            == datetime.fromtimestamp(period_end, tz=dt_timezone.utc).date()
-        )
+        expected_date = datetime.fromtimestamp(period_end, tz=dt_timezone.utc).date()
+        assert organization.update_on == expected_date
+        assert organization.billing_anchor == expected_date
 
         mock_sub_service.create.assert_called_with(
             stripe_customer=mock_customer.stripe_customer,
@@ -225,6 +224,47 @@ class TestOrganization:
             days_until_due=None,
             billing_cycle_anchor=None,
             cancel_at_period_end=False,
+        )
+
+    @pytest.mark.django_db
+    def test_add_second_subscription_uses_billing_anchor(
+        self,
+        organization_factory,
+        mocker,
+        user_factory,
+        professional_plan_factory,
+        plan_factory,
+    ):
+        """A second subscription passes billing_anchor (not drifted update_on) to
+        Stripe as the billing_cycle_anchor (converted to a UTC Unix timestamp)."""
+        from datetime import date, datetime, time, timezone as dt_timezone
+
+        user = user_factory()
+        plan_b = plan_factory(annual=False, base_price=10, minimum_users=1)
+        mocker.patch("stripe.Plan.create")
+
+        # Set org with a billing_anchor that differs from update_on
+        anchor = date(2026, 1, 15)
+        update = date(2026, 8, 15)
+        organization = organization_factory(
+            admins=[user], billing_anchor=anchor, update_on=update
+        )
+
+        mock_customer, mock_sub_service, _ = self._setup_stripe_mock(mocker)
+
+        organization.add_subscription(plan_b, 1, user, payment_method="card")
+
+        anchor_ts = int(
+            datetime.combine(anchor, time(0, 0), tzinfo=dt_timezone.utc).timestamp()
+        )
+        mock_sub_service.create.assert_called_with(
+            stripe_customer=mock_customer.stripe_customer,
+            plan_id=plan_b.stripe_id,
+            quantity=1,
+            billing="charge_automatically",
+            metadata={"action": f"Subscription ({plan_b.name})"},
+            days_until_due=None,
+            billing_cycle_anchor=anchor_ts,
         )
 
     @pytest.mark.django_db

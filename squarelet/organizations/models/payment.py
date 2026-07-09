@@ -230,6 +230,16 @@ class Subscription(models.Model):
     # the subscription is deleted from the database.
     cancelled = models.BooleanField(default=False)
 
+    cancel_at = models.DateField(
+        _("cancel at"),
+        null=True,
+        blank=True,
+        help_text=_(
+            "Date when Stripe will terminate this subscription. "
+            "Set when cancel() is called. Null for free plans or legacy records."
+        ),
+    )
+
     quantity = models.PositiveIntegerField(
         _("quantity"),
         default=1,
@@ -395,12 +405,19 @@ class Subscription(models.Model):
             )
 
     def cancel(self):
+        cancel_at_date = None
         if self.stripe_subscription:
-            get_payment_provider().get_subscription_service().cancel_at_period_end(
-                self.stripe_subscription
+            updated = (
+                get_payment_provider()
+                .get_subscription_service()
+                .cancel_at_period_end(self.stripe_subscription)
             )
-
+            if updated and updated.cancel_at:
+                cancel_at_date = datetime.fromtimestamp(
+                    updated.cancel_at, tz=dt_timezone.utc
+                ).date()
         self.cancelled = True
+        self.cancel_at = cancel_at_date
         self.save()
 
         # Slack notification for cancellation
@@ -447,6 +464,7 @@ class Subscription(models.Model):
                 days_until_due=30 if self.plan.annual else None,
             )
             self.cancelled = False
+            self.cancel_at = None
             self.save()
 
     def send_slack_notification(self, event, **kwargs):
