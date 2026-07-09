@@ -156,6 +156,8 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         context["has_unverified_emails"] = user.emailaddress_set.filter(
             verified=False
         ).exists()
+        # Only users with a confirmed email may request verification
+        context["has_verified_email"] = user.has_verified_email()
         context["RECOVERY_CODE_COUNT"] = app_settings.RECOVERY_CODE_COUNT
         context["unused_code_count"] = len(self.get_recovery_codes())
         # Get the current plan and subscription, if any

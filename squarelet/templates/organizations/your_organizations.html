@@ -73,9 +73,15 @@
       {% include "account/team_list_item.html" with organization=org %}
       <div class="actions">
         {% if not org.verified_journalist %}
-        <a target="_blank" rel="noopener noreferrer" class="btn ghost primary small" href="{% airtable_verification_url org %}">
-          {% trans "Request verification" %}
-        </a>
+          {% if has_verified_email %}
+          <a target="_blank" rel="noopener noreferrer" class="btn ghost primary small" href="{% airtable_verification_url org %}">
+            {% trans "Request verification" %}
+          </a>
+          {% else %}
+          <button type="button" class="btn ghost primary small" disabled title="{% trans "Confirm your account's email address before requesting verification." %}">
+            {% trans "Request verification" %}
+          </button>
+          {% endif %}
         {% endif %}
         <a class="btn ghost primary small" href="{% url "organizations:manage-members" slug=org.slug %}">
           {% icon "gear" %}
@@ -100,9 +106,15 @@
         {% csrf_token %}
         <input type="hidden" name="userid" value="{{ user.id }}">
         {% if not org.verified_journalist %}
-        <a target="_blank" rel="noopener noreferrer" class="btn ghost primary small" href="{% airtable_verification_url org %}">
-          {% trans "Request verification" %}
-        </a>
+          {% if has_verified_email %}
+          <a target="_blank" rel="noopener noreferrer" class="btn ghost primary small" href="{% airtable_verification_url org %}">
+            {% trans "Request verification" %}
+          </a>
+          {% else %}
+          <button type="button" class="btn ghost primary small" disabled title="{% trans 'Confirm an email address on your account before requesting verification.' %}">
+            {% trans "Request verification" %}
+          </button>
+          {% endif %}
         {% endif %}
         <button class="btn danger ghost small" type="submit" name="action" value="leave">
           {% icon "sign-out" %}
