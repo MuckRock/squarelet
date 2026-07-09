@@ -1139,7 +1139,7 @@ class TestUpdateSubscription(ViewTestMixin):
     ):
         """get_initial() seeds max_users from sub.quantity, not org.max_users,
         so that re-saving the form does not silently downgrade billing."""
-        mocker.patch("squarelet.organizations.models.Customer.card", None)
+        mocker.patch("squarelet.organizations.models.Customer.payment_details", None)
         user = user_factory()
         organization = organization_factory(admins=[user], max_users=5)
         plan = plan_factory()
