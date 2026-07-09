@@ -72,8 +72,12 @@ class PrettyJSONWidget(Textarea):
 
 class SubscriptionInline(admin.TabularInline):
     model = Subscription
-    readonly_fields = ("plan", "subscription_id", "cancelled")
+    readonly_fields = ("plan", "subscription_id", "cancelled", "quantity")
     extra = 0
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        return False
 
 
 class CustomerInline(admin.TabularInline):

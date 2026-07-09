@@ -21,6 +21,11 @@ class OrganizationSerializer(serializers.ModelSerializer):
     )
     admins = serializers.SerializerMethodField()
 
+    # DEPRECATED: max_users reflects the org's creation-time default and is not
+    # updated when subscriptions are purchased or modified. Use subscription
+    # quantity from the Squarelet API entitlements payload instead.
+    max_users = serializers.IntegerField(read_only=True)
+
     class Meta:
         model = Organization
         fields = (

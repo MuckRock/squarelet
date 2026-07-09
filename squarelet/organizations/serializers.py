@@ -32,6 +32,11 @@ class OrganizationSerializer(serializers.ModelSerializer):
 
     share_resources = serializers.BooleanField(read_only=True)
 
+    # DEPRECATED: max_users reflects the org's creation-time default and is not
+    # updated when subscriptions are purchased or modified. Clients should use
+    # the `quantity` field on each entitlement in the `entitlements` array instead.
+    max_users = serializers.IntegerField(read_only=True)
+
     class Meta:
         model = Organization
         fields = (
