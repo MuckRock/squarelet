@@ -33,6 +33,15 @@ logger = logging.getLogger(__name__)
 # pylint: disable=too-many-lines
 
 
+def _payment_brand(details):
+    """Return the brand/institution name for a Stripe payment details sub-object.
+
+    Handles both card (``details.brand``) and bank account
+    (``details.bank_name``) sub-objects returned by ``Customer.payment_details``.
+    """
+    return getattr(details, "brand", None) or getattr(details, "bank_name", "")
+
+
 class Customer(models.Model):
     """A customer on stripe"""
 
@@ -158,8 +167,7 @@ class Customer(models.Model):
         details = self.payment_details
         if not details:
             return ""
-        brand = getattr(details, "brand", None) or getattr(details, "bank_name", "")
-        return f"{brand}: x{details.last4}"
+        return f"{_payment_brand(details)}: x{details.last4}"
 
     def save_card(self, token):
         """Save a new default card"""

@@ -496,10 +496,16 @@ class Organization(AvatarMixin, models.Model):
 
         # Detect payment method if not explicitly provided
         if payment_method is None:
-            if token or self.customer().payment_details:
+            if token:
                 payment_method = "card"
             else:
-                payment_method = "invoice"
+                customer = self.customer()
+                if customer.card:
+                    payment_method = "card"
+                elif customer.payment_details is not None:
+                    payment_method = "us_bank_account"
+                else:
+                    payment_method = "invoice"
         elif payment_method in ("new-card", "existing-card"):
             payment_method = "card"
 
