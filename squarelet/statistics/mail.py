@@ -10,7 +10,7 @@ from dateutil.relativedelta import relativedelta
 
 # Squarelet
 from squarelet.core.mail import Email
-from squarelet.organizations.models.organization import OrganizationChangeLog
+from squarelet.organizations.models.changelog import OrganizationChangeLog
 from squarelet.statistics.models import Statistics
 
 
