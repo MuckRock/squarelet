@@ -147,9 +147,12 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
         return context
 
     def get_initial(self):
+        plan = self.object.plans.first()
+        sub = self.object.subscriptions.filter(plan=plan).first() if plan else None
+        max_users = sub.quantity if sub else self.object.max_users
         return {
-            "plan": self.object.plans.first(),
-            "max_users": self.object.max_users,
+            "plan": plan,
+            "max_users": max_users,
             "receipt_emails": "\n".join(
                 r.email for r in self.object.receipt_emails.all()
             ),

@@ -1092,6 +1092,28 @@ class TestUpdateSubscription(ViewTestMixin):
         assert initial["max_users"] == organization.max_users
         assert len(initial["receipt_emails"].split("\n")) == 2
 
+    def test_get_initial_reads_quantity_from_subscription(
+        self,
+        rf,
+        organization_factory,
+        user_factory,
+        plan_factory,
+        subscription_factory,
+        mocker,
+    ):
+        """get_initial() seeds max_users from sub.quantity, not org.max_users,
+        so that re-saving the form does not silently downgrade billing."""
+        mocker.patch("squarelet.organizations.models.Customer.card", None)
+        user = user_factory()
+        organization = organization_factory(admins=[user], max_users=5)
+        plan = plan_factory()
+        subscription_factory(organization=organization, plan=plan, quantity=10)
+
+        response = self.call_view(rf, user, slug=organization.slug)
+        assert response.status_code == 200
+        initial = response.context_data["form"].initial
+        assert initial["max_users"] == 10
+
     def test_post_admin(self, rf, organization_factory, user_factory, mocker):
         mocker.patch("squarelet.organizations.models.Customer.card", None)
         user = user_factory()
