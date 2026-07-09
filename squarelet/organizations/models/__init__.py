@@ -1,4 +1,5 @@
 # Squarelet
+from squarelet.organizations.models.changelog import *
 from squarelet.organizations.models.invitation import *
 from squarelet.organizations.models.invoice import *
 from squarelet.organizations.models.membership import *
