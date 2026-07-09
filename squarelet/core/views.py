@@ -28,7 +28,7 @@ class SelectPlanView(TemplateView):
         pro_plan = None
         org_plans = None
         if not user.is_anonymous:
-            pro_plan = user.individual_organization.subscription
+            pro_plan = user.individual_organization.subscriptions.first()
             org_plans = user.organizations.filter(
                 subscriptions__isnull=False,
                 individual=False,
