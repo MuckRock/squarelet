@@ -79,6 +79,65 @@ def test_restore_organization(organization_plan_factory, mocker):
     }
 
 
+@pytest.mark.django_db()
+def test_restore_organization_annual_sub_not_deleted_early(
+    organization_plan_factory, mocker
+):
+    """A cancelled annual sub with a future cancel_at is NOT deleted when update_on
+    fires — it should persist until the annual billing period ends."""
+    mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
+    mocker.patch("stripe.Plan.create")
+    today = date.today()
+    organization_plan = organization_plan_factory()
+
+    # Annual sub cancelled but cancel_at is ~12 months in the future
+    future_cancel_at = today + timedelta(days=365)
+    sub = SubscriptionFactory(
+        plan=organization_plan,
+        cancelled=True,
+        cancel_at=future_cancel_at,
+        organization__update_on=today - timedelta(1),
+    )
+    org = sub.organization
+
+    tasks.restore_organization()
+
+    # Sub should still exist — cancel_at has not passed
+    assert Subscription.objects.filter(pk=sub.pk).exists()
+    # update_on should advance (org still has a sub)
+    org.refresh_from_db()
+    assert org.update_on == (today - timedelta(1)) + relativedelta(months=1)
+
+
+@pytest.mark.django_db()
+def test_restore_organization_annual_sub_deleted_after_cancel_at(
+    organization_plan_factory, mocker
+):
+    """A cancelled annual sub with a past cancel_at IS deleted when update_on fires."""
+    mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
+    mocker.patch("stripe.Plan.create")
+    today = date.today()
+    organization_plan = organization_plan_factory()
+
+    # Annual sub cancelled and cancel_at is in the past
+    past_cancel_at = today - timedelta(days=1)
+    sub = SubscriptionFactory(
+        plan=organization_plan,
+        cancelled=True,
+        cancel_at=past_cancel_at,
+        organization__update_on=today - timedelta(1),
+    )
+    org = sub.organization
+
+    tasks.restore_organization()
+
+    # Sub should be deleted — cancel_at has passed
+    assert not Subscription.objects.filter(pk=sub.pk).exists()
+    # org lost its last sub, so update_on clears
+    org.refresh_from_db()
+    assert org.update_on is None
+
+
 class TestRestoreOrganizationGrants:
     """Coverage for grant-only org refresh in restore_organization."""
 

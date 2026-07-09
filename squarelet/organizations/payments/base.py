@@ -97,7 +97,11 @@ class SubscriptionService(ABC):
 
     @abstractmethod
     def cancel_at_period_end(self, stripe_subscription):
-        """Mark a subscription to cancel at the end of the current period."""
+        """Mark a subscription to cancel at the end of the current period.
+
+        Returns the updated Stripe subscription object, which includes the
+        ``cancel_at`` timestamp when cancellation is scheduled.
+        """
 
     @abstractmethod
     def delete(self, stripe_subscription):

@@ -126,11 +126,34 @@ class TestSubscription:
             "squarelet.organizations.models.Subscription.stripe_subscription"
         )
         mocked_stripe_subscription.id = "sub_test123"
-        mocked_modify = mocker.patch("stripe.Subscription.modify")
+        cancel_at_ts = 1_800_000_000
+        mock_updated = mocker.MagicMock(cancel_at=cancel_at_ts)
+        mocked_modify = mocker.patch(
+            "stripe.Subscription.modify", return_value=mock_updated
+        )
         subscription = subscription_factory.build()
         subscription.cancel()
         mocked_modify.assert_called_once_with("sub_test123", cancel_at_period_end=True)
         assert subscription.cancelled
+        from datetime import datetime, timezone as dt_timezone
+
+        expected_date = datetime.fromtimestamp(
+            cancel_at_ts, tz=dt_timezone.utc
+        ).date()
+        assert subscription.cancel_at == expected_date
+        mocked_save.assert_called()
+
+    def test_cancel_no_stripe_subscription(self, subscription_factory, mocker):
+        """cancel_at stays None when there is no Stripe subscription (free plan)."""
+        mocked_save = mocker.patch("squarelet.organizations.models.Subscription.save")
+        mocker.patch(
+            "squarelet.organizations.models.Subscription.stripe_subscription",
+            new=None,
+        )
+        subscription = subscription_factory.build()
+        subscription.cancel()
+        assert subscription.cancelled
+        assert subscription.cancel_at is None
         mocked_save.assert_called()
 
     def test_modify_start(

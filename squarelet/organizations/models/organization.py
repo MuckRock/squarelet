@@ -252,6 +252,16 @@ class Organization(AvatarMixin, models.Model):
         ),
     )
 
+    billing_anchor = models.DateField(
+        _("billing anchor"),
+        null=True,
+        blank=True,
+        help_text=_(
+            "Stable Stripe billing_cycle_anchor for new subscriptions. "
+            "Set from first subscription period_end. Does not advance monthly."
+        ),
+    )
+
     allow_auto_join = models.BooleanField(
         default=False,
         help_text=(
@@ -520,11 +530,13 @@ class Organization(AvatarMixin, models.Model):
                 .get_subscription_service()
                 .get_current_period_end(stripe_subscription)
             )
-            self.update_on = datetime.fromtimestamp(
+            anchor_date = datetime.fromtimestamp(
                 period_end,
                 tz=dt_timezone.utc,
             ).date()
-            self.save(update_fields=["update_on"])
+            self.update_on = anchor_date
+            self.billing_anchor = anchor_date
+            self.save(update_fields=["update_on", "billing_anchor"])
 
         self.change_logs.create(
             user=user,
