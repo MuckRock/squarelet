@@ -1,13 +1,52 @@
+# Django
+from django.core.exceptions import ValidationError
+
 # Third Party
 import pytest
 
 # Squarelet
+from squarelet.organizations.models import Organization
 from squarelet.organizations.tests.factories import (
     MembershipFactory,
     OrganizationFactory,
 )
 from squarelet.users.models import User
 from squarelet.users.tests.factories import UserFactory
+
+
+class TestCreateUser:
+    """Tests for individual organization creation in UserManager._create_user"""
+
+    @pytest.mark.django_db
+    def test_duplicate_username_raises_validation_error(self):
+        """A duplicate username raises a clean ValidationError rather than letting
+        the IntegrityError poison the surrounding transaction."""
+        User.objects.create_user(username="john", email="john@example.com")
+
+        with pytest.raises(ValidationError) as excinfo:
+            User.objects.create_user(username="john", email="john2@example.com")
+        assert "username" in excinfo.value.message_dict
+
+        # The connection must still be usable after catching the error; without a
+        # savepoint around the failed insert this query raises
+        # TransactionManagementError under ATOMIC_REQUESTS.
+        assert User.objects.filter(username="john").count() == 1
+        # The failed insert must not leave an orphaned individual organization.
+        assert Organization.objects.filter(name="john", individual=True).count() == 1
+
+    @pytest.mark.django_db
+    def test_duplicate_username_case_insensitive(self):
+        """Username uniqueness is enforced case-insensitively (case_insensitive
+        collation), and a case variant is handled just as gracefully."""
+        User.objects.create_user(username="john", email="john@example.com")
+
+        with pytest.raises(ValidationError):
+            User.objects.create_user(username="John", email="john2@example.com")
+
+        assert (
+            Organization.objects.filter(name__iexact="john", individual=True).count()
+            == 1
+        )
 
 
 class TestGetSearchable:

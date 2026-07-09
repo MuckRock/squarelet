@@ -1,3 +1,6 @@
+# Django
+from django.core.exceptions import ValidationError
+
 # Standard Library
 import random
 import re
@@ -120,7 +123,11 @@ class UserWriteSerializer(UserBaseSerializer):
             validated_data["username"] = self.unique_username(
                 validated_data["username"]
             )
-        user = User.objects.create_user(**validated_data)
+        try:
+            user = User.objects.create_user(**validated_data)
+        except ValidationError as exc:
+            # surface a username collision (e.g. a race) as a 400 rather than a 500
+            raise serializers.ValidationError(exc.message_dict) from exc
 
         return user
 

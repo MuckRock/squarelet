@@ -2,6 +2,7 @@
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import ValidationError
 from django.http.response import (
     Http404,
     HttpResponse,
@@ -491,16 +492,24 @@ class SignupView(AllAuthSignupView):
 
     def form_valid(self, form):
         sociallogin = flows.signup.get_pending_signup(self.request)
-        if sociallogin:
-            flows.signup.clear_pending_signup(self.request)
-            # do not setup email here, as it will be set up when completing
-            # the social signup flow
-            user = form.save(self.request, setup_email=False)
-            sociallogin.user = user
-            sociallogin.save(self.request)
-            return flows.signup.complete_social_signup(self.request, sociallogin)
-        else:
-            return super().form_valid(form)
+        try:
+            if sociallogin:
+                flows.signup.clear_pending_signup(self.request)
+                # do not setup email here, as it will be set up when completing
+                # the social signup flow
+                user = form.save(self.request, setup_email=False)
+                sociallogin.user = user
+                sociallogin.save(self.request)
+                return flows.signup.complete_social_signup(self.request, sociallogin)
+            else:
+                return super().form_valid(form)
+        except ValidationError as exc:
+            # A concurrent signup (e.g. a double-submitted form) can race past
+            # the form's uniqueness validation and collide when creating the
+            # user's individual organization. Surface it as a normal form error
+            # instead of letting it bubble up as an unhandled 500.
+            form.add_error(None, exc)
+            return self.form_invalid(form)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
