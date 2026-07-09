@@ -6,7 +6,6 @@ from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
 # Standard Library
-import calendar
 import logging
 import sys
 from datetime import datetime, time, timezone as dt_timezone
