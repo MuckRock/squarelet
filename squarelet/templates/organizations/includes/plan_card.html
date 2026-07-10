@@ -4,7 +4,7 @@
 Plan card partial.
 
 Args:
-  org               — subject Organization (used for payment / receipts URLs).
+  subject_slug      — URL key for the subject (org slug or member username).
   plans             — list of own Plans or empty list.
   inherited_plans.  — list of (source_org, plan) tuples; may be empty.
   upgrade_plan      — Plan to advertise when there is no own plan (optional).
@@ -26,7 +26,7 @@ Args:
               {{ card.brand }} {% trans "ending in" %} <strong>{{ card.last4 }}</strong>
             </span>
           </span>
-          <a href="{% url subject|add:':update-card' org.slug %}" class="btn ghost primary small">
+          <a href="{% url subject|add:':update-card' subject_slug %}" class="btn ghost primary small">
             {% trans "Add new card" %}
           </a>
         </div>
@@ -55,7 +55,7 @@ Args:
                 {% trans "Cancelled" %}
               </span>
             {% else %}
-              <a href="{% url subject|add:':subscriptions' org.slug %}#{{ subscription.plan.slug }}" class="btn ghost small">
+              <a href="{% url subject|add:':subscriptions' subject_slug %}#{{ subscription.plan.slug }}" class="btn ghost small">
                 {% icon "gear" %}
                 {% trans "Manage" %}
               </a>
@@ -76,7 +76,7 @@ Args:
         {% endif %}
       </p>
       {% if can_edit_subscription %}
-        <a class="btn premium" href="{% url subject|add:':payment' org.slug %}">{% trans "Upgrade" %}</a>
+        <a class="btn premium" href="{% url subject|add:':payment' subject_slug %}">{% trans "Upgrade" %}</a>
       {% endif %}
     </div>
     {% if upgrade_plan %}
