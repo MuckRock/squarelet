@@ -12,7 +12,7 @@ from django.http.response import (
     HttpResponseRedirect,
     JsonResponse,
 )
-from django.shortcuts import redirect
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import (
@@ -50,7 +50,6 @@ from squarelet.core.utils import new_action
 from squarelet.organizations.forms import InvitationAcceptForm
 from squarelet.organizations.models import Invitation, ReceiptEmail
 from squarelet.organizations.models.payment import Plan
-from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.views import UpdateSubscription
 from squarelet.services.models import Service
 from squarelet.subscriptions.views import (
@@ -669,16 +668,21 @@ class UserRequestsView(BaseUserInvitationRequestView):
     redirect_url_name = "users:requests"
 
 
-class IndividualSubscriptionView:
-    """Base class for individual subscription views."""
+class IndividualSubscriptionView(LoginRequiredMixin, StaffAccessMixin):
+    """Base class for individual subscription views.
 
-    queryset = Organization.objects.filter(individual=True)
+    Reached by username; the individual organization is resolved from it
+    and never exposed in the URL. Access is limited to the account owner
+    and staff (via ``StaffAccessMixin``).
+    """
+
     subject = "users"
+    subject_url_kwarg = "username"
+    individual = True
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["subject"] = self.subject
-        return context
+    def get_organization(self):
+        user = get_object_or_404(User, username=self.kwargs["username"])
+        return user.individual_organization
 
 
 class ManageSubscriptions(IndividualSubscriptionView, BaseManageSubscriptions):

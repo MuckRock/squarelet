@@ -410,6 +410,83 @@ class TestReceipts(ViewTestMixin):
 
 
 @pytest.mark.django_db()
+class TestIndividualSubscriptionViews:
+    """The user billing routes are keyed on username; the individual
+    organization is resolved from it rather than exposed in the URL."""
+
+    def _bind(self, view_class, rf, **kwargs):
+        view = view_class()
+        view.request = rf.get("/")
+        view.kwargs = kwargs
+        return view
+
+    def test_resolves_individual_org_by_username(self, rf, user_factory):
+        # Usernames may contain characters (e.g. ".") that are not valid in
+        # an org slug, so resolution must go through the username.
+        user = user_factory(username="lasser.allan")
+        view = self._bind(views.ManageSubscriptions, rf, username=user.username)
+        assert view.get_object() == user.individual_organization
+
+    def test_unknown_username_is_404(self, rf):
+        view = self._bind(views.ManageSubscriptions, rf, username="nobody.here")
+        with pytest.raises(Http404):
+            view.get_object()
+
+    def test_payments_scoped_to_individual_org(
+        self, rf, user_factory, organization_factory, charge_factory
+    ):
+        user = user_factory(username="dotted.name")
+        charge = charge_factory(
+            organization=user.individual_organization, charge_id="ch_individual"
+        )
+        other_charge = charge_factory(
+            organization=organization_factory(), charge_id="ch_other"
+        )
+        view = self._bind(views.PaymentsList, rf, username=user.username)
+        charges = list(view.get_queryset())
+        assert charge in charges
+        assert other_charge not in charges
+
+    def test_subject_urls_use_username(self, rf, user_factory):
+        user = user_factory(username="dotted.name")
+        view = self._bind(views.ManageSubscriptions, rf, username=user.username)
+        view.object = view.get_object()
+        assert view.reverse_subject("subscriptions") == (
+            f"/users/{user.username}/subscriptions/"
+        )
+
+
+@pytest.mark.django_db()
+class TestIndividualSubscriptionAccess(ViewTestMixin):
+    """User billing pages are limited to the account owner and staff."""
+
+    view = views.PaymentsList
+    url = "/users/{username}/payments/"
+
+    def test_owner_allowed(self, rf, user_factory):
+        user = user_factory(username="dotted.name")
+        response = self.call_view(rf, user, username=user.username)
+        assert response.status_code == 200
+
+    def test_staff_allowed(self, rf, user_factory):
+        user = user_factory(username="dotted.name")
+        staff = user_factory(is_staff=True)
+        response = self.call_view(rf, staff, username=user.username)
+        assert response.status_code == 200
+
+    def test_other_user_denied(self, rf, user_factory):
+        user = user_factory(username="dotted.name")
+        other = user_factory()
+        with pytest.raises(Http404):
+            self.call_view(rf, other, username=user.username)
+
+    def test_anonymous_redirected_to_login(self, rf, user_factory):
+        user = user_factory(username="dotted.name")
+        response = self.call_view(rf, username=user.username)
+        assert response.status_code == 302
+
+
+@pytest.mark.django_db()
 class TestUserOnboardingView(ViewTestMixin):
     """Test the User Onboarding view"""
 
