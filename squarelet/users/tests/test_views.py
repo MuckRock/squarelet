@@ -128,6 +128,11 @@ class TestUserDetailView(ViewTestMixin):
     view = views.UserDetailView
     url = "/users/{username}/"
 
+    @pytest.fixture(autouse=True)
+    def _mock_card(self, mocker):
+        """Avoid hitting Stripe when the view fetches the customer's card."""
+        mocker.patch("squarelet.organizations.models.Customer.card", None)
+
     def test_get(self, rf, user_factory, professional_plan_factory):
         user = user_factory()
         professional_plan_factory()
