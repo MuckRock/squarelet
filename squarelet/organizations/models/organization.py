@@ -603,6 +603,11 @@ class Organization(AvatarMixin, models.Model):
                 f"Organization does not have an active subscription to {old_plan}"
             )
 
+        # max_users is absent from the PaymentForm for individual orgs
+        # set it to current max users, which is 1
+        if max_users is None:
+            max_users = self.max_users
+
         self.change_logs.create(
             user=user,
             reason=ChangeLogReason.updated,
