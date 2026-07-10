@@ -176,14 +176,9 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
 class OrgSubscriptionView(OrganizationPermissionMixin):
     """Base class for org subscription views."""
 
-    queryset = Organization.objects.filter(individual=False)
     subject = "organizations"
+    individual = False
     permission_required = "organizations.can_edit_subscription"
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["subject"] = self.subject
-        return context
 
 
 class ManageSubscriptions(OrgSubscriptionView, BaseManageSubscriptions):
@@ -208,16 +203,11 @@ class CancelSubscription(OrgSubscriptionView, BaseCancelSubscription):
 
 class PaymentsList(PermissionRequiredMixin, BasePaymentsList):
     subject = "organizations"
+    individual = False
 
     def has_permission(self):
         user = self.request.user
-        organization = Organization.objects.get(slug=self.kwargs["slug"])
-        return user.has_perm("organizations.can_view_charge", organization)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["subject"] = self.subject
-        return context
+        return user.has_perm("organizations.can_view_charge", self.get_organization())
 
 
 @method_decorator(xframe_options_sameorigin, name="dispatch")

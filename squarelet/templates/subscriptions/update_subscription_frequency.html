@@ -42,7 +42,7 @@
           {% endblocktrans %}
         </button>
 
-        <a href="{% url subject|add:':subscriptions' organization.slug %}" class="btn ghost primary">
+        <a href="{% url subject|add:':subscriptions' subject_slug %}" class="btn ghost primary">
           {% blocktrans with frequency=currentfreq %}
             Keep {{ frequency }}
           {% endblocktrans %}

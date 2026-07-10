@@ -1,7 +1,7 @@
 # Django
 from django.contrib import messages
 from django.http.response import JsonResponse
-from django.shortcuts import redirect
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -25,7 +25,50 @@ from squarelet.subscriptions.forms import (
 )
 
 
-class BaseManageSubscriptions(DetailView):
+class SubscriptionObjectMixin:
+    """Resolve the organization for a subscription view and build the
+    subject-scoped URLs used to move between its pages.
+
+    Organization views key these URLs on the organization slug. User
+    views key them on the member's username — the individual organization
+    is an implementation detail that is never exposed in the URL — by
+    setting ``subject_url_kwarg = "username"`` and overriding
+    ``get_organization``.
+    """
+
+    subject = None
+    subject_url_kwarg = "slug"
+    individual = False
+
+    def get_organization(self):
+        return get_object_or_404(
+            Organization,
+            individual=self.individual,
+            slug=self.kwargs[self.subject_url_kwarg],
+        )
+
+    def get_object(self, queryset=None):
+        # pylint: disable=unused-argument
+        return self.get_organization()
+
+    def get_subject_url_kwargs(self):
+        return {self.subject_url_kwarg: self.kwargs[self.subject_url_kwarg]}
+
+    def reverse_subject(self, name, **kwargs):
+        """Reverse a subject-scoped URL (e.g. ``users:subscriptions``)."""
+        return reverse(
+            f"{self.subject}:{name}",
+            kwargs={**self.get_subject_url_kwargs(), **kwargs},
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["subject"] = self.subject
+        context["subject_slug"] = self.kwargs[self.subject_url_kwarg]
+        return context
+
+
+class BaseManageSubscriptions(SubscriptionObjectMixin, DetailView):
     template_name = "subscriptions/manage_subscriptions.html"
 
     def get_context_data(self, **kwargs):
@@ -63,17 +106,9 @@ class BaseManageSubscriptions(DetailView):
         return context
 
 
-class BaseUpdateSubscriptionFrequency(UpdateView):
+class BaseUpdateSubscriptionFrequency(SubscriptionObjectMixin, UpdateView):
     form_class = UpdateSubscriptionFrequencyForm
     template_name = "subscriptions/update_subscription_frequency.html"
-
-    def get_queryset(self):
-        return Organization.objects.filter(slug=self.kwargs["slug"])
-
-    def get_object(self, queryset=None):
-        if queryset is None:
-            queryset = self.get_queryset()
-        return queryset.get()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -85,7 +120,7 @@ class BaseUpdateSubscriptionFrequency(UpdateView):
         return context
 
 
-class BaseUpdateCard(UpdateView):
+class BaseUpdateCard(SubscriptionObjectMixin, UpdateView):
     """Update the credit card on file for an organization."""
 
     form_class = CardForm
@@ -97,9 +132,7 @@ class BaseUpdateCard(UpdateView):
     def form_valid(self, form):
         organization = self.object
         user = self.request.user
-        redirect_url = reverse(
-            f"{self.subject}:subscriptions", args=[organization.slug]
-        )
+        redirect_url = self.reverse_subject("subscriptions")
         token = form.cleaned_data["stripe_token"]
         try:
             organization.save_card(token, user)
@@ -131,13 +164,13 @@ class BaseUpdateCard(UpdateView):
         return context
 
 
-class BaseUpdateReceiptEmail(UpdateView):
+class BaseUpdateReceiptEmail(SubscriptionObjectMixin, UpdateView):
     form_class = UpdateReceiptEmailForm
     template_name = "subscriptions/update_receipt_email.html"
 
     def form_valid(self, form):
         self.object.set_receipt_emails(form.cleaned_data["receipt_emails"])
-        return redirect(f"{self.subject}:subscriptions", slug=self.object.slug)
+        return redirect(self.reverse_subject("subscriptions"))
 
     def get_initial(self):
         return {
@@ -147,17 +180,9 @@ class BaseUpdateReceiptEmail(UpdateView):
         }
 
 
-class BaseCancelSubscription(UpdateView):
+class BaseCancelSubscription(SubscriptionObjectMixin, UpdateView):
     form_class = CancelSubscriptionForm
     template_name = "subscriptions/cancel_subscription.html"
-
-    def get_queryset(self):
-        return Organization.objects.filter(slug=self.kwargs["slug"])
-
-    def get_object(self, queryset=None):
-        if queryset is None:
-            queryset = self.get_queryset()
-        return queryset.get()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -173,19 +198,19 @@ class BaseCancelSubscription(UpdateView):
         if subscription:
             organization.remove_subscription(subscription)
         messages.success(self.request, _("Subscription cancelled."))
-        return redirect(f"{self.subject}:subscriptions", slug=self.object.slug)
+        return redirect(self.reverse_subject("subscriptions"))
 
 
-class BasePaymentsList(ListView):
+class BasePaymentsList(SubscriptionObjectMixin, ListView):
     template_name = "subscriptions/payments.html"
     paginate_by = 20
 
     def get_queryset(self):
-        return Charge.objects.filter(organization__slug=self.kwargs["slug"])
+        return Charge.objects.filter(organization=self.get_organization())
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["organization"] = Organization.objects.get(slug=self.kwargs["slug"])
+        context["organization"] = self.get_organization()
         return context
 
 
