@@ -125,6 +125,11 @@ class TestDetailPermissionContext(ViewTestMixin):
     view = views.Detail
     url = "/organizations/{slug}/"
 
+    @pytest.fixture(autouse=True)
+    def _mock_card(self, mocker):
+        """Avoid hitting Stripe when the view fetches the customer's card."""
+        mocker.patch("squarelet.organizations.models.Customer.card", None)
+
     def test_detail_admin_sees_manage_members_link(
         self, rf, organization_factory, user_factory
     ):

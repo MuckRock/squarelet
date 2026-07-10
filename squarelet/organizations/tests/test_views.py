@@ -50,6 +50,11 @@ class TestDetail(ViewTestMixin):
             slug="organization", defaults={"name": "Organization"}
         )
 
+    @pytest.fixture(autouse=True)
+    def _mock_card(self, mocker):
+        """Avoid hitting Stripe when the view fetches the customer's card."""
+        mocker.patch("squarelet.organizations.models.Customer.card", None)
+
     def test_get_anonymous(self, rf, organization_factory, user_factory):
         user = user_factory()
         admin = user_factory()
@@ -539,6 +544,11 @@ class TestSyncWix(ViewTestMixin):
             slug="organization", defaults={"name": "Organization"}
         )
 
+    @pytest.fixture(autouse=True)
+    def _mock_card(self, mocker):
+        """Avoid hitting Stripe when the view fetches the customer's card."""
+        mocker.patch("squarelet.organizations.models.Customer.card", None)
+
     def test_staff_can_sync_wix_for_org_with_direct_wix_plan(
         self, rf, organization_factory, plan_factory, user_factory, mocker
     ):
@@ -738,6 +748,11 @@ class TestJoinRequestModal(ViewTestMixin):
         Plan.objects.get_or_create(
             slug="organization", defaults={"name": "Organization"}
         )
+
+    @pytest.fixture(autouse=True)
+    def _mock_card(self, mocker):
+        """Avoid hitting Stripe when the view fetches the customer's card."""
+        mocker.patch("squarelet.organizations.models.Customer.card", None)
 
     def test_join_button_shown_for_non_member(
         self, rf, organization_factory, user_factory
