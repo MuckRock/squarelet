@@ -93,6 +93,8 @@ class Detail(AdminLinkMixin, DetailView):
         )
         context["inherited_plans"] = org.get_inherited_plans()
 
+        context["groups"] = org.groups.all()
+
         return context
 
     def _get_membership_context(self, user, org):

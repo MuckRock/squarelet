@@ -148,3 +148,13 @@ section#security main.security {
   flex: 0 0 auto;
   white-space: nowrap;
 }
+
+.memberships {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--gray-5);
+}
+
+.memberships a {
+  color: var(--blue-3);
+}

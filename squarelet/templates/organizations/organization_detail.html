@@ -142,6 +142,16 @@
           {% endif %}
         </div>
       </main>
+      {% if groups|length > 0 %}
+        <div class="memberships">
+          {% trans "Member of" %}
+          {% for group in groups %}
+            {% url 'organizations:detail' group.slug as group_url %}
+            <a href="{{ group_url}}">{{ group.name }}</a></strong>{% if forloop.revcounter == 2 %} and 
+            {% elif not forloop.last %}, {% endif %}
+          {% endfor %}
+        </div>
+      {% endif %}
     </section>
 
     {% if can_view_subscription %}
