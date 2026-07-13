@@ -831,6 +831,38 @@ class TestJoinRequestModal(ViewTestMixin):
         # Should have pending request in context
         assert response.context_data["requested_invite"].exists()
 
+    def test_join_request_no_duplicate_when_pending_exists(
+        self, rf, mailoutbox, organization_factory, user_factory, invitation_factory
+    ):
+        """Submitting a join request when one is already pending should not
+        create a duplicate request"""
+        user = user_factory()
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        # An existing pending request for this user
+        invitation_factory(
+            organization=organization,
+            email=user.email,
+            user=user,
+            request=True,
+        )
+
+        response = self.call_view(
+            rf,
+            user,
+            data={"action": "join"},
+            slug=organization.slug,
+        )
+
+        assert response.status_code == 302
+        # Should still only have a single pending request
+        assert (
+            organization.invitations.get_pending_requests().filter(user=user).count()
+            == 1
+        )
+        # Should not send a duplicate notification email
+        assert len(mailoutbox) == 0
+
 
 @pytest.mark.django_db()
 def test_list(rf, organization_factory):
