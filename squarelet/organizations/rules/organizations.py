@@ -25,6 +25,12 @@ def is_admin(user, organization):
     return organization.has_admin(user)
 
 
+@predicate
+@skip_if_not_obj
+def is_collective(user, organization):
+    return organization.collective_enabled
+
+
 is_public = ~is_private
 
 add_perm("organizations.add_organization", is_authenticated)
@@ -38,3 +44,4 @@ add_perm_with_db_check("organizations.can_edit_subscription", is_admin)
 add_perm_with_db_check("organizations.can_view_charge", is_admin)
 add_perm_with_db_check("organizations.can_review_profile_changes", always_deny)
 add_perm_with_db_check("organizations.can_manage_domains", is_admin)
+add_perm_with_db_check("organizations.can_manage_member_orgs", is_admin & is_collective)
