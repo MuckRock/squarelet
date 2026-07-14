@@ -112,6 +112,7 @@
 {% has_perm "organizations.can_view_subscription" user organization as can_view_subscription %}
 {% has_perm "organizations.can_edit_subscription" user organization as can_edit_subscription %}
 {% has_perm "organizations.can_view_charge" user organization as can_view_charge %}
+{% has_perm "organizations.can_manage_member_orgs" user organization as can_manage_member_orgs %}
     <section id="profile">
       <header>
         <h2>{% trans "Profile" %}</h2>
@@ -174,6 +175,14 @@
     <section id="member_orgs">
       <header>
         <h2>{% trans "Member Organizations" %}</h2>
+        {% if can_manage_member_orgs %}
+          <div class="header-actions">
+            <a href="{% url 'organizations:manage-member-orgs' organization.slug %}" class="btn ghost primary">
+            {% icon "plus-circle" %}
+            {% trans "Invite Member Orgs" %}
+            </a>
+          </div>
+        {% endif %}
       </header>
       <main class="orgs">
         {% if members|length > 0 %}
@@ -181,14 +190,16 @@
             {% for member in members %}
               <div class="org">
                 {% include "account/team_list_item.html" with organization=member %}
-                <form method="post" action="{% url "organizations:detail" organization.slug %}" class="actions">
-                  {% csrf_token %}
-                  <input type="hidden" name="member_org" value="{{ member.slug }}">
-                  <button class="btn danger ghost small" type="submit" name="action" value="remove_member_org">
-                    {% icon "x-circle" %}
-                    {% trans "Remove" %}
-                  </button>
-                </form>
+                {% if can_manage_member_orgs %}
+                  <form method="post" action="{% url "organizations:detail" organization.slug %}" class="actions">
+                    {% csrf_token %}
+                    <input type="hidden" name="member_org" value="{{ member.slug }}">
+                    <button class="btn danger ghost small" type="submit" name="action" value="remove_member_org">
+                      {% icon "x-circle" %}
+                      {% trans "Remove" %}
+                    </button>
+                  </form>
+                {% endif %}
               </div>
             {% endfor %} 
           </div>

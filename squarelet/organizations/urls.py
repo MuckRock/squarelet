@@ -55,4 +55,9 @@ urlpatterns = [
         view=views.InvitationAccept.as_view(),
         name="invitation",
     ),
+    path(
+        "<slug:slug>/manage-member-orgs/",
+        view=views.ManageMemberOrgs.as_view(),
+        name="manage-member-orgs",
+    ),
 ]
