@@ -59,7 +59,7 @@ Args:
         {% if card %}
           <li class="plan-detail plan-card-info">
             <span class="icon">{% icon "credit-card" %}</span>
-            <span class="label">{{ card.brand|default:card.bank_name }} {% trans "ending in" %} {{ card.last4 }}</span>
+            <span class="label">{{ card_brand }} {% trans "ending in" %} {{ card.last4 }}</span>
           </li>
         {% endif %}
       </ul>
