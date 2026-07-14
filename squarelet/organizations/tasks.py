@@ -53,9 +53,7 @@ def restore_organization():
     Subscription.objects.filter(
         organization_id__in=due_org_ids,
         cancelled=True,
-    ).filter(
-        Q(cancel_at__lte=today) | Q(cancel_at__isnull=True)
-    ).delete()
+    ).filter(Q(cancel_at__lte=today) | Q(cancel_at__isnull=True)).delete()
 
     # Determine which orgs still have active subscriptions
     orgs_with_subs = set(
