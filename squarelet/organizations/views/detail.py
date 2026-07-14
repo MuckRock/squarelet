@@ -120,9 +120,7 @@ class Detail(AdminLinkMixin, DetailView):
         details = customer.payment_details
         ctx = {
             "current_plan_card": details,
-            "current_plan_card_brand": _payment_brand(details)
-            if details
-            else "",
+            "current_plan_card_brand": _payment_brand(details) if details else "",
             "current_plan_cancelled": subscription.cancelled,
         }
 
