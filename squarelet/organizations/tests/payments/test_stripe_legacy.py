@@ -94,6 +94,7 @@ class TestLegacySubscriptionService:
             billing="charge_automatically",
             metadata={"action": "test"},
             days_until_due=None,
+            cancel_at_period_end=False,
         )
 
     def test_get_current_period_end(self, subscription_service, mocker):

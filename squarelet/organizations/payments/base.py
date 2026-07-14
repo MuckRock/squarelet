@@ -74,7 +74,7 @@ class SubscriptionService(ABC):
     """Manages Stripe Subscription objects."""
 
     @abstractmethod
-    def create(  # pylint: disable=too-many-positional-arguments
+    def create(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         stripe_customer,
         plan_id,
@@ -83,6 +83,7 @@ class SubscriptionService(ABC):
         metadata,
         days_until_due,
         billing_cycle_anchor=None,
+        cancel_at_period_end=False,
     ):
         """Create a new subscription for a customer."""
 

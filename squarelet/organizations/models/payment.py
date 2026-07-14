@@ -248,6 +248,7 @@ class Subscription(models.Model):
                     metadata={"action": f"Subscription ({self.plan})"},
                     days_until_due=days_until_due,
                     billing_cycle_anchor=anchor_ts,
+                    cancel_at_period_end=not self.plan.auto_renew,
                 )
             )
             self.subscription_id = stripe_subscription.id
@@ -390,7 +391,7 @@ class Subscription(models.Model):
         if self.stripe_subscription:
             get_payment_provider().get_subscription_service().modify(
                 self.subscription_id,
-                cancel_at_period_end=False,
+                cancel_at_period_end=not self.plan.auto_renew,
                 items=[
                     {
                         "id": self.stripe_subscription["items"]["data"][0].id,
@@ -518,6 +519,15 @@ class Plan(models.Model):
         _("annual"),
         default=False,
         help_text=_("Invoice this plan annually instead of charging monthly"),
+    )
+    auto_renew = models.BooleanField(
+        _("auto renew"),
+        default=True,
+        help_text=_(
+            "Automatically renew subscriptions to this plan at the end of each "
+            "billing period. Disable for plans, such as high-value annual plans, "
+            "that should not automatically renew."
+        ),
     )
     for_individuals = models.BooleanField(
         _("for individuals"),

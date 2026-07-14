@@ -62,7 +62,7 @@ class StripeLegacyCustomerService(CustomerService):
 class StripeLegacySubscriptionService(SubscriptionService):
     """Subscription operations using Stripe 2.x Plans API."""
 
-    def create(  # pylint: disable=too-many-positional-arguments
+    def create(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         stripe_customer,
         plan_id,
@@ -71,12 +71,14 @@ class StripeLegacySubscriptionService(SubscriptionService):
         metadata,
         days_until_due,
         billing_cycle_anchor=None,
+        cancel_at_period_end=False,
     ):
         params = {
             "items": [{"plan": plan_id, "quantity": quantity}],
             "billing": billing,
             "metadata": metadata,
             "days_until_due": days_until_due,
+            "cancel_at_period_end": cancel_at_period_end,
         }
         if billing_cycle_anchor is not None:
             params["billing_cycle_anchor"] = billing_cycle_anchor

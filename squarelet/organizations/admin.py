@@ -427,7 +427,9 @@ class OrganizationAdmin(VersionAdmin):
             qs = qs.prefetch_related(
                 Prefetch(
                     "subscriptions",
-                    queryset=Subscription.objects.filter(plan_id=plan_value),
+                    queryset=Subscription.objects.filter(
+                        plan_id=plan_value
+                    ).select_related("plan"),
                     to_attr="plan_subscriptions",
                 )
             )
@@ -487,7 +489,10 @@ class OrganizationAdmin(VersionAdmin):
         subs = getattr(obj, "plan_subscriptions", None)
         if subs is None:
             return None
-        return not any(s.cancelled for s in subs)
+        # A subscription renews only if it hasn't been cancelled and its plan
+        # is set to auto-renew (plans with auto_renew=False are created to
+        # cancel at period end).
+        return not any(s.cancelled or not s.plan.auto_renew for s in subs)
 
     get_subscription_renews.short_description = "Will Renew"
     get_subscription_renews.boolean = True
@@ -503,6 +508,7 @@ class PlanAdmin(VersionAdmin):
         "price_per_user",
         "public",
         "annual",
+        "auto_renew",
         "for_individuals",
         "for_groups",
         "slack_webhook_url",
