@@ -1,4 +1,5 @@
 # Standard Library
+from datetime import datetime, timezone as dt_timezone
 from unittest.mock import Mock
 
 # Third Party
@@ -135,11 +136,8 @@ class TestSubscription:
         subscription.cancel()
         mocked_modify.assert_called_once_with("sub_test123", cancel_at_period_end=True)
         assert subscription.cancelled
-        from datetime import datetime, timezone as dt_timezone
 
-        expected_date = datetime.fromtimestamp(
-            cancel_at_ts, tz=dt_timezone.utc
-        ).date()
+        expected_date = datetime.fromtimestamp(cancel_at_ts, tz=dt_timezone.utc).date()
         assert subscription.cancel_at == expected_date
         mocked_save.assert_called()
 

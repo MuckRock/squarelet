@@ -1,5 +1,5 @@
 # Standard Library
-from datetime import datetime, timezone as dt_timezone
+from datetime import date, datetime, time, timezone as dt_timezone
 from unittest.mock import Mock
 
 # Third Party
@@ -232,12 +232,10 @@ class TestOrganization:
         organization_factory,
         mocker,
         user_factory,
-        professional_plan_factory,
         plan_factory,
     ):
         """A second subscription passes billing_anchor (not drifted update_on) to
         Stripe as the billing_cycle_anchor (converted to a UTC Unix timestamp)."""
-        from datetime import date, datetime, time, timezone as dt_timezone
 
         user = user_factory()
         plan_b = plan_factory(annual=False, base_price=10, minimum_users=1)
