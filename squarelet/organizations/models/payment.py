@@ -305,6 +305,11 @@ class Subscription(models.Model):
                 )
             )
             self.subscription_id = stripe_subscription.id
+            if not self.plan.auto_renew and stripe_subscription.cancel_at:
+                self.cancel_at = datetime.fromtimestamp(
+                    stripe_subscription.cancel_at,
+                    tz=dt_timezone.utc,
+                ).date()
             # Save subscription before creating invoice
             self.save()
 
@@ -440,6 +445,7 @@ class Subscription(models.Model):
                 self.stripe_subscription
             )
             self.subscription_id = None
+            self.cancel_at = None
         elif not old_plan.free and not plan.free:
             # modify plan
             self.stripe_modify()
@@ -449,22 +455,33 @@ class Subscription(models.Model):
     def stripe_modify(self):
         """Update stripe subscription to match local subscription"""
         if self.stripe_subscription:
-            get_payment_provider().get_subscription_service().modify(
-                self.subscription_id,
-                cancel_at_period_end=not self.plan.auto_renew,
-                items=[
-                    {
-                        "id": self.stripe_subscription["items"]["data"][0].id,
-                        "plan": self.plan.stripe_id,
-                        "quantity": self.quantity,
-                    }
-                ],
-                billing="send_invoice" if self.plan.annual else "charge_automatically",
-                metadata={"action": f"Subscription ({self.plan})"},
-                days_until_due=30 if self.plan.annual else None,
+            updated = (
+                get_payment_provider()
+                .get_subscription_service()
+                .modify(
+                    self.subscription_id,
+                    cancel_at_period_end=not self.plan.auto_renew,
+                    items=[
+                        {
+                            "id": self.stripe_subscription["items"]["data"][0].id,
+                            "plan": self.plan.stripe_id,
+                            "quantity": self.quantity,
+                        }
+                    ],
+                    billing=(
+                        "send_invoice" if self.plan.annual else "charge_automatically"
+                    ),
+                    metadata={"action": f"Subscription ({self.plan})"},
+                    days_until_due=(30 if self.plan.annual else None),
+                )
             )
             self.cancelled = False
-            self.cancel_at = None
+            if not self.plan.auto_renew and updated and updated.cancel_at:
+                self.cancel_at = datetime.fromtimestamp(
+                    updated.cancel_at, tz=dt_timezone.utc
+                ).date()
+            else:
+                self.cancel_at = None
             self.save()
 
     def send_slack_notification(self, event, **kwargs):
@@ -475,10 +492,9 @@ class Subscription(models.Model):
         if not self.plan.slack_webhook_url:
             return
 
+        # pylint:disable=import-outside-toplevel
         # Squarelet
-        from squarelet.organizations.tasks import (  # pylint:disable=import-outside-toplevel
-            send_slack_notification,
-        )
+        from squarelet.organizations.tasks import send_slack_notification
 
         # Link to the organization
         org_url = self.organization.get_absolute_url()

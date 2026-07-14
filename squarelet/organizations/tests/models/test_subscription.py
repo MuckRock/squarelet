@@ -82,7 +82,12 @@ class TestSubscription:
         plan.save()
         subscription = subscription_factory(plan=plan)
 
-        mock_stripe_subscription = Mock(id="sub_test123", latest_invoice=None)
+        cancel_at_ts = 1_800_000_000
+        mock_stripe_subscription = Mock(
+            id="sub_test123",
+            latest_invoice=None,
+            cancel_at=cancel_at_ts,
+        )
         mocked_customer = Mock()
         mocker.patch(
             "squarelet.organizations.models.organization.Organization.customer",
@@ -105,6 +110,8 @@ class TestSubscription:
             billing_cycle_anchor=None,
             cancel_at_period_end=True,
         )
+        expected_date = datetime.fromtimestamp(cancel_at_ts, tz=dt_timezone.utc).date()
+        assert subscription.cancel_at == expected_date
 
     def test_start_existing(self, subscription_factory, mocker):
         """If there is an existing subscription, do not start another one"""
@@ -192,6 +199,7 @@ class TestSubscription:
         subscription = subscription_factory.build(plan=plan)
         subscription.modify(plan)
         mocked_save.assert_called()
+        assert subscription.cancel_at is None
         mock_sub_service.modify.assert_called_with(
             subscription.subscription_id,
             cancel_at_period_end=False,
@@ -211,16 +219,21 @@ class TestSubscription:
         self, subscription_factory, professional_plan_factory, mocker
     ):
         """Modifying to a plan with auto_renew disabled flags the Stripe
-        subscription to cancel at period end."""
+        subscription to cancel at period end and sets cancel_at."""
         mocker.patch("squarelet.organizations.models.Subscription.save")
+        cancel_at_ts = 1_800_000_000
+        mock_updated = Mock(cancel_at=cancel_at_ts)
         mock_sub_service = mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
         ).return_value.get_subscription_service.return_value
+        mock_sub_service.modify.return_value = mock_updated
         mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
         plan = professional_plan_factory.build(auto_renew=False)
         subscription = subscription_factory.build(plan=plan)
         subscription.modify(plan)
         assert mock_sub_service.modify.call_args.kwargs["cancel_at_period_end"] is True
+        expected_date = datetime.fromtimestamp(cancel_at_ts, tz=dt_timezone.utc).date()
+        assert subscription.cancel_at == expected_date
 
     @pytest.mark.django_db()
     def test_start_creates_invoice_with_card(
