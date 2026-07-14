@@ -494,20 +494,9 @@ class Organization(AvatarMixin, models.Model):
 
         is_first = not self.subscriptions.exists()
 
-        # Detect payment method if not explicitly provided
-        if payment_method is None:
-            if token:
-                payment_method = "card"
-            else:
-                customer = self.customer()
-                if customer.card:
-                    payment_method = "card"
-                elif customer.payment_details is not None:
-                    payment_method = "us_bank_account"
-                else:
-                    payment_method = "invoice"
-        elif payment_method in ("new-card", "existing-card"):
-            payment_method = "card"
+        payment_method = self._resolve_payment_method(
+            payment_method, token
+        )
 
         if token:
             self.save_card(token, user)
@@ -549,6 +538,21 @@ class Organization(AvatarMixin, models.Model):
 
         if plan.wix:
             self._dispatch_wix_sync(plan)
+
+    def _resolve_payment_method(self, payment_method, token):
+        """Normalize the payment_method value for a subscription."""
+        if payment_method is None:
+            if token:
+                return "card"
+            customer = self.customer()
+            if customer.card:
+                return "card"
+            if customer.payment_details is not None:
+                return "us_bank_account"
+            return "invoice"
+        if payment_method in ("new-card", "existing-card"):
+            return "card"
+        return payment_method
 
     def _dispatch_wix_sync(self, plan):
         """Dispatch Wix sync tasks for this org's users and, if this org is a
