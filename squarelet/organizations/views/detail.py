@@ -360,6 +360,50 @@ class Detail(AdminLinkMixin, DetailView):
         if triggered:
             messages.success(request, _("Wix sync started"))
 
+    def handle_remove_member_org(self, request):
+        """Removes a member organization from a group.
+        Called by the group Remove action and the member Leave action."""
+
+        org = self.organization
+        member_slug = request.POST.get("member_org")
+        member_org = org.members.filter(slug=member_slug).first()
+
+        if not member_org:
+            messages.error(request, _("Organization not found"))
+            return None
+
+        is_group_admin = org.has_admin(self.request.user)
+        is_member_admin = member_org.has_admin(self.request.user)
+
+        if not is_group_admin and not is_member_admin:
+            messages.error(
+                request, _("You do not have permission to remove this membership")
+            )
+            return None
+
+        org.members.remove(member_org)
+
+        if is_member_admin:
+            new_action(
+                actor=request.user,
+                verb="left group",
+                action_object=self.organization,
+                target=member_org,
+            )
+        else:
+            new_action(
+                actor=request.user,
+                verb="removed group member",
+                action_object=member_org,
+                target=self.organization,
+            )
+
+        messages.success(
+            request,
+            _("%(member)s is no longer a member of %(group)s")
+            % {"member": member_org.name, "group": org.name},
+        )
+
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
         self.organization = self.object
@@ -381,6 +425,8 @@ class Detail(AdminLinkMixin, DetailView):
                 return result
         elif action == "disable_autojoin":
             self.handle_disable_autojoin(request)
+        elif action == "remove_member_org":
+            self.handle_remove_member_org(request)
         return get_redirect_url(request, redirect(self.organization))
 
 

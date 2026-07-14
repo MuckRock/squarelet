@@ -178,7 +178,8 @@
               {% include "account/team_list_item.html" with organization=group %}
               <form method="post" action="{% url "organizations:detail" group.slug %}" class="actions">
                 {% csrf_token %}
-                <button class="btn danger ghost small" type="submit" name="action" value="leave_parent">
+                <input type="hidden" name="member_org" value="{{ organization.slug }}">
+                <button class="btn danger ghost small" type="submit" name="action" value="remove_member_org">
                   {% icon "sign-out" %}
                   {% trans "Leave" %}
                 </button>
