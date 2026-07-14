@@ -152,10 +152,10 @@ class Detail(AdminLinkMixin, DetailView):
         if is_admin:
             ctx["group_invitations"] = OrganizationInvitation.objects.filter(
                 to_organization__slug=org.slug,
-                accepted_at=None,
-                rejected_at=None,
-                withdrawn_at=None,
-            )
+                accepted_at__isnull=True,
+                rejected_at__isnull=True,
+                withdrawn_at__isnull=True,
+            ).select_related("from_organization")
 
         ctx["show_groups_section"] = is_admin and (
             len(ctx["groups"]) > 0 or ctx["group_invitations"]
@@ -366,9 +366,10 @@ class Detail(AdminLinkMixin, DetailView):
 
         org = self.organization
         member_slug = request.POST.get("member_org")
-        member_org = org.members.filter(slug=member_slug).first()
 
-        if not member_org:
+        try:
+            member_org = org.members.get(slug=member_slug)
+        except:
             messages.error(request, _("Organization not found"))
             return None
 
@@ -404,6 +405,69 @@ class Detail(AdminLinkMixin, DetailView):
             % {"member": member_org.name, "group": org.name},
         )
 
+    def _get_invitation(self, request):
+        is_admin = self.organization.has_admin(self.request.user)
+
+        if not is_admin:
+            messages.error(
+                request, _("You do not have permission to accept this invitation")
+            )
+            return None
+
+        invitation_id = request.POST.get("invitation")
+
+        try:
+            invitation = OrganizationInvitation.objects.get(id=invitation_id)
+        except:
+            messages.error(request, _("Invitation not found"))
+            return None
+
+        return invitation
+
+    def handle_accept_group_invitation(self, request):
+        invitation = self._get_invitation(request)
+
+        if not invitation:
+            return None
+
+        invitation.accept()
+
+        member_org = self.organization
+        group_org = invitation.from_organization
+
+        new_action(
+            actor=request.user,
+            verb="joined group",
+            action_object=group_org,
+            target=member_org,
+        )
+
+        messages.success(
+            request,
+            _("%(member)s is now a member of %(group)s")
+            % {"member": member_org.name, "group": group_org.name},
+        )
+
+    def handle_reject_group_invitation(self, request):
+        invitation = self._get_invitation(request)
+
+        if not invitation:
+            return None
+
+        invitation.reject()
+
+        member_org = self.organization
+        group_org = invitation.from_organization
+
+        new_action(
+            actor=request.user,
+            verb="rejected invitation",
+            action_object=group_org,
+            target=member_org,
+        )
+
+        messages.info(request, "Invitation rejected")
+
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
         self.organization = self.object
@@ -427,6 +491,10 @@ class Detail(AdminLinkMixin, DetailView):
             self.handle_disable_autojoin(request)
         elif action == "remove_member_org":
             self.handle_remove_member_org(request)
+        elif action == "accept_group_invitation":
+            self.handle_accept_group_invitation(request)
+        elif action == "reject_group_invitation":
+            self.handle_reject_group_invitation(request)
         return get_redirect_url(request, redirect(self.organization))
 
 

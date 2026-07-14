@@ -168,25 +168,52 @@
         <h2>{% trans "Groups" %}</h2>
       </header>
       <main class="orgs">
-        <div class="org-list">
-          <header class="org-list-header">
-            <h3>{% trans "Memberships" %}</h3>
-            <p>{% trans "Groups that this organization is a member of:" %}</p>
-          </header>
-          {% for group in groups %}
-            <div class="org">
-              {% include "account/team_list_item.html" with organization=group %}
-              <form method="post" action="{% url "organizations:detail" group.slug %}" class="actions">
-                {% csrf_token %}
-                <input type="hidden" name="member_org" value="{{ organization.slug }}">
-                <button class="btn danger ghost small" type="submit" name="action" value="remove_member_org">
-                  {% icon "sign-out" %}
-                  {% trans "Leave" %}
-                </button>
-              </form>
-            </div>
-          {% endfor %} 
-        </div>
+        {% if group_invitations|length > 0 %}
+          <div class="org-list">
+            <header class="org-list-header">
+              <h3>{% trans "Open invitations" %}</h3>
+              <p>{% trans "Groups that this organization has been invited to join:" %}</p>
+            </header>
+            {% for invitation in group_invitations %}
+              <div class="org">
+                {% include "account/team_list_item.html" with organization=invitation.from_organization %}
+                <form method="post" action="{% url "organizations:detail" organization.slug %}" class="actions">
+                  {% csrf_token %}
+                  <input type="hidden" name="invitation" value="{{ invitation.id }}">
+                  <button class="btn primary small" type="submit" name="action" value="accept_group_invitation">
+                    {% icon "check" %}
+                    {% trans "Accept" %}
+                  </button>
+                  <button class="btn danger ghost small" type="submit" name="action" value="reject_group_invitation">
+                    {% trans "Reject" %}
+                  </button>
+                </form>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        {% if groups|length > 0 %}
+          <div class="org-list">
+            <header class="org-list-header">
+              <h3>{% trans "Memberships" %}</h3>
+              <p>{% trans "Groups that this organization is a member of:" %}</p>
+            </header>
+            {% for group in groups %}
+              <div class="org">
+                {% include "account/team_list_item.html" with organization=group %}
+                <form method="post" action="{% url "organizations:detail" group.slug %}" class="actions">
+                  {% csrf_token %}
+                  <input type="hidden" name="member_org" value="{{ organization.slug }}">
+                  <button class="btn danger ghost small" type="submit" name="action" value="remove_member_org">
+                    {% icon "sign-out" %}
+                    {% trans "Leave" %}
+                  </button>
+                </form>
+              </div>
+            {% endfor %} 
+          </div>
+        {% endif %}
       </main>
     </section>
     {% endif %}
