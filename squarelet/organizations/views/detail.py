@@ -146,7 +146,7 @@ class Detail(AdminLinkMixin, DetailView):
         is_admin = org.has_admin(user)
 
         ctx = {
-            "parents": org.groups.all(),
+            "groups": org.groups.all(),
         }
 
         if is_admin:
@@ -157,8 +157,8 @@ class Detail(AdminLinkMixin, DetailView):
                 withdrawn_at=None,
             )
 
-        ctx["show_parents_section"] = is_admin and (
-            len(ctx["parents"]) > 0 or ctx["group_invitations"]
+        ctx["show_groups_section"] = is_admin and (
+            len(ctx["groups"]) > 0 or ctx["group_invitations"]
         )
 
         return ctx

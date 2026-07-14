@@ -48,11 +48,11 @@
         {% trans "Profile" %}
       </a>
     </li>
-    {% if show_parents_section %}
+    {% if show_groups_section %}
     <li>
-      <a href="#parents" class="nav-item">
+      <a href="#groups" class="nav-item">
         {% icon "network" %}
-        {% trans "Parent Organizations" %}
+        {% trans "Groups" %}
       </a>
     </li>
     {% endif %}
@@ -150,33 +150,33 @@
           {% endif %}
         </div>
       </main>
-      {% if parents|length > 0 %}
+      {% if groups|length > 0 %}
         <div class="memberships">
           {% trans "Member of" %}
-          {% for parent in parents %}
-            {% url 'organizations:detail' parents.slug as parent_url %}
-            <a href="{{ parent_url }}">{{ parent.name }}</a></strong>{% if forloop.revcounter == 2 %} and 
+          {% for group in groups %}
+            {% url 'organizations:detail' group.slug as group_url %}
+            <a href="{{ group_url }}">{{ group.name }}</a></strong>{% if forloop.revcounter == 2 %} and 
             {% elif not forloop.last %}, {% endif %}
           {% endfor %}
         </div>
       {% endif %}
     </section>
 
-    {% if show_parents_section %}
-    <section id="parents">
+    {% if show_groups_section %}
+    <section id="groups">
       <header>
-        <h2>{% trans "Parent Organizations" %}</h2>
+        <h2>{% trans "Groups" %}</h2>
       </header>
       <main class="orgs">
         <div class="org-list">
           <header class="org-list-header">
             <h3>{% trans "Memberships" %}</h3>
-            <p>{% trans "Organizations that this organization is a member of:" %}</p>
+            <p>{% trans "Groups that this organization is a member of:" %}</p>
           </header>
-          {% for org in parents %}
+          {% for group in groups %}
             <div class="org">
-              {% include "account/team_list_item.html" with organization=org %}
-              <form method="post" action="{% url "organizations:detail" slug=org.slug %}" class="actions">
+              {% include "account/team_list_item.html" with organization=group %}
+              <form method="post" action="{% url "organizations:detail" group.slug %}" class="actions">
                 {% csrf_token %}
                 <button class="btn danger ghost small" type="submit" name="action" value="leave_parent">
                   {% icon "sign-out" %}
