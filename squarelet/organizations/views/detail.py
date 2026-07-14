@@ -21,6 +21,7 @@ from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import get_redirect_url, is_rate_limited, new_action
 from squarelet.organizations.forms import InvitationAcceptForm
 from squarelet.organizations.models import Invitation, Membership, Organization, Plan
+from squarelet.organizations.models.invitation import OrganizationInvitation
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.tasks import sync_wix
 
@@ -93,7 +94,7 @@ class Detail(AdminLinkMixin, DetailView):
         )
         context["inherited_plans"] = org.get_inherited_plans()
 
-        context["groups"] = org.groups.all()
+        context.update(self._get_groups_context(user, org))
 
         return context
 
@@ -138,6 +139,27 @@ class Detail(AdminLinkMixin, DetailView):
                     time_stamp, tz=timezone.get_current_timezone()
                 )
                 ctx["current_plan_next_charge_date"] = tz_datetime.date()
+
+        return ctx
+
+    def _get_groups_context(self, user, org):
+        is_admin = org.has_admin(user)
+
+        ctx = {
+            "parents": org.groups.all(),
+        }
+
+        if is_admin:
+            ctx["group_invitations"] = OrganizationInvitation.objects.filter(
+                to_organization__slug=org.slug,
+                accepted_at=None,
+                rejected_at=None,
+                withdrawn_at=None,
+            )
+
+        ctx["show_parents_section"] = is_admin and (
+            len(ctx["parents"]) > 0 or ctx["group_invitations"]
+        )
 
         return ctx
 
