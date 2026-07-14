@@ -72,7 +72,13 @@ class TestSubscription:
     ):
         """A plan with auto_renew disabled starts the Stripe subscription with
         cancel_at_period_end=True so it does not automatically renew."""
-        plan = professional_plan_factory(auto_renew=False)
+        # The "Professional" plan is seeded by a data migration, so
+        # django_get_or_create (keyed on name) returns that existing row and
+        # ignores the auto_renew override passed to the factory. Force it off
+        # explicitly so the plan actually has auto_renew disabled.
+        plan = professional_plan_factory()
+        plan.auto_renew = False
+        plan.save()
         subscription = subscription_factory(plan=plan)
 
         mock_stripe_subscription = Mock(id="sub_test123", latest_invoice=None)
