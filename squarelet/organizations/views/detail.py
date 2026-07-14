@@ -144,9 +144,11 @@ class Detail(AdminLinkMixin, DetailView):
 
     def _get_groups_context(self, user, org):
         is_admin = org.has_admin(user)
+        is_member = org.has_member(user)
 
         ctx = {
             "groups": org.groups.all(),
+            "members": org.members.all(),
         }
 
         if is_admin:
@@ -157,8 +159,21 @@ class Detail(AdminLinkMixin, DetailView):
                 withdrawn_at__isnull=True,
             ).select_related("from_organization")
 
+            ctx["member_invitations"] = OrganizationInvitation.objects.filter(
+                from_organization__slug=org.slug,
+                accepted_at__isnull=True,
+                rejected_at__isnull=True,
+                withdrawn_at__isnull=True,
+            ).select_related("to_organization")
+
         ctx["show_groups_section"] = is_admin and (
-            len(ctx["groups"]) > 0 or ctx["group_invitations"]
+            len(ctx["groups"]) > 0 or len(ctx["group_invitations"]) > 0
+        )
+
+        # For collective groups, the members section is always visible to admins,
+        # and visible to non-admins only when the group has member organizations.
+        ctx["show_members_section"] = org.collective_enabled and (
+            is_admin or (is_member and len(ctx["members"]) > 0)
         )
 
         return ctx

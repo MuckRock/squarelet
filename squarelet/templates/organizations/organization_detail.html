@@ -48,6 +48,14 @@
         {% trans "Profile" %}
       </a>
     </li>
+    {% if show_members_section %}
+    <li>
+      <a href="#member_orgs" class="nav-item">
+        {% icon "network" %}
+        {% trans "Member Orgs" %}
+      </a>
+    </li>
+    {% endif %}
     {% if show_groups_section %}
     <li>
       <a href="#groups" class="nav-item">
@@ -161,6 +169,33 @@
         </div>
       {% endif %}
     </section>
+
+    {% if show_members_section %}
+    <section id="member_orgs">
+      <header>
+        <h2>{% trans "Member Organizations" %}</h2>
+      </header>
+      <main class="orgs">
+        {% if members|length > 0 %}
+          <div class="org-list">
+            {% for member in members %}
+              <div class="org">
+                {% include "account/team_list_item.html" with organization=member %}
+                <form method="post" action="{% url "organizations:detail" organization.slug %}" class="actions">
+                  {% csrf_token %}
+                  <input type="hidden" name="member_org" value="{{ member.slug }}">
+                  <button class="btn danger ghost small" type="submit" name="action" value="remove_member_org">
+                    {% icon "x-circle" %}
+                    {% trans "Remove" %}
+                  </button>
+                </form>
+              </div>
+            {% endfor %} 
+          </div>
+        {% endif %}
+      </main>
+    </section>
+    {% endif %}
 
     {% if show_groups_section %}
     <section id="groups">
