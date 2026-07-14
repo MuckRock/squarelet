@@ -62,8 +62,48 @@ class TestSubscription:
             metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=None,
             billing_cycle_anchor=None,
+            cancel_at_period_end=False,
         )
         assert subscription.subscription_id == stripe_subscription_id
+
+    @pytest.mark.django_db()
+    def test_start_no_auto_renew(
+        self, subscription_factory, professional_plan_factory, mocker
+    ):
+        """A plan with auto_renew disabled starts the Stripe subscription with
+        cancel_at_period_end=True so it does not automatically renew."""
+        # The "Professional" plan is seeded by a data migration, so
+        # django_get_or_create (keyed on name) returns that existing row and
+        # ignores the auto_renew override passed to the factory. Force it off
+        # explicitly so the plan actually has auto_renew disabled.
+        plan = professional_plan_factory()
+        plan.auto_renew = False
+        plan.save()
+        subscription = subscription_factory(plan=plan)
+
+        mock_stripe_subscription = Mock(id="sub_test123", latest_invoice=None)
+        mocked_customer = Mock()
+        mocker.patch(
+            "squarelet.organizations.models.organization.Organization.customer",
+            return_value=mocked_customer,
+        )
+        mock_sub_service = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_subscription_service.return_value
+        mock_sub_service.create.return_value = mock_stripe_subscription
+
+        subscription.start()
+
+        mock_sub_service.create.assert_called_with(
+            stripe_customer=mocked_customer.stripe_customer,
+            plan_id=subscription.plan.stripe_id,
+            quantity=subscription.quantity,
+            billing="charge_automatically",
+            metadata={"action": f"Subscription ({plan.name})"},
+            days_until_due=None,
+            billing_cycle_anchor=None,
+            cancel_at_period_end=True,
+        )
 
     def test_start_existing(self, subscription_factory, mocker):
         """If there is an existing subscription, do not start another one"""
@@ -145,6 +185,21 @@ class TestSubscription:
             metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=None,
         )
+
+    def test_modify_modify_no_auto_renew(
+        self, subscription_factory, professional_plan_factory, mocker
+    ):
+        """Modifying to a plan with auto_renew disabled flags the Stripe
+        subscription to cancel at period end."""
+        mocker.patch("squarelet.organizations.models.Subscription.save")
+        mock_sub_service = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_subscription_service.return_value
+        mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
+        plan = professional_plan_factory.build(auto_renew=False)
+        subscription = subscription_factory.build(plan=plan)
+        subscription.modify(plan)
+        assert mock_sub_service.modify.call_args.kwargs["cancel_at_period_end"] is True
 
     @pytest.mark.django_db()
     def test_start_creates_invoice_with_card(
@@ -256,6 +311,7 @@ class TestSubscription:
             metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=30,
             billing_cycle_anchor=None,
+            cancel_at_period_end=False,
         )
 
         # Verify Invoice record was created

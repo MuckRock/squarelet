@@ -282,6 +282,7 @@ class TestModernSubscriptionService:
             collection_method="charge_automatically",
             metadata={"action": "test"},
             days_until_due=None,
+            cancel_at_period_end=False,
             expand=["latest_invoice.confirmation_secret"],
         )
 
@@ -302,6 +303,7 @@ class TestModernSubscriptionService:
             collection_method="send_invoice",
             metadata={},
             days_until_due=30,
+            cancel_at_period_end=False,
             expand=["latest_invoice.confirmation_secret"],
         )
 

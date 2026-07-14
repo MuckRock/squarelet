@@ -130,7 +130,7 @@ class StripeModernCustomerService(CustomerService):
 class StripeModernSubscriptionService(SubscriptionService):
     """Subscription operations using current Stripe API."""
 
-    def create(  # pylint: disable=too-many-positional-arguments
+    def create(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         stripe_customer,
         plan_id,
@@ -139,6 +139,7 @@ class StripeModernSubscriptionService(SubscriptionService):
         metadata,
         days_until_due,
         billing_cycle_anchor=None,
+        cancel_at_period_end=False,
     ):
         # `billing` was renamed to `collection_method` in API version 2019-10-17
         # subscriptions no longer auto-expand as of API version 2020-08-27
@@ -150,6 +151,7 @@ class StripeModernSubscriptionService(SubscriptionService):
             "collection_method": billing,
             "metadata": metadata,
             "days_until_due": days_until_due,
+            "cancel_at_period_end": cancel_at_period_end,
             "expand": ["latest_invoice.confirmation_secret"],
         }
         if billing_cycle_anchor is not None:

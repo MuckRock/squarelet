@@ -224,6 +224,7 @@ class TestOrganization:
             metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=None,
             billing_cycle_anchor=None,
+            cancel_at_period_end=False,
         )
 
     @pytest.mark.django_db
@@ -249,6 +250,7 @@ class TestOrganization:
             metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=30,
             billing_cycle_anchor=None,
+            cancel_at_period_end=False,
         )
 
     @pytest.mark.django_db
@@ -273,6 +275,7 @@ class TestOrganization:
             metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=None,
             billing_cycle_anchor=None,
+            cancel_at_period_end=False,
         )
 
     @pytest.mark.django_db
@@ -304,6 +307,7 @@ class TestOrganization:
             metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=None,
             billing_cycle_anchor=None,
+            cancel_at_period_end=False,
         )
 
     @pytest.mark.django_db
@@ -330,6 +334,7 @@ class TestOrganization:
             metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=None,
             billing_cycle_anchor=None,
+            cancel_at_period_end=False,
         )
 
     @pytest.mark.django_db
