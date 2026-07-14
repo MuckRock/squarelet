@@ -36,8 +36,7 @@ from squarelet.organizations.querysets import OrganizationQuerySet
 
 logger = logging.getLogger(__name__)
 
-# This should be refactored
-# pylint:disable=too-many-positional-arguments, too-many-lines
+# pylint:disable=too-many-positional-arguments
 
 
 def organization_file_path(instance, filename):
@@ -956,5 +955,3 @@ class Organization(AvatarMixin, models.Model):
 
         org.save()
         self.save()
-
-
