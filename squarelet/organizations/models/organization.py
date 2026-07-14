@@ -494,9 +494,7 @@ class Organization(AvatarMixin, models.Model):
 
         is_first = not self.subscriptions.exists()
 
-        payment_method = self._resolve_payment_method(
-            payment_method, token
-        )
+        payment_method = self._resolve_payment_method(payment_method, token)
 
         if token:
             self.save_card(token, user)
