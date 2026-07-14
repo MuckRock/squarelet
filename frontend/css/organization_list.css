@@ -216,3 +216,21 @@ p {
   max-height: 32rem;
   overflow-y: auto;
 }
+
+/* Variant used on member org lists */
+.org-list .member-detail {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.org-list .member-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.5rem;
+  align-items: center;
+  justify-content: flex-end;
+}
