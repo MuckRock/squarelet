@@ -2171,6 +2171,56 @@ class TestHandleSubscriptionUpdated:
         assert int(subscription.current_period_end.timestamp()) == period_end_ts
 
     @pytest.mark.django_db
+    def test_syncs_cancel_at_period_end_true(self, subscription_factory):
+        """Marks the local subscription cancelled when Stripe schedules cancellation"""
+        subscription = subscription_factory(subscription_id="sub_cape", cancelled=False)
+
+        tasks.handle_subscription_updated(
+            {
+                "id": "sub_cape",
+                "status": "active",
+                "cancel_at_period_end": True,
+            }
+        )
+
+        subscription.refresh_from_db()
+        assert subscription.cancelled is True
+
+    @pytest.mark.django_db
+    def test_syncs_cancel_at_period_end_false(self, subscription_factory):
+        """Clears the local cancelled flag when Stripe cancellation is reversed"""
+        subscription = subscription_factory(
+            subscription_id="sub_reactivate", cancelled=True
+        )
+
+        tasks.handle_subscription_updated(
+            {
+                "id": "sub_reactivate",
+                "status": "active",
+                "cancel_at_period_end": False,
+            }
+        )
+
+        subscription.refresh_from_db()
+        assert subscription.cancelled is False
+
+    @pytest.mark.django_db
+    def test_canceled_status_reconciles_subscription(
+        self, subscription_factory, mocker
+    ):
+        """A terminal 'canceled' status deletes the record and invalidates the cache"""
+        patched = mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
+        subscription = subscription_factory(subscription_id="sub_upd_cancel")
+        org_uuid = subscription.organization.uuid
+
+        tasks.handle_subscription_updated(
+            {"id": "sub_upd_cancel", "status": "canceled"}
+        )
+
+        assert not Subscription.objects.filter(pk=subscription.pk).exists()
+        patched.assert_called_once_with("organization", [org_uuid])
+
+    @pytest.mark.django_db
     def test_unknown_subscription(self, mocker):
         """Logs a warning and returns gracefully for unknown subscription"""
         mock_logger = mocker.patch("squarelet.organizations.tasks.logger")
@@ -2182,12 +2232,18 @@ class TestHandleSubscriptionDeleted:
     """Unit tests for the handle_subscription_deleted task"""
 
     @pytest.mark.django_db
-    def test_marks_canceled(self, subscription_factory):
-        """Sets stripe_status to canceled"""
+    def test_deletes_subscription_and_invalidates_cache(
+        self, subscription_factory, mocker
+    ):
+        """Deleting on Stripe removes the local record and invalidates the cache"""
+        patched = mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
         subscription = subscription_factory(subscription_id="sub_del")
+        org_uuid = subscription.organization.uuid
+
         tasks.handle_subscription_deleted({"id": "sub_del", "status": "canceled"})
-        subscription.refresh_from_db()
-        assert subscription.stripe_status == "canceled"
+
+        assert not Subscription.objects.filter(pk=subscription.pk).exists()
+        patched.assert_called_once_with("organization", [org_uuid])
 
     @pytest.mark.django_db
     def test_unknown_subscription(self, mocker):

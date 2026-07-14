@@ -437,6 +437,22 @@ def handle_customer_updated(customer_data):
     )
 
 
+def _reconcile_cancelled_subscription(subscription, reason):
+    """Delete a locally-tracked subscription that Stripe has ended and
+    invalidate the organization's entitlement cache."""
+    organization_uuid = subscription.organization.uuid
+    subscription_id = subscription.subscription_id
+    subscription.delete()
+    send_cache_invalidations("organization", [organization_uuid])
+    logger.info(
+        "[STRIPE-WEBHOOK-SUBSCRIPTION] Reconciled cancelled subscription %s (%s); "
+        "deleted local record and invalidated cache for org %s",
+        subscription_id,
+        reason,
+        organization_uuid,
+    )
+
+
 @shared_task(
     name="squarelet.organizations.tasks.handle_subscription_updated",
     autoretry_for=(stripe.RateLimitError,),
@@ -456,12 +472,31 @@ def handle_subscription_updated(subscription_data):
         )
         return
 
+    # A terminal status means Stripe has ended the subscription (e.g. it was
+    # cancelled directly in the dashboard). Reconcile by removing the local
+    # record so the org no longer appears subscribed. Stripe normally also
+    # sends customer.subscription.deleted, but handling it here is idempotent
+    # (the other event will hit DoesNotExist). Check before caching fields so a
+    # terminal payload that omits period data does not need to be parsed.
+    if subscription_data.get("status") == "canceled":
+        _reconcile_cancelled_subscription(subscription, "status=canceled")
+        return
+
     stripe_sub = stripe.Subscription.construct_from(subscription_data, key=None)
     subscription.cache_stripe_subscription_fields(stripe_sub)
-    subscription.save(update_fields=["stripe_status", "current_period_end"])
+    # Mirror Stripe's pending-cancellation state onto the local record. This
+    # covers cancellations scheduled outside our own flow (dashboard, or the
+    # cancel_at_period_end set for auto_renew=False plans). The record is
+    # finally deleted when Stripe sends the deletion event at period end.
+    subscription.cancelled = bool(subscription_data.get("cancel_at_period_end"))
+    subscription.save(
+        update_fields=["stripe_status", "current_period_end", "cancelled"]
+    )
     logger.info(
-        "[STRIPE-WEBHOOK-SUBSCRIPTION] subscription.updated cached status for: %s",
+        "[STRIPE-WEBHOOK-SUBSCRIPTION] subscription.updated cached status for: %s "
+        "(cancelled=%s)",
         subscription_id,
+        subscription.cancelled,
     )
 
 
@@ -484,12 +519,7 @@ def handle_subscription_deleted(subscription_data):
         )
         return
 
-    subscription.stripe_status = subscription_data.get("status", "canceled")
-    subscription.save(update_fields=["stripe_status"])
-    logger.info(
-        "[STRIPE-WEBHOOK-SUBSCRIPTION] subscription.deleted cached status for: %s",
-        subscription_id,
-    )
+    _reconcile_cancelled_subscription(subscription, "subscription.deleted")
 
 
 @shared_task(name="squarelet.organizations.tasks.handle_invoice_paid")

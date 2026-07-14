@@ -188,8 +188,9 @@ class StripeModernSubscriptionService(SubscriptionService):
 
     def get_current_period_end(self, stripe_subscription):
         # current_period_end moved from subscription root to subscription items
-        # in API version 2025-03-31.basil
-        items = stripe_subscription.items
+        # in API version 2025-03-31.basil. Webhook payloads may omit items
+        # entirely (e.g. a bare cancel_at_period_end toggle), so fall back to None.
+        items = getattr(stripe_subscription, "items", None)
         if items and items.data:
             return items.data[0].current_period_end
         return None
