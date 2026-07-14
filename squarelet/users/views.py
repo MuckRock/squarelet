@@ -51,7 +51,7 @@ from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import new_action
 from squarelet.organizations.forms import InvitationAcceptForm
 from squarelet.organizations.models import Invitation, ReceiptEmail
-from squarelet.organizations.models.payment import Plan
+from squarelet.organizations.models.payment import Plan, _payment_brand
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.views import UpdateSubscription
 from squarelet.services.models import Service
@@ -174,7 +174,11 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         context["upgrade_plan"] = upgrade_plan
         # Get card, next charge date, and cancelled status for active subscription
         if current_plan and subscription:
-            context["current_plan_card"] = individual_org.customer().payment_details
+            details = individual_org.customer().payment_details
+            context["current_plan_card"] = details
+            context["current_plan_card_brand"] = (
+                _payment_brand(details) if details else ""
+            )
             # Stripe subscription may have next charge date
             stripe_sub = subscription.stripe_subscription
             if stripe_sub:
