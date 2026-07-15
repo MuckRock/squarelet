@@ -263,6 +263,7 @@ class TestOrganization:
             metadata={"action": f"Subscription ({plan_b.name})"},
             days_until_due=None,
             billing_cycle_anchor=anchor_ts,
+            cancel_at_period_end=False,
         )
 
     @pytest.mark.django_db
