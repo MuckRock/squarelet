@@ -3,6 +3,8 @@
 
   import Svelecte from "svelecte";
   import TeamListItem from "./TeamListItem.svelte";
+  import SelectChip from "./SelectChip.svelte";
+
 
   let selected: Organization | undefined = $state();
 
@@ -32,10 +34,12 @@
   >
     {#snippet selection(selectedOptions: Organization[], bindItem)}
       {#each selectedOptions as org (org.id)}
-        <div class="selected">
+        <SelectChip>
+          {#snippet content()}
           {org.name}
           <button data-action="deselect" use:bindItem={org}>&times;</button>
-        </div>
+          {/snippet}
+        </SelectChip>
       {/each}
     {/snippet}
 
