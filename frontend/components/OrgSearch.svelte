@@ -5,12 +5,16 @@
   import TeamListItem from "./TeamListItem.svelte";
   import SelectChip from "./SelectChip.svelte";
 
+  let {
+    name = "q",
+    onChange = onChangeDefault,
+  }: { name?: string; onChange?: (org: Organization) => void } = $props();
 
   let selected: Organization | undefined = $state();
 
   const fetchProps: RequestInit = { credentials: "include" };
 
-  function onChange(org: Organization) {
+  function onChangeDefault(org: Organization) {
     const url = new URL(`/organizations/${org.slug}/`, window.location.href);
     window.location = url;
   }
@@ -18,7 +22,7 @@
 
 <form class="container">
   <Svelecte
-    name="q"
+    {name}
     placeholder="Search public organizations…"
     bind:value={selected}
     valueAsObject
@@ -36,8 +40,8 @@
       {#each selectedOptions as org (org.id)}
         <SelectChip>
           {#snippet content()}
-          {org.name}
-          <button data-action="deselect" use:bindItem={org}>&times;</button>
+            {org.name}
+            <button data-action="deselect" use:bindItem={org}>&times;</button>
           {/snippet}
         </SelectChip>
       {/each}
