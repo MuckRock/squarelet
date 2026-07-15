@@ -476,7 +476,7 @@ class Detail(AdminLinkMixin, DetailView):
 
         new_action(
             actor=request.user,
-            verb="rejected invitation",
+            verb="rejected group invitation",
             action_object=group_org,
             target=member_org,
         )
