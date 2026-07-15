@@ -22,7 +22,7 @@
   {name}
   placeholder="Search public organizations…"
   valueAsObject
-  valueField="slug"
+  valueField="id"
   labelField="name"
   fetch="/fe_api/organizations/?individual=false&search=[query]"
   fetchCallback={(resp) => resp.results}

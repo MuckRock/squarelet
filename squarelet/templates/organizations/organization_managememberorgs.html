@@ -58,10 +58,13 @@
     </header>
 
     <div class="card">
-      <form method="POST"
-        id="invite-form"
-        action="">
+      <form method="POST" id="invite-form" action="{% url "organizations:manage-member-orgs" organization.slug %}">
         {% csrf_token %}
+        <div id="org_search"></div>
+        <button disabled class="btn primary" type="submit" name="action" value="send_invite">
+          {% icon "paper-airplane" %}
+          {% trans "Send invite" %}
+        </button>
       </form>
     </div>
   </section>

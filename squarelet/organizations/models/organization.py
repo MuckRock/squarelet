@@ -896,6 +896,10 @@ class Organization(AvatarMixin, models.Model):
             request=False,
         ).first()
 
+    def has_member_org(self, org):
+        """Is the org a member?"""
+        return self.members.filter(pk=org.pk).exists()
+
     @transaction.atomic
     def merge(self, org, user):
         """Merge another organization into this one"""

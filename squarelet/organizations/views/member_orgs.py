@@ -5,6 +5,7 @@ from django.utils.translation import gettext_lazy as _
 from django.views.generic import DetailView
 
 # Squarelet
+from squarelet.organizations.choices import RelationshipType
 from squarelet.organizations.mixins import OrganizationPermissionMixin
 from squarelet.organizations.models import Organization
 from squarelet.organizations.models.invitation import OrganizationInvitation
@@ -37,6 +38,8 @@ class ManageMemberOrgs(OrganizationPermissionMixin, DetailView):
 
         action = request.POST.get("action")
 
+        if action == "send_invite":
+            self._handle_send_invite(request)
         if action == "resend_invite":
             self._handle_resend_invite(request)
         if action == "withdraw_invite":
@@ -55,11 +58,42 @@ class ManageMemberOrgs(OrganizationPermissionMixin, DetailView):
 
         return invitation
 
+    def _handle_send_invite(self, request):
+        to_org_id = request.POST.get("to_organization")
+
+        try:
+            to_org = Organization.objects.get(id=to_org_id)
+        except:
+            messages.error(request, _("Organization not found"))
+            return None
+
+        if self.organization.has_member_org(to_org):
+            messages.info(
+                request,
+                f"{to_org.name} is already a member of this organization.",
+            )
+            return None
+
+        invitation = OrganizationInvitation.objects.create(
+            from_user=self.request.user,
+            from_organization=self.organization,
+            to_organization=to_org,
+            relationship_type=RelationshipType.member,
+        )
+
+        invitation.send()
+
+        messages.success(request, _("Invitation sent"))
+
     def _handle_resend_invite(self, request):
         invitation = self._get_invitation(request)
 
         if not invitation:
             return None
+
+        invitation.send()
+
+        messages.info(request, _("Invitation resent"))
 
     def _handle_withdraw_invite(self, request):
         invitation = self._get_invitation(request)
