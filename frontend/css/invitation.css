@@ -1,0 +1,40 @@
+.container {
+  max-width: 32rem;
+  margin: 3rem auto;
+  padding: 2rem;
+  background: var(--white);
+  border-radius: 8px;
+  border: 1px solid var(--gray-2);
+}
+
+h2 {
+  font-weight: var(--font-semibold, 600);
+  font-size: var(--font-xl);
+}
+
+.control-group {
+  margin-top: 2rem;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.control-group form {
+  display: contents;
+}
+
+.control-group .button {
+  flex-grow: 1;
+}
+
+.control-group .button.primary {
+  flex-grow: 2;
+}
+
+.user-data {
+  font-weight: 500;
+}
+
+.user-data a {
+  text-decoration: underline;
+}
