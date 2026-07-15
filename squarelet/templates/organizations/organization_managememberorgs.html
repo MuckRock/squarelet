@@ -72,11 +72,15 @@
       <div class="title">
         {% if pending_invitations %}
         <h2>
-          {{ count }} pending invitation{{ count|pluralize }}
+          {% blocktrans count count=count %}
+            {{ count }} pending invitation
+          {% plural %}
+            {{ count }} pending invitations
+          {% endblocktrans %}
         </h2>
         {% else %}
         <h2>
-          Pending invitations
+          {% trans "Pending invitations" %}
         </h2>
         {% endif %}
         <p>{% trans "Organizations you've invited to join" %}:</p>
@@ -101,7 +105,7 @@
                   {% trans "Withdraw" %}
                 </button>
               </form>
-              <p class="caption">Created 
+              <p class="caption">{% trans "Created" %} 
                 <time datetime="{{ invitation.created_at|date:"c" }}" title="{{ invitation.created_at|date:"c" }}">{{ invitation.created_at|naturaltime }}</time>
               </p>
             </div>
@@ -109,7 +113,7 @@
           {% endwith %}
           {% empty %}
             <div class="empty empty--no-border">
-              <p>No pending invitations</p>
+              <p>{% trans "No pending invitations" %}</p>
             </div>
           {% endfor %}
         </div>
@@ -120,7 +124,12 @@
     {% with count=members|length %}
     <section id="members">
       <header>
-        <h2>{{ count }} member organization{{ count|pluralize }}</h2>
+        <h2>
+          {% blocktrans count count=count %}
+            {{ count }} member organization
+          {% plural %}
+            {{ count }} member organizations
+          {% endblocktrans %}
       </header>
       <div class="card">
         <div class="org-list">
@@ -138,7 +147,7 @@
             </div>
           {% empty %}
             <div class="empty empty--no-border">
-              <p>No member organizations</p>
+              <p>{% trans "No member organizations" %}</p>
             </div>
           {% endfor %}
         </div>
