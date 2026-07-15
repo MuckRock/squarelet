@@ -1,4 +1,7 @@
 # Django
+from django.contrib import messages
+from django.shortcuts import redirect
+from django.utils.translation import gettext_lazy as _
 from django.views.generic import DetailView
 
 # Squarelet
@@ -17,6 +20,53 @@ class ManageMemberOrgs(OrganizationPermissionMixin, DetailView):
         org = self.object
 
         context["members"] = org.members.all()
-        print(context["members"])
+        context["pending_invitations"] = OrganizationInvitation.objects.filter(
+            from_organization__slug=org.slug,
+            accepted_at__isnull=True,
+            rejected_at__isnull=True,
+            withdrawn_at__isnull=True,
+        ).select_related("to_organization")
 
         return context
+
+    def post(self, request, *args, **kwargs):
+        self.organization = self.get_object()
+
+        if not self.request.user.is_authenticated:
+            return redirect(self.organization)
+
+        action = request.POST.get("action")
+
+        if action == "resend_invite":
+            self._handle_resend_invite(request)
+        if action == "withdraw_invite":
+            self._handle_withdraw_invite(request)
+
+        return redirect("organizations:manage-member-orgs", slug=self.organization.slug)
+
+    def _get_invitation(self, request):
+        invitation_id = request.POST.get("invitation_id")
+
+        try:
+            invitation = OrganizationInvitation.objects.get(id=invitation_id)
+        except:
+            messages.error(request, _("Invitation not found"))
+            return None
+
+        return invitation
+
+    def _handle_resend_invite(self, request):
+        invitation = self._get_invitation(request)
+
+        if not invitation:
+            return None
+
+    def _handle_withdraw_invite(self, request):
+        invitation = self._get_invitation(request)
+
+        if not invitation:
+            return None
+
+        invitation.withdraw()
+
+        messages.info(request, "Invitation withdrawn")
