@@ -28,11 +28,12 @@ def subscription_service():
 
 class TestLegacyCustomerService:
     def test_retrieve_source(self, customer_service, mocker):
+        customer_id = "cus_123"
         source_id = "src_123"
-        mock_customer = mocker.MagicMock()
-        result = customer_service.retrieve_source(mock_customer, source_id)
-        mock_customer.sources.retrieve.assert_called_once_with(source_id)
-        assert result == mock_customer.sources.retrieve.return_value
+        mock_retrieve = mocker.patch("stripe.Customer.retrieve_source")
+        result = customer_service.retrieve_source(customer_id, source_id)
+        mock_retrieve.assert_called_once_with(customer_id, source_id)
+        assert result == mock_retrieve.return_value
 
     def test_add_source(self, customer_service, mocker):
         token = "tok_123"
