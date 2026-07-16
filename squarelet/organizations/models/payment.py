@@ -307,7 +307,7 @@ class Subscription(models.Model):
             )
         return None
 
-    def _cache_stripe_subscription_fields(self, stripe_sub):
+    def cache_stripe_subscription_fields(self, stripe_sub):
         """Cache subscription status and period end from a Stripe subscription."""
         self.stripe_status = stripe_sub.status or ""
         ts = (
@@ -358,7 +358,7 @@ class Subscription(models.Model):
                 )
             )
             self.subscription_id = stripe_subscription.id
-            self._cache_stripe_subscription_fields(stripe_subscription)
+            self.cache_stripe_subscription_fields(stripe_subscription)
             if not self.plan.auto_renew and self.current_period_end:
                 self.cancel_at = self.current_period_end.date()
             # Save subscription before creating invoice
@@ -468,7 +468,7 @@ class Subscription(models.Model):
                 .cancel_at_period_end(self.stripe_subscription)
             )
             if updated:
-                self._cache_stripe_subscription_fields(updated)
+                self.cache_stripe_subscription_fields(updated)
         self.cancelled = True
         if self.current_period_end:
             self.cancel_at = self.current_period_end.date()
@@ -526,7 +526,7 @@ class Subscription(models.Model):
             )
             self.cancelled = False
             if updated:
-                self._cache_stripe_subscription_fields(updated)
+                self.cache_stripe_subscription_fields(updated)
             if not self.plan.auto_renew and self.current_period_end:
                 self.cancel_at = self.current_period_end.date()
             else:
