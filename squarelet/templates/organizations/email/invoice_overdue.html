@@ -25,20 +25,21 @@
     {% endblocktrans %}</p>
   {% endif %}
 
-  <p>{% trans "To avoid service interruption, please submit payment as soon as possible using one of the following methods:" %}</p>
+  <p>{% trans "To avoid service interruption, please submit payment as soon as possible." %}</p>
 
-  <ul>
-    {% if hosted_invoice_url %}
-    <li>{% blocktrans with url=hosted_invoice_url %}
-      <a href="{{ url }}">Pay online</a> via credit card
-    {% endblocktrans %}</li>
-    {% else %}
-    <li>{% blocktrans with url=url_org_ %}
-      <a href="{{ url }}">Manage your payment methods</a>
-    {% endblocktrans %}</li>
-    {% endif %}
-    <li>{% trans "Wire transfer or check (contact us for payment details)" %}</li>
-  </ul>
+  {% if hosted_invoice_url %}
+  <p>
+    {% blocktrans with url=hosted_invoice_url %}
+    <a href="{{ url }}">Pay online</a> with credit card or ACH direct debit
+    {% endblocktrans %}
+  </p>
+  {% else %}
+  <p>
+    {% blocktrans with url=url_org_ %}
+    <a href="{{ url }}">Manage your payment methods</a>
+    {% endblocktrans %}
+  </p>
+  {% endif %}
 
   <p>{% trans "If you have already submitted payment, please disregard this notice." %}</p>
 
