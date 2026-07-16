@@ -89,7 +89,7 @@ class Command(BaseCommand):
                     customer.stripe_payment_method_id = pm_id
                 elif stripe_customer.default_source:
                     source = customer_service.retrieve_source(
-                        stripe_customer,
+                        stripe_customer.id,
                         stripe_customer.default_source,
                     )
                     customer.payment_brand = get_payment_brand(source)

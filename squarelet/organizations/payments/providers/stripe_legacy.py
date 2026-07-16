@@ -42,8 +42,8 @@ class StripeLegacyCustomerService(CustomerService):
     def remove_payment_method(self, customer_id, source_id):
         stripe.Customer.delete_source(customer_id, source_id)
 
-    def retrieve_source(self, stripe_customer, source_id):
-        return stripe_customer.sources.retrieve(source_id)
+    def retrieve_source(self, customer_id, source_id):
+        return stripe.Customer.retrieve_source(customer_id, source_id)
 
     def add_source(self, stripe_customer, token):
         return stripe_customer.sources.create(source=token)

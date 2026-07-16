@@ -50,7 +50,7 @@ class CustomerService(ABC):
         """Remove a payment source from a customer."""
 
     @abstractmethod
-    def retrieve_source(self, stripe_customer, source_id):
+    def retrieve_source(self, customer_id, source_id):
         """Retrieve a specific payment source for a customer."""
 
     @abstractmethod

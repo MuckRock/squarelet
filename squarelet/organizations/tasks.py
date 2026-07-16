@@ -407,8 +407,7 @@ def handle_customer_updated(customer_data):
         customer.stripe_payment_method_id = pm_id
     elif default_source and isinstance(default_source, str):
         # Legacy Source — retrieve and read brand/last4 directly
-        stripe_customer = customer_service.retrieve(customer_id)
-        source = customer_service.retrieve_source(stripe_customer, default_source)
+        source = customer_service.retrieve_source(customer_id, default_source)
         if source.object == "card":
             customer.payment_brand = source.brand or ""
             customer.payment_last4 = source.last4 or ""

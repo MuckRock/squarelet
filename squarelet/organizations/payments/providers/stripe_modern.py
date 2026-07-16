@@ -95,9 +95,9 @@ class StripeModernCustomerService(CustomerService):
         else:
             stripe.Customer.delete_source(customer_id, source_id)
 
-    def retrieve_source(self, stripe_customer, source_id):
+    def retrieve_source(self, customer_id, source_id):
         # sources no longer auto-expand as of API version 2020-08-27
-        return stripe.Customer.retrieve_source(stripe_customer.id, source_id)
+        return stripe.Customer.retrieve_source(customer_id, source_id)
 
     def add_source(self, stripe_customer, token):
         """Create and attach a PaymentMethod for a single charge."""
