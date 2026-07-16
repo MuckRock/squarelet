@@ -70,61 +70,61 @@
   </section>
 
   {% with count=pending_invitations|length %}
-  <section id="pending">
-    <header>
-      <div class="title">
-        {% if pending_invitations %}
-        <h2>
-          {% blocktrans count count=count %}
-            {{ count }} pending invitation
-          {% plural %}
-            {{ count }} pending invitations
-          {% endblocktrans %}
-        </h2>
-        {% else %}
-        <h2>
-          {% trans "Pending invitations" %}
-        </h2>
-        {% endif %}
-        <p>{% trans "Organizations you've invited to join" %}:</p>
-      </div>
-    </header>
-    <div class="card">
-      <div class="org-list">
-        {% for invitation in pending_invitations %}
-          {% with org=invitation.to_organization %}
-          <div class="org">
-            {% include "account/team_list_item.html" with organization=org %}
-            <div class="member-detail">
-              <form method="post" action="{% url "organizations:manage-member-orgs" organization.slug %}" class="member-actions">
-                {% csrf_token %}
-                <input type="hidden" name="invitation" value="{{ invitation.uuid }}">
-                <button class="btn ghost small" type="submit" name="action" value="resend_invite">
-                  {% icon "paper-airplane" %}
-                  {% trans "Resend" %}
-                </button>
-                <button class="btn danger ghost small" type="submit" name="action" value="withdraw_invite">
-                  {% icon "x" %}
-                  {% trans "Withdraw" %}
-                </button>
-              </form>
-              <p class="caption">{% trans "Created" %} 
-                <time datetime="{{ invitation.created_at|date:"c" }}" title="{{ invitation.created_at|date:"c" }}">{{ invitation.created_at|naturaltime }}</time>
-              </p>
+    <section id="pending">
+      <header>
+        <div class="title">
+          {% if pending_invitations %}
+          <h2>
+            {% blocktrans count count=count %}
+              {{ count }} pending invitation
+            {% plural %}
+              {{ count }} pending invitations
+            {% endblocktrans %}
+          </h2>
+          {% else %}
+          <h2>
+            {% trans "Pending invitations" %}
+          </h2>
+          {% endif %}
+          <p>{% trans "Organizations you've invited to join" %}:</p>
+        </div>
+      </header>
+      <div class="card">
+        <div class="org-list">
+          {% for invitation in pending_invitations %}
+            {% with org=invitation.to_organization %}
+            <div class="org">
+              {% include "account/team_list_item.html" with organization=org %}
+              <div class="member-detail">
+                <form method="post" action="{% url "organizations:manage-member-orgs" organization.slug %}" class="member-actions">
+                  {% csrf_token %}
+                  <input type="hidden" name="invitation" value="{{ invitation.uuid }}">
+                  <button class="btn ghost small" type="submit" name="action" value="resend_invite">
+                    {% icon "paper-airplane" %}
+                    {% trans "Resend" %}
+                  </button>
+                  <button class="btn danger ghost small" type="submit" name="action" value="withdraw_invite">
+                    {% icon "x" %}
+                    {% trans "Withdraw" %}
+                  </button>
+                </form>
+                <p class="caption">{% trans "Created" %} 
+                  <time datetime="{{ invitation.created_at|date:"c" }}" title="{{ invitation.created_at|date:"c" }}">{{ invitation.created_at|naturaltime }}</time>
+                </p>
+              </div>
             </div>
-          </div>
-          {% endwith %}
-          {% empty %}
-            <div class="empty empty--no-border">
-              <p>{% trans "No pending invitations" %}</p>
-            </div>
+            {% endwith %}
+            {% empty %}
+              <div class="empty empty--no-border">
+                <p>{% trans "No pending invitations" %}</p>
+              </div>
           {% endfor %}
         </div>
       </div>
     </section>
-    {% endwith %}
+  {% endwith %}
 
-    {% with count=members|length %}
+  {% with count=members|length %}
     <section id="member-orgs">
       <header>
         <h2>
@@ -133,6 +133,7 @@
           {% plural %}
             {{ count }} member organizations
           {% endblocktrans %}
+        </h2>
       </header>
       <div class="card">
         <div class="org-list">
@@ -156,7 +157,5 @@
         </div>
       </div>
     </section>
-    {% endwith %}
-  </div>
-</article>
+  {% endwith %} 
 {% endblock main %}

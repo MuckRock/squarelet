@@ -164,7 +164,7 @@
           {% trans "Member of" %}
           {% for group in groups %}
             {% url 'organizations:detail' group.slug as group_url %}
-            <a href="{{ group_url }}">{{ group.name }}</a></strong>{% if forloop.revcounter == 2 %} and 
+            <a href="{{ group_url }}">{{ group.name }}</a>{% if forloop.revcounter == 2 %} and 
             {% elif not forloop.last %}, {% endif %}
           {% endfor %}
         </div>
