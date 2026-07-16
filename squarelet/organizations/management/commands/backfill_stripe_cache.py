@@ -55,6 +55,7 @@ class Command(BaseCommand):
         self._backfill_invoices(provider, force, dry_run)
 
     def _backfill_customers(self, provider, force, dry_run):
+        # pylint: disable=too-many-locals
         customer_service = provider.get_customer_service()
 
         qs = Customer.objects.exclude(customer_id=None)

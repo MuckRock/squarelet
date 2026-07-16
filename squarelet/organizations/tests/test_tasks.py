@@ -2058,9 +2058,13 @@ class TestHandleCustomerUpdated:
         mock_pm.card.last4 = "4242"
         mock_pm.card.exp_month = 12
         mock_pm.card.exp_year = 2028
-        mocker.patch(
+        mock_provider = mocker.patch(
             "squarelet.organizations.tasks.get_payment_provider"
-        ).return_value.get_customer_service.return_value.retrieve_payment_method.return_value = (
+        ).return_value
+        mock_customer_svc = (
+            mock_provider.get_customer_service.return_value
+        )
+        mock_customer_svc.retrieve_payment_method.return_value = (
             mock_pm
         )
 

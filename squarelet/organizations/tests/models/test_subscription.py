@@ -268,12 +268,11 @@ class TestSubscription:
         mock_provider = mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
         ).return_value
-        mock_provider.get_subscription_service.return_value.create.return_value = (
-            mock_stripe_subscription
+        mock_sub_svc = (
+            mock_provider.get_subscription_service.return_value
         )
-        mock_provider.get_subscription_service.return_value.get_current_period_end.return_value = (
-            None
-        )
+        mock_sub_svc.create.return_value = mock_stripe_subscription
+        mock_sub_svc.get_current_period_end.return_value = None
         mock_provider.get_invoice_service.return_value.retrieve.return_value = (
             mock_stripe_invoice
         )
@@ -331,12 +330,11 @@ class TestSubscription:
         mock_provider = mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
         ).return_value
-        mock_provider.get_subscription_service.return_value.create.return_value = (
-            mock_stripe_subscription
+        mock_sub_svc = (
+            mock_provider.get_subscription_service.return_value
         )
-        mock_provider.get_subscription_service.return_value.get_current_period_end.return_value = (
-            None
-        )
+        mock_sub_svc.create.return_value = mock_stripe_subscription
+        mock_sub_svc.get_current_period_end.return_value = None
         mock_provider.get_invoice_service.return_value.retrieve.return_value = (
             mock_stripe_invoice
         )
@@ -407,12 +405,11 @@ class TestSubscription:
         mock_provider = mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
         ).return_value
-        mock_provider.get_subscription_service.return_value.create.return_value = (
-            mock_stripe_subscription
+        mock_sub_svc = (
+            mock_provider.get_subscription_service.return_value
         )
-        mock_provider.get_subscription_service.return_value.get_current_period_end.return_value = (
-            None
-        )
+        mock_sub_svc.create.return_value = mock_stripe_subscription
+        mock_sub_svc.get_current_period_end.return_value = None
         mock_provider.get_invoice_service.return_value.retrieve.side_effect = (
             stripe.InvalidRequestError("No such invoice", "invoice")
         )
@@ -452,10 +449,11 @@ class TestSubscription:
         mock_provider = mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
         ).return_value
-        mock_provider.get_subscription_service.return_value.create.return_value = (
-            mock_stripe_sub
+        mock_sub_svc = (
+            mock_provider.get_subscription_service.return_value
         )
-        mock_provider.get_subscription_service.return_value.get_current_period_end.return_value = (
+        mock_sub_svc.create.return_value = mock_stripe_sub
+        mock_sub_svc.get_current_period_end.return_value = (
             period_end_ts
         )
 
