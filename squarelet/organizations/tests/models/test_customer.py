@@ -5,6 +5,9 @@ from unittest.mock import Mock
 import pytest
 import stripe
 
+# Squarelet
+from squarelet.organizations.models import PaymentMethod
+
 
 class TestCustomer:
     """Unit tests for Customer model"""
@@ -121,19 +124,24 @@ class TestCustomer:
             invoice_settings={"default_payment_method": "pm_new"},
         )
 
-    def test_payment_method_display_uses_cache(self, customer_factory, mocker):
+    @pytest.mark.django_db()
+    def test_payment_method_display_uses_cache(
+        self, customer_factory, payment_method_factory, mocker
+    ):
         """payment_method_display returns cached value without Stripe"""
         mock_card_prop = mocker.patch(
             "squarelet.organizations.models.Customer.card",
             new_callable=mocker.PropertyMock,
         )
-        customer = customer_factory.build(payment_brand="Visa", payment_last4="4242")
+        customer = customer_factory()
+        payment_method_factory(customer=customer, brand="Visa", last4="4242")
         assert customer.payment_method_display == "Visa: x4242"
         mock_card_prop.assert_not_called()
 
+    @pytest.mark.django_db()
     def test_payment_method_display_empty_cache(self, customer_factory):
-        """payment_method_display returns empty when cache empty"""
-        customer = customer_factory.build(payment_brand="", payment_last4="")
+        """payment_method_display returns empty when no PaymentMethod"""
+        customer = customer_factory()
         assert customer.payment_method_display == ""
 
     @pytest.mark.django_db(transaction=True)
@@ -157,34 +165,38 @@ class TestCustomer:
         customer = customer_factory()
         customer.save_card("tok_test")
 
-        customer.refresh_from_db()
-        assert customer.payment_brand == "Visa"
-        assert customer.payment_last4 == "4242"
-        assert customer.payment_exp_month == 12
-        assert customer.payment_exp_year == 2028
-        assert customer.stripe_payment_method_id == "pm_test123"
+        pm = customer.default_payment_method_obj()
+        assert pm is not None
+        assert pm.brand == "Visa"
+        assert pm.last4 == "4242"
+        assert pm.exp_month == 12
+        assert pm.exp_year == 2028
+        assert pm.stripe_id == "pm_test123"
 
     @pytest.mark.django_db(transaction=True)
-    def test_remove_payment_method_clears_cache(self, customer_factory, mocker):
-        """remove_payment_method() clears all five cache fields"""
+    def test_remove_payment_method_clears_cache(
+        self, customer_factory, payment_method_factory, mocker
+    ):
+        """remove_payment_method() deletes the default PaymentMethod"""
         mocker.patch("stripe.PaymentMethod.detach")
         mocker.patch("stripe.Customer.modify")
-        customer = customer_factory(
-            customer_id="cus_test",
-            payment_brand="Visa",
-            payment_last4="4242",
-            payment_exp_month=12,
-            payment_exp_year=2028,
-            stripe_payment_method_id="pm_abc",
+        customer = customer_factory(customer_id="cus_test")
+        payment_method_factory(
+            customer=customer,
+            brand="Visa",
+            last4="4242",
+            exp_month=12,
+            exp_year=2028,
+            stripe_id="pm_abc",
         )
         customer.remove_payment_method()
 
-        customer.refresh_from_db()
         assert customer.payment_brand == ""
         assert customer.payment_last4 == ""
         assert customer.payment_exp_month is None
         assert customer.payment_exp_year is None
         assert customer.stripe_payment_method_id == ""
+        assert not PaymentMethod.objects.filter(customer=customer).exists()
 
     @pytest.mark.django_db()
     def test_customer_invalid_clears_and_creates_new(self, customer_factory, mocker):
