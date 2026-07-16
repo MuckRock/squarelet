@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 # pylint: disable=too-many-lines
 
 
-def _payment_brand(details):
+def get_payment_brand(details):
     """Return the brand/institution name for a Stripe payment details sub-object.
 
     Handles both card (``details.brand``) and bank account
@@ -62,10 +62,10 @@ class Customer(models.Model):
         help_text=_("The customer's corresponding ID on stripe"),
     )
 
-    card_brand = models.CharField(max_length=20, blank=True, default="")
-    card_last4 = models.CharField(max_length=4, blank=True, default="")
-    card_exp_month = models.PositiveSmallIntegerField(null=True, blank=True)
-    card_exp_year = models.PositiveSmallIntegerField(null=True, blank=True)
+    payment_brand = models.CharField(max_length=20, blank=True, default="")
+    payment_last4 = models.CharField(max_length=4, blank=True, default="")
+    payment_exp_month = models.PositiveSmallIntegerField(null=True, blank=True)
+    payment_exp_year = models.PositiveSmallIntegerField(null=True, blank=True)
     stripe_payment_method_id = models.CharField(max_length=255, blank=True, default="")
 
     def __str__(self):
@@ -149,14 +149,17 @@ class Customer(models.Model):
 
     @cached_property
     def payment_details(self):
-        """Return the display sub-object for the default payment method, or None.
+        """Return the type-specific sub-object for the default payment method.
 
-        Returns the appropriate sub-object exposing .last4 and type-specific fields:
+        Returns the appropriate sub-object exposing .last4 and type-specific
+        fields, or None if no payment method is on file:
           - card PaymentMethod      → pm.card             (.brand, .last4)
           - bank account PM         → pm.us_bank_account  (.bank_name, .last4)
           - legacy Source/card      → source              (.brand, .last4)
+
+        Warning: this calls the Stripe API. Use payment_method_display for
+        latency-safe display from cached fields.
         """
-        # XXX this needs to be updated to use cached values
         pm = self.payment_method
         if pm is None:
             return None
@@ -172,16 +175,28 @@ class Customer(models.Model):
 
     @property
     def payment_method_display(self):
-        details = self.payment_details
-        if not details:
-            return ""
-        return f"{_payment_brand(details)}: x{details.last4}"
+        if self.payment_brand and self.payment_last4:
+            return f"{self.payment_brand}: x{self.payment_last4}"
+        return ""
 
-    # XXX pre-merge version using cached values
-    # def card_display(self):
-    #     if self.card_brand and self.card_last4:
-    #         return f"{self.card_brand}: x{self.card_last4}"
-    #    return ""
+    PAYMENT_CACHE_FIELDS = [
+        "payment_brand",
+        "payment_last4",
+        "payment_exp_month",
+        "payment_exp_year",
+        "stripe_payment_method_id",
+    ]
+
+    def save_payment_cache(self):
+        self.save(update_fields=self.PAYMENT_CACHE_FIELDS)
+
+    def clear_payment_cache(self):
+        self.payment_brand = ""
+        self.payment_last4 = ""
+        self.payment_exp_month = None
+        self.payment_exp_year = None
+        self.stripe_payment_method_id = ""
+        self.save_payment_cache()
 
     def save_card(self, token):
         """Save a new default card"""
@@ -191,52 +206,20 @@ class Customer(models.Model):
             .save_card(self.stripe_customer, token)
         )
         if pm is not None:
-            self.card_brand = pm.card.brand or ""
-            self.card_last4 = pm.card.last4 or ""
-            self.card_exp_month = pm.card.exp_month
-            self.card_exp_year = pm.card.exp_year
+            self.payment_brand = pm.card.brand or ""
+            self.payment_last4 = pm.card.last4 or ""
+            self.payment_exp_month = pm.card.exp_month
+            self.payment_exp_year = pm.card.exp_year
             self.stripe_payment_method_id = pm.id or ""
-            self.save(
-                update_fields=[
-                    "card_brand",
-                    "card_last4",
-                    "card_exp_month",
-                    "card_exp_year",
-                    "stripe_payment_method_id",
-                ]
-            )
+            self.save_payment_cache()
 
     def remove_payment_method(self):
         """Remove the default payment method"""
-        # XXX this needs to clear cached values
-        pm = self.payment_method
-        if pm:
-            get_payment_provider().get_customer_service().remove_payment_method(
-                self.customer_id, pm.id
-            )
-
-    # XXX pre-merge version using cached values
-    # def remove_card(self):
-    #     """Remove the default card"""
-    #     pm_id = self.stripe_payment_method_id
-    #     if pm_id:
-    #         get_payment_provider().get_customer_service().remove_card(
-    #             self.customer_id, pm_id
-    #         )
-    #         self.card_brand = ""
-    #         self.card_last4 = ""
-    #         self.card_exp_month = None
-    #         self.card_exp_year = None
-    #         self.stripe_payment_method_id = ""
-    #         self.save(
-    #             update_fields=[
-    #                 "card_brand",
-    #                 "card_last4",
-    #                 "card_exp_month",
-    #                 "card_exp_year",
-    #                 "stripe_payment_method_id",
-    #             ]
-    #         )
+        pm_id = self.stripe_payment_method_id
+        if pm_id:
+            customer_svc = get_payment_provider().get_customer_service()
+            customer_svc.remove_payment_method(self.customer_id, pm_id)
+            self.clear_payment_cache()
 
     def add_source(self, token):
         """Add a non-default source"""
@@ -304,7 +287,7 @@ class Subscription(models.Model):
     )
 
     stripe_status = models.CharField(max_length=30, blank=True, default="")
-    # XXX do current_period_end and cancel_at make sense together?
+    # TODO do current_period_end and cancel_at make sense together?
     current_period_end = models.DateTimeField(null=True, blank=True)
 
     class Meta:

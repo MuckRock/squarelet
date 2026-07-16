@@ -18,7 +18,7 @@ import stripe
 
 # Squarelet
 from squarelet.organizations.models import Organization, Plan
-from squarelet.organizations.models.payment import Subscription, _payment_brand
+from squarelet.organizations.models.payment import Subscription, get_payment_brand
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.tasks import add_to_waitlist
@@ -176,7 +176,7 @@ class PlanDetailView(DetailView):
             if individual_card:
                 org_cards[str(individual_org.pk)] = {
                     "last4": individual_card.last4,
-                    "brand": _payment_brand(individual_card),
+                    "brand": get_payment_brand(individual_card),
                 }
 
         # Add admin organizations that have a payment method on file
@@ -185,7 +185,7 @@ class PlanDetailView(DetailView):
             if org_card:
                 org_cards[str(org.pk)] = {
                     "last4": org_card.last4,
-                    "brand": _payment_brand(org_card),
+                    "brand": get_payment_brand(org_card),
                 }
 
         return org_cards

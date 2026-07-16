@@ -87,6 +87,7 @@ class TestSubscription:
         cancel_at_ts = 1_800_000_000
         mock_stripe_subscription = Mock(
             id="sub_test123",
+            status="active",
             latest_invoice=None,
             cancel_at=cancel_at_ts,
         )
@@ -95,14 +96,20 @@ class TestSubscription:
             "squarelet.organizations.models.organization.Organization.customer",
             return_value=mocked_customer,
         )
-        mock_sub_service = mocker.patch(
+        mock_provider = mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
-        ).return_value.get_subscription_service.return_value
-        mock_sub_service.create.return_value = mock_stripe_subscription
+        ).return_value
+        mock_sub_svc = (
+            mock_provider.get_subscription_service.return_value
+        )
+        mock_sub_svc.create.return_value = (
+            mock_stripe_subscription
+        )
+        mock_sub_svc.get_current_period_end.return_value = None
 
         subscription.start()
 
-        mock_sub_service.create.assert_called_with(
+        mock_sub_svc.create.assert_called_with(
             stripe_customer=mocked_customer.stripe_customer,
             plan_id=subscription.plan.stripe_id,
             quantity=subscription.quantity,
@@ -112,7 +119,9 @@ class TestSubscription:
             billing_cycle_anchor=None,
             cancel_at_period_end=True,
         )
-        expected_date = datetime.fromtimestamp(cancel_at_ts, tz=dt_timezone.utc).date()
+        expected_date = datetime.fromtimestamp(
+            cancel_at_ts, tz=dt_timezone.utc
+        ).date()
         assert subscription.cancel_at == expected_date
 
     def test_start_existing(self, subscription_factory, mocker):
@@ -268,9 +277,7 @@ class TestSubscription:
         mock_provider = mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
         ).return_value
-        mock_sub_svc = (
-            mock_provider.get_subscription_service.return_value
-        )
+        mock_sub_svc = mock_provider.get_subscription_service.return_value
         mock_sub_svc.create.return_value = mock_stripe_subscription
         mock_sub_svc.get_current_period_end.return_value = None
         mock_provider.get_invoice_service.return_value.retrieve.return_value = (
@@ -330,9 +337,7 @@ class TestSubscription:
         mock_provider = mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
         ).return_value
-        mock_sub_svc = (
-            mock_provider.get_subscription_service.return_value
-        )
+        mock_sub_svc = mock_provider.get_subscription_service.return_value
         mock_sub_svc.create.return_value = mock_stripe_subscription
         mock_sub_svc.get_current_period_end.return_value = None
         mock_provider.get_invoice_service.return_value.retrieve.return_value = (
@@ -405,9 +410,7 @@ class TestSubscription:
         mock_provider = mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
         ).return_value
-        mock_sub_svc = (
-            mock_provider.get_subscription_service.return_value
-        )
+        mock_sub_svc = mock_provider.get_subscription_service.return_value
         mock_sub_svc.create.return_value = mock_stripe_subscription
         mock_sub_svc.get_current_period_end.return_value = None
         mock_provider.get_invoice_service.return_value.retrieve.side_effect = (
@@ -449,13 +452,9 @@ class TestSubscription:
         mock_provider = mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
         ).return_value
-        mock_sub_svc = (
-            mock_provider.get_subscription_service.return_value
-        )
+        mock_sub_svc = mock_provider.get_subscription_service.return_value
         mock_sub_svc.create.return_value = mock_stripe_sub
-        mock_sub_svc.get_current_period_end.return_value = (
-            period_end_ts
-        )
+        mock_sub_svc.get_current_period_end.return_value = period_end_ts
 
         subscription.start()
 

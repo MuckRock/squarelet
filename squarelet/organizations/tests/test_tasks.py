@@ -1522,17 +1522,12 @@ class TestCheckOverdueInvoices:
             status="open",
             due_date=date.today() - timedelta(days=10),
             invoice_id="in_test_123",
+            hosted_invoice_url="https://invoice.stripe.com/i/test",
         )
 
-        # Mock the Stripe API call
-        mock_stripe_invoice = mocker.MagicMock()
-        mock_stripe_invoice.hosted_invoice_url = "https://invoice.stripe.com/i/test"
-        mock_stripe_invoice.__contains__.side_effect = (
-            lambda item: item == "hosted_invoice_url"
+        mock_send_mail = mocker.patch(
+            "squarelet.organizations.tasks.send_mail"
         )
-        mocker.patch("stripe.Invoice.retrieve", return_value=mock_stripe_invoice)
-
-        mock_send_mail = mocker.patch("squarelet.organizations.tasks.send_mail")
 
         tasks.process_overdue_invoice(invoice.id)
 
@@ -2054,6 +2049,7 @@ class TestHandleCustomerUpdated:
         """Updates cached card fields when default PM is a pm_ ID"""
         customer = customer_factory(customer_id="cus_test")
         mock_pm = mocker.MagicMock()
+        mock_pm.type = "card"
         mock_pm.card.brand = "Visa"
         mock_pm.card.last4 = "4242"
         mock_pm.card.exp_month = 12
@@ -2076,37 +2072,42 @@ class TestHandleCustomerUpdated:
         )
 
         customer.refresh_from_db()
-        assert customer.card_brand == "Visa"
-        assert customer.card_last4 == "4242"
-        assert customer.card_exp_month == 12
-        assert customer.card_exp_year == 2028
+        assert customer.payment_brand == "Visa"
+        assert customer.payment_last4 == "4242"
+        assert customer.payment_exp_month == 12
+        assert customer.payment_exp_year == 2028
         assert customer.stripe_payment_method_id == "pm_abc123"
 
     @pytest.mark.django_db
     def test_clears_when_no_pm(self, customer_factory):
-        """Clears cached card fields when no default PM is set"""
+        """Clears cached fields when no default PM is set"""
         customer = customer_factory(
             customer_id="cus_clear",
-            card_brand="Visa",
-            card_last4="4242",
-            card_exp_month=12,
-            card_exp_year=2028,
+            payment_brand="Visa",
+            payment_last4="4242",
+            payment_exp_month=12,
+            payment_exp_year=2028,
             stripe_payment_method_id="pm_old",
         )
         tasks.handle_customer_updated(
-            {"id": "cus_clear", "invoice_settings": {"default_payment_method": None}}
+            {
+                "id": "cus_clear",
+                "invoice_settings": {
+                    "default_payment_method": None,
+                },
+            }
         )
 
         customer.refresh_from_db()
-        assert customer.card_brand == ""
-        assert customer.card_last4 == ""
-        assert customer.card_exp_month is None
-        assert customer.card_exp_year is None
+        assert customer.payment_brand == ""
+        assert customer.payment_last4 == ""
+        assert customer.payment_exp_month is None
+        assert customer.payment_exp_year is None
         assert customer.stripe_payment_method_id == ""
 
     @pytest.mark.django_db
     def test_with_legacy_source(self, customer_factory, mocker):
-        """Updates cached card fields from a legacy Source when no pm_ ID exists"""
+        """Updates cached fields from a legacy Source"""
         customer = customer_factory(customer_id="cus_legacy")
         mock_source = mocker.MagicMock()
         mock_source.object = "card"
@@ -2124,16 +2125,18 @@ class TestHandleCustomerUpdated:
         tasks.handle_customer_updated(
             {
                 "id": "cus_legacy",
-                "invoice_settings": {"default_payment_method": None},
+                "invoice_settings": {
+                    "default_payment_method": None,
+                },
                 "default_source": "card_abc123",
             }
         )
 
         customer.refresh_from_db()
-        assert customer.card_brand == "Mastercard"
-        assert customer.card_last4 == "5555"
-        assert customer.card_exp_month == 6
-        assert customer.card_exp_year == 2026
+        assert customer.payment_brand == "Mastercard"
+        assert customer.payment_last4 == "5555"
+        assert customer.payment_exp_month == 6
+        assert customer.payment_exp_year == 2026
         assert customer.stripe_payment_method_id == "card_abc123"
 
     @pytest.mark.django_db
@@ -2205,18 +2208,28 @@ class TestHandleInvoiceFinalizedHostedUrl:
                 "id": "in_hurl",
                 "status": "open",
                 "due_date": None,
+                "amount_due": 1000,
+                "created": 1700000000,
                 "hosted_invoice_url": "https://invoice.stripe.com/i/test",
             }
         )
         invoice.refresh_from_db()
-        assert invoice.hosted_invoice_url == "https://invoice.stripe.com/i/test"
+        assert invoice.hosted_invoice_url == (
+            "https://invoice.stripe.com/i/test"
+        )
 
     @pytest.mark.django_db
     def test_no_hosted_url_leaves_field_empty(self, invoice_factory):
         """handle_invoice_finalized does not overwrite existing empty field"""
         invoice = invoice_factory(invoice_id="in_nourl", status="draft")
         tasks.handle_invoice_finalized(
-            {"id": "in_nourl", "status": "open", "due_date": None}
+            {
+                "id": "in_nourl",
+                "status": "open",
+                "due_date": None,
+                "amount_due": 1000,
+                "created": 1700000000,
+            }
         )
         invoice.refresh_from_db()
         assert invoice.hosted_invoice_url == ""

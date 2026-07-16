@@ -17,7 +17,7 @@ from allauth.account.utils import has_verified_email
 # Squarelet
 from squarelet.core.forms import StripeForm
 from squarelet.organizations.models import Organization, Plan
-from squarelet.organizations.models.payment import _payment_brand
+from squarelet.organizations.models.payment import get_payment_brand
 from squarelet.users.forms import NewOrganizationModelChoiceField
 
 logger = logging.getLogger(__name__)
@@ -223,7 +223,7 @@ class PlanPurchaseForm(StripeForm):
                 if card:
                     org_cards[str(org.pk)] = {
                         "last4": card.last4,
-                        "brand": _payment_brand(card),
+                        "brand": get_payment_brand(card),
                     }
             except stripe.error.StripeError as exc:
                 logger.error(
