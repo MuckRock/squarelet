@@ -378,7 +378,7 @@ class Detail(AdminLinkMixin, DetailView):
             member_org = org.members.get(slug=member_slug)
         except Organization.DoesNotExist:
             messages.error(request, _("Organization not found"))
-            return None
+            return
 
         is_group_admin = org.has_admin(self.request.user)
         is_member_admin = member_org.has_admin(self.request.user)
@@ -387,7 +387,7 @@ class Detail(AdminLinkMixin, DetailView):
             messages.error(
                 request, _("You do not have permission to remove this membership")
             )
-            return None
+            return
 
         org.members.remove(member_org)
 
@@ -438,7 +438,7 @@ class Detail(AdminLinkMixin, DetailView):
         invitation = self._get_invitation(request)
 
         if not invitation:
-            return None
+            return
 
         invitation.accept()
 
@@ -462,7 +462,7 @@ class Detail(AdminLinkMixin, DetailView):
         invitation = self._get_invitation(request)
 
         if not invitation:
-            return None
+            return
 
         invitation.reject()
 

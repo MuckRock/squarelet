@@ -68,14 +68,14 @@ class ManageMemberOrgs(OrganizationPermissionMixin, DetailView):
             to_org = Organization.objects.get(id=to_org_id, individual=False)
         except Organization.DoesNotExist:
             messages.error(request, _("Organization not found"))
-            return None
+            return
 
         if self.organization.has_member_org(to_org) or self.organization == to_org:
             messages.info(
                 request,
                 _(f"{to_org.name} is already a member of this organization."),
             )
-            return None
+            return
 
         invitation = OrganizationInvitation.objects.create(
             from_user=self.request.user,
@@ -92,7 +92,7 @@ class ManageMemberOrgs(OrganizationPermissionMixin, DetailView):
         invitation = self._get_invitation(request)
 
         if not invitation or not invitation.is_pending:
-            return None
+            return
 
         invitation.send()
 
@@ -102,7 +102,7 @@ class ManageMemberOrgs(OrganizationPermissionMixin, DetailView):
         invitation = self._get_invitation(request)
 
         if not invitation:
-            return None
+            return
 
         invitation.withdraw()
 
