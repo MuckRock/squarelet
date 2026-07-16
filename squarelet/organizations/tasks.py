@@ -433,7 +433,7 @@ def handle_customer_updated(customer_data):
         return
     customer.save_payment_cache()
     logger.info(
-        "[STRIPE-WEBHOOK-CUSTOMER] customer.updated " "cached payment for: %s",
+        "[STRIPE-WEBHOOK-CUSTOMER] customer.updated cached payment for: %s",
         customer_id,
     )
 

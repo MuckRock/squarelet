@@ -287,7 +287,6 @@ class Subscription(models.Model):
     )
 
     stripe_status = models.CharField(max_length=30, blank=True, default="")
-    # TODO do current_period_end and cancel_at make sense together?
     current_period_end = models.DateTimeField(null=True, blank=True)
 
     class Meta:
@@ -359,12 +358,9 @@ class Subscription(models.Model):
                 )
             )
             self.subscription_id = stripe_subscription.id
-            if not self.plan.auto_renew and stripe_subscription.cancel_at:
-                self.cancel_at = datetime.fromtimestamp(
-                    stripe_subscription.cancel_at,
-                    tz=dt_timezone.utc,
-                ).date()
             self._cache_stripe_subscription_fields(stripe_subscription)
+            if not self.plan.auto_renew and self.current_period_end:
+                self.cancel_at = self.current_period_end.date()
             # Save subscription before creating invoice
             self.save()
 
@@ -465,19 +461,17 @@ class Subscription(models.Model):
             )
 
     def cancel(self):
-        cancel_at_date = None
         if self.stripe_subscription:
             updated = (
                 get_payment_provider()
                 .get_subscription_service()
                 .cancel_at_period_end(self.stripe_subscription)
             )
-            if updated and updated.cancel_at:
-                cancel_at_date = datetime.fromtimestamp(
-                    updated.cancel_at, tz=dt_timezone.utc
-                ).date()
+            if updated:
+                self._cache_stripe_subscription_fields(updated)
         self.cancelled = True
-        self.cancel_at = cancel_at_date
+        if self.current_period_end:
+            self.cancel_at = self.current_period_end.date()
         self.save()
 
         # Slack notification for cancellation
@@ -531,10 +525,10 @@ class Subscription(models.Model):
                 )
             )
             self.cancelled = False
-            if not self.plan.auto_renew and updated and updated.cancel_at:
-                self.cancel_at = datetime.fromtimestamp(
-                    updated.cancel_at, tz=dt_timezone.utc
-                ).date()
+            if updated:
+                self._cache_stripe_subscription_fields(updated)
+            if not self.plan.auto_renew and self.current_period_end:
+                self.cancel_at = self.current_period_end.date()
             else:
                 self.cancel_at = None
             self.save()

@@ -78,7 +78,9 @@ class Command(BaseCommand):
                 if pm_id and isinstance(pm_id, str) and pm_id.startswith("pm_"):
                     pm = customer_service.retrieve_payment_method(pm_id)
                     details = getattr(pm, pm.type, None)
-                    customer.payment_brand = get_payment_brand(details) if details else ""
+                    customer.payment_brand = (
+                        get_payment_brand(details) if details else ""
+                    )
                     customer.payment_last4 = getattr(details, "last4", "") or ""
                     customer.payment_exp_month = getattr(details, "exp_month", None)
                     customer.payment_exp_year = getattr(details, "exp_year", None)
