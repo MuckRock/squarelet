@@ -151,9 +151,7 @@ class TestCustomer:
             "squarelet.organizations.models.Customer.card",
             new_callable=mocker.PropertyMock,
         )
-        customer = customer_factory.build(
-            card_brand="Visa", card_last4="4242"
-        )
+        customer = customer_factory.build(card_brand="Visa", card_last4="4242")
         assert customer.card_display == "Visa: x4242"
         mock_card_prop.assert_not_called()
 
