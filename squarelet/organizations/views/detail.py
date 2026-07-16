@@ -120,6 +120,7 @@ class Detail(AdminLinkMixin, DetailView):
         ctx = {
             "current_plan_card": bool(customer.stripe_payment_method_id),
             "current_plan_card_brand": customer.payment_brand,
+            "current_plan_card_last4": customer.payment_last4,
             "current_plan_cancelled": subscription.cancelled,
         }
 
