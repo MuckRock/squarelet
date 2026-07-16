@@ -456,19 +456,8 @@ def handle_subscription_updated(subscription_data):
         )
         return
 
-    subscription.stripe_status = subscription_data.get("status", "")
-    # current_period_end moved to items in basil; fall back to root for older envs
-    ts = None
-    items = subscription_data.get("items", {})
-    if items:
-        data = items.get("data", [])
-        if data:
-            ts = data[0].get("current_period_end")
-    if ts is None:
-        ts = subscription_data.get("current_period_end")
-    subscription.current_period_end = (
-        datetime.fromtimestamp(ts, tz=get_current_timezone()) if ts else None
-    )
+    stripe_sub = stripe.Subscription.construct_from(subscription_data, key=None)
+    subscription.cache_stripe_subscription_fields(stripe_sub)
     subscription.save(update_fields=["stripe_status", "current_period_end"])
     logger.info(
         "[STRIPE-WEBHOOK-SUBSCRIPTION] subscription.updated cached status for: %s",

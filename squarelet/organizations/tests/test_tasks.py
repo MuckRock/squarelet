@@ -2145,10 +2145,17 @@ class TestHandleSubscriptionUpdated:
     """Unit tests for the handle_subscription_updated task"""
 
     @pytest.mark.django_db
-    def test_updates_fields(self, subscription_factory):
+    def test_updates_fields(self, subscription_factory, mocker):
         """Updates stripe_status and current_period_end from webhook data"""
         subscription = subscription_factory(subscription_id="sub_upd")
         period_end_ts = 1800000000
+
+        mock_sub_svc = mocker.MagicMock()
+        mock_sub_svc.get_current_period_end.return_value = period_end_ts
+        mock_provider = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        )
+        mock_provider.return_value.get_subscription_service.return_value = mock_sub_svc
 
         tasks.handle_subscription_updated(
             {
