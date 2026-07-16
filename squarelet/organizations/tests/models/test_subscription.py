@@ -431,8 +431,6 @@ class TestSubscription:
         self, subscription_factory, professional_plan_factory, mocker
     ):
         """start() caches stripe_status and current_period_end from Stripe response"""
-        # Standard Library
-        from datetime import datetime, timezone as dt_timezone
 
         plan = professional_plan_factory()
         subscription = subscription_factory(plan=plan)

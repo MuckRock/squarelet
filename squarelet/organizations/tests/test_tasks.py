@@ -2079,7 +2079,7 @@ class TestHandleCustomerUpdated:
         assert customer.stripe_payment_method_id == "pm_abc123"
 
     @pytest.mark.django_db
-    def test_clears_when_no_pm(self, customer_factory, mocker):
+    def test_clears_when_no_pm(self, customer_factory):
         """Clears cached card fields when no default PM is set"""
         customer = customer_factory(
             customer_id="cus_clear",

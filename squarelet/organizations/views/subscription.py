@@ -273,29 +273,23 @@ def stripe_webhook(request):  # pylint: disable=too-many-branches
             "\tdata:\t%(data)s\n"
         ) % {"address": request.META["REMOTE_ADDR"], "type": event_type, "data": event}
         logger.info(success_msg)
-    if event_type == "charge.succeeded":
-        handle_charge_succeeded.delay(event_obj)
-    elif event_type == "customer.updated":
-        handle_customer_updated.delay(event_obj)
-    elif event_type == "customer.subscription.updated":
-        handle_subscription_updated.delay(event_obj)
-    elif event_type == "customer.subscription.deleted":
-        handle_subscription_deleted.delay(event_obj)
-    elif event_type == "invoice.payment_failed":
-        handle_invoice_failed.delay(event_obj)
-    elif event_type == "invoice.created":
-        handle_invoice_created.delay(event_obj)
-    elif event_type == "invoice.updated":
-        handle_invoice_updated.delay(event_obj)
-    elif event_type == "invoice.finalized":
-        handle_invoice_finalized.delay(event_obj)
-    elif event_type == "invoice.paid":
-        # Listening for invoice.paid ensures we handle payments that
-        # when happen when users pay them through Stripe or when staff
-        # manually mark them as paid through the Stripe dashboard
-        handle_invoice_paid.delay(event_obj)
-    elif event_type == "invoice.marked_uncollectible":
-        handle_invoice_marked_uncollectible.delay(event_obj)
-    elif event_type == "invoice.voided":
-        handle_invoice_voided.delay(event_obj)
+    # Map event types to their handler tasks
+    # invoice.paid ensures we handle payments when users pay through
+    # Stripe or when staff manually mark them as paid
+    event_handlers = {
+        "charge.succeeded": handle_charge_succeeded,
+        "customer.updated": handle_customer_updated,
+        "customer.subscription.updated": handle_subscription_updated,
+        "customer.subscription.deleted": handle_subscription_deleted,
+        "invoice.payment_failed": handle_invoice_failed,
+        "invoice.created": handle_invoice_created,
+        "invoice.updated": handle_invoice_updated,
+        "invoice.finalized": handle_invoice_finalized,
+        "invoice.paid": handle_invoice_paid,
+        "invoice.marked_uncollectible": handle_invoice_marked_uncollectible,
+        "invoice.voided": handle_invoice_voided,
+    }
+    handler = event_handlers.get(event_type)
+    if handler:
+        handler.delay(event_obj)
     return HttpResponse()

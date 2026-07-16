@@ -337,7 +337,7 @@ class Subscription(models.Model):
             datetime.fromtimestamp(ts, tz=get_current_timezone()) if ts else None
         )
 
-    def start(self, payment_method="card"):
+    def start(self, payment_method="card", billing_cycle_anchor=None):
         """Start the Stripe subscription. Returns the Stripe subscription object
         for paid plans, or None for free plans."""
         if self.stripe_subscription:
