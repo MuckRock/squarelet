@@ -1,5 +1,6 @@
 # Django
 from django.contrib import messages
+from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.shortcuts import redirect
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import DetailView
@@ -40,9 +41,9 @@ class ManageMemberOrgs(OrganizationPermissionMixin, DetailView):
 
         if action == "send_invite":
             self._handle_send_invite(request)
-        if action == "resend_invite":
+        elif action == "resend_invite":
             self._handle_resend_invite(request)
-        if action == "withdraw_invite":
+        elif action == "withdraw_invite":
             self._handle_withdraw_invite(request)
 
         return redirect("organizations:manage-member-orgs", slug=self.organization.slug)
@@ -51,7 +52,9 @@ class ManageMemberOrgs(OrganizationPermissionMixin, DetailView):
         invitation_uuid = request.POST.get("invitation")
 
         try:
-            invitation = OrganizationInvitation.objects.get(uuid=invitation_uuid)
+            invitation = OrganizationInvitation.objects.get(
+                uuid=invitation_uuid, from_organization=self.organization
+            )
         except OrganizationInvitation.DoesNotExist:
             messages.error(request, _("Invitation not found"))
             return None
@@ -62,15 +65,15 @@ class ManageMemberOrgs(OrganizationPermissionMixin, DetailView):
         to_org_id = request.POST.get("to_organization")
 
         try:
-            to_org = Organization.objects.get(id=to_org_id)
+            to_org = Organization.objects.get(id=to_org_id, individual=False)
         except Organization.DoesNotExist:
             messages.error(request, _("Organization not found"))
             return None
 
-        if self.organization.has_member_org(to_org):
+        if self.organization.has_member_org(to_org) or self.organization == to_org:
             messages.info(
                 request,
-                f"{to_org.name} is already a member of this organization.",
+                _(f"{to_org.name} is already a member of this organization."),
             )
             return None
 
@@ -88,7 +91,7 @@ class ManageMemberOrgs(OrganizationPermissionMixin, DetailView):
     def _handle_resend_invite(self, request):
         invitation = self._get_invitation(request)
 
-        if not invitation:
+        if not invitation or not invitation.is_pending:
             return None
 
         invitation.send()
@@ -103,15 +106,16 @@ class ManageMemberOrgs(OrganizationPermissionMixin, DetailView):
 
         invitation.withdraw()
 
-        messages.info(request, "Invitation withdrawn")
+        messages.info(request, _("Invitation withdrawn"))
 
 
-class AcceptMemberOrgInvitation(DetailView):
-    queryset = OrganizationInvitation.objects.filter(
-        accepted_at__isnull=True,
-        rejected_at__isnull=True,
-        withdrawn_at__isnull=True,
-    )
+class AcceptMemberOrgInvitation(PermissionRequiredMixin, DetailView):
+    queryset = OrganizationInvitation.objects.pending()
     slug_field = "uuid"
     slug_url_kwarg = "uuid"
     template_name = "organizations/group_invitation_detail.html"
+
+    def has_permission(self):
+        invitation = self.get_object()
+        org = invitation.to_organization
+        return org.has_admin(self.request.user)

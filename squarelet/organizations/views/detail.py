@@ -152,19 +152,11 @@ class Detail(AdminLinkMixin, DetailView):
         }
 
         if is_admin:
-            ctx["group_invitations"] = OrganizationInvitation.objects.filter(
-                to_organization__slug=org.slug,
-                accepted_at__isnull=True,
-                rejected_at__isnull=True,
-                withdrawn_at__isnull=True,
-            ).select_related("from_organization")
-
-            ctx["member_invitations"] = OrganizationInvitation.objects.filter(
-                from_organization__slug=org.slug,
-                accepted_at__isnull=True,
-                rejected_at__isnull=True,
-                withdrawn_at__isnull=True,
-            ).select_related("to_organization")
+            ctx["group_invitations"] = (
+                OrganizationInvitation.objects.pending()
+                .filter(to_organization=org)
+                .select_related("from_organization")
+            )
 
         ctx["show_groups_section"] = is_admin and (
             len(ctx["groups"]) > 0 or len(ctx["group_invitations"]) > 0
@@ -421,7 +413,8 @@ class Detail(AdminLinkMixin, DetailView):
         )
 
     def _get_invitation(self, request):
-        is_admin = self.organization.has_admin(self.request.user)
+        org = self.organization
+        is_admin = org.has_admin(self.request.user)
 
         if not is_admin:
             messages.error(
@@ -432,7 +425,9 @@ class Detail(AdminLinkMixin, DetailView):
         invitation_uuid = request.POST.get("invitation")
 
         try:
-            invitation = OrganizationInvitation.objects.get(uuid=invitation_uuid)
+            invitation = OrganizationInvitation.objects.get(
+                uuid=invitation_uuid, to_organization=org
+            )
         except OrganizationInvitation.DoesNotExist:
             messages.error(request, _("Invitation not found"))
             return None
@@ -481,7 +476,7 @@ class Detail(AdminLinkMixin, DetailView):
             target=member_org,
         )
 
-        messages.info(request, "Invitation rejected")
+        messages.info(request, _("Invitation rejected"))
 
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
