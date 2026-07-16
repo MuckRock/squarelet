@@ -214,9 +214,7 @@ class TestSubscription:
         ).return_value.get_subscription_service.return_value
         mock_sub_svc.modify.return_value = Mock(status="active")
         mock_sub_svc.get_current_period_end.return_value = None
-        mocker.patch(
-            "squarelet.organizations.models.Subscription.stripe_subscription"
-        )
+        mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
         plan = professional_plan_factory.build()
         subscription = subscription_factory.build(plan=plan)
         subscription.modify(plan)
@@ -250,9 +248,7 @@ class TestSubscription:
         ).return_value.get_subscription_service.return_value
         mock_sub_svc.modify.return_value = mock_updated
         mock_sub_svc.get_current_period_end.return_value = period_end_ts
-        mocker.patch(
-            "squarelet.organizations.models.Subscription.stripe_subscription"
-        )
+        mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
         plan = professional_plan_factory.build(auto_renew=False)
         subscription = subscription_factory.build(plan=plan)
         subscription.modify(plan)
