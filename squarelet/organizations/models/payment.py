@@ -62,7 +62,7 @@ class Customer(models.Model):
         help_text=_("The customer's corresponding ID on stripe"),
     )
 
-    payment_brand = models.CharField(max_length=20, blank=True, default="")
+    payment_brand = models.CharField(max_length=64, blank=True, default="")
     payment_last4 = models.CharField(max_length=4, blank=True, default="")
     payment_exp_month = models.PositiveSmallIntegerField(null=True, blank=True)
     payment_exp_year = models.PositiveSmallIntegerField(null=True, blank=True)
