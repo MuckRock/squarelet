@@ -1,12 +1,8 @@
 """
 Abstract interfaces for the payment provider abstraction layer.
 
-These interfaces decouple business logic from Stripe-specific implementation,
-allowing the legacy Stripe 2.x provider and the modern Stripe 11.x provider
-to be swapped via a feature flag.
-
-Phase 2 note: service methods return raw Stripe objects. Phase 3 will
-introduce domain dataclasses as return types when the modern provider is built.
+These interfaces decouple business logic from Stripe-specific implementation.
+Service methods return raw Stripe objects.
 """
 
 # Standard Library
@@ -149,7 +145,6 @@ class ChargeService(ABC):
         Verifies the PaymentIntent has status 'succeeded' and returns the
         underlying Charge object together with the payment_method ID used.
         Raises ValueError if the PaymentIntent has not succeeded.
-        Only the modern provider supports this; legacy raises NotImplementedError.
         """
 
 

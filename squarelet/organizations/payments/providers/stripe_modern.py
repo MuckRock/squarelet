@@ -1,9 +1,8 @@
 """
-Modern Stripe provider targeting current API versions.
+Stripe provider targeting current API versions.
 
-Implements the same abstract interfaces as the legacy provider but uses
-current Stripe API conventions. Translations from legacy parameter names
-to current ones are handled here so call sites remain unchanged.
+Implements the abstract payment provider interfaces using current Stripe
+API conventions.
 
 API version history tracked in this file:
   2019-10-17 - `billing` -> `collection_method` on subscriptions
@@ -295,12 +294,7 @@ class StripeModernPlanService(PlanService):
 
 
 class StripeModernProvider(PaymentProvider):
-    """
-    Payment provider targeting current Stripe API versions.
-
-    Translations from legacy parameter names to current API names are
-    handled within each service method so call sites remain unchanged.
-    """
+    """Payment provider targeting current Stripe API versions."""
 
     def __init__(self, api_key, api_version=CURRENT_API_VERSION):
         stripe.api_key = api_key
