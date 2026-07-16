@@ -508,8 +508,10 @@ class Detail(AdminLinkMixin, DetailView):
             self.handle_remove_member_org(request)
         elif action == "accept_group_invitation":
             self.handle_accept_group_invitation(request)
+            return redirect(self.organization)
         elif action == "reject_group_invitation":
             self.handle_reject_group_invitation(request)
+            return redirect(self.organization)
         return get_redirect_url(request, redirect(self.organization))
 
 
