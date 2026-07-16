@@ -4,7 +4,7 @@ from .admin import Merge
 from .create import Create
 from .detail import Detail, List, autocomplete
 from .domains import ManageDomains
-from .member_orgs import ManageMemberOrgs
+from .member_orgs import AcceptMemberOrgInvitation, ManageMemberOrgs
 from .members import (
     InvitationAccept,
     ManageMembers,
@@ -39,6 +39,7 @@ __all__ = [
     "OrgInvitationsView",
     "OrgRequestsView",
     # Member org views
+    "AcceptMemberOrgInvitation",
     "ManageMemberOrgs",
     # Domain views
     "ManageDomains",

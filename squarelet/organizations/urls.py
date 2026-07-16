@@ -60,4 +60,9 @@ urlpatterns = [
         view=views.ManageMemberOrgs.as_view(),
         name="manage-member-orgs",
     ),
+    path(
+        "<uuid:uuid>/member-org-invitation/",
+        view=views.AcceptMemberOrgInvitation.as_view(),
+        name="member-org-invitation",
+    ),
 ]
