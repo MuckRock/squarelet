@@ -48,10 +48,10 @@ class ManageMemberOrgs(OrganizationPermissionMixin, DetailView):
         return redirect("organizations:manage-member-orgs", slug=self.organization.slug)
 
     def _get_invitation(self, request):
-        invitation_id = request.POST.get("invitation_id")
+        invitation_uuid = request.POST.get("invitation")
 
         try:
-            invitation = OrganizationInvitation.objects.get(id=invitation_id)
+            invitation = OrganizationInvitation.objects.get(uuid=invitation_uuid)
         except:
             messages.error(request, _("Invitation not found"))
             return None
@@ -104,3 +104,14 @@ class ManageMemberOrgs(OrganizationPermissionMixin, DetailView):
         invitation.withdraw()
 
         messages.info(request, "Invitation withdrawn")
+
+
+class AcceptMemberOrgInvitation(DetailView):
+    queryset = OrganizationInvitation.objects.filter(
+        accepted_at__isnull=True,
+        rejected_at__isnull=True,
+        withdrawn_at__isnull=True,
+    )
+    slug_field = "uuid"
+    slug_url_kwarg = "uuid"
+    template_name = "organizations/group_invitation_detail.html"

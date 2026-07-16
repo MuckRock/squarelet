@@ -227,7 +227,7 @@
                 {% include "account/team_list_item.html" with organization=invitation.from_organization %}
                 <form method="post" action="{% url "organizations:detail" organization.slug %}" class="member-actions">
                   {% csrf_token %}
-                  <input type="hidden" name="invitation" value="{{ invitation.id }}">
+                  <input type="hidden" name="invitation" value="{{ invitation.uuid }}">
                   <button class="btn primary small" type="submit" name="action" value="accept_group_invitation">
                     {% icon "check" %}
                     {% trans "Accept" %}

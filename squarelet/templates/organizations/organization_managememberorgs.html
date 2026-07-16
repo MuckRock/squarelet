@@ -98,7 +98,7 @@
             <div class="member-detail">
               <form method="post" action="{% url "organizations:manage-member-orgs" organization.slug %}" class="member-actions">
                 {% csrf_token %}
-                <input type="hidden" name="invitation_id" value="{{ invitation.id }}">
+                <input type="hidden" name="invitation" value="{{ invitation.uuid }}">
                 <button class="btn ghost small" type="submit" name="action" value="resend_invite">
                   {% icon "paper-airplane" %}
                   {% trans "Resend" %}

@@ -429,10 +429,10 @@ class Detail(AdminLinkMixin, DetailView):
             )
             return None
 
-        invitation_id = request.POST.get("invitation")
+        invitation_uuid = request.POST.get("invitation")
 
         try:
-            invitation = OrganizationInvitation.objects.get(id=invitation_id)
+            invitation = OrganizationInvitation.objects.get(uuid=invitation_uuid)
         except:
             messages.error(request, _("Invitation not found"))
             return None
