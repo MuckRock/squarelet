@@ -1,8 +1,10 @@
 # Django
 from django.core.management.base import BaseCommand
+from django.utils.timezone import get_current_timezone
 
 # Standard Library
 import logging
+from datetime import datetime
 
 # Third Party
 import stripe
@@ -116,14 +118,6 @@ class Command(BaseCommand):
         )
 
     def _backfill_subscriptions(self, provider, force, dry_run):
-        # Django
-        from django.utils.timezone import (  # pylint: disable=import-outside-toplevel
-            get_current_timezone,
-        )
-
-        # Standard Library
-        from datetime import datetime  # pylint: disable=import-outside-toplevel
-
         sub_service = provider.get_subscription_service()
 
         qs = Subscription.objects.exclude(subscription_id=None)
