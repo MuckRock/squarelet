@@ -37,7 +37,7 @@ class StripeLegacyCustomerService(CustomerService):
 
     def save_card(self, stripe_customer, token):
         """Set a card token as the customer's default source."""
-        stripe.Customer.modify(stripe_customer.id, source=token)
+        return stripe.Customer.modify(stripe_customer.id, source=token)
 
     def remove_payment_method(self, customer_id, source_id):
         stripe.Customer.delete_source(customer_id, source_id)
