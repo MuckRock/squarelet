@@ -29,6 +29,7 @@ from squarelet.organizations.models.payment import (
     EntitlementGrant,
     Plan,
     Subscription,
+    get_payment_brand,
 )
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.users.models import User
@@ -396,46 +397,44 @@ def handle_customer_updated(customer_data):
     default_source = customer_data.get("default_source")
 
     if pm_id and isinstance(pm_id, str) and pm_id.startswith("pm_"):
-        # Modern PaymentMethod — card details nested under .card
+        # Modern PaymentMethod — details nested under .card/.us_bank_account
         pm = customer_service.retrieve_payment_method(pm_id)
-        customer.card_brand = pm.card.brand or ""
-        customer.card_last4 = pm.card.last4 or ""
-        customer.card_exp_month = pm.card.exp_month
-        customer.card_exp_year = pm.card.exp_year
+        details = getattr(pm, pm.type, None)
+        customer.payment_brand = get_payment_brand(details) if details else ""
+        customer.payment_last4 = getattr(details, "last4", "") or ""
+        customer.payment_exp_month = getattr(details, "exp_month", None)
+        customer.payment_exp_year = getattr(details, "exp_year", None)
         customer.stripe_payment_method_id = pm_id
     elif default_source and isinstance(default_source, str):
         # Legacy Source — retrieve and read brand/last4 directly
         stripe_customer = customer_service.retrieve(customer_id)
         source = customer_service.retrieve_source(stripe_customer, default_source)
         if source.object == "card":
-            customer.card_brand = source.brand or ""
-            customer.card_last4 = source.last4 or ""
-            customer.card_exp_month = source.exp_month
-            customer.card_exp_year = source.exp_year
+            customer.payment_brand = source.brand or ""
+            customer.payment_last4 = source.last4 or ""
+            customer.payment_exp_month = source.exp_month
+            customer.payment_exp_year = source.exp_year
             customer.stripe_payment_method_id = source.id
         else:
-            customer.card_brand = ""
-            customer.card_last4 = ""
-            customer.card_exp_month = None
-            customer.card_exp_year = None
-            customer.stripe_payment_method_id = ""
+            customer.clear_payment_cache()
+            logger.info(
+                "[STRIPE-WEBHOOK-CUSTOMER] customer.updated "
+                "cleared payment cache for: %s",
+                customer_id,
+            )
+            return
     else:
-        customer.card_brand = ""
-        customer.card_last4 = ""
-        customer.card_exp_month = None
-        customer.card_exp_year = None
-        customer.stripe_payment_method_id = ""
-    customer.save(
-        update_fields=[
-            "card_brand",
-            "card_last4",
-            "card_exp_month",
-            "card_exp_year",
-            "stripe_payment_method_id",
-        ]
-    )
+        customer.clear_payment_cache()
+        logger.info(
+            "[STRIPE-WEBHOOK-CUSTOMER] customer.updated "
+            "cleared payment cache for: %s",
+            customer_id,
+        )
+        return
+    customer.save_payment_cache()
     logger.info(
-        "[STRIPE-WEBHOOK-CUSTOMER] customer.updated cached card for: %s", customer_id
+        "[STRIPE-WEBHOOK-CUSTOMER] customer.updated " "cached payment for: %s",
+        customer_id,
     )
 
 

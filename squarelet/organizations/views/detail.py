@@ -21,7 +21,6 @@ from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import get_redirect_url, is_rate_limited, new_action
 from squarelet.organizations.forms import InvitationAcceptForm
 from squarelet.organizations.models import Invitation, Membership, Organization, Plan
-from squarelet.organizations.models.payment import _payment_brand
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.tasks import sync_wix
 
@@ -118,10 +117,9 @@ class Detail(AdminLinkMixin, DetailView):
     def _get_subscription_context(self, org, subscription):
         """Return context dict for card, next charge date, and cancellation status."""
         customer = org.customer()
-        details = customer.payment_details
         ctx = {
-            "current_plan_card": details,
-            "current_plan_card_brand": _payment_brand(details) if details else "",
+            "current_plan_card": bool(customer.stripe_payment_method_id),
+            "current_plan_card_brand": customer.payment_brand,
             "current_plan_cancelled": subscription.cancelled,
         }
 

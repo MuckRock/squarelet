@@ -9,7 +9,11 @@ import stripe
 
 # Squarelet
 from squarelet.organizations.models.invoice import Invoice
-from squarelet.organizations.models.payment import Customer, Subscription
+from squarelet.organizations.models.payment import (
+    Customer,
+    Subscription,
+    get_payment_brand,
+)
 from squarelet.organizations.payments.factory import get_payment_provider
 
 logger = logging.getLogger(__name__)
@@ -19,8 +23,8 @@ class Command(BaseCommand):
     """Backfill locally-cached Stripe fields for existing records.
 
     Populates:
-      - Customer: card_brand, card_last4, card_exp_month, card_exp_year,
-                  stripe_payment_method_id
+      - Customer: payment_brand, payment_last4, payment_exp_month,
+                  payment_exp_year, stripe_payment_method_id
       - Subscription: stripe_status, current_period_end
       - Invoice: hosted_invoice_url
 
@@ -60,7 +64,7 @@ class Command(BaseCommand):
 
         qs = Customer.objects.exclude(customer_id=None)
         if not force:
-            qs = qs.filter(card_brand="", stripe_payment_method_id="")
+            qs = qs.filter(payment_brand="", stripe_payment_method_id="")
 
         total = qs.count()
         self.stdout.write(f"Backfilling {total} Customer record(s)...\n")
@@ -72,41 +76,29 @@ class Command(BaseCommand):
                 invoice_settings = getattr(stripe_customer, "invoice_settings", None)
                 pm_id = invoice_settings and invoice_settings.default_payment_method
                 if pm_id and isinstance(pm_id, str) and pm_id.startswith("pm_"):
-                    # Modern PaymentMethod — card details nested under .card
                     pm = customer_service.retrieve_payment_method(pm_id)
-                    customer.card_brand = pm.card.brand or ""
-                    customer.card_last4 = pm.card.last4 or ""
-                    customer.card_exp_month = pm.card.exp_month
-                    customer.card_exp_year = pm.card.exp_year
+                    details = getattr(pm, pm.type, None)
+                    customer.payment_brand = get_payment_brand(details) if details else ""
+                    customer.payment_last4 = getattr(details, "last4", "") or ""
+                    customer.payment_exp_month = getattr(details, "exp_month", None)
+                    customer.payment_exp_year = getattr(details, "exp_year", None)
                     customer.stripe_payment_method_id = pm_id
                 elif stripe_customer.default_source:
-                    # Legacy Source — brand/last4 are top-level attributes
                     source = customer_service.retrieve_source(
-                        stripe_customer, stripe_customer.default_source
+                        stripe_customer,
+                        stripe_customer.default_source,
                     )
-                    if source.object != "card":
-                        skipped += 1
-                        continue
-                    customer.card_brand = source.brand or ""
-                    customer.card_last4 = source.last4 or ""
-                    customer.card_exp_month = source.exp_month
-                    customer.card_exp_year = source.exp_year
+                    customer.payment_brand = get_payment_brand(source)
+                    customer.payment_last4 = getattr(source, "last4", "") or ""
+                    customer.payment_exp_month = getattr(source, "exp_month", None)
+                    customer.payment_exp_year = getattr(source, "exp_year", None)
                     customer.stripe_payment_method_id = source.id
                 else:
-                    # No payment method on file — nothing to cache
                     skipped += 1
                     continue
 
                 if not dry_run:
-                    customer.save(
-                        update_fields=[
-                            "card_brand",
-                            "card_last4",
-                            "card_exp_month",
-                            "card_exp_year",
-                            "stripe_payment_method_id",
-                        ]
-                    )
+                    customer.save_payment_cache()
                 updated += 1
             except stripe.StripeError as exc:
                 logger.warning(
