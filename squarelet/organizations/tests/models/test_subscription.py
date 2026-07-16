@@ -95,11 +95,11 @@ class TestSubscription:
         )
         mocked_customer = Mock()
         mocker.patch(
-            "squarelet.organizations.models.organization" ".Organization.customer",
+            "squarelet.organizations.models.organization.Organization.customer",
             return_value=mocked_customer,
         )
         mock_provider = mocker.patch(
-            "squarelet.organizations.models.payment" ".get_payment_provider"
+            "squarelet.organizations.models.payment.get_payment_provider"
         ).return_value
         mock_sub_svc = mock_provider.get_subscription_service.return_value
         mock_sub_svc.create.return_value = mock_stripe_subscription
@@ -142,13 +142,13 @@ class TestSubscription:
     def test_cancel(self, subscription_factory, mocker):
         mocked_save = mocker.patch("squarelet.organizations.models.Subscription.save")
         mocked_stripe_subscription = mocker.patch(
-            "squarelet.organizations.models.Subscription" ".stripe_subscription"
+            "squarelet.organizations.models.Subscription.stripe_subscription"
         )
         mocked_stripe_subscription.id = "sub_test123"
         period_end_ts = 1_800_000_000
         mock_updated = mocker.MagicMock(status="active")
         mock_provider = mocker.patch(
-            "squarelet.organizations.models.payment" ".get_payment_provider"
+            "squarelet.organizations.models.payment.get_payment_provider"
         ).return_value
         mock_sub_svc = mock_provider.get_subscription_service.return_value
         mock_sub_svc.cancel_at_period_end.return_value = mock_updated
@@ -210,12 +210,12 @@ class TestSubscription:
     ):
         mocked_save = mocker.patch("squarelet.organizations.models.Subscription.save")
         mock_sub_svc = mocker.patch(
-            "squarelet.organizations.models.payment" ".get_payment_provider"
+            "squarelet.organizations.models.payment.get_payment_provider"
         ).return_value.get_subscription_service.return_value
         mock_sub_svc.modify.return_value = Mock(status="active")
         mock_sub_svc.get_current_period_end.return_value = None
         mocker.patch(
-            "squarelet.organizations.models.Subscription" ".stripe_subscription"
+            "squarelet.organizations.models.Subscription.stripe_subscription"
         )
         plan = professional_plan_factory.build()
         subscription = subscription_factory.build(plan=plan)
@@ -246,12 +246,12 @@ class TestSubscription:
         period_end_ts = 1_800_000_000
         mock_updated = Mock(status="active")
         mock_sub_svc = mocker.patch(
-            "squarelet.organizations.models.payment" ".get_payment_provider"
+            "squarelet.organizations.models.payment.get_payment_provider"
         ).return_value.get_subscription_service.return_value
         mock_sub_svc.modify.return_value = mock_updated
         mock_sub_svc.get_current_period_end.return_value = period_end_ts
         mocker.patch(
-            "squarelet.organizations.models.Subscription" ".stripe_subscription"
+            "squarelet.organizations.models.Subscription.stripe_subscription"
         )
         plan = professional_plan_factory.build(auto_renew=False)
         subscription = subscription_factory.build(plan=plan)
