@@ -10,14 +10,19 @@ import json
 
 # Third Party
 from allauth.account.models import EmailAddress
+from oidc_provider.models import Client, ResponseType
 
 # Squarelet
+from squarelet.oidc.models import ClientProfile
 from squarelet.organizations.models import Membership, Organization
 from squarelet.organizations.models.invitation import Invitation
 from squarelet.organizations.models.payment import Customer, Plan
 from squarelet.users.models import User
 
 E2E_PASSWORD = "e2e-test-password"
+
+OIDC_CLIENT_ID = "e2e-verify-client"
+OIDC_REDIRECT_URL = "https://dev.squarelet.com/"
 
 USERS = [
     {"username": "e2e-staff", "is_staff": True},
@@ -202,6 +207,9 @@ class Command(BaseCommand):
             created_orgs[slug] = org
             self.stderr.write(f"Created org: {slug}")
 
+        # Create an OIDC client that gates features behind verification
+        self._seed_verification_client()
+
         # Output metadata as JSON for Playwright to consume
         result = {
             "users": [u["username"] for u in USERS],
@@ -209,6 +217,33 @@ class Command(BaseCommand):
             "password": E2E_PASSWORD,
         }
         self.stdout.write(json.dumps(result))
+
+    def _seed_verification_client(self):
+        """Create a confidential OIDC client with verification gating enabled."""
+        if Client.objects.filter(client_id=OIDC_CLIENT_ID).exists():
+            self.stderr.write(f"OIDC client {OIDC_CLIENT_ID} already exists, skipping")
+            return
+
+        code_type, _ = ResponseType.objects.get_or_create(
+            value="code", defaults={"description": "Authorization Code Flow"}
+        )
+        client = Client.objects.create(
+            name="E2E Verify App",
+            client_id=OIDC_CLIENT_ID,
+            client_secret="e2e-verify-secret",
+            client_type="confidential",
+            require_consent=False,
+            reuse_consent=True,
+            _redirect_uris=OIDC_REDIRECT_URL,
+            _scope="openid profile email",
+        )
+        client.response_types.add(code_type)
+        ClientProfile.objects.create(
+            client=client,
+            checks_verification=True,
+            verification_notice="Uploading documents requires a verified newsroom.",
+        )
+        self.stderr.write(f"Created OIDC client: {OIDC_CLIENT_ID}")
 
     def _create_staff_group(self):
         """Create a Staff group with Organization-level permissions."""
@@ -271,6 +306,11 @@ class Command(BaseCommand):
             name__startswith="e2e-", individual=True
         ).delete()
         self.stderr.write(f"Deleted {count} individual org objects")
+
+        # Delete the seeded OIDC client (cascades to its ClientProfile)
+        count, _ = Client.objects.filter(client_id=OIDC_CLIENT_ID).delete()
+        if count:
+            self.stderr.write(f"Deleted OIDC client {OIDC_CLIENT_ID}")
 
         # Delete Staff group created by seed
         count, _ = Group.objects.filter(name="Staff").delete()

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% load i18n icon airtable markdown django_vite %}
+
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/verification.ts" %}
+{% endblock vite %}
+
+{% block content %}
+  <div id="verification-notice" class="_cls-content card oidc-authorization">
+    <header>
+      <div class="icon">{% icon "verified" %}</div>
+      <h1>
+        {% blocktrans with client=client.name %}
+        <strong>{{ client }}</strong> limits some features to verified journalists and newsrooms.
+        {% endblocktrans %}
+      </h1>
+    </header>
+
+    <main>
+      {% if verification_notice %}
+        <div class="verification-notice-body">{{ verification_notice|markdown }}</div>
+      {% endif %}
+
+      <p>
+        {% blocktrans %}
+        You can request verification for one of your organizations now, or continue without verifying.
+        Your application will be reviewed by MuckRock staff, which may take up to a week.
+        Our help pages include an in-depth <a target="_blank" rel="noopener noreferrer" href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433">guide to verification</a>.
+        {% endblocktrans %}
+      </p>
+
+      <div class="oidc-authorization-actions">
+        {% if has_verified_email %}
+          <div id="verification-options" class="verification card">
+            {% for organization in unverified_orgs %}
+              <div class="unverified org">
+                {% include "account/team_list_item.html" with organization=organization %}
+                <a class="request-verification ghost primary button" target="_blank" rel="noopener noreferrer"
+                  href="{% airtable_verification_url organization %}">
+                  {% trans "Request verification" %}
+                </a>
+              </div>
+            {% empty %}
+              <div class="unverified individual">
+                <p>
+                  {% blocktrans %}
+                  Freelance journalists and independent researchers may qualify for individual verification,
+                  though we strongly encourage verifying through a newsroom or affiliated organization.
+                  {% endblocktrans %}
+                </p>
+                <a class="request-verification ghost primary button" target="_blank" rel="noopener noreferrer"
+                  href="{% airtable_verification_url %}">
+                  {% trans "Verify yourself individually" %}
+                </a>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="help-text error">
+            {% trans "Confirm your account's email address before requesting verification." %}
+          </p>
+        {% endif %}
+      </div>
+    </main>
+    <footer>
+      <a id="verification-continue" class="primary button" href="{{ continue_url }}">
+        {% blocktrans with client=client.name %}Continue to {{ client }}{% endblocktrans %}
+      </a>
+    </footer>
+  </div>
+{% endblock %}

@@ -1,16 +1,105 @@
 # Django
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.shortcuts import render
 
 # Third Party
 from oidc_provider.models import Client
+from oidc_provider.views import AuthorizeView as BaseAuthorizeView
 from rest_framework import status
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 # Squarelet
+from squarelet.oidc.models import ClientProfile
 from squarelet.oidc.permissions import ScopePermission
+
+
+class AuthorizeView(BaseAuthorizeView):
+    """
+    We customize the AuthorizeView to show additional information
+    to users during the authorization flow.
+    """
+
+    DISMISS_SESSION_KEY = "verification_notice_dismissed"
+
+    def get(self, request, *args, **kwargs):
+        notice = self._verification_notice(request)
+        if notice is not None:
+            return notice
+        return super().get(request, *args, **kwargs)
+
+    def _verification_notice(self, request):
+        """
+        A client can enable ``ClientProfile.checks_verification``. When an
+        unverified user authorizes such a client, we interpose an informational
+        notice — carrying the client's own explanation — before consent, offering a
+        path to request verification or to continue anyway. Unlike the onboarding
+        pipeline, which only runs on a fresh login, this fires on every
+        authorization, so it also reaches users who already have a Squarelet
+        session. The notice is dismissable per session.
+        """
+        client = self._get_client(request)
+        profile = self._get_client_profile(client)
+        dismissed = request.session.get(self.DISMISS_SESSION_KEY, [])
+
+        skip = (
+            (profile is None or not profile.checks_verification)
+            or not request.user.is_authenticated
+            or request.user.verified_journalist()
+            or client.client_id in dismissed
+        )
+
+        if skip:
+            return None
+
+        if request.GET.get("verification_ack"):
+            # The user chose to continue; remember it for the session so we
+            # don't re-prompt on subsequent authorizations, then proceed.
+            request.session[self.DISMISS_SESSION_KEY] = dismissed + [client.client_id]
+            request.session.modified = True
+            return None
+
+        # Show the verification notice to the user
+        params = request.GET.copy()
+        params["verification_ack"] = "1"
+        user = request.user
+        unverified_orgs = user.organizations.filter(
+            individual=False, memberships__user=user
+        ).order_by("name")
+        return render(
+            request,
+            "oidc_provider/verification_notice.html",
+            {
+                "client": client,
+                "verification_notice": profile.verification_notice,
+                "continue_url": f"{request.path}?{params.urlencode()}",
+                "has_verified_email": user.has_verified_email(),
+                "unverified_orgs": unverified_orgs,
+            },
+        )
+
+    @staticmethod
+    def _get_client(request):
+        client_id = request.GET.get("client_id")
+        if not client_id:
+            return None
+        try:
+            return Client.objects.select_related("clientprofile").get(
+                client_id=client_id
+            )
+        except Client.DoesNotExist:
+            return None
+
+    @staticmethod
+    def _get_client_profile(client):
+        if client is None:
+            return None
+        try:
+            return client.clientprofile
+        except ClientProfile.DoesNotExist:
+            return None
 
 
 class OIDCRedirectURIUpdater(APIView):
