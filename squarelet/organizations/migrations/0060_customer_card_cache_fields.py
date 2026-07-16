@@ -1,4 +1,4 @@
-# Generated migration for customer card cache fields
+# Generated migration for customer payment cache fields
 
 from django.db import migrations, models
 
@@ -12,22 +12,22 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AddField(
             model_name="customer",
-            name="card_brand",
+            name="payment_brand",
             field=models.CharField(blank=True, default="", max_length=20),
         ),
         migrations.AddField(
             model_name="customer",
-            name="card_last4",
+            name="payment_last4",
             field=models.CharField(blank=True, default="", max_length=4),
         ),
         migrations.AddField(
             model_name="customer",
-            name="card_exp_month",
+            name="payment_exp_month",
             field=models.PositiveSmallIntegerField(blank=True, null=True),
         ),
         migrations.AddField(
             model_name="customer",
-            name="card_exp_year",
+            name="payment_exp_year",
             field=models.PositiveSmallIntegerField(blank=True, null=True),
         ),
         migrations.AddField(
