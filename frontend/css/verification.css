@@ -117,4 +117,7 @@ footer {
     gap: 0.5rem 1rem;
     flex-wrap: wrap;
   }
+  .warning {
+    color: var(--red-3);
+  }
 }
