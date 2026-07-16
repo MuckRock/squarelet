@@ -2074,15 +2074,16 @@ class TestHandleCustomerUpdated:
         assert customer.stripe_payment_method_id == "pm_abc123"
 
     @pytest.mark.django_db
-    def test_clears_when_no_pm(self, customer_factory):
+    def test_clears_when_no_pm(self, customer_factory, payment_method_factory):
         """Clears cached fields when no default PM is set"""
-        customer = customer_factory(
-            customer_id="cus_clear",
-            payment_brand="Visa",
-            payment_last4="4242",
-            payment_exp_month=12,
-            payment_exp_year=2028,
-            stripe_payment_method_id="pm_old",
+        customer = customer_factory(customer_id="cus_clear")
+        payment_method_factory(
+            customer=customer,
+            brand="Visa",
+            last4="4242",
+            exp_month=12,
+            exp_year=2028,
+            stripe_id="pm_old",
         )
         tasks.handle_customer_updated(
             {
@@ -2093,7 +2094,6 @@ class TestHandleCustomerUpdated:
             }
         )
 
-        customer.refresh_from_db()
         assert customer.payment_brand == ""
         assert customer.payment_last4 == ""
         assert customer.payment_exp_month is None
