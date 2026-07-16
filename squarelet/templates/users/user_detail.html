@@ -144,7 +144,7 @@
         </div>
       </header>
       {% url 'users:payment' username=user.username as user_payment_url %}
-      {% include "organizations/includes/plan_card.html" with org=user.individual_organization plan=current_plan inherited_plans=premium_org_plans upgrade_plan=upgrade_plan next_charge_date=current_plan_next_charge_date card=current_plan_card card_brand=current_plan_card_brand cancelled=current_plan_cancelled payment_url=user_payment_url can_edit_subscription=True subject="user" %}
+      {% include "organizations/includes/plan_card.html" with org=user.individual_organization plan=current_plan inherited_plans=premium_org_plans upgrade_plan=upgrade_plan next_charge_date=current_plan_next_charge_date card=current_plan_card card_brand=current_plan_card_brand card_last4=current_plan_card_last4 cancelled=current_plan_cancelled payment_url=user_payment_url can_edit_subscription=True subject="user" %}
     </section>
 
     <section id="verification">
