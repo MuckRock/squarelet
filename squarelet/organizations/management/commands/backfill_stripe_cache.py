@@ -69,10 +69,7 @@ class Command(BaseCommand):
             try:
                 stripe_customer = customer_service.retrieve(customer.customer_id)
                 invoice_settings = getattr(stripe_customer, "invoice_settings", None)
-                pm_id = (
-                    invoice_settings
-                    and invoice_settings.default_payment_method
-                )
+                pm_id = invoice_settings and invoice_settings.default_payment_method
                 if pm_id and isinstance(pm_id, str) and pm_id.startswith("pm_"):
                     # Modern PaymentMethod — card details nested under .card
                     pm = customer_service.retrieve_payment_method(pm_id)
@@ -124,10 +121,13 @@ class Command(BaseCommand):
         )
 
     def _backfill_subscriptions(self, provider, force, dry_run):
-        from datetime import datetime  # pylint: disable=import-outside-toplevel
+        # Django
         from django.utils.timezone import (  # pylint: disable=import-outside-toplevel
             get_current_timezone,
         )
+
+        # Standard Library
+        from datetime import datetime  # pylint: disable=import-outside-toplevel
 
         sub_service = provider.get_subscription_service()
 
@@ -162,9 +162,7 @@ class Command(BaseCommand):
                 )
                 errors += 1
 
-        self.stdout.write(
-            f"  Subscriptions: {updated} updated, {errors} errors\n"
-        )
+        self.stdout.write(f"  Subscriptions: {updated} updated, {errors} errors\n")
 
     def _backfill_invoices(self, provider, force, dry_run):
         invoice_service = provider.get_invoice_service()

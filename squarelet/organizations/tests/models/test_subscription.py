@@ -431,6 +431,7 @@ class TestSubscription:
         self, subscription_factory, professional_plan_factory, mocker
     ):
         """start() caches stripe_status and current_period_end from Stripe response"""
+        # Standard Library
         from datetime import datetime, timezone as dt_timezone
 
         plan = professional_plan_factory()
@@ -464,7 +465,10 @@ class TestSubscription:
 
         subscription.refresh_from_db()
         assert subscription.stripe_status == "active"
-        assert subscription.current_period_end == datetime.fromtimestamp(
-            period_end_ts,
-            tz=dt_timezone.utc,
-        ).astimezone()
+        assert (
+            subscription.current_period_end
+            == datetime.fromtimestamp(
+                period_end_ts,
+                tz=dt_timezone.utc,
+            ).astimezone()
+        )
