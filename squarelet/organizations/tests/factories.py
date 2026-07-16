@@ -72,6 +72,22 @@ class CustomerFactory(factory.django.DjangoModelFactory):
         model = "organizations.Customer"
 
 
+class PaymentMethodFactory(factory.django.DjangoModelFactory):
+    customer = factory.SubFactory(
+        "squarelet.organizations.tests.factories.CustomerFactory"
+    )
+    method_type = "card"
+    brand = "Visa"
+    last4 = "4242"
+    exp_month = 12
+    exp_year = 2030
+    stripe_id = factory.Sequence(lambda n: f"pm_{n}")
+    is_default = True
+
+    class Meta:
+        model = "organizations.PaymentMethod"
+
+
 class MembershipFactory(factory.django.DjangoModelFactory):
     user = factory.SubFactory("squarelet.users.tests.factories.UserFactory")
     organization = factory.SubFactory(
