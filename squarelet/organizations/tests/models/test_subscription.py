@@ -1,3 +1,6 @@
+# Django
+from django.utils.timezone import get_current_timezone
+
 # Standard Library
 from datetime import datetime, timezone as dt_timezone
 from unittest.mock import Mock
@@ -84,28 +87,23 @@ class TestSubscription:
         plan.save()
         subscription = subscription_factory(plan=plan)
 
-        cancel_at_ts = 1_800_000_000
+        period_end_ts = 1_800_000_000
         mock_stripe_subscription = Mock(
             id="sub_test123",
             status="active",
             latest_invoice=None,
-            cancel_at=cancel_at_ts,
         )
         mocked_customer = Mock()
         mocker.patch(
-            "squarelet.organizations.models.organization.Organization.customer",
+            "squarelet.organizations.models.organization" ".Organization.customer",
             return_value=mocked_customer,
         )
         mock_provider = mocker.patch(
-            "squarelet.organizations.models.payment.get_payment_provider"
+            "squarelet.organizations.models.payment" ".get_payment_provider"
         ).return_value
-        mock_sub_svc = (
-            mock_provider.get_subscription_service.return_value
-        )
-        mock_sub_svc.create.return_value = (
-            mock_stripe_subscription
-        )
-        mock_sub_svc.get_current_period_end.return_value = None
+        mock_sub_svc = mock_provider.get_subscription_service.return_value
+        mock_sub_svc.create.return_value = mock_stripe_subscription
+        mock_sub_svc.get_current_period_end.return_value = period_end_ts
 
         subscription.start()
 
@@ -114,13 +112,15 @@ class TestSubscription:
             plan_id=subscription.plan.stripe_id,
             quantity=subscription.quantity,
             billing="charge_automatically",
-            metadata={"action": f"Subscription ({plan.name})"},
+            metadata={
+                "action": f"Subscription ({plan.name})",
+            },
             days_until_due=None,
             billing_cycle_anchor=None,
             cancel_at_period_end=True,
         )
         expected_date = datetime.fromtimestamp(
-            cancel_at_ts, tz=dt_timezone.utc
+            period_end_ts, tz=get_current_timezone()
         ).date()
         assert subscription.cancel_at == expected_date
 
@@ -142,20 +142,27 @@ class TestSubscription:
     def test_cancel(self, subscription_factory, mocker):
         mocked_save = mocker.patch("squarelet.organizations.models.Subscription.save")
         mocked_stripe_subscription = mocker.patch(
-            "squarelet.organizations.models.Subscription.stripe_subscription"
+            "squarelet.organizations.models.Subscription" ".stripe_subscription"
         )
         mocked_stripe_subscription.id = "sub_test123"
-        cancel_at_ts = 1_800_000_000
-        mock_updated = mocker.MagicMock(cancel_at=cancel_at_ts)
-        mocked_modify = mocker.patch(
-            "stripe.Subscription.modify", return_value=mock_updated
-        )
+        period_end_ts = 1_800_000_000
+        mock_updated = mocker.MagicMock(status="active")
+        mock_provider = mocker.patch(
+            "squarelet.organizations.models.payment" ".get_payment_provider"
+        ).return_value
+        mock_sub_svc = mock_provider.get_subscription_service.return_value
+        mock_sub_svc.cancel_at_period_end.return_value = mock_updated
+        mock_sub_svc.get_current_period_end.return_value = period_end_ts
         subscription = subscription_factory.build()
         subscription.cancel()
-        mocked_modify.assert_called_once_with("sub_test123", cancel_at_period_end=True)
+        mock_sub_svc.cancel_at_period_end.assert_called_once_with(
+            mocked_stripe_subscription,
+        )
         assert subscription.cancelled
 
-        expected_date = datetime.fromtimestamp(cancel_at_ts, tz=dt_timezone.utc).date()
+        expected_date = datetime.fromtimestamp(
+            period_end_ts, tz=get_current_timezone()
+        ).date()
         assert subscription.cancel_at == expected_date
         mocked_save.assert_called()
 
@@ -202,16 +209,20 @@ class TestSubscription:
         self, subscription_factory, professional_plan_factory, mocker
     ):
         mocked_save = mocker.patch("squarelet.organizations.models.Subscription.save")
-        mock_sub_service = mocker.patch(
-            "squarelet.organizations.models.payment.get_payment_provider"
+        mock_sub_svc = mocker.patch(
+            "squarelet.organizations.models.payment" ".get_payment_provider"
         ).return_value.get_subscription_service.return_value
-        mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
+        mock_sub_svc.modify.return_value = Mock(status="active")
+        mock_sub_svc.get_current_period_end.return_value = None
+        mocker.patch(
+            "squarelet.organizations.models.Subscription" ".stripe_subscription"
+        )
         plan = professional_plan_factory.build()
         subscription = subscription_factory.build(plan=plan)
         subscription.modify(plan)
         mocked_save.assert_called()
         assert subscription.cancel_at is None
-        mock_sub_service.modify.assert_called_with(
+        mock_sub_svc.modify.assert_called_with(
             subscription.subscription_id,
             cancel_at_period_end=False,
             items=[
@@ -232,18 +243,23 @@ class TestSubscription:
         """Modifying to a plan with auto_renew disabled flags the Stripe
         subscription to cancel at period end and sets cancel_at."""
         mocker.patch("squarelet.organizations.models.Subscription.save")
-        cancel_at_ts = 1_800_000_000
-        mock_updated = Mock(cancel_at=cancel_at_ts)
-        mock_sub_service = mocker.patch(
-            "squarelet.organizations.models.payment.get_payment_provider"
+        period_end_ts = 1_800_000_000
+        mock_updated = Mock(status="active")
+        mock_sub_svc = mocker.patch(
+            "squarelet.organizations.models.payment" ".get_payment_provider"
         ).return_value.get_subscription_service.return_value
-        mock_sub_service.modify.return_value = mock_updated
-        mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
+        mock_sub_svc.modify.return_value = mock_updated
+        mock_sub_svc.get_current_period_end.return_value = period_end_ts
+        mocker.patch(
+            "squarelet.organizations.models.Subscription" ".stripe_subscription"
+        )
         plan = professional_plan_factory.build(auto_renew=False)
         subscription = subscription_factory.build(plan=plan)
         subscription.modify(plan)
-        assert mock_sub_service.modify.call_args.kwargs["cancel_at_period_end"] is True
-        expected_date = datetime.fromtimestamp(cancel_at_ts, tz=dt_timezone.utc).date()
+        assert mock_sub_svc.modify.call_args.kwargs["cancel_at_period_end"] is True
+        expected_date = datetime.fromtimestamp(
+            period_end_ts, tz=get_current_timezone()
+        ).date()
         assert subscription.cancel_at == expected_date
 
     @pytest.mark.django_db()

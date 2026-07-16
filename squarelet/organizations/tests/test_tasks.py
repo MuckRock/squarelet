@@ -1525,9 +1525,7 @@ class TestCheckOverdueInvoices:
             hosted_invoice_url="https://invoice.stripe.com/i/test",
         )
 
-        mock_send_mail = mocker.patch(
-            "squarelet.organizations.tasks.send_mail"
-        )
+        mock_send_mail = mocker.patch("squarelet.organizations.tasks.send_mail")
 
         tasks.process_overdue_invoice(invoice.id)
 
@@ -2057,12 +2055,8 @@ class TestHandleCustomerUpdated:
         mock_provider = mocker.patch(
             "squarelet.organizations.tasks.get_payment_provider"
         ).return_value
-        mock_customer_svc = (
-            mock_provider.get_customer_service.return_value
-        )
-        mock_customer_svc.retrieve_payment_method.return_value = (
-            mock_pm
-        )
+        mock_customer_svc = mock_provider.get_customer_service.return_value
+        mock_customer_svc.retrieve_payment_method.return_value = mock_pm
 
         tasks.handle_customer_updated(
             {
@@ -2214,9 +2208,7 @@ class TestHandleInvoiceFinalizedHostedUrl:
             }
         )
         invoice.refresh_from_db()
-        assert invoice.hosted_invoice_url == (
-            "https://invoice.stripe.com/i/test"
-        )
+        assert invoice.hosted_invoice_url == ("https://invoice.stripe.com/i/test")
 
     @pytest.mark.django_db
     def test_no_hosted_url_leaves_field_empty(self, invoice_factory):
