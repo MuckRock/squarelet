@@ -58,11 +58,10 @@
             {% endfor %}
           </div>
         {% else %}
-          <p class="warning">
+          <p id="verification-email-warning" class="warning">
             {% trans "You must confirm your email address before requesting verification." %}
             <a href="{% url "users:detail" username=request.user.username %}#accounts">Manage your account</a>
           </p>
-          
         {% endif %}
       </div>
     </main>

@@ -147,10 +147,10 @@ class TestAuthorizeVerificationNotice:
         response = self._authorize(http, oidc_client)
 
         # the notice still shows, but verification links are withheld until
-        # the user confirms an email address
+        # the user confirms an email address (shown the warning instead)
         assert NOTICE_TEMPLATE in templates_used(response)
         assert b'class="request-verification' not in response.content
-        assert b"Confirm your account" in response.content
+        assert b'id="verification-email-warning"' in response.content
 
     def test_verified_user_skips_notice(self):
         oidc_client = self._make_client(checks_verification=True)
