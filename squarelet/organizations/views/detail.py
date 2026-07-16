@@ -384,7 +384,7 @@ class Detail(AdminLinkMixin, DetailView):
 
         try:
             member_org = org.members.get(slug=member_slug)
-        except:
+        except Organization.DoesNotExist:
             messages.error(request, _("Organization not found"))
             return None
 
@@ -414,7 +414,7 @@ class Detail(AdminLinkMixin, DetailView):
                 target=self.organization,
             )
 
-        messages.success(
+        messages.info(
             request,
             _("%(member)s is no longer a member of %(group)s")
             % {"member": member_org.name, "group": org.name},
@@ -433,7 +433,7 @@ class Detail(AdminLinkMixin, DetailView):
 
         try:
             invitation = OrganizationInvitation.objects.get(uuid=invitation_uuid)
-        except:
+        except OrganizationInvitation.DoesNotExist:
             messages.error(request, _("Invitation not found"))
             return None
 

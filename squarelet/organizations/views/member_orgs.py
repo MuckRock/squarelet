@@ -52,7 +52,7 @@ class ManageMemberOrgs(OrganizationPermissionMixin, DetailView):
 
         try:
             invitation = OrganizationInvitation.objects.get(uuid=invitation_uuid)
-        except:
+        except OrganizationInvitation.DoesNotExist:
             messages.error(request, _("Invitation not found"))
             return None
 
@@ -63,7 +63,7 @@ class ManageMemberOrgs(OrganizationPermissionMixin, DetailView):
 
         try:
             to_org = Organization.objects.get(id=to_org_id)
-        except:
+        except Organization.DoesNotExist:
             messages.error(request, _("Organization not found"))
             return None
 
