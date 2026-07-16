@@ -204,7 +204,7 @@ class PDFChargeDetail(WeasyTemplateResponseMixin, ChargeDetail):
 
 
 @csrf_exempt
-def stripe_webhook(request):  # pylint: disable=too-many-branches
+def stripe_webhook(request):
     """Handle webhooks from stripe"""
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
