@@ -171,20 +171,27 @@ def handle_charge_succeeded(charge_data):
 
     receipt_url = charge_data.get("receipt_url")
     if receipt_url and not charge.receipt_pdf:
-        try:
-            response = requests.get(receipt_url, timeout=30)
-            response.raise_for_status()
-            charge.receipt_pdf.save(
-                f"{charge.charge_id}.pdf",
-                ContentFile(response.content),
-                save=True,
-            )
-        except requests.RequestException as exc:
-            logger.warning(
-                "Failed to download Stripe receipt PDF for charge %s: %s",
-                charge.charge_id,
-                exc,
-            )
+        download_receipt_pdf.delay(charge.pk, receipt_url)
+
+
+@shared_task(
+    name="squarelet.organizations.tasks.download_receipt_pdf",
+    autoretry_for=(requests.RequestException,),
+    retry_backoff=60,
+    retry_kwargs={"max_retries": 5},
+)
+def download_receipt_pdf(charge_id, receipt_url):
+    """Download a Stripe receipt PDF and attach it to the Charge."""
+    charge = Charge.objects.get(pk=charge_id)
+    if charge.receipt_pdf:
+        return
+    response = requests.get(receipt_url, timeout=30)
+    response.raise_for_status()
+    charge.receipt_pdf.save(
+        f"{charge.charge_id}.pdf",
+        ContentFile(response.content),
+        save=True,
+    )
 
 
 @shared_task(name="squarelet.organizations.tasks.handle_invoice_failed")
