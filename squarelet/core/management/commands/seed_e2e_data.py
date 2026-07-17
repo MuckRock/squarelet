@@ -15,7 +15,10 @@ from oidc_provider.models import Client, ResponseType
 # Squarelet
 from squarelet.oidc.models import ClientProfile
 from squarelet.organizations.models import Membership, Organization
-from squarelet.organizations.models.invitation import Invitation
+from squarelet.organizations.models.invitation import (
+    Invitation,
+    OrganizationInvitation,
+)
 from squarelet.organizations.models.payment import Customer, Plan
 from squarelet.users.models import User
 
@@ -62,6 +65,16 @@ ORGS = [
         "max_users": 20,
         "admins": ["e2e-admin"],
         "members": [],
+    },
+    {
+        "name": "e2e-collective-org",
+        "slug": "e2e-collective-org",
+        "private": False,
+        "verified_journalist": True,
+        "max_users": 20,
+        "admins": ["e2e-admin"],
+        "members": [],
+        "collective_enabled": True,
     },
 ]
 
@@ -189,6 +202,7 @@ class Command(BaseCommand):
                 verified_journalist=org_spec["verified_journalist"],
                 max_users=org_spec["max_users"],
                 individual=False,
+                collective_enabled=org_spec.get("collective_enabled", False),
             )
 
             # Create a Customer record (required for plan/billing sections)
@@ -269,6 +283,22 @@ class Command(BaseCommand):
             organization__slug__startswith="e2e-"
         ).delete()
         self.stderr.write(f"Deleted {count} invitation-related objects")
+
+        # Clear organization-to-organization invitations and member-org
+        # relationships so member-org management tests start from a clean slate
+        count, _ = OrganizationInvitation.objects.filter(
+            from_organization__slug__startswith="e2e-"
+        ).delete()
+        count2, _ = OrganizationInvitation.objects.filter(
+            to_organization__slug__startswith="e2e-"
+        ).delete()
+        self.stderr.write(
+            f"Deleted {count + count2} organization invitation objects"
+        )
+        for org in Organization.objects.filter(
+            slug__startswith="e2e-", individual=False
+        ):
+            org.members.clear()
 
         # Reset memberships to seeded state (remove members added during tests)
         for org_spec in ORGS:

@@ -94,3 +94,95 @@ org.domains.all().delete()
 "`,
   );
 }
+
+/**
+ * Reset all organization-to-organization (member org) state for e2e orgs:
+ * clears pending/closed OrganizationInvitations and the member-org M2M links.
+ */
+export function resetMemberOrgState() {
+  runManageCommand(
+    `shell -c "
+from squarelet.organizations.models import Organization
+from squarelet.organizations.models.invitation import OrganizationInvitation
+OrganizationInvitation.objects.filter(from_organization__slug__startswith='e2e-').delete()
+OrganizationInvitation.objects.filter(to_organization__slug__startswith='e2e-').delete()
+for org in Organization.objects.filter(slug__startswith='e2e-', individual=False):
+    org.members.clear()
+"`,
+  );
+}
+
+/**
+ * Create a pending member-org invitation from one org to another via the
+ * management shell and return its UUID.  The inviting user is an admin of the
+ * (collective) from-organization.  Useful for setting up state that is tedious
+ * to build through the UI, e.g. testing the invitation landing page directly.
+ */
+export function createMemberOrgInvitation(
+  fromSlug: string,
+  toSlug: string,
+): string {
+  const out = runManageCommand(
+    `shell -c "
+from squarelet.organizations.models import Organization
+from squarelet.organizations.models.invitation import OrganizationInvitation
+from squarelet.organizations.choices import RelationshipType
+group = Organization.objects.get(slug='${fromSlug}')
+member = Organization.objects.get(slug='${toSlug}')
+admin = group.users.filter(memberships__admin=True).first()
+inv = OrganizationInvitation.objects.create(from_user=admin, from_organization=group, to_organization=member, relationship_type=RelationshipType.member)
+print(inv.uuid)
+"`,
+  );
+  const match = out.match(/[0-9a-f-]{36}/);
+  if (!match) {
+    throw new Error(
+      `Failed to create member-org invitation ${fromSlug} -> ${toSlug}: ${out}`,
+    );
+  }
+  return match[0];
+}
+
+/**
+ * Accept a member-org invitation out-of-band via the management shell,
+ * simulating the invitee accepting while another user's page is still stale.
+ */
+export function acceptMemberOrgInvitation(uuid: string) {
+  runManageCommand(
+    `shell -c "from squarelet.organizations.models.invitation import OrganizationInvitation; OrganizationInvitation.objects.get(uuid='${uuid}').accept()"`,
+  );
+}
+
+/**
+ * Directly establish a member-org relationship (group.members.add(member))
+ * via the management shell, bypassing the invitation flow.  Useful for setting
+ * up state for remove/leave tests.
+ */
+export function addMemberOrg(groupSlug: string, memberSlug: string) {
+  runManageCommand(
+    `shell -c "
+from squarelet.organizations.models import Organization
+group = Organization.objects.get(slug='${groupSlug}')
+member = Organization.objects.get(slug='${memberSlug}')
+group.members.add(member)
+"`,
+  );
+}
+
+/**
+ * Drive the Svelecte-based org search widget on the manage-member-orgs page:
+ * types the org name, waits for the matching option to appear in the dropdown,
+ * and clicks it.  Selecting an org enables the "Send invite" submit button.
+ */
+export async function selectOrgInSearch(page: Page, name: string) {
+  // Open/focus the widget via its control wrapper (the text input itself is
+  // overlaid by the selection element and not directly clickable).
+  await page.locator("#org_search .sv-control").click();
+  const input = page.locator("#org_search input.sv-input--text");
+  await input.fill(name);
+  const option = page.locator(
+    "#org_search .sv-dropdown-content .sv-item--wrap.in-dropdown",
+    { has: page.locator("h4", { hasText: name }) },
+  );
+  await option.first().click({ timeout: 10_000 });
+}
