@@ -1932,6 +1932,27 @@ class TestChargeDetail(ViewTestMixin):
         assert response.status_code == 200
         assert response.context_data["subject"] == "Receipt"
 
+    def test_redirects_to_receipt_pdf_when_set(
+        self, rf, organization_factory, user_factory, charge_factory, mocker
+    ):
+        """When receipt_pdf is set, GET redirects to the PDF URL."""
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        charge = charge_factory(organization=organization)
+
+        mock_pdf = MagicMock()
+        mock_pdf.url = "https://s3.example.com/receipts/ch_test.pdf"
+        mocker.patch.object(
+            type(charge), "receipt_pdf",
+            new_callable=mocker.PropertyMock,
+            return_value=mock_pdf,
+        )
+        mocker.patch.object(views.ChargeDetail, "get_object", return_value=charge)
+
+        response = self.call_view(rf, user, pk=charge.pk)
+        assert response.status_code == 302
+        assert response["Location"] == "https://s3.example.com/receipts/ch_test.pdf"
+
 
 class TestStripeWebhook:
     def call_view(self, rf, data):

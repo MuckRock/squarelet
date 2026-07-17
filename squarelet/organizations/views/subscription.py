@@ -6,6 +6,7 @@ from django.http.response import (
     HttpResponse,
     HttpResponseBadRequest,
     HttpResponseNotAllowed,
+    HttpResponseRedirect,
     JsonResponse,
 )
 from django.shortcuts import redirect
@@ -178,6 +179,12 @@ class ChargeDetail(UserPassesTestMixin, DetailView):
         user = self.request.user
         org = self.get_object().organization
         return user.has_perm("organizations.can_view_charge", org)
+
+    def get(self, request, *args, **kwargs):
+        obj = self.get_object()
+        if obj.receipt_pdf:
+            return HttpResponseRedirect(obj.receipt_pdf.url)
+        return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
