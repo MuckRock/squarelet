@@ -489,8 +489,19 @@ def handle_subscription_updated(subscription_data):
     # cancel_at_period_end set for auto_renew=False plans). The record is
     # finally deleted when Stripe sends the deletion event at period end.
     subscription.cancelled = bool(subscription_data.get("cancel_at_period_end"))
+    # Track when Stripe will terminate the subscription, consistent with how
+    # Subscription.cancel() sets it. Clear it when a cancellation is reversed.
+    if subscription.cancelled and subscription.current_period_end:
+        subscription.cancel_at = subscription.current_period_end.date()
+    else:
+        subscription.cancel_at = None
     subscription.save(
-        update_fields=["stripe_status", "current_period_end", "cancelled"]
+        update_fields=[
+            "stripe_status",
+            "current_period_end",
+            "cancelled",
+            "cancel_at",
+        ]
     )
     logger.info(
         "[STRIPE-WEBHOOK-SUBSCRIPTION] subscription.updated cached status for: %s "

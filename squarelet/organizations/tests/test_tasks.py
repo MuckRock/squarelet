@@ -1,9 +1,10 @@
 # Django
 from django.test import override_settings
 from django.utils import timezone
+from django.utils.timezone import get_current_timezone
 
 # Standard Library
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 # Third Party
 import pytest
@@ -2203,6 +2204,63 @@ class TestHandleSubscriptionUpdated:
 
         subscription.refresh_from_db()
         assert subscription.cancelled is False
+
+    @pytest.mark.django_db
+    def test_sets_cancel_at_when_scheduled(self, subscription_factory, mocker):
+        """cancel_at is set from the period end when Stripe schedules cancellation"""
+        subscription = subscription_factory(subscription_id="sub_ca", cancelled=False)
+        period_end_ts = 1800000000
+
+        mock_sub_svc = mocker.MagicMock()
+        mock_sub_svc.get_current_period_end.return_value = period_end_ts
+        mock_provider = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        )
+        mock_provider.return_value.get_subscription_service.return_value = mock_sub_svc
+
+        tasks.handle_subscription_updated(
+            {
+                "id": "sub_ca",
+                "status": "active",
+                "cancel_at_period_end": True,
+                "items": {"data": [{"current_period_end": period_end_ts}]},
+            }
+        )
+
+        subscription.refresh_from_db()
+        expected = datetime.fromtimestamp(period_end_ts, tz=get_current_timezone())
+        assert subscription.cancelled is True
+        assert subscription.cancel_at == expected.date()
+
+    @pytest.mark.django_db
+    def test_clears_cancel_at_on_reactivation(self, subscription_factory, mocker):
+        """cancel_at is cleared when a scheduled cancellation is reversed"""
+        subscription = subscription_factory(
+            subscription_id="sub_react_ca",
+            cancelled=True,
+            cancel_at=date.today() + timedelta(days=10),
+        )
+        period_end_ts = 1800000000
+
+        mock_sub_svc = mocker.MagicMock()
+        mock_sub_svc.get_current_period_end.return_value = period_end_ts
+        mock_provider = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        )
+        mock_provider.return_value.get_subscription_service.return_value = mock_sub_svc
+
+        tasks.handle_subscription_updated(
+            {
+                "id": "sub_react_ca",
+                "status": "active",
+                "cancel_at_period_end": False,
+                "items": {"data": [{"current_period_end": period_end_ts}]},
+            }
+        )
+
+        subscription.refresh_from_db()
+        assert subscription.cancelled is False
+        assert subscription.cancel_at is None
 
     @pytest.mark.django_db
     def test_canceled_status_reconciles_subscription(
