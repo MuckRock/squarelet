@@ -1,6 +1,7 @@
 # Django
 from celery import shared_task
 from django.conf import settings
+from django.core.files.base import ContentFile
 from django.db.models import F, Q
 from django.utils.timezone import get_current_timezone
 from django.utils.translation import gettext_lazy as _
@@ -168,7 +169,22 @@ def handle_charge_succeeded(charge_data):
         },
     )
 
-    charge.send_receipt()
+    receipt_url = charge_data.get("receipt_url")
+    if receipt_url and not charge.receipt_pdf:
+        try:
+            response = requests.get(receipt_url, timeout=30)
+            response.raise_for_status()
+            charge.receipt_pdf.save(
+                f"{charge.charge_id}.pdf",
+                ContentFile(response.content),
+                save=True,
+            )
+        except requests.RequestException as exc:
+            logger.warning(
+                "Failed to download Stripe receipt PDF for charge %s: %s",
+                charge.charge_id,
+                exc,
+            )
 
 
 @shared_task(name="squarelet.organizations.tasks.handle_invoice_failed")

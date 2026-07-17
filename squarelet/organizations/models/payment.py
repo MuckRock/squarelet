@@ -17,7 +17,6 @@ import stripe
 from autoslug import AutoSlugField
 
 # Squarelet
-from squarelet.core.mail import ORG_TO_RECEIPTS, send_mail
 from squarelet.core.utils import is_production_env, mailchimp_journey
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.factory import get_payment_provider
@@ -904,6 +903,10 @@ class Charge(models.Model):
 
     metadata = models.JSONField(_("metadata"), default=dict)
 
+    receipt_pdf = models.FileField(
+        _("receipt pdf"), upload_to="receipts/", null=True, blank=True
+    )
+
     class Meta:
         ordering = ("-created_at",)
 
@@ -920,30 +923,6 @@ class Charge(models.Model):
     @property
     def amount_dollars(self):
         return self.amount / 100.0
-
-    def send_receipt(self):
-        """Send receipt"""
-        current_emails = list(
-            self.organization.receipt_emails.values_list("email", flat=True)
-        )
-        existing = self.metadata.get("receipt_emails", [])
-        seen = set(existing)
-        merged = list(existing) + [e for e in current_emails if e not in seen]
-        self.metadata["receipt_emails"] = merged
-        self.save(update_fields=["metadata"])
-        plan = Plan.objects.filter(name=self.metadata.get("plan")).first()
-
-        send_mail(
-            subject=_("Receipt"),
-            template="organizations/email/receipt.html",
-            organization=self.organization,
-            organization_to=ORG_TO_RECEIPTS,
-            extra_context={
-                "charge": self,
-                "plan": plan,
-                "receipt_emails": current_emails,
-            },
-        )
 
     def items(self):
         if self.fee_amount:

@@ -8,6 +8,7 @@ from datetime import date, datetime, timedelta
 
 # Third Party
 import pytest
+import requests
 import stripe
 from dateutil.relativedelta import relativedelta
 from freezegun import freeze_time
@@ -225,6 +226,7 @@ class TestHandleChargeSucceeded:
             "invoice": "in_EwIgmFCn7cnZFB",
             "metadata": {},
             "object": "charge",
+            "receipt_url": "https://stripe.com/receipt/test",
         }
         organization = organization_factory(
             customer__customer_id=charge_data["customer"]
@@ -256,7 +258,11 @@ class TestHandleChargeSucceeded:
             ".stripe_modern.stripe.Product.retrieve",
             return_value=product,
         )
-        mocked = mocker.patch("squarelet.organizations.models.Charge.send_receipt")
+        mock_response = mocker.MagicMock()
+        mock_response.content = b"%PDF-1.4 fake pdf content"
+        mocked_get = mocker.patch(
+            "squarelet.organizations.tasks.requests.get", return_value=mock_response
+        )
 
         tasks.handle_charge_succeeded(charge_data)
 
@@ -266,7 +272,8 @@ class TestHandleChargeSucceeded:
         assert charge.organization == organization
         assert charge.created_at == timestamp
         assert charge.description == f"Subscription Payment for {product['name']} plan"
-        mocked.assert_called_once()
+        mocked_get.assert_called_once_with(charge_data["receipt_url"], timeout=30)
+        assert charge.receipt_pdf.name == f"receipts/{charge_data['id']}.pdf"
 
     @pytest.mark.django_db()
     def test_without_invoice(self, organization_factory, mocker):
@@ -280,11 +287,16 @@ class TestHandleChargeSucceeded:
             "invoice": None,
             "metadata": {},
             "object": "charge",
+            "receipt_url": "https://stripe.com/receipt/test",
         }
         organization = organization_factory(
             customer__customer_id=charge_data["customer"]
         )
-        mocked = mocker.patch("squarelet.organizations.models.Charge.send_receipt")
+        mock_response = mocker.MagicMock()
+        mock_response.content = b"%PDF-1.4 fake pdf content"
+        mocked_get = mocker.patch(
+            "squarelet.organizations.tasks.requests.get", return_value=mock_response
+        )
 
         tasks.handle_charge_succeeded(charge_data)
 
@@ -294,7 +306,57 @@ class TestHandleChargeSucceeded:
         assert charge.organization == organization
         assert charge.created_at == timestamp
         assert charge.description == charge_data["description"]
-        mocked.assert_called_once()
+        mocked_get.assert_called_once_with(charge_data["receipt_url"], timeout=30)
+        assert charge.receipt_pdf.name == f"receipts/{charge_data['id']}.pdf"
+
+    @pytest.mark.django_db()
+    def test_no_receipt_url(self, organization_factory, mocker):
+        """No receipt_url in charge data — no PDF saved, no crash."""
+        timestamp = timezone.now().replace(microsecond=0)
+        charge_data = {
+            "amount": 2500,
+            "created": int(timestamp.timestamp()),
+            "customer": "cus_Bp0Alb14pfVB9D",
+            "description": "Payment for request #123",
+            "id": "ch_EwJiGXbaafREhT",
+            "invoice": None,
+            "metadata": {},
+            "object": "charge",
+        }
+        organization_factory(customer__customer_id=charge_data["customer"])
+        mocked_get = mocker.patch("squarelet.organizations.tasks.requests.get")
+
+        tasks.handle_charge_succeeded(charge_data)
+
+        charge = Charge.objects.get(charge_id=charge_data["id"])
+        assert not charge.receipt_pdf
+        mocked_get.assert_not_called()
+
+    @pytest.mark.django_db()
+    def test_pdf_download_failure(self, organization_factory, mocker):
+        """Failed PDF download logs a warning but charge is still created."""
+        timestamp = timezone.now().replace(microsecond=0)
+        charge_data = {
+            "amount": 2500,
+            "created": int(timestamp.timestamp()),
+            "customer": "cus_Bp0Alb14pfVB9D",
+            "description": "Payment for request #123",
+            "id": "ch_EwJiGXbaafREhT",
+            "invoice": None,
+            "metadata": {},
+            "object": "charge",
+            "receipt_url": "https://stripe.com/receipt/test",
+        }
+        organization_factory(customer__customer_id=charge_data["customer"])
+        mocker.patch(
+            "squarelet.organizations.tasks.requests.get",
+            side_effect=requests.RequestException("timeout"),
+        )
+
+        tasks.handle_charge_succeeded(charge_data)
+
+        charge = Charge.objects.get(charge_id=charge_data["id"])
+        assert not charge.receipt_pdf
 
     def test_without_customer(self):
         timestamp = timezone.now().replace(microsecond=0)
@@ -391,11 +453,9 @@ class TestHandleChargeSucceeded:
             ".stripe_modern.stripe.Invoice.retrieve",
             return_value=invoice,
         )
-        mocked = mocker.patch("squarelet.organizations.models.Charge.send_receipt")
 
         # This should not raise any errors
         tasks.handle_charge_succeeded(charge_data)
-        mocked.assert_called_once()
 
     @pytest.mark.django_db()
     def test_invoice_line_missing_pricing_field(self, organization_factory, mocker):
@@ -424,13 +484,11 @@ class TestHandleChargeSucceeded:
             ".stripe_modern.stripe.Invoice.retrieve",
             return_value=invoice,
         )
-        mocked = mocker.patch("squarelet.organizations.models.Charge.send_receipt")
 
         tasks.handle_charge_succeeded(charge_data)
 
         charge = Charge.objects.get(charge_id=charge_data["id"])
         assert charge.description == charge_data["description"]
-        mocked.assert_called_once()
 
     @pytest.mark.django_db()
     def test_duplicate_charge_idempotency(self, organization_factory, mocker):
@@ -447,21 +505,15 @@ class TestHandleChargeSucceeded:
             "object": "charge",
         }
         organization_factory(customer__customer_id=charge_data["customer"])
-        mocked_receipt = mocker.patch(
-            "squarelet.organizations.models.Charge.send_receipt"
-        )
+        mocker.patch("squarelet.organizations.tasks.requests.get")
 
         # First webhook call - creates charge
         tasks.handle_charge_succeeded(charge_data)
         assert Charge.objects.filter(charge_id=charge_data["id"]).count() == 1
-        assert mocked_receipt.call_count == 1
 
         # Second webhook call - should not create duplicate
         tasks.handle_charge_succeeded(charge_data)
         assert Charge.objects.filter(charge_id=charge_data["id"]).count() == 1
-        # Receipt should be sent again (get_or_create returns existing,
-        # send_receipt called)
-        assert mocked_receipt.call_count == 2
 
 
 @pytest.mark.django_db()
