@@ -168,8 +168,26 @@ class Customer(models.Model):
         return None
 
     def default_payment_method_obj(self):
-        """Return the default PaymentMethod object, or None."""
-        return self.payment_methods.filter(is_default=True).first()
+        """Return the default PaymentMethod object, or None.
+
+        Caches the result on the instance so multiple property
+        accesses in the same request only hit the DB once.  The
+        cache is cleared automatically by ``save_payment_cache``
+        and ``clear_payment_cache``.
+        """
+        sentinel = object()
+        cached = getattr(self, "_default_pm_cache", sentinel)
+        if cached is not sentinel:
+            return cached
+        result = self.payment_methods.filter(is_default=True).first()
+        self._default_pm_cache = result
+        return result
+
+    def _invalidate_pm_cache(self):
+        try:
+            del self._default_pm_cache
+        except AttributeError:
+            pass
 
     @property
     def payment_brand(self):
@@ -204,7 +222,7 @@ class Customer(models.Model):
         return ""
 
     def save_payment_cache(self, details, stripe_id, method_type="card"):
-        """Create or update the default PaymentMethod from a Stripe details object.
+        """Create or update the default PaymentMethod.
 
         ``details`` is the type-specific sub-object from a Stripe
         PaymentMethod or legacy Source (e.g. ``pm.card``,
@@ -234,10 +252,12 @@ class Customer(models.Model):
                 stripe_id=stripe_id,
                 is_default=True,
             )
+        self._invalidate_pm_cache()
 
     def clear_payment_cache(self):
         """Delete the default PaymentMethod."""
         self.payment_methods.filter(is_default=True).delete()
+        self._invalidate_pm_cache()
 
     def save_card(self, token):
         """Save a new default card"""
