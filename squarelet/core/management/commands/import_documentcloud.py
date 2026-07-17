@@ -54,12 +54,9 @@ class Command(BaseCommand):
             self.import_users(organization)
 
             if created:
-                organization.set_receipt_emails(
-                    [
-                        u.email
-                        for u in organization.users.filter(memberships__admin=True)
-                    ]
-                )
+                first_admin = organization.users.filter(memberships__admin=True).first()
+                if first_admin:
+                    organization.set_billing_email(first_admin.email)
             if organization.user_count() > organization.max_users:
                 active_subs = list(organization.subscriptions.select_related("plan"))
                 paid_subs = [s for s in active_subs if not s.plan.free]

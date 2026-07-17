@@ -1,6 +1,5 @@
 # Django
 from django import forms
-from django.core.validators import validate_email
 from django.db.models.aggregates import Min
 from django.middleware.csrf import get_token
 from django.urls import reverse
@@ -70,11 +69,10 @@ class PaymentForm(StripeForm):
         min_value=1,
         help_text=_(" "),
     )
-    receipt_emails = forms.CharField(
-        label=_("Receipt Emails"),
-        widget=forms.Textarea(),
+    billing_email = forms.EmailField(
+        label=_("Billing Email"),
         required=False,
-        help_text=_("One email address per line"),
+        help_text=_("Email address for billing communications"),
     )
 
     def __init__(self, *args, **kwargs):
@@ -97,9 +95,9 @@ class PaymentForm(StripeForm):
                 else None
             ),
             Fieldset(
-                "Receipt emails",
-                Field("receipt_emails", id="_id-receiptEmails"),
-                css_class="_cls-resizeField",
+                "Billing email",
+                Field("billing_email"),
+                css_class="_cls-compactField",
             ),
             (
                 Fieldset(
@@ -139,21 +137,6 @@ class PaymentForm(StripeForm):
             self.fields["max_users"].validators[0].limit_value = plan_minimum
             self.fields["max_users"].widget.attrs["min"] = plan_minimum
             self.fields["max_users"].initial = plan_minimum
-
-    def clean_receipt_emails(self):
-        """Make sure each line is a valid email"""
-        emails = self.cleaned_data["receipt_emails"].split("\n")
-        emails = [e.strip() for e in emails if e.strip()]
-        bad_emails = []
-        for email in emails:
-            try:
-                validate_email(email.strip())
-            except forms.ValidationError:
-                bad_emails.append(email)
-        if bad_emails:
-            bad_emails_str = ", ".join(bad_emails)
-            raise forms.ValidationError(f"Invalid email: {bad_emails_str}")
-        return emails
 
     def clean(self):
         data = super().clean()

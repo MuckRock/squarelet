@@ -1,6 +1,5 @@
 # Django
 from django import forms
-from django.core.validators import validate_email
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
@@ -173,11 +172,10 @@ class PremiumSubscriptionForm(StripeForm):
         required=True,
     )
 
-    receipt_emails = forms.CharField(
+    billing_email = forms.EmailField(
         label=_("Send receipts to"),
-        widget=forms.TextInput(),
         required=False,
-        help_text=_("Separate multiple emails with commas"),
+        help_text=_("Email address for billing communications"),
     )
 
     def __init__(self, *args, plan=None, user=None, **kwargs):
@@ -185,8 +183,8 @@ class PremiumSubscriptionForm(StripeForm):
         self.fields["stripe_token"].required = False
 
         if user and not user.is_anonymous:
-            # Set default email for receipt_emails
-            self.fields["receipt_emails"].initial = user.email
+            # Set default email for billing_email
+            self.fields["billing_email"].initial = user.email
             # Filter for organizations where the user
             # is an admin or their individual organization
             self.fields["organization"].queryset = Organization.objects.filter(
@@ -205,21 +203,6 @@ class PremiumSubscriptionForm(StripeForm):
                 self.fields["organization"].initial = user.individual_organization
                 self.fields["organization"].disabled = True
                 self.fields["organization"].widget = forms.HiddenInput()
-
-    def clean_receipt_emails(self):
-        """Make sure each line is a valid email"""
-        emails = self.cleaned_data["receipt_emails"].split(",")
-        emails = [e.strip() for e in emails if e.strip()]
-        bad_emails = []
-        for email in emails:
-            try:
-                validate_email(email.strip())
-            except forms.ValidationError:
-                bad_emails.append(email)
-        if bad_emails:
-            bad_emails_str = ", ".join(bad_emails)
-            raise forms.ValidationError(f"Invalid email: {bad_emails_str}")
-        return emails
 
     def clean(self):
         data = super().clean()
@@ -246,7 +229,7 @@ class PremiumSubscriptionForm(StripeForm):
         plan: Plan = cleaned_data["plan"]
         organization: Organization = cleaned_data["organization"]
         new_organization_name = cleaned_data.get("new_organization_name")
-        receipt_emails = cleaned_data.get("receipt_emails")
+        billing_email = cleaned_data.get("billing_email")
         stripe_token = cleaned_data.get("stripe_token")
         # When the data is submitted, no matter how the form was initialized:
         # - the plan will be either "professional" or "organization"
@@ -261,12 +244,9 @@ class PremiumSubscriptionForm(StripeForm):
             )
             # Add the user as an admin
             organization.add_creator(user)
-            # Add receipt emails to the organization
-            if receipt_emails:
-                for email in receipt_emails:
-                    # Check if email is already a receipt email for this organization
-                    if not organization.receipt_emails.filter(email=email).exists():
-                        organization.receipt_emails.create(email=email)
+        # Set billing email if provided
+        if billing_email:
+            organization.set_billing_email(billing_email)
         try:
             organization.add_subscription(
                 plan, plan.minimum_users, user, token=stripe_token
