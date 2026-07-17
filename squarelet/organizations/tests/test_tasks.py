@@ -271,9 +271,7 @@ class TestHandleChargeSucceeded:
         assert charge.organization == organization
         assert charge.created_at == timestamp
         assert charge.description == f"Subscription Payment for {product['name']} plan"
-        mock_download.assert_called_once_with(
-            charge.pk, charge_data["receipt_url"]
-        )
+        mock_download.assert_called_once_with(charge.pk, charge_data["receipt_url"])
 
     @pytest.mark.django_db()
     def test_without_invoice(self, organization_factory, mocker):
@@ -304,9 +302,7 @@ class TestHandleChargeSucceeded:
         assert charge.organization == organization
         assert charge.created_at == timestamp
         assert charge.description == charge_data["description"]
-        mock_download.assert_called_once_with(
-            charge.pk, charge_data["receipt_url"]
-        )
+        mock_download.assert_called_once_with(charge.pk, charge_data["receipt_url"])
 
     @pytest.mark.django_db()
     def test_no_receipt_url(self, organization_factory, mocker):
@@ -348,32 +344,22 @@ class TestDownloadReceiptPdf:
             return_value=mock_response,
         )
 
-        tasks.download_receipt_pdf(
-            charge.pk, "https://stripe.com/receipt/test"
-        )
+        tasks.download_receipt_pdf(charge.pk, "https://stripe.com/receipt/test")
 
         charge.refresh_from_db()
         mocked_get.assert_called_once_with(
             "https://stripe.com/receipt/test", timeout=30
         )
-        assert charge.receipt_pdf.name.startswith(
-            "receipts/ch_test_dl"
-        )
+        assert charge.receipt_pdf.name.startswith("receipts/ch_test_dl")
 
     @pytest.mark.django_db()
     def test_skips_if_already_downloaded(self, charge_factory, mocker):
         """Does not re-download if receipt_pdf is already set."""
         charge = charge_factory(charge_id="ch_test_skip")
-        charge.receipt_pdf.save(
-            "ch_test_skip.pdf", ContentFile(b"existing"), save=True
-        )
-        mocked_get = mocker.patch(
-            "squarelet.organizations.tasks.requests.get"
-        )
+        charge.receipt_pdf.save("ch_test_skip.pdf", ContentFile(b"existing"), save=True)
+        mocked_get = mocker.patch("squarelet.organizations.tasks.requests.get")
 
-        tasks.download_receipt_pdf(
-            charge.pk, "https://stripe.com/receipt/test"
-        )
+        tasks.download_receipt_pdf(charge.pk, "https://stripe.com/receipt/test")
 
         mocked_get.assert_not_called()
 
@@ -387,9 +373,7 @@ class TestDownloadReceiptPdf:
         )
 
         with pytest.raises(requests.RequestException):
-            tasks.download_receipt_pdf(
-                charge.pk, "https://stripe.com/receipt/test"
-            )
+            tasks.download_receipt_pdf(charge.pk, "https://stripe.com/receipt/test")
 
     def test_without_customer(self):
         timestamp = timezone.now().replace(microsecond=0)
