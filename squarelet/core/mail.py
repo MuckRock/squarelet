@@ -44,7 +44,9 @@ class Email(EmailMultiAlternatives):
                 ]
             )
         elif organization and organization_to == ORG_TO_RECEIPTS:
-            self.to.extend([r.email for r in organization.receipt_emails.all()])
+            email = organization.email
+            if email:
+                self.to.append(email)
         elif organization and organization_to == ORG_TO_ALL:
             self.to.extend([u.email for u in organization.users.all()])
 

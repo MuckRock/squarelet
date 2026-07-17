@@ -1105,14 +1105,14 @@ class EntitlementGrant(models.Model):
 
 
 class ReceiptEmail(models.Model):
-    """An email address to send receipts to"""
+    """The billing email address for an organization"""
 
-    organization = models.ForeignKey(
+    organization = models.OneToOneField(
         verbose_name=_("organization"),
         to="organizations.Organization",
-        related_name="receipt_emails",
+        related_name="receipt_email",
         on_delete=models.CASCADE,
-        help_text=_("The organization this receipt email corresponds to"),
+        help_text=_("The organization this billing email corresponds to"),
     )
     email = models.EmailField(
         _("email"),
@@ -1124,9 +1124,6 @@ class ReceiptEmail(models.Model):
         default=False,
         help_text=_("Has sending to this email address failed?"),
     )
-
-    class Meta:
-        unique_together = ("organization", "email")
 
     def __str__(self):
         return f"Receipt Email: <{self.email}>"

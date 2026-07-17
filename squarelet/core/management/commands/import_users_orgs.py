@@ -105,7 +105,9 @@ class Command(BaseCommand):
                     max_users=int(org[10]),
                     avatar=org[12],
                 )
-                org_obj.set_receipt_emails(e for e in org[11].split(",") if e)
+                emails = [e for e in org[11].split(",") if e]
+                if emails:
+                    org_obj.set_billing_email(emails[0])
                 org_uuid2pk[org[0]] = org_obj.pk
         print(f"End Organization Import {timezone.now()}")
 

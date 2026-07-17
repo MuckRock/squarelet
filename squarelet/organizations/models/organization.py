@@ -366,16 +366,20 @@ class Organization(AvatarMixin, models.Model):
         if self.individual:
             return self.user.email
 
-        # If a group organization, first try to get a receipt email
-        receipt_email = self.receipt_emails.first()
-        if receipt_email:
-            return receipt_email.email
+        try:
+            return self.receipt_email.email
+        except ReceiptEmail.DoesNotExist:
+            pass
 
-        # If no receipt email, get an admin user's email
-        user = self.users.filter(memberships__admin=True).first()
-        if user:
-            # Again, why not primary email?
-            return user.email
+        # Fall back to the first admin's email (ordered by membership
+        # creation date so the result is deterministic)
+        admin = (
+            self.users.filter(memberships__admin=True)
+            .order_by("memberships__created_at")
+            .first()
+        )
+        if admin:
+            return admin.email
 
         return None
 
@@ -408,10 +412,14 @@ class Organization(AvatarMixin, models.Model):
         """Add user as the creator of the organization"""
         # add creator to the organization as an admin by default
         self.memberships.create(user=user, admin=True)
-        # add the creators email as a receipt recipient by default
-        # agency users may not have an email
+        # set the creator's email as the billing email by default
+        # Skip Stripe sync here — the email will be picked up
+        # when the Stripe customer is created
         if user.email:
-            self.receipt_emails.create(email=user.email)
+            ReceiptEmail.objects.update_or_create(
+                organization=self,
+                defaults={"email": user.email, "failed": False},
+            )
 
     @cached_property
     def reference_name(self):
@@ -758,13 +766,24 @@ class Organization(AvatarMixin, models.Model):
         )
         return charge
 
-    def set_receipt_emails(self, emails):
-        new_emails = set(emails)
-        old_emails = {r.email for r in self.receipt_emails.all()}
-        self.receipt_emails.filter(email__in=old_emails - new_emails).delete()
-        ReceiptEmail.objects.bulk_create(
-            [ReceiptEmail(organization=self, email=e) for e in new_emails - old_emails]
-        )
+    def set_billing_email(self, email):
+        """Set the billing email, clearing any previous failure."""
+        if email:
+            ReceiptEmail.objects.update_or_create(
+                organization=self,
+                defaults={"email": email, "failed": False},
+            )
+        else:
+            ReceiptEmail.objects.filter(organization=self).delete()
+        # Sync to Stripe so receipts go to this address
+        if self.customers.exists():
+            customer = self.customer()
+            if customer.customer_id:
+                provider = get_payment_provider()
+                provider.get_customer_service().modify(
+                    customer.customer_id,
+                    email=email or None,
+                )
 
     def subscribe(self):
         """
@@ -931,10 +950,12 @@ class Organization(AvatarMixin, models.Model):
         org.outgoing_org_invitations.update(from_organization=self)
         org.incoming_org_invitations.update(to_organization=self)
 
-        org.receipt_emails.exclude(
-            email__in=self.receipt_emails.values("email")
-        ).update(organization=self)
-        org.receipt_emails.all().delete()
+        # Keep the merged org's billing email if we don't have one
+        has_own = ReceiptEmail.objects.filter(organization=self).exists()
+        if not has_own:
+            ReceiptEmail.objects.filter(organization=org).update(organization=self)
+        else:
+            ReceiptEmail.objects.filter(organization=org).delete()
 
         org.urls.exclude(url__in=self.urls.values("url")).update(organization=self)
         org.urls.all().delete()

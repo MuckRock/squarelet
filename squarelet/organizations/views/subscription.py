@@ -33,7 +33,7 @@ from squarelet.core.utils import (
 )
 from squarelet.organizations.forms import PaymentForm
 from squarelet.organizations.mixins import OrganizationPermissionMixin
-from squarelet.organizations.models import Charge, Organization
+from squarelet.organizations.models import Charge, Organization, ReceiptEmail
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.tasks import (
@@ -112,7 +112,8 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
             messages.error(self.request, f"Payment error: {user_message}")
             return redirect(organization)
         else:
-            organization.set_receipt_emails(form.cleaned_data["receipt_emails"])
+            billing_email = form.cleaned_data.get("billing_email", "")
+            organization.set_billing_email(billing_email)
             if form.cleaned_data.get("remove_card_on_file"):
                 organization.remove_payment_method()
                 if self._is_ajax():
@@ -145,9 +146,11 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["failed_receipt_emails"] = self.object.receipt_emails.filter(
-            failed=True
-        )
+        try:
+            receipt = self.object.receipt_email
+            context["billing_email_failed"] = receipt.failed
+        except ReceiptEmail.DoesNotExist:
+            context["billing_email_failed"] = False
         # Provide a single subscription for the template to check cancelled status.
         # In the multi-subscription world this will need to be revisited, but for
         # now the template only needs to know about the primary (first) subscription.
@@ -161,12 +164,14 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
         plan = self.object.plans.first()
         sub = self.object.subscriptions.filter(plan=plan).first() if plan else None
         max_users = sub.quantity if sub else self.object.max_users
+        try:
+            billing_email = self.object.receipt_email.email
+        except ReceiptEmail.DoesNotExist:
+            billing_email = ""
         return {
             "plan": plan,
             "max_users": max_users,
-            "receipt_emails": "\n".join(
-                r.email for r in self.object.receipt_emails.all()
-            ),
+            "billing_email": billing_email,
         }
 
 
@@ -190,13 +195,12 @@ class ChargeDetail(UserPassesTestMixin, DetailView):
         context = super().get_context_data(**kwargs)
         context["subject"] = "Receipt"
         # Show who the receipt was sent to — stored in metadata for new
-        # charges, falling back to the org's current receipt emails for
+        # charges, falling back to the org's current billing email for
         # older charges that predate this feature
         receipt_emails = self.object.metadata.get("receipt_emails")
         if receipt_emails is None:
-            receipt_emails = list(
-                self.object.organization.receipt_emails.values_list("email", flat=True)
-            )
+            org_email = self.object.organization.email
+            receipt_emails = [org_email] if org_email else []
         context["receipt_emails"] = receipt_emails
         # Override user to None so the base email template does not show
         # the viewer's email in the "sent to" footer

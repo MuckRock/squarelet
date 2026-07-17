@@ -11,13 +11,9 @@
 {% block content %}
 <div class="_cls-content">
 <h1>{{ organization.reference_name }}</h1>
-{% if failed_receipt_emails %}
-    <p>Warning: there were errors sending email to the following email addresses in your receipt emails:</p>
-    <ul>
-    {% for email in failed_receipt_emails %}
-        <li> {{ email.email }} </li>
-    {% endfor %}
-    </ul>
+{% if billing_email_failed %}
+    <p>Warning: there was an error sending email to your
+    billing email address. Please update it below.</p>
 {% endif %}
 <div class="_cls-planInfo">
     {% trans "Current plan" %}: <b>{{ organization.plan|default:"Free" }}</b>

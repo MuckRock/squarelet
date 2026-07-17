@@ -321,11 +321,9 @@ def test_premium_subscription_form_init_with_professional_plan(
 
 
 @pytest.mark.django_db
-def test_premium_subscription_form_clean_receipt_emails_valid(
-    plan_factory, user_factory
-):
-    """Test valid receipt emails validation"""
-    user = user_factory()  # Create a user to pass to the form
+def test_premium_subscription_form_billing_email_valid(plan_factory, user_factory):
+    """Test valid billing email"""
+    user = user_factory()
     plan = plan_factory(slug="professional")
     data = {
         "organization": "new",
@@ -333,28 +331,23 @@ def test_premium_subscription_form_clean_receipt_emails_valid(
         "plan": plan.pk,
         "stripe_token": "tok_visa",
         "stripe_pk": "pk_test_123",
-        "receipt_emails": "test@example.com, another@test.com",
+        "billing_email": "test@example.com",
     }
 
-    form = forms.PremiumSubscriptionForm(
-        data, plan=plan, user=user
-    )  # Added user parameter
+    form = forms.PremiumSubscriptionForm(data, plan=plan, user=user)
     assert form.is_valid()
-    cleaned_emails = form.cleaned_data.get("receipt_emails")
-
-    assert cleaned_emails == ["test@example.com", "another@test.com"]
+    assert form.cleaned_data["billing_email"] == "test@example.com"
 
 
 @pytest.mark.django_db
-def test_premium_subscription_form_clean_receipt_emails_invalid():
-    """Test invalid receipt emails validation"""
-    data = {"receipt_emails": "test@example.com, invalid-email, another@test.com"}
+def test_premium_subscription_form_billing_email_invalid():
+    """Test invalid billing email validation"""
+    data = {"billing_email": "invalid-email"}
 
     form = forms.PremiumSubscriptionForm(data)
 
     assert not form.is_valid()
-    assert "receipt_emails" in form.errors
-    assert "Invalid email: invalid-email" in str(form.errors["receipt_emails"])
+    assert "billing_email" in form.errors
 
 
 @pytest.mark.django_db
@@ -394,7 +387,7 @@ def test_premium_subscription_form_save_new_organization(plan_factory, user, moc
         "plan": plan.pk,
         "stripe_token": "tok_visa",
         "stripe_pk": "pk_test_123",
-        "receipt_emails": "billing@example.com, finance@example.com",
+        "billing_email": "billing@example.com",
     }
 
     form = forms.PremiumSubscriptionForm(data, plan=plan, user=user)
@@ -404,16 +397,16 @@ def test_premium_subscription_form_save_new_organization(plan_factory, user, moc
     add_creator_mock = mocker.patch.object(
         Organization, "add_creator", return_value=None
     )
-    # Mock receipt_emails functionality
-    receipt_emails_mock = mocker.patch.object(Organization, "receipt_emails")
-    receipt_emails_mock.filter.return_value.exists.return_value = True
+    # Mock set_billing_email
+    set_billing_email_mock = mocker.patch.object(
+        Organization, "set_billing_email", return_value=None
+    )
 
     assert form.save(user)
 
-    # Since we're mocking Organization.objects.create, we don't directly test
-    # the database. Instead, check that it was called with the right parameters.
     org_create_mock.assert_called_once_with(name="New Test Organization", private=False)
     add_creator_mock.assert_called_once_with(user)
+    set_billing_email_mock.assert_called_once_with("billing@example.com")
     create_sub_mock.assert_called_once_with(
         plan, plan.minimum_users, user, token="tok_visa"
     )
