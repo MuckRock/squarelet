@@ -21,7 +21,6 @@ from squarelet.organizations.forms import InvitationAcceptForm
 from squarelet.organizations.mixins import ResolveOrganizationSlugMixin
 from squarelet.organizations.models import Invitation, Membership, Organization, Plan
 from squarelet.organizations.models.invitation import OrganizationInvitation
-from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.tasks import sync_wix
 
 # How much to paginate organizations list by
