@@ -23,7 +23,7 @@ Args:
           <span class="caption">
             <span class="icon">{% icon "credit-card" %}</span>
             <span class="text">
-              {{ card.brand }} {% trans "ending in" %} <strong>{{ card.last4 }}</strong>
+              {{ card_brand }} {% trans "ending in" %} <strong>{{ card.last4 }}</strong>
             </span>
           </span>
           <a href="{% url subject|add:':update-card' subject_slug %}" class="btn ghost primary small">

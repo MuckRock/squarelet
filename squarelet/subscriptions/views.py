@@ -16,6 +16,7 @@ import stripe
 # Squarelet
 from squarelet.core.utils import format_stripe_error
 from squarelet.organizations.models import Charge, Organization
+from squarelet.organizations.models.payment import _payment_brand
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.subscriptions.forms import (
     CancelSubscriptionForm,
@@ -82,14 +83,9 @@ class BaseManageSubscriptions(SubscriptionObjectMixin, DetailView):
         context["subscriptions"] = subscriptions
 
         # Get card on file
-        customer = self.object.customer()
-        if customer.card is None:
-            card = None
-        elif customer.card.object == "payment_method":
-            card = customer.card.card
-        else:
-            card = customer.card
-        context["card"] = card
+        details = self.object.customer().payment_details
+        context["card"] = details
+        context["card_brand"] = _payment_brand(details) if details else ""
 
         # Get all receipt emails
         context["receipt_emails"] = self.object.receipt_emails.all()
@@ -153,14 +149,10 @@ class BaseUpdateCard(SubscriptionObjectMixin, UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        customer = self.object.customer()
-        if customer.card is None:
-            card = None
-        elif customer.card.object == "payment_method":
-            card = customer.card.card
-        else:
-            card = customer.card
-        context["card"] = card
+        details = self.object.customer().payment_details
+        context["card"] = details
+        context["card_brand"] = _payment_brand(details) if details else ""
+
         return context
 
 

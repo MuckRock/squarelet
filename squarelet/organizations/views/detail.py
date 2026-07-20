@@ -19,7 +19,6 @@ from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import get_redirect_url, is_rate_limited, new_action
 from squarelet.organizations.forms import InvitationAcceptForm
 from squarelet.organizations.models import Invitation, Membership, Organization, Plan
-from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.tasks import sync_wix
 
 # How much to paginate organizations list by
