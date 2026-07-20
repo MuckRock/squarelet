@@ -22,6 +22,9 @@ logger = logging.getLogger(__name__)
 
 BATCH_SIZE = 500
 
+# pylint: disable=too-many-locals,too-many-branches,too-many-statements
+# pylint: disable=broad-exception-caught
+
 
 class Command(BaseCommand):
     """Backfill locally-cached Stripe fields for existing records.
@@ -36,10 +39,7 @@ class Command(BaseCommand):
     Use --force to overwrite existing cached values.
     """
 
-    help = (
-        "Backfill cached Stripe fields on Customer, Subscription,"
-        " and Invoice"
-    )
+    help = "Backfill cached Stripe fields on Customer, Subscription, and Invoice"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -50,10 +50,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--dry-run",
             action="store_true",
-            help=(
-                "Report what would be updated without writing"
-                " to the database"
-            ),
+            help=("Report what would be updated without writing" " to the database"),
         )
         parser.add_argument(
             "--customers-only",
@@ -95,9 +92,7 @@ class Command(BaseCommand):
     def _backfill_customers(self, force, dry_run):
         qs = Customer.objects.exclude(customer_id=None)
         if not force:
-            qs = qs.filter(
-                payment_brand="", stripe_payment_method_id=""
-            )
+            qs = qs.filter(payment_brand="", stripe_payment_method_id="")
 
         # Build a lookup: stripe customer_id -> local Customer
         local_map = {}
@@ -106,8 +101,7 @@ class Command(BaseCommand):
 
         total = len(local_map)
         self.stdout.write(
-            f"Backfilling {total} Customer record(s) "
-            f"via Stripe list API...\n"
+            f"Backfilling {total} Customer record(s) " f"via Stripe list API...\n"
         )
         if total == 0:
             return
@@ -139,13 +133,8 @@ class Command(BaseCommand):
                 continue
 
             try:
-                invoice_settings = getattr(
-                    stripe_cust, "invoice_settings", None
-                )
-                pm = (
-                    invoice_settings
-                    and invoice_settings.default_payment_method
-                )
+                invoice_settings = getattr(stripe_cust, "invoice_settings", None)
+                pm = invoice_settings and invoice_settings.default_payment_method
 
                 if pm and not isinstance(pm, str):
                     # Expanded PaymentMethod object
@@ -153,15 +142,9 @@ class Command(BaseCommand):
                     customer.payment_brand = (
                         get_payment_brand(details) if details else ""
                     )
-                    customer.payment_last4 = (
-                        getattr(details, "last4", "") or ""
-                    )
-                    customer.payment_exp_month = getattr(
-                        details, "exp_month", None
-                    )
-                    customer.payment_exp_year = getattr(
-                        details, "exp_year", None
-                    )
+                    customer.payment_last4 = getattr(details, "last4", "") or ""
+                    customer.payment_exp_month = getattr(details, "exp_month", None)
+                    customer.payment_exp_year = getattr(details, "exp_year", None)
                     customer.stripe_payment_method_id = pm.id
                 elif stripe_cust.default_source and not isinstance(
                     stripe_cust.default_source, str
@@ -169,15 +152,9 @@ class Command(BaseCommand):
                     # Expanded source object
                     source = stripe_cust.default_source
                     customer.payment_brand = get_payment_brand(source)
-                    customer.payment_last4 = (
-                        getattr(source, "last4", "") or ""
-                    )
-                    customer.payment_exp_month = getattr(
-                        source, "exp_month", None
-                    )
-                    customer.payment_exp_year = getattr(
-                        source, "exp_year", None
-                    )
+                    customer.payment_last4 = getattr(source, "last4", "") or ""
+                    customer.payment_exp_month = getattr(source, "exp_month", None)
+                    customer.payment_exp_year = getattr(source, "exp_year", None)
                     customer.stripe_payment_method_id = source.id
                 else:
                     skipped += 1
@@ -230,8 +207,7 @@ class Command(BaseCommand):
 
         total = len(local_map)
         self.stdout.write(
-            f"Backfilling {total} Subscription record(s) "
-            f"via Stripe list API...\n"
+            f"Backfilling {total} Subscription record(s) " f"via Stripe list API...\n"
         )
         if total == 0:
             return
@@ -264,11 +240,7 @@ class Command(BaseCommand):
                 sub.stripe_status = stripe_sub.status or ""
                 # current_period_end moved to items in newer API
                 items = stripe_sub.items
-                ts = (
-                    items.data[0].current_period_end
-                    if items and items.data
-                    else None
-                )
+                ts = items.data[0].current_period_end if items and items.data else None
                 sub.current_period_end = (
                     datetime.fromtimestamp(ts, tz=tz) if ts else None
                 )
@@ -318,8 +290,7 @@ class Command(BaseCommand):
 
         total = len(local_map)
         self.stdout.write(
-            f"Backfilling {total} Invoice record(s) "
-            f"via Stripe list API...\n"
+            f"Backfilling {total} Invoice record(s) " f"via Stripe list API...\n"
         )
         if total == 0:
             return
@@ -346,9 +317,7 @@ class Command(BaseCommand):
                 continue
 
             try:
-                url = (
-                    stripe_inv.get("hosted_invoice_url", "") or ""
-                )
+                url = stripe_inv.get("hosted_invoice_url", "") or ""
                 if not url:
                     skipped += 1
                     continue
