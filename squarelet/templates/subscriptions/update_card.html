@@ -22,7 +22,7 @@
     <div class="info">
       <span class="icon">{% icon "credit-card" %}</span>
       <span class="card-info">
-        {% blocktrans with card.brand as brand and card.last4 as last4 %}
+        {% blocktrans with card_brand as brand and card.last4 as last4 %}
           Current card: {{ brand }} ending in <strong>{{ last4 }}</strong>
         {% endblocktrans %}
       </span>
