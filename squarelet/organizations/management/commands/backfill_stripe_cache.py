@@ -4,6 +4,7 @@ from django.utils.timezone import get_current_timezone
 
 # Standard Library
 import logging
+import time
 from datetime import datetime
 
 # Third Party
@@ -16,9 +17,10 @@ from squarelet.organizations.models.payment import (
     Subscription,
     get_payment_brand,
 )
-from squarelet.organizations.payments.factory import get_payment_provider
 
 logger = logging.getLogger(__name__)
+
+BATCH_SIZE = 500
 
 
 class Command(BaseCommand):
@@ -34,7 +36,10 @@ class Command(BaseCommand):
     Use --force to overwrite existing cached values.
     """
 
-    help = "Backfill cached Stripe fields on Customer, Subscription, and Invoice"
+    help = (
+        "Backfill cached Stripe fields on Customer, Subscription,"
+        " and Invoice"
+    )
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -45,145 +50,339 @@ class Command(BaseCommand):
         parser.add_argument(
             "--dry-run",
             action="store_true",
-            help="Report what would be updated without writing to the database",
+            help=(
+                "Report what would be updated without writing"
+                " to the database"
+            ),
+        )
+        parser.add_argument(
+            "--customers-only",
+            action="store_true",
+            help="Only backfill Customer records",
+        )
+        parser.add_argument(
+            "--subscriptions-only",
+            action="store_true",
+            help="Only backfill Subscription records",
+        )
+        parser.add_argument(
+            "--invoices-only",
+            action="store_true",
+            help="Only backfill Invoice records",
         )
 
     def handle(self, *args, **options):
         force = options["force"]
         dry_run = options["dry_run"]
-        provider = get_payment_provider()
+        # If no --*-only flag is set, run all three
+        run_all = not any(
+            options[k]
+            for k in ("customers_only", "subscriptions_only", "invoices_only")
+        )
 
         if dry_run:
             self.stdout.write("DRY RUN — no changes will be written.\n")
 
-        self._backfill_customers(provider, force, dry_run)
-        self._backfill_subscriptions(provider, force, dry_run)
-        self._backfill_invoices(provider, force, dry_run)
+        if run_all or options["customers_only"]:
+            self._backfill_customers(force, dry_run)
+        if run_all or options["subscriptions_only"]:
+            self._backfill_subscriptions(force, dry_run)
+        if run_all or options["invoices_only"]:
+            self._backfill_invoices(force, dry_run)
 
-    def _backfill_customers(self, provider, force, dry_run):
-        # pylint: disable=too-many-locals
-        customer_service = provider.get_customer_service()
+    # -- customers ---------------------------------------------------
 
+    def _backfill_customers(self, force, dry_run):
         qs = Customer.objects.exclude(customer_id=None)
         if not force:
-            qs = qs.filter(payment_brand="", stripe_payment_method_id="")
+            qs = qs.filter(
+                payment_brand="", stripe_payment_method_id=""
+            )
 
-        total = qs.count()
-        self.stdout.write(f"Backfilling {total} Customer record(s)...\n")
-        updated = skipped = errors = 0
-
+        # Build a lookup: stripe customer_id -> local Customer
+        local_map = {}
         for customer in qs.iterator():
+            local_map[customer.customer_id] = customer
+
+        total = len(local_map)
+        self.stdout.write(
+            f"Backfilling {total} Customer record(s) "
+            f"via Stripe list API...\n"
+        )
+        if total == 0:
+            return
+
+        updated = skipped = errors = 0
+        fetched = 0
+        batch = []
+        start = time.monotonic()
+
+        # Page through all Stripe customers, expanding payment info
+        for stripe_cust in stripe.Customer.list(
+            limit=100,
+            expand=[
+                "data.default_source",
+                "data.invoice_settings.default_payment_method",
+            ],
+        ).auto_paging_iter():
+            fetched += 1
+            if fetched % 1000 == 0:
+                elapsed = time.monotonic() - start
+                self.stdout.write(
+                    f"  [customers] Scanned {fetched} Stripe"
+                    f" records, {updated} matched & updated"
+                    f" ({elapsed:.0f}s elapsed)\n"
+                )
+
+            customer = local_map.get(stripe_cust.id)
+            if customer is None:
+                continue
+
             try:
-                stripe_customer = customer_service.retrieve(customer.customer_id)
-                invoice_settings = getattr(stripe_customer, "invoice_settings", None)
-                pm_id = invoice_settings and invoice_settings.default_payment_method
-                if pm_id and isinstance(pm_id, str) and pm_id.startswith("pm_"):
-                    pm = customer_service.retrieve_payment_method(pm_id)
+                invoice_settings = getattr(
+                    stripe_cust, "invoice_settings", None
+                )
+                pm = (
+                    invoice_settings
+                    and invoice_settings.default_payment_method
+                )
+
+                if pm and not isinstance(pm, str):
+                    # Expanded PaymentMethod object
                     details = getattr(pm, pm.type, None)
                     customer.payment_brand = (
                         get_payment_brand(details) if details else ""
                     )
-                    customer.payment_last4 = getattr(details, "last4", "") or ""
-                    customer.payment_exp_month = getattr(details, "exp_month", None)
-                    customer.payment_exp_year = getattr(details, "exp_year", None)
-                    customer.stripe_payment_method_id = pm_id
-                elif stripe_customer.default_source:
-                    source = customer_service.retrieve_source(
-                        stripe_customer.id,
-                        stripe_customer.default_source,
+                    customer.payment_last4 = (
+                        getattr(details, "last4", "") or ""
                     )
+                    customer.payment_exp_month = getattr(
+                        details, "exp_month", None
+                    )
+                    customer.payment_exp_year = getattr(
+                        details, "exp_year", None
+                    )
+                    customer.stripe_payment_method_id = pm.id
+                elif stripe_cust.default_source and not isinstance(
+                    stripe_cust.default_source, str
+                ):
+                    # Expanded source object
+                    source = stripe_cust.default_source
                     customer.payment_brand = get_payment_brand(source)
-                    customer.payment_last4 = getattr(source, "last4", "") or ""
-                    customer.payment_exp_month = getattr(source, "exp_month", None)
-                    customer.payment_exp_year = getattr(source, "exp_year", None)
+                    customer.payment_last4 = (
+                        getattr(source, "last4", "") or ""
+                    )
+                    customer.payment_exp_month = getattr(
+                        source, "exp_month", None
+                    )
+                    customer.payment_exp_year = getattr(
+                        source, "exp_year", None
+                    )
                     customer.stripe_payment_method_id = source.id
                 else:
                     skipped += 1
                     continue
 
-                if not dry_run:
-                    customer.save_payment_cache()
+                batch.append(customer)
                 updated += 1
+
+                if len(batch) >= BATCH_SIZE:
+                    if not dry_run:
+                        Customer.objects.bulk_update(
+                            batch,
+                            Customer.PAYMENT_CACHE_FIELDS,
+                            batch_size=BATCH_SIZE,
+                        )
+                    batch = []
             except stripe.StripeError as exc:
                 logger.warning(
-                    "[BACKFILL] Error fetching customer %s: %s",
-                    customer.customer_id,
+                    "[BACKFILL] Error processing customer %s: %s",
+                    stripe_cust.id,
                     exc,
                 )
                 errors += 1
 
+        # Flush remaining batch
+        if batch and not dry_run:
+            Customer.objects.bulk_update(
+                batch,
+                Customer.PAYMENT_CACHE_FIELDS,
+                batch_size=BATCH_SIZE,
+            )
+
+        elapsed = time.monotonic() - start
         self.stdout.write(
-            f"  Customers: {updated} updated, {skipped} skipped "
-            f"(no default PM), {errors} errors\n"
+            f"  Customers done: {updated} updated, {skipped} skipped"
+            f" (no default PM), {errors} errors."
+            f" Scanned {fetched} Stripe records in {elapsed:.0f}s.\n"
         )
 
-    def _backfill_subscriptions(self, provider, force, dry_run):
-        sub_service = provider.get_subscription_service()
+    # -- subscriptions -----------------------------------------------
 
+    def _backfill_subscriptions(self, force, dry_run):
         qs = Subscription.objects.exclude(subscription_id=None)
         if not force:
             qs = qs.filter(stripe_status="")
 
-        total = qs.count()
-        self.stdout.write(f"Backfilling {total} Subscription record(s)...\n")
-        updated = errors = 0
+        local_map = {}
+        for sub in qs.iterator():
+            local_map[sub.subscription_id] = sub
 
-        for subscription in qs.iterator():
+        total = len(local_map)
+        self.stdout.write(
+            f"Backfilling {total} Subscription record(s) "
+            f"via Stripe list API...\n"
+        )
+        if total == 0:
+            return
+
+        updated = errors = 0
+        fetched = 0
+        batch = []
+        start = time.monotonic()
+        tz = get_current_timezone()
+
+        # Include canceled subs so we can backfill their final status
+        for stripe_sub in stripe.Subscription.list(
+            limit=100,
+            status="all",
+        ).auto_paging_iter():
+            fetched += 1
+            if fetched % 1000 == 0:
+                elapsed = time.monotonic() - start
+                self.stdout.write(
+                    f"  [subscriptions] Scanned {fetched} Stripe"
+                    f" records, {updated} matched & updated"
+                    f" ({elapsed:.0f}s elapsed)\n"
+                )
+
+            sub = local_map.get(stripe_sub.id)
+            if sub is None:
+                continue
+
             try:
-                stripe_sub = sub_service.retrieve(subscription.subscription_id)
-                subscription.stripe_status = stripe_sub.status or ""
-                ts = sub_service.get_current_period_end(stripe_sub)
-                subscription.current_period_end = (
-                    datetime.fromtimestamp(ts, tz=get_current_timezone())
-                    if ts
+                sub.stripe_status = stripe_sub.status or ""
+                # current_period_end moved to items in newer API
+                items = stripe_sub.items
+                ts = (
+                    items.data[0].current_period_end
+                    if items and items.data
                     else None
                 )
-                if not dry_run:
-                    subscription.save(
-                        update_fields=["stripe_status", "current_period_end"]
-                    )
+                sub.current_period_end = (
+                    datetime.fromtimestamp(ts, tz=tz) if ts else None
+                )
+                batch.append(sub)
                 updated += 1
-            except stripe.StripeError as exc:
+
+                if len(batch) >= BATCH_SIZE:
+                    if not dry_run:
+                        Subscription.objects.bulk_update(
+                            batch,
+                            ["stripe_status", "current_period_end"],
+                            batch_size=BATCH_SIZE,
+                        )
+                    batch = []
+            except (stripe.StripeError, Exception) as exc:
                 logger.warning(
-                    "[BACKFILL] Error fetching subscription %s: %s",
-                    subscription.subscription_id,
+                    "[BACKFILL] Error processing subscription %s: %s",
+                    stripe_sub.id,
                     exc,
                 )
                 errors += 1
 
-        self.stdout.write(f"  Subscriptions: {updated} updated, {errors} errors\n")
+        # Flush remaining batch
+        if batch and not dry_run:
+            Subscription.objects.bulk_update(
+                batch,
+                ["stripe_status", "current_period_end"],
+                batch_size=BATCH_SIZE,
+            )
 
-    def _backfill_invoices(self, provider, force, dry_run):
-        invoice_service = provider.get_invoice_service()
+        elapsed = time.monotonic() - start
+        self.stdout.write(
+            f"  Subscriptions done: {updated} updated, {errors} errors."
+            f" Scanned {fetched} Stripe records in {elapsed:.0f}s.\n"
+        )
 
+    # -- invoices ----------------------------------------------------
+
+    def _backfill_invoices(self, force, dry_run):
         qs = Invoice.objects.all()
         if not force:
             qs = qs.filter(hosted_invoice_url="")
 
-        total = qs.count()
-        self.stdout.write(f"Backfilling {total} Invoice record(s)...\n")
-        updated = skipped = errors = 0
+        local_map = {}
+        for inv in qs.iterator():
+            local_map[inv.invoice_id] = inv
 
-        for invoice in qs.iterator():
+        total = len(local_map)
+        self.stdout.write(
+            f"Backfilling {total} Invoice record(s) "
+            f"via Stripe list API...\n"
+        )
+        if total == 0:
+            return
+
+        updated = skipped = errors = 0
+        fetched = 0
+        batch = []
+        start = time.monotonic()
+
+        for stripe_inv in stripe.Invoice.list(
+            limit=100,
+        ).auto_paging_iter():
+            fetched += 1
+            if fetched % 1000 == 0:
+                elapsed = time.monotonic() - start
+                self.stdout.write(
+                    f"  [invoices] Scanned {fetched} Stripe"
+                    f" records, {updated} matched & updated"
+                    f" ({elapsed:.0f}s elapsed)\n"
+                )
+
+            inv = local_map.get(stripe_inv.id)
+            if inv is None:
+                continue
+
             try:
-                stripe_invoice = invoice_service.retrieve(invoice.invoice_id)
-                url = stripe_invoice.get("hosted_invoice_url", "") or ""
+                url = (
+                    stripe_inv.get("hosted_invoice_url", "") or ""
+                )
                 if not url:
                     skipped += 1
                     continue
-                invoice.hosted_invoice_url = url
-                if not dry_run:
-                    invoice.save(update_fields=["hosted_invoice_url"])
+                inv.hosted_invoice_url = url
+                batch.append(inv)
                 updated += 1
+
+                if len(batch) >= BATCH_SIZE:
+                    if not dry_run:
+                        Invoice.objects.bulk_update(
+                            batch,
+                            ["hosted_invoice_url"],
+                            batch_size=BATCH_SIZE,
+                        )
+                    batch = []
             except stripe.StripeError as exc:
                 logger.warning(
-                    "[BACKFILL] Error fetching invoice %s: %s",
-                    invoice.invoice_id,
+                    "[BACKFILL] Error processing invoice %s: %s",
+                    stripe_inv.id,
                     exc,
                 )
                 errors += 1
 
+        # Flush remaining batch
+        if batch and not dry_run:
+            Invoice.objects.bulk_update(
+                batch,
+                ["hosted_invoice_url"],
+                batch_size=BATCH_SIZE,
+            )
+
+        elapsed = time.monotonic() - start
         self.stdout.write(
-            f"  Invoices: {updated} updated, {skipped} skipped "
-            f"(no URL), {errors} errors\n"
+            f"  Invoices done: {updated} updated, {skipped} skipped"
+            f" (no URL), {errors} errors."
+            f" Scanned {fetched} Stripe records in {elapsed:.0f}s.\n"
         )
