@@ -3,7 +3,6 @@
 
   import Select from "./Select.svelte";
   import TeamListItem from "./TeamListItem.svelte";
-  import SelectChip from "./SelectChip.svelte";
 
   let {
     name = "q",
@@ -25,7 +24,7 @@
   valueField="id"
   labelField="name"
   fetch="/fe_api/organizations/?individual=false&search=[query]"
-  fetchCallback={(resp) => resp.results}
+  fetchCallback={(resp) => resp.results as Organization[]}
   fetchResetOnBlur={false}
   resetOnBlur={false}
   lazyDropdown={false}
@@ -33,15 +32,8 @@
   searchProps={{ skipSort: true }}
   {onChange}
 >
-  {#snippet selection(selectedOptions: Organization[], bindItem)}
-    {#each selectedOptions as org (org.id)}
-      <SelectChip>
-        {#snippet content()}
-          {org.name}
-          <button data-action="deselect" use:bindItem={org}>&times;</button>
-        {/snippet}
-      </SelectChip>
-    {/each}
+  {#snippet selectionValue({ name })}
+    {name}
   {/snippet}
 
   {#snippet option(item: Organization)}

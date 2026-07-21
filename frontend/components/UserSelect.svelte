@@ -3,7 +3,6 @@
 
   import Select from "./Select.svelte";
   import UserListItem from "./UserListItem.svelte";
-  import SelectChip from "./SelectChip.svelte";
 
   interface Props {
     onChange?: (selections: Selection[]) => void;
@@ -16,7 +15,10 @@
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  function fetchCallback(resp: { count: number; results: User[] }): Selection[] {
+  function fetchCallback(resp: {
+    count: number;
+    results: User[];
+  }): Selection[] {
     return resp.results.map((u) => ({ ...u, type: "user" as const }));
   }
 
@@ -81,15 +83,8 @@
     {/if}
   {/snippet}
 
-  {#snippet selection(selectedOptions: Selection[], bindItem)}
-    {#each selectedOptions as sel (sel.id)}
-      <SelectChip type={sel.type}>
-        {#snippet content()}
-          {sel.type === "email" ? sel.email : sel.name || sel.username}
-          <button data-action="deselect" use:bindItem={sel}>&times;</button>
-        {/snippet}
-      </SelectChip>
-    {/each}
+  {#snippet selectionValue(sel)}
+    {sel.type === "email" ? sel.email : sel.name || sel.username}
   {/snippet}
 </Select>
 
