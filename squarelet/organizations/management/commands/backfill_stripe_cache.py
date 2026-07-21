@@ -317,7 +317,7 @@ class Command(BaseCommand):
                 continue
 
             try:
-                url = stripe_inv.get("hosted_invoice_url", "") or ""
+                url = getattr(stripe_inv, "hosted_invoice_url", "") or ""
                 if not url:
                     skipped += 1
                     continue
