@@ -1,4 +1,5 @@
 # Django
+from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.utils.timezone import get_current_timezone
 
@@ -21,6 +22,8 @@ from squarelet.organizations.models.payment import (
 logger = logging.getLogger(__name__)
 
 BATCH_SIZE = 500
+
+stripe.api_key = settings.STRIPE_SECRET_KEY
 
 # pylint: disable=too-many-locals,too-many-branches,too-many-statements
 # pylint: disable=broad-exception-caught
