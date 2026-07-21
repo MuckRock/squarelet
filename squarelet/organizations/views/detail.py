@@ -230,56 +230,16 @@ class Detail(AdminLinkMixin, DetailView):
 
     def handle_leave(self, request):
         is_member = self.organization.has_member(self.request.user)
-        can_manage = request.user.has_perm(
-            "organizations.can_manage_members", self.organization
-        )
-        userid = request.POST.get("userid")
-        user_left = False
-        if userid:
-            if userid == str(request.user.id) and is_member:
-                # Users removing themselves
-                request.user.memberships.filter(organization=self.organization).delete()
-                messages.success(request, _("You left the organization"))
-                user_left = True
-            elif can_manage:
-                # User with can_manage_members permission removing another user
-                user_model = get_user_model()
-                try:
-                    target_user = user_model.objects.get(pk=userid)
-                    target_user.memberships.filter(
-                        organization=self.organization
-                    ).delete()
 
-                    # Log staff action to activity stream
-                    new_action(
-                        actor=request.user,
-                        verb="removed member from organization",
-                        action_object=target_user,
-                        target=self.organization,
-                    )
-
-                    messages.success(
-                        request,
-                        _("%(username)s left the organization")
-                        % {"username": target_user.username},
-                    )
-                except user_model.DoesNotExist:
-                    messages.error(request, _("User not found"))
-            else:
-                # Only users with can_manage_members can remove other users
-                messages.error(
-                    request, _("You do not have permission to remove other users")
-                )
-        elif is_member:
-            # User removing themselves (no userid provided)
+        if is_member:
             request.user.memberships.filter(organization=self.organization).delete()
             messages.success(request, _("You left the organization"))
-            user_left = True
 
-        # Redirect to profile if the user left a private org they can no
-        # longer view, otherwise redirect following default behavior
-        if user_left and self.organization.private:
-            return redirect(request.user)
+            # Redirect to profile if the user left a private org they can no
+            # longer view, otherwise redirect following default behavior
+            if self.organization.private:
+                return redirect(request.user)
+            
         return None
 
     def handle_enable_autojoin(self, request):
