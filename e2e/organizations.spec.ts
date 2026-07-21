@@ -1172,8 +1172,8 @@ test.describe("Member Organization Management", () => {
       await login(page, "e2e-admin");
       await page.goto(`/organizations/${COLLECTIVE}/`);
 
-      await expect(page.locator("section#member_orgs")).toBeVisible();
-      await expect(page.locator('a[href="#member_orgs"]')).toBeVisible();
+      await expect(page.locator("section#affiliates")).toBeVisible();
+      await expect(page.locator('a[href="#affiliates"]')).toBeVisible();
       await expect(
         page.locator(
           `a[href$="/organizations/${COLLECTIVE}/manage-member-orgs/"]`,
@@ -1185,7 +1185,7 @@ test.describe("Member Organization Management", () => {
       await login(page, "e2e-admin");
       await page.goto(`/organizations/${MEMBER}/`);
 
-      await expect(page.locator("section#member_orgs")).toHaveCount(0);
+      await expect(page.locator("section#affiliates")).toHaveCount(0);
       await expect(
         page.locator(`a[href$="/organizations/${MEMBER}/manage-member-orgs/"]`),
       ).toHaveCount(0);
@@ -1197,7 +1197,7 @@ test.describe("Member Organization Management", () => {
       await login(page, "e2e-regular");
       await page.goto(`/organizations/${COLLECTIVE}/`);
 
-      await expect(page.locator("section#member_orgs")).toHaveCount(0);
+      await expect(page.locator("section#affiliates")).toHaveCount(0);
     });
   });
 
@@ -1368,9 +1368,9 @@ test.describe("Member Organization Management", () => {
       // detail page and can be accepted.
       await login(page, "e2e-admin");
       await page.goto(`/organizations/${MEMBER}/`);
-      await expect(page.locator("section#groups")).toBeVisible();
+      await expect(page.locator("section#affiliations")).toBeVisible();
 
-      const invitationRow = page.locator("section#groups .org", {
+      const invitationRow = page.locator("section#affiliations .org", {
         has: page.locator("h4", { hasText: COLLECTIVE }),
       });
       await invitationRow
@@ -1378,16 +1378,18 @@ test.describe("Member Organization Management", () => {
         .click();
       await expectFlashMessage(page, "success");
 
-      // The member org now lists the collective under "Member of"
+      // The member org now lists the collective in its Affiliations section
       await page.goto(`/organizations/${MEMBER}/`);
       await expect(
-        page.locator("#profile .memberships a", { hasText: COLLECTIVE }),
+        page.locator("section#affiliations .org", {
+          has: page.locator("h4", { hasText: COLLECTIVE }),
+        }),
       ).toBeVisible();
 
       // ...and appears in the collective's member orgs list
       await page.goto(`/organizations/${COLLECTIVE}/`);
       await expect(
-        page.locator("section#member_orgs .org", {
+        page.locator("section#affiliates .org", {
           has: page.locator("h4", { hasText: MEMBER }),
         }),
       ).toBeVisible();
@@ -1398,7 +1400,7 @@ test.describe("Member Organization Management", () => {
 
       await login(page, "e2e-admin");
       await page.goto(`/organizations/${MEMBER}/`);
-      const invitationRow = page.locator("section#groups .org", {
+      const invitationRow = page.locator("section#affiliations .org", {
         has: page.locator("h4", { hasText: COLLECTIVE }),
       });
       await invitationRow
@@ -1409,7 +1411,7 @@ test.describe("Member Organization Management", () => {
       // The rejection means no membership was created
       await page.goto(`/organizations/${COLLECTIVE}/`);
       await expect(
-        page.locator("section#member_orgs .org", {
+        page.locator("section#affiliates .org", {
           has: page.locator("h4", { hasText: MEMBER }),
         }),
       ).toHaveCount(0);
@@ -1443,7 +1445,7 @@ test.describe("Member Organization Management", () => {
 
       await login(page, "e2e-admin");
       await page.goto(`/organizations/${MEMBER}/`);
-      const membershipRow = page.locator("section#groups .org", {
+      const membershipRow = page.locator("section#affiliations .org", {
         has: page.locator("h4", { hasText: COLLECTIVE }),
       });
       await membershipRow.locator('button[value="remove_member_org"]').click();
@@ -1452,7 +1454,7 @@ test.describe("Member Organization Management", () => {
       // The membership is gone from the collective's member orgs
       await page.goto(`/organizations/${COLLECTIVE}/`);
       await expect(
-        page.locator("section#member_orgs .org", {
+        page.locator("section#affiliates .org", {
           has: page.locator("h4", { hasText: MEMBER }),
         }),
       ).toHaveCount(0);
@@ -1509,7 +1511,7 @@ test.describe("Member Organization Management", () => {
 
       await page.goto(`/organizations/${COLLECTIVE}/`);
       await expect(
-        page.locator("section#member_orgs .org", {
+        page.locator("section#affiliates .org", {
           has: page.locator("h4", { hasText: MEMBER }),
         }),
       ).toBeVisible();
