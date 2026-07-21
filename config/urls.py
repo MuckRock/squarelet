@@ -5,7 +5,6 @@ from django.contrib import admin
 from django.shortcuts import redirect
 from django.urls import include, path, re_path
 from django.views import defaults as default_views
-from django.views.generic import TemplateView
 
 # Third Party
 from allauth.account.decorators import secure_admin_login
@@ -14,7 +13,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 # Squarelet
 from squarelet.core.views import HomeView, SelectPlanView
-from squarelet.oidc.views import OIDCRedirectURIUpdater
+from squarelet.oidc.views import AuthorizeView, OIDCRedirectURIUpdater
 from squarelet.organizations.fe_api.viewsets import (
     InvitationViewSet as FEInvitationViewSet,
     OrganizationViewSet as FEOrganizationViewSet,
@@ -92,6 +91,7 @@ urlpatterns = [
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/jwt/", OIDCTokenExchangeView.as_view(), name="token_oidc_exchange"),
     path("api/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    re_path(r"^openid/authorize/?$", AuthorizeView.as_view(), name="oidc_authorize"),
     path("openid/", include("oidc_provider.urls", namespace="oidc_provider")),
     path("hijack/", include("hijack.urls", namespace="hijack")),
     re_path(r"^robots\.txt", include("robots.urls")),

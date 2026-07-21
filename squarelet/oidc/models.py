@@ -37,6 +37,24 @@ class ClientProfile(models.Model):
         default="muckrock",
         help_text=_("Which application did this client originate from?"),
     )
+    checks_verification = models.BooleanField(
+        _("checks verification"),
+        default=False,
+        help_text=_(
+            "Whether this client gates features behind verification. "
+            "When enabled, unverified users are shown an informational notice "
+            "during authorization."
+        ),
+    )
+    verification_notice = models.TextField(
+        _("verification notice"),
+        blank=True,
+        help_text=_(
+            "Explanation shown to unverified users describing what this client "
+            "limits to verified journalists. Markdown formatting supported. "
+            "Only used when 'checks verification' is enabled."
+        ),
+    )
 
     def __str__(self):
         return str(self.client)

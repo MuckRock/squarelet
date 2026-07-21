@@ -87,3 +87,37 @@ footer {
   font-size: var(--font-sm, .875rem);
   color: var(--gray-5);
 }
+
+.oidc-authorization.card {
+  header {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 2rem;
+  }
+  .icon {
+    flex: 0 1 auto;
+    svg {
+      height: 4rem;
+      width: 4rem;
+      stroke-width: 2px;
+    }
+  }
+  h1 {
+    flex: 1 1 12rem;
+    margin: 0;
+  }
+  main p {
+    margin-top: 0;
+  }
+  main, footer {
+    padding: 1rem;
+  }
+  .unverified {
+    gap: 0.5rem 1rem;
+    flex-wrap: wrap;
+  }
+  .warning {
+    color: var(--red-3);
+  }
+}
