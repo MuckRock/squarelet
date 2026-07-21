@@ -15,10 +15,7 @@ from oidc_provider.models import Client, ResponseType
 # Squarelet
 from squarelet.oidc.models import ClientProfile
 from squarelet.organizations.models import Membership, Organization
-from squarelet.organizations.models.invitation import (
-    Invitation,
-    OrganizationInvitation,
-)
+from squarelet.organizations.models.invitation import Invitation, OrganizationInvitation
 from squarelet.organizations.models.payment import Customer, Plan
 from squarelet.users.models import User
 
@@ -292,9 +289,7 @@ class Command(BaseCommand):
         count2, _ = OrganizationInvitation.objects.filter(
             to_organization__slug__startswith="e2e-"
         ).delete()
-        self.stderr.write(
-            f"Deleted {count + count2} organization invitation objects"
-        )
+        self.stderr.write(f"Deleted {count + count2} organization invitation objects")
         for org in Organization.objects.filter(
             slug__startswith="e2e-", individual=False
         ):
