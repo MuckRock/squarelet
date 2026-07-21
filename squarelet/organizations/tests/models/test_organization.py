@@ -241,8 +241,11 @@ class TestOrganization:
         plan_b = plan_factory(annual=False, base_price=10, minimum_users=1)
         mocker.patch("stripe.Plan.create")
 
-        # Set org with a billing_anchor that differs from update_on
-        anchor = date(2026, 1, 15)
+        # Set org with a billing_anchor that differs from update_on.
+        # The anchor day-of-month is 15; _anchor_timestamp advances
+        # past-dates forward, so we pick a future month to keep the
+        # assertion simple and deterministic.
+        anchor = date(2027, 1, 15)
         update = date(2026, 8, 15)
         organization = organization_factory(
             admins=[user], billing_anchor=anchor, update_on=update
