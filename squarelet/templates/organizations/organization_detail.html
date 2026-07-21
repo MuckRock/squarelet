@@ -50,17 +50,17 @@
     </li>
     {% if show_members_section %}
     <li>
-      <a href="#member_orgs" class="nav-item">
+      <a href="#affiliates" class="nav-item">
         {% icon "network" %}
-        {% trans "Member Orgs" %}
+        {% trans "Affiliates" %}
       </a>
     </li>
     {% endif %}
     {% if show_groups_section %}
     <li>
-      <a href="#groups" class="nav-item">
+      <a href="#affiliations" class="nav-item">
         {% icon "network" %}
-        {% trans "Groups" %}
+        {% trans "Affiliations" %}
       </a>
     </li>
     {% endif %}
@@ -159,32 +159,46 @@
           {% endif %}
         </div>
       </main>
-      {% if groups|length > 0 %}
-        <div class="memberships">
-          {% trans "Member of" %}
-          {% for group in groups %}
-            {% url 'organizations:detail' group.slug as group_url %}
-            <a href="{{ group_url }}">{{ group.name }}</a>{% if forloop.revcounter == 2 %} and 
-            {% elif not forloop.last %}, {% endif %}
-          {% endfor %}
-        </div>
-      {% endif %}
     </section>
 
     {% if show_members_section %}
-    <section id="member_orgs">
+    <section id="affiliates">
       <header>
-        <h2>{% trans "Member Organizations" %}</h2>
+        <h2>{% trans "Affiliates" %}</h2>
         {% if can_manage_member_orgs %}
           <div class="header-actions">
-            <a href="{% url 'organizations:manage-member-orgs' organization.slug %}" class="btn ghost primary">
+            <a href="{% url 'organizations:manage-member-orgs' organization.slug %}#invite" class="btn ghost primary">
             {% icon "plus-circle" %}
-            {% trans "Invite Member Orgs" %}
+            {% trans "Add affiliates" %}
+            </a>
+            <a href="{% url 'organizations:manage-member-orgs' organization.slug %}" class="btn ghost primary">
+            {% icon "network" %}
+            {% trans "Manage affiliates" %}
             </a>
           </div>
         {% endif %}
       </header>
       <main class="orgs">
+        {% if member_org_invitations and member_org_invitations.count > 0 %}
+          <div class="notification-banner blue">
+            <div class="banner-content">
+              <span class="icon">{% icon "network" %}</span>
+              <div class="banner-text">
+                <strong>
+                  {% blocktrans count count=member_org_invitations.count %}
+                    You have {{ count }} pending invitation
+                  {% plural %}
+                    You have {{ count }} pending invitations
+                  {% endblocktrans %}
+                </strong>
+                <p>{% trans "Resend or revoke invitations to affiliates" %}</p>
+              </div>
+              <a href="{% url 'organizations:manage-member-orgs' organization.slug %}#invite" class="btn primary">
+                {% trans "Manage invitations" %}
+              </a>
+            </div>
+          </div>
+        {% endif %}
         <div class="org-list">
           {% for member in members %}
             <div class="org">
@@ -211,17 +225,12 @@
     {% endif %}
 
     {% if show_groups_section %}
-    <section id="groups">
+    <section id="affiliations">
       <header>
-        <h2>{% trans "Groups" %}</h2>
+        <h2>{% trans "Affiliations" %}</h2>
       </header>
       <main class="orgs">
         {% if group_invitations|length > 0 %}
-          <div class="org-list">
-            <header class="org-list-header">
-              <h3>{% trans "Open invitations" %}</h3>
-              <p>{% trans "Groups that this organization has been invited to join:" %}</p>
-            </header>
             {% for invitation in group_invitations %}
               <div class="org">
                 {% include "account/team_list_item.html" with organization=invitation.from_organization %}
@@ -238,15 +247,9 @@
                 </form>
               </div>
             {% endfor %}
-          </div>
         {% endif %}
 
         {% if groups|length > 0 %}
-          <div class="org-list">
-            <header class="org-list-header">
-              <h3>{% trans "Memberships" %}</h3>
-              <p>{% trans "Groups that this organization is a member of:" %}</p>
-            </header>
             {% for group in groups %}
               <div class="org">
                 {% include "account/team_list_item.html" with organization=group %}
@@ -260,7 +263,6 @@
                 </form>
               </div>
             {% endfor %} 
-          </div>
         {% endif %}
       </main>
     </section>

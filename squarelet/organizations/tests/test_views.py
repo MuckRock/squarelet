@@ -2611,6 +2611,37 @@ class TestDetailMemberOrgActions(ViewTestMixin):
             "You do not have permission to accept this invitation",
         )
 
+    def test_member_org_invitations_in_context_for_group_admin(
+        self, rf, organization_factory, user_factory, organization_invitation_factory
+    ):
+        """A group admin sees pending invitations the group has sent out."""
+        group_admin = user_factory()
+        group = organization_factory(collective_enabled=True, admins=[group_admin])
+        organization_invitation_factory.create_batch(
+            3, from_organization=group, request=False
+        )
+        # A received request and an accepted invitation should be excluded
+        organization_invitation_factory(from_organization=group, request=True)
+        organization_invitation_factory(
+            from_organization=group, request=False, accepted_at=timezone.now()
+        )
+
+        response = self.call_view(rf, group_admin, slug=group.slug)
+        assert response.status_code == 200
+        assert response.context_data["member_org_invitations"].count() == 3
+
+    def test_member_org_invitations_not_in_context_for_non_admin(
+        self, rf, organization_factory, user_factory, organization_invitation_factory
+    ):
+        """A non-admin member doesn't get the member_org_invitations context."""
+        member = user_factory()
+        group = organization_factory(collective_enabled=True, users=[member])
+        organization_invitation_factory(from_organization=group, request=False)
+
+        response = self.call_view(rf, member, slug=group.slug)
+        assert response.status_code == 200
+        assert "member_org_invitations" not in response.context_data
+
 
 @pytest.mark.django_db()
 class TestManageMemberOrgs(ViewTestMixin):

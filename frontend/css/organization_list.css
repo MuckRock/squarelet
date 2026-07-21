@@ -219,7 +219,7 @@ p {
 }
 
 /* Variant used on member org lists */
-.org-list .member-detail {
+.member-detail {
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -228,7 +228,7 @@ p {
   min-width: 0;
 }
 
-.org-list .member-actions {
+.member-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0 0.5rem;

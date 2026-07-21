@@ -161,6 +161,14 @@ class Detail(AdminLinkMixin, DetailView):
                 .select_related("from_organization")
             )
 
+        if can_manage_member_orgs:
+            # Pending invitations this org has sent to other orgs to join its group
+            ctx["member_org_invitations"] = (
+                OrganizationInvitation.objects.invitations()
+                .filter(from_organization=org)
+                .select_related("to_organization")
+            )
+
         ctx["show_groups_section"] = can_manage_groups and (
             len(ctx["groups"]) > 0 or len(ctx["group_invitations"]) > 0
         )
