@@ -29,6 +29,9 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
                 return User.objects.none()
             qs = User.objects.get_searchable(self.request.user).filter(is_active=True)
             search = self.request.query_params.get("search", "").strip()
+            org = self.request.query_params.get("organization", "").strip()
+            if org:
+                qs = qs.filter(organizations__slug=org)
             if search:
                 # Full-text search with prefix matching.
                 # Strip tsquery special characters so raw queries are safe.
