@@ -143,7 +143,10 @@ class Detail(AdminLinkMixin, DetailView):
         return ctx
 
     def _get_groups_context(self, user, org):
-        is_admin = org.has_admin(user)
+        can_manage_member_orgs = user.has_perm(
+            "organizations.can_manage_member_orgs", org
+        )
+        can_manage_groups = user.has_perm("organizations.can_manage_groups", org)
         is_member = org.has_member(user)
 
         ctx = {
@@ -151,21 +154,21 @@ class Detail(AdminLinkMixin, DetailView):
             "members": org.members.all(),
         }
 
-        if is_admin:
+        if can_manage_groups:
             ctx["group_invitations"] = (
                 OrganizationInvitation.objects.pending()
                 .filter(to_organization=org)
                 .select_related("from_organization")
             )
 
-        ctx["show_groups_section"] = is_admin and (
+        ctx["show_groups_section"] = can_manage_groups and (
             len(ctx["groups"]) > 0 or len(ctx["group_invitations"]) > 0
         )
 
         # For collective groups, the members section is always visible to admins,
         # and visible to non-admins only when the group has member organizations.
         ctx["show_members_section"] = org.collective_enabled and (
-            is_admin or (is_member and len(ctx["members"]) > 0)
+            can_manage_member_orgs or (is_member and len(ctx["members"]) > 0)
         )
 
         return ctx
@@ -373,6 +376,7 @@ class Detail(AdminLinkMixin, DetailView):
 
         org = self.organization
         member_slug = request.POST.get("member_org")
+        user = request.user
 
         try:
             member_org = org.members.get(slug=member_slug)
@@ -380,10 +384,13 @@ class Detail(AdminLinkMixin, DetailView):
             messages.error(request, _("Organization not found"))
             return
 
-        is_group_admin = org.has_admin(self.request.user)
-        is_member_admin = member_org.has_admin(self.request.user)
+        can_manage_member_orgs = user.has_perm(
+            "organizations.can_manage_member_orgs", org
+        )
+        can_manage_groups = user.has_perm("organizations.can_manage_groups", member_org)
 
-        if not is_group_admin and not is_member_admin:
+        # The user taking the action must have permission on either the group org or the member org
+        if not can_manage_member_orgs and not can_manage_groups:
             messages.error(
                 request, _("You do not have permission to remove this membership")
             )
@@ -391,16 +398,16 @@ class Detail(AdminLinkMixin, DetailView):
 
         org.members.remove(member_org)
 
-        if is_member_admin:
+        if can_manage_groups:
             new_action(
-                actor=request.user,
+                actor=user,
                 verb="left group",
                 action_object=self.organization,
                 target=member_org,
             )
         else:
             new_action(
-                actor=request.user,
+                actor=user,
                 verb="removed group member",
                 action_object=member_org,
                 target=self.organization,
@@ -414,9 +421,11 @@ class Detail(AdminLinkMixin, DetailView):
 
     def _get_invitation(self, request):
         org = self.organization
-        is_admin = org.has_admin(self.request.user)
+        can_manage_groups = request.user.has_perm(
+            "organizations.can_manage_groups", org
+        )
 
-        if not is_admin:
+        if not can_manage_groups:
             messages.error(
                 request, _("You do not have permission to accept this invitation")
             )
