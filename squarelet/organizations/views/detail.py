@@ -389,7 +389,8 @@ class Detail(AdminLinkMixin, DetailView):
         )
         can_manage_groups = user.has_perm("organizations.can_manage_groups", member_org)
 
-        # The user taking the action must have permission on either the group org or the member org
+        # The user taking the action must have permission
+        # on either the group org or the member org
         if not can_manage_member_orgs and not can_manage_groups:
             messages.error(
                 request, _("You do not have permission to remove this membership")
