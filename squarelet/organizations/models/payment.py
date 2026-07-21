@@ -9,12 +9,13 @@ from django.utils.translation import gettext_lazy as _
 # Standard Library
 import logging
 import sys
-from datetime import datetime, time, timezone as dt_timezone
+from datetime import date, datetime, time, timezone as dt_timezone
 from functools import cached_property
 
 # Third Party
 import stripe
 from autoslug import AutoSlugField
+from dateutil.relativedelta import relativedelta
 
 # Squarelet
 from squarelet.core.mail import ORG_TO_RECEIPTS, send_mail
@@ -231,7 +232,16 @@ class Customer(models.Model):
 
 
 def _anchor_timestamp(anchor_date):
-    """Return a UTC Unix timestamp for midnight on the given date."""
+    """Return a UTC Unix timestamp for midnight on the given date.
+
+    If the anchor date is in the past, find the next date of the same day
+    of month in the future
+    """
+    today = date.today()
+    if anchor_date <= today:
+        anchor_date = today + relativedelta(day=anchor_date.day)
+        if anchor_date <= today:
+            anchor_date += relativedelta(months=1)
     aware = datetime.combine(anchor_date, time(0, 0), tzinfo=dt_timezone.utc)
     return int(aware.timestamp())
 
