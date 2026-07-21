@@ -7,7 +7,7 @@
   {% autologin url_org user as url_org_ %}
   {% blocktrans with to_org=invitation.to_organization.name from_org=invitation.from_organization.name %}
     <p>
-      {{ to_org }} has been invited to join the organization {{ from_org }} on MuckRock.
+      {{ to_org }} has been invited to become an affiliate of {{ from_org }} on MuckRock.
       <a href="{{ url_org_ }}">
         Click here to accept or reject the invitation.
       </a>
