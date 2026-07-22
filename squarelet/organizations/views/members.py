@@ -428,6 +428,10 @@ class ReassignAdmin(UserPassesTestMixin, DetailView):
         org = self.get_object()
         new_admin_id = request.POST.get("userid")
 
+        if new_admin_id == str(user.id):
+            messages.warning(request, _("You must assign a user other than yourself"))
+            return redirect("organizations:reassign-admin", org.slug)
+
         if new_admin_id:
             # If the outgoing admin picked a replacement, promote them
             try:
