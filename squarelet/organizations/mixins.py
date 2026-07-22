@@ -8,6 +8,9 @@ from squarelet.core.exceptions import ContextHttp404
 from squarelet.organizations.models import ProfileChangeRequest
 from squarelet.organizations.models.organization import Organization
 
+# Squarelet
+from squarelet.organizations.models.organization import Organization
+
 
 class OrganizationAdminMixin(UserPassesTestMixin):
     """Only allow access to organization admins"""
@@ -30,6 +33,8 @@ class OrganizationPermissionMixin(PermissionRequiredMixin):
     def has_permission(self):
         user = self.request.user
         obj = self.get_object()
+        assert isinstance(obj, Organization)
+
         perms = self.get_permission_required()
         return all(user.has_perm(perm, obj) for perm in perms)
 
