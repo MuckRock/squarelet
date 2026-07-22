@@ -49,7 +49,7 @@ from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import new_action
 from squarelet.organizations.forms import InvitationAcceptForm
 from squarelet.organizations.models import Invitation, ReceiptEmail
-from squarelet.organizations.models.payment import Plan, _payment_brand
+from squarelet.organizations.models.payment import Plan
 from squarelet.organizations.views import UpdateSubscription
 from squarelet.services.models import Service
 from squarelet.subscriptions.views import (

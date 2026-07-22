@@ -17,13 +17,13 @@ Args:
 <main class="plan-card{% if not subscriptions %} plan-card--no-subscription{% endif %}">
   {% if subscriptions %}
     <div class="plan-overview">
-      {% if card %}
+      {% if card_brand and card_last4 %}
         <div class="plan-detail">
           <h3>{% trans "Payment card" %}</h3>
           <span class="caption">
             <span class="icon">{% icon "credit-card" %}</span>
             <span class="text">
-              {{ card_brand }} {% trans "ending in" %} <strong>{{ card.last4 }}</strong>
+              {{ card_brand }} {% trans "ending in" %} <strong>{{ card_last4 }}</strong>
             </span>
           </span>
           <a href="{% url subject|add:':update-card' subject_slug %}" class="btn ghost primary small">
