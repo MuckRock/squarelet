@@ -423,9 +423,10 @@ class SubscriptionQuerySet(models.QuerySet):
             plan=plan,
             quantity=quantity,
         )
+        anchor = organization.billing_anchor
         stripe_subscription = subscription.start(
             payment_method=payment_method,
-            billing_cycle_anchor=organization.billing_anchor,
+            anchor_day=anchor.day if anchor else None,
         )
         subscription.save()
         return subscription, stripe_subscription

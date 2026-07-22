@@ -9,13 +9,12 @@ from django.utils.translation import gettext_lazy as _
 # Standard Library
 import logging
 import sys
-from datetime import date, datetime, time, timezone as dt_timezone
+from datetime import datetime
 from functools import cached_property
 
 # Third Party
 import stripe
 from autoslug import AutoSlugField
-from dateutil.relativedelta import relativedelta
 
 # Squarelet
 from squarelet.core.mail import ORG_TO_RECEIPTS, send_mail
@@ -231,21 +230,6 @@ class Customer(models.Model):
         )
 
 
-def _anchor_timestamp(anchor_date):
-    """Return a UTC Unix timestamp for midnight on the given date.
-
-    If the anchor date is in the past, find the next date of the same day
-    of month in the future
-    """
-    today = date.today()
-    if anchor_date <= today:
-        anchor_date = today + relativedelta(day=anchor_date.day)
-        if anchor_date <= today:
-            anchor_date += relativedelta(months=1)
-    aware = datetime.combine(anchor_date, time(0, 0), tzinfo=dt_timezone.utc)
-    return int(aware.timestamp())
-
-
 class Subscription(models.Model):
     """Through table for organization plans"""
 
@@ -329,7 +313,7 @@ class Subscription(models.Model):
             datetime.fromtimestamp(ts, tz=get_current_timezone()) if ts else None
         )
 
-    def start(self, payment_method="card", billing_cycle_anchor=None):
+    def start(self, payment_method="card", anchor_day=None):
         """Start the Stripe subscription. Returns the Stripe subscription object
         for paid plans, or None for free plans."""
         if self.stripe_subscription:
@@ -349,10 +333,6 @@ class Subscription(models.Model):
                 billing = "charge_automatically"
                 days_until_due = None
 
-            anchor_ts = None
-            if billing_cycle_anchor is not None:
-                anchor_ts = _anchor_timestamp(billing_cycle_anchor)
-
             stripe_subscription = (
                 get_payment_provider()
                 .get_subscription_service()
@@ -363,7 +343,7 @@ class Subscription(models.Model):
                     billing=billing,
                     metadata={"action": f"Subscription ({self.plan})"},
                     days_until_due=days_until_due,
-                    billing_cycle_anchor=anchor_ts,
+                    anchor_day=anchor_day,
                     cancel_at_period_end=not self.plan.auto_renew,
                 )
             )

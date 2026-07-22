@@ -1,5 +1,5 @@
 # Standard Library
-from datetime import date, datetime, time, timezone as dt_timezone
+from datetime import date, datetime, timezone as dt_timezone
 from unittest.mock import Mock
 
 # Third Party
@@ -222,7 +222,7 @@ class TestOrganization:
             billing="charge_automatically",
             metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=None,
-            billing_cycle_anchor=None,
+            anchor_day=None,
             cancel_at_period_end=False,
         )
 
@@ -234,17 +234,14 @@ class TestOrganization:
         user_factory,
         plan_factory,
     ):
-        """A second subscription passes billing_anchor (not drifted update_on) to
-        Stripe as the billing_cycle_anchor (converted to a UTC Unix timestamp)."""
+        """A second subscription passes billing_anchor day to Stripe as
+        billing_cycle_anchor_config."""
 
         user = user_factory()
         plan_b = plan_factory(annual=False, base_price=10, minimum_users=1)
         mocker.patch("stripe.Plan.create")
 
         # Set org with a billing_anchor that differs from update_on.
-        # The anchor day-of-month is 15; _anchor_timestamp advances
-        # past-dates forward, so we pick a future month to keep the
-        # assertion simple and deterministic.
         anchor = date(2027, 1, 15)
         update = date(2026, 8, 15)
         organization = organization_factory(
@@ -255,9 +252,6 @@ class TestOrganization:
 
         organization.add_subscription(plan_b, 1, user, payment_method="card")
 
-        anchor_ts = int(
-            datetime.combine(anchor, time(0, 0), tzinfo=dt_timezone.utc).timestamp()
-        )
         mock_sub_service.create.assert_called_with(
             stripe_customer=mock_customer.stripe_customer,
             plan_id=plan_b.stripe_id,
@@ -265,7 +259,7 @@ class TestOrganization:
             billing="charge_automatically",
             metadata={"action": f"Subscription ({plan_b.name})"},
             days_until_due=None,
-            billing_cycle_anchor=anchor_ts,
+            anchor_day=15,
             cancel_at_period_end=False,
         )
 
@@ -291,7 +285,7 @@ class TestOrganization:
             billing="send_invoice",
             metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=30,
-            billing_cycle_anchor=None,
+            anchor_day=None,
             cancel_at_period_end=False,
         )
 
@@ -316,7 +310,7 @@ class TestOrganization:
             billing="charge_automatically",
             metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=None,
-            billing_cycle_anchor=None,
+            anchor_day=None,
             cancel_at_period_end=False,
         )
 
@@ -348,7 +342,7 @@ class TestOrganization:
             billing="charge_automatically",
             metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=None,
-            billing_cycle_anchor=None,
+            anchor_day=None,
             cancel_at_period_end=False,
         )
 
@@ -375,7 +369,7 @@ class TestOrganization:
             billing="charge_automatically",
             metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=None,
-            billing_cycle_anchor=None,
+            anchor_day=None,
             cancel_at_period_end=False,
         )
 
