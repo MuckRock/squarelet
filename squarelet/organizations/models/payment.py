@@ -245,9 +245,7 @@ class Customer(models.Model):
             pm.stripe_id = stripe_id
             pm.save()
         else:
-            self.payment_methods.filter(
-                is_default=True
-            ).update(is_default=False)
+            self.payment_methods.filter(is_default=True).update(is_default=False)
             PaymentMethod.objects.create(
                 customer=self,
                 method_type=method_type,
