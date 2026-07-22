@@ -1,6 +1,7 @@
 # Django
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import redirect_to_login
 from django.db import transaction
 from django.http import Http404, JsonResponse
@@ -421,6 +422,68 @@ class PlanRedirectView(RedirectView):
 
         except Plan.DoesNotExist:
             raise Http404("No Plan found matching the query")
+
+
+class PaymentsHubView(LoginRequiredMixin, TemplateView):
+    """Cross-organization payments hub.
+
+    Shows the most recent payments for every account whose charges the user
+    can view — their personal account and any organization they administer
+    (``can_view_charge`` is admin-only). Each account links out to its full
+    payment history so the user can dig deeper.
+    """
+
+    template_name = "payments/payments_hub.html"
+    recent_limit = 5
+
+    def _subject_url(self, organization, name):
+        """Reverse a subject-scoped URL for the account.
+
+        Organization pages are keyed on the org slug; the personal account's
+        pages live under the ``users`` namespace and are keyed on the
+        member's username.
+        """
+        if organization.individual:
+            return reverse(
+                f"users:{name}", kwargs={"username": self.request.user.username}
+            )
+        return reverse(f"organizations:{name}", kwargs={"slug": organization.slug})
+
+    def get_accounts(self):
+        """Build per-account context: the organization, its most recent
+        charges, the card on file, and the URLs used to manage it."""
+        user = self.request.user
+        organizations = [user.individual_organization]
+        organizations += list(
+            user.organizations.filter(individual=False, memberships__admin=True)
+            .distinct()
+            .order_by("name")
+        )
+
+        accounts = []
+        for organization in organizations:
+            customer = organization.customer()
+            accounts.append(
+                {
+                    "organization": organization,
+                    "payments": list(
+                        organization.charges.order_by("-created_at")[
+                            : self.recent_limit
+                        ]
+                    ),
+                    "card_brand": customer.payment_brand,
+                    "card_last4": customer.payment_last4,
+                    "history_url": self._subject_url(organization, "payments"),
+                    "manage_url": self._subject_url(organization, "subscriptions"),
+                    "update_card_url": self._subject_url(organization, "update-card"),
+                }
+            )
+        return accounts
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["accounts"] = self.get_accounts()
+        return context
 
 
 class SubscriptionObjectMixin:
