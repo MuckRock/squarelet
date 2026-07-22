@@ -204,7 +204,9 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
         try:
             userid = request.POST.get("userid")
             membership = self.organization.memberships.get(user_id=userid)
-            membership_fn(membership)
+            result = membership_fn(membership)
+            if result:
+                return result
             messages.success(self.request, success_message_fn(membership))
         except Membership.DoesNotExist:
             return self._bad_call(request)
@@ -249,6 +251,13 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
     def _handle_remove_user(self, request):
         def handle_remove(membership):
             user = membership.user
+            org = membership.organization
+
+            # If the user is leaving, and they're the only admin,
+            # send them to the reassign admin page.
+            if user == request.user and org.has_sole_admin(user):
+                return redirect("organizations:reassign-admin", org.slug)
+
             membership.delete()
 
             # Log staff action to activity stream
@@ -259,6 +268,8 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
                     action_object=user,
                     target=self.organization,
                 )
+
+            return None
 
         return self._handle_user(
             request,
