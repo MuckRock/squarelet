@@ -590,3 +590,8 @@ ODOO_API_KEY = env("ODOO_API_KEY", default="")
 ODOO_SYNC_REPORT_EMAIL = env("ODOO_SYNC_REPORT_EMAIL", default="info@muckrock.com")
 ODOO_TIMEOUT = env.int("ODOO_TIMEOUT", default=30)
 ODOO_URL = env("ODOO_URL", default="https://muckrock-odoo.odoo.com")
+
+COLLABORATIVE_TAGS = {
+    slug: int(tag_id)
+    for slug, tag_id in env.dict("COLLABORATIVE_TAGS", default={}).items()
+}

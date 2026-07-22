@@ -20,12 +20,6 @@ logger = logging.getLogger(__name__)
 
 SKIP_SLUGS = {"sunlight-search"}
 
-# Collaborative config: slug -> (tag_id, label)
-COLLABORATIVES = {
-    "rural-news-network": (1, "RNN"),
-    "granite-state-news-collaborative-fiscally-sponsore": (3, "GSNC"),
-}
-
 # Cache of x_plan name -> id
 _PLAN_ID_CACHE = {}
 
@@ -119,28 +113,31 @@ def _build_plan_vals(plan):
     }
 
 
+def _resolve_or_create_plan(plan, dry_run):
+    """Return the Odoo x_plan id for a Squarelet plan, creating it if
+    missing. Returns None if it can't be resolved (dry-run, or a failed
+    create)."""
+    res = odoo_search("x_plan", [["x_name", "=", plan.name]], ["id"])
+    if res:
+        return res[0]["id"]
+    if dry_run:
+        logger.info("[DRY RUN] Would create Odoo plan: %s", plan.name)
+        return None
+    result = odoo_create("x_plan", _build_plan_vals(plan))
+    if not result:
+        logger.error("Failed to create Odoo plan: %s", plan.name)
+        return None
+    logger.info("Created Odoo plan: %s (x_plan ID %s)", plan.name, result[0])
+    return result[0]
+
+
 def _ensure_all_plans(dry_run=False):
     """Create an Odoo x_plan with full pricing data for any Squarelet
     plan that lacks one. Runs before sync so every plan resolves to a
     real id and no plan silently drops out of an org's plan list."""
     for plan in Plan.objects.all():
-        if plan.name in _PLAN_ID_CACHE:
-            continue
-        res = odoo_search("x_plan", [["x_name", "=", plan.name]], ["id"])
-        if res:
-            _PLAN_ID_CACHE[plan.name] = res[0]["id"]
-            continue
-        if dry_run:
-            logger.info("[DRY RUN] Would create Odoo plan: %s", plan.name)
-            _PLAN_ID_CACHE[plan.name] = None
-            continue
-        result = odoo_create("x_plan", _build_plan_vals(plan))
-        if not result:
-            logger.error("Failed to create Odoo plan: %s", plan.name)
-            _PLAN_ID_CACHE[plan.name] = None
-            continue
-        _PLAN_ID_CACHE[plan.name] = result[0]
-        logger.info("Created Odoo plan: %s (x_plan ID %s)", plan.name, result[0])
+        if plan.name not in _PLAN_ID_CACHE:
+            _PLAN_ID_CACHE[plan.name] = _resolve_or_create_plan(plan, dry_run)
 
 
 def _build_org_vals(org, odoo_plan_ids, sunlight_status, member_tag_ids):
@@ -553,9 +550,9 @@ def _sweep_lapsed_orgs(active_slugs, dry_run=False, only_slug=None):
 class CollaborativeConfig:
     """Holds resolved runtime data for a collaborative org."""
 
-    def __init__(self, tag_id, label, plan_ids, member_slugs):
+    def __init__(self, slug, tag_id, plan_ids, member_slugs):
+        self.slug = slug
         self.tag_id = tag_id
-        self.label = label
         self.plan_ids = plan_ids
         self.member_slugs = member_slugs
 
@@ -565,7 +562,7 @@ def remove_collaborative_tag(tagged, config, dry_run=False):
     if dry_run:
         logger.info(
             "[DRY RUN] Would remove %s Member tag from: %s (Odoo ID %s)",
-            config.label,
+            config.slug,
             tagged["name"],
             tagged["id"],
         )
@@ -574,11 +571,9 @@ def remove_collaborative_tag(tagged, config, dry_run=False):
         current_plan_ids = set(tagged.get("x_studio_plan_1") or [])
         remaining = current_plan_ids - set(config.plan_ids)
         if remaining != current_plan_ids:
-            # (6, 0, ids) replaces all plans; drop only this collaborative's
-            # inherited plans, keeping everything else the org holds
             write_vals["x_studio_plan_1"] = [(6, 0, sorted(remaining))]
         odoo_write("res.partner", [tagged["id"]], write_vals)
-        logger.info("Removed %s Member tag from: %s", config.label, tagged["name"])
+        logger.info("Removed %s Member tag from: %s", config.slug, tagged["name"])
 
 
 def _sweep_stale_collaborative_tags(config, dry_run=False, only_slug=None):
@@ -600,27 +595,39 @@ def _sweep_stale_collaborative_tags(config, dry_run=False, only_slug=None):
 
 
 def _load_collaborative_data():
-    """Load CollaborativeConfig for each entry in COLLABORATIVES."""
+    """Load CollaborativeConfig for every collective-enabled org.
+    Which orgs are collaboratives comes from the DB (collective_enabled);
+    the Odoo tag id comes from settings.COLLABORATIVE_TAGS (slug -> tag id).
+    A collective-enabled org with no configured tag is skipped with a warning."""
     collaborative_data = {}
-    for collab_slug, (tag_id, label) in COLLABORATIVES.items():
-        try:
-            collab_org = Organization.objects.get(slug=collab_slug)
-            plan_ids = [
-                pid
-                for pid in (
-                    _resolve_plan_id(name)
-                    for name in collab_org.plans.filter(wix=True).values_list(
-                        "name", flat=True
-                    )
+    collab_orgs = Organization.objects.filter(
+        collective_enabled=True,
+        individual=False,
+    ).prefetch_related("plans", "members")
+    for collab_org in collab_orgs:
+        tag_id = settings.COLLABORATIVE_TAGS.get(collab_org.slug)
+        if tag_id is None:
+            logger.warning(
+                "Collective-enabled org has no Odoo tag configured, "
+                "skipping tagging: %s (%s)",
+                collab_org.name,
+                collab_org.slug,
+            )
+            continue
+        tag_id = int(tag_id)
+        plan_ids = [
+            pid
+            for pid in (
+                _resolve_plan_id(name)
+                for name in collab_org.plans.filter(wix=True).values_list(
+                    "name", flat=True
                 )
-                if pid is not None
-            ]
-            member_slugs = set(collab_org.members.values_list("slug", flat=True))
-        except Organization.DoesNotExist:
-            plan_ids = []
-            member_slugs = set()
-        collaborative_data[collab_slug] = CollaborativeConfig(
-            tag_id, label, plan_ids, member_slugs
+            )
+            if pid is not None
+        ]
+        member_slugs = set(collab_org.members.values_list("slug", flat=True))
+        collaborative_data[collab_org.slug] = CollaborativeConfig(
+            collab_org.slug, tag_id, plan_ids, member_slugs
         )
     return collaborative_data
 
@@ -656,7 +663,7 @@ def _sync_org(org, collaborative_data, dry_run, remove_members):
         if org.slug in config.member_slugs:
             member_tag_ids.append(config.tag_id)
             inherited_plan_ids.extend(config.plan_ids)
-            labels.append(config.label)
+            labels.append(config.slug)
 
     label_str = "/".join(labels) + " member " if labels else ""
     logger.info("Syncing %sorg: %s", label_str, org.name)

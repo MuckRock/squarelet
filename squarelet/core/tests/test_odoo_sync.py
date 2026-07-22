@@ -1,6 +1,7 @@
 # Django
 from django.core import mail
 from django.core.management import call_command
+from django.test import override_settings
 
 # Standard Library
 from datetime import date
@@ -275,8 +276,7 @@ class TestMemberDesiredPlans:
     def test_drops_unresolved_personal_plan(self):
         """An unresolved personal plan is dropped; org plans are kept.
         This shouldn't ever happen as we ensure all plans at the beginning,
-        but it is important we still have a test case
-        """
+        but it is important we still have a test case."""
         user = Mock()
         user.individual_organization.plans.values_list.return_value = ["Broken"]
         with patch.object(sync_odoo, "_resolve_plan_id", return_value=None):
@@ -353,8 +353,8 @@ class TestIsDeparted:
         assert sync_odoo._is_departed(member, set()) is False
 
     def test_true_when_departed(self):
-        """An Odoo contact that is still on Accounts
-        but absent from the roster is departed."""
+        """An Odoo contact still on Accounts but absent from the roster is
+        departed."""
         member = {"email": "a@b.com", "x_studio_muckrock_accounts": True}
         assert sync_odoo._is_departed(member, {"other@b.com"}) is True
 
@@ -490,7 +490,7 @@ class TestRemoveCollaborativeTag:
     def test_removes_tag_and_inherited_plans(self):
         """The tag is unlinked and only this collaborative's plans are dropped."""
         tagged = {"id": 1, "name": "Acme", "x_studio_plan_1": [10, 20]}
-        cfg = sync_odoo.CollaborativeConfig(3, "RNN", [20], set())
+        cfg = sync_odoo.CollaborativeConfig("rural-news-network", 3, [20], set())
         with patch.object(sync_odoo, "odoo_write") as write:
             sync_odoo.remove_collaborative_tag(tagged, cfg, dry_run=False)
         written = write.call_args.args[2]
@@ -500,7 +500,7 @@ class TestRemoveCollaborativeTag:
     def test_dry_run_no_write(self):
         """Dry-run performs no write."""
         tagged = {"id": 1, "name": "Acme", "x_studio_plan_1": [10]}
-        cfg = sync_odoo.CollaborativeConfig(3, "RNN", [10], set())
+        cfg = sync_odoo.CollaborativeConfig("rural-news-network", 3, [10], set())
         with patch.object(sync_odoo, "odoo_write") as write:
             sync_odoo.remove_collaborative_tag(tagged, cfg, dry_run=True)
         write.assert_not_called()
@@ -510,9 +510,11 @@ class TestCollaborativeConfig:
     """CollaborativeConfig stores the resolved collaborative runtime data."""
 
     def test_stores_attributes(self):
-        """The constructor stores tag_id, label, plan_ids and member_slugs."""
-        cfg = sync_odoo.CollaborativeConfig(1, "RNN", [10], {"a", "b"})
-        assert (cfg.tag_id, cfg.label, cfg.plan_ids) == (1, "RNN", [10])
+        """The constructor stores slug, tag_id, plan_ids and member_slugs."""
+        cfg = sync_odoo.CollaborativeConfig("rural-news-network", 1, [10], {"a", "b"})
+        assert cfg.slug == "rural-news-network"
+        assert cfg.tag_id == 1
+        assert cfg.plan_ids == [10]
         assert cfg.member_slugs == {"a", "b"}
 
 
@@ -827,7 +829,7 @@ class TestBuildOrgQueryset:
         """A collaborative member with no own wix plan is still included."""
         OrganizationFactory(name="collab-member", slug="collab-member")
         cfg = sync_odoo.CollaborativeConfig(
-            tag_id=1, label="RNN", plan_ids=[], member_slugs={"collab-member"}
+            "rural-news-network", 1, [], {"collab-member"}
         )
         qs = sync_odoo._build_org_queryset({"rural-news-network": cfg})
         assert "collab-member" in set(qs.values_list("slug", flat=True))
@@ -835,30 +837,51 @@ class TestBuildOrgQueryset:
 
 @pytest.mark.django_db
 class TestLoadCollaborativeData:
-    """_load_collaborative_data resolves configs, handling missing orgs."""
+    """_load_collaborative_data resolves configs from the DB + settings map."""
 
-    def test_missing_collaborative_org_yields_empty_config(self):
-        """A COLLABORATIVES slug with no matching org yields an empty config."""
+    @override_settings(COLLABORATIVE_TAGS={})
+    def test_unconfigured_collaborative_skipped(self):
+        """A collective-enabled org with no configured tag is skipped."""
+        wix_plan = PlanFactory(name="Collab Enterprise A", wix=True)
+        OrganizationFactory(
+            name="collab-a",
+            slug="collab-a",
+            plans=[wix_plan],
+            collective_enabled=True,
+        )
         data = sync_odoo._load_collaborative_data()
-        for slug in sync_odoo.COLLABORATIVES:
-            assert data[slug].plan_ids == []
-            assert data[slug].member_slugs == set()
+        assert not data
 
-    def test_resolves_members_and_plans_for_present_collab(self):
-        """A present collaborative resolves its plan ids and member slugs."""
-        slug = next(iter(sync_odoo.COLLABORATIVES))
-        tag_id, label = sync_odoo.COLLABORATIVES[slug]
-        wix_plan = PlanFactory(name="Collab Enterprise", wix=True)
-        member = OrganizationFactory(name="a-member", slug="a-member")
-        collab = OrganizationFactory(name=slug, slug=slug, plans=[wix_plan])
+    @override_settings(COLLABORATIVE_TAGS={"collab-b": 7})
+    def test_resolves_configured_collaborative(self):
+        """A collective-enabled org present in the tag map is loaded."""
+        wix_plan = PlanFactory(name="Collab Enterprise B", wix=True)
+        member = OrganizationFactory(name="member-b", slug="member-b")
+        collab = OrganizationFactory(
+            name="collab-b",
+            slug="collab-b",
+            plans=[wix_plan],
+            collective_enabled=True,
+        )
         collab.members.add(member)
         with patch.object(sync_odoo, "_resolve_plan_id", return_value=101):
             data = sync_odoo._load_collaborative_data()
-        cfg = data[slug]
-        assert cfg.tag_id == tag_id
-        assert cfg.label == label
+        cfg = data["collab-b"]
+        assert cfg.slug == "collab-b"
+        assert cfg.tag_id == 7
         assert 101 in cfg.plan_ids
-        assert "a-member" in cfg.member_slugs
+        assert "member-b" in cfg.member_slugs
+
+    @override_settings(COLLABORATIVE_TAGS={"collab-c": 8})
+    def test_non_collective_org_ignored(self):
+        """An org in the tag map but not collective_enabled is not loaded."""
+        OrganizationFactory(
+            name="collab-c",
+            slug="collab-c",
+            collective_enabled=False,
+        )
+        data = sync_odoo._load_collaborative_data()
+        assert not data
 
 
 @pytest.mark.django_db
