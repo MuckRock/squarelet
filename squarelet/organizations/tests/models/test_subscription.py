@@ -67,7 +67,7 @@ class TestSubscription:
             billing="charge_automatically",
             metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=None,
-            billing_cycle_anchor=None,
+            anchor_day=None,
             cancel_at_period_end=False,
         )
         assert subscription.subscription_id == stripe_subscription_id
@@ -116,7 +116,7 @@ class TestSubscription:
                 "action": f"Subscription ({plan.name})",
             },
             days_until_due=None,
-            billing_cycle_anchor=None,
+            anchor_day=None,
             cancel_at_period_end=True,
         )
         expected_date = datetime.fromtimestamp(
@@ -367,7 +367,7 @@ class TestSubscription:
             billing="send_invoice",
             metadata={"action": f"Subscription ({plan.name})"},
             days_until_due=30,
-            billing_cycle_anchor=None,
+            anchor_day=None,
             cancel_at_period_end=False,
         )
 

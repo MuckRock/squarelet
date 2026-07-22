@@ -86,7 +86,7 @@ class SubscriptionService(ABC):
         billing,
         metadata,
         days_until_due,
-        billing_cycle_anchor=None,
+        anchor_day=None,
         cancel_at_period_end=False,
     ):
         """Create a new subscription for a customer."""

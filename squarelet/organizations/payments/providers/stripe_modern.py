@@ -143,7 +143,7 @@ class StripeModernSubscriptionService(SubscriptionService):
         billing,
         metadata,
         days_until_due,
-        billing_cycle_anchor=None,
+        anchor_day=None,
         cancel_at_period_end=False,
     ):
         # `billing` was renamed to `collection_method` in API version 2019-10-17
@@ -159,8 +159,10 @@ class StripeModernSubscriptionService(SubscriptionService):
             "cancel_at_period_end": cancel_at_period_end,
             "expand": ["latest_invoice.confirmation_secret"],
         }
-        if billing_cycle_anchor is not None:
-            params["billing_cycle_anchor"] = billing_cycle_anchor
+        if anchor_day is not None:
+            params["billing_cycle_anchor_config"] = {
+                "day_of_month": anchor_day,
+            }
             params["proration_behavior"] = "create_prorations"
         return stripe.Subscription.create(**params)
 

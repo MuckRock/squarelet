@@ -74,7 +74,7 @@ class StripeLegacySubscriptionService(SubscriptionService):
         billing,
         metadata,
         days_until_due,
-        billing_cycle_anchor=None,
+        anchor_day=None,
         cancel_at_period_end=False,
     ):
         params = {
@@ -84,8 +84,10 @@ class StripeLegacySubscriptionService(SubscriptionService):
             "days_until_due": days_until_due,
             "cancel_at_period_end": cancel_at_period_end,
         }
-        if billing_cycle_anchor is not None:
-            params["billing_cycle_anchor"] = billing_cycle_anchor
+        if anchor_day is not None:
+            params["billing_cycle_anchor_config"] = {
+                "day_of_month": anchor_day,
+            }
         return stripe_customer.subscriptions.create(**params)
 
     def retrieve(self, subscription_id):
