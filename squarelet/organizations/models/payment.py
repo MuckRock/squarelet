@@ -228,10 +228,13 @@ class Customer(models.Model):
         PaymentMethod or legacy Source (e.g. ``pm.card``,
         ``pm.us_bank_account``, or the Source itself).
         """
+        valid_types = {c[0] for c in PaymentMethod.MethodType.choices}
+        if method_type not in valid_types:
+            method_type = PaymentMethod.MethodType.OTHER
         brand = get_payment_brand(details)
-        last4 = details.last4 or ""
-        exp_month = details.exp_month
-        exp_year = details.exp_year
+        last4 = getattr(details, "last4", "")
+        exp_month = getattr(details, "exp_month", None)
+        exp_year = getattr(details, "exp_year", None)
         pm = self.default_payment_method_obj()
         if pm:
             pm.method_type = method_type
@@ -242,6 +245,9 @@ class Customer(models.Model):
             pm.stripe_id = stripe_id
             pm.save()
         else:
+            self.payment_methods.filter(
+                is_default=True
+            ).update(is_default=False)
             PaymentMethod.objects.create(
                 customer=self,
                 method_type=method_type,
@@ -1159,6 +1165,7 @@ class PaymentMethod(models.Model):
     class MethodType(models.TextChoices):
         CARD = "card", "Card"
         BANK_ACCOUNT = "bank_account", "Bank Account"
+        OTHER = "other", "Other"
 
     customer = models.ForeignKey(
         "organizations.Customer",
@@ -1176,6 +1183,15 @@ class PaymentMethod(models.Model):
     exp_year = models.PositiveSmallIntegerField(null=True, blank=True)
     stripe_id = models.CharField(max_length=255, blank=True, default="")
     is_default = models.BooleanField(default=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["customer"],
+                condition=models.Q(is_default=True),
+                name="unique_default_per_customer",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.get_method_type_display()}" f" {self.brand} x{self.last4}"
