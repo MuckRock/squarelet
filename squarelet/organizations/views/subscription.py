@@ -54,7 +54,7 @@ from squarelet.organizations.tasks import (
     handle_subscription_deleted,
     handle_subscription_updated,
 )
-from squarelet.subscriptions.views import (
+from squarelet.payments.views import (
     BaseCancelSubscription,
     BaseManageSubscriptions,
     BasePaymentsList,
