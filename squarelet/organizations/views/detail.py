@@ -18,7 +18,7 @@ from datetime import datetime
 
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
-from squarelet.core.utils import get_redirect_url, is_rate_limited, new_action
+from squarelet.core.utils import get_redirect_url, is_rate_limited
 from squarelet.organizations.forms import InvitationAcceptForm
 from squarelet.organizations.models import Invitation, Membership, Organization, Plan
 from squarelet.organizations.payments.factory import get_payment_provider
@@ -229,17 +229,23 @@ class Detail(AdminLinkMixin, DetailView):
         invitation.send()
 
     def handle_leave(self, request):
-        is_member = self.organization.has_member(self.request.user)
+        org = self.organization
+        user = request.user
+        is_sole_admin = org.has_sole_admin(user)
+        is_member = org.has_member(user)
 
-        if is_member:
-            request.user.memberships.filter(organization=self.organization).delete()
+        # If the user is the only admin, send them to the reassign admin page.
+        if is_sole_admin:
+            return redirect("organizations:reassign-admin", org.slug)
+        elif is_member:
+            request.user.memberships.filter(organization=org).delete()
             messages.success(request, _("You left the organization"))
 
             # Redirect to profile if the user left a private org they can no
             # longer view, otherwise redirect following default behavior
-            if self.organization.private:
-                return redirect(request.user)
-            
+            if org.private:
+                return redirect(user)
+
         return None
 
     def handle_enable_autojoin(self, request):
