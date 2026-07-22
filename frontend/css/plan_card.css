@@ -125,7 +125,7 @@ a.plan-name {
 .plan-benefits.checklist {
   column-count: 2;
   column-gap: 0.5rem;
-  margin: 0;
+  margin: 0.5rem 0 0;
   padding: 0.5rem;
   border: 1px solid var(--gray-2, #d8dee2);
   border-radius: 0.5rem;
@@ -166,12 +166,7 @@ a.plan-name {
 }
 
 .plan-upgrade p {
-  margin: 0 0 0.5rem;
-}
-
-.plan-upgrade .plan-benefits {
-  border: none;
-  padding: 0;
+  margin: 0;
 }
 
 .plan-upgrade .plan-benefits .checklist-item .icon svg {
