@@ -65,4 +65,9 @@ urlpatterns = [
         view=views.AcceptMemberOrgInvitation.as_view(),
         name="member-org-invitation",
     ),
+    path(
+        "<slug:slug>/leave/",
+        view=views.ReassignAdmin.as_view(),
+        name="reassign-admin",
+    ),
 ]
