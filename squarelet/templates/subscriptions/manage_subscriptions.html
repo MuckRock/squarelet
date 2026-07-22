@@ -129,7 +129,7 @@
     </header>
 
     <main class="subscription-card">
-      {% if card %}
+      {% if card_brand and card_last4 %}
         <div class="subscription-row">
           <div class="subscription-group">
             <h3>{% trans "Payment card" %}</h3>
@@ -138,7 +138,7 @@
                 {% icon "credit-card" %}
               </span>
               <span>
-                {% blocktrans with card.brand as brand and card.last4 as last4 %}
+                {% blocktrans with card_brand as brand and card_last4 as last4 %}
                   {{ brand }} ending in <strong>{{ last4 }}</strong>
                 {% endblocktrans %}
               </span>

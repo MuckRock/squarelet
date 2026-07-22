@@ -163,8 +163,7 @@
         </div>
         {% endif %}
       </header>
-      {% url 'organizations:payment' organization.slug as payment_url %}
-      {% include "organizations/includes/plan_card.html" with org=organization subscriptions=subscriptions inherited_plans=inherited_plans upgrade_plan=upgrade_plan card=current_plan_card card_brand=current_plan_card_brand payment_url=payment_url card_last4=current_plan_card_last4 can_edit_subscription=can_edit_subscription subject="org" %}
+      {% include "organizations/includes/plan_card.html" with org=organization subject_slug=organization.slug subscriptions=subscriptions inherited_plans=inherited_plans upgrade_plan=upgrade_plan card=current_plan_card card_brand=current_plan_card_brand card_last4=current_plan_card_last4 can_edit_subscription=can_edit_subscription subject="organizations" %}
     </section>
     {% endif %}
 
