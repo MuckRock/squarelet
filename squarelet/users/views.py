@@ -51,8 +51,7 @@ from squarelet.organizations.forms import InvitationAcceptForm
 from squarelet.organizations.models import Invitation, ReceiptEmail
 from squarelet.organizations.models.payment import Plan
 from squarelet.organizations.views import UpdateSubscription
-from squarelet.services.models import Service
-from squarelet.subscriptions.views import (
+from squarelet.payments.views import (
     BaseCancelSubscription,
     BaseManageSubscriptions,
     BasePaymentsList,
@@ -60,6 +59,7 @@ from squarelet.subscriptions.views import (
     BaseUpdateReceiptEmail,
     BaseUpdateSubscriptionFrequency,
 )
+from squarelet.services.models import Service
 from squarelet.users.forms import (
     SignupForm,
     UserAutologinPreferenceForm,
