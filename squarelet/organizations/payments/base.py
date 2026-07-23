@@ -104,6 +104,15 @@ class SubscriptionService(ABC):
         """
 
     @abstractmethod
+    def uncancel(self, stripe_subscription):
+        """Re-enable a subscription that was set to cancel at period end.
+
+        Clears both ``cancel_at_period_end`` and any ``cancel_at`` timestamp,
+        so the subscription will auto-renew as normal.
+        Returns the updated Stripe subscription object.
+        """
+
+    @abstractmethod
     def delete(self, stripe_subscription):
         """Immediately cancel and delete a subscription."""
 
