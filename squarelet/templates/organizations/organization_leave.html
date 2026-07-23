@@ -19,7 +19,9 @@
       </h1>
 
       <p>
-        {% trans "Before you leave, please consider assigning another member of the organization to be an admin." %}
+        {% blocktrans with action=leave|yesno:_("leave,demote yourself") %}
+          Before you {{ action }}, please consider assigning another member of the organization to be an admin.
+        {% endblocktrans %}
       </p>
 
       <form method="POST" class="leave-form">
