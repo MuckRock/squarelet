@@ -586,6 +586,7 @@ ZENDESK_EMAIL = env("ZENDESK_EMAIL", default="")
 ZENDESK_TOKEN = env("ZENDESK_TOKEN", default="")
 
 # Odoo
+ODOO_SYNC_ENABLED = env.bool("ODOO_SYNC_ENABLED", default=False)
 ODOO_API_KEY = env("ODOO_API_KEY", default="")
 ODOO_SYNC_REPORT_EMAIL = env("ODOO_SYNC_REPORT_EMAIL", default="info@muckrock.com")
 ODOO_TIMEOUT = env.int("ODOO_TIMEOUT", default=30)

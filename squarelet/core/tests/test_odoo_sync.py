@@ -888,6 +888,7 @@ class TestLoadCollaborativeData:
 class TestHandle:
     """handle emails a FAILED report on error and OK on a clean run."""
 
+    @override_settings(ODOO_SYNC_ENABLED=True)
     def test_failed_request_sends_failed_email_and_reraises(self):
         """An Odoo failure re-raises and emails a FAILED report with a log."""
         with patch.object(
@@ -901,6 +902,7 @@ class TestHandle:
         assert "FAILED" in mail.outbox[0].subject
         assert mail.outbox[0].attachments
 
+    @override_settings(ODOO_SYNC_ENABLED=True)
     def test_clean_run_sends_ok_email(self):
         """A clean run emails a single OK report."""
         with patch.object(sync_odoo, "_odoo_request", return_value=[]):

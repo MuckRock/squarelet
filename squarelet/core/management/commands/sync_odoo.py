@@ -712,6 +712,9 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **kwargs):  # pylint:disable=too-many-locals
+        if not settings.ODOO_SYNC_ENABLED:
+            self.stdout.write("ODOO_SYNC_ENABLED is not set; skipping sync.")
+            return
         dry_run = kwargs["dry_run"]
         remove_members = kwargs["remove_members"]
         slug = kwargs.get("slug")
