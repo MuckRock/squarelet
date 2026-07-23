@@ -17,20 +17,27 @@ Args:
 <main class="plan-card{% if not subscriptions %} plan-card--no-subscription{% endif %}">
   {% if subscriptions %}
     <div class="plan-overview">
-      {% if card_brand and card_last4 %}
-        <div class="plan-detail">
-          <h3>{% trans "Payment card" %}</h3>
-          <span class="caption">
-            <span class="icon">{% icon "credit-card" %}</span>
-            <span class="text">
-              {{ card_brand }} {% trans "ending in" %} <strong>{{ card_last4 }}</strong>
+      <div class="account-row">
+        <div class="account-card">
+          <span class="icon">{% icon "credit-card" %}</span>
+          {% if account.card_brand and account.card_last4 %}
+            <span>
+              {% blocktrans with brand=account.card_brand last4=account.card_last4 %}
+                <span class="account-card-brand">{{ brand }}</span> ending in <strong>{{ last4 }}</strong>
+              {% endblocktrans %}
             </span>
-          </span>
-          <a href="{% url subject|add:':update-card' subject_slug %}" class="btn ghost primary small">
-            {% trans "Add new card" %}
-          </a>
+          {% else %}
+            <span>{% trans "No card on file" %}</span>
+          {% endif %}
         </div>
-      {% endif %}
+        <a href="{{ account.update_card_url }}" class="btn ghost primary small">
+          {% if account.card_brand and account.card_last4 %}
+            {% trans "Update card" %}
+          {% else %}
+            {% trans "Add card" %}
+          {% endif %}
+        </a>
+      </div>
 
       <div class="plan-detail">
         <h3>{% trans "Your plans" %}</h3>

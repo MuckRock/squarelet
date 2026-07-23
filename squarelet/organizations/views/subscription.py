@@ -55,6 +55,7 @@ from squarelet.payments.views import (
     BaseCancelSubscription,
     BaseManageSubscriptions,
     BasePaymentsList,
+    BaseRemoveCard,
     BaseUpdateCard,
     BaseUpdateReceiptEmail,
     BaseUpdateSubscriptionFrequency,
@@ -186,6 +187,10 @@ class ManageSubscriptions(OrgSubscriptionView, BaseManageSubscriptions):
 
 
 class UpdateCard(OrgSubscriptionView, BaseUpdateCard):
+    pass
+
+
+class RemoveCard(OrgSubscriptionView, BaseRemoveCard):
     pass
 
 

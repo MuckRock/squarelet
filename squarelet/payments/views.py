@@ -15,6 +15,7 @@ from django.views.generic import (
     RedirectView,
     TemplateView,
     UpdateView,
+    View,
 )
 
 # Standard Library
@@ -614,6 +615,48 @@ class BaseUpdateCard(SubscriptionObjectMixin, UpdateView):
         context["card_last4"] = customer.payment_last4
 
         return context
+
+
+class BaseRemoveCard(SubscriptionObjectMixin, View):
+    """Remove the credit card on file for an organization."""
+
+    def _is_ajax(self):
+        return self.request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
+    def _error(self, message):
+        """Return the error as JSON for AJAX callers, else flash and redirect."""
+        if self._is_ajax():
+            return JsonResponse({"error": str(message)}, status=400)
+        messages.error(self.request, message)
+        return redirect(self.reverse_subject("subscriptions"))
+
+    def post(self, request, *args, **kwargs):
+        organization = self.get_object()
+        redirect_url = self.reverse_subject("subscriptions")
+
+        if organization.customer().payment_details is None:
+            return self._error(_("You do not have a card on file to remove."))
+
+        # A non-cancelled subscription still bills the card on file, so removing
+        # it would set up a failed renewal. Require cancellation first.
+        if organization.subscriptions.filter(cancelled=False).exists():
+            return self._error(
+                _(
+                    "You must cancel your active subscriptions before "
+                    "removing your payment method."
+                )
+            )
+
+        try:
+            organization.remove_payment_method()
+        except stripe.StripeError as exc:
+            return self._error(f"Payment error: {format_stripe_error(exc)}")
+
+        success_msg = _("Credit card removed")
+        if self._is_ajax():
+            return JsonResponse({"redirect": redirect_url, "message": str(success_msg)})
+        messages.success(request, success_msg)
+        return redirect(redirect_url)
 
 
 class BaseUpdateReceiptEmail(SubscriptionObjectMixin, UpdateView):

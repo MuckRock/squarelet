@@ -1334,6 +1334,178 @@ class TestUpdateSubscription(ViewTestMixin):
 
 
 @pytest.mark.django_db()
+class TestRemoveCard(ViewTestMixin):
+    """Test the Organization Remove Card view"""
+
+    view = views.RemoveCard
+    url = "/organizations/{slug}/card/remove/"
+
+    @staticmethod
+    def _mock_card_on_file(mocker, present=True):
+        """Patch the customer's card-on-file state."""
+        mocker.patch(
+            "squarelet.organizations.models.Customer.payment_details",
+            new_callable=mocker.PropertyMock,
+            return_value=mocker.Mock() if present else None,
+        )
+
+    def test_post_remove_card(self, rf, organization_factory, user_factory, mocker):
+        """Removes the card and redirects when there is no active subscription"""
+        self._mock_card_on_file(mocker)
+        mocked_remove = mocker.patch(
+            "squarelet.organizations.models.Organization.remove_payment_method"
+        )
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        response = self.call_view(rf, user, {}, slug=organization.slug)
+        assert response.status_code == 302
+        mocked_remove.assert_called_once()
+        self.assert_message(messages.SUCCESS, "Credit card removed")
+
+    def test_post_remove_card_stripe_error(
+        self, rf, organization_factory, user_factory, mocker
+    ):
+        """A Stripe error while removing surfaces an error message"""
+        self._mock_card_on_file(mocker)
+        mocker.patch(
+            "squarelet.organizations.models.Organization.remove_payment_method",
+            side_effect=stripe.StripeError("boom"),
+        )
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        response = self.call_view(rf, user, {}, slug=organization.slug)
+        assert response.status_code == 302
+        # pylint: disable=protected-access
+        level, message, _extra = self.request._messages.add.call_args.args
+        assert level == messages.ERROR
+        assert message.startswith("Payment error:")
+
+    def test_no_card_on_file(self, rf, organization_factory, user_factory, mocker):
+        """Removal with no card on file errors and never calls remove"""
+        self._mock_card_on_file(mocker, present=False)
+        mocked_remove = mocker.patch(
+            "squarelet.organizations.models.Organization.remove_payment_method"
+        )
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        response = self.call_view(rf, user, {}, slug=organization.slug)
+        assert response.status_code == 302
+        mocked_remove.assert_not_called()
+        self.assert_message(messages.ERROR, "You do not have a card on file to remove.")
+
+    def test_blocked_by_active_subscription(
+        self,
+        rf,
+        organization_factory,
+        user_factory,
+        plan_factory,
+        subscription_factory,
+        mocker,
+    ):
+        """A non-cancelled subscription blocks removal"""
+        self._mock_card_on_file(mocker)
+        mocked_remove = mocker.patch(
+            "squarelet.organizations.models.Organization.remove_payment_method"
+        )
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        subscription_factory(
+            organization=organization, plan=plan_factory(), cancelled=False
+        )
+        response = self.call_view(rf, user, {}, slug=organization.slug)
+        assert response.status_code == 302
+        mocked_remove.assert_not_called()
+        self.assert_message(
+            messages.ERROR,
+            "You must cancel your active subscriptions before "
+            "removing your payment method.",
+        )
+
+    def test_allowed_when_all_subscriptions_cancelled(
+        self,
+        rf,
+        organization_factory,
+        user_factory,
+        plan_factory,
+        subscription_factory,
+        mocker,
+    ):
+        """Removal is allowed when every subscription is cancelled"""
+        self._mock_card_on_file(mocker)
+        mocked_remove = mocker.patch(
+            "squarelet.organizations.models.Organization.remove_payment_method"
+        )
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        subscription_factory(
+            organization=organization, plan=plan_factory(), cancelled=True
+        )
+        response = self.call_view(rf, user, {}, slug=organization.slug)
+        assert response.status_code == 302
+        mocked_remove.assert_called_once()
+        self.assert_message(messages.SUCCESS, "Credit card removed")
+
+    @staticmethod
+    def _ajax_post(rf, user, slug):
+        """Build an AJAX POST request to the remove-card route."""
+        request = rf.post(
+            f"/organizations/{slug}/card/remove/",
+            {},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        request.user = user
+        # pylint: disable=protected-access
+        request._messages = MagicMock()
+        request.session = MagicMock()
+        return views.RemoveCard.as_view()(request, slug=slug)
+
+    def test_ajax_remove_card(self, rf, organization_factory, user_factory, mocker):
+        """AJAX removal returns JSON with the redirect target and message"""
+        self._mock_card_on_file(mocker)
+        mocker.patch(
+            "squarelet.organizations.models.Organization.remove_payment_method"
+        )
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        response = self._ajax_post(rf, user, organization.slug)
+        assert response.status_code == 200
+        assert json.loads(response.content)["message"] == "Credit card removed"
+
+    def test_ajax_blocked_by_active_subscription(
+        self,
+        rf,
+        organization_factory,
+        user_factory,
+        plan_factory,
+        subscription_factory,
+        mocker,
+    ):
+        """AJAX removal returns a 400 with the error when blocked"""
+        self._mock_card_on_file(mocker)
+        mocked_remove = mocker.patch(
+            "squarelet.organizations.models.Organization.remove_payment_method"
+        )
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        subscription_factory(
+            organization=organization, plan=plan_factory(), cancelled=False
+        )
+        response = self._ajax_post(rf, user, organization.slug)
+        assert response.status_code == 400
+        mocked_remove.assert_not_called()
+        assert (
+            "cancel your active subscriptions" in json.loads(response.content)["error"]
+        )
+
+    def test_get_not_allowed(self, rf, organization_factory, user_factory):
+        """Removal is POST-only"""
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        response = self.call_view(rf, user, slug=organization.slug)
+        assert response.status_code == 405
+
+
+@pytest.mark.django_db()
 class TestCreate(ViewTestMixin):
     """Test the Organization Create view"""
 
