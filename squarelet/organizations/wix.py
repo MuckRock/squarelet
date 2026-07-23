@@ -86,7 +86,7 @@ def get_tier_from_plan(plan):
         "essential": "essential",
         "basic": "essential",
         "premium": "enhanced",
-        "election": "election"
+        "election": "election",
     }
     return next(
         (label for alias, label in tier_aliases.items() if alias in plan.slug),
