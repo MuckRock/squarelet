@@ -28,8 +28,15 @@
         <div class="actions">
           <button type="submit" class="btn danger">
             {% icon "sign-out" %}
-            <span class="message">
-              {% trans "Leave without assigning" %}
+            <span class="message-initial">
+              {% blocktrans with action=leave|yesno:_("Leave,Demote") %}
+                {{ action }} without assigning
+              {% endblocktrans %}
+            </span>
+            <span class="message-selected">
+              {% blocktrans with action=leave|yesno:_("leave,demote") %}
+                Assign and {{ action }}
+              {% endblocktrans %}
             </span>
           </button>
           <a class="btn ghost" href="{% url "organizations:detail" organization.slug %}">
