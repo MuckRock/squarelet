@@ -18,6 +18,7 @@ import stripe
 from autoslug import AutoSlugField
 
 # Squarelet
+from squarelet.core.storage import private_storage
 from squarelet.core.utils import is_production_env, mailchimp_journey
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.factory import get_payment_provider
@@ -937,7 +938,11 @@ class Charge(models.Model):
     metadata = models.JSONField(_("metadata"), default=dict)
 
     receipt_pdf = models.FileField(
-        _("receipt pdf"), upload_to="receipts/", null=True, blank=True
+        _("receipt pdf"),
+        upload_to="receipts/",
+        storage=private_storage,
+        null=True,
+        blank=True,
     )
 
     class Meta:
