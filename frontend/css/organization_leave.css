@@ -9,3 +9,13 @@
   align-items: center;
   gap: 0.5rem;
 }
+
+/* Switch the message visibility if the user
+makes a selection in the Svelecte component */
+.leave-form:not(:has(option)) .message-selected {
+  display: none;
+}
+
+.leave-form:has(option) .message-initial {
+  display: none;
+}
