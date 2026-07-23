@@ -222,6 +222,14 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
             return self._bad_call(request)
 
         def handle_make_admin(membership):
+            user = membership.user
+            org = membership.organization
+
+            # If the user is demoting themselves, and they're the only admin,
+            # send them to the demote version of the reassign admin page.
+            if user == request.user and org.has_sole_admin(user) and set_admin == False:
+                return redirect("organizations:reassign-admin-demote", org.slug)
+
             membership.admin = set_admin
             membership.save()
 
@@ -237,6 +245,8 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
                     action_object=membership.user,
                     target=self.organization,
                 )
+
+            return None
 
         return self._handle_user(
             request,
@@ -416,12 +426,18 @@ class OrgRequestsView(BaseOrgInvitationRequestView):
 
 
 class ReassignAdmin(UserPassesTestMixin, DetailView):
+    action = "leave"
     queryset = Organization.objects.filter(individual=False)
     template_name = "organizations/organization_leave.html"
 
     def test_func(self):
         user = self.request.user
         return self.get_object().has_sole_admin(user)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["leave"] = self.action == 'leave'
+        return context
 
     def post(self, request, *args, **kwargs):
         user = request.user
@@ -457,11 +473,17 @@ class ReassignAdmin(UserPassesTestMixin, DetailView):
 
             create_zendesk_ticket(subject=subject, description=description)
 
-        user.memberships.filter(organization=org).delete()
+        membership = user.memberships.get(organization=org)
 
-        messages.info(request, _("You left the organization"))
+        if self.action == "leave":
+            membership.delete()
+            messages.info(request, _("You left the organization"))
+        elif self.action == "demote":
+            membership.admin = False
+            membership.save()
+            messages.info(request, _("You are demoted to a member"))
 
-        if org.private:
-            return redirect(user)
-        else:
+        if self.action == "demote" or not org.private:
             return redirect(org)
+        else:
+            return redirect(user)
