@@ -8,3 +8,9 @@ def db_cleanup():
     """Call some management commands to clean up the database"""
     call_command("clearsessions", verbosity=2)
     call_command("deleterevisions", days=730, verbosity=2)
+
+
+@shared_task
+def sync_odoo_daily():
+    """Daily sync of Sunlight orgs and members to Odoo."""
+    call_command("sync_odoo")
