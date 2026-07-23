@@ -184,6 +184,13 @@ class StripeModernSubscriptionService(SubscriptionService):
             cancel_at_period_end=True,
         )
 
+    def uncancel(self, stripe_subscription):
+        return stripe.Subscription.modify(
+            stripe_subscription.id,
+            cancel_at_period_end=False,
+            cancel_at="",
+        )
+
     def delete(self, stripe_subscription):
         stripe_subscription.delete()
 

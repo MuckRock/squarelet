@@ -467,6 +467,24 @@ class Subscription(models.Model):
         # Slack notification for cancellation
         self.send_slack_notification("cancelled")
 
+    def uncancel(self):
+        """Re-enable renewal for a subscription that was pending cancellation.
+
+        Clears the cancelled flag and cancel_at date locally, and removes
+        cancel_at_period_end on the Stripe subscription so it auto-renews.
+        """
+        if self.stripe_subscription:
+            updated = (
+                get_payment_provider()
+                .get_subscription_service()
+                .uncancel(self.stripe_subscription)
+            )
+            if updated:
+                self.cache_stripe_subscription_fields(updated)
+        self.cancelled = False
+        self.cancel_at = None
+        self.save()
+
     def modify(self, plan):
         """Modify an existing plan
         Note - this should never be used to switch from a MR to a PP plan or vice versa
