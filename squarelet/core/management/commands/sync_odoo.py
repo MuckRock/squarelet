@@ -722,6 +722,8 @@ class Command(BaseCommand):
         handler = logging.StreamHandler(buffer)
         handler.setLevel(logging.INFO)
         logger.addHandler(handler)
+        _prev_level = logger.level
+        logger.setLevel(logging.INFO)
         failed = False
         try:
             if dry_run:
@@ -750,7 +752,9 @@ class Command(BaseCommand):
             logger.exception("Sync failed with an unhandled exception")
             raise
         finally:
+            handler.flush()
             logger.removeHandler(handler)
+            logger.setLevel(_prev_level)
             today = date.today().isoformat()
             status = "FAILED" if failed else "OK"
             email = EmailMessage(
