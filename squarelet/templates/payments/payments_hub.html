@@ -53,12 +53,14 @@
         <div class="header-actions">
           <a href="{{ account.manage_url }}" class="btn small ghost primary">
             {% icon "gear" %}
-            {% trans "Manage subscription" %}
+            {% trans "Manage billing" %}
           </a>
+          {% if account.payments.length > 0 %}
           <a href="{{ account.history_url }}" class="btn small ghost primary">
             {% icon "log" %}
-            {% trans "View full history" %}
+            {% trans "View payments" %}
           </a>
+          {% endif %}
         </div>
       </header>
 
