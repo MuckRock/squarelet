@@ -72,6 +72,11 @@ urlpatterns = [
     ),
     path("<str:username>/card/", view=views.UpdateCard.as_view(), name="update-card"),
     path(
+        "<str:username>/card/remove/",
+        view=views.RemoveCard.as_view(),
+        name="remove-card",
+    ),
+    path(
         "<str:username>/payments/", view=views.PaymentsList.as_view(), name="payments"
     ),
 ]

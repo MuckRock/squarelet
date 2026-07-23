@@ -156,6 +156,15 @@
             <span>{% trans "No card on file" %}</span>
           {% endif %}
         </div>
+        {% if card_brand and card_last4 %}
+          <form method="post" action="{% url subject|add:':remove-card' subject_slug %}" class="remove-card-form">
+            {% csrf_token %}
+            <button type="submit" class="btn ghost danger small">
+              {% icon "trashcan" %}
+              {% trans "Remove" %}
+            </button>
+          </form>
+        {% endif %}
       </div>
     </main>
   </section>

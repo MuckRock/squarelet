@@ -55,4 +55,14 @@
       </a>
     </div>
   </form>
+
+  {% if card_brand and card_last4 %}
+    <form method="post" action="{% url subject|add:':remove-card' subject_slug %}" class="remove-card-form">
+      {% csrf_token %}
+      <button type="submit" class="btn danger">
+        {% icon "trashcan" %}
+        {% trans "Remove card" %}
+      </button>
+    </form>
+  {% endif %}
 {% endblock main %}
