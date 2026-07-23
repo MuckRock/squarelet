@@ -50,9 +50,9 @@
     </li>
     {% if can_view_subscription %}
     <li>
-      <a href="#plan" class="nav-item">
+      <a href="#billing" class="nav-item">
         {% icon "credit-card" %}
-        {% trans "Plans" %}
+        {% trans "Billing" %}
       </a>
     </li>
     {% endif %}
@@ -145,15 +145,17 @@
     </section>
 
     {% if can_view_subscription %}
-    <section id="plan">
+    <section id="billing">
       <header>
-        <h2>{% trans "Plans" %}</h2>
-        {% if can_edit_subscription %}
+        <h2>{% trans "Billing" %}</h2>
+        {% if can_edit_subscription or can_view_charge %}
         <div class="header-actions">
+          {% if can_edit_subscription %}
           <a href="{% url 'organizations:subscriptions' organization.slug %}" class="btn ghost primary">
             {% icon "gear" %}
-            {% trans "Manage plans" %}
+            {% trans "Manage billing" %}
           </a>
+          {% endif %}
           {% if can_view_charge %}
           <a href="{% url 'organizations:payments' organization.slug %}" class="btn ghost primary">
             {% icon "log" %}

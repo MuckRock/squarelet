@@ -31,15 +31,22 @@
   <ul>
     <li>
       <a href="#plans" class="nav-item">
-        {% icon "credit-card" %}
+        {% icon "premium" %}
         {% trans "Your plans" %}
       </a>
     </li>
 
     <li>
-      <a href="#payment" class="nav-item">
-        {% icon "gear" %}
-        {% trans "Payment settings" %}
+      <a href="#methods" class="nav-item">
+        {% icon "credit-card" %}
+        {% trans "Payment method" %}
+      </a>
+    </li>
+
+    <li>
+      <a href="#emails" class="nav-item">
+        {% icon "mail" %}
+        {% trans "Receipt emails" %}
       </a>
     </li>
 
@@ -121,56 +128,60 @@
     {% endfor %}
   </section>
 
-  <section id="payment">
+  <section id="methods">
     <header>
       <div class="title">
-        <h2>{% trans "Payment settings" %}</h2>
+        <h2>{% trans "Payment method" %}</h2>
       </div>
+      <a href="{% url subject|add:':update-card' subject_slug %}" class="btn ghost primary small">
+        {% if account.card_brand and account.card_last4 %}
+          {% trans "Update card" %}
+        {% else %}
+          {% trans "Add card" %}
+        {% endif %}
+      </a>
     </header>
 
     <main class="subscription-card">
-      {% if card_brand and card_last4 %}
-        <div class="subscription-row">
-          <div class="subscription-group">
-            <h3>{% trans "Payment card" %}</h3>
-            <span class="subscription-detail">
-              <span class="icon">
-                {% icon "credit-card" %}
-              </span>
-              <span>
-                {% blocktrans with card_brand as brand and card_last4 as last4 %}
-                  {{ brand }} ending in <strong>{{ last4 }}</strong>
-                {% endblocktrans %}
-              </span>
+      <div class="account-row">
+        <div class="account-card">
+          <span class="icon">{% icon "credit-card" %}</span>
+          {% if card_brand and card_last4 %}
+            <span>
+              {% blocktrans with brand=card_brand last4=card_last4 %}
+                <span class="account-card-brand">{{ brand }}</span> ending in <strong>{{ last4 }}</strong>
+              {% endblocktrans %}
             </span>
-          </div>
-
-          <a href="{% url subject|add:':update-card' subject_slug %}" class="btn ghost primary small">
-            {% trans "Add new card" %}
-          </a>
+          {% else %}
+            <span>{% trans "No card on file" %}</span>
+          {% endif %}
         </div>
-      {% endif %}
-
-      <div class="subscription-row">
-        <div class="subscription-group">
-          <h3>{% trans "Receipt emails" %}</h3>
-          <span class="subscription-detail">
-            <span class="icon">
-              {% icon "mail" %}
-            </span>
-            <span class="emails">
-              {% for email in receipt_emails %}
-                <span>{{ email.email }}</span>
-              {% endfor %}
-            </span>
-          </span>
-        </div>
-
-        {% url subject|add:':update-receipt-email' subject_slug as receipt_email_url %}
-        <a href="{{ receipt_email_url }}" class="btn ghost primary small">
-          {% trans "Change email" %}
-        </a>
       </div>
+    </main>
+  </section>
+
+  <section id="emails">
+    <header>
+      <div class="title">
+        <h2>{% trans "Receipt emails" %}</h2>
+      </div>
+      {% url subject|add:':update-receipt-email' subject_slug as receipt_email_url %}
+      <a href="{{ receipt_email_url }}" class="btn ghost primary small">
+        {% trans "Change email" %}
+      </a>
+    </header>
+
+    <main class="subscription-card">
+      {% for email in receipt_emails %}
+      <div class="subscription-detail">
+        <span class="icon">
+          {% icon "mail" %}
+        </span>
+        <span class="email">
+          {{ email.email }}
+        </span>
+      </div>
+      {% endfor %}
     </main>
   </section>
 

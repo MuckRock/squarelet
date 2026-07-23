@@ -172,3 +172,25 @@ a.plan-name {
 .plan-upgrade .plan-benefits .checklist-item .icon svg {
   fill: var(--green-3);
 }
+
+.account-row {
+  display: flex;
+  justify-contents: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.account-card {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.account-card .icon {
+  display: flex;
+  align-items: center;
+}
+
+.account-card-brand {
+  text-transform: capitalize;
+}
