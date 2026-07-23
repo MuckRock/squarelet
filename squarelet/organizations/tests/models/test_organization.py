@@ -47,11 +47,11 @@ class TestOrganization:
         assert user.individual_organization.email == user.email
 
     @pytest.mark.django_db()
-    def test_email_receipt(self, organization_factory):
+    def test_email_receipt(self, organization_factory, mocker):
+        mocker.patch("squarelet.organizations.models.organization.get_payment_provider")
         organization = organization_factory()
-        email = "org@example.com"
-        organization.receipt_emails.create(email=email)
-        assert organization.email == email
+        organization.set_billing_email("org@example.com")
+        assert organization.email == "org@example.com"
 
     @pytest.mark.django_db()
     def test_email_admin(self, organization_factory, user_factory):
@@ -97,11 +97,11 @@ class TestOrganization:
 
         org.add_creator(user)
 
-        # add creator makes the user an admin and adds their email address as a receipt
-        # email
+        # add creator makes the user an admin and sets their
+        # email as the billing email
 
         assert org.has_admin(user)
-        assert org.receipt_emails.first().email == user.email
+        assert org.receipt_email.email == user.email
 
     def test_reference_name(self, organization_factory):
         organization = organization_factory.build()
@@ -587,18 +587,13 @@ class TestOrganization:
         assert mock_unsync.call_count >= 1
 
     @pytest.mark.django_db()
-    def test_set_receipt_emails(self, organization_factory):
+    def test_set_billing_email(self, organization_factory, mocker):
+        mocker.patch("squarelet.organizations.models.organization.get_payment_provider")
         organization = organization_factory()
 
-        assert not organization.receipt_emails.all()
-
-        emails = ["email1@example.com", "email2@example.com", "email3@example.com"]
-        organization.set_receipt_emails(emails)
-        assert set(emails) == set(r.email for r in organization.receipt_emails.all())
-
-        emails = ["email2@example.com", "email4@example.com"]
-        organization.set_receipt_emails(emails)
-        assert set(emails) == set(r.email for r in organization.receipt_emails.all())
+        organization.set_billing_email("billing@example.com")
+        organization.refresh_from_db()
+        assert organization.receipt_email.email == ("billing@example.com")
 
     @pytest.mark.django_db()
     def test_subscribe(self, organization_factory, user_factory, mocker):

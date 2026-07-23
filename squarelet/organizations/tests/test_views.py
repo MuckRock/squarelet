@@ -1147,18 +1147,17 @@ class TestUpdateSubscription(ViewTestMixin):
         user = user_factory()
         organization = organization_factory(admins=[user])
         ReceiptEmail.objects.create(
-            organization=organization, email="receipts@example.com", failed=False
-        )
-        failed_email = ReceiptEmail.objects.create(
-            organization=organization, email="failed@example.com", failed=True
+            organization=organization,
+            email="billing@example.com",
+            failed=True,
         )
         response = self.call_view(rf, user, slug=organization.slug)
         assert response.status_code == 200
-        assert response.context_data["failed_receipt_emails"][0] == failed_email
+        assert response.context_data["billing_email_failed"] is True
         initial = response.context_data["form"].initial
         assert initial["plan"] == organization.plans.first()
         assert initial["max_users"] == organization.max_users
-        assert len(initial["receipt_emails"].split("\n")) == 2
+        assert initial["billing_email"] == "billing@example.com"
 
     def test_get_initial_reads_quantity_from_subscription(
         self,
@@ -1184,20 +1183,20 @@ class TestUpdateSubscription(ViewTestMixin):
 
     def test_post_admin(self, rf, organization_factory, user_factory, mocker):
         mocker.patch("squarelet.organizations.models.Customer.payment_details", None)
+        mocker.patch("squarelet.organizations.models.organization.get_payment_provider")
         user = user_factory()
         organization = organization_factory(admins=[user])
         data = {
             "stripe_token": "token",
             "plan": "",
             "max_users": 6,
-            "receipt_emails": "receipt1@example.com\nreceipt2@example.com",
+            "billing_email": "billing@example.com",
             "stripe_pk": "key",
         }
         response = self.call_view(rf, user, data, slug=organization.slug)
         assert response.status_code == 302
-        assert set(e.email for e in organization.receipt_emails.all()) == set(
-            data["receipt_emails"].split("\n")
-        )
+        organization.refresh_from_db()
+        assert organization.receipt_email.email == ("billing@example.com")
 
     def test_post_admin_stripe_error(
         self, rf, organization_factory, user_factory, plan_factory, mocker
@@ -1214,7 +1213,7 @@ class TestUpdateSubscription(ViewTestMixin):
             "stripe_token": "token",
             "plan": plan.pk,
             "max_users": 6,
-            "receipt_emails": "receipt1@example.com\nreceipt2@example.com",
+            "billing_email": "billing@example.com",
             "stripe_pk": "key",
         }
         self.call_view(rf, user, data, slug=organization.slug)
@@ -1234,6 +1233,7 @@ class TestUpdateSubscription(ViewTestMixin):
     ):
         """Staff updating subscription should create activity stream action"""
         mocker.patch("squarelet.organizations.models.Customer.payment_details", None)
+        mocker.patch("squarelet.organizations.models.organization.get_payment_provider")
         staff_member = user_factory(is_staff=True)
         staff_member = _assign_org_perm(staff_member, "can_edit_subscription")
         organization = organization_factory()
@@ -1241,7 +1241,7 @@ class TestUpdateSubscription(ViewTestMixin):
             "stripe_token": "token",
             "plan": "",
             "max_users": 10,
-            "receipt_emails": "receipt@example.com",
+            "billing_email": "receipt@example.com",
             "stripe_pk": "key",
         }
         self.call_view(rf, staff_member, data, slug=organization.slug)
@@ -1261,13 +1261,14 @@ class TestUpdateSubscription(ViewTestMixin):
     ):
         """Non-staff admin updating subscription should not create action"""
         mocker.patch("squarelet.organizations.models.Customer.payment_details", None)
+        mocker.patch("squarelet.organizations.models.organization.get_payment_provider")
         regular_admin = user_factory(is_staff=False)
         organization = organization_factory(admins=[regular_admin])
         data = {
             "stripe_token": "token",
             "plan": "",
             "max_users": 10,
-            "receipt_emails": "receipt@example.com",
+            "billing_email": "receipt@example.com",
             "stripe_pk": "key",
         }
         self.call_view(rf, regular_admin, data, slug=organization.slug)
@@ -1283,6 +1284,7 @@ class TestUpdateSubscription(ViewTestMixin):
         self, rf, organization_factory, user_factory, mocker
     ):
         """Test removing card on file"""
+        mocker.patch("squarelet.organizations.models.organization.get_payment_provider")
         # Mock customer with card on file
         mock_card = mocker.Mock(id="card_123")
         mock_customer = mocker.Mock()
@@ -1307,7 +1309,7 @@ class TestUpdateSubscription(ViewTestMixin):
             "stripe_token": "",
             "plan": "",
             "max_users": 5,
-            "receipt_emails": "receipt@example.com",
+            "billing_email": "receipt@example.com",
             "stripe_pk": "key",
             "use_card_on_file": "False",
             "remove_card_on_file": "true",
@@ -1331,7 +1333,7 @@ class TestCreate(ViewTestMixin):
         organization = user.organizations.get(individual=False)
         assert not organization.subscriptions.exists()
         assert organization.has_admin(user)
-        assert user.email in organization.receipt_emails.values_list("email", flat=True)
+        assert organization.receipt_email.email == user.email
 
     def test_get_unverified_email(self, rf, user_factory):
         """User without verified email can still access the page"""
@@ -1905,19 +1907,24 @@ class TestChargeDetail(ViewTestMixin):
         # The viewer's email should NOT be used as the "sent to" address
         assert response.context_data.get("user") is None
 
-    def test_context_falls_back_to_current_receipt_emails(
-        self, rf, organization_factory, user_factory, charge_factory
+    def test_context_falls_back_to_current_billing_email(
+        self,
+        rf,
+        organization_factory,
+        user_factory,
+        charge_factory,
+        mocker,
     ):
         """Older charges without stored receipt_emails fall back to the
-        organization's current receipt email addresses."""
+        organization's current billing email."""
+        mocker.patch("squarelet.organizations.models.organization.get_payment_provider")
         viewer = user_factory()
         organization = organization_factory(admins=[viewer])
-        current_emails = ["billing@example.com", "finance@example.com"]
-        organization.set_receipt_emails(current_emails)
+        organization.set_billing_email("billing@example.com")
         # Charge has no receipt_emails in metadata (simulates older charge)
         charge = charge_factory(organization=organization)
         response = self.call_view(rf, viewer, pk=charge.pk)
-        assert set(response.context_data["receipt_emails"]) == set(current_emails)
+        assert response.context_data["receipt_emails"] == ["billing@example.com"]
         assert response.context_data.get("user") is None
 
     def test_get_staff_with_perm(
@@ -1931,6 +1938,28 @@ class TestChargeDetail(ViewTestMixin):
         response = self.call_view(rf, staff_user, pk=charge.pk)
         assert response.status_code == 200
         assert response.context_data["subject"] == "Receipt"
+
+    def test_redirects_to_receipt_pdf_when_set(
+        self, rf, organization_factory, user_factory, charge_factory, mocker
+    ):
+        """When receipt_pdf is set, GET redirects to the PDF URL."""
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        charge = charge_factory(organization=organization)
+
+        mock_pdf = MagicMock()
+        mock_pdf.url = "https://s3.example.com/receipts/ch_test.pdf"
+        mocker.patch.object(
+            type(charge),
+            "receipt_pdf",
+            new_callable=mocker.PropertyMock,
+            return_value=mock_pdf,
+        )
+        mocker.patch.object(views.ChargeDetail, "get_object", return_value=charge)
+
+        response = self.call_view(rf, user, pk=charge.pk)
+        assert response.status_code == 302
+        assert response["Location"] == "https://s3.example.com/receipts/ch_test.pdf"
 
 
 class TestStripeWebhook:

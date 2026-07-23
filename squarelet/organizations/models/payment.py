@@ -17,7 +17,7 @@ import stripe
 from autoslug import AutoSlugField
 
 # Squarelet
-from squarelet.core.mail import ORG_TO_RECEIPTS, send_mail
+from squarelet.core.storage import private_storage
 from squarelet.core.utils import is_production_env, mailchimp_journey
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.factory import get_payment_provider
@@ -61,12 +61,6 @@ class Customer(models.Model):
         null=True,
         help_text=_("The customer's corresponding ID on stripe"),
     )
-
-    payment_brand = models.CharField(max_length=64, blank=True, default="")
-    payment_last4 = models.CharField(max_length=4, blank=True, default="")
-    payment_exp_month = models.PositiveSmallIntegerField(null=True, blank=True)
-    payment_exp_year = models.PositiveSmallIntegerField(null=True, blank=True)
-    stripe_payment_method_id = models.CharField(max_length=255, blank=True, default="")
 
     def __str__(self):
         return f"{self.organization.name}'s Customer"
@@ -173,30 +167,97 @@ class Customer(models.Model):
             return pm
         return None
 
+    def default_payment_method_obj(self):
+        """Return the default PaymentMethod object, or None.
+
+        Caches the result on the instance so multiple property
+        accesses in the same request only hit the DB once.  The
+        cache is cleared automatically by ``save_payment_cache``
+        and ``clear_payment_cache``.
+        """
+        sentinel = object()
+        cached = getattr(self, "_default_pm_cache", sentinel)
+        if cached is not sentinel:
+            return cached
+        result = self.payment_methods.filter(is_default=True).first()
+        self._default_pm_cache = result
+        return result
+
+    def _invalidate_pm_cache(self):
+        try:
+            del self._default_pm_cache
+        except AttributeError:
+            pass
+
+    @property
+    def payment_brand(self):
+        pm = self.default_payment_method_obj()
+        return pm.brand if pm else ""
+
+    @property
+    def payment_last4(self):
+        pm = self.default_payment_method_obj()
+        return pm.last4 if pm else ""
+
+    @property
+    def payment_exp_month(self):
+        pm = self.default_payment_method_obj()
+        return pm.exp_month if pm else None
+
+    @property
+    def payment_exp_year(self):
+        pm = self.default_payment_method_obj()
+        return pm.exp_year if pm else None
+
+    @property
+    def stripe_payment_method_id(self):
+        pm = self.default_payment_method_obj()
+        return pm.stripe_id if pm else ""
+
     @property
     def payment_method_display(self):
-        if self.payment_brand and self.payment_last4:
-            return f"{self.payment_brand}: x{self.payment_last4}"
+        pm = self.default_payment_method_obj()
+        if pm:
+            return pm.display
         return ""
 
-    PAYMENT_CACHE_FIELDS = [
-        "payment_brand",
-        "payment_last4",
-        "payment_exp_month",
-        "payment_exp_year",
-        "stripe_payment_method_id",
-    ]
+    def save_payment_cache(self, details, stripe_id, method_type="card"):
+        """Create or update the default PaymentMethod.
 
-    def save_payment_cache(self):
-        self.save(update_fields=self.PAYMENT_CACHE_FIELDS)
+        ``details`` is the type-specific sub-object from a Stripe
+        PaymentMethod or legacy Source (e.g. ``pm.card``,
+        ``pm.us_bank_account``, or the Source itself).
+        """
+        brand = get_payment_brand(details)
+        last4 = details.last4 or ""
+        exp_month = details.exp_month
+        exp_year = details.exp_year
+        pm = self.default_payment_method_obj()
+        if pm:
+            pm.method_type = method_type
+            pm.brand = brand
+            pm.last4 = last4
+            pm.exp_month = exp_month
+            pm.exp_year = exp_year
+            pm.stripe_id = stripe_id
+            pm.save()
+        else:
+            PaymentMethod.objects.create(
+                customer=self,
+                method_type=method_type,
+                brand=brand,
+                last4=last4,
+                exp_month=exp_month,
+                exp_year=exp_year,
+                stripe_id=stripe_id,
+                is_default=True,
+            )
+        self._invalidate_pm_cache()
 
     def clear_payment_cache(self):
-        self.payment_brand = ""
-        self.payment_last4 = ""
-        self.payment_exp_month = None
-        self.payment_exp_year = None
-        self.stripe_payment_method_id = ""
-        self.save_payment_cache()
+        """Delete the default PaymentMethod."""
+        self.payment_methods.filter(is_default=True).delete()
+        self._invalidate_pm_cache()
 
     def save_card(self, token):
         """Save a new default card"""
@@ -206,12 +267,7 @@ class Customer(models.Model):
             .save_card(self.stripe_customer, token)
         )
         if pm is not None:
-            self.payment_brand = pm.card.brand or ""
-            self.payment_last4 = pm.card.last4 or ""
-            self.payment_exp_month = pm.card.exp_month
-            self.payment_exp_year = pm.card.exp_year
-            self.stripe_payment_method_id = pm.id or ""
-            self.save_payment_cache()
+            self.save_payment_cache(pm.card, pm.id or "")
 
     def remove_payment_method(self):
         """Remove the default payment method"""
@@ -848,6 +904,14 @@ class Charge(models.Model):
 
     metadata = models.JSONField(_("metadata"), default=dict)
 
+    receipt_pdf = models.FileField(
+        _("receipt pdf"),
+        upload_to="receipts/",
+        storage=private_storage,
+        null=True,
+        blank=True,
+    )
+
     class Meta:
         ordering = ("-created_at",)
 
@@ -864,30 +928,6 @@ class Charge(models.Model):
     @property
     def amount_dollars(self):
         return self.amount / 100.0
-
-    def send_receipt(self):
-        """Send receipt"""
-        current_emails = list(
-            self.organization.receipt_emails.values_list("email", flat=True)
-        )
-        existing = self.metadata.get("receipt_emails", [])
-        seen = set(existing)
-        merged = list(existing) + [e for e in current_emails if e not in seen]
-        self.metadata["receipt_emails"] = merged
-        self.save(update_fields=["metadata"])
-        plan = Plan.objects.filter(name=self.metadata.get("plan")).first()
-
-        send_mail(
-            subject=_("Receipt"),
-            template="organizations/email/receipt.html",
-            organization=self.organization,
-            organization_to=ORG_TO_RECEIPTS,
-            extra_context={
-                "charge": self,
-                "plan": plan,
-                "receipt_emails": current_emails,
-            },
-        )
 
     def items(self):
         if self.fee_amount:
@@ -1070,14 +1110,14 @@ class EntitlementGrant(models.Model):
 
 
 class ReceiptEmail(models.Model):
-    """An email address to send receipts to"""
+    """The billing email address for an organization"""
 
-    organization = models.ForeignKey(
+    organization = models.OneToOneField(
         verbose_name=_("organization"),
         to="organizations.Organization",
-        related_name="receipt_emails",
+        related_name="receipt_email",
         on_delete=models.CASCADE,
-        help_text=_("The organization this receipt email corresponds to"),
+        help_text=_("The organization this billing email corresponds to"),
     )
     email = models.EmailField(
         _("email"),
@@ -1090,8 +1130,39 @@ class ReceiptEmail(models.Model):
         help_text=_("Has sending to this email address failed?"),
     )
 
-    class Meta:
-        unique_together = ("organization", "email")
-
     def __str__(self):
         return f"Receipt Email: <{self.email}>"
+
+
+class PaymentMethod(models.Model):
+    """A cached payment method for a Customer."""
+
+    class MethodType(models.TextChoices):
+        CARD = "card", "Card"
+        BANK_ACCOUNT = "bank_account", "Bank Account"
+
+    customer = models.ForeignKey(
+        "organizations.Customer",
+        on_delete=models.CASCADE,
+        related_name="payment_methods",
+    )
+    method_type = models.CharField(
+        max_length=20,
+        choices=MethodType.choices,
+        default=MethodType.CARD,
+    )
+    brand = models.CharField(max_length=64, blank=True, default="")
+    last4 = models.CharField(max_length=4, blank=True, default="")
+    exp_month = models.PositiveSmallIntegerField(null=True, blank=True)
+    exp_year = models.PositiveSmallIntegerField(null=True, blank=True)
+    stripe_id = models.CharField(max_length=255, blank=True, default="")
+    is_default = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.get_method_type_display()}" f" {self.brand} x{self.last4}"
+
+    @property
+    def display(self):
+        if self.brand and self.last4:
+            return f"{self.brand}: x{self.last4}"
+        return ""

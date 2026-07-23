@@ -55,7 +55,6 @@ export class PlansView {
   readonly planProjection = d("_id-planProjection"); // Plan projection information
   readonly cardContainer = d("card-container"); // Credit card container.
 
-  readonly receiptEmails = d("_id-receiptEmails") as HTMLTextAreaElement;
   readonly totalCost = d("_id-totalCost");
   readonly costBreakdown = d("_id-costBreakdown");
 
@@ -70,18 +69,8 @@ export class PlansView {
   constructor() {
     this.setupMaxUsersField();
     this.setupCardOnFileField();
-    this.setupReceiptEmails();
     this.setupStripe();
     this.updateAll();
-  }
-
-  /**
-   * Resize the receipt emails to match the text content.
-   */
-  receiptResize() {
-    // Set a small initial height to derive the scroll height.
-    this.receiptEmails.style.height = "5px";
-    this.receiptEmails.style.height = this.receiptEmails.scrollHeight + "px";
   }
 
   /**
@@ -268,17 +257,6 @@ export class PlansView {
         this.updateAll();
       });
     }
-  }
-
-  /**
-   * Set up event listeners and variables related to the receipt emails field.
-   */
-  setupReceiptEmails() {
-    if (this.receiptEmails == null) return;
-    // Make receipt emails field auto-resize.
-    this.receiptEmails.rows = 2;
-    on(this.receiptEmails, "input", () => this.receiptResize());
-    this.receiptResize();
   }
 
   /**
