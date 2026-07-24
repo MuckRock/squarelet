@@ -703,9 +703,44 @@ class BasePaymentsList(SubscriptionObjectMixin, ListView):
     def get_queryset(self):
         return Charge.objects.filter(organization=self.get_organization())
 
+    def _payments_url(self, organization):
+        """Reverse the payment history URL for an account the user can view.
+
+        The personal account's pages live under the ``users`` namespace and
+        are keyed on the member's username; organization pages are keyed on
+        the org slug.
+        """
+        if organization.individual:
+            return reverse(
+                "users:payments", kwargs={"username": self.request.user.username}
+            )
+        return reverse("organizations:payments", kwargs={"slug": organization.slug})
+
+    def get_nav_accounts(self, organization):
+        """Build the sidebar nav across every account whose payments the user
+        can view — their personal account and any organization they
+        administer — flagging the one currently being viewed as active."""
+        user = self.request.user
+        organizations = [user.individual_organization]
+        organizations += list(
+            user.organizations.filter(individual=False, memberships__admin=True)
+            .distinct()
+            .order_by("name")
+        )
+        return [
+            {
+                "organization": org,
+                "url": self._payments_url(org),
+                "active": org.pk == organization.pk,
+            }
+            for org in organizations
+        ]
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["organization"] = self.get_organization()
+        organization = self.get_organization()
+        context["organization"] = organization
+        context["nav_accounts"] = self.get_nav_accounts(organization)
         return context
 
 
