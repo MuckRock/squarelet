@@ -396,6 +396,11 @@ class Organization(AvatarMixin, models.Model):
         """Is the given user an admin of this organization"""
         return self.users.filter(pk=user.pk, memberships__admin=True).exists()
 
+    def has_sole_admin(self, user):
+        """Is the given user the only admin of this organization?"""
+        admin_count = self.users.filter(memberships__admin=True).count()
+        return self.has_admin(user) and admin_count == 1
+
     def has_member(self, user):
         """Is the user a member?"""
         return self.users.filter(pk=user.pk).exists()

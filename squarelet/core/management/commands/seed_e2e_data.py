@@ -31,6 +31,8 @@ USERS = [
     {"username": "e2e-regular", "is_staff": False},
     {"username": "e2e-requester", "is_staff": False},
     {"username": "e2e-unverified", "is_staff": False, "verified": False},
+    # Sole admin of e2e-leave-org, used for the leave/reassign-admin flow
+    {"username": "e2e-lone-admin", "is_staff": False},
 ]
 
 # DB-assigned Organization permissions for the e2e-staff user
@@ -62,6 +64,18 @@ ORGS = [
         "max_users": 20,
         "admins": ["e2e-admin"],
         "members": [],
+    },
+    {
+        # Dedicated org for the leave / reassign-admin flow. e2e-lone-admin is
+        # the sole admin so leaving triggers the reassign form; the members are
+        # candidates the outgoing admin can promote.
+        "name": "e2e-leave-org",
+        "slug": "e2e-leave-org",
+        "private": False,
+        "verified_journalist": True,
+        "max_users": 20,
+        "admins": ["e2e-lone-admin"],
+        "members": ["e2e-member", "e2e-regular"],
     },
 ]
 

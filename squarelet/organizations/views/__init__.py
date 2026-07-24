@@ -9,6 +9,7 @@ from .members import (
     ManageMembers,
     OrgInvitationsView,
     OrgRequestsView,
+    ReassignAdmin,
 )
 from .profile import RequestProfileChange, ReviewProfileChange, Update
 from .subscription import (
@@ -37,6 +38,7 @@ __all__ = [
     "InvitationAccept",
     "OrgInvitationsView",
     "OrgRequestsView",
+    "ReassignAdmin",
     # Domain views
     "ManageDomains",
     # Admin views

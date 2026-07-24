@@ -55,4 +55,14 @@ urlpatterns = [
         view=views.InvitationAccept.as_view(),
         name="invitation",
     ),
+    path(
+        "<slug:slug>/leave/",
+        view=views.ReassignAdmin.as_view(),
+        name="reassign-admin",
+    ),
+    path(
+        "<slug:slug>/demote/",
+        view=views.ReassignAdmin.as_view(action="demote"),
+        name="reassign-admin-demote",
+    ),
 ]

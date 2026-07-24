@@ -83,6 +83,32 @@ Organization.objects.filter(slug='${slug}').update(city='')
   );
 }
 
+/**
+ * Restore e2e-leave-org to its seeded membership state: e2e-lone-admin as the
+ * sole admin, with e2e-member and e2e-regular as regular members. Needed
+ * because the leave/reassign-admin flow deletes and promotes memberships, and
+ * clear_invitations only removes non-seeded memberships (it can't restore a
+ * removed admin or demote a promoted member).
+ */
+export function resetLeaveOrgState() {
+  runManageCommand(
+    `shell -c "
+from squarelet.organizations.models import Membership, Organization
+from squarelet.users.models import User
+org = Organization.objects.get(slug='e2e-leave-org')
+org.memberships.all().delete()
+usernames = ['e2e-lone-admin', 'e2e-member', 'e2e-regular']
+for i, username in enumerate(usernames):
+    user = User.objects.get(username=username)
+    Membership.objects.create(user=user, organization=org, admin=(i == 0))
+    # Individual orgs are hidden (and therefore unsearchable) by default;
+    # unhide so the outgoing admin can find members in the reassign widget.
+    user.individual_organization.hidden = False
+    user.individual_organization.save()
+"`,
+  );
+}
+
 export function resetAutoJoinState(slug: string) {
   runManageCommand(
     `shell -c "

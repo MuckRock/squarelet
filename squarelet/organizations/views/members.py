@@ -1,14 +1,21 @@
 # Django
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth.mixins import UserPassesTestMixin
 from django.http.response import HttpResponseBadRequest
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils.html import format_html
+from django.utils.translation import gettext_lazy as _
 from django.views.generic import DetailView, ListView
 
 # Squarelet
-from squarelet.core.utils import get_redirect_url, new_action, pluralize
+from squarelet.core.utils import (
+    create_zendesk_ticket,
+    get_redirect_url,
+    new_action,
+    pluralize,
+)
 from squarelet.organizations.choices import InvitationRole
 from squarelet.organizations.forms import AddMemberForm, InvitationAcceptForm
 from squarelet.organizations.mixins import OrganizationPermissionMixin
@@ -197,7 +204,9 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
         try:
             userid = request.POST.get("userid")
             membership = self.organization.memberships.get(user_id=userid)
-            membership_fn(membership)
+            result = membership_fn(membership)
+            if result:
+                return result
             messages.success(self.request, success_message_fn(membership))
         except Membership.DoesNotExist:
             return self._bad_call(request)
@@ -213,6 +222,14 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
             return self._bad_call(request)
 
         def handle_make_admin(membership):
+            user = membership.user
+            org = membership.organization
+
+            # If the user is demoting themselves, and they're the only admin,
+            # send them to the demote version of the reassign admin page.
+            if user == request.user and org.has_sole_admin(user) and not set_admin:
+                return redirect("organizations:reassign-admin-demote", org.slug)
+
             membership.admin = set_admin
             membership.save()
 
@@ -229,6 +246,8 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
                     target=self.organization,
                 )
 
+            return None
+
         return self._handle_user(
             request,
             handle_make_admin,
@@ -242,6 +261,13 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
     def _handle_remove_user(self, request):
         def handle_remove(membership):
             user = membership.user
+            org = membership.organization
+
+            # If the user is leaving, and they're the only admin,
+            # send them to the reassign admin page.
+            if user == request.user and org.has_sole_admin(user):
+                return redirect("organizations:reassign-admin", org.slug)
+
             membership.delete()
 
             # Log staff action to activity stream
@@ -252,6 +278,8 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
                     action_object=user,
                     target=self.organization,
                 )
+
+            return None
 
         return self._handle_user(
             request,
@@ -395,3 +423,70 @@ class OrgRequestsView(BaseOrgInvitationRequestView):
     template_name = "organizations/organization_requests.html"
     context_object_name = "requests"
     is_request_view = True
+
+
+class ReassignAdmin(UserPassesTestMixin, DetailView):
+    action = "leave"
+    queryset = Organization.objects.filter(individual=False)
+    template_name = "organizations/organization_leave.html"
+
+    def test_func(self):
+        user = self.request.user
+        return self.get_object().has_sole_admin(user)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["leave"] = self.action == "leave"
+        return context
+
+    def post(self, request, *args, **kwargs):
+        is_leave_form = self.action == "leave"
+        user = request.user
+        org = self.get_object()
+        new_admin_id = request.POST.get("userid")
+        url = "reassign-admin" if is_leave_form else "reassign-admin-demote"
+
+        if new_admin_id == str(user.id):
+            messages.warning(request, _("You must assign a user other than yourself"))
+            return redirect(f"organizations:{url}", org.slug)
+
+        if new_admin_id:
+            # If the outgoing admin picked a replacement, promote them
+            try:
+                membership = org.memberships.get(user_id=new_admin_id)
+                membership.admin = True
+                membership.save()
+
+                messages.info(
+                    request, _(f"{membership.user.username} promoted to admin")
+                )
+            except Membership.DoesNotExist:
+                messages.error(request, _("User is not a member of this organization"))
+                return redirect(f"organizations:{url}", org.slug)
+        else:
+            # If there's no replacement admin, create a Zendesk ticket
+            manage = reverse("organizations:manage-members", args=[org.slug])
+            manage_link = request.build_absolute_uri(manage)
+            subject = f"Organization with no admins: {org.name}"
+            description = (
+                f"The last admin has left {org.name}. ",
+                f"Follow this link to assign a new admin: {manage_link}",
+            )
+
+            create_zendesk_ticket(subject=subject, description=description)
+
+        membership = user.memberships.get(organization=org)
+
+        if is_leave_form:
+            membership.delete()
+            messages.info(request, _("You left the organization"))
+        else:
+            membership.admin = False
+            membership.save()
+            messages.info(request, _("You are demoted to a member"))
+
+        # User can still see the org if it's public or they only self-demoted
+        if not is_leave_form or not org.private:
+            return redirect(org)
+        else:
+            return redirect(user)
