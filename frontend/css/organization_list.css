@@ -139,7 +139,8 @@
 }
 
 #org_search {
-  width: 100%;
+  align-self: stretch;
+  flex: 1 0 auto;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -215,4 +216,22 @@ p {
 .pending .card {
   max-height: 32rem;
   overflow-y: auto;
+}
+
+/* Variant used on member org lists */
+.member-detail {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.member-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.5rem;
+  align-items: center;
+  justify-content: flex-end;
 }

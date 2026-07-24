@@ -21,6 +21,7 @@ from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import get_redirect_url, is_rate_limited, new_action
 from squarelet.organizations.forms import InvitationAcceptForm
 from squarelet.organizations.models import Invitation, Membership, Organization, Plan
+from squarelet.organizations.models.invitation import OrganizationInvitation
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.tasks import sync_wix
 
@@ -93,6 +94,8 @@ class Detail(AdminLinkMixin, DetailView):
         )
         context["inherited_plans"] = org.get_inherited_plans()
 
+        context.update(self._get_groups_context(user, org))
+
         return context
 
     def _get_membership_context(self, user, org):
@@ -136,6 +139,45 @@ class Detail(AdminLinkMixin, DetailView):
                     time_stamp, tz=timezone.get_current_timezone()
                 )
                 ctx["current_plan_next_charge_date"] = tz_datetime.date()
+
+        return ctx
+
+    def _get_groups_context(self, user, org):
+        can_manage_member_orgs = user.has_perm(
+            "organizations.can_manage_member_orgs", org
+        )
+        can_manage_groups = user.has_perm("organizations.can_manage_groups", org)
+        is_member = org.has_member(user)
+
+        ctx = {
+            "groups": org.groups.all(),
+            "members": org.members.all(),
+        }
+
+        if can_manage_groups:
+            ctx["group_invitations"] = (
+                OrganizationInvitation.objects.pending()
+                .filter(to_organization=org)
+                .select_related("from_organization")
+            )
+
+        if can_manage_member_orgs:
+            # Pending invitations this org has sent to other orgs to join its group
+            ctx["member_org_invitations"] = (
+                OrganizationInvitation.objects.invitations()
+                .filter(from_organization=org)
+                .select_related("to_organization")
+            )
+
+        ctx["show_groups_section"] = can_manage_groups and (
+            len(ctx["groups"]) > 0 or len(ctx["group_invitations"]) > 0
+        )
+
+        # For collective groups, the members section is always visible to admins,
+        # and visible to non-admins only when the group has member organizations.
+        ctx["show_members_section"] = org.collective_enabled and (
+            can_manage_member_orgs or (is_member and len(ctx["members"]) > 0)
+        )
 
         return ctx
 
@@ -336,6 +378,124 @@ class Detail(AdminLinkMixin, DetailView):
         if triggered:
             messages.success(request, _("Wix sync started"))
 
+    def handle_remove_member_org(self, request):
+        """Removes a member organization from a group.
+        Called by the group Remove action and the member Leave action."""
+
+        org = self.organization
+        member_slug = request.POST.get("member_org")
+        user = request.user
+
+        try:
+            member_org = org.members.get(slug=member_slug)
+        except Organization.DoesNotExist:
+            messages.error(request, _("Organization not found"))
+            return
+
+        can_manage_member_orgs = user.has_perm(
+            "organizations.can_manage_member_orgs", org
+        )
+        can_manage_groups = user.has_perm("organizations.can_manage_groups", member_org)
+
+        # The user taking the action must have permission
+        # on either the group org or the member org
+        if not can_manage_member_orgs and not can_manage_groups:
+            messages.error(
+                request, _("You do not have permission to remove this membership")
+            )
+            return
+
+        org.members.remove(member_org)
+
+        if can_manage_groups:
+            new_action(
+                actor=user,
+                verb="left group",
+                action_object=self.organization,
+                target=member_org,
+            )
+        else:
+            new_action(
+                actor=user,
+                verb="removed group member",
+                action_object=member_org,
+                target=self.organization,
+            )
+
+        messages.info(
+            request,
+            _("%(member)s is no longer a member of %(group)s")
+            % {"member": member_org.name, "group": org.name},
+        )
+
+    def _get_invitation(self, request):
+        org = self.organization
+        can_manage_groups = request.user.has_perm(
+            "organizations.can_manage_groups", org
+        )
+
+        if not can_manage_groups:
+            messages.error(
+                request, _("You do not have permission to accept this invitation")
+            )
+            return None
+
+        invitation_uuid = request.POST.get("invitation")
+
+        try:
+            invitation = OrganizationInvitation.objects.get(
+                uuid=invitation_uuid, to_organization=org
+            )
+        except OrganizationInvitation.DoesNotExist:
+            messages.error(request, _("Invitation not found"))
+            return None
+
+        return invitation
+
+    def handle_accept_group_invitation(self, request):
+        invitation = self._get_invitation(request)
+
+        if not invitation:
+            return
+
+        invitation.accept()
+
+        member_org = self.organization
+        group_org = invitation.from_organization
+
+        new_action(
+            actor=request.user,
+            verb="joined group",
+            action_object=group_org,
+            target=member_org,
+        )
+
+        messages.success(
+            request,
+            _("%(member)s is now a member of %(group)s")
+            % {"member": member_org.name, "group": group_org.name},
+        )
+
+    def handle_reject_group_invitation(self, request):
+        invitation = self._get_invitation(request)
+
+        if not invitation:
+            return
+
+        invitation.reject()
+
+        member_org = self.organization
+        group_org = invitation.from_organization
+
+        new_action(
+            actor=request.user,
+            verb="rejected group invitation",
+            action_object=group_org,
+            target=member_org,
+        )
+
+        messages.info(request, _("Invitation rejected"))
+
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
         self.organization = self.object
@@ -357,6 +517,14 @@ class Detail(AdminLinkMixin, DetailView):
                 return result
         elif action == "disable_autojoin":
             self.handle_disable_autojoin(request)
+        elif action == "remove_member_org":
+            self.handle_remove_member_org(request)
+        elif action == "accept_group_invitation":
+            self.handle_accept_group_invitation(request)
+            return redirect(self.organization)
+        elif action == "reject_group_invitation":
+            self.handle_reject_group_invitation(request)
+            return redirect(self.organization)
         return get_redirect_url(request, redirect(self.organization))
 
 

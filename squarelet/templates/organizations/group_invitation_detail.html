@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load static %}
+{% load thumbnail django_vite icon %}
+{% load i18n %}
+
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/invitation.ts" %}
+{% endblock vite %}
+
+{% block title %}Invitation to join {{ organizationinvitation.from_org.name }}{% endblock %}
+
+
+{% block content %}
+  {% with to_org=organizationinvitation.to_organization from_org=organizationinvitation.from_organization %}
+  <div class="container">
+    <h2>
+      {{to_org}}
+      {% trans "is invited to become an affiliate of " %}
+      <a href="{{ from_org.get_absolute_url }}">{{ from_org }}</a>
+      {% trans "on MuckRock" %}
+    </h2>
+    <p>
+      {% blocktrans %}
+      Affiliations are relationships <em>between organizations</em>.
+      As an affiliate, your orgainzation may be entitled to additional network benefits and resources.
+      {% endblocktrans %}
+    </p>
+    <p>
+      {% url 'users:redirect' as user_url %}
+      {% blocktrans with name=request.user.name email=request.user.email to_name=to_org.name %}
+        You're currently logged in as <a class="user-data" href="{{ user_url }}">{{ name }}</a> with <span class="user-data">{{ email }}</span>. You received this because you are an admin of {{ to_name }}.
+      {% endblocktrans %}
+    </p>
+
+    <form method="post" action="{% url "organizations:detail" to_org.slug %}" class="control-group">
+      {% csrf_token %}
+      <input type="hidden" name="invitation" value="{{ organizationinvitation.uuid }}">
+      <button class="btn small primary" type="submit" name="action" value="accept_group_invitation">
+        {% icon "check" %}
+        {% trans "Accept" %}
+      </button>
+      <button class="btn small danger ghost" type="submit" name="action" value="reject_group_invitation">
+        {% trans "Reject" %}
+      </button>
+    </form>
+
+  </div>
+  {% endwith %}
+{% endblock content %}

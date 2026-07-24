@@ -23,8 +23,9 @@ from squarelet.core.tests.mixins import ViewTestMixin
 
 # Local
 from .. import views
-from ..choices import InvitationRole
+from ..choices import InvitationRole, RelationshipType
 from ..models import Organization, OrganizationEmailDomain, Plan, ReceiptEmail
+from ..models.invitation import OrganizationInvitation
 
 # pylint: disable=too-many-public-methods, too-many-lines, too-many-positional-arguments
 
@@ -2373,3 +2374,598 @@ class TestOrgRequestsView(ViewTestMixin):
         organization = organization_factory()
         response = self.call_view(rf, slug=organization.slug)
         assert response.status_code == 302
+
+
+@pytest.mark.django_db()
+class TestDetailMemberOrgActions(ViewTestMixin):
+    """Tests for the member-org / group-invitation POST handlers on Detail."""
+
+    view = views.Detail
+    url = "/organizations/{slug}/"
+
+    @pytest.fixture(autouse=True)
+    def _setup_plan(self):
+        Plan.objects.get_or_create(
+            slug="organization", defaults={"name": "Organization"}
+        )
+
+    def test_group_admin_removes_member_org(
+        self, rf, organization_factory, user_factory
+    ):
+        """A group admin can remove a member org from the group."""
+        group_admin = user_factory()
+        group = organization_factory(collective_enabled=True, admins=[group_admin])
+        member_org = organization_factory()
+        group.members.add(member_org)
+
+        response = self.call_view(
+            rf,
+            group_admin,
+            {"action": "remove_member_org", "member_org": member_org.slug},
+            slug=group.slug,
+        )
+        assert response.status_code == 302
+        assert not group.has_member_org(member_org)
+
+        action = Action.objects.filter(
+            actor_object_id=str(group_admin.pk),
+            verb="removed group member",
+        ).first()
+        assert action is not None
+        assert action.actor == group_admin
+        assert action.action_object == member_org
+        assert action.target == group
+
+    def test_member_admin_leaves_group(self, rf, organization_factory, user_factory):
+        """An admin of the member org can remove their own org from the group."""
+        member_admin = user_factory()
+        group = organization_factory(collective_enabled=True)
+        member_org = organization_factory(admins=[member_admin])
+        group.members.add(member_org)
+
+        response = self.call_view(
+            rf,
+            member_admin,
+            {"action": "remove_member_org", "member_org": member_org.slug},
+            slug=group.slug,
+        )
+        assert response.status_code == 302
+        assert not group.has_member_org(member_org)
+
+        action = Action.objects.filter(
+            actor_object_id=str(member_admin.pk),
+            verb="left group",
+        ).first()
+        assert action is not None
+        assert action.actor == member_admin
+        assert action.action_object == group
+        assert action.target == member_org
+
+    def test_remove_member_org_denied_without_admin(
+        self, rf, organization_factory, user_factory
+    ):
+        """A user who administers neither org cannot remove the membership."""
+        outsider = user_factory()
+        group = organization_factory(collective_enabled=True, users=[outsider])
+        member_org = organization_factory()
+        group.members.add(member_org)
+
+        response = self.call_view(
+            rf,
+            outsider,
+            {"action": "remove_member_org", "member_org": member_org.slug},
+            slug=group.slug,
+        )
+        assert response.status_code == 302
+        assert group.has_member_org(member_org)
+        self.assert_message(
+            messages.ERROR,
+            "You do not have permission to remove this membership",
+        )
+
+    def test_remove_member_org_not_found(self, rf, organization_factory, user_factory):
+        """Removing a non-member org shows an error and does nothing."""
+        group_admin = user_factory()
+        group = organization_factory(collective_enabled=True, admins=[group_admin])
+
+        response = self.call_view(
+            rf,
+            group_admin,
+            {"action": "remove_member_org", "member_org": "does-not-exist"},
+            slug=group.slug,
+        )
+        assert response.status_code == 302
+        self.assert_message(messages.ERROR, "Organization not found")
+
+    def test_accept_group_invitation(
+        self, rf, organization_factory, user_factory, organization_invitation_factory
+    ):
+        """An admin of the invited org accepts, joining the group."""
+        member_admin = user_factory()
+        group = organization_factory(collective_enabled=True)
+        member_org = organization_factory(admins=[member_admin])
+        invitation = organization_invitation_factory(
+            from_organization=group,
+            to_organization=member_org,
+            relationship_type=RelationshipType.member,
+        )
+
+        response = self.call_view(
+            rf,
+            member_admin,
+            {"action": "accept_group_invitation", "invitation": str(invitation.uuid)},
+            slug=member_org.slug,
+        )
+        assert response.status_code == 302
+        invitation.refresh_from_db()
+        assert invitation.is_accepted
+        assert group.has_member_org(member_org)
+
+        action = Action.objects.filter(
+            actor_object_id=str(member_admin.pk),
+            verb="joined group",
+        ).first()
+        assert action is not None
+        assert action.actor == member_admin
+        assert action.action_object == group
+        assert action.target == member_org
+
+    def test_accept_group_invitation_denied_for_non_admin(
+        self, rf, organization_factory, user_factory, organization_invitation_factory
+    ):
+        """A non-admin of the invited org cannot accept the invitation."""
+        member = user_factory()
+        group = organization_factory(collective_enabled=True)
+        member_org = organization_factory(users=[member])
+        invitation = organization_invitation_factory(
+            from_organization=group, to_organization=member_org
+        )
+
+        response = self.call_view(
+            rf,
+            member,
+            {"action": "accept_group_invitation", "invitation": str(invitation.uuid)},
+            slug=member_org.slug,
+        )
+        assert response.status_code == 302
+        invitation.refresh_from_db()
+        assert invitation.is_pending
+        assert not group.has_member_org(member_org)
+        self.assert_message(
+            messages.ERROR,
+            "You do not have permission to accept this invitation",
+        )
+
+    def test_accept_group_invitation_not_found(
+        self, rf, organization_factory, user_factory
+    ):
+        """Accepting with an unknown invitation uuid shows an error."""
+        member_admin = user_factory()
+        member_org = organization_factory(admins=[member_admin])
+
+        response = self.call_view(
+            rf,
+            member_admin,
+            {
+                "action": "accept_group_invitation",
+                "invitation": "00000000-0000-0000-0000-000000000000",
+            },
+            slug=member_org.slug,
+        )
+        assert response.status_code == 302
+        self.assert_message(messages.ERROR, "Invitation not found")
+
+    def test_reject_group_invitation(
+        self, rf, organization_factory, user_factory, organization_invitation_factory
+    ):
+        """An admin of the invited org rejects the invitation."""
+        member_admin = user_factory()
+        group = organization_factory(collective_enabled=True)
+        member_org = organization_factory(admins=[member_admin])
+        invitation = organization_invitation_factory(
+            from_organization=group, to_organization=member_org
+        )
+
+        response = self.call_view(
+            rf,
+            member_admin,
+            {"action": "reject_group_invitation", "invitation": str(invitation.uuid)},
+            slug=member_org.slug,
+        )
+        assert response.status_code == 302
+        invitation.refresh_from_db()
+        assert invitation.is_rejected
+        assert not group.has_member_org(member_org)
+
+        action = Action.objects.filter(
+            actor_object_id=str(member_admin.pk),
+            verb="rejected group invitation",
+        ).first()
+        assert action is not None
+        assert action.actor == member_admin
+        assert action.action_object == group
+        assert action.target == member_org
+
+    def test_reject_group_invitation_denied_for_non_admin(
+        self, rf, organization_factory, user_factory, organization_invitation_factory
+    ):
+        """A non-admin of the invited org cannot reject the invitation."""
+        member = user_factory()
+        group = organization_factory(collective_enabled=True)
+        member_org = organization_factory(users=[member])
+        invitation = organization_invitation_factory(
+            from_organization=group, to_organization=member_org
+        )
+
+        response = self.call_view(
+            rf,
+            member,
+            {"action": "reject_group_invitation", "invitation": str(invitation.uuid)},
+            slug=member_org.slug,
+        )
+        assert response.status_code == 302
+        invitation.refresh_from_db()
+        assert invitation.is_pending
+        self.assert_message(
+            messages.ERROR,
+            "You do not have permission to accept this invitation",
+        )
+
+    def test_member_org_invitations_in_context_for_group_admin(
+        self, rf, organization_factory, user_factory, organization_invitation_factory
+    ):
+        """A group admin sees pending invitations the group has sent out."""
+        group_admin = user_factory()
+        group = organization_factory(collective_enabled=True, admins=[group_admin])
+        organization_invitation_factory.create_batch(
+            3, from_organization=group, request=False
+        )
+        # A received request and an accepted invitation should be excluded
+        organization_invitation_factory(from_organization=group, request=True)
+        organization_invitation_factory(
+            from_organization=group, request=False, accepted_at=timezone.now()
+        )
+
+        response = self.call_view(rf, group_admin, slug=group.slug)
+        assert response.status_code == 200
+        assert response.context_data["member_org_invitations"].count() == 3
+
+    def test_member_org_invitations_not_in_context_for_non_admin(
+        self, rf, organization_factory, user_factory, organization_invitation_factory
+    ):
+        """A non-admin member doesn't get the member_org_invitations context."""
+        member = user_factory()
+        group = organization_factory(collective_enabled=True, users=[member])
+        organization_invitation_factory(from_organization=group, request=False)
+
+        response = self.call_view(rf, member, slug=group.slug)
+        assert response.status_code == 200
+        assert "member_org_invitations" not in response.context_data
+
+
+@pytest.mark.django_db()
+class TestManageMemberOrgs(ViewTestMixin):
+    """Tests for the ManageMemberOrgs view."""
+
+    view = views.ManageMemberOrgs
+    url = "/organizations/{slug}/manage-member-orgs/"
+
+    def test_get_collective_admin(self, rf, organization_factory, user_factory):
+        """Admin of a collective-enabled org can access the view."""
+        admin = user_factory()
+        org = organization_factory(collective_enabled=True, admins=[admin])
+        response = self.call_view(rf, admin, slug=org.slug)
+        assert response.status_code == 200
+        assert response.context_data["organization"] == org
+
+    def test_get_denied_for_non_collective_admin(
+        self, rf, organization_factory, user_factory
+    ):
+        """Admin of a non-collective org is denied."""
+        admin = user_factory()
+        org = organization_factory(collective_enabled=False, admins=[admin])
+        with pytest.raises(PermissionDenied):
+            self.call_view(rf, admin, slug=org.slug)
+
+    def test_get_denied_for_member(self, rf, organization_factory, user_factory):
+        """A non-admin member is denied."""
+        member = user_factory()
+        org = organization_factory(collective_enabled=True, users=[member])
+        with pytest.raises(PermissionDenied):
+            self.call_view(rf, member, slug=org.slug)
+
+    def test_get_anonymous_redirect(self, rf, organization_factory):
+        """Anonymous user gets redirected to login."""
+        org = organization_factory(collective_enabled=True)
+        response = self.call_view(rf, slug=org.slug)
+        assert response.status_code == 302
+
+    def test_context_has_members_and_pending_invitations(
+        self, rf, organization_factory, user_factory, organization_invitation_factory
+    ):
+        """Context exposes members and pending outgoing invitations."""
+        admin = user_factory()
+        org = organization_factory(collective_enabled=True, admins=[admin])
+        member_org = organization_factory()
+        org.members.add(member_org)
+
+        # A pending invitation (should appear)
+        organization_invitation_factory(from_organization=org)
+        # A withdrawn invitation (should NOT appear)
+        organization_invitation_factory(
+            from_organization=org, withdrawn_at=timezone.now()
+        )
+        # An invitation from a different org (should NOT appear)
+        organization_invitation_factory()
+
+        response = self.call_view(rf, admin, slug=org.slug)
+        assert response.status_code == 200
+        assert member_org in response.context_data["members"]
+        assert response.context_data["pending_invitations"].count() == 1
+
+    def test_post_send_invite(self, rf, mailoutbox, organization_factory, user_factory):
+        """Sending an invite creates a pending invitation and emails the target."""
+        admin = user_factory()
+        target_admin = user_factory()
+        org = organization_factory(collective_enabled=True, admins=[admin])
+        to_org = organization_factory(admins=[target_admin])
+
+        response = self.call_view(
+            rf,
+            admin,
+            {"action": "send_invite", "to_organization": to_org.id},
+            slug=org.slug,
+        )
+        assert response.status_code == 302
+        invitation = OrganizationInvitation.objects.get(
+            from_organization=org, to_organization=to_org
+        )
+        assert invitation.relationship_type == RelationshipType.member
+        assert invitation.is_pending
+        assert len(mailoutbox) == 1
+        assert target_admin.email in mailoutbox[0].to
+
+    def test_post_send_invite_already_member(
+        self, rf, organization_factory, user_factory
+    ):
+        """Inviting an existing member org shows an info message, no invitation."""
+        admin = user_factory()
+        org = organization_factory(collective_enabled=True, admins=[admin])
+        to_org = organization_factory()
+        org.members.add(to_org)
+
+        response = self.call_view(
+            rf,
+            admin,
+            {"action": "send_invite", "to_organization": to_org.id},
+            slug=org.slug,
+        )
+        assert response.status_code == 302
+        assert not OrganizationInvitation.objects.filter(
+            from_organization=org, to_organization=to_org
+        ).exists()
+
+    def test_post_send_invite_to_self(self, rf, organization_factory, user_factory):
+        """An org cannot invite itself."""
+        admin = user_factory()
+        org = organization_factory(collective_enabled=True, admins=[admin])
+
+        response = self.call_view(
+            rf,
+            admin,
+            {"action": "send_invite", "to_organization": org.id},
+            slug=org.slug,
+        )
+        assert response.status_code == 302
+        assert not OrganizationInvitation.objects.filter(
+            from_organization=org, to_organization=org
+        ).exists()
+
+    def test_post_send_invite_nonexistent_org(
+        self, rf, organization_factory, user_factory
+    ):
+        """Inviting a non-existent org shows an error."""
+        admin = user_factory()
+        org = organization_factory(collective_enabled=True, admins=[admin])
+
+        response = self.call_view(
+            rf,
+            admin,
+            {"action": "send_invite", "to_organization": 99999},
+            slug=org.slug,
+        )
+        assert response.status_code == 302
+        self.assert_message(messages.ERROR, "Organization not found")
+
+    def test_post_send_invite_individual_org_rejected(
+        self, rf, organization_factory, individual_organization_factory, user_factory
+    ):
+        """Individual orgs cannot be invited as member orgs."""
+        admin = user_factory()
+        org = organization_factory(collective_enabled=True, admins=[admin])
+        individual = individual_organization_factory()
+
+        response = self.call_view(
+            rf,
+            admin,
+            {"action": "send_invite", "to_organization": individual.id},
+            slug=org.slug,
+        )
+        assert response.status_code == 302
+        self.assert_message(messages.ERROR, "Organization not found")
+
+    def test_post_resend_invite(
+        self,
+        rf,
+        mailoutbox,
+        organization_factory,
+        user_factory,
+        organization_invitation_factory,
+    ):
+        """Resending a pending invitation re-sends the email."""
+        admin = user_factory()
+        target_admin = user_factory()
+        org = organization_factory(collective_enabled=True, admins=[admin])
+        to_org = organization_factory(admins=[target_admin])
+        invitation = organization_invitation_factory(
+            from_organization=org, to_organization=to_org
+        )
+
+        response = self.call_view(
+            rf,
+            admin,
+            {"action": "resend_invite", "invitation": str(invitation.uuid)},
+            slug=org.slug,
+        )
+        assert response.status_code == 302
+        assert len(mailoutbox) == 1
+
+    def test_post_resend_invite_not_pending(
+        self,
+        rf,
+        mailoutbox,
+        organization_factory,
+        user_factory,
+        organization_invitation_factory,
+    ):
+        """Resending a non-pending invitation does nothing."""
+        admin = user_factory()
+        org = organization_factory(collective_enabled=True, admins=[admin])
+        invitation = organization_invitation_factory(
+            from_organization=org, withdrawn_at=timezone.now()
+        )
+
+        response = self.call_view(
+            rf,
+            admin,
+            {"action": "resend_invite", "invitation": str(invitation.uuid)},
+            slug=org.slug,
+        )
+        assert response.status_code == 302
+        assert not mailoutbox
+
+    def test_post_resend_invite_not_found(self, rf, organization_factory, user_factory):
+        """Resending an unknown invitation shows an error."""
+        admin = user_factory()
+        org = organization_factory(collective_enabled=True, admins=[admin])
+
+        response = self.call_view(
+            rf,
+            admin,
+            {
+                "action": "resend_invite",
+                "invitation": "00000000-0000-0000-0000-000000000000",
+            },
+            slug=org.slug,
+        )
+        assert response.status_code == 302
+        self.assert_message(messages.ERROR, "Invitation not found")
+
+    def test_post_withdraw_invite(
+        self, rf, organization_factory, user_factory, organization_invitation_factory
+    ):
+        """Withdrawing a pending invitation marks it withdrawn."""
+        admin = user_factory()
+        org = organization_factory(collective_enabled=True, admins=[admin])
+        invitation = organization_invitation_factory(from_organization=org)
+
+        response = self.call_view(
+            rf,
+            admin,
+            {"action": "withdraw_invite", "invitation": str(invitation.uuid)},
+            slug=org.slug,
+        )
+        assert response.status_code == 302
+        invitation.refresh_from_db()
+        assert invitation.is_withdrawn
+
+    def test_post_withdraw_invite_not_found(
+        self, rf, organization_factory, user_factory
+    ):
+        """Withdrawing an unknown invitation shows an error."""
+        admin = user_factory()
+        org = organization_factory(collective_enabled=True, admins=[admin])
+
+        response = self.call_view(
+            rf,
+            admin,
+            {
+                "action": "withdraw_invite",
+                "invitation": "00000000-0000-0000-0000-000000000000",
+            },
+            slug=org.slug,
+        )
+        assert response.status_code == 302
+        self.assert_message(messages.ERROR, "Invitation not found")
+
+    def test_post_unauthenticated_redirects(self, rf, organization_factory):
+        """An unauthenticated POST redirects to the organization."""
+        org = organization_factory(collective_enabled=True)
+        response = self.call_view(rf, data={"action": "withdraw_invite"}, slug=org.slug)
+        assert response.status_code == 302
+
+
+@pytest.mark.django_db()
+class TestAcceptMemberOrgInvitation(ViewTestMixin):
+    """Tests for the AcceptMemberOrgInvitation view."""
+
+    view = views.AcceptMemberOrgInvitation
+    url = "/organizations/{uuid}/member-org-invitation/"
+
+    def test_get_admin_of_invited_org(
+        self, rf, organization_factory, user_factory, organization_invitation_factory
+    ):
+        """An admin of the invited (to) org can view the invitation."""
+        member_admin = user_factory()
+        group = organization_factory(collective_enabled=True)
+        member_org = organization_factory(admins=[member_admin])
+        invitation = organization_invitation_factory(
+            from_organization=group, to_organization=member_org
+        )
+
+        response = self.call_view(rf, member_admin, uuid=str(invitation.uuid))
+        assert response.status_code == 200
+        assert response.context_data["object"] == invitation
+
+    def test_get_denied_for_non_admin(
+        self, rf, organization_factory, user_factory, organization_invitation_factory
+    ):
+        """A non-admin of the invited org is denied."""
+        member = user_factory()
+        group = organization_factory(collective_enabled=True)
+        member_org = organization_factory(users=[member])
+        invitation = organization_invitation_factory(
+            from_organization=group, to_organization=member_org
+        )
+
+        with pytest.raises(PermissionDenied):
+            self.call_view(rf, member, uuid=str(invitation.uuid))
+
+    def test_get_anonymous_redirect(
+        self, rf, organization_factory, organization_invitation_factory
+    ):
+        """Anonymous user gets redirected to login."""
+        group = organization_factory(collective_enabled=True)
+        member_org = organization_factory()
+        invitation = organization_invitation_factory(
+            from_organization=group, to_organization=member_org
+        )
+
+        response = self.call_view(rf, uuid=str(invitation.uuid))
+        assert response.status_code == 302
+
+    def test_get_non_pending_invitation_404(
+        self, rf, organization_factory, user_factory, organization_invitation_factory
+    ):
+        """A non-pending invitation is not found (queryset is pending only)."""
+        member_admin = user_factory()
+        group = organization_factory(collective_enabled=True)
+        member_org = organization_factory(admins=[member_admin])
+        invitation = organization_invitation_factory(
+            from_organization=group,
+            to_organization=member_org,
+            accepted_at=timezone.now(),
+        )
+
+        with pytest.raises(Http404):
+            self.call_view(rf, member_admin, uuid=str(invitation.uuid))

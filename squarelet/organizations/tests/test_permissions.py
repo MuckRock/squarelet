@@ -58,6 +58,126 @@ class TestCanManageMembersRule:
 
 
 @pytest.mark.django_db()
+class TestCanManageMemberOrgsRule:
+    """Test the organizations.can_manage_member_orgs rule-based permission.
+
+    Registered as ``is_admin & is_collective`` — a user must both be an admin
+    of the org and the org must have the collective feature enabled.
+    """
+
+    def test_collective_admin_has_can_manage_member_orgs(
+        self, organization_factory, user_factory
+    ):
+        """Admin of a collective-enabled org gets can_manage_member_orgs"""
+        admin = user_factory()
+        org = organization_factory(collective_enabled=True, admins=[admin])
+        assert admin.has_perm("organizations.can_manage_member_orgs", org)
+
+    def test_admin_of_non_collective_lacks_can_manage_member_orgs(
+        self, organization_factory, user_factory
+    ):
+        """Admin of a non-collective org does NOT get can_manage_member_orgs"""
+        admin = user_factory()
+        org = organization_factory(collective_enabled=False, admins=[admin])
+        assert not admin.has_perm("organizations.can_manage_member_orgs", org)
+
+    def test_collective_member_lacks_can_manage_member_orgs(
+        self, organization_factory, user_factory
+    ):
+        """Regular member of a collective org does NOT get can_manage_member_orgs"""
+        member = user_factory()
+        org = organization_factory(collective_enabled=True, users=[member])
+        assert not member.has_perm("organizations.can_manage_member_orgs", org)
+
+    def test_anonymous_lacks_can_manage_member_orgs(self, organization_factory):
+        """Anonymous users do not get can_manage_member_orgs"""
+        org = organization_factory(collective_enabled=True)
+        anon = AnonymousUser()
+        assert not anon.has_perm("organizations.can_manage_member_orgs", org)
+
+    def test_staff_without_perm_lacks_can_manage_member_orgs(
+        self, organization_factory, user_factory
+    ):
+        """Staff status alone does NOT grant can_manage_member_orgs"""
+        staff = user_factory(is_staff=True)
+        org = organization_factory(collective_enabled=True)
+        assert not staff.has_perm("organizations.can_manage_member_orgs", org)
+
+    def test_staff_with_db_perm_has_can_manage_member_orgs(self, user_factory):
+        """A user with the DB-assigned permission gets it (via ModelBackend)"""
+        user = user_factory()
+        ct = ContentType.objects.get_for_model(Organization)
+        perm = Permission.objects.get(
+            codename="can_manage_member_orgs", content_type=ct
+        )
+        user.user_permissions.add(perm)
+        # Refresh user to clear cached permissions
+        user = type(user).objects.get(pk=user.pk)
+        assert user.has_perm("organizations.can_manage_member_orgs")
+
+
+@pytest.mark.django_db()
+class TestCanManageGroupsRule:
+    """Test the organizations.can_manage_groups rule-based permission.
+
+    Registered as ``is_admin`` — a user must be an admin of the org. Unlike
+    can_manage_member_orgs, it does NOT require the collective feature.
+    """
+
+    def test_admin_has_can_manage_groups(self, organization_factory, user_factory):
+        """Org admins get can_manage_groups dynamically via django-rules"""
+        admin = user_factory()
+        org = organization_factory(admins=[admin])
+        assert admin.has_perm("organizations.can_manage_groups", org)
+
+    def test_admin_of_non_collective_has_can_manage_groups(
+        self, organization_factory, user_factory
+    ):
+        """Admin of a non-collective org still gets can_manage_groups"""
+        admin = user_factory()
+        org = organization_factory(collective_enabled=False, admins=[admin])
+        assert admin.has_perm("organizations.can_manage_groups", org)
+
+    def test_member_lacks_can_manage_groups(self, organization_factory, user_factory):
+        """Regular members do not get can_manage_groups"""
+        member = user_factory()
+        org = organization_factory(users=[member])
+        assert not member.has_perm("organizations.can_manage_groups", org)
+
+    def test_non_member_lacks_can_manage_groups(
+        self, organization_factory, user_factory
+    ):
+        """Non-members do not get can_manage_groups"""
+        user = user_factory()
+        org = organization_factory()
+        assert not user.has_perm("organizations.can_manage_groups", org)
+
+    def test_anonymous_lacks_can_manage_groups(self, organization_factory):
+        """Anonymous users do not get can_manage_groups"""
+        org = organization_factory()
+        anon = AnonymousUser()
+        assert not anon.has_perm("organizations.can_manage_groups", org)
+
+    def test_staff_without_perm_lacks_can_manage_groups(
+        self, organization_factory, user_factory
+    ):
+        """Staff status alone does NOT grant can_manage_groups"""
+        staff = user_factory(is_staff=True)
+        org = organization_factory()
+        assert not staff.has_perm("organizations.can_manage_groups", org)
+
+    def test_staff_with_db_perm_has_can_manage_groups(self, user_factory):
+        """A user with the DB-assigned permission gets it (via ModelBackend)"""
+        user = user_factory()
+        ct = ContentType.objects.get_for_model(Organization)
+        perm = Permission.objects.get(codename="can_manage_groups", content_type=ct)
+        user.user_permissions.add(perm)
+        # Refresh user to clear cached permissions
+        user = type(user).objects.get(pk=user.pk)
+        assert user.has_perm("organizations.can_manage_groups")
+
+
+@pytest.mark.django_db()
 class TestManageMembersViewPermission(ViewTestMixin):
     """Test that ManageMembers view uses the permission mixin"""
 

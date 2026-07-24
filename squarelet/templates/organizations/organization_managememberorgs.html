@@ -1,0 +1,161 @@
+{% extends "layouts/sidebar_layout.html" %}
+{% load avatar humanize django_vite i18n %}
+{% load icon %}
+
+{% block title %}{{ organization.name }} | Manage Member Organizations{% endblock %}
+
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/organization_managememberorgs.ts" %}
+{% endblock vite %}
+
+{% block layout_id %}managemembers{% endblock %}
+
+{% block header %}
+  <header>
+    <h1>{{ organization.name }}</h1>
+    <span class="arrow">{% icon "chevron-right" %}</span>
+    <h2>{% trans "Member Organizations" %}</h2>
+  </header>
+{% endblock %}
+
+{% block sidebar %}
+  <a href="{{ organization.get_absolute_url }}" class="btn small ghost primary">
+    {% icon "chevron-left" %}
+    {% trans "Back to team overview" %}
+  </a>
+  <ul>
+    <li>
+      <a href="#invite" class="nav-item">
+        {% icon "plus-circle" %}
+        {% trans "Invite member orgs" %}
+      </a>
+    </li>
+
+    <li>
+      <a href="#pending" class="nav-item">
+        {% icon "mail" %}
+        {% trans "Pending invitations" %}
+      </a>
+    </li>
+
+    <li>
+      <a href="#member-orgs" class="nav-item">
+        {% icon "network" %}
+        {% trans "Member orgs" %}
+      </a>
+    </li>
+  </ul>
+{% endblock sidebar %}
+
+{% block main %}
+  <section id="invite">
+    <header>
+      <div class="title">
+        <h2>{% trans "Invite member orgs" %}</h2>
+        <p>{% trans "Search for a public MuckRock organization" %}</p>
+      </div>
+    </header>
+
+    <div class="card">
+      <form method="POST" id="invite-form" action="{% url "organizations:manage-member-orgs" organization.slug %}">
+        {% csrf_token %}
+        <div id="org_search"></div>
+        <button disabled class="btn primary" type="submit" name="action" value="send_invite">
+          {% icon "paper-airplane" %}
+          {% trans "Send invite" %}
+        </button>
+      </form>
+    </div>
+  </section>
+
+  {% with count=pending_invitations|length %}
+    <section id="pending">
+      <header>
+        <div class="title">
+          {% if pending_invitations %}
+          <h2>
+            {% blocktrans count count=count %}
+              {{ count }} pending invitation
+            {% plural %}
+              {{ count }} pending invitations
+            {% endblocktrans %}
+          </h2>
+          {% else %}
+          <h2>
+            {% trans "Pending invitations" %}
+          </h2>
+          {% endif %}
+          <p>{% trans "Organizations you've invited to join" %}:</p>
+        </div>
+      </header>
+      <div class="card">
+        <div class="org-list">
+          {% for invitation in pending_invitations %}
+            {% with org=invitation.to_organization %}
+            <div class="org">
+              {% include "account/team_list_item.html" with organization=org %}
+              <div class="member-detail">
+                <form method="post" action="{% url "organizations:manage-member-orgs" organization.slug %}" class="member-actions">
+                  {% csrf_token %}
+                  <input type="hidden" name="invitation" value="{{ invitation.uuid }}">
+                  <button class="btn ghost small" type="submit" name="action" value="resend_invite">
+                    {% icon "paper-airplane" %}
+                    {% trans "Resend" %}
+                  </button>
+                  <button class="btn danger ghost small" type="submit" name="action" value="withdraw_invite">
+                    {% icon "x" %}
+                    {% trans "Withdraw" %}
+                  </button>
+                </form>
+                <p class="caption">{% trans "Created" %} 
+                  <time datetime="{{ invitation.created_at|date:"c" }}" title="{{ invitation.created_at|date:"c" }}">{{ invitation.created_at|naturaltime }}</time>
+                </p>
+              </div>
+            </div>
+            {% endwith %}
+            {% empty %}
+              <div class="empty empty--no-border">
+                <p>{% trans "No pending invitations" %}</p>
+              </div>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+  {% endwith %}
+
+  {% with count=members|length %}
+    <section id="member-orgs">
+      <header>
+        <h2>
+          {% blocktrans count count=count %}
+            {{ count }} member organization
+          {% plural %}
+            {{ count }} member organizations
+          {% endblocktrans %}
+        </h2>
+      </header>
+      <div class="card">
+        <div class="org-list">
+          {% for member in members %}
+            <div class="org">
+              {% include "account/team_list_item.html" with organization=member %}
+              <form method="post" action="{% url "organizations:detail" organization.slug %}" class="member-actions">
+                {% csrf_token %}
+                <input type="hidden" name="member_org" value="{{ member.slug }}">
+                <button class="btn danger ghost small" type="submit" name="action" value="remove_member_org">
+                  {% icon "x-circle" %}
+                  {% trans "Remove" %}
+                </button>
+              </form>
+            </div>
+          {% empty %}
+            <div class="empty empty--no-border">
+              <p>{% trans "No member organizations" %}</p>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+  {% endwith %} 
+{% endblock main %}
