@@ -20,9 +20,9 @@ Args:
       <div class="account-row">
         <div class="account-card">
           <span class="icon">{% icon "credit-card" %}</span>
-          {% if account.card_brand and account.card_last4 %}
+          {% if card_brand and card_last4 %}
             <span>
-              {% blocktrans with brand=account.card_brand last4=account.card_last4 %}
+              {% blocktrans with brand=card_brand last4=card_last4 %}
                 <span class="account-card-brand">{{ brand }}</span> ending in <strong>{{ last4 }}</strong>
               {% endblocktrans %}
             </span>
@@ -30,8 +30,8 @@ Args:
             <span>{% trans "No card on file" %}</span>
           {% endif %}
         </div>
-        <a href="{{ account.update_card_url }}" class="btn ghost primary small">
-          {% if account.card_brand and account.card_last4 %}
+        <a href="{{ update_card_url }}" class="btn ghost primary small">
+          {% if card_brand and card_last4 %}
             {% trans "Update card" %}
           {% else %}
             {% trans "Add card" %}
