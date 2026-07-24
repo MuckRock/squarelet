@@ -35,6 +35,7 @@ from squarelet.organizations.models import (
     OrganizationSubtype,
     OrganizationType,
     OrganizationUrl,
+    PaymentMethod,
     Plan,
     ProfileChangeRequest,
     ReceiptEmail,
@@ -80,10 +81,37 @@ class SubscriptionInline(admin.TabularInline):
         return False
 
 
+class PaymentMethodInline(admin.TabularInline):
+    model = PaymentMethod
+    readonly_fields = (
+        "method_type",
+        "brand",
+        "last4",
+        "exp_month",
+        "exp_year",
+        "stripe_id",
+        "is_default",
+    )
+    extra = 0
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
 class CustomerInline(admin.TabularInline):
     model = Customer
     readonly_fields = ("customer_id",)
     extra = 0
+    show_change_link = True
+
+
+@admin.register(Customer)
+class CustomerAdmin(admin.ModelAdmin):
+    list_display = ("organization", "customer_id")
+    search_fields = ("organization__name", "customer_id")
+    readonly_fields = ("organization", "customer_id")
+    inlines = (PaymentMethodInline,)
 
 
 class InvoiceInline(admin.TabularInline):
