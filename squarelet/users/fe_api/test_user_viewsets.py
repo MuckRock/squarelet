@@ -136,3 +136,101 @@ def test_search_list_fields(client, user_with_org):
     assert "username" in results[0]
     assert "name" in results[0]
     assert "avatar_url" in results[0]
+
+
+@pytest.mark.django_db
+def test_filter_by_organization(client, user_with_org):
+    """?organization=<slug> restricts results to that org's members"""
+    user, org = user_with_org
+    user.individual_organization.hidden = False
+    user.individual_organization.save()
+
+    member = User.objects.create_user(
+        username="member", email="member@example.com", password="password"
+    )
+    member.individual_organization.hidden = False
+    member.individual_organization.save()
+    Membership.objects.create(user=member, organization=org)
+
+    other_org = Organization.objects.create(name="Org B")
+    outsider = User.objects.create_user(
+        username="outsider", email="outsider@example.com", password="password"
+    )
+    outsider.individual_organization.hidden = False
+    outsider.individual_organization.save()
+    Membership.objects.create(user=outsider, organization=other_org)
+
+    client.force_authenticate(user=user)
+    response = client.get(f"/fe_api/users/?organization={org.slug}")
+    assert response.status_code == status.HTTP_200_OK
+    returned_ids = {u["id"] for u in response.data["results"]}
+    assert member.id in returned_ids
+    assert outsider.id not in returned_ids
+
+
+@pytest.mark.django_db
+def test_filter_by_organization_unknown_slug(client, user_with_org):
+    """An organization slug that matches no org returns no members"""
+    user, org = user_with_org
+    user.individual_organization.hidden = False
+    user.individual_organization.save()
+
+    client.force_authenticate(user=user)
+    response = client.get("/fe_api/users/?organization=does-not-exist")
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["results"] == []
+
+
+@pytest.mark.django_db
+def test_no_organization_param_returns_all_searchable(client, user_with_org):
+    """Without the organization param, members of any org are searchable"""
+    user, org = user_with_org
+
+    member = User.objects.create_user(
+        username="member", email="member@example.com", password="password"
+    )
+    member.individual_organization.hidden = False
+    member.individual_organization.save()
+    Membership.objects.create(user=member, organization=org)
+
+    other_org = Organization.objects.create(name="Org B")
+    outsider = User.objects.create_user(
+        username="outsider", email="outsider@example.com", password="password"
+    )
+    outsider.individual_organization.hidden = False
+    outsider.individual_organization.save()
+    Membership.objects.create(user=outsider, organization=other_org)
+
+    client.force_authenticate(user=user)
+    response = client.get("/fe_api/users/")
+    assert response.status_code == status.HTTP_200_OK
+    returned_ids = {u["id"] for u in response.data["results"]}
+    assert member.id in returned_ids
+    assert outsider.id in returned_ids
+
+
+@pytest.mark.django_db
+def test_filter_by_organization_with_search(client, user_with_org):
+    """The organization filter combines with the text search"""
+    user, org = user_with_org
+
+    alice = User.objects.create_user(
+        username="alice-org", email="alice@example.com", password="password"
+    )
+    alice.individual_organization.hidden = False
+    alice.individual_organization.save()
+    Membership.objects.create(user=alice, organization=org)
+
+    bob = User.objects.create_user(
+        username="bob-org", email="bob@example.com", password="password"
+    )
+    bob.individual_organization.hidden = False
+    bob.individual_organization.save()
+    Membership.objects.create(user=bob, organization=org)
+
+    client.force_authenticate(user=user)
+    response = client.get(f"/fe_api/users/?organization={org.slug}&search=alice")
+    assert response.status_code == status.HTTP_200_OK
+    returned_ids = {u["id"] for u in response.data["results"]}
+    assert alice.id in returned_ids
+    assert bob.id not in returned_ids
