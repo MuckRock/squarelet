@@ -13,6 +13,7 @@ import time
 
 # Third Party
 import pytest
+from actstream.models import Action
 from allauth.account.models import EmailAddress
 
 # Squarelet
@@ -489,6 +490,74 @@ class TestIndividualSubscriptionAccess(ViewTestMixin):
         user = user_factory(username="dotted.name")
         response = self.call_view(rf, username=user.username)
         assert response.status_code == 302
+
+
+@pytest.mark.django_db()
+class TestIndividualSubscriptionStaffActions(ViewTestMixin):
+    """Staff managing a user's billing is logged to the activity stream."""
+
+    view = views.CancelSubscription
+    url = "/users/{username}/cancel/{pk}/"
+
+    def test_staff_cancel_subscription_creates_action(
+        self, rf, user_factory, plan_factory, subscription_factory, mocker
+    ):
+        """Staff cancelling a user's subscription targets the individual org"""
+        mocker.patch("squarelet.organizations.models.Organization.remove_subscription")
+        user = user_factory(username="dotted.name")
+        staff = user_factory(is_staff=True)
+        organization = user.individual_organization
+        plan = plan_factory(name="Professional")
+        subscription = subscription_factory(organization=organization, plan=plan)
+
+        response = self.call_view(
+            rf, staff, {}, username=user.username, pk=subscription.pk
+        )
+        assert response.status_code == 302
+
+        action = Action.objects.filter(
+            actor_object_id=str(staff.pk),
+            verb="cancelled a subscription",
+        ).first()
+        assert action is not None
+        assert action.actor == staff
+        assert action.target == organization
+        assert action.public is False
+
+    def test_owner_cancel_subscription_no_action(
+        self, rf, user_factory, plan_factory, subscription_factory, mocker
+    ):
+        """A user cancelling their own subscription is not logged"""
+        mocker.patch("squarelet.organizations.models.Organization.remove_subscription")
+        user = user_factory(username="dotted.name")
+        subscription = subscription_factory(
+            organization=user.individual_organization, plan=plan_factory()
+        )
+
+        response = self.call_view(
+            rf, user, {}, username=user.username, pk=subscription.pk
+        )
+        assert response.status_code == 302
+
+        assert not Action.objects.filter(verb="cancelled a subscription").exists()
+
+    def test_staff_managing_own_account_no_action(
+        self, rf, user_factory, plan_factory, subscription_factory, mocker
+    ):
+        """A staff member managing their own individual account is not logged —
+        they are the owner (admin) of their own individual organization"""
+        mocker.patch("squarelet.organizations.models.Organization.remove_subscription")
+        staff = user_factory(is_staff=True, username="staffer")
+        subscription = subscription_factory(
+            organization=staff.individual_organization, plan=plan_factory()
+        )
+
+        response = self.call_view(
+            rf, staff, {}, username=staff.username, pk=subscription.pk
+        )
+        assert response.status_code == 302
+
+        assert not Action.objects.filter(verb="cancelled a subscription").exists()
 
 
 @pytest.mark.django_db()
