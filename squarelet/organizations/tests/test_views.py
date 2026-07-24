@@ -1504,6 +1504,205 @@ class TestRemoveCard(ViewTestMixin):
         response = self.call_view(rf, user, slug=organization.slug)
         assert response.status_code == 405
 
+    def test_staff_remove_card_creates_action(
+        self, rf, organization_factory, user_factory, mocker
+    ):
+        """Staff removing a card on someone's behalf is logged for accountability"""
+        self._mock_card_on_file(mocker)
+        mocker.patch(
+            "squarelet.organizations.models.Organization.remove_payment_method"
+        )
+        staff_member = user_factory(is_staff=True)
+        staff_member = _assign_org_perm(staff_member, "can_edit_subscription")
+        organization = organization_factory()
+        response = self.call_view(rf, staff_member, {}, slug=organization.slug)
+        assert response.status_code == 302
+
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="removed the payment method",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.target == organization
+        assert action.public is False
+
+    def test_non_staff_remove_card_no_action(
+        self, rf, organization_factory, user_factory, mocker
+    ):
+        """A regular admin removing their own card is not logged"""
+        self._mock_card_on_file(mocker)
+        mocker.patch(
+            "squarelet.organizations.models.Organization.remove_payment_method"
+        )
+        admin = user_factory(is_staff=False)
+        organization = organization_factory(admins=[admin])
+        response = self.call_view(rf, admin, {}, slug=organization.slug)
+        assert response.status_code == 302
+
+        assert not Action.objects.filter(verb="removed the payment method").exists()
+
+
+@pytest.mark.django_db()
+class TestUpdateCard(ViewTestMixin):
+    """Test staff-action logging on the Organization Update Card view"""
+
+    view = views.UpdateCard
+    url = "/organizations/{slug}/card/"
+
+    def test_staff_update_card_creates_action(
+        self, rf, organization_factory, user_factory, mocker
+    ):
+        """Staff updating a card on someone's behalf is logged for accountability"""
+        mocker.patch("squarelet.organizations.models.Customer.payment_details", None)
+        mocker.patch("squarelet.organizations.models.Organization.save_card")
+        staff_member = user_factory(is_staff=True)
+        staff_member = _assign_org_perm(staff_member, "can_edit_subscription")
+        organization = organization_factory()
+        data = {"stripe_token": "token", "stripe_pk": "key"}
+        response = self.call_view(rf, staff_member, data, slug=organization.slug)
+        assert response.status_code == 302
+
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="updated the payment method",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.target == organization
+        assert action.public is False
+
+    def test_non_staff_update_card_no_action(
+        self, rf, organization_factory, user_factory, mocker
+    ):
+        """A regular admin updating their own card is not logged"""
+        mocker.patch("squarelet.organizations.models.Customer.payment_details", None)
+        mocker.patch("squarelet.organizations.models.Organization.save_card")
+        admin = user_factory(is_staff=False)
+        organization = organization_factory(admins=[admin])
+        data = {"stripe_token": "token", "stripe_pk": "key"}
+        response = self.call_view(rf, admin, data, slug=organization.slug)
+        assert response.status_code == 302
+
+        assert not Action.objects.filter(verb="updated the payment method").exists()
+
+
+@pytest.mark.django_db()
+class TestCancelSubscription(ViewTestMixin):
+    """Test staff-action logging on the Organization Cancel Subscription view"""
+
+    view = views.CancelSubscription
+    url = "/organizations/{slug}/subscriptions/{pk}/cancel"
+
+    def test_staff_cancel_subscription_creates_action(
+        self,
+        rf,
+        organization_factory,
+        user_factory,
+        plan_factory,
+        subscription_factory,
+        mocker,
+    ):
+        """Staff cancelling a subscription on someone's behalf is logged"""
+        mocker.patch("squarelet.organizations.models.Organization.remove_subscription")
+        staff_member = user_factory(is_staff=True)
+        staff_member = _assign_org_perm(staff_member, "can_edit_subscription")
+        organization = organization_factory()
+        plan = plan_factory(name="Professional")
+        subscription = subscription_factory(organization=organization, plan=plan)
+
+        response = self.call_view(
+            rf, staff_member, {}, slug=organization.slug, pk=subscription.pk
+        )
+        assert response.status_code == 302
+
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="cancelled a subscription",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.target == organization
+        assert action.public is False
+        assert action.description == "Professional"
+
+    def test_non_staff_cancel_subscription_no_action(
+        self,
+        rf,
+        organization_factory,
+        user_factory,
+        plan_factory,
+        subscription_factory,
+        mocker,
+    ):
+        """A regular admin cancelling their own subscription is not logged"""
+        mocker.patch("squarelet.organizations.models.Organization.remove_subscription")
+        admin = user_factory(is_staff=False)
+        organization = organization_factory(admins=[admin])
+        subscription = subscription_factory(
+            organization=organization, plan=plan_factory()
+        )
+
+        response = self.call_view(
+            rf, admin, {}, slug=organization.slug, pk=subscription.pk
+        )
+        assert response.status_code == 302
+
+        assert not Action.objects.filter(verb="cancelled a subscription").exists()
+
+
+@pytest.mark.django_db()
+class TestUpdateReceiptEmail(ViewTestMixin):
+    """Test staff-action logging on the Organization Update Receipt Email view"""
+
+    view = views.UpdateReceiptEmail
+    url = "/organizations/{slug}/receipt-email/"
+
+    def test_staff_update_receipt_email_creates_action(
+        self, rf, organization_factory, user_factory
+    ):
+        """Staff updating receipt emails on someone's behalf is logged"""
+        staff_member = user_factory(is_staff=True)
+        staff_member = _assign_org_perm(staff_member, "can_edit_subscription")
+        organization = organization_factory()
+        data = {"receipt_emails": "receipts@example.com"}
+        response = self.call_view(rf, staff_member, data, slug=organization.slug)
+        assert response.status_code == 302
+
+        action = Action.objects.filter(
+            actor_object_id=str(staff_member.pk),
+            verb="updated the receipt emails",
+        ).first()
+        assert action is not None
+        assert action.actor == staff_member
+        assert action.target == organization
+        assert action.public is False
+
+    def test_non_staff_update_receipt_email_no_action(
+        self, rf, organization_factory, user_factory
+    ):
+        """A regular admin updating their own receipt emails is not logged"""
+        admin = user_factory(is_staff=False)
+        organization = organization_factory(admins=[admin])
+        data = {"receipt_emails": "receipts@example.com"}
+        response = self.call_view(rf, admin, data, slug=organization.slug)
+        assert response.status_code == 302
+
+        assert not Action.objects.filter(verb="updated the receipt emails").exists()
+
+    def test_staff_admin_of_own_org_no_action(
+        self, rf, organization_factory, user_factory
+    ):
+        """Staff managing an org they administer is not logged — it's their
+        own account, not an action taken on someone else's behalf"""
+        staff_admin = user_factory(is_staff=True)
+        organization = organization_factory(admins=[staff_admin])
+        data = {"receipt_emails": "receipts@example.com"}
+        response = self.call_view(rf, staff_admin, data, slug=organization.slug)
+        assert response.status_code == 302
+
+        assert not Action.objects.filter(verb="updated the receipt emails").exists()
+
 
 @pytest.mark.django_db()
 class TestCreate(ViewTestMixin):

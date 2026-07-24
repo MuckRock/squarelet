@@ -27,7 +27,7 @@ from datetime import datetime
 import stripe
 
 # Squarelet
-from squarelet.core.utils import format_stripe_error
+from squarelet.core.utils import format_stripe_error, new_action
 from squarelet.organizations.models import Charge, Organization, Plan
 from squarelet.organizations.models.payment import Subscription, get_payment_brand
 from squarelet.organizations.payments.base import PaymentActionRequired
@@ -523,6 +523,19 @@ class SubscriptionObjectMixin:
             kwargs={**self.get_subject_url_kwargs(), **kwargs},
         )
 
+    def log_staff_action(self, verb, description=None):
+        """Record staff member actions for an accountability trail of changes
+        made on someone else's behalf."""
+        user = self.request.user
+        organization = self.get_organization()
+        if user.is_staff and not organization.has_admin(user):
+            new_action(
+                actor=user,
+                verb=verb,
+                target=organization,
+                description=description,
+            )
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["subject"] = self.subject
@@ -600,6 +613,7 @@ class BaseUpdateCard(SubscriptionObjectMixin, UpdateView):
             messages.error(self.request, f"Payment error: {user_message}")
             return redirect(redirect_url)
         else:
+            self.log_staff_action("updated the payment method")
             success_msg = _("Credit card updated")
             if self._is_ajax():
                 return JsonResponse(
@@ -652,6 +666,7 @@ class BaseRemoveCard(SubscriptionObjectMixin, View):
         except stripe.StripeError as exc:
             return self._error(f"Payment error: {format_stripe_error(exc)}")
 
+        self.log_staff_action("removed the payment method")
         success_msg = _("Credit card removed")
         if self._is_ajax():
             return JsonResponse({"redirect": redirect_url, "message": str(success_msg)})
@@ -665,6 +680,7 @@ class BaseUpdateReceiptEmail(SubscriptionObjectMixin, UpdateView):
 
     def form_valid(self, form):
         self.object.set_receipt_emails(form.cleaned_data["receipt_emails"])
+        self.log_staff_action("updated the receipt emails")
         return redirect(self.reverse_subject("subscriptions"))
 
     def get_initial(self):
@@ -692,6 +708,9 @@ class BaseCancelSubscription(SubscriptionObjectMixin, UpdateView):
         subscription = self.object.subscriptions.filter(id=self.kwargs["pk"]).first()
         if subscription:
             organization.remove_subscription(subscription)
+            self.log_staff_action(
+                "cancelled a subscription", description=subscription.plan.name
+            )
         messages.success(self.request, _("Subscription cancelled."))
         return redirect(self.reverse_subject("subscriptions"))
 
