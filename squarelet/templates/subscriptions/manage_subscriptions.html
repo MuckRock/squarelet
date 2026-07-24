@@ -134,7 +134,7 @@
         <h2>{% trans "Payment method" %}</h2>
       </div>
       <a href="{% url subject|add:':update-card' subject_slug %}" class="btn ghost primary small">
-        {% if account.card_brand and account.card_last4 %}
+        {% if card_brand and card_last4 %}
           {% trans "Update card" %}
         {% else %}
           {% trans "Add card" %}
