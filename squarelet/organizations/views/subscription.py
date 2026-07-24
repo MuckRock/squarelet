@@ -45,6 +45,9 @@ from squarelet.organizations.tasks import (
     handle_invoice_paid,
     handle_invoice_updated,
     handle_invoice_voided,
+    handle_payment_method_attached,
+    handle_payment_method_detached,
+    handle_payment_method_updated,
     handle_subscription_deleted,
     handle_subscription_updated,
 )
@@ -288,6 +291,10 @@ def stripe_webhook(request):
         "invoice.paid": handle_invoice_paid,
         "invoice.marked_uncollectible": handle_invoice_marked_uncollectible,
         "invoice.voided": handle_invoice_voided,
+        "payment_method.attached": handle_payment_method_attached,
+        "payment_method.automatically_updated": handle_payment_method_updated,
+        "payment_method.detached": handle_payment_method_detached,
+        "payment_method.updated": handle_payment_method_updated,
     }
     handler = event_handlers.get(event_type)
     if handler:
