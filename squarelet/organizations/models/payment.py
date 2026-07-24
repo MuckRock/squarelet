@@ -1,5 +1,6 @@
 # Django
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models import Q
 from django.urls import reverse
@@ -473,6 +474,11 @@ class Subscription(models.Model):
         Clears the cancelled flag and cancel_at date locally, and removes
         cancel_at_period_end on the Stripe subscription so it auto-renews.
         """
+        customer = self.organization.customer()
+        if not customer.stripe_payment_method_id:
+            raise ValidationError(
+                _("No payment method on file. Please add a payment method before re-subscribing.")
+            )
         if self.stripe_subscription:
             updated = (
                 get_payment_provider()
