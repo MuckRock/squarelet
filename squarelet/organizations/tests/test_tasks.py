@@ -14,7 +14,7 @@ from freezegun import freeze_time
 
 # Squarelet
 from squarelet.organizations import tasks
-from squarelet.organizations.models import Charge, Invoice, Subscription
+from squarelet.organizations.models import Charge, Invoice, PaymentMethod, Subscription
 from squarelet.organizations.tests.factories import (
     EntitlementGrantFactory,
     InvoiceFactory,
@@ -2140,6 +2140,152 @@ class TestHandleCustomerUpdated:
         mock_logger = mocker.patch("squarelet.organizations.tasks.logger")
         tasks.handle_customer_updated({"id": "cus_unknown", "invoice_settings": {}})
         mock_logger.warning.assert_called_once()
+
+
+class TestHandlePaymentMethodUpdated:
+    """Unit tests for the handle_payment_method_updated task"""
+
+    @pytest.mark.django_db
+    def test_refreshes_cache(self, payment_method_factory, mocker):
+        """Refreshes cached fields when PM is found"""
+        pm = payment_method_factory(
+            stripe_id="pm_upd",
+            brand="Visa",
+            last4="4242",
+            exp_month=12,
+            exp_year=2028,
+            is_default=True,
+        )
+        mock_details = mocker.MagicMock()
+        mock_details.brand = "Mastercard"
+        mock_details.last4 = "5555"
+        mock_details.exp_month = 6
+        mock_details.exp_year = 2030
+
+        tasks.handle_payment_method_updated(
+            {"id": "pm_upd", "type": "card", "card": mock_details}
+        )
+
+        pm.refresh_from_db()
+        assert pm.last4 == "5555"
+        assert pm.brand == "Mastercard"
+        assert pm.exp_month == 6
+        assert pm.exp_year == 2030
+
+    @pytest.mark.django_db
+    def test_noop_when_not_cached(self, mocker):
+        """Returns without error when PM is not in our cache"""
+        mock_logger = mocker.patch("squarelet.organizations.tasks.logger")
+        tasks.handle_payment_method_updated({"id": "pm_unknown", "type": "card"})
+        mock_logger.info.assert_called_once()
+
+
+class TestHandlePaymentMethodDetached:
+    """Unit tests for the handle_payment_method_detached task"""
+
+    @pytest.mark.django_db
+    def test_clears_default_pm(self, payment_method_factory, customer_factory):
+        """Calls clear_payment_cache for a default PM"""
+        customer = customer_factory(customer_id="cus_det")
+        payment_method_factory(customer=customer, stripe_id="pm_det", is_default=True)
+
+        tasks.handle_payment_method_detached({"id": "pm_det"})
+
+        assert not customer.payment_methods.filter(is_default=True).exists()
+
+    @pytest.mark.django_db
+    def test_deletes_non_default_pm(self, payment_method_factory, customer_factory):
+        """Deletes a non-default PM directly"""
+        customer = customer_factory(customer_id="cus_det2")
+        # create a default PM so the customer has one
+        payment_method_factory(
+            customer=customer, stripe_id="pm_default", is_default=True
+        )
+        payment_method_factory(
+            customer=customer, stripe_id="pm_other", is_default=False
+        )
+
+        tasks.handle_payment_method_detached({"id": "pm_other"})
+
+        assert not customer.payment_methods.filter(stripe_id="pm_other").exists()
+        # default PM remains
+        assert customer.payment_methods.filter(stripe_id="pm_default").exists()
+
+    @pytest.mark.django_db
+    def test_noop_when_not_cached(self, mocker):
+        """Returns without error when PM is not in our cache"""
+        mock_logger = mocker.patch("squarelet.organizations.tasks.logger")
+        tasks.handle_payment_method_detached({"id": "pm_unknown"})
+        mock_logger.info.assert_called_once()
+
+
+class TestHandlePaymentMethodAttached:
+    """Unit tests for the handle_payment_method_attached task"""
+
+    @pytest.mark.django_db
+    def test_caches_when_default(self, customer_factory, mocker):
+        """Caches the PM when it is the customer's current default"""
+        customer = customer_factory(customer_id="cus_att")
+        mock_details = mocker.MagicMock()
+        mock_details.brand = "Visa"
+        mock_details.last4 = "4242"
+        mock_details.exp_month = 12
+        mock_details.exp_year = 2028
+
+        mock_stripe_customer = mocker.MagicMock()
+        mock_stripe_customer.invoice_settings.get.return_value = "pm_att"
+        mock_provider = mocker.patch(
+            "squarelet.organizations.tasks.get_payment_provider"
+        ).return_value
+        mock_provider.get_customer_service.return_value.retrieve.return_value = (
+            mock_stripe_customer
+        )
+
+        tasks.handle_payment_method_attached(
+            {
+                "id": "pm_att",
+                "customer": "cus_att",
+                "type": "card",
+                "card": mock_details,
+            }
+        )
+
+        customer.refresh_from_db()
+        assert customer.stripe_payment_method_id == "pm_att"
+
+    @pytest.mark.django_db
+    def test_skips_when_not_default(self, customer_factory, mocker):
+        """Skips caching when the attached PM is not the customer's default"""
+        customer_factory(customer_id="cus_att2")
+        mock_stripe_customer = mocker.MagicMock()
+        mock_stripe_customer.invoice_settings.get.return_value = "pm_other"
+        mock_provider = mocker.patch(
+            "squarelet.organizations.tasks.get_payment_provider"
+        ).return_value
+        mock_provider.get_customer_service.return_value.retrieve.return_value = (
+            mock_stripe_customer
+        )
+
+        tasks.handle_payment_method_attached(
+            {"id": "pm_att2", "customer": "cus_att2", "type": "card"}
+        )
+
+        assert not PaymentMethod.objects.filter(stripe_id="pm_att2").exists()
+
+    @pytest.mark.django_db
+    def test_unknown_customer(self, mocker):
+        """Logs a warning and returns gracefully for unknown customer"""
+        mock_logger = mocker.patch("squarelet.organizations.tasks.logger")
+        tasks.handle_payment_method_attached(
+            {"id": "pm_x", "customer": "cus_unknown", "type": "card"}
+        )
+        mock_logger.warning.assert_called_once()
+
+    @pytest.mark.django_db
+    def test_no_customer_in_event(self):
+        """Returns immediately when the event has no customer field"""
+        # Should not raise any exception
+        tasks.handle_payment_method_attached({"id": "pm_x", "type": "card"})
 
 
 class TestHandleSubscriptionUpdated:
