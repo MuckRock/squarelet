@@ -1,0 +1,52 @@
+{% extends "layouts/sidebar_layout.html" %}
+{% load avatar humanize django_vite i18n crispy_forms_tags planinfo %}
+{% load icon %}
+
+{% block title %}{{ organization.name }} | Payments{% endblock %}
+
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/payments.ts" %}
+{% endblock vite %}
+
+
+{% block layout_id %}payments{% endblock %}
+
+{% block header %}
+  <header>
+    <h1>{{ organization.name }}</h1>
+    <span class="arrow">{% icon "chevron-right" %}</span>
+    <h2>{% trans "Payment history" %}</h2>
+  </header>
+{% endblock %}
+
+{% block sidebar %}
+  <a href="{% url subject|add:':subscriptions' subject_slug %}" class="btn small ghost primary">
+    {% icon "chevron-left" %}
+    {% if subject == "users" %}
+      {% trans "Back to your subscriptions" %}
+    {% else %}
+      {% trans "Back to subscriptions" %}
+    {% endif %}
+  </a>
+  <ul>
+    {% for account in nav_accounts %}
+      <li>
+        <a href="{{ account.url }}" class="nav-item{% if account.active %} active{% endif %}">
+          {% if account.organization.individual %}
+            {% icon "person" %}
+          {% else %}
+            {% icon "organization" %}
+          {% endif %}
+          {{ account.organization.name }}
+        </a>
+      </li>
+    {% endfor %}
+  </ul>
+{% endblock sidebar %}
+
+{% block main %}
+  <section>
+    {% include "subscriptions/includes/receipts_card.html" with payments=object_list page_obj=page_obj %}
+  </section>
+{% endblock main %}

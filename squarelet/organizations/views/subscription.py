@@ -1,7 +1,7 @@
 # Django
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth.mixins import UserPassesTestMixin
+from django.contrib.auth.mixins import PermissionRequiredMixin, UserPassesTestMixin
 from django.http.response import (
     HttpResponse,
     HttpResponseBadRequest,
@@ -9,6 +9,7 @@ from django.http.response import (
     JsonResponse,
 )
 from django.shortcuts import redirect
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.clickjacking import xframe_options_sameorigin
@@ -19,6 +20,7 @@ from django.views.generic import DetailView, UpdateView
 import json
 import logging
 import sys
+from datetime import datetime
 
 # Third Party
 import stripe
@@ -35,6 +37,7 @@ from squarelet.organizations.mixins import OrganizationPermissionMixin
 from squarelet.organizations.models import Charge, Organization
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.exceptions import SubscriptionError
+from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.tasks import (
     handle_charge_succeeded,
     handle_customer_updated,
@@ -47,6 +50,15 @@ from squarelet.organizations.tasks import (
     handle_invoice_voided,
     handle_subscription_deleted,
     handle_subscription_updated,
+)
+from squarelet.payments.views import (
+    BaseCancelSubscription,
+    BaseManageSubscriptions,
+    BasePaymentsList,
+    BaseRemoveCard,
+    BaseUpdateCard,
+    BaseUpdateReceiptEmail,
+    BaseUpdateSubscriptionFrequency,
 )
 
 logger = logging.getLogger(__name__)
@@ -147,13 +159,6 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
         context["failed_receipt_emails"] = self.object.receipt_emails.filter(
             failed=True
         )
-        # Provide a single subscription for the template to check cancelled status.
-        # In the multi-subscription world this will need to be revisited, but for
-        # now the template only needs to know about the primary (first) subscription.
-        plan = self.object.plans.first()
-        context["current_subscription"] = (
-            self.object.subscriptions.filter(plan=plan).first() if plan else None
-        )
         return context
 
     def get_initial(self):
@@ -167,6 +172,47 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
                 r.email for r in self.object.receipt_emails.all()
             ),
         }
+
+
+class OrgSubscriptionView(OrganizationPermissionMixin):
+    """Base class for org subscription views."""
+
+    subject = "organizations"
+    individual = False
+    permission_required = "organizations.can_edit_subscription"
+
+
+class ManageSubscriptions(OrgSubscriptionView, BaseManageSubscriptions):
+    pass
+
+
+class UpdateCard(OrgSubscriptionView, BaseUpdateCard):
+    pass
+
+
+class RemoveCard(OrgSubscriptionView, BaseRemoveCard):
+    pass
+
+
+class UpdateSubscriptionFrequency(OrgSubscriptionView, BaseUpdateSubscriptionFrequency):
+    pass
+
+
+class UpdateReceiptEmail(OrgSubscriptionView, BaseUpdateReceiptEmail):
+    pass
+
+
+class CancelSubscription(OrgSubscriptionView, BaseCancelSubscription):
+    pass
+
+
+class PaymentsList(PermissionRequiredMixin, BasePaymentsList):
+    subject = "organizations"
+    individual = False
+
+    def has_permission(self):
+        user = self.request.user
+        return user.has_perm("organizations.can_view_charge", self.get_organization())
 
 
 @method_decorator(xframe_options_sameorigin, name="dispatch")
@@ -293,3 +339,19 @@ def stripe_webhook(request):
     if handler:
         handler.delay(event_obj)
     return HttpResponse()
+
+
+def get_subscription_next_date(subscription):
+    stripe_sub = subscription.stripe_subscription
+    if stripe_sub:
+        time_stamp = (
+            get_payment_provider()
+            .get_subscription_service()
+            .get_current_period_end(stripe_sub)
+        )
+        if time_stamp:
+            tz_datetime = datetime.fromtimestamp(
+                time_stamp, tz=timezone.get_current_timezone()
+            )
+            return tz_datetime.date()
+    return None

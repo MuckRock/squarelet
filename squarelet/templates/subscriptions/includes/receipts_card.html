@@ -1,0 +1,81 @@
+{% load i18n icon django_vite %}
+
+{% block vite %}
+{% vite_asset "frontend/views/receipts_card.ts" %}
+{% endblock vite %}
+
+<main class="receipts-card">
+  <table>
+    <thead>
+      <tr>
+        <th>{% trans "Date" %}</th>
+        <th>{% trans "Description" %}</th>
+        <th>{% trans "Amount" %}</th>
+        <th>{% trans "Actions" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for payment in payments %}
+        <tr>
+          <td>
+            <time datetime="{{ payment.created_at|date:"c" }}">{{ payment.created_at|date:"F j, Y" }}</time>
+          </td>
+          <td class="description">{{ payment.description }}</td>
+          <td class="amount">${{ payment.amount_dollars|floatformat:2 }}</td>
+          <td>
+            <div class="actions">
+              {% url "organizations:charge" payment.pk as view_url %}
+              <a aria-label="{% trans "View receipt" %}" href="{{ view_url }}" class="btn ghost primary small" target="_blank">
+                {% icon "eye" %}
+              </a>
+
+              {% url "organizations:charge-pdf" payment.pk as pdf_url %}
+              <a aria-label="{% trans "Download PDF" %}" href="{{ pdf_url }}" class="btn ghost primary small" target="_blank">
+                {% icon "download" %}
+              </a>
+            </div>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="4" class="empty empty--no-border">
+            {% trans "No payments to show." %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+    {% if page_obj %}
+      <tfoot>
+        <tr>
+          <td colspan="4">
+            <nav>
+              {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}" class="btn primary ghost">
+                  {% trans "Previous" %}
+                </a>
+              {% else %}
+                <span class="btn primary ghost disabled">
+                  {% trans "Previous" %}
+                </span>
+              {% endif %}
+              <span>
+                {% blocktrans with page=page_obj.number pages=page_obj.paginator.num_pages %}
+                  Page {{ page }} of {{ pages }}
+                {% endblocktrans %}
+              </span>
+              {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}" class="btn primary ghost">
+                  {% trans "Next" %}
+                </a>
+              {% else %}
+                <span class="btn primary ghost disabled">
+                  {% trans "Next" %}
+                </span>
+              {% endif %}
+            </nav>
+          </td>
+        </tr>
+      </tfoot>
+    {% endif %}
+  </table>
+</main>

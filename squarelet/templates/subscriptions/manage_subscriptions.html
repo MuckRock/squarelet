@@ -1,0 +1,211 @@
+{% extends "layouts/sidebar_layout.html" %}
+{% load avatar humanize django_vite i18n crispy_forms_tags planinfo %}
+{% load icon %}
+
+{% block title %}{{ organization.name }} | Manage Subscriptions{% endblock %}
+
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/manage_subscriptions.ts" %}
+{% endblock vite %}
+
+{% block layout_id %}manage_billing{% endblock %}
+
+{% block header %}
+  <header>
+    <h1>{{ organization.name }}</h1>
+    <span class="arrow">{% icon "chevron-right" %}</span>
+    <h2>{% trans "Subscriptions" %}</h2>
+  </header>
+{% endblock %}
+
+{% block sidebar %}
+  <a href="{{ organization.get_absolute_url }}" class="btn small ghost primary">
+    {% icon "chevron-left" %}
+    {% if subject == "organizations" %}
+      {% trans "Back to team overview" %}
+    {% else %}
+      {% trans "Back to your account" %}
+    {% endif %}
+  </a>
+  <ul>
+    <li>
+      <a href="#plans" class="nav-item">
+        {% icon "premium" %}
+        {% trans "Your plans" %}
+      </a>
+    </li>
+
+    <li>
+      <a href="#methods" class="nav-item">
+        {% icon "credit-card" %}
+        {% trans "Payment method" %}
+      </a>
+    </li>
+
+    <li>
+      <a href="#emails" class="nav-item">
+        {% icon "mail" %}
+        {% trans "Receipt emails" %}
+      </a>
+    </li>
+
+    <li>
+      <a href="#recent" class="nav-item">
+        {% icon "log" %}
+        {% trans "Recent payments" %}
+      </a>
+    </li>
+  </ul>
+{% endblock sidebar %}
+
+{% block main %}
+  <section id="plans">
+    <header>
+      <div class="title">
+        <h2>{% trans "Your plans" %}</h2>
+      </div>
+    </header>
+
+    {% for subscription in subscriptions %}
+      {% with annual=subscription.plan.annual cancelled=subscription.cancelled %}
+        <main id="{{ subscription.plan.slug }}" class="subscription-card">
+          <div class="subscription-row">
+            <h3 class="{% if subject == "organizations" %}organization{% else %}professional{% endif %}">{{ subscription.plan.name }}</h3>
+            {% if cancelled %}
+              <span class="red badge">
+                {% trans "Cancelled" %}
+              </span>
+            {% else %}
+              <div class="subscription-frequency">
+                <span class="blue badge">
+                  {{ annual|yesno:_("Annual,Monthly") }}
+                </span>
+                {% url subject|add:':update-frequency' subject_slug subscription.id as update_url %}
+                <a href="{{ update_url }}" class="btn ghost primary small">
+                  {% blocktrans with annual|yesno:_("monthly,annual") as frequency %}
+                    Change to {{ frequency }}
+                  {% endblocktrans %}
+                </a>
+              </div>
+            {% endif %}
+          </div>
+          <div class="subscription-row">
+            <div class="subscription-group">
+              <span class="subscription-detail">
+                <span class="icon">
+                  {% icon "tag" %}
+                </span>
+                <span>
+                  <strong>${{ subscription.cost|floatformat:2|intcomma }}</strong>
+                  {{ annual|yesno:_("per year,per month") }}
+                </span>
+              </span>
+              <span class="subscription-detail">
+                <span class="icon">
+                  {% icon "calendar" %}
+                </span>
+                <span>
+                  {{ cancelled|yesno:_("Ends on,Renews on") }}
+                  <strong>{{ subscription.next_date }}</strong>
+                </span>
+              </span>
+            </div>
+            {% if not cancelled %}
+              {% url subject|add:':cancel-subscription' subject_slug subscription.id as cancel_url %}
+              <a href="{{ cancel_url }}" class="btn ghost danger small">
+                {% icon "x-circle" %}
+                {% trans "Cancel plan" %}
+              </a>
+            {% endif %}
+          </div>
+        </main>
+      {% endwith %}
+    {% empty %}
+      <main class="subscription-card">
+        <p class="empty empty--no-border">{% trans "You have no active subscriptions." %}</p>
+      </main>
+    {% endfor %}
+  </section>
+
+  <section id="methods">
+    <header>
+      <div class="title">
+        <h2>{% trans "Payment method" %}</h2>
+      </div>
+      <a href="{% url subject|add:':update-card' subject_slug %}" class="btn ghost primary small">
+        {% if card_brand and card_last4 %}
+          {% trans "Update card" %}
+        {% else %}
+          {% trans "Add card" %}
+        {% endif %}
+      </a>
+    </header>
+
+    <main class="subscription-card">
+      <div class="account-row">
+        <div class="account-card">
+          <span class="icon">{% icon "credit-card" %}</span>
+          {% if card_brand and card_last4 %}
+            <span>
+              {% blocktrans with brand=card_brand last4=card_last4 %}
+                <span class="account-card-brand">{{ brand }}</span> ending in <strong>{{ last4 }}</strong>
+              {% endblocktrans %}
+            </span>
+          {% else %}
+            <span>{% trans "No card on file" %}</span>
+          {% endif %}
+        </div>
+        {% if card_brand and card_last4 %}
+          <form method="post" action="{% url subject|add:':remove-card' subject_slug %}" class="remove-card-form">
+            {% csrf_token %}
+            <button type="submit" class="btn ghost danger small">
+              {% icon "trashcan" %}
+              {% trans "Remove" %}
+            </button>
+          </form>
+        {% endif %}
+      </div>
+    </main>
+  </section>
+
+  <section id="emails">
+    <header>
+      <div class="title">
+        <h2>{% trans "Receipt emails" %}</h2>
+      </div>
+      {% url subject|add:':update-receipt-email' subject_slug as receipt_email_url %}
+      <a href="{{ receipt_email_url }}" class="btn ghost primary small">
+        {% trans "Change email" %}
+      </a>
+    </header>
+
+    <main class="subscription-card">
+      {% for email in receipt_emails %}
+      <div class="subscription-detail">
+        <span class="icon">
+          {% icon "mail" %}
+        </span>
+        <span class="email">
+          {{ email.email }}
+        </span>
+      </div>
+      {% endfor %}
+    </main>
+  </section>
+
+  <section id="recent">
+    <header>
+      <div class="title">
+        <h2>{% trans "Recent payments" %}</h2>
+      </div>
+      {% url subject|add:':payments' subject_slug as payments_url %}
+      <a href="{{ payments_url }}" class="btn small ghost primary">
+        {% icon "log" %}
+        {% trans "View all" %}
+      </a>
+    </header>
+
+    {% include "subscriptions/includes/receipts_card.html" with payments=payments %}
+  </section>
+{% endblock main %}

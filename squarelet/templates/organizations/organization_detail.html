@@ -50,9 +50,9 @@
     </li>
     {% if can_view_subscription %}
     <li>
-      <a href="#plan" class="nav-item">
+      <a href="#billing" class="nav-item">
         {% icon "credit-card" %}
-        {% trans "Plan" %}
+        {% trans "Billing" %}
       </a>
     </li>
     {% endif %}
@@ -145,26 +145,27 @@
     </section>
 
     {% if can_view_subscription %}
-    <section id="plan">
+    <section id="billing">
       <header>
-        <h2>{% trans "Plan" %}</h2>
-        {% if can_edit_subscription %}
+        <h2>{% trans "Billing" %}</h2>
+        {% if can_edit_subscription or can_view_charge %}
         <div class="header-actions">
-          <a href="{% url 'select_plan' %}" class="btn ghost primary">
-            {% icon "list-unordered" %}
-            {% trans "View all plans" %}
+          {% if can_edit_subscription %}
+          <a href="{% url 'organizations:subscriptions' organization.slug %}" class="btn ghost primary">
+            {% icon "gear" %}
+            {% trans "Manage billing" %}
           </a>
+          {% endif %}
           {% if can_view_charge %}
-          <a href="{% url 'users:receipts' username=user.username %}" class="btn ghost primary">
+          <a href="{% url 'organizations:payments' organization.slug %}" class="btn ghost primary">
             {% icon "log" %}
-            {% trans "View receipts" %}
+            {% trans "View payments" %}
           </a>
           {% endif %}
         </div>
         {% endif %}
       </header>
-      {% url 'organizations:payment' organization.slug as payment_url %}
-      {% include "organizations/includes/plan_card.html" with org=organization plan=current_plan inherited_plans=inherited_plans upgrade_plan=upgrade_plan next_charge_date=current_plan_next_charge_date card=current_plan_card card_brand=current_plan_card_brand card_last4=current_plan_card_last4 cancelled=current_plan_cancelled payment_url=payment_url can_edit_subscription=can_edit_subscription subject="org" %}
+      {% include "organizations/includes/plan_card.html" with org=organization subject_slug=organization.slug subscriptions=subscriptions inherited_plans=inherited_plans upgrade_plan=upgrade_plan card=current_plan_card card_brand=current_plan_card_brand card_last4=current_plan_card_last4 can_edit_subscription=can_edit_subscription subject="organizations" %}
     </section>
     {% endif %}
 

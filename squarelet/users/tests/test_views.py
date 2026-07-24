@@ -13,6 +13,7 @@ import time
 
 # Third Party
 import pytest
+from actstream.models import Action
 from allauth.account.models import EmailAddress
 
 # Squarelet
@@ -127,6 +128,11 @@ class TestUserDetailView(ViewTestMixin):
 
     view = views.UserDetailView
     url = "/users/{username}/"
+
+    @pytest.fixture(autouse=True)
+    def _mock_card(self, mocker):
+        """Avoid hitting Stripe when the view fetches the customer's card."""
+        mocker.patch("squarelet.organizations.models.Customer.card", None)
 
     def test_get(self, rf, user_factory, professional_plan_factory):
         user = user_factory()
@@ -407,6 +413,151 @@ class TestReceipts(ViewTestMixin):
         charge_factory(organization=organization)
         response = self.call_view(rf, user, username=user.username)
         assert response.status_code == 200
+
+
+@pytest.mark.django_db()
+class TestIndividualSubscriptionViews:
+    """The user billing routes are keyed on username; the individual
+    organization is resolved from it rather than exposed in the URL."""
+
+    def _bind(self, view_class, rf, **kwargs):
+        view = view_class()
+        view.request = rf.get("/")
+        view.kwargs = kwargs
+        return view
+
+    def test_resolves_individual_org_by_username(self, rf, user_factory):
+        # Usernames may contain characters (e.g. ".") that are not valid in
+        # an org slug, so resolution must go through the username.
+        user = user_factory(username="lasser.allan")
+        view = self._bind(views.ManageSubscriptions, rf, username=user.username)
+        assert view.get_object() == user.individual_organization
+
+    def test_unknown_username_is_404(self, rf):
+        view = self._bind(views.ManageSubscriptions, rf, username="nobody.here")
+        with pytest.raises(Http404):
+            view.get_object()
+
+    def test_payments_scoped_to_individual_org(
+        self, rf, user_factory, organization_factory, charge_factory
+    ):
+        user = user_factory(username="dotted.name")
+        charge = charge_factory(
+            organization=user.individual_organization, charge_id="ch_individual"
+        )
+        other_charge = charge_factory(
+            organization=organization_factory(), charge_id="ch_other"
+        )
+        view = self._bind(views.PaymentsList, rf, username=user.username)
+        charges = list(view.get_queryset())
+        assert charge in charges
+        assert other_charge not in charges
+
+    def test_subject_urls_use_username(self, rf, user_factory):
+        user = user_factory(username="dotted.name")
+        view = self._bind(views.ManageSubscriptions, rf, username=user.username)
+        view.object = view.get_object()
+        assert view.reverse_subject("subscriptions") == (
+            f"/users/{user.username}/subscriptions/"
+        )
+
+
+@pytest.mark.django_db()
+class TestIndividualSubscriptionAccess(ViewTestMixin):
+    """User billing pages are limited to the account owner and staff."""
+
+    view = views.PaymentsList
+    url = "/users/{username}/payments/"
+
+    def test_owner_allowed(self, rf, user_factory):
+        user = user_factory(username="dotted.name")
+        response = self.call_view(rf, user, username=user.username)
+        assert response.status_code == 200
+
+    def test_staff_allowed(self, rf, user_factory):
+        user = user_factory(username="dotted.name")
+        staff = user_factory(is_staff=True)
+        response = self.call_view(rf, staff, username=user.username)
+        assert response.status_code == 200
+
+    def test_other_user_denied(self, rf, user_factory):
+        user = user_factory(username="dotted.name")
+        other = user_factory()
+        with pytest.raises(Http404):
+            self.call_view(rf, other, username=user.username)
+
+    def test_anonymous_redirected_to_login(self, rf, user_factory):
+        user = user_factory(username="dotted.name")
+        response = self.call_view(rf, username=user.username)
+        assert response.status_code == 302
+
+
+@pytest.mark.django_db()
+class TestIndividualSubscriptionStaffActions(ViewTestMixin):
+    """Staff managing a user's billing is logged to the activity stream."""
+
+    view = views.CancelSubscription
+    url = "/users/{username}/cancel/{pk}/"
+
+    def test_staff_cancel_subscription_creates_action(
+        self, rf, user_factory, plan_factory, subscription_factory, mocker
+    ):
+        """Staff cancelling a user's subscription targets the individual org"""
+        mocker.patch("squarelet.organizations.models.Organization.remove_subscription")
+        user = user_factory(username="dotted.name")
+        staff = user_factory(is_staff=True)
+        organization = user.individual_organization
+        plan = plan_factory(name="Professional")
+        subscription = subscription_factory(organization=organization, plan=plan)
+
+        response = self.call_view(
+            rf, staff, {}, username=user.username, pk=subscription.pk
+        )
+        assert response.status_code == 302
+
+        action = Action.objects.filter(
+            actor_object_id=str(staff.pk),
+            verb="cancelled a subscription",
+        ).first()
+        assert action is not None
+        assert action.actor == staff
+        assert action.target == organization
+        assert action.public is False
+
+    def test_owner_cancel_subscription_no_action(
+        self, rf, user_factory, plan_factory, subscription_factory, mocker
+    ):
+        """A user cancelling their own subscription is not logged"""
+        mocker.patch("squarelet.organizations.models.Organization.remove_subscription")
+        user = user_factory(username="dotted.name")
+        subscription = subscription_factory(
+            organization=user.individual_organization, plan=plan_factory()
+        )
+
+        response = self.call_view(
+            rf, user, {}, username=user.username, pk=subscription.pk
+        )
+        assert response.status_code == 302
+
+        assert not Action.objects.filter(verb="cancelled a subscription").exists()
+
+    def test_staff_managing_own_account_no_action(
+        self, rf, user_factory, plan_factory, subscription_factory, mocker
+    ):
+        """A staff member managing their own individual account is not logged —
+        they are the owner (admin) of their own individual organization"""
+        mocker.patch("squarelet.organizations.models.Organization.remove_subscription")
+        staff = user_factory(is_staff=True, username="staffer")
+        subscription = subscription_factory(
+            organization=staff.individual_organization, plan=plan_factory()
+        )
+
+        response = self.call_view(
+            rf, staff, {}, username=staff.username, pk=subscription.pk
+        )
+        assert response.status_code == 302
+
+        assert not Action.objects.filter(verb="cancelled a subscription").exists()
 
 
 @pytest.mark.django_db()

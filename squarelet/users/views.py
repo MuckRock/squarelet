@@ -12,9 +12,8 @@ from django.http.response import (
     HttpResponseRedirect,
     JsonResponse,
 )
-from django.shortcuts import redirect
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import (
     DetailView,
@@ -31,7 +30,6 @@ import json
 import logging
 import sys
 import time
-from datetime import datetime
 
 # Third Party
 from allauth.account.utils import get_next_redirect_url, send_email_confirmation
@@ -52,8 +50,16 @@ from squarelet.core.utils import new_action
 from squarelet.organizations.forms import InvitationAcceptForm
 from squarelet.organizations.models import Invitation, ReceiptEmail
 from squarelet.organizations.models.payment import Plan
-from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.views import UpdateSubscription
+from squarelet.payments.views import (
+    BaseCancelSubscription,
+    BaseManageSubscriptions,
+    BasePaymentsList,
+    BaseRemoveCard,
+    BaseUpdateCard,
+    BaseUpdateReceiptEmail,
+    BaseUpdateSubscriptionFrequency,
+)
 from squarelet.services.models import Service
 from squarelet.users.forms import (
     SignupForm,
@@ -162,38 +168,15 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         context["unused_code_count"] = len(self.get_recovery_codes())
         # Get the current plan and subscription, if any
         individual_org = user.individual_organization
-        current_plan = None
         upgrade_plan = Plan.objects.filter(slug="professional").first()
-        subscription = None
-        if hasattr(individual_org, "subscriptions"):
-            subscription = individual_org.subscriptions.first()
-            if subscription and hasattr(subscription, "plan"):
-                current_plan = subscription.plan
-                upgrade_plan = None
-        context["current_plan"] = current_plan
+        context["subscriptions"] = individual_org.subscriptions.all()
         context["upgrade_plan"] = upgrade_plan
-        # Get card, next charge date, and cancelled status for active subscription
-        if current_plan and subscription:
-            customer = individual_org.customer()
-            context["current_plan_card"] = bool(customer.stripe_payment_method_id)
-            context["current_plan_card_brand"] = customer.payment_brand
-            context["current_plan_card_last4"] = customer.payment_last4
-            # Stripe subscription may have next charge date
-            stripe_sub = subscription.stripe_subscription
-            if stripe_sub:
-                # Try to get next charge date from Stripe subscription
-                time_stamp = (
-                    get_payment_provider()
-                    .get_subscription_service()
-                    .get_current_period_end(stripe_sub)
-                )
-                if time_stamp:
-                    tz_datetime = datetime.fromtimestamp(
-                        time_stamp, tz=timezone.get_current_timezone()
-                    )
-                    context["current_plan_next_charge_date"] = tz_datetime.date()
-            # Check if the plan is cancelled
-            context["current_plan_cancelled"] = subscription.cancelled
+        # Get card for active subscription
+        customer = individual_org.customer()
+        context["current_plan_card"] = bool(customer.stripe_payment_method_id)
+        context["current_plan_card_brand"] = customer.payment_brand
+        context["current_plan_card_last4"] = customer.payment_last4
+
         # Cards for each non-individual org the user belongs to that has its own
         # paid plan. Plans the org inherits from parents/groups are intentionally
         # excluded here -- those are an org-level concept and confuse users when
@@ -684,3 +667,50 @@ class UserRequestsView(BaseUserInvitationRequestView):
     context_object_name = "requests"
     is_request_view = True
     redirect_url_name = "users:requests"
+
+
+class IndividualSubscriptionView(LoginRequiredMixin, StaffAccessMixin):
+    """Base class for individual subscription views.
+
+    Reached by username; the individual organization is resolved from it
+    and never exposed in the URL. Access is limited to the account owner
+    and staff (via ``StaffAccessMixin``).
+    """
+
+    subject = "users"
+    subject_url_kwarg = "username"
+    individual = True
+
+    def get_organization(self):
+        user = get_object_or_404(User, username=self.kwargs["username"])
+        return user.individual_organization
+
+
+class ManageSubscriptions(IndividualSubscriptionView, BaseManageSubscriptions):
+    pass
+
+
+class CancelSubscription(IndividualSubscriptionView, BaseCancelSubscription):
+    pass
+
+
+class UpdateSubscriptionFrequency(
+    IndividualSubscriptionView, BaseUpdateSubscriptionFrequency
+):
+    pass
+
+
+class UpdateCard(IndividualSubscriptionView, BaseUpdateCard):
+    pass
+
+
+class RemoveCard(IndividualSubscriptionView, BaseRemoveCard):
+    pass
+
+
+class UpdateReceiptEmail(IndividualSubscriptionView, BaseUpdateReceiptEmail):
+    pass
+
+
+class PaymentsList(IndividualSubscriptionView, BasePaymentsList):
+    pass

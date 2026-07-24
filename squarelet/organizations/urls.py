@@ -1,5 +1,6 @@
 # Django
 from django.urls import path
+from django.views.generic.base import RedirectView
 
 # Local
 from . import views
@@ -16,7 +17,36 @@ urlpatterns = [
         "~charge-pdf/<int:pk>/", view=views.PDFChargeDetail.as_view(), name="charge-pdf"
     ),
     path(
-        "<slug:slug>/payment/", view=views.UpdateSubscription.as_view(), name="payment"
+        "<slug:slug>/subscriptions/",
+        view=views.ManageSubscriptions.as_view(),
+        name="subscriptions",
+    ),
+    path(
+        "<slug:slug>/subscriptions/<int:pk>/cancel",
+        view=views.CancelSubscription.as_view(),
+        name="cancel-subscription",
+    ),
+    path(
+        "<slug:slug>/subscriptions/<int:pk>/update",
+        view=views.UpdateSubscriptionFrequency.as_view(),
+        name="update-frequency",
+    ),
+    path("<slug:slug>/card/", view=views.UpdateCard.as_view(), name="update-card"),
+    path(
+        "<slug:slug>/card/remove/",
+        view=views.RemoveCard.as_view(),
+        name="remove-card",
+    ),
+    path(
+        "<slug:slug>/receipt-email/",
+        view=views.UpdateReceiptEmail.as_view(),
+        name="update-receipt-email",
+    ),
+    path("<slug:slug>/payments/", view=views.PaymentsList.as_view(), name="payments"),
+    path(
+        "<slug:slug>/payment/",
+        view=RedirectView.as_view(pattern_name="organizations:subscriptions"),
+        name="payment",
     ),
     path("<slug:slug>/update/", view=views.Update.as_view(), name="update"),
     path(

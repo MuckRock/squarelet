@@ -1,0 +1,70 @@
+{% extends "layouts/sidebar_layout.html" %}
+{% load django_vite i18n %}
+{% load icon %}
+
+{% block title %}{% trans "Payments" %}{% endblock %}
+
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/payments_hub.ts" %}
+{% endblock vite %}
+
+{% block layout_id %}payments_hub{% endblock %}
+
+{% block header %}
+  <header>
+    <h1>{% trans "Payments" %}</h1>
+    <span class="arrow">{% icon "chevron-right" %}</span>
+    <h2>{% trans "Recent activity across your accounts" %}</h2>
+  </header>
+{% endblock %}
+
+{% block sidebar %}
+  <a href="{{ request.user.individual_organization.get_absolute_url }}" class="btn small ghost primary">
+    {% icon "chevron-left" %}
+    {% trans "Back to your account" %}
+  </a>
+  <ul>
+    {% for account in accounts %}
+      <li>
+        <a href="#account-{{ account.organization.pk }}" class="nav-item">
+          {% if account.organization.individual %}
+            {% icon "person" %}
+          {% else %}
+            {% icon "organization" %}
+          {% endif %}
+          {{ account.organization.name }}
+        </a>
+      </li>
+    {% endfor %}
+  </ul>
+{% endblock sidebar %}
+
+{% block main %}
+  {% for account in accounts %}
+    <section id="account-{{ account.organization.pk }}">
+      <header>
+        <div class="title">
+          <h2>{{ account.organization.name }}</h2>
+          {% if account.organization.individual %}
+            <span class="blue badge">{% trans "Personal" %}</span>
+          {% endif %}
+        </div>
+        <div class="header-actions">
+          <a href="{{ account.manage_url }}" class="btn small ghost primary">
+            {% icon "gear" %}
+            {% trans "Manage billing" %}
+          </a>
+          {% if account.payments.length > 0 %}
+          <a href="{{ account.history_url }}" class="btn small ghost primary">
+            {% icon "log" %}
+            {% trans "View payments" %}
+          </a>
+          {% endif %}
+        </div>
+      </header>
+
+      {% include "subscriptions/includes/receipts_card.html" with payments=account.payments %}
+    </section>
+  {% endfor %}
+{% endblock main %}

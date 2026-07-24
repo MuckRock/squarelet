@@ -50,4 +50,33 @@ urlpatterns = [
         view=views.UserRequestsView.as_view(),
         name="requests",
     ),
+    path(
+        "<str:username>/subscriptions/",
+        view=views.ManageSubscriptions.as_view(),
+        name="subscriptions",
+    ),
+    path(
+        "<str:username>/cancel/<int:pk>/",
+        view=views.CancelSubscription.as_view(),
+        name="cancel-subscription",
+    ),
+    path(
+        "<str:username>/update-frequency/<int:pk>/",
+        view=views.UpdateSubscriptionFrequency.as_view(),
+        name="update-frequency",
+    ),
+    path(
+        "<str:username>/receipt-email/",
+        view=views.UpdateReceiptEmail.as_view(),
+        name="update-receipt-email",
+    ),
+    path("<str:username>/card/", view=views.UpdateCard.as_view(), name="update-card"),
+    path(
+        "<str:username>/card/remove/",
+        view=views.RemoveCard.as_view(),
+        name="remove-card",
+    ),
+    path(
+        "<str:username>/payments/", view=views.PaymentsList.as_view(), name="payments"
+    ),
 ]

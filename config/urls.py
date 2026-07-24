@@ -19,7 +19,7 @@ from squarelet.organizations.fe_api.viewsets import (
     OrganizationViewSet as FEOrganizationViewSet,
 )
 from squarelet.organizations.viewsets import ChargeViewSet, OrganizationViewSet
-from squarelet.payments.views import PlanDetailView, PlanRedirectView
+from squarelet.payments.views import PaymentsHubView, PlanDetailView, PlanRedirectView
 from squarelet.users.fe_api.viewsets import UserViewSet as FEUserViewSet
 from squarelet.users.views import (
     LoginView,
@@ -66,6 +66,7 @@ urlpatterns = [
     path("plans/<int:pk>/", PlanRedirectView.as_view(), name="plan_detail_id"),
     path("plans/<slug:slug>/", PlanRedirectView.as_view(), name="plan_detail_slug"),
     path("selectplan/", SelectPlanView.as_view(), name="select_plan"),
+    path("payments/", PaymentsHubView.as_view(), name="payments"),
     # Django Admin, use {% url 'admin:index' %}
     path(settings.ADMIN_URL, admin.site.urls),
     # User management

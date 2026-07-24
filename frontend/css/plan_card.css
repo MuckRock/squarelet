@@ -19,7 +19,7 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem 1rem;
+  gap: 1rem 1rem;
   font-size: var(--font-md, 1rem);
 }
 
@@ -33,6 +33,14 @@
 /* Plan name + org name inline references */
 .plan-name {
   font-weight: var(--font-semibold, 600);
+}
+
+.plan-name.professional {
+  color: var(--blue-4);
+}
+
+.plan-name.organization {
+  color: var(--purple-4);
 }
 
 a.plan-name {
@@ -56,27 +64,68 @@ a.plan-name {
 }
 
 .plan-detail {
-  flex: 0 1 auto;
+  flex: 1 0 100%;
   padding: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.25rem 1rem;
   margin: 0.25rem 0;
 }
 
-.plan-detail .icon {
+.plan-card h3 {
+  font-weight: 600;
+  font-size: var(--font-md, 1rem);
+  color: var(--gray-5, #233944);
+  margin: 0;
+  white-space: nowrap;
+}
+
+.plan-card .caption {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0;
+  flex: 1 0 0;
+}
+
+.plan-card .caption .icon {
   display: inline-flex;
   align-items: center;
   color: var(--gray-4, #5c717c);
-  width: var(--font-sm, 1rem);
-  height: var(--font-sm, 1rem);
+  width: var(--font-md, 1em);
+  height: var(--font-md, 1em);
+}
+
+.plan-list {
+  margin: 0;
+  padding: 0;
+  list-style-type: none;
+  display: flex;
+  gap: 0.5rem 1.5rem;
+  flex: 1 0 100%;
+}
+
+.plan-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1 0 100%;
+}
+
+.plan-info {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 /* Plan benefits checklist */
 .plan-benefits.checklist {
   column-count: 2;
   column-gap: 0.5rem;
-  margin: 0;
+  margin: 0.5rem 0 0;
   padding: 0.5rem;
   border: 1px solid var(--gray-2, #d8dee2);
   border-radius: 0.5rem;
@@ -85,6 +134,10 @@ a.plan-name {
 @media (max-width: 28rem) {
   .plan-benefits.checklist {
     column-count: 1;
+  }
+
+  .plan-card .caption {
+    flex: 1 0 auto;
   }
 }
 
@@ -113,14 +166,31 @@ a.plan-name {
 }
 
 .plan-upgrade p {
-  margin: 0 0 0.5rem;
-}
-
-.plan-upgrade .plan-benefits {
-  border: none;
-  padding: 0;
+  margin: 0;
 }
 
 .plan-upgrade .plan-benefits .checklist-item .icon svg {
   fill: var(--green-3);
+}
+
+.account-row {
+  display: flex;
+  justify-contents: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.account-card {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.account-card .icon {
+  display: flex;
+  align-items: center;
+}
+
+.account-card-brand {
+  text-transform: capitalize;
 }

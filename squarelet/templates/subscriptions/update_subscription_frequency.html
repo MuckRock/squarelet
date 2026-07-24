@@ -1,0 +1,53 @@
+{% extends "layouts/modal_layout.html" %}
+{% load i18n crispy_forms_tags humanize %}
+{% load icon %}
+
+{% block title %}{{ subscription.plan.name }} | Change Billing Frequency{% endblock %}
+
+{% block layout_id %}update_frequency{% endblock %}
+
+{% block content %}
+{% endblock content %}
+
+{% block header %}
+  <h1>{{ subscription.organization.name }}</h1>
+  <span class="arrow">{% icon "chevron-right" %}</span>
+  <h2>{% trans "Change billing frequency" %}</h2>
+{% endblock header %}
+
+{% block main %}
+  {% with plan=subscription.plan currentfreq=plan.annual|yesno:_("annual,monthly") newfreq=plan.annual|yesno:_("monthly,annual") %}
+    <form id="change-frequency-form" method="post" enctype="multipart/form-data">
+      {% crispy form form.helper %}
+      <div>
+        <h3 class="plan {% if subject == "organizations" %}organization{% else %}professional{% endif %}">
+          {{ plan.name }}
+        </h3>
+        <p>
+          {% blocktrans with frequency=newfreq %}
+            Are you sure you want to change to {{ frequency }} billing?
+          {% endblocktrans %}
+        </p>
+      </div>
+      <p class="help">
+        {% blocktrans with cost=plan.base_price|floatformat:2|intcomma date=next_date %}
+          You will be charged <strong>${{ cost }}</strong> on <strong>{{ date }}.</strong>
+        {% endblocktrans %}
+      </p>
+      <div class="buttons">
+        <button type="submit" class="btn primary">
+          {% icon "check" %}
+          {% blocktrans with frequency=newfreq %}
+            Change to {{ frequency }}
+          {% endblocktrans %}
+        </button>
+
+        <a href="{% url subject|add:':subscriptions' subject_slug %}" class="btn ghost primary">
+          {% blocktrans with frequency=currentfreq %}
+            Keep {{ frequency }}
+          {% endblocktrans %}
+        </a>
+      </div>
+    </form>
+  {% endwith %}
+{% endblock main %}
