@@ -440,13 +440,15 @@ class ReassignAdmin(UserPassesTestMixin, DetailView):
         return context
 
     def post(self, request, *args, **kwargs):
+        is_leave_form = self.action == "leave"
         user = request.user
         org = self.get_object()
         new_admin_id = request.POST.get("userid")
+        url = "reassign-admin" if is_leave_form else "reassign-admin-demote"
 
         if new_admin_id == str(user.id):
             messages.warning(request, _("You must assign a user other than yourself"))
-            return redirect("organizations:reassign-admin", org.slug)
+            return redirect(f"organizations:{url}", org.slug)
 
         if new_admin_id:
             # If the outgoing admin picked a replacement, promote them
@@ -460,7 +462,7 @@ class ReassignAdmin(UserPassesTestMixin, DetailView):
                 )
             except Membership.DoesNotExist:
                 messages.error(request, _("User is not a member of this organization"))
-                return redirect("organizations:reassign-admin", org.slug)
+                return redirect(f"organizations:{url}", org.slug)
         else:
             # If there's no replacement admin, create a Zendesk ticket
             manage = reverse("organizations:manage-members", args=[org.slug])
@@ -475,15 +477,16 @@ class ReassignAdmin(UserPassesTestMixin, DetailView):
 
         membership = user.memberships.get(organization=org)
 
-        if self.action == "leave":
+        if is_leave_form:
             membership.delete()
             messages.info(request, _("You left the organization"))
-        elif self.action == "demote":
+        else:
             membership.admin = False
             membership.save()
             messages.info(request, _("You are demoted to a member"))
 
-        if self.action == "demote" or not org.private:
+        # User can still see the org if it's public or they only self-demoted
+        if not is_leave_form or not org.private:
             return redirect(org)
         else:
             return redirect(user)
