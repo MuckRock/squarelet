@@ -227,7 +227,7 @@ class ManageMembers(OrganizationPermissionMixin, DetailView):
 
             # If the user is demoting themselves, and they're the only admin,
             # send them to the demote version of the reassign admin page.
-            if user == request.user and org.has_sole_admin(user) and set_admin == False:
+            if user == request.user and org.has_sole_admin(user) and not set_admin:
                 return redirect("organizations:reassign-admin-demote", org.slug)
 
             membership.admin = set_admin
@@ -436,7 +436,7 @@ class ReassignAdmin(UserPassesTestMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["leave"] = self.action == 'leave'
+        context["leave"] = self.action == "leave"
         return context
 
     def post(self, request, *args, **kwargs):

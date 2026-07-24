@@ -1789,6 +1789,7 @@ class TestReassignAdmin(ViewTestMixin):
 
     def call_demote_view(self, rf, user, data=None, slug=None):
         """Call the demote variant of the view (action="demote")."""
+        # pylint: disable=protected-access
         url = self.url.format(slug=slug)
         if data is None:
             self.request = rf.get(url)
