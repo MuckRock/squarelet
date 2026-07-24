@@ -387,109 +387,59 @@ class TestDetail(ViewTestMixin):
         assert not organization.has_member(leaver)
         assert response.url == leaver.get_absolute_url()
 
-    def test_post_staff_remove_user(self, rf, organization_factory, user_factory):
-        """Staff with can_manage_members should be able to remove a user"""
-        staff_member = user_factory(is_staff=True)
-        staff_member = _assign_org_perm(staff_member, "can_manage_members")
+    def test_post_sole_admin_leave_redirects_to_reassign(
+        self, rf, organization_factory, user_factory
+    ):
+        """A sole admin trying to leave is redirected to the reassign form
+        and remains a member of the organization."""
+        admin = user_factory()
+        member = user_factory()
+        organization = organization_factory(admins=[admin], users=[member])
+
+        response = self.call_view(
+            rf, admin, {"action": "leave"}, slug=organization.slug
+        )
+        assert response.status_code == 302
+        assert response.url == f"/organizations/{organization.slug}/leave/"
+        # Admin should still be a member since they have not been reassigned yet
+        assert organization.has_member(admin)
+        assert organization.has_admin(admin)
+
+    def test_post_admin_leave_with_other_admin(
+        self, rf, organization_factory, user_factory
+    ):
+        """When there is more than one admin, an admin may leave directly
+        without being redirected to the reassign form."""
+        admin1, admin2 = user_factory.create_batch(2)
+        organization = organization_factory(admins=[admin1, admin2])
+
+        response = self.call_view(
+            rf, admin1, {"action": "leave"}, slug=organization.slug
+        )
+        assert response.status_code == 302
+        assert response.url != f"/organizations/{organization.slug}/leave/"
+        assert not organization.has_member(admin1)
+
+    def test_post_leave_ignores_userid_for_other_users(
+        self, rf, organization_factory, user_factory
+    ):
+        """The leave action only removes the requesting user. Passing another
+        user's id no longer removes that user (removal of others now happens
+        exclusively through the manage-members view)."""
+        member = user_factory()
         target_user = user_factory()
-        organization = organization_factory(users=[target_user])
+        organization = organization_factory(users=[member, target_user])
 
         response = self.call_view(
             rf,
-            staff_member,
+            member,
             {"action": "leave", "userid": target_user.pk},
             slug=organization.slug,
         )
         assert response.status_code == 302
-        assert not organization.has_member(target_user)
-        # Ensure staff member is not affected
-        assert not organization.has_member(staff_member)
-
-        # Verify activity stream action was created
-        action = Action.objects.filter(
-            actor_object_id=str(staff_member.pk),
-            verb="removed member from organization",
-        ).first()
-        assert action is not None
-        assert action.actor == staff_member
-        assert action.action_object == target_user
-        assert action.target == organization
-        assert action.public is False
-
-    def test_post_staff_remove_admin(self, rf, organization_factory, user_factory):
-        """Staff with can_manage_members should be able to remove an admin"""
-        staff_member = user_factory(is_staff=True)
-        staff_member = _assign_org_perm(staff_member, "can_manage_members")
-        target_admin = user_factory()
-        organization = organization_factory(admins=[target_admin])
-
-        response = self.call_view(
-            rf,
-            staff_member,
-            {"action": "leave", "userid": target_admin.pk},
-            slug=organization.slug,
-        )
-        assert response.status_code == 302
-        assert not organization.has_member(target_admin)
-        assert not organization.has_admin(target_admin)
-
-        # Verify activity stream action was created
-        action = Action.objects.filter(
-            actor_object_id=str(staff_member.pk),
-            verb="removed member from organization",
-        ).first()
-        assert action is not None
-        assert action.actor == staff_member
-        assert action.action_object == target_admin
-        assert action.target == organization
-        assert action.public is False
-
-    def test_post_staff_remove_other_staff(
-        self, rf, organization_factory, user_factory
-    ):
-        """Staff with can_manage_members should be able to remove another staff"""
-        staff_member1 = user_factory(is_staff=True)
-        staff_member1 = _assign_org_perm(staff_member1, "can_manage_members")
-        staff_member2 = user_factory(is_staff=True)
-        organization = organization_factory(users=[staff_member2])
-
-        response = self.call_view(
-            rf,
-            staff_member1,
-            {"action": "leave", "userid": staff_member2.pk},
-            slug=organization.slug,
-        )
-        assert response.status_code == 302
-        assert not organization.has_member(staff_member2)
-
-    def test_post_non_staff_cannot_remove_other_user(
-        self, rf, organization_factory, user_factory
-    ):
-        """Non-staff member should not be able to remove another user"""
-        regular_user = user_factory()
-        target_user = user_factory()
-        organization = organization_factory(users=[regular_user, target_user])
-
-        response = self.call_view(
-            rf,
-            regular_user,
-            {"action": "leave", "userid": target_user.pk},
-            slug=organization.slug,
-        )
-        assert response.status_code == 302
-        # Both users should still be members since non-staff can't remove others
+        # The other user is untouched; only the requesting user leaves
         assert organization.has_member(target_user)
-        assert organization.has_member(regular_user)
-        self.assert_message(
-            messages.ERROR, "You do not have permission to remove other users"
-        )
-
-        # Verify no activity stream action was created
-        action = Action.objects.filter(
-            actor_object_id=str(regular_user.pk),
-            verb="removed member from organization",
-        ).first()
-        assert action is None
+        assert not organization.has_member(member)
 
     def test_post_staff_remove_themselves_with_userid(
         self, rf, organization_factory, user_factory
@@ -1573,6 +1523,92 @@ class TestManageMembers(ViewTestMixin):  # pylint: disable=too-many-public-metho
         assert not organization.has_member(member)
         self.assert_message(messages.SUCCESS, f"{member.username} removed")
 
+    def test_remove_self_sole_admin_redirects_to_reassign(
+        self, rf, organization_factory, user_factory
+    ):
+        """A sole admin removing themselves is redirected to the reassign
+        admin form instead of being removed immediately."""
+        admin = user_factory()
+        member = user_factory()
+        organization = organization_factory(admins=[admin], users=[member])
+        data = {"action": "removeuser", "userid": admin.pk}
+        response = self.call_view(rf, admin, data, slug=organization.slug)
+        assert response.status_code == 302
+        assert response.url == f"/organizations/{organization.slug}/leave/"
+        # Admin remains until they reassign or confirm on the leave page
+        assert organization.has_admin(admin)
+
+    def test_remove_self_with_other_admin_removes_immediately(
+        self, rf, organization_factory, user_factory
+    ):
+        """An admin who is not the sole admin can remove themselves directly."""
+        admin1, admin2 = user_factory.create_batch(2)
+        organization = organization_factory(admins=[admin1, admin2])
+        data = {"action": "removeuser", "userid": admin1.pk}
+        response = self.call_view(rf, admin1, data, slug=organization.slug)
+        assert response.status_code == 302
+        assert response.url != f"/organizations/{organization.slug}/leave/"
+        assert not organization.has_member(admin1)
+
+    def test_admin_remove_other_member_not_redirected(
+        self, rf, organization_factory, user_factory
+    ):
+        """A sole admin removing a different member is not redirected; the
+        reassign flow only applies when removing oneself."""
+        admin = user_factory()
+        member = user_factory()
+        organization = organization_factory(admins=[admin], users=[member])
+        data = {"action": "removeuser", "userid": member.pk}
+        response = self.call_view(rf, admin, data, slug=organization.slug)
+        assert response.status_code == 302
+        assert response.url != f"/organizations/{organization.slug}/leave/"
+        assert not organization.has_member(member)
+        assert organization.has_admin(admin)
+
+    def test_demote_self_sole_admin_redirects_to_demote(
+        self, rf, organization_factory, user_factory
+    ):
+        """A sole admin demoting themselves is redirected to the demote version
+        of the reassign admin form instead of being demoted immediately."""
+        admin = user_factory()
+        member = user_factory()
+        organization = organization_factory(admins=[admin], users=[member])
+        data = {"action": "makeadmin", "userid": admin.pk, "admin": "false"}
+        response = self.call_view(rf, admin, data, slug=organization.slug)
+        assert response.status_code == 302
+        assert response.url == f"/organizations/{organization.slug}/demote/"
+        # Admin remains until they reassign or confirm on the demote page
+        assert organization.has_admin(admin)
+
+    def test_demote_self_with_other_admin_demotes_immediately(
+        self, rf, organization_factory, user_factory
+    ):
+        """An admin who is not the sole admin can demote themselves directly."""
+        admin1, admin2 = user_factory.create_batch(2)
+        organization = organization_factory(admins=[admin1, admin2])
+        data = {"action": "makeadmin", "userid": admin1.pk, "admin": "false"}
+        response = self.call_view(rf, admin1, data, slug=organization.slug)
+        assert response.status_code == 302
+        assert response.url != f"/organizations/{organization.slug}/demote/"
+        assert not organization.has_admin(admin1)
+        assert organization.has_member(admin1)
+        self.assert_message(messages.SUCCESS, f"{admin1.username} demoted to member")
+
+    def test_demote_other_admin_not_redirected(
+        self, rf, organization_factory, user_factory
+    ):
+        """Demoting a different admin is not redirected; the demote flow only
+        applies when demoting oneself."""
+        admin1, admin2 = user_factory.create_batch(2)
+        organization = organization_factory(admins=[admin1, admin2])
+        data = {"action": "makeadmin", "userid": admin2.pk, "admin": "false"}
+        response = self.call_view(rf, admin1, data, slug=organization.slug)
+        assert response.status_code == 302
+        assert response.url != f"/organizations/{organization.slug}/demote/"
+        assert not organization.has_admin(admin2)
+        assert organization.has_admin(admin1)
+        self.assert_message(messages.SUCCESS, f"{admin2.username} demoted to member")
+
     def test_bad_action(self, rf, organization_factory, user_factory):
         admin = user_factory()
         organization = organization_factory(admins=[admin])
@@ -1742,6 +1778,238 @@ class TestManageMembers(ViewTestMixin):  # pylint: disable=too-many-public-metho
         invitation = organization.invitations.latest("created_at")
         assert invitation.role == InvitationRole.member
         assert invitation.email == ""
+
+
+@pytest.mark.django_db()
+class TestReassignAdmin(ViewTestMixin):
+    """Test the ReassignAdmin view (outgoing sole-admin leave flow)"""
+
+    view = views.ReassignAdmin
+    url = "/organizations/{slug}/leave/"
+
+    def call_demote_view(self, rf, user, data=None, slug=None):
+        """Call the demote variant of the view (action="demote")."""
+        url = self.url.format(slug=slug)
+        if data is None:
+            self.request = rf.get(url)
+        else:
+            self.request = rf.post(url, data)
+        self.request.user = user
+        self.request._messages = MagicMock()
+        self.request.session = MagicMock()
+        return views.ReassignAdmin.as_view(action="demote")(self.request, slug=slug)
+
+    def test_get_sole_admin(self, rf, organization_factory, user_factory):
+        """The sole admin can view the reassign form"""
+        admin = user_factory()
+        member = user_factory()
+        organization = organization_factory(admins=[admin], users=[member])
+        response = self.call_view(rf, admin, slug=organization.slug)
+        assert response.status_code == 200
+
+    def test_get_context_leave_flag_true_for_leave_action(
+        self, rf, organization_factory, user_factory
+    ):
+        """The leave action exposes leave=True in the template context."""
+        admin = user_factory()
+        member = user_factory()
+        organization = organization_factory(admins=[admin], users=[member])
+        response = self.call_view(rf, admin, slug=organization.slug)
+        assert response.context_data["leave"] is True
+
+    def test_get_context_leave_flag_false_for_demote_action(
+        self, rf, organization_factory, user_factory
+    ):
+        """The demote action exposes leave=False in the template context."""
+        admin = user_factory()
+        member = user_factory()
+        organization = organization_factory(admins=[admin], users=[member])
+        response = self.call_demote_view(rf, admin, slug=organization.slug)
+        assert response.context_data["leave"] is False
+
+    def test_get_denied_for_non_sole_admin(
+        self, rf, organization_factory, user_factory
+    ):
+        """A regular member cannot view the reassign form"""
+        admin = user_factory()
+        member = user_factory()
+        organization = organization_factory(admins=[admin], users=[member])
+        with pytest.raises(PermissionDenied):
+            self.call_view(rf, member, slug=organization.slug)
+
+    def test_get_denied_when_multiple_admins(
+        self, rf, organization_factory, user_factory
+    ):
+        """An admin who is not the sole admin cannot view the reassign form"""
+        admin1, admin2 = user_factory.create_batch(2)
+        organization = organization_factory(admins=[admin1, admin2])
+        with pytest.raises(PermissionDenied):
+            self.call_view(rf, admin1, slug=organization.slug)
+
+    def test_post_promotes_replacement_and_leaves(
+        self, rf, organization_factory, user_factory
+    ):
+        """Selecting a replacement promotes them to admin and removes the
+        outgoing admin from the organization."""
+        admin = user_factory()
+        member = user_factory()
+        organization = organization_factory(admins=[admin], users=[member])
+
+        response = self.call_view(
+            rf, admin, {"userid": member.pk}, slug=organization.slug
+        )
+        assert response.status_code == 302
+        # Outgoing admin has left
+        assert not organization.has_member(admin)
+        # Replacement is now an admin
+        assert organization.has_admin(member)
+        # The final flash message confirms the outgoing admin left
+        self.assert_message(messages.INFO, "You left the organization")
+
+    def test_post_no_replacement_creates_zendesk_ticket(
+        self, rf, organization_factory, user_factory, mocker
+    ):
+        """Leaving without a replacement creates a Zendesk ticket and removes
+        the outgoing admin."""
+        mock_ticket = mocker.patch(
+            "squarelet.organizations.views.members.create_zendesk_ticket"
+        )
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+
+        response = self.call_view(rf, admin, {}, slug=organization.slug)
+        assert response.status_code == 302
+        assert not organization.has_member(admin)
+        mock_ticket.assert_called_once()
+
+    def test_post_invalid_replacement_does_not_leave(
+        self, rf, organization_factory, user_factory
+    ):
+        """A userid that is not a member of the org shows an error and does
+        not remove the outgoing admin."""
+        admin = user_factory()
+        non_member = user_factory()
+        organization = organization_factory(admins=[admin])
+
+        response = self.call_view(
+            rf, admin, {"userid": non_member.pk}, slug=organization.slug
+        )
+        assert response.status_code == 302
+        assert response.url == f"/organizations/{organization.slug}/leave/"
+        # Admin has not left since reassignment failed
+        assert organization.has_admin(admin)
+        self.assert_message(messages.ERROR, "User is not a member of this organization")
+
+    def test_post_private_org_redirects_to_user(
+        self, rf, organization_factory, user_factory, mocker
+    ):
+        """Leaving a private org redirects to the user's profile page."""
+        mocker.patch("squarelet.organizations.views.members.create_zendesk_ticket")
+        admin = user_factory()
+        organization = organization_factory(admins=[admin], private=True)
+
+        response = self.call_view(rf, admin, {}, slug=organization.slug)
+        assert response.status_code == 302
+        assert response.url == admin.get_absolute_url()
+
+    def test_post_public_org_redirects_to_org(
+        self, rf, organization_factory, user_factory
+    ):
+        """Leaving a public org after reassigning redirects to the org page."""
+        admin = user_factory()
+        member = user_factory()
+        organization = organization_factory(admins=[admin], users=[member])
+
+        response = self.call_view(
+            rf, admin, {"userid": member.pk}, slug=organization.slug
+        )
+        assert response.status_code == 302
+        assert response.url == organization.get_absolute_url()
+
+    def test_demote_promotes_replacement_and_demotes_self(
+        self, rf, organization_factory, user_factory
+    ):
+        """Demoting with a replacement promotes them and demotes the outgoing
+        admin to a member (they remain in the organization)."""
+        admin = user_factory()
+        member = user_factory()
+        organization = organization_factory(admins=[admin], users=[member])
+
+        response = self.call_demote_view(
+            rf, admin, {"userid": member.pk}, slug=organization.slug
+        )
+        assert response.status_code == 302
+        # Replacement is now an admin
+        assert organization.has_admin(member)
+        # Outgoing admin is demoted but still a member
+        assert not organization.has_admin(admin)
+        assert organization.has_member(admin)
+        self.assert_message(messages.INFO, "You are demoted to a member")
+
+    def test_demote_no_replacement_creates_zendesk_ticket(
+        self, rf, organization_factory, user_factory, mocker
+    ):
+        """Demoting without a replacement creates a Zendesk ticket and demotes
+        the outgoing admin while keeping them as a member."""
+        mock_ticket = mocker.patch(
+            "squarelet.organizations.views.members.create_zendesk_ticket"
+        )
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+
+        response = self.call_demote_view(rf, admin, {}, slug=organization.slug)
+        assert response.status_code == 302
+        assert not organization.has_admin(admin)
+        assert organization.has_member(admin)
+        mock_ticket.assert_called_once()
+
+    def test_demote_invalid_replacement_does_not_demote(
+        self, rf, organization_factory, user_factory
+    ):
+        """A userid that is not a member shows an error and does not demote the
+        outgoing admin."""
+        admin = user_factory()
+        non_member = user_factory()
+        organization = organization_factory(admins=[admin])
+
+        response = self.call_demote_view(
+            rf, admin, {"userid": non_member.pk}, slug=organization.slug
+        )
+        assert response.status_code == 302
+        assert response.url == f"/organizations/{organization.slug}/demote/"
+        assert organization.has_admin(admin)
+        self.assert_message(messages.ERROR, "User is not a member of this organization")
+
+    def test_demote_self_assignment_rejected(
+        self, rf, organization_factory, user_factory
+    ):
+        """Assigning oneself as the replacement is rejected."""
+        admin = user_factory()
+        member = user_factory()
+        organization = organization_factory(admins=[admin], users=[member])
+
+        response = self.call_demote_view(
+            rf, admin, {"userid": admin.pk}, slug=organization.slug
+        )
+        assert response.status_code == 302
+        assert response.url == f"/organizations/{organization.slug}/demote/"
+        assert organization.has_admin(admin)
+        self.assert_message(
+            messages.WARNING, "You must assign a user other than yourself"
+        )
+
+    def test_demote_redirects_to_org_even_when_private(
+        self, rf, organization_factory, user_factory, mocker
+    ):
+        """The demote action always redirects to the org page, even for a
+        private org (unlike the leave action)."""
+        mocker.patch("squarelet.organizations.views.members.create_zendesk_ticket")
+        admin = user_factory()
+        organization = organization_factory(admins=[admin], private=True)
+
+        response = self.call_demote_view(rf, admin, {}, slug=organization.slug)
+        assert response.status_code == 302
+        assert response.url == organization.get_absolute_url()
 
 
 @pytest.mark.django_db()

@@ -78,6 +78,34 @@ class TestOrganization:
         assert not org.has_member(user)
 
     @pytest.mark.django_db()
+    def test_has_sole_admin(self, organization_factory, user_factory):
+        """A user who is the only admin is the sole admin"""
+        admin, member = user_factory.create_batch(2)
+        org = organization_factory(users=[member], admins=[admin])
+
+        assert org.has_sole_admin(admin)
+        # A regular member is never a sole admin
+        assert not org.has_sole_admin(member)
+
+    @pytest.mark.django_db()
+    def test_has_sole_admin_multiple_admins(self, organization_factory, user_factory):
+        """When there are multiple admins, none of them is the sole admin"""
+        admin1, admin2 = user_factory.create_batch(2)
+        org = organization_factory(admins=[admin1, admin2])
+
+        assert not org.has_sole_admin(admin1)
+        assert not org.has_sole_admin(admin2)
+
+    @pytest.mark.django_db()
+    def test_has_sole_admin_non_member(self, organization_factory, user_factory):
+        """A user who is not an admin at all is not the sole admin, even
+        when the org has exactly one admin"""
+        admin, outsider = user_factory.create_batch(2)
+        org = organization_factory(admins=[admin])
+
+        assert not org.has_sole_admin(outsider)
+
+    @pytest.mark.django_db()
     def test_user_count(
         self, organization_factory, membership_factory, invitation_factory
     ):
