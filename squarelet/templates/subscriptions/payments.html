@@ -29,6 +29,20 @@
       {% trans "Back to subscriptions" %}
     {% endif %}
   </a>
+  <ul>
+    {% for account in nav_accounts %}
+      <li>
+        <a href="{{ account.url }}" class="nav-item{% if account.active %} active{% endif %}">
+          {% if account.organization.individual %}
+            {% icon "person" %}
+          {% else %}
+            {% icon "organization" %}
+          {% endif %}
+          {{ account.organization.name }}
+        </a>
+      </li>
+    {% endfor %}
+  </ul>
 {% endblock sidebar %}
 
 {% block main %}

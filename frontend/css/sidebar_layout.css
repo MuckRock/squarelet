@@ -128,6 +128,16 @@
   flex-shrink: 0;
 }
 
+.sidebar-layout > .sidebar .nav-item.active,
+.sidebar-layout > .sidebar a.nav-item.active {
+  background: var(--blue-1, #eef3f9);
+  color: var(--blue-5, #053775);
+}
+
+.sidebar-layout > .sidebar .nav-item.active svg {
+  fill: var(--blue-5, #053775);
+}
+
 /* Content area */
 
 .sidebar-layout > .content {
