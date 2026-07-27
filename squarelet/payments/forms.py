@@ -443,6 +443,19 @@ class CardForm(StripeForm):
         self.helper.form_tag = False
 
 
+class UpdateSubscriptionFrequencyForm(forms.ModelForm):
+    """Update the frequency of a subscription."""
+
+    class Meta:
+        model = Plan
+        fields = []
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_tag = False
+
+
 class UpdateReceiptEmailForm(forms.ModelForm):
     """Update the receipt email for an organization."""
 

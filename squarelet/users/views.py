@@ -60,6 +60,7 @@ from squarelet.payments.views import (
     BaseResubscribe,
     BaseUpdateCard,
     BaseUpdateReceiptEmail,
+    BaseUpdateSubscriptionFrequency,
 )
 from squarelet.services.models import Service
 from squarelet.users.forms import (
@@ -706,6 +707,12 @@ class CancelSubscription(IndividualSubscriptionView, BaseCancelSubscription):
 
 
 class Resubscribe(IndividualSubscriptionView, BaseResubscribe):
+    pass
+
+
+class UpdateSubscriptionFrequency(
+    IndividualSubscriptionView, BaseUpdateSubscriptionFrequency
+):
     pass
 
 
