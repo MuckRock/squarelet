@@ -814,6 +814,21 @@ class Plan(models.Model):
     def free(self):
         return self.base_price == 0 and self.price_per_user == 0
 
+    def get_benefits(self):
+        """Effective benefits for display.
+
+        If any of this plan's entitlements define benefits, the deduplicated,
+        order-preserving union of those overrides ``self.benefits``. Otherwise
+        fall back to ``self.benefits``. This supports migrating benefit copy
+        from plans onto entitlements one plan at a time.
+        """
+        entitlement_benefits = []
+        for entitlement in self.entitlements.all():  # reuses any prefetch
+            for benefit in entitlement.benefits or []:
+                if benefit not in entitlement_benefits:
+                    entitlement_benefits.append(benefit)
+        return entitlement_benefits or self.benefits
+
     def requires_payment(self):
         """Does this plan require immediate payment?
         Free plans never require payment
@@ -1013,6 +1028,16 @@ class Entitlement(models.Model):
         default=dict,
         help_text=_(
             "Allows clients to track metadata for the resources this entitlement grants"
+        ),
+    )
+    benefits = models.JSONField(
+        _("benefits"),
+        default=list,
+        blank=True,
+        help_text=_(
+            "Plain-language benefits granted by this entitlement. When any of a "
+            "plan's entitlements define benefits, they override the plan's own "
+            "benefits list for display."
         ),
     )
 

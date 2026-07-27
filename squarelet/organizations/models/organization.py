@@ -999,3 +999,22 @@ class Organization(AvatarMixin, models.Model):
 
         org.save()
         self.save()
+
+
+def consolidate_inherited_benefits(inherited_plans):
+    """Consolidate ``[(source_org, plan), ...]`` for display.
+
+    Returns ``(orgs, benefits)``: a deduplicated, order-preserving list of the
+    source organizations and the deduplicated union of their plans' effective
+    benefits (via :meth:`Plan.get_benefits`). Used to render a single inherited
+    benefits card instead of one card per inherited plan.
+    """
+    orgs = []
+    benefits = []
+    for org, plan in inherited_plans:
+        if org not in orgs:
+            orgs.append(org)
+        for benefit in plan.get_benefits():
+            if benefit not in benefits:
+                benefits.append(benefit)
+    return orgs, benefits

@@ -49,7 +49,11 @@ from allauth.socialaccount.views import ConnectionsView
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import new_action
 from squarelet.organizations.forms import InvitationAcceptForm
-from squarelet.organizations.models import Invitation, ReceiptEmail
+from squarelet.organizations.models import (
+    Invitation,
+    ReceiptEmail,
+    consolidate_inherited_benefits,
+)
 from squarelet.organizations.models.payment import Plan
 from squarelet.organizations.views import UpdateSubscription
 from squarelet.payments.views import (
@@ -178,11 +182,15 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         context["current_plan_card_brand"] = customer.payment_brand
         context["current_plan_card_last4"] = customer.payment_last4
 
-        # Cards for each non-individual org the user belongs to that has its own
-        # paid plan. Plans the org inherits from parents/groups are intentionally
-        # excluded here -- those are an org-level concept and confuse users when
-        # surfaced on their personal page.
-        context["premium_org_plans"] = self._get_premium_org_plans(user)
+        # Consolidated benefits from each non-individual org the user belongs to
+        # that has its own paid plan. Plans the org inherits from parents/groups
+        # are intentionally excluded here -- those are an org-level concept and
+        # confuse users when surfaced on their personal page.
+        inherited_orgs, inherited_benefits = consolidate_inherited_benefits(
+            self._get_premium_org_plans(user)
+        )
+        context["inherited_orgs"] = inherited_orgs
+        context["inherited_benefits"] = inherited_benefits
         # Autologin preference form
         context["autologin_form"] = UserAutologinPreferenceForm(instance=user)
         context["may_hijack"] = hijack_by_group(self.request.user, user)
@@ -191,9 +199,9 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
     @staticmethod
     def _get_premium_org_plans(user):
         """Return [(org, plan), ...] for non-individual orgs the user belongs to
-        that have their own paid plan. Shaped to plug straight into the plan
-        card partial's `inherited_plans` arg, since from the user's perspective
-        these benefits are inherited via membership."""
+        that have their own paid plan. Fed to `consolidate_inherited_benefits`,
+        since from the user's perspective these benefits are inherited via
+        membership."""
         return [
             (org, sub.plan)
             for org in user.organizations.filter(individual=False)
