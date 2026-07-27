@@ -207,10 +207,10 @@ test.describe("Organization Viewing", () => {
       await expect(page.locator("section#billing")).toBeVisible();
     });
 
-    test("sees button to change plans", async ({ page }) => {
+    test("sees button to upgrade plan", async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
       await expect(
-        page.locator('a[href$="/organizations/e2e-public-org/payment/"]'),
+        page.locator('a.btn.premium[href*="/plans/"][href$="-organization/"]'),
       ).toBeVisible();
     });
   });
@@ -256,10 +256,10 @@ test.describe("Organization Viewing", () => {
       await expect(page.locator("section#billing")).toBeVisible();
     });
 
-    test("sees button to change plans", async ({ page }) => {
+    test("sees button to upgrade plan", async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
       await expect(
-        page.locator('a[href$="/organizations/e2e-public-org/payment/"]'),
+        page.locator('a.btn.premium[href*="/plans/"][href$="-organization/"]'),
       ).toBeVisible();
     });
 
