@@ -78,6 +78,18 @@ class TestOrganization:
         assert not org.has_member(user)
 
     @pytest.mark.django_db()
+    def test_has_member_org(self, organization_factory):
+        """has_member_org is True only for orgs in the group's members M2M"""
+        group = organization_factory(collective_enabled=True)
+        member_org = organization_factory()
+        other_org = organization_factory()
+
+        group.members.add(member_org)
+
+        assert group.has_member_org(member_org)
+        assert not group.has_member_org(other_org)
+
+    @pytest.mark.django_db()
     def test_user_count(
         self, organization_factory, membership_factory, invitation_factory
     ):

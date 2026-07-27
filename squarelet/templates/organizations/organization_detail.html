@@ -48,6 +48,22 @@
         {% trans "Profile" %}
       </a>
     </li>
+    {% if show_members_section %}
+    <li>
+      <a href="#affiliates" class="nav-item">
+        {% icon "network" %}
+        {% trans "Affiliates" %}
+      </a>
+    </li>
+    {% endif %}
+    {% if show_groups_section %}
+    <li>
+      <a href="#affiliations" class="nav-item">
+        {% icon "network" %}
+        {% trans "Affiliations" %}
+      </a>
+    </li>
+    {% endif %}
     {% if can_view_subscription %}
     <li>
       <a href="#plan" class="nav-item">
@@ -96,6 +112,7 @@
 {% has_perm "organizations.can_view_subscription" user organization as can_view_subscription %}
 {% has_perm "organizations.can_edit_subscription" user organization as can_edit_subscription %}
 {% has_perm "organizations.can_view_charge" user organization as can_view_charge %}
+{% has_perm "organizations.can_manage_member_orgs" user organization as can_manage_member_orgs %}
     <section id="profile">
       <header>
         <h2>{% trans "Profile" %}</h2>
@@ -143,6 +160,113 @@
         </div>
       </main>
     </section>
+
+    {% if show_members_section %}
+    <section id="affiliates">
+      <header>
+        <h2>{% trans "Affiliates" %}</h2>
+        {% if can_manage_member_orgs %}
+          <div class="header-actions">
+            <a href="{% url 'organizations:manage-member-orgs' organization.slug %}#invite" class="btn ghost primary">
+            {% icon "plus-circle" %}
+            {% trans "Add affiliates" %}
+            </a>
+            <a href="{% url 'organizations:manage-member-orgs' organization.slug %}" class="btn ghost primary">
+            {% icon "network" %}
+            {% trans "Manage affiliates" %}
+            </a>
+          </div>
+        {% endif %}
+      </header>
+      <main class="orgs">
+        {% if member_org_invitations and member_org_invitations.count > 0 %}
+          <div class="notification-banner blue">
+            <div class="banner-content">
+              <span class="icon">{% icon "network" %}</span>
+              <div class="banner-text">
+                <strong>
+                  {% blocktrans count count=member_org_invitations.count %}
+                    You have {{ count }} pending invitation
+                  {% plural %}
+                    You have {{ count }} pending invitations
+                  {% endblocktrans %}
+                </strong>
+                <p>{% trans "Resend or revoke invitations to affiliates" %}</p>
+              </div>
+              <a href="{% url 'organizations:manage-member-orgs' organization.slug %}#invite" class="btn primary">
+                {% trans "Manage invitations" %}
+              </a>
+            </div>
+          </div>
+        {% endif %}
+        <div class="org-list">
+          {% for member in members %}
+            <div class="org">
+              {% include "account/team_list_item.html" with organization=member %}
+              {% if can_manage_member_orgs %}
+                <form method="post" action="{% url "organizations:detail" organization.slug %}" class="member-actions">
+                  {% csrf_token %}
+                  <input type="hidden" name="member_org" value="{{ member.slug }}">
+                  <button class="btn danger ghost small" type="submit" name="action" value="remove_member_org">
+                    {% icon "x-circle" %}
+                    {% trans "Remove" %}
+                  </button>
+                </form>
+              {% endif %}
+            </div>
+          {% empty %}
+            <div class="empty empty--no-border">
+              <p>{% trans "No member organizations" %}</p>
+            </div>
+          {% endfor %} 
+        </div>
+      </main>
+    </section>
+    {% endif %}
+
+    {% if show_groups_section %}
+    <section id="affiliations">
+      <header>
+        <h2>{% trans "Affiliations" %}</h2>
+      </header>
+      <main class="orgs">
+        {% if group_invitations|length > 0 %}
+            {% for invitation in group_invitations %}
+              <div class="org">
+                {% include "account/team_list_item.html" with organization=invitation.from_organization %}
+                <form method="post" action="{% url "organizations:detail" organization.slug %}" class="member-actions">
+                  {% csrf_token %}
+                  <input type="hidden" name="invitation" value="{{ invitation.uuid }}">
+                  <button class="btn primary small" type="submit" name="action" value="accept_group_invitation">
+                    {% icon "check" %}
+                    {% trans "Accept" %}
+                  </button>
+                  <button class="btn danger ghost small" type="submit" name="action" value="reject_group_invitation">
+                    {% trans "Reject" %}
+                  </button>
+                </form>
+              </div>
+            {% endfor %}
+        {% endif %}
+
+        {% if groups|length > 0 %}
+            {% for group in groups %}
+              <div class="org">
+                {% include "account/team_list_item.html" with organization=group %}
+                <form method="post" action="{% url "organizations:detail" group.slug %}" class="member-actions">
+                  {% csrf_token %}
+                  <input type="hidden" name="member_org" value="{{ organization.slug }}">
+                  <button class="btn danger ghost small" type="submit" name="action" value="remove_member_org">
+                    {% icon "sign-out" %}
+                    {% trans "Leave" %}
+                  </button>
+                </form>
+              </div>
+            {% endfor %} 
+        {% endif %}
+      </main>
+    </section>
+    {% endif %}
 
     {% if can_view_subscription %}
     <section id="plan">

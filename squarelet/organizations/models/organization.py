@@ -299,6 +299,8 @@ class Organization(AvatarMixin, models.Model):
             ("can_edit_subscription", "Can edit organization subscription"),
             ("can_view_charge", "Can view charge receipts"),
             ("can_manage_domains", "Can manage organization email domains"),
+            ("can_manage_member_orgs", "Can manage member organizations"),
+            ("can_manage_groups", "Can manage group memberships"),
         )
 
     def __str__(self):
@@ -894,6 +896,10 @@ class Organization(AvatarMixin, models.Model):
             withdrawn_at__isnull=True,
             request=False,
         ).first()
+
+    def has_member_org(self, org):
+        """Is the org a member?"""
+        return self.members.filter(pk=org.pk).exists()
 
     @transaction.atomic
     def merge(self, org, user):

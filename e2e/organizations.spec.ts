@@ -7,6 +7,11 @@ import {
   resetOrgProfileState,
   resetAutoJoinState,
   runManageCommand,
+  resetMemberOrgState,
+  createMemberOrgInvitation,
+  acceptMemberOrgInvitation,
+  addMemberOrg,
+  selectOrgInSearch,
 } from "./helpers";
 
 const NEW_ORG_SLUG = "e2e-new-org";
@@ -1140,5 +1145,376 @@ test.describe("Invitations for unverified users", () => {
     const controls = page.locator(".control-group");
     await expect(controls.locator('button[value="accept"]')).toHaveCount(0);
     await expect(controls.locator('a[href$="#accounts"]')).toBeVisible();
+  });
+});
+
+// A collective-enabled org (seeded) that e2e-admin administers. It can manage
+// member organizations.
+const COLLECTIVE = "e2e-collective-org";
+// A regular (non-collective) public org, also administered by e2e-admin, used
+// as the organization that gets invited to / joins the collective.
+const MEMBER = "e2e-public-org";
+
+test.describe("Member Organization Management", () => {
+  // Reset all org-to-org invitations and member links before and after the
+  // suite so state never leaks between tests or into other spec files.
+  test.beforeEach(() => {
+    resetMemberOrgState();
+  });
+  test.afterAll(() => {
+    resetMemberOrgState();
+  });
+
+  test.describe("Collective org detail page", () => {
+    test("admin sees the Member Orgs section and management link", async ({
+      page,
+    }) => {
+      await login(page, "e2e-admin");
+      await page.goto(`/organizations/${COLLECTIVE}/`);
+
+      await expect(page.locator("section#affiliates")).toBeVisible();
+      await expect(page.locator('a[href="#affiliates"]')).toBeVisible();
+      await expect(
+        page.locator(
+          `a[href$="/organizations/${COLLECTIVE}/manage-member-orgs/"]`,
+        ),
+      ).toBeVisible();
+    });
+
+    test("non-collective org has no Member Orgs section", async ({ page }) => {
+      await login(page, "e2e-admin");
+      await page.goto(`/organizations/${MEMBER}/`);
+
+      await expect(page.locator("section#affiliates")).toHaveCount(0);
+      await expect(
+        page.locator(`a[href$="/organizations/${MEMBER}/manage-member-orgs/"]`),
+      ).toHaveCount(0);
+    });
+
+    test("signed-in non-member does not see the Member Orgs section", async ({
+      page,
+    }) => {
+      await login(page, "e2e-regular");
+      await page.goto(`/organizations/${COLLECTIVE}/`);
+
+      await expect(page.locator("section#affiliates")).toHaveCount(0);
+    });
+  });
+
+  test.describe("Manage member orgs access", () => {
+    test("collective org admin can access the management page", async ({
+      page,
+    }) => {
+      await login(page, "e2e-admin");
+      const response = await page.goto(
+        `/organizations/${COLLECTIVE}/manage-member-orgs/`,
+      );
+      expect(response?.status()).toBe(200);
+      await expect(page.locator("section#invite")).toBeVisible();
+      await expect(page.locator("section#member-orgs")).toBeVisible();
+    });
+
+    test("admin of a non-collective org is denied (403)", async ({ page }) => {
+      await login(page, "e2e-admin");
+      const response = await page.goto(
+        `/organizations/${MEMBER}/manage-member-orgs/`,
+      );
+      expect(response?.status()).toBe(403);
+    });
+
+    test("non-admin is denied (403)", async ({ page }) => {
+      await login(page, "e2e-regular");
+      const response = await page.goto(
+        `/organizations/${COLLECTIVE}/manage-member-orgs/`,
+      );
+      expect(response?.status()).toBe(403);
+    });
+
+    test("anonymous user is redirected to login", async ({ page }) => {
+      await page.context().clearCookies();
+      await page.goto(`/organizations/${COLLECTIVE}/manage-member-orgs/`);
+      await expect(page).toHaveURL(/\/accounts\/login\//);
+    });
+  });
+
+  test.describe("Inviting member orgs", () => {
+    test("admin can invite an org, then resend and withdraw the invitation", async ({
+      page,
+    }) => {
+      await login(page, "e2e-admin");
+      await page.goto(`/organizations/${COLLECTIVE}/manage-member-orgs/`);
+
+      // Select the target org in the search widget and send the invite
+      await selectOrgInSearch(page, MEMBER);
+      const submit = page.locator('button[value="send_invite"]');
+      await expect(submit).toBeEnabled();
+      await submit.click();
+      await expectFlashMessage(page, "success");
+
+      // The invitation appears in the pending section
+      await page.goto(`/organizations/${COLLECTIVE}/manage-member-orgs/`);
+      const pendingRow = page.locator("section#pending .org", {
+        has: page.locator("h4", { hasText: MEMBER }),
+      });
+      await expect(pendingRow).toBeVisible();
+
+      // Resend it
+      await pendingRow.locator('button[value="resend_invite"]').click();
+      await expectFlashMessage(page, "info");
+
+      // Withdraw it
+      await page.goto(`/organizations/${COLLECTIVE}/manage-member-orgs/`);
+      await page
+        .locator("section#pending .org", {
+          has: page.locator("h4", { hasText: MEMBER }),
+        })
+        .locator('button[value="withdraw_invite"]')
+        .click();
+      await expectFlashMessage(page, "info");
+
+      // No pending invitations remain
+      await page.goto(`/organizations/${COLLECTIVE}/manage-member-orgs/`);
+      await expect(
+        page.locator("section#pending .org", {
+          has: page.locator("h4", { hasText: MEMBER }),
+        }),
+      ).toHaveCount(0);
+    });
+
+    test("inviting the org itself shows an info message, not success", async ({
+      page,
+    }) => {
+      await login(page, "e2e-admin");
+      await page.goto(`/organizations/${COLLECTIVE}/manage-member-orgs/`);
+
+      await selectOrgInSearch(page, COLLECTIVE);
+      await page.locator('button[value="send_invite"]').click();
+
+      await expectFlashMessage(page, "info");
+      await expect(page.locator("._cls-alerts .alert-success")).toHaveCount(0);
+    });
+
+    test("inviting an org that is already a member shows an info message", async ({
+      page,
+    }) => {
+      // The org is already a member of the collective
+      addMemberOrg(COLLECTIVE, MEMBER);
+
+      await login(page, "e2e-admin");
+      await page.goto(`/organizations/${COLLECTIVE}/manage-member-orgs/`);
+
+      await selectOrgInSearch(page, MEMBER);
+      await page.locator('button[value="send_invite"]').click();
+
+      // Existing members produce an info message, not a new invitation
+      await expectFlashMessage(page, "info");
+      await expect(page.locator("._cls-alerts .alert-success")).toHaveCount(0);
+
+      // No pending invitation was created for the existing member
+      await page.goto(`/organizations/${COLLECTIVE}/manage-member-orgs/`);
+      await expect(
+        page.locator("section#pending .org", {
+          has: page.locator("h4", { hasText: MEMBER }),
+        }),
+      ).toHaveCount(0);
+    });
+
+    test("resending an invitation the invitee already accepted is handled", async ({
+      page,
+    }) => {
+      const uuid = createMemberOrgInvitation(COLLECTIVE, MEMBER);
+
+      // The admin loads the manage page while the invitation is still pending,
+      // so the Resend button is rendered.
+      await login(page, "e2e-admin");
+      await page.goto(`/organizations/${COLLECTIVE}/manage-member-orgs/`);
+      const pendingRow = page.locator("section#pending .org", {
+        has: page.locator("h4", { hasText: MEMBER }),
+      });
+      await expect(pendingRow).toBeVisible();
+
+      // The invitee accepts the invitation elsewhere, leaving this page stale.
+      acceptMemberOrgInvitation(uuid);
+
+      // Clicking the now-stale Resend button neither errors nor resends.
+      await pendingRow.locator('button[value="resend_invite"]').click();
+      await expect(page).toHaveURL(
+        new RegExp(`/organizations/${COLLECTIVE}/manage-member-orgs/`),
+      );
+      await expect(page.locator("._cls-alerts .alert-info")).toHaveCount(0);
+      await expect(page.locator("._cls-alerts .alert-success")).toHaveCount(0);
+
+      // The invitation is now an accepted membership, no longer pending.
+      await expect(
+        page.locator("section#pending .org", {
+          has: page.locator("h4", { hasText: MEMBER }),
+        }),
+      ).toHaveCount(0);
+      await expect(
+        page.locator("section#member-orgs .org", {
+          has: page.locator("h4", { hasText: MEMBER }),
+        }),
+      ).toBeVisible();
+    });
+  });
+
+  test.describe("Responding to group invitations", () => {
+    test("member org admin accepts an invitation and becomes a member", async ({
+      page,
+    }) => {
+      createMemberOrgInvitation(COLLECTIVE, MEMBER);
+
+      // As admin of the invited org, the group invitation surfaces on its
+      // detail page and can be accepted.
+      await login(page, "e2e-admin");
+      await page.goto(`/organizations/${MEMBER}/`);
+      await expect(page.locator("section#affiliations")).toBeVisible();
+
+      const invitationRow = page.locator("section#affiliations .org", {
+        has: page.locator("h4", { hasText: COLLECTIVE }),
+      });
+      await invitationRow
+        .locator('button[value="accept_group_invitation"]')
+        .click();
+      await expectFlashMessage(page, "success");
+
+      // The member org now lists the collective in its Affiliations section
+      await page.goto(`/organizations/${MEMBER}/`);
+      await expect(
+        page.locator("section#affiliations .org", {
+          has: page.locator("h4", { hasText: COLLECTIVE }),
+        }),
+      ).toBeVisible();
+
+      // ...and appears in the collective's member orgs list
+      await page.goto(`/organizations/${COLLECTIVE}/`);
+      await expect(
+        page.locator("section#affiliates .org", {
+          has: page.locator("h4", { hasText: MEMBER }),
+        }),
+      ).toBeVisible();
+    });
+
+    test("member org admin rejects an invitation", async ({ page }) => {
+      createMemberOrgInvitation(COLLECTIVE, MEMBER);
+
+      await login(page, "e2e-admin");
+      await page.goto(`/organizations/${MEMBER}/`);
+      const invitationRow = page.locator("section#affiliations .org", {
+        has: page.locator("h4", { hasText: COLLECTIVE }),
+      });
+      await invitationRow
+        .locator('button[value="reject_group_invitation"]')
+        .click();
+      await expectFlashMessage(page, "info");
+
+      // The rejection means no membership was created
+      await page.goto(`/organizations/${COLLECTIVE}/`);
+      await expect(
+        page.locator("section#affiliates .org", {
+          has: page.locator("h4", { hasText: MEMBER }),
+        }),
+      ).toHaveCount(0);
+    });
+  });
+
+  test.describe("Removing and leaving member orgs", () => {
+    test("group admin can remove a member org", async ({ page }) => {
+      addMemberOrg(COLLECTIVE, MEMBER);
+
+      await login(page, "e2e-admin");
+      await page.goto(`/organizations/${COLLECTIVE}/manage-member-orgs/`);
+      const memberRow = page.locator("section#member-orgs .org", {
+        has: page.locator("h4", { hasText: MEMBER }),
+      });
+      await expect(memberRow).toBeVisible();
+      await memberRow.locator('button[value="remove_member_org"]').click();
+      await expectFlashMessage(page, "info");
+
+      // The member org is gone from the list
+      await page.goto(`/organizations/${COLLECTIVE}/manage-member-orgs/`);
+      await expect(
+        page.locator("section#member-orgs .org", {
+          has: page.locator("h4", { hasText: MEMBER }),
+        }),
+      ).toHaveCount(0);
+    });
+
+    test("member org admin can leave a group", async ({ page }) => {
+      addMemberOrg(COLLECTIVE, MEMBER);
+
+      await login(page, "e2e-admin");
+      await page.goto(`/organizations/${MEMBER}/`);
+      const membershipRow = page.locator("section#affiliations .org", {
+        has: page.locator("h4", { hasText: COLLECTIVE }),
+      });
+      await membershipRow.locator('button[value="remove_member_org"]').click();
+      await expectFlashMessage(page, "info");
+
+      // The membership is gone from the collective's member orgs
+      await page.goto(`/organizations/${COLLECTIVE}/`);
+      await expect(
+        page.locator("section#affiliates .org", {
+          has: page.locator("h4", { hasText: MEMBER }),
+        }),
+      ).toHaveCount(0);
+    });
+  });
+
+  test.describe("Invitation landing page", () => {
+    test("admin of the invited org sees accept and reject controls", async ({
+      page,
+    }) => {
+      const uuid = createMemberOrgInvitation(COLLECTIVE, MEMBER);
+
+      await login(page, "e2e-admin");
+      const response = await page.goto(
+        `/organizations/${uuid}/member-org-invitation/`,
+      );
+      expect(response?.status()).toBe(200);
+      await expect(
+        page.locator('button[value="accept_group_invitation"]'),
+      ).toBeVisible();
+      await expect(
+        page.locator('button[value="reject_group_invitation"]'),
+      ).toBeVisible();
+    });
+
+    test("non-admin of the invited org is denied (403)", async ({ page }) => {
+      const uuid = createMemberOrgInvitation(COLLECTIVE, MEMBER);
+
+      // e2e-member is a member of e2e-public-org but not an admin
+      await login(page, "e2e-member");
+      const response = await page.goto(
+        `/organizations/${uuid}/member-org-invitation/`,
+      );
+      expect(response?.status()).toBe(403);
+    });
+
+    test("anonymous user is redirected to login", async ({ page }) => {
+      const uuid = createMemberOrgInvitation(COLLECTIVE, MEMBER);
+
+      await page.context().clearCookies();
+      await page.goto(`/organizations/${uuid}/member-org-invitation/`);
+      await expect(page).toHaveURL(/\/accounts\/login\//);
+    });
+
+    test("accepting from the landing page creates the membership", async ({
+      page,
+    }) => {
+      const uuid = createMemberOrgInvitation(COLLECTIVE, MEMBER);
+
+      await login(page, "e2e-admin");
+      await page.goto(`/organizations/${uuid}/member-org-invitation/`);
+      await page.locator('button[value="accept_group_invitation"]').click();
+      await expectFlashMessage(page, "success");
+
+      await page.goto(`/organizations/${COLLECTIVE}/`);
+      await expect(
+        page.locator("section#affiliates .org", {
+          has: page.locator("h4", { hasText: MEMBER }),
+        }),
+      ).toBeVisible();
+    });
   });
 });

@@ -1,56 +1,42 @@
 <script lang="ts">
   import type { Organization } from "@/types";
 
-  import Svelecte from "svelecte";
+  import Select from "./Select.svelte";
   import TeamListItem from "./TeamListItem.svelte";
 
-  let selected: Organization | undefined = $state();
+  let {
+    name = "q",
+    onChange = onChangeDefault,
+  }: { name?: string; onChange?: (org: Organization) => void } = $props();
 
   const fetchProps: RequestInit = { credentials: "include" };
 
-  function onChange(org: Organization) {
+  function onChangeDefault(org: Organization) {
     const url = new URL(`/organizations/${org.slug}/`, window.location.href);
     window.location = url;
   }
 </script>
 
-<form class="container">
-  <Svelecte
-    name="q"
-    placeholder="Search public organizations…"
-    bind:value={selected}
-    valueAsObject
-    labelField="name"
-    fetch="/fe_api/organizations/?individual=false&search=[query]"
-    fetchCallback={(resp) => resp.results}
-    fetchResetOnBlur={false}
-    resetOnBlur={false}
-    lazyDropdown={false}
-    {fetchProps}
-    searchProps={{ skipSort: true }}
-    {onChange}
-  >
-    {#snippet selection(selectedOptions: Organization[], bindItem)}
-      {#each selectedOptions as org (org.id)}
-        <div class="selected">
-          {org.name}
-          <button data-action="deselect" use:bindItem={org}>&times;</button>
-        </div>
-      {/each}
-    {/snippet}
+<Select
+  {name}
+  placeholder="Search public organizations…"
+  valueAsObject
+  valueField="id"
+  labelField="name"
+  fetch="/fe_api/organizations/?individual=false&search=[query]"
+  fetchCallback={(resp) => resp.results as Organization[]}
+  fetchResetOnBlur={false}
+  resetOnBlur={false}
+  lazyDropdown={false}
+  {fetchProps}
+  searchProps={{ skipSort: true }}
+  {onChange}
+>
+  {#snippet selectionValue({ name })}
+    {name}
+  {/snippet}
 
-    {#snippet option(item: Organization)}
-      <TeamListItem organization={item} />
-    {/snippet}
-  </Svelecte>
-</form>
-
-<style>
-  .container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    margin: 0 auto;
-  }
-</style>
+  {#snippet option(item: Organization)}
+    <TeamListItem organization={item} />
+  {/snippet}
+</Select>
