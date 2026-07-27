@@ -18,7 +18,7 @@ from datetime import datetime
 
 # Squarelet
 from squarelet.core.mixins import AdminLinkMixin
-from squarelet.core.utils import get_redirect_url, is_rate_limited
+from squarelet.core.utils import get_redirect_url, is_rate_limited, new_action
 from squarelet.organizations.forms import InvitationAcceptForm
 from squarelet.organizations.models import Invitation, Membership, Organization, Plan
 from squarelet.organizations.models.invitation import OrganizationInvitation
