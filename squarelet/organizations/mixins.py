@@ -1,5 +1,10 @@
 # Django
 from django.contrib.auth.mixins import PermissionRequiredMixin, UserPassesTestMixin
+from django.http import Http404
+from django.shortcuts import redirect
+
+# Squarelet
+from squarelet.organizations.models import ProfileChangeRequest
 
 
 class OrganizationAdminMixin(UserPassesTestMixin):
@@ -55,3 +60,32 @@ class VerifiedJournalistMixin(UserPassesTestMixin):
             and organization.verified_journalist
             and organization.has_admin(self.request.user)
         )
+
+
+class ResolveOrganizationSlugMixin:
+    """Resolve an org by slug, or look for a matching change request
+    and return a redirect if one is found."""
+
+    def get(self, request, *args, **kwargs):
+        try:
+            self.object = self.get_object()
+            context = self.get_context_data(object=self.object)
+            return self.render_to_response(context)
+        except Http404:
+            slug_redirect = self.get_slug_redirect()
+            if slug_redirect is not None:
+                return slug_redirect
+            raise
+
+    def get_slug_redirect(self):
+        slug = self.kwargs.get("slug")
+        change_request = (
+            ProfileChangeRequest.objects.filter(previous__slug=slug, status="accepted")
+            .select_related("organization")
+            .order_by("-updated_at")
+            .first()
+        )
+        if change_request is None:
+            return None
+        org = change_request.organization
+        return redirect(org.get_absolute_url(), permanent=True)

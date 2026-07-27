@@ -20,6 +20,7 @@ from datetime import datetime
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import get_redirect_url, is_rate_limited, new_action
 from squarelet.organizations.forms import InvitationAcceptForm
+from squarelet.organizations.mixins import ResolveOrganizationSlugMixin
 from squarelet.organizations.models import Invitation, Membership, Organization, Plan
 from squarelet.organizations.models.invitation import OrganizationInvitation
 from squarelet.organizations.payments.factory import get_payment_provider
@@ -31,7 +32,7 @@ ORG_PAGINATION = 100
 logger = logging.getLogger(__name__)
 
 
-class Detail(AdminLinkMixin, DetailView):
+class Detail(ResolveOrganizationSlugMixin, AdminLinkMixin, DetailView):
     def get_queryset(self):
         return Organization.objects.filter(individual=False).get_viewable(
             self.request.user
