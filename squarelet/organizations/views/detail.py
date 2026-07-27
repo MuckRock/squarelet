@@ -18,7 +18,13 @@ import logging
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import get_redirect_url, is_rate_limited, new_action
 from squarelet.organizations.forms import InvitationAcceptForm
-from squarelet.organizations.models import Invitation, Membership, Organization, Plan
+from squarelet.organizations.models import (
+    Invitation,
+    Membership,
+    Organization,
+    Plan,
+    consolidate_inherited_benefits,
+)
 from squarelet.organizations.tasks import sync_wix
 
 # How much to paginate organizations list by
@@ -80,7 +86,11 @@ class Detail(AdminLinkMixin, DetailView):
             org.subscriptions.filter(plan__wix=True).exists()
             or org.get_wix_plans_from_groups()
         )
-        context["inherited_plans"] = org.get_inherited_plans()
+        inherited_orgs, inherited_benefits = consolidate_inherited_benefits(
+            org.get_inherited_plans()
+        )
+        context["inherited_orgs"] = inherited_orgs
+        context["inherited_benefits"] = inherited_benefits
 
         return context
 
