@@ -61,7 +61,6 @@ from squarelet.payments.views import (
     BaseRemoveCard,
     BaseUpdateCard,
     BaseUpdateReceiptEmail,
-    BaseUpdateSubscriptionFrequency,
 )
 
 logger = logging.getLogger(__name__)
@@ -194,10 +193,6 @@ class UpdateCard(OrgSubscriptionView, BaseUpdateCard):
 
 
 class RemoveCard(OrgSubscriptionView, BaseRemoveCard):
-    pass
-
-
-class UpdateSubscriptionFrequency(OrgSubscriptionView, BaseUpdateSubscriptionFrequency):
     pass
 
 
