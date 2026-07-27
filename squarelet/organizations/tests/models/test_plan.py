@@ -4,6 +4,11 @@ from django.test import override_settings
 # Third Party
 import pytest
 
+# Squarelet
+from squarelet.organizations.tests.factories import EntitlementFactory
+
+# pylint: disable=too-many-public-methods
+
 
 class TestPlan:
     """Unit tests for Plan model"""
@@ -207,3 +212,38 @@ class TestPlan:
 
         plan = plan_factory.build(slug="free")
         assert plan.nonprofit_variant_slug is None
+
+    @pytest.mark.django_db()
+    def test_get_benefits_no_entitlements(self, plan_factory):
+        """Falls back to the plan's own benefits when it has no entitlements"""
+        plan = plan_factory(benefits=["Plan benefit A", "Plan benefit B"])
+        assert plan.get_benefits() == ["Plan benefit A", "Plan benefit B"]
+
+    @pytest.mark.django_db()
+    def test_get_benefits_entitlements_without_benefits(self, plan_factory):
+        """Entitlements with empty benefits don't override the plan's benefits"""
+        plan = plan_factory(benefits=["Plan benefit"])
+        plan.entitlements.set([EntitlementFactory(benefits=[])])
+        assert plan.get_benefits() == ["Plan benefit"]
+
+    @pytest.mark.django_db()
+    def test_get_benefits_entitlement_overrides_plan(self, plan_factory):
+        """A single entitlement's benefits override the plan's own benefits"""
+        plan = plan_factory(benefits=["Plan benefit"])
+        plan.entitlements.set([EntitlementFactory(benefits=["Entitlement benefit"])])
+        assert plan.get_benefits() == ["Entitlement benefit"]
+
+    @pytest.mark.django_db()
+    def test_get_benefits_dedupes_across_entitlements(self, plan_factory):
+        """The union of entitlement benefits is deduplicated, preserving order"""
+        plan = plan_factory(benefits=["Plan benefit"])
+        # Names control slug ordering (Entitlement.Meta.ordering = ("slug",))
+        plan.entitlements.set(
+            [
+                EntitlementFactory(name="A benefit", benefits=["Shared", "First only"]),
+                EntitlementFactory(
+                    name="B benefit", benefits=["Shared", "Second only"]
+                ),
+            ]
+        )
+        assert plan.get_benefits() == ["Shared", "First only", "Second only"]

@@ -6,14 +6,15 @@ Plan card partial.
 Args:
   subject_slug      — URL key for the subject (org slug or member username).
   plans             — list of own Plans or empty list.
-  inherited_plans.  — list of (source_org, plan) tuples; may be empty.
+  inherited_orgs      — deduped list of orgs the subject inherits benefits from.
+  inherited_benefits  — deduped list of inherited plain-language benefit strings.
   upgrade_plan      — Plan to advertise when there is no own plan (optional).
   next_charge_date, card, cancelled — subscription details (optional, org only).
   can_edit_subscription — bool gating the CTA. Default True.
   subject           — "users" | "organizations". Controls copy and links
 {% endcomment %}
 
-{% if subscriptions or upgrade_plan or not inherited_plans %}
+{% if subscriptions or upgrade_plan or not inherited_benefits %}
 <main class="plan-card{% if not subscriptions %} plan-card--no-subscription{% endif %}">
   {% if subscriptions %}
     <div class="plan-overview">
@@ -93,9 +94,10 @@ Args:
           <a class="plan-name" href="{% url 'plan_detail' pk=upgrade_plan.id slug=upgrade_plan.slug %}">{{ upgrade_plan.name }}</a>
           {% trans "plan for additional benefits and features:" %}
         </p>
-        {% if upgrade_plan.benefits %}
+        {% with upgrade_benefits=upgrade_plan.get_benefits %}
+        {% if upgrade_benefits %}
           <ul class="plan-benefits checklist">
-            {% for benefit in upgrade_plan.benefits %}
+            {% for benefit in upgrade_benefits %}
               <li class="checklist-item">
                 <span class="icon">{% icon "checkmark" %}</span>
                 <span class="text">{{ benefit }}</span>
@@ -103,34 +105,30 @@ Args:
             {% endfor %}
           </ul>
         {% endif %}
+        {% endwith %}
       </div>
     {% endif %}
   {% endif %}
 </main>
 {% endif %}
 
-{% for source_org, source_plan in inherited_plans %}
+{% if inherited_benefits %}
   <main class="plan-card plan-card--inherited">
     <p class="plan-overview">
       {% if subject == "users" %}
-        {% trans "You inherit" %}
+        {% trans "You&rsquo;re inheriting these benefits as a member of" %}
       {% else %}
-        {% trans "Inherits" %}
+        {% trans "Inherits these benefits as a member of" %}
       {% endif %}
-      <a class="plan-name"
-         href="{% url 'plan_detail' pk=source_plan.id slug=source_plan.slug %}">{{ source_plan.name }}</a>
-      {% trans "benefits as a member of" %}
-      <a class="org-name" href="{{ source_org.get_absolute_url }}">{{ source_org.name }}</a>.
+      {% for org in inherited_orgs %}<a class="org-name" href="{{ org.get_absolute_url }}">{{ org.name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}:
     </p>
-    {% if source_plan.benefits %}
-      <ul class="plan-benefits checklist">
-        {% for benefit in source_plan.benefits %}
-          <li class="checklist-item">
-            <span class="icon">{% icon "checkmark" %}</span>
-            <span class="text">{{ benefit }}</span>
-          </li>
-        {% endfor %}
-      </ul>
-    {% endif %}
+    <ul class="plan-benefits checklist">
+      {% for benefit in inherited_benefits %}
+        <li class="checklist-item">
+          <span class="icon">{% icon "checkmark" %}</span>
+          <span class="text">{{ benefit }}</span>
+        </li>
+      {% endfor %}
+    </ul>
   </main>
-{% endfor %}
+{% endif %}
