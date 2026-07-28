@@ -6,7 +6,6 @@ from django.shortcuts import redirect
 # Squarelet
 from squarelet.core.exceptions import ContextHttp404
 from squarelet.organizations.models import ProfileChangeRequest
-from squarelet.organizations.models.organization import Organization
 
 
 class OrganizationAdminMixin(UserPassesTestMixin):
@@ -98,8 +97,4 @@ class ResolveOrganizationSlugMixin:
         user = request.user
         if not hasattr(user, "organizations"):
             return []
-
-        user_org_ids = user.organizations.filter(individual=False).values_list(
-            "id", flat=True
-        )
-        return Organization.objects.filter(id__in=user_org_ids)
+        return user.organizations.filter(individual=False)
