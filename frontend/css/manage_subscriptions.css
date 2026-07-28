@@ -1,0 +1,96 @@
+.subscription-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem 1rem;
+  padding: 1rem;
+}
+
+.subscription-card h3 {
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-size: var(--font-md, 1rem);
+  font-style: normal;
+  font-weight: 600;
+  line-height: var(--font-xl, 1.5rem);
+  margin: 0 0 auto;
+}
+
+.subscription-card .professional {
+  color: var(--blue-4);
+}
+
+.subscription-card .organization {
+  color: var(--purple-4);
+}
+
+.subscription-frequency {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.subscription-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.subscription-group {
+  display: flex;
+  gap: 1rem;
+}
+
+@media (max-width: 28rem) {
+  .subscription-group {
+    flex: 1 0 100%;
+  }
+}
+
+.subscription-detail {
+  flex: 0 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--gray-5);
+  fill: var(--gray-4);
+}
+
+.subscription-detail .icon {
+  display: inline-flex;
+  align-items: center;
+  width: var(--font-md, 0.75em);
+  height: var(--font-md, 0.75em);
+}
+
+.subscription-detail .emails :not(:last-child):after {
+  content: ",";
+}
+
+.account-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.remove-card-form {
+  margin: 0;
+}
+
+.account-card {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.account-card .icon {
+  display: flex;
+  align-items: center;
+}
+
+.account-card-brand {
+  text-transform: capitalize;
+}

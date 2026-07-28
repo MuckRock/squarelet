@@ -91,7 +91,7 @@ test.describe("Organization Viewing", () => {
 
     test("does NOT see plan section", async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
-      await expect(page.locator("section#plan")).toHaveCount(0);
+      await expect(page.locator("section#billing")).toHaveCount(0);
     });
   });
 
@@ -112,7 +112,7 @@ test.describe("Organization Viewing", () => {
 
     test("does NOT see plan section", async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
-      await expect(page.locator("section#plan")).toHaveCount(0);
+      await expect(page.locator("section#billing")).toHaveCount(0);
     });
 
     test("sees only admins in member list", async ({ page }) => {
@@ -141,7 +141,7 @@ test.describe("Organization Viewing", () => {
 
     test("sees plan section", async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
-      await expect(page.locator("section#plan")).toBeVisible();
+      await expect(page.locator("section#billing")).toBeVisible();
     });
 
     test("sees all members in user list (not just admins)", async ({
@@ -204,13 +204,13 @@ test.describe("Organization Viewing", () => {
 
     test("sees plan section", async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
-      await expect(page.locator("section#plan")).toBeVisible();
+      await expect(page.locator("section#billing")).toBeVisible();
     });
 
-    test("sees button to change plans", async ({ page }) => {
+    test("sees button to upgrade plan", async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
       await expect(
-        page.locator('a[href$="/organizations/e2e-public-org/payment/"]'),
+        page.locator('a.btn.premium[href*="/plans/"][href$="-organization/"]'),
       ).toBeVisible();
     });
   });
@@ -253,13 +253,13 @@ test.describe("Organization Viewing", () => {
 
     test("sees plan section", async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
-      await expect(page.locator("section#plan")).toBeVisible();
+      await expect(page.locator("section#billing")).toBeVisible();
     });
 
-    test("sees button to change plans", async ({ page }) => {
+    test("sees button to upgrade plan", async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
       await expect(
-        page.locator('a[href$="/organizations/e2e-public-org/payment/"]'),
+        page.locator('a.btn.premium[href*="/plans/"][href$="-organization/"]'),
       ).toBeVisible();
     });
 

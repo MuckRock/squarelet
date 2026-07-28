@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% load django_vite %}
+
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/modal_layout.ts" %}
+{% endblock vite %}
+
+{% block container %}
+  <article id="{% block layout_id %}{% endblock %}" class="_cls-content modal-layout">
+    <header>
+      {% block header %}{% endblock %}
+    </header>
+    <main>
+      {% block main %}{% endblock %}
+    </main>
+
+    {% block footer %}{% endblock %}
+  </article>
+{% endblock container %}
