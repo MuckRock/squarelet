@@ -1,9 +1,49 @@
-import { type Page, expect } from "@playwright/test";
+import {
+  type Browser,
+  type BrowserContext,
+  type Page,
+  expect,
+} from "@playwright/test";
 import { execSync } from "child_process";
 
 export const E2E_PASSWORD = "e2e-test-password";
 
 const COMPOSE_E2E = "docker compose -f local.yml -f e2e.yml";
+
+/**
+ * Third-party hosts that base.html pulls in on every page: web fonts,
+ * analytics, and Stripe.js.
+ *
+ * page.goto() waits for the "load" event, which waits on these subresources.
+ * A slow or unreachable response from any of them therefore stalls the
+ * navigation until the test's 30s budget is gone, and the failure surfaces on
+ * whatever step happened to be in flight — usually a misleading "timed out
+ * waiting for locator" on an element that is present on the page.  None of
+ * them affect the behavior under test, so abort them before they can hang.
+ *
+ * NOTE: js.stripe.com is safe to block only because no test currently drives a
+ * Stripe card element.  A test that does will need to allow it through.
+ */
+const THIRD_PARTY_HOSTS =
+  /fonts\.googleapis\.com|fonts\.gstatic\.com|plausible\.io|js\.stripe\.com/;
+
+export async function blockThirdPartyRequests(context: BrowserContext) {
+  await context.route(THIRD_PARTY_HOSTS, (route) => route.abort());
+}
+
+/**
+ * Open a fresh browser context for simulating a second user (e.g. an anonymous
+ * visitor) in the same test.  Ignores HTTPS errors, since the dev environment
+ * uses a self-signed certificate, and blocks third-party requests the same way
+ * the default `page` context does.  Always close the context when done.
+ */
+export async function newAnonContext(
+  browser: Browser,
+): Promise<BrowserContext> {
+  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  await blockThirdPartyRequests(context);
+  return context;
+}
 
 export async function login(page: Page, username: string) {
   // Clear cookies to ensure any existing session is removed,

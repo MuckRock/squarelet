@@ -11,6 +11,8 @@ export default defineConfig({
   use: {
     baseURL: "https://dev.squarelet.com",
     ignoreHTTPSErrors: true,
+    // Fail a stalled navigation before it can consume the whole test budget.
+    navigationTimeout: 20_000,
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
   },

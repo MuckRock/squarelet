@@ -1,4 +1,5 @@
-import { test, expect, type Page } from "@playwright/test";
+import { type Page } from "@playwright/test";
+import { test, expect } from "./fixtures";
 import {
   login,
   inviteByEmail,
@@ -12,6 +13,7 @@ import {
   acceptMemberOrgInvitation,
   addMemberOrg,
   selectOrgInSearch,
+  newAnonContext,
 } from "./helpers";
 
 const NEW_ORG_SLUG = "e2e-new-org";
@@ -313,7 +315,7 @@ test.describe("Profile Editing", () => {
     await page.locator("section#details button[type='submit']").click();
 
     // Verify anonymous user gets 404
-    const anonContext = await browser.newContext({ ignoreHTTPSErrors: true });
+    const anonContext = await newAnonContext(browser);
     const anonPage = await anonContext.newPage();
     const response = await anonPage.goto(
       "https://dev.squarelet.com/organizations/e2e-public-org/",
@@ -327,7 +329,7 @@ test.describe("Profile Editing", () => {
     await page.locator("section#details button[type='submit']").click();
 
     // Verify anonymous user can access again
-    const anonContext2 = await browser.newContext({ ignoreHTTPSErrors: true });
+    const anonContext2 = await newAnonContext(browser);
     const anonPage2 = await anonContext2.newPage();
     const response2 = await anonPage2.goto(
       "https://dev.squarelet.com/organizations/e2e-public-org/",
@@ -467,7 +469,7 @@ test.describe("Member Management", () => {
     const invitationPath = urlMatch![0];
 
     // Open URL in anonymous context — should show Sign Up / Log In
-    const anonContext = await browser.newContext({ ignoreHTTPSErrors: true });
+    const anonContext = await newAnonContext(browser);
     const anonPage = await anonContext.newPage();
     await anonPage.goto(`https://dev.squarelet.com${invitationPath}`);
     const controls = anonPage.locator(".control-group");
@@ -824,9 +826,7 @@ test.describe("Invitation & Request History", () => {
       browser,
     }) => {
       // Login as requester and submit join request
-      const requesterContext = await browser.newContext({
-        ignoreHTTPSErrors: true,
-      });
+      const requesterContext = await newAnonContext(browser);
       const requesterPage = await requesterContext.newPage();
       await login(requesterPage, "e2e-requester");
       await requesterPage.goto("/organizations/e2e-public-org/");
