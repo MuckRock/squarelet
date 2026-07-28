@@ -101,5 +101,4 @@ def page_not_found(request, exception, template_name="404.html"):
     # structured context from ContextHttp404
     if isinstance(exception, ContextHttp404):
         context.update(exception.context)
-        print(context)
     return render(request, template_name, context, status=404)
