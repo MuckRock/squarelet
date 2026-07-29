@@ -673,6 +673,7 @@ class BaseUpdateReceiptEmail(SubscriptionObjectMixin, UpdateView):
             return redirect(self.reverse_subject("subscriptions"))
         except stripe.StripeError as exc:
             # We can use Stripe's email validation here
+            # pylint:disable=protected-access
             messages.error(self.request, exc._message)
             return redirect(self.reverse_subject("update-receipt-email"))
 
