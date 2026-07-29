@@ -659,16 +659,17 @@ class BaseUpdateReceiptEmail(SubscriptionObjectMixin, UpdateView):
     template_name = "subscriptions/update_receipt_email.html"
 
     def form_valid(self, form):
-        self.object.set_receipt_emails(form.cleaned_data["receipt_emails"])
-        self.log_staff_action("updated the receipt emails")
-        return redirect(self.reverse_subject("subscriptions"))
+        try:
+            self.object.set_billing_email(form.cleaned_data["receipt_email"])
+            self.log_staff_action("updated the receipt email")
+            return redirect(self.reverse_subject("subscriptions"))
+        except stripe.StripeError as exc:
+            # We can use Stripe's email validation here
+            messages.error(self.request, exc._message)
+            return redirect(self.reverse_subject("update-receipt-email"))
 
     def get_initial(self):
-        return {
-            "receipt_emails": ", ".join(
-                r.email for r in self.object.receipt_emails.all()
-            ),
-        }
+        return {"receipt_email": self.object.receipt_email.email}
 
 
 class BaseCancelSubscription(SubscriptionObjectMixin, UpdateView):
