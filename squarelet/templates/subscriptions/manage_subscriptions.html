@@ -111,6 +111,15 @@
                 {% icon "x-circle" %}
                 {% trans "Cancel plan" %}
               </a>
+            {% else %}
+              {% url subject|add:':resubscribe' subject_slug subscription.id as resubscribe_url %}
+              <form method="post" action="{{ resubscribe_url }}">
+                {% csrf_token %}
+                <button type="submit" class="btn ghost primary small">
+                  {% icon "arrow-loop" %}
+                  {% trans "Resubscribe" %}
+                </button>
+              </form>
             {% endif %}
           </div>
         </main>
