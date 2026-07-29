@@ -43,6 +43,11 @@ urlpatterns = [
         view=RedirectView.as_view(pattern_name="organizations:subscriptions"),
         name="payment",
     ),
+    path(
+        "<slug:slug>/resubscribe/<int:pk>/",
+        view=views.Resubscribe.as_view(),
+        name="resubscribe",
+    ),
     path("<slug:slug>/update/", view=views.Update.as_view(), name="update"),
     path(
         "<slug:slug>/request-profile-change/",

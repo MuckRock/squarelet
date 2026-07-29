@@ -19,6 +19,7 @@ from .subscription import (
     PaymentsList,
     PDFChargeDetail,
     RemoveCard,
+    Resubscribe,
     UpdateCard,
     UpdateReceiptEmail,
     UpdateSubscription,
@@ -33,6 +34,7 @@ __all__ = [
     # Subscription views
     "ManageSubscriptions",
     "UpdateSubscription",
+    "Resubscribe",
     "UpdateCard",
     "RemoveCard",
     "UpdateReceiptEmail",

@@ -477,7 +477,10 @@ class Subscription(models.Model):
         customer = self.organization.customer()
         if not customer.stripe_payment_method_id:
             raise ValidationError(
-                _("No payment method on file. Please add a payment method before re-subscribing.")
+                _(
+                    "No payment method on file. "
+                    "Please add a payment method before re-subscribing."
+                )
             )
         if self.stripe_subscription:
             updated = (
