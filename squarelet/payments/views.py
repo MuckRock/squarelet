@@ -561,13 +561,8 @@ class BaseManageSubscriptions(SubscriptionObjectMixin, DetailView):
         context["card_brand"] = customer.payment_brand
         context["card_last4"] = customer.payment_last4
 
-        # Get all receipt emails
-        context["receipt_emails"] = self.object.receipt_emails.all()
-
-        # Get failed receipt emails
-        context["failed_receipt_emails"] = self.object.receipt_emails.filter(
-            failed=True
-        )
+        # Get receipt email
+        context["receipt_email"] = self.object.receipt_email
 
         # Get five most recent payments
         payments = self.object.charges.order_by("-created_at").all()[:5]

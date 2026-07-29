@@ -44,9 +44,9 @@
     </li>
 
     <li>
-      <a href="#emails" class="nav-item">
+      <a href="#email" class="nav-item">
         {% icon "mail" %}
-        {% trans "Receipt emails" %}
+        {% trans "Receipt email" %}
       </a>
     </li>
 
@@ -172,10 +172,10 @@
     </main>
   </section>
 
-  <section id="emails">
+  <section id="email">
     <header>
       <div class="title">
-        <h2>{% trans "Receipt emails" %}</h2>
+        <h2>{% trans "Receipt email" %}</h2>
       </div>
       {% url subject|add:':update-receipt-email' subject_slug as receipt_email_url %}
       <a href="{{ receipt_email_url }}" class="btn ghost primary small">
@@ -184,16 +184,16 @@
     </header>
 
     <main class="subscription-card">
-      {% for email in receipt_emails %}
-      <div class="subscription-detail">
-        <span class="icon">
-          {% icon "mail" %}
-        </span>
-        <span class="email">
-          {{ email.email }}
-        </span>
-      </div>
-      {% endfor %}
+      {% if receipt_email %}
+        <div class="subscription-detail">
+          <span class="icon">
+            {% icon "mail" %}
+          </span>
+          <span class="email">
+            {{ receipt_email.email }}
+          </span>
+        </div>
+      {% endif %}
     </main>
   </section>
 
