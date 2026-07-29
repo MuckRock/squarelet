@@ -61,6 +61,11 @@ urlpatterns = [
         name="cancel-subscription",
     ),
     path(
+        "<str:username>/resubscribe/<int:pk>/",
+        view=views.Resubscribe.as_view(),
+        name="resubscribe",
+    ),
+    path(
         "<str:username>/receipt-email/",
         view=views.UpdateReceiptEmail.as_view(),
         name="update-receipt-email",
