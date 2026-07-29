@@ -768,7 +768,6 @@ class BaseResubscribe(SubscriptionObjectMixin, View):
         subscription = organization.subscriptions.filter(id=self.kwargs["pk"]).first()
         print(subscription)
         try:
-            print(type(subscription))
             subscription.uncancel()
         except ValidationError as exc:
             return self._error(exc.message, "update-card")
@@ -776,7 +775,7 @@ class BaseResubscribe(SubscriptionObjectMixin, View):
             return self._error(f"Stripe error: {format_stripe_error(exc)}")
 
         self.log_staff_action("uncancelled subscription")
-        success_msg = _(f"Resubscribed to {subscription.name}")
+        success_msg = _(f"Resubscribed to {subscription.plan.name}")
         if self._is_ajax():
             return JsonResponse({"redirect": redirect_url, "message": str(success_msg)})
         messages.success(request, success_msg)
