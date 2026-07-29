@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 import { login } from "./helpers";
 
 // Matches the verification-gated client seeded in seed_e2e_data.py

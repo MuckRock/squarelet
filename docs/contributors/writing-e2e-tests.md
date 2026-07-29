@@ -6,6 +6,14 @@ This guide covers best practices for writing end-to-end tests with Playwright in
 
 E2E tests live in the `e2e/` directory and run against a real Docker environment with a dedicated test database. See the `e2e/global-setup.ts` and `e2e/global-teardown.ts` files for how the environment is provisioned.
 
+Import `test` and `expect` from `./fixtures`, **not** from `@playwright/test`:
+
+```ts
+import { test, expect } from "./fixtures";
+```
+
+`e2e/fixtures.ts` wraps Playwright's `test` so that third-party requests are blocked. See [Third-Party Requests](#third-party-requests) for why this matters.
+
 ```bash
 # Run with npx
 npx playwright test
@@ -205,6 +213,19 @@ await page.locator('button[value="addmember"]').click();
 await expectFlashMessage(page, "success");
 ```
 
+### `newAnonContext(browser)`
+
+Opens a fresh browser context for a second user, pre-configured for the dev environment. See [Testing Multiple User Contexts](#testing-multiple-user-contexts).
+
+```ts
+import { newAnonContext } from "./helpers";
+
+const anonContext = await newAnonContext(browser);
+const anonPage = await anonContext.newPage();
+// ...
+await anonContext.close();
+```
+
 ### `runManageCommand(args)`
 
 Runs a Django management command inside the Docker container. Useful for setting up or tearing down test state that's hard to create through the UI.
@@ -217,7 +238,7 @@ runManageCommand("some_command --flag");
 
 ## Testing Multiple User Contexts
 
-Use `browser.newContext()` to simulate a second user (e.g., an anonymous visitor) within the same test.
+Use the `newAnonContext(browser)` helper to simulate a second user (e.g., an anonymous visitor) within the same test.
 
 ```ts
 test("invite link is accessible to anonymous users", async ({ page, browser }) => {
@@ -225,7 +246,7 @@ test("invite link is accessible to anonymous users", async ({ page, browser }) =
   // ... generate an invite link ...
 
   // Open a fresh anonymous browser context
-  const anonContext = await browser.newContext({ ignoreHTTPSErrors: true });
+  const anonContext = await newAnonContext(browser);
   const anonPage = await anonContext.newPage();
   await anonPage.goto(`https://dev.squarelet.com${invitationPath}`);
 
@@ -235,7 +256,18 @@ test("invite link is accessible to anonymous users", async ({ page, browser }) =
 });
 ```
 
-Always pass `ignoreHTTPSErrors: true` when creating a new context, since the dev environment uses a self-signed certificate.
+Use the helper rather than calling `browser.newContext()` directly. It sets `ignoreHTTPSErrors: true` (the dev environment uses a self-signed certificate) and applies the same third-party request blocking the default `page` gets.
+
+## Third-Party Requests
+
+`base.html` loads Google Fonts, Plausible analytics, and Stripe.js on every page. `page.goto()` waits for the browser's `load` event, which waits on those subresources — so if any of them is slow or unreachable, the navigation stalls until the test's 30s budget is exhausted. The failure then surfaces on whatever step happened to be in flight, typically as a misleading "timed out waiting for locator" against an element that is plainly present in the failure screenshot.
+
+To keep the suite independent of the public internet, `blockThirdPartyRequests()` in `e2e/helpers.ts` aborts those requests. It is applied automatically to:
+
+- the default `page`, via the `context` fixture in `e2e/fixtures.ts`
+- any context created with `newAnonContext(browser)`
+
+None of the blocked resources affect application behavior under test. One caveat: `js.stripe.com` is blocked only because no test currently drives a Stripe card element. **A test that needs Stripe Elements must allow `js.stripe.com` through** by removing it from `THIRD_PARTY_HOSTS` or overriding the route in that spec.
 
 ## Assertions
 
@@ -294,9 +326,10 @@ await modal.locator('button[name="action"][value="join"]').click();
 The Playwright config is in `playwright.config.ts`. Key settings:
 
 - **`baseURL`**: `https://dev.squarelet.com` — all `page.goto("/path")` calls are relative to this.
-- **`workers: 1`**: Tests run sequentially since they share a database.
+- **`fullyParallel: false`**: Tests within a file run sequentially, since they share a database.
 - **`timeout: 30_000`**: Each test has 30 seconds to complete.
 - **`expect.timeout: 10_000`**: Each assertion retries for up to 10 seconds.
+- **`navigationTimeout: 20_000`**: A stalled page load fails on its own, rather than silently consuming the test's budget and failing on a later step.
 - **Screenshots and traces** are captured on failure for debugging.
 
 ## CI
@@ -310,9 +343,10 @@ When a CI run fails:
 
 ## Checklist for New Tests
 
+- [ ] `test` and `expect` are imported from `./fixtures`, not `@playwright/test`
 - [ ] Selectors use `id`, `name`, `value`, `data-*`, or structural CSS — not display text
 - [ ] Tests clean up any state they modify
 - [ ] `login()` and `expectFlashMessage()` helpers are used instead of reimplemented
-- [ ] Extra browser contexts pass `ignoreHTTPSErrors: true` and are closed after use
+- [ ] Extra browser contexts are created with `newAnonContext()` and closed after use
 - [ ] Each test verifies one behavior
 - [ ] Tests are grouped in `describe` blocks by role or workflow

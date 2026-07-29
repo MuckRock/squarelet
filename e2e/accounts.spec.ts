@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 import { E2E_PASSWORD, deleteTestUser } from "./helpers";
 
 const SIGNUP_USER = "e2e-signup-user";
