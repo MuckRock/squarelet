@@ -24,15 +24,24 @@
           <td class="amount">${{ payment.amount_dollars|floatformat:2 }}</td>
           <td>
             <div class="actions">
-              {% url "organizations:charge" payment.pk as view_url %}
-              <a aria-label="{% trans "View receipt" %}" href="{{ view_url }}" class="btn ghost primary small" target="_blank">
-                {% icon "eye" %}
-              </a>
-
-              {% url "organizations:charge-pdf" payment.pk as pdf_url %}
-              <a aria-label="{% trans "Download PDF" %}" href="{{ pdf_url }}" class="btn ghost primary small" target="_blank">
-                {% icon "download" %}
-              </a>
+              {% with pdf=payment.pdf_url pk=payment.pk %}
+                <a
+                  href="{% if pdf %}{{ pdf }}{% else %}{% url "organizations:charge" pk %}{% endif %}"
+                  aria-label="{% trans "View receipt" %}"
+                  class="btn ghost primary small"
+                  target="_blank"
+                >
+                  {% icon "eye" %}
+                </a>
+                <a
+                  href="{% if pdf %}{{ pdf }}{% else %}{% url "organizations:charge-pdf" pk %}{% endif %}"
+                  aria-label="{% trans "Download PDF" %}"
+                  class="btn ghost primary small"
+                  download
+                >
+                  {% icon "download" %}
+                </a>
+              {% endwith %}
             </div>
           </td>
         </tr>

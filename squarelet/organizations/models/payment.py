@@ -941,6 +941,12 @@ class Charge(models.Model):
         else:
             return [{"name": self.description, "price": self.amount_dollars}]
 
+    @property
+    def pdf_url(self):
+        if self.receipt_pdf:
+            return self.receipt_pdf.url
+        return None
+
 
 def entitlement_slug(instance):
     return f"{instance.client.name}-{instance.name}"
