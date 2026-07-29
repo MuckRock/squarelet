@@ -2,7 +2,6 @@
 
 # Django
 from django import forms
-from django.core.validators import validate_email
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
@@ -448,41 +447,25 @@ class CardForm(StripeForm):
 class UpdateReceiptEmailForm(forms.ModelForm):
     """Update the receipt email for an organization."""
 
-    receipt_emails = forms.CharField(
-        label=_("Receipt emails"),
+    receipt_email = forms.CharField(
+        label=_("Receipt email"),
         widget=forms.TextInput(),
         required=True,
-        help_text=_("Enter one or more email addresses, separated by commas"),
+        help_text=_("Email address for billing communications"),
     )
 
     class Meta:
         model = Organization
-        fields = ["receipt_emails"]
+        fields = ["receipt_email"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.template_pack = "forms"
         self.helper.layout = Layout(
-            CrispyField("receipt_emails"),
+            CrispyField("receipt_email"),
         )
         self.helper.form_tag = False
-
-    def clean_receipt_emails(self):
-        """Make sure each entry is a valid email"""
-        emails = re.split(r",\s*", self.cleaned_data["receipt_emails"])
-        emails = [e.strip() for e in emails if e.strip()]
-        bad_emails = []
-        for email in emails:
-            try:
-                validate_email(email.strip())
-            except forms.ValidationError:
-                bad_emails.append(email)
-        if bad_emails:
-            bad_emails_str = ", ".join(bad_emails)
-            raise forms.ValidationError(f"Invalid email: {bad_emails_str}")
-        return emails
-
 
 class CancelSubscriptionForm(forms.ModelForm):
     """Cancel a subscription."""
