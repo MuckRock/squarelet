@@ -7,7 +7,6 @@ from django.utils.translation import gettext_lazy as _
 
 # Standard Library
 import logging
-import re
 import sys
 
 # Third Party
@@ -466,6 +465,7 @@ class UpdateReceiptEmailForm(forms.ModelForm):
             CrispyField("receipt_email"),
         )
         self.helper.form_tag = False
+
 
 class CancelSubscriptionForm(forms.ModelForm):
     """Cancel a subscription."""
