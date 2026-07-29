@@ -3,6 +3,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import redirect_to_login
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -746,6 +747,40 @@ class BasePaymentsList(SubscriptionObjectMixin, ListView):
         context["organization"] = organization
         context["nav_accounts"] = self.get_nav_accounts(organization)
         return context
+
+
+class BaseResubscribe(SubscriptionObjectMixin, View):
+    """Resubscribe to a cancelled subscription."""
+
+    def _is_ajax(self):
+        return self.request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
+    def _error(self, message, redirect_url="subscriptions"):
+        """Return the error as JSON for AJAX callers, else flash and redirect."""
+        if self._is_ajax():
+            return JsonResponse({"error": str(message)}, status=400)
+        messages.error(self.request, message)
+        return redirect(self.reverse_subject(redirect_url))
+
+    def post(self, request, *args, **kwargs):
+        organization = self.get_object()
+        redirect_url = self.reverse_subject("subscriptions")
+        subscription = organization.subscriptions.filter(id=self.kwargs["pk"]).first()
+        print(subscription)
+        try:
+            print(type(subscription))
+            subscription.uncancel()
+        except ValidationError as exc:
+            return self._error(exc.message, "update-card")
+        except stripe.StripeError as exc:
+            return self._error(f"Stripe error: {format_stripe_error(exc)}")
+
+        self.log_staff_action("uncancelled subscription")
+        success_msg = _(f"Resubscribed to {subscription.name}")
+        if self._is_ajax():
+            return JsonResponse({"redirect": redirect_url, "message": str(success_msg)})
+        messages.success(request, success_msg)
+        return redirect(redirect_url)
 
 
 def get_subscription_next_date(subscription):
