@@ -1661,6 +1661,11 @@ class TestUpdateReceiptEmail(ViewTestMixin):
     view = views.UpdateReceiptEmail
     url = "/organizations/{slug}/receipt-email/"
 
+    @pytest.fixture(autouse=True)
+    def _mock_payment_provider(self, mocker):
+        """Avoid syncing the billing email to Stripe"""
+        mocker.patch("squarelet.organizations.models.organization.get_payment_provider")
+
     def test_staff_update_receipt_email_creates_action(
         self, rf, organization_factory, user_factory
     ):
@@ -1668,13 +1673,14 @@ class TestUpdateReceiptEmail(ViewTestMixin):
         staff_member = user_factory(is_staff=True)
         staff_member = _assign_org_perm(staff_member, "can_edit_subscription")
         organization = organization_factory()
-        data = {"receipt_emails": "receipts@example.com"}
+        data = {"receipt_email": "receipts@example.com"}
         response = self.call_view(rf, staff_member, data, slug=organization.slug)
         assert response.status_code == 302
+        assert organization.receipt_email.email == "receipts@example.com"
 
         action = Action.objects.filter(
             actor_object_id=str(staff_member.pk),
-            verb="updated the receipt emails",
+            verb="updated the receipt email",
         ).first()
         assert action is not None
         assert action.actor == staff_member
@@ -1687,11 +1693,12 @@ class TestUpdateReceiptEmail(ViewTestMixin):
         """A regular admin updating their own receipt emails is not logged"""
         admin = user_factory(is_staff=False)
         organization = organization_factory(admins=[admin])
-        data = {"receipt_emails": "receipts@example.com"}
+        data = {"receipt_email": "receipts@example.com"}
         response = self.call_view(rf, admin, data, slug=organization.slug)
         assert response.status_code == 302
+        assert organization.receipt_email.email == "receipts@example.com"
 
-        assert not Action.objects.filter(verb="updated the receipt emails").exists()
+        assert not Action.objects.filter(verb="updated the receipt email").exists()
 
     def test_staff_admin_of_own_org_no_action(
         self, rf, organization_factory, user_factory
@@ -1700,11 +1707,12 @@ class TestUpdateReceiptEmail(ViewTestMixin):
         own account, not an action taken on someone else's behalf"""
         staff_admin = user_factory(is_staff=True)
         organization = organization_factory(admins=[staff_admin])
-        data = {"receipt_emails": "receipts@example.com"}
+        data = {"receipt_email": "receipts@example.com"}
         response = self.call_view(rf, staff_admin, data, slug=organization.slug)
         assert response.status_code == 302
+        assert organization.receipt_email.email == "receipts@example.com"
 
-        assert not Action.objects.filter(verb="updated the receipt emails").exists()
+        assert not Action.objects.filter(verb="updated the receipt email").exists()
 
 
 @pytest.mark.django_db()

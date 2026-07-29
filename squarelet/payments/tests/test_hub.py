@@ -72,17 +72,14 @@ class TestPaymentsHubView(ViewTestMixin):
         )
 
     def test_account_includes_card_and_management_urls(
-        self, rf, user_factory, organization_factory
+        self, rf, user_factory, organization_factory, payment_method_factory
     ):
         """Each account exposes its card on file and the URLs used to
         manage the subscription and payment method."""
         user = user_factory()
         org = organization_factory()
         org.add_creator(user)
-        customer = org.customer()
-        customer.payment_brand = "Visa"
-        customer.payment_last4 = "4242"
-        customer.save()
+        payment_method_factory(customer=org.customer(), brand="Visa", last4="4242")
 
         response = self.call_view(rf, user)
 
