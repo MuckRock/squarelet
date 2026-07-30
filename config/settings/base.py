@@ -351,6 +351,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "squarelet.statistics.tasks.store_statistics",
         "schedule": crontab(hour=5, minute=30),
     },
+    "export_kpi_stats": {
+        "task": "squarelet.statistics.tasks.export_kpi_stats",
+        "schedule": crontab(hour=5, minute=45),
+    },
     "send_digest": {
         "task": "squarelet.statistics.tasks.send_digest",
         "schedule": crontab(hour=7, minute=0),

@@ -1,5 +1,6 @@
 # Django
 from celery import shared_task
+from django.core.management import call_command
 from django.utils import timezone
 
 # Standard Library
@@ -11,6 +12,9 @@ from allauth.mfa.models import Authenticator
 # Squarelet
 from squarelet.organizations.models import Organization
 from squarelet.statistics.mail import Digest
+from squarelet.statistics.management.commands.export_kpi_stats import (
+    DEFAULT_STORAGE_KEY,
+)
 from squarelet.statistics.models import Statistics
 from squarelet.users.models import User
 
@@ -55,3 +59,14 @@ def store_statistics():
 @shared_task
 def send_digest():
     Digest().send()
+
+
+@shared_task
+def export_kpi_stats():
+    """Export the statistics history to storage as JSON for the KPI dashboard.
+
+    Runs after ``store_statistics`` so the export always includes the latest
+    nightly row. The JSON lands in the default storage backend, giving the
+    dashboard a stable URL to fetch.
+    """
+    call_command("export_kpi_stats", storage=DEFAULT_STORAGE_KEY)
