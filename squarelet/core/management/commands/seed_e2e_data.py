@@ -33,6 +33,8 @@ USERS = [
     {"username": "e2e-unverified", "is_staff": False, "verified": False},
     # Sole admin of e2e-leave-org, used for the leave/reassign-admin flow
     {"username": "e2e-lone-admin", "is_staff": False},
+    # Non-admin member of e2e-leave-org, removed by the leave flow
+    {"username": "e2e-leave-member", "is_staff": False},
 ]
 
 # DB-assigned Organization permissions for the e2e-staff user
@@ -85,7 +87,7 @@ ORGS = [
         "verified_journalist": True,
         "max_users": 20,
         "admins": ["e2e-lone-admin"],
-        "members": ["e2e-member", "e2e-regular"],
+        "members": ["e2e-member", "e2e-leave-member"],
     },
 ]
 

@@ -225,7 +225,7 @@ test.describe("Leaving an organization as a regular member", () => {
   test("a non-admin member leaves directly without the reassign form", async ({
     page,
   }) => {
-    await login(page, "e2e-regular");
+    await login(page, "e2e-leave-member");
     await page.goto(`/organizations/${LEAVE_ORG}/`);
 
     await page.locator('button[value="leave"]').click();
@@ -237,7 +237,7 @@ test.describe("Leaving an organization as a regular member", () => {
     // The member is gone from the list. Verify as the admin, who can view it.
     await login(page, "e2e-lone-admin");
     await page.goto(ORG_URL);
-    await expectNotMember(page, "e2e-regular");
+    await expectNotMember(page, "e2e-leave-member");
   });
 
   test("a non-sole-admin cannot access the reassign form (403)", async ({
