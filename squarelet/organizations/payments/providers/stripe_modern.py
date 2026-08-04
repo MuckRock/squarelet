@@ -188,7 +188,6 @@ class StripeModernSubscriptionService(SubscriptionService):
         return stripe.Subscription.modify(
             stripe_subscription.id,
             cancel_at_period_end=False,
-            cancel_at="",
         )
 
     def delete(self, stripe_subscription):
