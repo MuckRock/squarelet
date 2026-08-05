@@ -6,13 +6,16 @@ Tests for OIDC tasks
 from django.utils import timezone
 
 # Standard Library
+import logging
 from datetime import timedelta
+from uuid import uuid4
 
 # Third Party
 import pytest
 from oidc_provider.models import UserConsent
 
 # Squarelet
+from squarelet.oidc.models import ClientProfile
 from squarelet.oidc.tasks import send_cache_invalidation
 from squarelet.oidc.tests.factories import ClientFactory, ClientProfileFactory
 from squarelet.organizations.tests.factories import (
@@ -20,6 +23,16 @@ from squarelet.organizations.tests.factories import (
     OrganizationFactory,
 )
 from squarelet.users.tests.factories import UserFactory
+
+
+@pytest.fixture(name="client_profile")
+def client_profile_fixture():
+    """A client profile that sends unconditionally
+
+    require_consent defaults to True on oidc_provider.Client, which would
+    otherwise filter every uuid out before the send is attempted.
+    """
+    return ClientProfileFactory(client=ClientFactory(require_consent=False))
 
 
 @pytest.mark.django_db()
@@ -470,3 +483,86 @@ class TestSendCacheInvalidation:
 
         # Verify - function should not be called since org has no users
         mock_send.assert_not_called()
+
+
+@pytest.mark.django_db()
+class TestSendCacheInvalidationObservability:
+    """Test that every non-sending branch of the task leaves a trace"""
+
+    def test_missing_client_profile_still_propagates(self):
+        """A deleted client profile fails the task, as it did before"""
+        with pytest.raises(ClientProfile.DoesNotExist):
+            send_cache_invalidation(999999, "user", [str(uuid4())])
+
+    def test_consent_filtered_to_empty_logs_reason(self, caplog, mocker):
+        """A consent-filtered drop is distinguishable from a send"""
+        caplog.set_level(logging.INFO, logger="squarelet.oidc.tasks")
+        client_profile = ClientProfileFactory(
+            client=ClientFactory(require_consent=True)
+        )
+        user = UserFactory()  # no consent granted
+        mock_send = mocker.patch(
+            "squarelet.oidc.models.ClientProfile.send_cache_invalidation"
+        )
+
+        send_cache_invalidation(
+            client_profile.pk, "user", [str(user.individual_organization_id)]
+        )
+
+        mock_send.assert_not_called()
+        assert "reason=consent-filtered" in caplog.text
+        assert "original_count=1" in caplog.text
+
+    def test_empty_input_logs_distinct_reason(self, caplog, mocker, client_profile):
+        """An empty uuid list from the caller is reported as such"""
+        caplog.set_level(logging.INFO, logger="squarelet.oidc.tasks")
+        mocker.patch("squarelet.oidc.models.ClientProfile.send_cache_invalidation")
+
+        send_cache_invalidation(client_profile.pk, "user", [])
+
+        assert "reason=empty-input" in caplog.text
+
+    def test_partial_consent_reduction_logs_no_extra_line(self, caplog, mocker):
+        """A partial reduction sends the reduced list and stays quiet
+
+        The Dispatching and Sent lines already carry both counts under a shared
+        invalidation_id, so a third line per client per broadcast is wasted
+        log volume.
+        """
+        caplog.set_level(logging.INFO, logger="squarelet.oidc.tasks")
+        client = ClientFactory(require_consent=True)
+        client_profile = ClientProfileFactory(client=client)
+        consenting = UserFactory()
+        UserConsent.objects.create(
+            user=consenting,
+            client=client,
+            expires_at=timezone.now() + timedelta(days=1),
+            date_given=timezone.now(),
+        )
+        other = UserFactory()
+        mock_send = mocker.patch(
+            "squarelet.oidc.models.ClientProfile.send_cache_invalidation"
+        )
+
+        send_cache_invalidation(
+            client_profile.pk,
+            "user",
+            [
+                str(consenting.individual_organization_id),
+                str(other.individual_organization_id),
+            ],
+        )
+
+        mock_send.assert_called_once()
+        assert mock_send.call_args[0][1] == [str(consenting.individual_organization_id)]
+        assert caplog.text == ""
+
+    def test_callable_without_invalidation_id(self, mocker, client_profile):
+        """Messages queued before deploy still deserialize"""
+        mock_send = mocker.patch(
+            "squarelet.oidc.models.ClientProfile.send_cache_invalidation"
+        )
+
+        send_cache_invalidation(client_profile.pk, "user", [str(uuid4())])
+
+        mock_send.assert_called_once()

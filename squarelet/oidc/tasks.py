@@ -2,18 +2,26 @@
 from celery import shared_task
 from django.utils import timezone
 
+# Standard Library
+import logging
+
 # Local
 from .models import ClientProfile
 
+logger = logging.getLogger(__name__)
+
 
 @shared_task(name="squarelet.oidc.tasks.send_cache_invalidation")
-def send_cache_invalidation(client_profile_pk, model, uuids):
+def send_cache_invalidation(client_profile_pk, model, uuids, invalidation_id=None):
     # pylint: disable=import-outside-toplevel
     # Squarelet
     from squarelet.organizations.models import Organization
     from squarelet.users.models import User
 
-    client_profile = ClientProfile.objects.get(pk=client_profile_pk)
+    client_profile = ClientProfile.objects.select_related("client").get(
+        pk=client_profile_pk
+    )
+    original_count = len(uuids)
     if client_profile.client.require_consent:
         # If this client requires consent, we must filter out the users or orgs
         # to just the ones that they have permissions to view
@@ -40,3 +48,14 @@ def send_cache_invalidation(client_profile_pk, model, uuids):
 
     if uuids:
         client_profile.send_cache_invalidation(model, uuids)
+    else:
+        # this drop was previously indistinguishable from a successful send
+        logger.info(
+            "[CACHE-INVALIDATION] Nothing to send id=%s client=%s model=%s "
+            "reason=%s original_count=%d",
+            invalidation_id,
+            client_profile.client.name,
+            model,
+            "consent-filtered" if original_count else "empty-input",
+            original_count,
+        )
