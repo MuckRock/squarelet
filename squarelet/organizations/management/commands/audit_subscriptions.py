@@ -251,7 +251,7 @@ class Command(BaseCommand):
             elif hasattr(item, "plan") and item.plan:
                 stripe_plan_id = getattr(item.plan, "id", None)
         local_plan_id = sub.plan.stripe_id if sub.plan else None
-        if stripe_plan_id and local_plan_id and local_plan_id != stripe_plan_id:
+        if stripe_plan_id != local_plan_id:
             diffs.append(("plan_stripe_id", local_plan_id, stripe_plan_id))
 
         return diffs
