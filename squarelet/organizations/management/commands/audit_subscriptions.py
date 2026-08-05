@@ -108,12 +108,16 @@ class Command(BaseCommand):
             fetched = len(stripe_map)
         else:
             # Bulk fetch: needed when checking orphans or auditing the full account.
+            # Only retain a subscription object in memory when it matches a local
+            # record or when orphan detection requires it; otherwise discard after
+            # scanning to avoid accumulating the full Stripe dataset in RAM.
             self.stdout.write("Fetching Stripe subscriptions (status=all)...\n")
             fetched = 0
             for stripe_sub in stripe.Subscription.list(
                 limit=100, status="all"
             ).auto_paging_iter():
-                stripe_map[stripe_sub.id] = stripe_sub
+                if check_stripe_orphans or stripe_sub.id in local_map:
+                    stripe_map[stripe_sub.id] = stripe_sub
                 fetched += 1
                 if fetched % 500 == 0:
                     self.stdout.write(f"  Scanned {fetched} Stripe records...\n")
