@@ -148,7 +148,35 @@ class Command(BaseCommand):
         # ── 4. Stripe orphans ─────────────────────────────────────────────────
         stripe_orphans = 0
         if check_stripe_orphans:
-            for stripe_id, stripe_sub in stripe_map.items():
+            if org_filter:
+                # When filtering to a single org, local_map only contains that
+                # org's subscription IDs, so comparing against all of stripe_map
+                # would falsely flag every other org's subscriptions as orphans.
+                # Scope the check to Stripe subscriptions owned by the filtered
+                # org's Stripe customer ID(s).
+                from squarelet.organizations.models.payment import (  # noqa
+                    Customer as StripeCustomer,
+                )
+
+                org_customer_ids = set(
+                    StripeCustomer.objects.filter(organization__slug=org_filter)
+                    .exclude(customer_id=None)
+                    .values_list("customer_id", flat=True)
+                )
+                candidates = {
+                    sid: s
+                    for sid, s in stripe_map.items()
+                    if s.customer in org_customer_ids
+                }
+                self.stdout.write(
+                    f"(--stripe-orphans scoped to org {org_filter!r}: "
+                    f"{len(org_customer_ids)} Stripe customer(s), "
+                    f"{len(candidates)} subscription(s))\n"
+                )
+            else:
+                candidates = stripe_map
+
+            for stripe_id, stripe_sub in candidates.items():
                 if stripe_id not in local_map and stripe_sub.status not in (
                     "canceled",
                     "incomplete_expired",
