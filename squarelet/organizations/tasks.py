@@ -488,7 +488,8 @@ def handle_payment_method_detached(pm_data):
 )
 def handle_payment_method_attached(pm_data):
     """Handle payment_method.attached events.
-    Only caches the PM if it is the customer's current default."""
+    Always saves the PM locally; marks it as default only if it is the
+    customer's current Stripe default."""
     stripe_id = pm_data.get("id")
     customer_id = pm_data.get("customer")
     if not customer_id:
@@ -501,25 +502,39 @@ def handle_payment_method_attached(pm_data):
             customer_id,
         )
         return
-    # Retrieve the Stripe customer to verify this PM is the default.
+    method_type = pm_data.get("type", "card")
+    details = pm_data.get(method_type) or {}
+    # Retrieve the Stripe customer to check whether this PM is the default.
     # customer.updated will also fire in this scenario, so this is
     # idempotent defense-in-depth.
     customer_svc = get_payment_provider().get_customer_service()
     stripe_customer = customer_svc.retrieve(customer_id)
     invoice_settings = getattr(stripe_customer, "invoice_settings", None)
     default_pm_id = invoice_settings and invoice_settings.get("default_payment_method")
-    if default_pm_id != stripe_id:
+    is_default = default_pm_id == stripe_id
+    if is_default:
+        customer.save_payment_cache(details, stripe_id, method_type=method_type)
         logger.info(
-            "[STRIPE-WEBHOOK-PM] payment_method.attached not default, skipping: %s",
+            "[STRIPE-WEBHOOK-PM] payment_method.attached cached default PM: %s",
             stripe_id,
         )
-        return
-    method_type = pm_data.get("type", "card")
-    details = pm_data.get(method_type)
-    customer.save_payment_cache(details, stripe_id, method_type=method_type)
-    logger.info(
-        "[STRIPE-WEBHOOK-PM] payment_method.attached cached default PM: %s", stripe_id
-    )
+    else:
+        PaymentMethod.objects.update_or_create(
+            customer=customer,
+            stripe_id=stripe_id,
+            defaults={
+                "method_type": method_type,
+                "brand": getattr(details, "brand", ""),
+                "last4": getattr(details, "last4", ""),
+                "exp_month": getattr(details, "exp_month", None),
+                "exp_year": getattr(details, "exp_year", None),
+                "is_default": False,
+            },
+        )
+        logger.info(
+            "[STRIPE-WEBHOOK-PM] payment_method.attached saved non-default PM: %s",
+            stripe_id,
+        )
 
 
 def _reconcile_cancelled_subscription(subscription, reason):
