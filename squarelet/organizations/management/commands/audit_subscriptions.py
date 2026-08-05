@@ -89,18 +89,35 @@ class Command(BaseCommand):
             f"Loaded {len(local_subs)} local subscription(s) with a Stripe ID.\n"
         )
 
-        # ── 2. Fetch all Stripe subscriptions ─────────────────────────────────
-        self.stdout.write("Fetching Stripe subscriptions (status=all)...\n")
+        # ── 2. Fetch Stripe subscriptions ─────────────────────────────────────
         start = time.monotonic()
         stripe_map = {}
-        fetched = 0
-        for stripe_sub in stripe.Subscription.list(
-            limit=100, status="all"
-        ).auto_paging_iter():
-            stripe_map[stripe_sub.id] = stripe_sub
-            fetched += 1
-            if fetched % 500 == 0:
-                self.stdout.write(f"  Scanned {fetched} Stripe records...\n")
+
+        if org_filter and not check_stripe_orphans:
+            # Targeted fetch: only retrieve the specific IDs we need to compare.
+            # A full list() would scan the entire Stripe account unnecessarily.
+            self.stdout.write(
+                f"Fetching {len(local_subs)} Stripe subscription(s) by ID...\n"
+            )
+            for sub in local_subs:
+                try:
+                    stripe_sub = stripe.Subscription.retrieve(sub.subscription_id)
+                    stripe_map[stripe_sub.id] = stripe_sub
+                except stripe.InvalidRequestError:
+                    pass  # reported as missing in step 3
+            fetched = len(stripe_map)
+        else:
+            # Bulk fetch: needed when checking orphans or auditing the full account.
+            self.stdout.write("Fetching Stripe subscriptions (status=all)...\n")
+            fetched = 0
+            for stripe_sub in stripe.Subscription.list(
+                limit=100, status="all"
+            ).auto_paging_iter():
+                stripe_map[stripe_sub.id] = stripe_sub
+                fetched += 1
+                if fetched % 500 == 0:
+                    self.stdout.write(f"  Scanned {fetched} Stripe records...\n")
+
         elapsed = time.monotonic() - start
         self.stdout.write(
             f"Fetched {fetched} Stripe subscription(s) in {elapsed:.0f}s.\n\n"
