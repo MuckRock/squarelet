@@ -78,8 +78,8 @@ def send_cache_invalidation(
                 # itself succeeds, as a dropped invalidation only leaves the
                 # client's cache stale until its next write
                 logger.error(
-                    "[CACHE-INVALIDATION] Retries exceeded, giving up! id=%s client=%s url=%s "
-                    "model=%s count=%d attempts=%d uuids=%s: %s",
+                    "[CACHE-INVALIDATION] Retries exceeded, giving up! id=%s "
+                    "client=%s url=%s model=%s count=%d attempts=%d uuids=%s: %s",
                     invalidation_id,
                     client_profile.client.name,
                     client_profile.webhook_url,

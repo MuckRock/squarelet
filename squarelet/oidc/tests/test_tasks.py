@@ -641,7 +641,7 @@ class TestSendCacheInvalidationRetries:
         mock_retry.assert_not_called()
         errors = [r for r in caplog.records if r.levelno == logging.ERROR]
         assert len(errors) == 1
-        assert "[CACHE-INVALIDATION] Giving up" in caplog.text
+        assert "[CACHE-INVALIDATION] Retries exceeded, giving up!" in caplog.text
         assert "id=abc12345" in caplog.text
         assert f"url={client_profile.webhook_url}" in caplog.text
         assert f"attempts={MAX_RETRIES + 1}" in caplog.text
