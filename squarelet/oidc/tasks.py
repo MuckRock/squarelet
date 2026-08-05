@@ -4,15 +4,37 @@ from django.utils import timezone
 
 # Standard Library
 import logging
+import sys
+from random import randint
+
+# Third Party
+import requests
 
 # Local
-from .models import ClientProfile
+from .models import ClientProfile, format_uuids
 
 logger = logging.getLogger(__name__)
 
+# A client outage is measured in minutes, not seconds: 1, 2 and 4 minutes plus
+# jitter, so a client coming back up is not hit by every retry at once
+MAX_RETRIES = 3
+RETRY_BACKOFF = 60
+RETRY_JITTER = 30
 
-@shared_task(name="squarelet.oidc.tasks.send_cache_invalidation")
-def send_cache_invalidation(client_profile_pk, model, uuids, invalidation_id=None):
+
+def retry_countdown(retries):
+    """Seconds to wait before the next delivery attempt"""
+    return 2**retries * RETRY_BACKOFF + randint(0, RETRY_JITTER)
+
+
+@shared_task(
+    bind=True,
+    max_retries=MAX_RETRIES,
+    name="squarelet.oidc.tasks.send_cache_invalidation",
+)
+def send_cache_invalidation(
+    self, client_profile_pk, model, uuids, invalidation_id=None
+):
     # pylint: disable=import-outside-toplevel
     # Squarelet
     from squarelet.organizations.models import Organization
@@ -47,7 +69,42 @@ def send_cache_invalidation(client_profile_pk, model, uuids, invalidation_id=Non
             uuids = [str(i) for i in organizations.values_list("uuid", flat=True)]
 
     if uuids:
-        client_profile.send_cache_invalidation(model, uuids)
+        try:
+            client_profile.send_cache_invalidation(model, uuids, invalidation_id)
+        except requests.RequestException as exc:
+            # the model logs each rejected or failed attempt at warning level
+            if self.request.retries >= self.max_retries:
+                # the one error per lost delivery, so one Sentry event - the task
+                # itself succeeds, as a dropped invalidation only leaves the
+                # client's cache stale until its next write
+                logger.error(
+                    "[CACHE-INVALIDATION] Retries exceeded, giving up! id=%s client=%s url=%s "
+                    "model=%s count=%d attempts=%d uuids=%s: %s",
+                    invalidation_id,
+                    client_profile.client.name,
+                    client_profile.webhook_url,
+                    model,
+                    len(uuids),
+                    self.request.retries + 1,
+                    format_uuids(uuids),
+                    exc,
+                    exc_info=sys.exc_info(),
+                )
+                return
+            countdown = retry_countdown(self.request.retries)
+            logger.info(
+                "[CACHE-INVALIDATION] Retrying id=%s client=%s url=%s model=%s "
+                "count=%d attempt=%d/%d countdown=%d",
+                invalidation_id,
+                client_profile.client.name,
+                client_profile.webhook_url,
+                model,
+                len(uuids),
+                self.request.retries + 1,
+                self.max_retries + 1,
+                countdown,
+            )
+            raise self.retry(countdown=countdown, exc=exc)
     else:
         # this drop was previously indistinguishable from a successful send
         logger.info(

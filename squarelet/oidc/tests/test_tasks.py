@@ -2,7 +2,12 @@
 Tests for OIDC tasks
 """
 
+# send_cache_invalidation is a bind=True task, so calling it directly passes
+# `self` implicitly - pylint reads every call here as missing its first argument
+# pylint: disable=no-value-for-parameter
+
 # Django
+from celery.exceptions import Retry
 from django.utils import timezone
 
 # Standard Library
@@ -12,11 +17,18 @@ from uuid import uuid4
 
 # Third Party
 import pytest
+import requests
 from oidc_provider.models import UserConsent
 
 # Squarelet
 from squarelet.oidc.models import ClientProfile
-from squarelet.oidc.tasks import send_cache_invalidation
+from squarelet.oidc.tasks import (
+    MAX_RETRIES,
+    RETRY_BACKOFF,
+    RETRY_JITTER,
+    retry_countdown,
+    send_cache_invalidation,
+)
 from squarelet.oidc.tests.factories import ClientFactory, ClientProfileFactory
 from squarelet.organizations.tests.factories import (
     MembershipFactory,
@@ -566,3 +578,106 @@ class TestSendCacheInvalidationObservability:
         send_cache_invalidation(client_profile.pk, "user", [str(uuid4())])
 
         mock_send.assert_called_once()
+
+
+@pytest.mark.django_db()
+class TestSendCacheInvalidationRetries:
+    """Test that a failed delivery is retried before it is abandoned
+
+    A client restart or deploy used to drop every invalidation in flight, with
+    no reattempt and no error - the client's cache stayed stale until the next
+    write to the same record.
+    """
+
+    @pytest.mark.parametrize(
+        "exc",
+        [
+            requests.exceptions.ConnectTimeout("unreachable"),
+            requests.exceptions.HTTPError("502 Bad Gateway"),
+        ],
+    )
+    def test_failed_delivery_is_retried(self, mocker, caplog, client_profile, exc):
+        """Both a network failure and a rejection schedule another attempt"""
+        caplog.set_level(logging.INFO, logger="squarelet.oidc.tasks")
+        mocker.patch(
+            "squarelet.oidc.models.ClientProfile.send_cache_invalidation",
+            side_effect=exc,
+        )
+        mock_retry = mocker.patch.object(
+            send_cache_invalidation, "retry", side_effect=Retry
+        )
+
+        with pytest.raises(Retry):
+            send_cache_invalidation(client_profile.pk, "user", [str(uuid4())])
+
+        mock_retry.assert_called_once()
+        assert mock_retry.call_args.kwargs["exc"] is exc
+        assert mock_retry.call_args.kwargs["countdown"] >= RETRY_BACKOFF
+        assert "[CACHE-INVALIDATION] Retrying" in caplog.text
+        assert f"url={client_profile.webhook_url}" in caplog.text
+
+    def test_retries_exhausted_logs_one_error(self, mocker, caplog, client_profile):
+        """The last attempt reports the lost delivery exactly once
+
+        The model logs each attempt at warning level, so this error is the only
+        Sentry event for a broadcast that never landed.
+        """
+        caplog.set_level(logging.INFO, logger="squarelet.oidc.tasks")
+        mocker.patch(
+            "squarelet.oidc.models.ClientProfile.send_cache_invalidation",
+            side_effect=requests.exceptions.HTTPError("502 Bad Gateway"),
+        )
+        mock_retry = mocker.patch.object(send_cache_invalidation, "retry")
+        uuids = [str(uuid4())]
+
+        result = send_cache_invalidation.apply(
+            args=(client_profile.pk, "user", uuids, "abc12345"),
+            retries=MAX_RETRIES,
+        )
+
+        # the task itself succeeds: a stale client cache is not worth a task
+        # left in a failed state, and the error above is the alarm
+        assert result.successful()
+        mock_retry.assert_not_called()
+        errors = [r for r in caplog.records if r.levelno == logging.ERROR]
+        assert len(errors) == 1
+        assert "[CACHE-INVALIDATION] Giving up" in caplog.text
+        assert "id=abc12345" in caplog.text
+        assert f"url={client_profile.webhook_url}" in caplog.text
+        assert f"attempts={MAX_RETRIES + 1}" in caplog.text
+        assert uuids[0] in caplog.text
+        # exc_info is what carries the traceback into Sentry
+        assert errors[0].exc_info is not None
+
+    def test_successful_delivery_does_not_retry(self, mocker, client_profile):
+        """A delivered invalidation is not reattempted"""
+        mocker.patch("squarelet.oidc.models.ClientProfile.send_cache_invalidation")
+        mock_retry = mocker.patch.object(send_cache_invalidation, "retry")
+
+        send_cache_invalidation(client_profile.pk, "user", [str(uuid4())])
+
+        mock_retry.assert_not_called()
+
+    def test_non_request_errors_still_propagate(self, mocker, client_profile):
+        """A bug in the send path fails the task instead of being retried"""
+        mocker.patch(
+            "squarelet.oidc.models.ClientProfile.send_cache_invalidation",
+            side_effect=ValueError("bug"),
+        )
+        mock_retry = mocker.patch.object(send_cache_invalidation, "retry")
+
+        with pytest.raises(ValueError):
+            send_cache_invalidation(client_profile.pk, "user", [str(uuid4())])
+
+        mock_retry.assert_not_called()
+
+
+class TestRetryCountdown:
+    """Test the retry backoff schedule"""
+
+    def test_backoff_is_exponential_with_jitter(self):
+        """Each attempt waits longer, and clients do not see a thundering herd"""
+        for retries in range(MAX_RETRIES):
+            countdown = retry_countdown(retries)
+            assert 2**retries * RETRY_BACKOFF <= countdown
+            assert countdown <= 2**retries * RETRY_BACKOFF + RETRY_JITTER
