@@ -237,6 +237,14 @@ LOGGING = {
         }
     },
     "loggers": {
+        # Cache invalidation webhooks are critical client notifications, so this
+        # path logs at INFO. Scoped to squarelet.oidc rather than squarelet so
+        # the other apps' INFO trails stay off and the volume stays predictable.
+        "squarelet.oidc": {
+            "level": env("OIDC_LOG_LEVEL", default="INFO"),
+            "handlers": ["console"],
+            "propagate": False,
+        },
         "django.db.backends": {
             "level": "ERROR",
             "handlers": ["console"],
