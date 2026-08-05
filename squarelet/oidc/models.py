@@ -87,8 +87,11 @@ class ClientProfile(models.Model):
     def __str__(self):
         return str(self.client)
 
-    def send_cache_invalidation(self, model, uuids):
+    def send_cache_invalidation(self, model, uuids, invalidation_id=None):
         """Send a cache invalidation to this client
+
+        `invalidation_id` is logged, not sent, so one broadcast's fan-out can be
+        traced across clients and retries.
 
         Returns the response on success. Raises requests.HTTPError on a non-2xx
         response and requests.RequestException on network failure.
@@ -114,13 +117,14 @@ class ClientProfile(models.Model):
             )
         except requests.RequestException as exc:
             logger.warning(
-                "[CACHE-INVALIDATION] Network failure client=%s model=%s uuids=%s "
-                "elapsed_ms=%d url=%s: %s",
+                "[CACHE-INVALIDATION] Network failure id=%s client=%s url=%s "
+                "model=%s uuids=%s elapsed_ms=%d: %s",
+                invalidation_id,
                 self.client.name,
+                self.webhook_url,
                 model,
                 format_uuids(uuids),
                 get_elapsed_ms(start),
-                self.webhook_url,
                 exc,
             )
             raise
@@ -130,9 +134,11 @@ class ClientProfile(models.Model):
             # log at warning, not error: the task logs a single error once it has
             # exhausted its retries, so one failed delivery is one Sentry event
             logger.warning(
-                "[CACHE-INVALIDATION] Rejected client=%s model=%s uuids=%s "
-                "status=%d elapsed_ms=%d body=%s",
+                "[CACHE-INVALIDATION] Rejected id=%s client=%s url=%s model=%s "
+                "uuids=%s status=%d elapsed_ms=%d body=%s",
+                invalidation_id,
                 self.client.name,
+                self.webhook_url,
                 model,
                 format_uuids(uuids),
                 response.status_code,
@@ -142,9 +148,11 @@ class ClientProfile(models.Model):
             response.raise_for_status()
 
         logger.info(
-            "[CACHE-INVALIDATION] Sent client=%s model=%s count=%d status=%d "
-            "elapsed_ms=%d uuids=%s",
+            "[CACHE-INVALIDATION] Sent id=%s client=%s url=%s model=%s count=%d "
+            "status=%d elapsed_ms=%d uuids=%s",
+            invalidation_id,
             self.client.name,
+            self.webhook_url,
             model,
             len(uuids),
             response.status_code,

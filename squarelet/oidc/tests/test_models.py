@@ -176,6 +176,53 @@ class TestSendCacheInvalidation:
         assert f"+{500 - UUID_LOG_SAMPLE} more" in caplog.text
         assert uuids[UUID_LOG_SAMPLE] not in caplog.text
 
+    def test_success_logs_webhook_url_and_id(self, requests_mock, caplog):
+        """A send names the endpoint it reached and the broadcast it belongs to
+
+        With several clients configured, the client name alone does not say
+        which URL a delivery went to after a webhook_url is changed.
+        """
+        caplog.set_level(logging.INFO, logger="squarelet.oidc.models")
+        client_profile = ClientProfileFactory()
+        requests_mock.post(client_profile.webhook_url, status_code=200)
+
+        client_profile.send_cache_invalidation(
+            "user", [str(uuid4())], invalidation_id="abc12345"
+        )
+
+        assert f"url={client_profile.webhook_url}" in caplog.text
+        assert "id=abc12345" in caplog.text
+
+    def test_rejection_logs_webhook_url_and_id(self, requests_mock, caplog):
+        """A rejected delivery names the endpoint that rejected it"""
+        caplog.set_level(logging.WARNING, logger="squarelet.oidc.models")
+        client_profile = ClientProfileFactory()
+        requests_mock.post(client_profile.webhook_url, status_code=502)
+
+        with pytest.raises(requests.HTTPError):
+            client_profile.send_cache_invalidation(
+                "user", [str(uuid4())], invalidation_id="abc12345"
+            )
+
+        assert f"url={client_profile.webhook_url}" in caplog.text
+        assert "id=abc12345" in caplog.text
+
+    def test_network_failure_logs_webhook_url_and_id(self, requests_mock, caplog):
+        """A network failure names the endpoint that could not be reached"""
+        caplog.set_level(logging.WARNING, logger="squarelet.oidc.models")
+        client_profile = ClientProfileFactory()
+        requests_mock.post(
+            client_profile.webhook_url, exc=requests.exceptions.ConnectTimeout
+        )
+
+        with pytest.raises(requests.exceptions.ConnectTimeout):
+            client_profile.send_cache_invalidation(
+                "user", [str(uuid4())], invalidation_id="abc12345"
+            )
+
+        assert f"url={client_profile.webhook_url}" in caplog.text
+        assert "id=abc12345" in caplog.text
+
     def test_timeout_is_connect_read_tuple(self, requests_mock):
         """A stuck handshake must not pin a worker for the full read timeout"""
         client_profile = ClientProfileFactory()
