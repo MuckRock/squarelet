@@ -135,9 +135,9 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         # Verify user is admin
         assert org.has_admin(user)
 
-        # Verify user's email is added as receipt email
+        # Verify user's email is set as billing email
         if user.email:
-            assert org.receipt_emails.filter(email=user.email).exists()
+            assert org.receipt_email.email == user.email
 
     def test_existing_organization_flow_still_works(
         self, rf, user_factory, organization_factory, plan_factory, mocker

@@ -151,25 +151,9 @@
               </td>
             </tr>
             <tr>
-              <th class="row-header">Receipt Emails</th>
-              <td>
-                <ul>
-                  {% for email in good.receipt_emails.all %}
-                    <li>{{ email.email }}</li>
-                  {% empty %}
-                    <li class="empty">None</li>
-                  {% endfor %}
-                </ul>
-              </td>
-              <td>
-                <ul>
-                  {% for email in bad.receipt_emails.all %}
-                    <li>{{ email.email }}</li>
-                  {% empty %}
-                    <li class="empty">None</li>
-                  {% endfor %}
-                </ul>
-              </td>
+              <th class="row-header">Billing Email</th>
+              <td>{{ good.email|default:"None" }}</td>
+              <td>{{ bad.email|default:"None" }}</td>
             </tr>
             <tr>
               <th class="row-header">URLs</th>

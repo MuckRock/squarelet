@@ -30,7 +30,11 @@ import stripe
 # Squarelet
 from squarelet.core.utils import format_stripe_error, new_action
 from squarelet.organizations.models import Charge, Organization, Plan
-from squarelet.organizations.models.payment import Subscription, get_payment_brand
+from squarelet.organizations.models.payment import (
+    ReceiptEmail,
+    Subscription,
+    get_payment_brand,
+)
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.payments.factory import get_payment_provider
@@ -561,13 +565,11 @@ class BaseManageSubscriptions(SubscriptionObjectMixin, DetailView):
         context["card_brand"] = customer.payment_brand
         context["card_last4"] = customer.payment_last4
 
-        # Get all receipt emails
-        context["receipt_emails"] = self.object.receipt_emails.all()
-
-        # Get failed receipt emails
-        context["failed_receipt_emails"] = self.object.receipt_emails.filter(
-            failed=True
-        )
+        # Get receipt email — an organization may not have one set yet
+        try:
+            context["receipt_email"] = self.object.receipt_email
+        except ReceiptEmail.DoesNotExist:
+            context["receipt_email"] = None
 
         # Get five most recent payments
         payments = self.object.charges.order_by("-created_at").all()[:5]
@@ -665,16 +667,21 @@ class BaseUpdateReceiptEmail(SubscriptionObjectMixin, UpdateView):
     template_name = "subscriptions/update_receipt_email.html"
 
     def form_valid(self, form):
-        self.object.set_receipt_emails(form.cleaned_data["receipt_emails"])
-        self.log_staff_action("updated the receipt emails")
-        return redirect(self.reverse_subject("subscriptions"))
+        try:
+            self.object.set_billing_email(form.cleaned_data["receipt_email"])
+            self.log_staff_action("updated the receipt email")
+            return redirect(self.reverse_subject("subscriptions"))
+        except stripe.StripeError as exc:
+            # We can use Stripe's email validation here
+            # pylint:disable=protected-access
+            messages.error(self.request, exc._message)
+            return redirect(self.reverse_subject("update-receipt-email"))
 
     def get_initial(self):
-        return {
-            "receipt_emails": ", ".join(
-                r.email for r in self.object.receipt_emails.all()
-            ),
-        }
+        try:
+            return {"receipt_email": self.object.receipt_email.email}
+        except ReceiptEmail.DoesNotExist:
+            return {"receipt_email": ""}
 
 
 class BaseCancelSubscription(SubscriptionObjectMixin, UpdateView):

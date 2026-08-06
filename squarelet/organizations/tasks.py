@@ -1,6 +1,7 @@
 # Django
 from celery import shared_task
 from django.conf import settings
+from django.core.files.base import ContentFile
 from django.db.models import F, Q
 from django.utils.timezone import get_current_timezone
 from django.utils.translation import gettext_lazy as _
@@ -29,7 +30,6 @@ from squarelet.organizations.models.payment import (
     EntitlementGrant,
     Plan,
     Subscription,
-    get_payment_brand,
 )
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.users.models import User
@@ -169,7 +169,29 @@ def handle_charge_succeeded(charge_data):
         },
     )
 
-    charge.send_receipt()
+    receipt_url = charge_data.get("receipt_url")
+    if receipt_url and not charge.receipt_pdf:
+        download_receipt_pdf.delay(charge.pk, receipt_url)
+
+
+@shared_task(
+    name="squarelet.organizations.tasks.download_receipt_pdf",
+    autoretry_for=(requests.RequestException,),
+    retry_backoff=60,
+    retry_kwargs={"max_retries": 5},
+)
+def download_receipt_pdf(charge_id, receipt_url):
+    """Download a Stripe receipt PDF and attach it to the Charge."""
+    charge = Charge.objects.get(pk=charge_id)
+    if charge.receipt_pdf:
+        return
+    response = requests.get(receipt_url, timeout=30)
+    response.raise_for_status()
+    charge.receipt_pdf.save(
+        f"{charge.charge_id}.pdf",
+        ContentFile(response.content),
+        save=True,
+    )
 
 
 @shared_task(name="squarelet.organizations.tasks.handle_invoice_failed")
@@ -400,20 +422,12 @@ def handle_customer_updated(customer_data):
         # Modern PaymentMethod — details nested under .card/.us_bank_account
         pm = customer_service.retrieve_payment_method(pm_id)
         details = getattr(pm, pm.type, None)
-        customer.payment_brand = get_payment_brand(details) if details else ""
-        customer.payment_last4 = getattr(details, "last4", "") or ""
-        customer.payment_exp_month = getattr(details, "exp_month", None)
-        customer.payment_exp_year = getattr(details, "exp_year", None)
-        customer.stripe_payment_method_id = pm_id
+        customer.save_payment_cache(details, pm_id, method_type=pm.type or "card")
     elif default_source and isinstance(default_source, str):
         # Legacy Source — retrieve and read brand/last4 directly
         source = customer_service.retrieve_source(customer_id, default_source)
         if source.object == "card":
-            customer.payment_brand = source.brand or ""
-            customer.payment_last4 = source.last4 or ""
-            customer.payment_exp_month = source.exp_month
-            customer.payment_exp_year = source.exp_year
-            customer.stripe_payment_method_id = source.id
+            customer.save_payment_cache(source, source.id)
         else:
             customer.clear_payment_cache()
             logger.info(
@@ -430,7 +444,6 @@ def handle_customer_updated(customer_data):
             customer_id,
         )
         return
-    customer.save_payment_cache()
     logger.info(
         "[STRIPE-WEBHOOK-CUSTOMER] customer.updated cached payment for: %s",
         customer_id,
