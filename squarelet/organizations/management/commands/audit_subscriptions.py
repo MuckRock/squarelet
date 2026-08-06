@@ -288,4 +288,16 @@ class Command(BaseCommand):
         if stripe_plan_id != local_plan_id:
             diffs.append(("plan_stripe_id", local_plan_id, stripe_plan_id))
 
+        # discounts / coupons applied to this subscription
+        # Check newer list field first, fall back to legacy single-discount field.
+        discounts = getattr(stripe_sub, "discounts", None) or (
+            [stripe_sub.discount] if getattr(stripe_sub, "discount", None) else []
+        )
+        if discounts:
+            coupon_ids = ", ".join(
+                getattr(getattr(d, "coupon", None), "id", None) or "unknown"
+                for d in discounts
+            )
+            diffs.append(("unexpected_discount", None, coupon_ids))
+
         return diffs
