@@ -27,14 +27,16 @@ from squarelet.organizations.models.payment import (
     Charge,
     Customer,
     EntitlementGrant,
+    PaymentMethod,
     Plan,
     Subscription,
-    get_payment_brand,
 )
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.users.models import User
 
 logger = logging.getLogger(__name__)
+
+# pylint: disable=too-many-lines
 
 
 @shared_task
@@ -400,20 +402,12 @@ def handle_customer_updated(customer_data):
         # Modern PaymentMethod — details nested under .card/.us_bank_account
         pm = customer_service.retrieve_payment_method(pm_id)
         details = getattr(pm, pm.type, None)
-        customer.payment_brand = get_payment_brand(details) if details else ""
-        customer.payment_last4 = getattr(details, "last4", "") or ""
-        customer.payment_exp_month = getattr(details, "exp_month", None)
-        customer.payment_exp_year = getattr(details, "exp_year", None)
-        customer.stripe_payment_method_id = pm_id
+        customer.save_payment_cache(details, pm_id, method_type=pm.type or "card")
     elif default_source and isinstance(default_source, str):
         # Legacy Source — retrieve and read brand/last4 directly
         source = customer_service.retrieve_source(customer_id, default_source)
         if source.object == "card":
-            customer.payment_brand = source.brand or ""
-            customer.payment_last4 = source.last4 or ""
-            customer.payment_exp_month = source.exp_month
-            customer.payment_exp_year = source.exp_year
-            customer.stripe_payment_method_id = source.id
+            customer.save_payment_cache(source, source.id)
         else:
             customer.clear_payment_cache()
             logger.info(
@@ -430,11 +424,117 @@ def handle_customer_updated(customer_data):
             customer_id,
         )
         return
-    customer.save_payment_cache()
     logger.info(
         "[STRIPE-WEBHOOK-CUSTOMER] customer.updated cached payment for: %s",
         customer_id,
     )
+
+
+@shared_task(
+    name="squarelet.organizations.tasks.handle_payment_method_updated",
+    autoretry_for=(stripe.RateLimitError,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 3},
+)
+def handle_payment_method_updated(pm_data):
+    """Handle payment_method.updated and payment_method.automatically_updated events.
+    Refreshes our cached payment method details from the Stripe event payload."""
+    stripe_id = pm_data.get("id")
+    try:
+        pm = PaymentMethod.objects.select_related("customer").get(stripe_id=stripe_id)
+    except PaymentMethod.DoesNotExist:
+        logger.info(
+            "[STRIPE-WEBHOOK-PM] payment_method.updated for uncached PM: %s", stripe_id
+        )
+        return
+    method_type = pm_data.get("type", "card")
+    details = pm_data.get(method_type)
+    pm.customer.save_payment_cache(details, stripe_id, method_type=method_type)
+    logger.info(
+        "[STRIPE-WEBHOOK-PM] payment_method.updated refreshed cache for: %s", stripe_id
+    )
+
+
+@shared_task(
+    name="squarelet.organizations.tasks.handle_payment_method_detached",
+    autoretry_for=(stripe.RateLimitError,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 3},
+)
+def handle_payment_method_detached(pm_data):
+    """Handle payment_method.detached events. Removes our cached payment method."""
+    stripe_id = pm_data.get("id")
+    try:
+        pm = PaymentMethod.objects.select_related("customer").get(stripe_id=stripe_id)
+    except PaymentMethod.DoesNotExist:
+        logger.info(
+            "[STRIPE-WEBHOOK-PM] payment_method.detached for uncached PM: %s", stripe_id
+        )
+        return
+    if pm.is_default:
+        pm.customer.clear_payment_cache()
+    else:
+        pm.delete()
+    logger.info(
+        "[STRIPE-WEBHOOK-PM] payment_method.detached cleared cache for: %s", stripe_id
+    )
+
+
+@shared_task(
+    name="squarelet.organizations.tasks.handle_payment_method_attached",
+    autoretry_for=(stripe.RateLimitError,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 3},
+)
+def handle_payment_method_attached(pm_data):
+    """Handle payment_method.attached events.
+    Always saves the PM locally; marks it as default only if it is the
+    customer's current Stripe default."""
+    stripe_id = pm_data.get("id")
+    customer_id = pm_data.get("customer")
+    if not customer_id:
+        return
+    try:
+        customer = Customer.objects.get(customer_id=customer_id)
+    except Customer.DoesNotExist:
+        logger.warning(
+            "[STRIPE-WEBHOOK-PM] payment_method.attached for unknown customer: %s",
+            customer_id,
+        )
+        return
+    method_type = pm_data.get("type", "card")
+    details = pm_data.get(method_type) or {}
+    # Retrieve the Stripe customer to check whether this PM is the default.
+    # customer.updated will also fire in this scenario, so this is
+    # idempotent defense-in-depth.
+    customer_svc = get_payment_provider().get_customer_service()
+    stripe_customer = customer_svc.retrieve(customer_id)
+    invoice_settings = getattr(stripe_customer, "invoice_settings", None)
+    default_pm_id = invoice_settings and invoice_settings.get("default_payment_method")
+    is_default = default_pm_id == stripe_id
+    if is_default:
+        customer.save_payment_cache(details, stripe_id, method_type=method_type)
+        logger.info(
+            "[STRIPE-WEBHOOK-PM] payment_method.attached cached default PM: %s",
+            stripe_id,
+        )
+    else:
+        PaymentMethod.objects.update_or_create(
+            customer=customer,
+            stripe_id=stripe_id,
+            defaults={
+                "method_type": method_type,
+                "brand": getattr(details, "brand", ""),
+                "last4": getattr(details, "last4", ""),
+                "exp_month": getattr(details, "exp_month", None),
+                "exp_year": getattr(details, "exp_year", None),
+                "is_default": False,
+            },
+        )
+        logger.info(
+            "[STRIPE-WEBHOOK-PM] payment_method.attached saved non-default PM: %s",
+            stripe_id,
+        )
 
 
 def _reconcile_cancelled_subscription(subscription, reason):
