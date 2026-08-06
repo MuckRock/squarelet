@@ -13,8 +13,15 @@ from .members import (
 )
 from .profile import RequestProfileChange, ReviewProfileChange, Update
 from .subscription import (
+    CancelSubscription,
     ChargeDetail,
+    ManageSubscriptions,
+    PaymentsList,
     PDFChargeDetail,
+    RemoveCard,
+    Resubscribe,
+    UpdateCard,
+    UpdateReceiptEmail,
     UpdateSubscription,
     stripe_webhook,
 )
@@ -25,7 +32,14 @@ __all__ = [
     "List",
     "autocomplete",
     # Subscription views
+    "ManageSubscriptions",
     "UpdateSubscription",
+    "Resubscribe",
+    "UpdateCard",
+    "RemoveCard",
+    "UpdateReceiptEmail",
+    "CancelSubscription",
+    "PaymentsList",
     "ChargeDetail",
     "PDFChargeDetail",
     "stripe_webhook",
