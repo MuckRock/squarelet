@@ -16,7 +16,7 @@ class Migration(migrations.Migration):
             field=models.JSONField(
                 blank=True,
                 default=list,
-                help_text="Plain-language benefits granted by this entitlement. When any of a plan's entitlements define benefits, they override the plan's own benefits list for display.",
+                help_text="Plain-language benefits granted by this entitlement. Refer to quantities by resource name instead of hard-coding them, e.g. \"{base_requests} free requests each month\", so that quantities from several entitlements can be summed into one benefit. When any of a plan's entitlements define benefits, they override the plan's own benefits list for display.",
                 verbose_name="benefits",
             ),
         ),

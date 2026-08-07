@@ -57,14 +57,16 @@
         {% if plan.short_description %}
           <p>{{ plan.short_description }}</p>
         {% endif %}
-        {% if plan.benefits %}
+        {% with benefits=plan.get_benefits %}
+        {% if benefits %}
           <p>{% trans "Your plan includes:" %}</p>
           <ul>
-            {% for benefit in plan.benefits %}
+            {% for benefit in benefits %}
               <li>{{ benefit }}</li>
             {% endfor %}
           </ul>
         {% endif %}
+        {% endwith %}
       {% else %}
         <p>{% trans "This receipt confirms your payment to MuckRock." %}</p>
       {% endif %}

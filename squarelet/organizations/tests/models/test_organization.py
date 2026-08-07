@@ -1029,6 +1029,35 @@ class TestOrganization:
         assert orgs == [org]
         assert benefits == ["Entitlement benefit"]
 
+    @pytest.mark.django_db()
+    def test_consolidate_inherited_benefits_sums_quantities(
+        self, organization_factory, plan_factory
+    ):
+        """Two plans granting the same benefit show the combined quantity"""
+        org = organization_factory()
+        benefits = ["{base_requests} free requests each month"]
+        plan_a = plan_factory(name="Plan A")
+        plan_a.entitlements.set(
+            [
+                EntitlementFactory(
+                    name="A", benefits=benefits, resources={"base_requests": 50}
+                )
+            ]
+        )
+        plan_b = plan_factory(name="Plan B")
+        plan_b.entitlements.set(
+            [
+                EntitlementFactory(
+                    name="B", benefits=benefits, resources={"base_requests": 10}
+                )
+            ]
+        )
+
+        orgs, benefits = consolidate_inherited_benefits([(org, plan_a), (org, plan_b)])
+
+        assert orgs == [org]
+        assert benefits == ["60 free requests each month"]
+
 
 class TestOrganizationWixSyncIntegration:
     """Integration tests for Wix sync triggers in Organization model"""

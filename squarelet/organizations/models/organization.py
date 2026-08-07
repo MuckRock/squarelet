@@ -29,7 +29,12 @@ from squarelet.organizations.choices import (
 )
 from squarelet.organizations.models.invitation import Invitation
 from squarelet.organizations.models.membership import Membership
-from squarelet.organizations.models.payment import Charge, ReceiptEmail
+from squarelet.organizations.models.payment import (
+    Charge,
+    ReceiptEmail,
+    format_benefits,
+    sum_resources,
+)
 from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.querysets import OrganizationQuerySet
@@ -1006,15 +1011,21 @@ def consolidate_inherited_benefits(inherited_plans):
 
     Returns ``(orgs, benefits)``: a deduplicated, order-preserving list of the
     source organizations and the deduplicated union of their plans' effective
-    benefits (via :meth:`Plan.get_benefits`). Used to render a single inherited
-    benefits card instead of one card per inherited plan.
+    benefits. Used to render a single inherited benefits card instead of one
+    card per inherited plan.
+
+    Benefit copy is deduped unformatted, then formatted once against the summed
+    resources of every plan, so two plans that each grant 50 requests produce a
+    single benefit reading 100 rather than two identical entries.
     """
     orgs = []
-    benefits = []
+    templates = []
+    resources = []
     for org, plan in inherited_plans:
         if org not in orgs:
             orgs.append(org)
-        for benefit in plan.get_benefits():
-            if benefit not in benefits:
-                benefits.append(benefit)
-    return orgs, benefits
+        for benefit in plan.get_benefit_templates():
+            if benefit not in templates:
+                templates.append(benefit)
+        resources.append(plan.get_resources())
+    return orgs, format_benefits(templates, sum_resources(resources))

@@ -44,6 +44,63 @@ def get_payment_brand(details):
     return getattr(details, "brand", None) or getattr(details, "bank_name", "")
 
 
+# Resource keys that describe a level or threshold rather than a quantity, and so
+# should not be added together when aggregating entitlements.
+TIER_RESOURCES = frozenset({"feature_level", "minimum_users"})
+
+
+def sum_resources(resources):
+    """Aggregate an iterable of entitlement ``resources`` dicts into one dict.
+
+    Quantities are summed, so a subject holding two entitlements that each grant
+    50 requests gets 100. Flags are OR'd -- granted by any entitlement means
+    granted. Keys in :data:`TIER_RESOURCES` take the highest value instead of
+    summing. Anything else keeps the first value seen.
+    """
+    total = {}
+    for resource in resources:
+        for key, value in (resource or {}).items():
+            if key not in total:
+                total[key] = value
+            elif isinstance(total[key], bool) or isinstance(value, bool):
+                total[key] = bool(total[key]) or bool(value)
+            elif not isinstance(total[key], (int, float)) or not isinstance(
+                value, (int, float)
+            ):
+                continue  # incompatible types -- keep the first value
+            elif key in TIER_RESOURCES:
+                total[key] = max(total[key], value)
+            else:
+                # it's safe to sum these values
+                total[key] = total[key] + value
+    return total
+
+
+def format_benefits(benefits, resources):
+    """Render benefit strings, filling in quantities from ``resources``.
+
+    Benefit copy refers to resources by name, e.g.
+    ``"{base_requests} free public records requests each month"``, which lets a
+    single benefit string express the aggregate of several entitlements. Format
+    specs work too, e.g. ``"{pages:,} pages"``. A benefit whose placeholders
+    can't be resolved is shown as authored rather than dropped.
+    """
+    formatted = []
+    for benefit in benefits:
+        try:
+            formatted.append(benefit.format(**resources))
+        except (KeyError, IndexError, ValueError) as exc:
+            logger.warning(
+                "Could not format benefit %r with resources %r: %s",
+                benefit,
+                resources,
+                exc,
+                exc_info=sys.exc_info(),
+            )
+            formatted.append(benefit)
+    return formatted
+
+
 class Customer(models.Model):
     """A customer on stripe"""
 
@@ -814,13 +871,24 @@ class Plan(models.Model):
     def free(self):
         return self.base_price == 0 and self.price_per_user == 0
 
-    def get_benefits(self):
-        """Effective benefits for display.
+    def get_resources(self):
+        """The resources this plan grants, aggregated across its entitlements."""
+        return sum_resources(
+            entitlement.resources
+            for entitlement in self.entitlements.all()  # reuses any prefetch
+        )
+
+    def get_benefit_templates(self):
+        """Effective benefit copy for display, before quantities are filled in.
 
         If any of this plan's entitlements define benefits, the deduplicated,
         order-preserving union of those overrides ``self.benefits``. Otherwise
         fall back to ``self.benefits``. This supports migrating benefit copy
         from plans onto entitlements one plan at a time.
+
+        Callers that combine several plans should dedupe these templates and
+        format them once against the plans' summed resources; everyone else
+        wants :meth:`get_benefits`.
         """
         entitlement_benefits = []
         for entitlement in self.entitlements.all():  # reuses any prefetch
@@ -828,6 +896,10 @@ class Plan(models.Model):
                 if benefit not in entitlement_benefits:
                     entitlement_benefits.append(benefit)
         return entitlement_benefits or self.benefits
+
+    def get_benefits(self):
+        """Effective benefits for display, with resource quantities filled in."""
+        return format_benefits(self.get_benefit_templates(), self.get_resources())
 
     def requires_payment(self):
         """Does this plan require immediate payment?
@@ -1035,7 +1107,10 @@ class Entitlement(models.Model):
         default=list,
         blank=True,
         help_text=_(
-            "Plain-language benefits granted by this entitlement. When any of a "
+            "Plain-language benefits granted by this entitlement. Refer to "
+            "quantities by resource name instead of hard-coding them, e.g. "
+            '"{base_requests} free requests each month", so that quantities from '
+            "several entitlements can be summed into one benefit. When any of a "
             "plan's entitlements define benefits, they override the plan's own "
             "benefits list for display."
         ),
