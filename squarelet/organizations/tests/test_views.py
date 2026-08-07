@@ -1946,7 +1946,7 @@ class TestReassignAdmin(ViewTestMixin):
         # Outgoing admin is demoted but still a member
         assert not organization.has_admin(admin)
         assert organization.has_member(admin)
-        self.assert_message(messages.INFO, "You are demoted to a member")
+        self.assert_message(messages.INFO, "You are no longer an admin")
 
     def test_demote_no_replacement_creates_zendesk_ticket(
         self, rf, organization_factory, user_factory, mocker
