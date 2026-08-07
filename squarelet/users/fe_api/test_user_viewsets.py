@@ -210,6 +210,33 @@ def test_no_organization_param_returns_all_searchable(client, user_with_org):
 
 
 @pytest.mark.django_db
+def test_filter_by_organization_does_not_leak_membership(
+    client, user_with_org, user_without_org
+):
+    """The organization param must not reveal members of an org the requester
+    cannot view"""
+    secret_member, private_org = user_with_org
+
+    # the member is otherwise searchable — only the org is off limits
+    secret_member.individual_organization.hidden = False
+    secret_member.individual_organization.save()
+    private_org.private = True
+    private_org.save()
+
+    client.force_authenticate(user=user_without_org)
+    response = client.get(f"/fe_api/users/?organization={private_org.slug}")
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["results"] == []
+
+    # a member of the private org can still filter by it
+    client.force_authenticate(user=secret_member)
+    response = client.get(f"/fe_api/users/?organization={private_org.slug}")
+    assert response.status_code == status.HTTP_200_OK
+    returned_ids = {u["id"] for u in response.data["results"]}
+    assert secret_member.id in returned_ids
+
+
+@pytest.mark.django_db
 def test_filter_by_organization_with_search(client, user_with_org):
     """The organization filter combines with the text search"""
     user, org = user_with_org

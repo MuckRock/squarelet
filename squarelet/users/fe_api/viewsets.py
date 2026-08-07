@@ -9,6 +9,7 @@ from rest_framework import viewsets
 from rest_framework.permissions import AllowAny
 
 # Squarelet
+from squarelet.organizations.models.organization import Organization
 from squarelet.users.fe_api.serializers import UserSearchSerializer, UserSerializer
 from squarelet.users.models import User
 
@@ -24,14 +25,18 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
         return UserSerializer
 
     def get_queryset(self):
+        user = self.request.user
         if self.action == "list":
-            if not self.request.user.is_authenticated:
+            if not user.is_authenticated:
                 return User.objects.none()
-            qs = User.objects.get_searchable(self.request.user).filter(is_active=True)
+            qs = User.objects.get_searchable(user).filter(is_active=True)
             search = self.request.query_params.get("search", "").strip()
             org = self.request.query_params.get("organization", "").strip()
             if org:
-                qs = qs.filter(organizations__slug=org)
+                viewable_org = Organization.objects.filter(slug=org).get_viewable(user)
+                if not viewable_org.exists():
+                    return User.objects.none()
+                qs = qs.filter(organizations__in=viewable_org)
             if search:
                 # Full-text search with prefix matching.
                 # Strip tsquery special characters so raw queries are safe.
