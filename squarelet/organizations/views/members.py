@@ -2,6 +2,7 @@
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import UserPassesTestMixin
+from django.db import transaction
 from django.http.response import HttpResponseBadRequest
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -450,40 +451,44 @@ class ReassignAdmin(UserPassesTestMixin, DetailView):
             messages.warning(request, _("You must assign a user other than yourself"))
             return redirect(f"organizations:{url}", org.slug)
 
-        if new_admin_id:
-            # If the outgoing admin picked a replacement, promote them
-            try:
-                membership = org.memberships.get(user_id=new_admin_id)
-                membership.admin = True
-                membership.save()
+        with transaction.atomic():
+            if new_admin_id:
+                # If the outgoing admin picked a replacement, promote them
+                try:
+                    replacement_admin = org.memberships.get(user_id=new_admin_id)
+                    replacement_admin.admin = True
+                    replacement_admin.save()
 
-                messages.info(
-                    request, _(f"{membership.user.username} promoted to admin")
+                    messages.info(
+                        request,
+                        _(f"{replacement_admin.user.username} promoted to admin"),
+                    )
+                except Membership.DoesNotExist:
+                    messages.error(
+                        request, _("User is not a member of this organization")
+                    )
+                    return redirect(f"organizations:{url}", org.slug)
+            else:
+                # If there's no replacement admin, create a Zendesk ticket
+                manage = reverse("organizations:manage-members", args=[org.slug])
+                manage_link = request.build_absolute_uri(manage)
+                subject = f"Organization with no admins: {org.name}"
+                description = (
+                    f"The last admin has left {org.name}. "
+                    f"Follow this link to assign a new admin: {manage_link}"
                 )
-            except Membership.DoesNotExist:
-                messages.error(request, _("User is not a member of this organization"))
-                return redirect(f"organizations:{url}", org.slug)
-        else:
-            # If there's no replacement admin, create a Zendesk ticket
-            manage = reverse("organizations:manage-members", args=[org.slug])
-            manage_link = request.build_absolute_uri(manage)
-            subject = f"Organization with no admins: {org.name}"
-            description = (
-                f"The last admin has left {org.name}. ",
-                f"Follow this link to assign a new admin: {manage_link}",
-            )
 
-            create_zendesk_ticket(subject=subject, description=description)
+                create_zendesk_ticket(subject=subject, description=description)
 
-        membership = user.memberships.get(organization=org)
+            membership = user.memberships.get(organization=org)
 
-        if is_leave_form:
-            membership.delete()
-            messages.info(request, _("You left the organization"))
-        else:
-            membership.admin = False
-            membership.save()
-            messages.info(request, _("You are no longer an admin"))
+            if is_leave_form:
+                membership.delete()
+                messages.info(request, _("You left the organization"))
+            else:
+                membership.admin = False
+                membership.save()
+                messages.info(request, _("You are no longer an admin"))
 
         # User can still see the org if it's public or they only self-demoted
         if not is_leave_form or not org.private:
