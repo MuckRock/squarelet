@@ -5,6 +5,7 @@ from django.test import override_settings
 import pytest
 
 # Squarelet
+from squarelet.organizations.models.payment import format_benefits, sum_resources
 from squarelet.organizations.tests.factories import EntitlementFactory
 
 # pylint: disable=too-many-public-methods
@@ -247,3 +248,113 @@ class TestPlan:
             ]
         )
         assert plan.get_benefits() == ["Shared", "First only", "Second only"]
+
+    @pytest.mark.django_db()
+    def test_get_resources_sums_across_entitlements(self, plan_factory):
+        """A plan's resources are the aggregate of its entitlements' resources"""
+        plan = plan_factory()
+        plan.entitlements.set(
+            [
+                EntitlementFactory(
+                    name="A", resources={"base_requests": 20, "feature_level": 1}
+                ),
+                EntitlementFactory(
+                    name="B", resources={"base_requests": 50, "feature_level": 2}
+                ),
+            ]
+        )
+        assert plan.get_resources() == {"base_requests": 70, "feature_level": 2}
+
+    @pytest.mark.django_db()
+    def test_get_benefits_fills_in_quantities(self, plan_factory):
+        """Benefit strings are formatted with the plan's aggregated resources"""
+        plan = plan_factory()
+        plan.entitlements.set(
+            [
+                EntitlementFactory(
+                    name="A",
+                    benefits=["{base_requests} free requests each month"],
+                    resources={"base_requests": 20},
+                ),
+                EntitlementFactory(
+                    name="B",
+                    benefits=["{base_requests} free requests each month"],
+                    resources={"base_requests": 50},
+                ),
+            ]
+        )
+        assert plan.get_benefits() == ["70 free requests each month"]
+
+    @pytest.mark.django_db()
+    def test_get_benefit_templates_are_unformatted(self, plan_factory):
+        """Templates are returned as authored, for callers that format later"""
+        plan = plan_factory()
+        plan.entitlements.set(
+            [
+                EntitlementFactory(
+                    benefits=["{base_requests} free requests each month"],
+                    resources={"base_requests": 20},
+                )
+            ]
+        )
+        assert plan.get_benefit_templates() == [
+            "{base_requests} free requests each month"
+        ]
+
+
+class TestSumResources:
+    """Unit tests for sum_resources"""
+
+    def test_empty(self):
+        assert not sum_resources([])
+
+    def test_sums_quantities(self):
+        assert sum_resources([{"requests": 20}, {"requests": 50}]) == {"requests": 70}
+
+    def test_unions_keys(self):
+        assert sum_resources([{"a": 1}, {"b": 2}]) == {"a": 1, "b": 2}
+
+    def test_ors_flags(self):
+        assert sum_resources([{"proxy": False}, {"proxy": True}]) == {"proxy": True}
+
+    def test_takes_max_of_tiers(self):
+        """Tier and threshold values describe a level, not a quantity"""
+        assert sum_resources(
+            [
+                {"feature_level": 2, "minimum_users": 5},
+                {"feature_level": 1, "minimum_users": 1},
+            ]
+        ) == {"feature_level": 2, "minimum_users": 5}
+
+    def test_keeps_first_of_incompatible_values(self):
+        assert sum_resources([{"tier": "pro"}, {"tier": "basic"}]) == {"tier": "pro"}
+
+    def test_ignores_empty_resources(self):
+        assert sum_resources([{}, None, {"requests": 5}]) == {"requests": 5}
+
+
+class TestFormatBenefits:
+    """Unit tests for format_benefits"""
+
+    def test_fills_in_named_arguments(self):
+        assert format_benefits(
+            ["{requests} requests, {pages} pages"], {"requests": 50, "pages": 10}
+        ) == ["50 requests, 10 pages"]
+
+    def test_supports_format_specs(self):
+        """Format specs let benefit copy control number presentation"""
+        assert format_benefits(["{pages:,} pages"], {"pages": 12000}) == [
+            "12,000 pages"
+        ]
+
+    def test_leaves_plain_strings_alone(self):
+        assert format_benefits(["Access to Slack community"], {}) == [
+            "Access to Slack community"
+        ]
+
+    def test_falls_back_when_resource_is_missing(self):
+        """An unresolvable placeholder shouldn't blow up the page"""
+        assert format_benefits(["{requests} requests"], {}) == ["{requests} requests"]
+
+    def test_falls_back_on_malformed_template(self):
+        assert format_benefits(["100% of {"], {}) == ["100% of {"]
