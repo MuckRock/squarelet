@@ -120,7 +120,7 @@ Args:
       {% else %}
         {% trans "Inherits these benefits as a member of" %}
       {% endif %}
-      {% for org in inherited_orgs %}<a class="org-name" href="{{ org.get_absolute_url }}">{{ org.name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}:
+      {% for org in inherited_orgs %}<a class="org-name" href="{{ org.get_absolute_url }}">{{ org.name }}</a>{% if not forloop.last %}{% if forloop.revcounter == 2 %} and {% else %}, {% endif %}{% endif %}:
     </p>
     <ul class="plan-benefits checklist">
       {% for benefit in inherited_benefits %}
