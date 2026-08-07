@@ -36,7 +36,7 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
                 viewable_org = Organization.objects.filter(slug=org).get_viewable(user)
                 if not viewable_org.exists():
                     return User.objects.none()
-                qs = qs.filter(organizations__in=viewable_org)
+                qs = qs.filter(organizations__in=viewable_org).order_by("-last_login")
             if search:
                 # Full-text search with prefix matching.
                 # Strip tsquery special characters so raw queries are safe.
