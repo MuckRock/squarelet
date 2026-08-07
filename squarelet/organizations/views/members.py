@@ -483,7 +483,7 @@ class ReassignAdmin(UserPassesTestMixin, DetailView):
         else:
             membership.admin = False
             membership.save()
-            messages.info(request, _("You are demoted to a member"))
+            messages.info(request, _("You are no longer an admin"))
 
         # User can still see the org if it's public or they only self-demoted
         if not is_leave_form or not org.private:
