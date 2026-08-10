@@ -551,7 +551,7 @@ class TestDetail(ViewTestMixin):
 
         response = self.call_view(rf, user, slug=old_slug)
 
-        assert response.status_code == 301
+        assert response.status_code == 302
         assert response.url == organization.get_absolute_url()
         assert response.url == "/organizations/new-newsroom/"
 
@@ -567,7 +567,7 @@ class TestDetail(ViewTestMixin):
 
         response = self.call_view(rf, slug=old_slug)
 
-        assert response.status_code == 301
+        assert response.status_code == 302
         assert response.url == organization.get_absolute_url()
 
     def test_redirects_member_for_private_org(
@@ -584,7 +584,7 @@ class TestDetail(ViewTestMixin):
 
         response = self.call_view(rf, user, slug=old_slug)
 
-        assert response.status_code == 301
+        assert response.status_code == 302
         assert response.url == organization.get_absolute_url()
 
     def test_no_redirect_when_user_cannot_view_org(
