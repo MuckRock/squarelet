@@ -587,6 +587,23 @@ class TestDetail(ViewTestMixin):
         assert response.status_code == 302
         assert response.url == organization.get_absolute_url()
 
+    def test_redirects_staff_for_private_org(
+        self, rf, user_factory, organization_factory, profile_change_request_factory
+    ):
+        """Staff can view private orgs they are not a member of, so a rename
+        redirects."""
+        staff_user = user_factory(is_staff=True)
+        organization = organization_factory(name="Private Newsroom", private=True)
+        old_slug = organization.slug
+        _rename_organization(
+            profile_change_request_factory, organization, "renamed-private"
+        )
+
+        response = self.call_view(rf, staff_user, slug=old_slug)
+
+        assert response.status_code == 302
+        assert response.url == organization.get_absolute_url()
+
     def test_no_redirect_when_user_cannot_view_org(
         self, rf, user_factory, organization_factory, profile_change_request_factory
     ):
@@ -612,6 +629,80 @@ class TestDetail(ViewTestMixin):
 
         with pytest.raises(ContextHttp404):
             self.call_view(rf, slug=old_slug)
+
+    def test_no_redirect_for_anonymous_user_on_public_unverified_org(
+        self, rf, organization_factory, profile_change_request_factory
+    ):
+        """A public but unverified org with no charges or paid invoices is
+        hidden from anonymous users, so a rename must not redirect."""
+        organization = organization_factory(
+            name="Unverified Newsroom", private=False, verified_journalist=False
+        )
+        old_slug = organization.slug
+        _rename_organization(
+            profile_change_request_factory, organization, "renamed-unverified"
+        )
+
+        with pytest.raises(ContextHttp404):
+            self.call_view(rf, slug=old_slug)
+
+    def test_no_redirect_for_non_member_on_public_unverified_org(
+        self, rf, user_factory, organization_factory, profile_change_request_factory
+    ):
+        """A public but unverified org with no charges or paid invoices is
+        hidden from authenticated non-members, so a rename must not redirect."""
+        outsider = user_factory()
+        organization = organization_factory(
+            name="Unverified Newsroom", private=False, verified_journalist=False
+        )
+        old_slug = organization.slug
+        _rename_organization(
+            profile_change_request_factory, organization, "renamed-unverified"
+        )
+
+        with pytest.raises(ContextHttp404):
+            self.call_view(rf, outsider, slug=old_slug)
+
+    def test_redirects_staff_for_public_unverified_org(
+        self, rf, user_factory, organization_factory, profile_change_request_factory
+    ):
+        """Staff can view any org, so a rename redirects even for an org
+        that would be hidden from non-members."""
+        staff_user = user_factory(is_staff=True)
+        organization = organization_factory(
+            name="Unverified Newsroom", private=False, verified_journalist=False
+        )
+        old_slug = organization.slug
+        _rename_organization(
+            profile_change_request_factory, organization, "renamed-unverified"
+        )
+
+        response = self.call_view(rf, staff_user, slug=old_slug)
+
+        assert response.status_code == 302
+        assert response.url == organization.get_absolute_url()
+
+    def test_redirects_member_for_public_unverified_org(
+        self, rf, user_factory, organization_factory, profile_change_request_factory
+    ):
+        """Members can view their own org even if it is unverified, so a
+        rename redirects."""
+        user = user_factory()
+        organization = organization_factory(
+            name="Unverified Newsroom",
+            private=False,
+            verified_journalist=False,
+            users=[user],
+        )
+        old_slug = organization.slug
+        _rename_organization(
+            profile_change_request_factory, organization, "renamed-unverified"
+        )
+
+        response = self.call_view(rf, user, slug=old_slug)
+
+        assert response.status_code == 302
+        assert response.url == organization.get_absolute_url()
 
     @pytest.mark.parametrize("status", ["pending", "rejected"])
     def test_no_redirect_for_unaccepted_change_request(
