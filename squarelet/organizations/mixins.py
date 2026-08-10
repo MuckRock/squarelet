@@ -6,6 +6,7 @@ from django.shortcuts import redirect
 # Squarelet
 from squarelet.core.exceptions import ContextHttp404
 from squarelet.organizations.models import ProfileChangeRequest
+from squarelet.organizations.models.organization import Organization
 
 
 class OrganizationAdminMixin(UserPassesTestMixin):
@@ -83,16 +84,19 @@ class ResolveOrganizationSlugMixin:
         slug = self.kwargs.get("slug")
         change_request = (
             ProfileChangeRequest.objects.filter(previous__slug=slug, status="accepted")
+            .exclude(organization__slug=slug)
             .select_related("organization")
             .order_by("-updated_at")
             .first()
         )
         if change_request is None:
             return None
-        org = change_request.organization
-        if not user.has_perm("organizations.view_organization", org):
+        try:
+            pk = change_request.organization.pk
+            org = Organization.objects.get_viewable(user).get(pk=pk)
+            return redirect(org.get_absolute_url(), permanent=False)
+        except Organization.DoesNotExist:
             return None
-        return redirect(org.get_absolute_url(), permanent=True)
 
     def get_user_orgs(self, request):
         user = request.user
