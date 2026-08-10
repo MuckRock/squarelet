@@ -70,13 +70,14 @@ class ResolveOrganizationSlugMixin:
     def get(self, request, *args, **kwargs):
         try:
             self.object = self.get_object()
-            context = self.get_context_data(object=self.object)
-            return self.render_to_response(context)
         except Http404:
             slug_redirect = self.get_slug_redirect(request.user)
             if slug_redirect is not None:
                 return slug_redirect
             raise ContextHttp404(context={"user_orgs": self.get_user_orgs(request)})
+
+        context = self.get_context_data(object=self.object)
+        return self.render_to_response(context)
 
     def get_slug_redirect(self, user):
         slug = self.kwargs.get("slug")
@@ -97,4 +98,4 @@ class ResolveOrganizationSlugMixin:
         user = request.user
         if not hasattr(user, "organizations"):
             return []
-        return user.organizations.filter(individual=False)
+        return user.organizations.filter(individual=False).order_by("name")

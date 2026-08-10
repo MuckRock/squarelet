@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n icon %}
 
 {% block title %}Page not found{% endblock %}
 
@@ -28,6 +28,10 @@
           {% endfor %}
         </ul>
       {% endif %}
+      <a href="{% url 'organizations:list' %}" class="btn primary">
+        {% icon "chevron-left" %}
+        {% trans "Go to organizations overview" %}
+      </a>
     {% else %}
       <h1>Page not found</h1>
 
