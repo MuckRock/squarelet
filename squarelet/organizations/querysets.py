@@ -31,19 +31,14 @@ class OrganizationQuerySet(models.QuerySet):
             # or they can auto join that org
             # and they can only see public organizations that are visible
             # (verified or have charges or paid invoices)
+            auto_join_org_pks = user.get_potential_organizations().values("pk")
             viewable_filter = (
                 Q(private=False, verified_journalist=True)
                 | Q(private=False, charges__isnull=False)
                 | Q(private=False, invoices__status="paid")
                 | Q(users=user)
+                | Q(pk__in=auto_join_org_pks)
             )
-
-            # Include auto-join orgs (pre-approved) in the same filter
-            if hasattr(user, "can_auto_join"):
-                auto_join_pks = [org.pk for org in qs if user.can_auto_join(org)]
-                if auto_join_pks:
-                    viewable_filter |= Q(pk__in=auto_join_pks)
-
             return qs.filter(viewable_filter).distinct()
         else:
             return qs.filter(
