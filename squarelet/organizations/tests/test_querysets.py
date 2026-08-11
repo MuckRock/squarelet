@@ -233,6 +233,19 @@ class TestOrganizationQuerySet(TestCase):
         assert isinstance(org, Organization)
         assert org == user.individual_organization
 
+    @pytest.mark.django_db
+    def test_get_viewable_query_count_is_constant(self):
+        """Auto-join orgs resolve via subquery, not a per-org loop."""
+        user = UserFactory()
+        user.emailaddress_set.create(email="reporter@example-news.org", verified=True)
+
+        for _ in range(5):
+            org = OrganizationFactory(private=False, allow_auto_join=True)
+            org.domains.create(domain="example-news.org")
+
+        with self.assertNumQueries(2):
+            list(Organization.objects.get_viewable(user))
+
 
 class TestFuzzySearch(TestCase):
     """Unit tests for Organization.objects.fuzzy_search()"""
