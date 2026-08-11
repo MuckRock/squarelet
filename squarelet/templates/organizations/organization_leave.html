@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% load avatar humanize django_vite i18n %}
+{% load icon %}
+
+{% block head_title %}{% trans "Leaving" %}{% endblock %}
+
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/organization_leave.ts" %}
+{% endblock vite %}
+
+{% block content %}
+  <div class="_cls-content">
+    <div class="card">
+      <h1>
+        {% blocktrans with org=organization.name %}
+          You are the only admin of {{ org }}
+        {% endblocktrans %}
+      </h1>
+
+      <p>
+        {% blocktrans with action=leave|yesno:_("leave,demote yourself") %}
+          Before you {{ action }}, please consider assigning another member of the organization to be an admin.
+        {% endblocktrans %}
+      </p>
+
+      <form method="POST" class="leave-form">
+        {% csrf_token %}
+        <div id="user-select" data-org-slug="{{ organization.slug }}" data-org-name="{{ organization.name }}"></div>
+        <div class="actions">
+          <button type="submit" class="btn danger">
+            {% icon "sign-out" %}
+            <span class="message-initial">
+              {% blocktrans with action=leave|yesno:_("Leave,Demote") %}
+                {{ action }} without assigning
+              {% endblocktrans %}
+            </span>
+            <span class="message-selected">
+              {% blocktrans with action=leave|yesno:_("leave,demote") %}
+                Assign and {{ action }}
+              {% endblocktrans %}
+            </span>
+          </button>
+          <a class="btn ghost" href="{% url "organizations:detail" organization.slug %}">
+            {% trans "Cancel" %}
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}
