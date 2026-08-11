@@ -1,11 +1,41 @@
 {% extends "base.html" %}
+{% load i18n icon %}
 
 {% block title %}Page not found{% endblock %}
 
+{% block css %}
+{{ block.super }}
+<style>
+  ul {
+    list-style: none;
+    padding: 0;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
   <div class="_cls-content">
-    <h1>Page not found</h1>
+    {% if user_orgs is not None %}
+      <h1>{% trans "Organization not found" %}</h1>
+      
+      {% if user_orgs|length %}
+        <h2>{% trans "Were you looking for one of these organizations?" %}</h2>
+        <ul>
+          {% for org in user_orgs %}
+            <li>
+              <a class="btn ghost primary" href="{{ org.get_absolute_url }}">{{ org.name }}</a>
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+      <a href="{% url 'organizations:list' %}" class="btn primary">
+        {% icon "chevron-left" %}
+        {% trans "Go to organizations overview" %}
+      </a>
+    {% else %}
+      <h1>Page not found</h1>
 
-    <p>This is not the page you were looking for.</p>
+      <p>This is not the page you were looking for.</p>
+    {% endif %}
   </div>
 {% endblock content %}

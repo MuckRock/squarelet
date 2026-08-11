@@ -1,5 +1,12 @@
 # Django
 from django.contrib.auth.mixins import PermissionRequiredMixin, UserPassesTestMixin
+from django.http import Http404
+from django.shortcuts import redirect
+
+# Squarelet
+from squarelet.core.exceptions import ContextHttp404
+from squarelet.organizations.models import ProfileChangeRequest
+from squarelet.organizations.models.organization import Organization
 
 
 class OrganizationAdminMixin(UserPassesTestMixin):
@@ -55,3 +62,44 @@ class VerifiedJournalistMixin(UserPassesTestMixin):
             and organization.verified_journalist
             and organization.has_admin(self.request.user)
         )
+
+
+class ResolveOrganizationSlugMixin:
+    """Resolve an org by slug, or look for a matching change request
+    and return a redirect if one is found."""
+
+    def get(self, request, *args, **kwargs):
+        try:
+            self.object = self.get_object()
+        except Http404:
+            slug_redirect = self.get_slug_redirect(request.user)
+            if slug_redirect is not None:
+                return slug_redirect
+            raise ContextHttp404(context={"user_orgs": self.get_user_orgs(request)})
+
+        context = self.get_context_data(object=self.object)
+        return self.render_to_response(context)
+
+    def get_slug_redirect(self, user):
+        slug = self.kwargs.get("slug")
+        change_request = (
+            ProfileChangeRequest.objects.filter(previous__slug=slug, status="accepted")
+            .exclude(organization__slug=slug)
+            .select_related("organization")
+            .order_by("-updated_at")
+            .first()
+        )
+        if change_request is None:
+            return None
+        try:
+            pk = change_request.organization.pk
+            org = Organization.objects.get_viewable(user).get(pk=pk)
+            return redirect(org.get_absolute_url(), permanent=False)
+        except Organization.DoesNotExist:
+            return None
+
+    def get_user_orgs(self, request):
+        user = request.user
+        if not hasattr(user, "organizations"):
+            return []
+        return user.organizations.filter(individual=False).order_by("name")

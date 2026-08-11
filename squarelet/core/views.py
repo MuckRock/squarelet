@@ -1,8 +1,10 @@
 # Django
+from django.shortcuts import render
 from django.urls import reverse
 from django.views.generic.base import RedirectView, TemplateView
 
 # Squarelet
+from squarelet.core.exceptions import ContextHttp404
 from squarelet.organizations.models import Plan
 
 
@@ -90,3 +92,13 @@ class SelectPlanView(TemplateView):
         ]
 
         return context
+
+
+def page_not_found(request, exception, template_name="404.html"):
+    context = {}
+    if exception and exception.args and isinstance(exception.args[0], str):
+        context["message"] = exception.args[0]
+    # structured context from ContextHttp404
+    if isinstance(exception, ContextHttp404):
+        context.update(exception.context)
+    return render(request, template_name, context, status=404)

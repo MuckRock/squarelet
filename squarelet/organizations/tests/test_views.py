@@ -19,6 +19,7 @@ from actstream.models import Action
 from allauth.account.models import EmailAddress
 
 # Squarelet
+from squarelet.core.exceptions import ContextHttp404
 from squarelet.core.tests.mixins import ViewTestMixin
 
 # Local
@@ -36,6 +37,18 @@ def _assign_org_perm(user, codename):
     perm = Permission.objects.get(codename=codename, content_type=ct)
     user.user_permissions.add(perm)
     return type(user).objects.get(pk=user.pk)
+
+
+def _rename_organization(factory, organization, new_slug, **kwargs):
+    """Rename an organization through an accepted profile change request.
+    Returns the change request, which records the previous slug.
+    """
+    change_request = factory(
+        organization=organization, slug=new_slug, status="pending", **kwargs
+    )
+    change_request.accept("approved")
+    organization.refresh_from_db()
+    return change_request
 
 
 @pytest.mark.django_db()
@@ -475,6 +488,204 @@ class TestDetail(ViewTestMixin):
         )
         # Should still redirect but show an error message
         assert response.status_code == 302
+
+    def test_redirects_old_slug_after_accepted_rename(
+        self, rf, user_factory, organization_factory, profile_change_request_factory
+    ):
+        user = user_factory()
+        organization = organization_factory(name="Old Newsroom", users=[user])
+        old_slug = organization.slug
+        _rename_organization(
+            profile_change_request_factory, organization, "new-newsroom"
+        )
+
+        response = self.call_view(rf, user, slug=old_slug)
+
+        assert response.status_code == 302
+        assert response.url == organization.get_absolute_url()
+        assert response.url == "/organizations/new-newsroom/"
+
+    def test_redirects_anonymous_user_for_public_org(
+        self, rf, organization_factory, profile_change_request_factory
+    ):
+        """Anonymous users can view public orgs, so they get the redirect too"""
+        organization = organization_factory(name="Public Newsroom", private=False)
+        old_slug = organization.slug
+        _rename_organization(
+            profile_change_request_factory, organization, "renamed-public"
+        )
+
+        response = self.call_view(rf, slug=old_slug)
+
+        assert response.status_code == 302
+        assert response.url == organization.get_absolute_url()
+
+    def test_redirects_member_for_private_org(
+        self, rf, user_factory, organization_factory, profile_change_request_factory
+    ):
+        user = user_factory()
+        organization = organization_factory(
+            name="Private Newsroom", private=True, users=[user]
+        )
+        old_slug = organization.slug
+        _rename_organization(
+            profile_change_request_factory, organization, "renamed-private"
+        )
+
+        response = self.call_view(rf, user, slug=old_slug)
+
+        assert response.status_code == 302
+        assert response.url == organization.get_absolute_url()
+
+    def test_redirects_staff_for_private_org(
+        self, rf, user_factory, organization_factory, profile_change_request_factory
+    ):
+        """Staff can view private orgs they are not a member of, so a rename
+        redirects."""
+        staff_user = user_factory(is_staff=True)
+        organization = organization_factory(name="Private Newsroom", private=True)
+        old_slug = organization.slug
+        _rename_organization(
+            profile_change_request_factory, organization, "renamed-private"
+        )
+
+        response = self.call_view(rf, staff_user, slug=old_slug)
+
+        assert response.status_code == 302
+        assert response.url == organization.get_absolute_url()
+
+    def test_no_redirect_when_user_cannot_view_org(
+        self, rf, user_factory, organization_factory, profile_change_request_factory
+    ):
+        """A rename must not leak the new slug of a private org to a non member"""
+        outsider = user_factory()
+        organization = organization_factory(name="Secret Newsroom", private=True)
+        old_slug = organization.slug
+        _rename_organization(
+            profile_change_request_factory, organization, "renamed-secret"
+        )
+
+        with pytest.raises(ContextHttp404):
+            self.call_view(rf, outsider, slug=old_slug)
+
+    def test_no_redirect_for_anonymous_user_on_private_org(
+        self, rf, organization_factory, profile_change_request_factory
+    ):
+        organization = organization_factory(name="Secret Newsroom", private=True)
+        old_slug = organization.slug
+        _rename_organization(
+            profile_change_request_factory, organization, "renamed-secret"
+        )
+
+        with pytest.raises(ContextHttp404):
+            self.call_view(rf, slug=old_slug)
+
+    def test_no_redirect_for_anonymous_user_on_public_unverified_org(
+        self, rf, organization_factory, profile_change_request_factory
+    ):
+        """A public but unverified org with no charges or paid invoices is
+        hidden from anonymous users, so a rename must not redirect."""
+        organization = organization_factory(
+            name="Unverified Newsroom", private=False, verified_journalist=False
+        )
+        old_slug = organization.slug
+        _rename_organization(
+            profile_change_request_factory, organization, "renamed-unverified"
+        )
+
+        with pytest.raises(ContextHttp404):
+            self.call_view(rf, slug=old_slug)
+
+    def test_no_redirect_for_non_member_on_public_unverified_org(
+        self, rf, user_factory, organization_factory, profile_change_request_factory
+    ):
+        """A public but unverified org with no charges or paid invoices is
+        hidden from authenticated non-members, so a rename must not redirect."""
+        outsider = user_factory()
+        organization = organization_factory(
+            name="Unverified Newsroom", private=False, verified_journalist=False
+        )
+        old_slug = organization.slug
+        _rename_organization(
+            profile_change_request_factory, organization, "renamed-unverified"
+        )
+
+        with pytest.raises(ContextHttp404):
+            self.call_view(rf, outsider, slug=old_slug)
+
+    def test_redirects_staff_for_public_unverified_org(
+        self, rf, user_factory, organization_factory, profile_change_request_factory
+    ):
+        """Staff can view any org, so a rename redirects even for an org
+        that would be hidden from non-members."""
+        staff_user = user_factory(is_staff=True)
+        organization = organization_factory(
+            name="Unverified Newsroom", private=False, verified_journalist=False
+        )
+        old_slug = organization.slug
+        _rename_organization(
+            profile_change_request_factory, organization, "renamed-unverified"
+        )
+
+        response = self.call_view(rf, staff_user, slug=old_slug)
+
+        assert response.status_code == 302
+        assert response.url == organization.get_absolute_url()
+
+    def test_redirects_member_for_public_unverified_org(
+        self, rf, user_factory, organization_factory, profile_change_request_factory
+    ):
+        """Members can view their own org even if it is unverified, so a
+        rename redirects."""
+        user = user_factory()
+        organization = organization_factory(
+            name="Unverified Newsroom",
+            private=False,
+            verified_journalist=False,
+            users=[user],
+        )
+        old_slug = organization.slug
+        _rename_organization(
+            profile_change_request_factory, organization, "renamed-unverified"
+        )
+
+        response = self.call_view(rf, user, slug=old_slug)
+
+        assert response.status_code == 302
+        assert response.url == organization.get_absolute_url()
+
+    @pytest.mark.parametrize("status", ["pending", "rejected"])
+    def test_no_redirect_for_unaccepted_change_request(
+        self,
+        rf,
+        status,
+        user_factory,
+        organization_factory,
+        profile_change_request_factory,
+    ):
+        """Only accepted change requests should drive a redirect"""
+        user = user_factory()
+        organization = organization_factory(name="Old Newsroom", users=[user])
+        profile_change_request_factory(
+            organization=organization,
+            slug="never-applied",
+            status=status,
+            previous={"slug": "never-renamed-newsroom"},
+        )
+
+        with pytest.raises(ContextHttp404):
+            self.call_view(rf, user, slug="never-renamed-newsroom")
+
+    def test_unknown_slug_raises_context_http404_with_user_orgs(
+        self, rf, user_factory, organization_factory
+    ):
+        user = user_factory()
+        organization = organization_factory(users=[user])
+
+        with pytest.raises(ContextHttp404) as excinfo:
+            self.call_view(rf, user, slug="no-such-org")
+
+        assert list(excinfo.value.context["user_orgs"]) == [organization]
 
 
 @pytest.mark.django_db()
