@@ -289,7 +289,7 @@
         </div>
         {% endif %}
       </header>
-      {% include "organizations/includes/plan_card.html" with org=organization subject_slug=organization.slug subscriptions=subscriptions inherited_orgs=inherited_orgs inherited_benefits=inherited_benefits upgrade_plan=upgrade_plan card=current_plan_card card_brand=current_plan_card_brand card_last4=current_plan_card_last4 can_edit_subscription=can_edit_subscription subject="organizations" %}
+      {% include "organizations/includes/plan_card.html" with org=organization subject_slug=organization.slug subscriptions=subscriptions subscription_benefits=subscription_benefits inherited_orgs=inherited_orgs inherited_benefits=inherited_benefits upgrade_plan=upgrade_plan card=current_plan_card card_brand=current_plan_card_brand card_last4=current_plan_card_last4 can_edit_subscription=can_edit_subscription subject="organizations" %}
     </section>
     {% endif %}
 

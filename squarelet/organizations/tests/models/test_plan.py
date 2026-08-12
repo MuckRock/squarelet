@@ -5,7 +5,11 @@ from django.test import override_settings
 import pytest
 
 # Squarelet
-from squarelet.organizations.models.payment import format_benefits, sum_resources
+from squarelet.organizations.models.payment import (
+    consolidate_plan_benefits,
+    format_benefits,
+    sum_resources,
+)
 from squarelet.organizations.tests.factories import EntitlementFactory
 
 # pylint: disable=too-many-public-methods
@@ -299,6 +303,59 @@ class TestPlan:
         )
         assert plan.get_benefit_templates() == [
             "{base_requests} free requests each month"
+        ]
+
+
+class TestConsolidatePlanBenefits:
+    """Unit tests for consolidate_plan_benefits"""
+
+    def test_empty(self):
+        """No plans yields no benefits"""
+        assert not consolidate_plan_benefits([])
+
+    @pytest.mark.django_db()
+    def test_dedupes_benefits(self, plan_factory):
+        """Benefit copy shared by two plans is only listed once"""
+        plan_a = plan_factory(name="Plan A", benefits=["Shared", "A only"])
+        plan_b = plan_factory(name="Plan B", benefits=["Shared", "B only"])
+
+        assert consolidate_plan_benefits([plan_a, plan_b]) == [
+            "Shared",
+            "A only",
+            "B only",
+        ]
+
+    @pytest.mark.django_db()
+    def test_reflects_entitlement_override(self, plan_factory):
+        """Entitlement benefits override plan benefits in the consolidated list"""
+        plan = plan_factory(benefits=["Plan benefit"])
+        plan.entitlements.set([EntitlementFactory(benefits=["Entitlement benefit"])])
+
+        assert consolidate_plan_benefits([plan]) == ["Entitlement benefit"]
+
+    @pytest.mark.django_db()
+    def test_sums_quantities(self, plan_factory):
+        """Two plans granting the same benefit show the combined quantity"""
+        benefits = ["{base_requests} free requests each month"]
+        plan_a = plan_factory(name="Plan A")
+        plan_a.entitlements.set(
+            [
+                EntitlementFactory(
+                    name="A", benefits=benefits, resources={"base_requests": 50}
+                )
+            ]
+        )
+        plan_b = plan_factory(name="Plan B")
+        plan_b.entitlements.set(
+            [
+                EntitlementFactory(
+                    name="B", benefits=benefits, resources={"base_requests": 10}
+                )
+            ]
+        )
+
+        assert consolidate_plan_benefits([plan_a, plan_b]) == [
+            "60 free requests each month"
         ]
 
 

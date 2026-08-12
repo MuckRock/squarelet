@@ -53,6 +53,7 @@ from squarelet.organizations.models import (
     Invitation,
     ReceiptEmail,
     consolidate_inherited_benefits,
+    consolidate_plan_benefits,
 )
 from squarelet.organizations.models.payment import Plan
 from squarelet.organizations.views import UpdateSubscription
@@ -171,10 +172,19 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         context["has_verified_email"] = user.has_verified_email()
         context["RECOVERY_CODE_COUNT"] = app_settings.RECOVERY_CODE_COUNT
         context["unused_code_count"] = len(self.get_recovery_codes())
-        # Get the current plan and subscription, if any
+        # Get the current plans and subscriptions, if any, along with the
+        # benefits they add up to
         individual_org = user.individual_organization
         upgrade_plan = Plan.objects.filter(slug="professional").first()
-        context["subscriptions"] = individual_org.subscriptions.all()
+        subscriptions = list(
+            individual_org.subscriptions.select_related("plan").prefetch_related(
+                "plan__entitlements"
+            )
+        )
+        context["subscriptions"] = subscriptions
+        context["subscription_benefits"] = consolidate_plan_benefits(
+            sub.plan for sub in subscriptions
+        )
         context["upgrade_plan"] = upgrade_plan
         # Get card for active subscription
         customer = individual_org.customer()

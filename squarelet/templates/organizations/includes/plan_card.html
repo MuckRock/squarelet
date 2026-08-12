@@ -5,7 +5,9 @@ Plan card partial.
 
 Args:
   subject_slug      — URL key for the subject (org slug or member username).
-  plans             — list of own Plans or empty list.
+  subscriptions     — the subject's own Subscriptions, or empty.
+  subscription_benefits — deduped list of the benefits those subscriptions add
+                      up to, in plain language.
   inherited_orgs      — deduped list of orgs the subject inherits benefits from.
   inherited_benefits  — deduped list of inherited plain-language benefit strings.
   upgrade_plan      — Plan to advertise when there is no own plan (optional).
@@ -72,6 +74,27 @@ Args:
         {% endfor %}
       </ul>
     </div>
+
+    {% if subscription_benefits %}
+      <div class="plan-detail">
+        <h3>{% trans "Included benefits" %}</h3>
+        <span class="caption">
+          {% if subject == "organizations" %}
+            {% trans "From this organization&rsquo;s subscriptions" %}
+          {% else %}
+            {% trans "From your subscriptions" %}
+          {% endif %}
+        </span>
+      </div>
+      <ul class="plan-benefits checklist">
+        {% for benefit in subscription_benefits %}
+          <li class="checklist-item">
+            <span class="icon">{% icon "checkmark" %}</span>
+            <span class="text">{{ benefit }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
   {% else %}
     <div class="plan-overview">
       <p>
@@ -120,7 +143,7 @@ Args:
       {% else %}
         {% trans "Inherits these benefits as a member of" %}
       {% endif %}
-      {% for org in inherited_orgs %}<a class="org-name" href="{{ org.get_absolute_url }}">{{ org.name }}</a>{% if not forloop.last %}{% if forloop.revcounter == 2 %} and {% else %}, {% endif %}{% endif %}:
+      {% for org in inherited_orgs %}<a class="org-name" href="{{ org.get_absolute_url }}">{{ org.name }}</a>{% if not forloop.last %}{% if forloop.revcounter == 2 %} and {% else %}, {% endif %}{% endif %}{% endfor %}:
     </p>
     <ul class="plan-benefits checklist">
       {% for benefit in inherited_benefits %}

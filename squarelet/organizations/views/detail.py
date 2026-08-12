@@ -25,6 +25,7 @@ from squarelet.organizations.models import (
     Organization,
     Plan,
     consolidate_inherited_benefits,
+    consolidate_plan_benefits,
 )
 from squarelet.organizations.models.invitation import OrganizationInvitation
 from squarelet.organizations.tasks import sync_wix
@@ -58,9 +59,17 @@ class Detail(ResolveOrganizationSlugMixin, AdminLinkMixin, DetailView):
             context["users"] = admins
         context["admins"] = admins
 
-        # Get subscriptions, if any
+        # Get subscriptions, if any, along with the benefits they add up to
         upgrade_plan = Plan.objects.get(slug="organization")
-        context["subscriptions"] = org.subscriptions.all()
+        subscriptions = list(
+            org.subscriptions.select_related("plan").prefetch_related(
+                "plan__entitlements"
+            )
+        )
+        context["subscriptions"] = subscriptions
+        context["subscription_benefits"] = consolidate_plan_benefits(
+            sub.plan for sub in subscriptions
+        )
         context["upgrade_plan"] = upgrade_plan
         context["member_count"] = len(users)
         context["admin_count"] = len(admins)

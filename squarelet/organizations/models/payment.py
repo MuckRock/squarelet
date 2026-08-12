@@ -101,6 +101,25 @@ def format_benefits(benefits, resources):
     return formatted
 
 
+def consolidate_plan_benefits(plans):
+    """Consolidate the benefits of several ``plans`` into one display list.
+
+    Benefit copy is deduped unformatted, then formatted once against the summed
+    resources of every plan, so two plans that each grant 50 requests produce a
+    single benefit reading 100 rather than two identical entries. Used to render
+    one benefits list for a subject's whole set of plans instead of one list per
+    plan.
+    """
+    templates = []
+    resources = []
+    for plan in plans:
+        for benefit in plan.get_benefit_templates():
+            if benefit not in templates:
+                templates.append(benefit)
+        resources.append(plan.get_resources())
+    return format_benefits(templates, sum_resources(resources))
+
+
 class Customer(models.Model):
     """A customer on stripe"""
 
