@@ -440,9 +440,14 @@ def handle_customer_updated(customer_data):
 def _reconcile_cancelled_subscription(subscription, reason):
     """Delete a locally-tracked subscription that Stripe has ended and
     invalidate the organization's entitlement cache."""
-    organization_uuid = subscription.organization.uuid
+    organization = subscription.organization
+    organization_uuid = organization.uuid
     subscription_id = subscription.subscription_id
     subscription.delete()
+    # The org is back on the free plan, so stop asking for payment details
+    organization.clear_payment_failed_if_unsubscribed(
+        f"subscription reconciled: {reason}"
+    )
     send_cache_invalidations("organization", [organization_uuid])
     logger.info(
         "[STRIPE-WEBHOOK-SUBSCRIPTION] Reconciled cancelled subscription %s (%s); "

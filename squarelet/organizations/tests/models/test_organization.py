@@ -597,6 +597,70 @@ class TestOrganization:
 
         mock_unsync.assert_not_called()
 
+    @pytest.mark.django_db
+    def test_subscription_cancelled_clears_payment_failed(
+        self,
+        organization_factory,
+        mocker,
+        professional_plan_factory,
+        subscription_factory,
+    ):
+        """Cancelling the last subscription clears the payment failure prompt"""
+        mocker.patch("stripe.Plan.create")
+        plan = professional_plan_factory()
+        organization = organization_factory(payment_failed=True)
+        sub = subscription_factory(
+            organization=organization, plan=plan, subscription_id=None
+        )
+
+        organization.subscription_cancelled(subscription=sub)
+
+        organization.refresh_from_db()
+        assert not organization.subscriptions.exists()
+        assert organization.payment_failed is False
+
+    @pytest.mark.django_db
+    def test_subscription_cancelled_keeps_payment_failed_if_still_subscribed(
+        self,
+        organization_factory,
+        mocker,
+        professional_plan_factory,
+        plan_factory,
+        subscription_factory,
+    ):
+        """Another paid plan still needs paying for, so keep prompting"""
+        mocker.patch("stripe.Plan.create")
+        organization = organization_factory(payment_failed=True)
+        cancelled_sub = subscription_factory(
+            organization=organization,
+            plan=professional_plan_factory(),
+            subscription_id=None,
+        )
+        subscription_factory(
+            organization=organization,
+            plan=plan_factory(slug="other-plan"),
+            subscription_id=None,
+        )
+
+        organization.subscription_cancelled(subscription=cancelled_sub)
+
+        organization.refresh_from_db()
+        assert organization.subscriptions.count() == 1
+        assert organization.payment_failed is True
+
+    @pytest.mark.django_db
+    def test_clear_payment_failed_if_unsubscribed_without_flag(
+        self, organization_factory, mocker
+    ):
+        """An organization that never failed a payment is left untouched"""
+        organization = organization_factory(payment_failed=False)
+        mock_save = mocker.patch.object(Organization, "save")
+
+        organization.clear_payment_failed_if_unsubscribed("test")
+
+        assert organization.payment_failed is False
+        mock_save.assert_not_called()
+
     @pytest.mark.django_db(transaction=True)
     def test_modify_subscription_changes_plan(
         self, organization_factory, user_factory, plan_factory

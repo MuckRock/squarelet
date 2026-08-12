@@ -733,9 +733,28 @@ class Organization(AvatarMixin, models.Model):
         # Delete local subscription record
         subscription.delete()
 
+        # They are back on the free plan - stop asking for payment details
+        self.clear_payment_failed_if_unsubscribed("subscription cancelled")
         # Remove Wix labels now that subscription is gone
         if cancelled_plan:
             self._dispatch_wix_unsync(cancelled_plan)
+
+    def clear_payment_failed_if_unsubscribed(self, reason):
+        """Clear the payment failure flag once no subscription is left
+
+        The flag asks the admins to update their payment information, which is
+        only worth asking while a paid plan is at stake. Once the last
+        subscription is gone they are back on the free plan with nothing left to
+        fix, so the prompt would follow them on every log in until somebody
+        cleared it by hand.
+        """
+        if not self.payment_failed or self.subscriptions.exists():
+            return
+        self.payment_failed = False
+        self.save()
+        logger.info(
+            "Cleared payment_failed flag for organization %s (%s)", self.uuid, reason
+        )
 
     def has_active_subscription(self, plan=None):
         """Check if the organization has an active subscription"""

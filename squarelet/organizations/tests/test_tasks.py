@@ -2279,6 +2279,24 @@ class TestHandleSubscriptionUpdated:
         patched.assert_called_once_with("organization", [org_uuid])
 
     @pytest.mark.django_db
+    def test_canceled_status_clears_payment_failed(
+        self, organization_factory, subscription_factory, mocker
+    ):
+        """Reconciling the last subscription clears the payment failure prompt"""
+        mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
+        organization = organization_factory(payment_failed=True)
+        subscription_factory(
+            organization=organization, subscription_id="sub_upd_cancel_flag"
+        )
+
+        tasks.handle_subscription_updated(
+            {"id": "sub_upd_cancel_flag", "status": "canceled"}
+        )
+
+        organization.refresh_from_db()
+        assert organization.payment_failed is False
+
+    @pytest.mark.django_db
     def test_unknown_subscription(self, mocker):
         """Logs a warning and returns gracefully for unknown subscription"""
         mock_logger = mocker.patch("squarelet.organizations.tasks.logger")
