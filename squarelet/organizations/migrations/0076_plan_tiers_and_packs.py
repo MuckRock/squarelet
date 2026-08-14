@@ -1,0 +1,138 @@
+from django.db import migrations
+
+# Display grouping for the plan page.  Legacy rows consolidate onto these or
+# are archived, and internal plans (Admin) never appear on the plan page, so
+# both are left blank.
+TIER_PRODUCTS = {
+    "professional": "muckrock",
+    "organization": "muckrock",
+    "documentcloud-premium": "documentcloud",
+    "sunlight-essential": "sunlight",
+    "sunlight-enhanced": "sunlight",
+    "sunlight-enterprise": "sunlight",
+    "scoutpost-pro": "scoutpost",
+    "scoutpost-team": "scoutpost",
+}
+
+PACK_PRICE_PER_UNIT = 10
+
+# `resources` deliberately uses the CURRENT formula shape
+# (base + max(quantity - minimum_users, 0) * per_user) rather than the flat
+# target shape.  Client sites still evaluate that formula, so a flat
+# {"base_requests": 10} would grant 10 in total no matter how many units were
+# bought.  With base 0 / minimum 0 / per_user 10 it correctly yields
+# 10 * quantity today.  Step 3h moves these to the flat shape at the same
+# time clients switch to base * quantity - and that conversion must MOVE the
+# per_user value into the base for packs, not simply drop the per-user keys
+# the way it does for tier entitlements.
+PACKS = [
+    {
+        "slug": "muckrock-request-pack",
+        "name": "MuckRock Request Pack",
+        "product": "muckrock",
+        "resource_key": "base_requests",
+        "description": "Additional MuckRock requests, 10 per pack per month",
+        "resources": {
+            "base_requests": 0,
+            "minimum_users": 0,
+            "requests_per_user": 10,
+        },
+    },
+    {
+        "slug": "documentcloud-page-pack",
+        "name": "DocumentCloud Credit Pack",
+        "product": "documentcloud",
+        "resource_key": "base_ai_credits",
+        "description": "Additional DocumentCloud AI credits, 500 per pack per month",
+        "resources": {
+            "base_ai_credits": 0,
+            "minimum_users": 0,
+            "ai_credits_per_user": 500,
+        },
+    },
+]
+
+
+def client_for(Entitlement, resource_key):
+    """Find the OIDC client owning a resource key, or None.
+
+    Resolved from existing data rather than hardcoded primary keys so this
+    works across environments - each client uses a distinct resource
+    vocabulary.  Returns None on a database that has no entitlements yet
+    (a fresh test database), where there is nothing to set up.
+    """
+    clients = set(
+        Entitlement.objects.filter(resources__has_key=resource_key).values_list(
+            "client_id", flat=True
+        )
+    )
+    return clients.pop() if len(clients) == 1 else None
+
+
+def create_tiers_and_packs(apps, schema_editor):
+    Plan = apps.get_model("organizations", "Plan")
+    Entitlement = apps.get_model("organizations", "Entitlement")
+
+    for slug, product in TIER_PRODUCTS.items():
+        # Environments legitimately differ - dev and test databases are
+        # seeded subsets - so a missing tier is skipped rather than fatal.
+        Plan.objects.filter(slug=slug).update(product=product)
+
+    for spec in PACKS:
+        client_id = client_for(Entitlement, spec["resource_key"])
+        if client_id is None:
+            continue
+
+        entitlement, _ = Entitlement.objects.update_or_create(
+            slug=spec["slug"],
+            client_id=client_id,
+            defaults={
+                "name": spec["name"],
+                "description": spec["description"],
+                "resources": spec["resources"],
+            },
+        )
+        plan, _ = Plan.objects.update_or_create(
+            slug=spec["slug"],
+            defaults={
+                "name": spec["name"],
+                "product": spec["product"],
+                # Packs are priced purely per unit, with
+                # Subscription.quantity carrying how many were bought.
+                # minimum_users=0 so every unit counts, unlike a tier whose
+                # base covers the first few.  These legacy pricing fields go
+                # away in Step 3e.
+                "base_price": 0,
+                "price_per_user": PACK_PRICE_PER_UNIT,
+                "minimum_users": 0,
+                # Not directly subscribable from the plan list - packs are
+                # offered contextually alongside a base plan.
+                "public": False,
+                "for_individuals": True,
+                "for_groups": True,
+                "annual": False,
+                "auto_renew": True,
+            },
+        )
+        plan.entitlements.add(entitlement)
+
+
+def remove_tiers_and_packs(apps, schema_editor):
+    Plan = apps.get_model("organizations", "Plan")
+    Entitlement = apps.get_model("organizations", "Entitlement")
+
+    slugs = [spec["slug"] for spec in PACKS]
+    Plan.objects.filter(slug__in=slugs).delete()
+    Entitlement.objects.filter(slug__in=slugs).delete()
+    Plan.objects.filter(slug__in=TIER_PRODUCTS).update(product="")
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ("organizations", "0075_plan_product_plan_stripe_product_id_and_more"),
+    ]
+
+    operations = [
+        migrations.RunPython(create_tiers_and_packs, remove_tiers_and_packs),
+    ]
