@@ -258,9 +258,7 @@ class Command(BaseCommand):
         # (cancel_at = current_period_end.date(), which is in the local tz)
         cancel_at_ts = getattr(stripe_sub, "cancel_at", None)
         stripe_cancel_at = (
-            datetime.fromtimestamp(cancel_at_ts, tz=tz).date()
-            if cancel_at_ts
-            else None
+            datetime.fromtimestamp(cancel_at_ts, tz=tz).date() if cancel_at_ts else None
         )
         if sub.cancel_at != stripe_cancel_at:
             diffs.append(("cancel_at", sub.cancel_at, stripe_cancel_at))
