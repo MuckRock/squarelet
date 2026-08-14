@@ -6,7 +6,7 @@ from django.utils.timezone import get_current_timezone
 # Standard Library
 import logging
 import time
-from datetime import datetime, timezone as dt_timezone
+from datetime import datetime
 
 # Third Party
 import stripe
@@ -254,10 +254,11 @@ class Command(BaseCommand):
                 )
             )
 
-        # cancel_at (date)
+        # cancel_at (date) — use local tz to match how sub.cancel_at is derived
+        # (cancel_at = current_period_end.date(), which is in the local tz)
         cancel_at_ts = getattr(stripe_sub, "cancel_at", None)
         stripe_cancel_at = (
-            datetime.fromtimestamp(cancel_at_ts, tz=dt_timezone.utc).date()
+            datetime.fromtimestamp(cancel_at_ts, tz=tz).date()
             if cancel_at_ts
             else None
         )
