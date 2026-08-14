@@ -343,6 +343,41 @@ class Subscription(models.Model):
         ),
     )
 
+    plan_price = models.ForeignKey(
+        verbose_name=_("plan price"),
+        to="organizations.PlanPrice",
+        on_delete=models.PROTECT,
+        related_name="subscriptions",
+        blank=True,
+        null=True,
+        help_text=_(
+            "The price this subscription is billed at.  Nullable until every "
+            "subscription has been migrated off the legacy plan foreign key."
+        ),
+    )
+
+    granted_reason = models.TextField(
+        _("granted reason"),
+        blank=True,
+        default="",
+        help_text=_(
+            "Why this subscription received non-standard pricing (comped, or a "
+            "partner coupon).  Blank for ordinary self-serve subscriptions."
+        ),
+    )
+    granted_by = models.ForeignKey(
+        verbose_name=_("granted by"),
+        to="users.User",
+        on_delete=models.PROTECT,
+        related_name="granted_subscriptions",
+        blank=True,
+        null=True,
+        help_text=_(
+            "Staff user who authorized the non-standard pricing.  Blank for "
+            "ordinary self-serve subscriptions."
+        ),
+    )
+
     stripe_status = models.CharField(max_length=30, blank=True, default="")
     current_period_end = models.DateTimeField(null=True, blank=True)
 
@@ -697,6 +732,45 @@ class Plan(models.Model):
         help_text=_("A unique slug to identify the plan"),
     )
 
+    PRODUCT_CHOICES = [
+        ("muckrock", _("MuckRock")),
+        ("documentcloud", _("DocumentCloud")),
+        ("sunlight", _("Sunlight")),
+        ("scoutpost", _("Scoutpost")),
+    ]
+
+    product = models.CharField(
+        _("product"),
+        max_length=20,
+        choices=PRODUCT_CHOICES,
+        blank=True,
+        default="",
+        help_text=_(
+            "Which product this plan is marketed under, for grouping tiers on "
+            "the plan page.  This is a display label, not a description of "
+            "what the plan grants - most plans span more than one product "
+            "(Sunlight tiers grant MuckRock and DocumentCloud entitlements but "
+            "are still marketed as Sunlight).  Do NOT use this to decide "
+            "whether a plan switch is an upgrade or an unrelated addition; "
+            "compare the entitlement client sets instead.  Blank on legacy "
+            "plans not yet mapped to a tier."
+        ),
+    )
+    stripe_product_id = models.CharField(
+        _("stripe product id"),
+        max_length=255,
+        blank=True,
+        default="",
+        help_text=_("The Product ID on stripe that this plan's Prices hang off"),
+    )
+
+    # DEPRECATED: minimum_users and price_per_user encode the per-user
+    # resource-block pricing model, which is being replaced by flat-rate plans
+    # plus quantity-based add-on packs.  Both are load-bearing until every
+    # per-user subscriber has been decomposed into a base + pack subscription
+    # (see the Stripe modernization plan), and are removed after that.  Do not
+    # zero them out early - the decomposition reads them to compute pack
+    # quantity.
     minimum_users = models.PositiveSmallIntegerField(
         _("minimum users"),
         default=1,
@@ -830,6 +904,14 @@ class Plan(models.Model):
         return True
 
     def cost(self, users):
+        """Total monthly cost for a given number of resource blocks
+
+        DEPRECATED: superseded by PlanPrice.amount plus the subscription's
+        pack quantity.  Kept accurate deliberately - flattening it to
+        base_price early would misreport the price of every per-user
+        subscriber that has not been decomposed yet.  Retire this along with
+        its call sites before dropping base_price.
+        """
         return (
             self.base_price + max(users - self.minimum_users, 0) * self.price_per_user
         )
@@ -901,6 +983,85 @@ class Plan(models.Model):
         except stripe.InvalidRequestError:
             # if the plan or product do not exist, just skip
             pass
+
+
+class PlanPrice(models.Model):
+    """A Stripe Price belonging to a Plan
+
+    Monthly and annual variants of one plan are Prices under a single Stripe
+    Product, replacing the legacy one-Stripe-Plan-per-Plan model.
+
+    `interval` and `label` are orthogonal: a nonprofit on an annual plan has
+    interval="annual" and label="nonprofit".  Partner pricing is deliberately
+    absent - partner deals ride on a standard or nonprofit price with a Stripe
+    coupon applied, because each is individually negotiated.
+    """
+
+    INTERVAL_CHOICES = [
+        ("monthly", _("Monthly")),
+        ("annual", _("Annual")),
+        ("one_time", _("One-time")),
+    ]
+    LABEL_CHOICES = [
+        ("standard", _("Standard")),
+        ("nonprofit", _("Nonprofit")),
+        ("comped", _("Comped")),
+    ]
+
+    plan = models.ForeignKey(
+        verbose_name=_("plan"),
+        to="organizations.Plan",
+        on_delete=models.PROTECT,
+        related_name="prices",
+        help_text=_("The plan this price belongs to"),
+    )
+    stripe_price_id = models.CharField(
+        _("stripe price id"),
+        max_length=255,
+        unique=True,
+        help_text=_("The Price ID on stripe"),
+    )
+    interval = models.CharField(
+        _("interval"),
+        max_length=20,
+        choices=INTERVAL_CHOICES,
+        help_text=_("How often this price is billed"),
+    )
+    label = models.CharField(
+        _("label"),
+        max_length=20,
+        choices=LABEL_CHOICES,
+        default="standard",
+        help_text=_("Ongoing structural rate class this price represents"),
+    )
+    amount = models.PositiveIntegerField(
+        _("amount"),
+        help_text=_(
+            "Amount in cents, matching Charge.amount and Stripe's unit_amount.  "
+            "Note the legacy Plan.base_price is in whole dollars - the two "
+            "coexist until that field is removed."
+        ),
+    )
+    currency = models.CharField(
+        _("currency"),
+        max_length=3,
+        default="usd",
+        help_text=_("ISO 4217 currency code"),
+    )
+
+    class Meta:
+        unique_together = [("plan", "interval", "label")]
+        ordering = ("plan", "interval", "label")
+
+    def __str__(self):
+        return (
+            f"{self.plan.name} "
+            f"({self.get_interval_display()}, {self.get_label_display()})"
+        )
+
+    @property
+    def amount_dollars(self):
+        return self.amount / 100.0
 
 
 class Charge(models.Model):
