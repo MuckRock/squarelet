@@ -1018,8 +1018,13 @@ class PlanPrice(models.Model):
     stripe_price_id = models.CharField(
         _("stripe price id"),
         max_length=255,
-        unique=True,
-        help_text=_("The Price ID on stripe"),
+        blank=True,
+        default="",
+        help_text=_(
+            "The Price ID on stripe.  Blank for comped prices: those never "
+            "create a Stripe subscription, so they have no Stripe counterpart "
+            "to point at.  Uniqueness is enforced only on non-blank values."
+        ),
     )
     interval = models.CharField(
         _("interval"),
@@ -1052,6 +1057,15 @@ class PlanPrice(models.Model):
     class Meta:
         unique_together = [("plan", "interval", "label")]
         ordering = ("plan", "interval", "label")
+        constraints = [
+            # Partial: every real Stripe Price ID must be unique, but any
+            # number of comped prices may leave it blank.
+            models.UniqueConstraint(
+                fields=["stripe_price_id"],
+                condition=~models.Q(stripe_price_id=""),
+                name="unique_stripe_price_id_when_set",
+            )
+        ]
 
     def __str__(self):
         return (
