@@ -316,6 +316,27 @@ class StripeModernPlanService(PlanService):
     def delete_product(self, stripe_product):
         stripe_product.delete()
 
+    # squarelet's interval vocabulary -> Stripe's
+    STRIPE_INTERVALS = {"monthly": "month", "annual": "year"}
+
+    def create_product(self, name, **kwargs):
+        return stripe.Product.create(name=name, **kwargs)
+
+    def create_price(self, product_id, unit_amount, currency, interval, **kwargs):
+        try:
+            recurring = {"interval": self.STRIPE_INTERVALS[interval]}
+        except KeyError:
+            raise ValueError(
+                f"Cannot create a recurring Price for interval {interval!r}"
+            ) from None
+        return stripe.Price.create(
+            product=product_id,
+            unit_amount=unit_amount,
+            currency=currency,
+            recurring=recurring,
+            **kwargs,
+        )
+
 
 class StripeModernProvider(PaymentProvider):
     """Payment provider targeting current Stripe API versions."""

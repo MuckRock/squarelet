@@ -937,6 +937,28 @@ class Plan(models.Model):
         """Namespace the stripe ID to not conflict with previous plans we have made"""
         return f"squarelet_plan_{self.slug}"
 
+    def ensure_stripe_product(self):
+        """Create this plan's Stripe Product if it does not have one.
+
+        One Product per plan; its prices hang off it as Stripe Prices.  The
+        ID is saved immediately rather than by the caller, because a Product
+        that exists in Stripe but whose ID was never persisted is an orphan
+        nothing can find again.
+
+        Returns the Stripe Product ID.
+        """
+        if self.stripe_product_id:
+            return self.stripe_product_id
+
+        product = (
+            get_payment_provider()
+            .get_plan_service()
+            .create_product(name=self.name, metadata={"squarelet_plan_slug": self.slug})
+        )
+        self.stripe_product_id = product.id
+        self.save(update_fields=["stripe_product_id"])
+        return product.id
+
     def make_stripe_plan(self):
         """Create the plan on stripe"""
         if not self.free:
@@ -1053,9 +1075,19 @@ class PlanPrice(models.Model):
         default="usd",
         help_text=_("ISO 4217 currency code"),
     )
+    active = models.BooleanField(
+        _("active"),
+        default=True,
+        help_text=_(
+            "Whether new subscriptions use this price.  Stripe Prices are "
+            "immutable, so changing what a tier costs means superseding this "
+            "row rather than editing it: the old row stays, inactive, still "
+            "pointing at the Stripe Price its existing subscribers are "
+            "billed against."
+        ),
+    )
 
     class Meta:
-        unique_together = [("plan", "interval", "label")]
         ordering = ("plan", "interval", "label")
         constraints = [
             # Partial: every real Stripe Price ID must be unique, but any
@@ -1064,18 +1096,87 @@ class PlanPrice(models.Model):
                 fields=["stripe_price_id"],
                 condition=~models.Q(stripe_price_id=""),
                 name="unique_stripe_price_id_when_set",
-            )
+            ),
+            # One *active* price per variant; superseded rows accumulate
+            # freely so existing subscribers keep billing at what they
+            # signed up for.
+            models.UniqueConstraint(
+                fields=["plan", "interval", "label"],
+                condition=models.Q(active=True),
+                name="unique_active_plan_price",
+            ),
         ]
 
     def __str__(self):
+        suffix = "" if self.active else ", superseded"
         return (
             f"{self.plan.name} "
-            f"({self.get_interval_display()}, {self.get_label_display()})"
+            f"({self.get_interval_display()}, {self.get_label_display()}{suffix})"
         )
 
     @property
     def amount_dollars(self):
         return self.amount / 100.0
+
+    def ensure_stripe_price(self):
+        """Create this row's Stripe Price if it needs one.
+
+        No-ops for comped prices - they cost nothing, never create a Stripe
+        subscription, and so have no Stripe counterpart - and for rows that
+        already have a Price.  Creates the plan's Product first if it does
+        not have one yet.
+
+        Returns the Stripe Price ID, or None for a comped price.
+        """
+        if self.amount == 0:
+            return None
+        if self.stripe_price_id:
+            return self.stripe_price_id
+
+        product_id = self.plan.ensure_stripe_product()
+        price = (
+            get_payment_provider()
+            .get_plan_service()
+            .create_price(
+                product_id=product_id,
+                unit_amount=self.amount,
+                currency=self.currency,
+                interval=self.interval,
+                metadata={"squarelet_plan_slug": self.plan.slug, "label": self.label},
+            )
+        )
+        self.stripe_price_id = price.id
+        self.save(update_fields=["stripe_price_id"])
+        return price.id
+
+    @transaction.atomic
+    def supersede(self, amount):
+        """Retire this price and return its replacement at a new amount.
+
+        Stripe Prices cannot be edited, so a price change is a new Price.
+        This row is marked inactive and keeps pointing at the Stripe Price
+        its existing subscribers are billed against; the returned row is the
+        one new subscriptions should use.
+
+        Callers are responsible for moving subscribers over if that is
+        wanted - superseding alone changes nobody's bill.
+        """
+        if not self.active:
+            raise ValueError("Cannot supersede an already superseded price")
+
+        self.active = False
+        self.save(update_fields=["active"])
+
+        replacement = PlanPrice.objects.create(
+            plan=self.plan,
+            stripe_price_id="",
+            interval=self.interval,
+            label=self.label,
+            amount=amount,
+            currency=self.currency,
+        )
+        replacement.ensure_stripe_price()
+        return replacement
 
 
 class Charge(models.Model):
