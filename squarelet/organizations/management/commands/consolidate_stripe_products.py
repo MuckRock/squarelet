@@ -1,0 +1,188 @@
+# Django
+from django.core.management.base import BaseCommand, CommandError
+
+# Standard Library
+import logging
+
+# Squarelet
+from squarelet.organizations.models.payment import Plan, PlanPrice
+
+logger = logging.getLogger(__name__)
+
+CURRENCY = "usd"
+
+# The full target price list.  Amounts are in cents, matching
+# PlanPrice.amount and Stripe's unit_amount.
+#
+# Hardcoded rather than derived from the legacy plans on purpose: these
+# create immutable Stripe Prices, and the legacy rows they came from are
+# archived in Step 2d.  See the plan-mapping doc for how each was chosen and
+# which legacy plans feed into it.
+#
+# Comped rows have amount 0 and get no Stripe Price at all - comped
+# subscriptions never reach Stripe, so there is nothing for a Price to bill
+# against.  Their PlanPrice.stripe_price_id stays blank.
+PRICE_MATRIX = [
+    # plan slug,               interval,  label,       cents
+    ("professional", "monthly", "standard", 4_000),
+    ("professional", "annual", "standard", 48_000),
+    ("professional", "monthly", "comped", 0),
+    ("organization", "monthly", "standard", 10_000),
+    ("organization", "annual", "standard", 120_000),
+    ("organization", "monthly", "comped", 0),
+    ("documentcloud-premium", "monthly", "standard", 1_000),
+    ("sunlight-essential", "monthly", "standard", 68_000),
+    ("sunlight-essential", "annual", "standard", 800_000),
+    ("sunlight-essential", "monthly", "nonprofit", 35_000),
+    ("sunlight-essential", "annual", "nonprofit", 400_000),
+    ("sunlight-enhanced", "monthly", "standard", 138_000),
+    ("sunlight-enhanced", "annual", "standard", 1_600_000),
+    ("sunlight-enhanced", "monthly", "nonprofit", 68_000),
+    ("sunlight-enhanced", "annual", "nonprofit", 800_000),
+    ("sunlight-enterprise", "monthly", "standard", 275_000),
+    ("sunlight-enterprise", "annual", "standard", 3_200_000),
+    ("sunlight-enterprise", "annual", "comped", 0),
+    ("scoutpost-pro", "monthly", "standard", 1_000),
+    ("scoutpost-team", "monthly", "standard", 5_000),
+    ("muckrock-request-pack", "monthly", "standard", 1_000),
+    ("muckrock-request-pack", "annual", "standard", 12_000),
+    ("documentcloud-page-pack", "monthly", "standard", 1_000),
+    ("documentcloud-page-pack", "annual", "standard", 12_000),
+    ("scoutpost-credit-pack", "monthly", "standard", 1_000),
+    ("scoutpost-credit-pack", "annual", "standard", 12_000),
+]
+
+
+class Command(BaseCommand):
+    """Create the Stripe Products and Prices behind the consolidated plans.
+
+    One Stripe Product per plan, with a Price for each (interval, label)
+    variant, plus the PlanPrice row pointing at it.
+
+    Safe to re-run: a plan that already has a stripe_product_id keeps it,
+    and an existing PlanPrice for a given (plan, interval, label) is left
+    alone.  Re-running after a partial failure completes the remainder.
+
+    Deliberately NOT wrapped in a transaction.  Stripe objects cannot be
+    rolled back, so a transaction spanning these calls would risk creating
+    Products and Prices whose IDs are then discarded - leaving orphans in
+    Stripe and no local record of them.  Each ID is saved immediately
+    instead, so an interrupted run leaves a consistent partial state that
+    re-running finishes.
+    """
+
+    help = "Create Stripe Products and Prices for the consolidated plans"
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--dry-run",
+            action="store_true",
+            help="Report what would be created without calling Stripe",
+        )
+        parser.add_argument(
+            "--allow-missing",
+            action="store_true",
+            help=(
+                "Skip plans that do not exist instead of failing.  For dev "
+                "and staging databases seeded with a subset of plans - never "
+                "on production, where a missing tier means it would silently "
+                "end up with no Stripe Product or Prices."
+            ),
+        )
+
+    def handle(self, *args, **options):
+        dry_run = options["dry_run"]
+        if dry_run:
+            self.stdout.write(self.style.WARNING("DRY RUN - Stripe will not be called"))
+
+        plans = self._load_plans(options["allow_missing"])
+
+        created_products = created_prices = comped = skipped = 0
+        for slug in dict.fromkeys(row[0] for row in PRICE_MATRIX):
+            if slug in plans and self._ensure_product(plans[slug], dry_run):
+                created_products += 1
+
+        for slug, interval, label, amount in PRICE_MATRIX:
+            if slug not in plans:
+                continue
+            result = self._ensure_price(
+                plans[slug], interval, label, amount, dry_run=dry_run
+            )
+            if result == "created":
+                created_prices += 1
+            elif result == "comped":
+                comped += 1
+            else:
+                skipped += 1
+
+        self.stdout.write(
+            f"\n{created_products} products, {created_prices} priced rows, "
+            f"{comped} comped rows (no Stripe Price), {skipped} already present"
+        )
+
+    def _load_plans(self, allow_missing):
+        slugs = {row[0] for row in PRICE_MATRIX}
+        plans = {p.slug: p for p in Plan.objects.filter(slug__in=slugs)}
+        missing = sorted(slugs - set(plans))
+        if missing and not allow_missing:
+            raise CommandError(
+                f"These plans do not exist: {missing}.  Run the tier and pack "
+                f"migrations first, and check the plan mapping.  Pass "
+                f"--allow-missing to skip them (dev and staging only)."
+            )
+        for slug in missing:
+            self.stdout.write(self.style.WARNING(f"! {slug}: no such plan, skipping"))
+        return plans
+
+    def _ensure_product(self, plan, dry_run):
+        if plan.stripe_product_id:
+            self.stdout.write(f"= product {plan.slug}: {plan.stripe_product_id}")
+            return False
+        self.stdout.write(self.style.SUCCESS(f"+ product {plan.slug} ({plan.name})"))
+        if dry_run:
+            return True
+        self.stdout.write(f"    -> {plan.ensure_stripe_product()}")
+        return True
+
+    def _ensure_price(self, plan, interval, label, amount, *, dry_run):
+        if PlanPrice.objects.filter(
+            plan=plan, interval=interval, label=label, active=True
+        ).exists():
+            self.stdout.write(f"= price {plan.slug} {interval}/{label}")
+            return "skipped"
+
+        if amount == 0:
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"+ price {plan.slug} {interval}/{label}: comped, no Stripe Price"
+                )
+            )
+            if not dry_run:
+                PlanPrice.objects.create(
+                    plan=plan,
+                    stripe_price_id="",
+                    interval=interval,
+                    label=label,
+                    amount=0,
+                    currency=CURRENCY,
+                )
+            return "comped"
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"+ price {plan.slug} {interval}/{label}: ${amount / 100:,.2f}"
+            )
+        )
+        if dry_run:
+            return "created"
+
+        plan_price = PlanPrice.objects.create(
+            plan=plan,
+            stripe_price_id="",
+            interval=interval,
+            label=label,
+            amount=amount,
+            currency=CURRENCY,
+        )
+        self.stdout.write(f"    -> {plan_price.ensure_stripe_price()}")
+        return "created"

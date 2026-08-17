@@ -37,6 +37,7 @@ from squarelet.organizations.models import (
     OrganizationUrl,
     PaymentMethod,
     Plan,
+    PlanPrice,
     ProfileChangeRequest,
     ReceiptEmail,
     Subscription,
@@ -45,6 +46,8 @@ from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.users.models import User
 
 logger = logging.getLogger(__name__)
+
+# pylint: disable=too-many-lines
 
 
 # https://stackoverflow.com/questions/48145992/showing-json-field-in-django-admin
@@ -528,6 +531,21 @@ class OrganizationAdmin(VersionAdmin):
     get_subscription_renews.boolean = True
 
 
+class PlanPriceInline(admin.TabularInline):
+    """Prices for a plan, editable alongside it.
+
+    Creating a row here gives it a Stripe Price via PlanAdmin.save_formset.
+    Comped prices (amount 0) never reach Stripe and correctly keep a blank
+    stripe_price_id.
+    """
+
+    model = PlanPrice
+    extra = 0
+    fields = ("interval", "label", "amount", "currency", "active", "stripe_price_id")
+    readonly_fields = ("stripe_price_id",)
+    ordering = ("-active", "interval", "label")
+
+
 @admin.register(Plan)
 class PlanAdmin(VersionAdmin):
     list_display = (
@@ -549,6 +567,59 @@ class PlanAdmin(VersionAdmin):
     formfield_overrides = {
         JSONField: {"widget": PrettyJSONWidget},
     }
+    inlines = [PlanPriceInline]
+
+    def save_formset(self, request, form, formset, change):
+        """Give any newly added price its Stripe Price.
+
+        Inline rows are saved through the formset, not save_model, so this
+        is where the hook belongs.  Doing it explicitly rather than in a
+        post_save signal means a Stripe failure surfaces to whoever clicked
+        save instead of being swallowed.
+        """
+        instances = formset.save(commit=False)
+        for obj in formset.deleted_objects:
+            obj.delete()
+        for obj in instances:
+            obj.save()
+            if isinstance(obj, PlanPrice):
+                obj.ensure_stripe_price()
+        formset.save_m2m()
+
+
+@admin.register(PlanPrice)
+class PlanPriceAdmin(VersionAdmin):
+    """Stripe Prices are immutable, so a price change is a new row.
+
+    Use `active` to supersede: mark the old row inactive - it keeps
+    pointing at the Stripe Price its existing subscribers are billed
+    against - and add a replacement.  Editing an existing row's amount
+    changes only the local record, not what Stripe charges.
+    """
+
+    list_display = (
+        "plan",
+        "interval",
+        "label",
+        "amount_dollars",
+        "active",
+        "stripe_price_id",
+    )
+    list_filter = ("active", "interval", "label")
+    search_fields = ("plan__name", "plan__slug", "stripe_price_id")
+    autocomplete_fields = ("plan",)
+    readonly_fields = ("stripe_price_id",)
+
+    def save_model(self, request, obj, form, change):
+        """Persist the row, then give it a Stripe Price if it needs one.
+
+        Done explicitly rather than in a post_save signal: a signal that
+        calls Stripe hides its failures, which is how a legacy 400 went
+        unnoticed during tier setup.  Here an error surfaces to whoever
+        clicked save.
+        """
+        super().save_model(request, obj, form, change)
+        obj.ensure_stripe_price()
 
 
 @admin.register(Entitlement)

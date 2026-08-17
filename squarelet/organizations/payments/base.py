@@ -213,6 +213,23 @@ class PlanService(ABC):
     def delete_product(self, stripe_product):
         """Delete a product."""
 
+    @abstractmethod
+    def create_product(self, name, **kwargs):
+        """Create a Product.
+
+        One Product per logical plan tier; its monthly and annual variants
+        are Prices underneath it.  This replaces the legacy model of one
+        Stripe Plan per squarelet Plan.
+        """
+
+    @abstractmethod
+    def create_price(self, product_id, unit_amount, currency, interval, **kwargs):
+        """Create a recurring Price under a Product.
+
+        `unit_amount` is in cents.  `interval` is squarelet's own value
+        ("monthly" or "annual"), translated to Stripe's by the provider.
+        """
+
 
 class PaymentProvider(ABC):
     """
