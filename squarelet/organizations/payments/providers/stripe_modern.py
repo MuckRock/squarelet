@@ -191,7 +191,13 @@ class StripeModernSubscriptionService(SubscriptionService):
         # current_period_end moved from subscription root to subscription items
         # in API version 2025-03-31.basil. Webhook payloads may omit items
         # entirely (e.g. a bare cancel_at_period_end toggle), so fall back to None.
-        items = getattr(stripe_subscription, "items", None)
+        # Use bracket notation — getattr() shadows the field with the built-in
+        # items() method on StripeObject, and .get() is not available on newer
+        # Stripe SDK typed objects.
+        try:
+            items = stripe_subscription["items"]
+        except (KeyError, TypeError):
+            return None
         if items and items.data:
             return items.data[0].current_period_end
         return None

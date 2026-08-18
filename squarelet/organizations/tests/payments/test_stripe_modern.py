@@ -342,11 +342,12 @@ class TestModernSubscriptionService:
 
     def test_get_current_period_end(self, subscription_service, mocker):
         mock_item = mocker.MagicMock(current_period_end=1700000000)
+        mock_items = mocker.MagicMock(data=[mock_item])
         mock_sub = mocker.MagicMock()
-        mock_sub.items.data = [mock_item]
+        mock_sub.__getitem__ = mocker.MagicMock(return_value=mock_items)
         assert subscription_service.get_current_period_end(mock_sub) == 1700000000
 
     def test_get_current_period_end_no_items(self, subscription_service, mocker):
         mock_sub = mocker.MagicMock()
-        mock_sub.items.data = []
+        mock_sub.__getitem__ = mocker.MagicMock(side_effect=KeyError("items"))
         assert subscription_service.get_current_period_end(mock_sub) is None
