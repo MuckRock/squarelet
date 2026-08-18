@@ -43,6 +43,8 @@ class Command(BaseCommand):
     """Compare local Subscription records against Stripe and report mismatches.
 
     Checks for:
+      - Local subscriptions with no subscription_id
+      - Local subscriptions canceled on Stripe but not yet deleted locally
       - Local subscriptions whose subscription_id doesn't exist on Stripe
       - Stripe subscriptions that have no matching local record (--stripe-orphans)
       - Field mismatches: status, cancel_at_period_end, cancel_at,
@@ -78,6 +80,26 @@ class Command(BaseCommand):
         org_filter = options["org"]
         tz = get_current_timezone()
 
+        # ── 0. Subscriptions with no Stripe ID ────────────────────────────────
+        no_id_qs = Subscription.objects.select_related("plan", "organization").filter(
+            subscription_id=None, plan__base_price__gt=0
+        )
+        if org_filter:
+            no_id_qs = no_id_qs.filter(organization__slug=org_filter)
+        no_id_list = list(no_id_qs.iterator())
+        if no_id_list:
+            self.stdout.write(
+                f"[NO STRIPE ID] {len(no_id_list)} paid subscription(s) have no"
+                " subscription_id:\n"
+            )
+            for sub in no_id_list:
+                plan = sub.plan
+                self.stdout.write(
+                    f"  {sub.organization.name!r} (org {sub.organization.pk}) |"
+                    f" plan={plan.slug if plan else 'None'!r}\n"
+                )
+            self.stdout.write("\n")
+
         # ── 1. Load local subscriptions ──────────────────────────────────────
         qs = Subscription.objects.select_related("plan", "organization").exclude(
             subscription_id=None
@@ -96,7 +118,9 @@ class Command(BaseCommand):
         )
 
         # ── 3. Compare local vs Stripe ────────────────────────────────────────
-        ok, mismatched, missing = self._audit_local(local_subs, stripe_map, tz, show_ok)
+        ok, mismatched, missing, should_delete = self._audit_local(
+            local_subs, stripe_map, tz, show_ok
+        )
 
         # ── 4. Stripe orphans ─────────────────────────────────────────────────
         stripe_orphans = 0
@@ -105,9 +129,11 @@ class Command(BaseCommand):
 
         # ── 5. Summary ────────────────────────────────────────────────────────
         self.stdout.write("\n── Summary ──────────────────────────────────────────\n")
-        self.stdout.write(f"  OK (in sync):        {ok}\n")
-        self.stdout.write(f"  Mismatched:          {mismatched}\n")
+        self.stdout.write(f"  No Stripe ID:        {len(no_id_list)}\n")
+        self.stdout.write(f"  Should delete:       {should_delete}\n")
         self.stdout.write(f"  Missing on Stripe:   {missing}\n")
+        self.stdout.write(f"  Mismatched:          {mismatched}\n")
+        self.stdout.write(f"  OK (in sync):        {ok}\n")
         if check_stripe_orphans:
             self.stdout.write(f"  Stripe orphans:      {stripe_orphans}\n")
         self.stdout.write("─────────────────────────────────────────────────────\n")
@@ -156,8 +182,8 @@ class Command(BaseCommand):
         return stripe_map
 
     def _audit_local(self, local_subs, stripe_map, tz, show_ok):
-        """Compare local subscriptions; return (ok, mismatched, missing) counts."""
-        ok = mismatched = missing = 0
+        """Compare local subscriptions; return (ok, mismatched, missing, should_delete)."""
+        ok = mismatched = missing = should_delete = 0
         for sub in local_subs:
             stripe_sub = stripe_map.get(sub.subscription_id)
             if stripe_sub is None:
@@ -167,6 +193,18 @@ class Command(BaseCommand):
                     f"(org {sub.organization.pk}) | "
                     f"plan={sub.plan.slug!r} | "
                     f"subscription_id={sub.subscription_id}\n"
+                )
+                continue
+            # Stripe fully canceled → local record should have been deleted
+            if stripe_sub.status == "canceled":
+                should_delete += 1
+                self.stdout.write(
+                    f"[SHOULD DELETE] {sub.organization.name!r} "
+                    f"(org {sub.organization.pk}) | "
+                    f"plan={sub.plan.slug!r} | "
+                    f"id={sub.subscription_id} | "
+                    f"local_cancelled={sub.cancelled}"
+                    f" local_stripe_status={sub.stripe_status!r}\n"
                 )
                 continue
             diffs = self._compare(sub, stripe_sub, tz)
@@ -191,7 +229,7 @@ class Command(BaseCommand):
                         f"plan={sub.plan.slug!r} | "
                         f"id={sub.subscription_id}\n"
                     )
-        return ok, mismatched, missing
+        return ok, mismatched, missing, should_delete
 
     def _find_orphans(self, stripe_map, local_map, org_filter):
         """Report active Stripe subscriptions with no local record; return count."""
@@ -263,8 +301,13 @@ class Command(BaseCommand):
         if sub.cancel_at != stripe_cancel_at:
             diffs.append(("cancel_at", sub.cancel_at, stripe_cancel_at))
 
-        # current_period_end — read from subscription items (newer API)
-        items = getattr(stripe_sub, "items", None)
+        # current_period_end — read from subscription items (newer API).
+        # Use bracket notation: getattr() shadows the field with the built-in
+        # items() method on StripeObject.
+        try:
+            items = stripe_sub["items"]
+        except (KeyError, TypeError):
+            items = None
         cpe_ts = items.data[0].current_period_end if items and items.data else None
         stripe_cpe = datetime.fromtimestamp(cpe_ts, tz=tz) if cpe_ts else None
         if not _datetimes_match(sub.current_period_end, stripe_cpe):
