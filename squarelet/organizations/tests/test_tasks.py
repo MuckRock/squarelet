@@ -2254,9 +2254,9 @@ class TestHandlePaymentMethodAttached:
         assert customer.stripe_payment_method_id == "pm_att"
 
     @pytest.mark.django_db
-    def test_skips_when_not_default(self, customer_factory, mocker):
-        """Skips caching when the attached PM is not the customer's default"""
-        customer_factory(customer_id="cus_att2")
+    def test_saves_non_default_as_non_default(self, customer_factory, mocker):
+        """Saves the PM as non-default when it is not the customer's current default"""
+        customer = customer_factory(customer_id="cus_att2")
         mock_stripe_customer = mocker.MagicMock()
         mock_stripe_customer.invoice_settings.get.return_value = "pm_other"
         mock_provider = mocker.patch(
@@ -2270,7 +2270,10 @@ class TestHandlePaymentMethodAttached:
             {"id": "pm_att2", "customer": "cus_att2", "type": "card"}
         )
 
-        assert not PaymentMethod.objects.filter(stripe_id="pm_att2").exists()
+        pm = PaymentMethod.objects.get(stripe_id="pm_att2")
+        assert not pm.is_default
+        customer.refresh_from_db()
+        assert customer.stripe_payment_method_id != "pm_att2"
 
     @pytest.mark.django_db
     def test_unknown_customer(self, mocker):
