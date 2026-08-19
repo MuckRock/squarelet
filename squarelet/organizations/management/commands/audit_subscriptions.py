@@ -84,16 +84,7 @@ class Command(BaseCommand):
         no_id_count = self._report_no_stripe_id(org_filter)
 
         # ── 1. Load local subscriptions ──────────────────────────────────────
-        qs = Subscription.objects.select_related("plan", "organization").exclude(
-            subscription_id=None
-        )
-        if org_filter:
-            qs = qs.filter(organization__slug=org_filter)
-        local_subs = list(qs.iterator())
-        local_map = {s.subscription_id: s for s in local_subs}
-        self.stdout.write(
-            f"Loaded {len(local_subs)} local subscription(s) with a Stripe ID.\n"
-        )
+        local_subs, local_map = self._load_local_subs(org_filter)
 
         # ── 2. Fetch Stripe subscriptions ─────────────────────────────────────
         stripe_map = self._fetch_stripe_map(
@@ -105,12 +96,7 @@ class Command(BaseCommand):
             local_subs, stripe_map, tz, show_ok
         )
 
-        # ── 4. Stripe orphans ─────────────────────────────────────────────────
-        stripe_orphans = 0
-        if check_stripe_orphans:
-            stripe_orphans = self._find_orphans(stripe_map, local_map, org_filter)
-
-        # ── 5. Summary ────────────────────────────────────────────────────────
+        # ── 4 + 5. Stripe orphans + Summary ──────────────────────────────────
         self.stdout.write("\n── Summary ──────────────────────────────────────────\n")
         self.stdout.write(f"  No Stripe ID:        {no_id_count}\n")
         self.stdout.write(f"  Should delete:       {should_delete}\n")
@@ -118,10 +104,26 @@ class Command(BaseCommand):
         self.stdout.write(f"  Mismatched:          {mismatched}\n")
         self.stdout.write(f"  OK (in sync):        {ok}\n")
         if check_stripe_orphans:
-            self.stdout.write(f"  Stripe orphans:      {stripe_orphans}\n")
+            self.stdout.write(
+                f"  Stripe orphans:      "
+                f"{self._find_orphans(stripe_map, local_map, org_filter)}\n"
+            )
         self.stdout.write("─────────────────────────────────────────────────────\n")
 
     # ── helpers ───────────────────────────────────────────────────────────────
+
+    def _load_local_subs(self, org_filter):
+        """Return (local_subs, id→sub map) for subscriptions with a Stripe ID."""
+        qs = Subscription.objects.select_related("plan", "organization").exclude(
+            subscription_id=None
+        )
+        if org_filter:
+            qs = qs.filter(organization__slug=org_filter)
+        subs = list(qs.iterator())
+        self.stdout.write(
+            f"Loaded {len(subs)} local subscription(s) with a Stripe ID.\n"
+        )
+        return subs, {s.subscription_id: s for s in subs}
 
     def _report_no_stripe_id(self, org_filter):
         """Print paid subscriptions with no subscription_id; return count."""
