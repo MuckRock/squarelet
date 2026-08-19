@@ -81,24 +81,7 @@ class Command(BaseCommand):
         tz = get_current_timezone()
 
         # ── 0. Subscriptions with no Stripe ID ────────────────────────────────
-        no_id_qs = Subscription.objects.select_related("plan", "organization").filter(
-            subscription_id=None, plan__base_price__gt=0
-        )
-        if org_filter:
-            no_id_qs = no_id_qs.filter(organization__slug=org_filter)
-        no_id_list = list(no_id_qs.iterator())
-        if no_id_list:
-            self.stdout.write(
-                f"[NO STRIPE ID] {len(no_id_list)} paid subscription(s) have no"
-                " subscription_id:\n"
-            )
-            for sub in no_id_list:
-                plan = sub.plan
-                self.stdout.write(
-                    f"  {sub.organization.name!r} (org {sub.organization.pk}) |"
-                    f" plan={plan.slug if plan else 'None'!r}\n"
-                )
-            self.stdout.write("\n")
+        no_id_count = self._report_no_stripe_id(org_filter)
 
         # ── 1. Load local subscriptions ──────────────────────────────────────
         qs = Subscription.objects.select_related("plan", "organization").exclude(
@@ -129,7 +112,7 @@ class Command(BaseCommand):
 
         # ── 5. Summary ────────────────────────────────────────────────────────
         self.stdout.write("\n── Summary ──────────────────────────────────────────\n")
-        self.stdout.write(f"  No Stripe ID:        {len(no_id_list)}\n")
+        self.stdout.write(f"  No Stripe ID:        {no_id_count}\n")
         self.stdout.write(f"  Should delete:       {should_delete}\n")
         self.stdout.write(f"  Missing on Stripe:   {missing}\n")
         self.stdout.write(f"  Mismatched:          {mismatched}\n")
@@ -139,6 +122,28 @@ class Command(BaseCommand):
         self.stdout.write("─────────────────────────────────────────────────────\n")
 
     # ── helpers ───────────────────────────────────────────────────────────────
+
+    def _report_no_stripe_id(self, org_filter):
+        """Print paid subscriptions with no subscription_id; return count."""
+        qs = Subscription.objects.select_related("plan", "organization").filter(
+            subscription_id=None, plan__base_price__gt=0
+        )
+        if org_filter:
+            qs = qs.filter(organization__slug=org_filter)
+        subs = list(qs.iterator())
+        if subs:
+            self.stdout.write(
+                f"[NO STRIPE ID] {len(subs)} paid subscription(s) have no"
+                " subscription_id:\n"
+            )
+            for sub in subs:
+                plan = sub.plan
+                self.stdout.write(
+                    f"  {sub.organization.name!r} (org {sub.organization.pk}) |"
+                    f" plan={plan.slug if plan else 'None'!r}\n"
+                )
+            self.stdout.write("\n")
+        return len(subs)
 
     def _fetch_stripe_map(
         self, local_subs, local_map, org_filter, check_stripe_orphans
@@ -182,7 +187,7 @@ class Command(BaseCommand):
         return stripe_map
 
     def _audit_local(self, local_subs, stripe_map, tz, show_ok):
-        """Compare local subscriptions; return (ok, mismatched, missing, should_delete)."""
+        """Compare local subscriptions; return (ok, mismatched, missing, to_delete)."""
         ok = mismatched = missing = should_delete = 0
         for sub in local_subs:
             stripe_sub = stripe_map.get(sub.subscription_id)
