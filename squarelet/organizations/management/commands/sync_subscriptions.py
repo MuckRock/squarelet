@@ -63,6 +63,10 @@ class Command(BaseCommand):
                 errors += 1
 
         elapsed = time.monotonic() - start
+        self.stdout.write(
+            f"\nDone in {elapsed:.1f}s — "
+            f"updated: {updated}, unchanged: {skipped}, errors: {errors}\n"
+        )
 
     def _sync_one(self, sub_svc, local_sub, dry_run):
         """Sync CPE for one subscription; return 'updated', 'skipped', or 'error'."""
@@ -89,7 +93,3 @@ class Command(BaseCommand):
         if not dry_run:
             local_sub.save(update_fields=["current_period_end"])
         return "updated"
-        self.stdout.write(
-            f"\nDone in {elapsed:.1f}s — "
-            f"updated: {updated}, unchanged: {skipped}, errors: {errors}\n"
-        )
