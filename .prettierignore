@@ -1,0 +1,17 @@
+# Prettier already skips anything in .gitignore (node_modules, .venv,
+# frontend/dist, staticfiles), so this file only covers tracked files it
+# should keep its hands off.
+
+# Django templates. Prettier parses these as plain HTML and has no idea what
+# {% %} or {{ }} mean, so it happily moves template tags across lines and
+# breaks them.
+squarelet/templates/
+
+# Vendored and upstream code, kept byte-comparable with its source.
+frontend/mfa/js/webauthn-json.js
+frontend/mfa/js/webauthn.js
+frontend/account/js/onload.js
+
+# Generated: npm owns the lockfile, realfavicongenerator owns the manifest.
+package-lock.json
+frontend/images/favicons/site.webmanifest
