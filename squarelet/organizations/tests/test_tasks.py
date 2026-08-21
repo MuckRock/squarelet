@@ -2233,7 +2233,7 @@ class TestHandlePaymentMethodAttached:
         mock_details.exp_year = 2028
 
         mock_stripe_customer = mocker.MagicMock()
-        mock_stripe_customer.invoice_settings.get.return_value = "pm_att"
+        mock_stripe_customer.invoice_settings.default_payment_method = "pm_att"
         mock_provider = mocker.patch(
             "squarelet.organizations.tasks.get_payment_provider"
         ).return_value
@@ -2258,7 +2258,7 @@ class TestHandlePaymentMethodAttached:
         """Saves the PM as non-default when it is not the customer's current default"""
         customer = customer_factory(customer_id="cus_att2")
         mock_stripe_customer = mocker.MagicMock()
-        mock_stripe_customer.invoice_settings.get.return_value = "pm_other"
+        mock_stripe_customer.invoice_settings.default_payment_method = "pm_other"
         mock_provider = mocker.patch(
             "squarelet.organizations.tasks.get_payment_provider"
         ).return_value
