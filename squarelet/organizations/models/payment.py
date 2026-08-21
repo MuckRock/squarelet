@@ -246,15 +246,17 @@ class Customer(models.Model):
             pm.save()
         else:
             self.payment_methods.filter(is_default=True).update(is_default=False)
-            PaymentMethod.objects.create(
+            PaymentMethod.objects.update_or_create(
                 customer=self,
-                method_type=method_type,
-                brand=brand,
-                last4=last4,
-                exp_month=exp_month,
-                exp_year=exp_year,
-                stripe_id=stripe_id,
                 is_default=True,
+                defaults={
+                    "method_type": method_type,
+                    "brand": brand,
+                    "last4": last4,
+                    "exp_month": exp_month,
+                    "exp_year": exp_year,
+                    "stripe_id": stripe_id,
+                },
             )
         self._invalidate_pm_cache()
 
