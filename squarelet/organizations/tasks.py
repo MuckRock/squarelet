@@ -205,7 +205,17 @@ def handle_invoice_failed(invoice_data):
             customers__customer_id=invoice_data["customer"]
         )
     except Organization.DoesNotExist:
-        if invoice_data["lines"]["data"][0]["plan"]["id"] == "donate":
+        try:
+            # plan was removed in 2025-03-31.basil; pricing.price_details is the new path
+            line = invoice_data["lines"]["data"][0]
+            plan_id = (
+                line.get("pricing", {}).get("price_details", {}).get("price")
+                or (line.get("plan") or {}).get("id")
+                or ""
+            )
+        except (IndexError, TypeError):
+            plan_id = ""
+        if plan_id == "donate":
             # donations are handled through muckrock - do not log an error
             return
         logger.error(
