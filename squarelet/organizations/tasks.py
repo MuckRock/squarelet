@@ -510,7 +510,7 @@ def handle_payment_method_attached(pm_data):
     customer_svc = get_payment_provider().get_customer_service()
     stripe_customer = customer_svc.retrieve(customer_id)
     invoice_settings = getattr(stripe_customer, "invoice_settings", None)
-    default_pm_id = invoice_settings and invoice_settings.get("default_payment_method")
+    default_pm_id = invoice_settings and getattr(invoice_settings, "default_payment_method", None)
     is_default = default_pm_id == stripe_id
     if is_default:
         customer.save_payment_cache(details, stripe_id, method_type=method_type)
