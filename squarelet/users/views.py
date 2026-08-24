@@ -32,7 +32,8 @@ import sys
 import time
 
 # Third Party
-from allauth.account.utils import get_next_redirect_url, send_email_confirmation
+from allauth.account.models import EmailAddress
+from allauth.account.utils import get_next_redirect_url
 from allauth.account.views import (
     EmailView as AllAuthEmailView,
     LoginView as AllAuthLoginView,
@@ -358,7 +359,16 @@ class UserOnboardingView(TemplateView):
         is_first_login = request.session.get("first_login", False)
         if step == "confirm_email" and not is_first_login:
             # If the user just signed up, they are already sent the confirmation.
-            send_email_confirmation(request, request.user, False, request.user.email)
+            email_address = EmailAddress.objects.filter(
+                user=request.user, email=request.user.email.lower()
+            ).first()
+            if email_address:
+                email_address.send_confirmation(request=request, signup=False)
+            else:
+                logger.error(
+                    "No EmailAddress found for user %s during onboarding confirm_email step",
+                    request.user.pk,
+                )
 
         if not step:
             # Onboarding is complete, clear the session store
