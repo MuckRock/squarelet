@@ -35,6 +35,7 @@ def create_mock_stripe_invoice(invoice_id, amount_due, status, created, due_date
     # Also support property access (e.g., mock_invoice.id)
     mock_invoice.id = invoice_id
     mock_invoice.hosted_invoice_url = None
+    mock_invoice.to_dict = MagicMock(return_value=invoice_data)
     return mock_invoice
 
 
