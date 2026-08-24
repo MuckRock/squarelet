@@ -75,6 +75,31 @@ class TestOrganizationAPI:
         mocked_charge_create.assert_called_once()
         assert Charge.objects.filter(charge_id="charge_id").exists()
 
+    def test_create_charge_no_payment_method_returns_400(self, user_factory, mocker):
+        mocker.patch(
+            "squarelet.organizations.models.Customer.stripe_customer",
+            default_source=None,
+            invoice_settings=Mock(default_payment_method=None),
+        )
+        mocker.patch(
+            "squarelet.organizations.models.payment.Customer.payment_method",
+            new_callable=mocker.PropertyMock,
+            return_value=None,
+        )
+        user = user_factory(is_staff=True)
+        data = {
+            "organization": str(user.individual_organization.uuid),
+            "amount": 2700,
+            "fee_amount": 5,
+            "description": "No payment method test",
+            "save_card": False,
+        }
+        client = APIClient()
+        client.force_authenticate(user=user)
+        response = client.post("/api/charges/", data)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "No payment method on file" in response.json()["detail"]
+
     def test_retrieve_consent(self, user_factory, client, mocker):
         user = user_factory()
         organization = OrganizationFactory(admins=[user])
