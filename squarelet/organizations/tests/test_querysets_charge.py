@@ -297,7 +297,7 @@ class TestChargeQuerySet:
 
     @pytest.mark.django_db()
     def test_make_charge_customer_without_card(self, mocker):
-        """Test error when customer has no saved card"""
+        """make_charge raises ValueError before hitting Stripe when no payment method"""
         org = OrganizationFactory(customer__customer_id="cus_no_card")
         mocker.patch("squarelet.organizations.models.Customer.stripe_customer")
         mocker.patch(
@@ -305,18 +305,11 @@ class TestChargeQuerySet:
             new_callable=mocker.PropertyMock,
             return_value=None,
         )
-
-        invalid_error = stripe.InvalidRequestError(
-            message="Cannot charge a customer that has no active card",
-            param="source",
-        )
-        mocker.patch(
+        mock_charge_create = mocker.patch(
             "squarelet.organizations.querysets.get_payment_provider"
-        ).return_value.get_charge_service.return_value.create.side_effect = (
-            invalid_error
-        )
+        ).return_value.get_charge_service.return_value.create
 
-        with pytest.raises(stripe.InvalidRequestError):
+        with pytest.raises(ValueError, match="No payment method on file"):
             Charge.objects.make_charge(
                 organization=org,
                 token=None,
@@ -325,6 +318,8 @@ class TestChargeQuerySet:
                 description="No card test",
                 metadata={},
             )
+
+        mock_charge_create.assert_not_called()
 
     @pytest.mark.django_db()
     def test_make_charge_large_amount(self, mocker):
