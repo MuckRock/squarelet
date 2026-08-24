@@ -682,7 +682,7 @@ class TestUserOnboardingView(ViewTestMixin):
             user, "get_potential_organizations", return_value=mock_potential_queryset
         )
 
-        # Mock unverified emails
+        # Mock unverified emails (also intercepts EmailAddress.objects.filter in views)
         mock_email_queryset = mocker.MagicMock()
         mock_email_queryset.exists.return_value = defaults["has_unverified_emails"]
         mocker.patch(
@@ -693,6 +693,8 @@ class TestUserOnboardingView(ViewTestMixin):
         # Set user attributes
         if not hasattr(user, "last_mfa_prompt"):
             user.last_mfa_prompt = None
+
+        return mock_email_queryset
 
     def _mock_messages(self, mocker):
         """Mock Django messages framework to avoid middleware issues"""
@@ -764,11 +766,9 @@ class TestUserOnboardingView(ViewTestMixin):
         view = self.view()
         return view.get_onboarding_step(request)
 
-    def _call_view_get(self, request, mocker, mock_email_send=True):
+    def _call_view_get(self, request, mocker):
         """Call view GET with common mocking"""
         self._mock_messages(mocker)
-        if mock_email_send:
-            mocker.patch("squarelet.users.views.send_email_confirmation")
         view_instance = self.view.as_view()
         return view_instance(request)
 
@@ -1414,13 +1414,14 @@ class TestUserOnboardingView(ViewTestMixin):
             {"first_login": False, "onboarding": {"email_check_completed": False}},
         )
 
-        self._mock_user_state(mocker, user, has_verified_email=False)
-        mock_send = mocker.patch("squarelet.users.views.send_email_confirmation")
+        mock_email_qs = self._mock_user_state(mocker, user, has_verified_email=False)
 
-        response = self._call_view_get(request, mocker, mock_email_send=False)
+        response = self._call_view_get(request, mocker)
 
         assert response.status_code == 200
-        mock_send.assert_called_once_with(request, user, False, user.email)
+        mock_email_qs.first.return_value.send_confirmation.assert_called_once_with(
+            request=request, signup=False
+        )
 
     def test_get_confirm_email_skips_email_on_first_login(
         self, rf, user_factory, mocker, mock_django_session
@@ -1434,13 +1435,12 @@ class TestUserOnboardingView(ViewTestMixin):
             {"first_login": True, "onboarding": {"email_check_completed": False}},
         )
 
-        self._mock_user_state(mocker, user, has_verified_email=False)
-        mock_send = mocker.patch("squarelet.users.views.send_email_confirmation")
+        mock_email_qs = self._mock_user_state(mocker, user, has_verified_email=False)
 
-        response = self._call_view_get(request, mocker, mock_email_send=False)
+        response = self._call_view_get(request, mocker)
 
         assert response.status_code == 200
-        mock_send.assert_not_called()
+        mock_email_qs.first.assert_not_called()
 
     def test_get_completed_onboarding_with_next_url(
         self, rf, user_factory, mocker, mock_django_session
@@ -2329,15 +2329,14 @@ class TestUserOnboardingView(ViewTestMixin):
             {"first_login": False, "onboarding": {"email_check_completed": False}},
         )
 
-        self._mock_user_state(mocker, user, has_verified_email=False)
-        mock_send_confirmation = mocker.patch(
-            "squarelet.users.views.send_email_confirmation"
-        )
+        mock_email_qs = self._mock_user_state(mocker, user, has_verified_email=False)
 
-        response = self._call_view_get(request, mocker, mock_email_send=False)
+        response = self._call_view_get(request, mocker)
 
         # Should send email confirmation automatically
-        mock_send_confirmation.assert_called_once_with(request, user, False, user.email)
+        mock_email_qs.first.return_value.send_confirmation.assert_called_once_with(
+            request=request, signup=False
+        )
         assert response.status_code == 200  # Render confirm_email template
 
     def test_email_confirmation_not_sent_on_first_login(
@@ -2354,15 +2353,12 @@ class TestUserOnboardingView(ViewTestMixin):
             {"first_login": True, "onboarding": {"email_check_completed": False}},
         )
 
-        self._mock_user_state(mocker, user, has_verified_email=False)
-        mock_send_confirmation = mocker.patch(
-            "squarelet.users.views.send_email_confirmation"
-        )
+        mock_email_qs = self._mock_user_state(mocker, user, has_verified_email=False)
 
-        response = self._call_view_get(request, mocker, mock_email_send=False)
+        response = self._call_view_get(request, mocker)
 
         # Should NOT send email confirmation (already sent during signup)
-        mock_send_confirmation.assert_not_called()
+        mock_email_qs.first.assert_not_called()
         assert response.status_code == 200  # Still render confirm_email template
 
     def test_mfa_setup_form_validation_errors(

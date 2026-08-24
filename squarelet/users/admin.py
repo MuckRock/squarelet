@@ -21,7 +21,7 @@ from itertools import chain
 
 # Third Party
 from allauth.account.models import EmailAddress
-from allauth.account.utils import setup_user_email, sync_user_email_addresses
+from allauth.account.utils import setup_user_email
 from allauth.mfa.admin import AuthenticatorAdmin
 from allauth.mfa.models import Authenticator
 from reversion.admin import VersionAdmin
@@ -199,10 +199,20 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
             return self.fieldsets
 
     def save_model(self, request, obj, form, change):
-        """Sync all auth email addresses"""
+        """Sync allauth email addresses when an admin edits a user"""
         if change:
             super().save_model(request, obj, form, change)
-            sync_user_email_addresses(obj)
+            # Ensure an EmailAddress row exists for user.email (handles manually-created
+            # users whose email was never recorded in the allauth table).
+            # Note: the new row is created non-primary and unverified by design — if
+            # the admin changed user.email, the old primary EmailAddress remains until
+            # the user verifies and promotes the new address through the normal flow.
+            if obj.email:
+                EmailAddress.objects.get_or_create(
+                    user=obj,
+                    email=obj.email.lower(),
+                    defaults={"primary": False, "verified": False},
+                )
         else:
             Organization.objects.create_individual(obj)
             setup_user_email(request, obj, [])

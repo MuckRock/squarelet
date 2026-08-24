@@ -24,10 +24,12 @@ from squarelet.services.models import Service
 from squarelet.users.onboarding import OnboardingStepRegistry
 
 
-# pylint:disable=too-many-positional-arguments
+# pylint:disable=too-many-positional-arguments,abstract-method
 class AccountAdapter(DefaultAccountAdapter):
     """
-    Custom account adapter for allauth
+    Custom account adapter for allauth.
+    Phone-auth methods (get_phone, set_phone, etc.) are not implemented because
+    this project does not use phone-based authentication.
     """
 
     def can_delete_email(self, email_address):
