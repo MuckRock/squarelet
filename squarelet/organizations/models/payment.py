@@ -490,7 +490,7 @@ class Subscription(models.Model):
                 get_payment_provider().get_invoice_service().retrieve(invoice_id)
             )
             _, created = Invoice.create_or_update_from_stripe(
-                stripe_invoice, self.organization, self
+                stripe_invoice.to_dict(), self.organization, self
             )
             logger.info(
                 "[SUBSCRIPTION-START] Invoice %s synchronously: %s",

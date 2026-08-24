@@ -112,7 +112,7 @@ class Invoice(models.Model):
         created_at = datetime.fromtimestamp(
             stripe_invoice["created"], tz=get_current_timezone()
         )
-        hosted_url = stripe_invoice.hosted_invoice_url or ""
+        hosted_url = stripe_invoice.get("hosted_invoice_url", "") or ""
         return cls.objects.update_or_create(
             invoice_id=stripe_invoice["id"],
             defaults={
