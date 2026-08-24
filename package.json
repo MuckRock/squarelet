@@ -25,6 +25,7 @@
     "@vitest/ui": "^3.0.0",
     "jsdom": "^27.2.0",
     "prettier": "^3.3.0",
+    "prettier-plugin-svelte": "^4.1.1",
     "svelecte": "^5.2.1",
     "svelte": "^5.37.1",
     "typescript": "^3.3.3333",

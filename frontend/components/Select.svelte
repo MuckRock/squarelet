@@ -14,6 +14,15 @@
     selectionValue,
     ...props
   }: SelectProps = $props();
+
+  // Svelecte cancels mousedown on its whole control to keep focus, which also
+  // kills caret placement and text selection in the input. Stop the event first.
+  function allowTextSelection(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+    if (target?.matches?.("input.sv-input--text")) {
+      event.stopPropagation();
+    }
+  }
 </script>
 
 {#snippet _selection(selectedOptions: T[], bindItem: Function)}
@@ -25,27 +34,33 @@
   {/each}
 {/snippet}
 
-<Svelecte
-  {...props}
-  {selection}
-  {valueField}
-  bind:value
-  --sv-min-height="2rem"
-  --sv-disabled-bg="var(--gray-1, #f5f6f7)"
-  --sv-border="1px solid var(--gray-3, #99a8b3)"
-  --sv-border-radius="0.5rem"
-  --sv-placeholder-color="var(--gray-3, #99a8b3)"
-  --sv-icon-color="var(--gray-3, #99a8b3)"
-  --sv-icon-color-hover="var(--gray-4, #5c717c)"
-  --sv-separator-bg="var(--gray-2, #d8dee2)"
-  --sv-dropdown-border="1px solid var(--gray-2, #d8dee2)"
-  --sv-dropdown-shadow="var(--shadow-2, 0 6px 8px 0px rgba(30 48 56 / 0.1))"
-  --sv-dropdown-active-bg="var(--blue-1, #eef3f9)"
-  --sv-dropdown-selected-bg="var(--blue-1, #eef3f9)"
-  --sv-loader-border="2px solid var(--blue-3, #4294f0)"
-/>
+<div class="select-wrapper" onmousedowncapture={allowTextSelection}>
+  <Svelecte
+    {...props}
+    {selection}
+    {valueField}
+    bind:value
+    --sv-min-height="2rem"
+    --sv-disabled-bg="var(--gray-1, #f5f6f7)"
+    --sv-border="1px solid var(--gray-3, #99a8b3)"
+    --sv-border-radius="0.5rem"
+    --sv-placeholder-color="var(--gray-3, #99a8b3)"
+    --sv-icon-color="var(--gray-3, #99a8b3)"
+    --sv-icon-color-hover="var(--gray-4, #5c717c)"
+    --sv-separator-bg="var(--gray-2, #d8dee2)"
+    --sv-dropdown-border="1px solid var(--gray-2, #d8dee2)"
+    --sv-dropdown-shadow="var(--shadow-2, 0 6px 8px 0px rgba(30 48 56 / 0.1))"
+    --sv-dropdown-active-bg="var(--blue-1, #eef3f9)"
+    --sv-dropdown-selected-bg="var(--blue-1, #eef3f9)"
+    --sv-loader-border="2px solid var(--blue-3, #4294f0)"
+  />
+</div>
 
 <style>
+  .select-wrapper {
+    display: contents;
+  }
+
   .chip {
     display: inline-flex;
     align-items: center;
