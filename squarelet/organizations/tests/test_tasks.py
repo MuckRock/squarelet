@@ -224,7 +224,13 @@ class TestHandleChargeSucceeded:
             "customer": "cus_Bp0Alb14pfVB9D",
             "description": "Payment for invoice E28A672-0040",
             "id": "ch_EwJiGXbaafREhT",
-            "invoice": "in_EwIgmFCn7cnZFB",
+            "parent": {
+                "type": "payment_intent_details",
+                "payment_intent_details": {
+                    "invoice": "in_EwIgmFCn7cnZFB",
+                    "payment_intent": "pi_test",
+                },
+            },
             "metadata": {},
             "object": "charge",
             "receipt_url": "https://stripe.com/receipt/test",
@@ -284,7 +290,13 @@ class TestHandleChargeSucceeded:
             "customer": "cus_Bp0Alb14pfVB9D",
             "description": "Payment for request #123",
             "id": "ch_EwJiGXbaafREhT",
-            "invoice": None,
+            "parent": {
+                "type": "payment_intent_details",
+                "payment_intent_details": {
+                    "invoice": None,
+                    "payment_intent": "pi_test",
+                },
+            },
             "metadata": {},
             "object": "charge",
             "receipt_url": "https://stripe.com/receipt/test",
@@ -318,7 +330,10 @@ class TestHandleChargeSucceeded:
             "customer": "cus_Bp0Alb14pfVB9D",
             "description": "Payment for request #123",
             "id": "ch_EwJiGXbaafREhT",
-            "invoice": None,
+            "parent": {
+                "type": "payment_intent_details",
+                "payment_intent_details": {"invoice": None, "payment_intent": "pi_test"},
+            },
             "metadata": {},
             "object": "charge",
         }
@@ -389,7 +404,10 @@ class TestDownloadReceiptPdf:
             "customer": None,
             "description": "Payment for request #123",
             "id": "ch_EwJiGXbaafREhT",
-            "invoice": None,
+            "parent": {
+                "type": "payment_intent_details",
+                "payment_intent_details": {"invoice": None, "payment_intent": "pi_test"},
+            },
             "metadata": {},
             "object": "charge",
         }
@@ -406,7 +424,10 @@ class TestDownloadReceiptPdf:
             "customer": "cus_Bp0Alb14pfVB9D",
             "description": "Payment for request #123",
             "id": "ch_EwJiGXbaafREhT",
-            "invoice": None,
+            "parent": {
+                "type": "payment_intent_details",
+                "payment_intent_details": {"invoice": None, "payment_intent": "pi_test"},
+            },
             "metadata": {"action": "crowdfund-payment"},
             "object": "charge",
         }
@@ -423,7 +444,13 @@ class TestDownloadReceiptPdf:
             "customer": "cus_Bp0Alb14pfVB9D",
             "description": "Payment for invoice E28A672-0040",
             "id": "ch_EwJiGXbaafREhT",
-            "invoice": "in_EwIgmFCn7cnZFB",
+            "parent": {
+                "type": "payment_intent_details",
+                "payment_intent_details": {
+                    "invoice": "in_EwIgmFCn7cnZFB",
+                    "payment_intent": "pi_test",
+                },
+            },
             "metadata": {},
             "object": "charge",
         }
@@ -468,7 +495,13 @@ class TestDownloadReceiptPdf:
             "customer": "cus_Bp0Alb14pfVB9D",
             "description": "Payment for invoice E28A672-0040",
             "id": "ch_EwJiGXbaafREhT",
-            "invoice": "in_EwIgmFCn7cnZFB",
+            "parent": {
+                "type": "payment_intent_details",
+                "payment_intent_details": {
+                    "invoice": "in_EwIgmFCn7cnZFB",
+                    "payment_intent": "pi_test",
+                },
+            },
             "metadata": {},
             "object": "charge",
         }
@@ -499,7 +532,13 @@ class TestDownloadReceiptPdf:
             "customer": "cus_Bp0Alb14pfVB9D",
             "description": "Payment for invoice E28A672-0040",
             "id": "ch_EwJiGXbaafREhT",
-            "invoice": "in_EwIgmFCn7cnZFB",
+            "parent": {
+                "type": "payment_intent_details",
+                "payment_intent_details": {
+                    "invoice": "in_EwIgmFCn7cnZFB",
+                    "payment_intent": "pi_test",
+                },
+            },
             "metadata": {},
             "object": "charge",
         }
@@ -533,7 +572,10 @@ class TestDownloadReceiptPdf:
             "customer": "cus_duplicate",
             "description": "Duplicate test",
             "id": "ch_duplicate_test",
-            "invoice": None,
+            "parent": {
+                "type": "payment_intent_details",
+                "payment_intent_details": {"invoice": None, "payment_intent": "pi_test"},
+            },
             "metadata": {},
             "object": "charge",
         }
@@ -689,7 +731,9 @@ def test_handle_invoice_failed_donation_no_organization():
         "id": "in_donation",
         "customer": "cus_nonexistent",
         "attempt_count": 1,
-        "lines": {"data": [{"plan": {"id": "donate"}}]},
+        "lines": {
+            "data": [{"pricing": {"price_details": {"price": "donate"}}}]
+        },
     }
 
     # Should not raise error, just return silently for donations
@@ -703,7 +747,9 @@ def test_handle_invoice_failed_organization_not_found(mocker):
         "id": "in_missing_org",
         "customer": "cus_nonexistent",
         "attempt_count": 2,
-        "lines": {"data": [{"plan": {"id": "professional"}}]},
+        "lines": {
+            "data": [{"pricing": {"price_details": {"price": "professional"}}}]
+        },
     }
 
     mock_logger = mocker.patch("squarelet.organizations.tasks.logger")
