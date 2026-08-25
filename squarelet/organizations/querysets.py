@@ -328,9 +328,7 @@ class ChargeQuerySet(models.QuerySet):
         else:
             source = customer.payment_method
             if source is None:
-                raise ValueError(
-                    "No payment method on file for this organization."
-                )
+                raise ValueError("No payment method on file for this organization.")
 
         default_metadata = {
             "organization": organization.name,
