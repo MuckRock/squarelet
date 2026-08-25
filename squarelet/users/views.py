@@ -366,7 +366,8 @@ class UserOnboardingView(TemplateView):
                 email_address.send_confirmation(request=request, signup=False)
             else:
                 logger.error(
-                    "No EmailAddress found for user %s during onboarding confirm_email step",
+                    "No EmailAddress found for user %s during onboarding "
+                    "confirm_email step",
                     request.user.pk,
                 )
 
