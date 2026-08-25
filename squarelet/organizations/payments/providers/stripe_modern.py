@@ -25,7 +25,9 @@ API version history tracked in this file:
   2025-09-30 - clover: flexible billing mode default, iterations removed from
                subscription schedules, Discount.coupon -> Discount.source
                (none used here)
-  2026-03-25 - dahlia: cancellation_reason enum expanded (not checked here)
+  2026-03-25 - dahlia: cancellation_reason enum expanded (not checked here);
+               charge.invoice removed from top level — now at
+               charge.parent.payment_intent_details.invoice
 
 Payment Intents migration (Phase 2):
   ChargeService.create() uses stripe.PaymentIntent.create(confirm=True) without

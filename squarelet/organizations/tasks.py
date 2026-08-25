@@ -112,10 +112,17 @@ def handle_charge_succeeded(self, charge_data):
         # from MuckRock - no need to log those here
         return
 
-    if charge_data["invoice"]:
+    # dhalia (2026-03-25): charge.invoice moved to charge.parent.payment_intent_details.invoice
+    parent = charge_data.get("parent") or {}
+    if parent.get("type") == "payment_intent_details":
+        invoice_id = (parent.get("payment_intent_details") or {}).get("invoice")
+    else:
+        invoice_id = charge_data.get("invoice")
+
+    if invoice_id:
         # fetch the invoice from stripe if one associated with the charge
         provider = get_payment_provider()
-        invoice = provider.get_invoice_service().retrieve(charge_data["invoice"])
+        invoice = provider.get_invoice_service().retrieve(invoice_id)
         try:
             invoice_line = invoice["lines"]["data"][0]
             # invoice_line["plan"] was removed in Stripe API 2025-03-31.basil;
@@ -140,14 +147,14 @@ def handle_charge_succeeded(self, charge_data):
 
     # do not send receipts for MuckRock donations and crowdfunds
     if (
-        charge_data["invoice"]
+        invoice_id
         and invoice_line
         and invoice_line["pricing"]["price_details"]["price"]
         .lower()
         .startswith(("donate", "crowdfund"))
     ):
         return
-    if not charge_data["invoice"] and charge_data["metadata"].get(
+    if not invoice_id and charge_data["metadata"].get(
         "action", ""
     ).lower() in ["donation", "crowdfund-payment"]:
         return
