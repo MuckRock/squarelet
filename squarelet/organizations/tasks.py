@@ -371,20 +371,26 @@ def handle_invoice_updated(invoice_data):
     )
 
 
-@shared_task(name="squarelet.organizations.tasks.handle_invoice_finalized")
-def handle_invoice_finalized(invoice_data):
+@shared_task(
+    name="squarelet.organizations.tasks.handle_invoice_finalized",
+    bind=True,
+    max_retries=5,
+)
+def handle_invoice_finalized(self, invoice_data):
     """Handle receiving an invoice.finalized event from the Stripe webhook"""
     invoice_id = invoice_data["id"]
     try:
         invoice = Invoice.objects.get(invoice_id=invoice_id)
-    except Invoice.DoesNotExist:
+    except Invoice.DoesNotExist as exc:
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=exc, countdown=10)
         stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
-        logger.error(
-            "[STRIPE-WEBHOOK-INVOICE] Invoice finalized event for non-existent "
-            "invoice: %s (%s)",
+        logger.info(
+            "[STRIPE-WEBHOOK-INVOICE] Received finalized event for invoice not tracked "
+            "in our system after %d retries: %s (%s)",
+            self.max_retries,
             invoice_id,
             stripe_link,
-            exc_info=sys.exc_info(),
         )
         return
 
@@ -658,20 +664,26 @@ def handle_subscription_deleted(subscription_data):
     _reconcile_cancelled_subscription(subscription, "subscription.deleted")
 
 
-@shared_task(name="squarelet.organizations.tasks.handle_invoice_paid")
-def handle_invoice_paid(invoice_data):
+@shared_task(
+    name="squarelet.organizations.tasks.handle_invoice_paid",
+    bind=True,
+    max_retries=5,
+)
+def handle_invoice_paid(self, invoice_data):
     """Handle receiving an invoice.paid event from the Stripe webhook"""
     invoice_id = invoice_data["id"]
     try:
         invoice = Invoice.objects.get(invoice_id=invoice_id)
-    except Invoice.DoesNotExist:
+    except Invoice.DoesNotExist as exc:
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=exc, countdown=10)
         stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
-        logger.error(
-            "[STRIPE-WEBHOOK-INVOICE] Invoice payment succeeded event for "
-            "non-existent invoice: %s (%s)",
+        logger.info(
+            "[STRIPE-WEBHOOK-INVOICE] Received payment succeeded event for invoice "
+            "not tracked in our system after %d retries: %s (%s)",
+            self.max_retries,
             invoice_id,
             stripe_link,
-            exc_info=sys.exc_info(),
         )
         return
 
@@ -701,20 +713,26 @@ def handle_invoice_paid(invoice_data):
     )
 
 
-@shared_task(name="squarelet.organizations.tasks.handle_invoice_marked_uncollectible")
-def handle_invoice_marked_uncollectible(invoice_data):
+@shared_task(
+    name="squarelet.organizations.tasks.handle_invoice_marked_uncollectible",
+    bind=True,
+    max_retries=5,
+)
+def handle_invoice_marked_uncollectible(self, invoice_data):
     """Handle receiving an invoice.marked_uncollectible event from the Stripe webhook"""
     invoice_id = invoice_data["id"]
     try:
         invoice = Invoice.objects.get(invoice_id=invoice_id)
-    except Invoice.DoesNotExist:
+    except Invoice.DoesNotExist as exc:
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=exc, countdown=10)
         stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
-        logger.error(
-            "[STRIPE-WEBHOOK-INVOICE] Invoice marked uncollectible event for "
-            "non-existent invoice: %s (%s)",
+        logger.info(
+            "[STRIPE-WEBHOOK-INVOICE] Received marked uncollectible event for invoice "
+            "not tracked in our system after %d retries: %s (%s)",
+            self.max_retries,
             invoice_id,
             stripe_link,
-            exc_info=sys.exc_info(),
         )
         return
 
@@ -728,20 +746,26 @@ def handle_invoice_marked_uncollectible(invoice_data):
     )
 
 
-@shared_task(name="squarelet.organizations.tasks.handle_invoice_voided")
-def handle_invoice_voided(invoice_data):
+@shared_task(
+    name="squarelet.organizations.tasks.handle_invoice_voided",
+    bind=True,
+    max_retries=5,
+)
+def handle_invoice_voided(self, invoice_data):
     """Handle receiving an invoice.voided event from the Stripe webhook"""
     invoice_id = invoice_data["id"]
     try:
         invoice = Invoice.objects.get(invoice_id=invoice_id)
-    except Invoice.DoesNotExist:
+    except Invoice.DoesNotExist as exc:
+        if self.request.retries < self.max_retries:
+            raise self.retry(exc=exc, countdown=10)
         stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
-        logger.error(
-            "[STRIPE-WEBHOOK-INVOICE] Invoice voided event for non-existent "
-            "invoice: %s (%s)",
+        logger.info(
+            "[STRIPE-WEBHOOK-INVOICE] Received voided event for invoice not tracked "
+            "in our system after %d retries: %s (%s)",
+            self.max_retries,
             invoice_id,
             stripe_link,
-            exc_info=sys.exc_info(),
         )
         return
 
