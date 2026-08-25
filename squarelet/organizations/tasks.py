@@ -206,7 +206,8 @@ def handle_invoice_failed(invoice_data):
         )
     except Organization.DoesNotExist:
         try:
-            # plan was removed in 2025-03-31.basil; pricing.price_details is the new path
+            # plan was removed in 2025-03-31.basil;
+            # pricing.price_details is the new path
             line = invoice_data["lines"]["data"][0]
             plan_id = (
                 line.get("pricing", {}).get("price_details", {}).get("price")
