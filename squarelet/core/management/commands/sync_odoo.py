@@ -605,7 +605,7 @@ def _load_collaborative_data():
     collab_orgs = Organization.objects.filter(
         collective_enabled=True,
         individual=False,
-    ).prefetch_related("plans", "members")
+    ).prefetch_related("subscriptions__plans", "members")
     for collab_org in collab_orgs:
         tag_id = settings.COLLABORATIVE_TAGS.get(collab_org.slug)
         if tag_id is None:
@@ -621,9 +621,9 @@ def _load_collaborative_data():
             pid
             for pid in (
                 _resolve_plan_id(name)
-                for name in collab_org.get_plans().filter(wix=True).values_list(
-                    "name", flat=True
-                )
+                for name in collab_org.get_plans()
+                .filter(wix=True)
+                .values_list("name", flat=True)
             )
             if pid is not None
         ]
@@ -638,7 +638,7 @@ def _build_org_queryset(collaborative_data):
     """Return the queryset of all orgs to sync."""
     sunlight_slugs = set(
         Organization.objects.filter(
-            plans__wix=True,
+            subscriptions__plans__wix=True,
             individual=False,
         )
         .values_list("slug", flat=True)

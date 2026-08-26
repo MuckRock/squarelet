@@ -213,7 +213,9 @@ def unsync_wix(organization, plan, user):
 def get_wix_labels_for_user(user):
     """Get all Wix labels a user qualifies for across all their memberships."""
     labels = set()
-    for membership in user.memberships.prefetch_related("organization__plans").all():
+    for membership in user.memberships.prefetch_related(
+        "organization__subscriptions__plans"
+    ).all():
         org = membership.organization
         for plan in org.get_plans():
             if plan and plan.wix:

@@ -255,7 +255,7 @@ class PlanDetailView(DetailView):
                 pass
             except Exception as exc:  # pylint: disable=broad-except
                 logger.error(
-                    "SubscriptionItem creation failed: %s", exc, exc_info=sys.exc_info()
+                    "Subscription creation failed: %s", exc, exc_info=sys.exc_info()
                 )
 
         if self._is_ajax():
@@ -643,7 +643,7 @@ class BaseRemoveCard(SubscriptionObjectMixin, View):
 
         # A non-cancelled subscription still bills the card on file, so removing
         # it would set up a failed renewal. Require cancellation first.
-        if organization.subscription_items.filter(cancelled=False).exists():
+        if organization.subscriptions.filter(cancelled=False).exists():
             return self._error(
                 _(
                     "You must cancel your active subscriptions before "
@@ -710,7 +710,7 @@ class BaseCancelSubscription(SubscriptionObjectMixin, UpdateView):
             self.log_staff_action(
                 "cancelled a subscription", description=subscription.plan.name
             )
-        messages.success(self.request, _("SubscriptionItem cancelled."))
+        messages.success(self.request, _("Subscription cancelled."))
         return redirect(self.reverse_subject("subscriptions"))
 
 

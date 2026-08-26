@@ -27,7 +27,7 @@ from squarelet.organizations.tests.factories import (
     MembershipFactory,
     OrganizationFactory,
     PlanFactory,
-    SubscriptionFactory,
+    SubscriptionItemFactory,
 )
 from squarelet.users.tests.factories import UserFactory
 
@@ -303,7 +303,7 @@ def test_membership_create_with_wix_plan_triggers_sync(mocker):
     user = UserFactory()
     wix_plan = PlanFactory(wix=True)
     org = OrganizationFactory()
-    SubscriptionFactory(organization=org, plan=wix_plan)
+    SubscriptionItemFactory(subscription__organization=org, plan=wix_plan)
 
     # Create membership
     membership = Membership.objects.create(user=user, organization=org)
@@ -324,7 +324,7 @@ def test_membership_create_without_wix_plan_no_sync(mocker):
     user = UserFactory()
     non_wix_plan = PlanFactory(wix=False)
     org = OrganizationFactory()
-    SubscriptionFactory(organization=org, plan=non_wix_plan)
+    SubscriptionItemFactory(subscription__organization=org, plan=non_wix_plan)
 
     # Create membership
     membership = Membership.objects.create(user=user, organization=org)
@@ -364,7 +364,7 @@ class TestSubscriptionItemQuerySet(TestCase):
         """Test count returns zero when no Sunlight subscriptions exist"""
         # Create some non-Sunlight subscriptions
         regular_plan = PlanFactory(slug="professional", wix=False)
-        SubscriptionFactory(plan=regular_plan, cancelled=False)
+        SubscriptionItemFactory(plan=regular_plan, subscription__cancelled=False)
 
         count = SubscriptionItem.objects.sunlight_active_count()
         assert count == 0
@@ -377,9 +377,9 @@ class TestSubscriptionItemQuerySet(TestCase):
         sunlight_plan2 = PlanFactory(slug="sunlight-enhanced-annual", wix=True)
 
         # Create active subscriptions
-        SubscriptionFactory(plan=sunlight_plan1, cancelled=False)
-        SubscriptionFactory(plan=sunlight_plan1, cancelled=False)
-        SubscriptionFactory(plan=sunlight_plan2, cancelled=False)
+        SubscriptionItemFactory(plan=sunlight_plan1, subscription__cancelled=False)
+        SubscriptionItemFactory(plan=sunlight_plan1, subscription__cancelled=False)
+        SubscriptionItemFactory(plan=sunlight_plan2, subscription__cancelled=False)
 
         count = SubscriptionItem.objects.sunlight_active_count()
         assert count == 3
@@ -390,10 +390,10 @@ class TestSubscriptionItemQuerySet(TestCase):
         sunlight_plan = PlanFactory(slug="sunlight-essential-monthly", wix=True)
 
         # Create active and pending-cancellation subscriptions
-        SubscriptionFactory(plan=sunlight_plan, cancelled=False)
-        SubscriptionFactory(plan=sunlight_plan, cancelled=False)
-        SubscriptionFactory(plan=sunlight_plan, cancelled=True)
-        SubscriptionFactory(plan=sunlight_plan, cancelled=True)
+        SubscriptionItemFactory(plan=sunlight_plan, subscription__cancelled=False)
+        SubscriptionItemFactory(plan=sunlight_plan, subscription__cancelled=False)
+        SubscriptionItemFactory(plan=sunlight_plan, subscription__cancelled=True)
+        SubscriptionItemFactory(plan=sunlight_plan, subscription__cancelled=True)
 
         count = SubscriptionItem.objects.sunlight_active_count()
         assert count == 4
@@ -404,8 +404,8 @@ class TestSubscriptionItemQuerySet(TestCase):
         sunlight_wix = PlanFactory(slug="sunlight-essential-monthly", wix=True)
         sunlight_no_wix = PlanFactory(slug="sunlight-enhanced-annual", wix=False)
 
-        SubscriptionFactory(plan=sunlight_wix, cancelled=False)
-        SubscriptionFactory(plan=sunlight_no_wix, cancelled=False)
+        SubscriptionItemFactory(plan=sunlight_wix, subscription__cancelled=False)
+        SubscriptionItemFactory(plan=sunlight_no_wix, subscription__cancelled=False)
 
         count = SubscriptionItem.objects.sunlight_active_count()
         assert count == 1
@@ -417,10 +417,10 @@ class TestSubscriptionItemQuerySet(TestCase):
         regular_plan = PlanFactory(slug="professional", wix=False)
 
         # Create mix of subscriptions (cancelled Sunlight still counts)
-        SubscriptionFactory(plan=sunlight_plan, cancelled=False)
-        SubscriptionFactory(plan=sunlight_plan, cancelled=False)
-        SubscriptionFactory(plan=sunlight_plan, cancelled=True)
-        SubscriptionFactory(plan=regular_plan, cancelled=False)
+        SubscriptionItemFactory(plan=sunlight_plan, subscription__cancelled=False)
+        SubscriptionItemFactory(plan=sunlight_plan, subscription__cancelled=False)
+        SubscriptionItemFactory(plan=sunlight_plan, subscription__cancelled=True)
+        SubscriptionItemFactory(plan=regular_plan, subscription__cancelled=False)
 
         count = SubscriptionItem.objects.sunlight_active_count()
         assert count == 3
@@ -452,7 +452,7 @@ class TestPlanQuerySet(TestCase):
         public_plan = PlanFactory(public=True)
         org_plan = PlanFactory(public=False)
         # Create subscription to associate plan with org
-        SubscriptionFactory(organization=org, plan=org_plan)
+        SubscriptionItemFactory(subscription__organization=org, plan=org_plan)
         unrelated_private_plan = PlanFactory(public=False)
 
         viewable = Plan.objects.get_viewable(user)
@@ -636,7 +636,7 @@ class TestEntitlementQuerySet(TestCase):
         )
         entitlement.plans.add(plan)
         # Create subscription to associate plan with org
-        SubscriptionFactory(organization=org, plan=plan)
+        SubscriptionItemFactory(subscription__organization=org, plan=plan)
 
         unrelated_entitlement = Entitlement.objects.create(
             name="Unrelated Feature", slug="unrelated-feature-auth", client=client

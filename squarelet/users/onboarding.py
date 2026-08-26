@@ -312,7 +312,7 @@ class SubscriptionStep(OnboardingStep):
         if request.POST.get("submit-type") == "skip":
             request.session["onboarding"]["subscription"] = "completed"
             request.session.modified = True
-            messages.info(request, "SubscriptionItem skipped.")
+            messages.info(request, "Subscription skipped.")
             return True
 
         # Finally, initialize the form with the submitted data, validate it, and
@@ -338,7 +338,7 @@ class SubscriptionStep(OnboardingStep):
                 return False
             if saved:
                 # Create a subscription for the selected organization
-                messages.success(request, "SubscriptionItem created successfully.")
+                messages.success(request, "Subscription created successfully.")
                 request.session["onboarding"]["subscription"] = "completed"
                 request.session.modified = True
                 return True

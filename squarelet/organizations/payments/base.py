@@ -71,10 +71,10 @@ class CustomerService(ABC):
 
 
 class SubscriptionService(ABC):
-    """Manages Stripe SubscriptionItem objects."""
+    """Manages Stripe Subscription objects."""
 
     @abstractmethod
-    def create(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    def create(
         self,
         stripe_customer,
         items,

@@ -9,26 +9,28 @@ from unittest.mock import Mock
 import pytest
 import stripe
 
+# Squarelet
+from squarelet.organizations.models import SubscriptionItem
+
 # Local
 from .test_invoice import Invoice, create_mock_stripe_invoice
 
 
 class TestSubscription:
-    """Unit tests for the SubscriptionItem model"""
+    """Unit tests for the Subscription and SubscriptionItem models"""
 
-    def test_str(self, subscription_factory):
-        subscription = subscription_factory.build()
+    def test_str(self, subscription_item_factory):
+        subscription = subscription_item_factory.build()
         assert (
-            str(subscription)
-            == f"SubscriptionItem: {subscription.organization} to {subscription.plan.name}"
+            str(subscription) == f"SubscriptionItem: {subscription.organization} to "
+            f"{subscription.plan.name}"
         )
 
     def test_stripe_subscription(self, subscription_factory, mocker):
         mocked = mocker.patch("stripe.Subscription.retrieve")
         stripe_subscription = "stripe_subscription"
         mocked.return_value = stripe_subscription
-        subscription_id = "subscription_id"
-        subscription = subscription_factory.build(subscription_id=subscription_id)
+        subscription = subscription_factory.build(subscription_id="subscription_id")
         assert subscription.stripe_subscription == stripe_subscription
 
     def test_stripe_subscription_empty(self, subscription_factory):
@@ -36,9 +38,9 @@ class TestSubscription:
         assert subscription.stripe_subscription is None
 
     @pytest.mark.django_db()
-    def test_start(self, subscription_factory, professional_plan_factory, mocker):
+    def test_start(self, subscription_item_factory, professional_plan_factory, mocker):
         plan = professional_plan_factory()
-        subscription = subscription_factory(plan=plan)
+        subscription = subscription_item_factory(plan=plan).subscription
 
         # Mock stripe subscription creation
         stripe_subscription_id = "sub_test123"
@@ -62,10 +64,9 @@ class TestSubscription:
 
         mock_sub_service.create.assert_called_with(
             stripe_customer=mocked_customer.stripe_customer,
-            plan_id=subscription.plan.stripe_id,
-            quantity=subscription.quantity,
+            items=subscription.stripe_items(),
             billing="charge_automatically",
-            metadata={"action": f"SubscriptionItem ({plan.name})"},
+            metadata={"action": f"Subscription ({subscription.organization})"},
             days_until_due=None,
             anchor_day=None,
             cancel_at_period_end=False,
@@ -74,7 +75,7 @@ class TestSubscription:
 
     @pytest.mark.django_db()
     def test_start_no_auto_renew(
-        self, subscription_factory, professional_plan_factory, mocker
+        self, subscription_item_factory, professional_plan_factory, mocker
     ):
         """A plan with auto_renew disabled starts the Stripe subscription with
         cancel_at_period_end=True so it does not automatically renew."""
@@ -85,7 +86,7 @@ class TestSubscription:
         plan = professional_plan_factory()
         plan.auto_renew = False
         plan.save()
-        subscription = subscription_factory(plan=plan)
+        subscription = subscription_item_factory(plan=plan).subscription
 
         period_end_ts = 1_800_000_000
         mock_stripe_subscription = Mock(
@@ -109,12 +110,9 @@ class TestSubscription:
 
         mock_sub_svc.create.assert_called_with(
             stripe_customer=mocked_customer.stripe_customer,
-            plan_id=subscription.plan.stripe_id,
-            quantity=subscription.quantity,
+            items=subscription.stripe_items(),
             billing="charge_automatically",
-            metadata={
-                "action": f"SubscriptionItem ({plan.name})",
-            },
+            metadata={"action": f"Subscription ({subscription.organization})"},
             days_until_due=None,
             anchor_day=None,
             cancel_at_period_end=True,
@@ -124,29 +122,29 @@ class TestSubscription:
         ).date()
         assert subscription.cancel_at == expected_date
 
-    def test_start_existing(self, subscription_factory, mocker):
+    @pytest.mark.django_db()
+    def test_start_existing(self, subscription_item_factory, mocker):
         """If there is an existing subscription, do not start another one"""
-        subscription = subscription_factory.build()
+        subscription = subscription_item_factory().subscription
         mocked = mocker.patch("squarelet.organizations.models.Organization.customer")
-        mocker.patch(
-            "squarelet.organizations.models.SubscriptionItem.stripe_subscription"
-        )
+        mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
         subscription.start()
         mocked.subscription_items.create.assert_not_called()
 
-    def test_start_free(self, subscription_factory, mocker):
+    @pytest.mark.django_db()
+    def test_start_free(self, subscription_item_factory, mocker):
         """If there is an existing subscription, do not start another one"""
-        subscription = subscription_factory.build()
+        subscription = subscription_item_factory().subscription
         mocked = mocker.patch("squarelet.organizations.models.Organization.customer")
         subscription.start()
         mocked.subscription_items.create.assert_not_called()
 
-    def test_cancel(self, subscription_factory, mocker):
-        mocked_save = mocker.patch(
-            "squarelet.organizations.models.SubscriptionItem.save"
-        )
+    @pytest.mark.django_db()
+    def test_cancel(self, subscription_item_factory, mocker):
+        subscription = subscription_item_factory().subscription
+        mocked_save = mocker.patch("squarelet.organizations.models.Subscription.save")
         mocked_stripe_subscription = mocker.patch(
-            "squarelet.organizations.models.SubscriptionItem.stripe_subscription"
+            "squarelet.organizations.models.Subscription.stripe_subscription"
         )
         mocked_stripe_subscription.id = "sub_test123"
         period_end_ts = 1_800_000_000
@@ -157,7 +155,6 @@ class TestSubscription:
         mock_sub_svc = mock_provider.get_subscription_service.return_value
         mock_sub_svc.cancel_at_period_end.return_value = mock_updated
         mock_sub_svc.get_current_period_end.return_value = period_end_ts
-        subscription = subscription_factory.build()
         subscription.cancel()
         mock_sub_svc.cancel_at_period_end.assert_called_once_with(
             mocked_stripe_subscription,
@@ -170,119 +167,143 @@ class TestSubscription:
         assert subscription.cancel_at == expected_date
         mocked_save.assert_called()
 
-    def test_cancel_no_stripe_subscription(self, subscription_factory, mocker):
+    @pytest.mark.django_db()
+    def test_cancel_no_stripe_subscription(self, subscription_item_factory, mocker):
         """cancel_at stays None when there is no Stripe subscription (free plan)."""
-        mocked_save = mocker.patch(
-            "squarelet.organizations.models.SubscriptionItem.save"
-        )
+        subscription = subscription_item_factory().subscription
+        mocked_save = mocker.patch("squarelet.organizations.models.Subscription.save")
         mocker.patch(
-            "squarelet.organizations.models.SubscriptionItem.stripe_subscription",
+            "squarelet.organizations.models.Subscription.stripe_subscription",
             new=None,
         )
-        subscription = subscription_factory.build()
         subscription.cancel()
         assert subscription.cancelled
         assert subscription.cancel_at is None
         mocked_save.assert_called()
 
-    def test_modify_start(
-        self, subscription_factory, professional_plan_factory, mocker
+    @pytest.mark.django_db()
+    def test_modify_pushes_the_new_plan_to_stripe(
+        self, subscription_item_factory, professional_plan_factory, mocker
     ):
-        mocked_save = mocker.patch(
-            "squarelet.organizations.models.SubscriptionItem.save"
+        """Changing a line's plan saves it and re-syncs the whole subscription."""
+        item = subscription_item_factory()
+        plan = professional_plan_factory()
+        mocked_modify = mocker.patch(
+            "squarelet.organizations.models.Subscription.stripe_modify"
         )
-        mocked_start = mocker.patch(
-            "squarelet.organizations.models.SubscriptionItem.start"
-        )
-        plan = professional_plan_factory.build()
-        subscription = subscription_factory.build()
-        subscription.modify(plan)
-        mocked_save.assert_called()
-        mocked_start.assert_called()
+        item.modify(plan)
+        item.refresh_from_db()
+        assert item.plan == plan
+        mocked_modify.assert_called_once()
 
-    def test_modify_cancel(
-        self, subscription_factory, professional_plan_factory, plan_factory, mocker
+    @pytest.mark.django_db()
+    def test_cancel_last_item_cancels_the_subscription(
+        self, subscription_item_factory, mocker
     ):
-        mocked_save = mocker.patch(
-            "squarelet.organizations.models.SubscriptionItem.save"
+        """The only line left cancels the whole subscription at period end."""
+        item = subscription_item_factory()
+        mocked_cancel = mocker.patch(
+            "squarelet.organizations.models.Subscription.cancel"
         )
-        mocked_stripe_subscription = mocker.patch(
-            "squarelet.organizations.models.SubscriptionItem.stripe_subscription"
-        )
-        plan = professional_plan_factory.build()
-        free_plan = plan_factory.build()
-        subscription = subscription_factory.build(plan=plan, subscription_id="id")
-        subscription.modify(free_plan)
-        mocked_save.assert_called()
-        mocked_stripe_subscription.delete.assert_called()
-        assert subscription.subscription_id is None
+        item.cancel()
+        mocked_cancel.assert_called_once()
+        assert SubscriptionItem.objects.filter(pk=item.pk).exists()
 
-    def test_modify_modify(
-        self, subscription_factory, professional_plan_factory, mocker
+    @pytest.mark.django_db()
+    def test_cancel_one_of_several_items_drops_only_that_line(
+        self, subscription_item_factory, plan_factory, mocker
     ):
-        mocked_save = mocker.patch(
-            "squarelet.organizations.models.SubscriptionItem.save"
+        """Other lines keep billing; the removed line leaves no proration."""
+        item = subscription_item_factory(
+            subscription__subscription_id="sub_multi", stripe_item_id="si_one"
         )
+        subscription_item_factory(
+            subscription=item.subscription, plan=plan_factory(name="Second Plan")
+        )
+        mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
+        mock_sub_svc = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_subscription_service.return_value
+
+        item.cancel()
+
+        mock_sub_svc.modify.assert_called_once_with(
+            "sub_multi",
+            items=[{"id": "si_one", "deleted": True}],
+            proration_behavior="none",
+        )
+        assert not SubscriptionItem.objects.filter(pk=item.pk).exists()
+
+    @pytest.mark.django_db()
+    def test_stripe_modify_sends_every_line(
+        self, subscription_item_factory, professional_plan_factory, mocker
+    ):
+        """stripe_modify pushes all of the subscription's lines, with their ids."""
+        item = subscription_item_factory(
+            plan=professional_plan_factory(),
+            subscription__subscription_id="sub_mod",
+            stripe_item_id="si_mod",
+        )
+        subscription = item.subscription
         mock_sub_svc = mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
         ).return_value.get_subscription_service.return_value
         mock_sub_svc.modify.return_value = Mock(status="active")
         mock_sub_svc.get_current_period_end.return_value = None
-        mocker.patch(
-            "squarelet.organizations.models.SubscriptionItem.stripe_subscription"
-        )
-        plan = professional_plan_factory.build()
-        subscription = subscription_factory.build(plan=plan)
-        subscription.modify(plan)
-        mocked_save.assert_called()
+        mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
+
+        subscription.stripe_modify()
+
         assert subscription.cancel_at is None
         mock_sub_svc.modify.assert_called_with(
-            subscription.subscription_id,
+            "sub_mod",
             cancel_at_period_end=False,
             items=[
                 {
-                    "id": subscription.stripe_subscription["items"]["data"][0].id,
-                    "plan": subscription.plan.stripe_id,
-                    "quantity": subscription.quantity,
+                    "id": "si_mod",
+                    "plan": item.plan.stripe_id,
+                    "quantity": item.quantity,
                 }
             ],
             billing="charge_automatically",
-            metadata={"action": f"SubscriptionItem ({plan.name})"},
+            metadata={"action": f"Subscription ({subscription.organization})"},
             days_until_due=None,
         )
 
-    def test_modify_modify_no_auto_renew(
-        self, subscription_factory, professional_plan_factory, mocker
+    @pytest.mark.django_db()
+    def test_stripe_modify_no_auto_renew(
+        self, subscription_item_factory, professional_plan_factory, mocker
     ):
-        """Modifying to a plan with auto_renew disabled flags the Stripe
-        subscription to cancel at period end and sets cancel_at."""
-        mocker.patch("squarelet.organizations.models.SubscriptionItem.save")
+        """A plan with auto_renew off flags the Stripe subscription to end."""
+        plan = professional_plan_factory()
+        plan.auto_renew = False
+        plan.save()
+        item = subscription_item_factory(
+            plan=plan, subscription__subscription_id="sub_norenew"
+        )
         period_end_ts = 1_800_000_000
-        mock_updated = Mock(status="active")
         mock_sub_svc = mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
         ).return_value.get_subscription_service.return_value
-        mock_sub_svc.modify.return_value = mock_updated
+        mock_sub_svc.modify.return_value = Mock(status="active")
         mock_sub_svc.get_current_period_end.return_value = period_end_ts
-        mocker.patch(
-            "squarelet.organizations.models.SubscriptionItem.stripe_subscription"
-        )
-        plan = professional_plan_factory.build(auto_renew=False)
-        subscription = subscription_factory.build(plan=plan)
-        subscription.modify(plan)
+        mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
+
+        item.subscription.stripe_modify()
+
         assert mock_sub_svc.modify.call_args.kwargs["cancel_at_period_end"] is True
         expected_date = datetime.fromtimestamp(
             period_end_ts, tz=get_current_timezone()
         ).date()
-        assert subscription.cancel_at == expected_date
+        assert item.subscription.cancel_at == expected_date
 
     @pytest.mark.django_db()
     def test_start_creates_invoice_with_card(
-        self, subscription_factory, professional_plan_factory, mocker
+        self, subscription_item_factory, professional_plan_factory, mocker
     ):
         """Test that subscription.start() creates an Invoice record for card payment"""
         plan = professional_plan_factory()
-        subscription = subscription_factory(plan=plan)
+        subscription = subscription_item_factory(plan=plan).subscription
 
         # Mock Stripe subscription creation
         stripe_subscription_id = "sub_test123"
@@ -329,7 +350,7 @@ class TestSubscription:
 
     @pytest.mark.django_db()
     def test_start_creates_invoice_with_invoice_payment(
-        self, subscription_factory, plan_factory, mocker
+        self, subscription_item_factory, plan_factory, mocker
     ):
         """Test that subscription.start() creates Invoice for invoice payment method"""
         # Mock Stripe Plan creation
@@ -342,7 +363,9 @@ class TestSubscription:
             base_price=240,
             minimum_users=1,
         )
-        subscription = subscription_factory(plan=plan)
+        subscription = subscription_item_factory(
+            plan=plan, subscription__interval="annual"
+        ).subscription
 
         # Mock Stripe subscription creation
         stripe_subscription_id = "sub_annual123"
@@ -380,10 +403,9 @@ class TestSubscription:
         # Verify subscription was created with send_invoice billing
         mock_provider.get_subscription_service.return_value.create.assert_called_with(
             stripe_customer=mocked_customer.stripe_customer,
-            plan_id=subscription.plan.stripe_id,
-            quantity=subscription.quantity,
+            items=subscription.stripe_items(),
             billing="send_invoice",
-            metadata={"action": f"SubscriptionItem ({plan.name})"},
+            metadata={"action": f"Subscription ({subscription.organization})"},
             days_until_due=30,
             anchor_day=None,
             cancel_at_period_end=False,
@@ -398,12 +420,12 @@ class TestSubscription:
 
     @pytest.mark.django_db()
     def test_start_free_plan_no_invoice(
-        self, subscription_factory, plan_factory, mocker
+        self, subscription_item_factory, plan_factory, mocker
     ):
         """Test that free plans don't create invoices"""
         mocker.patch("stripe.Plan.create")
         plan = plan_factory()  # Free plan (no base_price = free)
-        subscription = subscription_factory(plan=plan)
+        subscription = subscription_item_factory(plan=plan).subscription
 
         mocked_customer = mocker.patch(
             "squarelet.organizations.models.Organization.customer"
@@ -420,11 +442,11 @@ class TestSubscription:
 
     @pytest.mark.django_db()
     def test_start_handles_stripe_invoice_retrieval_error(
-        self, subscription_factory, professional_plan_factory, mocker
+        self, subscription_item_factory, professional_plan_factory, mocker
     ):
         """Test that subscription still succeeds if invoice retrieval fails"""
         plan = professional_plan_factory()
-        subscription = subscription_factory(plan=plan)
+        subscription = subscription_item_factory(plan=plan).subscription
 
         # Mock Stripe subscription creation
         stripe_subscription_id = "sub_test123"
@@ -458,12 +480,12 @@ class TestSubscription:
 
     @pytest.mark.django_db()
     def test_start_caches_stripe_status(
-        self, subscription_factory, professional_plan_factory, mocker
+        self, subscription_item_factory, professional_plan_factory, mocker
     ):
         """start() caches stripe_status and current_period_end from Stripe response"""
 
         plan = professional_plan_factory()
-        subscription = subscription_factory(plan=plan)
+        subscription = subscription_item_factory(plan=plan).subscription
 
         period_end_ts = 1800000000
         mock_stripe_sub = Mock(

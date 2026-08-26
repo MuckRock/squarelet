@@ -16,7 +16,7 @@ from squarelet.organizations.tests.factories import (
     EntitlementGrantFactory,
     OrganizationFactory,
     PlanFactory,
-    SubscriptionFactory,
+    SubscriptionItemFactory,
 )
 
 
@@ -85,7 +85,7 @@ class TestSerializerEntitlements:
         entitlement.plans.set([plan])
         org_update_on = date.today() + timedelta(days=7)
         org = OrganizationFactory(update_on=org_update_on)
-        SubscriptionFactory(organization=org, plan=plan)
+        SubscriptionItemFactory(subscription__organization=org, plan=plan)
 
         serializer = OrganizationDetailSerializer(org, context={"client": client})
         rows = [
