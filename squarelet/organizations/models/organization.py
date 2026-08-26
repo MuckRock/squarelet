@@ -716,7 +716,9 @@ class Organization(AvatarMixin, models.Model):
         """The subscription was cancelled due to payment failure
 
         Args:
-            subscription: The specific SubscriptionItem instance to cancel.
+            subscription: The Subscription to cancel.  Every line it carries
+                goes with it, because they all bill on the one invoice that
+                failed.
         """
         if subscription is None:
             logger.error(
@@ -726,18 +728,20 @@ class Organization(AvatarMixin, models.Model):
             )
             return
 
-        # Create change log entry
-        self.change_logs.create(
-            reason=ChangeLogReason.failed,
-            from_plan=subscription.plan,
-            from_max_users=self.max_users,
-            to_max_users=self.max_users,
-        )
+        # One log entry per line, since each names its own plan
+        cancelled_plans = [
+            item.plan for item in subscription.items.select_related("plan") if item.plan
+        ]
+        for plan in cancelled_plans:
+            self.change_logs.create(
+                reason=ChangeLogReason.failed,
+                from_plan=plan,
+                from_max_users=self.max_users,
+                to_max_users=self.max_users,
+            )
 
-        # Capture plan before subscription delete clears it
-        cancelled_plan = (
-            subscription.plan if subscription.plan and subscription.plan.wix else None
-        )
+        # Capture the plans before the delete cascades the lines away
+        wix_plans = [plan for plan in cancelled_plans if plan.wix]
 
         # Cancel subscription in Stripe if it exists
         if subscription.subscription_id:
@@ -769,8 +773,8 @@ class Organization(AvatarMixin, models.Model):
         subscription.delete()
 
         # Remove Wix labels now that subscription is gone
-        if cancelled_plan:
-            self._dispatch_wix_unsync(cancelled_plan)
+        for plan in wix_plans:
+            self._dispatch_wix_unsync(plan)
 
     def has_active_subscription(self, plan=None):
         """Check if the organization has an active subscription"""

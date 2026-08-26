@@ -376,14 +376,14 @@ class TestPlanFilter:
         request_factory,
         organization_factory,
         plan_factory,
-        subscription_factory,
+        subscription_item_factory,
     ):
         pro_plan = plan_factory(name="Pro")
         free_plan = plan_factory(name="Free")
         pro_org = organization_factory()
         free_org = organization_factory()
-        subscription_factory(organization=pro_org, plan=pro_plan)
-        subscription_factory(organization=free_org, plan=free_plan)
+        subscription_item_factory(subscription__organization=pro_org, plan=pro_plan)
+        subscription_item_factory(subscription__organization=free_org, plan=free_plan)
 
         request = request_factory.get("/")
         result = self._filter({"plan": [str(pro_plan.pk)]}).queryset(
@@ -398,12 +398,14 @@ class TestPlanFilter:
         request_factory,
         organization_factory,
         plan_factory,
-        subscription_factory,
+        subscription_item_factory,
     ):
         """Cancelled subs still count as subscribed per design decision."""
         pro_plan = plan_factory(name="Pro")
         org = organization_factory()
-        subscription_factory(organization=org, plan=pro_plan, cancelled=True)
+        subscription_item_factory(
+            subscription__organization=org, plan=pro_plan, subscription__cancelled=True
+        )
 
         request = request_factory.get("/")
         result = self._filter({"plan": [str(pro_plan.pk)]}).queryset(
@@ -417,12 +419,12 @@ class TestPlanFilter:
         request_factory,
         organization_factory,
         plan_factory,
-        subscription_factory,
+        subscription_item_factory,
     ):
         plan = plan_factory(name="Pro")
         subscribed = organization_factory()
         unsubscribed = organization_factory()
-        subscription_factory(organization=subscribed, plan=plan)
+        subscription_item_factory(subscription__organization=subscribed, plan=plan)
 
         request = request_factory.get("/")
         result = self._filter({"plan": ["none"]}).queryset(
@@ -437,12 +439,12 @@ class TestPlanFilter:
         request_factory,
         organization_factory,
         plan_factory,
-        subscription_factory,
+        subscription_item_factory,
     ):
         plan = plan_factory(name="Pro")
         subscribed = organization_factory()
         unsubscribed = organization_factory()
-        subscription_factory(organization=subscribed, plan=plan)
+        subscription_item_factory(subscription__organization=subscribed, plan=plan)
 
         request = request_factory.get("/")
         result = self._filter({}).queryset(request, Organization.objects.all())
@@ -455,13 +457,13 @@ class TestPlanFilter:
         request_factory,
         organization_factory,
         plan_factory,
-        subscription_factory,
+        subscription_item_factory,
     ):
         plan = plan_factory(name="Pro")
         other_plan = plan_factory(name="Other")
         org = organization_factory()
-        subscription_factory(organization=org, plan=plan)
-        subscription_factory(organization=org, plan=other_plan)
+        subscription_item_factory(subscription__organization=org, plan=plan)
+        subscription_item_factory(subscription__organization=org, plan=other_plan)
 
         request = request_factory.get("/")
         result = self._filter({"plan": [str(plan.pk)]}).queryset(

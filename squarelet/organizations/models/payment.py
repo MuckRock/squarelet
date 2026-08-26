@@ -387,7 +387,7 @@ class Subscription(models.Model):
     @property
     def free(self):
         """A subscription costs nothing when every line does."""
-        return all(item.free for item in self.items.all())
+        return all(item.plan is None or item.plan.free for item in self.items.all())
 
     @property
     def auto_renew(self):
@@ -551,8 +551,10 @@ class Subscription(models.Model):
             self.cancel_at = self.current_period_end.date()
         self.save()
 
-        # Slack notification for cancellation
-        self.send_slack_notification("cancelled")
+        # The notification names a plan, so it belongs to the lines, not to
+        # the subscription that carries them.
+        for item in self.items.select_related("plan"):
+            item.send_slack_notification("cancelled")
 
     def uncancel(self):
         """Re-enable renewal for a subscription that was pending cancellation.
@@ -714,7 +716,6 @@ class SubscriptionItem(models.Model):
         ),
     )
 
-
     class Meta:
         # One line per plan per subscription.  "An organization may not hold
         # the same plan twice" is now wider than a single subscription can
@@ -726,6 +727,16 @@ class SubscriptionItem(models.Model):
         plan_name = self.plan.name if self.plan else "Free"
         return f"SubscriptionItem: {self.subscription.organization} to {plan_name}"
 
+    @property
+    def organization(self):
+        """The owning organization, reached through the parent subscription.
+
+        Read-only on purpose: the column lives on `Subscription` so a line can
+        never disagree with the subscription it bills on.  Select or prefetch
+        `subscription__organization` before touching this in a loop.
+        """
+        return self.subscription.organization
+
     def modify(self, plan):
         """Change which plan this line bills.
 
@@ -735,6 +746,56 @@ class SubscriptionItem(models.Model):
         self.plan = plan
         self.save()
         self.subscription.stripe_modify()
+
+    def cancel(self):
+        """Stop billing this line.
+
+        The last line on a subscription cancels the whole subscription at
+        period end, so the customer keeps what they already paid for.  Any
+        other line is dropped from the Stripe subscription right away with
+        proration suppressed - the next invoice simply omits it, and no
+        mid-period credit or charge is generated.
+        """
+        if self.subscription.items.count() <= 1:
+            self.subscription.cancel()
+            return
+
+        if self.subscription.stripe_subscription and self.stripe_item_id:
+            get_payment_provider().get_subscription_service().modify(
+                self.subscription.subscription_id,
+                items=[{"id": self.stripe_item_id, "deleted": True}],
+                proration_behavior="none",
+            )
+        self.send_slack_notification("cancelled")
+        self.delete()
+
+    def notify_started(self):
+        """Announce a newly added line.
+
+        The Mailchimp journey fires only for the line that first grants the
+        organization entitlement, so an org that already has it through
+        another line is not enrolled twice.
+        """
+        organization = self.subscription.organization
+        if self.plan_id and self.plan.entitlements.filter(slug="organization").exists():
+            already_has_org_entitlement = (
+                SubscriptionItem.objects.filter(
+                    subscription__organization=organization,
+                    plan__entitlements__slug="organization",
+                )
+                .exclude(pk=self.pk)
+                .exists()
+            )
+            if not already_has_org_entitlement:
+                journey_key = (
+                    "verified_premium_org"
+                    if organization.verified_journalist
+                    else "unverified_premium_org"
+                )
+                for user in organization.users.all():
+                    mailchimp_journey(user.email, journey_key)
+
+        self.send_slack_notification("started")
 
     def send_slack_notification(self, event, **kwargs):
         """Queue a Slack notification asynchronously for subscription events."""
@@ -763,14 +824,14 @@ class SubscriptionItem(models.Model):
 
         event_messages = {
             "started": {
-                "subject": "New SubscriptionItem",
+                "subject": "New Subscription",
                 "message": (
                     f"{org_link} has just subscribed to "
                     f"the *{self.plan.name}* plan."
                 ),
             },
             "cancelled": {
-                "subject": "SubscriptionItem Cancelled",
+                "subject": "Subscription Cancelled",
                 "message": (
                     f"{org_link} has cancelled their subscription "
                     f"to the *{self.plan.name}* plan."
