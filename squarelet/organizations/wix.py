@@ -215,7 +215,7 @@ def get_wix_labels_for_user(user):
     labels = set()
     for membership in user.memberships.prefetch_related("organization__plans").all():
         org = membership.organization
-        for plan in org.plans.all():
+        for plan in org.get_plans():
             if plan and plan.wix:
                 tier = get_tier_from_plan(plan)
                 labels.add(f"custom.{tier}-member")

@@ -207,7 +207,7 @@ class TestOrganizationQuerySet(TestCase):
         assert org.change_logs.filter(
             reason=ChangeLogReason.created,
             user=user,
-            to_plan=org.plans.first(),
+            to_plan=org.get_plans().first(),
             to_max_users=1,
         ).exists()
 
