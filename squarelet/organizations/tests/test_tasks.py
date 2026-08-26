@@ -224,13 +224,7 @@ class TestHandleChargeSucceeded:
             "customer": "cus_Bp0Alb14pfVB9D",
             "description": "Payment for invoice E28A672-0040",
             "id": "ch_EwJiGXbaafREhT",
-            "parent": {
-                "type": "payment_intent_details",
-                "payment_intent_details": {
-                    "invoice": "in_EwIgmFCn7cnZFB",
-                    "payment_intent": "pi_test",
-                },
-            },
+            "payment_intent": "pi_test",
             "metadata": {},
             "object": "charge",
             "receipt_url": "https://stripe.com/receipt/test",
@@ -255,6 +249,12 @@ class TestHandleChargeSucceeded:
             },
         }
         product = {"name": "Organization"}
+        mock_ip = mocker.MagicMock()
+        mock_ip.invoice = "in_EwIgmFCn7cnZFB"
+        mocker.patch(
+            "squarelet.organizations.tasks.stripe.InvoicePayment.list",
+            return_value=mocker.MagicMock(data=[mock_ip]),
+        )
         mocker.patch(
             "squarelet.organizations.payments.providers"
             ".stripe_modern.stripe.Invoice.retrieve",
@@ -290,19 +290,17 @@ class TestHandleChargeSucceeded:
             "customer": "cus_Bp0Alb14pfVB9D",
             "description": "Payment for request #123",
             "id": "ch_EwJiGXbaafREhT",
-            "parent": {
-                "type": "payment_intent_details",
-                "payment_intent_details": {
-                    "invoice": None,
-                    "payment_intent": "pi_test",
-                },
-            },
+            "payment_intent": "pi_test",
             "metadata": {},
             "object": "charge",
             "receipt_url": "https://stripe.com/receipt/test",
         }
         organization = organization_factory(
             customer__customer_id=charge_data["customer"]
+        )
+        mocker.patch(
+            "squarelet.organizations.tasks.stripe.InvoicePayment.list",
+            return_value=mocker.MagicMock(data=[]),
         )
         mock_download = mocker.patch(
             "squarelet.organizations.tasks.download_receipt_pdf.delay"
@@ -330,14 +328,15 @@ class TestHandleChargeSucceeded:
             "customer": "cus_Bp0Alb14pfVB9D",
             "description": "Payment for request #123",
             "id": "ch_EwJiGXbaafREhT",
-            "parent": {
-                "type": "payment_intent_details",
-                "payment_intent_details": {"invoice": None, "payment_intent": "pi_test"},
-            },
+            "payment_intent": "pi_test",
             "metadata": {},
             "object": "charge",
         }
         organization_factory(customer__customer_id=charge_data["customer"])
+        mocker.patch(
+            "squarelet.organizations.tasks.stripe.InvoicePayment.list",
+            return_value=mocker.MagicMock(data=[]),
+        )
         mock_download = mocker.patch(
             "squarelet.organizations.tasks.download_receipt_pdf.delay"
         )
@@ -404,10 +403,7 @@ class TestDownloadReceiptPdf:
             "customer": None,
             "description": "Payment for request #123",
             "id": "ch_EwJiGXbaafREhT",
-            "parent": {
-                "type": "payment_intent_details",
-                "payment_intent_details": {"invoice": None, "payment_intent": "pi_test"},
-            },
+            "payment_intent": "pi_test",
             "metadata": {},
             "object": "charge",
         }
@@ -424,10 +420,6 @@ class TestDownloadReceiptPdf:
             "customer": "cus_Bp0Alb14pfVB9D",
             "description": "Payment for request #123",
             "id": "ch_EwJiGXbaafREhT",
-            "parent": {
-                "type": "payment_intent_details",
-                "payment_intent_details": {"invoice": None, "payment_intent": "pi_test"},
-            },
             "metadata": {"action": "crowdfund-payment"},
             "object": "charge",
         }
@@ -444,13 +436,7 @@ class TestDownloadReceiptPdf:
             "customer": "cus_Bp0Alb14pfVB9D",
             "description": "Payment for invoice E28A672-0040",
             "id": "ch_EwJiGXbaafREhT",
-            "parent": {
-                "type": "payment_intent_details",
-                "payment_intent_details": {
-                    "invoice": "in_EwIgmFCn7cnZFB",
-                    "payment_intent": "pi_test",
-                },
-            },
+            "payment_intent": "pi_test",
             "metadata": {},
             "object": "charge",
         }
@@ -470,6 +456,12 @@ class TestDownloadReceiptPdf:
                 ]
             },
         }
+        mock_ip = mocker.MagicMock()
+        mock_ip.invoice = "in_EwIgmFCn7cnZFB"
+        mocker.patch(
+            "squarelet.organizations.tasks.stripe.InvoicePayment.list",
+            return_value=mocker.MagicMock(data=[mock_ip]),
+        )
         mocker.patch(
             "squarelet.organizations.payments.providers"
             ".stripe_modern.stripe.Invoice.retrieve",
@@ -495,13 +487,7 @@ class TestDownloadReceiptPdf:
             "customer": "cus_Bp0Alb14pfVB9D",
             "description": "Payment for invoice E28A672-0040",
             "id": "ch_EwJiGXbaafREhT",
-            "parent": {
-                "type": "payment_intent_details",
-                "payment_intent_details": {
-                    "invoice": "in_EwIgmFCn7cnZFB",
-                    "payment_intent": "pi_test",
-                },
-            },
+            "payment_intent": "pi_test",
             "metadata": {},
             "object": "charge",
         }
@@ -510,6 +496,12 @@ class TestDownloadReceiptPdf:
             "id": "in_EwIgmFCn7cnZFB",
             "lines": {"data": []},  # Missing invoice_lines
         }
+        mock_ip = mocker.MagicMock()
+        mock_ip.invoice = "in_EwIgmFCn7cnZFB"
+        mocker.patch(
+            "squarelet.organizations.tasks.stripe.InvoicePayment.list",
+            return_value=mocker.MagicMock(data=[mock_ip]),
+        )
         mocker.patch(
             "squarelet.organizations.payments.providers"
             ".stripe_modern.stripe.Invoice.retrieve",
@@ -532,13 +524,7 @@ class TestDownloadReceiptPdf:
             "customer": "cus_Bp0Alb14pfVB9D",
             "description": "Payment for invoice E28A672-0040",
             "id": "ch_EwJiGXbaafREhT",
-            "parent": {
-                "type": "payment_intent_details",
-                "payment_intent_details": {
-                    "invoice": "in_EwIgmFCn7cnZFB",
-                    "payment_intent": "pi_test",
-                },
-            },
+            "payment_intent": "pi_test",
             "metadata": {},
             "object": "charge",
         }
@@ -549,6 +535,12 @@ class TestDownloadReceiptPdf:
             "id": "in_EwIgmFCn7cnZFB",
             "lines": {"data": [{"amount": 2500}]},
         }
+        mock_ip = mocker.MagicMock()
+        mock_ip.invoice = "in_EwIgmFCn7cnZFB"
+        mocker.patch(
+            "squarelet.organizations.tasks.stripe.InvoicePayment.list",
+            return_value=mocker.MagicMock(data=[mock_ip]),
+        )
         mocker.patch(
             "squarelet.organizations.payments.providers"
             ".stripe_modern.stripe.Invoice.retrieve",
@@ -572,14 +564,14 @@ class TestDownloadReceiptPdf:
             "customer": "cus_duplicate",
             "description": "Duplicate test",
             "id": "ch_duplicate_test",
-            "parent": {
-                "type": "payment_intent_details",
-                "payment_intent_details": {"invoice": None, "payment_intent": "pi_test"},
-            },
             "metadata": {},
             "object": "charge",
         }
         organization_factory(customer__customer_id=charge_data["customer"])
+        mocker.patch(
+            "squarelet.organizations.tasks.stripe.InvoicePayment.list",
+            return_value=mocker.MagicMock(data=[]),
+        )
         mocker.patch("squarelet.organizations.tasks.requests.get")
 
         # First webhook call - creates charge
