@@ -23,7 +23,6 @@ from reversion.admin import VersionAdmin
 # Squarelet
 from squarelet.core.utils import get_stripe_dashboard_url, new_action
 from squarelet.organizations.models import (
-    Subscription,
     Charge,
     Customer,
     Entitlement,
@@ -43,6 +42,7 @@ from squarelet.organizations.models import (
     PlanPrice,
     ProfileChangeRequest,
     ReceiptEmail,
+    Subscription,
     SubscriptionItem,
 )
 from squarelet.organizations.payments.factory import get_payment_provider
@@ -460,12 +460,22 @@ class OrganizationAdmin(VersionAdmin):
         )
         plan_value = request.GET.get("plan")
         if plan_value and plan_value != "none":
+            # `to_attr` attaches to the last relation in the path, so the
+            # subscriptions are collected on the organization and their
+            # matching lines prefetched underneath.
             qs = qs.prefetch_related(
                 Prefetch(
-                    "subscriptions__items",
-                    queryset=SubscriptionItem.objects.filter(
-                        plan_id=plan_value
-                    ).select_related("plan"),
+                    "subscriptions",
+                    queryset=Subscription.objects.filter(items__plan_id=plan_value)
+                    .distinct()
+                    .prefetch_related(
+                        Prefetch(
+                            "items",
+                            queryset=SubscriptionItem.objects.filter(
+                                plan_id=plan_value
+                            ).select_related("plan"),
+                        )
+                    ),
                     to_attr="plan_subscriptions",
                 )
             )
@@ -528,7 +538,11 @@ class OrganizationAdmin(VersionAdmin):
         # A subscription renews only if it hasn't been cancelled and its plan
         # is set to auto-renew (plans with auto_renew=False are created to
         # cancel at period end).
-        return not any(s.cancelled or not s.plan.auto_renew for s in subs)
+        return not any(
+            sub.cancelled or not item.plan.auto_renew
+            for sub in subs
+            for item in sub.items.all()
+        )
 
     get_subscription_renews.short_description = "Will Renew"
     get_subscription_renews.boolean = True

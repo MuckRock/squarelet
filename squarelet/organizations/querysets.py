@@ -107,7 +107,7 @@ class PlanQuerySet(models.QuerySet):
         elif user.is_authenticated:
             return self.filter(
                 Q(public=True)
-                | Q(organizations__in=user.organizations.all())
+                | Q(subscriptions__organization__in=user.organizations.all())
                 | Q(private_organizations__in=user.organizations.all())
             ).distinct()
         else:
@@ -127,7 +127,7 @@ class PlanQuerySet(models.QuerySet):
         # to which they have been granted explicit access
         return queryset.filter(
             Q(public=True)
-            | Q(organizations=organization)
+            | Q(subscriptions__organization=organization)
             | Q(private_organizations=organization)
         ).distinct()
 
@@ -151,7 +151,7 @@ class EntitlementQuerySet(models.QuerySet):
     def get_subscribed(self, user):
         if user.is_authenticated:
             return self.filter(
-                plans__organizations__in=user.organizations.all()
+                plans__subscriptions__organization__in=user.organizations.all()
             ).distinct()
         else:
             return self.none()
@@ -171,7 +171,9 @@ class EntitlementQuerySet(models.QuerySet):
         from squarelet.organizations.models.payment import EntitlementGrant
 
         matching_grants = EntitlementGrant.objects.for_org(org)
-        qs = self.filter(Q(plans__organizations=org) | Q(grants__in=matching_grants))
+        qs = self.filter(
+            Q(plans__subscriptions__organization=org) | Q(grants__in=matching_grants)
+        )
         if client is not None:
             qs = qs.filter(client=client)
         return qs.distinct()
@@ -415,18 +417,52 @@ class ChargeQuerySet(models.QuerySet):
 
 class SubscriptionItemQuerySet(models.QuerySet):
     def start(self, organization, plan, payment_method="card", quantity=1):
-        subscription = self.model(
+        """Add a line for `plan` and make sure Stripe knows about it.
+
+        Stripe requires every item on a subscription to share a billing
+        interval and a collection method, so those two fields decide which
+        subscription the line joins.  A line that matches an existing
+        subscription is added to it and bills on the same invoice; one that
+        does not starts a new subscription.
+
+        Returns the new line and the Stripe subscription carrying it, which
+        is None for a subscription that costs nothing.
+        """
+        # Lazy import to avoid a circular import (payment.py imports this module)
+        # pylint: disable=import-outside-toplevel
+        # Squarelet
+        from squarelet.organizations.models.payment import Subscription
+
+        interval = "annual" if plan.annual else "monthly"
+        collection_method = (
+            "send_invoice"
+            if interval == "annual" and payment_method == "invoice"
+            else "charge_automatically"
+        )
+        subscription, created = Subscription.objects.get_or_create(
             organization=organization,
-            plan=plan,
-            quantity=quantity,
+            interval=interval,
+            collection_method=collection_method,
         )
-        anchor = organization.billing_anchor
-        stripe_subscription = subscription.start(
-            payment_method=payment_method,
-            anchor_day=anchor.day if anchor else None,
+        item = self.model.objects.create(
+            subscription=subscription, plan=plan, quantity=quantity
         )
-        subscription.save()
-        return subscription, stripe_subscription
+
+        if created or not subscription.subscription_id:
+            anchor = organization.billing_anchor
+            stripe_subscription = subscription.start(
+                payment_method=payment_method,
+                anchor_day=anchor.day if anchor else None,
+            )
+        else:
+            # The subscription is already live on Stripe, so the new line is
+            # pushed onto it rather than opening a second subscription.
+            subscription.stripe_modify()
+            stripe_subscription = subscription.stripe_subscription
+
+        if not plan.free:
+            item.notify_started()
+        return item, stripe_subscription
 
     def sunlight_active_count(self):
         """Count active Sunlight subscriptions across all variants"""
