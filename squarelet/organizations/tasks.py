@@ -93,6 +93,47 @@ def restore_organization():
     send_cache_invalidations("organization", all_uuids)
 
 
+def _resolve_invoice_details(charge_data):
+    """Look up invoice info for a charge via InvoicePayment.list.
+
+    Returns (invoice_id, invoice_line, plan_name, action, description).
+    invoice_line["plan"] was removed in Stripe API 2025-03-31.basil;
+    plan/price info is now at invoice_line["pricing"]["price_details"].
+    """
+    # basil (2025-03-31): charge.invoice removed; find the invoice via
+    # InvoicePayment.list using charge.payment_intent
+    invoice_id = None
+    payment_intent_id = charge_data.get("payment_intent")
+    if payment_intent_id and isinstance(payment_intent_id, str):
+        invoice_payments = stripe.InvoicePayment.list(
+            payment={"type": "payment_intent", "payment_intent": payment_intent_id},
+            limit=1,
+        )
+        if invoice_payments.data:
+            invoice_id = invoice_payments.data[0].invoice
+
+    if not invoice_id:
+        return None, None, None, None, charge_data["description"]
+
+    provider = get_payment_provider()
+    invoice = provider.get_invoice_service().retrieve(invoice_id)
+    try:
+        invoice_line = invoice["lines"]["data"][0]
+        price_details = invoice_line["pricing"]["price_details"]
+        plan_name = provider.get_plan_service().retrieve_product(
+            price_details["product"]
+        )["name"]
+        return (
+            invoice_id,
+            invoice_line,
+            plan_name,
+            "Subscription Payment",
+            f"Subscription Payment for {plan_name} plan",
+        )
+    except (TypeError, IndexError, KeyError):
+        return invoice_id, None, None, None, charge_data["description"]
+
+
 @shared_task(
     name="squarelet.organizations.tasks.handle_charge_succeeded",
     bind=True,
@@ -112,43 +153,9 @@ def handle_charge_succeeded(self, charge_data):
         # from MuckRock - no need to log those here
         return
 
-    # basil (2025-03-31): charge.invoice removed; find the invoice via
-    # InvoicePayment.list using charge.payment_intent
-    invoice_id = None
-    payment_intent_id = charge_data.get("payment_intent")
-    if payment_intent_id and isinstance(payment_intent_id, str):
-        invoice_payments = stripe.InvoicePayment.list(
-            payment={"type": "payment_intent", "payment_intent": payment_intent_id},
-            limit=1,
-        )
-        if invoice_payments.data:
-            invoice_id = invoice_payments.data[0].invoice
-
-    if invoice_id:
-        # fetch the invoice from stripe if one associated with the charge
-        provider = get_payment_provider()
-        invoice = provider.get_invoice_service().retrieve(invoice_id)
-        try:
-            invoice_line = invoice["lines"]["data"][0]
-            # invoice_line["plan"] was removed in Stripe API 2025-03-31.basil;
-            # plan/price info is now at invoice_line["pricing"]["price_details"]
-            price_details = invoice_line["pricing"]["price_details"]
-            plan_name = provider.get_plan_service().retrieve_product(
-                price_details["product"]
-            )["name"]
-            action = "Subscription Payment"
-            description = f"Subscription Payment for {plan_name} plan"
-        except (TypeError, IndexError, KeyError):
-            # The invoice data doesn't exist
-            invoice_line = None
-            plan_name = None
-            action = None
-            description = charge_data["description"]
-    else:
-        invoice_line = None
-        plan_name = None
-        action = None
-        description = charge_data["description"]
+    invoice_id, invoice_line, plan_name, action, description = _resolve_invoice_details(
+        charge_data
+    )
 
     # do not send receipts for MuckRock donations and crowdfunds
     if (
