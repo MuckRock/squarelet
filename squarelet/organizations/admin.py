@@ -23,6 +23,7 @@ from reversion.admin import VersionAdmin
 # Squarelet
 from squarelet.core.utils import get_stripe_dashboard_url, new_action
 from squarelet.organizations.models import (
+    Subscription,
     Charge,
     Customer,
     Entitlement,
@@ -77,8 +78,8 @@ class PrettyJSONWidget(Textarea):
 
 
 class SubscriptionInline(admin.TabularInline):
-    model = SubscriptionItem
-    readonly_fields = ("plan", "subscription_id", "cancelled", "quantity")
+    model = Subscription
+    readonly_fields = ("subscription_id", "interval", "collection_method", "cancelled")
     extra = 0
     can_delete = False
 

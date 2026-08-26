@@ -374,6 +374,240 @@ class Subscription(models.Model):
         blank=True,
     )
 
+    @cached_property
+    def stripe_subscription(self):
+        if self.subscription_id:
+            return (
+                get_payment_provider()
+                .get_subscription_service()
+                .retrieve(self.subscription_id)
+            )
+        return None
+
+    @property
+    def free(self):
+        """A subscription costs nothing when every line does."""
+        return all(item.free for item in self.items.all())
+
+    @property
+    def auto_renew(self):
+        """Renew unless some line says otherwise."""
+        return all(item.plan.auto_renew for item in self.items.all())
+
+    def stripe_items(self, include_ids=False):
+        """Stripe line specs for every item on this subscription.
+
+        Pass include_ids when modifying an existing subscription: Stripe needs
+        each line's own id to update it in place rather than replace it.
+        """
+        specs = []
+        for item in self.items.select_related("plan"):
+            spec = {"plan": item.plan.stripe_id, "quantity": item.quantity}
+            if include_ids and item.stripe_item_id:
+                spec["id"] = item.stripe_item_id
+            specs.append(spec)
+        return specs
+
+    def cache_stripe_subscription_fields(self, stripe_sub):
+        """Cache subscription status and period end from a Stripe subscription."""
+        self.stripe_status = stripe_sub.status or ""
+        ts = (
+            get_payment_provider()
+            .get_subscription_service()
+            .get_current_period_end(stripe_sub)
+        )
+        self.current_period_end = (
+            datetime.fromtimestamp(ts, tz=get_current_timezone()) if ts else None
+        )
+
+    def start(self, payment_method="card", anchor_day=None):
+        """Create this subscription on Stripe, with all of its items.
+
+        Returns the Stripe subscription for paid subscriptions, or None when
+        every line is free - those never reach Stripe at all.
+        """
+        if self.stripe_subscription:
+            logger.error(
+                "Trying to start an existing subscription: %s %s",
+                self.pk,
+                self.subscription_id,
+            )
+            return None
+        if self.free:
+            return None
+
+        # Annual subscriptions support payment by invoice
+        if self.interval == "annual" and payment_method == "invoice":
+            billing = "send_invoice"
+            days_until_due = 30
+        else:
+            billing = "charge_automatically"
+            days_until_due = None
+        self.collection_method = billing
+
+        stripe_subscription = (
+            get_payment_provider()
+            .get_subscription_service()
+            .create(
+                stripe_customer=self.organization.customer().stripe_customer,
+                items=self.stripe_items(),
+                billing=billing,
+                metadata={"action": f"Subscription ({self.organization})"},
+                days_until_due=days_until_due,
+                anchor_day=anchor_day,
+                cancel_at_period_end=not self.auto_renew,
+            )
+        )
+        self.subscription_id = stripe_subscription.id
+        self.cache_stripe_subscription_fields(stripe_subscription)
+        if not self.auto_renew and self.current_period_end:
+            self.cancel_at = self.current_period_end.date()
+        # Save before creating the invoice
+        self.save()
+
+        # Check for 3DS/SCA on the first invoice payment.
+        if stripe_subscription.status == "incomplete":
+            self._check_3ds_action_required(stripe_subscription)
+
+        self._sync_latest_invoice(stripe_subscription)
+        return stripe_subscription
+
+    def _check_3ds_action_required(self, stripe_subscription):
+        """Raise PaymentActionRequired if the first invoice requires 3DS authentication.
+
+        invoice.confirmation_secret.client_secret has the form pi_xxx_secret_yyy;
+        the PaymentIntent ID is the prefix before '_secret_'.
+        """
+        invoice_ref = stripe_subscription.latest_invoice
+        if invoice_ref is None:
+            return
+        invoice_id = invoice_ref if isinstance(invoice_ref, str) else invoice_ref.id
+        fresh_invoice = (
+            get_payment_provider()
+            .get_invoice_service()
+            .retrieve(invoice_id, expand=["confirmation_secret"])
+        )
+        cs = fresh_invoice.confirmation_secret
+        if cs and not isinstance(cs, str):
+            client_secret = cs.client_secret
+            if client_secret:
+                pi_id = client_secret.split("_secret_")[0]
+                raise PaymentActionRequired(client_secret, pi_id)
+
+    def _sync_latest_invoice(self, stripe_subscription):
+        """Create or update the local Invoice record for the subscription's
+        first invoice.
+
+        Logs and swallows errors so that a retrieval failure does not prevent the
+        subscription from being saved — the webhook handler is the fallback.
+        """
+        invoice_ref = stripe_subscription.latest_invoice
+        if not invoice_ref:
+            return
+        invoice_id = invoice_ref if isinstance(invoice_ref, str) else invoice_ref.id
+        try:
+            # Import here to avoid circular imports
+            # pylint: disable=import-outside-toplevel
+            # Squarelet
+            from squarelet.organizations.models import Invoice  # Squarelet
+
+            stripe_invoice = (
+                get_payment_provider().get_invoice_service().retrieve(invoice_id)
+            )
+            _, created = Invoice.create_or_update_from_stripe(
+                stripe_invoice.to_dict(), self.organization, self
+            )
+            logger.info(
+                "[SUBSCRIPTION-START] Invoice %s synchronously: %s",
+                "created" if created else "updated",
+                stripe_invoice.id,
+            )
+        except stripe.StripeError as exc:
+            logger.error(
+                "[SUBSCRIPTION-START] Failed to retrieve invoice %s: %s",
+                stripe_subscription.latest_invoice,
+                exc,
+                exc_info=True,
+            )
+        except Exception as exc:  # pylint: disable=broad-except
+            logger.error(
+                "[SUBSCRIPTION-START] Unexpected error creating invoice %s: %s",
+                stripe_subscription.latest_invoice,
+                exc,
+                exc_info=True,
+            )
+
+    def cancel(self):
+        if self.stripe_subscription:
+            updated = (
+                get_payment_provider()
+                .get_subscription_service()
+                .cancel_at_period_end(self.stripe_subscription)
+            )
+            if updated:
+                self.cache_stripe_subscription_fields(updated)
+        self.cancelled = True
+        if self.current_period_end:
+            self.cancel_at = self.current_period_end.date()
+        self.save()
+
+        # Slack notification for cancellation
+        self.send_slack_notification("cancelled")
+
+    def uncancel(self):
+        """Re-enable renewal for a subscription that was pending cancellation.
+
+        Clears the cancelled flag and cancel_at date locally, and removes
+        cancel_at_period_end on the Stripe subscription so it auto-renews.
+        """
+        customer = self.organization.customer()
+        if not customer.stripe_payment_method_id:
+            raise ValidationError(
+                _(
+                    "No payment method on file. "
+                    "Please add a payment method before re-subscribing."
+                )
+            )
+        if self.stripe_subscription:
+            updated = (
+                get_payment_provider()
+                .get_subscription_service()
+                .uncancel(self.stripe_subscription)
+            )
+            if updated:
+                self.cache_stripe_subscription_fields(updated)
+        self.cancelled = False
+        self.cancel_at = None
+        self.save()
+
+    def stripe_modify(self):
+        """Push local state to Stripe for every item on this subscription."""
+        if self.stripe_subscription:
+            updated = (
+                get_payment_provider()
+                .get_subscription_service()
+                .modify(
+                    self.subscription_id,
+                    cancel_at_period_end=not self.auto_renew,
+                    items=self.stripe_items(include_ids=True),
+                    billing=(
+                        "send_invoice"
+                        if self.interval == "annual"
+                        else "charge_automatically"
+                    ),
+                    metadata={"action": f"Subscription ({self.organization})"},
+                    days_until_due=(30 if self.interval == "annual" else None),
+                )
+            )
+            self.cancelled = False
+            if updated:
+                self.cache_stripe_subscription_fields(updated)
+            if not self.auto_renew and self.current_period_end:
+                self.cancel_at = self.current_period_end.date()
+            else:
+                self.cancel_at = None
+            self.save()
+
     class Meta:
         ordering = ("organization", "interval")
         constraints = [
@@ -490,265 +724,17 @@ class SubscriptionItem(models.Model):
 
     def __str__(self):
         plan_name = self.plan.name if self.plan else "Free"
-        return f"SubscriptionItem: {self.organization} to {plan_name}"
-
-    @cached_property
-    def stripe_subscription(self):
-        if self.subscription_id:
-            return (
-                get_payment_provider()
-                .get_subscription_service()
-                .retrieve(self.subscription_id)
-            )
-        return None
-
-    def cache_stripe_subscription_fields(self, stripe_sub):
-        """Cache subscription status and period end from a Stripe subscription."""
-        self.stripe_status = stripe_sub.status or ""
-        ts = (
-            get_payment_provider()
-            .get_subscription_service()
-            .get_current_period_end(stripe_sub)
-        )
-        self.current_period_end = (
-            datetime.fromtimestamp(ts, tz=get_current_timezone()) if ts else None
-        )
-
-    def start(self, payment_method="card", anchor_day=None):
-        """Start the Stripe subscription. Returns the Stripe subscription object
-        for paid plans, or None for free plans."""
-        if self.stripe_subscription:
-            logger.error(
-                "Trying to start an existing subscription: %s %s",
-                self.pk,
-                self.subscription_id,
-            )
-            return None
-        stripe_subscription = None
-        if self.plan and not self.plan.free:
-            # Annual plans support payment by invoice
-            if self.plan.annual and payment_method == "invoice":
-                billing = "send_invoice"
-                days_until_due = 30
-            else:
-                billing = "charge_automatically"
-                days_until_due = None
-
-            stripe_subscription = (
-                get_payment_provider()
-                .get_subscription_service()
-                .create(
-                    stripe_customer=self.organization.customer().stripe_customer,
-                    plan_id=self.plan.stripe_id,
-                    quantity=self.quantity,
-                    billing=billing,
-                    metadata={"action": f"SubscriptionItem ({self.plan})"},
-                    days_until_due=days_until_due,
-                    anchor_day=anchor_day,
-                    cancel_at_period_end=not self.plan.auto_renew,
-                )
-            )
-            self.subscription_id = stripe_subscription.id
-            self.cache_stripe_subscription_fields(stripe_subscription)
-            if not self.plan.auto_renew and self.current_period_end:
-                self.cancel_at = self.current_period_end.date()
-            # Save subscription before creating invoice
-            self.save()
-
-            # Check for 3DS/SCA on the first invoice payment.
-            if stripe_subscription.status == "incomplete":
-                self._check_3ds_action_required(stripe_subscription)
-
-            # Create Invoice record synchronously; webhook is the fallback.
-            self._sync_latest_invoice(stripe_subscription)
-
-        # Trigger respective mailchimp journeys if this is the organization plan,
-        # but only if the org doesn't already have another active subscription
-        # granting the same entitlement (avoid duplicate journey triggers).
-        if self.plan_id and self.plan.entitlements.filter(slug="organization").exists():
-            already_has_org_entitlement = (
-                self.organization.subscription_items.exclude(pk=self.pk)
-                .filter(
-                    plan__entitlements__slug="organization",
-                )
-                .exists()
-            )
-            if not already_has_org_entitlement:
-                journey_key = (
-                    "verified_premium_org"
-                    if self.organization.verified_journalist
-                    else "unverified_premium_org"
-                )
-                for user in self.organization.users.all():
-                    mailchimp_journey(user.email, journey_key)
-
-        # Slack notification for new subscription
-        self.send_slack_notification("started")
-        return stripe_subscription
-
-    def _check_3ds_action_required(self, stripe_subscription):
-        """Raise PaymentActionRequired if the first invoice requires 3DS authentication.
-
-        invoice.confirmation_secret.client_secret has the form pi_xxx_secret_yyy;
-        the PaymentIntent ID is the prefix before '_secret_'.
-        """
-        invoice_ref = stripe_subscription.latest_invoice
-        if invoice_ref is None:
-            return
-        invoice_id = invoice_ref if isinstance(invoice_ref, str) else invoice_ref.id
-        fresh_invoice = (
-            get_payment_provider()
-            .get_invoice_service()
-            .retrieve(invoice_id, expand=["confirmation_secret"])
-        )
-        cs = fresh_invoice.confirmation_secret
-        if cs and not isinstance(cs, str):
-            client_secret = cs.client_secret
-            if client_secret:
-                pi_id = client_secret.split("_secret_")[0]
-                raise PaymentActionRequired(client_secret, pi_id)
-
-    def _sync_latest_invoice(self, stripe_subscription):
-        """Create or update the local Invoice record for the subscription's
-        first invoice.
-
-        Logs and swallows errors so that a retrieval failure does not prevent the
-        subscription from being saved — the webhook handler is the fallback.
-        """
-        invoice_ref = stripe_subscription.latest_invoice
-        if not invoice_ref:
-            return
-        invoice_id = invoice_ref if isinstance(invoice_ref, str) else invoice_ref.id
-        try:
-            # Import here to avoid circular imports
-            # pylint: disable=import-outside-toplevel
-            # Squarelet
-            from squarelet.organizations.models import Invoice  # Squarelet
-
-            stripe_invoice = (
-                get_payment_provider().get_invoice_service().retrieve(invoice_id)
-            )
-            _, created = Invoice.create_or_update_from_stripe(
-                stripe_invoice.to_dict(), self.organization, self
-            )
-            logger.info(
-                "[SUBSCRIPTION-START] Invoice %s synchronously: %s",
-                "created" if created else "updated",
-                stripe_invoice.id,
-            )
-        except stripe.StripeError as exc:
-            logger.error(
-                "[SUBSCRIPTION-START] Failed to retrieve invoice %s: %s",
-                stripe_subscription.latest_invoice,
-                exc,
-                exc_info=True,
-            )
-        except Exception as exc:  # pylint: disable=broad-except
-            logger.error(
-                "[SUBSCRIPTION-START] Unexpected error creating invoice %s: %s",
-                stripe_subscription.latest_invoice,
-                exc,
-                exc_info=True,
-            )
-
-    def cancel(self):
-        if self.stripe_subscription:
-            updated = (
-                get_payment_provider()
-                .get_subscription_service()
-                .cancel_at_period_end(self.stripe_subscription)
-            )
-            if updated:
-                self.cache_stripe_subscription_fields(updated)
-        self.cancelled = True
-        if self.current_period_end:
-            self.cancel_at = self.current_period_end.date()
-        self.save()
-
-        # Slack notification for cancellation
-        self.send_slack_notification("cancelled")
-
-    def uncancel(self):
-        """Re-enable renewal for a subscription that was pending cancellation.
-
-        Clears the cancelled flag and cancel_at date locally, and removes
-        cancel_at_period_end on the Stripe subscription so it auto-renews.
-        """
-        customer = self.organization.customer()
-        if not customer.stripe_payment_method_id:
-            raise ValidationError(
-                _(
-                    "No payment method on file. "
-                    "Please add a payment method before re-subscribing."
-                )
-            )
-        if self.stripe_subscription:
-            updated = (
-                get_payment_provider()
-                .get_subscription_service()
-                .uncancel(self.stripe_subscription)
-            )
-            if updated:
-                self.cache_stripe_subscription_fields(updated)
-        self.cancelled = False
-        self.cancel_at = None
-        self.save()
+        return f"SubscriptionItem: {self.subscription.organization} to {plan_name}"
 
     def modify(self, plan):
-        """Modify an existing plan
-        Note - this should never be used to switch from a MR to a PP plan or vice versa
+        """Change which plan this line bills.
+
+        Never use this to move between products - that is an add plus a
+        remove, since the two subscriptions bill separately.
         """
-        old_plan = self.plan
         self.plan = plan
         self.save()
-
-        if old_plan.free and not plan.free:
-            # start subscription on stripe
-            self.start()
-        elif not old_plan.free and plan.free:
-            # cancel subscription on stripe
-            get_payment_provider().get_subscription_service().delete(
-                self.stripe_subscription
-            )
-            self.subscription_id = None
-            self.cancel_at = None
-        elif not old_plan.free and not plan.free:
-            # modify plan
-            self.stripe_modify()
-
-        self.save()
-
-    def stripe_modify(self):
-        """Update stripe subscription to match local subscription"""
-        if self.stripe_subscription:
-            updated = (
-                get_payment_provider()
-                .get_subscription_service()
-                .modify(
-                    self.subscription_id,
-                    cancel_at_period_end=not self.plan.auto_renew,
-                    items=[
-                        {
-                            "id": self.stripe_subscription["items"]["data"][0].id,
-                            "plan": self.plan.stripe_id,
-                            "quantity": self.quantity,
-                        }
-                    ],
-                    billing=(
-                        "send_invoice" if self.plan.annual else "charge_automatically"
-                    ),
-                    metadata={"action": f"SubscriptionItem ({self.plan})"},
-                    days_until_due=(30 if self.plan.annual else None),
-                )
-            )
-            self.cancelled = False
-            if updated:
-                self.cache_stripe_subscription_fields(updated)
-            if not self.plan.auto_renew and self.current_period_end:
-                self.cancel_at = self.current_period_end.date()
-            else:
-                self.cancel_at = None
-            self.save()
+        self.subscription.stripe_modify()
 
     def send_slack_notification(self, event, **kwargs):
         """Queue a Slack notification asynchronously for subscription events."""

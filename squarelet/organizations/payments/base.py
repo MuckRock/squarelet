@@ -77,15 +77,19 @@ class SubscriptionService(ABC):
     def create(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         stripe_customer,
-        plan_id,
-        quantity,
+        items,
         billing,
         metadata,
         days_until_due,
         anchor_day=None,
         cancel_at_period_end=False,
     ):
-        """Create a new subscription for a customer."""
+        """Create a new subscription for a customer.
+
+        `items` is a list of Stripe line specs, e.g.
+        `[{"plan": plan_id, "quantity": 1}]` - one per SubscriptionItem, since
+        a subscription may bill several plans at once.
+        """
 
     @abstractmethod
     def retrieve(self, subscription_id):
