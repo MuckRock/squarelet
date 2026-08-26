@@ -112,7 +112,7 @@ def handle_charge_succeeded(self, charge_data):
         # from MuckRock - no need to log those here
         return
 
-    # dhalia (2026-03-25): charge.invoice moved to charge.parent.payment_intent_details.invoice
+    # basil (2025-03-31): charge.invoice moved to charge.parent.payment_intent_details.invoice
     parent = charge_data.get("parent") or {}
     if parent.get("type") == "payment_intent_details":
         invoice_id = (parent.get("payment_intent_details") or {}).get("invoice")
