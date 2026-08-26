@@ -1332,7 +1332,7 @@ class TestUpdateSubscription(ViewTestMixin):
         assert response.status_code == 200
         assert response.context_data["billing_email_failed"] is True
         initial = response.context_data["form"].initial
-        assert initial["plan"] == organization.plans.first()
+        assert initial["plan"] == organization.get_plans().first()
         assert initial["max_users"] == organization.max_users
         assert initial["billing_email"] == "billing@example.com"
 

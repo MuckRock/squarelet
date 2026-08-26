@@ -161,14 +161,41 @@ class Organization(AvatarMixin, models.Model):
         ),
     )
 
-    plans = models.ManyToManyField(
-        verbose_name=_("plans"),
-        to="organizations.Plan",
-        through="organizations.SubscriptionItem",
-        related_name="organizations",
-        help_text=_("Plans this organization is subscribed to"),
-        blank=True,
-    )
+    @property
+    def subscription_items(self):
+        """Every subscription line belonging to this organization.
+
+        A queryset rather than a related manager: items hang off Subscription
+        now, so there is no direct relation from here.  Reads behave the same
+        (`filter`, `get`, `exists`, ...), but creating an item needs a parent
+        subscription, so use `add_subscription()` for that.
+
+        This does not participate in `prefetch_related`.  To avoid a query per
+        organization, prefetch `subscriptions__items` and walk that instead.
+        """
+        # pylint: disable=import-outside-toplevel
+        # Squarelet
+        from squarelet.organizations.models.payment import SubscriptionItem
+
+        return SubscriptionItem.objects.filter(subscription__organization=self)
+
+    def get_plans(self):
+        """Plans this organization is subscribed to.
+
+        Replaces the old `plans` many-to-many.  SubscriptionItem no longer
+        carries an organization of its own - it reaches one through its
+        subscription - so a through-model relation is no longer possible from
+        here.  The equivalent relation lives on Subscription as `plans`.
+
+        Callers that need this for many organizations at once should prefetch
+        `subscriptions__plans` and walk that instead, so this stays a single
+        query per organization rather than one per call.
+        """
+        # pylint: disable=import-outside-toplevel
+        # Squarelet
+        from squarelet.organizations.models.payment import Plan
+
+        return Plan.objects.filter(subscriptions__organization=self).distinct()
 
     # Every user has an individual organization
     # created when creating an account. Its UUID
@@ -334,7 +361,7 @@ class Organization(AvatarMixin, models.Model):
             # If share_resources was toggled ON, sync all wix-enabled plans to members
             if share_resources_toggled_on and self.collective_enabled:
                 wix_plan_pks = list(
-                    self.plans.filter(wix=True).values_list("pk", flat=True)
+                    self.get_plans().filter(wix=True).values_list("pk", flat=True)
                 )
                 if wix_plan_pks:
                     org_pk = self.pk
@@ -860,12 +887,12 @@ class Organization(AvatarMixin, models.Model):
 
         # Check membership groups
         for group in self.groups.filter(share_resources=True):
-            for plan in group.plans.filter(wix=True):
+            for plan in group.get_plans().filter(wix=True):
                 wix_plans.append((group, plan))
 
         # Check parent hierarchy (recursive)
         if self.parent and self.parent.share_resources:
-            for plan in self.parent.plans.filter(wix=True):
+            for plan in self.parent.get_plans().filter(wix=True):
                 wix_plans.append((self.parent, plan))
             # Also get parent's groups recursively
             wix_plans.extend(self.parent.get_wix_plans_from_groups())
@@ -889,12 +916,14 @@ class Organization(AvatarMixin, models.Model):
             if source.pk in _seen:
                 return
             _seen.add(source.pk)
-            for plan in source.plans.all():
+            for plan in source.get_plans():
                 if not plan.free:
                     inherited.append((source, plan))
 
         # Membership groups that share resources
-        for group in self.groups.filter(share_resources=True).prefetch_related("plans"):
+        for group in self.groups.filter(share_resources=True).prefetch_related(
+            "subscriptions__plans"
+        ):
             _add(group)
 
         # Parent hierarchy (recursive)

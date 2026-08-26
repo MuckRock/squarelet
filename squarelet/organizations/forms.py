@@ -127,7 +127,7 @@ class PaymentForm(StripeForm):
         # on a private plan, plus private plans they have been given access to
         plans = Plan.objects.choices(self.organization)
         self.fields["plan"].queryset = plans
-        self.fields["plan"].default = self.organization.plans.first()
+        self.fields["plan"].default = self.organization.get_plans().first()
         if self.organization.individual:
             del self.fields["max_users"]
         else:
@@ -347,7 +347,7 @@ class MergeForm(forms.Form):
     )
     bad_organization = forms.ModelChoiceField(
         queryset=Organization.objects.filter(
-            subscription_items__isnull=True,
+            subscriptions__items__isnull=True,
             individual=False,
             merged=None,
         ),

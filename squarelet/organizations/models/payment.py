@@ -293,17 +293,123 @@ class Customer(models.Model):
         )
 
 
-class SubscriptionItem(models.Model):
-    """Through table for organization plans"""
+class Subscription(models.Model):
+    """A subscription on Stripe.
 
-    objects = SubscriptionItemQuerySet.as_manager()
+    One row per Stripe subscription; its lines are SubscriptionItems.  Stripe
+    requires every item on a subscription to share a billing interval and a
+    collection method, so an organization needs a separate subscription for
+    each combination it holds - a monthly MuckRock plan and an annual Sunlight
+    plan cannot sit on the same one.  That is what the uniqueness constraint
+    below encodes.
+
+    Fields here are subscription-level: status, period end and cancellation
+    apply to every item at once.  Keeping them in one place means a renewal
+    webhook updates a single row rather than fanning out across items that
+    could then disagree.
+    """
+
+    INTERVAL_CHOICES = [
+        ("monthly", _("Monthly")),
+        ("annual", _("Annual")),
+    ]
+    COLLECTION_CHOICES = [
+        ("charge_automatically", _("Charge automatically")),
+        ("send_invoice", _("Send invoice")),
+    ]
 
     organization = models.ForeignKey(
         verbose_name=_("organization"),
         to="organizations.Organization",
         on_delete=models.CASCADE,
-        related_name="subscription_items",
+        related_name="subscriptions",
     )
+    subscription_id = models.CharField(
+        _("subscription id"),
+        max_length=255,
+        blank=True,
+        default="",
+        help_text=_(
+            "The subscription ID on stripe.  Blank for subscriptions that "
+            "never reach Stripe, which is every comped one."
+        ),
+    )
+    interval = models.CharField(
+        _("interval"),
+        max_length=20,
+        choices=INTERVAL_CHOICES,
+        default="monthly",
+        help_text=_("Billing interval shared by every item"),
+    )
+    collection_method = models.CharField(
+        _("collection method"),
+        max_length=30,
+        choices=COLLECTION_CHOICES,
+        default="charge_automatically",
+        help_text=_("How Stripe collects payment, shared by every item"),
+    )
+
+    # The cancelled flag marks a subscription as ready for cancellation.
+    # Cancellation happens at the end of the billing period; at that point the
+    # record is deleted.
+    cancelled = models.BooleanField(default=False)
+    cancel_at = models.DateField(
+        _("cancel at"),
+        null=True,
+        blank=True,
+        help_text=_(
+            "Date when Stripe will terminate this subscription.  Set when "
+            "cancel() is called.  Null for free subscriptions."
+        ),
+    )
+    stripe_status = models.CharField(max_length=30, blank=True, default="")
+    current_period_end = models.DateTimeField(null=True, blank=True)
+
+    plans = models.ManyToManyField(
+        verbose_name=_("plans"),
+        to="organizations.Plan",
+        through="organizations.SubscriptionItem",
+        related_name="subscriptions",
+        help_text=_("Plans billed on this subscription"),
+        blank=True,
+    )
+
+    class Meta:
+        ordering = ("organization", "interval")
+        constraints = [
+            # Every real Stripe subscription id is unique; any number of
+            # comped subscriptions may leave it blank.
+            models.UniqueConstraint(
+                fields=["subscription_id"],
+                condition=~models.Q(subscription_id=""),
+                name="unique_stripe_subscription_id_when_set",
+            ),
+            # One subscription per organization per billing shape.  Anything
+            # that would need a second one for the same shape should be an
+            # item on the existing subscription instead.
+            models.UniqueConstraint(
+                fields=["organization", "interval", "collection_method"],
+                name="unique_subscription_per_billing_shape",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.organization.name}: {self.get_interval_display()}, "
+            f"{self.get_collection_method_display()}"
+        )
+
+
+class SubscriptionItem(models.Model):
+    """One line on a Stripe subscription.
+
+    The organization is reached through `subscription`, deliberately not
+    duplicated here: a denormalized copy that has to agree with its parent is
+    exactly the kind of drift this migration exists to remove.
+    """
+
+    objects = SubscriptionItemQuerySet.as_manager()
+
     plan = models.ForeignKey(
         verbose_name=_("plan"),
         to="organizations.Plan",
@@ -311,27 +417,23 @@ class SubscriptionItem(models.Model):
         related_name="subscription_items",
     )
 
-    subscription_id = models.CharField(
-        _("subscription id"),
-        max_length=255,
-        unique=True,
+    subscription = models.ForeignKey(
+        verbose_name=_("subscription"),
+        to="organizations.Subscription",
+        on_delete=models.CASCADE,
+        related_name="items",
         blank=True,
         null=True,
-        help_text=_("The subscription ID on stripe"),
+        help_text=_("The Stripe subscription this is a line on"),
     )
-
-    # The cancelled flag is used to mark subscriptions that are ready for cancellation.
-    # Cancellation happens at the end of the billing period; at that point,
-    # the subscription is deleted from the database.
-    cancelled = models.BooleanField(default=False)
-
-    cancel_at = models.DateField(
-        _("cancel at"),
-        null=True,
+    stripe_item_id = models.CharField(
+        _("stripe item id"),
+        max_length=255,
         blank=True,
+        default="",
         help_text=_(
-            "Date when Stripe will terminate this subscription. "
-            "Set when cancel() is called. Null for free plans or legacy records."
+            "The subscription item ID on stripe.  Blank for items that never "
+            "reach Stripe, which is every comped one."
         ),
     )
 
@@ -378,11 +480,12 @@ class SubscriptionItem(models.Model):
         ),
     )
 
-    stripe_status = models.CharField(max_length=30, blank=True, default="")
-    current_period_end = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        unique_together = ("organization", "plan")
+        # One line per plan per subscription.  "An organization may not hold
+        # the same plan twice" is now wider than a single subscription can
+        # see, so add_subscription() enforces that part.
+        unique_together = ("subscription", "plan")
         ordering = ("plan",)
 
     def __str__(self):
@@ -1536,7 +1639,7 @@ class EntitlementGrant(models.Model):
             rule_clauses.append(Q(verified_journalist=True))
         if self.require_active_subscription:
             # Mirrors org.has_active_subscription() = bool(subscriptions.first())
-            rule_clauses.append(Q(subscription_items__isnull=False))
+            rule_clauses.append(Q(subscriptions__items__isnull=False))
 
         if rule_clauses:
             rule_q = rule_clauses[0]
