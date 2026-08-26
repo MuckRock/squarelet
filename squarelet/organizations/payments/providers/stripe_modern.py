@@ -22,8 +22,9 @@ API version history tracked in this file:
                to subscription items; handled via get_current_period_end().
                invoice.payment_intent removed; replaced by
                invoice.confirmation_secret.client_secret for SCA/3DS flows.
-               charge.invoice removed from top level — now at
-               charge.parent.payment_intent_details.invoice.
+               charge.invoice removed; to find the invoice for a charge,
+               use InvoicePayment.list(payment={"type": "payment_intent",
+               "payment_intent": charge.payment_intent}).
   2025-09-30 - clover: flexible billing mode default, iterations removed from
                subscription schedules, Discount.coupon -> Discount.source
                (none used here)

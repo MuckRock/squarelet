@@ -112,12 +112,17 @@ def handle_charge_succeeded(self, charge_data):
         # from MuckRock - no need to log those here
         return
 
-    # basil (2025-03-31): charge.invoice moved to charge.parent.payment_intent_details.invoice
-    parent = charge_data.get("parent") or {}
-    if parent.get("type") == "payment_intent_details":
-        invoice_id = (parent.get("payment_intent_details") or {}).get("invoice")
-    else:
-        invoice_id = charge_data.get("invoice")
+    # basil (2025-03-31): charge.invoice removed; find the invoice via
+    # InvoicePayment.list using charge.payment_intent
+    invoice_id = None
+    payment_intent_id = charge_data.get("payment_intent")
+    if payment_intent_id and isinstance(payment_intent_id, str):
+        invoice_payments = stripe.InvoicePayment.list(
+            payment={"type": "payment_intent", "payment_intent": payment_intent_id},
+            limit=1,
+        )
+        if invoice_payments.data:
+            invoice_id = invoice_payments.data[0].invoice
 
     if invoice_id:
         # fetch the invoice from stripe if one associated with the charge
