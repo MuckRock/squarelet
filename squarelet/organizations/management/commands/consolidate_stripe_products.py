@@ -23,33 +23,37 @@ CURRENCY = "usd"
 # subscriptions never reach Stripe, so there is nothing for a Price to bill
 # against.  Their PlanPrice.stripe_price_id stays blank.
 PRICE_MATRIX = [
-    # plan slug,               interval,  label,       cents
-    ("professional", "monthly", "standard", 4_000),
-    ("professional", "annual", "standard", 48_000),
-    ("professional", "monthly", "comped", 0),
-    ("organization", "monthly", "standard", 10_000),
-    ("organization", "annual", "standard", 120_000),
-    ("organization", "monthly", "comped", 0),
-    ("documentcloud-premium", "monthly", "standard", 1_000),
-    ("sunlight-essential", "monthly", "standard", 68_000),
-    ("sunlight-essential", "annual", "standard", 800_000),
-    ("sunlight-essential", "monthly", "nonprofit", 35_000),
-    ("sunlight-essential", "annual", "nonprofit", 400_000),
-    ("sunlight-enhanced", "monthly", "standard", 138_000),
-    ("sunlight-enhanced", "annual", "standard", 1_600_000),
-    ("sunlight-enhanced", "monthly", "nonprofit", 68_000),
-    ("sunlight-enhanced", "annual", "nonprofit", 800_000),
-    ("sunlight-enterprise", "monthly", "standard", 275_000),
-    ("sunlight-enterprise", "annual", "standard", 3_200_000),
-    ("sunlight-enterprise", "annual", "comped", 0),
-    ("scoutpost-pro", "monthly", "standard", 1_000),
-    ("scoutpost-team", "monthly", "standard", 5_000),
-    ("muckrock-request-pack", "monthly", "standard", 1_000),
-    ("muckrock-request-pack", "annual", "standard", 12_000),
-    ("documentcloud-page-pack", "monthly", "standard", 1_000),
-    ("documentcloud-page-pack", "annual", "standard", 12_000),
-    ("scoutpost-credit-pack", "monthly", "standard", 1_000),
-    ("scoutpost-credit-pack", "annual", "standard", 12_000),
+    # plan slug,               interval,  label,       code, cents
+    ("professional", "monthly", "standard", "", 4_000),
+    ("professional", "annual", "standard", "", 48_000),
+    ("professional", "monthly", "comped", "", 0),
+    ("organization", "monthly", "standard", "", 10_000),
+    ("organization", "annual", "standard", "", 120_000),
+    ("organization", "monthly", "comped", "", 0),
+    ("documentcloud-premium", "monthly", "standard", "", 1_000),
+    ("sunlight-essential", "monthly", "standard", "", 68_000),
+    ("sunlight-essential", "annual", "standard", "", 800_000),
+    ("sunlight-essential", "monthly", "nonprofit", "", 35_000),
+    ("sunlight-essential", "annual", "nonprofit", "", 400_000),
+    ("sunlight-enhanced", "monthly", "standard", "", 138_000),
+    ("sunlight-enhanced", "annual", "standard", "", 1_600_000),
+    ("sunlight-enhanced", "monthly", "nonprofit", "", 68_000),
+    ("sunlight-enhanced", "annual", "nonprofit", "", 800_000),
+    ("sunlight-enterprise", "monthly", "standard", "", 275_000),
+    ("sunlight-enterprise", "annual", "standard", "", 3_200_000),
+    ("sunlight-enterprise", "annual", "comped", "", 0),
+    ("scoutpost-pro", "monthly", "standard", "", 1_000),
+    ("scoutpost-team", "monthly", "standard", "", 5_000),
+    ("muckrock-request-pack", "monthly", "standard", "", 1_000),
+    ("muckrock-request-pack", "annual", "standard", "", 12_000),
+    ("documentcloud-page-pack", "monthly", "standard", "", 1_000),
+    ("documentcloud-page-pack", "annual", "standard", "", 12_000),
+    ("scoutpost-credit-pack", "monthly", "standard", "", 1_000),
+    ("scoutpost-credit-pack", "annual", "standard", "", 12_000),
+    # Negotiated rates - a price of their own, not a coupon on top of list.
+    # See the plan-mapping doc for why each exists.
+    ("organization", "monthly", "standard", "insideclimate", 3_000),
+    ("sunlight-essential", "annual", "standard", "legacy-basic", 200_000),
 ]
 
 
@@ -102,11 +106,11 @@ class Command(BaseCommand):
             if slug in plans and self._ensure_product(plans[slug], dry_run):
                 created_products += 1
 
-        for slug, interval, label, amount in PRICE_MATRIX:
+        for slug, interval, label, code, amount in PRICE_MATRIX:
             if slug not in plans:
                 continue
             result = self._ensure_price(
-                plans[slug], interval, label, amount, dry_run=dry_run
+                plans[slug], (interval, label, code, amount), dry_run=dry_run
             )
             if result == "created":
                 created_prices += 1
@@ -144,17 +148,25 @@ class Command(BaseCommand):
         self.stdout.write(f"    -> {plan.ensure_stripe_product()}")
         return True
 
-    def _ensure_price(self, plan, interval, label, amount, *, dry_run):
+    @staticmethod
+    def _variant(interval, label, code):
+        return f"{interval}/{label}" + (f"/{code}" if code else "")
+
+    def _ensure_price(self, plan, spec, *, dry_run):
+        interval, label, code, amount = spec
         if PlanPrice.objects.filter(
-            plan=plan, interval=interval, label=label, active=True
+            plan=plan, interval=interval, label=label, code=code, active=True
         ).exists():
-            self.stdout.write(f"= price {plan.slug} {interval}/{label}")
+            self.stdout.write(
+                f"= price {plan.slug} {self._variant(interval, label, code)}"
+            )
             return "skipped"
 
         if amount == 0:
+            variant = self._variant(interval, label, code)
             self.stdout.write(
                 self.style.SUCCESS(
-                    f"+ price {plan.slug} {interval}/{label}: comped, no Stripe Price"
+                    f"+ price {plan.slug} {variant}: comped, no Stripe Price"
                 )
             )
             if not dry_run:
@@ -163,6 +175,7 @@ class Command(BaseCommand):
                     stripe_price_id="",
                     interval=interval,
                     label=label,
+                    code=code,
                     amount=0,
                     currency=CURRENCY,
                 )
@@ -170,7 +183,8 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"+ price {plan.slug} {interval}/{label}: ${amount / 100:,.2f}"
+                f"+ price {plan.slug} {self._variant(interval, label, code)}: "
+                f"${amount / 100:,.2f}"
             )
         )
         if dry_run:
@@ -181,6 +195,7 @@ class Command(BaseCommand):
             stripe_price_id="",
             interval=interval,
             label=label,
+            code=code,
             amount=amount,
             currency=CURRENCY,
         )

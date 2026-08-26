@@ -541,7 +541,15 @@ class PlanPriceInline(admin.TabularInline):
 
     model = PlanPrice
     extra = 0
-    fields = ("interval", "label", "amount", "currency", "active", "stripe_price_id")
+    fields = (
+        "interval",
+        "label",
+        "code",
+        "amount",
+        "currency",
+        "active",
+        "stripe_price_id",
+    )
     readonly_fields = ("stripe_price_id",)
     ordering = ("-active", "interval", "label")
 
@@ -601,12 +609,13 @@ class PlanPriceAdmin(VersionAdmin):
         "plan",
         "interval",
         "label",
+        "code",
         "amount_dollars",
         "active",
         "stripe_price_id",
     )
     list_filter = ("active", "interval", "label")
-    search_fields = ("plan__name", "plan__slug", "stripe_price_id")
+    search_fields = ("plan__name", "plan__slug", "stripe_price_id", "code")
     autocomplete_fields = ("plan",)
     readonly_fields = ("stripe_price_id",)
 
