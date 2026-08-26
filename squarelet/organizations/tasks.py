@@ -166,9 +166,10 @@ def handle_charge_succeeded(self, charge_data):
         .startswith(("donate", "crowdfund"))
     ):
         return
-    if not invoice_id and charge_data["metadata"].get(
-        "action", ""
-    ).lower() in ["donation", "crowdfund-payment"]:
+    if not invoice_id and charge_data["metadata"].get("action", "").lower() in [
+        "donation",
+        "crowdfund-payment",
+    ]:
         return
 
     metadata = charge_data["metadata"]

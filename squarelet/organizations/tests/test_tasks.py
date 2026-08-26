@@ -723,9 +723,7 @@ def test_handle_invoice_failed_donation_no_organization():
         "id": "in_donation",
         "customer": "cus_nonexistent",
         "attempt_count": 1,
-        "lines": {
-            "data": [{"pricing": {"price_details": {"price": "donate"}}}]
-        },
+        "lines": {"data": [{"pricing": {"price_details": {"price": "donate"}}}]},
     }
 
     # Should not raise error, just return silently for donations
@@ -739,9 +737,7 @@ def test_handle_invoice_failed_organization_not_found(mocker):
         "id": "in_missing_org",
         "customer": "cus_nonexistent",
         "attempt_count": 2,
-        "lines": {
-            "data": [{"pricing": {"price_details": {"price": "professional"}}}]
-        },
+        "lines": {"data": [{"pricing": {"price_details": {"price": "professional"}}}]},
     }
 
     mock_logger = mocker.patch("squarelet.organizations.tasks.logger")
