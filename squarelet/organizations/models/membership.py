@@ -54,7 +54,7 @@ class Membership(models.Model):
         is_new = self.pk is None
         direct_wix_plan_pks = (
             list(
-                self.organization.subscriptions.filter(plan__wix=True).values_list(
+                self.organization.subscription_items.filter(plan__wix=True).values_list(
                     "plan_id", flat=True
                 )
             )
@@ -115,7 +115,9 @@ class Membership(models.Model):
         user_pk = self.user.pk
         user_uuid = self.user.uuid
         direct_plan_pks = list(
-            org.subscriptions.filter(plan__wix=True).values_list("plan_id", flat=True)
+            org.subscription_items.filter(plan__wix=True).values_list(
+                "plan_id", flat=True
+            )
         )
         group_wix_plans = [(g.pk, p.pk) for g, p in org.get_wix_plans_from_groups()]
 

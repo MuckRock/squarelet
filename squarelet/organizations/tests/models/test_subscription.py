@@ -14,13 +14,13 @@ from .test_invoice import Invoice, create_mock_stripe_invoice
 
 
 class TestSubscription:
-    """Unit tests for the Subscription model"""
+    """Unit tests for the SubscriptionItem model"""
 
     def test_str(self, subscription_factory):
         subscription = subscription_factory.build()
         assert (
             str(subscription)
-            == f"Subscription: {subscription.organization} to {subscription.plan.name}"
+            == f"SubscriptionItem: {subscription.organization} to {subscription.plan.name}"
         )
 
     def test_stripe_subscription(self, subscription_factory, mocker):
@@ -65,7 +65,7 @@ class TestSubscription:
             plan_id=subscription.plan.stripe_id,
             quantity=subscription.quantity,
             billing="charge_automatically",
-            metadata={"action": f"Subscription ({plan.name})"},
+            metadata={"action": f"SubscriptionItem ({plan.name})"},
             days_until_due=None,
             anchor_day=None,
             cancel_at_period_end=False,
@@ -113,7 +113,7 @@ class TestSubscription:
             quantity=subscription.quantity,
             billing="charge_automatically",
             metadata={
-                "action": f"Subscription ({plan.name})",
+                "action": f"SubscriptionItem ({plan.name})",
             },
             days_until_due=None,
             anchor_day=None,
@@ -128,21 +128,25 @@ class TestSubscription:
         """If there is an existing subscription, do not start another one"""
         subscription = subscription_factory.build()
         mocked = mocker.patch("squarelet.organizations.models.Organization.customer")
-        mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
+        mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.stripe_subscription"
+        )
         subscription.start()
-        mocked.subscriptions.create.assert_not_called()
+        mocked.subscription_items.create.assert_not_called()
 
     def test_start_free(self, subscription_factory, mocker):
         """If there is an existing subscription, do not start another one"""
         subscription = subscription_factory.build()
         mocked = mocker.patch("squarelet.organizations.models.Organization.customer")
         subscription.start()
-        mocked.subscriptions.create.assert_not_called()
+        mocked.subscription_items.create.assert_not_called()
 
     def test_cancel(self, subscription_factory, mocker):
-        mocked_save = mocker.patch("squarelet.organizations.models.Subscription.save")
+        mocked_save = mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.save"
+        )
         mocked_stripe_subscription = mocker.patch(
-            "squarelet.organizations.models.Subscription.stripe_subscription"
+            "squarelet.organizations.models.SubscriptionItem.stripe_subscription"
         )
         mocked_stripe_subscription.id = "sub_test123"
         period_end_ts = 1_800_000_000
@@ -168,9 +172,11 @@ class TestSubscription:
 
     def test_cancel_no_stripe_subscription(self, subscription_factory, mocker):
         """cancel_at stays None when there is no Stripe subscription (free plan)."""
-        mocked_save = mocker.patch("squarelet.organizations.models.Subscription.save")
+        mocked_save = mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.save"
+        )
         mocker.patch(
-            "squarelet.organizations.models.Subscription.stripe_subscription",
+            "squarelet.organizations.models.SubscriptionItem.stripe_subscription",
             new=None,
         )
         subscription = subscription_factory.build()
@@ -182,8 +188,12 @@ class TestSubscription:
     def test_modify_start(
         self, subscription_factory, professional_plan_factory, mocker
     ):
-        mocked_save = mocker.patch("squarelet.organizations.models.Subscription.save")
-        mocked_start = mocker.patch("squarelet.organizations.models.Subscription.start")
+        mocked_save = mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.save"
+        )
+        mocked_start = mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.start"
+        )
         plan = professional_plan_factory.build()
         subscription = subscription_factory.build()
         subscription.modify(plan)
@@ -193,9 +203,11 @@ class TestSubscription:
     def test_modify_cancel(
         self, subscription_factory, professional_plan_factory, plan_factory, mocker
     ):
-        mocked_save = mocker.patch("squarelet.organizations.models.Subscription.save")
+        mocked_save = mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.save"
+        )
         mocked_stripe_subscription = mocker.patch(
-            "squarelet.organizations.models.Subscription.stripe_subscription"
+            "squarelet.organizations.models.SubscriptionItem.stripe_subscription"
         )
         plan = professional_plan_factory.build()
         free_plan = plan_factory.build()
@@ -208,13 +220,17 @@ class TestSubscription:
     def test_modify_modify(
         self, subscription_factory, professional_plan_factory, mocker
     ):
-        mocked_save = mocker.patch("squarelet.organizations.models.Subscription.save")
+        mocked_save = mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.save"
+        )
         mock_sub_svc = mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
         ).return_value.get_subscription_service.return_value
         mock_sub_svc.modify.return_value = Mock(status="active")
         mock_sub_svc.get_current_period_end.return_value = None
-        mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
+        mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.stripe_subscription"
+        )
         plan = professional_plan_factory.build()
         subscription = subscription_factory.build(plan=plan)
         subscription.modify(plan)
@@ -231,7 +247,7 @@ class TestSubscription:
                 }
             ],
             billing="charge_automatically",
-            metadata={"action": f"Subscription ({plan.name})"},
+            metadata={"action": f"SubscriptionItem ({plan.name})"},
             days_until_due=None,
         )
 
@@ -240,7 +256,7 @@ class TestSubscription:
     ):
         """Modifying to a plan with auto_renew disabled flags the Stripe
         subscription to cancel at period end and sets cancel_at."""
-        mocker.patch("squarelet.organizations.models.Subscription.save")
+        mocker.patch("squarelet.organizations.models.SubscriptionItem.save")
         period_end_ts = 1_800_000_000
         mock_updated = Mock(status="active")
         mock_sub_svc = mocker.patch(
@@ -248,7 +264,9 @@ class TestSubscription:
         ).return_value.get_subscription_service.return_value
         mock_sub_svc.modify.return_value = mock_updated
         mock_sub_svc.get_current_period_end.return_value = period_end_ts
-        mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
+        mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.stripe_subscription"
+        )
         plan = professional_plan_factory.build(auto_renew=False)
         subscription = subscription_factory.build(plan=plan)
         subscription.modify(plan)
@@ -365,7 +383,7 @@ class TestSubscription:
             plan_id=subscription.plan.stripe_id,
             quantity=subscription.quantity,
             billing="send_invoice",
-            metadata={"action": f"Subscription ({plan.name})"},
+            metadata={"action": f"SubscriptionItem ({plan.name})"},
             days_until_due=30,
             anchor_day=None,
             cancel_at_period_end=False,

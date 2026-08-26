@@ -31,7 +31,7 @@ __all__ = [
     "Detail",
     "List",
     "autocomplete",
-    # Subscription views
+    # SubscriptionItem views
     "ManageSubscriptions",
     "Resubscribe",
     "UpdateCard",

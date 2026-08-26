@@ -135,7 +135,7 @@ class StripeModernCustomerService(CustomerService):
 
 
 class StripeModernSubscriptionService(SubscriptionService):
-    """Subscription operations using current Stripe API."""
+    """SubscriptionItem operations using current Stripe API."""
 
     def create(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
