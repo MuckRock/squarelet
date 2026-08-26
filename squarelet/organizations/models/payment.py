@@ -27,7 +27,7 @@ from squarelet.organizations.querysets import (
     EntitlementGrantQuerySet,
     EntitlementQuerySet,
     PlanQuerySet,
-    SubscriptionQuerySet,
+    SubscriptionItemQuerySet,
 )
 
 logger = logging.getLogger(__name__)
@@ -293,22 +293,22 @@ class Customer(models.Model):
         )
 
 
-class Subscription(models.Model):
+class SubscriptionItem(models.Model):
     """Through table for organization plans"""
 
-    objects = SubscriptionQuerySet.as_manager()
+    objects = SubscriptionItemQuerySet.as_manager()
 
     organization = models.ForeignKey(
         verbose_name=_("organization"),
         to="organizations.Organization",
         on_delete=models.CASCADE,
-        related_name="subscriptions",
+        related_name="subscription_items",
     )
     plan = models.ForeignKey(
         verbose_name=_("plan"),
         to="organizations.Plan",
         on_delete=models.CASCADE,
-        related_name="subscriptions",
+        related_name="subscription_items",
     )
 
     subscription_id = models.CharField(
@@ -347,7 +347,7 @@ class Subscription(models.Model):
         verbose_name=_("plan price"),
         to="organizations.PlanPrice",
         on_delete=models.PROTECT,
-        related_name="subscriptions",
+        related_name="subscription_items",
         blank=True,
         null=True,
         help_text=_(
@@ -387,7 +387,7 @@ class Subscription(models.Model):
 
     def __str__(self):
         plan_name = self.plan.name if self.plan else "Free"
-        return f"Subscription: {self.organization} to {plan_name}"
+        return f"SubscriptionItem: {self.organization} to {plan_name}"
 
     @cached_property
     def stripe_subscription(self):
@@ -439,7 +439,7 @@ class Subscription(models.Model):
                     plan_id=self.plan.stripe_id,
                     quantity=self.quantity,
                     billing=billing,
-                    metadata={"action": f"Subscription ({self.plan})"},
+                    metadata={"action": f"SubscriptionItem ({self.plan})"},
                     days_until_due=days_until_due,
                     anchor_day=anchor_day,
                     cancel_at_period_end=not self.plan.auto_renew,
@@ -464,7 +464,7 @@ class Subscription(models.Model):
         # granting the same entitlement (avoid duplicate journey triggers).
         if self.plan_id and self.plan.entitlements.filter(slug="organization").exists():
             already_has_org_entitlement = (
-                self.organization.subscriptions.exclude(pk=self.pk)
+                self.organization.subscription_items.exclude(pk=self.pk)
                 .filter(
                     plan__entitlements__slug="organization",
                 )
@@ -634,7 +634,7 @@ class Subscription(models.Model):
                     billing=(
                         "send_invoice" if self.plan.annual else "charge_automatically"
                     ),
-                    metadata={"action": f"Subscription ({self.plan})"},
+                    metadata={"action": f"SubscriptionItem ({self.plan})"},
                     days_until_due=(30 if self.plan.annual else None),
                 )
             )
@@ -674,14 +674,14 @@ class Subscription(models.Model):
 
         event_messages = {
             "started": {
-                "subject": "New Subscription",
+                "subject": "New SubscriptionItem",
                 "message": (
                     f"{org_link} has just subscribed to "
                     f"the *{self.plan.name}* plan."
                 ),
             },
             "cancelled": {
-                "subject": "Subscription Cancelled",
+                "subject": "SubscriptionItem Cancelled",
                 "message": (
                     f"{org_link} has cancelled their subscription "
                     f"to the *{self.plan.name}* plan."
@@ -899,7 +899,7 @@ class Plan(models.Model):
         """Check if new subscriptions are allowed for this plan"""
         # Only Sunlight plans have subscription limits
         if self.slug.startswith("sunlight-") and self.wix:
-            current_count = Subscription.objects.sunlight_active_count()
+            current_count = SubscriptionItem.objects.sunlight_active_count()
             return current_count < settings.MAX_SUNLIGHT_SUBSCRIPTIONS
         return True
 
@@ -1536,7 +1536,7 @@ class EntitlementGrant(models.Model):
             rule_clauses.append(Q(verified_journalist=True))
         if self.require_active_subscription:
             # Mirrors org.has_active_subscription() = bool(subscriptions.first())
-            rule_clauses.append(Q(subscriptions__isnull=False))
+            rule_clauses.append(Q(subscription_items__isnull=False))
 
         if rule_clauses:
             rule_q = rule_clauses[0]

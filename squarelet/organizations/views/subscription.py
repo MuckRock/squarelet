@@ -171,13 +171,13 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
         # now the template only needs to know about the primary (first) subscription.
         plan = self.object.plans.first()
         context["current_subscription"] = (
-            self.object.subscriptions.filter(plan=plan).first() if plan else None
+            self.object.subscription_items.filter(plan=plan).first() if plan else None
         )
         return context
 
     def get_initial(self):
         plan = self.object.plans.first()
-        sub = self.object.subscriptions.filter(plan=plan).first() if plan else None
+        sub = self.object.subscription_items.filter(plan=plan).first() if plan else None
         max_users = sub.quantity if sub else self.object.max_users
         try:
             billing_email = self.object.receipt_email.email

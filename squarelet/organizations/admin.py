@@ -42,7 +42,7 @@ from squarelet.organizations.models import (
     PlanPrice,
     ProfileChangeRequest,
     ReceiptEmail,
-    Subscription,
+    SubscriptionItem,
 )
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.users.models import User
@@ -77,7 +77,7 @@ class PrettyJSONWidget(Textarea):
 
 
 class SubscriptionInline(admin.TabularInline):
-    model = Subscription
+    model = SubscriptionItem
     readonly_fields = ("plan", "subscription_id", "cancelled", "quantity")
     extra = 0
     can_delete = False
@@ -240,8 +240,8 @@ class PlanFilter(admin.SimpleListFilter):
         if value is None:
             return queryset
         if value == "none":
-            return queryset.filter(subscriptions__isnull=True)
-        return queryset.filter(subscriptions__plan_id=value)
+            return queryset.filter(subscription_items__isnull=True)
+        return queryset.filter(subscription_items__plan_id=value)
 
 
 class OverdueInvoiceFilter(admin.SimpleListFilter):
@@ -461,8 +461,8 @@ class OrganizationAdmin(VersionAdmin):
         if plan_value and plan_value != "none":
             qs = qs.prefetch_related(
                 Prefetch(
-                    "subscriptions",
-                    queryset=Subscription.objects.filter(
+                    "subscription_items",
+                    queryset=SubscriptionItem.objects.filter(
                         plan_id=plan_value
                     ).select_related("plan"),
                     to_attr="plan_subscriptions",

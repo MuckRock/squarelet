@@ -54,7 +54,7 @@ class Detail(ResolveOrganizationSlugMixin, AdminLinkMixin, DetailView):
 
         # Get subscriptions, if any
         upgrade_plan = Plan.objects.get(slug="organization")
-        context["subscriptions"] = org.subscriptions.all()
+        context["subscriptions"] = org.subscription_items.all()
         context["upgrade_plan"] = upgrade_plan
         context["member_count"] = len(users)
         context["admin_count"] = len(admins)
@@ -79,7 +79,7 @@ class Detail(ResolveOrganizationSlugMixin, AdminLinkMixin, DetailView):
             }
 
         context["show_wix_sync"] = bool(
-            org.subscriptions.filter(plan__wix=True).exists()
+            org.subscription_items.filter(plan__wix=True).exists()
             or org.get_wix_plans_from_groups()
         )
         context["inherited_plans"] = org.get_inherited_plans()
@@ -301,7 +301,7 @@ class Detail(ResolveOrganizationSlugMixin, AdminLinkMixin, DetailView):
         triggered = False
 
         # Direct Wix plans on this org
-        for sub in org.subscriptions.filter(plan__wix=True).select_related("plan"):
+        for sub in org.subscription_items.filter(plan__wix=True).select_related("plan"):
             self._sync_wix_for_org(org, sub.plan)
             triggered = True
 

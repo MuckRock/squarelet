@@ -32,7 +32,7 @@ from squarelet.core.utils import format_stripe_error, new_action
 from squarelet.organizations.models import Charge, Organization, Plan
 from squarelet.organizations.models.payment import (
     ReceiptEmail,
-    Subscription,
+    SubscriptionItem,
     get_payment_brand,
 )
 from squarelet.organizations.payments.base import PaymentActionRequired
@@ -138,7 +138,7 @@ class PlanDetailView(DetailView):
 
             # Check user's individual organization
             individual_org = user.individual_organization
-            individual_subscription = individual_org.subscriptions.filter(
+            individual_subscription = individual_org.subscription_items.filter(
                 plan=plan
             ).first()
             if individual_subscription:
@@ -158,7 +158,7 @@ class PlanDetailView(DetailView):
                 admin_orgs = admin_orgs_base
 
             for org in admin_orgs:
-                org_subscription = org.subscriptions.filter(plan=plan).first()
+                org_subscription = org.subscription_items.filter(plan=plan).first()
                 if org_subscription:
                     existing_subscriptions.append((org_subscription, org))
 
@@ -231,7 +231,7 @@ class PlanDetailView(DetailView):
                 result = form.save(request.user)
                 organization = result["organization"]
 
-                if organization.subscriptions.filter(plan=plan).exists():
+                if organization.subscription_items.filter(plan=plan).exists():
                     messages.warning(request, _("Already subscribed"))
                     return redirect(plan)
 
@@ -255,7 +255,7 @@ class PlanDetailView(DetailView):
                 pass
             except Exception as exc:  # pylint: disable=broad-except
                 logger.error(
-                    "Subscription creation failed: %s", exc, exc_info=sys.exc_info()
+                    "SubscriptionItem creation failed: %s", exc, exc_info=sys.exc_info()
                 )
 
         if self._is_ajax():
@@ -281,7 +281,9 @@ class PlanDetailView(DetailView):
         stripe_token = result["stripe_token"]
         payment_method = result["payment_method"]
 
-        locked_count = Subscription.objects.select_for_update().sunlight_active_count()
+        locked_count = (
+            SubscriptionItem.objects.select_for_update().sunlight_active_count()
+        )
         if locked_count >= settings.MAX_SUNLIGHT_SUBSCRIPTIONS:
             transaction.on_commit(
                 lambda: add_to_waitlist.delay(organization.pk, plan.pk, request.user.pk)
@@ -317,7 +319,7 @@ class PlanDetailView(DetailView):
             )
             return None
         except PaymentActionRequired as exc:
-            # Subscription saved but first invoice needs 3DS.
+            # SubscriptionItem saved but first invoice needs 3DS.
             redirect_url = organization.get_absolute_url()
             if self._is_ajax():
                 return JsonResponse(
@@ -371,7 +373,7 @@ class SunlightResearchPlansView(TemplateView):
         if self.request.user.is_authenticated:
             # Check user's individual organization
             individual_org = self.request.user.individual_organization
-            individual_subscriptions = individual_org.subscriptions.filter(
+            individual_subscriptions = individual_org.subscription_items.filter(
                 plan__slug__startswith="sunlight-", plan__wix=True
             ).select_related("plan")
 
@@ -384,7 +386,7 @@ class SunlightResearchPlansView(TemplateView):
             ).distinct()
 
             for org in admin_orgs:
-                org_subscriptions = org.subscriptions.filter(
+                org_subscriptions = org.subscription_items.filter(
                     plan__slug__startswith="sunlight-", plan__wix=True
                 ).select_related("plan")
 
@@ -554,7 +556,7 @@ class BaseManageSubscriptions(SubscriptionObjectMixin, DetailView):
         context = super().get_context_data(**kwargs)
 
         # Get subscriptions and add renewal/cancellation date and cost data
-        subscriptions = self.object.subscriptions.all()
+        subscriptions = self.object.subscription_items.all()
         for subscription in subscriptions:
             subscription.next_date = get_subscription_next_date(subscription)
             subscription.cost = subscription.plan.base_price
@@ -641,7 +643,7 @@ class BaseRemoveCard(SubscriptionObjectMixin, View):
 
         # A non-cancelled subscription still bills the card on file, so removing
         # it would set up a failed renewal. Require cancellation first.
-        if organization.subscriptions.filter(cancelled=False).exists():
+        if organization.subscription_items.filter(cancelled=False).exists():
             return self._error(
                 _(
                     "You must cancel your active subscriptions before "
@@ -690,7 +692,9 @@ class BaseCancelSubscription(SubscriptionObjectMixin, UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        subscription = self.object.subscriptions.filter(id=self.kwargs["pk"]).first()
+        subscription = self.object.subscription_items.filter(
+            id=self.kwargs["pk"]
+        ).first()
         if subscription:
             context["subscription"] = subscription
             context["next_date"] = get_subscription_next_date(subscription)
@@ -698,13 +702,15 @@ class BaseCancelSubscription(SubscriptionObjectMixin, UpdateView):
 
     def form_valid(self, form):
         organization = self.object
-        subscription = self.object.subscriptions.filter(id=self.kwargs["pk"]).first()
+        subscription = self.object.subscription_items.filter(
+            id=self.kwargs["pk"]
+        ).first()
         if subscription:
             organization.remove_subscription(subscription)
             self.log_staff_action(
                 "cancelled a subscription", description=subscription.plan.name
             )
-        messages.success(self.request, _("Subscription cancelled."))
+        messages.success(self.request, _("SubscriptionItem cancelled."))
         return redirect(self.reverse_subject("subscriptions"))
 
 
@@ -772,7 +778,9 @@ class BaseResubscribe(SubscriptionObjectMixin, View):
     def post(self, request, *args, **kwargs):
         organization = self.get_object()
         redirect_url = self.reverse_subject("subscriptions")
-        subscription = organization.subscriptions.filter(id=self.kwargs["pk"]).first()
+        subscription = organization.subscription_items.filter(
+            id=self.kwargs["pk"]
+        ).first()
         print(subscription)
         try:
             subscription.uncancel()

@@ -30,7 +30,7 @@ from squarelet.organizations.models.payment import (
     EntitlementGrant,
     PaymentMethod,
     Plan,
-    Subscription,
+    SubscriptionItem,
 )
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.users.models import User
@@ -55,14 +55,14 @@ def restore_organization():
 
     # Delete cancelled subscriptions for due orgs where the Stripe cancellation
     # date has passed (or is null, which covers free plans and legacy records).
-    Subscription.objects.filter(
+    SubscriptionItem.objects.filter(
         organization_id__in=due_org_ids,
         cancelled=True,
     ).filter(Q(cancel_at__lte=today) | Q(cancel_at__isnull=True)).delete()
 
     # Determine which orgs still have active subscriptions
     orgs_with_subs = set(
-        Subscription.objects.filter(organization_id__in=due_org_ids).values_list(
+        SubscriptionItem.objects.filter(organization_id__in=due_org_ids).values_list(
             "organization_id", flat=True
         )
     )
@@ -275,10 +275,10 @@ def handle_invoice_failed(invoice_data):
             stripe_sub_id = parent.get("subscription_details", {}).get("subscription")
             if stripe_sub_id:
                 try:
-                    subscription = Subscription.objects.get(
+                    subscription = SubscriptionItem.objects.get(
                         subscription_id=stripe_sub_id
                     )
-                except Subscription.DoesNotExist:
+                except SubscriptionItem.DoesNotExist:
                     logger.error(
                         "Invoice failed (%s): no local subscription found for "
                         "Stripe subscription %s on organization %s — "
@@ -334,8 +334,10 @@ def handle_invoice_created(invoice_data):
         subscription_id = parent.get("subscription_details", {}).get("subscription")
         if subscription_id:
             try:
-                subscription = Subscription.objects.get(subscription_id=subscription_id)
-            except Subscription.DoesNotExist:
+                subscription = SubscriptionItem.objects.get(
+                    subscription_id=subscription_id
+                )
+            except SubscriptionItem.DoesNotExist:
                 invoice_id = invoice_data["id"]
                 stripe_link = get_stripe_dashboard_url("invoices", invoice_id)
                 logger.warning(
@@ -639,8 +641,8 @@ def handle_subscription_updated(subscription_data):
     """Handle receiving a customer.subscription.updated event from Stripe"""
     subscription_id = subscription_data.get("id")
     try:
-        subscription = Subscription.objects.get(subscription_id=subscription_id)
-    except Subscription.DoesNotExist:
+        subscription = SubscriptionItem.objects.get(subscription_id=subscription_id)
+    except SubscriptionItem.DoesNotExist:
         logger.warning(
             "[STRIPE-WEBHOOK-SUBSCRIPTION] subscription.updated for unknown "
             "subscription: %s",
@@ -666,7 +668,7 @@ def handle_subscription_updated(subscription_data):
     # finally deleted when Stripe sends the deletion event at period end.
     subscription.cancelled = bool(subscription_data.get("cancel_at_period_end"))
     # Track when Stripe will terminate the subscription, consistent with how
-    # Subscription.cancel() sets it. Clear it when a cancellation is reversed.
+    # SubscriptionItem.cancel() sets it. Clear it when a cancellation is reversed.
     if subscription.cancelled and subscription.current_period_end:
         subscription.cancel_at = subscription.current_period_end.date()
     else:
@@ -697,8 +699,8 @@ def handle_subscription_deleted(subscription_data):
     """Handle receiving a customer.subscription.deleted event from Stripe"""
     subscription_id = subscription_data.get("id")
     try:
-        subscription = Subscription.objects.get(subscription_id=subscription_id)
-    except Subscription.DoesNotExist:
+        subscription = SubscriptionItem.objects.get(subscription_id=subscription_id)
+    except SubscriptionItem.DoesNotExist:
         logger.warning(
             "[STRIPE-WEBHOOK-SUBSCRIPTION] subscription.deleted for unknown "
             "subscription: %s",
