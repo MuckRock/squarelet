@@ -32,7 +32,7 @@ class Invoice(models.Model):
     )
     subscription = models.ForeignKey(
         verbose_name=_("subscription"),
-        to="organizations.SubscriptionItem",
+        to="organizations.Subscription",
         on_delete=models.SET_NULL,
         related_name="invoices",
         null=True,

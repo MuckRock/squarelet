@@ -32,7 +32,7 @@ class SelectPlanView(TemplateView):
         if not user.is_anonymous:
             pro_plan = user.individual_organization.subscription_items.first()
             org_plans = user.organizations.filter(
-                subscription_items__isnull=False,
+                subscriptions__items__isnull=False,
                 individual=False,
             ).distinct()
         context["user"] = user

@@ -23,6 +23,7 @@ from reversion.admin import VersionAdmin
 # Squarelet
 from squarelet.core.utils import get_stripe_dashboard_url, new_action
 from squarelet.organizations.models import (
+    Subscription,
     Charge,
     Customer,
     Entitlement,
@@ -77,8 +78,8 @@ class PrettyJSONWidget(Textarea):
 
 
 class SubscriptionInline(admin.TabularInline):
-    model = SubscriptionItem
-    readonly_fields = ("plan", "subscription_id", "cancelled", "quantity")
+    model = Subscription
+    readonly_fields = ("subscription_id", "interval", "collection_method", "cancelled")
     extra = 0
     can_delete = False
 
@@ -299,8 +300,8 @@ class PlanFilter(admin.SimpleListFilter):
         if value is None:
             return queryset
         if value == "none":
-            return queryset.filter(subscription_items__isnull=True)
-        return queryset.filter(subscription_items__plan_id=value)
+            return queryset.filter(subscriptions__items__isnull=True)
+        return queryset.filter(subscriptions__items__plan_id=value)
 
 
 class OverdueInvoiceFilter(admin.SimpleListFilter):
@@ -520,7 +521,7 @@ class OrganizationAdmin(VersionAdmin):
         if plan_value and plan_value != "none":
             qs = qs.prefetch_related(
                 Prefetch(
-                    "subscription_items",
+                    "subscriptions__items",
                     queryset=SubscriptionItem.objects.filter(
                         plan_id=plan_value
                     ).select_related("plan"),
