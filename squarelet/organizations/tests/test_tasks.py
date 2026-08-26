@@ -16,7 +16,12 @@ from freezegun import freeze_time
 
 # Squarelet
 from squarelet.organizations import tasks
-from squarelet.organizations.models import Charge, Invoice, PaymentMethod, Subscription
+from squarelet.organizations.models import (
+    Charge,
+    Invoice,
+    PaymentMethod,
+    SubscriptionItem,
+)
 from squarelet.organizations.tests.factories import (
     EntitlementGrantFactory,
     InvoiceFactory,
@@ -65,7 +70,7 @@ def test_restore_organization(organization_plan_factory, mocker):
     org_due.refresh_from_db()
 
     # cancelled sub in due org should have been deleted
-    assert not Subscription.objects.filter(pk=subsc_update_cancel.pk).exists()
+    assert not SubscriptionItem.objects.filter(pk=subsc_update_cancel.pk).exists()
     # org with no remaining subs loses its anchor
     assert org_cancel.update_on is None
 
@@ -106,7 +111,7 @@ def test_restore_organization_annual_sub_not_deleted_early(
     tasks.restore_organization()
 
     # Sub should still exist — cancel_at has not passed
-    assert Subscription.objects.filter(pk=sub.pk).exists()
+    assert SubscriptionItem.objects.filter(pk=sub.pk).exists()
     # update_on should advance (org still has a sub)
     org.refresh_from_db()
     assert org.update_on == (today - timedelta(1)) + relativedelta(months=1)
@@ -135,7 +140,7 @@ def test_restore_organization_annual_sub_deleted_after_cancel_at(
     tasks.restore_organization()
 
     # Sub should be deleted — cancel_at has passed
-    assert not Subscription.objects.filter(pk=sub.pk).exists()
+    assert not SubscriptionItem.objects.filter(pk=sub.pk).exists()
     # org lost its last sub, so update_on clears
     org.refresh_from_db()
     assert org.update_on is None
@@ -279,7 +284,9 @@ class TestHandleChargeSucceeded:
         assert charge.fee_amount == 0
         assert charge.organization == organization
         assert charge.created_at == timestamp
-        assert charge.description == f"Subscription Payment for {product['name']} plan"
+        assert (
+            charge.description == f"SubscriptionItem Payment for {product['name']} plan"
+        )
         mock_download.assert_called_once_with(charge.pk, charge_data["receipt_url"])
 
     @pytest.mark.django_db()
@@ -1465,7 +1472,7 @@ class TestCheckOverdueInvoices:
         mock_subscription_cancelled.assert_not_called()
 
         # Org's subscription should still exist
-        assert Subscription.objects.filter(pk=org_subscription.pk).exists()
+        assert SubscriptionItem.objects.filter(pk=org_subscription.pk).exists()
 
     @pytest.mark.django_db(transaction=True)
     @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=30)
@@ -1490,7 +1497,7 @@ class TestCheckOverdueInvoices:
         )
         # Mock Stripe deletion since subscription_cancelled tries to delete in Stripe
         mocker.patch(
-            "squarelet.organizations.models.payment.Subscription.stripe_subscription",
+            "squarelet.organizations.models.payment.SubscriptionItem.stripe_subscription",
             new_callable=mocker.PropertyMock,
             return_value=None,
         )
@@ -1498,10 +1505,10 @@ class TestCheckOverdueInvoices:
         tasks.process_overdue_invoice(invoice.id)
 
         # The invoice's subscription should be deleted
-        assert not Subscription.objects.filter(pk=invoice_subscription.pk).exists()
+        assert not SubscriptionItem.objects.filter(pk=invoice_subscription.pk).exists()
 
         # The org's other subscription should still exist
-        assert Subscription.objects.filter(pk=org_subscription.pk).exists()
+        assert SubscriptionItem.objects.filter(pk=org_subscription.pk).exists()
 
     @pytest.mark.django_db
     @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=45)
@@ -2160,8 +2167,8 @@ class TestSubscriptionCancelledWithExplicitSubscription:
 
         org.subscription_cancelled(subscription=sub_a)
 
-        assert not Subscription.objects.filter(pk=sub_a.pk).exists()
-        assert Subscription.objects.filter(pk=sub_b.pk).exists()
+        assert not SubscriptionItem.objects.filter(pk=sub_a.pk).exists()
+        assert SubscriptionItem.objects.filter(pk=sub_b.pk).exists()
 
     @pytest.mark.django_db
     def test_handle_invoice_failed_passes_subscription(
@@ -2581,7 +2588,7 @@ class TestHandleSubscriptionUpdated:
             {"id": "sub_upd_cancel", "status": "canceled"}
         )
 
-        assert not Subscription.objects.filter(pk=subscription.pk).exists()
+        assert not SubscriptionItem.objects.filter(pk=subscription.pk).exists()
         patched.assert_called_once_with("organization", [org_uuid])
 
     @pytest.mark.django_db
@@ -2606,7 +2613,7 @@ class TestHandleSubscriptionDeleted:
 
         tasks.handle_subscription_deleted({"id": "sub_del", "status": "canceled"})
 
-        assert not Subscription.objects.filter(pk=subscription.pk).exists()
+        assert not SubscriptionItem.objects.filter(pk=subscription.pk).exists()
         patched.assert_called_once_with("organization", [org_uuid])
 
     @pytest.mark.django_db

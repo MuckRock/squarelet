@@ -7,7 +7,7 @@ import collections
 import logging
 
 # Squarelet
-from squarelet.organizations.models.payment import PlanPrice, Subscription
+from squarelet.organizations.models.payment import PlanPrice, SubscriptionItem
 
 logger = logging.getLogger(__name__)
 
@@ -164,7 +164,7 @@ class Command(BaseCommand):
         per-user decomposition handles instead.
         """
         return list(
-            Subscription.objects.select_related("organization", "plan")
+            SubscriptionItem.objects.select_related("organization", "plan")
             .filter(plan_price__isnull=True)
             .exclude(plan__price_per_user__gt=0, subscription_id__isnull=False)
             .order_by("plan__slug", "pk")
@@ -292,12 +292,12 @@ class Command(BaseCommand):
     def _report_remaining(self):
         """What is left, and why - so a non-zero count is not alarming."""
         per_user = (
-            Subscription.objects.filter(plan_price__isnull=True)
+            SubscriptionItem.objects.filter(plan_price__isnull=True)
             .filter(plan__price_per_user__gt=0, subscription_id__isnull=False)
             .count()
         )
         deferred = (
-            Subscription.objects.filter(plan_price__isnull=True)
+            SubscriptionItem.objects.filter(plan_price__isnull=True)
             .filter(plan__slug__in=DEFERRED_SLUGS)
             .count()
         )

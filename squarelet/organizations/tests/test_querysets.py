@@ -19,7 +19,7 @@ from squarelet.organizations.models import (
     Membership,
     Organization,
     Plan,
-    Subscription,
+    SubscriptionItem,
 )
 from squarelet.organizations.tests.factories import (
     ChargeFactory,
@@ -356,8 +356,8 @@ def test_membership_create_without_plan_no_sync(mocker):
     mock_sync.assert_not_called()
 
 
-class TestSubscriptionQuerySet(TestCase):
-    """Unit tests for Subscription queryset"""
+class TestSubscriptionItemQuerySet(TestCase):
+    """Unit tests for SubscriptionItem queryset"""
 
     @pytest.mark.django_db
     def test_sunlight_active_count_zero(self):
@@ -366,7 +366,7 @@ class TestSubscriptionQuerySet(TestCase):
         regular_plan = PlanFactory(slug="professional", wix=False)
         SubscriptionFactory(plan=regular_plan, cancelled=False)
 
-        count = Subscription.objects.sunlight_active_count()
+        count = SubscriptionItem.objects.sunlight_active_count()
         assert count == 0
 
     @pytest.mark.django_db
@@ -381,7 +381,7 @@ class TestSubscriptionQuerySet(TestCase):
         SubscriptionFactory(plan=sunlight_plan1, cancelled=False)
         SubscriptionFactory(plan=sunlight_plan2, cancelled=False)
 
-        count = Subscription.objects.sunlight_active_count()
+        count = SubscriptionItem.objects.sunlight_active_count()
         assert count == 3
 
     @pytest.mark.django_db
@@ -395,7 +395,7 @@ class TestSubscriptionQuerySet(TestCase):
         SubscriptionFactory(plan=sunlight_plan, cancelled=True)
         SubscriptionFactory(plan=sunlight_plan, cancelled=True)
 
-        count = Subscription.objects.sunlight_active_count()
+        count = SubscriptionItem.objects.sunlight_active_count()
         assert count == 4
 
     @pytest.mark.django_db
@@ -407,7 +407,7 @@ class TestSubscriptionQuerySet(TestCase):
         SubscriptionFactory(plan=sunlight_wix, cancelled=False)
         SubscriptionFactory(plan=sunlight_no_wix, cancelled=False)
 
-        count = Subscription.objects.sunlight_active_count()
+        count = SubscriptionItem.objects.sunlight_active_count()
         assert count == 1
 
     @pytest.mark.django_db
@@ -422,7 +422,7 @@ class TestSubscriptionQuerySet(TestCase):
         SubscriptionFactory(plan=sunlight_plan, cancelled=True)
         SubscriptionFactory(plan=regular_plan, cancelled=False)
 
-        count = Subscription.objects.sunlight_active_count()
+        count = SubscriptionItem.objects.sunlight_active_count()
         assert count == 3
 
 

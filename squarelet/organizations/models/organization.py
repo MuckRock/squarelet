@@ -164,7 +164,7 @@ class Organization(AvatarMixin, models.Model):
     plans = models.ManyToManyField(
         verbose_name=_("plans"),
         to="organizations.Plan",
-        through="organizations.Subscription",
+        through="organizations.SubscriptionItem",
         related_name="organizations",
         help_text=_("Plans this organization is subscribed to"),
         blank=True,
@@ -507,7 +507,7 @@ class Organization(AvatarMixin, models.Model):
         # check and the INSERT.
         Organization.objects.select_for_update().filter(pk=self.pk).get()
 
-        if self.subscriptions.filter(plan=plan).exists():
+        if self.subscription_items.filter(plan=plan).exists():
             raise SubscriptionError(
                 f"Organization already has an active subscription to {plan}"
             )
@@ -516,7 +516,7 @@ class Organization(AvatarMixin, models.Model):
         if max_users is None:
             max_users = plan.minimum_users
 
-        is_first = not self.subscriptions.exists()
+        is_first = not self.subscription_items.exists()
 
         payment_method = self._resolve_payment_method(payment_method, token)
 
@@ -532,7 +532,7 @@ class Organization(AvatarMixin, models.Model):
         # receives no billing_cycle_anchor (Stripe sets its own anchor). Only after
         # the subscription exists do we record the anchor for subsequent subscriptions
         # to align to.
-        _, stripe_subscription = self.subscriptions.start(
+        _, stripe_subscription = self.subscription_items.start(
             organization=self,
             plan=plan,
             payment_method=payment_method,
@@ -594,15 +594,15 @@ class Organization(AvatarMixin, models.Model):
                 sync_wix_for_group_member.delay(child_org.pk, self.pk, plan.pk)
 
     def remove_subscription(self, plan_or_subscription, user=None):
-        """Cancel the subscription for the given plan or Subscription instance."""
+        """Cancel the subscription for the given plan or SubscriptionItem instance."""
         # pylint: disable=import-outside-toplevel
         # Squarelet
-        from squarelet.organizations.models.payment import Subscription as Sub
+        from squarelet.organizations.models.payment import SubscriptionItem as Sub
 
         if isinstance(plan_or_subscription, Sub):
             sub = plan_or_subscription
         else:
-            sub = self.subscriptions.get(plan=plan_or_subscription)
+            sub = self.subscription_items.get(plan=plan_or_subscription)
 
         wix_unsync_plan = sub.plan if sub.plan and sub.plan.wix else None
 
@@ -631,8 +631,8 @@ class Organization(AvatarMixin, models.Model):
         add/remove actions — but verify that use case is gone before removing.
         """
         try:
-            sub = self.subscriptions.get(plan=old_plan)
-        except self.subscriptions.model.DoesNotExist:
+            sub = self.subscription_items.get(plan=old_plan)
+        except self.subscription_items.model.DoesNotExist:
             raise ValueError(
                 f"Organization does not have an active subscription to {old_plan}"
             )
@@ -689,7 +689,7 @@ class Organization(AvatarMixin, models.Model):
         """The subscription was cancelled due to payment failure
 
         Args:
-            subscription: The specific Subscription instance to cancel.
+            subscription: The specific SubscriptionItem instance to cancel.
         """
         if subscription is None:
             logger.error(
@@ -747,7 +747,7 @@ class Organization(AvatarMixin, models.Model):
 
     def has_active_subscription(self, plan=None):
         """Check if the organization has an active subscription"""
-        qs = self.subscriptions.all()
+        qs = self.subscription_items.all()
         if plan is not None:
             qs = qs.filter(plan=plan)
         return qs.exists()
@@ -929,7 +929,7 @@ class Organization(AvatarMixin, models.Model):
     def merge(self, org, user):
         """Merge another organization into this one"""
 
-        if org.subscriptions.exists():
+        if org.subscription_items.exists():
             raise ValueError(f"{org} has active subscriptions and may not be merged")
         if org.merged is not None:
             raise ValueError(

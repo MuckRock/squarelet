@@ -145,7 +145,7 @@ class PaymentForm(StripeForm):
         payment_required = (
             plan
             and plan.requires_payment()
-            and not self.organization.subscriptions.filter(plan=plan).exists()
+            and not self.organization.subscription_items.filter(plan=plan).exists()
         )
         payment_supplied = data.get("use_card_on_file") or data.get("stripe_token")
 
@@ -347,7 +347,7 @@ class MergeForm(forms.Form):
     )
     bad_organization = forms.ModelChoiceField(
         queryset=Organization.objects.filter(
-            subscriptions__isnull=True,
+            subscription_items__isnull=True,
             individual=False,
             merged=None,
         ),
