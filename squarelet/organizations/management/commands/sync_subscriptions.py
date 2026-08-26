@@ -8,12 +8,12 @@ import time
 import stripe
 
 # Squarelet
-from squarelet.organizations.models.payment import Subscription
+from squarelet.organizations.models.payment import SubscriptionItem
 from squarelet.organizations.payments.factory import get_payment_provider
 
 
 class Command(BaseCommand):
-    """Sync local Subscription fields from Stripe.
+    """Sync local SubscriptionItem fields from Stripe.
 
     Fetches the live Stripe subscription for each local record and updates
     stripe_status and current_period_end.  Safe to re-run — skips records
@@ -39,7 +39,7 @@ class Command(BaseCommand):
         org_filter = options["org"]
         dry_run = options["dry_run"]
 
-        qs = Subscription.objects.select_related("plan", "organization").exclude(
+        qs = SubscriptionItem.objects.select_related("plan", "organization").exclude(
             subscription_id=None
         )
         if org_filter:

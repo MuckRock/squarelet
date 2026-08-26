@@ -176,7 +176,7 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         individual_org = user.individual_organization
         upgrade_plan = Plan.objects.filter(slug="professional").first()
         subscriptions = list(
-            individual_org.subscriptions.select_related("plan").prefetch_related(
+            individual_org.subscription_items.select_related("plan").prefetch_related(
                 "plan__entitlements"
             )
         )
@@ -219,7 +219,7 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         for org in user.organizations.filter(individual=False):
             plans.extend(
                 (org, sub.plan)
-                for sub in org.subscriptions.select_related("plan")
+                for sub in org.subscription_items.select_related("plan")
                 if not sub.plan.free
             )
             plans.extend((org, plan) for _source, plan in org.get_inherited_plans())

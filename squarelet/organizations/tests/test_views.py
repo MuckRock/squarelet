@@ -1618,7 +1618,7 @@ class TestUpdateCard(ViewTestMixin):
 
 @pytest.mark.django_db()
 class TestCancelSubscription(ViewTestMixin):
-    """Test staff-action logging on the Organization Cancel Subscription view"""
+    """Test staff-action logging on the Organization Cancel SubscriptionItem view"""
 
     view = views.CancelSubscription
     url = "/organizations/{slug}/subscriptions/{pk}/cancel"
@@ -1752,7 +1752,7 @@ class TestCreate(ViewTestMixin):
         user = user_factory(email_verified=True)
         self.call_view(rf, user, {"name": "test"})
         organization = user.organizations.get(individual=False)
-        assert not organization.subscriptions.exists()
+        assert not organization.subscription_items.exists()
         assert organization.has_admin(user)
         assert organization.receipt_email.email == user.email
 

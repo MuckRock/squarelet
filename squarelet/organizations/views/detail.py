@@ -62,7 +62,7 @@ class Detail(ResolveOrganizationSlugMixin, AdminLinkMixin, DetailView):
         # Get subscriptions, if any, along with the benefits they add up to
         upgrade_plan = Plan.objects.get(slug="organization")
         subscriptions = list(
-            org.subscriptions.select_related("plan").prefetch_related(
+            org.subscription_items.select_related("plan").prefetch_related(
                 "plan__entitlements"
             )
         )
@@ -94,7 +94,7 @@ class Detail(ResolveOrganizationSlugMixin, AdminLinkMixin, DetailView):
             }
 
         context["show_wix_sync"] = bool(
-            org.subscriptions.filter(plan__wix=True).exists()
+            org.subscription_items.filter(plan__wix=True).exists()
             or org.get_wix_plans_from_groups()
         )
         inherited_orgs, inherited_benefits = consolidate_inherited_benefits(
@@ -320,7 +320,7 @@ class Detail(ResolveOrganizationSlugMixin, AdminLinkMixin, DetailView):
         triggered = False
 
         # Direct Wix plans on this org
-        for sub in org.subscriptions.filter(plan__wix=True).select_related("plan"):
+        for sub in org.subscription_items.filter(plan__wix=True).select_related("plan"):
             self._sync_wix_for_org(org, sub.plan)
             triggered = True
 

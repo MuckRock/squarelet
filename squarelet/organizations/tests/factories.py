@@ -112,7 +112,7 @@ class SubscriptionFactory(factory.django.DjangoModelFactory):
     plan = factory.SubFactory("squarelet.organizations.tests.factories.PlanFactory")
 
     class Meta:
-        model = "organizations.Subscription"
+        model = "organizations.SubscriptionItem"
 
 
 @factory.django.mute_signals(signals.pre_save, signals.post_save)
