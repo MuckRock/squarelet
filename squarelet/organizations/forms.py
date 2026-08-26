@@ -225,7 +225,7 @@ class MergeForm(forms.Form):
     )
     bad_organization = forms.ModelChoiceField(
         queryset=Organization.objects.filter(
-            subscriptions__isnull=True,
+            subscription_items__isnull=True,
             individual=False,
             merged=None,
         ),
