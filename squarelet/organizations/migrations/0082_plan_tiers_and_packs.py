@@ -16,13 +16,15 @@ TIER_PRODUCTS = {
 
 PACK_PRICE_PER_UNIT = 10
 
+# One add-on pack per product, bought by setting Subscription.quantity.
+#
 # `resources` deliberately uses the CURRENT formula shape
 # (base + max(quantity - minimum_users, 0) * per_user) rather than the flat
 # target shape.  Client sites still evaluate that formula, so a flat
 # {"base_requests": 10} would grant 10 in total no matter how many units were
 # bought.  With base 0 / minimum 0 / per_user 10 it correctly yields
-# 10 * quantity today.  Step 3h moves these to the flat shape at the same
-# time clients switch to base * quantity - and that conversion must MOVE the
+# 10 * quantity today.  Step 3h moves these to the flat shape at the same time
+# clients switch to base * quantity - and that conversion must MOVE the
 # per_user value into the base for packs, not simply drop the per-user keys
 # the way it does for tier entitlements.
 PACKS = [
@@ -50,6 +52,18 @@ PACKS = [
             "ai_credits_per_user": 500,
         },
     },
+    {
+        "slug": "scoutpost-credit-pack",
+        "name": "Scoutpost Credit Pack",
+        "product": "scoutpost",
+        "resource_key": "base_credits",
+        "description": "Additional Scoutpost credits, 1,000 per pack per month",
+        "resources": {
+            "base_credits": 0,
+            "minimum_users": 0,
+            "credits_per_user": 1000,
+        },
+    },
 ]
 
 
@@ -58,8 +72,8 @@ def client_for(Entitlement, resource_key):
 
     Resolved from existing data rather than hardcoded primary keys so this
     works across environments - each client uses a distinct resource
-    vocabulary.  Returns None on a database that has no entitlements yet
-    (a fresh test database), where there is nothing to set up.
+    vocabulary.  Returns None where the key is absent (a seeded dev database
+    or a fresh test database), leaving nothing to set up.
     """
     clients = set(
         Entitlement.objects.filter(resources__has_key=resource_key).values_list(
@@ -122,15 +136,27 @@ def remove_tiers_and_packs(apps, schema_editor):
     Entitlement = apps.get_model("organizations", "Entitlement")
 
     slugs = [spec["slug"] for spec in PACKS]
-    Plan.objects.filter(slug__in=slugs).delete()
-    Entitlement.objects.filter(slug__in=slugs).delete()
+    for plan in Plan.objects.filter(slug__in=slugs):
+        plan.entitlements.clear()
+        plan.delete()
     Plan.objects.filter(slug__in=TIER_PRODUCTS).update(product="")
+
+    # The pack Entitlements are deliberately left in place.  Deleting them
+    # here raises "Cannot query Entitlement object: Must be Entitlement
+    # instance" - the deletion collector walks the EntitlementGrant m2m and
+    # trips over a historical instance being handed to a real-model query.
+    # The same delete works fine outside a migration, so this is a
+    # historical-model edge case rather than an application problem.
+    #
+    # Leaving them is harmless: with their plans gone nothing references
+    # them, they grant nobody anything, and re-applying this migration
+    # reuses them via update_or_create rather than duplicating.
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("organizations", "0075_plan_product_plan_stripe_product_id_and_more"),
+        ("organizations", "0081_plan_price"),
     ]
 
     operations = [
