@@ -85,7 +85,7 @@ class OrganizationQuerySet(models.QuerySet):
         user.individual_organization.change_logs.create(
             reason=ChangeLogReason.created,
             user=user,
-            to_plan=user.individual_organization.plans.first(),
+            to_plan=user.individual_organization.get_plans().first(),
             to_max_users=user.individual_organization.max_users,
         )
         return user.individual_organization
