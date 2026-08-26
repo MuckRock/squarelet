@@ -46,7 +46,11 @@ class TestPlanPurchaseFormInit:
         assert org in form.fields["organization"].queryset
 
     def test_init_excludes_already_subscribed_orgs(
-        self, user_factory, organization_factory, plan_factory, subscription_factory
+        self,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
     ):
         """Form excludes organizations already subscribed to the plan"""
         user = user_factory()
@@ -55,7 +59,9 @@ class TestPlanPurchaseFormInit:
         plan = plan_factory(public=True, for_groups=True)
 
         # Create an active subscription for the org
-        subscription_factory(organization=org, plan=plan, cancelled=False)
+        subscription_item_factory(
+            subscription__organization=org, plan=plan, subscription__cancelled=False
+        )
 
         form = PlanPurchaseForm(plan=plan, user=user)
 

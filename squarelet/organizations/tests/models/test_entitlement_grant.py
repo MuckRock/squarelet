@@ -12,7 +12,7 @@ from squarelet.organizations.tests.factories import (
     EntitlementGrantFactory,
     OrganizationFactory,
     PlanFactory,
-    SubscriptionFactory,
+    SubscriptionItemFactory,
 )
 
 
@@ -57,7 +57,7 @@ class TestEntitlementGrant:
         We can grant entitlements to our active subscribers.
         """
         subscribed = OrganizationFactory()
-        SubscriptionFactory(organization=subscribed)
+        SubscriptionItemFactory(subscription__organization=subscribed)
         unsubscribed = OrganizationFactory()
         grant = EntitlementGrantFactory(require_active_subscription=True)
         assert grant.matches(subscribed) is True
@@ -69,10 +69,10 @@ class TestEntitlementGrant:
         Grant rules are combined with "AND" logic.
         """
         verified_and_sub = OrganizationFactory(verified_journalist=True)
-        SubscriptionFactory(organization=verified_and_sub)
+        SubscriptionItemFactory(subscription__organization=verified_and_sub)
         verified_only = OrganizationFactory(verified_journalist=True)
         sub_only = OrganizationFactory(verified_journalist=False)
-        SubscriptionFactory(organization=sub_only)
+        SubscriptionItemFactory(subscription__organization=sub_only)
 
         grant = EntitlementGrantFactory(
             require_verified=True, require_active_subscription=True
@@ -174,7 +174,7 @@ class TestMatchingOrganizations:
     @pytest.mark.django_db()
     def test_active_subscription_rule(self):
         subscribed = OrganizationFactory()
-        SubscriptionFactory(organization=subscribed)
+        SubscriptionItemFactory(subscription__organization=subscribed)
         unsubscribed = OrganizationFactory()
         grant = EntitlementGrantFactory(require_active_subscription=True)
         matched = list(grant.matching_organizations())
@@ -212,7 +212,7 @@ class TestMatchingOrganizations:
     @pytest.mark.django_db()
     def test_both_rules_and_logic(self):
         verified_and_sub = OrganizationFactory(verified_journalist=True)
-        SubscriptionFactory(organization=verified_and_sub)
+        SubscriptionItemFactory(subscription__organization=verified_and_sub)
         verified_only = OrganizationFactory(verified_journalist=True)
         grant = EntitlementGrantFactory(
             require_verified=True, require_active_subscription=True
@@ -275,7 +275,7 @@ class TestEntitlementForOrganization:
     @pytest.mark.django_db()
     def test_active_subscription_rule_matches(self):
         subscribed = OrganizationFactory()
-        SubscriptionFactory(organization=subscribed)
+        SubscriptionItemFactory(subscription__organization=subscribed)
         unsubscribed = OrganizationFactory()
         entitlement = EntitlementFactory()
         EntitlementGrantFactory(
@@ -287,7 +287,7 @@ class TestEntitlementForOrganization:
     @pytest.mark.django_db()
     def test_both_rules_require_both_at_db_level(self):
         verified_and_sub = OrganizationFactory(verified_journalist=True)
-        SubscriptionFactory(organization=verified_and_sub)
+        SubscriptionItemFactory(subscription__organization=verified_and_sub)
         verified_only = OrganizationFactory(verified_journalist=True)
         entitlement = EntitlementFactory()
         EntitlementGrantFactory(

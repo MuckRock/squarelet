@@ -194,7 +194,12 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         assert "/accounts/login/" in response.url
 
     def test_already_subscribed_organization(
-        self, rf, user_factory, organization_factory, plan_factory, subscription_factory
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
     ):
         """Test that already subscribed organizations are excluded from form"""
         user = user_factory()
@@ -203,7 +208,9 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         org.add_creator(user)
 
         # Create existing subscription
-        subscription_factory(organization=org, plan=plan, cancelled=False)
+        subscription_item_factory(
+            subscription__organization=org, plan=plan, subscription__cancelled=False
+        )
 
         data = {
             "organization": str(org.pk),
