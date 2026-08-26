@@ -1061,6 +1061,20 @@ class PlanPrice(models.Model):
         default="standard",
         help_text=_("Ongoing structural rate class this price represents"),
     )
+    code = models.SlugField(
+        _("code"),
+        max_length=50,
+        blank=True,
+        default="",
+        help_text=_(
+            "Blank for list pricing - one such price per plan, interval and "
+            "label.  Set to a short slug naming an individually negotiated "
+            "deal (e.g. 'insideclimate'), which may sit above or below list: "
+            "Stripe has no negative coupon, so a rate above list can only be "
+            "expressed as a price of its own.  Coupons are for time-limited "
+            "promotions."
+        ),
+    )
     amount = models.PositiveIntegerField(
         _("amount"),
         help_text=_(
@@ -1088,7 +1102,7 @@ class PlanPrice(models.Model):
     )
 
     class Meta:
-        ordering = ("plan", "interval", "label")
+        ordering = ("plan", "interval", "label", "code")
         constraints = [
             # Partial: every real Stripe Price ID must be unique, but any
             # number of comped prices may leave it blank.
@@ -1097,22 +1111,26 @@ class PlanPrice(models.Model):
                 condition=~models.Q(stripe_price_id=""),
                 name="unique_stripe_price_id_when_set",
             ),
-            # One *active* price per variant; superseded rows accumulate
-            # freely so existing subscribers keep billing at what they
-            # signed up for.
+            # One *active* price per variant, where a negotiated `code`
+            # makes its own variant.  List pricing (code="") therefore keeps
+            # exactly one active row per plan/interval/label, while any
+            # number of negotiated deals coexist alongside it.  Superseded
+            # rows accumulate freely so existing subscribers keep billing at
+            # what they signed up for.
             models.UniqueConstraint(
-                fields=["plan", "interval", "label"],
+                fields=["plan", "interval", "label", "code"],
                 condition=models.Q(active=True),
                 name="unique_active_plan_price",
             ),
         ]
 
     def __str__(self):
-        suffix = "" if self.active else ", superseded"
-        return (
-            f"{self.plan.name} "
-            f"({self.get_interval_display()}, {self.get_label_display()}{suffix})"
-        )
+        parts = [self.get_interval_display(), self.get_label_display()]
+        if self.code:
+            parts.append(self.code)
+        if not self.active:
+            parts.append("superseded")
+        return f"{self.plan.name} ({', '.join(parts)})"
 
     @property
     def amount_dollars(self):
@@ -1172,6 +1190,9 @@ class PlanPrice(models.Model):
             stripe_price_id="",
             interval=self.interval,
             label=self.label,
+            # Carried over deliberately: superseding a negotiated rate must
+            # produce a new rate for the same deal, not a list price.
+            code=self.code,
             amount=amount,
             currency=self.currency,
         )
