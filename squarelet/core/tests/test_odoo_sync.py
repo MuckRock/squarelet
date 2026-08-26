@@ -213,7 +213,10 @@ class TestComputeOrgPlansAndStatus:
     def test_confirmed_when_any_wix_plan(self):
         """An own wix plan sets status Confirmed and resolves all plan ids."""
         org = Mock()
-        org.get_plans.return_value.values_list.return_value = [("Pro", True), ("Free", False)]
+        org.get_plans.return_value.values_list.return_value = [
+            ("Pro", True),
+            ("Free", False),
+        ]
         with patch.object(sync_odoo, "_resolve_plan_id", side_effect=[10, 20]):
             ids, status = sync_odoo._compute_org_plans_and_status(org, None)
         assert ids == [10, 20]
@@ -269,7 +272,9 @@ class TestMemberDesiredPlans:
     def test_unions_org_and_personal_plans(self):
         """Org plans and the user's personal plans are unioned."""
         user = Mock()
-        user.individual_organization.get_plans.return_value.values_list.return_value = ["Personal"]
+        user.individual_organization.get_plans.return_value.values_list.return_value = [
+            "Personal"
+        ]
         with patch.object(sync_odoo, "_resolve_plan_id", return_value=30):
             assert sync_odoo._member_desired_plans(user, [10, 20]) == [10, 20, 30]
 
@@ -278,7 +283,9 @@ class TestMemberDesiredPlans:
         This shouldn't ever happen as we ensure all plans at the beginning,
         but it is important we still have a test case."""
         user = Mock()
-        user.individual_organization.get_plans.return_value.values_list.return_value = ["Broken"]
+        user.individual_organization.get_plans.return_value.values_list.return_value = [
+            "Broken"
+        ]
         with patch.object(sync_odoo, "_resolve_plan_id", return_value=None):
             assert sync_odoo._member_desired_plans(user, [10]) == [10]
 

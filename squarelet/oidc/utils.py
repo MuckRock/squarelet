@@ -66,7 +66,9 @@ def send_cache_invalidations(model, uuids):
 def oidc_login_hook(request, user, client):
     """Log which client users login to"""
     # take an arbitrary non-individual organization, since most users will have one org
-    organizations = list(user.organizations.values("id", "name", plan=F("plans__name")))
+    organizations = list(
+        user.organizations.values("id", "name", plan=F("subscriptions__plans__name"))
+    )
     user.logins.create(
         client=client,
         metadata={
