@@ -50,6 +50,10 @@ PRICE_MATRIX = [
     ("documentcloud-page-pack", "annual", "standard", "", 12_000),
     ("scoutpost-credit-pack", "monthly", "standard", "", 1_000),
     ("scoutpost-credit-pack", "annual", "standard", "", 12_000),
+    # Admin keeps its own Plan rather than consolidating - it is the only
+    # plan granting staff access across all three products - but still needs
+    # a price so Subscription.plan_price can be made non-null in step 3c.
+    ("admin", "monthly", "comped", "", 0),
     # Negotiated rates - a price of their own, not a coupon on top of list.
     # See the plan-mapping doc for why each exists.
     ("organization", "monthly", "standard", "insideclimate", 3_000),
