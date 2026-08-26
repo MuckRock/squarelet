@@ -34,6 +34,51 @@ from squarelet.organizations.tests.factories import (
 # https://github.com/MuckRock/squarelet/issues/558
 
 
+@pytest.mark.django_db(transaction=True)
+def test_restore_organization_removes_due_cancelled_lines(
+    organization_plan_factory, plan_factory, mocker
+):
+    """A line cancelled for period end is dropped from Stripe once due."""
+    mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
+    mocker.patch("stripe.Plan.create")
+    mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
+    mock_sub_svc = mocker.patch(
+        "squarelet.organizations.models.payment.get_payment_provider"
+    ).return_value.get_subscription_service.return_value
+    today = date.today()
+
+    due = SubscriptionItemFactory(
+        plan=organization_plan_factory(),
+        stripe_item_id="si_due",
+        cancelled=True,
+        cancel_at=today,
+        subscription__subscription_id="sub_sweep",
+        subscription__organization__update_on=today - timedelta(1),
+    )
+    # Same subscription, not cancelled -> survives
+    keeper = SubscriptionItemFactory(
+        subscription=due.subscription, plan=plan_factory(name="Keeper Plan")
+    )
+    # Cancelled but not due yet -> survives
+    later = SubscriptionItemFactory(
+        subscription=due.subscription,
+        plan=plan_factory(name="Later Plan"),
+        cancelled=True,
+        cancel_at=today + timedelta(5),
+    )
+
+    tasks.restore_organization()
+
+    assert not SubscriptionItem.objects.filter(pk=due.pk).exists()
+    assert SubscriptionItem.objects.filter(pk=keeper.pk).exists()
+    assert SubscriptionItem.objects.filter(pk=later.pk).exists()
+    mock_sub_svc.modify.assert_called_once_with(
+        "sub_sweep",
+        items=[{"id": "si_due", "deleted": True}],
+        proration_behavior="none",
+    )
+
+
 @pytest.mark.django_db()
 def test_restore_organization(organization_plan_factory, mocker):
     patched = mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")

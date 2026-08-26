@@ -694,6 +694,25 @@ class SubscriptionItem(models.Model):
         ),
     )
 
+    cancelled = models.BooleanField(
+        _("cancelled"),
+        default=False,
+        help_text=_(
+            "This line is scheduled to stop at the end of the current billing "
+            "period.  It still bills and still grants access until then, "
+            "mirroring how a cancelled subscription behaves."
+        ),
+    )
+    cancel_at = models.DateField(
+        _("cancel at"),
+        null=True,
+        blank=True,
+        help_text=_(
+            "When this line is dropped from the Stripe subscription.  Taken "
+            "from the subscription's current period end, because every line "
+            "on a subscription shares one billing period."
+        ),
+    )
     granted_reason = models.TextField(
         _("granted reason"),
         blank=True,
@@ -748,25 +767,43 @@ class SubscriptionItem(models.Model):
         self.subscription.stripe_modify()
 
     def cancel(self):
-        """Stop billing this line.
+        """Stop billing this line at the end of the current period.
 
-        The last line on a subscription cancels the whole subscription at
-        period end, so the customer keeps what they already paid for.  Any
-        other line is dropped from the Stripe subscription right away with
-        proration suppressed - the next invoice simply omits it, and no
-        mid-period credit or charge is generated.
+        The last line on a subscription cancels the whole subscription, which
+        Stripe handles itself through cancel_at_period_end.  Stripe has no
+        equivalent for a single line, so any other line is only flagged here
+        and removed by `restore_organization` once `cancel_at` arrives.  Either
+        way the customer keeps what they paid for until the period runs out.
         """
         if self.subscription.items.count() <= 1:
             self.subscription.cancel()
             return
 
+        self.cancelled = True
+        period_end = self.subscription.current_period_end
+        self.cancel_at = period_end.date() if period_end else None
+        self.save()
+        self.send_slack_notification("cancelled")
+
+    def uncancel(self):
+        """Reverse a pending cancellation, so long as the line is still here."""
+        self.cancelled = False
+        self.cancel_at = None
+        self.save()
+
+    def remove_from_stripe(self):
+        """Drop this line from the Stripe subscription and delete it locally.
+
+        Proration is suppressed: the line has already been paid for through
+        the end of the period, so the next invoice should simply omit it
+        rather than issue a credit.
+        """
         if self.subscription.stripe_subscription and self.stripe_item_id:
             get_payment_provider().get_subscription_service().modify(
                 self.subscription.subscription_id,
                 items=[{"id": self.stripe_item_id, "deleted": True}],
                 proration_behavior="none",
             )
-        self.send_slack_notification("cancelled")
         self.delete()
 
     def notify_started(self):

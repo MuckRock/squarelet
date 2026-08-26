@@ -1370,10 +1370,12 @@ class TestMultipleSubscriptions:
 
         org.remove_subscription(plan_a, user)
 
-        # Both lines share one subscription, so removing one drops just that
-        # line and leaves the other billing.
-        assert not SubscriptionItem.objects.filter(pk=sub_a.pk).exists()
-        assert SubscriptionItem.objects.filter(pk=sub_b.pk).exists()
+        # Both lines share one subscription, so removing one flags just that
+        # line for period end and leaves the other billing.
+        sub_a.refresh_from_db()
+        assert sub_a.cancelled
+        sub_b.refresh_from_db()
+        assert not sub_b.cancelled
 
     @pytest.mark.django_db
     def test_modify_subscription(
