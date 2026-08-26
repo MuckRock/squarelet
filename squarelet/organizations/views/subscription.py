@@ -96,7 +96,7 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
         # pylint: disable=too-many-return-statements
         organization = self.object
         user = self.request.user
-        current_plan = organization.plans.first()
+        current_plan = organization.get_plans().first()
         redirect_url = organization.get_absolute_url()
         try:
             self._apply_subscription_change(organization, current_plan, user, form)
@@ -169,14 +169,14 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
         # Provide a single subscription for the template to check cancelled status.
         # In the multi-subscription world this will need to be revisited, but for
         # now the template only needs to know about the primary (first) subscription.
-        plan = self.object.plans.first()
+        plan = self.object.get_plans().first()
         context["current_subscription"] = (
             self.object.subscription_items.filter(plan=plan).first() if plan else None
         )
         return context
 
     def get_initial(self):
-        plan = self.object.plans.first()
+        plan = self.object.get_plans().first()
         sub = self.object.subscription_items.filter(plan=plan).first() if plan else None
         max_users = sub.quantity if sub else self.object.max_users
         try:

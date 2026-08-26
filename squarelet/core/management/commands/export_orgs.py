@@ -44,7 +44,7 @@ class Command(BaseCommand):
             )
             for org in orgs:
                 subtypes = ", ".join(str(s) for s in org.subtypes.all())
-                plans = ", ".join(str(p) for p in org.plans.all())
+                plans = ", ".join(str(p) for p in org.get_plans())
                 email_domains = [
                     e.email.split("@")[1]
                     for e in EmailAddress.objects.filter(user__organizations=org)

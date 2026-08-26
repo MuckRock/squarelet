@@ -240,8 +240,8 @@ class PlanFilter(admin.SimpleListFilter):
         if value is None:
             return queryset
         if value == "none":
-            return queryset.filter(subscription_items__isnull=True)
-        return queryset.filter(subscription_items__plan_id=value)
+            return queryset.filter(subscriptions__items__isnull=True)
+        return queryset.filter(subscriptions__items__plan_id=value)
 
 
 class OverdueInvoiceFilter(admin.SimpleListFilter):
@@ -461,7 +461,7 @@ class OrganizationAdmin(VersionAdmin):
         if plan_value and plan_value != "none":
             qs = qs.prefetch_related(
                 Prefetch(
-                    "subscription_items",
+                    "subscriptions__items",
                     queryset=SubscriptionItem.objects.filter(
                         plan_id=plan_value
                     ).select_related("plan"),
