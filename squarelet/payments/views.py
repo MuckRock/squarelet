@@ -44,6 +44,7 @@ from squarelet.payments.forms import (
     CardForm,
     PlanPurchaseForm,
     UpdateReceiptEmailForm,
+    UpdateSubscriptionFrequencyForm,
 )
 
 logger = logging.getLogger(__name__)
@@ -574,6 +575,20 @@ class BaseManageSubscriptions(SubscriptionObjectMixin, DetailView):
         # Get five most recent payments
         payments = self.object.charges.order_by("-created_at").all()[:5]
         context["payments"] = payments
+
+        return context
+
+
+class BaseUpdateSubscriptionFrequency(SubscriptionObjectMixin, UpdateView):
+    form_class = UpdateSubscriptionFrequencyForm
+    template_name = "subscriptions/update_subscription_frequency.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        subscription = self.object.subscriptions.filter(id=self.kwargs["pk"]).first()
+        context["subscription"] = subscription
+        context["next_date"] = get_subscription_next_date(subscription)
 
         return context
 

@@ -275,6 +275,12 @@ sentry_sdk.init(
 # Your stuff...
 # ------------------------------------------------------------------------------
 
+# django-allauth
+# ------------------------------------------------------------------------------
+# Required since allauth 65.14.2 distrusts X-Forwarded-For by default.
+# Set to the number of trusted proxy hops in front of Django (Heroku router = 1).
+ALLAUTH_TRUSTED_PROXY_COUNT = env.int("ALLAUTH_TRUSTED_PROXY_COUNT", default=1)
+
 # Fixie
 # ------------------------------------------------------------------------------
 # set proxy for static outgoing IP address, so we can cross

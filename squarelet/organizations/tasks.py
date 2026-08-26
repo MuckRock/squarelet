@@ -95,15 +95,17 @@ def restore_organization():
 
 @shared_task(
     name="squarelet.organizations.tasks.handle_charge_succeeded",
+    bind=True,
     autoretry_for=(Organization.DoesNotExist, stripe.RateLimitError),
+    max_retries=5,
+    retry_backoff=True,
 )
-def handle_charge_succeeded(charge_data):
+def handle_charge_succeeded(self, charge_data):
     """Handle receiving a charge.succeeded event from the Stripe webhook"""
 
-    # We autorety if the organization does not exist, as that should mean the webhook
-    # is being processed before the database synced the customer id to the organization
-    # We can't use transaction.on_commit since we need to return the Charge object
-    # when we create it
+    # We autoretry if the organization does not exist, as that should mean the webhook
+    # is being processed before the database synced the customer id to the organization.
+    # After max_retries, we treat the charge as anonymous and skip it.
 
     if charge_data["customer"] is None:
         # Customer should only be blank for anonymous donations or crowdfunds
@@ -156,14 +158,28 @@ def handle_charge_succeeded(charge_data):
     if action is not None:
         metadata["action"] = action
 
+    try:
+        organization = Organization.objects.get(
+            customers__customer_id=charge_data["customer"]
+        )
+    except Organization.DoesNotExist:
+        if self.request.retries >= self.max_retries:
+            logger.warning(
+                "Charge (%s) for customer (%s) has no matching organization "
+                "after %d retries — treating as anonymous charge, skipping",
+                charge_data["id"],
+                charge_data["customer"],
+                self.request.retries,
+            )
+            return
+        raise
+
     charge, _ = Charge.objects.get_or_create(
         charge_id=charge_data["id"],
         defaults={
             "amount": charge_data["amount"],
             "fee_amount": int(charge_data["metadata"].get("fee amount", 0)),
-            "organization": lambda: Organization.objects.get(
-                customers__customer_id=charge_data["customer"]
-            ),
+            "organization": organization,
             "created_at": datetime.fromtimestamp(
                 charge_data["created"], tz=get_current_timezone()
             ),
@@ -205,7 +221,18 @@ def handle_invoice_failed(invoice_data):
             customers__customer_id=invoice_data["customer"]
         )
     except Organization.DoesNotExist:
-        if invoice_data["lines"]["data"][0]["plan"]["id"] == "donate":
+        try:
+            # plan was removed in 2025-03-31.basil;
+            # pricing.price_details is the new path
+            line = invoice_data["lines"]["data"][0]
+            plan_id = (
+                line.get("pricing", {}).get("price_details", {}).get("price")
+                or (line.get("plan") or {}).get("id")
+                or ""
+            )
+        except (IndexError, TypeError):
+            plan_id = ""
+        if plan_id == "donate":
             # donations are handled through muckrock - do not log an error
             return
         logger.error(

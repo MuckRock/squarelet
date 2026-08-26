@@ -267,6 +267,8 @@ class ChargeSerializer(serializers.ModelSerializer):
         except stripe.StripeError as exc:
             user_message = format_stripe_error(exc)
             raise StripeError(user_message)
+        except ValueError as exc:
+            raise StripeError(str(exc))
         # add the card display to the response, so the client has immediate access
         # to the newly saved card
         data = {"card": organization.customer().payment_method_display}

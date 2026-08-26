@@ -263,7 +263,9 @@ class TestHandleChargeSucceeded:
             "squarelet.organizations.tasks.download_receipt_pdf.delay"
         )
 
-        tasks.handle_charge_succeeded(charge_data)
+        tasks.handle_charge_succeeded(  # pylint: disable=no-value-for-parameter
+            charge_data
+        )
 
         charge = Charge.objects.get(charge_id=charge_data["id"])
         assert charge.amount == charge_data["amount"]
@@ -294,7 +296,9 @@ class TestHandleChargeSucceeded:
             "squarelet.organizations.tasks.download_receipt_pdf.delay"
         )
 
-        tasks.handle_charge_succeeded(charge_data)
+        tasks.handle_charge_succeeded(  # pylint: disable=no-value-for-parameter
+            charge_data
+        )
 
         charge = Charge.objects.get(charge_id=charge_data["id"])
         assert charge.amount == charge_data["amount"]
@@ -323,7 +327,9 @@ class TestHandleChargeSucceeded:
             "squarelet.organizations.tasks.download_receipt_pdf.delay"
         )
 
-        tasks.handle_charge_succeeded(charge_data)
+        tasks.handle_charge_succeeded(  # pylint: disable=no-value-for-parameter
+            charge_data
+        )
 
         charge = Charge.objects.get(charge_id=charge_data["id"])
         assert not charge.receipt_pdf
@@ -388,7 +394,9 @@ class TestDownloadReceiptPdf:
             "object": "charge",
         }
 
-        tasks.handle_charge_succeeded(charge_data)
+        tasks.handle_charge_succeeded(  # pylint: disable=no-value-for-parameter
+            charge_data
+        )
 
     def test_crowdfund(self):
         timestamp = timezone.now().replace(microsecond=0)
@@ -403,7 +411,9 @@ class TestDownloadReceiptPdf:
             "object": "charge",
         }
 
-        tasks.handle_charge_succeeded(charge_data)
+        tasks.handle_charge_succeeded(  # pylint: disable=no-value-for-parameter
+            charge_data
+        )
 
     def test_recurring_donation(self, mocker):
         timestamp = timezone.now().replace(microsecond=0)
@@ -444,7 +454,9 @@ class TestDownloadReceiptPdf:
             return_value={"name": "Professional"},
         )
 
-        tasks.handle_charge_succeeded(charge_data)
+        tasks.handle_charge_succeeded(  # pylint: disable=no-value-for-parameter
+            charge_data
+        )
 
     @pytest.mark.django_db()
     def test_with_invoice_but_no_invoice_lines(self, organization_factory, mocker):
@@ -472,7 +484,9 @@ class TestDownloadReceiptPdf:
         )
 
         # This should not raise any errors
-        tasks.handle_charge_succeeded(charge_data)
+        tasks.handle_charge_succeeded(  # pylint: disable=no-value-for-parameter
+            charge_data
+        )
 
     @pytest.mark.django_db()
     def test_invoice_line_missing_pricing_field(self, organization_factory, mocker):
@@ -502,7 +516,9 @@ class TestDownloadReceiptPdf:
             return_value=invoice,
         )
 
-        tasks.handle_charge_succeeded(charge_data)
+        tasks.handle_charge_succeeded(  # pylint: disable=no-value-for-parameter
+            charge_data
+        )
 
         charge = Charge.objects.get(charge_id=charge_data["id"])
         assert charge.description == charge_data["description"]
@@ -525,12 +541,43 @@ class TestDownloadReceiptPdf:
         mocker.patch("squarelet.organizations.tasks.requests.get")
 
         # First webhook call - creates charge
-        tasks.handle_charge_succeeded(charge_data)
+        tasks.handle_charge_succeeded(  # pylint: disable=no-value-for-parameter
+            charge_data
+        )
         assert Charge.objects.filter(charge_id=charge_data["id"]).count() == 1
 
         # Second webhook call - should not create duplicate
-        tasks.handle_charge_succeeded(charge_data)
+        tasks.handle_charge_succeeded(  # pylint: disable=no-value-for-parameter
+            charge_data
+        )
         assert Charge.objects.filter(charge_id=charge_data["id"]).count() == 1
+
+    @pytest.mark.django_db()
+    def test_anonymous_customer_skipped_after_max_retries(self, mocker):
+        """Charge with a customer ID that maps to no org skips gracefully after
+        retries"""
+        timestamp = timezone.now().replace(microsecond=0)
+        charge_data = {
+            "amount": 2500,
+            "created": int(timestamp.timestamp()),
+            "customer": "cus_anonymous_no_org",
+            "description": "Some charge",
+            "id": "ch_anonymous_test",
+            "invoice": None,
+            "metadata": {},
+            "object": "charge",
+        }
+        mocked_log = mocker.patch("squarelet.organizations.tasks.logger.warning")
+
+        task = tasks.handle_charge_succeeded
+        task.push_request(retries=task.max_retries)
+        try:
+            task.run(charge_data)
+        finally:
+            task.pop_request()
+
+        assert Charge.objects.filter(charge_id=charge_data["id"]).count() == 0
+        mocked_log.assert_called_once()
 
 
 @pytest.mark.django_db()
