@@ -136,8 +136,15 @@ class Command(BaseCommand):
         if missing and not allow_missing:
             raise CommandError(
                 f"These plans do not exist: {missing}.  Run the tier and pack "
-                f"migrations first, and check the plan mapping.  Pass "
-                f"--allow-missing to skip them (dev and staging only)."
+                f"migrations first, and check the plan mapping.\n\n"
+                f"If those migrations have already run, a pack plan can still "
+                f"be absent: 0082 resolves each pack's OIDC client by finding "
+                f"which client's entitlements carry its resource key "
+                f"(base_requests, base_ai_credits, base_credits), and skips "
+                f"the pack when no client carries the key or more than one "
+                f"does.  Check that before assuming the migration was "
+                f"missed.\n\n"
+                f"Pass --allow-missing to skip them (dev and staging only)."
             )
         for slug in missing:
             self.stdout.write(self.style.WARNING(f"! {slug}: no such plan, skipping"))
