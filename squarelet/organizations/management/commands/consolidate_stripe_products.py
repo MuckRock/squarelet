@@ -3,6 +3,7 @@ from django.core.management.base import BaseCommand, CommandError
 
 # Standard Library
 import logging
+from collections import Counter
 
 # Squarelet
 from squarelet.organizations.models.payment import Plan, PlanPrice
@@ -105,28 +106,28 @@ class Command(BaseCommand):
 
         plans = self._load_plans(options["allow_missing"])
 
-        created_products = created_prices = comped = skipped = 0
+        counts = Counter()
         for slug in dict.fromkeys(row[0] for row in PRICE_MATRIX):
             if slug in plans and self._ensure_product(plans[slug], dry_run):
-                created_products += 1
+                counts["products"] += 1
 
         for slug, interval, label, code, amount in PRICE_MATRIX:
             if slug not in plans:
                 continue
-            result = self._ensure_price(
-                plans[slug], (interval, label, code, amount), dry_run=dry_run
-            )
-            if result == "created":
-                created_prices += 1
-            elif result == "comped":
-                comped += 1
-            else:
-                skipped += 1
+            counts[
+                self._ensure_price(
+                    plans[slug], (interval, label, code, amount), dry_run=dry_run
+                )
+            ] += 1
 
-        self.stdout.write(
-            f"\n{created_products} products, {created_prices} priced rows, "
-            f"{comped} comped rows (no Stripe Price), {skipped} already present"
+        summary = (
+            f"\n{counts['products']} products, {counts['created']} priced rows, "
+            f"{counts['comped']} comped rows (no Stripe Price), "
+            f"{counts['skipped']} already present"
         )
+        if counts["completed"]:
+            summary += f", {counts['completed']} completed from an earlier partial run"
+        self.stdout.write(summary)
 
     def _load_plans(self, allow_missing):
         slugs = {row[0] for row in PRICE_MATRIX}
@@ -158,13 +159,30 @@ class Command(BaseCommand):
 
     def _ensure_price(self, plan, spec, *, dry_run):
         interval, label, code, amount = spec
-        if PlanPrice.objects.filter(
+        existing = PlanPrice.objects.filter(
             plan=plan, interval=interval, label=label, code=code, active=True
-        ).exists():
+        ).first()
+        if existing is not None:
+            # A row is only finished if it needed no Stripe Price (comped) or
+            # already has one.  A previous run that created the row and then
+            # failed on the Stripe call leaves it active and blank, and
+            # skipping on the strength of the row's mere existence would
+            # strand it there for good while reporting success.
+            if existing.amount == 0 or existing.stripe_price_id:
+                self.stdout.write(
+                    f"= price {plan.slug} {self._variant(interval, label, code)}"
+                )
+                return "skipped"
+
+            variant = self._variant(interval, label, code)
             self.stdout.write(
-                f"= price {plan.slug} {self._variant(interval, label, code)}"
+                self.style.WARNING(
+                    f"~ price {plan.slug} {variant}: no Stripe Price, completing"
+                )
             )
-            return "skipped"
+            if not dry_run:
+                self.stdout.write(f"    -> {existing.ensure_stripe_price()}")
+            return "completed"
 
         if amount == 0:
             variant = self._variant(interval, label, code)

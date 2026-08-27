@@ -1142,13 +1142,41 @@ class PlanPrice(models.Model):
     def amount_dollars(self):
         return self.amount / 100.0
 
+    @property
+    def variant_key(self):
+        """A stable identity for what this price *is*.
+
+        Deliberately derived from the price's terms rather than from its
+        primary key: if the transaction that created the row aborts after
+        Stripe has already made the Price, the row - and its pk - are gone,
+        but the terms someone retries with are identical.  That is what lets
+        the retry find the orphaned Price instead of making another.
+        """
+        return ":".join(
+            str(part)
+            for part in (
+                self.plan.slug,
+                self.interval,
+                self.label,
+                self.code,
+                self.amount,
+                self.currency,
+            )
+        )
+
     def ensure_stripe_price(self):
-        """Create this row's Stripe Price if it needs one.
+        """Point this row at a Stripe Price, creating one only if needed.
 
         No-ops for comped prices - they cost nothing, never create a Stripe
         subscription, and so have no Stripe counterpart - and for rows that
         already have a Price.  Creates the plan's Product first if it does
         not have one yet.
+
+        Safe to call repeatedly, including after a failure part-way through:
+        an existing Price for these terms is adopted rather than duplicated.
+        That matters because ATOMIC_REQUESTS wraps every admin request in a
+        transaction, so any later error rolls the database back while
+        leaving anything already created in Stripe untouched.
 
         Returns the Stripe Price ID, or None for a comped price.
         """
@@ -1158,22 +1186,26 @@ class PlanPrice(models.Model):
             return self.stripe_price_id
 
         product_id = self.plan.ensure_stripe_product()
-        price = (
-            get_payment_provider()
-            .get_plan_service()
-            .create_price(
+        plan_service = get_payment_provider().get_plan_service()
+        variant_key = self.variant_key
+
+        price = plan_service.find_price(product_id, variant_key)
+        if price is None:
+            price = plan_service.create_price(
                 product_id=product_id,
                 unit_amount=self.amount,
                 currency=self.currency,
                 interval=self.interval,
-                metadata={"squarelet_plan_slug": self.plan.slug, "label": self.label},
+                metadata={
+                    "squarelet_plan_slug": self.plan.slug,
+                    "label": self.label,
+                    "squarelet_variant": variant_key,
+                },
             )
-        )
         self.stripe_price_id = price.id
         self.save(update_fields=["stripe_price_id"])
         return price.id
 
-    @transaction.atomic
     def supersede(self, amount):
         """Retire this price and return its replacement at a new amount.
 
@@ -1188,20 +1220,28 @@ class PlanPrice(models.Model):
         if not self.active:
             raise ValueError("Cannot supersede an already superseded price")
 
-        self.active = False
-        self.save(update_fields=["active"])
+        # Only the database work is atomic.  Wrapping the Stripe call too
+        # would mean a rollback could discard the local record of a Price
+        # that Stripe has already made and cannot undo.
+        with transaction.atomic():
+            self.active = False
+            self.save(update_fields=["active"])
 
-        replacement = PlanPrice.objects.create(
-            plan=self.plan,
-            stripe_price_id="",
-            interval=self.interval,
-            label=self.label,
-            # Carried over deliberately: superseding a negotiated rate must
-            # produce a new rate for the same deal, not a list price.
-            code=self.code,
-            amount=amount,
-            currency=self.currency,
-        )
+            replacement = PlanPrice.objects.create(
+                plan=self.plan,
+                stripe_price_id="",
+                interval=self.interval,
+                label=self.label,
+                # Carried over deliberately: superseding a negotiated rate
+                # must produce a new rate for the same deal, not a list price.
+                code=self.code,
+                amount=amount,
+                currency=self.currency,
+            )
+
+        # Idempotent, so a failure here is finished by calling it again -
+        # which matters under ATOMIC_REQUESTS, where the caller's request is
+        # itself a transaction that this cannot escape.
         replacement.ensure_stripe_price()
         return replacement
 

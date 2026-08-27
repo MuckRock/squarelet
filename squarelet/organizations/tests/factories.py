@@ -138,6 +138,20 @@ class ProfessionalPlanFactory(PlanFactory):
     for_groups = False
 
 
+class PlanPriceFactory(factory.django.DjangoModelFactory):
+    """A price under a plan.  Defaults to a paid monthly list price."""
+
+    plan = factory.SubFactory("squarelet.organizations.tests.factories.PlanFactory")
+    interval = "monthly"
+    label = "standard"
+    code = ""
+    amount = 10000
+    currency = "usd"
+
+    class Meta:
+        model = "organizations.PlanPrice"
+
+
 class OrganizationPlanFactory(PlanFactory):
     """An organization plan factory"""
 
