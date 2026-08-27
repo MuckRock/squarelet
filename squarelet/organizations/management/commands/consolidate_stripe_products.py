@@ -47,8 +47,8 @@ PRICE_MATRIX = [
     ("scoutpost-team", "monthly", "standard", "", 5_000),
     ("muckrock-request-pack", "monthly", "standard", "", 1_000),
     ("muckrock-request-pack", "annual", "standard", "", 12_000),
-    ("documentcloud-page-pack", "monthly", "standard", "", 1_000),
-    ("documentcloud-page-pack", "annual", "standard", "", 12_000),
+    ("documentcloud-credit-pack", "monthly", "standard", "", 1_000),
+    ("documentcloud-credit-pack", "annual", "standard", "", 12_000),
     ("scoutpost-credit-pack", "monthly", "standard", "", 1_000),
     ("scoutpost-credit-pack", "annual", "standard", "", 12_000),
     # Admin keeps its own Plan rather than consolidating - it is the only
