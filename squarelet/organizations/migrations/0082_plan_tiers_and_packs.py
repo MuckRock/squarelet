@@ -136,6 +136,20 @@ def remove_tiers_and_packs(apps, schema_editor):
     Entitlement = apps.get_model("organizations", "Entitlement")
 
     slugs = [spec["slug"] for spec in PACKS]
+
+    # PlanPrice.plan is PROTECT, so once consolidate_stripe_products has run
+    # the delete below raises ProtectedError with nothing explaining why.
+    # Say it plainly instead: those rows point at live Stripe Prices, and
+    # silently dropping them here would orphan every one.
+    priced = Plan.objects.filter(slug__in=slugs, prices__isnull=False).distinct()
+    if priced.exists():
+        raise RuntimeError(
+            "Cannot reverse: these pack plans still have PlanPrice rows "
+            f"({', '.join(sorted(priced.values_list('slug', flat=True)))}). "
+            "Those point at Stripe Prices that reversing cannot delete. "
+            "Archive them in Stripe and remove the rows first."
+        )
+
     for plan in Plan.objects.filter(slug__in=slugs):
         plan.entitlements.clear()
         plan.delete()
