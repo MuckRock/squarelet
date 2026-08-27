@@ -15,16 +15,7 @@
     <p>Warning: there was an error sending email to your
     billing email address. Please update it below.</p>
 {% endif %}
-<div class="_cls-planInfo">
-    {% trans "Current plan" %}: <b>{{ organization.plan|default:"Free" }}</b>
-    {% if current_subscription.cancelled %}
-    <div class="_cls-info _cls-infoSpaced">
-        {% blocktrans with update_on=current_subscription.update_on|date:"m/d/Y" %}
-        Subscription ends on {{ update_on }}
-        {% endblocktrans %}
-    </div>
-    {% endif %}
-</div>
+{% include "organizations/plan_info.html" %}
 <form id="stripe-form" method="post" enctype="multipart/form-data">
     {% crispy form form.helper %}
 

@@ -163,12 +163,14 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
             context["billing_email_failed"] = receipt.failed
         except ReceiptEmail.DoesNotExist:
             context["billing_email_failed"] = False
-        # Provide a single subscription for the template to check cancelled status.
-        # In the multi-subscription world this will need to be revisited, but for
-        # now the template only needs to know about the primary (first) subscription.
-        plan = self.object.get_plans().first()
+        # The template uses this for one thing: the "subscription ends on"
+        # banner.  Prefer a line that is actually ending, so the banner does
+        # not depend on which plan happens to sort first - with several lines
+        # on one subscription, picking arbitrarily meant the banner could be
+        # absent while something really was ending.
+        items = self.object.subscription_items.select_related("subscription", "plan")
         context["current_subscription"] = (
-            self.object.subscription_items.filter(plan=plan).first() if plan else None
+            items.filter(cancelled=True).order_by("cancel_at").first() or items.first()
         )
         return context
 
