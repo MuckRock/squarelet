@@ -41,7 +41,7 @@ PACKS = [
         },
     },
     {
-        "slug": "documentcloud-page-pack",
+        "slug": "documentcloud-credit-pack",
         "name": "DocumentCloud Credit Pack",
         "product": "documentcloud",
         "resource_key": "base_ai_credits",
