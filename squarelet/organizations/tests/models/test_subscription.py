@@ -542,6 +542,10 @@ class TestSubscription:
         assert not second.cancelled
         assert not first.subscription.cancelled
 
+
+class TestSubscriptionNextDate:
+    """The renewal date shown on the billing pages."""
+
     @pytest.mark.django_db()
     def test_next_date_is_local(self, subscription_factory):
         """The date shown is the local one, not the UTC one.

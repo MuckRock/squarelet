@@ -12,7 +12,7 @@ from datetime import datetime
 import stripe
 
 # Squarelet
-from squarelet.organizations.models.payment import Customer, SubscriptionItem
+from squarelet.organizations.models.payment import Customer, Subscription
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,12 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 # How close (in seconds) current_period_end timestamps can be
 # and still count as matching
 PERIOD_END_TOLERANCE_SECONDS = 60
+
+
+def _plans(sub):
+    """The plan slugs on a subscription, in a stable order."""
+    slugs = sorted(item.plan.slug if item.plan else "None" for item in sub.items.all())
+    return ", ".join(slugs) or "none"
 
 
 def _fmt(value):
@@ -40,7 +46,7 @@ def _datetimes_match(a, b):
 
 
 class Command(BaseCommand):
-    """Compare local SubscriptionItem records against Stripe and report mismatches.
+    """Compare local Subscription records against Stripe and report mismatches.
 
     Checks for:
       - Local subscriptions with no subscription_id
@@ -114,12 +120,14 @@ class Command(BaseCommand):
 
     def _load_local_subs(self, org_filter):
         """Return (local_subs, id→sub map) for subscriptions with a Stripe ID."""
-        qs = SubscriptionItem.objects.select_related("plan", "organization").exclude(
-            subscription_id=None
+        qs = (
+            Subscription.objects.select_related("organization")
+            .prefetch_related("items__plan")
+            .exclude(subscription_id="")
         )
         if org_filter:
             qs = qs.filter(organization__slug=org_filter)
-        subs = list(qs.iterator())
+        subs = list(qs)
         self.stdout.write(
             f"Loaded {len(subs)} local subscription(s) with a Stripe ID.\n"
         )
@@ -127,22 +135,24 @@ class Command(BaseCommand):
 
     def _report_no_stripe_id(self, org_filter):
         """Print paid subscriptions with no subscription_id; return count."""
-        qs = SubscriptionItem.objects.select_related("plan", "organization").filter(
-            subscription_id=None, plan__base_price__gt=0
+        qs = (
+            Subscription.objects.select_related("organization")
+            .prefetch_related("items__plan")
+            .filter(subscription_id="", items__plan__base_price__gt=0)
+            .distinct()
         )
         if org_filter:
             qs = qs.filter(organization__slug=org_filter)
-        subs = list(qs.iterator())
+        subs = list(qs)
         if subs:
             self.stdout.write(
                 f"[NO STRIPE ID] {len(subs)} paid subscription(s) have no"
                 " subscription_id:\n"
             )
             for sub in subs:
-                plan = sub.plan
                 self.stdout.write(
                     f"  {sub.organization.name!r} (org {sub.organization.pk}) |"
-                    f" plan={plan.slug if plan else 'None'!r}\n"
+                    f" plans={_plans(sub)!r}\n"
                 )
             self.stdout.write("\n")
         return len(subs)
@@ -198,7 +208,7 @@ class Command(BaseCommand):
                 self.stdout.write(
                     f"[MISSING ON STRIPE] {sub.organization.name!r} "
                     f"(org {sub.organization.pk}) | "
-                    f"plan={sub.plan.slug!r} | "
+                    f"plans={_plans(sub)!r} | "
                     f"subscription_id={sub.subscription_id}\n"
                 )
                 continue
@@ -208,7 +218,7 @@ class Command(BaseCommand):
                 self.stdout.write(
                     f"[SHOULD DELETE] {sub.organization.name!r} "
                     f"(org {sub.organization.pk}) | "
-                    f"plan={sub.plan.slug!r} | "
+                    f"plans={_plans(sub)!r} | "
                     f"id={sub.subscription_id} | "
                     f"local_cancelled={sub.cancelled}"
                     f" local_stripe_status={sub.stripe_status!r}\n"
@@ -220,7 +230,7 @@ class Command(BaseCommand):
                 self.stdout.write(
                     f"[MISMATCH] {sub.organization.name!r} "
                     f"(org {sub.organization.pk}) | "
-                    f"plan={sub.plan.slug!r} | "
+                    f"plans={_plans(sub)!r} | "
                     f"id={sub.subscription_id}\n"
                 )
                 for field, local_val, stripe_val in diffs:
@@ -233,10 +243,61 @@ class Command(BaseCommand):
                 if show_ok:
                     self.stdout.write(
                         f"[OK] {sub.organization.name!r} | "
-                        f"plan={sub.plan.slug!r} | "
+                        f"plans={_plans(sub)!r} | "
                         f"id={sub.subscription_id}\n"
                     )
         return ok, mismatched, missing, should_delete
+
+    def _compare_items(self, sub, items):
+        """Diff each local line against the Stripe item it points at."""
+        diffs = []
+        stripe_items = {i.id: i for i in (items.data if items and items.data else [])}
+        seen = set()
+
+        for line in sub.items.all():
+            label = line.plan.slug if line.plan else "None"
+            stripe_item = stripe_items.get(line.stripe_item_id)
+            if stripe_item is None:
+                diffs.append(
+                    (
+                        f"item[{label}] missing on stripe",
+                        line.stripe_item_id or "(no stripe_item_id)",
+                        None,
+                    )
+                )
+                continue
+            seen.add(stripe_item.id)
+
+            if line.quantity != stripe_item.quantity:
+                diffs.append(
+                    (f"item[{label}] quantity", line.quantity, stripe_item.quantity)
+                )
+
+            # Newer API: item.price.id; older API: item.plan.id
+            stripe_plan_id = None
+            if getattr(stripe_item, "price", None):
+                stripe_plan_id = getattr(stripe_item.price, "id", None)
+            elif getattr(stripe_item, "plan", None):
+                stripe_plan_id = getattr(stripe_item.plan, "id", None)
+            local_plan_id = line.plan.stripe_id if line.plan else None
+            if stripe_plan_id != local_plan_id:
+                diffs.append(
+                    (f"item[{label}] plan_stripe_id", local_plan_id, stripe_plan_id)
+                )
+
+        # Lines Stripe is billing that we have no local record for - the
+        # failure mode that matters most, since the customer is being charged.
+        for extra_id in set(stripe_items) - seen:
+            extra = stripe_items[extra_id]
+            price = getattr(extra, "price", None) or getattr(extra, "plan", None)
+            diffs.append(
+                (
+                    "untracked stripe item",
+                    None,
+                    f"{extra_id} ({getattr(price, 'id', 'unknown')})",
+                )
+            )
+        return diffs
 
     def _find_orphans(self, stripe_map, local_map, org_filter):
         """Report active Stripe subscriptions with no local record; return count."""
@@ -320,22 +381,10 @@ class Command(BaseCommand):
         if not _datetimes_match(sub.current_period_end, stripe_cpe):
             diffs.append(("current_period_end", sub.current_period_end, stripe_cpe))
 
-        # quantity
-        if items and items.data and sub.quantity != items.data[0].quantity:
-            diffs.append(("quantity", sub.quantity, items.data[0].quantity))
-
-        # plan stripe_id (price/plan ID on the subscription item)
-        stripe_plan_id = None
-        if items and items.data:
-            item = items.data[0]
-            # Newer API: item.price.id; older API: item.plan.id
-            if hasattr(item, "price") and item.price:
-                stripe_plan_id = getattr(item.price, "id", None)
-            elif hasattr(item, "plan") and item.plan:
-                stripe_plan_id = getattr(item.plan, "id", None)
-        local_plan_id = sub.plan.stripe_id if sub.plan else None
-        if stripe_plan_id != local_plan_id:
-            diffs.append(("plan_stripe_id", local_plan_id, stripe_plan_id))
+        # Per-line comparison.  A subscription may bill several plans, so
+        # each local line is matched to its Stripe item by stripe_item_id
+        # rather than assuming a single line at items.data[0].
+        diffs.extend(self._compare_items(sub, items))
 
         # discounts / coupons applied to this subscription
         # Check newer list field first, fall back to legacy single-discount field.
