@@ -774,13 +774,18 @@ class SubscriptionItem(models.Model):
     def cancel(self):
         """Stop billing this line at the end of the current period.
 
-        The last line on a subscription cancels the whole subscription, which
-        Stripe handles itself through cancel_at_period_end.  Stripe has no
+        The last *active* line cancels the whole subscription, which Stripe
+        handles itself through cancel_at_period_end.  Stripe has no
         equivalent for a single line, so any other line is only flagged here
         and removed by `restore_organization` once `cancel_at` arrives.  Either
         way the customer keeps what they paid for until the period runs out.
+
+        Counting active lines matters: cancelling two lines one at a time
+        must still cancel the subscription on the second call, or the sweep
+        would later try to delete the subscription's only remaining line,
+        which Stripe rejects.
         """
-        if self.subscription.items.count() <= 1:
+        if self.subscription.items.exclude(cancelled=True).count() <= 1:
             self.subscription.cancel()
             return
 
@@ -791,7 +796,17 @@ class SubscriptionItem(models.Model):
         self.send_slack_notification("cancelled")
 
     def uncancel(self):
-        """Reverse a pending cancellation, so long as the line is still here."""
+        """Reverse a pending cancellation, so long as the line is still here.
+
+        If the whole subscription is cancelled - which is what cancelling the
+        last active line does - reviving any line revives the subscription and
+        every line on it, because they all stop together on Stripe.
+        """
+        if self.subscription.cancelled:
+            self.subscription.uncancel()
+            self.refresh_from_db()
+            return
+
         self.cancelled = False
         self.cancel_at = None
         self.save()
