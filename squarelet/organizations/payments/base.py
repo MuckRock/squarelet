@@ -214,6 +214,15 @@ class PlanService(ABC):
         """Delete a product."""
 
     @abstractmethod
+    def find_product(self, slug):
+        """Return the Product tagged with `slug`, or None.
+
+        The Product counterpart of `find_price`, and needed for the same
+        reason: a Product that Stripe has created but whose ID never reached
+        the database cannot be found again by ID, only by what it is.
+        """
+
+    @abstractmethod
     def create_product(self, name, **kwargs):
         """Create a Product.
 

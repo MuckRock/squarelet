@@ -945,16 +945,23 @@ class Plan(models.Model):
         that exists in Stripe but whose ID was never persisted is an orphan
         nothing can find again.
 
+        Safe to call repeatedly, including after a failure part-way through:
+        an existing Product for this plan is adopted rather than duplicated.
+        Saving the ID immediately is not enough on its own, because
+        ATOMIC_REQUESTS makes every admin request a transaction that can
+        still roll that save back afterwards.
+
         Returns the Stripe Product ID.
         """
         if self.stripe_product_id:
             return self.stripe_product_id
 
-        product = (
-            get_payment_provider()
-            .get_plan_service()
-            .create_product(name=self.name, metadata={"squarelet_plan_slug": self.slug})
-        )
+        plan_service = get_payment_provider().get_plan_service()
+        product = plan_service.find_product(self.slug)
+        if product is None:
+            product = plan_service.create_product(
+                name=self.name, metadata={"squarelet_plan_slug": self.slug}
+            )
         self.stripe_product_id = product.id
         self.save(update_fields=["stripe_product_id"])
         return product.id
@@ -1137,6 +1144,49 @@ class PlanPrice(models.Model):
         if not self.active:
             parts.append("superseded")
         return f"{self.plan.name} ({', '.join(parts)})"
+
+    # The terms Stripe bakes into a Price and will not let you change.
+    # `label` and `code` are local classification and stay editable.
+    STRIPE_BOUND_FIELDS = ("amount", "currency", "interval")
+
+    def clean(self):
+        """Refuse edits that would make this row disagree with Stripe.
+
+        A Stripe Price is immutable, so changing what this row says it costs
+        would leave the UI quoting one figure while subscribers keep being
+        billed another - the same silent divergence between display and
+        Stripe that this project already has one live bug from.  Supersede
+        instead: it retires this row and creates a replacement carrying the
+        new terms.
+        """
+        super().clean()
+        if not self.pk or not self.stripe_price_id:
+            return
+
+        original = (
+            PlanPrice.objects.filter(pk=self.pk)
+            .values(*self.STRIPE_BOUND_FIELDS)
+            .first()
+        )
+        if original is None:
+            return
+
+        changed = [
+            field
+            for field in self.STRIPE_BOUND_FIELDS
+            if original[field] != getattr(self, field)
+        ]
+        if changed:
+            raise ValidationError(
+                {
+                    field: _(
+                        "This price already exists on Stripe and cannot be "
+                        "changed. Use supersede to retire it and create a "
+                        "replacement at the new terms."
+                    )
+                    for field in changed
+                }
+            )
 
     @property
     def amount_dollars(self):
