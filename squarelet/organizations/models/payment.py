@@ -1019,10 +1019,16 @@ class PlanPrice(models.Model):
     coupon applied, because each is individually negotiated.
     """
 
+    # Recurring only.  A Stripe Price with no `recurring` block cannot be a
+    # subscription item, and access here is granted exclusively through
+    # subscription lines - so a one-time price would bill correctly and grant
+    # nothing.  A genuine one-off purchase needs its own model, and the
+    # requirements that come with it (expiry, refunds, whether it grants
+    # entitlements at all) should shape that rather than being guessed now.
+    # Plans that should bill once and stop use Plan.auto_renew instead.
     INTERVAL_CHOICES = [
         ("monthly", _("Monthly")),
         ("annual", _("Annual")),
-        ("one_time", _("One-time")),
     ]
     LABEL_CHOICES = [
         ("standard", _("Standard")),

@@ -92,7 +92,6 @@ class Migration(migrations.Migration):
                         choices=[
                             ("monthly", "Monthly"),
                             ("annual", "Annual"),
-                            ("one_time", "One-time"),
                         ],
                         help_text="How often this price is billed",
                         max_length=20,
