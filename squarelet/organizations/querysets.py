@@ -460,6 +460,16 @@ class SubscriptionItemQuerySet(models.QuerySet):
             subscription.stripe_modify()
             stripe_subscription = subscription.stripe_subscription
 
+        if not plan.auto_renew:
+            # A plan that bills once and stops means, for a line, exactly what
+            # a customer cancellation means: drop it at the end of the period
+            # it was paid for.  The subscription carries on for its other
+            # lines, and Resubscribe reverses this if they change their mind.
+            period_end = subscription.current_period_end
+            item.cancelled = True
+            item.cancel_at = period_end.date() if period_end else None
+            item.save()
+
         if not plan.free:
             item.notify_started()
         return item, stripe_subscription

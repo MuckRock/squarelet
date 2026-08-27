@@ -391,8 +391,18 @@ class Subscription(models.Model):
 
     @property
     def auto_renew(self):
-        """Renew unless some line says otherwise."""
-        return all(item.plan.auto_renew for item in self.items.all())
+        """Does the subscription itself renew?
+
+        It does as long as one line still wants to.  A single non-renewing
+        plan must not drag the renewing lines down with it - that line stops
+        on its own, through `cancelled`/`cancel_at`, the same way a line the
+        customer cancelled does.  Only when every line has stopped does the
+        subscription end.
+        """
+        items = list(self.items.all())
+        if not items:
+            return True
+        return any(item.plan.auto_renew for item in items)
 
     @property
     def next_date(self):
