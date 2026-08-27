@@ -13,12 +13,12 @@ from squarelet.organizations.management.commands.backfill_plan_prices import (
     DEFERRED_SLUGS,
     LEGACY_PLAN_MAP,
 )
-from squarelet.organizations.models import Plan, Subscription
+from squarelet.organizations.models import Plan, SubscriptionItem
 from squarelet.organizations.tests.factories import (
     OrganizationFactory,
     PlanFactory,
     PlanPriceFactory,
-    SubscriptionFactory,
+    SubscriptionItemFactory,
 )
 from squarelet.users.tests.factories import UserFactory
 
@@ -81,8 +81,8 @@ class TestBillingDecidesTheLabel:
 
     def test_billing_subscription_gets_the_standard_price(self, targets):
         actor = UserFactory()
-        sub = SubscriptionFactory(
-            plan=legacy("professional"), subscription_id="sub_live"
+        sub = SubscriptionItemFactory(
+            plan=legacy("professional"), subscription__subscription_id="sub_live"
         )
 
         run(actor=actor.username)
@@ -95,7 +95,9 @@ class TestBillingDecidesTheLabel:
     def test_non_billing_subscription_gets_the_comped_price(self):
         """Years of admin-granted free access live on plans that look paid."""
         actor = UserFactory()
-        sub = SubscriptionFactory(plan=legacy("professional"), subscription_id=None)
+        sub = SubscriptionItemFactory(
+            plan=legacy("professional"), subscription__subscription_id=""
+        )
 
         run(actor=actor.username)
 
@@ -105,7 +107,9 @@ class TestBillingDecidesTheLabel:
     @pytest.mark.usefixtures("targets")
     def test_comped_migration_records_who_authorized_it(self):
         actor = UserFactory()
-        sub = SubscriptionFactory(plan=legacy("beta"), subscription_id=None)
+        sub = SubscriptionItemFactory(
+            plan=legacy("beta"), subscription__subscription_id=""
+        )
 
         run(actor=actor.username)
 
@@ -116,8 +120,8 @@ class TestBillingDecidesTheLabel:
     @pytest.mark.usefixtures("targets")
     def test_standard_migration_records_no_provenance(self):
         actor = UserFactory()
-        sub = SubscriptionFactory(
-            plan=legacy("professional"), subscription_id="sub_live"
+        sub = SubscriptionItemFactory(
+            plan=legacy("professional"), subscription__subscription_id="sub_live"
         )
 
         run(actor=actor.username)
@@ -133,7 +137,9 @@ class TestWhatIsLeftAlone:
     def test_deferred_slugs_are_not_touched(self):
         actor = UserFactory()
         slug = sorted(DEFERRED_SLUGS)[0]
-        sub = SubscriptionFactory(plan=legacy(slug), subscription_id=None)
+        sub = SubscriptionItemFactory(
+            plan=legacy(slug), subscription__subscription_id=""
+        )
 
         run(actor=actor.username)
 
@@ -144,9 +150,9 @@ class TestWhatIsLeftAlone:
     def test_per_user_subscribers_still_billing_are_skipped(self):
         """They need decomposing, which changes what Stripe charges."""
         actor = UserFactory()
-        sub = SubscriptionFactory(
+        sub = SubscriptionItemFactory(
             plan=legacy("organization", price_per_user=10),
-            subscription_id="sub_live",
+            subscription__subscription_id="sub_live",
         )
 
         run(actor=actor.username)
@@ -164,8 +170,9 @@ class TestWhatIsLeftAlone:
         step 3c much later.
         """
         actor = UserFactory()
-        sub = SubscriptionFactory(
-            plan=legacy("organization", price_per_user=10), subscription_id=None
+        sub = SubscriptionItemFactory(
+            plan=legacy("organization", price_per_user=10),
+            subscription__subscription_id="",
         )
 
         run(actor=actor.username)
@@ -182,7 +189,9 @@ class TestPreflightRefusesToGuess:
     @pytest.mark.usefixtures("targets")
     def test_unmapped_plan_aborts(self):
         actor = UserFactory()
-        SubscriptionFactory(plan=legacy("not-in-the-map"), subscription_id=None)
+        SubscriptionItemFactory(
+            plan=legacy("not-in-the-map"), subscription__subscription_id=""
+        )
 
         with pytest.raises(CommandError, match="No mapping for"):
             run(actor=actor.username)
@@ -190,10 +199,12 @@ class TestPreflightRefusesToGuess:
     @pytest.mark.usefixtures("targets")
     def test_unmapped_plan_writes_nothing(self):
         actor = UserFactory()
-        good = SubscriptionFactory(
-            plan=legacy("professional"), subscription_id="sub_live"
+        good = SubscriptionItemFactory(
+            plan=legacy("professional"), subscription__subscription_id="sub_live"
         )
-        SubscriptionFactory(plan=legacy("not-in-the-map"), subscription_id=None)
+        SubscriptionItemFactory(
+            plan=legacy("not-in-the-map"), subscription__subscription_id=""
+        )
 
         with pytest.raises(CommandError):
             run(actor=actor.username)
@@ -204,7 +215,9 @@ class TestPreflightRefusesToGuess:
     @pytest.mark.usefixtures("db")
     def test_missing_target_price_aborts(self):
         actor = UserFactory()
-        SubscriptionFactory(plan=legacy("professional"), subscription_id="sub_live")
+        SubscriptionItemFactory(
+            plan=legacy("professional"), subscription__subscription_id="sub_live"
+        )
 
         with pytest.raises(CommandError, match="consolidate_stripe_products"):
             run(actor=actor.username)
@@ -214,11 +227,15 @@ class TestPreflightRefusesToGuess:
         """Two legacy comps for one org would trip unique_together mid-loop."""
         actor = UserFactory()
         org = OrganizationFactory()
-        SubscriptionFactory(
-            organization=org, plan=legacy("premium-org-comp"), subscription_id=None
+        SubscriptionItemFactory(
+            subscription__organization=org,
+            plan=legacy("premium-org-comp"),
+            subscription__subscription_id="",
         )
-        SubscriptionFactory(
-            organization=org, plan=legacy("education-grant"), subscription_id=None
+        SubscriptionItemFactory(
+            subscription__organization=org,
+            plan=legacy("education-grant"),
+            subscription__subscription_id="",
         )
 
         with pytest.raises(CommandError, match="collapse onto one plan"):
@@ -237,8 +254,8 @@ class TestPreflightRefusesToGuess:
 @pytest.mark.usefixtures("targets")
 class TestDryRun:
     def test_dry_run_writes_nothing(self):
-        sub = SubscriptionFactory(
-            plan=legacy("professional"), subscription_id="sub_live"
+        sub = SubscriptionItemFactory(
+            plan=legacy("professional"), subscription__subscription_id="sub_live"
         )
 
         output = run(dry_run=True)
@@ -248,52 +265,54 @@ class TestDryRun:
         assert "DRY RUN" in output
 
     def test_dry_run_needs_no_actor(self):
-        SubscriptionFactory(plan=legacy("professional"), subscription_id=None)
+        SubscriptionItemFactory(
+            plan=legacy("professional"), subscription__subscription_id=""
+        )
 
         run(dry_run=True)
 
-        assert Subscription.objects.filter(plan_price__isnull=False).count() == 0
+        assert SubscriptionItem.objects.filter(plan_price__isnull=False).count() == 0
 
 
 @pytest.mark.django_db()
-class TestCollisionWithARowItLeavesAlone:
-    """A collision does not have to be between two pending rows.
+class TestCollisionWithALineItLeavesAlone:
+    """A collision does not have to be between two pending lines.
 
-    A per-user subscriber still billing is excluded from this step, but it
-    still occupies (organization, plan).  A legacy comp for the same
-    organization that maps onto that same canonical plan collides with it,
-    and must be reported up front rather than aborting the write half way
-    through with a bare IntegrityError.
+    A per-user line still billing is excluded from this step, but it still
+    occupies (subscription, plan).  Another line on the same subscription
+    that maps onto that same canonical plan collides with it, and must be
+    reported up front rather than aborting the write half way through with
+    a bare IntegrityError.
     """
 
     @pytest.mark.usefixtures("targets")
-    def test_collision_with_an_excluded_subscription_is_reported(self):
+    def test_collision_with_an_excluded_line_is_reported(self):
         actor = UserFactory()
-        org = OrganizationFactory()
-        SubscriptionFactory(
-            organization=org,
-            plan=legacy("organization", price_per_user=10),
-            subscription_id="sub_live",
+        # Excluded: per-user and billing
+        excluded = SubscriptionItemFactory(
+            plan=legacy("professional", price_per_user=5),
+            subscription__subscription_id="sub_live",
         )
-        SubscriptionFactory(
-            organization=org,
-            plan=legacy("premium-org-comp"),
-            subscription_id=None,
-        )
+        # Pending, and `beta` maps onto canonical `professional`
+        SubscriptionItemFactory(subscription=excluded.subscription, plan=legacy("beta"))
 
         with pytest.raises(CommandError, match="collapse onto one plan"):
             run(actor=actor.username)
 
     @pytest.mark.usefixtures("targets")
-    def test_an_unrelated_existing_subscription_is_not_a_collision(self):
-        """Different organization, same canonical plan - no conflict."""
+    def test_lines_on_different_subscriptions_do_not_collide(self):
+        """Uniqueness is per subscription, so separate parents are fine."""
         actor = UserFactory()
-        SubscriptionFactory(
-            plan=legacy("organization", price_per_user=10),
-            subscription_id="sub_live",
+        org = OrganizationFactory()
+        SubscriptionItemFactory(
+            subscription__organization=org,
+            plan=legacy("professional", price_per_user=5),
+            subscription__subscription_id="sub_live",
         )
-        migrating = SubscriptionFactory(
-            plan=legacy("premium-org-comp"), subscription_id=None
+        migrating = SubscriptionItemFactory(
+            subscription__organization=org,
+            subscription__interval="annual",
+            plan=legacy("beta"),
         )
 
         run(actor=actor.username)

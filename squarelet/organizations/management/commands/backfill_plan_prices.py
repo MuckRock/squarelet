@@ -1,6 +1,7 @@
 # Django
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django.db.models import Q
 
 # Standard Library
 import collections
@@ -74,14 +75,19 @@ DEFERRED_SLUGS = {
 }
 
 
-def is_billing(subscription):
-    """Whether Stripe is charging for this subscription.
+def is_billing(item):
+    """Whether Stripe is charging for this line.
 
-    Presence of a subscription id is the signal.  Rows pointing at a
-    cancelled Stripe subscription would confuse this, which is why the
-    Stripe reconciliation is a prerequisite - it drove those to zero.
+    The Stripe id lives on the parent subscription.  Reading `subscription_id`
+    off the line itself would read the foreign key column, which is always
+    set - every line would look like it was billing, and every comped
+    organization would be handed a paid price.
+
+    Rows pointing at a cancelled Stripe subscription would confuse this,
+    which is why the Stripe reconciliation is a prerequisite - it drove
+    those to zero.
     """
-    return bool(subscription.subscription_id)
+    return bool(item.subscription.subscription_id)
 
 
 class Command(BaseCommand):
@@ -164,9 +170,16 @@ class Command(BaseCommand):
         per-user decomposition handles instead.
         """
         return list(
-            SubscriptionItem.objects.select_related("organization", "plan")
+            SubscriptionItem.objects.select_related(
+                "subscription__organization", "plan"
+            )
             .filter(plan_price__isnull=True)
-            .exclude(plan__price_per_user__gt=0, subscription_id__isnull=False)
+            # Per-user *and* billing.  A blank id on the parent means the
+            # line never reached Stripe, which is what a comped organization
+            # looks like - those are migrated here like any other.
+            .exclude(
+                Q(plan__price_per_user__gt=0) & ~Q(subscription__subscription_id="")
+            )
             .order_by("plan__slug", "pk")
         )
 
@@ -213,44 +226,52 @@ class Command(BaseCommand):
         collisions = self._collisions(pending)
         if collisions:
             raise CommandError(
-                "These organizations hold several subscriptions that would "
-                "collapse onto one plan; resolve by hand first: "
+                "These subscriptions carry several lines that would collapse "
+                "onto one plan; resolve by hand first: "
                 + str(
-                    {f"org {org} -> {plan}": v for (org, plan), v in collisions.items()}
+                    {
+                        f"subscription {sub_id} -> {plan}": v
+                        for (sub_id, plan), v in collisions.items()
+                    }
                 )
             )
 
     def _collisions(self, pending):
-        """Organizations that would end up with two subscriptions to one plan.
+        """Lines that would end up duplicated on one subscription.
 
         Several legacy plans collapse onto a single canonical one, and
-        Subscription is unique on (organization, plan), so this has to be
-        caught before anything is written - otherwise the transaction aborts
-        half way through on a bare IntegrityError.
+        SubscriptionItem is unique on (subscription, plan) -- not on
+        (organization, plan), since the split moved the organization to the
+        parent.  Two lines on the *same* subscription collapsing onto one
+        plan is therefore the collision; two on different subscriptions of
+        the same organization is legitimate.
+
+        Catching this before anything is written matters: otherwise the
+        transaction aborts half way through on a bare IntegrityError.
         """
         seen = collections.defaultdict(list)
-        for sub in pending:
-            key = (sub.plan.slug, is_billing(sub))
+        for item in pending:
+            key = (item.plan.slug, is_billing(item))
             if key not in LEGACY_PLAN_MAP:
                 continue
-            seen[(sub.organization_id, LEGACY_PLAN_MAP[key][0])].append(sub.plan.slug)
+            seen[(item.subscription_id, LEGACY_PLAN_MAP[key][0])].append(item.plan.slug)
         if not seen:
             return {}
 
-        # A subscription this step leaves alone still occupies
-        # (organization, plan), so a pending row landing on its canonical
-        # plan collides with it just as surely as with another pending row.
+        # A line this step leaves alone still occupies (subscription, plan),
+        # so a pending line landing on its canonical plan collides with it
+        # just as surely as with another pending line.
         held = (
-            Subscription.objects.exclude(pk__in={sub.pk for sub in pending})
+            SubscriptionItem.objects.exclude(pk__in={item.pk for item in pending})
             .filter(
-                organization_id__in={org for org, _ in seen},
+                subscription_id__in={sub_id for sub_id, _ in seen},
                 plan__slug__in={slug for _, slug in seen},
             )
-            .values_list("organization_id", "plan__slug")
+            .values_list("subscription_id", "plan__slug")
         )
-        for org_id, slug in held:
-            if (org_id, slug) in seen:
-                seen[(org_id, slug)].append(f"{slug} (already held)")
+        for sub_id, slug in held:
+            if (sub_id, slug) in seen:
+                seen[(sub_id, slug)].append(f"{slug} (already held)")
 
         return {k: v for k, v in seen.items() if len(v) > 1}
 
@@ -293,7 +314,8 @@ class Command(BaseCommand):
         """What is left, and why - so a non-zero count is not alarming."""
         per_user = (
             SubscriptionItem.objects.filter(plan_price__isnull=True)
-            .filter(plan__price_per_user__gt=0, subscription_id__isnull=False)
+            .filter(plan__price_per_user__gt=0)
+            .exclude(subscription__subscription_id="")
             .count()
         )
         deferred = (
