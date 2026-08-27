@@ -246,3 +246,50 @@ class TestDryRun:
         run(dry_run=True)
 
         assert Subscription.objects.filter(plan_price__isnull=False).count() == 0
+
+
+@pytest.mark.django_db()
+class TestCollisionWithARowItLeavesAlone:
+    """A collision does not have to be between two pending rows.
+
+    A per-user subscriber still billing is excluded from this step, but it
+    still occupies (organization, plan).  A legacy comp for the same
+    organization that maps onto that same canonical plan collides with it,
+    and must be reported up front rather than aborting the write half way
+    through with a bare IntegrityError.
+    """
+
+    @pytest.mark.usefixtures("targets")
+    def test_collision_with_an_excluded_subscription_is_reported(self):
+        actor = UserFactory()
+        org = OrganizationFactory()
+        SubscriptionFactory(
+            organization=org,
+            plan=legacy("organization", price_per_user=10),
+            subscription_id="sub_live",
+        )
+        SubscriptionFactory(
+            organization=org,
+            plan=legacy("premium-org-comp"),
+            subscription_id=None,
+        )
+
+        with pytest.raises(CommandError, match="collapse onto one plan"):
+            run(actor=actor.username)
+
+    @pytest.mark.usefixtures("targets")
+    def test_an_unrelated_existing_subscription_is_not_a_collision(self):
+        """Different organization, same canonical plan - no conflict."""
+        actor = UserFactory()
+        SubscriptionFactory(
+            plan=legacy("organization", price_per_user=10),
+            subscription_id="sub_live",
+        )
+        migrating = SubscriptionFactory(
+            plan=legacy("premium-org-comp"), subscription_id=None
+        )
+
+        run(actor=actor.username)
+
+        migrating.refresh_from_db()
+        assert migrating.plan_price is not None

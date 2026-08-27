@@ -212,17 +212,7 @@ class Command(BaseCommand):
                 "consolidate_stripe_products first: " + str(sorted(missing))
             )
 
-        # Several legacy plans collapse onto one canonical plan, so an
-        # organization holding two of them would violate
-        # Subscription.unique_together ("organization", "plan") mid-loop and
-        # abort the transaction.  Report it up front instead.
-        seen = collections.defaultdict(list)
-        for sub in pending:
-            key = (sub.plan.slug, is_billing(sub))
-            if key not in LEGACY_PLAN_MAP:
-                continue
-            seen[(sub.organization_id, LEGACY_PLAN_MAP[key][0])].append(sub.plan.slug)
-        collisions = {k: v for k, v in seen.items() if len(v) > 1}
+        collisions = self._collisions(pending)
         if collisions:
             raise CommandError(
                 "These organizations hold several subscriptions that would "
@@ -231,6 +221,40 @@ class Command(BaseCommand):
                     {f"org {org} -> {plan}": v for (org, plan), v in collisions.items()}
                 )
             )
+
+    def _collisions(self, pending):
+        """Organizations that would end up with two subscriptions to one plan.
+
+        Several legacy plans collapse onto a single canonical one, and
+        Subscription is unique on (organization, plan), so this has to be
+        caught before anything is written - otherwise the transaction aborts
+        half way through on a bare IntegrityError.
+        """
+        seen = collections.defaultdict(list)
+        for sub in pending:
+            key = (sub.plan.slug, is_billing(sub))
+            if key not in LEGACY_PLAN_MAP:
+                continue
+            seen[(sub.organization_id, LEGACY_PLAN_MAP[key][0])].append(sub.plan.slug)
+        if not seen:
+            return {}
+
+        # A subscription this step leaves alone still occupies
+        # (organization, plan), so a pending row landing on its canonical
+        # plan collides with it just as surely as with another pending row.
+        held = (
+            Subscription.objects.exclude(pk__in={sub.pk for sub in pending})
+            .filter(
+                organization_id__in={org for org, _ in seen},
+                plan__slug__in={slug for _, slug in seen},
+            )
+            .values_list("organization_id", "plan__slug")
+        )
+        for org_id, slug in held:
+            if (org_id, slug) in seen:
+                seen[(org_id, slug)].append(f"{slug} (already held)")
+
+        return {k: v for k, v in seen.items() if len(v) > 1}
 
     def _migrate(self, sub, actor, dry_run):
         if sub.plan.slug in DEFERRED_SLUGS:
