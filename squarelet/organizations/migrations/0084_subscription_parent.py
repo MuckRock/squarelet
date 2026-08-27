@@ -42,9 +42,12 @@ def adopt_items_into_subscriptions(apps, schema_editor):
 
 
 def split_back_out(apps, schema_editor):
-    """Copy subscription-level state back onto each item, then drop parents."""
+    """Copy subscription-level state back onto each item.
+
+    The parents themselves need no clearing up: reversing this migration's
+    CreateModel drops the table they live in.
+    """
     SubscriptionItem = apps.get_model("organizations", "SubscriptionItem")
-    Subscription = apps.get_model("organizations", "Subscription")
 
     for item in SubscriptionItem.objects.select_related("subscription"):
         parent = item.subscription
@@ -57,13 +60,19 @@ def split_back_out(apps, schema_editor):
         item.stripe_status = parent.stripe_status
         item.current_period_end = parent.current_period_end
         item.save()
-    Subscription.objects.all().delete()
+
+    # Reversing CreateModel drops this table outright, so clearing the rows
+    # first would be redundant.  What is not redundant is flushing the
+    # deferred foreign-key triggers those writes queued: Postgres refuses to
+    # ALTER a table with trigger events still pending, and the operations
+    # that follow in this same transaction drop the parent column and table.
+    schema_editor.execute("SET CONSTRAINTS ALL IMMEDIATE")
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("organizations", "0084_subscriptionitem_related_names"),
+        ("organizations", "0083_rename_subscription_to_item"),
     ]
 
     operations = [
