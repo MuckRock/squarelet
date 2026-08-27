@@ -556,9 +556,11 @@ class BaseManageSubscriptions(SubscriptionObjectMixin, DetailView):
         context = super().get_context_data(**kwargs)
 
         # Get subscriptions and add renewal/cancellation date and cost data
-        subscriptions = self.object.subscription_items.all()
+        subscriptions = self.object.subscription_items.select_related(
+            "subscription", "plan"
+        )
         for subscription in subscriptions:
-            subscription.next_date = get_subscription_next_date(subscription)
+            subscription.next_date = subscription.subscription.next_date
             subscription.cost = subscription.plan.base_price
         context["subscriptions"] = subscriptions
 
@@ -697,7 +699,7 @@ class BaseCancelSubscription(SubscriptionObjectMixin, UpdateView):
         ).first()
         if subscription:
             context["subscription"] = subscription
-            context["next_date"] = get_subscription_next_date(subscription)
+            context["next_date"] = subscription.subscription.next_date
         return context
 
     def form_valid(self, form):
@@ -794,24 +796,3 @@ class BaseResubscribe(SubscriptionObjectMixin, View):
             return JsonResponse({"redirect": redirect_url, "message": str(success_msg)})
         messages.success(request, success_msg)
         return redirect(redirect_url)
-
-
-def get_subscription_next_date(item):
-    """The renewal date shown for a subscription line.
-
-    Every line on a subscription shares one billing period, so the date
-    comes from the parent.
-    """
-    stripe_sub = item.subscription.stripe_subscription
-    if stripe_sub:
-        time_stamp = (
-            get_payment_provider()
-            .get_subscription_service()
-            .get_current_period_end(stripe_sub)
-        )
-        if time_stamp:
-            tz_datetime = datetime.fromtimestamp(
-                time_stamp, tz=timezone.get_current_timezone()
-            )
-            return tz_datetime.date()
-    return None

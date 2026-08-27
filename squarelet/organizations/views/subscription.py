@@ -38,7 +38,6 @@ from squarelet.organizations.mixins import OrganizationPermissionMixin
 from squarelet.organizations.models import Charge, Organization, ReceiptEmail
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.exceptions import SubscriptionError
-from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.tasks import (
     handle_charge_succeeded,
     handle_customer_updated,
@@ -364,24 +363,3 @@ def stripe_webhook(request):
     if handler:
         handler.delay(event_obj)
     return HttpResponse()
-
-
-def get_subscription_next_date(item):
-    """The renewal date shown for a subscription line.
-
-    Every line on a subscription shares one billing period, so the date
-    comes from the parent.
-    """
-    stripe_sub = item.subscription.stripe_subscription
-    if stripe_sub:
-        time_stamp = (
-            get_payment_provider()
-            .get_subscription_service()
-            .get_current_period_end(stripe_sub)
-        )
-        if time_stamp:
-            tz_datetime = datetime.fromtimestamp(
-                time_stamp, tz=timezone.get_current_timezone()
-            )
-            return tz_datetime.date()
-    return None

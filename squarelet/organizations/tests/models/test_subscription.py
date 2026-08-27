@@ -542,6 +542,35 @@ class TestSubscription:
         assert not second.cancelled
         assert not first.subscription.cancelled
 
+    @pytest.mark.django_db()
+    def test_next_date_is_local(self, subscription_factory):
+        """The date shown is the local one, not the UTC one.
+
+        A period ending just after midnight UTC is still the previous
+        evening in the project timezone, and that is the date the customer
+        should see.
+        """
+        subscription = subscription_factory(
+            current_period_end=datetime(2026, 9, 21, 2, 0, tzinfo=dt_timezone.utc)
+        )
+        assert subscription.next_date == date(2026, 9, 20)
+
+    @pytest.mark.django_db()
+    def test_next_date_without_a_cached_period(self, subscription_factory):
+        assert subscription_factory(current_period_end=None).next_date is None
+
+    @pytest.mark.django_db()
+    def test_next_date_does_not_call_stripe(self, subscription_factory, mocker):
+        """It reads the cached field - one page view must not fan out to Stripe."""
+        mocked_provider = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        )
+        subscription = subscription_factory(
+            current_period_end=datetime(2026, 9, 21, 12, 0, tzinfo=dt_timezone.utc)
+        )
+        assert subscription.next_date == date(2026, 9, 21)
+        mocked_provider.assert_not_called()
+
 
 class TestSubscriptionItem:
     """Unit tests for the SubscriptionItem model"""
