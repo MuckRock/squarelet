@@ -322,6 +322,12 @@ class StripeModernPlanService(PlanService):
     def create_product(self, name, **kwargs):
         return stripe.Product.create(name=name, **kwargs)
 
+    def find_price(self, product_id, variant_key):
+        for price in stripe.Price.list(product=product_id, active=True, limit=100):
+            if price.metadata.get("squarelet_variant") == variant_key:
+                return price
+        return None
+
     def create_price(self, product_id, unit_amount, currency, interval, **kwargs):
         try:
             recurring = {"interval": self.STRIPE_INTERVALS[interval]}

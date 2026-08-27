@@ -223,6 +223,18 @@ class PlanService(ABC):
         """
 
     @abstractmethod
+    def find_price(self, product_id, variant_key):
+        """Return the Price under `product_id` tagged with `variant_key`, or None.
+
+        Lets price creation be retried safely.  A Stripe Price cannot be
+        rolled back, so if the database transaction that was going to record
+        one aborts, the Price survives with nothing pointing at it.  Looking
+        it up by a key derived from what the price *is* - rather than from
+        the local row's primary key, which a rollback discards - means the
+        retry adopts the orphan instead of creating a second one.
+        """
+
+    @abstractmethod
     def create_price(self, product_id, unit_amount, currency, interval, **kwargs):
         """Create a recurring Price under a Product.
 
