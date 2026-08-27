@@ -169,6 +169,7 @@ def handle_charge_succeeded(self, charge_data):
     if not invoice_id and charge_data["metadata"].get("action", "").lower() in [
         "donation",
         "crowdfund-payment",
+        "crowdfund payment",
     ]:
         return
 
