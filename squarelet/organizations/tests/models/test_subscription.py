@@ -482,6 +482,66 @@ class TestSubscription:
         assert not item.cancelled
         assert item.cancel_at is None
 
+    @pytest.mark.django_db()
+    def test_cancelling_each_line_in_turn_cancels_the_subscription(
+        self, subscription_item_factory, plan_factory, mocker
+    ):
+        """The second cancel is the last *active* line, so the sub goes too."""
+        first = subscription_item_factory()
+        second = subscription_item_factory(
+            subscription=first.subscription, plan=plan_factory(name="Second Plan")
+        )
+        mocked_cancel = mocker.patch(
+            "squarelet.organizations.models.Subscription.cancel"
+        )
+
+        first.cancel()
+        mocked_cancel.assert_not_called()
+
+        second.cancel()
+        mocked_cancel.assert_called_once()
+
+    @pytest.mark.django_db()
+    def test_uncancelling_a_line_revives_a_cancelled_subscription(
+        self, subscription_item_factory, plan_factory, mocker
+    ):
+        """Reviving a line has to clear Stripe's cancel_at_period_end too."""
+        item = subscription_item_factory()
+        subscription_item_factory(
+            subscription=item.subscription, plan=plan_factory(name="Second Plan")
+        )
+        mocker.patch(
+            "squarelet.organizations.models.Organization.customer",
+            return_value=mocker.Mock(stripe_payment_method_id="pm_test"),
+        )
+        item.subscription.cancel()
+        item.refresh_from_db()
+        assert item.cancelled
+
+        mocked_uncancel = mocker.patch(
+            "squarelet.organizations.models.Subscription.uncancel"
+        )
+        item.uncancel()
+        mocked_uncancel.assert_called_once()
+
+    @pytest.mark.django_db()
+    def test_uncancelling_one_line_leaves_the_others_alone(
+        self, subscription_item_factory, plan_factory
+    ):
+        """A line cancelled on its own is revived on its own."""
+        first = subscription_item_factory()
+        second = subscription_item_factory(
+            subscription=first.subscription, plan=plan_factory(name="Second Plan")
+        )
+        first.cancel()
+        first.uncancel()
+
+        first.refresh_from_db()
+        second.refresh_from_db()
+        assert not first.cancelled
+        assert not second.cancelled
+        assert not first.subscription.cancelled
+
 
 class TestSubscriptionItem:
     """Unit tests for the SubscriptionItem model"""

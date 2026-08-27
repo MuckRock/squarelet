@@ -781,7 +781,6 @@ class BaseResubscribe(SubscriptionObjectMixin, View):
         subscription = organization.subscription_items.filter(
             id=self.kwargs["pk"]
         ).first()
-        print(subscription)
         try:
             subscription.uncancel()
         except ValidationError as exc:
