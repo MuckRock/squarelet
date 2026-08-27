@@ -76,6 +76,15 @@ def restore_organization():
         )
     )
     for item in due_items.select_related("subscription", "plan"):
+        # Stripe rejects removing a subscription's only line.  When every
+        # line is going - which happens when a subscription carries nothing
+        # but non-renewing plans - Stripe ends the subscription itself at
+        # period end and the deleted webhook clears the local record.
+        remaining = (
+            item.subscription.items.exclude(pk=item.pk).exclude(cancelled=True).count()
+        )
+        if remaining == 0:
+            continue
         try:
             item.remove_from_stripe()
         except stripe.StripeError as exc:

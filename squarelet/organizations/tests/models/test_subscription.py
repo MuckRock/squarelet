@@ -543,6 +543,40 @@ class TestSubscription:
         assert not first.subscription.cancelled
 
 
+class TestSubscriptionAutoRenew:
+    """Whether the subscription itself renews."""
+
+    @pytest.mark.django_db()
+    def test_auto_renew_survives_one_non_renewing_line(
+        self, subscription_item_factory, plan_factory
+    ):
+        """A non-renewing plan must not drag the renewing lines down."""
+        renewing = subscription_item_factory()
+        # django_get_or_create keys on name, so the flag is set after creation
+        once = plan_factory(name="One Off Plan")
+        once.auto_renew = False
+        once.save()
+        subscription_item_factory(subscription=renewing.subscription, plan=once)
+
+        assert renewing.subscription.auto_renew
+
+    @pytest.mark.django_db()
+    def test_auto_renew_false_when_every_line_stops(
+        self, subscription_item_factory, plan_factory
+    ):
+        once = plan_factory(name="One Off Plan")
+        once.auto_renew = False
+        once.save()
+        item = subscription_item_factory(plan=once)
+
+        assert not item.subscription.auto_renew
+
+    @pytest.mark.django_db()
+    def test_auto_renew_with_no_lines(self, subscription_factory):
+        """An empty subscription must not read as cancelling."""
+        assert subscription_factory().auto_renew
+
+
 class TestSubscriptionNextDate:
     """The renewal date shown on the billing pages."""
 
