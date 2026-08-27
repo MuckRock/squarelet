@@ -2,7 +2,7 @@
 from django.utils.timezone import get_current_timezone
 
 # Standard Library
-from datetime import datetime, timezone as dt_timezone
+from datetime import date, datetime, timezone as dt_timezone
 from unittest.mock import Mock
 
 # Third Party
@@ -448,6 +448,39 @@ class TestSubscription:
             period_end_ts, tz=get_current_timezone()
         ).date()
         assert item.subscription.cancel_at == expected_date
+
+    @pytest.mark.django_db()
+    def test_cancel_flags_every_line(self, subscription_item_factory, plan_factory):
+        """The UI lists lines, so a line must report a whole-sub cancellation."""
+        item = subscription_item_factory()
+        other = subscription_item_factory(
+            subscription=item.subscription, plan=plan_factory(name="Other Plan")
+        )
+        subscription = item.subscription
+        subscription.current_period_end = datetime(2026, 9, 20, tzinfo=dt_timezone.utc)
+        subscription.save()
+
+        subscription.cancel()
+
+        for line in (item, other):
+            line.refresh_from_db()
+            assert line.cancelled
+            assert line.cancel_at == date(2026, 9, 20)
+
+    @pytest.mark.django_db()
+    def test_uncancel_clears_every_line(self, subscription_item_factory, mocker):
+        item = subscription_item_factory()
+        subscription = item.subscription
+        mocker.patch(
+            "squarelet.organizations.models.Organization.customer",
+            return_value=mocker.Mock(stripe_payment_method_id="pm_test"),
+        )
+        subscription.cancel()
+        subscription.uncancel()
+
+        item.refresh_from_db()
+        assert not item.cancelled
+        assert item.cancel_at is None
 
 
 class TestSubscriptionItem:

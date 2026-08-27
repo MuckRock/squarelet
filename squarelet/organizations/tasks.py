@@ -65,10 +65,16 @@ def restore_organization():
     # no per-item cancel_at_period_end, so this is what enforces it - and it
     # has to happen before Stripe drafts the renewal invoice, which is why
     # this task runs shortly after midnight.
-    due_items = SubscriptionItem.objects.filter(
-        subscription__organization_id__in=due_org_ids,
-        cancelled=True,
-    ).filter(Q(cancel_at__lte=today) | Q(cancel_at__isnull=True))
+    due_items = (
+        SubscriptionItem.objects.filter(
+            subscription__organization_id__in=due_org_ids,
+            cancelled=True,
+        )
+        # A line whose whole subscription is cancelled goes with it, above.
+        .exclude(subscription__cancelled=True).filter(
+            Q(cancel_at__lte=today) | Q(cancel_at__isnull=True)
+        )
+    )
     for item in due_items.select_related("subscription", "plan"):
         try:
             item.remove_from_stripe()
