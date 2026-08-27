@@ -34,7 +34,14 @@ def targets_fixture(db):  # pylint: disable=unused-argument
     plans = {}
     for slug, interval, label, code in set(LEGACY_PLAN_MAP.values()):
         if slug not in plans:
-            plans[slug] = PlanFactory(name=f"Canonical {slug}", slug=slug)
+            # Reuse the migration-seeded plan when it is there.  Whether it
+            # is depends on whether a transactional test has flushed the
+            # database yet, and creating a second one would quietly become
+            # `professional-2` via AutoSlugField - which the command then
+            # cannot find, making these tests pass or fail on run order.
+            plans[slug] = Plan.objects.filter(slug=slug).first() or PlanFactory(
+                name=f"Canonical {slug}", slug=slug
+            )
         PlanPriceFactory(
             plan=plans[slug],
             interval=interval,
