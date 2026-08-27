@@ -1,3 +1,6 @@
+# Django
+from django.core.exceptions import ValidationError
+
 # Standard Library
 from unittest.mock import Mock
 
@@ -14,6 +17,7 @@ def plan_service_fixture(mocker):
     service = mocker.patch(
         "squarelet.organizations.models.payment.get_payment_provider"
     ).return_value.get_plan_service.return_value
+    service.find_product.return_value = None
     service.create_product.return_value = Mock(id="prod_test")
     service.find_price.return_value = None
     service.create_price.return_value = Mock(id="price_new")
@@ -123,3 +127,66 @@ class TestSupersede:
         plan_service.create_price.side_effect = None
         assert replacement.ensure_stripe_price() == "price_new"
         assert PlanPrice.objects.filter(plan=original.plan).count() == 2
+
+
+@pytest.mark.django_db()
+class TestEnsureStripeProduct:
+    def test_adopts_an_orphaned_product(self, plan_factory, plan_service):
+        """A Product left behind by a rolled-back request is reused."""
+        plan_service.find_product.return_value = Mock(id="prod_orphan")
+        plan = plan_factory()
+
+        assert plan.ensure_stripe_product() == "prod_orphan"
+
+        plan_service.create_product.assert_not_called()
+        plan.refresh_from_db()
+        assert plan.stripe_product_id == "prod_orphan"
+
+    def test_creates_when_there_is_nothing_to_adopt(self, plan_factory, plan_service):
+        plan = plan_factory()
+
+        assert plan.ensure_stripe_product() == "prod_test"
+        plan_service.create_product.assert_called_once()
+
+    def test_existing_product_is_left_alone(self, plan_factory, plan_service):
+        plan = plan_factory(stripe_product_id="prod_already")
+
+        assert plan.ensure_stripe_product() == "prod_already"
+        plan_service.find_product.assert_not_called()
+        plan_service.create_product.assert_not_called()
+
+
+@pytest.mark.django_db()
+class TestPricedRowIsImmutable:
+    """Stripe will not change a Price, so neither may we."""
+
+    def test_amount_cannot_be_edited_once_priced(self, plan_price_factory):
+        price = plan_price_factory(stripe_price_id="price_live", amount=10000)
+        price.amount = 12000
+
+        with pytest.raises(ValidationError) as excinfo:
+            price.clean()
+        assert "amount" in excinfo.value.message_dict
+
+    def test_interval_and_currency_are_guarded_too(self, plan_price_factory):
+        price = plan_price_factory(stripe_price_id="price_live")
+        price.interval = "annual"
+        price.currency = "eur"
+
+        with pytest.raises(ValidationError) as excinfo:
+            price.clean()
+        assert set(excinfo.value.message_dict) == {"interval", "currency"}
+
+    def test_classification_stays_editable(self, plan_price_factory):
+        """label and code are local; they change nothing Stripe charges."""
+        price = plan_price_factory(stripe_price_id="price_live")
+        price.label = "nonprofit"
+        price.code = "negotiated"
+
+        price.clean()
+
+    def test_a_row_with_no_stripe_price_is_free_to_change(self, plan_price_factory):
+        price = plan_price_factory(amount=10000)
+        price.amount = 12000
+
+        price.clean()

@@ -319,6 +319,12 @@ class StripeModernPlanService(PlanService):
     # squarelet's interval vocabulary -> Stripe's
     STRIPE_INTERVALS = {"monthly": "month", "annual": "year"}
 
+    def find_product(self, slug):
+        for product in stripe.Product.list(active=True, limit=100):
+            if product.metadata.get("squarelet_plan_slug") == slug:
+                return product
+        return None
+
     def create_product(self, name, **kwargs):
         return stripe.Product.create(name=name, **kwargs)
 
