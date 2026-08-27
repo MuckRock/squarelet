@@ -10,7 +10,6 @@ from django.http.response import (
     JsonResponse,
 )
 from django.shortcuts import redirect
-from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.clickjacking import xframe_options_sameorigin
@@ -21,7 +20,6 @@ from django.views.generic import DetailView, UpdateView
 import json
 import logging
 import sys
-from datetime import datetime
 
 # Third Party
 import stripe

@@ -8,7 +8,6 @@ from django.db import transaction
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import (
     DetailView,
@@ -22,7 +21,6 @@ from django.views.generic import (
 # Standard Library
 import logging
 import sys
-from datetime import datetime
 
 # Third Party
 import stripe
@@ -37,7 +35,6 @@ from squarelet.organizations.models.payment import (
 )
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.exceptions import SubscriptionError
-from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.tasks import add_to_waitlist
 from squarelet.payments.forms import (
     CancelSubscriptionForm,
