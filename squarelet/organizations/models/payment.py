@@ -551,6 +551,10 @@ class Subscription(models.Model):
             self.cancel_at = self.current_period_end.date()
         self.save()
 
+        # Flag the lines too.  The UI lists lines, not subscriptions, so a
+        # line has to be able to report that it is going away.
+        self.items.update(cancelled=True, cancel_at=self.cancel_at)
+
         # The notification names a plan, so it belongs to the lines, not to
         # the subscription that carries them.
         for item in self.items.select_related("plan"):
@@ -581,6 +585,7 @@ class Subscription(models.Model):
         self.cancelled = False
         self.cancel_at = None
         self.save()
+        self.items.update(cancelled=False, cancel_at=None)
 
     def stripe_modify(self):
         """Push local state to Stripe for every item on this subscription."""

@@ -797,8 +797,13 @@ class BaseResubscribe(SubscriptionObjectMixin, View):
         return redirect(redirect_url)
 
 
-def get_subscription_next_date(subscription):
-    stripe_sub = subscription.stripe_subscription
+def get_subscription_next_date(item):
+    """The renewal date shown for a subscription line.
+
+    Every line on a subscription shares one billing period, so the date
+    comes from the parent.
+    """
+    stripe_sub = item.subscription.stripe_subscription
     if stripe_sub:
         time_stamp = (
             get_payment_provider()
