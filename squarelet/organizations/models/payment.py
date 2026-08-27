@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models import Q
 from django.urls import reverse
-from django.utils.timezone import get_current_timezone
+from django.utils.timezone import get_current_timezone, localtime
 from django.utils.translation import gettext_lazy as _
 
 # Standard Library
@@ -393,6 +393,19 @@ class Subscription(models.Model):
     def auto_renew(self):
         """Renew unless some line says otherwise."""
         return all(item.plan.auto_renew for item in self.items.all())
+
+    @property
+    def next_date(self):
+        """The date this subscription next renews, or ends if cancelled.
+
+        Read from the cached `current_period_end` rather than from Stripe:
+        the billing pages render one row per line, and asking Stripe per row
+        turned a page view into a fan of API calls.  The webhook keeps this
+        field current, and `audit_subscriptions` is what verifies that.
+        """
+        if not self.current_period_end:
+            return None
+        return localtime(self.current_period_end).date()
 
     def stripe_items(self, include_ids=False):
         """Stripe line specs for every item on this subscription.
