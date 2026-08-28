@@ -282,6 +282,15 @@ class StripeModernInvoiceService(InvoiceService):
     def mark_uncollectible(self, invoice_id):
         stripe.Invoice.mark_uncollectible(invoice_id)
 
+    def find_by_payment_intent(self, payment_intent_id):
+        invoice_payments = stripe.InvoicePayment.list(
+            payment={"type": "payment_intent", "payment_intent": payment_intent_id},
+            limit=1,
+        )
+        if invoice_payments.data:
+            return invoice_payments.data[0].invoice
+        return None
+
 
 class StripeModernPlanService(PlanService):
     """Plan and Product operations using Stripe Plans API."""

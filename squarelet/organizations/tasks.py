@@ -102,21 +102,18 @@ def _resolve_invoice_details(charge_data):
     """
     # basil (2025-03-31): charge.invoice removed; find the invoice via
     # InvoicePayment.list using charge.payment_intent
+    provider = get_payment_provider()
+    invoice_service = provider.get_invoice_service()
+
     invoice_id = None
     payment_intent_id = charge_data.get("payment_intent")
     if payment_intent_id and isinstance(payment_intent_id, str):
-        invoice_payments = stripe.InvoicePayment.list(
-            payment={"type": "payment_intent", "payment_intent": payment_intent_id},
-            limit=1,
-        )
-        if invoice_payments.data:
-            invoice_id = invoice_payments.data[0].invoice
+        invoice_id = invoice_service.find_by_payment_intent(payment_intent_id)
 
     if not invoice_id:
         return None, None, None, None, charge_data["description"]
 
-    provider = get_payment_provider()
-    invoice = provider.get_invoice_service().retrieve(invoice_id)
+    invoice = invoice_service.retrieve(invoice_id)
     try:
         invoice_line = invoice["lines"]["data"][0]
         price_details = invoice_line["pricing"]["price_details"]
