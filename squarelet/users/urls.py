@@ -37,7 +37,10 @@ urlpatterns = [
     path("<str:username>/", view=views.UserDetailView.as_view(), name="detail"),
     path("<str:username>/update/", view=views.UserUpdateView.as_view(), name="update"),
     path(
-        "<str:username>/payment/", view=views.UserPaymentView.as_view(), name="payment"
+        "<str:username>/payment/",
+        view=views.UserRedirectView.as_view(),
+        kwargs={"target_view": "subscriptions"},
+        name="payment",
     ),
     path("<str:username>/receipts/", view=views.Receipts.as_view(), name="receipts"),
     path(
