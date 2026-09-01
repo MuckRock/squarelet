@@ -194,43 +194,53 @@ class TestPricedRowIsImmutable:
 
 
 @pytest.mark.django_db()
-class TestPricedRowIsReadOnlyInTheAdmin:
-    """The form should not offer what the model will refuse.
+class TestSavedRowIsReadOnlyInTheAdmin:
+    """Only a brand-new row is editable.
 
-    Locking has to happen per row -- a new, unpriced row on the same inline
-    stays fully editable -- which is why these are disabled fields rather
+    Locking has to happen per row -- the empty row being added on the same
+    inline stays editable -- which is why these are disabled fields rather
     than the admin's `readonly_fields`, whose hook only ever sees the parent
     object.
     """
 
-    def _form(self, instance):
-        return PlanPriceForm(instance=instance)
+    LOCKED = ("amount", "currency", "interval")
 
-    def test_terms_are_disabled_once_a_stripe_price_exists(self, plan_price_factory):
-        form = self._form(plan_price_factory(stripe_price_id="price_live"))
+    def test_saved_row_is_locked(self, plan_price_factory):
+        form = PlanPriceForm(instance=plan_price_factory(stripe_price_id="price_live"))
 
-        for name in ("amount", "currency", "interval"):
+        for name in self.LOCKED:
             assert form.fields[name].disabled, name
 
-    def test_classification_stays_editable(self, plan_price_factory):
-        form = self._form(plan_price_factory(stripe_price_id="price_live"))
+    def test_comped_row_is_locked_too(self, plan_price_factory):
+        """No Stripe Price, but still something an organization was granted."""
+        form = PlanPriceForm(instance=plan_price_factory(amount=0))
 
-        assert not form.fields["label"].disabled
-        assert not form.fields["code"].disabled
-
-    def test_a_row_with_no_stripe_price_is_fully_editable(self, plan_price_factory):
-        form = self._form(plan_price_factory())
-
-        for name in ("amount", "currency", "interval"):
-            assert not form.fields[name].disabled, name
+        for name in self.LOCKED:
+            assert form.fields[name].disabled, name
 
     def test_a_new_row_is_fully_editable(self):
         form = PlanPriceForm()
 
-        for name in ("amount", "currency", "interval"):
+        for name in self.LOCKED:
             assert not form.fields[name].disabled, name
 
-    def test_a_submitted_amount_is_ignored_for_a_priced_row(self, plan_price_factory):
+    def test_classification_stays_editable(self, plan_price_factory):
+        """label, code and active drive supersede, so they must stay open."""
+        form = PlanPriceForm(instance=plan_price_factory(stripe_price_id="price_live"))
+
+        for name in ("label", "code", "active"):
+            assert not form.fields[name].disabled, name
+
+    def test_locked_fields_render_as_readonly_not_as_inputs(self, plan_price_factory):
+        """A greyed-out input still reads as editable at a glance."""
+        form = PlanPriceForm(instance=plan_price_factory(amount=10000))
+
+        html = str(form["amount"])
+
+        assert 'class="readonly"' in html
+        assert "<input" not in html
+
+    def test_a_submitted_amount_is_ignored_for_a_saved_row(self, plan_price_factory):
         """A disabled field keeps its initial value, whatever was posted."""
         price = plan_price_factory(stripe_price_id="price_live", amount=10000)
         form = PlanPriceForm(
