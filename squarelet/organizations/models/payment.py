@@ -1021,9 +1021,14 @@ class PlanPrice(models.Model):
     Product, replacing the legacy one-Stripe-Plan-per-Plan model.
 
     `interval` and `label` are orthogonal: a nonprofit on an annual plan has
-    interval="annual" and label="nonprofit".  Partner pricing is deliberately
-    absent - partner deals ride on a standard or nonprofit price with a Stripe
-    coupon applied, because each is individually negotiated.
+    interval="annual" and label="nonprofit".
+
+    An individually negotiated rate is a price of its own, identified by
+    `code` rather than by a label.  Stripe has no negative coupon, so a rate
+    *above* list cannot be expressed as a discount on one - and a rate below
+    list is the same kind of thing, so both are handled the same way.
+    Coupons are kept for time-limited promotions, where expiry and redemption
+    limits are what is wanted.
     """
 
     # Recurring only.  A Stripe Price with no `recurring` block cannot be a
