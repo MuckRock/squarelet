@@ -23,10 +23,13 @@ PACK_PRICE_PER_UNIT = 10
 # target shape.  Client sites still evaluate that formula, so a flat
 # {"base_requests": 10} would grant 10 in total no matter how many units were
 # bought.  With base 0 / minimum 0 / per_user 10 it correctly yields
-# 10 * quantity today.  Step 3h moves these to the flat shape at the same time
-# clients switch to base * quantity - and that conversion must MOVE the
-# per_user value into the base for packs, not simply drop the per-user keys
-# the way it does for tier entitlements.
+# 10 * quantity today.
+#
+# A later migration flattens these, at the same time the client sites switch
+# to base * quantity.  That conversion must MOVE the per_user value into the
+# base for a pack - not simply drop the per-user keys, which is the correct
+# transform for a tier.  Applying the tier transform to a pack leaves
+# base_requests at 0 and silently grants nothing.
 PACKS = [
     {
         "slug": "muckrock-request-pack",
@@ -114,8 +117,8 @@ def create_tiers_and_packs(apps, schema_editor):
                 # Packs are priced purely per unit, with
                 # Subscription.quantity carrying how many were bought.
                 # minimum_users=0 so every unit counts, unlike a tier whose
-                # base covers the first few.  These legacy pricing fields go
-                # away in Step 3e.
+                # base covers the first few.  These legacy pricing fields
+                # are removed once nothing reads them any more.
                 "base_price": 0,
                 "price_per_user": PACK_PRICE_PER_UNIT,
                 "minimum_users": 0,

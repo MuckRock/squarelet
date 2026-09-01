@@ -17,8 +17,9 @@ CURRENCY = "usd"
 #
 # Hardcoded rather than derived from the legacy plans on purpose: these
 # create immutable Stripe Prices, and the legacy rows they came from are
-# archived in Step 2d.  See the plan-mapping doc for how each was chosen and
-# which legacy plans feed into it.
+# archived once nothing points at them.  This matrix is the authoritative
+# list of what the tiers cost; each row was chosen against the legacy plan
+# it replaces so that no existing subscriber's bill changes.
 #
 # Comped rows have amount 0 and get no Stripe Price at all - comped
 # subscriptions never reach Stripe, so there is nothing for a Price to bill
@@ -53,10 +54,15 @@ PRICE_MATRIX = [
     ("scoutpost-credit-pack", "annual", "standard", "", 12_000),
     # Admin keeps its own Plan rather than consolidating - it is the only
     # plan granting staff access across all three products - but still needs
-    # a price so Subscription.plan_price can be made non-null in step 3c.
+    # a price, so that plan_price can eventually be made non-null for every
+    # subscription.
     ("admin", "monthly", "comped", "", 0),
-    # Negotiated rates - a price of their own, not a coupon on top of list.
-    # See the plan-mapping doc for why each exists.
+    # Individually negotiated rates.  Each is a price of its own rather than
+    # a coupon on top of list, because Stripe has no negative coupon and so
+    # cannot express a rate *above* list at all; below-list deals use the
+    # same mechanism rather than being handled a second way.  `insideclimate`
+    # is a bespoke Organization rate; `legacy-basic` preserves the older,
+    # cheaper Sunlight Basic rate for the subscribers who still hold it.
     ("organization", "monthly", "standard", "insideclimate", 3_000),
     ("sunlight-essential", "annual", "standard", "legacy-basic", 200_000),
 ]
@@ -136,7 +142,7 @@ class Command(BaseCommand):
         if missing and not allow_missing:
             raise CommandError(
                 f"These plans do not exist: {missing}.  Run the tier and pack "
-                f"migrations first, and check the plan mapping.\n\n"
+                f"migrations first.\n\n"
                 f"If those migrations have already run, a pack plan can still "
                 f"be absent: 0082 resolves each pack's OIDC client by finding "
                 f"which client's entitlements carry its resource key "
