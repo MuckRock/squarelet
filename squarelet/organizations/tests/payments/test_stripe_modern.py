@@ -1,5 +1,6 @@
 # Third Party
 import pytest
+from stripe import StripeObject
 
 # Squarelet
 from squarelet.organizations.payments.base import PaymentActionRequired
@@ -367,9 +368,6 @@ def stripe_object(**fields):
     missing key.  Anything standing in for Stripe here has to behave that
     way or it tests nothing.
     """
-    # Third Party
-    from stripe import StripeObject
-
     return StripeObject.construct_from(fields, "sk_test")
 
 
