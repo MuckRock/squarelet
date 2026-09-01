@@ -6,6 +6,7 @@ from django.forms.models import BaseInlineFormSet
 from django.forms.widgets import Textarea
 from django.http.response import HttpResponse
 from django.urls import reverse
+from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
 # Standard Library
@@ -532,19 +533,38 @@ class OrganizationAdmin(VersionAdmin):
     get_subscription_renews.boolean = True
 
 
+class ReadOnlyValueWidget(forms.Widget):
+    """Renders a value the way the admin renders its own readonly fields.
+
+    Same markup and class, so it inherits the admin's styling rather than
+    looking like an input that happens to be greyed out.
+    """
+
+    def render(self, name, value, attrs=None, renderer=None):
+        return format_html(
+            '<div class="readonly">{}</div>', "" if value is None else value
+        )
+
+
 class PlanPriceForm(forms.ModelForm):
-    """Locks the terms Stripe has already committed to.
+    """Locks a saved price's terms.
 
-    The model refuses these edits anyway, but refusing a field the form
-    offered is a poor way to say so.
+    Only a brand-new row is fully editable.  Once a row exists it describes
+    something already in use - a Stripe Price for a paid tier, or a comped
+    arrangement someone was granted - and changing what it says it costs
+    makes it describe something else entirely.  Supersede instead: retire
+    the row and add a replacement carrying the new terms.
 
-    `disabled` rather than the admin's `readonly_fields` because this has to
-    vary per row: an inline gets the *parent* object in
-    `get_readonly_fields`, never the individual instance, so readonly there
-    could only mean "lock the amount on every price, including new ones".
-    Both approaches are equally safe against a tampered POST - a readonly
-    field is excluded from the form, and a disabled one keeps its initial
-    value - so that is not what decides it.
+    Comped rows are locked too even though they have no Stripe Price.  They
+    have no *Stripe* counterpart, but they are still what an organization
+    was granted.
+
+    This is a form-level lock rather than the admin's `readonly_fields`
+    because it has to vary per row: an inline's `get_readonly_fields` hook
+    receives the *parent* object, never the individual instance, so readonly
+    there could only mean "lock every row, including the empty one being
+    added".  `disabled` makes Django keep the stored value whatever is
+    posted; the widget makes it look like what it is.
     """
 
     class Meta:
@@ -553,14 +573,15 @@ class PlanPriceForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if not (self.instance.pk and self.instance.stripe_price_id):
+        if not self.instance.pk:
             return
         for name in PlanPrice.STRIPE_BOUND_FIELDS:
             if name in self.fields:
                 self.fields[name].disabled = True
+                self.fields[name].widget = ReadOnlyValueWidget()
                 self.fields[name].help_text = (
-                    "Fixed once the Stripe Price exists.  Supersede this row "
-                    "to charge something else."
+                    "Fixed once the price exists.  Supersede this row to "
+                    "charge something else."
                 )
 
 
