@@ -66,9 +66,6 @@ LEGACY_PLAN_MAP = {
 # Deliberately left alone.  Each needs a decision or an action outside this
 # command, given per entry below.
 DEFERRED_SLUGS = {
-    # Pays $0 by manual invoice for 200 blocks; needs a conversation before
-    # anyone moves them onto a real price.
-    "organization-flexible-users-annual",
     # Two organizations going opposite ways - one cancelled, one comped - so
     # the slug alone cannot decide.
     "custom-crp",
