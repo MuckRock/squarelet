@@ -181,6 +181,14 @@ class InvoiceService(ABC):
     def mark_uncollectible(self, invoice_id):
         """Mark an invoice as uncollectible."""
 
+    @abstractmethod
+    def find_by_payment_intent(self, payment_intent_id):
+        """Find the invoice ID associated with a payment intent, if any.
+
+        (charge.invoice was removed in API version 2025-03-31.basil; the
+        invoice must now be looked up via InvoicePayment.list.)
+        """
+
 
 class PlanService(ABC):
     """Manages Stripe Plan and Product objects."""

@@ -252,7 +252,8 @@ class TestHandleChargeSucceeded:
         mock_ip = mocker.MagicMock()
         mock_ip.invoice = "in_EwIgmFCn7cnZFB"
         mocker.patch(
-            "squarelet.organizations.tasks.stripe.InvoicePayment.list",
+            "squarelet.organizations.payments.providers"
+            ".stripe_modern.stripe.InvoicePayment.list",
             return_value=mocker.MagicMock(data=[mock_ip]),
         )
         mocker.patch(
@@ -299,7 +300,8 @@ class TestHandleChargeSucceeded:
             customer__customer_id=charge_data["customer"]
         )
         mocker.patch(
-            "squarelet.organizations.tasks.stripe.InvoicePayment.list",
+            "squarelet.organizations.payments.providers"
+            ".stripe_modern.stripe.InvoicePayment.list",
             return_value=mocker.MagicMock(data=[]),
         )
         mock_download = mocker.patch(
@@ -334,7 +336,8 @@ class TestHandleChargeSucceeded:
         }
         organization_factory(customer__customer_id=charge_data["customer"])
         mocker.patch(
-            "squarelet.organizations.tasks.stripe.InvoicePayment.list",
+            "squarelet.organizations.payments.providers"
+            ".stripe_modern.stripe.InvoicePayment.list",
             return_value=mocker.MagicMock(data=[]),
         )
         mock_download = mocker.patch(
@@ -459,7 +462,8 @@ class TestDownloadReceiptPdf:
         mock_ip = mocker.MagicMock()
         mock_ip.invoice = "in_EwIgmFCn7cnZFB"
         mocker.patch(
-            "squarelet.organizations.tasks.stripe.InvoicePayment.list",
+            "squarelet.organizations.payments.providers"
+            ".stripe_modern.stripe.InvoicePayment.list",
             return_value=mocker.MagicMock(data=[mock_ip]),
         )
         mocker.patch(
@@ -499,7 +503,8 @@ class TestDownloadReceiptPdf:
         mock_ip = mocker.MagicMock()
         mock_ip.invoice = "in_EwIgmFCn7cnZFB"
         mocker.patch(
-            "squarelet.organizations.tasks.stripe.InvoicePayment.list",
+            "squarelet.organizations.payments.providers"
+            ".stripe_modern.stripe.InvoicePayment.list",
             return_value=mocker.MagicMock(data=[mock_ip]),
         )
         mocker.patch(
@@ -538,7 +543,8 @@ class TestDownloadReceiptPdf:
         mock_ip = mocker.MagicMock()
         mock_ip.invoice = "in_EwIgmFCn7cnZFB"
         mocker.patch(
-            "squarelet.organizations.tasks.stripe.InvoicePayment.list",
+            "squarelet.organizations.payments.providers"
+            ".stripe_modern.stripe.InvoicePayment.list",
             return_value=mocker.MagicMock(data=[mock_ip]),
         )
         mocker.patch(
@@ -569,7 +575,8 @@ class TestDownloadReceiptPdf:
         }
         organization_factory(customer__customer_id=charge_data["customer"])
         mocker.patch(
-            "squarelet.organizations.tasks.stripe.InvoicePayment.list",
+            "squarelet.organizations.payments.providers"
+            ".stripe_modern.stripe.InvoicePayment.list",
             return_value=mocker.MagicMock(data=[]),
         )
         mocker.patch("squarelet.organizations.tasks.requests.get")
