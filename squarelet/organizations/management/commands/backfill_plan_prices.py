@@ -20,8 +20,9 @@ logger = logging.getLogger(__name__)
 # comped price for those.  `is_billing` - whether a Stripe subscription
 # exists - is what separates them.
 #
-# Derived from the plan-mapping document; see it for why each target was
-# chosen.  Values are (canonical slug, interval, label, code).
+# Every target was chosen against the legacy plan it replaces so that no
+# subscriber's bill changes.  Values are (canonical slug, interval, label,
+# code).
 LEGACY_PLAN_MAP = {
     # MuckRock Professional
     ("professional", True): ("professional", "monthly", "standard", ""),
@@ -63,7 +64,7 @@ LEGACY_PLAN_MAP = {
 }
 
 # Deliberately left alone.  Each needs a decision or an action outside this
-# migration; see the plan-mapping and reconciliation documents.
+# command, given per entry below.
 DEFERRED_SLUGS = {
     # Pays $0 by manual invoice for 200 blocks; needs a conversation before
     # anyone moves them onto a real price.
@@ -94,10 +95,9 @@ class Command(BaseCommand):
     so there is no PlanPrice to look up via the old plan.
 
     Subscriptions still billing on a per-user plan are **not** touched.  They
-    need splitting into a base subscription plus usage packs, which changes
-    what Stripe charges and therefore happens per subscriber at renewal - see
-    the Migration Path section of the plan.  Everything else is a local
-    pointer update that changes nobody's bill.
+    need decomposing into a base plan plus a usage pack, which changes what
+    Stripe charges and so is a separate, deliberate step.  Everything this
+    command does is a local pointer update that changes nobody's bill.
 
     Run `consolidate_stripe_products` first; this needs the PlanPrice rows to
     exist.
@@ -164,7 +164,7 @@ class Command(BaseCommand):
         """Subscriptions this step handles.
 
         Everything except those still billing on a per-user plan, which the
-        renewal-time split handles instead.
+        per-user decomposition handles instead.
         """
         return list(
             Subscription.objects.select_related("organization", "plan")
@@ -177,8 +177,9 @@ class Command(BaseCommand):
         """Refuse to write anything unless every case is accounted for.
 
         Deliberately no log-and-skip fallback.  A silent skip leaves
-        `plan_price` null, which fails step 3c later and much less legibly
-        than stopping here.
+        `plan_price` null, which surfaces much later and much less legibly
+        - as a failure to make the column non-null, long after the run that
+        caused it.
         """
         unmapped = {
             (sub.plan.slug, is_billing(sub))
@@ -304,6 +305,6 @@ class Command(BaseCommand):
             .count()
         )
         self.stdout.write(
-            f"still without a plan_price: {per_user} awaiting their "
-            f"renewal-time split, {deferred} deferred by choice"
+            f"still without a plan_price: {per_user} awaiting the per-user "
+            f"decomposition, {deferred} deferred by choice"
         )
