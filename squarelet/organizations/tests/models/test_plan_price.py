@@ -8,6 +8,7 @@ from unittest.mock import Mock
 import pytest
 
 # Squarelet
+from squarelet.organizations.admin import PlanPriceForm
 from squarelet.organizations.models import PlanPrice
 
 
@@ -190,3 +191,62 @@ class TestPricedRowIsImmutable:
         price.amount = 12000
 
         price.clean()
+
+
+@pytest.mark.django_db()
+class TestPricedRowIsReadOnlyInTheAdmin:
+    """The form should not offer what the model will refuse.
+
+    Locking has to happen per row -- a new, unpriced row on the same inline
+    stays fully editable -- which is why these are disabled fields rather
+    than the admin's `readonly_fields`, whose hook only ever sees the parent
+    object.
+    """
+
+    def _form(self, instance):
+        return PlanPriceForm(instance=instance)
+
+    def test_terms_are_disabled_once_a_stripe_price_exists(self, plan_price_factory):
+        form = self._form(plan_price_factory(stripe_price_id="price_live"))
+
+        for name in ("amount", "currency", "interval"):
+            assert form.fields[name].disabled, name
+
+    def test_classification_stays_editable(self, plan_price_factory):
+        form = self._form(plan_price_factory(stripe_price_id="price_live"))
+
+        assert not form.fields["label"].disabled
+        assert not form.fields["code"].disabled
+
+    def test_a_row_with_no_stripe_price_is_fully_editable(self, plan_price_factory):
+        form = self._form(plan_price_factory())
+
+        for name in ("amount", "currency", "interval"):
+            assert not form.fields[name].disabled, name
+
+    def test_a_new_row_is_fully_editable(self):
+        form = PlanPriceForm()
+
+        for name in ("amount", "currency", "interval"):
+            assert not form.fields[name].disabled, name
+
+    def test_a_submitted_amount_is_ignored_for_a_priced_row(self, plan_price_factory):
+        """A disabled field keeps its initial value, whatever was posted."""
+        price = plan_price_factory(stripe_price_id="price_live", amount=10000)
+        form = PlanPriceForm(
+            instance=price,
+            data={
+                "plan": price.plan_id,
+                "interval": "annual",
+                "label": price.label,
+                "code": price.code,
+                "amount": 999,
+                "currency": "eur",
+                "active": price.active,
+            },
+        )
+
+        assert form.is_valid(), form.errors
+        assert form.cleaned_data["amount"] == 10000
+        assert form.cleaned_data["currency"] == "usd"
+        assert form.cleaned_data["interval"] == "monthly"

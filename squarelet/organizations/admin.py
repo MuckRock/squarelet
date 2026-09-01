@@ -1,4 +1,5 @@
 # Django
+from django import forms
 from django.contrib import admin, messages
 from django.db.models import Count, JSONField, Prefetch, Q, Sum
 from django.forms.models import BaseInlineFormSet
@@ -531,6 +532,38 @@ class OrganizationAdmin(VersionAdmin):
     get_subscription_renews.boolean = True
 
 
+class PlanPriceForm(forms.ModelForm):
+    """Locks the terms Stripe has already committed to.
+
+    The model refuses these edits anyway, but refusing a field the form
+    offered is a poor way to say so.
+
+    `disabled` rather than the admin's `readonly_fields` because this has to
+    vary per row: an inline gets the *parent* object in
+    `get_readonly_fields`, never the individual instance, so readonly there
+    could only mean "lock the amount on every price, including new ones".
+    Both approaches are equally safe against a tampered POST - a readonly
+    field is excluded from the form, and a disabled one keeps its initial
+    value - so that is not what decides it.
+    """
+
+    class Meta:
+        model = PlanPrice
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not (self.instance.pk and self.instance.stripe_price_id):
+            return
+        for name in PlanPrice.STRIPE_BOUND_FIELDS:
+            if name in self.fields:
+                self.fields[name].disabled = True
+                self.fields[name].help_text = (
+                    "Fixed once the Stripe Price exists.  Supersede this row "
+                    "to charge something else."
+                )
+
+
 class PlanPriceInline(admin.TabularInline):
     """Prices for a plan, editable alongside it.
 
@@ -540,6 +573,7 @@ class PlanPriceInline(admin.TabularInline):
     """
 
     model = PlanPrice
+    form = PlanPriceForm
     extra = 0
     fields = (
         "interval",
@@ -614,6 +648,7 @@ class PlanPriceAdmin(VersionAdmin):
         "active",
         "stripe_price_id",
     )
+    form = PlanPriceForm
     list_filter = ("active", "interval", "label")
     search_fields = ("plan__name", "plan__slug", "stripe_price_id", "code")
     autocomplete_fields = ("plan",)
