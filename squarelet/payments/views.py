@@ -294,6 +294,7 @@ class PlanDetailView(DetailView):
                 request.user,
                 token=stripe_token,
                 payment_method=payment_method,
+                nonprofit=result.get("nonprofit", False),
             )
         )
         return None
@@ -313,6 +314,7 @@ class PlanDetailView(DetailView):
                 request.user,
                 token=stripe_token,
                 payment_method=payment_method,
+                nonprofit=result.get("nonprofit", False),
             )
             return None
         except PaymentActionRequired as exc:
