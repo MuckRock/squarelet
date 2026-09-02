@@ -387,7 +387,9 @@ class Subscription(models.Model):
     @property
     def free(self):
         """A subscription costs nothing when every line does."""
-        return all(item.plan is None or item.plan.free for item in self.items.all())
+        return all(
+            item.is_free for item in self.items.select_related("plan", "plan_price")
+        )
 
     @property
     def auto_renew(self):
@@ -424,8 +426,14 @@ class Subscription(models.Model):
         each line's own id to update it in place rather than replace it.
         """
         specs = []
-        for item in self.items.select_related("plan"):
-            spec = {"plan": item.plan.stripe_id, "quantity": item.quantity}
+        for item in self.items.select_related("plan", "plan_price"):
+            if item.is_free:
+                # Nothing for Stripe to bill.  A comped line has no Stripe
+                # Price at all, so naming it would reference an object that
+                # does not exist - and a subscription where *every* line is
+                # free never reaches Stripe in the first place.
+                continue
+            spec = {"plan": item.stripe_price_id, "quantity": item.quantity}
             if include_ids and item.stripe_item_id:
                 spec["id"] = item.stripe_item_id
             specs.append(spec)
@@ -773,6 +781,37 @@ class SubscriptionItem(models.Model):
     def __str__(self):
         plan_name = self.plan.name if self.plan else "Free"
         return f"SubscriptionItem: {self.subscription.organization} to {plan_name}"
+
+    @property
+    def is_free(self):
+        """Whether this line costs anything.
+
+        Reads the price once the line has one, and falls back to the plan
+        while `plan_price` can still be null - which it is for every
+        subscriber the backfill deliberately skipped, and for every signup
+        until the purchase flow starts recording a price.
+        """
+        if self.plan_price_id:
+            return self.plan_price.amount == 0
+        return self.plan is None or self.plan.free
+
+    @property
+    def stripe_price_id(self):
+        """The Stripe object this line bills against.
+
+        Prefers the `PlanPrice`'s Stripe Price.  Falls back to the plan's
+        legacy id in two cases: while `plan_price` is still null, and when
+        a price exists but has no Stripe Price yet - a partial state
+        `consolidate_stripe_products` can leave and completes on a re-run.
+        Falling back means the line keeps billing exactly as it did before,
+        which is the safe reading of "not ready yet".
+
+        A free line has no Stripe counterpart at all; `stripe_items` drops
+        those before asking.
+        """
+        if self.plan_price_id and self.plan_price.stripe_price_id:
+            return self.plan_price.stripe_price_id
+        return self.plan.stripe_id
 
     @property
     def organization(self):
