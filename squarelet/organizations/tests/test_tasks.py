@@ -371,7 +371,7 @@ class TestDownloadReceiptPdf:
 
         charge.refresh_from_db()
         mocked_get.assert_called_once_with(
-            "https://stripe.com/receipt/test", timeout=30
+            "https://stripe.com/receipt/test/pdf", timeout=30
         )
         assert charge.receipt_pdf.name.startswith("receipts/ch_test_dl")
 

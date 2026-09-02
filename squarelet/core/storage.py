@@ -14,7 +14,14 @@ class MediaRootS3BotoStorage(S3Boto3Storage):
 
 
 class PrivateMediaStorage(S3Boto3Storage):
-    location = "media"
+    # Deliberately not "media" - that prefix is served publicly over
+    # CloudFront. Keeping private objects on their own prefix lets the
+    # CloudFront distribution restrict viewer access (via a trusted key
+    # group) on this path alone, without requiring signed URLs for public
+    # media too. See AWS_CLOUDFRONT_KEY_ID/AWS_CLOUDFRONT_KEY in
+    # config/settings/production.py - both must be set for url() to return
+    # a signed CloudFront URL; otherwise it falls back to an unsigned one.
+    location = "private"
     default_acl = "private"
     file_overwrite = False
     querystring_auth = True

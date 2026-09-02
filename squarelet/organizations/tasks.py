@@ -222,7 +222,9 @@ def download_receipt_pdf(charge_id, receipt_url):
     charge = Charge.objects.get(pk=charge_id)
     if charge.receipt_pdf:
         return
-    response = requests.get(receipt_url, timeout=30)
+    # Stripe's charge.receipt_url points at the hosted HTML receipt page.
+    # Appending "/pdf" gets the actual PDF rendition of that same receipt.
+    response = requests.get(f"{receipt_url}/pdf", timeout=30)
     response.raise_for_status()
     charge.receipt_pdf.save(
         f"{charge.charge_id}.pdf",
