@@ -416,7 +416,74 @@ class ChargeQuerySet(models.QuerySet):
 
 
 class SubscriptionItemQuerySet(models.QuerySet):
-    def start(self, organization, plan, payment_method="card", quantity=1):
+    @staticmethod
+    def _schedule_single_period(item):
+        """A plan that bills once and stops means, for a line, exactly what a
+        customer cancellation means: drop it at the end of the period it was
+        paid for.  The subscription carries on for its other lines, and
+        Resubscribe reverses this if they change their mind."""
+        period_end = item.subscription.current_period_end
+        item.cancelled = True
+        item.cancel_at = period_end.date() if period_end else None
+        item.save()
+
+    @staticmethod
+    def _collection_method(interval, payment_method):
+        """Stripe collects annual subscriptions by invoice when asked."""
+        if interval == "annual" and payment_method == "invoice":
+            return "send_invoice"
+        return "charge_automatically"
+
+    @staticmethod
+    def resolve_purchase(plan, interval, nonprofit=False):
+        """What a new subscription to `plan` should actually be recorded as.
+
+        Returns `(canonical_plan, plan_price)`, or `(plan, None)` when there
+        is nothing to resolve to - which is every plan until
+        `consolidate_stripe_products` has run, and any plan the mapping does
+        not cover.  Falling back leaves the subscription on the legacy plan
+        and the legacy Stripe id, which is what it would have been anyway;
+        the migration picks those up.
+
+        The plan a customer picks is not necessarily the plan they end up
+        on.  Annual and nonprofit are separate `Plan` rows today, and both
+        collapse onto a canonical tier where the difference is carried by
+        the price's `interval` and `label` instead.  Resolving both here
+        means a new subscription is recorded exactly as a migrated one is,
+        so the migration has genuinely nothing to do for it.
+        """
+        # Lazy import to avoid a circular import (payment.py imports this module)
+        # pylint: disable=import-outside-toplevel
+        # Squarelet
+        from squarelet.organizations.models.payment import PlanPrice
+        from squarelet.organizations.plan_mapping import resolve_target
+
+        target = resolve_target(plan.slug, allow_comped=False) or (
+            plan.slug,
+            interval,
+            "nonprofit" if nonprofit else "standard",
+            "",
+        )
+        canonical_slug, interval, label, code = target
+
+        price = (
+            PlanPrice.objects.select_related("plan")
+            .filter(
+                plan__slug=canonical_slug,
+                interval=interval,
+                label=label,
+                code=code,
+                active=True,
+            )
+            .first()
+        )
+        if price is None:
+            return plan, None
+        return price.plan, price
+
+    def start(
+        self, organization, plan, payment_method="card", quantity=1, nonprofit=False
+    ):
         """Add a line for `plan` and make sure Stripe knows about it.
 
         Stripe requires every item on a subscription to share a billing
@@ -434,25 +501,28 @@ class SubscriptionItemQuerySet(models.QuerySet):
         from squarelet.organizations.models.payment import Subscription
 
         interval = "annual" if plan.annual else "monthly"
-        collection_method = (
-            "send_invoice"
-            if interval == "annual" and payment_method == "invoice"
-            else "charge_automatically"
-        )
+        collection_method = self._collection_method(interval, payment_method)
         subscription, created = Subscription.objects.get_or_create(
             organization=organization,
             interval=interval,
             collection_method=collection_method,
         )
+        canonical_plan, plan_price = self.resolve_purchase(plan, interval, nonprofit)
         item = self.model.objects.create(
-            subscription=subscription, plan=plan, quantity=quantity
+            subscription=subscription,
+            plan=canonical_plan,
+            plan_price=plan_price,
+            quantity=quantity,
         )
 
         if created or not subscription.subscription_id:
-            anchor = organization.billing_anchor
             stripe_subscription = subscription.start(
                 payment_method=payment_method,
-                anchor_day=anchor.day if anchor else None,
+                anchor_day=(
+                    organization.billing_anchor.day
+                    if organization.billing_anchor
+                    else None
+                ),
             )
         else:
             # The subscription is already live on Stripe, so the new line is
@@ -461,14 +531,7 @@ class SubscriptionItemQuerySet(models.QuerySet):
             stripe_subscription = subscription.stripe_subscription
 
         if not plan.auto_renew:
-            # A plan that bills once and stops means, for a line, exactly what
-            # a customer cancellation means: drop it at the end of the period
-            # it was paid for.  The subscription carries on for its other
-            # lines, and Resubscribe reverses this if they change their mind.
-            period_end = subscription.current_period_end
-            item.cancelled = True
-            item.cancel_at = period_end.date() if period_end else None
-            item.save()
+            self._schedule_single_period(item)
 
         if not plan.free:
             item.notify_started()

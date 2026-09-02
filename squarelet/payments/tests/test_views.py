@@ -56,6 +56,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
             user,
             token="tok_visa",
             payment_method="new-card",
+            nonprofit=False,
         )
 
         # Should redirect to the organization
@@ -169,6 +170,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
             user,
             token="tok_visa",
             payment_method="new-card",
+            nonprofit=False,
         )
 
         # Should redirect to the organization
@@ -321,6 +323,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
             user,
             token="",
             payment_method="invoice",
+            nonprofit=False,
         )
 
         # Should redirect to organization
