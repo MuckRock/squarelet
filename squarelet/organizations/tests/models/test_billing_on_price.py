@@ -242,3 +242,51 @@ class TestProrationIsOptOut:
         kwargs = self._modify(item, mocker, proration_behavior="none")
 
         assert kwargs["proration_behavior"] == "none"
+
+
+@pytest.mark.django_db()
+class TestEveryPurchasablePlanResolves:
+    """A plan a customer can pick must map to a price.
+
+    An unmapped slug falls back to the legacy plan silently -- correct
+    while nothing is set up, but indistinguishable from a missing entry.
+    These pin the slugs that were public when the mapping was written, so
+    adding a purchasable plan without a price fails here rather than in
+    production.
+    """
+
+    PURCHASABLE = [
+        ("organization", "organization", "monthly", "standard"),
+        ("sunlight-essential", "sunlight-essential", "monthly", "standard"),
+        ("sunlight-essential-annual", "sunlight-essential", "annual", "standard"),
+        ("sunlight-enhanced", "sunlight-enhanced", "monthly", "standard"),
+        ("sunlight-enhanced-annual", "sunlight-enhanced", "annual", "standard"),
+        ("professional", "professional", "monthly", "standard"),
+    ]
+
+    NONPROFIT = [
+        ("sunlight-nonprofit-essential", "sunlight-essential", "monthly"),
+        ("sunlight-nonprofit-essential-annual", "sunlight-essential", "annual"),
+        ("sunlight-nonprofit-enhanced", "sunlight-enhanced", "monthly"),
+        ("sunlight-nonprofit-enhanced-annual", "sunlight-enhanced", "annual"),
+    ]
+
+    def test_each_public_plan_maps_to_a_canonical_target(self):
+        for slug, canonical, interval, label in self.PURCHASABLE:
+            target = resolve_target(slug, allow_comped=False)
+            assert target is not None, f"{slug} has no mapping"
+            assert target[:3] == (canonical, interval, label), slug
+
+    def test_each_nonprofit_variant_maps_to_the_nonprofit_price(self):
+        """The checkbox substitutes the plan; the map turns it into a label."""
+        for slug, canonical, interval in self.NONPROFIT:
+            target = resolve_target(slug, allow_comped=False)
+            assert target is not None, f"{slug} has no mapping"
+            assert target[:3] == (canonical, interval, "nonprofit"), slug
+
+    def test_every_target_names_a_blank_code(self):
+        """A purchase must never default onto someone's negotiated rate."""
+        for slug, *_ in self.PURCHASABLE + [
+            (s, None, None) for s, _, _ in self.NONPROFIT
+        ]:
+            assert resolve_target(slug, allow_comped=False)[3] == ""

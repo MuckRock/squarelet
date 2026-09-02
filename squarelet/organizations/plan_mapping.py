@@ -63,6 +63,51 @@ LEGACY_PLAN_MAP = {
     # Admin keeps its own plan - the only one granting staff access across
     # all three products - and simply gains a comped price.
     ("admin", False): ("admin", "monthly", "comped", ""),
+    # --- Plans a new customer can still pick -------------------------------
+    #
+    # These are not legacy rows being consolidated away; they are the tiers
+    # themselves, and they are here because a purchase resolves through this
+    # same table.  Annual is a separate `Plan` row today rather than an
+    # interval, so it maps onto the canonical tier with interval="annual" -
+    # which is exactly what the migration does with them too.
+    ("organization", True): ("organization", "monthly", "standard", ""),
+    ("sunlight-essential", True): ("sunlight-essential", "monthly", "standard", ""),
+    ("sunlight-essential-annual", True): (
+        "sunlight-essential",
+        "annual",
+        "standard",
+        "",
+    ),
+    ("sunlight-enhanced", True): ("sunlight-enhanced", "monthly", "standard", ""),
+    ("sunlight-enhanced-annual", True): ("sunlight-enhanced", "annual", "standard", ""),
+    # Nonprofit variants are not public - `get_selected_plan()` substitutes
+    # one in when the checkbox is ticked - so a purchase arrives here already
+    # on the variant slug.  Mapping them means the label comes out right
+    # without the form having to change.
+    ("sunlight-nonprofit-essential", True): (
+        "sunlight-essential",
+        "monthly",
+        "nonprofit",
+        "",
+    ),
+    ("sunlight-nonprofit-essential-annual", True): (
+        "sunlight-essential",
+        "annual",
+        "nonprofit",
+        "",
+    ),
+    ("sunlight-nonprofit-enhanced", True): (
+        "sunlight-enhanced",
+        "monthly",
+        "nonprofit",
+        "",
+    ),
+    ("sunlight-nonprofit-enhanced-annual", True): (
+        "sunlight-enhanced",
+        "annual",
+        "nonprofit",
+        "",
+    ),
 }
 
 # Deliberately left alone.  Each needs a decision or an action outside this
