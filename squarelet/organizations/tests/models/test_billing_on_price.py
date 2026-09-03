@@ -157,14 +157,14 @@ class TestPurchaseResolvesAPrice:
     price, and deliberately so.
     """
 
-    def _resolve(self, **kwargs):
-        _, price = SubscriptionItem.objects.resolve_purchase(**kwargs)
+    def _resolve(self, plan, nonprofit=False):
+        _, price = SubscriptionItem.objects.resolve_purchase(plan, nonprofit)
         return price
 
     def test_resolves_the_standard_list_price(self, plan_price_factory):
         price = plan_price_factory(interval="monthly", label="standard")
 
-        assert self._resolve(plan=price.plan, interval="monthly") == price
+        assert self._resolve(plan=price.plan) == price
 
     def test_nonprofit_resolves_the_nonprofit_price(self, plan_price_factory):
         """Self-reported, and the only thing the checkbox now decides."""
@@ -173,13 +173,17 @@ class TestPurchaseResolvesAPrice:
             plan=plan, interval="monthly", label="nonprofit", amount=3_500
         )
 
-        assert self._resolve(plan=plan, interval="monthly", nonprofit=True) == nonprofit
+        assert self._resolve(plan=plan, nonprofit=True) == nonprofit
 
-    def test_interval_selects_between_prices(self, plan_price_factory):
-        plan = plan_price_factory(interval="monthly").plan
+    def test_an_annual_plan_resolves_the_annual_price(
+        self, plan_factory, plan_price_factory
+    ):
+        """Interval comes from the plan, not from the caller."""
+        plan = plan_factory(name="Annual Tier", annual=True)
+        plan_price_factory(plan=plan, interval="monthly", amount=10_000)
         annual = plan_price_factory(plan=plan, interval="annual", amount=120_000)
 
-        assert self._resolve(plan=plan, interval="annual") == annual
+        assert self._resolve(plan=plan) == annual
 
     def test_list_pricing_wins_over_a_negotiated_rate(self, plan_price_factory):
         """A deal attached to a plan is not what a stranger buying it pays.
@@ -197,7 +201,7 @@ class TestPurchaseResolvesAPrice:
             amount=3_000,
         )
 
-        assert self._resolve(plan=plan, interval="monthly").code == ""
+        assert self._resolve(plan=plan).code == ""
 
     def test_a_comped_target_is_never_sold(self):
         """The mapping legitimately contains comped targets, for migrating
@@ -209,11 +213,11 @@ class TestPurchaseResolvesAPrice:
     def test_a_comped_price_is_unreachable(self, plan_price_factory):
         plan = plan_price_factory(interval="monthly", label="comped", amount=0).plan
 
-        assert self._resolve(plan=plan, interval="monthly") is None
+        assert self._resolve(plan=plan) is None
 
     def test_no_price_yet_resolves_to_none(self, plan_factory):
         """Every plan, until consolidate_stripe_products has run."""
-        assert self._resolve(plan=plan_factory(), interval="monthly") is None
+        assert self._resolve(plan=plan_factory()) is None
 
 
 @pytest.mark.django_db()
@@ -290,3 +294,45 @@ class TestEveryPurchasablePlanResolves:
             (s, None, None) for s, _, _ in self.NONPROFIT
         ]:
             assert resolve_target(slug, allow_comped=False)[3] == ""
+
+
+@pytest.mark.django_db()
+class TestBillingShapeFollowsThePrice:
+    """The subscription's interval comes from the resolved price.
+
+    `plan.annual` is not enough: annual is a separate Plan row today, and
+    the row a customer picks is not always the row they end up on -- the
+    nonprofit variants are substituted in by the form.  If the flag and the
+    price disagreed, an annual price would land on a subscription recorded
+    as monthly, grouping it onto the wrong invoice.
+    """
+
+    def test_an_annual_price_makes_an_annual_subscription(
+        self, organization_factory, plan_factory, plan_price_factory, mocker
+    ):
+        canonical = plan_factory(name="Sunlight Essential", slug="sunlight-essential")
+        plan_price_factory(
+            plan=canonical,
+            interval="annual",
+            label="nonprofit",
+            amount=400_000,
+            stripe_price_id="price_np_annual",
+        )
+        # The row the form substitutes in, with the flag deliberately wrong
+        picked = plan_factory(
+            name="Sunlight Nonprofit Essential Annual",
+            slug="sunlight-nonprofit-essential-annual",
+            annual=False,
+        )
+        mocker.patch("squarelet.organizations.models.Subscription.start")
+        mocker.patch(
+            "squarelet.organizations.models.payment.SubscriptionItem.notify_started"
+        )
+
+        item, _ = SubscriptionItem.objects.start(
+            organization=organization_factory(), plan=picked, quantity=1
+        )
+
+        assert item.subscription.interval == "annual"
+        assert item.plan == canonical
+        assert item.plan_price.stripe_price_id == "price_np_annual"

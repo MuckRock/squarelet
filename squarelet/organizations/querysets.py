@@ -435,7 +435,7 @@ class SubscriptionItemQuerySet(models.QuerySet):
         return "charge_automatically"
 
     @staticmethod
-    def resolve_purchase(plan, interval, nonprofit=False):
+    def resolve_purchase(plan, nonprofit=False):
         """What a new subscription to `plan` should actually be recorded as.
 
         Returns `(canonical_plan, plan_price)`, or `(plan, None)` when there
@@ -460,7 +460,7 @@ class SubscriptionItemQuerySet(models.QuerySet):
 
         target = resolve_target(plan.slug, allow_comped=False) or (
             plan.slug,
-            interval,
+            "annual" if plan.annual else "monthly",
             "nonprofit" if nonprofit else "standard",
             "",
         )
@@ -500,14 +500,24 @@ class SubscriptionItemQuerySet(models.QuerySet):
         # Squarelet
         from squarelet.organizations.models.payment import Subscription
 
-        interval = "annual" if plan.annual else "monthly"
+        canonical_plan, plan_price = self.resolve_purchase(plan, nonprofit)
+        # The billing shape follows the resolved price, not `plan.annual`.
+        # Annual is a separate `Plan` row today, and the row a customer picks
+        # is not always the row they end up on -- the nonprofit variants are
+        # substituted in by the form.  Trusting the flag would let an annual
+        # price land on a subscription recorded as monthly, which groups it
+        # onto the wrong invoice and picks the wrong collection method.
+        interval = (
+            plan_price.interval
+            if plan_price
+            else "annual" if plan.annual else "monthly"
+        )
         collection_method = self._collection_method(interval, payment_method)
         subscription, created = Subscription.objects.get_or_create(
             organization=organization,
             interval=interval,
             collection_method=collection_method,
         )
-        canonical_plan, plan_price = self.resolve_purchase(plan, interval, nonprofit)
         item = self.model.objects.create(
             subscription=subscription,
             plan=canonical_plan,
