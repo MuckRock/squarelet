@@ -316,6 +316,54 @@ class StripeModernPlanService(PlanService):
     def delete_product(self, stripe_product):
         stripe_product.delete()
 
+    # squarelet's interval vocabulary -> Stripe's
+    STRIPE_INTERVALS = {"monthly": "month", "annual": "year"}
+
+    @staticmethod
+    def _metadata(obj):
+        """Stripe metadata as a plain dict.
+
+        It arrives as a StripeObject, which is dict-*like* but is not a dict
+        and has no `.get` - reading a key that is not there raises rather
+        than returning None.  Same hazard the subscription service documents
+        around `items`.
+        """
+        metadata = getattr(obj, "metadata", None)
+        if metadata is None:
+            return {}
+        to_dict = getattr(metadata, "to_dict", None)
+        return to_dict() if to_dict is not None else dict(metadata)
+
+    def find_product(self, slug):
+        for product in stripe.Product.list(active=True, limit=100):
+            if self._metadata(product).get("squarelet_plan_slug") == slug:
+                return product
+        return None
+
+    def create_product(self, name, **kwargs):
+        return stripe.Product.create(name=name, **kwargs)
+
+    def find_price(self, product_id, variant_key):
+        for price in stripe.Price.list(product=product_id, active=True, limit=100):
+            if self._metadata(price).get("squarelet_variant") == variant_key:
+                return price
+        return None
+
+    def create_price(self, product_id, unit_amount, currency, interval, **kwargs):
+        try:
+            recurring = {"interval": self.STRIPE_INTERVALS[interval]}
+        except KeyError:
+            raise ValueError(
+                f"Cannot create a recurring Price for interval {interval!r}"
+            ) from None
+        return stripe.Price.create(
+            product=product_id,
+            unit_amount=unit_amount,
+            currency=currency,
+            recurring=recurring,
+            **kwargs,
+        )
+
 
 class StripeModernProvider(PaymentProvider):
     """Payment provider targeting current Stripe API versions."""

@@ -213,6 +213,44 @@ class PlanService(ABC):
     def delete_product(self, stripe_product):
         """Delete a product."""
 
+    @abstractmethod
+    def find_product(self, slug):
+        """Return the Product tagged with `slug`, or None.
+
+        The Product counterpart of `find_price`, and needed for the same
+        reason: a Product that Stripe has created but whose ID never reached
+        the database cannot be found again by ID, only by what it is.
+        """
+
+    @abstractmethod
+    def create_product(self, name, **kwargs):
+        """Create a Product.
+
+        One Product per logical plan tier; its monthly and annual variants
+        are Prices underneath it.  This replaces the legacy model of one
+        Stripe Plan per squarelet Plan.
+        """
+
+    @abstractmethod
+    def find_price(self, product_id, variant_key):
+        """Return the Price under `product_id` tagged with `variant_key`, or None.
+
+        Lets price creation be retried safely.  A Stripe Price cannot be
+        rolled back, so if the database transaction that was going to record
+        one aborts, the Price survives with nothing pointing at it.  Looking
+        it up by a key derived from what the price *is* - rather than from
+        the local row's primary key, which a rollback discards - means the
+        retry adopts the orphan instead of creating a second one.
+        """
+
+    @abstractmethod
+    def create_price(self, product_id, unit_amount, currency, interval, **kwargs):
+        """Create a recurring Price under a Product.
+
+        `unit_amount` is in cents.  `interval` is squarelet's own value
+        ("monthly" or "annual"), translated to Stripe's by the provider.
+        """
+
 
 class PaymentProvider(ABC):
     """

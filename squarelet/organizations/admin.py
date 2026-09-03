@@ -1,10 +1,12 @@
 # Django
+from django import forms
 from django.contrib import admin, messages
 from django.db.models import Count, JSONField, Prefetch, Q, Sum
 from django.forms.models import BaseInlineFormSet
 from django.forms.widgets import Textarea
 from django.http.response import HttpResponse
 from django.urls import reverse
+from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
 # Standard Library
@@ -37,6 +39,7 @@ from squarelet.organizations.models import (
     OrganizationUrl,
     PaymentMethod,
     Plan,
+    PlanPrice,
     ProfileChangeRequest,
     ReceiptEmail,
     Subscription,
@@ -45,6 +48,8 @@ from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.users.models import User
 
 logger = logging.getLogger(__name__)
+
+# pylint: disable=too-many-lines
 
 
 # https://stackoverflow.com/questions/48145992/showing-json-field-in-django-admin
@@ -528,6 +533,82 @@ class OrganizationAdmin(VersionAdmin):
     get_subscription_renews.boolean = True
 
 
+class ReadOnlyValueWidget(forms.Widget):
+    """Renders a value the way the admin renders its own readonly fields.
+
+    Same markup and class, so it inherits the admin's styling rather than
+    looking like an input that happens to be greyed out.
+    """
+
+    def render(self, name, value, attrs=None, renderer=None):
+        return format_html(
+            '<div class="readonly">{}</div>', "" if value is None else value
+        )
+
+
+class PlanPriceForm(forms.ModelForm):
+    """Locks a saved price's terms.
+
+    Only a brand-new row is fully editable.  Once a row exists it describes
+    something already in use - a Stripe Price for a paid tier, or a comped
+    arrangement someone was granted - and changing what it says it costs
+    makes it describe something else entirely.  Supersede instead: retire
+    the row and add a replacement carrying the new terms.
+
+    Comped rows are locked too even though they have no Stripe Price.  They
+    have no *Stripe* counterpart, but they are still what an organization
+    was granted.
+
+    This is a form-level lock rather than the admin's `readonly_fields`
+    because it has to vary per row: an inline's `get_readonly_fields` hook
+    receives the *parent* object, never the individual instance, so readonly
+    there could only mean "lock every row, including the empty one being
+    added".  `disabled` makes Django keep the stored value whatever is
+    posted; the widget makes it look like what it is.
+    """
+
+    class Meta:
+        model = PlanPrice
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.instance.pk:
+            return
+        for name in PlanPrice.STRIPE_BOUND_FIELDS:
+            if name in self.fields:
+                self.fields[name].disabled = True
+                self.fields[name].widget = ReadOnlyValueWidget()
+                self.fields[name].help_text = (
+                    "Fixed once the price exists.  Supersede this row to "
+                    "charge something else."
+                )
+
+
+class PlanPriceInline(admin.TabularInline):
+    """Prices for a plan, editable alongside it.
+
+    Creating a row here gives it a Stripe Price via PlanAdmin.save_formset.
+    Comped prices (amount 0) never reach Stripe and correctly keep a blank
+    stripe_price_id.
+    """
+
+    model = PlanPrice
+    form = PlanPriceForm
+    extra = 0
+    fields = (
+        "interval",
+        "label",
+        "code",
+        "amount",
+        "currency",
+        "active",
+        "stripe_price_id",
+    )
+    readonly_fields = ("stripe_price_id",)
+    ordering = ("-active", "interval", "label")
+
+
 @admin.register(Plan)
 class PlanAdmin(VersionAdmin):
     list_display = (
@@ -549,6 +630,61 @@ class PlanAdmin(VersionAdmin):
     formfield_overrides = {
         JSONField: {"widget": PrettyJSONWidget},
     }
+    inlines = [PlanPriceInline]
+
+    def save_formset(self, request, form, formset, change):
+        """Give any newly added price its Stripe Price.
+
+        Inline rows are saved through the formset, not save_model, so this
+        is where the hook belongs.  Doing it explicitly rather than in a
+        post_save signal means a Stripe failure surfaces to whoever clicked
+        save instead of being swallowed.
+        """
+        instances = formset.save(commit=False)
+        for obj in formset.deleted_objects:
+            obj.delete()
+        for obj in instances:
+            obj.save()
+            if isinstance(obj, PlanPrice):
+                obj.ensure_stripe_price()
+        formset.save_m2m()
+
+
+@admin.register(PlanPrice)
+class PlanPriceAdmin(VersionAdmin):
+    """Stripe Prices are immutable, so a price change is a new row.
+
+    Use `active` to supersede: mark the old row inactive - it keeps
+    pointing at the Stripe Price its existing subscribers are billed
+    against - and add a replacement.  Editing an existing row's amount
+    changes only the local record, not what Stripe charges.
+    """
+
+    list_display = (
+        "plan",
+        "interval",
+        "label",
+        "code",
+        "amount_dollars",
+        "active",
+        "stripe_price_id",
+    )
+    form = PlanPriceForm
+    list_filter = ("active", "interval", "label")
+    search_fields = ("plan__name", "plan__slug", "stripe_price_id", "code")
+    autocomplete_fields = ("plan",)
+    readonly_fields = ("stripe_price_id",)
+
+    def save_model(self, request, obj, form, change):
+        """Persist the row, then give it a Stripe Price if it needs one.
+
+        Done explicitly rather than in a post_save signal: a signal that
+        calls Stripe hides its failures, which is how a legacy 400 went
+        unnoticed during tier setup.  Here an error surfaces to whoever
+        clicked save.
+        """
+        super().save_model(request, obj, form, change)
+        obj.ensure_stripe_price()
 
 
 @admin.register(Entitlement)

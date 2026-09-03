@@ -343,6 +343,41 @@ class Subscription(models.Model):
         ),
     )
 
+    plan_price = models.ForeignKey(
+        verbose_name=_("plan price"),
+        to="organizations.PlanPrice",
+        on_delete=models.PROTECT,
+        related_name="subscriptions",
+        blank=True,
+        null=True,
+        help_text=_(
+            "The price this subscription is billed at.  Nullable until every "
+            "subscription has been migrated off the legacy plan foreign key."
+        ),
+    )
+
+    granted_reason = models.TextField(
+        _("granted reason"),
+        blank=True,
+        default="",
+        help_text=_(
+            "Why this subscription received non-standard pricing (comped, or a "
+            "partner coupon).  Blank for ordinary self-serve subscriptions."
+        ),
+    )
+    granted_by = models.ForeignKey(
+        verbose_name=_("granted by"),
+        to="users.User",
+        on_delete=models.PROTECT,
+        related_name="granted_subscriptions",
+        blank=True,
+        null=True,
+        help_text=_(
+            "Staff user who authorized the non-standard pricing.  Blank for "
+            "ordinary self-serve subscriptions."
+        ),
+    )
+
     stripe_status = models.CharField(max_length=30, blank=True, default="")
     current_period_end = models.DateTimeField(null=True, blank=True)
 
@@ -697,6 +732,45 @@ class Plan(models.Model):
         help_text=_("A unique slug to identify the plan"),
     )
 
+    PRODUCT_CHOICES = [
+        ("muckrock", _("MuckRock")),
+        ("documentcloud", _("DocumentCloud")),
+        ("sunlight", _("Sunlight")),
+        ("scoutpost", _("Scoutpost")),
+    ]
+
+    product = models.CharField(
+        _("product"),
+        max_length=20,
+        choices=PRODUCT_CHOICES,
+        blank=True,
+        default="",
+        help_text=_(
+            "Which product this plan is marketed under, for grouping tiers on "
+            "the plan page.  This is a display label, not a description of "
+            "what the plan grants - most plans span more than one product "
+            "(Sunlight tiers grant MuckRock and DocumentCloud entitlements but "
+            "are still marketed as Sunlight).  Do NOT use this to decide "
+            "whether a plan switch is an upgrade or an unrelated addition; "
+            "compare the entitlement client sets instead.  Blank on legacy "
+            "plans not yet mapped to a tier."
+        ),
+    )
+    stripe_product_id = models.CharField(
+        _("stripe product id"),
+        max_length=255,
+        blank=True,
+        default="",
+        help_text=_("The Product ID on stripe that this plan's Prices hang off"),
+    )
+
+    # DEPRECATED: minimum_users and price_per_user encode the per-user
+    # resource-block pricing model, which is being replaced by flat-rate plans
+    # plus quantity-based add-on packs.  Both are load-bearing until every
+    # per-user subscriber has been decomposed into a base + pack subscription
+    # (see the Stripe modernization plan), and are removed after that.  Do not
+    # zero them out early - the decomposition reads them to compute pack
+    # quantity.
     minimum_users = models.PositiveSmallIntegerField(
         _("minimum users"),
         default=1,
@@ -830,6 +904,14 @@ class Plan(models.Model):
         return True
 
     def cost(self, users):
+        """Total monthly cost for a given number of resource blocks
+
+        DEPRECATED: superseded by PlanPrice.amount plus the subscription's
+        pack quantity.  Kept accurate deliberately - flattening it to
+        base_price early would misreport the price of every per-user
+        subscriber that has not been decomposed yet.  Retire this along with
+        its call sites before dropping base_price.
+        """
         return (
             self.base_price + max(users - self.minimum_users, 0) * self.price_per_user
         )
@@ -854,6 +936,35 @@ class Plan(models.Model):
     def stripe_id(self):
         """Namespace the stripe ID to not conflict with previous plans we have made"""
         return f"squarelet_plan_{self.slug}"
+
+    def ensure_stripe_product(self):
+        """Create this plan's Stripe Product if it does not have one.
+
+        One Product per plan; its prices hang off it as Stripe Prices.  The
+        ID is saved immediately rather than by the caller, because a Product
+        that exists in Stripe but whose ID was never persisted is an orphan
+        nothing can find again.
+
+        Safe to call repeatedly, including after a failure part-way through:
+        an existing Product for this plan is adopted rather than duplicated.
+        Saving the ID immediately is not enough on its own, because
+        ATOMIC_REQUESTS makes every admin request a transaction that can
+        still roll that save back afterwards.
+
+        Returns the Stripe Product ID.
+        """
+        if self.stripe_product_id:
+            return self.stripe_product_id
+
+        plan_service = get_payment_provider().get_plan_service()
+        product = plan_service.find_product(self.slug)
+        if product is None:
+            product = plan_service.create_product(
+                name=self.name, metadata={"squarelet_plan_slug": self.slug}
+            )
+        self.stripe_product_id = product.id
+        self.save(update_fields=["stripe_product_id"])
+        return product.id
 
     def make_stripe_plan(self):
         """Create the plan on stripe"""
@@ -901,6 +1012,293 @@ class Plan(models.Model):
         except stripe.InvalidRequestError:
             # if the plan or product do not exist, just skip
             pass
+
+
+class PlanPrice(models.Model):
+    """A Stripe Price belonging to a Plan
+
+    Monthly and annual variants of one plan are Prices under a single Stripe
+    Product, replacing the legacy one-Stripe-Plan-per-Plan model.
+
+    `interval` and `label` are orthogonal: a nonprofit on an annual plan has
+    interval="annual" and label="nonprofit".
+
+    An individually negotiated rate is a price of its own, identified by
+    `code` rather than by a label.  Stripe has no negative coupon, so a rate
+    *above* list cannot be expressed as a discount on one - and a rate below
+    list is the same kind of thing, so both are handled the same way.
+    Coupons are kept for time-limited promotions, where expiry and redemption
+    limits are what is wanted.
+    """
+
+    # Recurring only.  A Stripe Price with no `recurring` block cannot be a
+    # subscription item, and access here is granted exclusively through
+    # subscription lines - so a one-time price would bill correctly and grant
+    # nothing.  A genuine one-off purchase needs its own model, and the
+    # requirements that come with it (expiry, refunds, whether it grants
+    # entitlements at all) should shape that rather than being guessed now.
+    # Plans that should bill once and stop use Plan.auto_renew instead.
+    INTERVAL_CHOICES = [
+        ("monthly", _("Monthly")),
+        ("annual", _("Annual")),
+    ]
+    LABEL_CHOICES = [
+        ("standard", _("Standard")),
+        ("nonprofit", _("Nonprofit")),
+        ("comped", _("Comped")),
+    ]
+
+    plan = models.ForeignKey(
+        verbose_name=_("plan"),
+        to="organizations.Plan",
+        on_delete=models.PROTECT,
+        related_name="prices",
+        help_text=_("The plan this price belongs to"),
+    )
+    stripe_price_id = models.CharField(
+        _("stripe price id"),
+        max_length=255,
+        blank=True,
+        default="",
+        help_text=_(
+            "The Price ID on stripe.  Blank for comped prices: those never "
+            "create a Stripe subscription, so they have no Stripe counterpart "
+            "to point at.  Uniqueness is enforced only on non-blank values."
+        ),
+    )
+    interval = models.CharField(
+        _("interval"),
+        max_length=20,
+        choices=INTERVAL_CHOICES,
+        help_text=_("How often this price is billed"),
+    )
+    label = models.CharField(
+        _("label"),
+        max_length=20,
+        choices=LABEL_CHOICES,
+        default="standard",
+        help_text=_("Ongoing structural rate class this price represents"),
+    )
+    code = models.SlugField(
+        _("code"),
+        max_length=50,
+        blank=True,
+        default="",
+        help_text=_(
+            "Blank for list pricing - one such price per plan, interval and "
+            "label.  Set to a short slug naming an individually negotiated "
+            "deal (e.g. 'insideclimate'), which may sit above or below list: "
+            "Stripe has no negative coupon, so a rate above list can only be "
+            "expressed as a price of its own.  Coupons are for time-limited "
+            "promotions."
+        ),
+    )
+    amount = models.PositiveIntegerField(
+        _("amount"),
+        help_text=_(
+            "Amount in cents, matching Charge.amount and Stripe's unit_amount.  "
+            "Note the legacy Plan.base_price is in whole dollars - the two "
+            "coexist until that field is removed."
+        ),
+    )
+    currency = models.CharField(
+        _("currency"),
+        max_length=3,
+        default="usd",
+        help_text=_("ISO 4217 currency code"),
+    )
+    active = models.BooleanField(
+        _("active"),
+        default=True,
+        help_text=_(
+            "Whether new subscriptions use this price.  Stripe Prices are "
+            "immutable, so changing what a tier costs means superseding this "
+            "row rather than editing it: the old row stays, inactive, still "
+            "pointing at the Stripe Price its existing subscribers are "
+            "billed against."
+        ),
+    )
+
+    class Meta:
+        ordering = ("plan", "interval", "label", "code")
+        constraints = [
+            # Partial: every real Stripe Price ID must be unique, but any
+            # number of comped prices may leave it blank.
+            models.UniqueConstraint(
+                fields=["stripe_price_id"],
+                condition=~models.Q(stripe_price_id=""),
+                name="unique_stripe_price_id_when_set",
+            ),
+            # One *active* price per variant, where a negotiated `code`
+            # makes its own variant.  List pricing (code="") therefore keeps
+            # exactly one active row per plan/interval/label, while any
+            # number of negotiated deals coexist alongside it.  Superseded
+            # rows accumulate freely so existing subscribers keep billing at
+            # what they signed up for.
+            models.UniqueConstraint(
+                fields=["plan", "interval", "label", "code"],
+                condition=models.Q(active=True),
+                name="unique_active_plan_price",
+            ),
+        ]
+
+    def __str__(self):
+        parts = [self.get_interval_display(), self.get_label_display()]
+        if self.code:
+            parts.append(self.code)
+        if not self.active:
+            parts.append("superseded")
+        return f"{self.plan.name} ({', '.join(parts)})"
+
+    # The terms Stripe bakes into a Price and will not let you change.
+    # `label` and `code` are local classification and stay editable.
+    STRIPE_BOUND_FIELDS = ("amount", "currency", "interval")
+
+    def clean(self):
+        """Refuse edits that would make this row disagree with Stripe.
+
+        A Stripe Price is immutable, so changing what this row says it costs
+        would leave the UI quoting one figure while subscribers keep being
+        billed another - the same silent divergence between display and
+        Stripe that this project already has one live bug from.  Supersede
+        instead: it retires this row and creates a replacement carrying the
+        new terms.
+        """
+        super().clean()
+        if not self.pk or not self.stripe_price_id:
+            return
+
+        original = (
+            PlanPrice.objects.filter(pk=self.pk)
+            .values(*self.STRIPE_BOUND_FIELDS)
+            .first()
+        )
+        if original is None:
+            return
+
+        changed = [
+            field
+            for field in self.STRIPE_BOUND_FIELDS
+            if original[field] != getattr(self, field)
+        ]
+        if changed:
+            raise ValidationError(
+                {
+                    field: _(
+                        "This price already exists on Stripe and cannot be "
+                        "changed. Use supersede to retire it and create a "
+                        "replacement at the new terms."
+                    )
+                    for field in changed
+                }
+            )
+
+    @property
+    def amount_dollars(self):
+        return self.amount / 100.0
+
+    @property
+    def variant_key(self):
+        """A stable identity for what this price *is*.
+
+        Deliberately derived from the price's terms rather than from its
+        primary key: if the transaction that created the row aborts after
+        Stripe has already made the Price, the row - and its pk - are gone,
+        but the terms someone retries with are identical.  That is what lets
+        the retry find the orphaned Price instead of making another.
+        """
+        return ":".join(
+            str(part)
+            for part in (
+                self.plan.slug,
+                self.interval,
+                self.label,
+                self.code,
+                self.amount,
+                self.currency,
+            )
+        )
+
+    def ensure_stripe_price(self):
+        """Point this row at a Stripe Price, creating one only if needed.
+
+        No-ops for comped prices - they cost nothing, never create a Stripe
+        subscription, and so have no Stripe counterpart - and for rows that
+        already have a Price.  Creates the plan's Product first if it does
+        not have one yet.
+
+        Safe to call repeatedly, including after a failure part-way through:
+        an existing Price for these terms is adopted rather than duplicated.
+        That matters because ATOMIC_REQUESTS wraps every admin request in a
+        transaction, so any later error rolls the database back while
+        leaving anything already created in Stripe untouched.
+
+        Returns the Stripe Price ID, or None for a comped price.
+        """
+        if self.amount == 0:
+            return None
+        if self.stripe_price_id:
+            return self.stripe_price_id
+
+        product_id = self.plan.ensure_stripe_product()
+        plan_service = get_payment_provider().get_plan_service()
+        variant_key = self.variant_key
+
+        price = plan_service.find_price(product_id, variant_key)
+        if price is None:
+            price = plan_service.create_price(
+                product_id=product_id,
+                unit_amount=self.amount,
+                currency=self.currency,
+                interval=self.interval,
+                metadata={
+                    "squarelet_plan_slug": self.plan.slug,
+                    "label": self.label,
+                    "squarelet_variant": variant_key,
+                },
+            )
+        self.stripe_price_id = price.id
+        self.save(update_fields=["stripe_price_id"])
+        return price.id
+
+    def supersede(self, amount):
+        """Retire this price and return its replacement at a new amount.
+
+        Stripe Prices cannot be edited, so a price change is a new Price.
+        This row is marked inactive and keeps pointing at the Stripe Price
+        its existing subscribers are billed against; the returned row is the
+        one new subscriptions should use.
+
+        Callers are responsible for moving subscribers over if that is
+        wanted - superseding alone changes nobody's bill.
+        """
+        if not self.active:
+            raise ValueError("Cannot supersede an already superseded price")
+
+        # Only the database work is atomic.  Wrapping the Stripe call too
+        # would mean a rollback could discard the local record of a Price
+        # that Stripe has already made and cannot undo.
+        with transaction.atomic():
+            self.active = False
+            self.save(update_fields=["active"])
+
+            replacement = PlanPrice.objects.create(
+                plan=self.plan,
+                stripe_price_id="",
+                interval=self.interval,
+                label=self.label,
+                # Carried over deliberately: superseding a negotiated rate
+                # must produce a new rate for the same deal, not a list price.
+                code=self.code,
+                amount=amount,
+                currency=self.currency,
+            )
+
+        # Idempotent, so a failure here is finished by calling it again -
+        # which matters under ATOMIC_REQUESTS, where the caller's request is
+        # itself a transaction that this cannot escape.
+        replacement.ensure_stripe_price()
+        return replacement
 
 
 class Charge(models.Model):
