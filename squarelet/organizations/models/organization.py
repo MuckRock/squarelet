@@ -523,7 +523,15 @@ class Organization(AvatarMixin, models.Model):
         return users_list
 
     @transaction.atomic
-    def add_subscription(self, plan, max_users, user, token=None, payment_method=None):
+    def add_subscription(
+        self,
+        plan,
+        max_users,
+        user,
+        token=None,
+        payment_method=None,
+        nonprofit=False,
+    ):
         """Add a new subscription to a plan.
 
         Raises SubscriptionError if the org already has a non-cancelled
@@ -564,6 +572,7 @@ class Organization(AvatarMixin, models.Model):
             plan=plan,
             payment_method=payment_method,
             quantity=max_users,
+            nonprofit=nonprofit,
         )
 
         if is_first and stripe_subscription:

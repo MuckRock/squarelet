@@ -413,7 +413,8 @@ class PlanPurchaseForm(StripeForm):
             user: The authenticated user
 
         Returns:
-            dict with organization, plan, payment_method, and stripe_token
+            dict with organization, plan, payment_method, stripe_token and
+            nonprofit
         """
         organization = self.get_or_create_organization(user)
         selected_plan = self.get_selected_plan()
@@ -423,6 +424,12 @@ class PlanPurchaseForm(StripeForm):
             "plan": selected_plan,
             "payment_method": self.cleaned_data.get("payment_method"),
             "stripe_token": self.cleaned_data.get("stripe_token"),
+            # Self-reported, on the honour system, and only offered for
+            # Sunlight plans - which involve talking to staff anyway.  The
+            # field was collected and validated here long before anything
+            # read it; it now chooses which PlanPrice the subscription is
+            # sold at.
+            "nonprofit": self.cleaned_data.get("is_nonprofit", False),
         }
 
 
