@@ -95,8 +95,8 @@ class TestCleanupBadReceiptPdfs:
         _save_receipt(charge, b"<!DOCTYPE html><html>not a pdf</html>")
         mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
-        ).return_value.get_charge_service.return_value.retrieve.side_effect = (
-            stripe.InvalidRequestError("not found", param=None)
+        ).return_value.get_charge_service.return_value.retrieve.side_effect = stripe.InvalidRequestError(
+            "not found", param=None
         )
         mocked_delay = mocker.patch(
             "squarelet.organizations.management.commands"
