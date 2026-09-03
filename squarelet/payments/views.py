@@ -557,7 +557,7 @@ class BaseManageSubscriptions(SubscriptionObjectMixin, DetailView):
         subscriptions = self.object.subscriptions.all()
         for subscription in subscriptions:
             subscription.next_date = get_subscription_next_date(subscription)
-            subscription.cost = subscription.plan.base_price
+            subscription.cost = subscription.plan.cost(self.object.max_users)
         context["subscriptions"] = subscriptions
 
         # Get card on file
