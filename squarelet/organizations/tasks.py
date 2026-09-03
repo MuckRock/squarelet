@@ -15,7 +15,7 @@ from random import randint
 # Third Party
 import requests
 import stripe
-from furl import furl
+import weasyprint
 
 # Squarelet
 from squarelet.core.mail import ORG_TO_ADMINS, send_mail
@@ -219,21 +219,26 @@ def handle_charge_succeeded(self, charge_data):
     retry_kwargs={"max_retries": 5},
 )
 def download_receipt_pdf(charge_id, receipt_url):
-    """Download a Stripe receipt PDF and attach it to the Charge."""
+    """Download a Stripe receipt and attach it to the Charge as a PDF.
+
+    Stripe's charge.receipt_url is a fully server-rendered, static HTML
+    receipt page (no client-side JS needed for content) - but Stripe only
+    provides an actual PDF rendition for invoice-backed receipts, not for
+    one-off/non-invoice charges. To get a PDF for every charge uniformly,
+    render the same HTML receipt page through WeasyPrint rather than relying
+    on Stripe's (inconsistent) hosted PDF availability.
+    """
     charge = Charge.objects.get(pk=charge_id)
     if charge.receipt_pdf:
         return
-    # Stripe's charge.receipt_url points at the hosted HTML receipt page.
-    # Adding a "pdf" path segment gets the actual PDF rendition of that same
-    # receipt. receipt_url often carries a query string (e.g. "?s=ap"), so
-    # use furl to insert the segment before it rather than string-concatenating.
-    pdf_url = furl(receipt_url)
-    pdf_url.path.segments = pdf_url.path.segments + ["pdf"]
-    response = requests.get(pdf_url.url, timeout=30)
+    response = requests.get(receipt_url, timeout=30)
     response.raise_for_status()
+    pdf_bytes = weasyprint.HTML(
+        string=response.content, base_url=receipt_url
+    ).write_pdf()
     charge.receipt_pdf.save(
         f"{charge.charge_id}.pdf",
-        ContentFile(response.content),
+        ContentFile(pdf_bytes),
         save=True,
     )
 

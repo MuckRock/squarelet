@@ -357,12 +357,40 @@ class TestDownloadReceiptPdf:
     """Unit tests for the download_receipt_pdf task"""
 
     @pytest.mark.django_db()
-    def test_downloads_and_saves(self, charge_factory, mocker):
-        """Downloads the PDF and saves it to the charge."""
+    def test_downloads_and_converts_to_pdf(self, charge_factory, mocker):
+        """Fetches the hosted HTML receipt as-is and converts it via WeasyPrint."""
         charge = charge_factory(charge_id="ch_test_dl")
         mock_response = mocker.MagicMock()
-        mock_response.content = b"%PDF-1.4 fake pdf content"
+        mock_response.content = b"<html><body>Receipt</body></html>"
         mocked_get = mocker.patch(
+            "squarelet.organizations.tasks.requests.get",
+            return_value=mock_response,
+        )
+        mock_html = mocker.patch("squarelet.organizations.tasks.weasyprint.HTML")
+        mock_html.return_value.write_pdf.return_value = b"%PDF-1.4 fake pdf content"
+
+        tasks.download_receipt_pdf(charge.pk, "https://stripe.com/receipt/test")
+
+        charge.refresh_from_db()
+        mocked_get.assert_called_once_with(
+            "https://stripe.com/receipt/test", timeout=30
+        )
+        mock_html.assert_called_once_with(
+            string=mock_response.content, base_url="https://stripe.com/receipt/test"
+        )
+        assert charge.receipt_pdf.name.startswith("receipts/ch_test_dl")
+        with charge.receipt_pdf.open("rb") as f:
+            assert f.read() == b"%PDF-1.4 fake pdf content"
+
+    @pytest.mark.django_db()
+    def test_real_weasyprint_conversion_produces_pdf(self, charge_factory, mocker):
+        """Sanity check with WeasyPrint unmocked: a real (tiny) HTML receipt
+        actually converts to valid PDF bytes, catching integration mistakes a
+        fully-mocked test would miss."""
+        charge = charge_factory(charge_id="ch_test_real")
+        mock_response = mocker.MagicMock()
+        mock_response.content = b"<html><body><p>Receipt total: $42.00</p></body></html>"
+        mocker.patch(
             "squarelet.organizations.tasks.requests.get",
             return_value=mock_response,
         )
@@ -370,30 +398,8 @@ class TestDownloadReceiptPdf:
         tasks.download_receipt_pdf(charge.pk, "https://stripe.com/receipt/test")
 
         charge.refresh_from_db()
-        mocked_get.assert_called_once_with(
-            "https://stripe.com/receipt/test/pdf", timeout=30
-        )
-        assert charge.receipt_pdf.name.startswith("receipts/ch_test_dl")
-
-    @pytest.mark.django_db()
-    def test_downloads_with_query_string_receipt_url(self, charge_factory, mocker):
-        """Inserts the pdf path segment before any query string, e.g. Stripe's
-        real receipt_url of the form ".../CAca...?s=ap"."""
-        charge = charge_factory(charge_id="ch_test_qs")
-        mock_response = mocker.MagicMock()
-        mock_response.content = b"%PDF-1.4 fake pdf content"
-        mocked_get = mocker.patch(
-            "squarelet.organizations.tasks.requests.get",
-            return_value=mock_response,
-        )
-
-        tasks.download_receipt_pdf(
-            charge.pk, "https://pay.stripe.com/receipts/invoices/CAca?s=ap"
-        )
-
-        mocked_get.assert_called_once_with(
-            "https://pay.stripe.com/receipts/invoices/CAca/pdf?s=ap", timeout=30
-        )
+        with charge.receipt_pdf.open("rb") as f:
+            assert f.read().startswith(b"%PDF")
 
     @pytest.mark.django_db()
     def test_skips_if_already_downloaded(self, charge_factory, mocker):
