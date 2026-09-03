@@ -32,6 +32,7 @@ from squarelet.organizations.models.payment import (
     PaymentMethod,
     Plan,
     Subscription,
+    SubscriptionItem,
 )
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.users.models import User
@@ -60,6 +61,43 @@ def restore_organization():
         organization_id__in=due_org_ids,
         cancelled=True,
     ).filter(Q(cancel_at__lte=today) | Q(cancel_at__isnull=True)).delete()
+
+    # Drop individually cancelled lines whose period has run out.  Stripe has
+    # no per-item cancel_at_period_end, so this is what enforces it - and it
+    # has to happen before Stripe drafts the renewal invoice, which is why
+    # this task runs shortly after midnight.
+    due_items = (
+        SubscriptionItem.objects.filter(
+            subscription__organization_id__in=due_org_ids,
+            cancelled=True,
+        )
+        # A line whose whole subscription is cancelled goes with it, above.
+        .exclude(subscription__cancelled=True).filter(
+            Q(cancel_at__lte=today) | Q(cancel_at__isnull=True)
+        )
+    )
+    for item in due_items.select_related("subscription", "plan"):
+        # Stripe rejects removing a subscription's only line.  When every
+        # line is going - which happens when a subscription carries nothing
+        # but non-renewing plans - Stripe ends the subscription itself at
+        # period end and the deleted webhook clears the local record.
+        remaining = (
+            item.subscription.items.exclude(pk=item.pk).exclude(cancelled=True).count()
+        )
+        if remaining == 0:
+            continue
+        try:
+            item.remove_from_stripe()
+        except stripe.StripeError as exc:
+            logger.error(
+                "Failed to remove cancelled line %s (%s) from Stripe "
+                "subscription %s: %s",
+                item.pk,
+                item.plan,
+                item.subscription.subscription_id,
+                exc,
+                exc_info=sys.exc_info(),
+            )
 
     # Determine which orgs still have active subscriptions
     orgs_with_subs = set(
@@ -383,7 +421,9 @@ def handle_invoice_created(invoice_data):
     if subscription:
         metadata = {
             "organization": str(organization.uuid),
-            "plan": str(subscription.plan),
+            "plan": ", ".join(
+                str(item.plan) for item in subscription.items.select_related("plan")
+            ),
             "subscription_id": subscription.subscription_id,
         }
         try:

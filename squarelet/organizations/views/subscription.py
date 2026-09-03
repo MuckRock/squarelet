@@ -10,7 +10,6 @@ from django.http.response import (
     JsonResponse,
 )
 from django.shortcuts import redirect
-from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.clickjacking import xframe_options_sameorigin
@@ -21,7 +20,6 @@ from django.views.generic import DetailView, UpdateView
 import json
 import logging
 import sys
-from datetime import datetime
 
 # Third Party
 import stripe
@@ -38,7 +36,6 @@ from squarelet.organizations.mixins import OrganizationPermissionMixin
 from squarelet.organizations.models import Charge, Organization, ReceiptEmail
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.exceptions import SubscriptionError
-from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.tasks import (
     handle_charge_succeeded,
     handle_customer_updated,
@@ -96,7 +93,7 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
         # pylint: disable=too-many-return-statements
         organization = self.object
         user = self.request.user
-        current_plan = organization.plans.first()
+        current_plan = organization.get_plans().first()
         redirect_url = organization.get_absolute_url()
         try:
             self._apply_subscription_change(organization, current_plan, user, form)
@@ -166,18 +163,20 @@ class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
             context["billing_email_failed"] = receipt.failed
         except ReceiptEmail.DoesNotExist:
             context["billing_email_failed"] = False
-        # Provide a single subscription for the template to check cancelled status.
-        # In the multi-subscription world this will need to be revisited, but for
-        # now the template only needs to know about the primary (first) subscription.
-        plan = self.object.plans.first()
+        # The template uses this for one thing: the "subscription ends on"
+        # banner.  Prefer a line that is actually ending, so the banner does
+        # not depend on which plan happens to sort first - with several lines
+        # on one subscription, picking arbitrarily meant the banner could be
+        # absent while something really was ending.
+        items = self.object.subscription_items.select_related("subscription", "plan")
         context["current_subscription"] = (
-            self.object.subscriptions.filter(plan=plan).first() if plan else None
+            items.filter(cancelled=True).order_by("cancel_at").first() or items.first()
         )
         return context
 
     def get_initial(self):
-        plan = self.object.plans.first()
-        sub = self.object.subscriptions.filter(plan=plan).first() if plan else None
+        plan = self.object.get_plans().first()
+        sub = self.object.subscription_items.filter(plan=plan).first() if plan else None
         max_users = sub.quantity if sub else self.object.max_users
         try:
             billing_email = self.object.receipt_email.email
@@ -364,19 +363,3 @@ def stripe_webhook(request):
     if handler:
         handler.delay(event_obj)
     return HttpResponse()
-
-
-def get_subscription_next_date(subscription):
-    stripe_sub = subscription.stripe_subscription
-    if stripe_sub:
-        time_stamp = (
-            get_payment_provider()
-            .get_subscription_service()
-            .get_current_period_end(stripe_sub)
-        )
-        if time_stamp:
-            tz_datetime = datetime.fromtimestamp(
-                time_stamp, tz=timezone.get_current_timezone()
-            )
-            return tz_datetime.date()
-    return None

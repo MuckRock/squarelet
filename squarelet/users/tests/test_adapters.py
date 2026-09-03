@@ -102,7 +102,7 @@ class AdapterRedirectTests(TestCase):
             "email_check_completed": True,  # Email is already verified
             "mfa_step": "completed",  # MFA completed
             "join_org": True,  # Organization joining completed
-            "subscription": "completed",  # Subscription completed
+            "subscription": "completed",  # SubscriptionItem completed
         }
 
         # Call post_login with a destination URL

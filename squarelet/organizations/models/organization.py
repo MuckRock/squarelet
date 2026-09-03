@@ -161,14 +161,41 @@ class Organization(AvatarMixin, models.Model):
         ),
     )
 
-    plans = models.ManyToManyField(
-        verbose_name=_("plans"),
-        to="organizations.Plan",
-        through="organizations.Subscription",
-        related_name="organizations",
-        help_text=_("Plans this organization is subscribed to"),
-        blank=True,
-    )
+    @property
+    def subscription_items(self):
+        """Every subscription line belonging to this organization.
+
+        A queryset rather than a related manager: items hang off Subscription
+        now, so there is no direct relation from here.  Reads behave the same
+        (`filter`, `get`, `exists`, ...), but creating an item needs a parent
+        subscription, so use `add_subscription()` for that.
+
+        This does not participate in `prefetch_related`.  To avoid a query per
+        organization, prefetch `subscriptions__items` and walk that instead.
+        """
+        # pylint: disable=import-outside-toplevel
+        # Squarelet
+        from squarelet.organizations.models.payment import SubscriptionItem
+
+        return SubscriptionItem.objects.filter(subscription__organization=self)
+
+    def get_plans(self):
+        """Plans this organization is subscribed to.
+
+        Replaces the old `plans` many-to-many.  SubscriptionItem no longer
+        carries an organization of its own - it reaches one through its
+        subscription - so a through-model relation is no longer possible from
+        here.  The equivalent relation lives on Subscription as `plans`.
+
+        Callers that need this for many organizations at once should prefetch
+        `subscriptions__plans` and walk that instead, so this stays a single
+        query per organization rather than one per call.
+        """
+        # pylint: disable=import-outside-toplevel
+        # Squarelet
+        from squarelet.organizations.models.payment import Plan
+
+        return Plan.objects.filter(subscriptions__organization=self).distinct()
 
     # Every user has an individual organization
     # created when creating an account. Its UUID
@@ -334,7 +361,7 @@ class Organization(AvatarMixin, models.Model):
             # If share_resources was toggled ON, sync all wix-enabled plans to members
             if share_resources_toggled_on and self.collective_enabled:
                 wix_plan_pks = list(
-                    self.plans.filter(wix=True).values_list("pk", flat=True)
+                    self.get_plans().filter(wix=True).values_list("pk", flat=True)
                 )
                 if wix_plan_pks:
                     org_pk = self.pk
@@ -507,7 +534,7 @@ class Organization(AvatarMixin, models.Model):
         # check and the INSERT.
         Organization.objects.select_for_update().filter(pk=self.pk).get()
 
-        if self.subscriptions.filter(plan=plan).exists():
+        if self.subscription_items.filter(plan=plan).exists():
             raise SubscriptionError(
                 f"Organization already has an active subscription to {plan}"
             )
@@ -516,7 +543,7 @@ class Organization(AvatarMixin, models.Model):
         if max_users is None:
             max_users = plan.minimum_users
 
-        is_first = not self.subscriptions.exists()
+        is_first = not self.subscription_items.exists()
 
         payment_method = self._resolve_payment_method(payment_method, token)
 
@@ -532,7 +559,7 @@ class Organization(AvatarMixin, models.Model):
         # receives no billing_cycle_anchor (Stripe sets its own anchor). Only after
         # the subscription exists do we record the anchor for subsequent subscriptions
         # to align to.
-        _, stripe_subscription = self.subscriptions.start(
+        _, stripe_subscription = self.subscription_items.start(
             organization=self,
             plan=plan,
             payment_method=payment_method,
@@ -594,15 +621,15 @@ class Organization(AvatarMixin, models.Model):
                 sync_wix_for_group_member.delay(child_org.pk, self.pk, plan.pk)
 
     def remove_subscription(self, plan_or_subscription, user=None):
-        """Cancel the subscription for the given plan or Subscription instance."""
+        """Cancel the subscription for the given plan or SubscriptionItem instance."""
         # pylint: disable=import-outside-toplevel
         # Squarelet
-        from squarelet.organizations.models.payment import Subscription as Sub
+        from squarelet.organizations.models.payment import SubscriptionItem as Sub
 
         if isinstance(plan_or_subscription, Sub):
             sub = plan_or_subscription
         else:
-            sub = self.subscriptions.get(plan=plan_or_subscription)
+            sub = self.subscription_items.get(plan=plan_or_subscription)
 
         wix_unsync_plan = sub.plan if sub.plan and sub.plan.wix else None
 
@@ -631,8 +658,8 @@ class Organization(AvatarMixin, models.Model):
         add/remove actions — but verify that use case is gone before removing.
         """
         try:
-            sub = self.subscriptions.get(plan=old_plan)
-        except self.subscriptions.model.DoesNotExist:
+            sub = self.subscription_items.get(plan=old_plan)
+        except self.subscription_items.model.DoesNotExist:
             raise ValueError(
                 f"Organization does not have an active subscription to {old_plan}"
             )
@@ -689,7 +716,9 @@ class Organization(AvatarMixin, models.Model):
         """The subscription was cancelled due to payment failure
 
         Args:
-            subscription: The specific Subscription instance to cancel.
+            subscription: The Subscription to cancel.  Every line it carries
+                goes with it, because they all bill on the one invoice that
+                failed.
         """
         if subscription is None:
             logger.error(
@@ -699,18 +728,20 @@ class Organization(AvatarMixin, models.Model):
             )
             return
 
-        # Create change log entry
-        self.change_logs.create(
-            reason=ChangeLogReason.failed,
-            from_plan=subscription.plan,
-            from_max_users=self.max_users,
-            to_max_users=self.max_users,
-        )
+        # One log entry per line, since each names its own plan
+        cancelled_plans = [
+            item.plan for item in subscription.items.select_related("plan") if item.plan
+        ]
+        for plan in cancelled_plans:
+            self.change_logs.create(
+                reason=ChangeLogReason.failed,
+                from_plan=plan,
+                from_max_users=self.max_users,
+                to_max_users=self.max_users,
+            )
 
-        # Capture plan before subscription delete clears it
-        cancelled_plan = (
-            subscription.plan if subscription.plan and subscription.plan.wix else None
-        )
+        # Capture the plans before the delete cascades the lines away
+        wix_plans = [plan for plan in cancelled_plans if plan.wix]
 
         # Cancel subscription in Stripe if it exists
         if subscription.subscription_id:
@@ -742,12 +773,12 @@ class Organization(AvatarMixin, models.Model):
         subscription.delete()
 
         # Remove Wix labels now that subscription is gone
-        if cancelled_plan:
-            self._dispatch_wix_unsync(cancelled_plan)
+        for plan in wix_plans:
+            self._dispatch_wix_unsync(plan)
 
     def has_active_subscription(self, plan=None):
         """Check if the organization has an active subscription"""
-        qs = self.subscriptions.all()
+        qs = self.subscription_items.all()
         if plan is not None:
             qs = qs.filter(plan=plan)
         return qs.exists()
@@ -860,12 +891,12 @@ class Organization(AvatarMixin, models.Model):
 
         # Check membership groups
         for group in self.groups.filter(share_resources=True):
-            for plan in group.plans.filter(wix=True):
+            for plan in group.get_plans().filter(wix=True):
                 wix_plans.append((group, plan))
 
         # Check parent hierarchy (recursive)
         if self.parent and self.parent.share_resources:
-            for plan in self.parent.plans.filter(wix=True):
+            for plan in self.parent.get_plans().filter(wix=True):
                 wix_plans.append((self.parent, plan))
             # Also get parent's groups recursively
             wix_plans.extend(self.parent.get_wix_plans_from_groups())
@@ -889,12 +920,14 @@ class Organization(AvatarMixin, models.Model):
             if source.pk in _seen:
                 return
             _seen.add(source.pk)
-            for plan in source.plans.all():
+            for plan in source.get_plans():
                 if not plan.free:
                     inherited.append((source, plan))
 
         # Membership groups that share resources
-        for group in self.groups.filter(share_resources=True).prefetch_related("plans"):
+        for group in self.groups.filter(share_resources=True).prefetch_related(
+            "subscriptions__plans"
+        ):
             _add(group)
 
         # Parent hierarchy (recursive)
@@ -929,7 +962,7 @@ class Organization(AvatarMixin, models.Model):
     def merge(self, org, user):
         """Merge another organization into this one"""
 
-        if org.subscriptions.exists():
+        if org.subscription_items.exists():
             raise ValueError(f"{org} has active subscriptions and may not be merged")
         if org.merged is not None:
             raise ValueError(

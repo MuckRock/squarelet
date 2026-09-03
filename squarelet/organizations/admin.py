@@ -43,6 +43,7 @@ from squarelet.organizations.models import (
     ProfileChangeRequest,
     ReceiptEmail,
     Subscription,
+    SubscriptionItem,
 )
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.users.models import User
@@ -78,7 +79,7 @@ class PrettyJSONWidget(Textarea):
 
 class SubscriptionInline(admin.TabularInline):
     model = Subscription
-    readonly_fields = ("plan", "subscription_id", "cancelled", "quantity")
+    readonly_fields = ("subscription_id", "interval", "collection_method", "cancelled")
     extra = 0
     can_delete = False
 
@@ -240,8 +241,8 @@ class PlanFilter(admin.SimpleListFilter):
         if value is None:
             return queryset
         if value == "none":
-            return queryset.filter(subscriptions__isnull=True)
-        return queryset.filter(subscriptions__plan_id=value)
+            return queryset.filter(subscriptions__items__isnull=True)
+        return queryset.filter(subscriptions__items__plan_id=value)
 
 
 class OverdueInvoiceFilter(admin.SimpleListFilter):
@@ -459,12 +460,22 @@ class OrganizationAdmin(VersionAdmin):
         )
         plan_value = request.GET.get("plan")
         if plan_value and plan_value != "none":
+            # `to_attr` attaches to the last relation in the path, so the
+            # subscriptions are collected on the organization and their
+            # matching lines prefetched underneath.
             qs = qs.prefetch_related(
                 Prefetch(
                     "subscriptions",
-                    queryset=Subscription.objects.filter(
-                        plan_id=plan_value
-                    ).select_related("plan"),
+                    queryset=Subscription.objects.filter(items__plan_id=plan_value)
+                    .distinct()
+                    .prefetch_related(
+                        Prefetch(
+                            "items",
+                            queryset=SubscriptionItem.objects.filter(
+                                plan_id=plan_value
+                            ).select_related("plan"),
+                        )
+                    ),
                     to_attr="plan_subscriptions",
                 )
             )
@@ -527,7 +538,11 @@ class OrganizationAdmin(VersionAdmin):
         # A subscription renews only if it hasn't been cancelled and its plan
         # is set to auto-renew (plans with auto_renew=False are created to
         # cancel at period end).
-        return not any(s.cancelled or not s.plan.auto_renew for s in subs)
+        return not any(
+            sub.cancelled or not item.plan.auto_renew
+            for sub in subs
+            for item in sub.items.all()
+        )
 
     get_subscription_renews.short_description = "Will Renew"
     get_subscription_renews.boolean = True

@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models import Q
 from django.urls import reverse
-from django.utils.timezone import get_current_timezone
+from django.utils.timezone import get_current_timezone, localtime
 from django.utils.translation import gettext_lazy as _
 
 # Standard Library
@@ -27,7 +27,7 @@ from squarelet.organizations.querysets import (
     EntitlementGrantQuerySet,
     EntitlementQuerySet,
     PlanQuerySet,
-    SubscriptionQuerySet,
+    SubscriptionItemQuerySet,
 )
 
 logger = logging.getLogger(__name__)
@@ -294,9 +294,29 @@ class Customer(models.Model):
 
 
 class Subscription(models.Model):
-    """Through table for organization plans"""
+    """A subscription on Stripe.
 
-    objects = SubscriptionQuerySet.as_manager()
+    One row per Stripe subscription; its lines are SubscriptionItems.  Stripe
+    requires every item on a subscription to share a billing interval and a
+    collection method, so an organization needs a separate subscription for
+    each combination it holds - a monthly MuckRock plan and an annual Sunlight
+    plan cannot sit on the same one.  That is what the uniqueness constraint
+    below encodes.
+
+    Fields here are subscription-level: status, period end and cancellation
+    apply to every item at once.  Keeping them in one place means a renewal
+    webhook updates a single row rather than fanning out across items that
+    could then disagree.
+    """
+
+    INTERVAL_CHOICES = [
+        ("monthly", _("Monthly")),
+        ("annual", _("Annual")),
+    ]
+    COLLECTION_CHOICES = [
+        ("charge_automatically", _("Charge automatically")),
+        ("send_invoice", _("Send invoice")),
+    ]
 
     organization = models.ForeignKey(
         verbose_name=_("organization"),
@@ -304,90 +324,55 @@ class Subscription(models.Model):
         on_delete=models.CASCADE,
         related_name="subscriptions",
     )
-    plan = models.ForeignKey(
-        verbose_name=_("plan"),
-        to="organizations.Plan",
-        on_delete=models.CASCADE,
-        related_name="subscriptions",
-    )
-
     subscription_id = models.CharField(
         _("subscription id"),
         max_length=255,
-        unique=True,
         blank=True,
-        null=True,
-        help_text=_("The subscription ID on stripe"),
+        default="",
+        help_text=_(
+            "The subscription ID on stripe.  Blank for subscriptions that "
+            "never reach Stripe, which is every comped one."
+        ),
+    )
+    interval = models.CharField(
+        _("interval"),
+        max_length=20,
+        choices=INTERVAL_CHOICES,
+        default="monthly",
+        help_text=_("Billing interval shared by every item"),
+    )
+    collection_method = models.CharField(
+        _("collection method"),
+        max_length=30,
+        choices=COLLECTION_CHOICES,
+        default="charge_automatically",
+        help_text=_("How Stripe collects payment, shared by every item"),
     )
 
-    # The cancelled flag is used to mark subscriptions that are ready for cancellation.
-    # Cancellation happens at the end of the billing period; at that point,
-    # the subscription is deleted from the database.
+    # The cancelled flag marks a subscription as ready for cancellation.
+    # Cancellation happens at the end of the billing period; at that point the
+    # record is deleted.
     cancelled = models.BooleanField(default=False)
-
     cancel_at = models.DateField(
         _("cancel at"),
         null=True,
         blank=True,
         help_text=_(
-            "Date when Stripe will terminate this subscription. "
-            "Set when cancel() is called. Null for free plans or legacy records."
+            "Date when Stripe will terminate this subscription.  Set when "
+            "cancel() is called.  Null for free subscriptions."
         ),
     )
-
-    quantity = models.PositiveIntegerField(
-        _("quantity"),
-        default=1,
-        help_text=_(
-            "Number of units of this plan's resources granted to the organization"
-        ),
-    )
-
-    plan_price = models.ForeignKey(
-        verbose_name=_("plan price"),
-        to="organizations.PlanPrice",
-        on_delete=models.PROTECT,
-        related_name="subscriptions",
-        blank=True,
-        null=True,
-        help_text=_(
-            "The price this subscription is billed at.  Nullable until every "
-            "subscription has been migrated off the legacy plan foreign key."
-        ),
-    )
-
-    granted_reason = models.TextField(
-        _("granted reason"),
-        blank=True,
-        default="",
-        help_text=_(
-            "Why this subscription received non-standard pricing (comped, or a "
-            "partner coupon).  Blank for ordinary self-serve subscriptions."
-        ),
-    )
-    granted_by = models.ForeignKey(
-        verbose_name=_("granted by"),
-        to="users.User",
-        on_delete=models.PROTECT,
-        related_name="granted_subscriptions",
-        blank=True,
-        null=True,
-        help_text=_(
-            "Staff user who authorized the non-standard pricing.  Blank for "
-            "ordinary self-serve subscriptions."
-        ),
-    )
-
     stripe_status = models.CharField(max_length=30, blank=True, default="")
     current_period_end = models.DateTimeField(null=True, blank=True)
 
-    class Meta:
-        unique_together = ("organization", "plan")
-        ordering = ("plan",)
-
-    def __str__(self):
-        plan_name = self.plan.name if self.plan else "Free"
-        return f"Subscription: {self.organization} to {plan_name}"
+    plans = models.ManyToManyField(
+        verbose_name=_("plans"),
+        to="organizations.Plan",
+        through="organizations.SubscriptionItem",
+        related_name="subscriptions",
+        help_text=_("Plans billed on this subscription"),
+        blank=True,
+    )
 
     @cached_property
     def stripe_subscription(self):
@@ -398,6 +383,53 @@ class Subscription(models.Model):
                 .retrieve(self.subscription_id)
             )
         return None
+
+    @property
+    def free(self):
+        """A subscription costs nothing when every line does."""
+        return all(item.plan is None or item.plan.free for item in self.items.all())
+
+    @property
+    def auto_renew(self):
+        """Does the subscription itself renew?
+
+        It does as long as one line still wants to.  A single non-renewing
+        plan must not drag the renewing lines down with it - that line stops
+        on its own, through `cancelled`/`cancel_at`, the same way a line the
+        customer cancelled does.  Only when every line has stopped does the
+        subscription end.
+        """
+        items = list(self.items.all())
+        if not items:
+            return True
+        return any(item.plan.auto_renew for item in items)
+
+    @property
+    def next_date(self):
+        """The date this subscription next renews, or ends if cancelled.
+
+        Read from the cached `current_period_end` rather than from Stripe:
+        the billing pages render one row per line, and asking Stripe per row
+        turned a page view into a fan of API calls.  The webhook keeps this
+        field current, and `audit_subscriptions` is what verifies that.
+        """
+        if not self.current_period_end:
+            return None
+        return localtime(self.current_period_end).date()
+
+    def stripe_items(self, include_ids=False):
+        """Stripe line specs for every item on this subscription.
+
+        Pass include_ids when modifying an existing subscription: Stripe needs
+        each line's own id to update it in place rather than replace it.
+        """
+        specs = []
+        for item in self.items.select_related("plan"):
+            spec = {"plan": item.plan.stripe_id, "quantity": item.quantity}
+            if include_ids and item.stripe_item_id:
+                spec["id"] = item.stripe_item_id
+            specs.append(spec)
+        return specs
 
     def cache_stripe_subscription_fields(self, stripe_sub):
         """Cache subscription status and period end from a Stripe subscription."""
@@ -412,8 +444,11 @@ class Subscription(models.Model):
         )
 
     def start(self, payment_method="card", anchor_day=None):
-        """Start the Stripe subscription. Returns the Stripe subscription object
-        for paid plans, or None for free plans."""
+        """Create this subscription on Stripe, with all of its items.
+
+        Returns the Stripe subscription for paid subscriptions, or None when
+        every line is free - those never reach Stripe at all.
+        """
         if self.stripe_subscription:
             logger.error(
                 "Trying to start an existing subscription: %s %s",
@@ -421,66 +456,43 @@ class Subscription(models.Model):
                 self.subscription_id,
             )
             return None
-        stripe_subscription = None
-        if self.plan and not self.plan.free:
-            # Annual plans support payment by invoice
-            if self.plan.annual and payment_method == "invoice":
-                billing = "send_invoice"
-                days_until_due = 30
-            else:
-                billing = "charge_automatically"
-                days_until_due = None
+        if self.free:
+            return None
 
-            stripe_subscription = (
-                get_payment_provider()
-                .get_subscription_service()
-                .create(
-                    stripe_customer=self.organization.customer().stripe_customer,
-                    plan_id=self.plan.stripe_id,
-                    quantity=self.quantity,
-                    billing=billing,
-                    metadata={"action": f"Subscription ({self.plan})"},
-                    days_until_due=days_until_due,
-                    anchor_day=anchor_day,
-                    cancel_at_period_end=not self.plan.auto_renew,
-                )
+        # Annual subscriptions support payment by invoice
+        if self.interval == "annual" and payment_method == "invoice":
+            billing = "send_invoice"
+            days_until_due = 30
+        else:
+            billing = "charge_automatically"
+            days_until_due = None
+        self.collection_method = billing
+
+        stripe_subscription = (
+            get_payment_provider()
+            .get_subscription_service()
+            .create(
+                stripe_customer=self.organization.customer().stripe_customer,
+                items=self.stripe_items(),
+                billing=billing,
+                metadata={"action": f"Subscription ({self.organization})"},
+                days_until_due=days_until_due,
+                anchor_day=anchor_day,
+                cancel_at_period_end=not self.auto_renew,
             )
-            self.subscription_id = stripe_subscription.id
-            self.cache_stripe_subscription_fields(stripe_subscription)
-            if not self.plan.auto_renew and self.current_period_end:
-                self.cancel_at = self.current_period_end.date()
-            # Save subscription before creating invoice
-            self.save()
+        )
+        self.subscription_id = stripe_subscription.id
+        self.cache_stripe_subscription_fields(stripe_subscription)
+        if not self.auto_renew and self.current_period_end:
+            self.cancel_at = self.current_period_end.date()
+        # Save before creating the invoice
+        self.save()
 
-            # Check for 3DS/SCA on the first invoice payment.
-            if stripe_subscription.status == "incomplete":
-                self._check_3ds_action_required(stripe_subscription)
+        # Check for 3DS/SCA on the first invoice payment.
+        if stripe_subscription.status == "incomplete":
+            self._check_3ds_action_required(stripe_subscription)
 
-            # Create Invoice record synchronously; webhook is the fallback.
-            self._sync_latest_invoice(stripe_subscription)
-
-        # Trigger respective mailchimp journeys if this is the organization plan,
-        # but only if the org doesn't already have another active subscription
-        # granting the same entitlement (avoid duplicate journey triggers).
-        if self.plan_id and self.plan.entitlements.filter(slug="organization").exists():
-            already_has_org_entitlement = (
-                self.organization.subscriptions.exclude(pk=self.pk)
-                .filter(
-                    plan__entitlements__slug="organization",
-                )
-                .exists()
-            )
-            if not already_has_org_entitlement:
-                journey_key = (
-                    "verified_premium_org"
-                    if self.organization.verified_journalist
-                    else "unverified_premium_org"
-                )
-                for user in self.organization.users.all():
-                    mailchimp_journey(user.email, journey_key)
-
-        # Slack notification for new subscription
-        self.send_slack_notification("started")
+        self._sync_latest_invoice(stripe_subscription)
         return stripe_subscription
 
     def _check_3ds_action_required(self, stripe_subscription):
@@ -562,8 +574,14 @@ class Subscription(models.Model):
             self.cancel_at = self.current_period_end.date()
         self.save()
 
-        # Slack notification for cancellation
-        self.send_slack_notification("cancelled")
+        # Flag the lines too.  The UI lists lines, not subscriptions, so a
+        # line has to be able to report that it is going away.
+        self.items.update(cancelled=True, cancel_at=self.cancel_at)
+
+        # The notification names a plan, so it belongs to the lines, not to
+        # the subscription that carries them.
+        for item in self.items.select_related("plan"):
+            item.send_slack_notification("cancelled")
 
     def uncancel(self):
         """Re-enable renewal for a subscription that was pending cancellation.
@@ -590,62 +608,274 @@ class Subscription(models.Model):
         self.cancelled = False
         self.cancel_at = None
         self.save()
-
-    def modify(self, plan):
-        """Modify an existing plan
-        Note - this should never be used to switch from a MR to a PP plan or vice versa
-        """
-        old_plan = self.plan
-        self.plan = plan
-        self.save()
-
-        if old_plan.free and not plan.free:
-            # start subscription on stripe
-            self.start()
-        elif not old_plan.free and plan.free:
-            # cancel subscription on stripe
-            get_payment_provider().get_subscription_service().delete(
-                self.stripe_subscription
-            )
-            self.subscription_id = None
-            self.cancel_at = None
-        elif not old_plan.free and not plan.free:
-            # modify plan
-            self.stripe_modify()
-
-        self.save()
+        self.items.update(cancelled=False, cancel_at=None)
 
     def stripe_modify(self):
-        """Update stripe subscription to match local subscription"""
+        """Push local state to Stripe for every item on this subscription."""
         if self.stripe_subscription:
             updated = (
                 get_payment_provider()
                 .get_subscription_service()
                 .modify(
                     self.subscription_id,
-                    cancel_at_period_end=not self.plan.auto_renew,
-                    items=[
-                        {
-                            "id": self.stripe_subscription["items"]["data"][0].id,
-                            "plan": self.plan.stripe_id,
-                            "quantity": self.quantity,
-                        }
-                    ],
+                    cancel_at_period_end=not self.auto_renew,
+                    items=self.stripe_items(include_ids=True),
                     billing=(
-                        "send_invoice" if self.plan.annual else "charge_automatically"
+                        "send_invoice"
+                        if self.interval == "annual"
+                        else "charge_automatically"
                     ),
-                    metadata={"action": f"Subscription ({self.plan})"},
-                    days_until_due=(30 if self.plan.annual else None),
+                    metadata={"action": f"Subscription ({self.organization})"},
+                    days_until_due=(30 if self.interval == "annual" else None),
                 )
             )
             self.cancelled = False
             if updated:
                 self.cache_stripe_subscription_fields(updated)
-            if not self.plan.auto_renew and self.current_period_end:
+            if not self.auto_renew and self.current_period_end:
                 self.cancel_at = self.current_period_end.date()
             else:
                 self.cancel_at = None
             self.save()
+
+    class Meta:
+        ordering = ("organization", "interval")
+        constraints = [
+            # Every real Stripe subscription id is unique; any number of
+            # comped subscriptions may leave it blank.
+            models.UniqueConstraint(
+                fields=["subscription_id"],
+                condition=~models.Q(subscription_id=""),
+                name="unique_stripe_subscription_id_when_set",
+            ),
+            # One subscription per organization per billing shape.  Anything
+            # that would need a second one for the same shape should be an
+            # item on the existing subscription instead.
+            models.UniqueConstraint(
+                fields=["organization", "interval", "collection_method"],
+                name="unique_subscription_per_billing_shape",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.organization.name}: {self.get_interval_display()}, "
+            f"{self.get_collection_method_display()}"
+        )
+
+
+class SubscriptionItem(models.Model):
+    """One line on a Stripe subscription.
+
+    The organization is reached through `subscription`, deliberately not
+    duplicated here: a denormalized copy that has to agree with its parent is
+    exactly the kind of drift this migration exists to remove.
+    """
+
+    objects = SubscriptionItemQuerySet.as_manager()
+
+    plan = models.ForeignKey(
+        verbose_name=_("plan"),
+        to="organizations.Plan",
+        on_delete=models.CASCADE,
+        related_name="subscription_items",
+    )
+
+    subscription = models.ForeignKey(
+        verbose_name=_("subscription"),
+        to="organizations.Subscription",
+        on_delete=models.CASCADE,
+        related_name="items",
+        blank=True,
+        null=True,
+        help_text=_("The Stripe subscription this is a line on"),
+    )
+    stripe_item_id = models.CharField(
+        _("stripe item id"),
+        max_length=255,
+        blank=True,
+        default="",
+        help_text=_(
+            "The subscription item ID on stripe.  Blank for items that never "
+            "reach Stripe, which is every comped one."
+        ),
+    )
+
+    quantity = models.PositiveIntegerField(
+        _("quantity"),
+        default=1,
+        help_text=_(
+            "Number of units of this plan's resources granted to the organization"
+        ),
+    )
+
+    plan_price = models.ForeignKey(
+        verbose_name=_("plan price"),
+        to="organizations.PlanPrice",
+        on_delete=models.PROTECT,
+        related_name="subscription_items",
+        blank=True,
+        null=True,
+        help_text=_(
+            "The price this subscription is billed at.  Nullable until every "
+            "subscription has been migrated off the legacy plan foreign key."
+        ),
+    )
+
+    cancelled = models.BooleanField(
+        _("cancelled"),
+        default=False,
+        help_text=_(
+            "This line is scheduled to stop at the end of the current billing "
+            "period.  It still bills and still grants access until then, "
+            "mirroring how a cancelled subscription behaves."
+        ),
+    )
+    cancel_at = models.DateField(
+        _("cancel at"),
+        null=True,
+        blank=True,
+        help_text=_(
+            "When this line is dropped from the Stripe subscription.  Taken "
+            "from the subscription's current period end, because every line "
+            "on a subscription shares one billing period."
+        ),
+    )
+    granted_reason = models.TextField(
+        _("granted reason"),
+        blank=True,
+        default="",
+        help_text=_(
+            "Why this subscription received non-standard pricing (comped, or a "
+            "partner coupon).  Blank for ordinary self-serve subscriptions."
+        ),
+    )
+    granted_by = models.ForeignKey(
+        verbose_name=_("granted by"),
+        to="users.User",
+        on_delete=models.PROTECT,
+        related_name="granted_subscriptions",
+        blank=True,
+        null=True,
+        help_text=_(
+            "Staff user who authorized the non-standard pricing.  Blank for "
+            "ordinary self-serve subscriptions."
+        ),
+    )
+
+    class Meta:
+        # One line per plan per subscription.  "An organization may not hold
+        # the same plan twice" is now wider than a single subscription can
+        # see, so add_subscription() enforces that part.
+        unique_together = ("subscription", "plan")
+        ordering = ("plan",)
+
+    def __str__(self):
+        plan_name = self.plan.name if self.plan else "Free"
+        return f"SubscriptionItem: {self.subscription.organization} to {plan_name}"
+
+    @property
+    def organization(self):
+        """The owning organization, reached through the parent subscription.
+
+        Read-only on purpose: the column lives on `Subscription` so a line can
+        never disagree with the subscription it bills on.  Select or prefetch
+        `subscription__organization` before touching this in a loop.
+        """
+        return self.subscription.organization
+
+    def modify(self, plan):
+        """Change which plan this line bills.
+
+        Never use this to move between products - that is an add plus a
+        remove, since the two subscriptions bill separately.
+        """
+        self.plan = plan
+        self.save()
+        self.subscription.stripe_modify()
+
+    def cancel(self):
+        """Stop billing this line at the end of the current period.
+
+        The last *active* line cancels the whole subscription, which Stripe
+        handles itself through cancel_at_period_end.  Stripe has no
+        equivalent for a single line, so any other line is only flagged here
+        and removed by `restore_organization` once `cancel_at` arrives.  Either
+        way the customer keeps what they paid for until the period runs out.
+
+        Counting active lines matters: cancelling two lines one at a time
+        must still cancel the subscription on the second call, or the sweep
+        would later try to delete the subscription's only remaining line,
+        which Stripe rejects.
+        """
+        if self.subscription.items.exclude(cancelled=True).count() <= 1:
+            self.subscription.cancel()
+            return
+
+        self.cancelled = True
+        period_end = self.subscription.current_period_end
+        self.cancel_at = period_end.date() if period_end else None
+        self.save()
+        self.send_slack_notification("cancelled")
+
+    def uncancel(self):
+        """Reverse a pending cancellation, so long as the line is still here.
+
+        If the whole subscription is cancelled - which is what cancelling the
+        last active line does - reviving any line revives the subscription and
+        every line on it, because they all stop together on Stripe.
+        """
+        if self.subscription.cancelled:
+            self.subscription.uncancel()
+            self.refresh_from_db()
+            return
+
+        self.cancelled = False
+        self.cancel_at = None
+        self.save()
+
+    def remove_from_stripe(self):
+        """Drop this line from the Stripe subscription and delete it locally.
+
+        Proration is suppressed: the line has already been paid for through
+        the end of the period, so the next invoice should simply omit it
+        rather than issue a credit.
+        """
+        if self.subscription.stripe_subscription and self.stripe_item_id:
+            get_payment_provider().get_subscription_service().modify(
+                self.subscription.subscription_id,
+                items=[{"id": self.stripe_item_id, "deleted": True}],
+                proration_behavior="none",
+            )
+        self.delete()
+
+    def notify_started(self):
+        """Announce a newly added line.
+
+        The Mailchimp journey fires only for the line that first grants the
+        organization entitlement, so an org that already has it through
+        another line is not enrolled twice.
+        """
+        organization = self.subscription.organization
+        if self.plan_id and self.plan.entitlements.filter(slug="organization").exists():
+            already_has_org_entitlement = (
+                SubscriptionItem.objects.filter(
+                    subscription__organization=organization,
+                    plan__entitlements__slug="organization",
+                )
+                .exclude(pk=self.pk)
+                .exists()
+            )
+            if not already_has_org_entitlement:
+                journey_key = (
+                    "verified_premium_org"
+                    if organization.verified_journalist
+                    else "unverified_premium_org"
+                )
+                for user in organization.users.all():
+                    mailchimp_journey(user.email, journey_key)
+
+        self.send_slack_notification("started")
 
     def send_slack_notification(self, event, **kwargs):
         """Queue a Slack notification asynchronously for subscription events."""
@@ -899,7 +1129,7 @@ class Plan(models.Model):
         """Check if new subscriptions are allowed for this plan"""
         # Only Sunlight plans have subscription limits
         if self.slug.startswith("sunlight-") and self.wix:
-            current_count = Subscription.objects.sunlight_active_count()
+            current_count = SubscriptionItem.objects.sunlight_active_count()
             return current_count < settings.MAX_SUNLIGHT_SUBSCRIPTIONS
         return True
 
@@ -1536,7 +1766,7 @@ class EntitlementGrant(models.Model):
             rule_clauses.append(Q(verified_journalist=True))
         if self.require_active_subscription:
             # Mirrors org.has_active_subscription() = bool(subscriptions.first())
-            rule_clauses.append(Q(subscriptions__isnull=False))
+            rule_clauses.append(Q(subscriptions__items__isnull=False))
 
         if rule_clauses:
             rule_q = rule_clauses[0]

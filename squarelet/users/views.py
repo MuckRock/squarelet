@@ -170,7 +170,7 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         # Get the current plan and subscription, if any
         individual_org = user.individual_organization
         upgrade_plan = Plan.objects.filter(slug="professional").first()
-        context["subscriptions"] = individual_org.subscriptions.all()
+        context["subscriptions"] = individual_org.subscription_items.all()
         context["upgrade_plan"] = upgrade_plan
         # Get card for active subscription
         customer = individual_org.customer()
@@ -197,7 +197,7 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         return [
             (org, sub.plan)
             for org in user.organizations.filter(individual=False)
-            for sub in org.subscriptions.select_related("plan")
+            for sub in org.subscription_items.select_related("plan")
             if not sub.plan.free
         ]
 

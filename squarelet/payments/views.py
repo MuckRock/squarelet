@@ -8,7 +8,6 @@ from django.db import transaction
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import (
     DetailView,
@@ -22,7 +21,6 @@ from django.views.generic import (
 # Standard Library
 import logging
 import sys
-from datetime import datetime
 
 # Third Party
 import stripe
@@ -32,12 +30,11 @@ from squarelet.core.utils import format_stripe_error, new_action
 from squarelet.organizations.models import Charge, Organization, Plan
 from squarelet.organizations.models.payment import (
     ReceiptEmail,
-    Subscription,
+    SubscriptionItem,
     get_payment_brand,
 )
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.exceptions import SubscriptionError
-from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.tasks import add_to_waitlist
 from squarelet.payments.forms import (
     CancelSubscriptionForm,
@@ -138,7 +135,7 @@ class PlanDetailView(DetailView):
 
             # Check user's individual organization
             individual_org = user.individual_organization
-            individual_subscription = individual_org.subscriptions.filter(
+            individual_subscription = individual_org.subscription_items.filter(
                 plan=plan
             ).first()
             if individual_subscription:
@@ -158,7 +155,7 @@ class PlanDetailView(DetailView):
                 admin_orgs = admin_orgs_base
 
             for org in admin_orgs:
-                org_subscription = org.subscriptions.filter(plan=plan).first()
+                org_subscription = org.subscription_items.filter(plan=plan).first()
                 if org_subscription:
                     existing_subscriptions.append((org_subscription, org))
 
@@ -231,7 +228,7 @@ class PlanDetailView(DetailView):
                 result = form.save(request.user)
                 organization = result["organization"]
 
-                if organization.subscriptions.filter(plan=plan).exists():
+                if organization.subscription_items.filter(plan=plan).exists():
                     messages.warning(request, _("Already subscribed"))
                     return redirect(plan)
 
@@ -281,7 +278,9 @@ class PlanDetailView(DetailView):
         stripe_token = result["stripe_token"]
         payment_method = result["payment_method"]
 
-        locked_count = Subscription.objects.select_for_update().sunlight_active_count()
+        locked_count = (
+            SubscriptionItem.objects.select_for_update().sunlight_active_count()
+        )
         if locked_count >= settings.MAX_SUNLIGHT_SUBSCRIPTIONS:
             transaction.on_commit(
                 lambda: add_to_waitlist.delay(organization.pk, plan.pk, request.user.pk)
@@ -317,7 +316,7 @@ class PlanDetailView(DetailView):
             )
             return None
         except PaymentActionRequired as exc:
-            # Subscription saved but first invoice needs 3DS.
+            # SubscriptionItem saved but first invoice needs 3DS.
             redirect_url = organization.get_absolute_url()
             if self._is_ajax():
                 return JsonResponse(
@@ -371,7 +370,7 @@ class SunlightResearchPlansView(TemplateView):
         if self.request.user.is_authenticated:
             # Check user's individual organization
             individual_org = self.request.user.individual_organization
-            individual_subscriptions = individual_org.subscriptions.filter(
+            individual_subscriptions = individual_org.subscription_items.filter(
                 plan__slug__startswith="sunlight-", plan__wix=True
             ).select_related("plan")
 
@@ -384,7 +383,7 @@ class SunlightResearchPlansView(TemplateView):
             ).distinct()
 
             for org in admin_orgs:
-                org_subscriptions = org.subscriptions.filter(
+                org_subscriptions = org.subscription_items.filter(
                     plan__slug__startswith="sunlight-", plan__wix=True
                 ).select_related("plan")
 
@@ -554,9 +553,11 @@ class BaseManageSubscriptions(SubscriptionObjectMixin, DetailView):
         context = super().get_context_data(**kwargs)
 
         # Get subscriptions and add renewal/cancellation date and cost data
-        subscriptions = self.object.subscriptions.all()
+        subscriptions = self.object.subscription_items.select_related(
+            "subscription", "plan"
+        )
         for subscription in subscriptions:
-            subscription.next_date = get_subscription_next_date(subscription)
+            subscription.next_date = subscription.subscription.next_date
             subscription.cost = subscription.plan.base_price
         context["subscriptions"] = subscriptions
 
@@ -690,15 +691,19 @@ class BaseCancelSubscription(SubscriptionObjectMixin, UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        subscription = self.object.subscriptions.filter(id=self.kwargs["pk"]).first()
+        subscription = self.object.subscription_items.filter(
+            id=self.kwargs["pk"]
+        ).first()
         if subscription:
             context["subscription"] = subscription
-            context["next_date"] = get_subscription_next_date(subscription)
+            context["next_date"] = subscription.subscription.next_date
         return context
 
     def form_valid(self, form):
         organization = self.object
-        subscription = self.object.subscriptions.filter(id=self.kwargs["pk"]).first()
+        subscription = self.object.subscription_items.filter(
+            id=self.kwargs["pk"]
+        ).first()
         if subscription:
             organization.remove_subscription(subscription)
             self.log_staff_action(
@@ -772,8 +777,9 @@ class BaseResubscribe(SubscriptionObjectMixin, View):
     def post(self, request, *args, **kwargs):
         organization = self.get_object()
         redirect_url = self.reverse_subject("subscriptions")
-        subscription = organization.subscriptions.filter(id=self.kwargs["pk"]).first()
-        print(subscription)
+        subscription = organization.subscription_items.filter(
+            id=self.kwargs["pk"]
+        ).first()
         try:
             subscription.uncancel()
         except ValidationError as exc:
@@ -787,19 +793,3 @@ class BaseResubscribe(SubscriptionObjectMixin, View):
             return JsonResponse({"redirect": redirect_url, "message": str(success_msg)})
         messages.success(request, success_msg)
         return redirect(redirect_url)
-
-
-def get_subscription_next_date(subscription):
-    stripe_sub = subscription.stripe_subscription
-    if stripe_sub:
-        time_stamp = (
-            get_payment_provider()
-            .get_subscription_service()
-            .get_current_period_end(stripe_sub)
-        )
-        if time_stamp:
-            tz_datetime = datetime.fromtimestamp(
-                time_stamp, tz=timezone.get_current_timezone()
-            )
-            return tz_datetime.date()
-    return None

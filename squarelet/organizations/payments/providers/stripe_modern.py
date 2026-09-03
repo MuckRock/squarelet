@@ -137,11 +137,10 @@ class StripeModernCustomerService(CustomerService):
 class StripeModernSubscriptionService(SubscriptionService):
     """Subscription operations using current Stripe API."""
 
-    def create(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    def create(  # pylint: disable=too-many-positional-arguments
         self,
         stripe_customer,
-        plan_id,
-        quantity,
+        items,
         billing,
         metadata,
         days_until_due,
@@ -154,7 +153,7 @@ class StripeModernSubscriptionService(SubscriptionService):
         # for SCA/3DS detection as of API version 2025-03-31.basil
         params = {
             "customer": stripe_customer.id,
-            "items": [{"plan": plan_id, "quantity": quantity}],
+            "items": items,
             "collection_method": billing,
             "metadata": metadata,
             "days_until_due": days_until_due,

@@ -16,7 +16,7 @@ from squarelet.organizations.tests.factories import (
     EntitlementGrantFactory,
     OrganizationFactory,
     PlanFactory,
-    SubscriptionFactory,
+    SubscriptionItemFactory,
 )
 
 
@@ -85,7 +85,7 @@ class TestSerializerEntitlements:
         entitlement.plans.set([plan])
         org_update_on = date.today() + timedelta(days=7)
         org = OrganizationFactory(update_on=org_update_on)
-        SubscriptionFactory(organization=org, plan=plan)
+        SubscriptionItemFactory(subscription__organization=org, plan=plan)
 
         serializer = OrganizationDetailSerializer(org, context={"client": client})
         rows = [
@@ -204,7 +204,7 @@ class TestPackEntitlements:
         client = ClientFactory()
         org = OrganizationFactory()
         plan, entitlement = self._pack(client)
-        SubscriptionFactory(organization=org, plan=plan, quantity=3)
+        SubscriptionItemFactory(subscription__organization=org, plan=plan, quantity=3)
 
         rows = OrganizationDetailSerializer(
             org, context={"client": client}
@@ -220,7 +220,7 @@ class TestPackEntitlements:
         client = ClientFactory()
         org = OrganizationFactory()
         plan, entitlement = self._pack(client)
-        SubscriptionFactory(organization=org, plan=plan, quantity=5)
+        SubscriptionItemFactory(subscription__organization=org, plan=plan, quantity=5)
 
         rows = OrganizationDetailSerializer(
             org, context={"client": client}
@@ -255,8 +255,12 @@ class TestPackEntitlements:
         base_plan.entitlements.add(base_entitlement)
         pack_plan, pack_entitlement = self._pack(client)
 
-        SubscriptionFactory(organization=org, plan=base_plan, quantity=5)
-        SubscriptionFactory(organization=org, plan=pack_plan, quantity=2)
+        SubscriptionItemFactory(
+            subscription__organization=org, plan=base_plan, quantity=5
+        )
+        SubscriptionItemFactory(
+            subscription__organization=org, plan=pack_plan, quantity=2
+        )
 
         rows = OrganizationDetailSerializer(
             org, context={"client": client}

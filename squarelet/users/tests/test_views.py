@@ -500,7 +500,7 @@ class TestIndividualSubscriptionStaffActions(ViewTestMixin):
     url = "/users/{username}/cancel/{pk}/"
 
     def test_staff_cancel_subscription_creates_action(
-        self, rf, user_factory, plan_factory, subscription_factory, mocker
+        self, rf, user_factory, plan_factory, subscription_item_factory, mocker
     ):
         """Staff cancelling a user's subscription targets the individual org"""
         mocker.patch("squarelet.organizations.models.Organization.remove_subscription")
@@ -508,7 +508,9 @@ class TestIndividualSubscriptionStaffActions(ViewTestMixin):
         staff = user_factory(is_staff=True)
         organization = user.individual_organization
         plan = plan_factory(name="Professional")
-        subscription = subscription_factory(organization=organization, plan=plan)
+        subscription = subscription_item_factory(
+            subscription__organization=organization, plan=plan
+        )
 
         response = self.call_view(
             rf, staff, {}, username=user.username, pk=subscription.pk
@@ -525,13 +527,13 @@ class TestIndividualSubscriptionStaffActions(ViewTestMixin):
         assert action.public is False
 
     def test_owner_cancel_subscription_no_action(
-        self, rf, user_factory, plan_factory, subscription_factory, mocker
+        self, rf, user_factory, plan_factory, subscription_item_factory, mocker
     ):
         """A user cancelling their own subscription is not logged"""
         mocker.patch("squarelet.organizations.models.Organization.remove_subscription")
         user = user_factory(username="dotted.name")
-        subscription = subscription_factory(
-            organization=user.individual_organization, plan=plan_factory()
+        subscription = subscription_item_factory(
+            subscription__organization=user.individual_organization, plan=plan_factory()
         )
 
         response = self.call_view(
@@ -542,14 +544,15 @@ class TestIndividualSubscriptionStaffActions(ViewTestMixin):
         assert not Action.objects.filter(verb="cancelled a subscription").exists()
 
     def test_staff_managing_own_account_no_action(
-        self, rf, user_factory, plan_factory, subscription_factory, mocker
+        self, rf, user_factory, plan_factory, subscription_item_factory, mocker
     ):
         """A staff member managing their own individual account is not logged —
         they are the owner (admin) of their own individual organization"""
         mocker.patch("squarelet.organizations.models.Organization.remove_subscription")
         staff = user_factory(is_staff=True, username="staffer")
-        subscription = subscription_factory(
-            organization=staff.individual_organization, plan=plan_factory()
+        subscription = subscription_item_factory(
+            subscription__organization=staff.individual_organization,
+            plan=plan_factory(),
         )
 
         response = self.call_view(

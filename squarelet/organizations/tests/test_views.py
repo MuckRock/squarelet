@@ -1309,7 +1309,7 @@ class TestAutocomplete:
 
 @pytest.mark.django_db()
 class TestUpdateSubscription(ViewTestMixin):
-    """Test the Organization Update Subscription view"""
+    """Test the Organization Update SubscriptionItem view"""
 
     view = views.UpdateSubscription
     url = "/organizations/{slug}/payment/"
@@ -1332,7 +1332,7 @@ class TestUpdateSubscription(ViewTestMixin):
         assert response.status_code == 200
         assert response.context_data["billing_email_failed"] is True
         initial = response.context_data["form"].initial
-        assert initial["plan"] == organization.plans.first()
+        assert initial["plan"] == organization.get_plans().first()
         assert initial["max_users"] == organization.max_users
         assert initial["billing_email"] == "billing@example.com"
 
@@ -1342,7 +1342,7 @@ class TestUpdateSubscription(ViewTestMixin):
         organization_factory,
         user_factory,
         plan_factory,
-        subscription_factory,
+        subscription_item_factory,
         mocker,
     ):
         """get_initial() seeds max_users from sub.quantity, not org.max_users,
@@ -1351,7 +1351,9 @@ class TestUpdateSubscription(ViewTestMixin):
         user = user_factory()
         organization = organization_factory(admins=[user], max_users=5)
         plan = plan_factory()
-        subscription_factory(organization=organization, plan=plan, quantity=10)
+        subscription_item_factory(
+            subscription__organization=organization, plan=plan, quantity=10
+        )
 
         response = self.call_view(rf, user, slug=organization.slug)
         assert response.status_code == 200
@@ -1563,7 +1565,7 @@ class TestRemoveCard(ViewTestMixin):
         organization_factory,
         user_factory,
         plan_factory,
-        subscription_factory,
+        subscription_item_factory,
         mocker,
     ):
         """A non-cancelled subscription blocks removal"""
@@ -1573,8 +1575,10 @@ class TestRemoveCard(ViewTestMixin):
         )
         user = user_factory()
         organization = organization_factory(admins=[user])
-        subscription_factory(
-            organization=organization, plan=plan_factory(), cancelled=False
+        subscription_item_factory(
+            subscription__organization=organization,
+            plan=plan_factory(),
+            subscription__cancelled=False,
         )
         response = self.call_view(rf, user, {}, slug=organization.slug)
         assert response.status_code == 302
@@ -1591,7 +1595,7 @@ class TestRemoveCard(ViewTestMixin):
         organization_factory,
         user_factory,
         plan_factory,
-        subscription_factory,
+        subscription_item_factory,
         mocker,
     ):
         """Removal is allowed when every subscription is cancelled"""
@@ -1601,8 +1605,10 @@ class TestRemoveCard(ViewTestMixin):
         )
         user = user_factory()
         organization = organization_factory(admins=[user])
-        subscription_factory(
-            organization=organization, plan=plan_factory(), cancelled=True
+        subscription_item_factory(
+            subscription__organization=organization,
+            plan=plan_factory(),
+            subscription__cancelled=True,
         )
         response = self.call_view(rf, user, {}, slug=organization.slug)
         assert response.status_code == 302
@@ -1641,7 +1647,7 @@ class TestRemoveCard(ViewTestMixin):
         organization_factory,
         user_factory,
         plan_factory,
-        subscription_factory,
+        subscription_item_factory,
         mocker,
     ):
         """AJAX removal returns a 400 with the error when blocked"""
@@ -1651,8 +1657,10 @@ class TestRemoveCard(ViewTestMixin):
         )
         user = user_factory()
         organization = organization_factory(admins=[user])
-        subscription_factory(
-            organization=organization, plan=plan_factory(), cancelled=False
+        subscription_item_factory(
+            subscription__organization=organization,
+            plan=plan_factory(),
+            subscription__cancelled=False,
         )
         response = self._ajax_post(rf, user, organization.slug)
         assert response.status_code == 400
@@ -1753,7 +1761,7 @@ class TestUpdateCard(ViewTestMixin):
 
 @pytest.mark.django_db()
 class TestCancelSubscription(ViewTestMixin):
-    """Test staff-action logging on the Organization Cancel Subscription view"""
+    """Test staff-action logging on the Organization Cancel SubscriptionItem view"""
 
     view = views.CancelSubscription
     url = "/organizations/{slug}/subscriptions/{pk}/cancel"
@@ -1764,7 +1772,7 @@ class TestCancelSubscription(ViewTestMixin):
         organization_factory,
         user_factory,
         plan_factory,
-        subscription_factory,
+        subscription_item_factory,
         mocker,
     ):
         """Staff cancelling a subscription on someone's behalf is logged"""
@@ -1773,7 +1781,9 @@ class TestCancelSubscription(ViewTestMixin):
         staff_member = _assign_org_perm(staff_member, "can_edit_subscription")
         organization = organization_factory()
         plan = plan_factory(name="Professional")
-        subscription = subscription_factory(organization=organization, plan=plan)
+        subscription = subscription_item_factory(
+            subscription__organization=organization, plan=plan
+        )
 
         response = self.call_view(
             rf, staff_member, {}, slug=organization.slug, pk=subscription.pk
@@ -1796,15 +1806,15 @@ class TestCancelSubscription(ViewTestMixin):
         organization_factory,
         user_factory,
         plan_factory,
-        subscription_factory,
+        subscription_item_factory,
         mocker,
     ):
         """A regular admin cancelling their own subscription is not logged"""
         mocker.patch("squarelet.organizations.models.Organization.remove_subscription")
         admin = user_factory(is_staff=False)
         organization = organization_factory(admins=[admin])
-        subscription = subscription_factory(
-            organization=organization, plan=plan_factory()
+        subscription = subscription_item_factory(
+            subscription__organization=organization, plan=plan_factory()
         )
 
         response = self.call_view(
@@ -1887,7 +1897,7 @@ class TestCreate(ViewTestMixin):
         user = user_factory(email_verified=True)
         self.call_view(rf, user, {"name": "test"})
         organization = user.organizations.get(individual=False)
-        assert not organization.subscriptions.exists()
+        assert not organization.subscription_items.exists()
         assert organization.has_admin(user)
         assert organization.receipt_email.email == user.email
 

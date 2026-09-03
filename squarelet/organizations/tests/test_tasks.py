@@ -16,17 +16,67 @@ from freezegun import freeze_time
 
 # Squarelet
 from squarelet.organizations import tasks
-from squarelet.organizations.models import Charge, Invoice, PaymentMethod, Subscription
+from squarelet.organizations.models import (
+    Charge,
+    Invoice,
+    PaymentMethod,
+    SubscriptionItem,
+)
 from squarelet.organizations.tests.factories import (
     EntitlementGrantFactory,
     InvoiceFactory,
     OrganizationFactory,
-    SubscriptionFactory,
+    SubscriptionItemFactory,
 )
 
 # pylint:disable=too-many-lines
 # TODO: Refactor this file and `tasks.py` into smaller files
 # https://github.com/MuckRock/squarelet/issues/558
+
+
+@pytest.mark.django_db(transaction=True)
+def test_restore_organization_removes_due_cancelled_lines(
+    organization_plan_factory, plan_factory, mocker
+):
+    """A line cancelled for period end is dropped from Stripe once due."""
+    mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
+    mocker.patch("stripe.Plan.create")
+    mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
+    mock_sub_svc = mocker.patch(
+        "squarelet.organizations.models.payment.get_payment_provider"
+    ).return_value.get_subscription_service.return_value
+    today = date.today()
+
+    due = SubscriptionItemFactory(
+        plan=organization_plan_factory(),
+        stripe_item_id="si_due",
+        cancelled=True,
+        cancel_at=today,
+        subscription__subscription_id="sub_sweep",
+        subscription__organization__update_on=today - timedelta(1),
+    )
+    # Same subscription, not cancelled -> survives
+    keeper = SubscriptionItemFactory(
+        subscription=due.subscription, plan=plan_factory(name="Keeper Plan")
+    )
+    # Cancelled but not due yet -> survives
+    later = SubscriptionItemFactory(
+        subscription=due.subscription,
+        plan=plan_factory(name="Later Plan"),
+        cancelled=True,
+        cancel_at=today + timedelta(5),
+    )
+
+    tasks.restore_organization()
+
+    assert not SubscriptionItem.objects.filter(pk=due.pk).exists()
+    assert SubscriptionItem.objects.filter(pk=keeper.pk).exists()
+    assert SubscriptionItem.objects.filter(pk=later.pk).exists()
+    mock_sub_svc.modify.assert_called_once_with(
+        "sub_sweep",
+        items=[{"id": "si_due", "deleted": True}],
+        proration_behavior="none",
+    )
 
 
 @pytest.mark.django_db()
@@ -37,24 +87,24 @@ def test_restore_organization(organization_plan_factory, mocker):
     organization_plan = organization_plan_factory()
 
     # Org whose anchor is due today and whose only sub is cancelled -> anchor clears
-    subsc_update_cancel = SubscriptionFactory(
+    subsc_update_cancel = SubscriptionItemFactory(
         plan=organization_plan,
-        cancelled=True,
-        organization__update_on=today - timedelta(1),
+        subscription__cancelled=True,
+        subscription__organization__update_on=today - timedelta(1),
     )
     org_cancel = subsc_update_cancel.organization
 
     # Org whose anchor is not due yet -> untouched
-    subsc_update_later = SubscriptionFactory(
+    subsc_update_later = SubscriptionItemFactory(
         plan=organization_plan,
-        organization__update_on=today + timedelta(1),
+        subscription__organization__update_on=today + timedelta(1),
     )
     org_later = subsc_update_later.organization
 
     # Org whose anchor is due today and still has an active sub -> anchor advances
-    subsc_update = SubscriptionFactory(
+    subsc_update = SubscriptionItemFactory(
         plan=organization_plan,
-        organization__update_on=today - timedelta(1),
+        subscription__organization__update_on=today - timedelta(1),
     )
     org_due = subsc_update.organization
 
@@ -65,7 +115,7 @@ def test_restore_organization(organization_plan_factory, mocker):
     org_due.refresh_from_db()
 
     # cancelled sub in due org should have been deleted
-    assert not Subscription.objects.filter(pk=subsc_update_cancel.pk).exists()
+    assert not SubscriptionItem.objects.filter(pk=subsc_update_cancel.pk).exists()
     # org with no remaining subs loses its anchor
     assert org_cancel.update_on is None
 
@@ -95,18 +145,18 @@ def test_restore_organization_annual_sub_not_deleted_early(
 
     # Annual sub cancelled but cancel_at is ~12 months in the future
     future_cancel_at = today + timedelta(days=365)
-    sub = SubscriptionFactory(
+    sub = SubscriptionItemFactory(
         plan=organization_plan,
-        cancelled=True,
-        cancel_at=future_cancel_at,
-        organization__update_on=today - timedelta(1),
+        subscription__cancelled=True,
+        subscription__cancel_at=future_cancel_at,
+        subscription__organization__update_on=today - timedelta(1),
     )
     org = sub.organization
 
     tasks.restore_organization()
 
     # Sub should still exist — cancel_at has not passed
-    assert Subscription.objects.filter(pk=sub.pk).exists()
+    assert SubscriptionItem.objects.filter(pk=sub.pk).exists()
     # update_on should advance (org still has a sub)
     org.refresh_from_db()
     assert org.update_on == (today - timedelta(1)) + relativedelta(months=1)
@@ -124,18 +174,18 @@ def test_restore_organization_annual_sub_deleted_after_cancel_at(
 
     # Annual sub cancelled and cancel_at is in the past
     past_cancel_at = today - timedelta(days=1)
-    sub = SubscriptionFactory(
+    sub = SubscriptionItemFactory(
         plan=organization_plan,
-        cancelled=True,
-        cancel_at=past_cancel_at,
-        organization__update_on=today - timedelta(1),
+        subscription__cancelled=True,
+        subscription__cancel_at=past_cancel_at,
+        subscription__organization__update_on=today - timedelta(1),
     )
     org = sub.organization
 
     tasks.restore_organization()
 
     # Sub should be deleted — cancel_at has passed
-    assert not Subscription.objects.filter(pk=sub.pk).exists()
+    assert not SubscriptionItem.objects.filter(pk=sub.pk).exists()
     # org lost its last sub, so update_on clears
     org.refresh_from_db()
     assert org.update_on is None
@@ -202,7 +252,7 @@ class TestRestoreOrganizationGrants:
             verified_journalist=True,
             update_on=date(2026, 7, 1),
         )
-        SubscriptionFactory(organization=org)
+        SubscriptionItemFactory(subscription__organization=org)
         EntitlementGrantFactory(require_verified=True)
 
         tasks.restore_organization()
@@ -661,7 +711,7 @@ def test_handle_invoice_failed(organization_factory, user_factory, mailoutbox):
 def test_handle_invoice_failed_attempt_4_subscription_cancelled(
     organization_factory,
     user_factory,
-    subscription_factory,
+    subscription_item_factory,
     plan_factory,
     mailoutbox,
     mocker,
@@ -675,8 +725,10 @@ def test_handle_invoice_failed_attempt_4_subscription_cancelled(
     )
     plan = plan_factory()
     stripe_sub_id = "sub_cancel123"
-    subscription_factory(
-        organization=organization, plan=plan, subscription_id=stripe_sub_id
+    subscription_item_factory(
+        subscription__organization=organization,
+        plan=plan,
+        subscription__subscription_id=stripe_sub_id,
     )
 
     # Mock subscription_cancelled at the class level
@@ -706,7 +758,7 @@ def test_handle_invoice_failed_attempt_4_subscription_cancelled(
 
 @pytest.mark.django_db()
 def test_handle_invoice_failed_subscription_cancel_error(
-    organization_factory, user_factory, subscription_factory, plan_factory, mocker
+    organization_factory, user_factory, subscription_item_factory, plan_factory, mocker
 ):
     """Test that error is raised if subscription_cancelled raises error"""
     user = user_factory()
@@ -717,8 +769,10 @@ def test_handle_invoice_failed_subscription_cancel_error(
     )
     plan = plan_factory()
     stripe_sub_id = "sub_cancel_err123"
-    subscription_factory(
-        organization=organization, plan=plan, subscription_id=stripe_sub_id
+    subscription_item_factory(
+        subscription__organization=organization,
+        plan=plan,
+        subscription__subscription_id=stripe_sub_id,
     )
 
     # Mock subscription_cancelled to raise an error at class level
@@ -808,12 +862,13 @@ class TestHandleInvoiceCreated:
     """Unit tests for the handle_invoice_created task"""
 
     @pytest.mark.django_db(transaction=True)
-    def test_creates_invoice(self, organization_factory, subscription_factory):
+    def test_creates_invoice(self, organization_factory, subscription_item_factory):
         timestamp = timezone.now().replace(microsecond=0)
         due_timestamp = (timestamp + timedelta(days=30)).replace(microsecond=0)
         organization = organization_factory(customer__customer_id="cus_123")
-        subscription = subscription_factory(
-            organization=organization, subscription_id="sub_123"
+        subscription = subscription_item_factory(
+            subscription__organization=organization,
+            subscription__subscription_id="sub_123",
         )
 
         invoice_data = {
@@ -833,7 +888,7 @@ class TestHandleInvoiceCreated:
 
         invoice = Invoice.objects.get(invoice_id="in_123")
         assert invoice.organization == organization
-        assert invoice.subscription == subscription
+        assert invoice.subscription == subscription.subscription
         assert invoice.amount == 10000
         assert invoice.status == "draft"
 
@@ -904,16 +959,19 @@ class TestHandleInvoiceCreated:
         assert not Invoice.objects.filter(invoice_id="in_quote").exists()
 
     @pytest.mark.django_db(transaction=True)
-    def test_updates_existing_invoice(self, organization_factory, subscription_factory):
+    def test_updates_existing_invoice(
+        self, organization_factory, subscription_item_factory
+    ):
         timestamp = timezone.now().replace(microsecond=0)
         organization = organization_factory(customer__customer_id="cus_123")
-        subscription = subscription_factory(
-            organization=organization, subscription_id="sub_123"
+        subscription = subscription_item_factory(
+            subscription__organization=organization,
+            subscription__subscription_id="sub_123",
         )
         existing_invoice = InvoiceFactory(
             invoice_id="in_123",
             organization=organization,
-            subscription=subscription,
+            subscription=subscription.subscription,
             amount=5000,
         )
 
@@ -1298,14 +1356,14 @@ class TestCheckOverdueInvoices:
     @pytest.mark.django_db(transaction=True)
     @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=30)
     def test_cancels_at_grace_period_threshold(
-        self, invoice_factory, organization_factory, subscription_factory, mocker
+        self, invoice_factory, organization_factory, subscription_item_factory, mocker
     ):
         """Invoice exactly at grace period threshold should cancel subscription"""
         org = organization_factory()
-        subscription = subscription_factory(organization=org)
+        subscription = subscription_item_factory(subscription__organization=org)
         invoice = invoice_factory(
             organization=org,
-            subscription=subscription,
+            subscription=subscription.subscription,
             status="open",
             due_date=date.today() - timedelta(days=30),
         )
@@ -1331,15 +1389,15 @@ class TestCheckOverdueInvoices:
     @pytest.mark.django_db(transaction=True)
     @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=30)
     def test_does_not_resend_email_if_payment_failed_already_set(
-        self, invoice_factory, organization_factory, subscription_factory, mocker
+        self, invoice_factory, organization_factory, subscription_item_factory, mocker
     ):
         """Should not resend overdue email if payment_failed flag is already
         set (still cancels at threshold)"""
         org = organization_factory(payment_failed=True)
-        subscription = subscription_factory(organization=org)
+        subscription = subscription_item_factory(subscription__organization=org)
         invoice = invoice_factory(
             organization=org,
-            subscription=subscription,
+            subscription=subscription.subscription,
             status="open",
             due_date=date.today() - timedelta(days=30),
         )
@@ -1357,14 +1415,14 @@ class TestCheckOverdueInvoices:
     @pytest.mark.django_db(transaction=True)
     @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=30)
     def test_cancels_subscription_past_grace_period(
-        self, invoice_factory, organization_factory, subscription_factory, mocker
+        self, invoice_factory, organization_factory, subscription_item_factory, mocker
     ):
         """Invoice past grace period should cancel subscription"""
         org = organization_factory()
-        subscription = subscription_factory(organization=org)
+        subscription = subscription_item_factory(subscription__organization=org)
         invoice = invoice_factory(
             organization=org,
-            subscription=subscription,
+            subscription=subscription.subscription,
             status="open",
             due_date=date.today() - timedelta(days=35),
         )
@@ -1396,14 +1454,14 @@ class TestCheckOverdueInvoices:
     @pytest.mark.django_db(transaction=True)
     @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=30)
     def test_handles_stripe_error_when_marking_uncollectible(
-        self, invoice_factory, organization_factory, subscription_factory, mocker
+        self, invoice_factory, organization_factory, subscription_item_factory, mocker
     ):
         """Should handle Stripe errors gracefully when marking uncollectible"""
         org = organization_factory()
-        subscription = subscription_factory(organization=org)
+        subscription = subscription_item_factory(subscription__organization=org)
         invoice = invoice_factory(
             organization=org,
-            subscription=subscription,
+            subscription=subscription.subscription,
             status="open",
             due_date=date.today() - timedelta(days=35),
         )
@@ -1458,11 +1516,11 @@ class TestCheckOverdueInvoices:
     @pytest.mark.django_db(transaction=True)
     @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=30)
     def test_does_not_cancel_org_subscription_when_invoice_has_none(
-        self, invoice_factory, organization_factory, subscription_factory, mocker
+        self, invoice_factory, organization_factory, subscription_item_factory, mocker
     ):
         """Invoice with no subscription should not cancel the org's subscription"""
         org = organization_factory()
-        org_subscription = subscription_factory(organization=org)
+        org_subscription = subscription_item_factory(subscription__organization=org)
         invoice = invoice_factory(
             organization=org,
             subscription=None,
@@ -1485,20 +1543,22 @@ class TestCheckOverdueInvoices:
         mock_subscription_cancelled.assert_not_called()
 
         # Org's subscription should still exist
-        assert Subscription.objects.filter(pk=org_subscription.pk).exists()
+        assert SubscriptionItem.objects.filter(pk=org_subscription.pk).exists()
 
     @pytest.mark.django_db(transaction=True)
     @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=30)
     def test_cancels_invoice_subscription_not_org_subscription(
-        self, invoice_factory, organization_factory, subscription_factory, mocker
+        self, invoice_factory, organization_factory, subscription_item_factory, mocker
     ):
         """Should cancel the invoice's subscription, not the org's current one"""
         org = organization_factory()
-        org_subscription = subscription_factory(organization=org)
-        invoice_subscription = subscription_factory(organization=org)
+        org_subscription = subscription_item_factory(subscription__organization=org)
+        invoice_subscription = subscription_item_factory(
+            subscription__organization=org, subscription__interval="annual"
+        )
         invoice = invoice_factory(
             organization=org,
-            subscription=invoice_subscription,
+            subscription=invoice_subscription.subscription,
             status="open",
             due_date=date.today() - timedelta(days=35),
         )
@@ -1518,10 +1578,10 @@ class TestCheckOverdueInvoices:
         tasks.process_overdue_invoice(invoice.id)
 
         # The invoice's subscription should be deleted
-        assert not Subscription.objects.filter(pk=invoice_subscription.pk).exists()
+        assert not SubscriptionItem.objects.filter(pk=invoice_subscription.pk).exists()
 
         # The org's other subscription should still exist
-        assert Subscription.objects.filter(pk=org_subscription.pk).exists()
+        assert SubscriptionItem.objects.filter(pk=org_subscription.pk).exists()
 
     @pytest.mark.django_db
     @override_settings(OVERDUE_INVOICE_GRACE_PERIOD_DAYS=45)
@@ -2169,23 +2229,28 @@ class TestSubscriptionCancelledWithExplicitSubscription:
 
     @pytest.mark.django_db
     def test_with_explicit_sub_cancels_only_that_sub(
-        self, organization_factory, plan_factory, subscription_factory
+        self, organization_factory, plan_factory, subscription_item_factory
     ):
         """Org with two subscriptions: cancelling one leaves the other."""
         org = organization_factory()
         plan_a = plan_factory()
         plan_b = plan_factory()
-        sub_a = subscription_factory(organization=org, plan=plan_a)
-        sub_b = subscription_factory(organization=org, plan=plan_b)
+        # Different billing shapes, so these are two Stripe subscriptions
+        sub_a = subscription_item_factory(subscription__organization=org, plan=plan_a)
+        sub_b = subscription_item_factory(
+            subscription__organization=org,
+            plan=plan_b,
+            subscription__interval="annual",
+        )
 
-        org.subscription_cancelled(subscription=sub_a)
+        org.subscription_cancelled(subscription=sub_a.subscription)
 
-        assert not Subscription.objects.filter(pk=sub_a.pk).exists()
-        assert Subscription.objects.filter(pk=sub_b.pk).exists()
+        assert not SubscriptionItem.objects.filter(pk=sub_a.pk).exists()
+        assert SubscriptionItem.objects.filter(pk=sub_b.pk).exists()
 
     @pytest.mark.django_db
     def test_handle_invoice_failed_passes_subscription(
-        self, organization_factory, plan_factory, subscription_factory, mocker
+        self, organization_factory, plan_factory, subscription_item_factory, mocker
     ):
         """handle_invoice_failed passes the matching subscription to
         subscription_cancelled on 4th failure."""
@@ -2193,7 +2258,11 @@ class TestSubscriptionCancelledWithExplicitSubscription:
         org = organization_factory(customer__customer_id=customer_id)
         plan = plan_factory()
         stripe_sub_id = "sub_test123"
-        subscription_factory(organization=org, plan=plan, subscription_id=stripe_sub_id)
+        subscription_item_factory(
+            subscription__organization=org,
+            plan=plan,
+            subscription__subscription_id=stripe_sub_id,
+        )
 
         mocked_cancel = mocker.patch(
             "squarelet.organizations.models.organization."
@@ -2601,7 +2670,7 @@ class TestHandleSubscriptionUpdated:
             {"id": "sub_upd_cancel", "status": "canceled"}
         )
 
-        assert not Subscription.objects.filter(pk=subscription.pk).exists()
+        assert not SubscriptionItem.objects.filter(pk=subscription.pk).exists()
         patched.assert_called_once_with("organization", [org_uuid])
 
     @pytest.mark.django_db
@@ -2626,7 +2695,7 @@ class TestHandleSubscriptionDeleted:
 
         tasks.handle_subscription_deleted({"id": "sub_del", "status": "canceled"})
 
-        assert not Subscription.objects.filter(pk=subscription.pk).exists()
+        assert not SubscriptionItem.objects.filter(pk=subscription.pk).exists()
         patched.assert_called_once_with("organization", [org_uuid])
 
     @pytest.mark.django_db
