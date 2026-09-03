@@ -193,9 +193,7 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         context["current_plan_card_last4"] = customer.payment_last4
 
         # Consolidated benefits from each non-individual org the user belongs to
-        # that has its own paid plan. Plans the org inherits from parents/groups
-        # are intentionally excluded here -- those are an org-level concept and
-        # confuse users when surfaced on their personal page.
+        # that has its own paid plan.
         inherited_orgs, inherited_benefits = consolidate_inherited_benefits(
             self._get_premium_org_plans(user)
         )
@@ -208,16 +206,25 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
 
     @staticmethod
     def _get_premium_org_plans(user):
-        """Return [(org, plan), ...] for non-individual orgs the user belongs to
-        that have their own paid plan. Fed to `consolidate_inherited_benefits`,
-        since from the user's perspective these benefits are inherited via
-        membership."""
-        return [
-            (org, sub.plan)
-            for org in user.organizations.filter(individual=False)
-            for sub in org.subscriptions.select_related("plan")
-            if not sub.plan.free
-        ]
+        """Return [(org, plan), ...] for non-individual orgs the user belongs
+        to that have their own paid plan, or that inherit one via a
+        resource-sharing group or parent org. Fed to
+        `consolidate_inherited_benefits`, since from the user's perspective
+        these benefits are inherited via membership.
+
+        Plans inherited through a group/parent are attributed to the org the
+        user directly belongs to, not the group -- the user has no direct
+        relationship to the group, so showing it here would misrepresent
+        their membership."""
+        plans = []
+        for org in user.organizations.filter(individual=False):
+            plans.extend(
+                (org, sub.plan)
+                for sub in org.subscriptions.select_related("plan")
+                if not sub.plan.free
+            )
+            plans.extend((org, plan) for _source, plan in org.get_inherited_plans())
+        return plans
 
     def get_recovery_codes(self):
         "Get unused recovery codes"

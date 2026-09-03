@@ -200,6 +200,53 @@ class TestUserDetailView(ViewTestMixin):
         assert response.context_data["inherited_orgs"] == [org]
         assert response.context_data["inherited_benefits"] == ["Org benefit"]
 
+    def test_inherited_benefits_include_org_group_benefits(
+        self, rf, user_factory, organization_factory, plan_factory
+    ):
+        """An org's own benefits from its resource-sharing group are folded
+        into the user's inherited benefits, attributed to the org the user
+        actually belongs to -- not the group, which the user has no direct
+        relationship to and shouldn't be shown as though they did."""
+        user = user_factory()
+        group_plan = plan_factory(
+            name="Group Plan", benefits=["Group benefit"], base_price=100
+        )
+        group = organization_factory(name="Group Org", plans=[group_plan])
+        org = organization_factory(name="News Co", users=[user])
+        group.members.add(org)
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.status_code == 200
+        assert response.context_data["inherited_orgs"] == [org]
+        assert response.context_data["inherited_benefits"] == ["Group benefit"]
+
+    def test_inherited_benefits_combine_org_and_group_plans(
+        self, rf, user_factory, organization_factory, plan_factory
+    ):
+        """An org's own paid plan and its group's shared plan both contribute
+        to the user's inherited benefits, attributed to the single org the
+        user belongs to."""
+        user = user_factory()
+        org_plan = plan_factory(
+            name="Org Plan", benefits=["Org benefit"], base_price=100
+        )
+        group_plan = plan_factory(
+            name="Group Plan", benefits=["Group benefit"], base_price=100
+        )
+        group = organization_factory(name="Group Org", plans=[group_plan])
+        org = organization_factory(name="News Co", plans=[org_plan], users=[user])
+        group.members.add(org)
+
+        response = self.call_view(rf, user, username=user.username)
+
+        assert response.status_code == 200
+        assert response.context_data["inherited_orgs"] == [org]
+        assert response.context_data["inherited_benefits"] == [
+            "Org benefit",
+            "Group benefit",
+        ]
+
     def test_no_subscription_benefits_without_subscriptions(self, rf, user_factory):
         """A user on the free plan has no consolidated benefits"""
         user = user_factory()
