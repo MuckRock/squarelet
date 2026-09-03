@@ -40,7 +40,11 @@ class Command(BaseCommand):
         dry_run = options["dry_run"]
         org_filter = options["org"]
 
-        qs = Charge.objects.exclude(receipt_pdf="").select_related("organization")
+        qs = (
+            Charge.objects.exclude(receipt_pdf="")
+            .exclude(receipt_pdf=None)
+            .select_related("organization")
+        )
         if org_filter:
             qs = qs.filter(organization__slug=org_filter)
 
