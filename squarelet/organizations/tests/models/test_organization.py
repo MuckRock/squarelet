@@ -7,8 +7,13 @@ import pytest
 import stripe
 
 # Squarelet
-from squarelet.organizations.models import Organization, Subscription
+from squarelet.organizations.models import (
+    Organization,
+    Subscription,
+    consolidate_inherited_benefits,
+)
 from squarelet.organizations.payments.exceptions import SubscriptionError
+from squarelet.organizations.tests.factories import EntitlementFactory
 
 # pylint: disable=too-many-public-methods,too-many-lines,too-many-positional-arguments
 
@@ -989,6 +994,69 @@ class TestOrganization:
 
         result = child.get_inherited_plans()
         assert result == [(shared, paid_plan)]
+
+    # Tests for consolidate_inherited_benefits()
+
+    def test_consolidate_inherited_benefits_empty(self):
+        """No inherited plans yields no orgs and no benefits"""
+        assert consolidate_inherited_benefits([]) == ([], [])
+
+    @pytest.mark.django_db()
+    def test_consolidate_inherited_benefits_dedupes_orgs_and_benefits(
+        self, organization_factory, plan_factory
+    ):
+        """One org contributing two plans appears once; benefits are deduped"""
+        org = organization_factory()
+        plan_a = plan_factory(name="Plan A", benefits=["Shared", "A only"])
+        plan_b = plan_factory(name="Plan B", benefits=["Shared", "B only"])
+
+        orgs, benefits = consolidate_inherited_benefits([(org, plan_a), (org, plan_b)])
+
+        assert orgs == [org]
+        assert benefits == ["Shared", "A only", "B only"]
+
+    @pytest.mark.django_db()
+    def test_consolidate_inherited_benefits_reflects_entitlement_override(
+        self, organization_factory, plan_factory
+    ):
+        """Entitlement benefits override plan benefits in the consolidated list"""
+        org = organization_factory()
+        plan = plan_factory(benefits=["Plan benefit"])
+        plan.entitlements.set([EntitlementFactory(benefits=["Entitlement benefit"])])
+
+        orgs, benefits = consolidate_inherited_benefits([(org, plan)])
+
+        assert orgs == [org]
+        assert benefits == ["Entitlement benefit"]
+
+    @pytest.mark.django_db()
+    def test_consolidate_inherited_benefits_sums_quantities(
+        self, organization_factory, plan_factory
+    ):
+        """Two plans granting the same benefit show the combined quantity"""
+        org = organization_factory()
+        benefits = ["{base_requests} free requests each month"]
+        plan_a = plan_factory(name="Plan A")
+        plan_a.entitlements.set(
+            [
+                EntitlementFactory(
+                    name="A", benefits=benefits, resources={"base_requests": 50}
+                )
+            ]
+        )
+        plan_b = plan_factory(name="Plan B")
+        plan_b.entitlements.set(
+            [
+                EntitlementFactory(
+                    name="B", benefits=benefits, resources={"base_requests": 10}
+                )
+            ]
+        )
+
+        orgs, benefits = consolidate_inherited_benefits([(org, plan_a), (org, plan_b)])
+
+        assert orgs == [org]
+        assert benefits == ["60 free requests each month"]
 
 
 class TestOrganizationWixSyncIntegration:

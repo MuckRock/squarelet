@@ -49,7 +49,12 @@ from allauth.socialaccount.views import ConnectionsView
 from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import new_action
 from squarelet.organizations.forms import InvitationAcceptForm
-from squarelet.organizations.models import Invitation, ReceiptEmail
+from squarelet.organizations.models import (
+    Invitation,
+    ReceiptEmail,
+    consolidate_inherited_benefits,
+    consolidate_plan_benefits,
+)
 from squarelet.organizations.models.payment import Plan
 from squarelet.organizations.views import UpdateSubscription
 from squarelet.payments.views import (
@@ -167,10 +172,19 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         context["has_verified_email"] = user.has_verified_email()
         context["RECOVERY_CODE_COUNT"] = app_settings.RECOVERY_CODE_COUNT
         context["unused_code_count"] = len(self.get_recovery_codes())
-        # Get the current plan and subscription, if any
+        # Get the current plans and subscriptions, if any, along with the
+        # benefits they add up to
         individual_org = user.individual_organization
         upgrade_plan = Plan.objects.filter(slug="professional").first()
-        context["subscriptions"] = individual_org.subscriptions.all()
+        subscriptions = list(
+            individual_org.subscriptions.select_related("plan").prefetch_related(
+                "plan__entitlements"
+            )
+        )
+        context["subscriptions"] = subscriptions
+        context["subscription_benefits"] = consolidate_plan_benefits(
+            sub.plan for sub in subscriptions
+        )
         context["upgrade_plan"] = upgrade_plan
         # Get card for active subscription
         customer = individual_org.customer()
@@ -178,11 +192,13 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         context["current_plan_card_brand"] = customer.payment_brand
         context["current_plan_card_last4"] = customer.payment_last4
 
-        # Cards for each non-individual org the user belongs to that has its own
-        # paid plan. Plans the org inherits from parents/groups are intentionally
-        # excluded here -- those are an org-level concept and confuse users when
-        # surfaced on their personal page.
-        context["premium_org_plans"] = self._get_premium_org_plans(user)
+        # Consolidated benefits from each non-individual org the user belongs to
+        # that has its own paid plan.
+        inherited_orgs, inherited_benefits = consolidate_inherited_benefits(
+            self._get_premium_org_plans(user)
+        )
+        context["inherited_orgs"] = inherited_orgs
+        context["inherited_benefits"] = inherited_benefits
         # Autologin preference form
         context["autologin_form"] = UserAutologinPreferenceForm(instance=user)
         context["may_hijack"] = hijack_by_group(self.request.user, user)
@@ -190,16 +206,25 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
 
     @staticmethod
     def _get_premium_org_plans(user):
-        """Return [(org, plan), ...] for non-individual orgs the user belongs to
-        that have their own paid plan. Shaped to plug straight into the plan
-        card partial's `inherited_plans` arg, since from the user's perspective
-        these benefits are inherited via membership."""
-        return [
-            (org, sub.plan)
-            for org in user.organizations.filter(individual=False)
-            for sub in org.subscriptions.select_related("plan")
-            if not sub.plan.free
-        ]
+        """Return [(org, plan), ...] for non-individual orgs the user belongs
+        to that have their own paid plan, or that inherit one via a
+        resource-sharing group or parent org. Fed to
+        `consolidate_inherited_benefits`, since from the user's perspective
+        these benefits are inherited via membership.
+
+        Plans inherited through a group/parent are attributed to the org the
+        user directly belongs to, not the group -- the user has no direct
+        relationship to the group, so showing it here would misrepresent
+        their membership."""
+        plans = []
+        for org in user.organizations.filter(individual=False):
+            plans.extend(
+                (org, sub.plan)
+                for sub in org.subscriptions.select_related("plan")
+                if not sub.plan.free
+            )
+            plans.extend((org, plan) for _source, plan in org.get_inherited_plans())
+        return plans
 
     def get_recovery_codes(self):
         "Get unused recovery codes"

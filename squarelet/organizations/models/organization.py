@@ -29,7 +29,11 @@ from squarelet.organizations.choices import (
 )
 from squarelet.organizations.models.invitation import Invitation
 from squarelet.organizations.models.membership import Membership
-from squarelet.organizations.models.payment import Charge, ReceiptEmail
+from squarelet.organizations.models.payment import (
+    Charge,
+    ReceiptEmail,
+    consolidate_plan_benefits,
+)
 from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.querysets import OrganizationQuerySet
@@ -999,3 +1003,24 @@ class Organization(AvatarMixin, models.Model):
 
         org.save()
         self.save()
+
+
+def consolidate_inherited_benefits(inherited_plans):
+    """Consolidate ``[(source_org, plan), ...]`` for display.
+
+    Returns ``(orgs, benefits)``: a deduplicated, order-preserving list of the
+    source organizations and the deduplicated union of their plans' effective
+    benefits. Used to render a single inherited benefits card instead of one
+    card per inherited plan.
+
+    Benefits are consolidated by :func:`consolidate_plan_benefits`, the same way
+    a subject's own plans are, so two plans that each grant 50 requests produce a
+    single benefit reading 100 rather than two identical entries.
+    """
+    orgs = []
+    plans = []
+    for org, plan in inherited_plans:
+        if org not in orgs:
+            orgs.append(org)
+        plans.append(plan)
+    return orgs, consolidate_plan_benefits(plans)

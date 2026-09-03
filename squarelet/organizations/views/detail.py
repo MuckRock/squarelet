@@ -19,7 +19,14 @@ from squarelet.core.mixins import AdminLinkMixin
 from squarelet.core.utils import get_redirect_url, is_rate_limited, new_action
 from squarelet.organizations.forms import InvitationAcceptForm
 from squarelet.organizations.mixins import ResolveOrganizationSlugMixin
-from squarelet.organizations.models import Invitation, Membership, Organization, Plan
+from squarelet.organizations.models import (
+    Invitation,
+    Membership,
+    Organization,
+    Plan,
+    consolidate_inherited_benefits,
+    consolidate_plan_benefits,
+)
 from squarelet.organizations.models.invitation import OrganizationInvitation
 from squarelet.organizations.tasks import sync_wix
 
@@ -52,9 +59,17 @@ class Detail(ResolveOrganizationSlugMixin, AdminLinkMixin, DetailView):
             context["users"] = admins
         context["admins"] = admins
 
-        # Get subscriptions, if any
+        # Get subscriptions, if any, along with the benefits they add up to
         upgrade_plan = Plan.objects.get(slug="organization")
-        context["subscriptions"] = org.subscriptions.all()
+        subscriptions = list(
+            org.subscriptions.select_related("plan").prefetch_related(
+                "plan__entitlements"
+            )
+        )
+        context["subscriptions"] = subscriptions
+        context["subscription_benefits"] = consolidate_plan_benefits(
+            sub.plan for sub in subscriptions
+        )
         context["upgrade_plan"] = upgrade_plan
         context["member_count"] = len(users)
         context["admin_count"] = len(admins)
@@ -82,7 +97,11 @@ class Detail(ResolveOrganizationSlugMixin, AdminLinkMixin, DetailView):
             org.subscriptions.filter(plan__wix=True).exists()
             or org.get_wix_plans_from_groups()
         )
-        context["inherited_plans"] = org.get_inherited_plans()
+        inherited_orgs, inherited_benefits = consolidate_inherited_benefits(
+            org.get_inherited_plans()
+        )
+        context["inherited_orgs"] = inherited_orgs
+        context["inherited_benefits"] = inherited_benefits
 
         context.update(self._get_groups_context(user, org))
 
