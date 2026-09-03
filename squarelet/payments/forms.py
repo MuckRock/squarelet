@@ -259,17 +259,50 @@ class PlanPurchaseForm(StripeForm):
         # Add nonprofit plan pricing if available
         data["has_nonprofit_variant"] = False
         if self.plan.is_sunlight_plan:
-            nonprofit_slug = self.plan.nonprofit_variant_slug
-            if nonprofit_slug:
-                try:
-                    nonprofit_plan = Plan.objects.get(slug=nonprofit_slug)
-                    data["nonprofit_base_price"] = nonprofit_plan.base_price
-                    data["nonprofit_price_per_user"] = nonprofit_plan.price_per_user
-                    data["has_nonprofit_variant"] = True
-                except Plan.DoesNotExist:
-                    pass
+            nonprofit_price = self._nonprofit_base_price()
+            if nonprofit_price is not None:
+                data["nonprofit_base_price"] = nonprofit_price
+                data["has_nonprofit_variant"] = True
 
         return data
+
+    def _nonprofit_base_price(self):
+        """What a nonprofit pays for this plan, or None if there is no rate.
+
+        Read from `PlanPrice` so that the figure shown is the one a purchase
+        would actually be sold at - the two resolve the same way, through the
+        canonical plan the sale lands on.  Reading the separate
+        `sunlight-nonprofit-*` `Plan` row instead is what made this a blocker
+        for deleting those rows, and left display and billing free to
+        disagree.
+
+        Falls back to that row while no `PlanPrice` exists, which is the
+        window between this shipping and `consolidate_stripe_products` being
+        run.  Without the fallback the nonprofit discount would simply
+        vanish from the page for the duration.
+        """
+        # Lazy import to avoid a circular import
+        # pylint: disable=import-outside-toplevel
+        # Squarelet
+        from squarelet.organizations.models import PlanPrice, SubscriptionItem
+
+        canonical_plan, standard = SubscriptionItem.objects.resolve_purchase(self.plan)
+        if standard is not None:
+            price = PlanPrice.objects.filter(
+                plan=canonical_plan,
+                interval=standard.interval,
+                label="nonprofit",
+                code="",
+                active=True,
+            ).first()
+            if price is not None:
+                return price.amount_dollars
+
+        nonprofit_slug = self.plan.nonprofit_variant_slug
+        if not nonprofit_slug:
+            return None
+        variant = Plan.objects.filter(slug=nonprofit_slug).first()
+        return variant.base_price if variant is not None else None
 
     def clean_new_organization_name(self):
         """Validate new organization name is provided when creating new org"""

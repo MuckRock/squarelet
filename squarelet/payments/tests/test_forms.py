@@ -475,3 +475,59 @@ class TestPlanPurchaseFormPlanData:
         form = PlanPurchaseForm(plan=None, user=user)
 
         assert not form.get_plan_data()
+
+
+@pytest.mark.django_db()
+class TestNonprofitPriceComesFromPlanPrice:
+    """The figure shown must be the one a purchase is sold at.
+
+    It used to be read off the separate `sunlight-nonprofit-*` `Plan` row,
+    which left display and billing free to disagree and made deleting those
+    rows a breaking change.
+    """
+
+    def _form(self, plan):
+        return PlanPurchaseForm(plan=plan).get_plan_data()
+
+    def test_reads_the_nonprofit_label_off_the_canonical_plan(
+        self, plan_factory, plan_price_factory
+    ):
+        plan = plan_factory(name="Sunlight Essential", slug="sunlight-essential")
+        plan_price_factory(
+            plan=plan, interval="monthly", label="standard", amount=68_000
+        )
+        plan_price_factory(
+            plan=plan, interval="monthly", label="nonprofit", amount=35_000
+        )
+
+        data = self._form(plan)
+
+        assert data["has_nonprofit_variant"]
+        assert data["nonprofit_base_price"] == 350.0
+
+    def test_falls_back_to_the_variant_row_before_prices_exist(self, plan_factory):
+        """The window between this shipping and consolidate being run."""
+        plan = plan_factory(name="Sunlight Essential", slug="sunlight-essential")
+        plan_factory(
+            name="Sunlight Essential Nonprofit",
+            slug="sunlight-nonprofit-essential",
+            base_price=350,
+        )
+
+        data = self._form(plan)
+
+        assert data["has_nonprofit_variant"]
+        assert data["nonprofit_base_price"] == 350
+
+    def test_no_nonprofit_rate_at_all(self, plan_factory):
+        plan = plan_factory(name="Sunlight Essential", slug="sunlight-essential")
+
+        assert not self._form(plan)["has_nonprofit_variant"]
+
+    def test_non_sunlight_plans_have_no_nonprofit_rate(
+        self, plan_factory, plan_price_factory
+    ):
+        plan = plan_factory(name="Organization", slug="organization")
+        plan_price_factory(plan=plan, interval="monthly", label="nonprofit", amount=1)
+
+        assert not self._form(plan)["has_nonprofit_variant"]
