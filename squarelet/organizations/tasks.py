@@ -15,6 +15,7 @@ from random import randint
 # Third Party
 import requests
 import stripe
+from furl import furl
 
 # Squarelet
 from squarelet.core.mail import ORG_TO_ADMINS, send_mail
@@ -222,7 +223,13 @@ def download_receipt_pdf(charge_id, receipt_url):
     charge = Charge.objects.get(pk=charge_id)
     if charge.receipt_pdf:
         return
-    response = requests.get(receipt_url, timeout=30)
+    # Stripe's charge.receipt_url points at the hosted HTML receipt page.
+    # Adding a "pdf" path segment gets the actual PDF rendition of that same
+    # receipt. receipt_url often carries a query string (e.g. "?s=ap"), so
+    # use furl to insert the segment before it rather than string-concatenating.
+    pdf_url = furl(receipt_url)
+    pdf_url.path.segments = pdf_url.path.segments + ["pdf"]
+    response = requests.get(pdf_url.url, timeout=30)
     response.raise_for_status()
     charge.receipt_pdf.save(
         f"{charge.charge_id}.pdf",

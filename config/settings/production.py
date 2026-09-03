@@ -104,6 +104,14 @@ AWS_S3_OBJECT_PARAMETERS = {
 }
 AWS_DEFAULT_ACL = "public-read"
 
+# CloudFront signed URLs for private media (e.g. receipt PDFs), served from
+# the "private/" prefix - see squarelet.core.storage.PrivateMediaStorage.
+# Both must be set (key ID from the CloudFront public key resource, PEM
+# private key contents) or url() silently returns an unsigned link.
+# https://django-storages.readthedocs.io/en/latest/backends/amazon-S3.html#cloudfront-signed-urls-cookies
+AWS_CLOUDFRONT_KEY_ID = env("DJANGO_AWS_CLOUDFRONT_KEY_ID", default="")
+AWS_CLOUDFRONT_KEY = env("DJANGO_AWS_CLOUDFRONT_KEY", default="")
+
 # STATIC
 # ------------------------
 

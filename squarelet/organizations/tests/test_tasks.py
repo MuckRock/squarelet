@@ -371,9 +371,29 @@ class TestDownloadReceiptPdf:
 
         charge.refresh_from_db()
         mocked_get.assert_called_once_with(
-            "https://stripe.com/receipt/test", timeout=30
+            "https://stripe.com/receipt/test/pdf", timeout=30
         )
         assert charge.receipt_pdf.name.startswith("receipts/ch_test_dl")
+
+    @pytest.mark.django_db()
+    def test_downloads_with_query_string_receipt_url(self, charge_factory, mocker):
+        """Inserts the pdf path segment before any query string, e.g. Stripe's
+        real receipt_url of the form ".../CAca...?s=ap"."""
+        charge = charge_factory(charge_id="ch_test_qs")
+        mock_response = mocker.MagicMock()
+        mock_response.content = b"%PDF-1.4 fake pdf content"
+        mocked_get = mocker.patch(
+            "squarelet.organizations.tasks.requests.get",
+            return_value=mock_response,
+        )
+
+        tasks.download_receipt_pdf(
+            charge.pk, "https://pay.stripe.com/receipts/invoices/CAca?s=ap"
+        )
+
+        mocked_get.assert_called_once_with(
+            "https://pay.stripe.com/receipts/invoices/CAca/pdf?s=ap", timeout=30
+        )
 
     @pytest.mark.django_db()
     def test_skips_if_already_downloaded(self, charge_factory, mocker):
