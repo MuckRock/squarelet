@@ -93,11 +93,10 @@ class TestCleanupBadReceiptPdfs:
     def test_continues_past_stripe_error(self, charge_factory, mocker):
         charge = charge_factory(charge_id="ch_stripe_error")
         _save_receipt(charge, b"<!DOCTYPE html><html>not a pdf</html>")
-        mocker.patch(
+        mock_retrieve = mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
-        ).return_value.get_charge_service.return_value.retrieve.side_effect = stripe.InvalidRequestError(
-            "not found", param=None
-        )
+        ).return_value.get_charge_service.return_value.retrieve
+        mock_retrieve.side_effect = stripe.InvalidRequestError("not found", param=None)
         mocked_delay = mocker.patch(
             "squarelet.organizations.management.commands"
             ".cleanup_bad_receipt_pdfs.download_receipt_pdf.delay"
