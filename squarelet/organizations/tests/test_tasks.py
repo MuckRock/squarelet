@@ -394,7 +394,9 @@ class TestDownloadReceiptPdf:
         fully-mocked test would miss."""
         charge = charge_factory(charge_id="ch_test_real")
         mock_response = mocker.MagicMock()
-        mock_response.content = b"<html><body><p>Receipt total: $42.00</p></body></html>"
+        mock_response.content = (
+            b"<html><body><p>Receipt total: $42.00</p></body></html>"
+        )
         mocker.patch(
             "squarelet.organizations.tasks.requests.get",
             return_value=mock_response,
@@ -655,6 +657,8 @@ class TestDownloadReceiptPdf:
 class TestPinImageDimensions:
     """Unit tests for the _pin_image_dimensions HTML preprocessing helper"""
 
+    # pylint:disable=protected-access
+
     def test_overrides_existing_style(self):
         html = b'<img src="x.png" width="57" height="16" style="border: 0;">'
         result = tasks._pin_image_dimensions(html)
@@ -683,9 +687,7 @@ class TestPinImageDimensions:
         box is 10x10 after _pin_image_dimensions - not the native 40x40."""
         buf = BytesIO()
         Image.new("RGB", (40, 40), "red").save(buf, format="PNG")
-        data_uri = "data:image/png;base64," + base64.b64encode(
-            buf.getvalue()
-        ).decode()
+        data_uri = "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
 
         raw_html = f'<img src="{data_uri}" width="10" height="10">'.encode()
         fixed_html = tasks._pin_image_dimensions(raw_html)
