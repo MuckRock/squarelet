@@ -8,6 +8,7 @@ from django.utils.translation import gettext_lazy as _
 
 # Standard Library
 import logging
+import re
 import sys
 from datetime import date, datetime
 from random import randint
@@ -212,6 +213,49 @@ def handle_charge_succeeded(self, charge_data):
         download_receipt_pdf.delay(charge.pk, receipt_url)
 
 
+_IMG_TAG_RE = re.compile(rb"<img\b[^>]*>", re.IGNORECASE)
+_WIDTH_ATTR_RE = re.compile(rb'\bwidth\s*=\s*["\']?(\d+)["\']?', re.IGNORECASE)
+_HEIGHT_ATTR_RE = re.compile(rb'\bheight\s*=\s*["\']?(\d+)["\']?', re.IGNORECASE)
+_STYLE_ATTR_RE = re.compile(rb'\bstyle\s*=\s*"([^"]*)"', re.IGNORECASE)
+
+
+def _pin_image_dimensions(html):
+    """Force every <img>'s rendered size to match its width/height HTML
+    attributes, overriding any conflicting CSS.
+
+    Stripe's receipt-email HTML relies on browsers honoring legacy width/
+    height attributes as sizing hints, and ships high-DPI "@2x" image assets
+    sized for that. WeasyPrint doesn't apply those attributes and instead
+    renders images at native pixel size, making every decorative image
+    (card logos, download icons, the header banner) come out roughly 2x too
+    big. Injecting the attribute values into the style as !important fixes
+    every affected image in one pass rather than special-casing each one.
+    """
+
+    def _pin(match):
+        tag = match.group(0)
+        width = _WIDTH_ATTR_RE.search(tag)
+        height = _HEIGHT_ATTR_RE.search(tag)
+        if not (width and height):
+            return tag
+        size_css = (
+            f"width:{width.group(1).decode()}px !important;"
+            f"height:{height.group(1).decode()}px !important;"
+        ).encode()
+        style = _STYLE_ATTR_RE.search(tag)
+        if style:
+            return (
+                tag[: style.start(1)]
+                + style.group(1)
+                + b";"
+                + size_css
+                + tag[style.end(1) :]
+            )
+        return tag[:-1] + b' style="' + size_css + b'">'
+
+    return _IMG_TAG_RE.sub(_pin, html)
+
+
 @shared_task(
     name="squarelet.organizations.tasks.download_receipt_pdf",
     autoretry_for=(requests.RequestException,),
@@ -233,9 +277,8 @@ def download_receipt_pdf(charge_id, receipt_url):
         return
     response = requests.get(receipt_url, timeout=30)
     response.raise_for_status()
-    pdf_bytes = weasyprint.HTML(
-        string=response.content, base_url=receipt_url
-    ).write_pdf()
+    html = _pin_image_dimensions(response.content)
+    pdf_bytes = weasyprint.HTML(string=html, base_url=receipt_url).write_pdf()
     charge.receipt_pdf.save(
         f"{charge.charge_id}.pdf",
         ContentFile(pdf_bytes),
