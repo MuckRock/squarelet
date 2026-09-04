@@ -6,6 +6,7 @@ Base settings to build other settings files upon.
 from celery.schedules import crontab
 
 # Standard Library
+import ssl
 from datetime import timedelta
 
 # Third Party
@@ -318,6 +319,8 @@ if DEBUG:
 # ------------------------------------------------------------------------------
 INSTALLED_APPS += ["squarelet.taskapp.celery.CeleryAppConfig"]
 # http://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-broker_url
+
+
 CELERY_BROKER_URL = env("REDIS_URL", default="django://")
 BROKER_URL = CELERY_BROKER_URL
 # http://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-result_backend
@@ -325,6 +328,15 @@ if CELERY_BROKER_URL == "django://":
     CELERY_RESULT_BACKEND = "redis://"
 else:
     CELERY_RESULT_BACKEND = CELERY_BROKER_URL
+
+# redis-py used to act more permissively with rediss:// types, but in redis-py 3 this changed
+# Heroku self-signs their certificate, so we get SSL: CERTIFICATE_VERIFY_FAILED
+# According to their developer docs, to deal with this we set ssl_cert_reqs to None.
+# https://devcenter.heroku.com/articles/connecting-heroku-redis#connecting-in-python
+if CELERY_BROKER_URL.startswith("rediss://"):
+    CELERY_BROKER_USE_SSL = {"ssl_cert_reqs": ssl.CERT_NONE}
+    CELERY_REDIS_BACKEND_USE_SSL = {"ssl_cert_reqs": ssl.CERT_NONE}
+
 # http://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-accept_content
 CELERY_ACCEPT_CONTENT = ["json"]
 # http://docs.celeryproject.org/en/latest/userguide/configuration.html#std:setting-task_serializer
