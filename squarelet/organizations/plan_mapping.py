@@ -108,6 +108,74 @@ LEGACY_PLAN_MAP = {
         "nonprofit",
         "",
     ),
+    # --- Per-user plans, which decompose rather than simply repoint --------
+    #
+    # These land on a flat tier price exactly like the rows above; what makes
+    # them different is that the line also carries a block count, so the
+    # migration adds pack lines alongside.  The target here covers the base
+    # only.  See PACK_DECOMPOSITION for the blocks.
+    ("organization-annual", True): ("organization", "annual", "standard", ""),
+    ("sunlight-enterprise-annual", True): (
+        "sunlight-enterprise",
+        "annual",
+        "standard",
+        "",
+    ),
+    # The older, cheaper Sunlight Basic rate, kept for the subscribers who
+    # still hold it.  A permanent grandfather rate is what the subscription
+    # costs rather than a discount that expires, so it is a price with a
+    # `code` and not a coupon.
+    ("sunlight-basic-annual", True): (
+        "sunlight-essential",
+        "annual",
+        "standard",
+        "legacy-basic",
+    ),
+}
+
+# Which packs one resource block becomes, per legacy plan.
+#
+# A block was never a single product's unit: it granted MuckRock requests
+# *and* DocumentCloud credits together.  Packs are sold per product, so how
+# many a block turns into is a per-plan fact and cannot be derived from the
+# block count alone.
+#
+# Sunlight blocks cost two packs' worth ($20/mo, $240/yr) and become two.
+# Organization blocks cost one ($10/mo) and become one: preserving the
+# DocumentCloud half would double what those subscribers pay, and the
+# overage went essentially unused - 37 credits across all twelve affected
+# subscribers for all time, against a 30,000/month grant.  Dropping it is
+# what keeps the bill identical without a coupon or a conversation.
+#
+# Nothing here is trusted on faith: the migration recomputes each
+# subscriber's bill both ways and refuses to touch anyone the arithmetic
+# does not reproduce exactly.
+PACK_DECOMPOSITION = {
+    "organization": ("muckrock-request-pack",),
+    "organization-annual": ("muckrock-request-pack",),
+    # Basic's $120/blk is one annual pack, not the two a standard Essential
+    # block buys - the overage rate is grandfathered along with the base.
+    "sunlight-basic-annual": ("muckrock-request-pack",),
+    "sunlight-essential": ("muckrock-request-pack", "documentcloud-credit-pack"),
+    "sunlight-essential-annual": (
+        "muckrock-request-pack",
+        "documentcloud-credit-pack",
+    ),
+    "sunlight-enhanced": ("muckrock-request-pack", "documentcloud-credit-pack"),
+    "sunlight-enhanced-annual": (
+        "muckrock-request-pack",
+        "documentcloud-credit-pack",
+    ),
+    "sunlight-enterprise-annual": (
+        "muckrock-request-pack",
+        "documentcloud-credit-pack",
+    ),
+    # Nonprofit rows charge half per block, which is one pack rather than
+    # two.  The base is discounted and so is the overage.
+    "sunlight-nonprofit-essential": ("muckrock-request-pack",),
+    "sunlight-nonprofit-essential-annual": ("muckrock-request-pack",),
+    "sunlight-nonprofit-enhanced": ("muckrock-request-pack",),
+    "sunlight-nonprofit-enhanced-annual": ("muckrock-request-pack",),
 }
 
 # Deliberately left alone.  Each needs a decision or an action outside this
