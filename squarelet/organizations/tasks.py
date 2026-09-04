@@ -8,6 +8,7 @@ from django.utils.translation import gettext_lazy as _
 
 # Standard Library
 import logging
+import re
 import sys
 from datetime import date, datetime
 from random import randint
@@ -15,7 +16,7 @@ from random import randint
 # Third Party
 import requests
 import stripe
-from furl import furl
+import weasyprint
 
 # Squarelet
 from squarelet.core.mail import ORG_TO_ADMINS, send_mail
@@ -212,6 +213,49 @@ def handle_charge_succeeded(self, charge_data):
         download_receipt_pdf.delay(charge.pk, receipt_url)
 
 
+_IMG_TAG_RE = re.compile(rb"<img\b[^>]*>", re.IGNORECASE)
+_WIDTH_ATTR_RE = re.compile(rb'\bwidth\s*=\s*["\']?(\d+)["\']?', re.IGNORECASE)
+_HEIGHT_ATTR_RE = re.compile(rb'\bheight\s*=\s*["\']?(\d+)["\']?', re.IGNORECASE)
+_STYLE_ATTR_RE = re.compile(rb'\bstyle\s*=\s*"([^"]*)"', re.IGNORECASE)
+
+
+def _pin_image_dimensions(html):
+    """Force every <img>'s rendered size to match its width/height HTML
+    attributes, overriding any conflicting CSS.
+
+    Stripe's receipt-email HTML relies on browsers honoring legacy width/
+    height attributes as sizing hints, and ships high-DPI "@2x" image assets
+    sized for that. WeasyPrint doesn't apply those attributes and instead
+    renders images at native pixel size, making every decorative image
+    (card logos, download icons, the header banner) come out roughly 2x too
+    big. Injecting the attribute values into the style as !important fixes
+    every affected image in one pass rather than special-casing each one.
+    """
+
+    def _pin(match):
+        tag = match.group(0)
+        width = _WIDTH_ATTR_RE.search(tag)
+        height = _HEIGHT_ATTR_RE.search(tag)
+        if not (width and height):
+            return tag
+        size_css = (
+            f"width:{width.group(1).decode()}px !important;"
+            f"height:{height.group(1).decode()}px !important;"
+        ).encode()
+        style = _STYLE_ATTR_RE.search(tag)
+        if style:
+            return (
+                tag[: style.start(1)]
+                + style.group(1)
+                + b";"
+                + size_css
+                + tag[style.end(1) :]
+            )
+        return tag[:-1] + b' style="' + size_css + b'">'
+
+    return _IMG_TAG_RE.sub(_pin, html)
+
+
 @shared_task(
     name="squarelet.organizations.tasks.download_receipt_pdf",
     autoretry_for=(requests.RequestException,),
@@ -219,21 +263,25 @@ def handle_charge_succeeded(self, charge_data):
     retry_kwargs={"max_retries": 5},
 )
 def download_receipt_pdf(charge_id, receipt_url):
-    """Download a Stripe receipt PDF and attach it to the Charge."""
+    """Download a Stripe receipt and attach it to the Charge as a PDF.
+
+    Stripe's charge.receipt_url is a fully server-rendered, static HTML
+    receipt page (no client-side JS needed for content) - but Stripe only
+    provides an actual PDF rendition for invoice-backed receipts, not for
+    one-off/non-invoice charges. To get a PDF for every charge uniformly,
+    render the same HTML receipt page through WeasyPrint rather than relying
+    on Stripe's (inconsistent) hosted PDF availability.
+    """
     charge = Charge.objects.get(pk=charge_id)
     if charge.receipt_pdf:
         return
-    # Stripe's charge.receipt_url points at the hosted HTML receipt page.
-    # Adding a "pdf" path segment gets the actual PDF rendition of that same
-    # receipt. receipt_url often carries a query string (e.g. "?s=ap"), so
-    # use furl to insert the segment before it rather than string-concatenating.
-    pdf_url = furl(receipt_url)
-    pdf_url.path.segments = pdf_url.path.segments + ["pdf"]
-    response = requests.get(pdf_url.url, timeout=30)
+    response = requests.get(receipt_url, timeout=30)
     response.raise_for_status()
+    html = _pin_image_dimensions(response.content)
+    pdf_bytes = weasyprint.HTML(string=html, base_url=receipt_url).write_pdf()
     charge.receipt_pdf.save(
         f"{charge.charge_id}.pdf",
-        ContentFile(response.content),
+        ContentFile(pdf_bytes),
         save=True,
     )
 
