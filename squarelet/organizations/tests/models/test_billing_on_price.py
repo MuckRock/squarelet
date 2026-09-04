@@ -336,3 +336,61 @@ class TestBillingShapeFollowsThePrice:
         assert item.subscription.interval == "annual"
         assert item.plan == canonical
         assert item.plan_price.stripe_price_id == "price_np_annual"
+
+
+@pytest.mark.django_db()
+class TestStripeItemIdsComeBack:
+    """Stripe's id for each line has to be recorded, or lines duplicate.
+
+    `stripe_items(include_ids=True)` omits the id when it is blank, and a
+    spec with no id is how you ask Stripe to *add* a line.  A line Stripe
+    created for us therefore grows a duplicate on every subsequent modify,
+    and the customer is billed for all of them.
+    """
+
+    def _modify(self, item, mocker, stripe_sub):
+        mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
+        # Caching status and period end is a separate concern, and wants a
+        # richer fake than the item ids do.
+        mocker.patch(
+            "squarelet.organizations.models.Subscription."
+            "cache_stripe_subscription_fields"
+        )
+        svc = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_subscription_service.return_value
+        svc.modify.return_value = stripe_sub
+        item.subscription.stripe_modify()
+
+    def test_the_id_is_recorded_against_the_matching_price(
+        self, subscription_item_factory, plan_price_factory, mocker
+    ):
+        price = plan_price_factory(amount=1_000, stripe_price_id="price_abc")
+        item = subscription_item_factory(
+            plan=price.plan,
+            plan_price=price,
+            subscription__subscription_id="sub_1",
+        )
+
+        self._modify(
+            item,
+            mocker,
+            {"items": {"data": [{"id": "si_xyz", "price": {"id": "price_abc"}}]}},
+        )
+
+        item.refresh_from_db()
+        assert item.stripe_item_id == "si_xyz"
+
+    def test_a_response_without_items_is_survived(
+        self, subscription_item_factory, plan_price_factory, mocker
+    ):
+        """Stripe's shape varies by API version; a miss must not raise."""
+        price = plan_price_factory(amount=1_000, stripe_price_id="price_abc")
+        item = subscription_item_factory(
+            plan=price.plan, plan_price=price, subscription__subscription_id="sub_1"
+        )
+
+        self._modify(item, mocker, {})
+
+        item.refresh_from_db()
+        assert item.stripe_item_id == ""

@@ -439,6 +439,43 @@ class Subscription(models.Model):
             specs.append(spec)
         return specs
 
+    def sync_stripe_item_ids(self, stripe_sub):
+        """Record the Stripe id of each line, matching them up by Price.
+
+        Without this a line that Stripe created for us keeps a blank
+        `stripe_item_id`, so the next `stripe_modify` sends it with no id -
+        and a spec with no id is how you ask Stripe to *add* a line.  The
+        subscription grows a duplicate every time it is modified, and the
+        customer is billed for all of them.
+
+        Matching on the Price id is what makes that safe: a subscription
+        cannot hold the same Price twice, so the correspondence is
+        one-to-one.
+
+        Note `stripe_sub["items"]` rather than `stripe_sub.items` - a
+        StripeObject is dict-like, and `.items` reaches the dict method
+        instead of the field.
+        """
+        try:
+            data = stripe_sub["items"]["data"]
+        except (KeyError, TypeError):
+            return
+
+        by_price = {}
+        for stripe_item in data:
+            price = stripe_item.get("price") or stripe_item.get("plan") or {}
+            price_id = price.get("id") if hasattr(price, "get") else None
+            if price_id:
+                by_price[price_id] = stripe_item["id"]
+
+        for item in self.items.select_related("plan", "plan_price"):
+            if item.is_free:
+                continue
+            item_id = by_price.get(item.stripe_price_id)
+            if item_id and item_id != item.stripe_item_id:
+                item.stripe_item_id = item_id
+                item.save(update_fields=["stripe_item_id"])
+
     def cache_stripe_subscription_fields(self, stripe_sub):
         """Cache subscription status and period end from a Stripe subscription."""
         self.stripe_status = stripe_sub.status or ""
@@ -652,6 +689,7 @@ class Subscription(models.Model):
             self.cancelled = False
             if updated:
                 self.cache_stripe_subscription_fields(updated)
+                self.sync_stripe_item_ids(updated)
             if not self.auto_renew and self.current_period_end:
                 self.cancel_at = self.current_period_end.date()
             else:
