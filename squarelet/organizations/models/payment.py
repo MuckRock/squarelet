@@ -967,51 +967,69 @@ class Plan(models.Model):
         return product.id
 
     def make_stripe_plan(self):
-        """Create the plan on stripe"""
-        if not self.free:
-            try:
-                # set up the pricing for groups and individuals
-                # convert dollar amounts to cents for stripe
-                if self.for_groups:
-                    kwargs = {
-                        "billing_scheme": "tiered",
-                        "tiers": [
-                            {
-                                "flat_amount": 100 * self.base_price,
-                                "up_to": self.minimum_users,
-                            },
-                            {"unit_amount": 100 * self.price_per_user, "up_to": "inf"},
-                        ],
-                        "tiers_mode": "graduated",
-                    }
-                else:
-                    kwargs = {
-                        "billing_scheme": "per_unit",
-                        "amount": 100 * self.base_price,
-                    }
-                get_payment_provider().get_plan_service().create(
-                    plan_id=self.stripe_id,
-                    currency="usd",
-                    interval="year" if self.annual else "month",
-                    product={"name": self.name, "unit_label": "Seats"},
-                    **kwargs,
-                )
-            except stripe.InvalidRequestError:  # pragma: no cover
-                # if the plan already exists, just skip
-                pass
+        """Give a newly created plan a Stripe Product and a list Price.
 
-    def delete_stripe_plan(self):
-        """Remove a stripe plan"""
-        try:
-            plan_service = get_payment_provider().get_plan_service()
-            plan = plan_service.retrieve(self.stripe_id)
-            # We also want to remove the associated product
-            product = plan_service.retrieve_product(plan.product)
-            plan_service.delete(plan)
-            plan_service.delete_product(product)
-        except stripe.InvalidRequestError:
-            # if the plan or product do not exist, just skip
-            pass
+        Replaces the legacy Plan object this used to create.  A Stripe Plan
+        is the old API's combined product-and-price; the model here is one
+        Product per plan with a `PlanPrice` row per `(interval, label,
+        code)`, so a new plan gets its Product and its standard price.
+
+        The row is created whatever the amount.  A free plan simply gets a
+        price of zero and no Stripe Price at all, which is what
+        `ensure_stripe_price` does with a zero amount - and it means every
+        plan has a price to point a subscription at.
+        """
+        if self.price_per_user:
+            # The legacy tiered Price expressed this as a second tier above
+            # `minimum_users`.  A flat Price cannot, and in this model the
+            # blocks above a tier are a usage pack bought alongside it - so
+            # a per-user rate on a new plan is quietly dropped unless
+            # someone is told.
+            logger.warning(
+                "Plan %s was created with price_per_user=%s, which the "
+                "consolidated pricing model does not use - sell the extra "
+                "units as a usage pack instead.",
+                self.slug,
+                self.price_per_user,
+            )
+
+        price, _ = self.prices.get_or_create(
+            interval="annual" if self.annual else "monthly",
+            label="standard",
+            code="",
+            defaults={"amount": 100 * self.base_price, "currency": "usd"},
+        )
+        price.ensure_stripe_price()
+        return price
+
+    def archive_stripe_plan(self):
+        """Deactivate this plan's Stripe Prices, and its Product if empty.
+
+        Not a delete, because Stripe does not offer one for a Price: the
+        object is immutable and permanent once anything could have billed
+        against it.  Deactivating is the whole of what removal means.
+
+        The Product is archived only once no `PlanPrice` rows are left
+        pointing at this plan, so a plan that keeps one variant does not
+        lose the Product the others hang off.
+        """
+        plan_service = get_payment_provider().get_plan_service()
+
+        for price in self.prices.exclude(stripe_price_id=""):
+            try:
+                plan_service.archive_price(price.stripe_price_id)
+            except stripe.InvalidRequestError:  # pragma: no cover
+                # Already gone or already inactive; either way it is not
+                # billing anything, which is the point.
+                pass
+            price.active = False
+            price.save(update_fields=["active"])
+
+        if self.stripe_product_id and not self.prices.exists():
+            try:
+                plan_service.archive_product(self.stripe_product_id)
+            except stripe.InvalidRequestError:  # pragma: no cover
+                pass
 
 
 class PlanPrice(models.Model):

@@ -31,35 +31,110 @@ class TestPlan:
         plan = plan_factory.build()
         assert plan.stripe_id == f"squarelet_plan_{plan.slug}"
 
-    def test_make_stripe_plan_individual(self, professional_plan_factory, mocker):
-        mocked = mocker.patch("stripe.Plan.create")
-        plan = professional_plan_factory.build()
+    @pytest.mark.django_db
+    def test_make_stripe_plan_creates_a_price_row(
+        self, professional_plan_factory, mocker
+    ):
+        """A new plan gets a PlanPrice, not a legacy Stripe Plan object."""
+        mocker.patch(
+            "squarelet.organizations.models.payment.PlanPrice.ensure_stripe_price"
+        )
+        # PlanFactory mutes the post_save signal, so call the method the
+        # signal calls rather than relying on the wiring.
+        plan = professional_plan_factory()
         plan.make_stripe_plan()
-        mocked.assert_called_with(
-            id=plan.stripe_id,
-            currency="usd",
-            interval="month",
-            product={"name": plan.name, "unit_label": "Seats"},
-            billing_scheme="per_unit",
-            amount=100 * plan.base_price,
+
+        price = plan.prices.get()
+
+        assert price.amount == 100 * plan.base_price
+        assert (price.label, price.code, price.interval) == (
+            "standard",
+            "",
+            "monthly",
         )
 
-    def test_make_stripe_plan_group(self, organization_plan_factory, mocker):
-        mocked = mocker.patch("stripe.Plan.create")
-        plan = organization_plan_factory.build()
-        plan.make_stripe_plan()
-        mocked.assert_called_with(
-            id=plan.stripe_id,
-            currency="usd",
-            interval="month",
-            product={"name": plan.name, "unit_label": "Seats"},
-            billing_scheme="tiered",
-            tiers=[
-                {"flat_amount": 100 * plan.base_price, "up_to": plan.minimum_users},
-                {"unit_amount": 100 * plan.price_per_user, "up_to": "inf"},
-            ],
-            tiers_mode="graduated",
+    @pytest.mark.django_db
+    def test_an_annual_plan_gets_an_annual_price(self, plan_factory, mocker):
+        mocker.patch(
+            "squarelet.organizations.models.payment.PlanPrice.ensure_stripe_price"
         )
+        plan = plan_factory(name="Yearly", base_price=120, annual=True)
+        plan.make_stripe_plan()
+
+        assert plan.prices.get().interval == "annual"
+
+    @pytest.mark.django_db
+    def test_a_free_plan_still_gets_a_price(self, plan_factory, mocker):
+        """Zero, and no Stripe Price behind it.
+
+        Every plan having a price is what lets `plan_price` become non-null
+        in step 3d; `ensure_stripe_price` is what declines to create a
+        Stripe object for a zero amount.
+        """
+        ensure = mocker.patch(
+            "squarelet.organizations.models.payment.PlanPrice.ensure_stripe_price"
+        )
+        plan = plan_factory(name="Free Tier", base_price=0, price_per_user=0)
+        plan.make_stripe_plan()
+
+        assert plan.prices.get().amount == 0
+        ensure.assert_called_once()
+
+    @pytest.mark.django_db
+    def test_a_per_user_rate_is_reported(self, organization_plan_factory, mocker):
+        """The consolidated model sells the extra units as a pack instead.
+
+        A flat Price cannot express the second tier the legacy Price used,
+        so dropping the rate silently would be a quiet mispricing.
+        """
+        mocker.patch(
+            "squarelet.organizations.models.payment.PlanPrice.ensure_stripe_price"
+        )
+        warning = mocker.patch("squarelet.organizations.models.payment.logger.warning")
+
+        organization_plan_factory().make_stripe_plan()
+
+        assert warning.called
+
+
+class TestArchivingAPlan:
+    """Stripe has no delete for a Price - only `active: false`."""
+
+    @pytest.mark.django_db
+    def test_archive_stripe_plan_deactivates_the_prices(
+        self, plan_factory, plan_price_factory, mocker
+    ):
+        """Stripe has no delete for a Price - only `active: false`."""
+        service = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_plan_service.return_value
+        plan = plan_factory(name="Retiring", base_price=0)
+        plan.prices.all().delete()
+        price = plan_price_factory(plan=plan, stripe_price_id="price_1")
+
+        plan.archive_stripe_plan()
+
+        service.archive_price.assert_called_once_with("price_1")
+        price.refresh_from_db()
+        assert not price.active
+
+    @pytest.mark.django_db
+    def test_the_product_survives_while_a_price_remains(
+        self, plan_factory, plan_price_factory, mocker
+    ):
+        """Other variants still hang off it."""
+        service = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_plan_service.return_value
+        plan = plan_factory(name="Still Priced", base_price=0)
+        plan.prices.all().delete()
+        plan.stripe_product_id = "prod_1"
+        plan.save()
+        plan_price_factory(plan=plan, stripe_price_id="price_1")
+
+        plan.archive_stripe_plan()
+
+        service.archive_product.assert_not_called()
 
     @pytest.mark.django_db
     def test_has_available_slots_non_sunlight_plan(self, plan_factory):
