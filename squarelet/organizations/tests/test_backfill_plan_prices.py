@@ -15,6 +15,9 @@ from squarelet.organizations.management.commands.backfill_plan_prices import (
     PACK_DECOMPOSITION,
     PACK_SLUGS,
 )
+from squarelet.organizations.management.commands.consolidate_stripe_products import (
+    PRICE_MATRIX,
+)
 from squarelet.organizations.models import Plan, SubscriptionItem
 from squarelet.organizations.tests.factories import (
     OrganizationFactory,
@@ -454,14 +457,26 @@ class TestDecomposition:
             subscription=item.subscription, plan__slug__in=PACK_SLUGS
         ).exists()
 
-    def test_sunlight_blocks_become_two_packs(self):
-        """A Sunlight block costs two packs' worth and buys both products.
+    def test_only_the_plans_with_real_block_holders_are_listed(self):
+        """Twelve organizations hold blocks and all are on an Org plan.
 
-        Organization blocks are the exception, not the rule - they cost one
-        pack and give up the DocumentCloud half.
+        Nobody can join them - the purchase flow hardcodes `minimum_users`,
+        so self-service cannot sell a block.  Listing the Sunlight tiers
+        too would be a guess nothing exercises, and the preflight refuses
+        to run if one ever does turn up.
         """
-        assert len(PACK_DECOMPOSITION["sunlight-essential-annual"]) == 2
-        assert PACK_DECOMPOSITION["organization"] == ("muckrock-request-pack",)
+        assert set(PACK_DECOMPOSITION) == {"organization", "organization-annual"}
+
+    def test_an_unlisted_plan_with_block_holders_aborts(self):
+        actor = UserFactory()
+        SubscriptionItemFactory(
+            plan=legacy("professional", minimum_users=5, price_per_user=10),
+            subscription__subscription_id="sub_live",
+            quantity=30,
+        )
+
+        with pytest.raises(CommandError, match="PACK_DECOMPOSITION"):
+            run(actor=actor.username)
 
 
 @pytest.mark.django_db()
@@ -634,3 +649,62 @@ class TestRerunning:
         item.refresh_from_db()
         assert item.plan_price is not None
         assert item.quantity == 1
+
+
+# The twelve organizations holding blocks over their minimum in production,
+# as of Sep 2026.  Nobody can join them: the purchase flow hardcodes
+# `minimum_users`, so self-service cannot sell a block.
+PROD_BLOCK_HOLDERS = [
+    ("organization", 7),  # FinePrint Media
+    ("organization", 6),  # FIRE
+    ("organization", 10),  # Armada Analytics
+    ("organization", 11),  # Undark
+    ("organization", 6),  # Everytown For Gun Safety
+    ("organization", 15),  # Electronic Frontier Foundation
+    ("organization", 15),  # Wired.com
+    ("organization", 7),  # The Examination
+    ("organization", 8),  # The Trace
+    ("organization", 18),  # Transparency Project
+    ("organization-annual", 10),  # BitSight
+    ("organization-annual", 7),  # Nieman Foundation
+]
+
+# What the legacy plans charge, from the plan inventory.
+LEGACY_RATES = {
+    "organization": {"base_price": 100, "minimum_users": 5, "price_per_user": 10},
+    "organization-annual": {
+        "base_price": 1_200,
+        "minimum_users": 5,
+        "price_per_user": 120,
+    },
+}
+
+
+class TestTheRealSubscribersReconcile:
+    """Every production block-holder comes out at the same money.
+
+    The command refuses a subscriber whose bill would change, so this is
+    what stands between the price matrix and a run that migrates nobody.
+    Cheaper to find here than in a dry run against production.
+    """
+
+    @pytest.mark.parametrize(("slug", "quantity"), PROD_BLOCK_HOLDERS)
+    def test_bill_is_unchanged(self, slug, quantity):
+        rates = LEGACY_RATES[slug]
+        interval = "annual" if slug.endswith("-annual") else "monthly"
+        amounts = {
+            (plan_slug, plan_interval): cents
+            for plan_slug, plan_interval, label, code, cents in PRICE_MATRIX
+            if label == "standard" and code == ""
+        }
+
+        blocks = quantity - rates["minimum_users"]
+        old = 100 * (rates["base_price"] + blocks * rates["price_per_user"])
+        new = amounts[("organization", interval)] + blocks * sum(
+            amounts[(pack, interval)] for pack in PACK_DECOMPOSITION[slug]
+        )
+
+        assert new == old, (
+            f"{slug} at {quantity} blocks bills ${old / 100:,.2f} today and "
+            f"${new / 100:,.2f} after"
+        )
