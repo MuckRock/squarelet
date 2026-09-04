@@ -349,6 +349,12 @@ class StripeModernPlanService(PlanService):
                 return price
         return None
 
+    def archive_price(self, price_id):
+        return stripe.Price.modify(price_id, active=False)
+
+    def archive_product(self, product_id):
+        return stripe.Product.modify(product_id, active=False)
+
     def create_price(self, product_id, unit_amount, currency, interval, **kwargs):
         try:
             recurring = {"interval": self.STRIPE_INTERVALS[interval]}
