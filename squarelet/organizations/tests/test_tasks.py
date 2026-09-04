@@ -5,14 +5,18 @@ from django.utils import timezone
 from django.utils.timezone import get_current_timezone
 
 # Standard Library
+import base64
 from datetime import date, datetime, timedelta
+from io import BytesIO
 
 # Third Party
 import pytest
 import requests
 import stripe
+import weasyprint
 from dateutil.relativedelta import relativedelta
 from freezegun import freeze_time
+from PIL import Image
 
 # Squarelet
 from squarelet.organizations import tasks
@@ -378,6 +382,7 @@ class TestDownloadReceiptPdf:
         mock_html.assert_called_once_with(
             string=mock_response.content, base_url="https://stripe.com/receipt/test"
         )
+        mock_html.return_value.write_pdf.assert_called_once_with()
         assert charge.receipt_pdf.name.startswith("receipts/ch_test_dl")
         with charge.receipt_pdf.open("rb") as f:
             assert f.read() == b"%PDF-1.4 fake pdf content"
@@ -645,6 +650,62 @@ class TestDownloadReceiptPdf:
 
         assert Charge.objects.filter(charge_id=charge_data["id"]).count() == 0
         mocked_log.assert_called_once()
+
+
+class TestPinImageDimensions:
+    """Unit tests for the _pin_image_dimensions HTML preprocessing helper"""
+
+    def test_overrides_existing_style(self):
+        html = b'<img src="x.png" width="57" height="16" style="border: 0;">'
+        result = tasks._pin_image_dimensions(html)
+        assert b"border: 0;" in result
+        assert b"width:57px !important;" in result
+        assert b"height:16px !important;" in result
+
+    def test_adds_style_when_missing(self):
+        html = b'<img src="x.png" width="12" height="12">'
+        result = tasks._pin_image_dimensions(html)
+        assert b'style="width:12px !important;height:12px !important;"' in result
+
+    def test_leaves_tag_unchanged_without_both_attrs(self):
+        html = b'<img src="x.png" width="12">'
+        assert tasks._pin_image_dimensions(html) == html
+
+    def test_leaves_non_image_content_unchanged(self):
+        html = b"<p>no images here</p>"
+        assert tasks._pin_image_dimensions(html) == html
+
+    def test_forces_oversized_image_to_declared_size(self):
+        """Regression test for the actual bug: WeasyPrint ignores width/
+        height HTML attributes and renders <img> at native pixel size. Build
+        a real 40x40 PNG, embed it via a data: URI (no network needed),
+        declare it as 10x10 via HTML attributes, and confirm the rendered
+        box is 10x10 after _pin_image_dimensions - not the native 40x40."""
+        buf = BytesIO()
+        Image.new("RGB", (40, 40), "red").save(buf, format="PNG")
+        data_uri = "data:image/png;base64," + base64.b64encode(
+            buf.getvalue()
+        ).decode()
+
+        raw_html = f'<img src="{data_uri}" width="10" height="10">'.encode()
+        fixed_html = tasks._pin_image_dimensions(raw_html)
+
+        page_box = weasyprint.HTML(string=fixed_html).render().pages[0]._page_box
+        img_box = _find_replaced_box(page_box)
+        assert img_box is not None
+        assert (img_box.width, img_box.height) == (10, 10)
+
+
+def _find_replaced_box(box):
+    """Depth-first search for the first image (ReplacedBox) in a WeasyPrint
+    box tree, for tests that need to assert actual rendered image size."""
+    if type(box).__name__ == "InlineReplacedBox":
+        return box
+    for child in getattr(box, "children", None) or []:
+        found = _find_replaced_box(child)
+        if found is not None:
+            return found
+    return None
 
 
 @pytest.mark.django_db()
