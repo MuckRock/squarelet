@@ -34,3 +34,40 @@ def grants_old(resources, quantity):
         * resources.get(f"{base_key[len(BASE_PREFIX):]}{PER_USER_SUFFIX}", 0)
         for base_key in base_keys(resources)
     }
+
+
+def grants_new(resources, quantity):
+    """What the clients grant once they switch: `base * quantity`."""
+    return {
+        base_key: resources[base_key] * quantity for base_key in base_keys(resources)
+    }
+
+
+def grant_old(resources, quantity):
+    """`grants_old` totalled, for an entitlement with one key."""
+    return sum(grants_old(resources, quantity).values())
+
+
+def grant_new(resources, quantity):
+    """`grants_new` totalled, for an entitlement with one key."""
+    return sum(grants_new(resources, quantity).values())
+
+
+def reshape(resources, *, is_pack):
+    """The shape in which both formulas give the same number.
+
+    `minimum_users = 1` and `per_user = base` make `base + max(q - 1, 0) * base`
+    equal `base * q` for every q >= 1.  A pack's value lives in `per_user` with
+    `base` at zero, so it moves the other way; the tier transform would zero it.
+    """
+    new = dict(resources)
+    pairs = scaling_pairs(resources)
+    if not pairs:
+        return new
+    for per_user_key, base_key in pairs:
+        if is_pack:
+            new[base_key] = resources[per_user_key]
+        else:
+            new[per_user_key] = resources[base_key]
+    new["minimum_users"] = 1
+    return new
