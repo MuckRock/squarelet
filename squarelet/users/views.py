@@ -51,7 +51,6 @@ from squarelet.core.utils import new_action
 from squarelet.organizations.forms import InvitationAcceptForm
 from squarelet.organizations.models import Invitation, ReceiptEmail
 from squarelet.organizations.models.payment import Plan
-from squarelet.organizations.views import UpdateSubscription
 from squarelet.payments.views import (
     BaseCancelSubscription,
     BaseManageSubscriptions,
@@ -578,15 +577,6 @@ class Receipts(LoginRequiredMixin, StaffAccessMixin, TemplateView):
             memberships__admin=True
         ).prefetch_related("charges")
         return context
-
-
-class UserPaymentView(LoginRequiredMixin, StaffAccessMixin, UpdateSubscription):
-    """UpdateSubscription with staff access control"""
-
-    def get_object(self, queryset=None):
-        username = self.kwargs.get("username")
-        target_user = User.objects.get(username=username)
-        return target_user.individual_organization
 
 
 class BaseUserInvitationRequestView(LoginRequiredMixin, StaffAccessMixin, ListView):

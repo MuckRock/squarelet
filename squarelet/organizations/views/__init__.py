@@ -23,7 +23,6 @@ from .subscription import (
     Resubscribe,
     UpdateCard,
     UpdateReceiptEmail,
-    UpdateSubscription,
     stripe_webhook,
 )
 
@@ -34,7 +33,6 @@ __all__ = [
     "autocomplete",
     # Subscription views
     "ManageSubscriptions",
-    "UpdateSubscription",
     "Resubscribe",
     "UpdateCard",
     "RemoveCard",

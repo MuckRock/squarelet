@@ -1,21 +1,18 @@
 # Django
 from django.conf import settings
-from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin, UserPassesTestMixin
 from django.http.response import (
     HttpResponse,
     HttpResponseBadRequest,
     HttpResponseNotAllowed,
     HttpResponseRedirect,
-    JsonResponse,
 )
-from django.shortcuts import redirect
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.csrf import csrf_exempt
-from django.views.generic import DetailView, UpdateView
+from django.views.generic import DetailView
 
 # Standard Library
 import json
@@ -28,16 +25,9 @@ import stripe
 from django_weasyprint import WeasyTemplateResponseMixin
 
 # Squarelet
-from squarelet.core.utils import (
-    format_stripe_error,
-    get_stripe_dashboard_url,
-    new_action,
-)
-from squarelet.organizations.forms import PaymentForm
+from squarelet.core.utils import get_stripe_dashboard_url
 from squarelet.organizations.mixins import OrganizationPermissionMixin
-from squarelet.organizations.models import Charge, Organization, ReceiptEmail
-from squarelet.organizations.payments.base import PaymentActionRequired
-from squarelet.organizations.payments.exceptions import SubscriptionError
+from squarelet.organizations.models import Charge
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.tasks import (
     handle_charge_succeeded,
@@ -66,128 +56,6 @@ from squarelet.payments.views import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-class UpdateSubscription(OrganizationPermissionMixin, UpdateView):
-    permission_required = "organizations.can_edit_subscription"
-    queryset = Organization.objects.filter(individual=False)
-    form_class = PaymentForm
-    template_name = "organizations/organization_payment.html"
-
-    def _is_ajax(self):
-        return self.request.headers.get("X-Requested-With") == "XMLHttpRequest"
-
-    def _apply_subscription_change(self, organization, current_plan, user, form):
-        """Dispatch add/remove/modify based on current vs new plan."""
-        token = form.cleaned_data["stripe_token"]
-        new_plan = form.cleaned_data.get("plan")
-        max_users = form.cleaned_data.get("max_users")
-
-        if not current_plan and new_plan:
-            organization.add_subscription(new_plan, max_users, user, token=token)
-        elif current_plan and not new_plan:
-            organization.remove_subscription(current_plan, user)
-        elif current_plan and new_plan:
-            if token:
-                organization.save_card(token, user)
-            organization.modify_subscription(current_plan, new_plan, max_users, user)
-
-    def form_valid(self, form):
-        # pylint: disable=too-many-return-statements
-        organization = self.object
-        user = self.request.user
-        current_plan = organization.plans.first()
-        redirect_url = organization.get_absolute_url()
-        try:
-            self._apply_subscription_change(organization, current_plan, user, form)
-        except PaymentActionRequired as exc:
-            if self._is_ajax():
-                return JsonResponse(
-                    {
-                        "client_secret": exc.client_secret,
-                        "payment_intent_id": exc.payment_intent_id,
-                        "redirect": redirect_url,
-                    },
-                    status=402,
-                )
-            messages.error(
-                self.request,
-                _("Your card requires additional authentication. Please try again."),
-            )
-            return redirect(organization)
-        except SubscriptionError as exc:
-            if self._is_ajax():
-                return JsonResponse({"error": str(exc)}, status=400)
-            messages.error(self.request, str(exc))
-            return redirect(organization)
-        except stripe.StripeError as exc:
-            user_message = format_stripe_error(exc)
-            if self._is_ajax():
-                return JsonResponse({"error": user_message}, status=400)
-            messages.error(self.request, f"Payment error: {user_message}")
-            return redirect(organization)
-        else:
-            billing_email = form.cleaned_data.get("billing_email", "")
-            organization.set_billing_email(billing_email)
-            if form.cleaned_data.get("remove_card_on_file"):
-                organization.remove_payment_method()
-                if self._is_ajax():
-                    return JsonResponse(
-                        {
-                            "redirect": redirect_url,
-                            "message": str(_("Credit card removed")),
-                        }
-                    )
-                messages.success(self.request, _("Credit card removed"))
-            else:
-                # Log staff action to activity stream
-                if self.request.user.is_staff:
-                    new_action(
-                        actor=self.request.user,
-                        verb="updated organization subscription",
-                        target=organization,
-                    )
-                success_msg = (
-                    _("Plan Updated")
-                    if organization.individual
-                    else _("Organization Updated")
-                )
-                if self._is_ajax():
-                    return JsonResponse(
-                        {"redirect": redirect_url, "message": str(success_msg)}
-                    )
-                messages.success(self.request, success_msg)
-        return redirect(organization)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        try:
-            receipt = self.object.receipt_email
-            context["billing_email_failed"] = receipt.failed
-        except ReceiptEmail.DoesNotExist:
-            context["billing_email_failed"] = False
-        # Provide a single subscription for the template to check cancelled status.
-        # In the multi-subscription world this will need to be revisited, but for
-        # now the template only needs to know about the primary (first) subscription.
-        plan = self.object.plans.first()
-        context["current_subscription"] = (
-            self.object.subscriptions.filter(plan=plan).first() if plan else None
-        )
-        return context
-
-    def get_initial(self):
-        plan = self.object.plans.first()
-        sub = self.object.subscriptions.filter(plan=plan).first() if plan else None
-        max_users = sub.quantity if sub else self.object.max_users
-        try:
-            billing_email = self.object.receipt_email.email
-        except ReceiptEmail.DoesNotExist:
-            billing_email = ""
-        return {
-            "plan": plan,
-            "max_users": max_users,
-            "billing_email": billing_email,
-        }
 
 
 class OrgSubscriptionView(OrganizationPermissionMixin):
