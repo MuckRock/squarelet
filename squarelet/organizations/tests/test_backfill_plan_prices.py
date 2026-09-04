@@ -428,13 +428,18 @@ class TestDecomposition:
         )
 
     def test_a_subscriber_at_the_minimum_gets_no_pack(self):
+        """No blocks to carry - but the tier line still drops to 1.
+
+        See TestQuantityStopsBeingAMultiplier: the flat Price would
+        otherwise be billed five times over.
+        """
         actor = UserFactory()
         item = per_user(quantity=5)
 
         run(actor=actor.username)
 
         item.refresh_from_db()
-        assert item.quantity == 5
+        assert item.quantity == 1
         assert not SubscriptionItem.objects.filter(
             subscription=item.subscription, plan__slug__in=PACK_SLUGS
         ).exists()
@@ -708,3 +713,97 @@ class TestTheRealSubscribersReconcile:
             f"{slug} at {quantity} blocks bills ${old / 100:,.2f} today and "
             f"${new / 100:,.2f} after"
         )
+
+
+@pytest.mark.django_db()
+@pytest.mark.usefixtures("targets")
+class TestQuantityStopsBeingAMultiplier:
+    """The legacy group price was graduated; every new one is per-unit.
+
+    `make_stripe_plan` built a group plan as two tiers - a flat base for
+    everything up to `minimum_users`, then a rate per block above it - so
+    quantity never multiplied the base.  A PlanPrice is `per_unit`, so it
+    does.  A line left at its block count therefore bills that many tiers.
+
+    This is worst for the subscribers who look least interesting: most
+    organizations sit exactly on the minimum, holding no blocks at all.
+    """
+
+    def test_a_subscriber_at_the_minimum_drops_to_quantity_one(self):
+        actor = UserFactory()
+        item = per_user(quantity=5)
+
+        run(actor=actor.username)
+
+        item.refresh_from_db()
+        assert item.quantity == 1
+
+    def test_their_bill_does_not_quintuple(self, stripe):
+        actor = UserFactory()
+        item = per_user(quantity=5)
+
+        run(actor=actor.username)
+
+        item.refresh_from_db()
+        billed = item.plan_price.amount * item.quantity
+        assert billed == 10_000  # $100, as before - not $500
+        assert stripe.modify.call_args.kwargs["items"] == [
+            {"plan": item.stripe_price_id, "quantity": 1}
+        ]
+
+    def test_a_per_unit_plan_keeps_its_quantity(self):
+        """Only group plans were tiered.
+
+        Everything else was already `per_unit` at `base_price`, so its
+        quantity was always a multiplier and setting it to 1 would cut the
+        bill instead of preserving it.
+        """
+        actor = UserFactory()
+        item = SubscriptionItemFactory(
+            plan=legacy("professional", base_price=100, for_groups=False),
+            subscription__subscription_id="sub_live",
+            quantity=3,
+        )
+
+        run(actor=actor.username)
+
+        item.refresh_from_db()
+        assert item.quantity == 3
+
+    def test_the_bill_check_prices_quantity_too(self):
+        """A mismatch has to be caught as Stripe would charge it."""
+        actor = UserFactory()
+        item = SubscriptionItemFactory(
+            plan=legacy("professional", base_price=100, for_groups=False),
+            subscription__subscription_id="sub_live",
+            quantity=3,
+        )
+        # $100 x 3 today; the tier price is $100, so 3 x $100 agrees.  Move
+        # the legacy rate and the sum stops working.
+        item.plan.base_price = 150
+        item.plan.save()
+
+        with pytest.raises(CommandError):
+            run(actor=actor.username)
+
+        item.refresh_from_db()
+        assert item.plan_price is None
+
+    def test_a_comped_line_keeps_its_block_count(self):
+        """Nothing bills, and quantity still drives the entitlement.
+
+        Dropping it to 1 without a pack line would cut the grant the old
+        formula computes from it - a quota cut, today, before 2e.
+        """
+        actor = UserFactory()
+        item = SubscriptionItemFactory(
+            plan=legacy("organization", minimum_users=5, price_per_user=10),
+            subscription__subscription_id="",
+            quantity=30,
+        )
+
+        out = run(actor=actor.username)
+
+        item.refresh_from_db()
+        assert item.quantity == 30
+        assert "step 2e has to handle" in out
