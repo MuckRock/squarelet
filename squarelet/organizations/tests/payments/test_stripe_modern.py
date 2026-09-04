@@ -1,11 +1,13 @@
 # Third Party
 import pytest
+from stripe import StripeObject
 
 # Squarelet
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.providers.stripe_modern import (
     StripeModernChargeService,
     StripeModernCustomerService,
+    StripeModernPlanService,
     StripeModernSubscriptionService,
 )
 
@@ -20,6 +22,11 @@ def customer_service():
 @pytest.fixture
 def subscription_service():
     return StripeModernSubscriptionService()
+
+
+@pytest.fixture
+def plan_service():
+    return StripeModernPlanService()
 
 
 @pytest.fixture
@@ -351,3 +358,66 @@ class TestModernSubscriptionService:
         mock_sub = mocker.MagicMock()
         mock_sub.__getitem__ = mocker.MagicMock(side_effect=KeyError("items"))
         assert subscription_service.get_current_period_end(mock_sub) is None
+
+
+def stripe_object(**fields):
+    """A Stripe object as the SDK really returns one.
+
+    Deliberately not a dict or a Mock: `metadata` comes back as a
+    StripeObject, which is dict-like but has no `.get` and raises on a
+    missing key.  Anything standing in for Stripe here has to behave that
+    way or it tests nothing.
+    """
+    return StripeObject.construct_from(fields, "sk_test")
+
+
+class TestModernPlanServiceLookups:
+    """find_product / find_price against real StripeObject values."""
+
+    def test_find_product_matches_on_slug(self, plan_service, mocker):
+        wanted = stripe_object(id="prod_b", metadata={"squarelet_plan_slug": "pro"})
+        mocker.patch(
+            "stripe.Product.list",
+            return_value=[
+                stripe_object(id="prod_a", metadata={"squarelet_plan_slug": "other"}),
+                wanted,
+            ],
+        )
+
+        assert plan_service.find_product("pro").id == "prod_b"
+
+    def test_find_product_returns_none_when_absent(self, plan_service, mocker):
+        mocker.patch(
+            "stripe.Product.list",
+            return_value=[
+                stripe_object(id="prod_a", metadata={"squarelet_plan_slug": "other"})
+            ],
+        )
+
+        assert plan_service.find_product("pro") is None
+
+    def test_find_product_tolerates_missing_metadata(self, plan_service, mocker):
+        """Products made outside squarelet carry no metadata of ours."""
+        mocker.patch(
+            "stripe.Product.list",
+            return_value=[stripe_object(id="prod_a"), stripe_object(id="prod_b")],
+        )
+
+        assert plan_service.find_product("pro") is None
+
+    def test_find_price_matches_on_variant(self, plan_service, mocker):
+        wanted = stripe_object(id="price_b", metadata={"squarelet_variant": "v2"})
+        mocker.patch(
+            "stripe.Price.list",
+            return_value=[
+                stripe_object(id="price_a", metadata={"squarelet_variant": "v1"}),
+                wanted,
+            ],
+        )
+
+        assert plan_service.find_price("prod_a", "v2").id == "price_b"
+
+    def test_find_price_tolerates_missing_metadata(self, plan_service, mocker):
+        mocker.patch("stripe.Price.list", return_value=[stripe_object(id="price_a")])
+
+        assert plan_service.find_price("prod_a", "v1") is None
