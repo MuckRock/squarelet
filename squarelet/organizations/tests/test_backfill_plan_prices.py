@@ -9,6 +9,7 @@ from io import StringIO
 import pytest
 
 # Squarelet
+from squarelet.organizations.entitlement_shape import grants_old
 from squarelet.organizations.management.commands.backfill_plan_prices import (
     DEFERRED_SLUGS,
     LEGACY_PLAN_MAP,
@@ -20,6 +21,7 @@ from squarelet.organizations.management.commands.consolidate_stripe_products imp
 )
 from squarelet.organizations.models import Plan, SubscriptionItem
 from squarelet.organizations.tests.factories import (
+    EntitlementFactory,
     OrganizationFactory,
     PlanFactory,
     PlanPriceFactory,
@@ -69,6 +71,14 @@ def targets_fixture(db):  # pylint: disable=unused-argument
                 label="standard",
                 code="",
                 amount=1_000,
+            )
+            # A comped organization's blocks decompose too, at no charge.
+            PlanPriceFactory(
+                plan=plans[pack_slug],
+                interval=interval,
+                label="comped",
+                code="",
+                amount=0,
             )
     return plans
 
@@ -444,8 +454,12 @@ class TestDecomposition:
             subscription=item.subscription, plan__slug__in=PACK_SLUGS
         ).exists()
 
-    def test_a_comped_per_user_line_is_repointed_but_not_decomposed(self):
-        """Nothing is billing, so there is no overage to reproduce."""
+    def test_a_comped_line_decomposes_onto_a_free_pack(self):
+        """Nothing bills, but the blocks still grant real resources.
+
+        Leaving the count on the tier line would inflate the grant the
+        moment the line is repointed at a plan whose entitlement scales.
+        """
         actor = UserFactory()
         item = SubscriptionItemFactory(
             plan=legacy("organization", minimum_users=5, price_per_user=10),
@@ -456,11 +470,27 @@ class TestDecomposition:
         run(actor=actor.username)
 
         item.refresh_from_db()
-        assert item.plan_price.label == "comped"
-        assert item.quantity == 30
-        assert not SubscriptionItem.objects.filter(
+        pack = SubscriptionItem.objects.get(
             subscription=item.subscription, plan__slug__in=PACK_SLUGS
-        ).exists()
+        )
+        assert item.plan_price.label == "comped"
+        assert item.quantity == 1
+        assert pack.quantity == 25
+        assert pack.plan_price.amount == 0
+
+    def test_a_comped_subscription_stays_free(self):
+        """A priced pack line would make start() bill a comped org."""
+        actor = UserFactory()
+        item = SubscriptionItemFactory(
+            plan=legacy("organization", minimum_users=5, price_per_user=10),
+            subscription__subscription_id="",
+            quantity=30,
+        )
+
+        run(actor=actor.username)
+
+        item.refresh_from_db()
+        assert item.subscription.free
 
     def test_only_the_plans_with_real_block_holders_are_listed(self):
         """Twelve organizations hold blocks and all are on an Org plan.
@@ -789,21 +819,123 @@ class TestQuantityStopsBeingAMultiplier:
         item.refresh_from_db()
         assert item.plan_price is None
 
-    def test_a_comped_line_keeps_its_block_count(self):
-        """Nothing bills, and quantity still drives the entitlement.
-
-        Dropping it to 1 without a pack line would cut the grant the old
-        formula computes from it - a quota cut, today, before 2e.
-        """
+    def test_nothing_is_left_above_quantity_one(self):
+        """Which is exactly what the entitlement migration refuses on."""
         actor = UserFactory()
-        item = SubscriptionItemFactory(
+        per_user(quantity=30)
+        SubscriptionItemFactory(
             plan=legacy("organization", minimum_users=5, price_per_user=10),
             subscription__subscription_id="",
-            quantity=30,
+            quantity=12,
+        )
+
+        out = run(actor=actor.username)
+
+        assert "still above quantity 1" not in out
+        assert (
+            not SubscriptionItem.objects.exclude(plan__slug__in=PACK_SLUGS)
+            .filter(quantity__gt=1)
+            .exists()
+        )
+
+
+@pytest.mark.django_db()
+class TestWhatTheOrganizationReceives:
+    """Consolidation moves a line onto another plan's entitlements.
+
+    The bill can survive that untouched while the grant moves underneath
+    it, because entitlements hang off the plan and the plan is exactly what
+    this step changes.
+    """
+
+    def _entitle(self, plan, resources, client=None):
+        entitlement = EntitlementFactory(
+            resources=resources, **({"client": client} if client else {})
+        )
+        plan.entitlements.add(entitlement)
+        return entitlement
+
+    def test_a_repoint_that_changes_the_grant_is_refused(self, targets):
+        actor = UserFactory()
+        # A legacy slug whose canonical target is a *different* row -
+        # `professional` maps to itself, so both entitlements would land on
+        # one plan and the comparison would be against itself.
+        item = SubscriptionItemFactory(
+            plan=legacy("professional-pre-paid"),
+            subscription__subscription_id="sub_live",
+        )
+        client = self._entitle(
+            item.plan, {"base_requests": 20, "minimum_users": 1}
+        ).client
+        self._entitle(
+            targets["professional"],
+            {"base_requests": 500, "minimum_users": 1},
+            client=client,
+        )
+
+        out = StringIO()
+        # The refusal is per subscription - the run reports it and carries
+        # on, then exits non-zero - so the reason is in the output and the
+        # exception is the summary.
+        with pytest.raises(CommandError, match="failed"):
+            call_command("backfill_plan_prices", stdout=out, actor=actor.username)
+
+        assert "what this organization receives" in out.getvalue()
+        item.refresh_from_db()
+        assert item.plan_price is None
+
+    def test_a_decided_change_is_allowed_and_reported(self, targets):
+        """Beta gains requests on purpose; that is recorded, not refused."""
+        actor = UserFactory()
+        item = SubscriptionItemFactory(
+            plan=legacy("beta"), subscription__subscription_id=""
+        )
+        client = self._entitle(
+            item.plan, {"base_requests": 5, "minimum_users": 1}
+        ).client
+        self._entitle(
+            targets["professional"],
+            {"base_requests": 20, "minimum_users": 1},
+            client=client,
         )
 
         out = run(actor=actor.username)
 
         item.refresh_from_db()
-        assert item.quantity == 30
-        assert "step 2e has to handle" in out
+        assert item.plan_price is not None
+        assert "grant changes as decided" in out
+
+    def test_a_comped_custom_plan_is_not_inflated(self, targets):
+        """The case that motivated this check.
+
+        A custom comped plan's entitlement is flat and its block count has
+        gone unlooked-at for years.  Repointing it at Organization, whose
+        entitlement scales, would multiply the grant by the block count -
+        silently, and without changing anyone's bill by a cent.
+        """
+        actor = UserFactory()
+        item = SubscriptionItemFactory(
+            plan=legacy(
+                "premium-org-comp", base_price=0, minimum_users=5, price_per_user=0
+            ),
+            subscription__subscription_id="",
+            quantity=30,
+        )
+        client = self._entitle(
+            item.plan, {"base_requests": 50, "minimum_users": 5}
+        ).client
+        self._entitle(
+            targets["organization"],
+            {"base_requests": 50, "minimum_users": 5, "requests_per_user": 10},
+            client=client,
+        )
+
+        run(actor=actor.username)
+
+        item.refresh_from_db()
+        # Quantity 30 against a scaling entitlement would be 50 + 25 x 10.
+        assert item.quantity == 1
+        assert grants_old(
+            targets["organization"].entitlements.get(client=client).resources,
+            item.quantity,
+        ) == {"base_requests": 50}
