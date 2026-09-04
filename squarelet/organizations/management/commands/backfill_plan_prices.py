@@ -42,14 +42,50 @@ def blocks_held(item):
     "Resource blocks" is what `quantity` actually means - pricing was
     decoupled from member headcount years ago, whatever `price_per_user` and
     `minimum_users` are called.
+
+    Only a group plan has them.  Anything else was priced `per_unit` with no
+    included tier, so its `minimum_users` never entered the arithmetic and
+    subtracting it here would invent blocks that were never sold.
     """
+    if not item.plan.for_groups:
+        return 0
     return max(item.quantity - item.plan.minimum_users, 0)
 
 
 def legacy_bill_cents(item):
-    """What this line bills today, under the old per-user formula."""
+    """What Stripe charges for this line today.
+
+    Two shapes, and `make_stripe_plan` picks between them on `for_groups`:
+
+    - a group plan is a *graduated tiered* price - a flat `base_price` for
+      everything up to `minimum_users`, then `price_per_user` per block
+      above it.  Quantity does not multiply the base;
+    - anything else is `per_unit` at `base_price`, where quantity does.
+
+    Getting this wrong in the safe-looking direction is what makes a
+    subscriber at exactly their minimum bill five times over.
+    """
     plan = item.plan
-    return 100 * (plan.base_price + blocks_held(item) * plan.price_per_user)
+    if plan.for_groups:
+        return 100 * (plan.base_price + blocks_held(item) * plan.price_per_user)
+    return 100 * plan.base_price * item.quantity
+
+
+def target_quantity(item):
+    """What the line's quantity becomes once it bills a flat Price.
+
+    Every new PlanPrice is `per_unit`, so quantity multiplies it.  A group
+    plan's flat base was tier one of a graduated price and did not multiply,
+    so its line has to drop to 1 and let a pack carry the blocks - whether
+    or not it holds any.  A subscriber sitting exactly on their minimum has
+    no blocks and is precisely the one this catches: quantity 5 against a
+    flat $100 Price is $500 a month.
+
+    A per-unit plan's quantity was already a multiplier and stays as it is.
+    """
+    if item.plan.for_groups:
+        return 1
+    return item.quantity
 
 
 class Command(BaseCommand):
@@ -371,7 +407,9 @@ class Command(BaseCommand):
 
         # A comped line bills nothing either way, so there is no sum to check.
         if is_billing(item):
-            new = plan_price.amount + sum(price.amount * qty for price, qty in packs)
+            new = plan_price.amount * target_quantity(item) + sum(
+                price.amount * qty for price, qty in packs
+            )
             old = legacy_bill_cents(item)
             if new != old:
                 raise CommandError(
@@ -398,13 +436,13 @@ class Command(BaseCommand):
             item.plan = plan_price.plan
             item.plan_price = plan_price
             fields = ["plan", "plan_price"]
-            if packs:
-                # The base line covers the tier itself.  Leaving the block
+            if is_billing(item) and item.quantity != target_quantity(item):
+                # The line covers the tier itself now.  Leaving the block
                 # count on it would bill the flat Price that many times over
-                # - thirty times the tier for a subscriber holding thirty
-                # blocks - and would break the entitlement shape 2e depends
-                # on.
-                item.quantity = 1
+                # - five times for a subscriber sitting on their minimum,
+                # thirty for one holding thirty blocks - and would break the
+                # entitlement shape 2e depends on.
+                item.quantity = target_quantity(item)
                 fields.append("quantity")
             if plan_price.label == "comped":
                 # Migrated comps carry the provenance the admin path
@@ -444,6 +482,30 @@ class Command(BaseCommand):
             f"still without a plan_price: {deferred} deferred by choice, "
             f"{other} unexpected"
         )
+
+        # Comped lines keep their block count: nothing bills, and dropping
+        # them to quantity 1 without a pack would cut the entitlement the
+        # old formula still computes from it.  Step 2e's transform cannot
+        # read a line like that, so name them here rather than let 2e find
+        # them.
+        carrying = [
+            item
+            for item in SubscriptionItem.objects.select_related(
+                "subscription__organization", "plan"
+            ).filter(plan__for_groups=True, subscription__subscription_id="")
+            if blocks_held(item)
+        ]
+        if carrying:
+            self.stdout.write(
+                f"{len(carrying)} comped line(s) still carry a block count, "
+                f"which step 2e has to handle before it can change the "
+                f"entitlement shape:"
+            )
+            for item in carrying:
+                self.stdout.write(
+                    f"  - {item.subscription.organization.slug}: "
+                    f"{item.plan.slug} at quantity {item.quantity}"
+                )
         if other:
             self.stdout.write(
                 self.style.ERROR(
