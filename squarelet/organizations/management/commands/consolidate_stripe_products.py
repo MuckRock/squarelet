@@ -52,6 +52,21 @@ PRICE_MATRIX = [
     ("documentcloud-credit-pack", "annual", "standard", "", 12_000),
     ("scoutpost-credit-pack", "monthly", "standard", "", 1_000),
     ("scoutpost-credit-pack", "annual", "standard", "", 12_000),
+    # Comped packs.  A comped organization above its plan's minimum holds
+    # blocks that grant real resources, so decomposing it needs a pack line
+    # like anyone else - and that line must cost nothing, or the
+    # subscription stops being free and could be billed by a later
+    # start().  These get no Stripe Price, like every other comped row.
+    #
+    # Nothing self-service can reach them: packs are non-public plans,
+    # there is no UI to add one, and the comped label is what the plan
+    # permission rule refuses on.
+    ("muckrock-request-pack", "monthly", "comped", "", 0),
+    ("muckrock-request-pack", "annual", "comped", "", 0),
+    ("documentcloud-credit-pack", "monthly", "comped", "", 0),
+    ("documentcloud-credit-pack", "annual", "comped", "", 0),
+    ("scoutpost-credit-pack", "monthly", "comped", "", 0),
+    ("scoutpost-credit-pack", "annual", "comped", "", 0),
     # Admin keeps its own Plan rather than consolidating - it is the only
     # plan granting staff access across all three products - but still needs
     # a price, so that plan_price can eventually be made non-null for every

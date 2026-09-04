@@ -7,9 +7,11 @@ import collections
 import logging
 
 # Squarelet
+from squarelet.organizations.entitlement_shape import grants_old
 from squarelet.organizations.models.payment import PlanPrice, SubscriptionItem
 from squarelet.organizations.plan_mapping import (
     DEFERRED_SLUGS,
+    EXPECTED_GRANT_CHANGES,
     LEGACY_PLAN_MAP,
     PACK_DECOMPOSITION,
 )
@@ -86,6 +88,22 @@ def target_quantity(item):
     if item.plan.for_groups:
         return 1
     return item.quantity
+
+
+def resource_totals(plan_quantities):
+    """What a set of (plan, quantity) lines grants, per client and resource.
+
+    Keyed on the client and the resource name rather than on the
+    entitlement, because consolidation is precisely the act of swapping one
+    plan's entitlement rows for another's - the objects differ on purpose,
+    and it is the numbers that have to survive.
+    """
+    totals = collections.Counter()
+    for plan, quantity in plan_quantities:
+        for entitlement in plan.entitlements.all():
+            for base_key, amount in grants_old(entitlement.resources, quantity).items():
+                totals[(entitlement.client_id, base_key)] += amount
+    return totals
 
 
 class Command(BaseCommand):
@@ -390,14 +408,19 @@ class Command(BaseCommand):
 
         blocks = blocks_held(item)
         packs = []
-        if blocks and is_billing(item):
+        if blocks:
+            # A pack takes the tier's own label.  A comped organization's
+            # blocks grant real resources and must survive decomposition,
+            # but the line has to cost nothing - otherwise the subscription
+            # stops being free and a later start() would bill it.
+            pack_label = "comped" if label == "comped" else "standard"
             for pack_slug in PACK_DECOMPOSITION.get(item.plan.slug, ()):
                 packs.append(
                     (
                         PlanPrice.objects.select_related("plan").get(
                             plan__slug=pack_slug,
                             interval=interval,
-                            label="standard",
+                            label=pack_label,
                             code="",
                             active=True,
                         ),
@@ -418,7 +441,40 @@ class Command(BaseCommand):
                     f"${new / 100:,.2f} after.  Fix the price matrix or "
                     f"PACK_DECOMPOSITION before migrating this subscriber."
                 )
+        self._check_grants(item, plan_price, packs)
         return plan_price, packs
+
+    def _check_grants(self, item, plan_price, packs):
+        """Refuse if the organization would receive a different amount.
+
+        Consolidation repoints the line at a different plan, and a plan is
+        where entitlements hang - so a subscription can keep billing exactly
+        the same money while what it grants moves underneath it.  A comped
+        organization on a custom plan is the sharp case: its own entitlement
+        is flat, Organization's scales, and it carries a block count nobody
+        has needed to look at in years.
+
+        Compared before repointing, because `item.plan` is about to change.
+        """
+        before = resource_totals([(item.plan, item.quantity)])
+        after = resource_totals(
+            [(plan_price.plan, target_quantity(item))]
+            + [(price.plan, quantity) for price, quantity in packs]
+        )
+        if before == after:
+            return
+
+        reason = EXPECTED_GRANT_CHANGES.get(item.plan.slug)
+        if reason is not None:
+            self.stdout.write(f"      grant changes as decided: {reason}")
+            return
+
+        raise CommandError(
+            f"would change what this organization receives: "
+            f"{dict(before)} today, {dict(after)} after.  Either add a pack "
+            f"that covers the difference, or record it in "
+            f"EXPECTED_GRANT_CHANGES with the reason."
+        )
 
     def _write(self, item, plan_price, packs, actor, *, local_only):
         """Commit one subscription: local rows, then Stripe, then done.
@@ -436,7 +492,7 @@ class Command(BaseCommand):
             item.plan = plan_price.plan
             item.plan_price = plan_price
             fields = ["plan", "plan_price"]
-            if is_billing(item) and item.quantity != target_quantity(item):
+            if item.quantity != target_quantity(item):
                 # The line covers the tier itself now.  Leaving the block
                 # count on it would bill the flat Price that many times over
                 # - five times for a subscriber sitting on their minimum,
@@ -483,25 +539,22 @@ class Command(BaseCommand):
             f"{other} unexpected"
         )
 
-        # Comped lines keep their block count: nothing bills, and dropping
-        # them to quantity 1 without a pack would cut the entitlement the
-        # old formula still computes from it.  Step 2e's transform cannot
-        # read a line like that, so name them here rather than let 2e find
-        # them.
-        carrying = [
-            item
-            for item in SubscriptionItem.objects.select_related(
+        # The precondition the entitlement shape migration checks, reported
+        # here so a problem surfaces in the run that could have fixed it
+        # rather than in the one that cannot.
+        above_one = list(
+            SubscriptionItem.objects.select_related(
                 "subscription__organization", "plan"
-            ).filter(plan__for_groups=True, subscription__subscription_id="")
-            if blocks_held(item)
-        ]
-        if carrying:
-            self.stdout.write(
-                f"{len(carrying)} comped line(s) still carry a block count, "
-                f"which step 2e has to handle before it can change the "
-                f"entitlement shape:"
             )
-            for item in carrying:
+            .exclude(plan__slug__in=PACK_SLUGS)
+            .filter(quantity__gt=1)
+        )
+        if above_one:
+            self.stdout.write(
+                f"{len(above_one)} line(s) are still above quantity 1, which "
+                f"blocks the entitlement shape migration:"
+            )
+            for item in above_one:
                 self.stdout.write(
                     f"  - {item.subscription.organization.slug}: "
                     f"{item.plan.slug} at quantity {item.quantity}"

@@ -193,3 +193,22 @@ def resolve_target(slug, *, allow_comped):
     if not allow_comped and target[2] == "comped":
         return None
     return target
+
+
+# Legacy plans whose entitlements deliberately change when they consolidate.
+#
+# Repointing a subscription moves it onto the canonical tier's entitlements,
+# which is usually a no-op by construction.  Where it is not, the change was
+# a decision rather than an accident, and the migration reports it instead of
+# refusing.  Everything absent from this map must come out identical.
+EXPECTED_GRANT_CHANGES = {
+    "beta": "Grandfathered onto Professional: 5 -> 20 MuckRock requests.",
+    "insideclimate-news-plan": (
+        "Normalized to Organization: 15 -> 50 requests, plus DocumentCloud "
+        "access it does not have today."
+    ),
+    "education-plan": (
+        "Gains Organization's 50 requests, where org-features-minus-requests "
+        "grants zero, plus DocumentCloud access."
+    ),
+}
