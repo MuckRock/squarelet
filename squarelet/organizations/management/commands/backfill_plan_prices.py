@@ -1,7 +1,6 @@
 # Django
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
-from django.db.models import Q
 
 # Standard Library
 import collections
@@ -9,70 +8,17 @@ import logging
 
 # Squarelet
 from squarelet.organizations.models.payment import PlanPrice, SubscriptionItem
+from squarelet.organizations.plan_mapping import (
+    DEFERRED_SLUGS,
+    LEGACY_PLAN_MAP,
+    PACK_DECOMPOSITION,
+)
 
 logger = logging.getLogger(__name__)
 
-# Where each legacy plan's subscriptions land, keyed on the legacy slug and
-# whether the subscription is actually billing.
-#
-# The slug alone is not enough.  Admins granted free access for years by
-# putting organizations on a paid plan without a Stripe subscription, so
-# `organization` means the standard price for its paying subscribers and the
-# comped price for those.  `is_billing` - whether a Stripe subscription
-# exists - is what separates them.
-#
-# Every target was chosen against the legacy plan it replaces so that no
-# subscriber's bill changes.  Values are (canonical slug, interval, label,
-# code).
-LEGACY_PLAN_MAP = {
-    # MuckRock Professional
-    ("professional", True): ("professional", "monthly", "standard", ""),
-    ("professional", False): ("professional", "monthly", "comped", ""),
-    ("professional-pre-paid", True): ("professional", "annual", "standard", ""),
-    # Beta - early users grandfathered onto a free plan, not a distinct tier
-    ("beta", False): ("professional", "monthly", "comped", ""),
-    ("beta", True): ("professional", "monthly", "comped", ""),
-    # MuckRock Organization
-    ("organization", False): ("organization", "monthly", "comped", ""),
-    # Comped organizations, previously each with their own plan
-    ("muckrock-editorial-partner", False): (
-        "organization",
-        "monthly",
-        "comped",
-        "",
-    ),
-    ("premium-org-comp", False): ("organization", "monthly", "comped", ""),
-    ("education-grant", False): ("organization", "monthly", "comped", ""),
-    ("startsmall-grants", False): ("organization", "monthly", "comped", ""),
-    ("education-plan", False): ("organization", "monthly", "comped", ""),
-    # A negotiated rate, so a price of its own rather than a coupon
-    ("insideclimate-news-plan", True): (
-        "organization",
-        "monthly",
-        "standard",
-        "insideclimate",
-    ),
-    # Sunlight
-    ("sunlight-enterprise-rnn", False): (
-        "sunlight-enterprise",
-        "annual",
-        "comped",
-        "",
-    ),
-    # Admin keeps its own plan - the only one granting staff access across
-    # all three products - and simply gains a comped price.
-    ("admin", False): ("admin", "monthly", "comped", ""),
-}
-
-# Deliberately left alone.  Each needs a decision or an action outside this
-# command, given per entry below.
-DEFERRED_SLUGS = {
-    # Two organizations going opposite ways - one cancelled, one comped - so
-    # the slug alone cannot decide.
-    "custom-crp",
-    # Its one subscription belongs to an organization that was merged away.
-    "sunlight-premium-annual",
-}
+# Every pack any legacy plan decomposes into.  Lines on these plans are an
+# output of this command, never an input.
+PACK_SLUGS = {slug for packs in PACK_DECOMPOSITION.values() for slug in packs}
 
 
 def is_billing(item):
@@ -90,23 +36,41 @@ def is_billing(item):
     return bool(item.subscription.subscription_id)
 
 
+def blocks_held(item):
+    """Resource blocks this line holds over its plan's minimum.
+
+    "Resource blocks" is what `quantity` actually means - pricing was
+    decoupled from member headcount years ago, whatever `price_per_user` and
+    `minimum_users` are called.
+    """
+    return max(item.quantity - item.plan.minimum_users, 0)
+
+
+def legacy_bill_cents(item):
+    """What this line bills today, under the old per-user formula."""
+    plan = item.plan
+    return 100 * (plan.base_price + blocks_held(item) * plan.price_per_user)
+
+
 class Command(BaseCommand):
-    """Point existing subscriptions at their new PlanPrice.
+    """Move every subscription onto the consolidated pricing model.
 
-    Sets `plan_price` and repoints `plan` to the canonical tier, in one
-    operation: several legacy plans consolidate onto a single canonical row,
-    so there is no PlanPrice to look up via the old plan.
+    One run covering all of it: set `plan_price`, repoint `plan` to the
+    canonical tier, split per-user subscribers into a base line plus usage
+    packs, and push the result to Stripe with proration suppressed.
 
-    Subscriptions still billing on a per-user plan are **not** touched.  They
-    need decomposing into a base plan plus a usage pack, which changes what
-    Stripe charges and so is a separate, deliberate step.  Everything this
-    command does is a local pointer update that changes nobody's bill.
+    These were two steps once - a local backfill, then a decomposition timed
+    to each subscriber's renewal.  Doing them together is both simpler and
+    safer.  The switchover has to call `modify` on every subscription
+    anyway, so adding a subscriber's pack line is the same API call, and
+    nobody passes through an intermediate state where they are billed
+    wrongly.
 
-    Run `consolidate_stripe_products` first; this needs the PlanPrice rows to
-    exist.
+    Run `consolidate_stripe_products` first; this needs the PlanPrice rows
+    to exist.
     """
 
-    help = "Point existing subscriptions at their new PlanPrice"
+    help = "Move every subscription onto the consolidated pricing model"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -121,27 +85,50 @@ class Command(BaseCommand):
                 "subscriptions.  Required unless --dry-run."
             ),
         )
+        parser.add_argument(
+            "--local-only",
+            action="store_true",
+            help=(
+                "Write local state without calling Stripe.  For rehearsing "
+                "against a database with no usable Stripe account behind it; "
+                "never for the real run, which would leave Stripe billing the "
+                "old Prices."
+            ),
+        )
 
     def handle(self, *args, **options):
         dry_run = options["dry_run"]
+        local_only = options["local_only"]
         if dry_run:
             self.stdout.write(self.style.WARNING("DRY RUN - nothing written"))
+        elif local_only:
+            self.stdout.write(
+                self.style.WARNING("LOCAL ONLY - Stripe will not be updated")
+            )
 
         actor = self._resolve_actor(options["actor"], dry_run)
         pending = self._pending()
         self._preflight(pending)
 
+        # Deliberately not one transaction around the whole run.  Stripe
+        # cannot be rolled back, so a run that failed part way through and
+        # discarded the local record of what Stripe had already done would be
+        # the worst outcome available.  Each subscription commits on its own.
         counts = collections.Counter()
-        with transaction.atomic():
-            for sub in pending:
-                counts[self._migrate(sub, actor, dry_run)] += 1
-            if dry_run:
-                transaction.set_rollback(True)
+        for item in pending:
+            counts[self._migrate(item, actor, dry_run, local_only)] += 1
 
         self.stdout.write(
-            f"\n{counts['migrated']} migrated, {counts['deferred']} deferred"
+            f"\n{counts['migrated']} migrated, {counts['deferred']} deferred, "
+            f"{counts['failed']} failed"
         )
         self._report_remaining()
+        if counts["failed"]:
+            raise CommandError(
+                f"{counts['failed']} subscription(s) failed; everything else "
+                f"is committed.  Fix the causes and re-run - this command is "
+                f"idempotent."
+            )
 
     def _resolve_actor(self, username, dry_run):
         # Imported here rather than at module scope: get_user_model() must
@@ -164,38 +151,38 @@ class Command(BaseCommand):
             raise CommandError(f"No such user: {username}") from exc
 
     def _pending(self):
-        """Subscriptions this step handles.
+        """Every subscription line, including ones already migrated.
 
-        Everything except those still billing on a per-user plan, which the
-        per-user decomposition handles instead.
+        Deliberately not filtered on `plan_price__isnull=True`.  A line whose
+        local half succeeded and whose Stripe half did not would look done
+        and be skipped forever - which is exactly the state a re-run needs to
+        repair.  Re-processing a finished line is harmless: the target is a
+        pure function of the legacy plan, and `modify` is a no-op once the
+        items already match.
         """
         return list(
             SubscriptionItem.objects.select_related(
-                "subscription__organization", "plan"
+                "subscription__organization", "plan", "plan_price"
             )
-            .filter(plan_price__isnull=True)
-            # Per-user *and* billing.  A blank id on the parent means the
-            # line never reached Stripe, which is what a comped organization
-            # looks like - those are migrated here like any other.
-            .exclude(
-                Q(plan__price_per_user__gt=0) & ~Q(subscription__subscription_id="")
-            )
-            .order_by("plan__slug", "pk")
+            # Pack lines from an earlier run are an output, not an input.
+            # Re-deriving blocks from a base line already set to quantity 1
+            # would silently drop every pack.
+            .exclude(plan__slug__in=PACK_SLUGS).order_by("plan__slug", "pk")
         )
 
     def _preflight(self, pending):
         """Refuse to write anything unless every case is accounted for.
 
         Deliberately no log-and-skip fallback.  A silent skip leaves
-        `plan_price` null, which surfaces much later and much less legibly
-        - as a failure to make the column non-null, long after the run that
+        `plan_price` null, which surfaces much later and much less legibly -
+        as a failure to make the column non-null, long after the run that
         caused it.
         """
         unmapped = {
-            (sub.plan.slug, is_billing(sub))
-            for sub in pending
-            if sub.plan.slug not in DEFERRED_SLUGS
-            and (sub.plan.slug, is_billing(sub)) not in LEGACY_PLAN_MAP
+            (item.plan.slug, is_billing(item))
+            for item in pending
+            if item.plan.slug not in DEFERRED_SLUGS
+            and (item.plan.slug, is_billing(item)) not in LEGACY_PLAN_MAP
         }
         if unmapped:
             raise CommandError(
@@ -206,17 +193,21 @@ class Command(BaseCommand):
                 + ".  Add them to LEGACY_PLAN_MAP or DEFERRED_SLUGS."
             )
 
-        missing = set()
-        for target in LEGACY_PLAN_MAP.values():
-            slug, interval, label, code = target
-            if not PlanPrice.objects.filter(
-                plan__slug=slug,
-                interval=interval,
-                label=label,
-                code=code,
-                active=True,
-            ).exists():
-                missing.add(target)
+        undecomposed = {
+            item.plan.slug
+            for item in pending
+            if item.plan.slug not in DEFERRED_SLUGS
+            and blocks_held(item)
+            and is_billing(item)
+            and item.plan.slug not in PACK_DECOMPOSITION
+        }
+        if undecomposed:
+            raise CommandError(
+                "These plans have subscribers holding resource blocks but no "
+                "entry in PACK_DECOMPOSITION: " + ", ".join(sorted(undecomposed))
+            )
+
+        missing = self._missing_prices()
         if missing:
             raise CommandError(
                 "These target prices do not exist - run "
@@ -236,6 +227,37 @@ class Command(BaseCommand):
                 )
             )
 
+    @staticmethod
+    def _missing_prices():
+        """Targets named by the mapping tables that nothing has created yet."""
+        missing = set()
+        for target in set(LEGACY_PLAN_MAP.values()):
+            slug, interval, label, code = target
+            if not PlanPrice.objects.filter(
+                plan__slug=slug,
+                interval=interval,
+                label=label,
+                code=code,
+                active=True,
+            ).exists():
+                missing.add(target)
+
+        for plan_slug, packs in PACK_DECOMPOSITION.items():
+            base = LEGACY_PLAN_MAP.get((plan_slug, True))
+            if base is None:
+                continue
+            for pack_slug in packs:
+                target = (pack_slug, base[1], "standard", "")
+                if not PlanPrice.objects.filter(
+                    plan__slug=pack_slug,
+                    interval=base[1],
+                    label="standard",
+                    code="",
+                    active=True,
+                ).exists():
+                    missing.add(target)
+        return missing
+
     def _collisions(self, pending):
         """Lines that would end up duplicated on one subscription.
 
@@ -246,8 +268,9 @@ class Command(BaseCommand):
         plan is therefore the collision; two on different subscriptions of
         the same organization is legitimate.
 
-        Catching this before anything is written matters: otherwise the
-        transaction aborts half way through on a bare IntegrityError.
+        Catching this before anything is written matters: otherwise the run
+        aborts part way through on a bare IntegrityError, with earlier
+        subscriptions already committed and Stripe already changed.
         """
         seen = collections.defaultdict(list)
         for item in pending:
@@ -275,12 +298,52 @@ class Command(BaseCommand):
 
         return {k: v for k, v in seen.items() if len(v) > 1}
 
-    def _migrate(self, sub, actor, dry_run):
-        if sub.plan.slug in DEFERRED_SLUGS:
-            self.stdout.write(f"  ~ {sub.organization.slug}: {sub.plan.slug} deferred")
+    # -- per subscription ----------------------------------------------
+
+    def _migrate(self, item, actor, dry_run, local_only):
+        org = item.subscription.organization
+        if item.plan.slug in DEFERRED_SLUGS:
+            self.stdout.write(f"  ~ {org.slug}: {item.plan.slug} deferred")
             return "deferred"
 
-        slug, interval, label, code = LEGACY_PLAN_MAP[(sub.plan.slug, is_billing(sub))]
+        try:
+            plan_price, packs = self._plan_for(item)
+        except CommandError as exc:
+            self.stdout.write(self.style.ERROR(f"  ! {org.slug}: {exc}"))
+            return "failed"
+
+        summary = f"{item.plan.slug} -> {plan_price}"
+        if packs:
+            summary += "".join(f" + {qty} x {price.plan.slug}" for price, qty in packs)
+        self.stdout.write(self.style.SUCCESS(f"  + {org.slug}: {summary}"))
+        if dry_run:
+            return "migrated"
+
+        try:
+            self._write(item, plan_price, packs, actor, local_only=local_only)
+        except Exception as exc:  # pylint: disable=broad-except
+            # One subscription failing must not stop the rest.  Whatever went
+            # wrong - a Stripe error, a row changed underneath us - the
+            # remaining subscribers still need migrating, and a re-run picks
+            # this one up because nothing filters on "already done".
+            logger.exception("backfill_plan_prices failed for %s", org.slug)
+            self.stdout.write(self.style.ERROR(f"  ! {org.slug}: {exc}"))
+            return "failed"
+        return "migrated"
+
+    def _plan_for(self, item):
+        """The target price and pack lines for one legacy line.
+
+        Raises if the arithmetic does not reproduce the current bill.  The
+        matrix was built to preserve it, but `proration_behavior="none"`
+        only suppresses the mid-cycle adjustment - the *next* invoice bills
+        the new Price whatever it says.  A mismatch found here is a wrong
+        number in the matrix; a mismatch found later is a customer being
+        overcharged.
+        """
+        slug, interval, label, code = LEGACY_PLAN_MAP[
+            (item.plan.slug, is_billing(item))
+        ]
         plan_price = PlanPrice.objects.select_related("plan").get(
             plan__slug=slug,
             interval=interval,
@@ -289,41 +352,102 @@ class Command(BaseCommand):
             active=True,
         )
 
-        legacy_name = sub.plan.name  # captured before repointing
-        self.stdout.write(
-            self.style.SUCCESS(
-                f"  + {sub.organization.slug}: {sub.plan.slug} -> {plan_price}"
-            )
-        )
-        if dry_run:
-            return "migrated"
+        blocks = blocks_held(item)
+        packs = []
+        if blocks and is_billing(item):
+            for pack_slug in PACK_DECOMPOSITION.get(item.plan.slug, ()):
+                packs.append(
+                    (
+                        PlanPrice.objects.select_related("plan").get(
+                            plan__slug=pack_slug,
+                            interval=interval,
+                            label="standard",
+                            code="",
+                            active=True,
+                        ),
+                        blocks,
+                    )
+                )
 
-        sub.plan = plan_price.plan
-        sub.plan_price = plan_price
-        fields = ["plan", "plan_price"]
-        if label == "comped":
-            # Migrated comps carry the same provenance the admin path
-            # requires, so "why is this organization free" stays answerable.
-            sub.granted_reason = f"Migrated from legacy {legacy_name} plan"
-            sub.granted_by = actor
-            fields += ["granted_reason", "granted_by"]
-        sub.save(update_fields=fields)
-        return "migrated"
+        # A comped line bills nothing either way, so there is no sum to check.
+        if is_billing(item):
+            new = plan_price.amount + sum(price.amount * qty for price, qty in packs)
+            old = legacy_bill_cents(item)
+            if new != old:
+                raise CommandError(
+                    f"would change the bill: {item.plan.slug} at quantity "
+                    f"{item.quantity} bills ${old / 100:,.2f} today, "
+                    f"${new / 100:,.2f} after.  Fix the price matrix or "
+                    f"PACK_DECOMPOSITION before migrating this subscriber."
+                )
+        return plan_price, packs
+
+    def _write(self, item, plan_price, packs, actor, *, local_only):
+        """Commit one subscription: local rows, then Stripe, then done.
+
+        Stripe is called inside the transaction so that a Stripe failure
+        leaves no local trace of a change that did not happen.  The reverse
+        - Stripe succeeding and the commit failing - is the survivable
+        direction: the next run finds the same line, computes the same
+        target, and `modify` settles it.
+        """
+        subscription = item.subscription
+        legacy_name = item.plan.name  # captured before repointing
+
+        with transaction.atomic():
+            item.plan = plan_price.plan
+            item.plan_price = plan_price
+            fields = ["plan", "plan_price"]
+            if packs:
+                # The base line covers the tier itself.  Leaving the block
+                # count on it would bill the flat Price that many times over
+                # - thirty times the tier for a subscriber holding thirty
+                # blocks - and would break the entitlement shape 2e depends
+                # on.
+                item.quantity = 1
+                fields.append("quantity")
+            if plan_price.label == "comped":
+                # Migrated comps carry the provenance the admin path
+                # requires, so "why is this organization free" stays
+                # answerable.
+                item.granted_reason = f"Migrated from legacy {legacy_name} plan"
+                item.granted_by = actor
+                fields += ["granted_reason", "granted_by"]
+            item.save(update_fields=fields)
+
+            for pack_price, quantity in packs:
+                SubscriptionItem.objects.update_or_create(
+                    subscription=subscription,
+                    plan=pack_price.plan,
+                    defaults={"plan_price": pack_price, "quantity": quantity},
+                )
+
+            if not local_only:
+                # One call carries the repointed base line and any new pack
+                # line together, so the subscriber keeps a single invoice and
+                # never sees a half-migrated bill.  Proration suppressed: the
+                # amounts are identical by construction and checked above, so
+                # there is nothing legitimate to prorate.
+                subscription.stripe_modify(proration_behavior="none")
 
     def _report_remaining(self):
         """What is left, and why - so a non-zero count is not alarming."""
-        per_user = (
+        deferred = SubscriptionItem.objects.filter(
+            plan_price__isnull=True, plan__slug__in=DEFERRED_SLUGS
+        ).count()
+        other = (
             SubscriptionItem.objects.filter(plan_price__isnull=True)
-            .filter(plan__price_per_user__gt=0)
-            .exclude(subscription__subscription_id="")
-            .count()
-        )
-        deferred = (
-            SubscriptionItem.objects.filter(plan_price__isnull=True)
-            .filter(plan__slug__in=DEFERRED_SLUGS)
+            .exclude(plan__slug__in=DEFERRED_SLUGS)
             .count()
         )
         self.stdout.write(
-            f"still without a plan_price: {per_user} awaiting the per-user "
-            f"decomposition, {deferred} deferred by choice"
+            f"still without a plan_price: {deferred} deferred by choice, "
+            f"{other} unexpected"
         )
+        if other:
+            self.stdout.write(
+                self.style.ERROR(
+                    "  the unexpected ones are a bug - every other line "
+                    "should have been handled by this run"
+                )
+            )
