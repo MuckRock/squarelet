@@ -49,6 +49,12 @@ def targets_fixture(db):  # pylint: disable=unused-argument
             plans[slug] = Plan.objects.filter(slug=slug).first() or PlanFactory(
                 name=f"Canonical {slug}", slug=slug
             )
+            # A migration-seeded plan arrives with real entitlements, and
+            # the grant check reads them - so an adopted row would make
+            # every test that never mentions entitlements depend on
+            # whether the database had been flushed yet.  The tests that
+            # care attach their own.
+            plans[slug].entitlements.clear()
         PlanPriceFactory(
             plan=plans[slug],
             interval=interval,
@@ -64,6 +70,10 @@ def targets_fixture(db):  # pylint: disable=unused-argument
         plans[pack_slug] = Plan.objects.filter(slug=pack_slug).first() or PlanFactory(
             name=f"Pack {pack_slug}", slug=pack_slug
         )
+        # Same reason as the tiers above: a seeded pack carries a real
+        # entitlement, and decomposing onto it would show up as a grant
+        # appearing out of nowhere.
+        plans[pack_slug].entitlements.clear()
         for interval in ("monthly", "annual"):
             PlanPriceFactory(
                 plan=plans[pack_slug],
@@ -111,6 +121,7 @@ def legacy(slug, **kwargs):
         for field, value in kwargs.items():
             setattr(existing, field, value)
         existing.save()
+        existing.entitlements.clear()  # see the targets fixture
         return existing
     return PlanFactory(name=f"Legacy {slug}", slug=slug, **kwargs)
 
@@ -374,7 +385,13 @@ class TestCollisionWithALineItLeavesAlone:
 def per_user(slug="organization", quantity=30, **kwargs):
     """A subscriber holding resource blocks over their plan's minimum."""
     return SubscriptionItemFactory(
-        plan=legacy(slug, base_price=100, minimum_users=5, price_per_user=10),
+        plan=legacy(
+            slug,
+            base_price=100,
+            minimum_users=5,
+            price_per_user=10,
+            for_groups=True,
+        ),
         subscription__subscription_id="sub_live",
         quantity=quantity,
         **kwargs,
@@ -462,7 +479,9 @@ class TestDecomposition:
         """
         actor = UserFactory()
         item = SubscriptionItemFactory(
-            plan=legacy("organization", minimum_users=5, price_per_user=10),
+            plan=legacy(
+                "organization", minimum_users=5, price_per_user=10, for_groups=True
+            ),
             subscription__subscription_id="",
             quantity=30,
         )
@@ -482,7 +501,9 @@ class TestDecomposition:
         """A priced pack line would make start() bill a comped org."""
         actor = UserFactory()
         item = SubscriptionItemFactory(
-            plan=legacy("organization", minimum_users=5, price_per_user=10),
+            plan=legacy(
+                "organization", minimum_users=5, price_per_user=10, for_groups=True
+            ),
             subscription__subscription_id="",
             quantity=30,
         )
@@ -505,7 +526,12 @@ class TestDecomposition:
     def test_an_unlisted_plan_with_block_holders_aborts(self):
         actor = UserFactory()
         SubscriptionItemFactory(
-            plan=legacy("professional", minimum_users=5, price_per_user=10),
+            plan=legacy(
+                "professional",
+                minimum_users=5,
+                price_per_user=10,
+                for_groups=True,
+            ),
             subscription__subscription_id="sub_live",
             quantity=30,
         )
@@ -565,7 +591,9 @@ class TestTheBillMustNotChange:
             subscription__subscription_id="sub_bad",
         )
         good = SubscriptionItemFactory(
-            plan=legacy("organization", base_price=100, minimum_users=5),
+            plan=legacy(
+                "organization", base_price=100, minimum_users=5, for_groups=True
+            ),
             subscription__subscription_id="sub_good",
         )
 
@@ -824,7 +852,9 @@ class TestQuantityStopsBeingAMultiplier:
         actor = UserFactory()
         per_user(quantity=30)
         SubscriptionItemFactory(
-            plan=legacy("organization", minimum_users=5, price_per_user=10),
+            plan=legacy(
+                "organization", minimum_users=5, price_per_user=10, for_groups=True
+            ),
             subscription__subscription_id="",
             quantity=12,
         )
