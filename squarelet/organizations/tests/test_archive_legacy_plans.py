@@ -51,7 +51,13 @@ class TestWhatGetsArchived:
 
     def test_a_canonical_plan_is_untouched(self):
         slug = sorted(canonical_slugs())[0]
-        plan = PlanFactory(name=f"Canonical {slug}", slug=slug)
+        # Adopt the seeded row: PlanFactory get-or-creates on *name* and
+        # `slug` is an AutoSlugField, so asking for a slug the seeded data
+        # already holds yields `<slug>-2` - which is not canonical, and
+        # would be archived.
+        plan = Plan.objects.filter(slug=slug).first() or PlanFactory(
+            name=f"Canonical {slug}", slug=slug
+        )
 
         run()
 
@@ -145,9 +151,13 @@ class TestReporting:
         assert not plan.archived
 
     def test_running_twice_is_quiet_the_second_time(self):
-        legacy_plan()
+        plan = legacy_plan()
 
         run()
         out = run()
 
-        assert "1 already archived" in out
+        plan.refresh_from_db()
+        assert plan.archived
+        # Counted, not named: a seeded database has legacy plans of its own
+        # that the first run archives too.
+        assert "0 archived," in out
