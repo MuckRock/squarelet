@@ -2,7 +2,7 @@
 import pytest
 
 # Squarelet
-from squarelet.organizations.models import SubscriptionItem
+from squarelet.organizations.models import Plan, SubscriptionItem
 from squarelet.organizations.plan_mapping import resolve_target
 
 
@@ -16,6 +16,25 @@ def legacy_plan_fixture(plan_factory):
 def paid_price_fixture(plan_price_factory):
     """A price with a Stripe Price behind it."""
     return plan_price_factory(amount=10_000, stripe_price_id="price_paid")
+
+
+def plan_with_slug(plan_factory, name, slug, **kwargs):
+    """A plan at exactly `slug`, adopting the migration-seeded row if any.
+
+    PlanFactory get-or-creates on *name* while `slug` is an AutoSlugField,
+    so asking for a slug the seeded data already uses under another name
+    quietly yields `<slug>-2`.  Everything that resolves by slug then finds
+    the seeded row instead, with none of the prices the test just set up -
+    and the test passes or fails on whether the database had been flushed.
+    """
+    plan = Plan.objects.filter(slug=slug).first()
+    if plan is None:
+        return plan_factory(name=name, slug=slug, **kwargs)
+    for field, value in kwargs.items():
+        setattr(plan, field, value)
+    plan.save()
+    plan.prices.all().delete()
+    return plan
 
 
 @pytest.mark.django_db()
@@ -314,7 +333,9 @@ class TestBillingShapeFollowsThePrice:
     def test_an_annual_price_makes_an_annual_subscription(
         self, organization_factory, plan_factory, plan_price_factory, mocker
     ):
-        canonical = plan_factory(name="Sunlight Essential", slug="sunlight-essential")
+        canonical = plan_with_slug(
+            plan_factory, "Sunlight Essential", "sunlight-essential"
+        )
         plan_price_factory(
             plan=canonical,
             interval="annual",
@@ -323,9 +344,10 @@ class TestBillingShapeFollowsThePrice:
             stripe_price_id="price_np_annual",
         )
         # The row the form substitutes in, with the flag deliberately wrong
-        picked = plan_factory(
-            name="Sunlight Nonprofit Essential Annual",
-            slug="sunlight-nonprofit-essential-annual",
+        picked = plan_with_slug(
+            plan_factory,
+            "Sunlight Nonprofit Essential Annual",
+            "sunlight-nonprofit-essential-annual",
             annual=False,
         )
         mocker.patch("squarelet.organizations.models.Subscription.start")
