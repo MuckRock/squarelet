@@ -1321,15 +1321,6 @@ class SubscriptionItem(Cancellable, models.Model):
         """
         return self.subscription.next_date
 
-    @property
-    def is_free(self):
-        """Whether this line costs anything.
-
-        A free plan has no Stripe counterpart at all, so it is dropped
-        before the subscription's items are described to Stripe.
-        """
-        return self.plan is None or self.plan.free
-
     def modify(self, plan):
         """Change which plan this line bills.
 
