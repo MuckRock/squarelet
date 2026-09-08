@@ -2,127 +2,137 @@
 {% load icon %}
 
 {% if show_invitations and potential_organizations %}
-<div class="org-list">
-  <header class="org-list-header">
+<div class="card-section">
+  <header class="card-section-label">
     <h3>{% trans "Pre-approved" %}</h3>
-    <p>{% trans "Based on your email address, you're pre-approved to join:" %}</p>
+    <p class="caption">{% trans "Based on your email address, you're pre-approved to join:" %}</p>
   </header>
-  {% for organization in potential_organizations %}
-    <div class="invite">
-      {% include "account/team_list_item.html" with organization=organization %}
-      <form method="post" action="{% url "organizations:detail" slug=organization.slug %}" class="actions join">
-        {% csrf_token %}
-        <button class="small btn primary" name="action" value="join">
-          <img src="{% static "icons/check-colored.svg" %}">
-          {% trans "Join" %}
-        </button>
-      </form>
-    </div>
-  {% endfor %}
+  <ul class="card-subsection">
+    {% for organization in potential_organizations %}
+      <li class="card-item">
+        {% include "account/team_list_item.html" with organization=organization %}
+        <form method="post" action="{% url "organizations:detail" slug=organization.slug %}" class="actions row join">
+          {% csrf_token %}
+          <button class="small btn primary" name="action" value="join">
+            <img src="{% static "icons/check-colored.svg" %}">
+            {% trans "Join" %}
+          </button>
+        </form>
+      </li>
+    {% endfor %}
+  </ul>
 </div>
 {% endif %}
 
 {% if show_invitations and pending_invitations %}
-<div class="org-list">
-  <header class="org-list-header">
+<div class="card-section">
+  <header class="card-section-label">
     <h3>{% trans "Open invitations" %}</h3>
-    <p>{% trans "Organizations you’ve been invited to join:" %}</p>
+    <span class="caption">{% trans "Waiting for your decision to join" %}</span>
   </header>
-  {% for invite in pending_invitations %}
-    <div class="invite">
-      {% include "account/team_list_item.html" with organization=invite.organization %}
-      {{ invite.accept_form }}
-    </div>
-  {% endfor %}
+  <ul class="card-subsection">
+    {% for invite in pending_invitations %}
+      <li class="card-item">
+        {% include "account/team_list_item.html" with organization=invite.organization %}
+        {{ invite.accept_form }}
+      </li>
+    {% endfor %}
+  </ul>
 </div>
 {% endif %}
 
 {% if show_invitations and pending_requests %}
-  <div class="org-list">
-    <header class="org-list-header">
+  <div class="card-section">
+    <header class="card-section-label">
       <h3>{% trans "Open requests" %}</h3>
-      <p>{% trans "Organizations you’ve requested to join:" %}</p>
+      <span class="caption">{% trans "Awaiting approval from an admin" %}</span>
     </header>
-    {% for invite in pending_requests %}
-    <div class="invite">
-      {% include "account/team_list_item.html" with organization=invite.organization %}
+    <ul class="card-subsection">
+      {% for invite in pending_requests %}
+      <li class="card-item">
+        {% include "account/team_list_item.html" with organization=invite.organization %}
 
-      <form method="post" action="{% url "organizations:invitation" uuid=invite.uuid %}" class="actions">
-        {% csrf_token %}
-        <button class="btn small danger ghost" type="submit" name="action" value="withdraw">
-          {% trans "Withdraw request" %}
-        </button>
-      </form>
-    </div>
-    {% empty %}
-    <div class="empty">
-      <p>{% trans "No pending requests." %}</p>
-    </div>
-    {% endfor %}
+        <form method="post" action="{% url "organizations:invitation" uuid=invite.uuid %}" class="actions">
+          {% csrf_token %}
+          <button class="btn small danger ghost" type="submit" name="action" value="withdraw">
+            {% trans "Withdraw request" %}
+          </button>
+        </form>
+      </li>
+      {% empty %}
+      <li class="card-item">
+        <p class="caption">{% trans "No pending requests." %}</p>
+      </li>
+      {% endfor %}
+    </ul>
   </div>
 {% endif %}
 
 {% if admin_orgs %}
-<div class="org-list">
-  <header class="org-list-header">
+<div class="card-section">
+  <header class="card-section-label">
     <h3>{% trans "Admin" %}</h3>
-    <p>{% trans "Organizations you manage:" %}</p>
+    <span class="caption">{% trans "Organizations you manage" %}</span>
   </header>
-  {% for org in admin_orgs %}
-    <div class="org">
-      {% include "account/team_list_item.html" with organization=org %}
-      <div class="actions">
-        {% if not org.verified_journalist %}
-          {% if has_verified_email %}
-          <a target="_blank" rel="noopener noreferrer" class="btn ghost primary small" href="{% airtable_verification_url org %}">
-            {% trans "Request verification" %}
-          </a>
-          {% else %}
-          <button type="button" class="btn ghost primary small" disabled title="{% trans "Confirm your account's email address before requesting verification." %}">
-            {% trans "Request verification" %}
-          </button>
+  <ul class="card-subsection">
+    {% for org in admin_orgs %}
+      <li class="card-item">
+        {% include "account/team_list_item.html" with organization=org %}
+        <div class="actions">
+          {% if not org.verified_journalist %}
+            {% if has_verified_email %}
+            <a target="_blank" rel="noopener noreferrer" class="btn ghost primary small" href="{% airtable_verification_url org %}">
+              {% trans "Request verification" %}
+            </a>
+            {% else %}
+            <button type="button" class="btn ghost primary small" disabled title="{% trans "Confirm your account's email address before requesting verification." %}">
+              {% trans "Request verification" %}
+            </button>
+            {% endif %}
           {% endif %}
-        {% endif %}
-        <a class="btn ghost primary small" href="{% url "organizations:manage-members" slug=org.slug %}">
-          {% icon "gear" %}
-          {% trans "Manage" %}
-        </a>
-      </div>
-    </div>
-  {% endfor %}
+          <a class="btn ghost primary small" href="{% url "organizations:manage-members" slug=org.slug %}">
+            {% icon "gear" %}
+            {% trans "Manage" %}
+          </a>
+        </div>
+      </li>
+    {% endfor %}
+  </ul>
 </div>
 {% endif %}
 
 {% if other_orgs %}
-<div class="org-list">
-  <header class="org-list-header">
+<div class="card-section">
+  <header class="card-section-label">
     <h3>{% trans "Membership" %}</h3>
-    <p>{% trans "Organizations you've joined:" %}</p>
+    <span class="caption">{% trans "Organizations you belong to" %}</span>
   </header>
-  {% for org in other_orgs %}
-    <div class="org">
-      {% include "account/team_list_item.html" with organization=org %}
-      <form method="post" action="{% url "organizations:detail" slug=org.slug %}" class="actions">
-        {% csrf_token %}
-        <input type="hidden" name="userid" value="{{ user.id }}">
-        {% if not org.verified_journalist %}
-          {% if has_verified_email %}
-          <a target="_blank" rel="noopener noreferrer" class="btn ghost primary small" href="{% airtable_verification_url org %}">
-            {% trans "Request verification" %}
-          </a>
-          {% else %}
-          <button type="button" class="btn ghost primary small" disabled title="{% trans 'Confirm an email address on your account before requesting verification.' %}">
-            {% trans "Request verification" %}
-          </button>
+  <ul class="card-subsection">
+    {% for org in other_orgs %}
+      <li class="card-item">
+        {% include "account/team_list_item.html" with organization=org %}
+        <form method="post" action="{% url "organizations:detail" slug=org.slug %}" class="actions">
+          {% csrf_token %}
+          <input type="hidden" name="userid" value="{{ user.id }}">
+          {% if not org.verified_journalist %}
+            {% if has_verified_email %}
+            <a target="_blank" rel="noopener noreferrer" class="btn ghost primary small" href="{% airtable_verification_url org %}">
+              {% trans "Request verification" %}
+            </a>
+            {% else %}
+            <button type="button" class="btn ghost primary small" disabled title="{% trans 'Confirm an email address on your account before requesting verification.' %}">
+              {% trans "Request verification" %}
+            </button>
+            {% endif %}
           {% endif %}
-        {% endif %}
-        <button class="btn danger ghost small" type="submit" name="action" value="leave">
-          {% icon "sign-out" %}
-          {% trans "Leave" %}
-        </button>
-      </form>
-    </div>
-  {% endfor %}
+          <button class="btn danger ghost small" type="submit" name="action" value="leave">
+            {% icon "sign-out" %}
+            {% trans "Leave" %}
+          </button>
+        </form>
+      </li>
+    {% endfor %}
+  </ul>
 </div>
 {% endif %}
 

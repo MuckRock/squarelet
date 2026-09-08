@@ -106,11 +106,12 @@
         <div id="pre-approved" class="pre-approved">
           <header>
             <h2>{% trans "Pre-approved" %}</h2>
-            <p>{% trans "Based on your email address, you're pre-approved to join:" %}</p>
+            <p class="caption">{% trans "Based on your email address, you're pre-approved to join:" %}</p>
           </header>
           <div class="card">
+            <ul class="card-list">
             {% for organization in potential_orgs %}
-            <div class="invite">
+            <li class="card-item">
               {% include "account/team_list_item.html" %}
 
               <form method="post" action="{% url "organizations:detail" slug=organization.slug %}" class="actions join">
@@ -120,12 +121,13 @@
                   {% trans "Join" %}
                 </button>
               </form>
-            </div>
+            </li>
             {% empty %}
-            <div class="empty">
-              <p>{% trans "No pre-approved teams are available to join." %}</p>
+            <div class="card-item">
+              <p class="caption">{% trans "No pre-approved teams are available to join." %}</p>
             </div>
             {% endfor %}
+            </ul>
           </div>
         </div>
         {% endif %}
@@ -142,18 +144,20 @@
           </header>
           {% if pending_invitations|length > 0 %}
           <div class="card">
+            <ul class="card-list">
             {% for invite in pending_invitations %}
-            <div class="invite">
-              {% include "account/team_list_item.html" with organization=invite.organization %}
+              <li class="card-item">
+                {% include "account/team_list_item.html" with organization=invite.organization %}
 
-              {{ invite.accept_form }}
-            </div>
+                {{ invite.accept_form }}
+              </li>
             {% endfor %}
+            </ul>
           </div>
           {% else %}
-          <div class="empty">
-            <p>{% trans "No pending invitations." %}</p>
-          </div>
+            <div class="card-item">
+              <p class="caption">{% trans "No pending invitations." %}</p>
+            </div>
           {% endif %}
         </div>
 
@@ -167,26 +171,30 @@
               </a>
             </div>
           </header>
-          {% if pending_requests|length > 0 %}
           <div class="card">
-            {% for invite in pending_requests %}
-            <div class="invite">
-              {% include "account/team_list_item.html" with organization=invite.organization %}
+            {% if pending_requests|length > 0 %}
+            <ul class="card-list">
+              {% for invite in pending_requests %}
+              <li class="card-item">
+                {% include "account/team_list_item.html" with organization=invite.organization %}
 
-              <form method="post" action="{% url "organizations:invitation" uuid=invite.uuid %}" class="actions">
-                {% csrf_token %}
-                <button class="btn small danger ghost" type="submit" name="action" value="withdraw">
-                  {% trans "Withdraw request" %}
-                </button>
-              </form>
-            </div>
-            {% endfor %}
+                <form method="post" action="{% url "organizations:invitation" uuid=invite.uuid %}" class="actions">
+                  {% csrf_token %}
+                  <button class="btn small danger ghost" type="submit" name="action" value="withdraw">
+                    {% trans "Withdraw request" %}
+                  </button>
+                </form>
+              </li>
+              {% endfor %}
+            </ul>
+            {% else %}
+            <ul class="card-subsection">
+              <li class="card-item">
+                <p class="caption">{% trans "No pending requests." %}</p>
+              </li>
+            </ul>
+            {% endif %}
           </div>
-          {% else %}
-          <div class="empty">
-            <p>{% trans "No pending requests." %}</p>
-          </div>
-          {% endif %}
         </div>
     </section>
   </main>
