@@ -108,6 +108,61 @@ class TestDetail(ViewTestMixin):
         # Verify pending_requests is a queryset
         assert response.context_data["pending_requests"].count() == 0
 
+    def test_own_subscription_benefits_are_consolidated(
+        self, rf, organization_factory, plan_factory, user_factory
+    ):
+        """Every plan the org pays for is summarized into one benefits list"""
+        plan_a = plan_factory(name="Plan A", benefits=["Shared", "A only"])
+        plan_b = plan_factory(name="Plan B", benefits=["Shared", "B only"])
+        organization = organization_factory(plans=[plan_a, plan_b])
+        user = user_factory()
+
+        response = self.call_view(rf, user, slug=organization.slug)
+
+        assert response.status_code == 200
+        assert {sub.plan for sub in response.context_data["subscriptions"]} == {
+            plan_a,
+            plan_b,
+        }
+        assert response.context_data["subscription_benefits"] == [
+            "Shared",
+            "A only",
+            "B only",
+        ]
+
+    def test_own_subscription_benefits_separate_from_inherited(
+        self, rf, organization_factory, plan_factory, user_factory
+    ):
+        """Benefits the org pays for are not mixed in with inherited ones"""
+        own_plan = plan_factory(name="Own Plan", benefits=["Own benefit"])
+        shared_plan = plan_factory(
+            name="Shared Plan", benefits=["Shared benefit"], base_price=100
+        )
+        parent = organization_factory(
+            name="Parent Org", share_resources=True, plans=[shared_plan]
+        )
+        organization = organization_factory(plans=[own_plan], parent=parent)
+        user = user_factory()
+
+        response = self.call_view(rf, user, slug=organization.slug)
+
+        assert response.status_code == 200
+        assert response.context_data["subscription_benefits"] == ["Own benefit"]
+        assert response.context_data["inherited_orgs"] == [parent]
+        assert response.context_data["inherited_benefits"] == ["Shared benefit"]
+
+    def test_no_subscription_benefits_without_subscriptions(
+        self, rf, organization_factory, user_factory
+    ):
+        """An org with no plans of its own has no consolidated benefits"""
+        organization = organization_factory()
+        user = user_factory()
+
+        response = self.call_view(rf, user, slug=organization.slug)
+
+        assert response.status_code == 200
+        assert response.context_data["subscription_benefits"] == []
+
     def test_get_admin_with_pending_requests(
         self, rf, organization_factory, user_factory, invitation_factory
     ):

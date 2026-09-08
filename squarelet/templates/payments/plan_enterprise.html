@@ -27,10 +27,11 @@
     <main>
       <div class="plan-details card">
         <!-- Plan benefits -->
-        {% if plan.benefits %}
+        {% with benefits=plan.get_benefits %}
+        {% if benefits %}
         <div class="plan-benefits">
           <ul class="checklist">
-            {% for benefit in plan.benefits %}
+            {% for benefit in benefits %}
             <li class="checklist-item">
               <span class="checkmark icon">
                 {% icon "checkmark" %}
@@ -41,6 +42,7 @@
           </ul>
         </div>
         {% endif %}
+        {% endwith %}
 
         <!-- Contact and Learn More Actions -->
         <div class="plan-actions">

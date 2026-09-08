@@ -557,6 +557,9 @@ class EntitlementAdmin(VersionAdmin):
     list_filter = ("client",)
     search_fields = ("name",)
     autocomplete_fields = ("client",)
+    formfield_overrides = {
+        JSONField: {"widget": PrettyJSONWidget},
+    }
 
     def save_model(self, request, obj, form, change):
         old_resources = None
