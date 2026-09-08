@@ -2279,6 +2279,22 @@ class PlanPrice(models.Model):
         # which matters under ATOMIC_REQUESTS, where the caller's request is
         # itself a transaction that this cannot escape.
         replacement.ensure_stripe_price()
+
+        # Deactivate the Stripe Price this row was pointing at, so nothing
+        # new can be sold at the old rate.  Existing subscribers keep
+        # billing against it - Stripe only stops an inactive Price being
+        # attached to something new - which is what lets this happen here
+        # rather than waiting for callers to move anyone over.
+        if self.stripe_price_id:
+            try:
+                get_payment_provider().get_plan_service().archive_price(
+                    self.stripe_price_id
+                )
+            except stripe.InvalidRequestError:  # pragma: no cover
+                # Already inactive, or gone.  Either way nothing new can be
+                # sold at it, which is the whole point.
+                pass
+
         return replacement
 
 

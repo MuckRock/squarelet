@@ -266,16 +266,16 @@ class PlanService(ABC):
         permanent once anything could have billed against it.  Deactivating
         is the whole of what "removing" a price means.
         """
-        raise NotImplementedError
 
+    @abstractmethod
     def archive_product(self, product_id):
         """Deactivate a Product.
 
         Deleting is only possible for a Product nothing references, which
         stops being true the moment it has a Price.  Archive instead.
         """
-        raise NotImplementedError
 
+    @abstractmethod
     def create_price(self, product_id, unit_amount, currency, interval, **kwargs):
         """Create a recurring Price under a Product.
 
