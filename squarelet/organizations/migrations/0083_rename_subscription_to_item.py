@@ -16,7 +16,7 @@ class Migration(migrations.Migration):
     """
 
     dependencies = [
-        ("organizations", "0082_plan_tiers_and_packs"),
+        ("organizations", "0083_merge_20260909_1055"),
     ]
 
     operations = [
