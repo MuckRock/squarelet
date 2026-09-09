@@ -642,10 +642,14 @@ class Subscription(Cancellable, models.Model):
             if price_id:
                 by_price[price_id] = stripe_item["id"]
 
-        for item in self.items.select_related("plan"):
+        for item in self.items.select_related("plan", "plan_price"):
             if item.is_free:
                 continue
-            item_id = by_price.get(item.plan.stripe_id)
+            # Whatever `stripe_items` sends as the price is what Stripe
+            # echoes back, so the two have to read the same field.  This
+            # branch moves the specs onto PlanPrice; the lookup follows, or
+            # it silently matches nothing and the self-heal stops healing.
+            item_id = by_price.get(item.stripe_price_id)
             if item_id and item_id != item.stripe_item_id:
                 item.stripe_item_id = item_id
                 item.save(update_fields=["stripe_item_id"])
