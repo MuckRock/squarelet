@@ -159,14 +159,18 @@ class TestUserDetailView(ViewTestMixin):
             self.call_view(rf, other_user, username=user.username)
 
     def test_own_subscription_benefits_are_consolidated(
-        self, rf, user_factory, plan_factory, subscription_factory
+        self, rf, user_factory, plan_factory, subscription_item_factory
     ):
         """Every plan the user pays for is summarized into one benefits list"""
         user = user_factory()
         plan_a = plan_factory(name="Plan A", benefits=["Shared", "A only"])
         plan_b = plan_factory(name="Plan B", benefits=["Shared", "B only"])
-        subscription_factory(organization=user.individual_organization, plan=plan_a)
-        subscription_factory(organization=user.individual_organization, plan=plan_b)
+        subscription_item_factory(
+            subscription__organization=user.individual_organization, plan=plan_a
+        )
+        subscription_item_factory(
+            subscription__organization=user.individual_organization, plan=plan_b
+        )
 
         response = self.call_view(rf, user, username=user.username)
 
@@ -182,12 +186,19 @@ class TestUserDetailView(ViewTestMixin):
         ]
 
     def test_own_subscription_benefits_separate_from_inherited(
-        self, rf, user_factory, organization_factory, plan_factory, subscription_factory
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
     ):
         """Benefits the user pays for are not mixed in with their orgs'"""
         user = user_factory()
         own_plan = plan_factory(name="Own Plan", benefits=["Own benefit"])
-        subscription_factory(organization=user.individual_organization, plan=own_plan)
+        subscription_item_factory(
+            subscription__organization=user.individual_organization, plan=own_plan
+        )
         org_plan = plan_factory(
             name="Org Plan", benefits=["Org benefit"], base_price=100
         )
