@@ -90,36 +90,31 @@
         </div>
       </header>
       <div class="card">
-        <div class="org-list">
+        <ul class="card-list">
           {% for invitation in pending_invitations %}
             {% with org=invitation.to_organization %}
-            <div class="org">
+            <li class="card-item">
               {% include "account/team_list_item.html" with organization=org %}
-              <div class="member-detail">
-                <form method="post" action="{% url "organizations:manage-member-orgs" organization.slug %}" class="member-actions">
-                  {% csrf_token %}
-                  <input type="hidden" name="invitation" value="{{ invitation.uuid }}">
-                  <button class="btn ghost small" type="submit" name="action" value="resend_invite">
-                    {% icon "paper-airplane" %}
-                    {% trans "Resend" %}
-                  </button>
-                  <button class="btn danger ghost small" type="submit" name="action" value="withdraw_invite">
-                    {% icon "x" %}
-                    {% trans "Withdraw" %}
-                  </button>
-                </form>
-                <p class="caption">{% trans "Created" %} 
-                  <time datetime="{{ invitation.created_at|date:"c" }}" title="{{ invitation.created_at|date:"c" }}">{{ invitation.created_at|naturaltime }}</time>
-                </p>
-              </div>
-            </div>
+              <form method="post" action="{% url "organizations:manage-member-orgs" organization.slug %}" class="actions">
+                {% csrf_token %}
+                <input type="hidden" name="invitation" value="{{ invitation.uuid }}">
+                <button class="btn ghost small" type="submit" name="action" value="resend_invite">
+                  {% icon "paper-airplane" %}
+                  {% trans "Resend" %}
+                </button>
+                <button class="btn danger ghost small" type="submit" name="action" value="withdraw_invite">
+                  {% icon "x" %}
+                  {% trans "Withdraw" %}
+                </button>
+              </form>
+            </li>
             {% endwith %}
             {% empty %}
-              <div class="empty empty--no-border">
-                <p>{% trans "No pending invitations" %}</p>
-              </div>
+              <li class="card-item">
+                <p class="caption">{% trans "No pending invitations" %}</p>
+              </li>
           {% endfor %}
-        </div>
+        </ul>
       </div>
     </section>
   {% endwith %}
@@ -136,11 +131,11 @@
         </h2>
       </header>
       <div class="card">
-        <div class="org-list">
+        <ul class="card-list">
           {% for member in members %}
-            <div class="org">
+            <li class="card-item">
               {% include "account/team_list_item.html" with organization=member %}
-              <form method="post" action="{% url "organizations:detail" organization.slug %}" class="member-actions">
+              <form method="post" action="{% url "organizations:detail" organization.slug %}" class="actions">
                 {% csrf_token %}
                 <input type="hidden" name="member_org" value="{{ member.slug }}">
                 <button class="btn danger ghost small" type="submit" name="action" value="remove_member_org">
@@ -148,14 +143,14 @@
                   {% trans "Remove" %}
                 </button>
               </form>
-            </div>
+            </li>
           {% empty %}
-            <div class="empty empty--no-border">
-              <p>{% trans "No member organizations" %}</p>
-            </div>
+            <li class="card-item">
+              <p class="caption">{% trans "No member organizations" %}</p>
+            </li>
           {% endfor %}
-        </div>
+        </ul>
       </div>
     </section>
-  {% endwith %} 
+  {% endwith %}
 {% endblock main %}

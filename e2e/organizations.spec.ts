@@ -75,8 +75,8 @@ test.describe("Organization Viewing", () => {
 
     test("cannot see the org's member list", async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
-      await expect(page.locator("#members .user-list")).not.toBeVisible();
-      await expect(page.locator("#members .user-list .user")).not.toBeVisible();
+      await expect(page.locator("#members .card-list")).not.toBeVisible();
+      await expect(page.locator("#members .card-list .user")).not.toBeVisible();
     });
 
     test("sees org verification status", async ({ page }) => {
@@ -119,8 +119,8 @@ test.describe("Organization Viewing", () => {
 
     test("sees only admins in member list", async ({ page }) => {
       await page.goto("/organizations/e2e-public-org/");
-      await expect(page.locator("#members .user-list")).toBeVisible();
-      await expect(page.locator("#members .user-list .user")).toHaveCount(1); // only admins
+      await expect(page.locator("#members .card-list")).toBeVisible();
+      await expect(page.locator("#members .card-list .user")).toHaveCount(1); // only admins
     });
 
     test("cannot see admin emails without a verified email", async ({ page }) => {
@@ -151,7 +151,7 @@ test.describe("Organization Viewing", () => {
     }) => {
       await page.goto("/organizations/e2e-public-org/");
       // Should see both the admin and the member
-      await expect(page.locator("#members .user-list .user")).toHaveCount(2);
+      await expect(page.locator("#members .card-list .user")).toHaveCount(2);
     });
 
     test('sees "Leave org" button', async ({ page }) => {
@@ -534,7 +534,7 @@ test.describe("Member Management", () => {
     // Clean up: remove the requester from the org
     await page.goto("/organizations/e2e-public-org/manage-members/");
     // Find the membership row for e2e-requester and remove them
-    const requesterRow = page.locator(".membership", {
+    const requesterRow = page.locator("#members .card-item", {
       has: page.locator("h3", { hasText: "e2e-requester" }),
     });
     await requesterRow.locator('button[value="removeuser"]').click();
@@ -583,22 +583,23 @@ test.describe("Member Management", () => {
     await page.goto("/organizations/e2e-public-org/manage-members/");
     const pendingSection = page.locator("section#pending");
     await expect(pendingSection).toBeVisible();
-    const pendingInvitation = pendingSection.locator(".invitation").first();
+    const pendingInvitation = pendingSection.locator(".card-item").first();
     await expect(pendingInvitation.locator(".orange.badge")).toHaveCount(0);
 
     // Login as the invited user and accept from their account page
     await login(page, "e2e-requester");
     await page.goto("/users/e2e-requester/");
-    const invitation = page.locator(".invite", {
-      has: page.locator("text=e2e-public-org"),
-    });
+    const invitation = page.locator(
+      '.card-section:has(h3:text-is("Open invitations")) .card-item',
+      { has: page.locator("text=e2e-public-org") },
+    );
     await invitation.locator('button[value="accept"]').click();
     await expectFlashMessage(page, "success");
 
     // Verify the user is a member (not admin) in the members list
     await login(page, "e2e-admin");
     await page.goto("/organizations/e2e-public-org/manage-members/");
-    const requesterMembership = page.locator(".membership", {
+    const requesterMembership = page.locator("#members .card-item", {
       has: page.locator("h3", { hasText: "e2e-requester" }),
     });
     await expect(requesterMembership).toBeVisible();
@@ -621,7 +622,7 @@ test.describe("Member Management", () => {
     }
 
     // Remove e2e-regular from org if they're already a member
-    const staleMembership = page.locator(".membership", {
+    const staleMembership = page.locator("#members .card-item", {
       has: page.locator("h3", { hasText: "e2e-regular" }),
     });
     if ((await staleMembership.count()) > 0) {
@@ -643,7 +644,7 @@ test.describe("Member Management", () => {
     await page.goto("/organizations/e2e-public-org/manage-members/");
     const pendingSection = page.locator("section#pending");
     await expect(pendingSection).toBeVisible();
-    const pendingInvitation = pendingSection.locator(".invitation").first();
+    const pendingInvitation = pendingSection.locator(".card-item").first();
     await expect(pendingInvitation.locator(".orange.badge")).toBeVisible();
     await expect(pendingInvitation.locator(".orange.badge")).toContainText(
       "Admin",
@@ -652,16 +653,17 @@ test.describe("Member Management", () => {
     // Login as the invited user and accept from their account page
     await login(page, "e2e-regular");
     await page.goto("/users/e2e-regular/");
-    const invitation = page.locator(".invite", {
-      has: page.locator("text=e2e-public-org"),
-    });
+    const invitation = page.locator(
+      '.card-section:has(h3:text-is("Open invitations")) .card-item',
+      { has: page.locator("text=e2e-public-org") },
+    );
     await invitation.locator('button[value="accept"]').click();
     await expectFlashMessage(page, "success");
 
     // Verify the user is an admin in the members list
     await login(page, "e2e-admin");
     await page.goto("/organizations/e2e-public-org/manage-members/");
-    const regularMembership = page.locator(".membership", {
+    const regularMembership = page.locator("#members .card-item", {
       has: page.locator("h3", { hasText: "e2e-regular" }),
     });
     await expect(regularMembership).toBeVisible();
@@ -973,9 +975,10 @@ test.describe("Invitations for unverified users", () => {
     await page.goto("/users/e2e-unverified/");
 
     // The member invitation is visible and can be accepted
-    const invitation = page.locator(".invite", {
-      has: page.locator("text=e2e-public-org"),
-    });
+    const invitation = page.locator(
+      '.card-section:has(h3:text-is("Open invitations")) .card-item',
+      { has: page.locator("text=e2e-public-org") },
+    );
     await expect(invitation).toBeVisible();
     await expect(invitation.locator('button[value="accept"]')).toBeVisible();
 
@@ -985,7 +988,7 @@ test.describe("Invitations for unverified users", () => {
     // The user is now a member of the organization
     await login(page, "e2e-admin");
     await page.goto("/organizations/e2e-public-org/manage-members/");
-    const membership = page.locator(".membership", {
+    const membership = page.locator("#members .card-item", {
       has: page.locator("h3", { hasText: "e2e-unverified" }),
     });
     await expect(membership).toBeVisible();
@@ -1011,9 +1014,10 @@ test.describe("Invitations for unverified users", () => {
     await page.goto("/users/e2e-unverified/");
 
     // The admin invitation is visible...
-    const invitation = page.locator(".invite", {
-      has: page.locator("text=e2e-public-org"),
-    });
+    const invitation = page.locator(
+      '.card-section:has(h3:text-is("Open invitations")) .card-item',
+      { has: page.locator("text=e2e-public-org") },
+    );
     await expect(invitation).toBeVisible();
 
     // ...but it offers an email-confirmation prompt instead of an accept button
@@ -1030,7 +1034,7 @@ test.describe("Invitations for unverified users", () => {
     await page.goto("/organizations/");
 
     // The invitation appears in the pending-invitations section and is acceptable
-    const invitation = page.locator("#invitations .invite", {
+    const invitation = page.locator("#invitations .card-item", {
       has: page.locator("text=e2e-public-org"),
     });
     await expect(invitation).toBeVisible();
@@ -1114,7 +1118,7 @@ test.describe("Invitations for unverified users", () => {
     await login(page, "e2e-admin");
     await page.goto("/organizations/e2e-public-org/manage-members/");
     await expect(
-      page.locator(".membership", {
+      page.locator("#members .card-item", {
         has: page.locator("h3", { hasText: "e2e-unverified" }),
       }),
     ).toBeVisible();
@@ -1253,7 +1257,7 @@ test.describe("Member Organization Management", () => {
 
       // The invitation appears in the pending section
       await page.goto(`/organizations/${COLLECTIVE}/manage-member-orgs/`);
-      const pendingRow = page.locator("section#pending .org", {
+      const pendingRow = page.locator("section#pending .card-item", {
         has: page.locator("h4", { hasText: MEMBER }),
       });
       await expect(pendingRow).toBeVisible();
@@ -1265,7 +1269,7 @@ test.describe("Member Organization Management", () => {
       // Withdraw it
       await page.goto(`/organizations/${COLLECTIVE}/manage-member-orgs/`);
       await page
-        .locator("section#pending .org", {
+        .locator("section#pending .card-item", {
           has: page.locator("h4", { hasText: MEMBER }),
         })
         .locator('button[value="withdraw_invite"]')
@@ -1275,7 +1279,7 @@ test.describe("Member Organization Management", () => {
       // No pending invitations remain
       await page.goto(`/organizations/${COLLECTIVE}/manage-member-orgs/`);
       await expect(
-        page.locator("section#pending .org", {
+        page.locator("section#pending .card-item", {
           has: page.locator("h4", { hasText: MEMBER }),
         }),
       ).toHaveCount(0);
@@ -1313,7 +1317,7 @@ test.describe("Member Organization Management", () => {
       // No pending invitation was created for the existing member
       await page.goto(`/organizations/${COLLECTIVE}/manage-member-orgs/`);
       await expect(
-        page.locator("section#pending .org", {
+        page.locator("section#pending .card-item", {
           has: page.locator("h4", { hasText: MEMBER }),
         }),
       ).toHaveCount(0);
@@ -1328,7 +1332,7 @@ test.describe("Member Organization Management", () => {
       // so the Resend button is rendered.
       await login(page, "e2e-admin");
       await page.goto(`/organizations/${COLLECTIVE}/manage-member-orgs/`);
-      const pendingRow = page.locator("section#pending .org", {
+      const pendingRow = page.locator("section#pending .card-item", {
         has: page.locator("h4", { hasText: MEMBER }),
       });
       await expect(pendingRow).toBeVisible();
@@ -1346,12 +1350,12 @@ test.describe("Member Organization Management", () => {
 
       // The invitation is now an accepted membership, no longer pending.
       await expect(
-        page.locator("section#pending .org", {
+        page.locator("section#pending .card-item", {
           has: page.locator("h4", { hasText: MEMBER }),
         }),
       ).toHaveCount(0);
       await expect(
-        page.locator("section#member-orgs .org", {
+        page.locator("section#member-orgs .card-item", {
           has: page.locator("h4", { hasText: MEMBER }),
         }),
       ).toBeVisible();
@@ -1370,7 +1374,7 @@ test.describe("Member Organization Management", () => {
       await page.goto(`/organizations/${MEMBER}/`);
       await expect(page.locator("section#affiliations")).toBeVisible();
 
-      const invitationRow = page.locator("section#affiliations .org", {
+      const invitationRow = page.locator("section#affiliations .card-item", {
         has: page.locator("h4", { hasText: COLLECTIVE }),
       });
       await invitationRow
@@ -1381,7 +1385,7 @@ test.describe("Member Organization Management", () => {
       // The member org now lists the collective in its Affiliations section
       await page.goto(`/organizations/${MEMBER}/`);
       await expect(
-        page.locator("section#affiliations .org", {
+        page.locator("section#affiliations .card-item", {
           has: page.locator("h4", { hasText: COLLECTIVE }),
         }),
       ).toBeVisible();
@@ -1389,7 +1393,7 @@ test.describe("Member Organization Management", () => {
       // ...and appears in the collective's member orgs list
       await page.goto(`/organizations/${COLLECTIVE}/`);
       await expect(
-        page.locator("section#affiliates .org", {
+        page.locator("section#affiliates .card-item", {
           has: page.locator("h4", { hasText: MEMBER }),
         }),
       ).toBeVisible();
@@ -1400,7 +1404,7 @@ test.describe("Member Organization Management", () => {
 
       await login(page, "e2e-admin");
       await page.goto(`/organizations/${MEMBER}/`);
-      const invitationRow = page.locator("section#affiliations .org", {
+      const invitationRow = page.locator("section#affiliations .card-item", {
         has: page.locator("h4", { hasText: COLLECTIVE }),
       });
       await invitationRow
@@ -1411,7 +1415,7 @@ test.describe("Member Organization Management", () => {
       // The rejection means no membership was created
       await page.goto(`/organizations/${COLLECTIVE}/`);
       await expect(
-        page.locator("section#affiliates .org", {
+        page.locator("section#affiliates .card-item", {
           has: page.locator("h4", { hasText: MEMBER }),
         }),
       ).toHaveCount(0);
@@ -1424,7 +1428,7 @@ test.describe("Member Organization Management", () => {
 
       await login(page, "e2e-admin");
       await page.goto(`/organizations/${COLLECTIVE}/manage-member-orgs/`);
-      const memberRow = page.locator("section#member-orgs .org", {
+      const memberRow = page.locator("section#member-orgs .card-item", {
         has: page.locator("h4", { hasText: MEMBER }),
       });
       await expect(memberRow).toBeVisible();
@@ -1434,7 +1438,7 @@ test.describe("Member Organization Management", () => {
       // The member org is gone from the list
       await page.goto(`/organizations/${COLLECTIVE}/manage-member-orgs/`);
       await expect(
-        page.locator("section#member-orgs .org", {
+        page.locator("section#member-orgs .card-item", {
           has: page.locator("h4", { hasText: MEMBER }),
         }),
       ).toHaveCount(0);
@@ -1445,7 +1449,7 @@ test.describe("Member Organization Management", () => {
 
       await login(page, "e2e-admin");
       await page.goto(`/organizations/${MEMBER}/`);
-      const membershipRow = page.locator("section#affiliations .org", {
+      const membershipRow = page.locator("section#affiliations .card-item", {
         has: page.locator("h4", { hasText: COLLECTIVE }),
       });
       await membershipRow.locator('button[value="remove_member_org"]').click();
@@ -1454,7 +1458,7 @@ test.describe("Member Organization Management", () => {
       // The membership is gone from the collective's member orgs
       await page.goto(`/organizations/${COLLECTIVE}/`);
       await expect(
-        page.locator("section#affiliates .org", {
+        page.locator("section#affiliates .card-item", {
           has: page.locator("h4", { hasText: MEMBER }),
         }),
       ).toHaveCount(0);
@@ -1511,7 +1515,7 @@ test.describe("Member Organization Management", () => {
 
       await page.goto(`/organizations/${COLLECTIVE}/`);
       await expect(
-        page.locator("section#affiliates .org", {
+        page.locator("section#affiliates .card-item", {
           has: page.locator("h4", { hasText: MEMBER }),
         }),
       ).toBeVisible();

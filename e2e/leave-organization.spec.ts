@@ -155,7 +155,7 @@ test.describe("Demoting yourself as the sole admin", () => {
     await login(page, "e2e-lone-admin");
     await page.goto(MANAGE_URL);
 
-    const row = page.locator(".membership", {
+    const row = page.locator("#members .card-item", {
       has: page.locator("h3", { hasText: "e2e-lone-admin" }),
     });
 
