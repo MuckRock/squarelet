@@ -627,16 +627,26 @@ class Subscription(Cancellable, models.Model):
         self.__dict__["stripe_subscription"] = stripe_sub
 
     def cache_stripe_subscription_fields(self, stripe_sub):
-        """Cache subscription status and period end from a Stripe subscription."""
+        """Cache subscription status and period end from a Stripe subscription.
+
+        A payload carrying no period end is not saying the subscription has
+        none - webhooks omit `items` for a bare cancel_at_period_end toggle,
+        which is the very event a cancellation fires.  Overwriting with None
+        there discarded the date `cancel()` had just worked out, and
+        `mark_cancelled` then wrote a cancellation with no date - which the
+        nightly sweep reads as due immediately.  The customer lost their
+        entitlements the same night while Stripe billed them to period end.
+        """
         self.stripe_status = stripe_sub.status or ""
         ts = (
             get_payment_provider()
             .get_subscription_service()
             .get_current_period_end(stripe_sub)
         )
-        self.current_period_end = (
-            datetime.fromtimestamp(ts, tz=get_current_timezone()) if ts else None
-        )
+        if ts:
+            self.current_period_end = datetime.fromtimestamp(
+                ts, tz=get_current_timezone()
+            )
 
     def start(self, payment_method="card", anchor_day=None):
         """Create this subscription on Stripe, with all of its items.
