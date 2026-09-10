@@ -421,6 +421,77 @@ class TestRevivingOnlyWhatTheSubscriptionEnded:
 
 
 @pytest.mark.django_db()
+class TestAOneTimePurchaseCannotBeResumed:
+    """It is flagged to end the moment it is bought.
+
+    A Resubscribe button beside it would turn a one-time purchase into a
+    recurring charge, because a subscription renews if any line does.
+    """
+
+    @pytest.fixture
+    def pack(self, subscription_with, paid_plan, one_off_plan, quiet_join):
+        (renewing,) = subscription_with(
+            paid_plan("Renewing Plan"), subscription_id="sub_oneoff"
+        )
+        return join(renewing.subscription, one_off_plan("Credit Pack"))
+
+    def test_it_arrives_already_flagged_to_end(self, pack):
+        pack.refresh_from_db()
+        assert pack.cancelled, "a plan that bills once stops after that period"
+
+    def test_resuming_it_is_refused(self, pack):
+        with pytest.raises(SubscriptionError, match="one-time purchase"):
+            pack.uncancel()
+
+        pack.refresh_from_db()
+        assert pack.cancelled, "still ending, not quietly made recurring"
+
+
+@pytest.mark.django_db()
+class TestUpgradingAwayFromAOneOffPlan:
+    """A subscription ending because nothing renews is ending because of plans.
+
+    Changing the plan changes the reason.  Left in place, the ending is
+    re-sent to Stripe and the plan the customer just bought is deleted at the
+    end of the period they bought it for.
+    """
+
+    def test_upgrading_to_a_renewing_plan_lifts_the_ending(
+        self,
+        subscription_with,
+        one_off_plan,
+        paid_plan,
+        stripe_subscription,
+        subscription_service,
+    ):
+        (line,) = subscription_with(
+            one_off_plan(), subscription_id="sub_oneoff", cancelled=True
+        )
+        line.mark_cancelled(line.subscription.current_period_end)
+        line.save()
+
+        line.modify(paid_plan("Renewing Plan"))
+
+        line.refresh_from_db()
+        line.subscription.refresh_from_db()
+        assert not line.subscription.cancelled, "nothing is ending any more"
+        assert not line.cancelled, "the plan they just bought is not going away"
+
+    def test_a_cancellation_the_customer_asked_for_survives(
+        self, subscription_with, paid_plan, stripe_subscription, subscription_service
+    ):
+        """Only a *derived* ending is lifted; a decision is not."""
+        (line,) = subscription_with(
+            paid_plan("Renewing One"), subscription_id="sub_asked", cancelled=True
+        )
+
+        line.modify(paid_plan("Renewing Two", price=40))
+
+        line.subscription.refresh_from_db()
+        assert line.subscription.cancelled, "the customer cancelled this"
+
+
+@pytest.mark.django_db()
 class TestResubscribeIsPerLine:
     """Resubscribe brings back the plan you pressed it on.
 
@@ -433,7 +504,9 @@ class TestResubscribeIsPerLine:
     @pytest.fixture
     def three_plans(self, subscription_with, paid_plan, no_stripe_subscription, mocker):
         mocker.patch(
-            "squarelet.organizations.models.payment.SubscriptionItem.notify_started"
+            "squarelet.organizations.models.Customer.stripe_payment_method_id",
+            new_callable=mocker.PropertyMock,
+            return_value="pm_x",
         )
         lines = subscription_with(
             paid_plan("A", price=10),
@@ -449,25 +522,19 @@ class TestResubscribeIsPerLine:
         subscription.refresh_from_db()
         return subscription, lines
 
-    def test_it_arrives_already_flagged_to_end(
-        self, subscription_item_factory, plan_factory, mocker
+    def test_cancelling_the_last_line_is_still_that_line_own_decision(
+        self, three_plans
     ):
-        pack = self._one_off_beside_a_renewing_plan(
-            subscription_item_factory, plan_factory, mocker
-        )
+        """The subscription ends *because of* it, not the other way round."""
+        subscription, (_a, _b, c) = three_plans
 
-        pack.refresh_from_db()
-        assert pack.cancelled, "a plan that bills once stops after that period"
+        assert subscription.cancelled
+        assert c.cancelled and not c.cancelled_by_subscription
 
-    def test_resuming_it_is_refused(
-        self, subscription_item_factory, plan_factory, mocker
-    ):
-        pack = self._one_off_beside_a_renewing_plan(
-            subscription_item_factory, plan_factory, mocker
-        )
+    def test_resubscribing_revives_the_line_it_was_called_on(self, three_plans):
+        _subscription, (a, _b, _c) = three_plans
 
-        with pytest.raises(SubscriptionError, match="one-time purchase"):
-            pack.uncancel()
+        a.uncancel()
 
         a.refresh_from_db()
         assert not a.cancelled
