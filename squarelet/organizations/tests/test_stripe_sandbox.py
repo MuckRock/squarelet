@@ -1,0 +1,394 @@
+"""Integration tests against a real Stripe sandbox.
+
+Deselected from the ordinary suite by the `stripe` marker, which
+`pytest.ini` excludes by default; `inv test-stripe` selects it.  The sandbox
+key is an ordinary setting, read from the Django env file.
+
+These exist because the unit suite cannot see the failures that have
+actually mattered here.  It mocks Stripe, and the factories set the fields
+production code failed to write - `stripe_item_id` was read in three places,
+written in none, and 1,700 tests stayed green.  Every assertion below reads
+Stripe's own state back after driving the app's real code paths, so what is
+being checked is what Stripe ends up holding, not what we believe we sent.
+"""
+
+# A fixture and the parameter that receives it necessarily share a name.
+# pylint: disable=redefined-outer-name
+
+# Django
+from django.core.management import call_command
+from django.utils.text import slugify
+
+# Standard Library
+from uuid import uuid4
+
+# Third Party
+import pytest
+import stripe
+
+# Squarelet
+from squarelet.organizations.models import SubscriptionItem
+
+pytestmark = [pytest.mark.stripe, pytest.mark.django_db()]
+
+
+@pytest.fixture(autouse=True)
+def sandbox(settings):
+    """Point the app and this module at the sandbox, and tidy up after.
+
+    `get_payment_provider()` reads the setting on every call and assigns
+    `stripe.api_key` as it builds the provider, so overriding the setting is
+    enough to move the whole app across.
+    """
+    key = settings.STRIPE_SANDBOX_SECRET_KEY
+    # Selecting these without a sandbox to point them at is a mistake worth
+    # naming, rather than a wall of Stripe authentication errors.
+    assert key, (
+        "STRIPE_SANDBOX_SECRET_KEY is not set.  Create a sandbox in the "
+        "Stripe dashboard and put its secret key in the Django env file."
+    )
+    assert not key.startswith("sk_live"), (
+        "STRIPE_SANDBOX_SECRET_KEY is a live key.  These create and delete "
+        "subscriptions - point them at a sandbox."
+    )
+    settings.STRIPE_SECRET_KEY = key
+    stripe.api_key = key
+
+    created = {"subscriptions": [], "customers": [], "plans": []}
+    yield created
+
+    # Subscriptions first: a customer cannot be deleted out from under one.
+    for subscription_id in created["subscriptions"]:
+        try:
+            stripe.Subscription.delete(subscription_id)
+        except stripe.StripeError:
+            pass
+    for customer_id in created["customers"]:
+        try:
+            stripe.Customer.delete(customer_id)
+        except stripe.StripeError:
+            pass
+    for plan in created["plans"]:
+        try:
+            plan.delete_stripe_plan()
+        except stripe.StripeError:
+            pass
+
+
+def paid_plan(plan_factory, sandbox, price=25):
+    """A plan that exists on Stripe, named uniquely for this run.
+
+    Unique because Stripe objects outlive the test: reusing a name would
+    silently adopt a plan a previous run created at a different price, and
+    the assertions here are about amounts.
+
+    This is the one place that knows *what* the branch bills against.  Once
+    the stack moves subscriptions onto PlanPrice, this becomes
+    `PlanPrice.ensure_stripe_price()`; nothing else below should need to
+    change.
+    """
+    name = f"Sandbox {uuid4().hex[:8]}"
+    plan = plan_factory(
+        name=name, slug=slugify(name), base_price=price, price_per_user=0
+    )
+    plan.make_stripe_plan()
+    sandbox["plans"].append(plan)
+    return plan
+
+
+def tiered_plan(plan_factory, sandbox):
+    """A legacy group plan, billed the way the real ones are.
+
+    `billing_scheme: tiered` with `tiers_mode: graduated`: a flat amount up
+    to `minimum_users`, then per block beyond it.  Quantity *selects* a tier
+    here.  Every new PlanPrice is `per_unit`, where quantity *multiplies* -
+    reading one as the other overcharges a five-seat subscriber fivefold,
+    which is the largest single risk in this migration and the reason these
+    assert amounts rather than price ids.
+    """
+    name = f"Sandbox Tiered {uuid4().hex[:8]}"
+    plan = plan_factory(
+        name=name,
+        slug=slugify(name),
+        for_groups=True,
+        minimum_users=5,
+        base_price=100,
+        price_per_user=10,
+    )
+    plan.make_stripe_plan()
+    sandbox["plans"].append(plan)
+    return plan
+
+
+def invoice_total(subscription_id):
+    """What Stripe says the customer is actually being charged, in cents."""
+    live = stripe.Subscription.retrieve(subscription_id, expand=["latest_invoice"])
+    return live["latest_invoice"]["total"]
+
+
+def with_card(organization, sandbox):
+    """Give the org a Stripe customer holding a usable test card.
+
+    And an email address: Stripe refuses `send_invoice` without one, since
+    that is where it would send the invoice.
+    """
+    customer = organization.customer()
+    customer.save_card("tok_visa")
+    stripe_customer = customer.stripe_customer
+    stripe.Customer.modify(stripe_customer.id, email=f"{organization.slug}@example.com")
+    sandbox["customers"].append(stripe_customer.id)
+    return customer
+
+
+def start(organization, plan, sandbox, **kwargs):
+    """Add a line through the app, and register it for cleanup."""
+    item, _ = SubscriptionItem.objects.start(organization, plan, **kwargs)
+    subscription_id = item.subscription.subscription_id
+    if subscription_id and subscription_id not in sandbox["subscriptions"]:
+        sandbox["subscriptions"].append(subscription_id)
+    return item
+
+
+def stripe_prices(subscription_id):
+    """The set of Price ids Stripe currently bills on this subscription."""
+    live = stripe.Subscription.retrieve(subscription_id)
+    return {i["price"]["id"] for i in live["items"]["data"]}
+
+
+class TestAddingASecondPlan:
+    """The failure a customer hits first after the split deploys."""
+
+    def test_the_existing_line_is_updated_not_re_added(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        """An unidentified line is sent with no id, which means "add".
+
+        Stripe then refuses - "an existing Subscription Item is already using
+        that Price" - or duplicates the line and bills for both.  Every line
+        migrated from before the split starts out unidentified.
+        """
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        first = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+
+        # The state every pre-split line is in: 0084 adds the column empty
+        # and has nothing to populate it from.
+        SubscriptionItem.objects.filter(pk=first.pk).update(stripe_item_id="")
+
+        second_plan = paid_plan(plan_factory, sandbox, price=40)
+        start(organization, second_plan, sandbox)
+
+        subscription_id = first.subscription.subscription_id
+        assert stripe_prices(subscription_id) == {
+            first.plan.stripe_id,
+            second_plan.stripe_id,
+        }
+
+    def test_the_line_learns_its_stripe_id(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        """Otherwise the next change repeats the whole problem."""
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        first = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+        SubscriptionItem.objects.filter(pk=first.pk).update(stripe_item_id="")
+
+        start(organization, paid_plan(plan_factory, sandbox, price=40), sandbox)
+
+        first.refresh_from_db()
+        assert first.stripe_item_id.startswith("si_")
+
+
+class TestChangingAPlan:
+    """`modify_subscription` has no caller today and must work when it does."""
+
+    def test_the_price_is_swapped_on_the_same_subscription(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        """In place, so the billing anchor and its prorations survive."""
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        item = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+        subscription_id = item.subscription.subscription_id
+        new_plan = paid_plan(plan_factory, sandbox, price=40)
+
+        item.modify(new_plan)
+
+        assert item.subscription.subscription_id == subscription_id
+        assert stripe_prices(subscription_id) == {new_plan.stripe_id}
+
+    def test_moving_to_a_free_plan_stops_the_billing(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        """The last paid line going free has to end the subscription."""
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        item = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+        subscription_id = item.subscription.subscription_id
+        free_name = f"Sandbox Free {uuid4().hex[:8]}"
+
+        item.modify(
+            plan_factory(
+                name=free_name,
+                slug=slugify(free_name),
+                base_price=0,
+                price_per_user=0,
+            )
+        )
+
+        assert stripe.Subscription.retrieve(subscription_id).status == "canceled"
+        item.subscription.refresh_from_db()
+        assert item.subscription.subscription_id == ""
+
+
+class TestWhatTheCustomerIsCharged:
+    """Identity is not enough: the amount is the thing that can be wrong."""
+
+    def test_a_tiered_plan_at_its_minimum_bills_the_flat_amount(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        """Quantity selects the tier; it does not multiply it.
+
+        Five seats on a $100 plan with a five-seat minimum is $100, not
+        $500.  Most group subscribers sit exactly here.
+        """
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        item = start(
+            organization, tiered_plan(plan_factory, sandbox), sandbox, quantity=5
+        )
+
+        assert invoice_total(item.subscription.subscription_id) == 100_00
+
+    def test_a_tiered_plan_above_its_minimum_bills_per_block(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        """$100 base, then $10 for each block past the fifth."""
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        item = start(
+            organization, tiered_plan(plan_factory, sandbox), sandbox, quantity=7
+        )
+
+        assert invoice_total(item.subscription.subscription_id) == 120_00
+
+
+class TestCancellingOnStripe:
+    """The only subscription action the interface actually offers."""
+
+    def test_cancel_then_resubscribe_round_trips(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        item = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+        subscription = item.subscription
+
+        subscription.cancel()
+
+        live = stripe.Subscription.retrieve(subscription.subscription_id)
+        assert live["cancel_at_period_end"] is True
+        assert subscription.cancel_at is not None
+
+        subscription.uncancel()
+
+        live = stripe.Subscription.retrieve(subscription.subscription_id)
+        assert live["cancel_at_period_end"] is False
+        assert subscription.cancel_at is None
+
+    def test_a_pending_cancellation_survives_adding_a_plan(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        """Touching a line must not quietly re-bill a leaving customer.
+
+        `stripe_modify` sends cancel_at_period_end on every call, so sending
+        the wrong value reverses a cancellation on Stripe - where the money
+        is - with nothing in our own records to show it happened.
+        """
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        item = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+        item.subscription.cancel()
+
+        start(organization, paid_plan(plan_factory, sandbox, price=40), sandbox)
+
+        live = stripe.Subscription.retrieve(item.subscription.subscription_id)
+        assert live["cancel_at_period_end"] is True
+
+    def test_a_free_line_is_never_described_to_stripe(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        """A free plan has no Stripe counterpart to name.
+
+        Naming one fails the whole call, paid lines included - so the free
+        line is dropped, and Stripe must end up holding only the paid one.
+        """
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        paid = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+        free_name = f"Sandbox Free {uuid4().hex[:8]}"
+        start(
+            organization,
+            plan_factory(
+                name=free_name,
+                slug=slugify(free_name),
+                base_price=0,
+                price_per_user=0,
+            ),
+            sandbox,
+        )
+
+        assert stripe_prices(paid.subscription.subscription_id) == {paid.plan.stripe_id}
+
+
+class TestAnnualInvoicing:
+    def test_an_invoiced_annual_plan_is_collected_by_invoice(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        """A different branch of `start`, and the one finding 6 was about.
+
+        Every other test here runs monthly and charged automatically, so
+        nothing else would notice `collection_method` being decided wrongly.
+        """
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        name = f"Sandbox Annual {uuid4().hex[:8]}"
+        plan = plan_factory(
+            name=name,
+            slug=slugify(name),
+            annual=True,
+            base_price=300,
+            price_per_user=0,
+        )
+        plan.make_stripe_plan()
+        sandbox["plans"].append(plan)
+
+        item = start(organization, plan, sandbox, payment_method="invoice")
+
+        live = stripe.Subscription.retrieve(item.subscription.subscription_id)
+        assert live["collection_method"] == "send_invoice"
+        assert live["days_until_due"] == 30
+        assert item.subscription.collection_method == "send_invoice"
+
+
+class TestTheBackfillCommand:
+    """It runs on production at release, over every existing subscriber."""
+
+    def test_it_identifies_every_unidentified_line(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        first = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+        second = start(
+            organization, paid_plan(plan_factory, sandbox, price=40), sandbox
+        )
+        SubscriptionItem.objects.filter(pk__in=[first.pk, second.pk]).update(
+            stripe_item_id=""
+        )
+
+        call_command("backfill_stripe_item_ids")
+
+        for line in (first, second):
+            line.refresh_from_db()
+            assert line.stripe_item_id.startswith("si_")
