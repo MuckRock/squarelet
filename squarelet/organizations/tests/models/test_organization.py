@@ -1438,10 +1438,13 @@ class TestMultipleSubscriptions:
 
         org.remove_subscription(plan_a, user)
 
-        # Both lines share one subscription, so removing one drops just that
-        # line and leaves the other billing.
-        assert not SubscriptionItem.objects.filter(pk=sub_a.pk).exists()
-        assert SubscriptionItem.objects.filter(pk=sub_b.pk).exists()
+        # Cancellation is subscription-level here, and both lines share one
+        # subscription - so removing either ends both.  Cancelling one plan
+        # of several is the feature that comes next.
+        sub_a.refresh_from_db()
+        sub_b.refresh_from_db()
+        assert sub_a.cancelled
+        assert sub_b.cancelled
 
     @pytest.mark.django_db
     def test_modify_subscription(
@@ -1501,3 +1504,53 @@ class TestMultipleSubscriptions:
 
         assert org.has_active_subscription(plan=plan)
         assert org.has_active_subscription()
+
+
+@pytest.mark.django_db()
+class TestPrefetchedPlans:
+    """`get_plans()` cannot use a prefetch; this is the one that can.
+
+    `get_plans()` builds a fresh queryset on every call, so callers looping
+    over organizations paid for a `subscriptions__plans` prefetch and then
+    queried once per organization anyway.
+    """
+
+    def test_returns_the_plans_on_every_subscription(
+        self, subscription_item_factory, plan_factory
+    ):
+        item = subscription_item_factory()
+        other = plan_factory(name="Second Plan")
+        subscription_item_factory(subscription=item.subscription, plan=other)
+        organization = item.subscription.organization
+
+        assert {plan.pk for plan in organization.prefetched_plans()} == {
+            item.plan.pk,
+            other.pk,
+        }
+
+    def test_the_same_plan_on_two_subscriptions_appears_once(
+        self, subscription_item_factory, plan_factory
+    ):
+        plan = plan_factory(name="Shared Plan")
+        item = subscription_item_factory(plan=plan)
+        subscription_item_factory(
+            plan=plan,
+            subscription__organization=item.subscription.organization,
+            subscription__interval="annual",
+        )
+        organization = item.subscription.organization
+
+        assert [p.pk for p in organization.prefetched_plans()] == [plan.pk]
+
+    def test_it_spends_no_queries_when_prefetched(
+        self, subscription_item_factory, django_assert_num_queries
+    ):
+        item = subscription_item_factory()
+        organization = (
+            Organization.objects.prefetch_related("subscriptions__plans")
+            .filter(pk=item.subscription.organization.pk)
+            .first()
+        )
+
+        with django_assert_num_queries(0):
+            organization.prefetched_plans()

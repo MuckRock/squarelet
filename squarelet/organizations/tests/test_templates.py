@@ -4,13 +4,18 @@ from django.urls import reverse
 
 # Standard Library
 import datetime
+from datetime import date
 
 # Third Party
 import pytest
 
 # Squarelet
 from squarelet.organizations.choices import InvitationRole
-from squarelet.organizations.tests.factories import InvitationFactory
+from squarelet.organizations.tests.factories import (
+    InvitationFactory,
+    PlanFactory,
+    SubscriptionItemFactory,
+)
 from squarelet.users.tests.factories import UserFactory
 
 
@@ -85,6 +90,41 @@ class TestPlanCard:
             },
         )
 
+    def test_a_renewing_line_shows_when_it_renews(self, plan_factory):
+        """The date lives on the subscription; the card lists lines.
+
+        Reading `current_period_end` off a line - where it stopped being
+        after the split moved it to the parent - resolves to the empty
+        string rather than raising, so the renewal date simply stopped
+        appearing on the organization and user pages.
+        """
+        item = SubscriptionItemFactory(
+            plan=plan_factory(name="Renewing Plan"),
+            subscription__current_period_end=datetime.datetime(
+                2026, 10, 20, 12, tzinfo=datetime.timezone.utc
+            ),
+        )
+
+        html = self._render(org=item.subscription.organization, subscriptions=[item])
+
+        assert "Renews" in html
+        assert "October 20, 2026" in html
+
+    def test_a_cancelled_line_shows_when_it_ends_instead(self, plan_factory):
+        item = SubscriptionItemFactory(
+            plan=plan_factory(name="Ending Plan"),
+            subscription__cancelled=True,
+            subscription__cancel_at=date(2026, 10, 20),
+            subscription__current_period_end=datetime.datetime(
+                2026, 10, 20, 12, tzinfo=datetime.timezone.utc
+            ),
+        )
+
+        html = self._render(org=item.subscription.organization, subscriptions=[item])
+
+        assert "Ends October 20, 2026" in html
+        assert "Renews" not in html
+
     def test_own_benefits_listed_with_own_plans(
         self, organization_factory, plan_factory
     ):
@@ -143,10 +183,13 @@ class TestPlanCard:
         plan = plan_factory(name="Org Plan", annual=False, base_price=30)
         org = organization_factory(plans=[plan])
         subscription = org.subscription_items.get()
-        subscription.current_period_end = datetime.datetime(
+        # On the parent, where the period lives.  Setting it on the line put
+        # an attribute on the instance handed to the template, so this test
+        # passed by supplying the very field the page could not find.
+        subscription.subscription.current_period_end = datetime.datetime(
             2026, 2, 15, 12, 0, tzinfo=datetime.timezone.utc
         )
-        subscription.save()
+        subscription.subscription.save()
 
         html = self._render(subscriptions=[subscription])
 
@@ -184,12 +227,14 @@ class TestPlanCard:
         plan = plan_factory(name="Org Plan", annual=False, base_price=30)
         org = organization_factory(plans=[plan])
         subscription = org.subscription_items.get()
-        subscription.cancelled = True
-        subscription.cancel_at = datetime.date(2026, 1, 15)
-        subscription.current_period_end = datetime.datetime(
+        # On the parent: cancellation and the billing period both live there.
+        parent = subscription.subscription
+        parent.cancelled = True
+        parent.cancel_at = datetime.date(2026, 1, 15)
+        parent.current_period_end = datetime.datetime(
             2026, 1, 15, tzinfo=datetime.timezone.utc
         )
-        subscription.save()
+        parent.save()
 
         html = self._render(subscriptions=[subscription])
 
@@ -234,3 +279,67 @@ class TestPlanCard:
 
         expected_url = reverse("plan_detail", kwargs={"pk": plan.pk, "slug": plan.slug})
         assert f'href="{expected_url}"' in html
+
+
+@pytest.mark.django_db
+class TestOrganizationPaymentPlanInfo:
+    """Rendering tests for organizations/plan_info.html
+
+    Both values this block shows were reading attributes that do not exist -
+    `organization.plan`, removed from the model long ago, and
+    `subscription.update_on`, which was never on a subscription.  Django
+    resolves a missing attribute to the empty string rather than raising, so
+    the page cheerfully reported "Free" to paying customers and "ends on"
+    with no date.  These pin both.
+    """
+
+    template = "organizations/plan_info.html"
+
+    def _render(self, org, current=None):
+        return render_to_string(
+            self.template, {"organization": org, "current_subscription": current}
+        )
+
+    def test_subscribed_organization_shows_its_plans(self):
+        item = SubscriptionItemFactory(plan=PlanFactory(name="Organization Tier"))
+        org = item.subscription.organization
+
+        html = self._render(org)
+
+        assert "Organization Tier" in html
+        assert "Free" not in html
+
+    def test_several_plans_are_all_listed(self):
+        first = SubscriptionItemFactory(plan=PlanFactory(name="Organization Tier"))
+        SubscriptionItemFactory(
+            subscription=first.subscription,
+            plan=PlanFactory(name="MuckRock Request Pack"),
+        )
+
+        html = self._render(first.subscription.organization)
+
+        assert "Organization Tier" in html
+        assert "MuckRock Request Pack" in html
+
+    def test_organization_with_no_subscription_shows_free(self, organization_factory):
+        html = self._render(organization_factory())
+
+        assert "Free" in html
+
+    def test_cancelled_line_shows_the_date_it_ends(self):
+        item = SubscriptionItemFactory(
+            plan=PlanFactory(name="Organization Tier"),
+            subscription__cancelled=True,
+            subscription__cancel_at=date(2026, 9, 20),
+        )
+
+        html = self._render(item.subscription.organization, current=item)
+
+        assert "09/20/2026" in html
+
+    def test_no_banner_when_nothing_is_ending(self):
+        item = SubscriptionItemFactory(plan=PlanFactory(name="Organization Tier"))
+
+        html = self._render(item.subscription.organization, current=item)
+
+        assert "ends on" not in html.lower()

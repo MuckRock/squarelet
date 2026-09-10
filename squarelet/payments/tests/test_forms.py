@@ -68,6 +68,35 @@ class TestPlanPurchaseFormInit:
         # Should NOT include subscribed org
         assert org not in form.fields["organization"].queryset
 
+    def test_init_excludes_orgs_whose_line_is_cancelled(
+        self,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+    ):
+        """A cancelled line still occupies the plan.
+
+        `unique_together` is (subscription, plan), so there is no room for a
+        second line, and `add_subscription` refuses for the same reason.
+        Offering the organization here produced a form that took the choice
+        and then raised SubscriptionError - a dead end that per-line
+        cancellation turns from rare into routine.
+        """
+        user = user_factory()
+        org = organization_factory()
+        org.add_creator(user)
+        plan = plan_factory(public=True, for_groups=True)
+        subscription_item_factory(
+            subscription__organization=org,
+            plan=plan,
+            subscription__cancelled=True,
+        )
+
+        form = PlanPurchaseForm(plan=plan, user=user)
+
+        assert org not in form.fields["organization"].queryset
+
     def test_init_with_individual_only_plan(self, user_factory, plan_factory):
         """Form only shows individual org for individual-only plans"""
         user = user_factory()

@@ -217,7 +217,9 @@ def get_wix_labels_for_user(user):
         "organization__subscriptions__plans"
     ).all():
         org = membership.organization
-        for plan in org.get_plans():
+        # Reads the prefetch requested above; `get_plans()` would build a
+        # fresh queryset and query once per membership regardless of it.
+        for plan in org.prefetched_plans():
             if plan and plan.wix:
                 tier = get_tier_from_plan(plan)
                 labels.add(f"custom.{tier}-member")

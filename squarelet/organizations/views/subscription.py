@@ -7,7 +7,6 @@ from django.http.response import (
     HttpResponseNotAllowed,
     HttpResponseRedirect,
 )
-from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.clickjacking import xframe_options_sameorigin
@@ -18,7 +17,6 @@ from django.views.generic import DetailView
 import json
 import logging
 import sys
-from datetime import datetime
 
 # Third Party
 import stripe
@@ -28,7 +26,6 @@ from django_weasyprint import WeasyTemplateResponseMixin
 from squarelet.core.utils import get_stripe_dashboard_url
 from squarelet.organizations.mixins import OrganizationPermissionMixin
 from squarelet.organizations.models import Charge
-from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.tasks import (
     handle_charge_succeeded,
     handle_customer_updated,
@@ -232,19 +229,3 @@ def stripe_webhook(request):
     if handler:
         handler.delay(event_obj)
     return HttpResponse()
-
-
-def get_subscription_next_date(subscription):
-    stripe_sub = subscription.stripe_subscription
-    if stripe_sub:
-        time_stamp = (
-            get_payment_provider()
-            .get_subscription_service()
-            .get_current_period_end(stripe_sub)
-        )
-        if time_stamp:
-            tz_datetime = datetime.fromtimestamp(
-                time_stamp, tz=timezone.get_current_timezone()
-            )
-            return tz_datetime.date()
-    return None

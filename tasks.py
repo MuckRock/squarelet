@@ -101,6 +101,25 @@ def coverage(c):
     )
 
 
+@task(name="test-stripe")
+def test_stripe(c, path="squarelet", create_db=False):
+    """Run the tests that talk to a real Stripe sandbox.
+
+    Deselected from `inv test` by a marker, so the ordinary suite stays
+    hermetic and offline.  Needs STRIPE_SANDBOX_SECRET_KEY in the Django env
+    file; the tests refuse to run against a live key.
+    """
+    create_switch = "--create-db" if create_db else ""
+    c.run(
+        DOCKER_COMPOSE_RUN_OPT_USER.format(
+            opt="-e DJANGO_SETTINGS_MODULE=config.settings.test",
+            service="squarelet_django",
+            cmd=f"pytest -q -p no:sugar -m stripe {create_switch} {path}",
+        ),
+        pty=True,
+    )
+
+
 @task(name="test-frontend")
 def test_frontend(c, ui=False, coverage=False):
     """Run the frontend test suite with Vitest"""
