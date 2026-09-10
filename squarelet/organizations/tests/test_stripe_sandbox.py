@@ -427,6 +427,53 @@ class TestAnnualInvoicing:
         assert item.subscription.collection_method == "send_invoice"
 
 
+class TestAddingToAnAnnualSubscription:
+    def test_a_card_payer_keeps_being_charged_automatically(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        """Adding a plan must not change how the customer pays.
+
+        `stripe_modify` derived the collection method from the interval, so
+        any annual subscriber was pushed to `send_invoice` - silently
+        switching a card payer to being invoiced, while the local row went
+        on saying they were charged automatically.
+        """
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        name = f"Sandbox Annual Card {uuid4().hex[:8]}"
+        annual = plan_factory(
+            name=name,
+            slug=slugify(name),
+            annual=True,
+            base_price=300,
+            price_per_user=0,
+        )
+        annual.make_stripe_plan()
+        sandbox["plans"].append(annual)
+        item = start(organization, annual, sandbox)
+        subscription_id = item.subscription.subscription_id
+        assert (
+            stripe.Subscription.retrieve(subscription_id)["collection_method"]
+            == "charge_automatically"
+        )
+
+        second = f"Sandbox Annual Card 2 {uuid4().hex[:8]}"
+        other = plan_factory(
+            name=second,
+            slug=slugify(second),
+            annual=True,
+            base_price=400,
+            price_per_user=0,
+        )
+        other.make_stripe_plan()
+        sandbox["plans"].append(other)
+        start(organization, other, sandbox)
+
+        live = stripe.Subscription.retrieve(subscription_id)
+        assert live["collection_method"] == "charge_automatically"
+        assert stripe_prices(subscription_id) == {annual.stripe_id, other.stripe_id}
+
+
 class TestCollectionMethodComesFromStripe:
     """How Stripe collects is Stripe's fact, not one we can infer."""
 
