@@ -293,6 +293,40 @@ class TestBuyingOntoACancellingSubscription:
         assert joining.stripe_item_id.startswith("si_")
 
 
+class TestCancellingBesideAFreeLine:
+    """A free line is not something Stripe is billing.
+
+    Counting it as one made cancelling the only *paid* line look like an
+    ordinary per-line cancellation: Stripe was never told to stop, and the
+    subscription renewed and charged for the plan the customer had
+    cancelled.
+    """
+
+    def test_cancelling_the_only_paid_line_stops_the_billing(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        paid = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+        free_name = f"Sandbox Free {uuid4().hex[:8]}"
+        start(
+            organization,
+            plan_factory(
+                name=free_name,
+                slug=slugify(free_name),
+                base_price=0,
+                price_per_user=0,
+            ),
+            sandbox,
+        )
+        subscription_id = paid.subscription.subscription_id
+
+        paid.cancel()
+
+        live = stripe.Subscription.retrieve(subscription_id)
+        assert live["cancel_at_period_end"] is True
+
+
 class TestRemovingALine:
     """`remove_from_stripe` is what enforces per-line cancellation."""
 

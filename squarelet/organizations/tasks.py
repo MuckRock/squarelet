@@ -46,7 +46,6 @@ logger = logging.getLogger(__name__)
 @shared_task
 def restore_organization():
     """Monthly refresh of subscriptions and entitlement grants"""
-    # pylint: disable=too-many-locals
     today = date.today()
 
     # --- Subscriptions ---
@@ -81,24 +80,24 @@ def restore_organization():
     )
     swept_org_uuids = set()
     for item in due_items.select_related("subscription__organization", "plan"):
-        # Stripe rejects removing a subscription's only line, so a line with
-        # no surviving sibling cannot be removed here whatever else is true.
-        remaining = (
-            item.subscription.items.exclude(pk=item.pk).exclude(cancelled=True).count()
-        )
-        if remaining == 0:
-            # Every line cancelled on a subscription that is not itself
-            # cancelled.  Nothing should reach this: cancelling the last
-            # active line escalates to the whole subscription, and one
-            # carrying nothing but non-renewing plans is marked cancelled
-            # when it starts.  If it happens anyway, Stripe was never told
-            # to stop, and this sweep will skip these lines every night
-            # from now on while the customer keeps paying - so it has to be
-            # noisy rather than a quiet `continue`.
+        # Stripe rejects removing a subscription's only item.  Which lines
+        # survive is a question about Stripe, not local rows: free siblings
+        # were never sent, and one flagged to stop next month is still
+        # billing today.  A free line tells Stripe nothing, so it is never
+        # blocked.
+        if item.is_free:
+            item.remove_from_stripe()
+            continue
+
+        if not item.subscription.other_paid_items(item):
+            # Unreachable by design, but if it happens Stripe was never told
+            # to stop and the sweep skips this line nightly while the
+            # customer keeps paying - so be noisy rather than `continue`.
             logger.error(
-                "[RESTORE-ORGANIZATION] Every line on subscription %s (%s) "
-                "is cancelled but the subscription is not.  Stripe was never "
-                "told to stop; these lines will never be swept.",
+                "[RESTORE-ORGANIZATION] Subscription %s (%s) has one paid "
+                "line left and it is cancelled, but the subscription is not. "
+                " Stripe was never told to stop; this line will never be "
+                "swept.",
                 item.subscription.pk,
                 item.subscription.subscription_id or "(no stripe id)",
             )
