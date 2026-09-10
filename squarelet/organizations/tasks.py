@@ -727,8 +727,7 @@ def handle_subscription_updated(subscription_data):
         subscription.clear_cancellation()
     subscription.save(
         update_fields=[
-            "stripe_status",
-            "current_period_end",
+            *Subscription.STRIPE_CACHED_FIELDS,
             *Subscription.CANCELLATION_FIELDS,
         ]
     )

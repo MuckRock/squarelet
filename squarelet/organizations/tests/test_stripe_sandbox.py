@@ -27,7 +27,7 @@ import pytest
 import stripe
 
 # Squarelet
-from squarelet.organizations.models import SubscriptionItem
+from squarelet.organizations.models import Subscription, SubscriptionItem
 
 pytestmark = [pytest.mark.stripe, pytest.mark.django_db()]
 
@@ -425,6 +425,36 @@ class TestAnnualInvoicing:
         assert live["collection_method"] == "send_invoice"
         assert live["days_until_due"] == 30
         assert item.subscription.collection_method == "send_invoice"
+
+
+class TestCollectionMethodComesFromStripe:
+    """How Stripe collects is Stripe's fact, not one we can infer."""
+
+    def test_a_wrong_local_value_is_corrected_on_the_next_interaction(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        """`0084` guesses it from `plan.annual`; the runtime keys it on the
+        payment method.  An annual subscriber paying by card was migrated as
+        `send_invoice` and stopped matching the lookup that finds their
+        subscription, so the next plan they bought opened a second one.
+        """
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        item = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+        subscription = item.subscription
+        assert subscription.collection_method == "charge_automatically"
+
+        # The state the migration's guess leaves an annual card payer in.
+        Subscription.objects.filter(pk=subscription.pk).update(
+            collection_method="send_invoice"
+        )
+        subscription.refresh_from_db()
+
+        subscription.cache_stripe_subscription_fields(
+            stripe.Subscription.retrieve(subscription.subscription_id)
+        )
+
+        assert subscription.collection_method == "charge_automatically"
 
 
 class TestTheBackfillCommand:
