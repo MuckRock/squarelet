@@ -843,7 +843,9 @@ class TestInvoiceQuerySet(TestCase):
 class TestNonRenewingLines:
     """A plan that bills once and stops becomes a line that ends at period end."""
 
-    PERIOD_END = datetime(2026, 9, 20, tzinfo=dt_timezone.utc)
+    # Midday, so converting to local time cannot move the date: these
+    # are about cancellation, not about timezones.
+    PERIOD_END = datetime(2026, 9, 20, 12, tzinfo=dt_timezone.utc)
 
     def _patch_start(self, mocker):
         """Stand in for Stripe, caching a period end the way start() does."""
