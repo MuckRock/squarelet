@@ -91,17 +91,16 @@ class Command(BaseCommand):
             )
             return "error"
 
-        old_cpe = local_sub.current_period_end
-        old_status = local_sub.stripe_status
+        before = {
+            field: getattr(local_sub, field)
+            for field in Subscription.STRIPE_CACHED_FIELDS
+        }
         local_sub.cache_stripe_subscription_fields(stripe_sub)
 
         changed = [
-            (field, old, new)
-            for field, old, new in (
-                ("current_period_end", old_cpe, local_sub.current_period_end),
-                ("stripe_status", old_status, local_sub.stripe_status),
-            )
-            if old != new
+            (field, old, getattr(local_sub, field))
+            for field, old in before.items()
+            if old != getattr(local_sub, field)
         ]
         if not changed:
             return "skipped"
@@ -113,7 +112,5 @@ class Command(BaseCommand):
         for field, old, new in changed:
             self.stdout.write(f"    {field}: {old} → {new}\n")
         if not dry_run:
-            # Both are cached by cache_stripe_subscription_fields; saving only
-            # current_period_end silently dropped every status correction.
-            local_sub.save(update_fields=["current_period_end", "stripe_status"])
+            local_sub.save(update_fields=list(Subscription.STRIPE_CACHED_FIELDS))
         return "updated"
