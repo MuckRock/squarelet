@@ -819,13 +819,19 @@ class Subscription(Cancellable, models.Model):
     def settle_added_line(self, stripe_subscription):
         """Finish the charge Stripe made for a line just added.
 
-        Adding to a live subscription prorates immediately, so it is a
-        charge like any other: the customer's card may have to authenticate
-        it, and it produces an invoice worth keeping.  `start` does both for
-        a subscription it creates; the path that adds to one already live
-        did neither, so a card needing SCA was never challenged - the view
-        reported success, the charge sat unauthenticated, and no local
-        Invoice row was written for money that had been taken.
+        A card payer is invoiced for the proration then and there (see
+        `proration_behavior`), so it is a charge like any other: the card
+        may have to authenticate it, and it produces an invoice worth
+        keeping.  `start` does both for a subscription it creates; the path
+        that adds to one already live did neither, so a card needing SCA
+        was never challenged - the view reported success, the charge sat
+        unauthenticated, and no local Invoice row was written for money
+        that had been taken.
+
+        Both halves are no-ops for an invoiced organization, whose change
+        rides on the next scheduled invoice: there is no new invoice to
+        record and nothing to authenticate, so this re-reads the invoice it
+        already knows about and finds nothing to do.
         """
         self._check_3ds_action_required(stripe_subscription)
         self._sync_latest_invoice(stripe_subscription)
@@ -927,6 +933,27 @@ class Subscription(Cancellable, models.Model):
         # a round trip on every plan change.
         return None
 
+    @property
+    def proration_behavior(self):
+        """How Stripe should settle a mid-period change to these lines.
+
+        A card payer gets the invoice at the moment they act.  Stripe's
+        default is `create_prorations`, which writes the proration onto the
+        *upcoming* invoice and raises nothing now - so adding a plan
+        appeared to cost nothing until the next cycle, and there was no
+        invoice for it to look at.  It also left the SCA check in
+        `settle_added_line` guarding a charge that was never made.
+
+        An invoiced organization is left on the default deliberately.
+        `always_invoice` would email them a separate invoice with its own
+        due date part-way through a term they have already been billed for;
+        folding the change into the next scheduled invoice is what their
+        billing arrangement is for.
+        """
+        if self.collection_method == "send_invoice":
+            return "create_prorations"
+        return "always_invoice"
+
     def stripe_modify(self):
         """Push local state to Stripe for every item on this subscription."""
         if self.stripe_subscription:
@@ -961,6 +988,7 @@ class Subscription(Cancellable, models.Model):
                     days_until_due=(
                         30 if self.collection_method == "send_invoice" else None
                     ),
+                    proration_behavior=self.proration_behavior,
                 )
             )
             if updated:
