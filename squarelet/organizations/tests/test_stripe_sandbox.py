@@ -126,6 +126,16 @@ def invoice_total(subscription_id):
     return live["latest_invoice"]["total"]
 
 
+def stripe_invoice_ids(subscription_id):
+    """Every invoice Stripe has raised against this subscription."""
+    return {
+        invoice["id"]
+        for invoice in stripe.Invoice.list(
+            subscription=subscription_id
+        ).auto_paging_iter()
+    }
+
+
 def with_card(organization, sandbox):
     """Give the org a Stripe customer holding a usable test card.
 
@@ -395,6 +405,75 @@ class TestCancellingOnStripe:
         )
 
         assert stripe_prices(paid.subscription.subscription_id) == {paid.plan.stripe_id}
+
+
+class TestProratedInvoicing:
+    """When the customer is billed for a plan added mid-period.
+
+    Stripe's default writes the proration onto the *upcoming* invoice and
+    raises nothing now, so a card payer who added a plan saw no charge and
+    no invoice until the next cycle.  `Subscription.proration_behavior`
+    splits the two audiences; both halves are worth pinning, because each
+    is only visible against real Stripe.
+    """
+
+    def test_a_card_payer_is_invoiced_for_the_added_plan_now(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        item = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+        subscription_id = item.subscription.subscription_id
+        before = stripe_invoice_ids(subscription_id)
+
+        start(organization, paid_plan(plan_factory, sandbox, price=40), sandbox)
+
+        added = stripe_invoice_ids(subscription_id) - before
+        assert len(added) == 1
+        invoice_id = added.pop()
+        assert stripe.Invoice.retrieve(invoice_id)["total"] > 0
+        # The row the organization's billing page reads.  Stripe raising
+        # the invoice is only half of it: `settle_added_line` has to write
+        # it down, or the charge happens with nothing here to show it.
+        assert organization.invoices.filter(invoice_id=invoice_id).exists()
+
+    def test_an_invoiced_organization_gets_no_second_invoice(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        """Their change rides on the next scheduled invoice.
+
+        `always_invoice` would email them a separate one, with its own due
+        date, part-way through a term they have already been billed for.
+        """
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        name = f"Sandbox Annual {uuid4().hex[:8]}"
+        plan = plan_factory(
+            name=name,
+            slug=slugify(name),
+            annual=True,
+            base_price=300,
+            price_per_user=0,
+        )
+        plan.make_stripe_plan()
+        sandbox["plans"].append(plan)
+        item = start(organization, plan, sandbox, payment_method="invoice")
+        subscription_id = item.subscription.subscription_id
+        before = stripe_invoice_ids(subscription_id)
+
+        second_name = f"Sandbox Annual {uuid4().hex[:8]}"
+        second = plan_factory(
+            name=second_name,
+            slug=slugify(second_name),
+            annual=True,
+            base_price=120,
+            price_per_user=0,
+        )
+        second.make_stripe_plan()
+        sandbox["plans"].append(second)
+        start(organization, second, sandbox, payment_method="invoice")
+
+        assert stripe_invoice_ids(subscription_id) == before
 
 
 class TestAnnualInvoicing:
