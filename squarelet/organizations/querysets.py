@@ -464,8 +464,12 @@ class SubscriptionItemQuerySet(models.QuerySet):
             else:
                 # The subscription is already live on Stripe, so the new line
                 # is pushed onto it rather than opening a second subscription.
-                subscription.stripe_modify()
-                stripe_subscription = subscription.stripe_subscription
+                # Take what Stripe returned, not the cached object: that
+                # was fetched before the line was added, so it does not
+                # contain it.
+                stripe_subscription = subscription.stripe_modify()
+                if stripe_subscription is not None:
+                    subscription.settle_added_line(stripe_subscription)
 
         if not plan.free:
             item.notify_started()
