@@ -265,6 +265,31 @@ class TestGoingFreeAndBack:
         }
 
 
+class TestRemovingALine:
+    """`remove_from_stripe` is what enforces per-line cancellation."""
+
+    def test_the_line_stops_billing_on_stripe(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        """It is gated on `stripe_item_id`, which starts out empty.
+
+        With the guard unsatisfied the method deletes the local row and never
+        tells Stripe, so the customer keeps being billed for a line we can no
+        longer identify.
+        """
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        keep = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+        drop = start(organization, paid_plan(plan_factory, sandbox, price=40), sandbox)
+        subscription_id = keep.subscription.subscription_id
+        SubscriptionItem.objects.filter(pk=drop.pk).update(stripe_item_id="")
+        drop.refresh_from_db()
+
+        drop.remove_from_stripe()
+
+        assert stripe_prices(subscription_id) == {keep.plan.stripe_id}
+
+
 class TestChangingAPlan:
     """`modify_subscription` has no caller today and must work when it does."""
 
@@ -381,6 +406,30 @@ class TestCancellingOnStripe:
         live = stripe.Subscription.retrieve(item.subscription.subscription_id)
         assert live["cancel_at_period_end"] is True
 
+    def test_cancelling_the_last_active_line_ends_the_subscription(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        first = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+        second = start(
+            organization, paid_plan(plan_factory, sandbox, price=40), sandbox
+        )
+        subscription_id = first.subscription.subscription_id
+
+        first.cancel()
+        assert (
+            stripe.Subscription.retrieve(subscription_id)["cancel_at_period_end"]
+            is False
+        )
+
+        second.cancel()
+
+        live = stripe.Subscription.retrieve(subscription_id)
+        assert live["cancel_at_period_end"] is True
+
+
+class TestFreeAndPaidTogether:
     def test_a_free_line_is_never_described_to_stripe(
         self, organization_factory, plan_factory, sandbox
     ):

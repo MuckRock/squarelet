@@ -490,6 +490,25 @@ class TestSubscription:
         assert item.cancel_at is None
 
     @pytest.mark.django_db()
+    def test_cancelling_each_line_in_turn_cancels_the_subscription(
+        self, subscription_item_factory, plan_factory, mocker
+    ):
+        """The second cancel is the last *active* line, so the sub goes too."""
+        first = subscription_item_factory()
+        second = subscription_item_factory(
+            subscription=first.subscription, plan=plan_factory(name="Second Plan")
+        )
+        mocked_cancel = mocker.patch(
+            "squarelet.organizations.models.Subscription.cancel"
+        )
+
+        first.cancel()
+        mocked_cancel.assert_not_called()
+
+        second.cancel()
+        mocked_cancel.assert_called_once()
+
+    @pytest.mark.django_db()
     def test_uncancelling_a_line_revives_a_cancelled_subscription(
         self, subscription_item_factory, plan_factory, mocker
     ):
@@ -511,6 +530,28 @@ class TestSubscription:
         )
         item.uncancel()
         mocked_uncancel.assert_called_once()
+
+    @pytest.mark.django_db()
+    def test_uncancelling_one_line_leaves_the_others_alone(
+        self, subscription_item_factory, plan_factory
+    ):
+        """A line cancelled on its own is revived on its own."""
+        first = subscription_item_factory()
+        second = subscription_item_factory(
+            subscription=first.subscription, plan=plan_factory(name="Second Plan")
+        )
+        first.cancel()
+        first.uncancel()
+
+        first.refresh_from_db()
+        second.refresh_from_db()
+        assert not first.cancelled
+        assert not second.cancelled
+        assert not first.subscription.cancelled
+
+
+class TestSubscriptionAutoRenew:
+    """Whether the subscription itself renews."""
 
     @pytest.mark.django_db()
     def test_auto_renew_survives_one_non_renewing_line(
@@ -779,6 +820,48 @@ class TestSubscriptionItem:
         item.cancel()
         mocked_cancel.assert_called_once()
         assert SubscriptionItem.objects.filter(pk=item.pk).exists()
+
+    @pytest.mark.django_db()
+    def test_cancel_one_of_several_items_flags_it_for_period_end(
+        self, subscription_item_factory, plan_factory, mocker
+    ):
+        """The line keeps billing until the period ends, like a cancelled sub."""
+        item = subscription_item_factory(
+            subscription__subscription_id="sub_multi", stripe_item_id="si_one"
+        )
+        period_end = datetime(2026, 9, 20, tzinfo=dt_timezone.utc)
+        item.subscription.current_period_end = period_end
+        item.subscription.save()
+        subscription_item_factory(
+            subscription=item.subscription, plan=plan_factory(name="Second Plan")
+        )
+        mock_sub_svc = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_subscription_service.return_value
+
+        item.cancel()
+
+        item.refresh_from_db()
+        assert item.cancelled
+        assert item.cancel_at == period_end.date()
+        # Still on Stripe, and still on the invoice, until the period ends
+        mock_sub_svc.modify.assert_not_called()
+        assert SubscriptionItem.objects.filter(pk=item.pk).exists()
+
+    @pytest.mark.django_db()
+    def test_uncancel_item_clears_the_pending_cancellation(
+        self, subscription_item_factory, plan_factory
+    ):
+        item = subscription_item_factory(subscription__subscription_id="sub_multi")
+        subscription_item_factory(
+            subscription=item.subscription, plan=plan_factory(name="Second Plan")
+        )
+        item.cancel()
+        item.uncancel()
+
+        item.refresh_from_db()
+        assert not item.cancelled
+        assert item.cancel_at is None
 
     @pytest.mark.django_db()
     def test_remove_from_stripe_drops_the_line_without_proration(
