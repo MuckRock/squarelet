@@ -417,7 +417,13 @@ class Cancellable:
         the null date as due immediately.
         """
         self.cancelled = True
-        self.cancel_at = period_end.date() if period_end else None
+        # Local, the way `next_date` reads the same field.  Straight
+        # `.date()` agrees only while the value is the one just cached from
+        # Stripe, which is built local-aware; read back from the database it
+        # is UTC, and a period ending after 20:00 local lands on the next
+        # day.  The card then says it ends the day after it renews, and the
+        # sweep keeps the entitlements an extra day.
+        self.cancel_at = localtime(period_end).date() if period_end else None
 
     def clear_cancellation(self):
         """No longer stopping - back to renewing normally."""
