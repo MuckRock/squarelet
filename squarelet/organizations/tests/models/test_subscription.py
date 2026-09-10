@@ -422,6 +422,7 @@ class TestSubscription:
             billing="charge_automatically",
             metadata={"action": f"Subscription ({subscription.organization})"},
             days_until_due=None,
+            proration_behavior="always_invoice",
         )
 
     @pytest.mark.django_db()
@@ -800,6 +801,27 @@ class TestSubscriptionItem:
             proration_behavior="none",
         )
         assert not SubscriptionItem.objects.filter(pk=item.pk).exists()
+
+
+@pytest.mark.django_db()
+class TestProrationBehavior:
+    """Who gets an invoice at the moment they change their plans.
+
+    The sandbox suite pins what Stripe then does; this pins the decision,
+    which is the part that is cheap to get wrong in an edit.
+    """
+
+    def test_a_card_payer_is_invoiced_immediately(self, subscription_factory):
+        subscription = subscription_factory(collection_method="charge_automatically")
+
+        assert subscription.proration_behavior == "always_invoice"
+
+    def test_an_invoiced_organization_waits_for_its_next_invoice(
+        self, subscription_factory
+    ):
+        subscription = subscription_factory(collection_method="send_invoice")
+
+        assert subscription.proration_behavior == "create_prorations"
 
 
 @pytest.mark.django_db()
