@@ -2712,7 +2712,14 @@ class TestHandleSubscriptionUpdated:
         self, subscription_factory, subscription_item_factory
     ):
         subscription = subscription_factory(subscription_id="sub_back", cancelled=True)
-        item = subscription_item_factory(subscription=subscription, cancelled=True)
+        # Ended by the subscription, which is what makes it the
+        # subscription's to revive.  A line the customer stopped by itself
+        # is not, and has its own test.
+        item = subscription_item_factory(
+            subscription=subscription,
+            cancelled=True,
+            cancelled_with_subscription=True,
+        )
 
         tasks.handle_subscription_updated(
             {
