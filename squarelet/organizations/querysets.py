@@ -477,8 +477,13 @@ class SubscriptionItemQuerySet(models.QuerySet):
                 # says locally.  Saying so keeps the billing page honest -
                 # it would otherwise advertise a renewal, and offer to
                 # cancel a line that is about to vanish on its own.
-                item.copy_cancellation_from(subscription)
-                item.save(update_fields=item.CANCELLATION_FIELDS)
+                item.inherit_cancellation_from(subscription)
+                item.save(
+                    update_fields=[
+                        *item.CANCELLATION_FIELDS,
+                        "cancelled_by_subscription",
+                    ]
+                )
             elif not plan.auto_renew:
                 # A plan that bills once stops at the end of the period it
                 # was paid for.  Inside the transaction that creates the

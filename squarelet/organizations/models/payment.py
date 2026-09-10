@@ -414,16 +414,20 @@ class Cancellable:
         self.cancelled = False
         self.cancel_at = None
 
-    def copy_cancellation_from(self, other):
-        """Take another object's cancellation exactly as it stands.
+    def inherit_cancellation_from(self, subscription):
+        """Take the subscription's ending as this line's own.
 
         For a line joining a subscription that is already ending: it stops
         when the subscription does, on the subscription's date, and deriving
         that date again from the period end could disagree with what the
         parent actually holds.
+
+        Flagged as inherited, so that reviving the subscription revives this
+        line too - unlike one the customer cancelled on its own.
         """
-        self.cancelled = other.cancelled
-        self.cancel_at = other.cancel_at
+        self.cancelled = subscription.cancelled
+        self.cancel_at = subscription.cancel_at
+        self.cancelled_by_subscription = subscription.cancelled
 
 
 class Subscription(Cancellable, models.Model):
@@ -768,7 +772,19 @@ class Subscription(Cancellable, models.Model):
         without consulting its parent.  Copied from `self` rather than
         restated, so the two cannot be written to disagree.
         """
-        self.items.update(cancelled=self.cancelled, cancel_at=self.cancel_at)
+        if self.cancelled:
+            # A line already ending keeps its own date and its own reason.
+            self.items.exclude(cancelled=True).update(
+                cancelled=True,
+                cancel_at=self.cancel_at,
+                cancelled_by_subscription=True,
+            )
+        else:
+            # Only the lines this subscription ended - Stripe knows nothing
+            # about one the customer cancelled by itself.
+            self.items.filter(cancelled_by_subscription=True).update(
+                cancelled=False, cancel_at=None, cancelled_by_subscription=False
+            )
 
     def cancel(self):
         if self.stripe_subscription:
@@ -993,6 +1009,17 @@ class SubscriptionItem(Cancellable, models.Model):
             "When this line is dropped from the Stripe subscription.  Taken "
             "from the subscription's current period end, because every line "
             "on a subscription shares one billing period."
+        ),
+    )
+    cancelled_by_subscription = models.BooleanField(
+        _("cancelled by subscription"),
+        default=False,
+        help_text=_(
+            "This line is ending only because its subscription is, rather "
+            "than because anyone cancelled the line itself.  Reviving the "
+            "subscription revives these and leaves the rest alone - without "
+            "which a customer who cancelled two plans and then resubscribed "
+            "to a third got all three back."
         ),
     )
     granted_reason = models.TextField(
