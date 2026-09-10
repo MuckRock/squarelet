@@ -466,6 +466,9 @@ VERIFICATION_FORM_URL = env(
 STRIPE_PUB_KEY = env("STRIPE_PUB_KEY")
 STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET")
+# Only the Stripe sandbox tests read this (`inv test-stripe`).  Optional, so
+# an environment that never runs them does not have to carry it.
+STRIPE_SANDBOX_SECRET_KEY = env("STRIPE_SANDBOX_SECRET_KEY", default="")
 
 # mailgun
 # ------------------------------------------------------------------------------

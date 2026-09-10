@@ -1,0 +1,23 @@
+{% load i18n %}
+{% comment %}
+Plan summary for the organization payment page.  Kept as an include so it
+can be rendered on its own: the page it sits on carries a crispy form that
+talks to Stripe, which put this block out of reach of a test.
+{% endcomment %}
+<div class="_cls-planInfo">
+    {% trans "Current plan" %}:
+    <b>
+        {% for plan in organization.get_plans %}
+            {{ plan }}{% if not forloop.last %}, {% endif %}
+        {% empty %}
+            {% trans "Free" %}
+        {% endfor %}
+    </b>
+    {% if current_subscription.cancelled %}
+    <div class="_cls-info _cls-infoSpaced">
+        {% blocktrans with ends_on=current_subscription.cancel_at|date:"m/d/Y" %}
+        Subscription ends on {{ ends_on }}
+        {% endblocktrans %}
+    </div>
+    {% endif %}
+</div>

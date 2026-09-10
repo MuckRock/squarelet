@@ -85,6 +85,10 @@ ENV/
 # ipython
 .ipython/
 
+# HOME is /app inside the container, so tools that write to $HOME
+# land here.  The Stripe library drops .config/stripe/telemetry_id.
+.config/
+
 
 ### Node template
 # Logs

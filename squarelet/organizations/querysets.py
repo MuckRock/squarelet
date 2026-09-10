@@ -1,6 +1,6 @@
 # Django
 from django.contrib.auth.models import AnonymousUser
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Q
 from django.utils import timezone
 from django.utils.timezone import get_current_timezone
@@ -444,21 +444,28 @@ class SubscriptionItemQuerySet(models.QuerySet):
             interval=interval,
             collection_method=collection_method,
         )
-        item = self.model.objects.create(
-            subscription=subscription, plan=plan, quantity=quantity
-        )
-
-        if created or not subscription.subscription_id:
-            anchor = organization.billing_anchor
-            stripe_subscription = subscription.start(
-                payment_method=payment_method,
-                anchor_day=anchor.day if anchor else None,
+        # Stripe inside the transaction on purpose.  The row has to exist
+        # before the call, because it is what `stripe_items` describes - but
+        # a Stripe failure must not leave an organization holding a line it
+        # is not being billed for.  The reverse order is the survivable one:
+        # Stripe succeeding and the commit failing leaves a subscription
+        # Stripe knows about and we retry into.
+        with transaction.atomic():
+            item = self.model.objects.create(
+                subscription=subscription, plan=plan, quantity=quantity
             )
-        else:
-            # The subscription is already live on Stripe, so the new line is
-            # pushed onto it rather than opening a second subscription.
-            subscription.stripe_modify()
-            stripe_subscription = subscription.stripe_subscription
+
+            if created or not subscription.subscription_id:
+                anchor = organization.billing_anchor
+                stripe_subscription = subscription.start(
+                    payment_method=payment_method,
+                    anchor_day=anchor.day if anchor else None,
+                )
+            else:
+                # The subscription is already live on Stripe, so the new line
+                # is pushed onto it rather than opening a second subscription.
+                subscription.stripe_modify()
+                stripe_subscription = subscription.stripe_subscription
 
         if not plan.free:
             item.notify_started()

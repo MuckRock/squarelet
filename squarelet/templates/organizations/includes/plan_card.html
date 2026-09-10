@@ -51,9 +51,9 @@ Args:
                 <span class="caption plan-period-end danger">
                   {% blocktrans with expire_date=subscription.cancel_at|date:"F j, Y" %}Ends {{ expire_date }}{% endblocktrans %}
                 </span>
-              {% elif not subscription.cancelled and subscription.current_period_end %}
+              {% elif not subscription.cancelled and subscription.next_date %}
                 <span class="caption plan-period-end">
-                  {% blocktrans with renew_date=subscription.current_period_end|date:"F j, Y" %}Renews {{ renew_date }}{% endblocktrans %}
+                  {% blocktrans with renew_date=subscription.next_date|date:"F j, Y" %}Renews {{ renew_date }}{% endblocktrans %}
                 </span>
               {% endif %}
             </div>

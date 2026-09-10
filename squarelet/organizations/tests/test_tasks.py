@@ -2607,6 +2607,32 @@ class TestHandleSubscriptionUpdated:
         assert subscription.cancelled is True
 
     @pytest.mark.django_db
+    def test_cancellation_reaches_the_lines(
+        self, subscription_factory, subscription_item_factory
+    ):
+        """The UI lists lines, not subscriptions.
+
+        Subscription.cancel() flags them; a cancellation scheduled outside
+        our own flow - the Stripe dashboard, say - arrives here instead, and
+        used to leave every line saying it would renew.
+        """
+        subscription = subscription_factory(
+            subscription_id="sub_lines", cancelled=False
+        )
+        item = subscription_item_factory(subscription=subscription)
+
+        tasks.handle_subscription_updated(
+            {
+                "id": "sub_lines",
+                "status": "active",
+                "cancel_at_period_end": True,
+            }
+        )
+
+        item.refresh_from_db()
+        assert item.cancelled is True
+
+    @pytest.mark.django_db
     def test_syncs_cancel_at_period_end_false(self, subscription_factory):
         """Clears the local cancelled flag when Stripe cancellation is reversed"""
         subscription = subscription_factory(
