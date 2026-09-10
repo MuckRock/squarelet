@@ -217,6 +217,44 @@ class TestAddingASecondPlan:
         assert first.stripe_item_id.startswith("si_")
 
 
+class TestGoingFreeAndBack:
+    """An id has to name an item on the subscription that exists now."""
+
+    def test_a_line_does_not_keep_an_id_from_a_deleted_subscription(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        """Downgrading deletes the Stripe subscription the ids referred to.
+
+        Kept, they would be sent to whichever subscription is started next,
+        which has never heard of them - Stripe rejects the whole call, and
+        the line can never be removed.
+        """
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        item = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+        free_name = f"Sandbox Free {uuid4().hex[:8]}"
+        item.modify(
+            plan_factory(
+                name=free_name,
+                slug=slugify(free_name),
+                base_price=0,
+                price_per_user=0,
+            )
+        )
+
+        item.refresh_from_db()
+        assert item.stripe_item_id == ""
+
+        # And the next subscription identifies itself from scratch.
+        revived = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+
+        revived.refresh_from_db()
+        assert revived.stripe_item_id.startswith("si_")
+        assert stripe_prices(revived.subscription.subscription_id) == {
+            revived.plan.stripe_id
+        }
+
+
 class TestChangingAPlan:
     """`modify_subscription` has no caller today and must work when it does."""
 
