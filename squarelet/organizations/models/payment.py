@@ -807,6 +807,20 @@ class Subscription(Cancellable, models.Model):
                 exc_info=True,
             )
 
+    def settle_added_line(self, stripe_subscription):
+        """Finish the charge Stripe made for a line just added.
+
+        Adding to a live subscription prorates immediately, so it is a
+        charge like any other: the customer's card may have to authenticate
+        it, and it produces an invoice worth keeping.  `start` does both for
+        a subscription it creates; the path that adds to one already live
+        did neither, so a card needing SCA was never challenged - the view
+        reported success, the charge sat unauthenticated, and no local
+        Invoice row was written for money that had been taken.
+        """
+        self._check_3ds_action_required(stripe_subscription)
+        self._sync_latest_invoice(stripe_subscription)
+
     def cancel(self):
         if self.stripe_subscription:
             updated = (
@@ -950,6 +964,8 @@ class Subscription(Cancellable, models.Model):
             if self.cancelled or not self.auto_renew:
                 self.mark_cancelled(self.current_period_end)
             self.save()
+            return updated
+        return None
 
     class Meta:
         ordering = ("organization", "interval")
