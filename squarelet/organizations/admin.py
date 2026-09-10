@@ -655,7 +655,7 @@ class OrganizationAdmin(VersionAdmin):
         # is set to auto-renew (plans with auto_renew=False are created to
         # cancel at period end).
         return not any(
-            sub.cancelled or not item.plan.auto_renew
+            sub.cancelled or item.cancelled or not item.plan.auto_renew
             for sub in subs
             for item in sub.items.all()
         )

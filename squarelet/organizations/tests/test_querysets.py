@@ -4,7 +4,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 # Standard Library
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 from uuid import uuid4
 
 # Third Party
@@ -837,3 +837,82 @@ class TestInvoiceQuerySet(TestCase):
 
         # 15-day grace period should find all 9 invoices
         assert Invoice.objects.overdue(grace_period_days=15).count() == 9
+
+
+@pytest.mark.django_db()
+class TestNonRenewingLines:
+    """A plan that bills once and stops becomes a line that ends at period end."""
+
+    PERIOD_END = datetime(2026, 9, 20, tzinfo=dt_timezone.utc)
+
+    def _patch_start(self, mocker):
+        """Stand in for Stripe, caching a period end the way start() does."""
+
+        def fake_start(subscription, **kwargs):
+            subscription.current_period_end = self.PERIOD_END
+            subscription.save()
+
+        mocker.patch(
+            "squarelet.organizations.models.Subscription.start",
+            autospec=True,
+            side_effect=fake_start,
+        )
+        mocker.patch(
+            "squarelet.organizations.models.payment.SubscriptionItem.notify_started"
+        )
+
+    def test_start_flags_a_non_renewing_line(
+        self, organization_factory, plan_factory, mocker
+    ):
+        plan = plan_factory(name="One Off Plan")
+        plan.auto_renew = False
+        plan.save()
+        self._patch_start(mocker)
+
+        item, _ = SubscriptionItem.objects.start(
+            organization=organization_factory(), plan=plan, quantity=1
+        )
+
+        item.refresh_from_db()
+        assert item.cancelled
+        assert item.cancel_at == self.PERIOD_END.date()
+
+    def test_a_line_joining_a_cancelled_subscription_inherits_the_ending(
+        self, organization_factory, plan_factory, mocker
+    ):
+        """Stripe ends a subscription whole, lines included.
+
+        A line added to one that is already ending stops with it whatever it
+        says locally - so saying it renews advertises a renewal that is not
+        coming, and offers to cancel a line about to vanish on its own.
+        """
+        self._patch_start(mocker)
+        mocker.patch("squarelet.organizations.models.Subscription.stripe_modify")
+        organization = organization_factory()
+        first, _ = SubscriptionItem.objects.start(
+            organization=organization, plan=plan_factory(name="First Plan")
+        )
+        subscription = first.subscription
+        subscription.mark_cancelled(self.PERIOD_END)
+        subscription.save()
+
+        joining, _ = SubscriptionItem.objects.start(
+            organization=organization, plan=plan_factory(name="Joining Plan")
+        )
+
+        joining.refresh_from_db()
+        assert joining.cancelled
+        assert joining.cancel_at == self.PERIOD_END.date()
+
+    def test_start_leaves_a_renewing_line_alone(
+        self, organization_factory, plan_factory, mocker
+    ):
+        self._patch_start(mocker)
+
+        item, _ = SubscriptionItem.objects.start(
+            organization=organization_factory(), plan=plan_factory(), quantity=1
+        )
+
+        item.refresh_from_db()
+        assert not item.cancelled
+        assert item.cancel_at is None

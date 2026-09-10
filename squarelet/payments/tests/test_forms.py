@@ -90,7 +90,8 @@ class TestPlanPurchaseFormInit:
         subscription_item_factory(
             subscription__organization=org,
             plan=plan,
-            subscription__cancelled=True,
+            cancelled=True,
+            subscription__cancelled=False,
         )
 
         form = PlanPurchaseForm(plan=plan, user=user)

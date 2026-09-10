@@ -14,6 +14,10 @@ build the rows it will find, and roll forward.
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 from django.db.migrations.loader import MigrationLoader
+from django.utils.text import slugify
+
+# Standard Library
+from datetime import date
 
 # Standard Library
 from datetime import date
@@ -249,3 +253,65 @@ class TestRollingTheSplitBack:
         assert line.organization_id == organization.pk
         assert line.subscription_id == "sub_rollback"
         assert line.stripe_status == "active"
+
+
+@pytest.mark.django_db(transaction=True)
+class TestAdoptParentCancellation:
+    """A pending cancellation has to survive the columns moving twice.
+
+    `subscription_parent` moves the pair onto the parent and drops the
+    line's columns; this migration adds them back for per-line cancellation
+    and would otherwise leave every line saying it renews.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _leave_the_database_migrated(self):
+        yield
+        with connection.cursor() as cursor:
+            cursor.execute("DELETE FROM organizations_subscriptionitem")
+            cursor.execute("DELETE FROM organizations_subscription")
+        migrate_to_latest()
+
+    def _subscription(self, apps, *, cancelled, cancel_at=None):
+        Organization = apps.get_model(APP, "Organization")
+        Plan = apps.get_model(APP, "Plan")
+        Subscription = apps.get_model(APP, "Subscription")
+        SubscriptionItem = apps.get_model(APP, "SubscriptionItem")
+
+        name = f"Org {cancelled}-{cancel_at}"
+        subscription = Subscription.objects.create(
+            organization=Organization.objects.create(name=name, slug=slugify(name)),
+            cancelled=cancelled,
+            cancel_at=cancel_at,
+        )
+        SubscriptionItem.objects.create(
+            subscription=subscription,
+            plan=Plan.objects.create(name=f"Plan {name}", slug=slugify(f"p {name}")),
+        )
+        return subscription
+
+    def test_a_cancelled_parent_hands_its_lines_the_cancellation(self):
+        """Otherwise the billing page tells the customer they renew."""
+        before, target = _bracket(ITEM_CANCELLATION)
+        old = migrate_to(before)
+        ending = date(2026, 10, 20)
+        subscription = self._subscription(old, cancelled=True, cancel_at=ending)
+
+        new = migrate_to(target)
+
+        SubscriptionItem = new.get_model(APP, "SubscriptionItem")
+        line = SubscriptionItem.objects.get(subscription_id=subscription.pk)
+        assert line.cancelled
+        assert line.cancel_at == ending
+
+    def test_a_live_parent_leaves_its_lines_renewing(self):
+        before, target = _bracket(ITEM_CANCELLATION)
+        old = migrate_to(before)
+        subscription = self._subscription(old, cancelled=False)
+
+        new = migrate_to(target)
+
+        SubscriptionItem = new.get_model(APP, "SubscriptionItem")
+        line = SubscriptionItem.objects.get(subscription_id=subscription.pk)
+        assert not line.cancelled
+        assert line.cancel_at is None
