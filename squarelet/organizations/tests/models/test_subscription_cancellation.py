@@ -358,3 +358,71 @@ class TestAOneTimePurchaseCannotBeResumed:
 
         pack.refresh_from_db()
         assert pack.cancelled, "still ending, not quietly made recurring"
+
+
+@pytest.mark.django_db()
+class TestUpgradingAwayFromAOneOffPlan:
+    """A subscription ending because nothing renews is ending because of plans.
+
+    Changing the plan changes the reason.  Left in place, the ending is
+    re-sent to Stripe as cancel_at_period_end and the plan the customer has
+    just bought is deleted at the end of the period they bought it for.
+    """
+
+    def _single_one_off_line(self, subscription_item_factory, plan_factory, mocker):
+        mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
+        service = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_subscription_service.return_value
+        service.modify.return_value = None
+        one_off = plan_factory(name="One Off", base_price=25)
+        one_off.auto_renew = False
+        one_off.save()
+        item = subscription_item_factory(
+            plan=one_off,
+            subscription__subscription_id="sub_oneoff",
+            subscription__cancelled=True,
+            subscription__current_period_end=datetime(
+                2026, 10, 20, 12, tzinfo=dt_timezone.utc
+            ),
+        )
+        item.mark_cancelled(item.subscription.current_period_end)
+        item.save()
+        return item
+
+    def test_upgrading_to_a_renewing_plan_lifts_the_ending(
+        self, subscription_item_factory, plan_factory, mocker
+    ):
+        item = self._single_one_off_line(
+            subscription_item_factory, plan_factory, mocker
+        )
+
+        item.modify(plan_factory(name="Renewing Plan", base_price=30))
+
+        item.refresh_from_db()
+        item.subscription.refresh_from_db()
+        assert not item.subscription.cancelled, "nothing is ending any more"
+        assert not item.cancelled, "the plan they just bought is not going away"
+
+    def test_a_cancellation_the_customer_asked_for_survives(
+        self, subscription_item_factory, plan_factory, mocker
+    ):
+        """Only a *derived* ending is lifted; a decision is not."""
+        mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
+        service = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_subscription_service.return_value
+        service.modify.return_value = None
+        item = subscription_item_factory(
+            plan=plan_factory(name="Renewing One", base_price=30),
+            subscription__subscription_id="sub_asked",
+            subscription__cancelled=True,
+            subscription__current_period_end=datetime(
+                2026, 10, 20, 12, tzinfo=dt_timezone.utc
+            ),
+        )
+
+        item.modify(plan_factory(name="Renewing Two", base_price=40))
+
+        item.subscription.refresh_from_db()
+        assert item.subscription.cancelled, "the customer cancelled this"
