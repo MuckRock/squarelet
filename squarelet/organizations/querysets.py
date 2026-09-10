@@ -471,6 +471,28 @@ class SubscriptionItemQuerySet(models.QuerySet):
                 if stripe_subscription is not None:
                     subscription.settle_added_line(stripe_subscription)
 
+            if subscription.cancelled:
+                # The subscription is already ending, and Stripe ends it
+                # whole: this line stops with the rest of them whatever it
+                # says locally.  Saying so keeps the billing page honest -
+                # it would otherwise advertise a renewal, and offer to
+                # cancel a line that is about to vanish on its own.
+                item.copy_cancellation_from(subscription)
+                item.save()
+            elif not plan.auto_renew:
+                # A plan that bills once and stops means, for a line, exactly
+                # what a customer cancellation means: drop it at the end of
+                # the period it was paid for.  The subscription carries on for
+                # its other lines, and Resubscribe reverses this if they
+                # change their mind.
+                #
+                # Inside the transaction that creates the line, because it is
+                # a fact about that line: committing one without the other
+                # leaves a one-off plan that renews forever and that nothing
+                # sweeps.
+                item.mark_cancelled(subscription.current_period_end)
+                item.save()
+
         # Every new line, as master did.  Gating this on price was a change
         # nobody asked for: `notify_started` already decides who to enrol by
         # entitlement - only the line that first grants `organization`, and
