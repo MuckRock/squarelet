@@ -836,6 +836,12 @@ class Subscription(Cancellable, models.Model):
                 )
                 self.subscription_id = ""
                 self.remember_stripe_subscription(None)
+                # The lines' ids named items on the subscription just
+                # deleted.  Left behind they would be sent to whatever
+                # subscription is started next, which has never heard of
+                # them - "No such subscription_item", and a line that cannot
+                # be removed.
+                self.items.update(stripe_item_id="")
                 # Nothing is pending once the Stripe subscription is gone.
                 # This used to clear the date and leave the flag, which is
                 # the pair's worst half-state: the sweep reads it as due
@@ -1123,7 +1129,10 @@ class SubscriptionItem(models.Model):
         the id that could have found it again went with the row.
         """
         stripe_sub = self.subscription.stripe_subscription
-        if stripe_sub is not None and not self.stripe_item_id:
+        if stripe_sub is not None:
+            # Unconditionally, not only when the id is missing: an id that
+            # is merely *wrong* is worse than one that is absent, because
+            # Stripe rejects the whole call rather than the line.
             self.subscription.sync_stripe_item_ids(stripe_sub)
             # It wrote straight to the rows, so this instance is stale.
             self.refresh_from_db()
