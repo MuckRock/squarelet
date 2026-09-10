@@ -11,6 +11,9 @@ from datetime import date, datetime, timezone as dt_timezone
 # Third Party
 import pytest
 
+# Squarelet
+from squarelet.organizations import tasks
+
 
 @pytest.mark.django_db()
 class TestAPendingCancellationSurvives:
@@ -194,3 +197,101 @@ class TestTheCancellationPairMovesTogether:
 
         item.refresh_from_db()
         assert item.cancelled
+
+
+@pytest.mark.django_db()
+class TestRevivingOnlyWhatTheSubscriptionEnded:
+    """Resubscribe must not hand back plans nobody asked for.
+
+    Stripe has no per-item cancellation, so a line the customer stopped by
+    itself is invisible to it.  Nothing arriving from Stripe - and no
+    reversal of the subscription's own cancellation - is an answer about
+    those lines, and only `cancelled_with_subscription` can tell them apart.
+    """
+
+    def _three_paid_lines(self, subscription_item_factory, plan_factory):
+        first = subscription_item_factory(
+            plan=plan_factory(name="Line One", base_price=30),
+            subscription__subscription_id="sub_three",
+            # Midday, so a cancellation date is real and cannot be moved by
+            # a timezone.
+            subscription__current_period_end=datetime(
+                2026, 10, 20, 12, tzinfo=dt_timezone.utc
+            ),
+        )
+        rest = [
+            subscription_item_factory(
+                subscription=first.subscription,
+                plan=plan_factory(name=name, base_price=30),
+            )
+            for name in ("Line Two", "Line Three")
+        ]
+        return [first, *rest]
+
+    def test_a_line_the_customer_cancelled_stays_cancelled(
+        self, subscription_item_factory, plan_factory, mocker
+    ):
+        """Cancel two, then resubscribe: only the third comes back."""
+        mocker.patch(
+            "squarelet.organizations.models.Organization.customer",
+            return_value=mocker.Mock(stripe_payment_method_id="pm_test"),
+        )
+        mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
+        service = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_subscription_service.return_value
+        # Nothing comes back from Stripe, so the cached fields stand rather
+        # than being overwritten with Mocks.
+        service.cancel_at_period_end.return_value = None
+        service.uncancel.return_value = None
+        one, two, three = self._three_paid_lines(
+            subscription_item_factory, plan_factory
+        )
+        one.cancel()
+        two.cancel()
+        # The third is the last paid line still renewing, so cancelling it
+        # ends the whole subscription.
+        three.cancel()
+
+        three.subscription.refresh_from_db()
+        three.subscription.uncancel()
+
+        for line in (one, two, three):
+            line.refresh_from_db()
+        assert one.cancelled, "the customer cancelled this one themselves"
+        assert two.cancelled, "and this one"
+        assert not three.cancelled, "only the subscription's own ending is reversed"
+
+    def test_reversing_from_stripe_does_not_revive_them_either(
+        self, subscription_item_factory, plan_factory
+    ):
+        """Same rule, reached from Stripe rather than from Resubscribe.
+
+        A cancellation lifted in the Stripe dashboard reverses the
+        subscription's ending, and the lines it ended go with it - but a
+        line the customer stopped by itself was never Stripe's to reverse.
+        """
+        one, two, _three = self._three_paid_lines(
+            subscription_item_factory, plan_factory
+        )
+        # Cancelled by the customer, before the subscription was.
+        one.mark_cancelled(one.subscription.current_period_end)
+        one.save()
+        subscription = one.subscription
+        subscription.mark_cancelled(subscription.current_period_end)
+        subscription.save()
+        subscription.push_cancellation_to_items()
+
+        tasks.handle_subscription_updated(
+            {
+                "id": "sub_three",
+                "status": "active",
+                "cancel_at_period_end": False,
+            }
+        )
+
+        one.refresh_from_db()
+        two.refresh_from_db()
+        assert one.cancelled, "cancelled by the customer, not by Stripe"
+        assert one.cancel_at is not None
+        assert not two.cancelled, "this one only ended because the subscription did"

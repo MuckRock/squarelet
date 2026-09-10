@@ -483,8 +483,13 @@ class SubscriptionItemQuerySet(models.QuerySet):
                 # says locally.  Saying so keeps the billing page honest -
                 # it would otherwise advertise a renewal, and offer to
                 # cancel a line that is about to vanish on its own.
-                item.copy_cancellation_from(subscription)
-                item.save(update_fields=item.CANCELLATION_FIELDS)
+                item.inherit_cancellation_from(subscription)
+                item.save(
+                    update_fields=[
+                        *item.CANCELLATION_FIELDS,
+                        "cancelled_with_subscription",
+                    ]
+                )
             elif not plan.auto_renew:
                 # A plan that bills once and stops means, for a line, exactly
                 # what a customer cancellation means: drop it at the end of

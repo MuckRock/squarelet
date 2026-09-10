@@ -26,7 +26,12 @@ def adopt_parent_cancellation(apps, schema_editor):
 
     for subscription in Subscription.objects.filter(cancelled=True):
         subscription.items.update(
-            cancelled=True, cancel_at=subscription.cancel_at
+            cancelled=True,
+            cancel_at=subscription.cancel_at,
+            # Ending because the subscription is, which is all we can know
+            # here: per-line cancellation did not exist before this
+            # migration, so nothing else could have ended them.
+            cancelled_with_subscription=True,
         )
 
 
@@ -56,7 +61,23 @@ class Migration(migrations.Migration):
                 verbose_name="cancelled",
             ),
         ),
-        # Nothing to undo: reversing the two AddFields above drops the
+        migrations.AddField(
+            model_name="subscriptionitem",
+            name="cancelled_with_subscription",
+            field=models.BooleanField(
+                default=False,
+                help_text=(
+                    "This line is ending only because its subscription is, "
+                    "rather than because anyone cancelled the line itself.  "
+                    "Reviving the subscription revives these and leaves the "
+                    "rest alone - without which a customer who cancelled two "
+                    "plans and then resubscribed to a third got all three "
+                    "back."
+                ),
+                verbose_name="cancelled with subscription",
+            ),
+        ),
+        # Nothing to undo: reversing the AddFields above drops the
         # columns this fills in.
         migrations.RunPython(
             adopt_parent_cancellation, migrations.RunPython.noop
