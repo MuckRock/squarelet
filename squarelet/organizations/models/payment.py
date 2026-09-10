@@ -928,13 +928,16 @@ class Subscription(Cancellable, models.Model):
                     # Stripe the next time any line was added or modified.
                     cancel_at_period_end=self.cancelled or not self.auto_renew,
                     items=self.stripe_items(include_ids=True),
-                    billing=(
-                        "send_invoice"
-                        if self.interval == "annual"
-                        else "charge_automatically"
-                    ),
+                    # The subscription's own collection method, not a guess
+                    # from its interval.  Deriving it from `annual` pushed
+                    # `send_invoice` at every annual subscriber, so adding a
+                    # plan silently stopped auto-charging the ones paying by
+                    # card - while the local row went on saying they were.
+                    billing=self.collection_method,
                     metadata={"action": f"Subscription ({self.organization})"},
-                    days_until_due=(30 if self.interval == "annual" else None),
+                    days_until_due=(
+                        30 if self.collection_method == "send_invoice" else None
+                    ),
                 )
             )
             if updated:
