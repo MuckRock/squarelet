@@ -1112,19 +1112,40 @@ class SubscriptionItem(Cancellable, models.Model):
             # It wrote straight to the rows, so this instance is stale.
             self.refresh_from_db()
 
+        # An ending made of plans is one a plan change can lift; a decision
+        # is not - reversing those is `uncancel`'s job.
+        ending_only_because_nothing_renews = (
+            self.subscription.cancelled and not self.subscription.auto_renew
+        )
+
         self.plan = plan
         was_cancelled = self.subscription.cancelled
-        # A pending cancellation belonged to the plan being replaced.  Keeping
-        # it would drop the line the customer has just chosen, on the old
-        # plan's date - so re-derive it from the new plan, the way `start`
-        # does.  A cancellation covering the whole subscription is not this
-        # method's to reverse; `uncancel` is what does that.
+        self.save()
+
+        if ending_only_because_nothing_renews and self.subscription.auto_renew:
+            # Something renews now, so the reason is gone.  Left in place it
+            # would be re-sent to Stripe as cancel_at_period_end, and the
+            # plan the customer has just bought would be deleted at the end
+            # of the period they bought it for.
+            self.subscription.clear_cancellation()
+            self.subscription.save()
+            self.subscription.push_cancellation_to_items()
+            self.refresh_from_db()
+
+        # The cancellation belonged to the plan being replaced, so re-derive
+        # it from the new one.  Not while the subscription is ending: the
+        # line goes with it.
         if not self.subscription.cancelled:
             if plan.auto_renew:
                 self.clear_cancellation()
             else:
                 self.mark_cancelled(self.subscription.current_period_end)
-        self.save()
+            self.save(
+                update_fields=[
+                    *self.CANCELLATION_FIELDS,
+                    "cancelled_by_subscription",
+                ]
+            )
         if (
             not plan.auto_renew
             and not self.subscription.cancelled
