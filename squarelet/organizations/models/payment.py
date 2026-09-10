@@ -506,6 +506,16 @@ class Subscription(Cancellable, models.Model):
         blank=True,
     )
 
+    # What `cache_stripe_subscription_fields` writes.  Named because two
+    # callers save by explicit field list, and a field added to the method
+    # but not to their lists is simply never persisted - which has already
+    # happened once, to `stripe_status`.
+    STRIPE_CACHED_FIELDS = (
+        "stripe_status",
+        "collection_method",
+        "current_period_end",
+    )
+
     @cached_property
     def stripe_subscription(self):
         if self.subscription_id:
@@ -638,6 +648,19 @@ class Subscription(Cancellable, models.Model):
         entitlements the same night while Stripe billed them to period end.
         """
         self.stripe_status = stripe_sub.status or ""
+        # Cached, not computed.  How Stripe collects is Stripe's fact, and
+        # the local copy started as a guess: `0084` infers it from
+        # `plan.annual`, while the runtime keys it on the payment method, so
+        # an annual subscriber paying by card was migrated as `send_invoice`
+        # and no longer matched the `get_or_create` that looks for their
+        # subscription - giving them a second one, and a second invoice.
+        # Reading it back from Stripe heals that on any interaction.
+        try:
+            collection_method = stripe_sub["collection_method"]
+        except (KeyError, TypeError):
+            collection_method = None
+        if collection_method:
+            self.collection_method = collection_method
         ts = (
             get_payment_provider()
             .get_subscription_service()
