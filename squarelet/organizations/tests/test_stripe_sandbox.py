@@ -184,6 +184,24 @@ class TestAddingASecondPlan:
             second_plan.stripe_id,
         }
 
+    def test_a_new_subscription_starts_identified(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        """Stripe hands back the item ids when it creates the subscription.
+
+        Dropping them left every new subscriber in the state the backfill
+        command exists to repair, so `audit_subscriptions` reported each of
+        their lines as missing on Stripe - which is the check the runbook
+        tells you to trust after deploying.
+        """
+        organization = organization_factory()
+        with_card(organization, sandbox)
+
+        item = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+
+        item.refresh_from_db()
+        assert item.stripe_item_id.startswith("si_")
+
     def test_the_line_learns_its_stripe_id(
         self, organization_factory, plan_factory, sandbox
     ):
