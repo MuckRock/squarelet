@@ -758,6 +758,14 @@ class Subscription(Cancellable, models.Model):
             .get_invoice_service()
             .retrieve(invoice_id, expand=["confirmation_secret"])
         )
+        # A settled invoice needs no authenticating, and Stripe hands back a
+        # confirmation secret either way - so the secret's presence never
+        # meant action was required.  Checked here rather than by the
+        # callers, who were each guessing at it from the subscription's
+        # status instead.
+        if fresh_invoice.status == "paid":
+            return
+
         cs = fresh_invoice.confirmation_secret
         if cs and not isinstance(cs, str):
             client_secret = cs.client_secret
