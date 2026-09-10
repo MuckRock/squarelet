@@ -457,8 +457,12 @@ class SubscriptionItemQuerySet(models.QuerySet):
                     anchor_day=anchor.day if anchor else None,
                 )
             else:
-                subscription.stripe_modify()
-                stripe_subscription = subscription.stripe_subscription
+                # Take what Stripe returned, not the cached object: that
+                # was fetched before the line was added, so it does not
+                # contain it.
+                stripe_subscription = subscription.stripe_modify()
+                if stripe_subscription is not None:
+                    subscription.settle_added_line(stripe_subscription)
 
         if not plan.free:
             item.notify_started()
