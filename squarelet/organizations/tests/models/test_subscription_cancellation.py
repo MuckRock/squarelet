@@ -81,7 +81,7 @@ class TestTheCancellationPairMovesTogether:
             subscription__subscription_id="sub_live",
         )
         item.subscription.current_period_end = datetime(
-            2026, 9, 20, tzinfo=dt_timezone.utc
+            2026, 9, 20, 12, tzinfo=dt_timezone.utc
         )
         item.subscription.save()
         return item
