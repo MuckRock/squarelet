@@ -588,3 +588,57 @@ class TestPlanFilter:
 
     def test_filter_is_registered_on_organization_admin(self):
         assert PlanFilter in OrganizationAdmin.list_filter
+
+
+@pytest.mark.django_db
+class TestWillRenewColumn:
+    """ "Will Renew" answers for the plan the list is filtered by.
+
+    The column only appears under a plan filter, and the prefetch behind it
+    is filtered to that plan at both levels - so a one-off pack sitting on
+    the same subscription is not one of the lines it reads, and must not
+    drag the answer down with it.
+    """
+
+    def _column(self, organization, plan):
+        admin = OrganizationAdmin(Organization, AdminSite())
+        request = RequestFactory().get("/", {"plan": str(plan.pk)})
+        request.user = None
+        listed = admin.get_queryset(request).get(pk=organization.pk)
+        return admin.get_subscription_renews(listed)
+
+    def test_a_one_off_beside_a_renewing_plan_does_not_read_no(
+        self,
+        organization_factory,
+        plan_factory,
+        subscription_factory,
+        subscription_item_factory,
+    ):
+        organization = organization_factory()
+        subscription = subscription_factory(organization=organization)
+        renewing = plan_factory(name="Organization", base_price=100)
+        subscription_item_factory(subscription=subscription, plan=renewing)
+        pack = plan_factory(name="Credit Pack", base_price=25)
+        pack.auto_renew = False
+        pack.save()
+        item = subscription_item_factory(subscription=subscription, plan=pack)
+        item.cancelled = True
+        item.save()
+
+        assert self._column(organization, renewing) is True
+
+    def test_a_cancelled_line_of_the_filtered_plan_reads_no(
+        self,
+        organization_factory,
+        plan_factory,
+        subscription_factory,
+        subscription_item_factory,
+    ):
+        organization = organization_factory()
+        subscription = subscription_factory(organization=organization)
+        renewing = plan_factory(name="Organization", base_price=100)
+        item = subscription_item_factory(subscription=subscription, plan=renewing)
+        item.cancelled = True
+        item.save()
+
+        assert self._column(organization, renewing) is False
