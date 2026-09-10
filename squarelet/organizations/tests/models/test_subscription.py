@@ -494,9 +494,15 @@ class TestSubscription:
         self, subscription_item_factory, plan_factory, mocker
     ):
         """The second cancel is the last *active* line, so the sub goes too."""
-        first = subscription_item_factory()
+        # Paid, both: a free line is not something Stripe bills, so
+        # cancelling one could never be the last thing keeping the
+        # subscription alive.
+        first = subscription_item_factory(
+            plan=plan_factory(name="First Plan", base_price=30)
+        )
         second = subscription_item_factory(
-            subscription=first.subscription, plan=plan_factory(name="Second Plan")
+            subscription=first.subscription,
+            plan=plan_factory(name="Second Plan", base_price=30),
         )
         mocked_cancel = mocker.patch(
             "squarelet.organizations.models.Subscription.cancel"
@@ -810,10 +816,12 @@ class TestSubscriptionItem:
 
     @pytest.mark.django_db()
     def test_cancel_last_item_cancels_the_subscription(
-        self, subscription_item_factory, mocker
+        self, subscription_item_factory, plan_factory, mocker
     ):
         """The only line left cancels the whole subscription at period end."""
-        item = subscription_item_factory()
+        item = subscription_item_factory(
+            plan=plan_factory(name="Only Paid Plan", base_price=30)
+        )
         mocked_cancel = mocker.patch(
             "squarelet.organizations.models.Subscription.cancel"
         )

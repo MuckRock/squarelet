@@ -62,7 +62,8 @@ def test_restore_organization_removes_due_cancelled_lines(
     )
     # Same subscription, not cancelled -> survives
     keeper = SubscriptionItemFactory(
-        subscription=due.subscription, plan=plan_factory(name="Keeper Plan")
+        subscription=due.subscription,
+        plan=plan_factory(name="Keeper Plan", base_price=30),
     )
     # Cancelled but not due yet -> survives
     later = SubscriptionItemFactory(
@@ -2726,37 +2727,42 @@ class TestHandleSubscriptionUpdated:
         assert item.cancel_at is None
 
     @pytest.mark.django_db
-    def test_a_subscription_of_only_cancelled_lines_is_reported(
+    def test_a_stuck_last_paid_line_is_reported(
         self, subscription_item_factory, plan_factory, caplog
     ):
         """A state nothing should reach, which must not be reached quietly.
 
-        Stripe rejects removing a subscription's only line, so the sweep can
+        Stripe rejects removing a subscription's only item, so the sweep can
         do nothing here - and it will do nothing again every night while the
         customer keeps paying.  Silence made that indistinguishable from
         working.
+
+        Cancelling the last paid line now cancels the whole subscription, so
+        this is built directly.  That is the point: the log is for states
+        that should not arise.
         """
         today = date.today()
-        first = subscription_item_factory(
+        stuck = subscription_item_factory(
+            plan=plan_factory(name="Stuck Paid", base_price=30),
             subscription__subscription_id="sub_stuck",
             subscription__cancelled=False,
             cancelled=True,
             cancel_at=today,
         )
+        # A free sibling is not something Stripe bills, so it does not save
+        # the removal - which is the accounting error this guard had.
         subscription_item_factory(
-            subscription=first.subscription,
-            plan=plan_factory(name="Also Cancelled"),
-            cancelled=True,
-            cancel_at=today,
+            subscription=stuck.subscription,
+            plan=plan_factory(name="Free Sibling", base_price=0),
         )
-        Organization.objects.filter(pk=first.subscription.organization_id).update(
+        Organization.objects.filter(pk=stuck.subscription.organization_id).update(
             update_on=today
         )
 
         tasks.restore_organization()
 
-        assert "is cancelled but the subscription is not" in caplog.text
-        assert SubscriptionItem.objects.filter(pk=first.pk).exists()
+        assert "has one paid line left and it is cancelled" in caplog.text
+        assert SubscriptionItem.objects.filter(pk=stuck.pk).exists()
 
     @pytest.mark.django_db
     def test_an_unrelated_update_leaves_a_cancelled_line_alone(
