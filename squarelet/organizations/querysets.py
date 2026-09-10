@@ -471,8 +471,12 @@ class SubscriptionItemQuerySet(models.QuerySet):
                 if stripe_subscription is not None:
                     subscription.settle_added_line(stripe_subscription)
 
-        if not plan.free:
-            item.notify_started()
+        # Every new line, as master did.  Gating this on price was a change
+        # nobody asked for: `notify_started` already decides who to enrol by
+        # entitlement - only the line that first grants `organization`, and
+        # only once - so a free plan carrying that entitlement stopped
+        # enrolling anyone, and no free signup produced a Slack notification.
+        item.notify_started()
         return item, stripe_subscription
 
     def sunlight_active_count(self):
