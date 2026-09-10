@@ -388,6 +388,28 @@ def test_joining_a_live_subscription_settles_the_charge(mocker):
     settle.assert_called_once_with(updated)
 
 
+@pytest.mark.django_db
+def test_a_free_plan_still_announces_itself(mocker):
+    """Who gets announced is `notify_started`'s decision, not the price's.
+
+    It enrols only the line that first grants the `organization`
+    entitlement, and only once.  Gating the call on price meant a free plan
+    carrying that entitlement enrolled nobody, and no free signup reached
+    Slack at all.
+    """
+    notify = mocker.patch(
+        "squarelet.organizations.models.payment.SubscriptionItem.notify_started"
+    )
+    mocker.patch("squarelet.organizations.models.Subscription.start")
+
+    SubscriptionItem.objects.start(
+        organization=OrganizationFactory(),
+        plan=PlanFactory(name="Free Tier", base_price=0, price_per_user=0),
+    )
+
+    notify.assert_called_once()
+
+
 class TestSubscriptionItemQuerySet(TestCase):
     """Unit tests for SubscriptionItem queryset"""
 
