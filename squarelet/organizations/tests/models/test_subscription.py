@@ -829,7 +829,8 @@ class TestSubscriptionItem:
         item = subscription_item_factory(
             subscription__subscription_id="sub_multi", stripe_item_id="si_one"
         )
-        period_end = datetime(2026, 9, 20, tzinfo=dt_timezone.utc)
+        # Midday, so a timezone conversion cannot move the date.
+        period_end = datetime(2026, 9, 20, 12, tzinfo=dt_timezone.utc)
         item.subscription.current_period_end = period_end
         item.subscription.save()
         subscription_item_factory(
