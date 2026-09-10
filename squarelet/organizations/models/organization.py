@@ -915,15 +915,22 @@ class Organization(AvatarMixin, models.Model):
         """
         wix_plans = []
 
-        # Check membership groups
-        for group in self.groups.filter(share_resources=True):
-            for plan in group.get_plans().filter(wix=True):
-                wix_plans.append((group, plan))
+        # Filtered in Python rather than in SQL, so a prefetch can serve it.
+        # `get_plans().filter(wix=True)` cannot use one - it is a fresh
+        # queryset every call - and this walks every group an organization
+        # belongs to, then recurses up the parent hierarchy.
+        for group in self.groups.filter(share_resources=True).prefetch_related(
+            "subscriptions__plans"
+        ):
+            for plan in group.prefetched_plans():
+                if plan.wix:
+                    wix_plans.append((group, plan))
 
         # Check parent hierarchy (recursive)
         if self.parent and self.parent.share_resources:
-            for plan in self.parent.get_plans().filter(wix=True):
-                wix_plans.append((self.parent, plan))
+            for plan in self.parent.prefetched_plans():
+                if plan.wix:
+                    wix_plans.append((self.parent, plan))
             # Also get parent's groups recursively
             wix_plans.extend(self.parent.get_wix_plans_from_groups())
 
@@ -946,7 +953,12 @@ class Organization(AvatarMixin, models.Model):
             if source.pk in _seen:
                 return
             _seen.add(source.pk)
-            for plan in source.get_plans():
+            # `prefetched_plans`, not `get_plans`: the loops below ask for
+            # `subscriptions__plans`, and `get_plans` builds a fresh
+            # queryset that cannot read it - so the prefetch was paid for
+            # and then ignored, and the query it was meant to save ran once
+            # per source anyway, on every organization and user page.
+            for plan in source.prefetched_plans():
                 if not plan.free:
                     inherited.append((source, plan))
 
