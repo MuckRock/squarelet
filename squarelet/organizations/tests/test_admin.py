@@ -14,6 +14,8 @@ from squarelet.organizations.admin import (
     PlanAdmin,
     PlanFilter,
     PlanPriceAdmin,
+    SubscriptionAdmin,
+    SubscriptionItemInline,
 )
 from squarelet.organizations.models import (
     Charge,
@@ -21,6 +23,7 @@ from squarelet.organizations.models import (
     Organization,
     Plan,
     PlanPrice,
+    Subscription,
 )
 
 
@@ -89,6 +92,38 @@ class TestStripeLinks:
             ChargeAdmin(Charge, AdminSite()).stripe_id_display.admin_order_field
             == "charge_id"
         )
+
+
+@pytest.mark.django_db
+class TestSubscriptionAdmin:
+    """The lines on a subscription, which the split made invisible.
+
+    Plans moved off the organization and onto lines, and until now nothing
+    in the admin showed them - an organization could be seen to have a
+    subscription without any way to see what was being billed on it.
+    """
+
+    def test_the_lines_are_shown_on_the_subscription(self):
+        assert (
+            SubscriptionItemInline
+            in SubscriptionAdmin(Subscription, AdminSite()).inlines
+        )
+
+    @override_settings(ENV="prod")
+    def test_a_subscription_links_to_stripe(self, subscription_factory):
+        admin = SubscriptionAdmin(Subscription, AdminSite())
+        subscription = subscription_factory(subscription_id="sub_abc")
+
+        assert (
+            "https://dashboard.stripe.com/subscriptions/sub_abc"
+            in admin.stripe_link(subscription)
+        )
+
+    def test_a_subscription_not_yet_at_stripe_is_not_linked(self, subscription_factory):
+        admin = SubscriptionAdmin(Subscription, AdminSite())
+        subscription = subscription_factory(subscription_id="")
+
+        assert admin.stripe_link(subscription) == admin.get_empty_value_display()
 
 
 class TestInvoiceAdmin:

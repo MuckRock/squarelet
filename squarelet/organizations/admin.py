@@ -77,34 +77,6 @@ class PrettyJSONWidget(Textarea):
             return super().format_value(value)
 
 
-class SubscriptionInline(admin.TabularInline):
-    model = Subscription
-    readonly_fields = ("subscription_id", "interval", "collection_method", "cancelled")
-    extra = 0
-    can_delete = False
-
-    def has_add_permission(self, request, obj=None):
-        return False
-
-
-class PaymentMethodInline(admin.TabularInline):
-    model = PaymentMethod
-    readonly_fields = (
-        "method_type",
-        "brand",
-        "last4",
-        "exp_month",
-        "exp_year",
-        "stripe_id",
-        "is_default",
-    )
-    extra = 0
-    can_delete = False
-
-    def has_add_permission(self, request, obj=None):
-        return False
-
-
 class StripeLinkMixin:
     """Reach the object's counterpart in the Stripe dashboard.
 
@@ -168,6 +140,91 @@ class StripeLinkMixin:
         )
 
     stripe_link.short_description = "Stripe"
+
+
+class SubscriptionItemInline(admin.TabularInline):
+    """The plans billed on a subscription.
+
+    The split moved plans off the organization and onto lines, and nothing
+    replaced the old view of them - so the admin could say an organization
+    had a subscription without saying what was on it.
+    """
+
+    model = SubscriptionItem
+    fields = ("plan", "quantity", "cancelled", "cancel_at", "stripe_item_id")
+    readonly_fields = fields
+    extra = 0
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+class SubscriptionInline(admin.TabularInline):
+    model = Subscription
+    readonly_fields = ("subscription_id", "interval", "collection_method", "cancelled")
+    extra = 0
+    can_delete = False
+    # So the lines are one click away: this inline shows the billing
+    # relationship, and the plans live on the subscription behind it.
+    show_change_link = True
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(Subscription)
+class SubscriptionAdmin(StripeLinkMixin, VersionAdmin):
+    """One Stripe subscription, and the lines billed on it."""
+
+    stripe_id_field = "subscription_id"
+    stripe_resource = "subscriptions"
+    list_display = (
+        "organization",
+        "interval",
+        "collection_method",
+        "cancelled",
+        "cancel_at",
+        "stripe_id_display",
+    )
+    list_select_related = ("organization",)
+    list_filter = ("interval", "collection_method", "cancelled")
+    search_fields = ("organization__name", "subscription_id")
+    readonly_fields = (
+        "organization",
+        "subscription_id",
+        "stripe_link",
+        "interval",
+        "collection_method",
+        "stripe_status",
+        "current_period_end",
+        "cancelled",
+        "cancel_at",
+    )
+    inlines = [SubscriptionItemInline]
+
+    def has_add_permission(self, request):
+        # Subscriptions are created by subscribing, which also creates the
+        # Stripe side.  One made here would have no counterpart.
+        return False
+
+
+class PaymentMethodInline(admin.TabularInline):
+    model = PaymentMethod
+    readonly_fields = (
+        "method_type",
+        "brand",
+        "last4",
+        "exp_month",
+        "exp_year",
+        "stripe_id",
+        "is_default",
+    )
+    extra = 0
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        return False
 
 
 class CustomerInline(admin.TabularInline):
