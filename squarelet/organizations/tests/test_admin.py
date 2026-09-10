@@ -7,8 +7,88 @@ import pytest
 import stripe
 
 # Squarelet
-from squarelet.organizations.admin import InvoiceAdmin, OrganizationAdmin, PlanFilter
-from squarelet.organizations.models import Invoice, Organization
+from squarelet.organizations.admin import (
+    ChargeAdmin,
+    InvoiceAdmin,
+    OrganizationAdmin,
+    PlanAdmin,
+    PlanFilter,
+    PlanPriceAdmin,
+)
+from squarelet.organizations.models import (
+    Charge,
+    Invoice,
+    Organization,
+    Plan,
+    PlanPrice,
+)
+
+
+@pytest.mark.django_db
+class TestStripeLinks:
+    """The "View in Stripe" link, on every model that has a counterpart.
+
+    Each admin only supplies a field name and a dashboard path, so what is
+    worth testing is that the pairing is right and that a row with no Stripe
+    object renders plainly rather than linking to a 404.
+    """
+
+    @override_settings(ENV="prod")
+    def test_a_price_links_to_its_stripe_price(self, plan_price_factory):
+        admin = PlanPriceAdmin(PlanPrice, AdminSite())
+        price = plan_price_factory(stripe_price_id="price_abc")
+
+        assert "https://dashboard.stripe.com/prices/price_abc" in admin.stripe_link(
+            price
+        )
+        assert "price_abc" in admin.stripe_id_display(price)
+
+    @override_settings(ENV="prod")
+    def test_a_comped_price_is_not_linked(self, plan_price_factory):
+        """Comped prices never reach Stripe, so there is nothing to open."""
+        admin = PlanPriceAdmin(PlanPrice, AdminSite())
+        price = plan_price_factory(stripe_price_id="")
+
+        assert admin.stripe_link(price) == admin.get_empty_value_display()
+        assert admin.stripe_id_display(price) == admin.get_empty_value_display()
+
+    @override_settings(ENV="prod")
+    def test_a_plan_links_to_its_product_not_its_legacy_plan(self, plan_factory):
+        """`Plan.stripe_id` names the legacy Stripe Plan, which is on its way out."""
+        admin = PlanAdmin(Plan, AdminSite())
+        plan = plan_factory(name="Linked Plan", stripe_product_id="prod_abc")
+
+        link = admin.stripe_link(plan)
+        assert "https://dashboard.stripe.com/products/prod_abc" in link
+        assert "squarelet_plan_" not in link
+
+    @override_settings(ENV="prod")
+    def test_a_charge_links_to_the_payment(self, charge_factory):
+        """The dashboard files charges under payments."""
+        admin = ChargeAdmin(Charge, AdminSite())
+        charge = charge_factory(charge_id="ch_abc")
+
+        assert "https://dashboard.stripe.com/payments/ch_abc" in admin.stripe_link(
+            charge
+        )
+
+    @override_settings(ENV="staging")
+    def test_a_test_mode_link_points_at_test_mode(self, plan_price_factory):
+        admin = PlanPriceAdmin(PlanPrice, AdminSite())
+        price = plan_price_factory(stripe_price_id="price_abc")
+
+        assert "dashboard.stripe.com/test/prices/price_abc" in admin.stripe_link(price)
+
+    def test_each_admin_sorts_its_own_stripe_id_column(self):
+        """One shared function could only carry one `admin_order_field`."""
+        assert (
+            PlanPriceAdmin(PlanPrice, AdminSite()).stripe_id_display.admin_order_field
+            == "stripe_price_id"
+        )
+        assert (
+            ChargeAdmin(Charge, AdminSite()).stripe_id_display.admin_order_field
+            == "charge_id"
+        )
 
 
 class TestInvoiceAdmin:

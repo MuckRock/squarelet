@@ -104,6 +104,71 @@ class PaymentMethodInline(admin.TabularInline):
         return False
 
 
+class StripeLinkMixin:
+    """Reach the object's counterpart in the Stripe dashboard.
+
+    Two renderings of the same link.  `stripe_link` is for a detail page and
+    reads "View in Stripe"; `stripe_id_display` is for a change list, where
+    it makes the id itself the link rather than adding a column of identical
+    link text beside it.
+
+    Both fall back to the admin's own empty-value marker when there is no
+    Stripe object to point at, which is
+    ordinary rather than exceptional: a comped `PlanPrice` never creates a
+    Price, and a `Customer` or `Subscription` that has not reached Stripe
+    has no id yet.  Linking those would send whoever clicked to a 404.
+
+    Subclasses set `stripe_id_field` and `stripe_resource`; the resource is
+    the dashboard's own path segment, so a charge is "payments" rather than
+    "charges".
+    """
+
+    stripe_id_field = None
+    stripe_resource = None
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if not cls.stripe_id_field:
+            return
+
+        # A function per subclass, so each change list can sort on whichever
+        # field that subclass keeps its Stripe id in - one shared function
+        # could only carry one `admin_order_field`.
+        def stripe_id_display(self, obj):
+            return self.render_stripe_id(obj)
+
+        stripe_id_display.short_description = "Stripe ID"
+        stripe_id_display.admin_order_field = cls.stripe_id_field
+        cls.stripe_id_display = stripe_id_display
+
+    def _stripe_id(self, obj):
+        return getattr(obj, self.stripe_id_field, "") or ""
+
+    def render_stripe_id(self, obj):
+        # Public because `__init_subclass__` reaches it from a function it
+        # builds per subclass, which is not `self`'s class as far as a
+        # linter is concerned.
+        stripe_id = self._stripe_id(obj)
+        if not stripe_id:
+            return self.get_empty_value_display()
+        return format_html(
+            '<a href="{}" target="_blank" rel="noopener">{}</a>',
+            get_stripe_dashboard_url(self.stripe_resource, stripe_id),
+            stripe_id,
+        )
+
+    def stripe_link(self, obj):
+        stripe_id = self._stripe_id(obj)
+        if not stripe_id:
+            return self.get_empty_value_display()
+        return format_html(
+            '<a href="{}" target="_blank" rel="noopener">View in Stripe</a>',
+            get_stripe_dashboard_url(self.stripe_resource, stripe_id),
+        )
+
+    stripe_link.short_description = "Stripe"
+
+
 class CustomerInline(admin.TabularInline):
     model = Customer
     readonly_fields = ("customer_id",)
@@ -112,15 +177,19 @@ class CustomerInline(admin.TabularInline):
 
 
 @admin.register(Customer)
-class CustomerAdmin(admin.ModelAdmin):
-    list_display = ("organization", "customer_id")
+class CustomerAdmin(StripeLinkMixin, admin.ModelAdmin):
+    stripe_id_field = "customer_id"
+    stripe_resource = "customers"
+    list_display = ("organization", "stripe_id_display")
     search_fields = ("organization__name", "customer_id")
-    readonly_fields = ("organization", "customer_id")
+    readonly_fields = ("organization", "customer_id", "stripe_link")
     inlines = (PaymentMethodInline,)
 
 
-class InvoiceInline(admin.TabularInline):
+class InvoiceInline(StripeLinkMixin, admin.TabularInline):
     model = Invoice
+    stripe_id_field = "invoice_id"
+    stripe_resource = "invoices"
     readonly_fields = (
         "invoice_link",
         "stripe_link",
@@ -143,16 +212,6 @@ class InvoiceInline(admin.TabularInline):
         return obj.invoice_id or "-"
 
     invoice_link.short_description = "Invoice ID"
-
-    @mark_safe
-    def stripe_link(self, obj):
-        """Link to Stripe invoice dashboard"""
-        if obj.invoice_id:
-            url = get_stripe_dashboard_url("invoices", obj.invoice_id)
-            return f'<a href="{url}" target="_blank">View in Stripe</a>'
-        return "-"
-
-    stripe_link.short_description = "Stripe"
 
     def amount_dollars(self, obj):
         return f"${obj.amount_dollars:.2f}"
@@ -585,7 +644,7 @@ class PlanPriceForm(forms.ModelForm):
                 )
 
 
-class PlanPriceInline(admin.TabularInline):
+class PlanPriceInline(StripeLinkMixin, admin.TabularInline):
     """Prices for a plan, editable alongside it.
 
     Creating a row here gives it a Stripe Price via PlanAdmin.save_formset.
@@ -596,6 +655,8 @@ class PlanPriceInline(admin.TabularInline):
     model = PlanPrice
     form = PlanPriceForm
     extra = 0
+    stripe_id_field = "stripe_price_id"
+    stripe_resource = "prices"
     fields = (
         "interval",
         "label",
@@ -603,14 +664,19 @@ class PlanPriceInline(admin.TabularInline):
         "amount",
         "currency",
         "active",
-        "stripe_price_id",
+        "stripe_id_display",
     )
-    readonly_fields = ("stripe_price_id",)
+    readonly_fields = ("stripe_id_display",)
     ordering = ("-active", "interval", "label")
 
 
 @admin.register(Plan)
-class PlanAdmin(VersionAdmin):
+class PlanAdmin(StripeLinkMixin, VersionAdmin):
+    # The Product.  `Plan.stripe_id` is the legacy Stripe Plan, which is
+    # what the archive step retires - linking it would send people at
+    # objects on their way out.
+    stripe_id_field = "stripe_product_id"
+    stripe_resource = "products"
     list_display = (
         "name",
         "slug",
@@ -622,8 +688,10 @@ class PlanAdmin(VersionAdmin):
         "auto_renew",
         "for_individuals",
         "for_groups",
+        "stripe_id_display",
         "slack_webhook_url",
     )
+    readonly_fields = ("stripe_link",)
     search_fields = ("name", "description")
     autocomplete_fields = ("private_organizations", "entitlements")
     filter_horizontal = ("entitlements", "private_organizations")
@@ -651,7 +719,7 @@ class PlanAdmin(VersionAdmin):
 
 
 @admin.register(PlanPrice)
-class PlanPriceAdmin(VersionAdmin):
+class PlanPriceAdmin(StripeLinkMixin, VersionAdmin):
     """Stripe Prices are immutable, so a price change is a new row.
 
     Use `active` to supersede: mark the old row inactive - it keeps
@@ -667,13 +735,15 @@ class PlanPriceAdmin(VersionAdmin):
         "code",
         "amount_dollars",
         "active",
-        "stripe_price_id",
+        "stripe_id_display",
     )
     form = PlanPriceForm
     list_filter = ("active", "interval", "label")
     search_fields = ("plan__name", "plan__slug", "stripe_price_id", "code")
     autocomplete_fields = ("plan",)
-    readonly_fields = ("stripe_price_id",)
+    readonly_fields = ("stripe_price_id", "stripe_link")
+    stripe_id_field = "stripe_price_id"
+    stripe_resource = "prices"
 
     def save_model(self, request, obj, form, change):
         """Persist the row, then give it a Stripe Price if it needs one.
@@ -802,12 +872,26 @@ def make_metadata_filter(field):
 
 
 @admin.register(Charge)
-class ChargeAdmin(VersionAdmin):
-    list_display = ("organization", "amount", "created_at", "description")
+class ChargeAdmin(StripeLinkMixin, VersionAdmin):
+    stripe_id_field = "charge_id"
+    stripe_resource = "payments"
+    list_display = (
+        "organization",
+        "amount",
+        "created_at",
+        "description",
+        "stripe_id_display",
+    )
     list_select_related = ("organization",)
     search_fields = ("organization__name", "description")
     date_hierarchy = "created_at"
-    readonly_fields = ("organization", "amount", "created_at", "charge_id")
+    readonly_fields = (
+        "organization",
+        "amount",
+        "created_at",
+        "charge_id",
+        "stripe_link",
+    )
     actions = ["export_as_csv"]
     list_filter = [
         "organization__individual",
@@ -919,9 +1003,11 @@ class OrganizationSubtypeAdmin(VersionAdmin):
 
 
 @admin.register(Invoice)
-class InvoiceAdmin(VersionAdmin):
+class InvoiceAdmin(StripeLinkMixin, VersionAdmin):
+    stripe_id_field = "invoice_id"
+    stripe_resource = "invoices"
     list_display = (
-        "invoice_id",
+        "stripe_id_display",
         "organization",
         "get_amount",
         "status",
@@ -980,16 +1066,6 @@ class InvoiceAdmin(VersionAdmin):
             "stripe_link",
             "hosted_invoice_url_link",
         )
-
-    @mark_safe
-    def stripe_link(self, obj):
-        """Link to Stripe invoice dashboard"""
-        if obj.invoice_id:
-            url = get_stripe_dashboard_url("invoices", obj.invoice_id)
-            return f'<a href="{url}" target="_blank">View in Stripe</a>'
-        return "-"
-
-    stripe_link.short_description = "Stripe Dashboard"
 
     @mark_safe
     def hosted_invoice_url_link(self, obj):
