@@ -113,8 +113,8 @@ class TestPlanCard:
     def test_a_cancelled_line_shows_when_it_ends_instead(self, plan_factory):
         item = SubscriptionItemFactory(
             plan=plan_factory(name="Ending Plan"),
-            subscription__cancelled=True,
-            subscription__cancel_at=date(2026, 10, 20),
+            cancelled=True,
+            cancel_at=date(2026, 10, 20),
             subscription__current_period_end=datetime.datetime(
                 2026, 10, 20, 12, tzinfo=datetime.timezone.utc
             ),
@@ -227,14 +227,12 @@ class TestPlanCard:
         plan = plan_factory(name="Org Plan", annual=False, base_price=30)
         org = organization_factory(plans=[plan])
         subscription = org.subscription_items.get()
-        # On the parent: cancellation and the billing period both live there.
-        parent = subscription.subscription
-        parent.cancelled = True
-        parent.cancel_at = datetime.date(2026, 1, 15)
-        parent.current_period_end = datetime.datetime(
+        subscription.cancelled = True
+        subscription.cancel_at = datetime.date(2026, 1, 15)
+        subscription.current_period_end = datetime.datetime(
             2026, 1, 15, tzinfo=datetime.timezone.utc
         )
-        parent.save()
+        subscription.save()
 
         html = self._render(subscriptions=[subscription])
 
@@ -329,8 +327,8 @@ class TestOrganizationPaymentPlanInfo:
     def test_cancelled_line_shows_the_date_it_ends(self):
         item = SubscriptionItemFactory(
             plan=PlanFactory(name="Organization Tier"),
-            subscription__cancelled=True,
-            subscription__cancel_at=date(2026, 9, 20),
+            cancelled=True,
+            cancel_at=date(2026, 9, 20),
         )
 
         html = self._render(item.subscription.organization, current=item)

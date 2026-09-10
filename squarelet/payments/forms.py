@@ -162,8 +162,9 @@ class PlanPurchaseForm(StripeForm):
                     Q(pk=individual_org.pk) | Q(pk__in=admin_orgs)
                 ).distinct()
 
-            # `add_subscription` refuses a duplicate plan, so offering the
-            # choice here only produces a SubscriptionError on submit.
+            # A cancelled line still occupies the plan - `unique_together`
+            # is (subscription, plan) - and `add_subscription` refuses a
+            # duplicate.  Reviving one is what Resubscribe is for.
             if self.plan:
                 subscribed_orgs = Organization.objects.filter(
                     subscriptions__items__plan=self.plan,
