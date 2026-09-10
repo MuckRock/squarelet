@@ -1,6 +1,6 @@
 # Third Party
 import pytest
-from stripe import StripeObject
+from stripe import ListObject, StripeObject
 
 # Squarelet
 from squarelet.organizations.payments.base import PaymentActionRequired
@@ -371,17 +371,63 @@ def stripe_object(**fields):
     return StripeObject.construct_from(fields, "sk_test")
 
 
+def stripe_list(*objects):
+    """A Stripe list as the SDK really returns one.
+
+    A plain list has no `auto_paging_iter`, so standing one in here hid the
+    fact that the lookups read only the first page - the same trap as
+    `stripe_object` above, one container up.
+    """
+    return ListObject.construct_from(
+        {
+            "object": "list",
+            "data": list(objects),
+            "has_more": False,
+            "url": "/v1/products",
+        },
+        "sk_test",
+    )
+
+
 class TestModernPlanServiceLookups:
     """find_product / find_price against real StripeObject values."""
+
+    def test_the_lookups_page_rather_than_read_one_page(self, plan_service, mocker):
+        """An orphan past the first page reads as absent, and a duplicate follows.
+
+        The stand-in refuses to be iterated directly, so reading the pages
+        Stripe returned in one response - which is what a bare `limit` gets
+        you - fails here rather than silently in production once there are
+        more than a hundred active Products.
+        """
+        wanted = stripe_object(id="prod_late", metadata={"squarelet_plan_slug": "pro"})
+        paged = mocker.Mock()
+        paged.auto_paging_iter.return_value = iter([wanted])
+        paged.__iter__ = mocker.Mock(
+            side_effect=AssertionError("read one page instead of paging")
+        )
+        mocker.patch("stripe.Product.list", return_value=paged)
+
+        assert plan_service.find_product("pro").id == "prod_late"
+        paged.auto_paging_iter.assert_called_once()
+
+    def test_retrieve_price_fetches_by_id(self, plan_service, mocker):
+        """The counterpart of `retrieve_product`, for when the ID is known."""
+        retrieve = mocker.patch(
+            "stripe.Price.retrieve", return_value=stripe_object(id="price_abc")
+        )
+
+        assert plan_service.retrieve_price("price_abc").id == "price_abc"
+        retrieve.assert_called_once_with(id="price_abc")
 
     def test_find_product_matches_on_slug(self, plan_service, mocker):
         wanted = stripe_object(id="prod_b", metadata={"squarelet_plan_slug": "pro"})
         mocker.patch(
             "stripe.Product.list",
-            return_value=[
+            return_value=stripe_list(
                 stripe_object(id="prod_a", metadata={"squarelet_plan_slug": "other"}),
                 wanted,
-            ],
+            ),
         )
 
         assert plan_service.find_product("pro").id == "prod_b"
@@ -389,9 +435,9 @@ class TestModernPlanServiceLookups:
     def test_find_product_returns_none_when_absent(self, plan_service, mocker):
         mocker.patch(
             "stripe.Product.list",
-            return_value=[
+            return_value=stripe_list(
                 stripe_object(id="prod_a", metadata={"squarelet_plan_slug": "other"})
-            ],
+            ),
         )
 
         assert plan_service.find_product("pro") is None
@@ -400,7 +446,9 @@ class TestModernPlanServiceLookups:
         """Products made outside squarelet carry no metadata of ours."""
         mocker.patch(
             "stripe.Product.list",
-            return_value=[stripe_object(id="prod_a"), stripe_object(id="prod_b")],
+            return_value=stripe_list(
+                stripe_object(id="prod_a"), stripe_object(id="prod_b")
+            ),
         )
 
         assert plan_service.find_product("pro") is None
@@ -409,15 +457,17 @@ class TestModernPlanServiceLookups:
         wanted = stripe_object(id="price_b", metadata={"squarelet_variant": "v2"})
         mocker.patch(
             "stripe.Price.list",
-            return_value=[
+            return_value=stripe_list(
                 stripe_object(id="price_a", metadata={"squarelet_variant": "v1"}),
                 wanted,
-            ],
+            ),
         )
 
         assert plan_service.find_price("prod_a", "v2").id == "price_b"
 
     def test_find_price_tolerates_missing_metadata(self, plan_service, mocker):
-        mocker.patch("stripe.Price.list", return_value=[stripe_object(id="price_a")])
+        mocker.patch(
+            "stripe.Price.list", return_value=stripe_list(stripe_object(id="price_a"))
+        )
 
         assert plan_service.find_price("prod_a", "v1") is None

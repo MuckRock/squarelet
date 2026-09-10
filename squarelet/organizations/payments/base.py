@@ -210,6 +210,15 @@ class PlanService(ABC):
         """Retrieve a product by ID."""
 
     @abstractmethod
+    def retrieve_price(self, price_id):
+        """Retrieve a price by ID.
+
+        The counterpart of `retrieve_product`.  Use this whenever the ID is
+        known; `find_price` is for the case where it is not, which is a
+        narrower situation than it looks.
+        """
+
+    @abstractmethod
     def delete_product(self, stripe_product):
         """Delete a product."""
 
@@ -219,7 +228,9 @@ class PlanService(ABC):
 
         The Product counterpart of `find_price`, and needed for the same
         reason: a Product that Stripe has created but whose ID never reached
-        the database cannot be found again by ID, only by what it is.
+        the database cannot be found again by ID, only by what it is.  Use
+        `retrieve_product` when the ID is known - callers reach this only
+        after finding they have none.
         """
 
     @abstractmethod
