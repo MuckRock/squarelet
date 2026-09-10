@@ -128,8 +128,12 @@ class TestTheCancellationPairMovesTogether:
         old plan's date, while they are paying for it.
         """
         item = self._paid_line(subscription_item_factory, professional_plan_factory)
+        # Paid: a free sibling is nothing Stripe bills, so cancelling the
+        # line below would be cancelling the subscription's last real line
+        # and would take the whole subscription with it.
         subscription_item_factory(
-            subscription=item.subscription, plan=plan_factory(name="Second Plan")
+            subscription=item.subscription,
+            plan=plan_factory(name="Second Plan", base_price=30),
         )
         # `modify` identifies the line on Stripe before changing its
         # plan; nothing here is exercising that.

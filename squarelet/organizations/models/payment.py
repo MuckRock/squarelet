@@ -847,6 +847,29 @@ class Subscription(Cancellable, models.Model):
         self._check_3ds_action_required(stripe_subscription)
         self._sync_latest_invoice(stripe_subscription)
 
+    def other_paid_items(self, item):
+        """Every paid line on this subscription except `item`.
+
+        Stripe holds only the paid ones: `stripe_items` drops free lines
+        before describing the subscription, because naming a Plan with no
+        Stripe counterpart fails the whole call.  So any question about
+        what Stripe will still have afterwards is a question about these,
+        and counting local rows answers a different one - the two disagree
+        exactly when a subscription mixes free and paid.
+
+        Callers ask two different things of the result, and the difference
+        matters: whether anything is still *renewing* (so the subscription
+        should carry on) is not the same as whether anything is still *on
+        Stripe* (so an item can be removed without leaving none).  A line
+        flagged to stop next month is not renewing, but Stripe is still
+        billing it today.
+        """
+        return [
+            sibling
+            for sibling in self.items.select_related("plan")
+            if sibling.pk != item.pk and not sibling.is_free
+        ]
+
     def push_cancellation_to_items(self):
         """Give every line this subscription's own cancellation state.
 
@@ -1261,12 +1284,26 @@ class SubscriptionItem(Cancellable, models.Model):
         and removed by `restore_organization` once `cancel_at` arrives.  Either
         way the customer keeps what they paid for until the period runs out.
 
-        Counting active lines matters: cancelling two lines one at a time
-        must still cancel the subscription on the second call, or the sweep
-        would later try to delete the subscription's only remaining line,
-        which Stripe rejects.
+        Counting matters, and it has to count the right lines.  Cancelling
+        two lines one at a time must still cancel the subscription on the
+        second call, or the sweep would later try to delete the
+        subscription's only remaining item, which Stripe rejects.  And the
+        lines that count are the paid ones: a free sibling keeps no
+        subscription alive, so counting it made cancelling the only paid
+        line look like an ordinary per-line cancellation and Stripe was
+        never told to stop.
+
+        A free line never reaches Stripe at all, so cancelling one is
+        always the local, per-line case.
         """
-        if self.subscription.items.exclude(cancelled=True).count() <= 1:
+        if not self.is_free and not any(
+            sibling
+            for sibling in self.subscription.other_paid_items(self)
+            if not sibling.cancelled
+        ):
+            # Nothing paid would still be renewing, so the subscription is
+            # ending whatever this line says - and only cancelling it as a
+            # whole tells Stripe so.
             self.subscription.cancel()
             return
 
