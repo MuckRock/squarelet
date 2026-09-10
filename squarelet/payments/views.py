@@ -557,7 +557,9 @@ class BaseManageSubscriptions(SubscriptionObjectMixin, DetailView):
             "subscription", "plan"
         )
         for subscription in subscriptions:
-            subscription.next_date = subscription.subscription.next_date
+            # `next_date` is a property on the line now, reading its
+            # subscription's - assigning to it raises, and this page is the
+            # only caller that did.
             subscription.cost = subscription.plan.cost(self.object.max_users)
         context["subscriptions"] = subscriptions
 
