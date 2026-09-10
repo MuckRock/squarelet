@@ -11,6 +11,7 @@ import stripe
 
 # Squarelet
 from squarelet.organizations.models import SubscriptionItem
+from squarelet.organizations.payments.exceptions import SubscriptionError
 
 # Local
 from .test_invoice import Invoice, create_mock_stripe_invoice
@@ -664,6 +665,29 @@ class TestSubscriptionItem:
         service.delete.assert_called_once()
         item.subscription.refresh_from_db()
         assert item.subscription.subscription_id == ""
+
+    @pytest.mark.django_db()
+    def test_changing_to_a_different_interval_is_refused(
+        self, subscription_item_factory, professional_plan_factory, plan_factory
+    ):
+        """Stripe will not carry both intervals on one subscription.
+
+        Pushed anyway, it rejects the whole call - so the line has to move
+        to the organization's subscription for the other interval, which is
+        a remove and an add rather than an edit.
+        """
+        item = subscription_item_factory(
+            plan=professional_plan_factory(),
+            subscription__subscription_id="sub_monthly",
+            subscription__interval="monthly",
+        )
+        annual = plan_factory(name="Annual Plan", annual=True, base_price=300)
+
+        with pytest.raises(SubscriptionError, match="bills annual"):
+            item.modify(annual)
+
+        item.refresh_from_db()
+        assert item.plan != annual
 
     @pytest.mark.django_db()
     def test_the_end_date_agrees_with_the_renewal_date(

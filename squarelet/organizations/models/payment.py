@@ -21,6 +21,7 @@ from autoslug import AutoSlugField
 from squarelet.core.storage import private_storage
 from squarelet.core.utils import is_production_env, mailchimp_journey
 from squarelet.organizations.payments.base import PaymentActionRequired
+from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.querysets import (
     ChargeQuerySet,
@@ -1139,7 +1140,13 @@ class SubscriptionItem(models.Model):
         """Change which plan this line bills.
 
         Never use this to move between products - that is an add plus a
-        remove, since the two subscriptions bill separately.
+        remove, since the two subscriptions bill separately.  A change of
+        billing interval is the same thing and is refused here: Stripe will
+        not carry a monthly and an annual price on one subscription, so the
+        line has to move to the organization's subscription for the other
+        interval, which is a remove and an add rather than an edit.  Left
+        unchecked it silently pushed an annual price at a monthly
+        subscription and Stripe rejected the whole call.
 
         Goes through `sync_to_stripe` rather than `stripe_modify`, because
         changing a line's plan can change whether the subscription bills at
@@ -1152,6 +1159,15 @@ class SubscriptionItem(models.Model):
         # and the line is described to Stripe with no id - which asks Stripe
         # to add a line rather than update one, leaving the customer billed
         # for the plan they left as well as the one they chose.
+        interval = "annual" if plan.annual else "monthly"
+        if interval != self.subscription.interval:
+            raise SubscriptionError(
+                f"Cannot change {self.plan} to {plan} in place: it bills "
+                f"{interval} and this subscription bills "
+                f"{self.subscription.interval}.  Remove the line and add the "
+                f"new plan, which puts it on the right subscription."
+            )
+
         stripe_sub = self.subscription.stripe_subscription
         if stripe_sub is not None:
             self.subscription.sync_stripe_item_ids(stripe_sub)
