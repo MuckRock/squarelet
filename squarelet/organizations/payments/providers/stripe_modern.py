@@ -313,6 +313,9 @@ class StripeModernPlanService(PlanService):
     def retrieve_product(self, product_id):
         return stripe.Product.retrieve(id=product_id)
 
+    def retrieve_price(self, price_id):
+        return stripe.Price.retrieve(id=price_id)
+
     def delete_product(self, stripe_product):
         stripe_product.delete()
 
@@ -335,7 +338,21 @@ class StripeModernPlanService(PlanService):
         return to_dict() if to_dict is not None else dict(metadata)
 
     def find_product(self, slug):
-        for product in stripe.Product.list(active=True, limit=100):
+        """Search for a Product by what it is, because its ID is unknown.
+
+        Not a slower `retrieve_product` - callers reach this only when they
+        have no ID to retrieve by, and a missing ID does not mean the
+        Product is missing too.  `ATOMIC_REQUESTS` wraps each admin request
+        in a transaction, so a request that creates the Product, records its
+        ID and then raises leaves Stripe holding a Product whose ID was
+        rolled out of the database.  The tag is the only handle left; without
+        it every retry would mint a duplicate.
+
+        Paged rather than capped: a `limit` alone stops looking after one
+        page, and an orphan sitting past it reads as absent - which is the
+        one answer this must never give wrongly.
+        """
+        for product in stripe.Product.list(active=True, limit=100).auto_paging_iter():
             if self._metadata(product).get("squarelet_plan_slug") == slug:
                 return product
         return None
@@ -344,7 +361,17 @@ class StripeModernPlanService(PlanService):
         return stripe.Product.create(name=name, **kwargs)
 
     def find_price(self, product_id, variant_key):
-        for price in stripe.Price.list(product=product_id, active=True, limit=100):
+        """Search for a Price by its terms, because its ID is unknown.
+
+        Same reason as `find_product`, and the same caution: use
+        `retrieve_price` whenever the ID is known.  `variant_key` describes
+        what the price *is* rather than which row recorded it, because the
+        row's primary key is exactly what a rolled-back transaction
+        discards.
+        """
+        for price in stripe.Price.list(
+            product=product_id, active=True, limit=100
+        ).auto_paging_iter():
             if self._metadata(price).get("squarelet_variant") == variant_key:
                 return price
         return None
