@@ -1290,18 +1290,44 @@ class SubscriptionItem(Cancellable, models.Model):
             # It wrote straight to the rows, so this instance is stale.
             self.refresh_from_db()
 
+        # A subscription ending because *nothing on it renews* is ending for
+        # a reason made of plans, and this method is changing one.  Anything
+        # else - a customer cancelling, Stripe reporting one - is a decision
+        # that survives a plan change; reversing those is `uncancel`'s job.
+        ending_only_because_nothing_renews = (
+            self.subscription.cancelled and not self.subscription.auto_renew
+        )
+
         self.plan = plan
+        self.save()
+
+        if ending_only_because_nothing_renews and self.subscription.auto_renew:
+            # Something renews now, so the reason is gone.  Left in place it
+            # would be re-sent to Stripe as cancel_at_period_end, and the
+            # plan the customer has just bought would be deleted at the end
+            # of the period they bought it for.
+            self.subscription.clear_cancellation()
+            self.subscription.save()
+            self.subscription.push_cancellation_to_items()
+            self.refresh_from_db()
+
         # A pending cancellation belonged to the plan being replaced.  Keeping
         # it would drop the line the customer has just chosen, on the old
         # plan's date - so re-derive it from the new plan, the way `start`
-        # does.  A cancellation covering the whole subscription is not this
-        # method's to reverse; `uncancel` is what does that.
+        # does.  Not while the subscription itself is ending: the line goes
+        # with it, and saying otherwise would advertise a renewal that is not
+        # coming.
         if not self.subscription.cancelled:
             if plan.auto_renew:
                 self.clear_cancellation()
             else:
                 self.mark_cancelled(self.subscription.current_period_end)
-        self.save()
+            self.save(
+                update_fields=[
+                    *self.CANCELLATION_FIELDS,
+                    "cancelled_with_subscription",
+                ]
+            )
         self.subscription.sync_to_stripe()
 
     def cancel(self):
