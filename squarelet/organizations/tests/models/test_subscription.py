@@ -458,7 +458,11 @@ class TestSubscription:
             subscription=item.subscription, plan=plan_factory(name="Other Plan")
         )
         subscription = item.subscription
-        subscription.current_period_end = datetime(2026, 9, 20, tzinfo=dt_timezone.utc)
+        # Midday, so converting to local time cannot move the date and this
+        # test stays about flagging the lines.
+        subscription.current_period_end = datetime(
+            2026, 9, 20, 12, tzinfo=dt_timezone.utc
+        )
         subscription.save()
 
         subscription.cancel()
@@ -660,6 +664,35 @@ class TestSubscriptionItem:
         service.delete.assert_called_once()
         item.subscription.refresh_from_db()
         assert item.subscription.subscription_id == ""
+
+    @pytest.mark.django_db()
+    def test_the_end_date_agrees_with_the_renewal_date(
+        self, subscription_item_factory, mocker
+    ):
+        """Both read the same field, so both must read it the same way.
+
+        `next_date` converts to local time; `cancel_at` did not, and a
+        period ending after 20:00 local is the next day in UTC.  The card
+        said the plan ended the day after it renewed.
+        """
+        item = subscription_item_factory(subscription__subscription_id="sub_tz")
+        subscription = item.subscription
+        # As it comes back from the database: UTC-aware, an hour past
+        # midnight, which is the previous evening in America/New_York.
+        subscription.current_period_end = datetime(
+            2026, 10, 20, 1, 0, tzinfo=dt_timezone.utc
+        )
+        subscription.save()
+        service = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_subscription_service.return_value
+        service.cancel_at_period_end.return_value = None
+        mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
+
+        subscription.cancel()
+
+        assert subscription.cancel_at == subscription.next_date
+        assert subscription.cancel_at == date(2026, 10, 19)
 
     @pytest.mark.django_db()
     def test_downgrading_still_works_when_stripe_has_already_lost_it(
