@@ -426,3 +426,133 @@ class TestUpgradingAwayFromAOneOffPlan:
 
         item.subscription.refresh_from_db()
         assert item.subscription.cancelled, "the customer cancelled this"
+
+
+@pytest.mark.django_db()
+class TestBuyingOntoACancellingSubscription:
+    """A plan bought while cancelling is a plan the customer means to keep.
+
+    Stripe's `cancel_at_period_end` belongs to the subscription, so the new
+    line would be deleted along with everything else when the period ran
+    out - paid for and silently lost.  Lifting the cancellation is the only
+    way to keep it, and the line they actually cancelled has to survive
+    that, on its own date.
+    """
+
+    def _cancelling(self, subscription_item_factory, plan_factory, mocker):
+        # None, so the line-joining path does not go on to settle a charge
+        # against a Mock invoice.
+        mocker.patch(
+            "squarelet.organizations.models.Subscription.stripe_modify",
+            return_value=None,
+        )
+        mocker.patch(
+            "squarelet.organizations.models.payment.SubscriptionItem.notify_started"
+        )
+        leaving = subscription_item_factory(
+            plan=plan_factory(name="Leaving Plan", base_price=30),
+            subscription__subscription_id="sub_leaving",
+            subscription__current_period_end=datetime(
+                2026, 10, 20, 12, tzinfo=dt_timezone.utc
+            ),
+        )
+        subscription = leaving.subscription
+        subscription.mark_cancelled(subscription.current_period_end)
+        subscription.save()
+        subscription.push_cancellation_to_items()
+        leaving.refresh_from_db()
+        return leaving
+
+    def _join(self, leaving, plan):
+        item, _ = SubscriptionItem.objects.start(
+            organization=leaving.subscription.organization, plan=plan
+        )
+        return item
+
+    def test_the_subscription_carries_on(
+        self, subscription_item_factory, plan_factory, mocker
+    ):
+        leaving = self._cancelling(subscription_item_factory, plan_factory, mocker)
+
+        self._join(leaving, plan_factory(name="Arriving Plan", base_price=40))
+
+        leaving.subscription.refresh_from_db()
+        assert not leaving.subscription.cancelled
+        assert leaving.subscription.cancel_at is None
+
+    def test_the_new_line_is_not_ending(
+        self, subscription_item_factory, plan_factory, mocker
+    ):
+        leaving = self._cancelling(subscription_item_factory, plan_factory, mocker)
+
+        arriving = self._join(
+            leaving, plan_factory(name="Arriving Plan", base_price=40)
+        )
+
+        arriving.refresh_from_db()
+        assert not arriving.cancelled
+
+    def test_the_cancelled_line_still_ends_on_its_own_date(
+        self, subscription_item_factory, plan_factory, mocker
+    ):
+        leaving = self._cancelling(subscription_item_factory, plan_factory, mocker)
+        ends_on = leaving.cancel_at
+
+        self._join(leaving, plan_factory(name="Arriving Plan", base_price=40))
+
+        leaving.refresh_from_db()
+        assert leaving.cancelled
+        assert leaving.cancel_at == ends_on
+
+    def test_resubscribing_does_not_revive_it(
+        self, subscription_item_factory, plan_factory, mocker
+    ):
+        """It is ending in its own right now, not because its parent was.
+
+        Which is the whole point of the conversion: `uncancel` and the
+        Stripe webhook revive only `cancelled_with_subscription` lines.
+        """
+        leaving = self._cancelling(subscription_item_factory, plan_factory, mocker)
+
+        self._join(leaving, plan_factory(name="Arriving Plan", base_price=40))
+
+        leaving.refresh_from_db()
+        assert not leaving.cancelled_with_subscription
+        # What `uncancel` does once Stripe has been told to renew.
+        leaving.subscription.refresh_from_db()
+        leaving.subscription.push_cancellation_to_items()
+        leaving.refresh_from_db()
+        assert leaving.cancelled, "the customer asked for this one to end"
+
+    def test_a_free_line_leaves_the_cancellation_alone(
+        self, subscription_item_factory, plan_factory, mocker
+    ):
+        """A free line is never billed, so it cannot be a reason to renew.
+
+        Carrying on for one would leave Stripe renewing a subscription
+        whose only paid line is cancelled - which nothing can sweep.
+        """
+        leaving = self._cancelling(subscription_item_factory, plan_factory, mocker)
+
+        self._join(
+            leaving,
+            plan_factory(name="Free Plan", base_price=0, price_per_user=0),
+        )
+
+        leaving.subscription.refresh_from_db()
+        assert leaving.subscription.cancelled
+
+    def test_a_one_off_leaves_the_cancellation_alone(
+        self, subscription_item_factory, plan_factory, mocker
+    ):
+        """A plan that bills once is flagged to stop the moment it is
+        bought, so it is not asking for anything to be renewed either."""
+        leaving = self._cancelling(subscription_item_factory, plan_factory, mocker)
+        one_off = plan_factory(name="Credit Pack", base_price=25)
+        one_off.auto_renew = False
+        one_off.save()
+
+        self._join(leaving, one_off)
+
+        leaving.subscription.refresh_from_db()
+        assert leaving.subscription.cancelled
