@@ -71,13 +71,29 @@ class Command(BaseCommand):
             f"filled: {counts['filled']}, skipped: {counts['skipped']}, "
             f"errors: {counts['errors']}\n"
         )
+        if counts["errors"]:
+            self.stdout.write(
+                "Errors above are subscriptions this Stripe account does not "
+                "have.  Check the key is for the right account before reading "
+                "anything else into the counts.\n"
+            )
 
     def _backfill_one(self, subscription, dry_run):
         """Identify one subscription's lines.  Returns a key into `counts`."""
         try:
             stripe_sub = subscription.stripe_subscription
             if stripe_sub is None:
-                return "skipped"
+                # `retrieve` swallows InvalidRequestError and answers None, so
+                # a subscription Stripe has never heard of arrives here rather
+                # than as the exception below.  Counting that as "skipped"
+                # made a run against the wrong Stripe account - or against
+                # rows carrying ids from another one - look like a run with
+                # nothing to do.
+                self.stderr.write(
+                    f"  [ERROR] {subscription.subscription_id} "
+                    f"({subscription.organization.slug}): not found on Stripe"
+                )
+                return "errors"
             if dry_run:
                 return self._report(subscription)
             subscription.sync_stripe_item_ids(stripe_sub)
