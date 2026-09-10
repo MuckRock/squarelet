@@ -899,6 +899,36 @@ class Subscription(Cancellable, models.Model):
                 cancelled=False, cancel_at=None, cancelled_with_subscription=False
             )
 
+    def keep_renewing_for(self, item):
+        """Stop ending, because a line is arriving that means to stay.
+
+        `cancel_at_period_end` belongs to the subscription, so a line added
+        to one that is ending would be deleted along with it when the period
+        runs out - the customer buys a plan and silently loses it.  Lifting
+        the cancellation is the only way to keep the new line, and it must
+        not also revive what the customer asked to end.
+
+        So the lines that were stopping only because the subscription was
+        become lines stopping in their own right: same date, same flag, but
+        no longer waiting on the parent.  `uncancel` and the Stripe webhook
+        revive only `cancelled_with_subscription` lines, so they now leave
+        these alone, and `restore_organization` drops each one when its own
+        `cancel_at` arrives - legally, because `item` is a paid sibling that
+        outlives them.
+
+        Left to the caller to keep this to a paid, renewing line.  A free
+        one is never sent to Stripe, so it cannot hold up a subscription
+        Stripe is renewing; a one-off is flagged to stop the moment it is
+        bought.  Either would leave Stripe renewing a subscription whose
+        only surviving paid line is cancelled - the state `restore_organization`
+        can do nothing with and logs an error about.
+        """
+        self.items.exclude(pk=item.pk).filter(cancelled_with_subscription=True).update(
+            cancelled_with_subscription=False
+        )
+        self.clear_cancellation()
+        self.save(update_fields=self.CANCELLATION_FIELDS)
+
     def cancel(self):
         if self.stripe_subscription:
             updated = (

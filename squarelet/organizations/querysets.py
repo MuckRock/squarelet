@@ -455,6 +455,14 @@ class SubscriptionItemQuerySet(models.QuerySet):
                 subscription=subscription, plan=plan, quantity=quantity
             )
 
+            if subscription.cancelled and not item.is_free and plan.auto_renew:
+                # They are buying a renewing plan on a subscription that is
+                # ending.  Stripe ends a subscription whole, so keeping this
+                # line means the subscription has to carry on - and the call
+                # below sends the lifted flag in the same breath as the new
+                # line.  What they cancelled still stops on its own date.
+                subscription.keep_renewing_for(item)
+
             if created or not subscription.subscription_id:
                 anchor = organization.billing_anchor
                 stripe_subscription = subscription.start(

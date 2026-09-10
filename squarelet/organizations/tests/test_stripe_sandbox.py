@@ -289,7 +289,7 @@ class TestBuyingOntoACancellingSubscription:
         )
 
         joining.refresh_from_db()
-        assert joining.cancelled, "a line joining a cancelling subscription ends too"
+        assert not joining.cancelled, "buying a plan is a reason to keep renewing"
         assert joining.stripe_item_id.startswith("si_")
 
 
@@ -449,21 +449,64 @@ class TestCancellingOnStripe:
         assert live["cancel_at_period_end"] is False
         assert subscription.cancel_at is None
 
-    def test_a_pending_cancellation_survives_adding_a_plan(
+    def test_buying_a_plan_while_cancelling_keeps_the_plan(
         self, organization_factory, plan_factory, sandbox
     ):
-        """Touching a line must not quietly re-bill a leaving customer.
+        """The subscription carries on; what they cancelled still stops.
+
+        Stripe ends a subscription whole, so a line added to one that is
+        ending would go with it - the customer pays for a plan and loses it
+        at the period end.  Lifting `cancel_at_period_end` is the only way
+        to keep it, and the line they *did* cancel has to stay cancelled
+        through that, on its own date.
+        """
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        leaving = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+        leaving.subscription.cancel()
+        leaving.refresh_from_db()
+        ends_on = leaving.cancel_at
+
+        arriving = start(
+            organization, paid_plan(plan_factory, sandbox, price=40), sandbox
+        )
+
+        live = stripe.Subscription.retrieve(leaving.subscription.subscription_id)
+        assert live["cancel_at_period_end"] is False
+        leaving.refresh_from_db()
+        arriving.refresh_from_db()
+        assert leaving.cancelled and leaving.cancel_at == ends_on
+        # No longer waiting on the parent, so reviving the subscription
+        # would leave it ending - the sweep drops it when its date comes.
+        assert not leaving.cancelled_with_subscription
+        assert not arriving.cancelled
+
+    def test_a_pending_cancellation_survives_a_free_line(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        """Only a line worth keeping is worth reversing a cancellation for.
 
         `stripe_modify` sends cancel_at_period_end on every call, so sending
         the wrong value reverses a cancellation on Stripe - where the money
-        is - with nothing in our own records to show it happened.
+        is - with nothing in our own records to show it happened.  A free
+        line is never billed, so it cannot be the reason to carry on.
         """
         organization = organization_factory()
         with_card(organization, sandbox)
         item = start(organization, paid_plan(plan_factory, sandbox), sandbox)
         item.subscription.cancel()
 
-        start(organization, paid_plan(plan_factory, sandbox, price=40), sandbox)
+        free_name = f"Sandbox Free {uuid4().hex[:8]}"
+        start(
+            organization,
+            plan_factory(
+                name=free_name,
+                slug=slugify(free_name),
+                base_price=0,
+                price_per_user=0,
+            ),
+            sandbox,
+        )
 
         live = stripe.Subscription.retrieve(item.subscription.subscription_id)
         assert live["cancel_at_period_end"] is True
