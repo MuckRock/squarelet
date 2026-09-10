@@ -19,9 +19,6 @@ from django.utils.text import slugify
 # Standard Library
 from datetime import date
 
-# Standard Library
-from datetime import date
-
 # Third Party
 import pytest
 
