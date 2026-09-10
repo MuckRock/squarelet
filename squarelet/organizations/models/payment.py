@@ -689,6 +689,13 @@ class Subscription(Cancellable, models.Model):
         # Save before creating the invoice
         self.save()
 
+        # Record the id Stripe gave each line while we are holding the object
+        # that carries them.  Without this every subscription starts life
+        # unidentified - the state the backfill command exists to repair -
+        # so the audit reports each line as missing on Stripe and the next
+        # modify asks Stripe to add a line it already has.
+        self.sync_stripe_item_ids(stripe_subscription)
+
         # Check for 3DS/SCA on the first invoice payment.
         if stripe_subscription.status == "incomplete":
             self._check_3ds_action_required(stripe_subscription)
