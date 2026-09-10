@@ -191,15 +191,34 @@ class Organization(AvatarMixin, models.Model):
         subscription - so a through-model relation is no longer possible from
         here.  The equivalent relation lives on Subscription as `plans`.
 
-        Callers that need this for many organizations at once should prefetch
-        `subscriptions__plans` and walk that instead, so this stays a single
-        query per organization rather than one per call.
+        Callers that need this for many organizations at once want
+        `prefetched_plans()`, which reads the prefetch instead of issuing a
+        query.  This method cannot: it has to return a queryset, because
+        callers filter and slice what comes back.
         """
         # pylint: disable=import-outside-toplevel
         # Squarelet
         from squarelet.organizations.models.payment import Plan
 
         return Plan.objects.filter(subscriptions__organization=self).distinct()
+
+    def prefetched_plans(self):
+        """The distinct plans on this organization's subscriptions.
+
+        Companion to `get_plans()` for callers looping over organizations.
+        `get_plans()` builds a fresh queryset every call, so a
+        `subscriptions__plans` prefetch cannot be used by it - the prefetch
+        is paid for and then ignored, and the query it was meant to save
+        still runs, once per organization.  This walks the prefetch.
+
+        Returns a list rather than a queryset, because there is no queryset
+        to return.  Correct without a prefetch too, just not cheaper.
+        """
+        plans = {}
+        for subscription in self.subscriptions.all():
+            for plan in subscription.plans.all():
+                plans.setdefault(plan.pk, plan)
+        return list(plans.values())
 
     # Every user has an individual organization
     # created when creating an account. Its UUID
@@ -530,8 +549,11 @@ class Organization(AvatarMixin, models.Model):
     def add_subscription(self, plan, max_users, user, token=None, payment_method=None):
         """Add a new subscription to a plan.
 
-        Raises SubscriptionError if the org already has a non-cancelled
-        subscription for this plan.
+        Raises SubscriptionError if the org already holds a line for this
+        plan, cancelled or not.  A cancelled line still occupies it:
+        `unique_together` is (subscription, plan), so a second line for the
+        same plan on the same subscription cannot exist.  Reviving one is
+        `uncancel`'s job, reached through Resubscribe.
         """
         # Lock this org row to serialize concurrent subscription attempts
         # (e.g. double form submit), preventing a race between the exists()
