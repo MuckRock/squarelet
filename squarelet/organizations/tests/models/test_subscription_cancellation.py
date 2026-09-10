@@ -13,6 +13,8 @@ import pytest
 
 # Squarelet
 from squarelet.organizations import tasks
+from squarelet.organizations.models import SubscriptionItem
+from squarelet.organizations.payments.exceptions import SubscriptionError
 
 
 @pytest.mark.django_db()
@@ -295,3 +297,64 @@ class TestRevivingOnlyWhatTheSubscriptionEnded:
         assert one.cancelled, "cancelled by the customer, not by Stripe"
         assert one.cancel_at is not None
         assert not two.cancelled, "this one only ended because the subscription did"
+
+
+@pytest.mark.django_db()
+class TestAOneTimePurchaseCannotBeResumed:
+    """It is flagged to end the moment it is bought.
+
+    That is what "bills once" means, but it reads as cancelled on the
+    billing page - and a Resubscribe button beside it would turn a one-time
+    purchase into a recurring charge, because a subscription renews if any
+    line does.
+    """
+
+    def _one_off_beside_a_renewing_plan(
+        self, subscription_item_factory, plan_factory, mocker
+    ):
+        # None, so the line-joining path does not go on to settle a charge
+        # against a Mock invoice.
+        mocker.patch(
+            "squarelet.organizations.models.Subscription.stripe_modify",
+            return_value=None,
+        )
+        mocker.patch(
+            "squarelet.organizations.models.payment.SubscriptionItem.notify_started"
+        )
+        renewing = subscription_item_factory(
+            plan=plan_factory(name="Renewing Plan", base_price=30),
+            subscription__subscription_id="sub_oneoff",
+            subscription__current_period_end=datetime(
+                2026, 10, 20, 12, tzinfo=dt_timezone.utc
+            ),
+        )
+        one_off = plan_factory(name="Credit Pack", base_price=25)
+        one_off.auto_renew = False
+        one_off.save()
+        pack, _ = SubscriptionItem.objects.start(
+            organization=renewing.subscription.organization, plan=one_off
+        )
+        return pack
+
+    def test_it_arrives_already_flagged_to_end(
+        self, subscription_item_factory, plan_factory, mocker
+    ):
+        pack = self._one_off_beside_a_renewing_plan(
+            subscription_item_factory, plan_factory, mocker
+        )
+
+        pack.refresh_from_db()
+        assert pack.cancelled, "a plan that bills once stops after that period"
+
+    def test_resuming_it_is_refused(
+        self, subscription_item_factory, plan_factory, mocker
+    ):
+        pack = self._one_off_beside_a_renewing_plan(
+            subscription_item_factory, plan_factory, mocker
+        )
+
+        with pytest.raises(SubscriptionError, match="one-time purchase"):
+            pack.uncancel()
+
+        pack.refresh_from_db()
+        assert pack.cancelled, "still ending, not quietly made recurring"
