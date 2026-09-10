@@ -265,6 +265,34 @@ class TestGoingFreeAndBack:
         }
 
 
+class TestBuyingOntoACancellingSubscription:
+    """The line still has to keep the Stripe id it was just given.
+
+    `stripe_modify` records `stripe_item_id` against a fresh instance, so a
+    full `item.save()` afterwards writes this instance's empty value back
+    over it - undoing the identification and leaving a line Stripe can no
+    longer be told to remove.
+    """
+
+    def test_a_new_line_keeps_its_stripe_id(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        first = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+        subscription = first.subscription
+        subscription.mark_cancelled(subscription.current_period_end)
+        subscription.save()
+
+        joining = start(
+            organization, paid_plan(plan_factory, sandbox, price=40), sandbox
+        )
+
+        joining.refresh_from_db()
+        assert joining.cancelled, "a line joining a cancelling subscription ends too"
+        assert joining.stripe_item_id.startswith("si_")
+
+
 class TestRemovingALine:
     """`remove_from_stripe` is what enforces per-line cancellation."""
 

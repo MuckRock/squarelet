@@ -468,6 +468,9 @@ class SubscriptionItemQuerySet(models.QuerySet):
                 if stripe_subscription is not None:
                     subscription.settle_added_line(stripe_subscription)
 
+            # The cancellation pair only: a full save would write back the
+            # empty `stripe_item_id` that `stripe_modify` has just filled in
+            # on another instance.
             if subscription.cancelled:
                 # The subscription is already ending, and Stripe ends it
                 # whole: this line stops with the rest of them whatever it
@@ -475,13 +478,13 @@ class SubscriptionItemQuerySet(models.QuerySet):
                 # it would otherwise advertise a renewal, and offer to
                 # cancel a line that is about to vanish on its own.
                 item.copy_cancellation_from(subscription)
-                item.save()
+                item.save(update_fields=item.CANCELLATION_FIELDS)
             elif not plan.auto_renew:
                 # A plan that bills once stops at the end of the period it
                 # was paid for.  Inside the transaction that creates the
                 # line, or a one-off renews forever with nothing to sweep it.
                 item.mark_cancelled(subscription.current_period_end)
-                item.save()
+                item.save(update_fields=item.CANCELLATION_FIELDS)
 
         # `notify_started` gates on entitlement; gating on price here would
         # drop free signups that carry `organization`.
