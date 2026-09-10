@@ -1344,9 +1344,23 @@ class SubscriptionItem(Cancellable, models.Model):
         """Reverse a pending cancellation, so long as the line is still here.
 
         If the whole subscription is cancelled - which is what cancelling the
-        last active line does - reviving any line revives the subscription and
-        every line on it, because they all stop together on Stripe.
+        last active line does - reviving any line revives the subscription,
+        and with it the lines that were only ending because it was.
+
+        A plan that bills once and stops is refused.  Such a line is flagged
+        to end the moment it is bought - that is what "bills once" means - so
+        it reads as cancelled on the billing page from the outset, beside a
+        Resubscribe button it was never meant to have.  Pressing it would
+        clear the flag, and because a subscription renews if *any* line does,
+        the one-time purchase would then be charged every period with nothing
+        to sweep it.
         """
+        if not self.plan.auto_renew:
+            raise SubscriptionError(
+                f"{self.plan} is a one-time purchase and cannot be resumed.  "
+                f"Buy it again to get another period."
+            )
+
         if self.subscription.cancelled:
             self.subscription.uncancel()
             self.refresh_from_db()
