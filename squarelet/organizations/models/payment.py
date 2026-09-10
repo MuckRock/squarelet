@@ -831,9 +831,16 @@ class Subscription(Cancellable, models.Model):
         """
         if self.free:
             if self.subscription_id:
-                get_payment_provider().get_subscription_service().delete(
-                    self.stripe_subscription
-                )
+                # Stripe may not have it any more: `retrieve` answers None
+                # for a subscription cancelled in the dashboard, and
+                # deleting None raises - which left the local record still
+                # naming it, so the downgrade could never complete and every
+                # retry failed the same way.  Gone from Stripe is the state
+                # this branch is trying to reach, so take it.
+                if self.stripe_subscription is not None:
+                    get_payment_provider().get_subscription_service().delete(
+                        self.stripe_subscription
+                    )
                 self.subscription_id = ""
                 self.remember_stripe_subscription(None)
                 # The lines' ids named items on the subscription just
