@@ -18,6 +18,7 @@ import pytest
 # Squarelet
 from squarelet.organizations import tasks
 from squarelet.organizations.models import SubscriptionItem
+from squarelet.organizations.payments.exceptions import SubscriptionError
 
 # Midday, so a cancellation date cannot be moved by a timezone.
 PERIOD_END = datetime(2026, 10, 20, 12, tzinfo=dt_timezone.utc)
@@ -432,9 +433,7 @@ class TestResubscribeIsPerLine:
     @pytest.fixture
     def three_plans(self, subscription_with, paid_plan, no_stripe_subscription, mocker):
         mocker.patch(
-            "squarelet.organizations.models.Customer.stripe_payment_method_id",
-            new_callable=mocker.PropertyMock,
-            return_value="pm_x",
+            "squarelet.organizations.models.payment.SubscriptionItem.notify_started"
         )
         lines = subscription_with(
             paid_plan("A", price=10),
@@ -450,19 +449,25 @@ class TestResubscribeIsPerLine:
         subscription.refresh_from_db()
         return subscription, lines
 
-    def test_cancelling_the_last_line_is_still_that_line_own_decision(
-        self, three_plans
+    def test_it_arrives_already_flagged_to_end(
+        self, subscription_item_factory, plan_factory, mocker
     ):
-        """The subscription ends *because of* it, not the other way round."""
-        subscription, (_a, _b, c) = three_plans
+        pack = self._one_off_beside_a_renewing_plan(
+            subscription_item_factory, plan_factory, mocker
+        )
 
-        assert subscription.cancelled
-        assert c.cancelled and not c.cancelled_by_subscription
+        pack.refresh_from_db()
+        assert pack.cancelled, "a plan that bills once stops after that period"
 
-    def test_resubscribing_revives_the_line_it_was_called_on(self, three_plans):
-        _subscription, (a, _b, _c) = three_plans
+    def test_resuming_it_is_refused(
+        self, subscription_item_factory, plan_factory, mocker
+    ):
+        pack = self._one_off_beside_a_renewing_plan(
+            subscription_item_factory, plan_factory, mocker
+        )
 
-        a.uncancel()
+        with pytest.raises(SubscriptionError, match="one-time purchase"):
+            pack.uncancel()
 
         a.refresh_from_db()
         assert not a.cancelled

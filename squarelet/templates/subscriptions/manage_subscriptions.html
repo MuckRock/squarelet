@@ -111,7 +111,11 @@
                 {% icon "x-circle" %}
                 {% trans "Cancel plan" %}
               </a>
-            {% else %}
+            {% elif subscription.plan.auto_renew %}
+              {# A plan that bills once is flagged to end as soon as it is
+                 bought, so it arrives here looking cancelled.  Offering to
+                 resume it would turn a one-time purchase into a recurring
+                 charge. #}
               {% url subject|add:':resubscribe' subject_slug subscription.id as resubscribe_url %}
               <form method="post" action="{{ resubscribe_url }}">
                 {% csrf_token %}
