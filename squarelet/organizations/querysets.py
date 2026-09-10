@@ -456,6 +456,12 @@ class SubscriptionItemQuerySet(models.QuerySet):
                 subscription=subscription, plan=plan, quantity=quantity
             )
 
+            if subscription.cancelled and not item.is_free and plan.auto_renew:
+                # Stripe ends a subscription whole, so keeping this line
+                # means the subscription carries on; what they cancelled
+                # still stops on its own date.
+                subscription.keep_renewing_for(item)
+
             if created or not subscription.subscription_id:
                 anchor = organization.billing_anchor
                 stripe_subscription = subscription.start(
