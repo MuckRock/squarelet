@@ -486,11 +486,13 @@ class SubscriptionItemQuerySet(models.QuerySet):
             # `item.save()` puts the empty value back and undoes the
             # identification the line was just given.
             if subscription.cancelled:
-                # The subscription is already ending, and Stripe ends it
-                # whole: this line stops with the rest of them whatever it
-                # says locally.  Saying so keeps the billing page honest -
-                # it would otherwise advertise a renewal, and offer to
-                # cancel a line that is about to vanish on its own.
+                # Still ending, so this line is free or a one-off - a paid
+                # renewing line lifted the cancellation above.  Stripe ends
+                # a subscription whole, so this one stops with the rest of
+                # them whatever it says locally.  Saying so keeps the
+                # billing page honest - it would otherwise advertise a
+                # renewal, and offer to cancel a line that is about to
+                # vanish on its own.
                 item.inherit_cancellation_from(subscription)
                 item.save(
                     update_fields=[
