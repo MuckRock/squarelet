@@ -42,8 +42,9 @@ class OrganizationFactory(factory.django.DjangoModelFactory):
     @factory.post_generation
     def plans(self, create, extracted, **kwargs):
         if create and extracted:
+            subscription = SubscriptionFactory(organization=self)
             for plan in extracted:
-                SubscriptionFactory(plan=plan, organization=self)
+                SubscriptionItemFactory(subscription=subscription, plan=plan)
             # Clear the memoized cache for the plan/subscription properties
             # since they may have been accessed before subscriptions were created
             for attr_name in list(vars(self).keys()):
@@ -106,13 +107,40 @@ class MembershipFactory(factory.django.DjangoModelFactory):
 
 
 class SubscriptionFactory(factory.django.DjangoModelFactory):
+    """A Stripe subscription for one organization.
+
+    Keyed on the billing shape the way production is: asking for a second
+    subscription with the same interval and collection method returns the
+    one that already exists, rather than tripping the unique constraint.
+    """
+
     organization = factory.SubFactory(
         "squarelet.organizations.tests.factories.OrganizationFactory"
+    )
+    # Declared so django_get_or_create can key on them; both match the
+    # model defaults.
+    interval = "monthly"
+    collection_method = "charge_automatically"
+
+    class Meta:
+        model = "organizations.Subscription"
+        django_get_or_create = ("organization", "interval", "collection_method")
+
+
+class SubscriptionItemFactory(factory.django.DjangoModelFactory):
+    """A line on a subscription.
+
+    Pass `subscription__organization=` or `subscription__cancelled=` to steer
+    the parent; a bare call builds one for you.
+    """
+
+    subscription = factory.SubFactory(
+        "squarelet.organizations.tests.factories.SubscriptionFactory"
     )
     plan = factory.SubFactory("squarelet.organizations.tests.factories.PlanFactory")
 
     class Meta:
-        model = "organizations.Subscription"
+        model = "organizations.SubscriptionItem"
 
 
 @factory.django.mute_signals(signals.pre_save, signals.post_save)

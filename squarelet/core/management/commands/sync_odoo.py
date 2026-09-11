@@ -170,7 +170,7 @@ def _build_org_vals(org, odoo_plan_ids, sunlight_status, member_tag_ids):
 
 def _compute_org_plans_and_status(org, inherited_plan_ids):
     """Return (odoo_plan_ids, sunlight_status) for an org."""
-    plans = list(org.plans.values_list("name", "wix"))
+    plans = list(org.get_plans().values_list("name", "wix"))
     has_sunlight = any(wix for _, wix in plans)
     own_plan_ids = [
         pid for pid in (_resolve_plan_id(name) for name, _ in plans) if pid is not None
@@ -292,7 +292,9 @@ def get_or_create_org(org, dry_run=False, member_tag_ids=None, inherited_plan_id
 
 def _member_desired_plans(user, org_plan_ids):
     """Union of the org's inherited plans and the user's own personal plans."""
-    personal = list(user.individual_organization.plans.values_list("name", flat=True))
+    personal = list(
+        user.individual_organization.get_plans().values_list("name", flat=True)
+    )
     personal_plan_ids = [
         pid for pid in (_resolve_plan_id(name) for name in personal) if pid is not None
     ]
@@ -603,7 +605,7 @@ def _load_collaborative_data():
     collab_orgs = Organization.objects.filter(
         collective_enabled=True,
         individual=False,
-    ).prefetch_related("plans", "members")
+    ).prefetch_related("subscriptions__plans", "members")
     for collab_org in collab_orgs:
         tag_id = settings.COLLABORATIVE_TAGS.get(collab_org.slug)
         if tag_id is None:
@@ -619,9 +621,9 @@ def _load_collaborative_data():
             pid
             for pid in (
                 _resolve_plan_id(name)
-                for name in collab_org.plans.filter(wix=True).values_list(
-                    "name", flat=True
-                )
+                for name in collab_org.get_plans()
+                .filter(wix=True)
+                .values_list("name", flat=True)
             )
             if pid is not None
         ]
@@ -636,7 +638,7 @@ def _build_org_queryset(collaborative_data):
     """Return the queryset of all orgs to sync."""
     sunlight_slugs = set(
         Organization.objects.filter(
-            plans__wix=True,
+            subscriptions__plans__wix=True,
             individual=False,
         )
         .values_list("slug", flat=True)

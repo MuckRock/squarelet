@@ -58,7 +58,9 @@ class Command(BaseCommand):
                 if first_admin:
                     organization.set_billing_email(first_admin.email)
             if organization.user_count() > organization.max_users:
-                active_subs = list(organization.subscriptions.select_related("plan"))
+                active_subs = list(
+                    organization.subscription_items.select_related("plan")
+                )
                 paid_subs = [s for s in active_subs if not s.plan.free]
                 if not paid_subs:
                     organization.max_users = organization.user_count()

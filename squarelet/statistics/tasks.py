@@ -30,14 +30,14 @@ def store_statistics():
         is_agency=True
     ).count()
     kwargs["total_users_pro"] = User.objects.filter(
-        organizations__plans__slug="professional"
+        organizations__subscriptions__plans__slug="professional"
     ).count()
     kwargs["total_users_org"] = User.objects.filter(
-        organizations__plans__slug="organization"
+        organizations__subscriptions__plans__slug="organization"
     ).count()
     kwargs["total_users_mfa"] = Authenticator.objects.distinct("user").count()
     kwargs["total_orgs"] = Organization.objects.exclude(
-        individual=True, plans=None
+        individual=True, subscriptions__plans__isnull=True
     ).count()
     kwargs["verified_orgs"] = Organization.objects.filter(
         verified_journalist=True
@@ -48,7 +48,9 @@ def store_statistics():
     stats.users_today.set(
         User.objects.filter(last_login__range=(yesterday_midnight, today_midnight))
     )
-    stats.pro_users.set(User.objects.filter(organizations__plans__slug="professional"))
+    stats.pro_users.set(
+        User.objects.filter(organizations__subscriptions__plans__slug="professional")
+    )
     stats.save()
 
 

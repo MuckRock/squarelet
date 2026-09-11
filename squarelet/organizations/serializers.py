@@ -127,7 +127,7 @@ class OrganizationDetailSerializer(OrganizationSerializer):
         result = []
 
         # Plan-based: one entry per subscription's entitlements (no dedup)
-        for sub in obj.subscriptions.prefetch_related("plan__entitlements").all():
+        for sub in obj.subscription_items.prefetch_related("plan__entitlements").all():
             for ent in sub.plan.entitlements.filter(client=client):
                 result.append(
                     {

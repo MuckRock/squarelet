@@ -276,8 +276,7 @@ class TestModernSubscriptionService:
         mock_create = mocker.patch("stripe.Subscription.create")
         subscription_service.create(
             stripe_customer=mock_customer,
-            plan_id="plan_123",
-            quantity=5,
+            items=[{"plan": "plan_123", "quantity": 5}],
             billing="charge_automatically",
             metadata={"action": "test"},
             days_until_due=None,
@@ -297,8 +296,7 @@ class TestModernSubscriptionService:
         mock_create = mocker.patch("stripe.Subscription.create")
         subscription_service.create(
             stripe_customer=mock_customer,
-            plan_id="plan_123",
-            quantity=1,
+            items=[{"plan": "plan_123", "quantity": 1}],
             billing="send_invoice",
             metadata={},
             days_until_due=30,

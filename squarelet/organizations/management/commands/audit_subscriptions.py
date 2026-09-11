@@ -12,7 +12,7 @@ from datetime import datetime
 import stripe
 
 # Squarelet
-from squarelet.organizations.models.payment import Customer, Subscription
+from squarelet.organizations.models.payment import Customer, SubscriptionItem
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ def _datetimes_match(a, b):
 
 
 class Command(BaseCommand):
-    """Compare local Subscription records against Stripe and report mismatches.
+    """Compare local SubscriptionItem records against Stripe and report mismatches.
 
     Checks for:
       - Local subscriptions with no subscription_id
@@ -114,7 +114,7 @@ class Command(BaseCommand):
 
     def _load_local_subs(self, org_filter):
         """Return (local_subs, id→sub map) for subscriptions with a Stripe ID."""
-        qs = Subscription.objects.select_related("plan", "organization").exclude(
+        qs = SubscriptionItem.objects.select_related("plan", "organization").exclude(
             subscription_id=None
         )
         if org_filter:
@@ -127,7 +127,7 @@ class Command(BaseCommand):
 
     def _report_no_stripe_id(self, org_filter):
         """Print paid subscriptions with no subscription_id; return count."""
-        qs = Subscription.objects.select_related("plan", "organization").filter(
+        qs = SubscriptionItem.objects.select_related("plan", "organization").filter(
             subscription_id=None, plan__base_price__gt=0
         )
         if org_filter:
