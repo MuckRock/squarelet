@@ -42,7 +42,7 @@ def should_sync_wix(org):
     dispatch_uid="squarelet.organizations.signals.make_stripe_plan",
 )
 def make_stripe_plan(sender, instance, created, raw, using, update_fields, **kwargs):
-    """Create a stripe plan on plan creation"""
+    """Give a new plan its Stripe Product and list Price"""
     # pylint: disable=unused-argument
     if created:
         instance.make_stripe_plan()
@@ -51,12 +51,18 @@ def make_stripe_plan(sender, instance, created, raw, using, update_fields, **kwa
 @receiver(
     signals.pre_delete,
     sender=Plan,
-    dispatch_uid="squarelet.organizations.signals.delete_stripe_plan",
+    dispatch_uid="squarelet.organizations.signals.archive_stripe_plan",
 )
-def delete_stripe_plan(sender, instance, using, **kwargs):
-    """Create a stripe plan on plan creation"""
+def archive_stripe_plan(sender, instance, using, **kwargs):
+    """Deactivate a plan's Stripe objects when the plan is deleted.
+
+    Rarely fires now that retiring a plan sets `Plan.archived` instead of
+    deleting the row - the change log holds PROTECT keys to Plan, so most
+    plans cannot be deleted at all.  It still has to be right for the ones
+    that can.
+    """
     # pylint: disable=unused-argument
-    instance.delete_stripe_plan()
+    instance.archive_stripe_plan()
 
 
 @receiver(
