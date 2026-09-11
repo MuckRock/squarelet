@@ -23,6 +23,12 @@ def adopt_items_into_subscriptions(apps, schema_editor):
 
     Interval and collection method are inferred from the plan: annual plans
     bill annually and are the only ones invoiced rather than charged.
+
+    Cancellation moves up with them, and a parent holds one answer where the
+    lines held several - so a group whose lines disagree is refused rather
+    than collapsed.  It cannot arise from today's data, where every group is
+    a single line, and it is the one case where guessing costs the customer
+    money in one direction or the other.
     """
     SubscriptionItem = apps.get_model("organizations", "SubscriptionItem")
     Subscription = apps.get_model("organizations", "Subscription")
@@ -57,9 +63,31 @@ def adopt_items_into_subscriptions(apps, schema_editor):
                 )
             )
 
-        # A parent stops only once every line on it has stopped; one
-        # cancelled line among several is that line's own business.
-        cancelled = all(item.cancelled for item in items)
+        cancellations = {bool(item.cancelled) for item in items}
+        if len(cancellations) > 1:
+            # Cancellation is about to become a property of the parent, and
+            # a parent holds one answer.  Lines that disagree have no
+            # representation until per-line cancellation arrives, and either
+            # way of collapsing them is wrong with the customer's money:
+            # `all` renews a plan they cancelled, `any` cancels ones they
+            # kept.  Refuse, naming the lines, the way two Stripe ids are
+            # refused above.
+            raise RuntimeError(
+                "Organization %s holds %s/%s lines that disagree about "
+                "cancelling (%s).  Settle them before migrating: there is "
+                "nowhere to record a per-line cancellation yet."
+                % (
+                    organization_id,
+                    interval,
+                    collection_method,
+                    ", ".join(
+                        "%s=%s"
+                        % (item.pk, "cancelled" if item.cancelled else "renewing")
+                        for item in sorted(items, key=lambda item: item.pk)
+                    ),
+                )
+            )
+        cancelled = cancellations.pop()
         cancel_ats = [item.cancel_at for item in items if item.cancel_at]
         # The Stripe-facing fields describe a single subscription, so they
         # come from the line naming it - identical across the group, by the
@@ -88,21 +116,15 @@ def adopt_items_into_subscriptions(apps, schema_editor):
 
 
 def split_back_out(apps, schema_editor):
-    """Copy subscription-level state back onto each item, then drop parents.
+    """Copy subscription-level state back onto each item.
 
-    This does not make the migration reversible on a database with rows in
-    it, and is not meant to: reversing the operations below re-adds
-    `organization_id` as NOT NULL before this function can fill it in, so
-    Postgres rejects the column before the data ever gets here.  Rolling this
-    deploy back means restoring from a backup.  What follows documents the
-    shape of the reverse, and works on an empty database.
+    The parents themselves need no clearing up: reversing this migration's
+    CreateModel drops the table they live in.
 
     `legacy_subscription_id` is unique, so a Stripe id can go back onto only
-    one line.  A parent carrying several lines is precisely the shape the old
-    schema could not hold - it is what the split exists to make possible - so
-    the id returns to the oldest line and the rest name nothing.  Rolling
-    back a deploy that had already built such a subscription needs those
-    extra lines dealt with by hand, which beats refusing to roll back.
+    one line.  A parent carrying several is precisely the shape the old
+    schema could not hold - it is what the split exists to make possible -
+    so the id returns to the oldest line and the rest name nothing.
     """
     SubscriptionItem = apps.get_model("organizations", "SubscriptionItem")
     Subscription = apps.get_model("organizations", "Subscription")
@@ -118,13 +140,19 @@ def split_back_out(apps, schema_editor):
             item.stripe_status = parent.stripe_status
             item.current_period_end = parent.current_period_end
             item.save()
-    Subscription.objects.all().delete()
+
+    # Reversing CreateModel drops this table outright, so clearing the rows
+    # first would be redundant.  What is not redundant is flushing the
+    # deferred foreign-key triggers those writes queued: Postgres refuses to
+    # ALTER a table with trigger events still pending, and the operations
+    # that follow in this same transaction drop the parent column and table.
+    schema_editor.execute("SET CONSTRAINTS ALL IMMEDIATE")
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("organizations", "0084_subscriptionitem_related_names"),
+        ("organizations", "0083_rename_subscription_to_item"),
     ]
 
     operations = [
@@ -287,6 +315,27 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.RunPython(adopt_items_into_subscriptions, split_back_out),
+        # Nullable only so the column could be added before there was
+        # anything to put in it.  Every line has a parent by now, and a line
+        # without one cannot be rendered, billed or cancelled - it reaches
+        # its organization through the parent.
+        migrations.AlterField(
+            model_name="subscriptionitem",
+            name="subscription",
+            field=models.ForeignKey(
+                help_text=(
+                    "The Stripe subscription this is a line on.  Required: a "
+                    "line reaches its organization, its billing period and "
+                    "its cancellation through here, so one without a parent "
+                    "has no organization and cannot be rendered, billed or "
+                    "cancelled."
+                ),
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="items",
+                to="organizations.subscription",
+                verbose_name="subscription",
+            ),
+        ),
         migrations.RemoveField(
             model_name="invoice",
             name="subscription",
