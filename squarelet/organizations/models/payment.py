@@ -434,13 +434,18 @@ class Cancellable:
     def inherit_cancellation_from(self, subscription):
         """Take the subscription's ending as this line's own.
 
-        For a line joining a subscription that is already ending: it stops
-        when the subscription does, on the subscription's date, and deriving
-        that date again from the period end could disagree with what the
-        parent actually holds.
+        It stops when the subscription does, on the subscription's date -
+        deriving that date again from the period end could disagree with
+        what the parent actually holds.
 
         Flagged as inherited, so that reviving the subscription revives this
         line too - unlike one the customer cancelled on its own.
+
+        Not every line joining a cancelling subscription ends up here.  A
+        paid, renewing one is a reason to carry on instead, and lifts the
+        cancellation through `Subscription.keep_renewing_for`; this is what
+        happens to the rest - a free line or a one-off purchase, neither of
+        which Stripe is billing next period anyway.
         """
         self.cancelled = subscription.cancelled
         self.cancel_at = subscription.cancel_at
