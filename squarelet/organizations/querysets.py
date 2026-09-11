@@ -117,11 +117,18 @@ class PlanQuerySet(models.QuerySet):
         return self.get_viewable(AnonymousUser())
 
     def choices(self, organization):
-        """Return the plan choices for the given organization"""
+        """Return the plan choices for the given organization
+
+        Archived plans are never offered, including to an organization
+        currently on one - a retired plan is retired for renewals too, and
+        the clause below would otherwise hand it back to exactly the people
+        being moved off it.
+        """
         if organization.individual:
             queryset = self.filter(for_individuals=True)
         else:
             queryset = self.filter(for_groups=True)
+        queryset = queryset.exclude(archived=True)
 
         # show public plans, the organizations current plan, and any custom plan
         # to which they have been granted explicit access
