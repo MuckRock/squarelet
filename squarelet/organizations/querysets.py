@@ -507,6 +507,20 @@ class SubscriptionItemQuerySet(models.QuerySet):
             return plan, None
         return price.plan, price
 
+    @staticmethod
+    def canonical_plan(plan, nonprofit=False):
+        """The plan a purchase of `plan` will actually be recorded against.
+
+        For guarding a purchase before making it.  `start` stores the
+        resolved plan, not the one the customer picked, so anything asking
+        "do they already hold this?" has to ask about the same row - an
+        organization on `sunlight-essential` who buys the annual variant is
+        not buying a different plan, and `unique_together(subscription,
+        plan)` will say so with an IntegrityError if nobody asks first.
+        """
+        canonical, _price = SubscriptionItemQuerySet.resolve_purchase(plan, nonprofit)
+        return canonical
+
     def start(
         self, organization, plan, payment_method="card", quantity=1, nonprofit=False
     ):
