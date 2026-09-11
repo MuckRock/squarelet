@@ -10,6 +10,7 @@ from django.utils import timezone
 
 # Standard Library
 import json
+from datetime import date, datetime, timezone as dt_timezone
 from unittest.mock import MagicMock, call
 
 # Third Party
@@ -1620,6 +1621,44 @@ class TestUpdateCard(ViewTestMixin):
         assert response.status_code == 302
 
         assert not Action.objects.filter(verb="updated the payment method").exists()
+
+
+@pytest.mark.django_db()
+class TestManageSubscriptions(ViewTestMixin):
+    """The subscriptions page, rendered with a real line on it.
+
+    Nothing exercised `get_context_data` with one, so the page could 500 for
+    every subscriber with a full suite passing.  It did: the view assigned
+    to `next_date`, which became a read-only property on the line.
+    """
+
+    view = views.ManageSubscriptions
+    url = "/organizations/{slug}/subscriptions/"
+
+    def test_it_renders_for_an_organization_with_a_subscription(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+    ):
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        item = subscription_item_factory(
+            subscription__organization=organization,
+            plan=plan_factory(name="Renders Plan", base_price=30),
+            subscription__current_period_end=datetime(
+                2026, 10, 20, 12, tzinfo=dt_timezone.utc
+            ),
+        )
+
+        response = self.call_view(rf, admin, slug=organization.slug)
+
+        assert response.status_code == 200
+        rendered = list(response.context_data["subscriptions"])
+        assert rendered == [item]
+        assert rendered[0].next_date == date(2026, 10, 20)
 
 
 @pytest.mark.django_db()
