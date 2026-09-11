@@ -556,7 +556,9 @@ class Subscription(Cancellable, models.Model):
     @property
     def free(self):
         """A subscription costs nothing when every line does."""
-        return all(item.plan is None or item.plan.free for item in self.items.all())
+        return all(
+            item.is_free for item in self.items.select_related("plan", "plan_price")
+        )
 
     @property
     def auto_renew(self):
@@ -593,14 +595,14 @@ class Subscription(Cancellable, models.Model):
         each line's own id to update it in place rather than replace it.
         """
         specs = []
-        for item in self.items.select_related("plan"):
+        for item in self.items.select_related("plan", "plan_price"):
             if item.is_free:
-                # A free plan has no Stripe Plan behind it - make_stripe_plan
-                # skips those - so naming it would reference an object that
-                # does not exist and fail the whole call, including the paid
-                # lines alongside it.
+                # Nothing for Stripe to bill.  A comped or free line has no
+                # Stripe counterpart at all, so naming it would reference an
+                # object that does not exist and fail the whole call -
+                # including the paid lines alongside it.
                 continue
-            spec = {"plan": item.plan.stripe_id, "quantity": item.quantity}
+            spec = {"plan": item.stripe_price_id, "quantity": item.quantity}
             if include_ids and item.stripe_item_id:
                 spec["id"] = item.stripe_item_id
             specs.append(spec)
@@ -640,10 +642,14 @@ class Subscription(Cancellable, models.Model):
             if price_id:
                 by_price[price_id] = stripe_item["id"]
 
-        for item in self.items.select_related("plan"):
+        for item in self.items.select_related("plan", "plan_price"):
             if item.is_free:
                 continue
-            item_id = by_price.get(item.plan.stripe_id)
+            # Whatever `stripe_items` sends as the price is what Stripe
+            # echoes back, so the two have to read the same field.  This
+            # branch moves the specs onto PlanPrice; the lookup follows, or
+            # it silently matches nothing and the self-heal stops healing.
+            item_id = by_price.get(item.stripe_price_id)
             if item_id and item_id != item.stripe_item_id:
                 item.stripe_item_id = item_id
                 item.save(update_fields=["stripe_item_id"])
@@ -1055,8 +1061,14 @@ class Subscription(Cancellable, models.Model):
             return "create_prorations"
         return "always_invoice"
 
-    def stripe_modify(self):
-        """Push local state to Stripe for every item on this subscription."""
+    def stripe_modify(self, proration_behavior=None):
+        """Push local state to Stripe for every item on this subscription.
+
+        `proration_behavior` overrides the answer above for one call.  Pass
+        "none" for a change that is not meant to alter what the customer
+        pays, such as moving a line onto the Price that represents the same
+        money it was already billing.
+        """
         if self.stripe_subscription:
             # Learn any missing line ids before describing the lines, not
             # after.  A line with no `stripe_item_id` is sent with no id, and
@@ -1089,7 +1101,11 @@ class Subscription(Cancellable, models.Model):
                     days_until_due=(
                         30 if self.collection_method == "send_invoice" else None
                     ),
-                    proration_behavior=self.proration_behavior,
+                    proration_behavior=(
+                        self.proration_behavior
+                        if proration_behavior is None
+                        else proration_behavior
+                    ),
                 )
             )
             if updated:
@@ -1256,6 +1272,47 @@ class SubscriptionItem(Cancellable, models.Model):
         return f"SubscriptionItem: {self.subscription.organization} to {plan_name}"
 
     @property
+    def is_free(self):
+        """Whether this line costs anything.
+
+        Reads the price once the line has one, and falls back to the plan
+        while `plan_price` can still be null - which it is for every
+        subscriber the backfill deliberately skipped, and for every signup
+        until the purchase flow starts recording a price.
+        """
+        if self.plan_price_id:
+            return self.plan_price.amount == 0
+        return self.plan is None or self.plan.free
+
+    @property
+    def is_nonprofit(self):
+        """Whether this line is billing at a nonprofit rate.
+
+        A fact about the customer rather than about the tier, so it has to
+        survive a move between tiers.  Self-reported and on the honour
+        system, the way the checkbox that sets it is.
+        """
+        return bool(self.plan_price_id and self.plan_price.label == "nonprofit")
+
+    @property
+    def stripe_price_id(self):
+        """The Stripe object this line bills against.
+
+        Prefers the `PlanPrice`'s Stripe Price.  Falls back to the plan's
+        legacy id in two cases: while `plan_price` is still null, and when
+        a price exists but has no Stripe Price yet - a partial state
+        `consolidate_stripe_products` can leave and completes on a re-run.
+        Falling back means the line keeps billing exactly as it did before,
+        which is the safe reading of "not ready yet".
+
+        A free line has no Stripe counterpart at all; `stripe_items` drops
+        those before asking.
+        """
+        if self.plan_price_id and self.plan_price.stripe_price_id:
+            return self.plan_price.stripe_price_id
+        return self.plan.stripe_id
+
+    @property
     def organization(self):
         """The owning organization, reached through the parent subscription.
 
@@ -1278,15 +1335,6 @@ class SubscriptionItem(Cancellable, models.Model):
         """
         return self.subscription.next_date
 
-    @property
-    def is_free(self):
-        """Whether this line costs anything.
-
-        A free plan has no Stripe counterpart at all, so it is dropped
-        before the subscription's items are described to Stripe.
-        """
-        return self.plan is None or self.plan.free
-
     def modify(self, plan):
         """Change which plan this line bills.
 
@@ -1303,6 +1351,15 @@ class SubscriptionItem(Cancellable, models.Model):
         changing a line's plan can change whether the subscription bills at
         all: a free line becoming paid needs a Stripe subscription created,
         and the last paid line becoming free needs one deleted.
+
+        Re-resolves the price, because the price is what the line bills
+        against now.  Moving the plan and leaving `plan_price` behind kept
+        the line on the old tier's Stripe Price - the customer would have
+        been moved on paper and charged the old amount - and `is_free`
+        would have answered about the tier they left.
+
+        A line already on a nonprofit price stays on one: the label is a
+        fact about the customer, not about the tier they are moving to.
         """
         # Identify this line on Stripe *before* changing the plan, because
         # the plan is what identifies it: `sync_stripe_item_ids` matches on
@@ -1310,7 +1367,17 @@ class SubscriptionItem(Cancellable, models.Model):
         # and the line is described to Stripe with no id - which asks Stripe
         # to add a line rather than update one, leaving the customer billed
         # for the plan they left as well as the one they chose.
-        interval = "annual" if plan.annual else "monthly"
+        # The billing shape follows the resolved price, not `plan.annual` -
+        # the same reason `start` does it that way, since the row handed in
+        # is not always the row that ends up being billed.
+        canonical_plan, plan_price = SubscriptionItem.objects.resolve_purchase(
+            plan, nonprofit=self.is_nonprofit
+        )
+        interval = (
+            plan_price.interval
+            if plan_price
+            else "annual" if plan.annual else "monthly"
+        )
         if interval != self.subscription.interval:
             raise SubscriptionError(
                 f"Cannot change {self.plan} to {plan} in place: it bills "
@@ -1333,7 +1400,8 @@ class SubscriptionItem(Cancellable, models.Model):
             self.subscription.cancelled and not self.subscription.auto_renew
         )
 
-        self.plan = plan
+        self.plan = canonical_plan
+        self.plan_price = plan_price
         self.save()
 
         if ending_only_because_nothing_renews and self.subscription.auto_renew:

@@ -416,7 +416,133 @@ class ChargeQuerySet(models.QuerySet):
 
 
 class SubscriptionItemQuerySet(models.QuerySet):
-    def start(self, organization, plan, payment_method="card", quantity=1):
+    @staticmethod
+    def _schedule_single_period(item):
+        """A plan that bills once and stops means, for a line, exactly what a
+        customer cancellation means: drop it at the end of the period it was
+        paid for.  The subscription carries on for its other lines, and
+        Resubscribe reverses this if they change their mind.
+
+        Saves the cancellation pair and nothing else: `stripe_modify` has
+        already recorded this line's Stripe id against a different instance,
+        so a full save would write the empty value back over it."""
+        item.mark_cancelled(item.subscription.current_period_end)
+        item.save(update_fields=item.CANCELLATION_FIELDS)
+
+    @staticmethod
+    def _collection_method(interval, payment_method):
+        """Stripe collects annual subscriptions by invoice when asked."""
+        if interval == "annual" and payment_method == "invoice":
+            return "send_invoice"
+        return "charge_automatically"
+
+    @staticmethod
+    def resolve_purchase(plan, nonprofit=False):
+        """What a new subscription to `plan` should actually be recorded as.
+
+        Returns `(canonical_plan, plan_price)`, or `(plan, None)` when there
+        is nothing to resolve to - which is every plan until
+        `consolidate_stripe_products` has run, and any plan the mapping does
+        not cover.  Falling back leaves the subscription on the legacy plan
+        and the legacy Stripe id, which is what it would have been anyway;
+        the migration picks those up.
+
+        The plan a customer picks is not necessarily the plan they end up
+        on.  Annual and nonprofit are separate `Plan` rows today, and both
+        collapse onto a canonical tier where the difference is carried by
+        the price's `interval` and `label` instead.  Resolving both here
+        means a new subscription is recorded exactly as a migrated one is,
+        so the migration has genuinely nothing to do for it.
+        """
+        # Lazy import to avoid a circular import (payment.py imports this module)
+        # pylint: disable=import-outside-toplevel
+        # Squarelet
+        from squarelet.organizations.models.payment import PlanPrice
+        from squarelet.organizations.plan_mapping import resolve_target
+
+        target = resolve_target(plan.slug, allow_comped=False) or (
+            plan.slug,
+            "annual" if plan.annual else "monthly",
+            "nonprofit" if nonprofit else "standard",
+            "",
+        )
+        canonical_slug, interval, label, code = target
+
+        labels = [label]
+        if nonprofit and label == "standard":
+            # `resolve_target` answers from the slug alone, and today the
+            # slug carries the nonprofit-ness: the form substitutes a
+            # `sunlight-nonprofit-*` row in before we ever see it.  Those
+            # rows go away in #806, and then the flag is the only thing that
+            # knows - so a nonprofit would have been shown the nonprofit
+            # rate and billed the standard one.
+            #
+            # Preferred, not forced.  A tier with no nonprofit price, or a
+            # negotiated `code` with no nonprofit counterpart, should still
+            # sell at the price it has rather than match nothing and drop
+            # back to legacy billing.
+            labels.insert(0, "nonprofit")
+
+        price = None
+        for candidate in labels:
+            price = (
+                PlanPrice.objects.select_related("plan")
+                .filter(
+                    plan__slug=canonical_slug,
+                    interval=interval,
+                    label=candidate,
+                    code=code,
+                    active=True,
+                )
+                .first()
+            )
+            if price is not None:
+                break
+        if price is None:
+            return plan, None
+        if not price.stripe_price_id and price.amount != 0:
+            # A paid price that has no Stripe Price yet - the partial state
+            # `consolidate_stripe_products` leaves behind when it fails
+            # part-way and completes on a re-run.
+            #
+            # Resolving to it anyway is worse than not resolving at all.
+            # The line would be recorded against the canonical plan and take
+            # its interval from the price, while `stripe_price_id` fell back
+            # to the canonical plan's *legacy* row - which is the monthly
+            # standard one.  An annual nonprofit would then bill the monthly
+            # standard amount on a subscription recorded as annual: wrong
+            # money, wrong cadence, and rejected outright by Stripe if the
+            # annual subscription already carries another line.
+            #
+            # Staying on the picked plan bills exactly what it billed
+            # before, which is the safe reading of "not ready yet".  The
+            # migration picks these up like any other unresolved line.
+            #
+            # Keyed on the amount rather than on the blank id alone: a $0
+            # price has no Stripe Price and never will, which is finished
+            # rather than half-done.  (A comped one cannot reach here at
+            # all - `resolve_target` refuses comped, and the unmapped
+            # fallback only ever asks for standard or nonprofit.)
+            return plan, None
+        return price.plan, price
+
+    @staticmethod
+    def canonical_plan(plan, nonprofit=False):
+        """The plan a purchase of `plan` will actually be recorded against.
+
+        For guarding a purchase before making it.  `start` stores the
+        resolved plan, not the one the customer picked, so anything asking
+        "do they already hold this?" has to ask about the same row - an
+        organization on `sunlight-essential` who buys the annual variant is
+        not buying a different plan, and `unique_together(subscription,
+        plan)` will say so with an IntegrityError if nobody asks first.
+        """
+        canonical, _price = SubscriptionItemQuerySet.resolve_purchase(plan, nonprofit)
+        return canonical
+
+    def start(
+        self, organization, plan, payment_method="card", quantity=1, nonprofit=False
+    ):
         """Add a line for `plan` and make sure Stripe knows about it.
 
         Stripe requires every item on a subscription to share a billing
@@ -433,12 +559,19 @@ class SubscriptionItemQuerySet(models.QuerySet):
         # Squarelet
         from squarelet.organizations.models.payment import Subscription
 
-        interval = "annual" if plan.annual else "monthly"
-        collection_method = (
-            "send_invoice"
-            if interval == "annual" and payment_method == "invoice"
-            else "charge_automatically"
+        canonical_plan, plan_price = self.resolve_purchase(plan, nonprofit)
+        # The billing shape follows the resolved price, not `plan.annual`.
+        # Annual is a separate `Plan` row today, and the row a customer picks
+        # is not always the row they end up on -- the nonprofit variants are
+        # substituted in by the form.  Trusting the flag would let an annual
+        # price land on a subscription recorded as monthly, which groups it
+        # onto the wrong invoice and picks the wrong collection method.
+        interval = (
+            plan_price.interval
+            if plan_price
+            else "annual" if plan.annual else "monthly"
         )
+        collection_method = self._collection_method(interval, payment_method)
         subscription, created = Subscription.objects.get_or_create(
             organization=organization,
             interval=interval,
@@ -452,7 +585,10 @@ class SubscriptionItemQuerySet(models.QuerySet):
         # Stripe knows about and we retry into.
         with transaction.atomic():
             item = self.model.objects.create(
-                subscription=subscription, plan=plan, quantity=quantity
+                subscription=subscription,
+                plan=canonical_plan,
+                plan_price=plan_price,
+                quantity=quantity,
             )
 
             if subscription.cancelled and not item.is_free and plan.auto_renew:
@@ -464,10 +600,13 @@ class SubscriptionItemQuerySet(models.QuerySet):
                 subscription.keep_renewing_for(item)
 
             if created or not subscription.subscription_id:
-                anchor = organization.billing_anchor
                 stripe_subscription = subscription.start(
                     payment_method=payment_method,
-                    anchor_day=anchor.day if anchor else None,
+                    anchor_day=(
+                        organization.billing_anchor.day
+                        if organization.billing_anchor
+                        else None
+                    ),
                 )
             else:
                 # The subscription is already live on Stripe, so the new line
@@ -501,18 +640,11 @@ class SubscriptionItemQuerySet(models.QuerySet):
                     ]
                 )
             elif not plan.auto_renew:
-                # A plan that bills once and stops means, for a line, exactly
-                # what a customer cancellation means: drop it at the end of
-                # the period it was paid for.  The subscription carries on for
-                # its other lines, and Resubscribe reverses this if they
-                # change their mind.
-                #
                 # Inside the transaction that creates the line, because it is
                 # a fact about that line: committing one without the other
-                # leaves a one-off plan that renews forever and that nothing
-                # sweeps.
-                item.mark_cancelled(subscription.current_period_end)
-                item.save(update_fields=item.CANCELLATION_FIELDS)
+                # leaves a plan meant to bill once renewing forever, with
+                # nothing to sweep it.
+                self._schedule_single_period(item)
 
         # Every new line, as master did.  Gating this on price was a change
         # nobody asked for: `notify_started` already decides who to enrol by

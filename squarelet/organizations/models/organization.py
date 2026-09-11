@@ -546,7 +546,15 @@ class Organization(AvatarMixin, models.Model):
         return users_list
 
     @transaction.atomic
-    def add_subscription(self, plan, max_users, user, token=None, payment_method=None):
+    def add_subscription(
+        self,
+        plan,
+        max_users,
+        user,
+        token=None,
+        payment_method=None,
+        nonprofit=False,
+    ):
         """Add a new subscription to a plan.
 
         Raises SubscriptionError if the org already holds a line for this
@@ -554,13 +562,24 @@ class Organization(AvatarMixin, models.Model):
         `unique_together` is (subscription, plan), so a second line for the
         same plan on the same subscription cannot exist.  Reviving one is
         `uncancel`'s job, reached through Resubscribe.
+
+        The question is asked about the *resolved* plan, because that is
+        what the line will be stored under.  Asking about the picked row
+        instead found nothing for anyone buying an annual or nonprofit
+        variant, and the check that exists to raise this error politely was
+        skipped in favour of an IntegrityError from inside the transaction.
         """
+        # pylint: disable=import-outside-toplevel
+        # Squarelet
+        from squarelet.organizations.models.payment import SubscriptionItem
+
         # Lock this org row to serialize concurrent subscription attempts
         # (e.g. double form submit), preventing a race between the exists()
         # check and the INSERT.
         Organization.objects.select_for_update().filter(pk=self.pk).get()
 
-        if self.subscription_items.filter(plan=plan).exists():
+        canonical_plan = SubscriptionItem.objects.canonical_plan(plan, nonprofit)
+        if self.subscription_items.filter(plan=canonical_plan).exists():
             raise SubscriptionError(
                 f"Organization already has an active subscription to {plan}"
             )
@@ -590,6 +609,7 @@ class Organization(AvatarMixin, models.Model):
             plan=plan,
             payment_method=payment_method,
             quantity=max_users,
+            nonprofit=nonprofit,
         )
 
         if is_first and stripe_subscription:
