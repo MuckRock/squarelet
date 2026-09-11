@@ -167,7 +167,15 @@ class ProfessionalPlanFactory(PlanFactory):
 
 
 class PlanPriceFactory(factory.django.DjangoModelFactory):
-    """A price under a plan.  Defaults to a paid monthly list price."""
+    """A price under a plan.  Defaults to a paid monthly list price.
+
+    Which means it has a Stripe Price, the way a real paid row does once
+    `consolidate_stripe_products` has run - a paid row with a blank id is a
+    half-finished state, and leaving it as the default had every test
+    resolving through one.  A $0 price stays blank, because `ensure_stripe_price`
+    never creates one for it.  Pass `stripe_price_id=""` explicitly to build
+    the half-finished state on purpose.
+    """
 
     plan = factory.SubFactory("squarelet.organizations.tests.factories.PlanFactory")
     interval = "monthly"
@@ -175,6 +183,9 @@ class PlanPriceFactory(factory.django.DjangoModelFactory):
     code = ""
     amount = 10000
     currency = "usd"
+    stripe_price_id = factory.LazyAttributeSequence(
+        lambda price, n: "" if price.amount == 0 else f"price_factory{n}"
+    )
 
     class Meta:
         model = "organizations.PlanPrice"

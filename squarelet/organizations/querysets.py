@@ -481,6 +481,30 @@ class SubscriptionItemQuerySet(models.QuerySet):
         )
         if price is None:
             return plan, None
+        if not price.stripe_price_id and price.amount != 0:
+            # A paid price that has no Stripe Price yet - the partial state
+            # `consolidate_stripe_products` leaves behind when it fails
+            # part-way and completes on a re-run.
+            #
+            # Resolving to it anyway is worse than not resolving at all.
+            # The line would be recorded against the canonical plan and take
+            # its interval from the price, while `stripe_price_id` fell back
+            # to the canonical plan's *legacy* row - which is the monthly
+            # standard one.  An annual nonprofit would then bill the monthly
+            # standard amount on a subscription recorded as annual: wrong
+            # money, wrong cadence, and rejected outright by Stripe if the
+            # annual subscription already carries another line.
+            #
+            # Staying on the picked plan bills exactly what it billed
+            # before, which is the safe reading of "not ready yet".  The
+            # migration picks these up like any other unresolved line.
+            #
+            # Keyed on the amount rather than on the blank id alone: a $0
+            # price has no Stripe Price and never will, which is finished
+            # rather than half-done.  (A comped one cannot reach here at
+            # all - `resolve_target` refuses comped, and the unmapped
+            # fallback only ever asks for standard or nonprofit.)
+            return plan, None
         return price.plan, price
 
     def start(
