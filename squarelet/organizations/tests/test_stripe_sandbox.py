@@ -265,6 +265,93 @@ class TestGoingFreeAndBack:
         }
 
 
+class TestBuyingOntoACancellingSubscription:
+    """The line still has to keep the Stripe id it was just given.
+
+    `stripe_modify` records `stripe_item_id` against a fresh instance, so a
+    full `item.save()` afterwards writes this instance's empty value back
+    over it - undoing the identification and leaving a line Stripe can no
+    longer be told to remove.
+    """
+
+    def test_a_new_line_keeps_its_stripe_id(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        first = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+        subscription = first.subscription
+        subscription.mark_cancelled(subscription.current_period_end)
+        subscription.save()
+
+        joining = start(
+            organization, paid_plan(plan_factory, sandbox, price=40), sandbox
+        )
+
+        joining.refresh_from_db()
+        assert not joining.cancelled, "buying a plan is a reason to keep renewing"
+        assert joining.stripe_item_id.startswith("si_")
+
+
+class TestCancellingBesideAFreeLine:
+    """A free line is not something Stripe is billing.
+
+    Counting it as one made cancelling the only *paid* line look like an
+    ordinary per-line cancellation: Stripe was never told to stop, and the
+    subscription renewed and charged for the plan the customer had
+    cancelled.
+    """
+
+    def test_cancelling_the_only_paid_line_stops_the_billing(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        paid = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+        free_name = f"Sandbox Free {uuid4().hex[:8]}"
+        start(
+            organization,
+            plan_factory(
+                name=free_name,
+                slug=slugify(free_name),
+                base_price=0,
+                price_per_user=0,
+            ),
+            sandbox,
+        )
+        subscription_id = paid.subscription.subscription_id
+
+        paid.cancel()
+
+        live = stripe.Subscription.retrieve(subscription_id)
+        assert live["cancel_at_period_end"] is True
+
+
+class TestRemovingALine:
+    """`remove_from_stripe` is what enforces per-line cancellation."""
+
+    def test_the_line_stops_billing_on_stripe(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        """It is gated on `stripe_item_id`, which starts out empty.
+
+        With the guard unsatisfied the method deletes the local row and never
+        tells Stripe, so the customer keeps being billed for a line we can no
+        longer identify.
+        """
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        keep = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+        drop = start(organization, paid_plan(plan_factory, sandbox, price=40), sandbox)
+        subscription_id = keep.subscription.subscription_id
+        SubscriptionItem.objects.filter(pk=drop.pk).update(stripe_item_id="")
+        drop.refresh_from_db()
+
+        drop.remove_from_stripe()
+
+        assert stripe_prices(subscription_id) == {keep.plan.stripe_id}
+
+
 class TestChangingAPlan:
     """`modify_subscription` has no caller today and must work when it does."""
 
@@ -362,25 +449,92 @@ class TestCancellingOnStripe:
         assert live["cancel_at_period_end"] is False
         assert subscription.cancel_at is None
 
-    def test_a_pending_cancellation_survives_adding_a_plan(
+    def test_buying_a_plan_while_cancelling_keeps_the_plan(
         self, organization_factory, plan_factory, sandbox
     ):
-        """Touching a line must not quietly re-bill a leaving customer.
+        """The subscription carries on; what they cancelled still stops.
+
+        Stripe ends a subscription whole, so a line added to one that is
+        ending would go with it - the customer pays for a plan and loses it
+        at the period end.  Lifting `cancel_at_period_end` is the only way
+        to keep it, and the line they *did* cancel has to stay cancelled
+        through that, on its own date.
+        """
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        leaving = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+        leaving.subscription.cancel()
+        leaving.refresh_from_db()
+        ends_on = leaving.cancel_at
+
+        arriving = start(
+            organization, paid_plan(plan_factory, sandbox, price=40), sandbox
+        )
+
+        live = stripe.Subscription.retrieve(leaving.subscription.subscription_id)
+        assert live["cancel_at_period_end"] is False
+        leaving.refresh_from_db()
+        arriving.refresh_from_db()
+        assert leaving.cancelled and leaving.cancel_at == ends_on
+        # No longer waiting on the parent, so reviving the subscription
+        # would leave it ending - the sweep drops it when its date comes.
+        assert not leaving.cancelled_with_subscription
+        assert not arriving.cancelled
+
+    def test_a_pending_cancellation_survives_a_free_line(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        """Only a line worth keeping is worth reversing a cancellation for.
 
         `stripe_modify` sends cancel_at_period_end on every call, so sending
         the wrong value reverses a cancellation on Stripe - where the money
-        is - with nothing in our own records to show it happened.
+        is - with nothing in our own records to show it happened.  A free
+        line is never billed, so it cannot be the reason to carry on.
         """
         organization = organization_factory()
         with_card(organization, sandbox)
         item = start(organization, paid_plan(plan_factory, sandbox), sandbox)
         item.subscription.cancel()
 
-        start(organization, paid_plan(plan_factory, sandbox, price=40), sandbox)
+        free_name = f"Sandbox Free {uuid4().hex[:8]}"
+        start(
+            organization,
+            plan_factory(
+                name=free_name,
+                slug=slugify(free_name),
+                base_price=0,
+                price_per_user=0,
+            ),
+            sandbox,
+        )
 
         live = stripe.Subscription.retrieve(item.subscription.subscription_id)
         assert live["cancel_at_period_end"] is True
 
+    def test_cancelling_the_last_active_line_ends_the_subscription(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        first = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+        second = start(
+            organization, paid_plan(plan_factory, sandbox, price=40), sandbox
+        )
+        subscription_id = first.subscription.subscription_id
+
+        first.cancel()
+        assert (
+            stripe.Subscription.retrieve(subscription_id)["cancel_at_period_end"]
+            is False
+        )
+
+        second.cancel()
+
+        live = stripe.Subscription.retrieve(subscription_id)
+        assert live["cancel_at_period_end"] is True
+
+
+class TestFreeAndPaidTogether:
     def test_a_free_line_is_never_described_to_stripe(
         self, organization_factory, plan_factory, sandbox
     ):

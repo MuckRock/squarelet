@@ -1442,13 +1442,12 @@ class TestMultipleSubscriptions:
 
         org.remove_subscription(plan_a, user)
 
-        # Cancellation is subscription-level here, and both lines share one
-        # subscription - so removing either ends both.  Cancelling one plan
-        # of several is the feature that comes next.
+        # Both lines share one subscription, so removing one flags just that
+        # line for period end and leaves the other billing.
         sub_a.refresh_from_db()
-        sub_b.refresh_from_db()
         assert sub_a.cancelled
-        assert sub_b.cancelled
+        sub_b.refresh_from_db()
+        assert not sub_b.cancelled
 
     @pytest.mark.django_db
     def test_modify_subscription(

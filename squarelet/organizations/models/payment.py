@@ -431,6 +431,26 @@ class Cancellable:
         self.cancelled = False
         self.cancel_at = None
 
+    def inherit_cancellation_from(self, subscription):
+        """Take the subscription's ending as this line's own.
+
+        It stops when the subscription does, on the subscription's date -
+        deriving that date again from the period end could disagree with
+        what the parent actually holds.
+
+        Flagged as inherited, so that reviving the subscription revives this
+        line too - unlike one the customer cancelled on its own.
+
+        Not every line joining a cancelling subscription ends up here.  A
+        paid, renewing one is a reason to carry on instead, and lifts the
+        cancellation through `Subscription.keep_renewing_for`; this is what
+        happens to the rest - a free line or a one-off purchase, neither of
+        which Stripe is billing next period anyway.
+        """
+        self.cancelled = subscription.cancelled
+        self.cancel_at = subscription.cancel_at
+        self.cancelled_with_subscription = subscription.cancelled
+
 
 class Subscription(Cancellable, models.Model):
     """A subscription on Stripe.
@@ -836,6 +856,84 @@ class Subscription(Cancellable, models.Model):
         self._check_3ds_action_required(stripe_subscription)
         self._sync_latest_invoice(stripe_subscription)
 
+    def other_paid_items(self, item):
+        """Every paid line on this subscription except `item`.
+
+        Stripe holds only the paid ones: `stripe_items` drops free lines
+        before describing the subscription, because naming a Plan with no
+        Stripe counterpart fails the whole call.  So any question about
+        what Stripe will still have afterwards is a question about these,
+        and counting local rows answers a different one - the two disagree
+        exactly when a subscription mixes free and paid.
+
+        Callers ask two different things of the result, and the difference
+        matters: whether anything is still *renewing* (so the subscription
+        should carry on) is not the same as whether anything is still *on
+        Stripe* (so an item can be removed without leaving none).  A line
+        flagged to stop next month is not renewing, but Stripe is still
+        billing it today.
+        """
+        return [
+            sibling
+            for sibling in self.items.select_related("plan")
+            if sibling.pk != item.pk and not sibling.is_free
+        ]
+
+    def push_cancellation_to_items(self):
+        """Give every line this subscription's own cancellation state.
+
+        Lines mirror their subscription because they bill on one Stripe
+        subscription and therefore stop together.  The UI lists lines, not
+        subscriptions, so a line has to be able to say it is going away
+        without consulting its parent.  Copied from `self` rather than
+        restated, so the two cannot be written to disagree.
+        """
+        if self.cancelled:
+            # A line already ending keeps its own date and its own reason.
+            self.items.exclude(cancelled=True).update(
+                cancelled=True,
+                cancel_at=self.cancel_at,
+                cancelled_with_subscription=True,
+            )
+        else:
+            # Only the lines this subscription ended.  Stripe knows nothing
+            # about a line the customer cancelled by itself, so neither a
+            # reversal here nor anything arriving from Stripe is an answer
+            # about those.
+            self.items.filter(cancelled_with_subscription=True).update(
+                cancelled=False, cancel_at=None, cancelled_with_subscription=False
+            )
+
+    def keep_renewing_for(self, item):
+        """Stop ending, because a line is arriving that means to stay.
+
+        `cancel_at_period_end` belongs to the subscription, so a line added
+        to one that is ending would be deleted along with it when the period
+        runs out - the customer buys a plan and silently loses it.  Lifting
+        the cancellation is the only way to keep the new line, and it must
+        not also revive what the customer asked to end.
+
+        So the lines that were stopping only because the subscription was
+        become lines stopping in their own right: same date, same flag, but
+        no longer waiting on the parent.  `uncancel` and the Stripe webhook
+        revive only `cancelled_with_subscription` lines, so they now leave
+        these alone, and `restore_organization` drops each one when its own
+        `cancel_at` arrives - legally, because `item` is a paid sibling that
+        outlives them.
+
+        Left to the caller to keep this to a paid, renewing line.  A free
+        one is never sent to Stripe, so it cannot hold up a subscription
+        Stripe is renewing; a one-off is flagged to stop the moment it is
+        bought.  Either would leave Stripe renewing a subscription whose
+        only surviving paid line is cancelled - the state `restore_organization`
+        can do nothing with and logs an error about.
+        """
+        self.items.exclude(pk=item.pk).filter(cancelled_with_subscription=True).update(
+            cancelled_with_subscription=False
+        )
+        self.clear_cancellation()
+        self.save(update_fields=self.CANCELLATION_FIELDS)
+
     def cancel(self):
         if self.stripe_subscription:
             updated = (
@@ -847,6 +945,7 @@ class Subscription(Cancellable, models.Model):
                 self.cache_stripe_subscription_fields(updated)
         self.mark_cancelled(self.current_period_end)
         self.save()
+        self.push_cancellation_to_items()
 
         # The notification names a plan, so it belongs to the lines, not to
         # the subscription that carries them.
@@ -877,6 +976,7 @@ class Subscription(Cancellable, models.Model):
                 self.cache_stripe_subscription_fields(updated)
         self.clear_cancellation()
         self.save()
+        self.push_cancellation_to_items()
 
     def sync_to_stripe(self, payment_method="card"):
         """Make Stripe match this subscription, from whatever state it is in.
@@ -924,6 +1024,7 @@ class Subscription(Cancellable, models.Model):
                 # just downgraded onto, every line with it.
                 self.clear_cancellation()
                 self.save(update_fields=["subscription_id", *self.CANCELLATION_FIELDS])
+                self.push_cancellation_to_items()
             return None
         if not self.subscription_id:
             return self.start(payment_method=payment_method)
@@ -1030,7 +1131,7 @@ class Subscription(Cancellable, models.Model):
         )
 
 
-class SubscriptionItem(models.Model):
+class SubscriptionItem(Cancellable, models.Model):
     """One line on a Stripe subscription.
 
     The organization is reached through `subscription`, deliberately not
@@ -1091,6 +1192,36 @@ class SubscriptionItem(models.Model):
         ),
     )
 
+    cancelled = models.BooleanField(
+        _("cancelled"),
+        default=False,
+        help_text=_(
+            "This line is scheduled to stop at the end of the current billing "
+            "period.  It still bills and still grants access until then, "
+            "mirroring how a cancelled subscription behaves."
+        ),
+    )
+    cancel_at = models.DateField(
+        _("cancel at"),
+        null=True,
+        blank=True,
+        help_text=_(
+            "When this line is dropped from the Stripe subscription.  Taken "
+            "from the subscription's current period end, because every line "
+            "on a subscription shares one billing period."
+        ),
+    )
+    cancelled_with_subscription = models.BooleanField(
+        _("cancelled with subscription"),
+        default=False,
+        help_text=_(
+            "This line is ending only because its subscription is, rather "
+            "than because anyone cancelled the line itself.  Reviving the "
+            "subscription revives these and leaves the rest alone - without "
+            "which a customer who cancelled two plans and then resubscribed "
+            "to a third got all three back."
+        ),
+    )
     granted_reason = models.TextField(
         _("granted reason"),
         blank=True,
@@ -1133,22 +1264,6 @@ class SubscriptionItem(models.Model):
         `subscription__organization` before touching this in a loop.
         """
         return self.subscription.organization
-
-    @property
-    def cancelled(self):
-        """Whether this line is going away.
-
-        Cancellation is a property of the subscription: Stripe ends one
-        whole, and every line on it stops together.  Exposed here because
-        the UI lists lines, and a template reaching for an attribute a line
-        does not have renders nothing rather than raising.
-        """
-        return self.subscription.cancelled
-
-    @property
-    def cancel_at(self):
-        """When this line stops, which is when its subscription does."""
-        return self.subscription.cancel_at
 
     @property
     def next_date(self):
@@ -1210,27 +1325,110 @@ class SubscriptionItem(models.Model):
             # It wrote straight to the rows, so this instance is stale.
             self.refresh_from_db()
 
+        # A subscription ending because *nothing on it renews* is ending for
+        # a reason made of plans, and this method is changing one.  Anything
+        # else - a customer cancelling, Stripe reporting one - is a decision
+        # that survives a plan change; reversing those is `uncancel`'s job.
+        ending_only_because_nothing_renews = (
+            self.subscription.cancelled and not self.subscription.auto_renew
+        )
+
         self.plan = plan
         self.save()
+
+        if ending_only_because_nothing_renews and self.subscription.auto_renew:
+            # Something renews now, so the reason is gone.  Left in place it
+            # would be re-sent to Stripe as cancel_at_period_end, and the
+            # plan the customer has just bought would be deleted at the end
+            # of the period they bought it for.
+            self.subscription.clear_cancellation()
+            self.subscription.save()
+            self.subscription.push_cancellation_to_items()
+            self.refresh_from_db()
+
+        # A pending cancellation belonged to the plan being replaced.  Keeping
+        # it would drop the line the customer has just chosen, on the old
+        # plan's date - so re-derive it from the new plan, the way `start`
+        # does.  Not while the subscription itself is ending: the line goes
+        # with it, and saying otherwise would advertise a renewal that is not
+        # coming.
+        if not self.subscription.cancelled:
+            if plan.auto_renew:
+                self.clear_cancellation()
+            else:
+                self.mark_cancelled(self.subscription.current_period_end)
+            self.save(
+                update_fields=[
+                    *self.CANCELLATION_FIELDS,
+                    "cancelled_with_subscription",
+                ]
+            )
         self.subscription.sync_to_stripe()
 
     def cancel(self):
         """Stop billing this line at the end of the current period.
 
-        Which means cancelling the subscription: Stripe has no per-item
-        cancel_at_period_end, and this branch has no local equivalent, so a
-        line cannot stop while its siblings carry on.  Cancelling one plan
-        of several is the feature that comes next; until then this is what
-        the button has always done.
+        The last *active* line cancels the whole subscription, which Stripe
+        handles itself through cancel_at_period_end.  Stripe has no
+        equivalent for a single line, so any other line is only flagged here
+        and removed by `restore_organization` once `cancel_at` arrives.  Either
+        way the customer keeps what they paid for until the period runs out.
+
+        Counting matters, and it has to count the right lines.  Cancelling
+        two lines one at a time must still cancel the subscription on the
+        second call, or the sweep would later try to delete the
+        subscription's only remaining item, which Stripe rejects.  And the
+        lines that count are the paid ones: a free sibling keeps no
+        subscription alive, so counting it made cancelling the only paid
+        line look like an ordinary per-line cancellation and Stripe was
+        never told to stop.
+
+        A free line never reaches Stripe at all, so cancelling one is
+        always the local, per-line case.
         """
-        self.subscription.cancel()
+        if not self.is_free and not any(
+            sibling
+            for sibling in self.subscription.other_paid_items(self)
+            if not sibling.cancelled
+        ):
+            # Nothing paid would still be renewing, so the subscription is
+            # ending whatever this line says - and only cancelling it as a
+            # whole tells Stripe so.
+            self.subscription.cancel()
+            return
+
+        self.mark_cancelled(self.subscription.current_period_end)
+        self.save()
+        self.send_slack_notification("cancelled")
 
     def uncancel(self):
-        """Reverse a pending cancellation.
+        """Reverse a pending cancellation, so long as the line is still here.
 
-        Whole-subscription, for the same reason `cancel` is.
+        If the whole subscription is cancelled - which is what cancelling the
+        last active line does - reviving any line revives the subscription,
+        and with it the lines that were only ending because it was.
+
+        A plan that bills once and stops is refused.  Such a line is flagged
+        to end the moment it is bought - that is what "bills once" means - so
+        it reads as cancelled on the billing page from the outset, beside a
+        Resubscribe button it was never meant to have.  Pressing it would
+        clear the flag, and because a subscription renews if *any* line does,
+        the one-time purchase would then be charged every period with nothing
+        to sweep it.
         """
-        self.subscription.uncancel()
+        if not self.plan.auto_renew:
+            raise SubscriptionError(
+                f"{self.plan} is a one-time purchase and cannot be resumed.  "
+                f"Buy it again to get another period."
+            )
+
+        if self.subscription.cancelled:
+            self.subscription.uncancel()
+            self.refresh_from_db()
+            return
+
+        self.clear_cancellation()
+        self.save()
 
     def remove_from_stripe(self):
         """Drop this line from the Stripe subscription and delete it locally.

@@ -455,6 +455,14 @@ class SubscriptionItemQuerySet(models.QuerySet):
                 subscription=subscription, plan=plan, quantity=quantity
             )
 
+            if subscription.cancelled and not item.is_free and plan.auto_renew:
+                # They are buying a renewing plan on a subscription that is
+                # ending.  Stripe ends a subscription whole, so keeping this
+                # line means the subscription has to carry on - and the call
+                # below sends the lifted flag in the same breath as the new
+                # line.  What they cancelled still stops on its own date.
+                subscription.keep_renewing_for(item)
+
             if created or not subscription.subscription_id:
                 anchor = organization.billing_anchor
                 stripe_subscription = subscription.start(
@@ -470,6 +478,41 @@ class SubscriptionItemQuerySet(models.QuerySet):
                 stripe_subscription = subscription.stripe_modify()
                 if stripe_subscription is not None:
                     subscription.settle_added_line(stripe_subscription)
+
+            # Both branches save the cancellation pair and nothing else.  A
+            # full save would write this instance's fields over the row, and
+            # `stripe_modify` above has already recorded `stripe_item_id`
+            # against it through a *different* instance - so a plain
+            # `item.save()` puts the empty value back and undoes the
+            # identification the line was just given.
+            if subscription.cancelled:
+                # Still ending, so this line is free or a one-off - a paid
+                # renewing line lifted the cancellation above.  Stripe ends
+                # a subscription whole, so this one stops with the rest of
+                # them whatever it says locally.  Saying so keeps the
+                # billing page honest - it would otherwise advertise a
+                # renewal, and offer to cancel a line that is about to
+                # vanish on its own.
+                item.inherit_cancellation_from(subscription)
+                item.save(
+                    update_fields=[
+                        *item.CANCELLATION_FIELDS,
+                        "cancelled_with_subscription",
+                    ]
+                )
+            elif not plan.auto_renew:
+                # A plan that bills once and stops means, for a line, exactly
+                # what a customer cancellation means: drop it at the end of
+                # the period it was paid for.  The subscription carries on for
+                # its other lines, and Resubscribe reverses this if they
+                # change their mind.
+                #
+                # Inside the transaction that creates the line, because it is
+                # a fact about that line: committing one without the other
+                # leaves a one-off plan that renews forever and that nothing
+                # sweeps.
+                item.mark_cancelled(subscription.current_period_end)
+                item.save(update_fields=item.CANCELLATION_FIELDS)
 
         # Every new line, as master did.  Gating this on price was a change
         # nobody asked for: `notify_started` already decides who to enrol by

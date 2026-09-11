@@ -33,6 +33,7 @@ from squarelet.organizations.models.payment import (
     PaymentMethod,
     Plan,
     Subscription,
+    SubscriptionItem,
 )
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.users.models import User
@@ -61,6 +62,66 @@ def restore_organization():
         organization_id__in=due_org_ids,
         cancelled=True,
     ).filter(Q(cancel_at__lte=today) | Q(cancel_at__isnull=True)).delete()
+
+    # Drop individually cancelled lines whose period has run out.  Stripe has
+    # no per-item cancel_at_period_end, so this is what enforces it - and it
+    # has to happen before Stripe drafts the renewal invoice, which is why
+    # this task runs shortly after midnight.
+    due_items = (
+        SubscriptionItem.objects.filter(
+            subscription__organization_id__in=due_org_ids,
+            cancelled=True,
+        )
+        # A line whose whole subscription is cancelled goes with it, above.
+        .exclude(subscription__cancelled=True).filter(
+            Q(cancel_at__lte=today) | Q(cancel_at__isnull=True)
+        )
+    )
+    for item in due_items.select_related("subscription", "plan"):
+        # Stripe rejects removing a subscription's only item, so a line with
+        # no surviving sibling cannot be removed here whatever else is true.
+        #
+        # Which lines survive is a question about Stripe, not about local
+        # rows.  Free siblings were never sent, so counting one made this
+        # look safe when the line being removed was Stripe's last; and a
+        # sibling flagged to stop next month is still on Stripe today, so
+        # excluding it made a legal removal look impossible.  A free line
+        # removes itself without telling Stripe anything, so it is never
+        # blocked.
+        if item.is_free:
+            item.remove_from_stripe()
+            continue
+
+        if not item.subscription.other_paid_items(item):
+            # The subscription's last paid line, on a subscription that is
+            # not itself cancelled.  Nothing should reach this: cancelling the last
+            # active line escalates to the whole subscription, and one
+            # carrying nothing but non-renewing plans is marked cancelled
+            # when it starts.  If it happens anyway, Stripe was never told
+            # to stop, and this sweep will skip these lines every night
+            # from now on while the customer keeps paying - so it has to be
+            # noisy rather than a quiet `continue`.
+            logger.error(
+                "[RESTORE-ORGANIZATION] Subscription %s (%s) has one paid "
+                "line left and it is cancelled, but the subscription is not. "
+                " Stripe was never told to stop; this line will never be "
+                "swept.",
+                item.subscription.pk,
+                item.subscription.subscription_id or "(no stripe id)",
+            )
+            continue
+        try:
+            item.remove_from_stripe()
+        except stripe.StripeError as exc:
+            logger.error(
+                "Failed to remove cancelled line %s (%s) from Stripe "
+                "subscription %s: %s",
+                item.pk,
+                item.plan,
+                item.subscription.subscription_id,
+                exc,
+                exc_info=sys.exc_info(),
+            )
 
     # Determine which orgs still have active subscriptions
     orgs_with_subs = set(
@@ -721,6 +782,7 @@ def handle_subscription_updated(subscription_data):
     # covers cancellations scheduled outside our own flow (dashboard, or the
     # cancel_at_period_end set for auto_renew=False plans). The record is
     # finally deleted when Stripe sends the deletion event at period end.
+    was_cancelled = subscription.cancelled
     if subscription_data.get("cancel_at_period_end"):
         subscription.mark_cancelled(subscription.current_period_end)
     else:
@@ -731,6 +793,21 @@ def handle_subscription_updated(subscription_data):
             *Subscription.CANCELLATION_FIELDS,
         ]
     )
+    # The UI lists lines, not subscriptions, so a line has to be able to
+    # report that it is going away.  Subscription.cancel() flags them; a
+    # cancellation scheduled outside our own flow - the Stripe dashboard,
+    # say - arrives here instead, and used to leave them saying they would
+    # renew.
+    #
+    # Only when the subscription's own cancellation is what changed.  Stripe
+    # has no per-item cancel_at_period_end, so it says nothing about a line
+    # the customer cancelled on its own - and this event fires on renewals
+    # and payment-method changes too.  Pushing unconditionally answered
+    # "is this subscription ending?" onto lines that were never asking, and
+    # silently revived every per-line cancellation on the next unrelated
+    # update.
+    if subscription.cancelled or was_cancelled:
+        subscription.push_cancellation_to_items()
     logger.info(
         "[STRIPE-WEBHOOK-SUBSCRIPTION] subscription.updated cached status for: %s "
         "(cancelled=%s)",

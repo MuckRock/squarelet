@@ -23,6 +23,7 @@ from squarelet.organizations import tasks
 from squarelet.organizations.models import (
     Charge,
     Invoice,
+    Organization,
     PaymentMethod,
     SubscriptionItem,
 )
@@ -36,6 +37,52 @@ from squarelet.organizations.tests.factories import (
 # pylint:disable=too-many-lines
 # TODO: Refactor this file and `tasks.py` into smaller files
 # https://github.com/MuckRock/squarelet/issues/558
+
+
+@pytest.mark.django_db(transaction=True)
+def test_restore_organization_removes_due_cancelled_lines(
+    organization_plan_factory, plan_factory, mocker
+):
+    """A line cancelled for period end is dropped from Stripe once due."""
+    mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
+    mocker.patch("stripe.Plan.create")
+    mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
+    mock_sub_svc = mocker.patch(
+        "squarelet.organizations.models.payment.get_payment_provider"
+    ).return_value.get_subscription_service.return_value
+    today = date.today()
+
+    due = SubscriptionItemFactory(
+        plan=organization_plan_factory(),
+        stripe_item_id="si_due",
+        cancelled=True,
+        cancel_at=today,
+        subscription__subscription_id="sub_sweep",
+        subscription__organization__update_on=today - timedelta(1),
+    )
+    # Same subscription, not cancelled -> survives
+    keeper = SubscriptionItemFactory(
+        subscription=due.subscription,
+        plan=plan_factory(name="Keeper Plan", base_price=30),
+    )
+    # Cancelled but not due yet -> survives
+    later = SubscriptionItemFactory(
+        subscription=due.subscription,
+        plan=plan_factory(name="Later Plan"),
+        cancelled=True,
+        cancel_at=today + timedelta(5),
+    )
+
+    tasks.restore_organization()
+
+    assert not SubscriptionItem.objects.filter(pk=due.pk).exists()
+    assert SubscriptionItem.objects.filter(pk=keeper.pk).exists()
+    assert SubscriptionItem.objects.filter(pk=later.pk).exists()
+    mock_sub_svc.modify.assert_called_once_with(
+        "sub_sweep",
+        items=[{"id": "si_due", "deleted": True}],
+        proration_behavior="none",
+    )
 
 
 @pytest.mark.django_db()
@@ -2659,6 +2706,106 @@ class TestHandleSubscriptionUpdated:
         subscription.refresh_from_db()
         assert subscription.current_period_end == period_end
         assert subscription.cancel_at == date(2026, 10, 20)
+
+    @pytest.mark.django_db
+    def test_reversing_a_cancellation_reaches_the_lines(
+        self, subscription_factory, subscription_item_factory
+    ):
+        subscription = subscription_factory(subscription_id="sub_back", cancelled=True)
+        # Ended by the subscription, which is what makes it the
+        # subscription's to revive.  A line the customer stopped by itself
+        # is not, and has its own test.
+        item = subscription_item_factory(
+            subscription=subscription,
+            cancelled=True,
+            cancelled_with_subscription=True,
+        )
+
+        tasks.handle_subscription_updated(
+            {
+                "id": "sub_back",
+                "status": "active",
+                "cancel_at_period_end": False,
+            }
+        )
+
+        item.refresh_from_db()
+        assert item.cancelled is False
+        assert item.cancel_at is None
+
+    @pytest.mark.django_db
+    def test_a_stuck_last_paid_line_is_reported(
+        self, subscription_item_factory, plan_factory, caplog
+    ):
+        """A state nothing should reach, which must not be reached quietly.
+
+        Stripe rejects removing a subscription's only item, so the sweep can
+        do nothing here - and it will do nothing again every night while the
+        customer keeps paying.  Silence made that indistinguishable from
+        working.
+
+        Cancelling the last paid line now cancels the whole subscription, so
+        this is built directly.  That is the point: the log is for states
+        that should not arise.
+        """
+        today = date.today()
+        stuck = subscription_item_factory(
+            plan=plan_factory(name="Stuck Paid", base_price=30),
+            subscription__subscription_id="sub_stuck",
+            subscription__cancelled=False,
+            cancelled=True,
+            cancel_at=today,
+        )
+        # A free sibling is not something Stripe bills, so it does not save
+        # the removal - which is the accounting error this guard had.
+        subscription_item_factory(
+            subscription=stuck.subscription,
+            plan=plan_factory(name="Free Sibling", base_price=0),
+        )
+        Organization.objects.filter(pk=stuck.subscription.organization_id).update(
+            update_on=today
+        )
+
+        tasks.restore_organization()
+
+        assert "has one paid line left and it is cancelled" in caplog.text
+        assert SubscriptionItem.objects.filter(pk=stuck.pk).exists()
+
+    @pytest.mark.django_db
+    def test_an_unrelated_update_leaves_a_cancelled_line_alone(
+        self, subscription_factory, subscription_item_factory, plan_factory
+    ):
+        """Stripe knows nothing about a line the customer cancelled.
+
+        It has no per-item cancel_at_period_end, so `cancel_at_period_end:
+        False` here means "this subscription is not ending" - not "no line
+        on it is".  This event also fires on renewals and payment-method
+        changes, so answering the wrong question revived every per-line
+        cancellation the next time anything touched the subscription.
+        """
+        subscription = subscription_factory(
+            subscription_id="sub_untouched", cancelled=False
+        )
+        going = subscription_item_factory(
+            subscription=subscription, cancelled=True, cancel_at=date(2026, 10, 20)
+        )
+        staying = subscription_item_factory(
+            subscription=subscription, plan=plan_factory(name="Staying Plan")
+        )
+
+        tasks.handle_subscription_updated(
+            {
+                "id": "sub_untouched",
+                "status": "active",
+                "cancel_at_period_end": False,
+            }
+        )
+
+        going.refresh_from_db()
+        staying.refresh_from_db()
+        assert going.cancelled is True
+        assert going.cancel_at == date(2026, 10, 20)
+        assert staying.cancelled is False
 
     @pytest.mark.django_db
     def test_syncs_cancel_at_period_end_false(self, subscription_factory):
