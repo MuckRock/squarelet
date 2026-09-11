@@ -84,7 +84,14 @@ class TestWhatIsSentToStripe:
     def test_a_price_with_no_stripe_price_yet_falls_back(
         self, subscription_item_factory, plan_price_factory, plan_factory
     ):
-        """consolidate_stripe_products can leave a paid row blank on failure."""
+        """consolidate_stripe_products can leave a paid row blank on failure.
+
+        Safe here because this line's `plan` is the row the customer picked,
+        so its legacy id bills what it always billed.  `resolve_purchase`
+        refuses to *create* this pairing against a canonical plan, where the
+        legacy id would be the monthly standard one - see
+        `TestAPriceWithNoStripePriceIsNotReady`.
+        """
         price = plan_price_factory(
             plan=plan_factory(name="Unready Plan", base_price=100),
             amount=10_000,
@@ -362,3 +369,48 @@ class TestBillingShapeFollowsThePrice:
         assert item.subscription.interval == "annual"
         assert item.plan == canonical
         assert item.plan_price.stripe_price_id == "price_np_annual"
+
+
+@pytest.mark.django_db()
+class TestAPriceWithNoStripePriceIsNotReady:
+    """A paid price Stripe has never heard of cannot be sold against.
+
+    `consolidate_stripe_products` can fail part-way and leave a paid row
+    with a blank `stripe_price_id`.  Resolving to it anyway would record
+    the line against the canonical plan and take the interval from the
+    price, while the Stripe id fell back to the canonical plan's legacy
+    row - the *monthly standard* one.  An annual nonprofit would bill the
+    monthly standard amount on a subscription recorded as annual.
+    """
+
+    def _resolve(self, plan, nonprofit=False):
+        return SubscriptionItem.objects.resolve_purchase(plan, nonprofit)
+
+    def test_it_stays_on_the_plan_the_customer_picked(
+        self, plan_factory, plan_price_factory
+    ):
+        picked = plan_factory(name="Annual Nonprofit Tier", annual=True)
+        plan_price_factory(
+            plan=picked, interval="annual", amount=400_000, stripe_price_id=""
+        )
+
+        assert self._resolve(plan=picked) == (picked, None)
+
+    def test_a_ready_price_still_resolves(self, plan_factory, plan_price_factory):
+        picked = plan_factory(name="Ready Tier")
+        price = plan_price_factory(
+            plan=picked, interval="monthly", amount=10_000, stripe_price_id="price_ok"
+        )
+
+        assert self._resolve(plan=picked) == (price.plan, price)
+
+    def test_a_free_price_is_not_treated_as_unready(
+        self, plan_factory, plan_price_factory
+    ):
+        """$0 has no Stripe Price and never will - finished, not part-way."""
+        picked = plan_factory(name="Free Tier")
+        free = plan_price_factory(
+            plan=picked, interval="monthly", amount=0, stripe_price_id=""
+        )
+
+        assert self._resolve(plan=picked) == (free.plan, free)
