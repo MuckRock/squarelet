@@ -734,9 +734,12 @@ class SubscriptionItem(models.Model):
         to="organizations.Subscription",
         on_delete=models.CASCADE,
         related_name="items",
-        blank=True,
-        null=True,
-        help_text=_("The Stripe subscription this is a line on"),
+        help_text=_(
+            "The Stripe subscription this is a line on.  Required: a line "
+            "reaches its organization, its billing period and its "
+            "cancellation through here, so one without a parent has no "
+            "organization and cannot be rendered, billed or cancelled."
+        ),
     )
     stripe_item_id = models.CharField(
         _("stripe item id"),
