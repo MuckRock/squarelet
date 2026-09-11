@@ -15,23 +15,28 @@ from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 from django.db.migrations.loader import MigrationLoader
 
+# Standard Library
+from datetime import date
+
 # Third Party
 import pytest
 
 APP = "organizations"
-# The migration under test, found by name rather than by number: the squash
-# further up the stack renumbers it and removes the one it currently depends
-# on, so anything pinned here would break on rebase.
-UNDER_TEST = "subscription_parent"
+# Migrations under test, found by name rather than by number.  Branches
+# further up the stack add migrations of their own, and a number pinned here
+# would go stale the first time one landed below it - the name is the part
+# that does not move.
+PARENT = "subscription_parent"
+ITEM_CANCELLATION = "subscription_item_cancellation"
 
 
-def _bracket():
-    """Return the migration under test and the one immediately before it."""
+def _bracket(suffix):
+    """Return the named migration and the one immediately before it."""
     loader = MigrationLoader(connection)
     target = next(
         name
         for app, name in loader.graph.nodes
-        if app == APP and name.endswith(UNDER_TEST)
+        if app == APP and name.endswith(suffix)
     )
     before = next(
         name
@@ -91,7 +96,7 @@ class TestAdoptItemsIntoSubscriptions:
 
     def test_lines_of_one_shape_share_a_parent(self):
         """The point of the split: two monthly lines, one Stripe subscription."""
-        old = migrate_to(_bracket()[0])
+        old = migrate_to(_bracket(PARENT)[0])
         SubscriptionItem = old.get_model(APP, "SubscriptionItem")
         organization = self._organization(old, "Shared")
         SubscriptionItem.objects.create(
@@ -106,7 +111,7 @@ class TestAdoptItemsIntoSubscriptions:
             organization=organization, plan=self._plan(old, "Comped")
         )
 
-        new = migrate_to(_bracket()[1])
+        new = migrate_to(_bracket(PARENT)[1])
 
         Subscription = new.get_model(APP, "Subscription")
         subscriptions = Subscription.objects.filter(organization=organization.pk)
@@ -116,7 +121,7 @@ class TestAdoptItemsIntoSubscriptions:
 
     def test_a_different_shape_gets_its_own_parent(self):
         """Stripe cannot bill monthly and annual on one subscription."""
-        old = migrate_to(_bracket()[0])
+        old = migrate_to(_bracket(PARENT)[0])
         SubscriptionItem = old.get_model(APP, "SubscriptionItem")
         organization = self._organization(old, "Mixed")
         SubscriptionItem.objects.create(
@@ -127,7 +132,7 @@ class TestAdoptItemsIntoSubscriptions:
             plan=self._plan(old, "Yearly", annual=True),
         )
 
-        new = migrate_to(_bracket()[1])
+        new = migrate_to(_bracket(PARENT)[1])
 
         Subscription = new.get_model(APP, "Subscription")
         shapes = set(
@@ -142,7 +147,7 @@ class TestAdoptItemsIntoSubscriptions:
 
     def test_two_stripe_subscriptions_of_one_shape_are_refused(self):
         """One row holds one Stripe id, so merging would orphan the other."""
-        old = migrate_to(_bracket()[0])
+        old = migrate_to(_bracket(PARENT)[0])
         SubscriptionItem = old.get_model(APP, "SubscriptionItem")
         organization = self._organization(old, "Doubled")
         for plan_name, stripe_id in (("A", "sub_a"), ("B", "sub_b")):
@@ -153,11 +158,17 @@ class TestAdoptItemsIntoSubscriptions:
             )
 
         with pytest.raises(Exception, match="more than one"):
-            migrate_to(_bracket()[1])
+            migrate_to(_bracket(PARENT)[1])
 
-    def test_a_parent_stops_only_when_every_line_has(self):
-        """One cancelled line among several is that line's own business."""
-        old = migrate_to(_bracket()[0])
+    def test_lines_that_disagree_about_cancelling_are_refused(self):
+        """A parent holds one answer, and both ways of guessing cost money.
+
+        Collapsing with `all` renews a plan the customer cancelled;
+        collapsing with `any` cancels ones they kept.  Until per-line
+        cancellation exists there is nowhere to record the difference, so
+        this refuses rather than picks.
+        """
+        old = migrate_to(_bracket(PARENT)[0])
         SubscriptionItem = old.get_model(APP, "SubscriptionItem")
         organization = self._organization(old, "Partly")
         SubscriptionItem.objects.create(
@@ -170,8 +181,71 @@ class TestAdoptItemsIntoSubscriptions:
             organization=organization, plan=self._plan(old, "Going"), cancelled=True
         )
 
-        new = migrate_to(_bracket()[1])
+        with pytest.raises(Exception, match="disagree about cancelling"):
+            migrate_to(_bracket(PARENT)[1])
+
+    def test_a_group_that_agrees_carries_its_answer_up(self):
+        """The shape every group has today: lines that say the same thing."""
+        old = migrate_to(_bracket(PARENT)[0])
+        SubscriptionItem = old.get_model(APP, "SubscriptionItem")
+        organization = self._organization(old, "Leaving")
+        SubscriptionItem.objects.create(
+            organization=organization,
+            plan=self._plan(old, "First"),
+            subscription_id="sub_leaving",
+            cancelled=True,
+            cancel_at=date(2026, 11, 1),
+        )
+        SubscriptionItem.objects.create(
+            organization=organization,
+            plan=self._plan(old, "Second"),
+            cancelled=True,
+            cancel_at=date(2026, 11, 1),
+        )
+
+        new = migrate_to(_bracket(PARENT)[1])
 
         Subscription = new.get_model(APP, "Subscription")
         subscription = Subscription.objects.get(organization=organization.pk)
-        assert not subscription.cancelled
+        assert subscription.cancelled
+        assert subscription.cancel_at == date(2026, 11, 1)
+
+
+@pytest.mark.django_db(transaction=True)
+class TestRollingTheSplitBack:
+    """Reversing with rows in the table, which is the only case that matters.
+
+    A migration that only reverses on an empty database is not reversible;
+    it just has not been asked.  This release is the one carrying the data
+    move, so its rollback is worth more than the others'.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _leave_the_database_migrated(self):
+        yield
+        with connection.cursor() as cursor:
+            cursor.execute("DELETE FROM organizations_subscriptionitem")
+        migrate_to_latest()
+
+    def test_the_lines_survive_a_rollback(self):
+        before, target = _bracket(PARENT)
+        old = migrate_to(before)
+        Organization = old.get_model(APP, "Organization")
+        Plan = old.get_model(APP, "Plan")
+        SubscriptionItem = old.get_model(APP, "SubscriptionItem")
+        organization = Organization.objects.create(name="Rollback", slug="rollback")
+        SubscriptionItem.objects.create(
+            organization=organization,
+            plan=Plan.objects.create(name="Rollback Plan", slug="rollback-plan"),
+            subscription_id="sub_rollback",
+            stripe_status="active",
+        )
+        migrate_to(target)
+
+        back = migrate_to(before)
+
+        SubscriptionItem = back.get_model(APP, "SubscriptionItem")
+        line = SubscriptionItem.objects.get()
+        assert line.organization_id == organization.pk
+        assert line.subscription_id == "sub_rollback"
+        assert line.stripe_status == "active"
