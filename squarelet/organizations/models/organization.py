@@ -292,6 +292,13 @@ class Organization(AvatarMixin, models.Model):
         ),
     )
 
+    client_stats = models.JSONField(
+        _("client stats"),
+        default=dict,
+        blank=True,
+        help_text=_("Stats synced nightly from client services, keyed by client name"),
+    )
+
     class Meta:
         ordering = ("slug",)
         permissions = (

@@ -14,3 +14,9 @@ def db_cleanup():
 def sync_odoo_daily():
     """Daily sync of Sunlight orgs and members to Odoo."""
     call_command("sync_odoo")
+
+
+@shared_task
+def sync_client_stats():
+    """Syncs user and org stats from MuckRock and DocumentCloud into Accounts"""
+    call_command("sync_client_stats")
