@@ -493,3 +493,129 @@ class TestDuplicatePurchaseIsRefusedPolitely:
 
         with pytest.raises(SubscriptionError, match="already has an active"):
             organization.add_subscription(picked, 5, None, nonprofit=True)
+
+
+@pytest.mark.django_db()
+class TestNonprofitSurvivesTheMapping:
+    """The checkbox has to work once the nonprofit Plan rows are gone.
+
+    Today the form substitutes a `sunlight-nonprofit-*` row in, so the slug
+    carries the nonprofit-ness and `resolve_target` reads it off the slug.
+    #806 removes those rows.  After that the flag is the only thing that
+    knows, and ignoring it would show a nonprofit the nonprofit rate and
+    bill them the standard one.
+    """
+
+    def _resolve(self, plan, nonprofit=False):
+        _, price = SubscriptionItem.objects.resolve_purchase(plan, nonprofit)
+        return price
+
+    def test_a_mapped_slug_still_honours_the_flag(
+        self, plan_factory, plan_price_factory
+    ):
+        """The case that breaks the moment the variant rows are deleted."""
+        canonical = plan_with_slug(
+            plan_factory, "Sunlight Essential", "sunlight-essential"
+        )
+        standard = plan_price_factory(
+            plan=canonical, interval="annual", label="standard", amount=800_000
+        )
+        nonprofit = plan_price_factory(
+            plan=canonical, interval="annual", label="nonprofit", amount=400_000
+        )
+        # The row the customer picks once the nonprofit variants are gone.
+        picked = plan_with_slug(
+            plan_factory,
+            "Sunlight Essential (Annual)",
+            "sunlight-essential-annual",
+            annual=True,
+        )
+
+        assert self._resolve(picked, nonprofit=True) == nonprofit
+        assert self._resolve(picked) == standard
+
+    def test_a_tier_with_no_nonprofit_price_sells_at_its_list_price(
+        self, plan_factory, plan_price_factory
+    ):
+        """Preferred, not forced - matching nothing would be worse."""
+        canonical = plan_with_slug(
+            plan_factory, "Sunlight Essential", "sunlight-essential"
+        )
+        standard = plan_price_factory(
+            plan=canonical, interval="annual", label="standard", amount=800_000
+        )
+        picked = plan_with_slug(
+            plan_factory,
+            "Sunlight Essential (Annual)",
+            "sunlight-essential-annual",
+            annual=True,
+        )
+
+        assert self._resolve(picked, nonprofit=True) == standard
+
+
+@pytest.mark.django_db()
+class TestChangingTierRepricesTheLine:
+    """`modify` moves the plan, so it has to move the price with it.
+
+    The line bills against `plan_price` now.  Leaving the old one behind
+    moved the customer on paper and charged them the tier they left, and
+    `is_free` answered about that tier too.
+    """
+
+    def _modify(self, item, plan, mocker):
+        mocker.patch(
+            "squarelet.organizations.models.Subscription.stripe_subscription",
+            None,
+        )
+        mocker.patch("squarelet.organizations.models.Subscription.sync_to_stripe")
+        item.modify(plan)
+        item.refresh_from_db()
+        return item
+
+    def test_the_price_moves_with_the_plan(
+        self, subscription_item_factory, plan_factory, plan_price_factory, mocker
+    ):
+        essential = plan_with_slug(
+            plan_factory, "Sunlight Essential", "sunlight-essential"
+        )
+        from_price = plan_price_factory(
+            plan=essential, interval="monthly", label="standard", amount=68_000
+        )
+        enhanced = plan_with_slug(
+            plan_factory, "Sunlight Enhanced", "sunlight-enhanced"
+        )
+        to_price = plan_price_factory(
+            plan=enhanced, interval="monthly", label="standard", amount=138_000
+        )
+        item = subscription_item_factory(plan=essential, plan_price=from_price)
+
+        self._modify(item, enhanced, mocker)
+
+        assert item.plan == enhanced
+        assert item.plan_price == to_price
+        assert item.stripe_price_id == to_price.stripe_price_id
+
+    def test_a_nonprofit_stays_a_nonprofit(
+        self, subscription_item_factory, plan_factory, plan_price_factory, mocker
+    ):
+        essential = plan_with_slug(
+            plan_factory, "Sunlight Essential", "sunlight-essential"
+        )
+        from_price = plan_price_factory(
+            plan=essential, interval="monthly", label="nonprofit", amount=35_000
+        )
+        enhanced = plan_with_slug(
+            plan_factory, "Sunlight Enhanced", "sunlight-enhanced"
+        )
+        plan_price_factory(
+            plan=enhanced, interval="monthly", label="standard", amount=138_000
+        )
+        to_nonprofit = plan_price_factory(
+            plan=enhanced, interval="monthly", label="nonprofit", amount=68_000
+        )
+        item = subscription_item_factory(plan=essential, plan_price=from_price)
+
+        self._modify(item, enhanced, mocker)
+
+        assert item.plan_price == to_nonprofit

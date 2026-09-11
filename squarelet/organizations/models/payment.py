@@ -1285,6 +1285,16 @@ class SubscriptionItem(Cancellable, models.Model):
         return self.plan is None or self.plan.free
 
     @property
+    def is_nonprofit(self):
+        """Whether this line is billing at a nonprofit rate.
+
+        A fact about the customer rather than about the tier, so it has to
+        survive a move between tiers.  Self-reported and on the honour
+        system, the way the checkbox that sets it is.
+        """
+        return bool(self.plan_price_id and self.plan_price.label == "nonprofit")
+
+    @property
     def stripe_price_id(self):
         """The Stripe object this line bills against.
 
@@ -1341,6 +1351,15 @@ class SubscriptionItem(Cancellable, models.Model):
         changing a line's plan can change whether the subscription bills at
         all: a free line becoming paid needs a Stripe subscription created,
         and the last paid line becoming free needs one deleted.
+
+        Re-resolves the price, because the price is what the line bills
+        against now.  Moving the plan and leaving `plan_price` behind kept
+        the line on the old tier's Stripe Price - the customer would have
+        been moved on paper and charged the old amount - and `is_free`
+        would have answered about the tier they left.
+
+        A line already on a nonprofit price stays on one: the label is a
+        fact about the customer, not about the tier they are moving to.
         """
         # Identify this line on Stripe *before* changing the plan, because
         # the plan is what identifies it: `sync_stripe_item_ids` matches on
@@ -1348,7 +1367,17 @@ class SubscriptionItem(Cancellable, models.Model):
         # and the line is described to Stripe with no id - which asks Stripe
         # to add a line rather than update one, leaving the customer billed
         # for the plan they left as well as the one they chose.
-        interval = "annual" if plan.annual else "monthly"
+        # The billing shape follows the resolved price, not `plan.annual` -
+        # the same reason `start` does it that way, since the row handed in
+        # is not always the row that ends up being billed.
+        canonical_plan, plan_price = SubscriptionItem.objects.resolve_purchase(
+            plan, nonprofit=self.is_nonprofit
+        )
+        interval = (
+            plan_price.interval
+            if plan_price
+            else "annual" if plan.annual else "monthly"
+        )
         if interval != self.subscription.interval:
             raise SubscriptionError(
                 f"Cannot change {self.plan} to {plan} in place: it bills "
@@ -1371,7 +1400,8 @@ class SubscriptionItem(Cancellable, models.Model):
             self.subscription.cancelled and not self.subscription.auto_renew
         )
 
-        self.plan = plan
+        self.plan = canonical_plan
+        self.plan_price = plan_price
         self.save()
 
         if ending_only_because_nothing_renews and self.subscription.auto_renew:
