@@ -489,11 +489,9 @@ class SubscriptionItemQuerySet(models.QuerySet):
                 item.mark_cancelled(subscription.current_period_end)
                 item.save(update_fields=item.CANCELLATION_FIELDS)
             elif subscription.cancelled:
-                # The subscription is already ending, and Stripe ends it
-                # whole: this line stops with the rest of them whatever it
-                # says locally.  Saying so keeps the billing page honest -
-                # it would otherwise advertise a renewal, and offer to
-                # cancel a line that is about to vanish on its own.
+                # Still ending, so this line is free.  Stripe ends a
+                # subscription whole, and the billing page would otherwise
+                # advertise a renewal.
                 item.inherit_cancellation_from(subscription)
                 item.save(
                     update_fields=[
