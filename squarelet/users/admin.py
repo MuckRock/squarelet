@@ -121,6 +121,10 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
             _("Important dates"),
             {"fields": ("last_login", "last_mfa_prompt", "created_at", "updated_at")},
         ),
+        (
+            _("Client Stats"),
+            {"fields": ("client_stats_display",)},
+        ),
     )
     superuser_fieldsets = (
         (
@@ -157,6 +161,10 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
             _("Important dates"),
             {"fields": ("last_login", "last_mfa_prompt", "created_at", "updated_at")},
         ),
+        (
+            _("Client Stats"),
+            {"fields": ("client_stats_display",)},
+        ),
     )
     readonly_fields = (
         "uuid",
@@ -165,6 +173,7 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
         "created_at",
         "updated_at",
         "source",
+        "client_stats_display",
     )
     list_display = (
         "username",
@@ -246,6 +255,13 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
         return ", ".join(f'<a href="{link}">{name}</a>' for link, name in links)
 
     all_org_links.short_description = "All Organizations"
+
+    def client_stats_display(self, obj):
+        """Read-only dump of the stats synced from client services."""
+        json_data = json.dumps(obj.client_stats, indent=4)
+        return mark_safe(f"<pre>{json_data}</pre>")
+
+    client_stats_display.short_description = "Client Stats"
 
     def get_urls(self):
         """Add custom URLs here"""
