@@ -468,17 +468,36 @@ class SubscriptionItemQuerySet(models.QuerySet):
         )
         canonical_slug, interval, label, code = target
 
-        price = (
-            PlanPrice.objects.select_related("plan")
-            .filter(
-                plan__slug=canonical_slug,
-                interval=interval,
-                label=label,
-                code=code,
-                active=True,
+        labels = [label]
+        if nonprofit and label == "standard":
+            # `resolve_target` answers from the slug alone, and today the
+            # slug carries the nonprofit-ness: the form substitutes a
+            # `sunlight-nonprofit-*` row in before we ever see it.  Those
+            # rows go away in #806, and then the flag is the only thing that
+            # knows - so a nonprofit would have been shown the nonprofit
+            # rate and billed the standard one.
+            #
+            # Preferred, not forced.  A tier with no nonprofit price, or a
+            # negotiated `code` with no nonprofit counterpart, should still
+            # sell at the price it has rather than match nothing and drop
+            # back to legacy billing.
+            labels.insert(0, "nonprofit")
+
+        price = None
+        for candidate in labels:
+            price = (
+                PlanPrice.objects.select_related("plan")
+                .filter(
+                    plan__slug=canonical_slug,
+                    interval=interval,
+                    label=candidate,
+                    code=code,
+                    active=True,
+                )
+                .first()
             )
-            .first()
-        )
+            if price is not None:
+                break
         if price is None:
             return plan, None
         if not price.stripe_price_id and price.amount != 0:
