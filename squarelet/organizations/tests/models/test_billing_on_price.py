@@ -3,6 +3,7 @@ import pytest
 
 # Squarelet
 from squarelet.organizations.models import Plan, SubscriptionItem
+from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.plan_mapping import resolve_target
 
 
@@ -414,3 +415,81 @@ class TestAPriceWithNoStripePriceIsNotReady:
         )
 
         assert self._resolve(plan=picked) == (free.plan, free)
+
+
+@pytest.mark.django_db()
+class TestDuplicatePurchaseIsRefusedPolitely:
+    """The guard has to ask about the row the line will be stored under.
+
+    `start` records the resolved plan, so asking about the picked one found
+    nothing for anyone buying an annual or nonprofit variant.  The purchase
+    then ran the whole way - card, Stripe customer, subscription - before
+    the insert hit `unique_together(subscription, plan)` inside
+    `transaction.atomic()`: a 500, with whatever Stripe had already been
+    told, in place of the polite error this check exists to raise.
+    """
+
+    def test_the_canonical_plan_is_what_gets_asked_about(
+        self, plan_factory, plan_price_factory
+    ):
+        canonical = plan_factory(name="Sunlight Essential")
+        price = plan_price_factory(
+            plan=canonical, interval="monthly", label="standard", amount=68_000
+        )
+
+        assert SubscriptionItem.objects.canonical_plan(canonical) == price.plan
+
+    def test_a_nonprofit_buyer_is_asked_about_the_same_row(
+        self, plan_factory, plan_price_factory
+    ):
+        canonical = plan_factory(name="Sunlight Essential")
+        plan_price_factory(
+            plan=canonical, interval="monthly", label="standard", amount=68_000
+        )
+        plan_price_factory(
+            plan=canonical, interval="monthly", label="nonprofit", amount=35_000
+        )
+
+        assert SubscriptionItem.objects.canonical_plan(
+            canonical, nonprofit=True
+        ) == SubscriptionItem.objects.canonical_plan(canonical)
+
+    def test_buying_a_variant_a_second_time_is_refused(
+        self, organization_factory, plan_factory, plan_price_factory, mocker
+    ):
+        """Refused here, before any of it happens.
+
+        The picked row and the stored row differ here, which is the whole
+        point: guarding on the picked one finds nothing, so the purchase
+        carries on - saving a card, reaching Stripe, creating a customer -
+        and only falls over at the insert, on `unique_together`.  That is a
+        500 with Stripe-side leftovers where this is a clean refusal.
+        """
+        canonical = plan_with_slug(
+            plan_factory, "Sunlight Essential", "sunlight-essential"
+        )
+        plan_price_factory(
+            plan=canonical,
+            interval="annual",
+            label="nonprofit",
+            amount=400_000,
+            stripe_price_id="price_np_annual",
+        )
+        picked = plan_with_slug(
+            plan_factory,
+            "Sunlight Nonprofit Essential Annual",
+            "sunlight-nonprofit-essential-annual",
+            annual=True,
+        )
+        mocker.patch("squarelet.organizations.models.Subscription.start")
+        mocker.patch(
+            "squarelet.organizations.models.payment.SubscriptionItem.notify_started"
+        )
+        organization = organization_factory()
+        held, _ = SubscriptionItem.objects.start(
+            organization=organization, plan=picked, nonprofit=True
+        )
+        assert held.plan == canonical, "the line is stored under the resolved plan"
+
+        with pytest.raises(SubscriptionError, match="already has an active"):
+            organization.add_subscription(picked, 5, None, nonprofit=True)
