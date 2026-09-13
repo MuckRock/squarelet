@@ -67,12 +67,12 @@ class Migration(migrations.Migration):
             field=models.BooleanField(
                 default=False,
                 help_text=(
-                    "This line is ending only because its subscription is, "
-                    "rather than because anyone cancelled the line itself.  "
-                    "Reviving the subscription revives these and leaves the "
-                    "rest alone - without which a customer who cancelled two "
-                    "plans and then resubscribed to a third got all three "
-                    "back."
+                    "This line was still renewing when something outside it ended "
+                    "the subscription - an admin, or a cancellation scheduled in "
+                    "the Stripe dashboard.  Stripe ends a subscription whole, so "
+                    "the line stops too, but nobody decided that about this plan.  "
+                    "If the subscription starts renewing again, these come back and "
+                    "the ones the customer cancelled themselves do not."
                 ),
                 verbose_name="cancelled by subscription",
             ),

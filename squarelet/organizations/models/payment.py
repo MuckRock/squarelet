@@ -1015,11 +1015,12 @@ class SubscriptionItem(Cancellable, models.Model):
         _("cancelled by subscription"),
         default=False,
         help_text=_(
-            "This line is ending only because its subscription is, rather "
-            "than because anyone cancelled the line itself.  Reviving the "
-            "subscription revives these and leaves the rest alone - without "
-            "which a customer who cancelled two plans and then resubscribed "
-            "to a third got all three back."
+            "This line was still renewing when something outside it ended "
+            "the subscription - an admin, or a cancellation scheduled in "
+            "the Stripe dashboard.  Stripe ends a subscription whole, so "
+            "the line stops too, but nobody decided that about this plan.  "
+            "If the subscription starts renewing again, these come back and "
+            "the ones the customer cancelled themselves do not."
         ),
     )
     granted_reason = models.TextField(
@@ -1155,6 +1156,11 @@ class SubscriptionItem(Cancellable, models.Model):
         """
         if self.subscription.items.exclude(cancelled=True).count() <= 1:
             self.subscription.cancel()
+            # The customer cancelled this plan; the subscription is ending
+            # *because of* it, not the other way round.
+            self.refresh_from_db()
+            self.cancelled_by_subscription = False
+            self.save(update_fields=["cancelled_by_subscription"])
             return
 
         self.mark_cancelled(self.subscription.current_period_end)
@@ -1169,10 +1175,13 @@ class SubscriptionItem(Cancellable, models.Model):
         every line on it, because they all stop together on Stripe.
         """
         if self.subscription.cancelled:
+            # Reviving any line means the subscription renews again, and
+            # that brings back whatever it had taken down collaterally.
             self.subscription.uncancel()
             self.refresh_from_db()
-            return
 
+        # This line, always: Resubscribe must return the plan it was
+        # pressed on.
         self.clear_cancellation()
         self.save()
 
