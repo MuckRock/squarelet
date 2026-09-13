@@ -2718,7 +2718,7 @@ class TestHandleSubscriptionUpdated:
         item = subscription_item_factory(
             subscription=subscription,
             cancelled=True,
-            cancelled_with_subscription=True,
+            cancelled_by_subscription=True,
         )
 
         tasks.handle_subscription_updated(

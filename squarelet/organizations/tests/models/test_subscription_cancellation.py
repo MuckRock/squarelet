@@ -208,7 +208,7 @@ class TestRevivingOnlyWhatTheSubscriptionEnded:
     Stripe has no per-item cancellation, so a line the customer stopped by
     itself is invisible to it.  Nothing arriving from Stripe - and no
     reversal of the subscription's own cancellation - is an answer about
-    those lines, and only `cancelled_with_subscription` can tell them apart.
+    those lines, and only `cancelled_by_subscription` can tell them apart.
     """
 
     def _three_paid_lines(self, subscription_item_factory, plan_factory):
@@ -233,7 +233,13 @@ class TestRevivingOnlyWhatTheSubscriptionEnded:
     def test_a_line_the_customer_cancelled_stays_cancelled(
         self, subscription_item_factory, plan_factory, mocker
     ):
-        """Cancel two, then resubscribe: only the third comes back."""
+        """Cancel two lines, then end the whole subscription.
+
+        The third was still renewing when the subscription went, so it is
+        the subscription's doing and comes back with it.  The first two are
+        the customer's own decision and stay cancelled - which is the only
+        thing `cancelled_by_subscription` exists to tell apart.
+        """
         mocker.patch(
             "squarelet.organizations.models.Organization.customer",
             return_value=mocker.Mock(stripe_payment_method_id="pm_test"),
@@ -251,9 +257,12 @@ class TestRevivingOnlyWhatTheSubscriptionEnded:
         )
         one.cancel()
         two.cancel()
-        # The third is the last paid line still renewing, so cancelling it
-        # ends the whole subscription.
-        three.cancel()
+        # Not `three.cancel()`: that is the customer ending the last plan,
+        # and the subscription follows *because of* it - so the line is its
+        # own decision and must not come back.  This is the other shape,
+        # where something ends the subscription over the top of a line that
+        # was still renewing.
+        three.subscription.cancel()
 
         three.subscription.refresh_from_db()
         three.subscription.uncancel()
@@ -510,14 +519,14 @@ class TestBuyingOntoACancellingSubscription:
         """It is ending in its own right now, not because its parent was.
 
         Which is the whole point of the conversion: `uncancel` and the
-        Stripe webhook revive only `cancelled_with_subscription` lines.
+        Stripe webhook revive only `cancelled_by_subscription` lines.
         """
         leaving = self._cancelling(subscription_item_factory, plan_factory, mocker)
 
         self._join(leaving, plan_factory(name="Arriving Plan", base_price=40))
 
         leaving.refresh_from_db()
-        assert not leaving.cancelled_with_subscription
+        assert not leaving.cancelled_by_subscription
         # What `uncancel` does once Stripe has been told to renew.
         leaving.subscription.refresh_from_db()
         leaving.subscription.push_cancellation_to_items()
@@ -556,3 +565,77 @@ class TestBuyingOntoACancellingSubscription:
 
         leaving.subscription.refresh_from_db()
         assert leaving.subscription.cancelled
+
+
+@pytest.mark.django_db()
+class TestResubscribeIsPerLine:
+    """Resubscribe brings back the plan you pressed it on.
+
+    Cancelling the last active line escalates to the whole subscription,
+    and that used to file the line the customer had just cancelled under
+    "the subscription did this".  Reviving anything then brought it back,
+    while the line actually being resubscribed stayed off - the customer
+    pressed Resubscribe on one plan and was returned a different one.
+    """
+
+    @pytest.fixture
+    def three_plans(self, subscription_item_factory, plan_factory, mocker):
+        mocker.patch(
+            "squarelet.organizations.models.Subscription.stripe_subscription", None
+        )
+        mocker.patch(
+            "squarelet.organizations.models.Customer.stripe_payment_method_id",
+            new_callable=mocker.PropertyMock,
+            return_value="pm_x",
+        )
+        first = subscription_item_factory(
+            plan=plan_factory(name="A", base_price=10),
+            subscription__subscription_id="sub_three",
+            # Midday, so a cancellation date cannot be moved by a timezone.
+            subscription__current_period_end=datetime(
+                2026, 10, 20, 12, tzinfo=dt_timezone.utc
+            ),
+        )
+        lines = [first] + [
+            subscription_item_factory(
+                subscription=first.subscription,
+                plan=plan_factory(name=name, base_price=price),
+            )
+            for name, price in (("B", 20), ("C", 30))
+        ]
+        for line in lines:
+            line.cancel()
+        for line in lines:
+            line.refresh_from_db()
+        subscription = first.subscription
+        subscription.refresh_from_db()
+        return subscription, lines
+
+    def test_cancelling_the_last_line_is_still_that_line_own_decision(
+        self, three_plans
+    ):
+        """The subscription ends *because of* it, not the other way round."""
+        subscription, (_a, _b, c) = three_plans
+
+        assert subscription.cancelled
+        assert c.cancelled and not c.cancelled_by_subscription
+
+    def test_resubscribing_revives_the_line_it_was_called_on(self, three_plans):
+        _subscription, (a, _b, _c) = three_plans
+
+        a.uncancel()
+
+        a.refresh_from_db()
+        assert not a.cancelled
+
+    def test_it_leaves_the_other_cancelled_plans_alone(self, three_plans):
+        subscription, (a, b, c) = three_plans
+
+        a.uncancel()
+
+        for line in (b, c):
+            line.refresh_from_db()
+        assert b.cancelled, "never asked for back"
+        assert c.cancelled, "never asked for back"
+        subscription.refresh_from_db()
+        assert not subscription.cancelled, "there is an active plan again"

@@ -449,7 +449,7 @@ class Cancellable:
         """
         self.cancelled = subscription.cancelled
         self.cancel_at = subscription.cancel_at
-        self.cancelled_with_subscription = subscription.cancelled
+        self.cancelled_by_subscription = subscription.cancelled
 
 
 class Subscription(Cancellable, models.Model):
@@ -893,15 +893,15 @@ class Subscription(Cancellable, models.Model):
             self.items.exclude(cancelled=True).update(
                 cancelled=True,
                 cancel_at=self.cancel_at,
-                cancelled_with_subscription=True,
+                cancelled_by_subscription=True,
             )
         else:
             # Only the lines this subscription ended.  Stripe knows nothing
             # about a line the customer cancelled by itself, so neither a
             # reversal here nor anything arriving from Stripe is an answer
             # about those.
-            self.items.filter(cancelled_with_subscription=True).update(
-                cancelled=False, cancel_at=None, cancelled_with_subscription=False
+            self.items.filter(cancelled_by_subscription=True).update(
+                cancelled=False, cancel_at=None, cancelled_by_subscription=False
             )
 
     def keep_renewing_for(self, item):
@@ -916,7 +916,7 @@ class Subscription(Cancellable, models.Model):
         So the lines that were stopping only because the subscription was
         become lines stopping in their own right: same date, same flag, but
         no longer waiting on the parent.  `uncancel` and the Stripe webhook
-        revive only `cancelled_with_subscription` lines, so they now leave
+        revive only `cancelled_by_subscription` lines, so they now leave
         these alone, and `restore_organization` drops each one when its own
         `cancel_at` arrives - legally, because `item` is a paid sibling that
         outlives them.
@@ -928,8 +928,8 @@ class Subscription(Cancellable, models.Model):
         only surviving paid line is cancelled - the state `restore_organization`
         can do nothing with and logs an error about.
         """
-        self.items.exclude(pk=item.pk).filter(cancelled_with_subscription=True).update(
-            cancelled_with_subscription=False
+        self.items.exclude(pk=item.pk).filter(cancelled_by_subscription=True).update(
+            cancelled_by_subscription=False
         )
         self.clear_cancellation()
         self.save(update_fields=self.CANCELLATION_FIELDS)
@@ -1211,15 +1211,16 @@ class SubscriptionItem(Cancellable, models.Model):
             "on a subscription shares one billing period."
         ),
     )
-    cancelled_with_subscription = models.BooleanField(
-        _("cancelled with subscription"),
+    cancelled_by_subscription = models.BooleanField(
+        _("cancelled by subscription"),
         default=False,
         help_text=_(
-            "This line is ending only because its subscription is, rather "
-            "than because anyone cancelled the line itself.  Reviving the "
-            "subscription revives these and leaves the rest alone - without "
-            "which a customer who cancelled two plans and then resubscribed "
-            "to a third got all three back."
+            "This line was still renewing when something outside it ended "
+            "the subscription - an admin, or a cancellation scheduled in "
+            "the Stripe dashboard.  Stripe ends a subscription whole, so "
+            "the line stops too, but nobody decided that about this plan.  "
+            "If the subscription starts renewing again, these come back and "
+            "the ones the customer cancelled themselves do not."
         ),
     )
     granted_reason = models.TextField(
@@ -1360,7 +1361,7 @@ class SubscriptionItem(Cancellable, models.Model):
             self.save(
                 update_fields=[
                     *self.CANCELLATION_FIELDS,
-                    "cancelled_with_subscription",
+                    "cancelled_by_subscription",
                 ]
             )
         self.subscription.sync_to_stripe()
@@ -1395,6 +1396,16 @@ class SubscriptionItem(Cancellable, models.Model):
             # ending whatever this line says - and only cancelling it as a
             # whole tells Stripe so.
             self.subscription.cancel()
+            # Cancelling the whole subscription flags every line it takes
+            # down as the subscription's doing.  For this one that inverts
+            # cause and effect: the customer cancelled this plan, and the
+            # subscription is ending *because of* it.  Left that way, any
+            # later resubscribe - to any line - read this as collateral and
+            # brought it back, so the customer got a plan they had cancelled
+            # while the one they actually clicked stayed off.
+            self.refresh_from_db()
+            self.cancelled_by_subscription = False
+            self.save(update_fields=["cancelled_by_subscription"])
             return
 
         self.mark_cancelled(self.subscription.current_period_end)
@@ -1423,10 +1434,15 @@ class SubscriptionItem(Cancellable, models.Model):
             )
 
         if self.subscription.cancelled:
+            # Reviving any line means the subscription renews again, and
+            # that brings back whatever it had taken down collaterally.
             self.subscription.uncancel()
             self.refresh_from_db()
-            return
 
+        # This line, always.  It used to return above, so pressing
+        # Resubscribe on a line the customer had cancelled themselves lifted
+        # the subscription and revived the *other* lines while leaving this
+        # one off - the one plan they had actually asked for back.
         self.clear_cancellation()
         self.save()
 
