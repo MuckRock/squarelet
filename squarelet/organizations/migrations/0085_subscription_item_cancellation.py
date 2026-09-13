@@ -31,7 +31,7 @@ def adopt_parent_cancellation(apps, schema_editor):
             # Ending because the subscription is, which is all we can know
             # here: per-line cancellation did not exist before this
             # migration, so nothing else could have ended them.
-            cancelled_with_subscription=True,
+            cancelled_by_subscription=True,
         )
 
 
@@ -63,18 +63,18 @@ class Migration(migrations.Migration):
         ),
         migrations.AddField(
             model_name="subscriptionitem",
-            name="cancelled_with_subscription",
+            name="cancelled_by_subscription",
             field=models.BooleanField(
                 default=False,
                 help_text=(
-                    "This line is ending only because its subscription is, "
-                    "rather than because anyone cancelled the line itself.  "
-                    "Reviving the subscription revives these and leaves the "
-                    "rest alone - without which a customer who cancelled two "
-                    "plans and then resubscribed to a third got all three "
-                    "back."
+                    "This line was still renewing when something outside it ended "
+                    "the subscription - an admin, or a cancellation scheduled in "
+                    "the Stripe dashboard.  Stripe ends a subscription whole, so "
+                    "the line stops too, but nobody decided that about this plan.  "
+                    "If the subscription starts renewing again, these come back and "
+                    "the ones the customer cancelled themselves do not."
                 ),
-                verbose_name="cancelled with subscription",
+                verbose_name="cancelled by subscription",
             ),
         ),
         # Nothing to undo: reversing the AddFields above drops the

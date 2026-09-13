@@ -478,7 +478,7 @@ class TestCancellingOnStripe:
         assert leaving.cancelled and leaving.cancel_at == ends_on
         # No longer waiting on the parent, so reviving the subscription
         # would leave it ending - the sweep drops it when its date comes.
-        assert not leaving.cancelled_with_subscription
+        assert not leaving.cancelled_by_subscription
         assert not arriving.cancelled
 
     def test_a_pending_cancellation_survives_a_free_line(

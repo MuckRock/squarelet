@@ -497,7 +497,7 @@ class SubscriptionItemQuerySet(models.QuerySet):
                 item.save(
                     update_fields=[
                         *item.CANCELLATION_FIELDS,
-                        "cancelled_with_subscription",
+                        "cancelled_by_subscription",
                     ]
                 )
             elif not plan.auto_renew:
