@@ -169,6 +169,13 @@ class User(AvatarMixin, AbstractBaseUser, PermissionsMixin):
         _("updated at"), help_text=_("When this user was last updated")
     )
 
+    client_stats = models.JSONField(
+        _("client stats"),
+        default=dict,
+        blank=True,
+        help_text=_("Stats synced nightly from client services, keyed by client name"),
+    )
+
     last_mfa_prompt = models.DateTimeField(null=True, blank=True)
 
     # preferences

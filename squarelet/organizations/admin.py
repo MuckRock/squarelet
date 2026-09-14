@@ -469,6 +469,7 @@ class OrganizationAdmin(VersionAdmin):
         "merged",
         "merged_at",
         "merged_by",
+        "client_stats_display",
     )
     readonly_fields = (
         "uuid",
@@ -482,6 +483,7 @@ class OrganizationAdmin(VersionAdmin):
         "merged",
         "merged_at",
         "merged_by",
+        "client_stats_display",
     )
     actions = [export_organizations_as_csv]
     autocomplete_fields = ("members", "parent", "subtypes")
@@ -557,6 +559,13 @@ class OrganizationAdmin(VersionAdmin):
         return f'<a href="{link}">{user.username}</a>'
 
     user_link.short_description = "User"
+
+    def client_stats_display(self, obj):
+        """Read-only dump of the stats synced from client services."""
+        json_data = json.dumps(obj.client_stats, indent=4)
+        return format_html("<pre>{}</pre>", json_data)
+
+    client_stats_display.short_description = "Client Stats"
 
     def get_subtypes(self, obj):
         return ", ".join(s.name for s in obj.subtypes.all())

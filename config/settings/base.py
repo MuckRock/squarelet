@@ -363,6 +363,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "squarelet.core.tasks.sync_odoo_daily",
         "schedule": crontab(hour=3, minute=0),
     },
+    "sync_client_stats": {
+        "task": "squarelet.core.tasks.sync_client_stats",
+        "schedule": crontab(hour=1, minute=30),
+        "options": {"time_limit": 3600, "soft_time_limit": 3540},
+    },
 }
 
 # django-allauth
@@ -443,8 +448,10 @@ if ENV == "staging" and HEROKU_APP_NAME:
     SQUARELET_URL = f"https://{HEROKU_APP_NAME}.herokuapp.com"
 
 MUCKROCK_URL = env("MUCKROCK_URL", default="https://dev.muckrock.com")
+
 FOIAMACHINE_URL = env("FOIAMACHINE_URL", default="https://dev.foiamachine.org")
 DOCCLOUD_URL = env("DOCCLOUD_URL", default="https://www.dev.documentcloud.org")
+
 BIGLOCALNEWS_URL = env("BIGLOCALNEWS_URL", default="https://local.biglocalnews.org")
 BIGLOCALNEWS_API_URL = env(
     "BIGLOCALNEWS_API_URL", default="https://local-api.biglocalnews.org"
@@ -594,3 +601,14 @@ COLLABORATIVE_TAGS = {
     slug: int(tag_id)
     for slug, tag_id in env.dict("COLLABORATIVE_TAGS", default={}).items()
 }
+
+# Stats sync
+DOCCLOUD_STATS_API_URL = env(
+    "DOCCLOUD_STATS_API_URL", default="https://api.dev.documentcloud.org/stats_api/"
+)
+MUCKROCK_STATS_API_URL = env(
+    "MUCKROCK_STATS_API_URL", default="https://dev.muckrock.com/stats_api/"
+)
+STATS_SERVICE_USERNAME = env("STATS_SERVICE_USERNAME", default="")
+MUCKROCK_STATS_PAGE_SIZE = env("MUCKROCK_STATS_PAGE_SIZE", default=100)
+DOCCLOUD_STATS_PAGE_SIZE = env("DOCCLOUD_STATS_PAGE_SIZE", default=100)
