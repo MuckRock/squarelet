@@ -563,7 +563,7 @@ class OrganizationAdmin(VersionAdmin):
     def client_stats_display(self, obj):
         """Read-only dump of the stats synced from client services."""
         json_data = json.dumps(obj.client_stats, indent=4)
-        return mark_safe(f"<pre>{json_data}</pre>")
+        return format_html("<pre>{}</pre>", json_data)
 
     client_stats_display.short_description = "Client Stats"
 
