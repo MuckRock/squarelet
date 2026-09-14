@@ -447,16 +447,11 @@ HEROKU_APP_NAME = env("HEROKU_APP_NAME", default="")
 if ENV == "staging" and HEROKU_APP_NAME:
     SQUARELET_URL = f"https://{HEROKU_APP_NAME}.herokuapp.com"
 
-STATS_SERVICE_USERNAME = env("STATS_SERVICE_USERNAME", default="")
 MUCKROCK_URL = env("MUCKROCK_URL", default="https://dev.muckrock.com")
-MUCKROCK_STATS_API_URL = env(
-    "MUCKROCK_STATS_API_URL", default="https://dev.muckrock.com/stats_api/"
-)
+
 FOIAMACHINE_URL = env("FOIAMACHINE_URL", default="https://dev.foiamachine.org")
 DOCCLOUD_URL = env("DOCCLOUD_URL", default="https://www.dev.documentcloud.org")
-DOCCLOUD_STATS_API_URL = env(
-    "DOCCLOUD_STATS_API_URL", default="https://api.dev.documentcloud.org/stats_api/"
-)
+
 BIGLOCALNEWS_URL = env("BIGLOCALNEWS_URL", default="https://local.biglocalnews.org")
 BIGLOCALNEWS_API_URL = env(
     "BIGLOCALNEWS_API_URL", default="https://local-api.biglocalnews.org"
@@ -606,3 +601,14 @@ COLLABORATIVE_TAGS = {
     slug: int(tag_id)
     for slug, tag_id in env.dict("COLLABORATIVE_TAGS", default={}).items()
 }
+
+# Stats sync
+DOCCLOUD_STATS_API_URL = env(
+    "DOCCLOUD_STATS_API_URL", default="https://api.dev.documentcloud.org/stats_api/"
+)
+MUCKROCK_STATS_API_URL = env(
+    "MUCKROCK_STATS_API_URL", default="https://dev.muckrock.com/stats_api/"
+)
+STATS_SERVICE_USERNAME = env("STATS_SERVICE_USERNAME", default="")
+MUCKROCK_PAGE_SIZE = env("MUCKROCK_PAGE_SIZE", default=100)
+DOCCLOUD_PAGE_SIZE = env("DOCCLOUD_PAGE_SIZE", default=100)

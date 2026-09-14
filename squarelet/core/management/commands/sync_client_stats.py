@@ -49,17 +49,29 @@ class Command(BaseCommand):
         self.session.headers.update({"User-Agent": "Accounts Stats Sync"})
 
         clients = {
-            "documentcloud": settings.DOCCLOUD_STATS_API_URL,
-            "muckrock": settings.MUCKROCK_STATS_API_URL,
+            "documentcloud": (
+                settings.DOCCLOUD_STATS_API_URL,
+                settings.DOCCLOUD_STATS_PAGE_SIZE,
+            ),
+            "muckrock": (
+                settings.MUCKROCK_STATS_API_URL,
+                settings.MUCKROCK_STATS_PAGE_SIZE,
+            ),
         }
-        for client, base_url in clients.items():
+        for client, (base_url, page_size) in clients.items():
             try:
                 self.stdout.write(f"Syncing {client}...")
                 n_users, unmatched_users = self._sync_endpoint(
-                    f"{base_url}users/", client, User, "individual_organization_id"
+                    f"{base_url}users/?per_page={page_size}",
+                    client,
+                    User,
+                    "individual_organization_id",
                 )
                 n_orgs, unmatched_orgs = self._sync_endpoint(
-                    f"{base_url}organizations/", client, Organization, "uuid"
+                    f"{base_url}organizations/?per_page={page_size}",
+                    client,
+                    Organization,
+                    "uuid",
                 )
                 self.stdout.write(
                     self.style.SUCCESS(
