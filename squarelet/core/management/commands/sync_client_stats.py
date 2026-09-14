@@ -4,6 +4,7 @@ from django.core.management.base import BaseCommand, CommandError
 
 # Standard Library
 import logging
+import time
 
 # Third Party
 import requests
@@ -123,6 +124,7 @@ class Command(BaseCommand):
             total += matched
             unmatched.extend(page_unmatched)
             url = data.get("next")
+            time.sleep(1)
         if unmatched:
             logger.warning(
                 "[stats sync] %s %s: %d fetched rows had no matching Accounts "
