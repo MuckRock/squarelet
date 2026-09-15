@@ -618,10 +618,14 @@ class Subscription(Cancellable, models.Model):
         Price" - or, where Stripe accepts it, silently duplicated and billed
         twice.
 
-        Every line that predates the subscription/item split is in that
-        state: the column arrived empty and the data migration had no
-        per-line id to fill it from, the old schema having had one Stripe
-        subscription per row and no per-line id at all.
+        Two ways a line ends up in that state.  Anything predating the
+        subscription/item split: the column arrived empty and the data
+        migration had nothing to fill it from, the old schema having had one
+        Stripe subscription per row and no per-line id at all.  And any line
+        Stripe created for us since, which is what the backfill relies on -
+        it is deliberately re-runnable, with no "done" marker, so a second
+        pass over an already-migrated subscriber has to be a no-op rather
+        than a second pack line.
 
         Matching on the Price is what makes the write-back safe: a
         subscription cannot hold the same Price twice, so the correspondence
@@ -646,9 +650,7 @@ class Subscription(Cancellable, models.Model):
             if item.is_free:
                 continue
             # Whatever `stripe_items` sends as the price is what Stripe
-            # echoes back, so the two have to read the same field.  This
-            # branch moves the specs onto PlanPrice; the lookup follows, or
-            # it silently matches nothing and the self-heal stops healing.
+            # echoes back, so the two have to read the same field.
             item_id = by_price.get(item.stripe_price_id)
             if item_id and item_id != item.stripe_item_id:
                 item.stripe_item_id = item_id

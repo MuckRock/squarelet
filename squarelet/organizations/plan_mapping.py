@@ -108,6 +108,58 @@ LEGACY_PLAN_MAP = {
         "nonprofit",
         "",
     ),
+    # --- Per-user plans, which decompose rather than simply repoint --------
+    #
+    # These land on a flat tier price exactly like the rows above; what makes
+    # them different is that the line also carries a block count, so the
+    # migration adds pack lines alongside.  The target here covers the base
+    # only.  See PACK_DECOMPOSITION for the blocks.
+    ("organization-annual", True): ("organization", "annual", "standard", ""),
+    ("sunlight-enterprise-annual", True): (
+        "sunlight-enterprise",
+        "annual",
+        "standard",
+        "",
+    ),
+    # The older, cheaper Sunlight Basic rate, kept for the subscribers who
+    # still hold it.  A permanent grandfather rate is what the subscription
+    # costs rather than a discount that expires, so it is a price with a
+    # `code` and not a coupon.
+    ("sunlight-basic-annual", True): (
+        "sunlight-essential",
+        "annual",
+        "standard",
+        "legacy-basic",
+    ),
+}
+
+# Which packs one resource block becomes, per legacy plan.
+#
+# A block was never a single product's unit: it granted MuckRock requests
+# *and* DocumentCloud credits together.  Packs are sold per product, so how
+# many a block turns into is a per-plan fact and cannot be derived from the
+# block count alone.
+#
+# Only these two plans need an entry.  Twelve organizations hold blocks over
+# their minimum in production and every one of them is on Organization or
+# Organization (Annual) - checked against live data, not inferred.  Nobody
+# else can join them: the purchase flow hardcodes `minimum_users`, so
+# self-service cannot sell a block at all.  Listing the Sunlight tiers too
+# would be writing down a guess nothing exercises; if a block-holder ever
+# does appear on one, the migration refuses to run until it is added.
+#
+# An Organization block costs one pack ($10/mo, $120/yr) and becomes one.
+# Preserving the DocumentCloud half would double what those subscribers pay,
+# and the overage went essentially unused - 37 credits across all twelve for
+# all time, against a 30,000/month grant.  Dropping it is what keeps the
+# bill identical without a coupon or a conversation.
+#
+# None of this is trusted on faith: the migration recomputes each
+# subscriber's bill both ways and refuses anyone the arithmetic does not
+# reproduce exactly.
+PACK_DECOMPOSITION = {
+    "organization": ("muckrock-request-pack",),
+    "organization-annual": ("muckrock-request-pack",),
 }
 
 # Deliberately left alone.  Each needs a decision or an action outside this
@@ -141,3 +193,22 @@ def resolve_target(slug, *, allow_comped):
     if not allow_comped and target[2] == "comped":
         return None
     return target
+
+
+# Legacy plans whose entitlements deliberately change when they consolidate.
+#
+# Repointing a subscription moves it onto the canonical tier's entitlements,
+# which is usually a no-op by construction.  Where it is not, the change was
+# a decision rather than an accident, and the migration reports it instead of
+# refusing.  Everything absent from this map must come out identical.
+EXPECTED_GRANT_CHANGES = {
+    "beta": "Grandfathered onto Professional: 5 -> 20 MuckRock requests.",
+    "insideclimate-news-plan": (
+        "Normalized to Organization: 15 -> 50 requests, plus DocumentCloud "
+        "access it does not have today."
+    ),
+    "education-plan": (
+        "Gains Organization's 50 requests, where org-features-minus-requests "
+        "grants zero, plus DocumentCloud access."
+    ),
+}
