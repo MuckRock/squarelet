@@ -6,6 +6,7 @@ from unittest.mock import Mock
 
 # Third Party
 import pytest
+import stripe
 
 # Squarelet
 from squarelet.organizations.admin import PlanPriceForm
@@ -260,3 +261,69 @@ class TestSavedRowIsReadOnlyInTheAdmin:
         assert form.cleaned_data["amount"] == 10000
         assert form.cleaned_data["currency"] == "usd"
         assert form.cleaned_data["interval"] == "monthly"
+
+
+@pytest.mark.django_db()
+class TestSupersedeRetiresTheOldStripePrice:
+    """A superseded rate must stop being sellable.
+
+    Stripe Prices are immutable, so a rate change is a new Price - and
+    without deactivating the old one it stays attachable forever, which is
+    the old rate quietly still on sale.
+    """
+
+    def _service(self, mocker):
+        service = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_plan_service.return_value
+        # find_* return real ids, not Mocks: they are written to CharFields.
+        service.find_price.return_value = mocker.Mock(id="price_new")
+        service.find_product.return_value = mocker.Mock(id="prod_1")
+        return service
+
+    @staticmethod
+    def _with_product(price):
+        """Give the plan a Product so ensure_stripe_product short-circuits.
+
+        Otherwise it goes looking for one and stores the mock's `.id`,
+        which is not a string.
+        """
+        price.plan.stripe_product_id = "prod_1"
+        price.plan.save(update_fields=["stripe_product_id"])
+        return price
+
+    def test_the_old_price_is_archived(self, plan_price_factory, mocker):
+        service = self._service(mocker)
+        service.create_price.return_value = mocker.Mock(id="price_new")
+        price = self._with_product(
+            plan_price_factory(amount=10_000, stripe_price_id="price_old")
+        )
+
+        price.supersede(20_000)
+
+        service.archive_price.assert_called_once_with("price_old")
+
+    def test_a_price_that_never_reached_stripe_is_skipped(
+        self, plan_price_factory, mocker
+    ):
+        """A comped row has no Stripe counterpart to retire."""
+        service = self._service(mocker)
+        price = plan_price_factory(amount=0, stripe_price_id="")
+
+        price.supersede(0)
+
+        service.archive_price.assert_not_called()
+
+    def test_the_replacement_is_still_returned_if_archiving_fails(
+        self, plan_price_factory, mocker
+    ):
+        service = self._service(mocker)
+        service.create_price.return_value = mocker.Mock(id="price_new")
+        service.archive_price.side_effect = stripe.InvalidRequestError("gone", None)
+        price = self._with_product(
+            plan_price_factory(amount=10_000, stripe_price_id="price_old")
+        )
+
+        replacement = price.supersede(20_000)
+
+        assert replacement.amount == 20_000
