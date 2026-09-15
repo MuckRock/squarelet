@@ -1,6 +1,7 @@
 {# required: css/invitation_list_item.css #}
 {% load i18n %}
 {% load icon %}
+{% load humanize %}
 <div class="invited">
     {% if invitation.user %}
     <div class="person avatar">
@@ -41,4 +42,7 @@
         <p class="help">Each invitation link may only be used once.</p>
     </div>
     {% endif %}
+    <p class="caption card-item-timestamp">{% trans "Created" %}
+      <time datetime="{{ invitation.created_at|date:"c" }}" title="{{ invitation.created_at|date:"c" }}">{{ invitation.created_at|naturaltime }}</time>
+    </p>
 </div>
