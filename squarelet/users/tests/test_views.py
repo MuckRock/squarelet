@@ -159,14 +159,18 @@ class TestUserDetailView(ViewTestMixin):
             self.call_view(rf, other_user, username=user.username)
 
     def test_own_subscription_benefits_are_consolidated(
-        self, rf, user_factory, plan_factory, subscription_factory
+        self, rf, user_factory, plan_factory, subscription_item_factory
     ):
         """Every plan the user pays for is summarized into one benefits list"""
         user = user_factory()
         plan_a = plan_factory(name="Plan A", benefits=["Shared", "A only"])
         plan_b = plan_factory(name="Plan B", benefits=["Shared", "B only"])
-        subscription_factory(organization=user.individual_organization, plan=plan_a)
-        subscription_factory(organization=user.individual_organization, plan=plan_b)
+        subscription_item_factory(
+            subscription__organization=user.individual_organization, plan=plan_a
+        )
+        subscription_item_factory(
+            subscription__organization=user.individual_organization, plan=plan_b
+        )
 
         response = self.call_view(rf, user, username=user.username)
 
@@ -182,12 +186,19 @@ class TestUserDetailView(ViewTestMixin):
         ]
 
     def test_own_subscription_benefits_separate_from_inherited(
-        self, rf, user_factory, organization_factory, plan_factory, subscription_factory
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
     ):
         """Benefits the user pays for are not mixed in with their orgs'"""
         user = user_factory()
         own_plan = plan_factory(name="Own Plan", benefits=["Own benefit"])
-        subscription_factory(organization=user.individual_organization, plan=own_plan)
+        subscription_item_factory(
+            subscription__organization=user.individual_organization, plan=own_plan
+        )
         org_plan = plan_factory(
             name="Org Plan", benefits=["Org benefit"], base_price=100
         )
@@ -598,7 +609,7 @@ class TestIndividualSubscriptionStaffActions(ViewTestMixin):
     url = "/users/{username}/cancel/{pk}/"
 
     def test_staff_cancel_subscription_creates_action(
-        self, rf, user_factory, plan_factory, subscription_factory, mocker
+        self, rf, user_factory, plan_factory, subscription_item_factory, mocker
     ):
         """Staff cancelling a user's subscription targets the individual org"""
         mocker.patch("squarelet.organizations.models.Organization.remove_subscription")
@@ -606,7 +617,9 @@ class TestIndividualSubscriptionStaffActions(ViewTestMixin):
         staff = user_factory(is_staff=True)
         organization = user.individual_organization
         plan = plan_factory(name="Professional")
-        subscription = subscription_factory(organization=organization, plan=plan)
+        subscription = subscription_item_factory(
+            subscription__organization=organization, plan=plan
+        )
 
         response = self.call_view(
             rf, staff, {}, username=user.username, pk=subscription.pk
@@ -623,13 +636,13 @@ class TestIndividualSubscriptionStaffActions(ViewTestMixin):
         assert action.public is False
 
     def test_owner_cancel_subscription_no_action(
-        self, rf, user_factory, plan_factory, subscription_factory, mocker
+        self, rf, user_factory, plan_factory, subscription_item_factory, mocker
     ):
         """A user cancelling their own subscription is not logged"""
         mocker.patch("squarelet.organizations.models.Organization.remove_subscription")
         user = user_factory(username="dotted.name")
-        subscription = subscription_factory(
-            organization=user.individual_organization, plan=plan_factory()
+        subscription = subscription_item_factory(
+            subscription__organization=user.individual_organization, plan=plan_factory()
         )
 
         response = self.call_view(
@@ -640,14 +653,15 @@ class TestIndividualSubscriptionStaffActions(ViewTestMixin):
         assert not Action.objects.filter(verb="cancelled a subscription").exists()
 
     def test_staff_managing_own_account_no_action(
-        self, rf, user_factory, plan_factory, subscription_factory, mocker
+        self, rf, user_factory, plan_factory, subscription_item_factory, mocker
     ):
         """A staff member managing their own individual account is not logged —
         they are the owner (admin) of their own individual organization"""
         mocker.patch("squarelet.organizations.models.Organization.remove_subscription")
         staff = user_factory(is_staff=True, username="staffer")
-        subscription = subscription_factory(
-            organization=staff.individual_organization, plan=plan_factory()
+        subscription = subscription_item_factory(
+            subscription__organization=staff.individual_organization,
+            plan=plan_factory(),
         )
 
         response = self.call_view(

@@ -93,7 +93,7 @@ class TestPlanCard:
         org = organization_factory(plans=[plan])
 
         html = self._render(
-            subscriptions=list(org.subscriptions.all()),
+            subscriptions=list(org.subscription_items.all()),
             subscription_benefits=["100 requests each month"],
         )
 
@@ -110,7 +110,7 @@ class TestPlanCard:
         parent = organization_factory(name="Parent Org")
 
         html = self._render(
-            subscriptions=list(org.subscriptions.all()),
+            subscriptions=list(org.subscription_items.all()),
             subscription_benefits=["Own benefit"],
             inherited_orgs=[parent],
             inherited_benefits=["Inherited benefit"],
@@ -142,7 +142,7 @@ class TestPlanCard:
         """An active subscription shows its price and next renewal date"""
         plan = plan_factory(name="Org Plan", annual=False, base_price=30)
         org = organization_factory(plans=[plan])
-        subscription = org.subscriptions.get()
+        subscription = org.subscription_items.get()
         subscription.current_period_end = datetime.datetime(
             2026, 2, 15, 12, 0, tzinfo=datetime.timezone.utc
         )
@@ -161,7 +161,7 @@ class TestPlanCard:
         plan = plan_factory(name="Org Plan", annual=True, base_price=300)
         org = organization_factory(plans=[plan])
 
-        html = self._render(subscriptions=list(org.subscriptions.all()))
+        html = self._render(subscriptions=list(org.subscription_items.all()))
 
         assert "$300 per year" in html
 
@@ -172,7 +172,7 @@ class TestPlanCard:
         plan = plan_factory(name="Org Plan", base_price=0, price_per_user=0)
         org = organization_factory(plans=[plan])
 
-        html = self._render(subscriptions=list(org.subscriptions.all()))
+        html = self._render(subscriptions=list(org.subscription_items.all()))
 
         assert "Free" in html
 
@@ -183,7 +183,7 @@ class TestPlanCard:
         instead of a renewal date"""
         plan = plan_factory(name="Org Plan", annual=False, base_price=30)
         org = organization_factory(plans=[plan])
-        subscription = org.subscriptions.get()
+        subscription = org.subscription_items.get()
         subscription.cancelled = True
         subscription.cancel_at = datetime.date(2026, 1, 15)
         subscription.current_period_end = datetime.datetime(
@@ -204,7 +204,7 @@ class TestPlanCard:
         plan = plan_factory(name="Org Plan")
         org = organization_factory(plans=[plan])
 
-        html = self._render(subscriptions=list(org.subscriptions.all()))
+        html = self._render(subscriptions=list(org.subscription_items.all()))
 
         assert "No card on file" in html
 
@@ -216,7 +216,7 @@ class TestPlanCard:
         org = organization_factory(plans=[plan])
 
         html = self._render(
-            subscriptions=list(org.subscriptions.all()),
+            subscriptions=list(org.subscription_items.all()),
             card_brand="visa",
             card_last4="4242",
         )
@@ -230,7 +230,7 @@ class TestPlanCard:
         plan = plan_factory(name="Org Plan")
         org = organization_factory(plans=[plan])
 
-        html = self._render(subscriptions=list(org.subscriptions.all()))
+        html = self._render(subscriptions=list(org.subscription_items.all()))
 
         expected_url = reverse("plan_detail", kwargs={"pk": plan.pk, "slug": plan.slug})
         assert f'href="{expected_url}"' in html
