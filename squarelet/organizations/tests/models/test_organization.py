@@ -1,3 +1,7 @@
+# Django
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
+
 # Standard Library
 from datetime import date, datetime, timezone as dt_timezone
 from unittest.mock import Mock
@@ -1438,10 +1442,13 @@ class TestMultipleSubscriptions:
 
         org.remove_subscription(plan_a, user)
 
-        # Both lines share one subscription, so removing one drops just that
-        # line and leaves the other billing.
-        assert not SubscriptionItem.objects.filter(pk=sub_a.pk).exists()
-        assert SubscriptionItem.objects.filter(pk=sub_b.pk).exists()
+        # Cancellation is subscription-level here, and both lines share one
+        # subscription - so removing either ends both.  Cancelling one plan
+        # of several is the feature that comes next.
+        sub_a.refresh_from_db()
+        sub_b.refresh_from_db()
+        assert sub_a.cancelled
+        assert sub_b.cancelled
 
     @pytest.mark.django_db
     def test_modify_subscription(
@@ -1501,3 +1508,118 @@ class TestMultipleSubscriptions:
 
         assert org.has_active_subscription(plan=plan)
         assert org.has_active_subscription()
+
+
+@pytest.mark.django_db()
+class TestInheritedPlansQueryCount:
+    """These walk every sharing group, then recurse up the parents.
+
+    `get_plans()` builds a fresh queryset per call and cannot read a
+    prefetch, so each source cost a query on every organization and user
+    page - including the loops that had asked for the prefetch and then
+    ignored it.
+    """
+
+    def _member_of_sharing_groups(
+        self,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+        label,
+        group_count,
+    ):
+        """A member organization belonging to `group_count` sharing groups."""
+        member = organization_factory(name=f"Member {label}")
+        for n in range(group_count):
+            group = organization_factory(
+                share_resources=True, name=f"Group {label}-{n}"
+            )
+            subscription_item_factory(
+                subscription__organization=group,
+                plan=plan_factory(name=f"Plan {label}-{n}", base_price=50),
+            )
+            group.members.add(member)
+        return member
+
+    def _queries_for(self, organization):
+        with CaptureQueriesContext(connection) as captured:
+            organization.get_inherited_plans()
+        return len(captured)
+
+    def test_the_query_count_does_not_grow_with_the_sources(
+        self,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+    ):
+        """A threshold would not catch this; the shape of the growth does.
+
+        One query per source is only visibly wrong beside a case with more
+        sources, so this compares two organizations rather than guessing a
+        number.
+        """
+        counts = []
+        for label, group_count in (("A", 2), ("B", 5)):
+            member = self._member_of_sharing_groups(
+                organization_factory,
+                plan_factory,
+                subscription_item_factory,
+                label,
+                group_count,
+            )
+            # Non-empty, so that a change which stops exercising the walk
+            # fails here rather than passing with nothing to count.
+            assert len(member.get_inherited_plans()) == group_count
+            counts.append(self._queries_for(member))
+
+        assert counts[0] == counts[1]
+
+
+@pytest.mark.django_db()
+class TestPrefetchedPlans:
+    """`get_plans()` cannot use a prefetch; this is the one that can.
+
+    `get_plans()` builds a fresh queryset on every call, so callers looping
+    over organizations paid for a `subscriptions__plans` prefetch and then
+    queried once per organization anyway.
+    """
+
+    def test_returns_the_plans_on_every_subscription(
+        self, subscription_item_factory, plan_factory
+    ):
+        item = subscription_item_factory()
+        other = plan_factory(name="Second Plan")
+        subscription_item_factory(subscription=item.subscription, plan=other)
+        organization = item.subscription.organization
+
+        assert {plan.pk for plan in organization.prefetched_plans()} == {
+            item.plan.pk,
+            other.pk,
+        }
+
+    def test_the_same_plan_on_two_subscriptions_appears_once(
+        self, subscription_item_factory, plan_factory
+    ):
+        plan = plan_factory(name="Shared Plan")
+        item = subscription_item_factory(plan=plan)
+        subscription_item_factory(
+            plan=plan,
+            subscription__organization=item.subscription.organization,
+            subscription__interval="annual",
+        )
+        organization = item.subscription.organization
+
+        assert [p.pk for p in organization.prefetched_plans()] == [plan.pk]
+
+    def test_it_spends_no_queries_when_prefetched(
+        self, subscription_item_factory, django_assert_num_queries
+    ):
+        item = subscription_item_factory()
+        organization = (
+            Organization.objects.prefetch_related("subscriptions__plans")
+            .filter(pk=item.subscription.organization.pk)
+            .first()
+        )
+
+        with django_assert_num_queries(0):
+            organization.prefetched_plans()

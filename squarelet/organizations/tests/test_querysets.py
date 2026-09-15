@@ -356,6 +356,60 @@ def test_membership_create_without_plan_no_sync(mocker):
     mock_sync.assert_not_called()
 
 
+@pytest.mark.django_db
+def test_joining_a_live_subscription_settles_the_charge(mocker):
+    """Adding a line prorates immediately, so it is a charge like any other.
+
+    `start()` authenticates and records the invoice for a subscription it
+    creates; the branch that adds to one already live did neither, so a card
+    needing SCA was never challenged and no Invoice row was written for
+    money that had been taken.
+
+    Outside the TestCase above so that pytest fixtures are injected.
+    """
+    existing = SubscriptionItemFactory(subscription__subscription_id="sub_live")
+    organization = existing.subscription.organization
+    updated = mocker.Mock(status="active")
+    mocker.patch(
+        "squarelet.organizations.models.Subscription.stripe_modify",
+        return_value=updated,
+    )
+    settle = mocker.patch(
+        "squarelet.organizations.models.Subscription.settle_added_line"
+    )
+    mocker.patch(
+        "squarelet.organizations.models.payment.SubscriptionItem.notify_started"
+    )
+
+    SubscriptionItem.objects.start(
+        organization=organization, plan=PlanFactory(name="Joining Plan")
+    )
+
+    settle.assert_called_once_with(updated)
+
+
+@pytest.mark.django_db
+def test_a_free_plan_still_announces_itself(mocker):
+    """Who gets announced is `notify_started`'s decision, not the price's.
+
+    It enrols only the line that first grants the `organization`
+    entitlement, and only once.  Gating the call on price meant a free plan
+    carrying that entitlement enrolled nobody, and no free signup reached
+    Slack at all.
+    """
+    notify = mocker.patch(
+        "squarelet.organizations.models.payment.SubscriptionItem.notify_started"
+    )
+    mocker.patch("squarelet.organizations.models.Subscription.start")
+
+    SubscriptionItem.objects.start(
+        organization=OrganizationFactory(),
+        plan=PlanFactory(name="Free Tier", base_price=0, price_per_user=0),
+    )
+
+    notify.assert_called_once()
+
+
 class TestSubscriptionItemQuerySet(TestCase):
     """Unit tests for SubscriptionItem queryset"""
 

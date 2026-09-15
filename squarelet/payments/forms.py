@@ -162,11 +162,14 @@ class PlanPurchaseForm(StripeForm):
                     Q(pk=individual_org.pk) | Q(pk__in=admin_orgs)
                 ).distinct()
 
-            # Exclude organizations already subscribed to this plan
+            # Exclude organizations that already hold a line for this plan.
+            # `unique_together` is (subscription, plan), so there is no room
+            # for a second one, and `add_subscription` refuses on the same
+            # grounds - offering them here only led to a form that accepted
+            # the choice and then raised SubscriptionError.
             if self.plan:
                 subscribed_orgs = Organization.objects.filter(
                     subscriptions__items__plan=self.plan,
-                    subscriptions__cancelled=False,
                 )
                 base_queryset = base_queryset.exclude(pk__in=subscribed_orgs)
 

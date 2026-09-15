@@ -8,7 +8,6 @@ from django.db import transaction
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import (
     DetailView,
@@ -22,7 +21,6 @@ from django.views.generic import (
 # Standard Library
 import logging
 import sys
-from datetime import datetime
 
 # Third Party
 import stripe
@@ -37,7 +35,6 @@ from squarelet.organizations.models.payment import (
 )
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.exceptions import SubscriptionError
-from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.tasks import add_to_waitlist
 from squarelet.payments.forms import (
     CancelSubscriptionForm,
@@ -556,9 +553,13 @@ class BaseManageSubscriptions(SubscriptionObjectMixin, DetailView):
         context = super().get_context_data(**kwargs)
 
         # Get subscriptions and add renewal/cancellation date and cost data
-        subscriptions = self.object.subscription_items.all()
+        subscriptions = self.object.subscription_items.select_related(
+            "subscription", "plan"
+        )
         for subscription in subscriptions:
-            subscription.next_date = get_subscription_next_date(subscription)
+            # `next_date` is a property on the line now, reading its
+            # subscription's - assigning to it raises, and this page is the
+            # only caller that did.
             subscription.cost = subscription.plan.cost(self.object.max_users)
         context["subscriptions"] = subscriptions
 
@@ -697,7 +698,7 @@ class BaseCancelSubscription(SubscriptionObjectMixin, UpdateView):
         ).first()
         if subscription:
             context["subscription"] = subscription
-            context["next_date"] = get_subscription_next_date(subscription)
+            context["next_date"] = subscription.subscription.next_date
         return context
 
     def form_valid(self, form):
@@ -781,7 +782,6 @@ class BaseResubscribe(SubscriptionObjectMixin, View):
         subscription = organization.subscription_items.filter(
             id=self.kwargs["pk"]
         ).first()
-        print(subscription)
         try:
             subscription.uncancel()
         except ValidationError as exc:
@@ -795,19 +795,3 @@ class BaseResubscribe(SubscriptionObjectMixin, View):
             return JsonResponse({"redirect": redirect_url, "message": str(success_msg)})
         messages.success(request, success_msg)
         return redirect(redirect_url)
-
-
-def get_subscription_next_date(subscription):
-    stripe_sub = subscription.stripe_subscription
-    if stripe_sub:
-        time_stamp = (
-            get_payment_provider()
-            .get_subscription_service()
-            .get_current_period_end(stripe_sub)
-        )
-        if time_stamp:
-            tz_datetime = datetime.fromtimestamp(
-                time_stamp, tz=timezone.get_current_timezone()
-            )
-            return tz_datetime.date()
-    return None
