@@ -1,3 +1,5 @@
+# pylint: disable=too-many-lines
+
 # Django
 from django.utils.timezone import get_current_timezone
 
@@ -453,11 +455,20 @@ class TestSubscription:
         assert item.subscription.cancel_at == expected_date
 
     @pytest.mark.django_db()
-    def test_cancel_flags_every_line(self, subscription_item_factory, plan_factory):
-        """The UI lists lines, so a line must report a whole-sub cancellation."""
-        item = subscription_item_factory()
+    def test_cancel_flags_every_paid_line(
+        self, subscription_item_factory, plan_factory
+    ):
+        """The UI lists lines, so a line must report a whole-sub cancellation.
+
+        Paid lines - a free one is never Stripe's to cancel - and the
+        factory makes free plans unless told otherwise.
+        """
+        item = subscription_item_factory(
+            plan=plan_factory(name="Paid Plan", base_price=30)
+        )
         other = subscription_item_factory(
-            subscription=item.subscription, plan=plan_factory(name="Other Plan")
+            subscription=item.subscription,
+            plan=plan_factory(name="Other Plan", base_price=40),
         )
         subscription = item.subscription
         # Midday, so converting to local time cannot move the date and this
@@ -519,9 +530,12 @@ class TestSubscription:
         self, subscription_item_factory, plan_factory, mocker
     ):
         """Reviving a line has to clear Stripe's cancel_at_period_end too."""
-        item = subscription_item_factory()
+        item = subscription_item_factory(
+            plan=plan_factory(name="First Plan", base_price=30)
+        )
         subscription_item_factory(
-            subscription=item.subscription, plan=plan_factory(name="Second Plan")
+            subscription=item.subscription,
+            plan=plan_factory(name="Second Plan", base_price=40),
         )
         mocker.patch(
             "squarelet.organizations.models.Organization.customer",

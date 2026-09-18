@@ -786,18 +786,49 @@ class Subscription(Cancellable, models.Model):
             if sibling.pk != item.pk and not sibling.is_free
         ]
 
+    def forget_stripe_subscription(self):
+        """Become a subscription Stripe has never heard of.
+
+        For the moment the Stripe subscription is gone - deleted by a
+        downgrade to free, or ended by the sweep once its date arrived -
+        and this row carries on holding whatever free lines it has.
+
+        Drops the Stripe id and every line's item id: left behind, the item
+        ids would be sent to whatever subscription is started next, which
+        has never heard of them - "No such subscription_item", and a line
+        that cannot be removed.  Clears the cancellation outright rather
+        than just the date, because a flag with no date is the pair's worst
+        half-state: the sweep reads it as due immediately and deletes the
+        row the customer has just downgraded onto, every line with it.
+        """
+        self.subscription_id = ""
+        self.remember_stripe_subscription(None)
+        self.items.update(stripe_item_id="")
+        self.clear_cancellation()
+        self.save(update_fields=["subscription_id", *self.CANCELLATION_FIELDS])
+        self.push_cancellation_to_items()
+
     def push_cancellation_to_items(self, reviving=None):
-        """Give every line this subscription's own cancellation state.
+        """Give every paid line this subscription's own cancellation state.
 
         Lines mirror their subscription because they bill on one Stripe
         subscription and therefore stop together.  The UI lists lines, not
         subscriptions, so a line has to be able to say it is going away
         without consulting its parent.  Copied from `self` rather than
         restated, so the two cannot be written to disagree.
+
+        Paid lines only.  A free line is never sent to Stripe, so a
+        cancellation - from the dashboard, or from the last paid line
+        stopping - is not a statement about it: whoever cancelled did not
+        know it was there.  It used to be flagged with the rest and then
+        deleted with the subscription, so a customer lost a free plan
+        because their paid one ended.  The same free line on an
+        organization with no paid plan lives forever, and which of those
+        two a customer gets should not turn on billing-shape grouping.
         """
         if self.cancelled:
             # A line already ending keeps its own date and its own reason.
-            self.items.exclude(cancelled=True).update(
+            self.items.paid().exclude(cancelled=True).update(
                 cancelled=True,
                 cancel_at=self.cancel_at,
                 cancelled_by_subscription=True,
@@ -904,16 +935,7 @@ class Subscription(Cancellable, models.Model):
                     get_payment_provider().get_subscription_service().delete(
                         self.stripe_subscription
                     )
-                self.subscription_id = ""
-                self.remember_stripe_subscription(None)
-                # Sending these to the next subscription raises "No such
-                # subscription_item".
-                self.items.update(stripe_item_id="")
-                # A flag left without a date reads as due immediately, and the
-                # sweep would delete the subscription just downgraded to.
-                self.clear_cancellation()
-                self.save(update_fields=["subscription_id", *self.CANCELLATION_FIELDS])
-                self.push_cancellation_to_items()
+                self.forget_stripe_subscription()
             return None
         if not self.subscription_id:
             return self.start(payment_method=payment_method)

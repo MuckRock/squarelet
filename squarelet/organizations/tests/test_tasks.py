@@ -226,38 +226,42 @@ def test_restore_organization_annual_sub_deleted_after_cancel_at(
     assert org.update_on is None
 
 
-@pytest.mark.django_db
-def test_restore_organization_keeps_the_free_line(
-    organization_plan_factory, plan_factory, subscription_item_factory, mocker
+@pytest.mark.django_db()
+def test_restore_organization_keeps_a_free_line_when_the_paid_ones_end(
+    organization_plan_factory, plan_factory, mocker
 ):
-    """The nightly sweep ends the paid lines, not the row.
+    """A free line was never Stripe's to cancel, so it rides through.
 
-    It bulk-deleted every cancelled subscription that was due, which after
-    the split cascades to the free and comped lines sharing that row -
-    access nobody cancelled, on a job that runs every night.
+    The row used to be deleted outright and the free line cascaded with
+    it - a customer lost a free plan because their paid one ended, while
+    the same free line on an organization with no paid plan lives forever.
     """
     mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
     mocker.patch("stripe.Plan.create")
     today = date.today()
+
     paid = SubscriptionItemFactory(
         plan=organization_plan_factory(),
+        subscription__subscription_id="sub_ending",
         subscription__cancelled=True,
         subscription__cancel_at=today - timedelta(days=1),
         subscription__organization__update_on=today - timedelta(1),
     )
-    free = subscription_item_factory(
+    free = SubscriptionItemFactory(
         subscription=paid.subscription,
-        plan=plan_factory(name="Comped Line", base_price=0, price_per_user=0),
+        plan=plan_factory(name="Free Plan", base_price=0, price_per_user=0),
     )
+    subscription = paid.subscription
 
     tasks.restore_organization()
 
     assert not SubscriptionItem.objects.filter(pk=paid.pk).exists()
     assert SubscriptionItem.objects.filter(pk=free.pk).exists()
-    subscription = free.subscription
     subscription.refresh_from_db()
-    assert subscription.subscription_id == ""
-    assert subscription.cancelled is False
+    assert subscription.subscription_id == "", "no longer names a Stripe object"
+    assert not subscription.cancelled, "nothing is pending any more"
+    free.refresh_from_db()
+    assert not free.cancelled
 
 
 class TestRestoreOrganizationGrants:
@@ -2717,19 +2721,24 @@ class TestHandleSubscriptionUpdated:
         assert subscription.cancelled is True
 
     @pytest.mark.django_db
-    def test_cancellation_reaches_the_lines(
-        self, subscription_factory, subscription_item_factory
+    def test_cancellation_reaches_the_paid_lines(
+        self, subscription_factory, subscription_item_factory, plan_factory
     ):
         """The UI lists lines, not subscriptions.
 
         Subscription.cancel() flags them; a cancellation scheduled outside
         our own flow - the Stripe dashboard, say - arrives here instead, and
-        used to leave every line saying it would renew.
+        used to leave every line saying it would renew.  Paid lines only: a
+        free one was never sent to Stripe, so the dashboard cannot have
+        been cancelling it.
         """
         subscription = subscription_factory(
             subscription_id="sub_lines", cancelled=False
         )
-        item = subscription_item_factory(subscription=subscription)
+        item = subscription_item_factory(
+            subscription=subscription,
+            plan=plan_factory(name="Paid Plan", base_price=30),
+        )
 
         tasks.handle_subscription_updated(
             {

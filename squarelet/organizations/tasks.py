@@ -56,15 +56,19 @@ def restore_organization():
         Organization.objects.filter(id__in=due_org_ids).values_list("uuid", flat=True)
     )
 
-    # Retire cancelled subscriptions for due orgs where the Stripe cancellation
-    # date has passed (or is null, which covers free plans and legacy records).
-    # A bulk delete cascades to the free and comped lines nobody cancelled.
-    due_cancelled = Subscription.objects.filter(
+    # Cancelled subscriptions whose date has passed, or is null.  Paid lines
+    # go; a free line was never Stripe's to cancel and rides through,
+    # stripped of its Stripe identity.  Only an empty row is deleted.
+    ended = Subscription.objects.filter(
         organization_id__in=due_org_ids,
         cancelled=True,
     ).filter(Q(cancel_at__lte=today) | Q(cancel_at__isnull=True))
-    for subscription in due_cancelled:
-        retire_subscription(subscription)
+    for subscription in ended:
+        subscription.items.paid().delete()
+        if subscription.items.exists():
+            subscription.forget_stripe_subscription()
+        else:
+            subscription.delete()
 
     # Drop individually cancelled lines whose period has run out.  Stripe has
     # no per-item cancel_at_period_end, so this is what enforces it - and it
