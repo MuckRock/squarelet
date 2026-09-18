@@ -46,6 +46,18 @@ LEGACY_PLAN_MAP = {
     ("education-grant", False): ("organization", "monthly", "comped", ""),
     ("startsmall-grants", False): ("organization", "monthly", "comped", ""),
     ("education-plan", False): ("organization", "monthly", "comped", ""),
+    # Pays $0 today, manually invoiced, for 200 blocks.  Comped for now -
+    # "for now" because the standard annual rate for 200 blocks is
+    # substantial and moving them onto it needs a conversation first.
+    # Monthly rather than annual: a comped price never reaches Stripe, so
+    # the interval is cosmetic, and every other comped Organization account
+    # is monthly.  Decided 2026-09-18.
+    ("organization-flexible-users-annual", False): (
+        "organization",
+        "monthly",
+        "comped",
+        "",
+    ),
     # Same $100 as Organization, same base grant on both clients; the only
     # difference was 5 rather than 10 requests per block, and its two
     # subscribers hold no blocks.  Neither an InsideClimate-style coded
@@ -166,6 +178,9 @@ LEGACY_PLAN_MAP = {
 PACK_DECOMPOSITION = {
     "organization": ("muckrock-request-pack",),
     "organization-annual": ("muckrock-request-pack",),
+    # Its one subscriber holds 200 blocks, comped.  The blocks grant real
+    # requests, so they become a comped pack line rather than vanishing.
+    "organization-flexible-users-annual": ("muckrock-request-pack",),
 }
 
 # Deliberately left alone.  Each needs a decision or an action outside this
