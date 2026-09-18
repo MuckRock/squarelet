@@ -519,6 +519,42 @@ class Command(BaseCommand):
             self.stdout.write(f"      grant changes as decided: {reason}")
             return
 
+        if packs:
+            # Decomposition keeps only what its packs carry, by decision:
+            # a legacy block granted MuckRock requests *and* DocumentCloud
+            # credits, one pack covers the requests, and the credit
+            # overage - 37 used across all twelve block-holders, ever - is
+            # dropped so the bill stays identical.  See PACK_DECOMPOSITION.
+            #
+            # So the rule for a block-holder is: every resource a pack
+            # carries must come out at exactly the legacy number, and the
+            # only resources allowed to change are ones no pack carries,
+            # which may fall to the tier's base and no further.  Anything
+            # else - a pack that under-delivers, or a resource nobody
+            # decided to drop - is still refused.  Waiving the whole check
+            # via EXPECTED_GRANT_CHANGES would have covered every
+            # Organization subscriber, not the twelve this is about.
+            carried = set()
+            for price, _quantity in packs:
+                carried |= set(resource_totals([(price.plan, 1)]))
+            at_base = resource_totals([(item.plan, item.plan.minimum_users)])
+            unexplained = {
+                key
+                for key in set(before) | set(after)
+                if (key in carried and before[key] != after[key])
+                or (key not in carried and after[key] != at_base[key])
+            }
+            if not unexplained:
+                lost = {
+                    key: before[key] - after[key]
+                    for key in before
+                    if before[key] != after[key]
+                }
+                self.stdout.write(
+                    f"      block overage not carried by a pack, as decided: " f"{lost}"
+                )
+                return
+
         raise CommandError(
             f"would change what this organization receives: "
             f"{dict(before)} today, {dict(after)} after.  Either add a pack "
