@@ -346,8 +346,8 @@ CELERY_WORKER_CONCURRENCY = env.int("CELERY_WORKER_CONCURRENCY", default=3)
 
 # https://docs.celeryq.dev/en/v5.5.3/reference/cli.html#cmdoption-celery-worker-max-memory-per-child
 # Default is No limit according to documentation which on production is actually None.
-# This allows us to fine tune behavior if a only a specific memory intensive task becomes problematic with regard to memory
-# in the future so that one high memory consuming task doesn't let the dyno contineu to be OOM until the recycle.
+# This allows us to fine tune behavior if a only a specific memory intensive task becomes problematic
+# in the future. Prevents one high memory consuming task from keeping the dyno in OOM until recycle.
 CELERY_WORKER_MAX_MEMORY_PER_CHILD = env.int(
     "CELERY_WORKER_MAX_MEMORY_PER_CHILD", default=None
 )
