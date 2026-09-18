@@ -13,12 +13,13 @@ from squarelet.organizations.entitlement_shape import (
     scaling_pairs,
 )
 from squarelet.organizations.models.payment import Entitlement, SubscriptionItem
-from squarelet.organizations.plan_mapping import PACK_DECOMPOSITION
+from squarelet.organizations.plan_mapping import PACK_SLUGS
 
-# Every pack plan.  An entitlement attached to one of these holds a
-# per-unit value; anything else holds a tier's flat grant, and the two
-# transform in opposite directions.
-PACK_SLUGS = {slug for packs in PACK_DECOMPOSITION.values() for slug in packs}
+# An entitlement attached to a pack holds a per-unit value; anything else
+# holds a tier's flat grant, and the two transform in opposite directions.
+# `PACK_SLUGS` is the canonical list, not the decomposition map: that only
+# names the packs legacy plans decompose into, which left two of the three
+# classified as tiers and transformed into granting nothing.
 
 
 class Command(BaseCommand):
