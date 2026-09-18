@@ -231,7 +231,13 @@ class Command(BaseCommand):
         `plan_price` null, which surfaces much later and much less legibly -
         as a failure to make the column non-null, long after the run that
         caused it.
+
+        Only lines still needing a target.  A migrated line's plan is the
+        canonical one, and asking the map about *that* is asking the wrong
+        question - for a migrated comp it is a key the map does not hold,
+        which aborted every re-run over one.
         """
+        pending = [item for item in pending if not item.plan_price_id]
         unmapped = {
             (item.plan.slug, is_billing(item))
             for item in pending
@@ -359,6 +365,17 @@ class Command(BaseCommand):
         if item.plan.slug in DEFERRED_SLUGS:
             self.stdout.write(f"  ~ {org.slug}: {item.plan.slug} deferred")
             return "deferred"
+        if item.plan_price_id:
+            # Already migrated.  Its target is the price it holds, not
+            # whatever `LEGACY_PLAN_MAP` says about its *current* plan -
+            # which is now the canonical one, whose plain entry is the
+            # standard monthly price.  Re-deriving moved a nonprofit to
+            # list price with the money check reading the canonical plan's
+            # own `base_price` and passing; re-resolved an annual line to
+            # monthly, which Stripe refuses; and for a migrated comp looked
+            # up a key the map does not hold, failing preflight on exactly
+            # the run meant to repair a failed Stripe half.
+            return self._settle(item, dry_run, local_only)
 
         try:
             plan_price, packs = self._plan_for(item)
@@ -380,6 +397,29 @@ class Command(BaseCommand):
             # wrong - a Stripe error, a row changed underneath us - the
             # remaining subscribers still need migrating, and a re-run picks
             # this one up because nothing filters on "already done".
+            logger.exception("backfill_plan_prices failed for %s", org.slug)
+            self.stdout.write(self.style.ERROR(f"  ! {org.slug}: {exc}"))
+            return "failed"
+        return "migrated"
+
+    def _settle(self, item, dry_run, local_only):
+        """Finish a line whose local half is done: make sure Stripe agrees.
+
+        The re-run exists for one reason - a line whose row committed and
+        whose Stripe call did not.  So this pushes the subscription's
+        current lines at Stripe, which for a line Stripe already holds
+        correctly is a no-op and for one it does not is the missing half.
+        Nothing about the line itself is re-decided.
+        """
+        org = item.subscription.organization
+        self.stdout.write(
+            f"  = {org.slug}: {item.plan.slug} already on {item.plan_price}"
+        )
+        if dry_run or local_only or not is_billing(item):
+            return "migrated"
+        try:
+            item.subscription.stripe_modify(proration_behavior="none")
+        except Exception as exc:  # pylint: disable=broad-except
             logger.exception("backfill_plan_prices failed for %s", org.slug)
             self.stdout.write(self.style.ERROR(f"  ! {org.slug}: {exc}"))
             return "failed"

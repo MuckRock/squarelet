@@ -809,6 +809,49 @@ class TestRerunning:
         assert item.plan_price is not None
         assert item.quantity == 1
 
+    def test_a_second_run_does_not_reprice_a_nonprofit(self):
+        """The one case the tests above cannot see.
+
+        `organization` maps to itself, so re-deriving its target from the
+        canonical slug is harmless.  A nonprofit line is recorded under
+        `sunlight-essential`, and `("sunlight-essential", True)` is the
+        *standard* price - so a re-run that re-derived would move them to
+        list price, with the money check reading the canonical plan's
+        `base_price` and passing.
+        """
+        actor = UserFactory()
+        item = SubscriptionItemFactory(
+            plan=legacy("sunlight-nonprofit-essential", base_price=100),
+            subscription__subscription_id="sub_np",
+        )
+
+        run(actor=actor.username)
+        item.refresh_from_db()
+        assert item.plan_price.label == "nonprofit"
+        run(actor=actor.username)
+
+        item.refresh_from_db()
+        assert item.plan_price.label == "nonprofit", "still the deal they had"
+
+    def test_a_second_run_does_not_abort_on_a_migrated_comp(self):
+        """`sunlight-enterprise-rnn` migrates to `sunlight-enterprise` comped.
+
+        `("sunlight-enterprise", False)` is not in the map, so a re-run that
+        re-derived would fail preflight - on the run meant to repair a
+        failed Stripe half.
+        """
+        actor = UserFactory()
+        item = SubscriptionItemFactory(
+            plan=legacy("sunlight-enterprise-rnn", base_price=0),
+            subscription__subscription_id="",
+        )
+
+        run(actor=actor.username)
+        run(actor=actor.username)
+
+        item.refresh_from_db()
+        assert item.plan_price.label == "comped"
+
 
 # The twelve organizations holding blocks over their minimum in production,
 # as of Sep 2026.  Nobody can join them: the purchase flow hardcodes
