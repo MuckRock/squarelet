@@ -174,17 +174,46 @@ class TestTheRun:
             "requests_per_user": 50,
         }
 
-    def test_a_pack_is_reshaped_the_other_way(self):
-        entitlement = pack_entitlement()
+    # Every pack 0082 seeds, with its real resource shape.  The command
+    # used to derive its pack set from PACK_DECOMPOSITION, which names only
+    # the packs legacy plans decompose into - so the two below that nothing
+    # decomposes into yet were classified as tiers and transformed into
+    # granting nothing.  Silently: they had no subscribers, so the grant
+    # check printed no rows for them.
+    @pytest.mark.parametrize(
+        ("name", "slug", "resource_key", "per_unit"),
+        [
+            ("MuckRock Request Pack", "muckrock-request-pack", "requests", 10),
+            (
+                "DocumentCloud Credit Pack",
+                "documentcloud-credit-pack",
+                "ai_credits",
+                500,
+            ),
+            ("Scoutpost Credit Pack", "scoutpost-credit-pack", "credits", 1000),
+        ],
+    )
+    def test_every_pack_is_reshaped_the_other_way(
+        self, name, slug, resource_key, per_unit
+    ):
+        entitlement = EntitlementFactory(
+            resources={
+                f"base_{resource_key}": 0,
+                "minimum_users": 0,
+                f"{resource_key}_per_user": per_unit,
+            }
+        )
+        entitlement.plans.add(plan_named(name, slug))
 
         run()
 
         entitlement.refresh_from_db()
         assert entitlement.resources == {
-            "base_requests": 10,
+            f"base_{resource_key}": per_unit,
             "minimum_users": 1,
-            "requests_per_user": 10,
-        }
+            f"{resource_key}_per_user": per_unit,
+        }, f"{slug} must keep its per-unit value, not have it zeroed"
+        assert grant_new(entitlement.resources, 25) == 25 * per_unit
 
     def test_dry_run_writes_nothing(self):
         entitlement = tier_entitlement()

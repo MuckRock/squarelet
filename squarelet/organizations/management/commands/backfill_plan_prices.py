@@ -23,12 +23,10 @@ from squarelet.organizations.plan_mapping import (
     EXPECTED_GRANT_CHANGES,
     LEGACY_PLAN_MAP,
     PACK_DECOMPOSITION,
+    PACK_SLUGS,
 )
 
 logger = logging.getLogger(__name__)
-
-# Pack lines are this command's output, never its input.
-PACK_SLUGS = {slug for packs in PACK_DECOMPOSITION.values() for slug in packs}
 
 
 def is_billing(item):
