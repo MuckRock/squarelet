@@ -20,8 +20,8 @@ Args:
 {% if subscriptions or upgrade_plan or not inherited_benefits %}
 <main class="plan-card{% if not subscriptions %} plan-card--no-subscription{% endif %}">
   {% if subscriptions %}
-    <div class="plan-section">
-      <header class="plan-section-label">
+    <div class="card-section">
+      <header class="card-section-label">
         <h3>{% trans "Subscriptions" %}</h3>
         <span class="caption">
           {% if card_brand and card_last4 %}
@@ -33,11 +33,11 @@ Args:
           {% endif %}
         </span>
       </header>
-      <ul class="plan-subsection">
+      <ul class="card-subsection">
         {% for subscription in subscriptions %}
-          <li class="plan-item">
+          <li class="card-item">
             <a class="plan-name {% if subject == "organizations" %}organization{% else %}professional{% endif %}" href="{% url 'plan_detail' pk=subscription.plan.id slug=subscription.plan.slug %}">{{ subscription.plan.name }}</a>
-            <div class="plan-item-meta">
+            <div class="card-item-meta">
               <span class="caption">
                 {% if subscription.plan.free %}
                   {% trans "Free" %}
@@ -63,8 +63,8 @@ Args:
     </div>
 
     {% if subscription_benefits %}
-    <div class="plan-section">
-      <header class="plan-section-label">
+    <div class="card-section">
+      <header class="card-section-label">
         <h3>{% trans "Benefits" %}</h3>
         <span class="caption">
           {% if subject == "organizations" %}
@@ -74,7 +74,7 @@ Args:
           {% endif %}
         </span>
       </header>
-      <ul class="plan-subsection plan-benefits checklist">
+      <ul class="card-subsection plan-benefits checklist">
         {% for benefit in subscription_benefits %}
           <li class="checklist-item">
             <span class="icon">{% icon "checkmark" %}</span>
@@ -85,7 +85,7 @@ Args:
     </div>
     {% endif %}
   {% else %}
-    <div class="plan-section-label">
+    <div class="card-section-label">
       {% if subject == "users" %}
       <p>
         {% trans "You are using MuckRock&rsquo;s" %}
@@ -114,7 +114,7 @@ Args:
         </p>
         {% with upgrade_benefits=upgrade_plan.get_benefits %}
         {% if upgrade_benefits %}
-          <ul class="plan-benefits plan-subsection checklist">
+          <ul class="plan-benefits card-subsection checklist">
             {% for benefit in upgrade_benefits %}
               <li class="checklist-item">
                 <span class="icon">{% icon "checkmark" %}</span>
@@ -131,8 +131,8 @@ Args:
     {% endif %}
   {% endif %}
   {% if inherited_benefits %}
-  <div class="plan-section">
-    <header class="plan-section-label">
+  <div class="card-section">
+    <header class="card-section-label">
       <p>
         {% if subject == "users" %}
           <strong>{% trans "<em>Additional</em> benefits" %}</strong> {% trans "as a member of" %}
@@ -142,7 +142,7 @@ Args:
         {% for org in inherited_orgs %}<a class="org-name" href="{{ org.get_absolute_url }}">{{ org.name }}</a>{% if not forloop.last %}{% if forloop.revcounter == 2 %} and {% else %}, {% endif %}{% endif %}{% endfor %}:
       </p>
     </header>
-    <ul class="plan-subsection plan-benefits checklist">
+    <ul class="card-subsection plan-benefits checklist">
       {% for benefit in inherited_benefits %}
         <li class="checklist-item">
           <span class="icon">{% icon "checkmark" %}</span>

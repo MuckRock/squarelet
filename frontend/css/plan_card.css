@@ -1,8 +1,3 @@
-/* Plan card (shared partial: organizations/includes/plan_card.html).
-   Each <main class="plan-card"> sits directly inside <section id="plan">, so
-   the default `.sidebar-layout > .content section main` rule supplies the
-   card chrome (border, background, shadow, radius). This file owns the
-   plan-specific inner layout. */
 
 .plan-card {
   display: flex;
@@ -36,65 +31,6 @@ a.plan-name {
   flex-wrap: wrap;
   gap: 0.5rem 1.5rem;
   font-size: var(--font-sm);
-}
-
-.plan-card h3 {
-  font-weight: 600;
-  font-size: var(--font-md, 1rem);
-  color: var(--gray-5, #233944);
-  margin: 0;
-  white-space: nowrap;
-}
-
-.plan-section {
-  margin: 0;
-  padding: 0;
-  list-style-type: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5em;
-  flex: 1 0 100%;
-}
-
-.plan-section-label {
-  flex: 1 0 100%;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.25rem 0.5rem;
-  margin: 0.25rem 0;
-}
-
-.plan-subsection {
-  margin: 0;
-  padding: 0.5rem;
-  border: 1px solid var(--gray-2, #d8dee2);
-  border-radius: 0.5rem;
-}
-
-.plan-item {
-  display: flex;
-  flex-wrap: wrap;
-  flex-direction: row;
-  align-items: baseline;
-  flex: 1 0 100%;
-  padding: 0.5em 0.5em;
-  gap: 0.25em 0.5em;
-}
-
-.plan-item-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.25em 0.5em;
-  flex: 1 1 16em;
-}
-
-.caption {
-  flex: 0 1 auto;
-  white-space: nowrap;
 }
 
 /* Plan benefits checklist */

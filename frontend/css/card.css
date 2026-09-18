@@ -1,0 +1,111 @@
+/* Card section and list primitives */
+
+.card-section {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style-type: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  flex: 1 0 100%;
+  box-sizing: border-box;
+}
+
+.card-section-label {
+  flex: 1 0 100%;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.5rem;
+  margin: 0.25rem 0;
+}
+
+.card-section-label h3,
+.card-section-label {
+  font-weight: 600;
+  font-size: var(--font-md, 1rem);
+  color: var(--gray-5, #233944);
+  margin: 0;
+  white-space: nowrap;
+}
+
+/* A caption rendered as a <p> (rather than the short inline <span> used for
+   things like "Charged to your Visa ending in 1234") is a longer sentence —
+   let it wrap onto its own line instead of forcing white-space: nowrap. */
+.card-section-label p.caption {
+  flex: 1 1 100%;
+  white-space: normal;
+}
+
+.card-list,
+.card-subsection {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.card-subsection {
+  overflow: hidden;
+  border: 1px solid var(--gray-2, #d8dee2);
+  border-radius: 0.5rem;
+}
+
+.card-item {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  flex: 1 0 100%;
+  padding: 0.5em 0.5em;
+  gap: 0.25em 0.5em;
+}
+
+.card-subsection .card-item {
+  border-top: 1px solid transparent;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.1s linear;
+}
+
+.card-subsection .card-item:hover {
+  border-color: var(--gray-1);
+}
+
+.card-item form {
+  margin: 0;
+}
+
+.card-item .actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  align-self: center;
+  gap: 0.5rem;
+  &.row {
+    flex-direction: row;
+  }
+}
+
+.card-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25em 0.5em;
+  flex: 1 1 16em;
+}
+
+/* A trailing metadata line below a row's avatar+actions, e.g. "Created
+   3 days ago" under a pending invitation's Resend/Withdraw buttons. */
+.card-item-timestamp {
+  flex: 1 0 100%;
+  text-align: right;
+}
+
+.caption {
+  flex: 0 1 auto;
+  white-space: nowrap;
+}

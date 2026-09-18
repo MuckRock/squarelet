@@ -30,12 +30,6 @@ section#members main.members {
   color: var(--gray-5, #233944);
 }
 
-.user-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
 .staff-info {
   padding: 0.5rem;
   background: var(--yellow-1, #fff9ed);

@@ -4,7 +4,7 @@
   {% trans "Confirm email to accept" %}
 </a>
 {% else %}
-<form method="post" action="{% url "organizations:invitation" uuid=invitation.uuid %}" class="actions">
+<form method="post" action="{% url "organizations:invitation" uuid=invitation.uuid %}" class="actions row">
   {% csrf_token %}
   <button class="btn small primary" type="submit" name="action" value="accept">
     {% trans "Accept" %}

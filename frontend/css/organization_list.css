@@ -46,61 +46,6 @@
   align-self: stretch;
 }
 
-.org-list {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.5rem;
-  align-self: stretch;
-}
-
-.org-list-header h3,
-.org-list-header p {
-  margin: 0;
-}
-
-.org-list-header h3 {
-  font-size: var(--font-md, 1rem);
-  color: var(--gray-5, #233944);
-  font-weight: 600;
-}
-
-.org-list-header p {
-  color: var(--gray-4, #5c717c);
-  font-size: var(--font-xs, 0.75rem);
-}
-
-.org-list .invite,
-.org-list .org {
-  margin-bottom: 0.5rem;
-  padding: 0;
-  flex-wrap: nowrap;
-  gap: 0.5rem;
-}
-
-.org-list .team {
-  flex: 1 1 auto;
-  flex-wrap: nowrap;
-}
-
-.org-list .info a {
-  color: currentColor;
-  text-decoration: none;
-}
-
-.org-list .actions {
-  flex: 0 0 4rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 0.5rem;
-  align-items: center;
-  justify-content: flex-end;
-}
-
-.org-list .invite .actions {
-  flex: 0 0 auto;
-}
-
 .org-empty {
   width: 100%;
   text-align: center;
@@ -132,7 +77,7 @@
   max-width: unset;
   width: 100%;
   box-sizing: border-box;
-  padding: 1rem 0.5rem;
+  padding: 1rem;
   display: flex;
   flex-direction: column;
   border-radius: 0.5rem;
@@ -158,23 +103,13 @@
 }
 
 .invites header {
-  margin-bottom: 1rem;
+  margin: 0.5rem 0;
 }
 
 .invites .orgs {
   align-items: flex-start;
   gap: 1rem;
   align-self: stretch;
-}
-
-.org-list {
-  padding: 0 0.5rem;
-}
-
-.empty {
-  box-sizing: border-box;
-  width: 100%;
-  aspect-ratio: 4 / 1;
 }
 
 /* Signed out users see this */
@@ -194,18 +129,6 @@ p {
   font-weight: 600;
 }
 
-.your-orgs .org {
-  margin: 0 -0.25rem;
-  padding: 0.25rem;
-  border-radius: 0.5rem;
-  border: 1px solid;
-  border-color: transparent;
-  transition: border-color 0.1s linear;
-}
-
-.your-orgs .org:hover {
-  border-color: var(--blue-1);
-}
 
 .pending header {
   display: flex;
@@ -216,22 +139,4 @@ p {
 .pending .card {
   max-height: 32rem;
   overflow-y: auto;
-}
-
-/* Variant used on member org lists */
-.member-detail {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-end;
-  gap: 0.25rem;
-  min-width: 0;
-}
-
-.member-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 0.5rem;
-  align-items: center;
-  justify-content: flex-end;
 }
