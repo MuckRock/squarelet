@@ -1660,6 +1660,39 @@ class TestManageSubscriptions(ViewTestMixin):
         assert rendered == [item]
         assert rendered[0].next_date == date(2026, 10, 20)
 
+    def test_a_cancelled_line_does_not_leak_template_comments(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+    ):
+        """`{# #}` is single-line only; a multi-line one renders as text.
+
+        The cancelled branch carried a four-line explanation in that syntax,
+        so every cancelled subscriber saw it printed under their plan.
+        """
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        subscription_item_factory(
+            subscription__organization=organization,
+            plan=plan_factory(name="Cancelled Plan", base_price=30),
+            subscription__cancelled=True,
+            subscription__current_period_end=datetime(
+                2026, 10, 20, 12, tzinfo=dt_timezone.utc
+            ),
+            cancelled=True,
+        )
+
+        response = self.call_view(rf, admin, slug=organization.slug)
+        response.render()
+
+        html = response.content.decode()
+        assert "{#" not in html and "#}" not in html
+        assert "bills once" not in html
+        assert "Resubscribe" in html
+
 
 @pytest.mark.django_db()
 class TestCancelSubscription(ViewTestMixin):
