@@ -5,7 +5,7 @@ from django.core.management.base import BaseCommand
 
 # Standard Library
 import logging
-from datetime import date
+from datetime import date, datetime, timezone
 from io import StringIO
 
 # Third Party
@@ -25,6 +25,22 @@ _PLAN_ID_CACHE = {}
 
 # Default page size for paginated search_read calls
 _PAGE_SIZE = 200
+
+# Client-stats fields synced to Odoo
+STAT_INT_FIELDS = {
+    "x_studio_mr_total_requests",
+    "x_studio_mr_recent_requests",
+    "x_studio_dc_total_documents",
+    "x_studio_dc_recent_uploads",
+}
+STAT_DATETIME_FIELDS = {
+    "x_studio_mr_last_login",
+    "x_studio_mr_last_request",
+    "x_studio_dc_last_login",
+    "x_studio_dc_last_upload",
+    "x_studio_dc_last_ai_credit",
+}
+STAT_FIELDS = sorted(STAT_INT_FIELDS | STAT_DATETIME_FIELDS)
 
 
 def _headers():
@@ -86,6 +102,47 @@ def odoo_create(model, vals):
 
 def odoo_write(model, ids, vals):
     return _odoo_request(f"{model}/write", {"ids": ids, "vals": vals})
+
+
+def _parse_dt(value):
+    """ISO 8601 client-stats timestamp -> naive-UTC string Odoo accepts
+    ('YYYY-MM-DD HH:MM:SS'), or False when missing. Handles both the
+    '+/-HH:MM' offsets (MuckRock) and the 'Z' suffix (DocumentCloud)."""
+    if not value:
+        return False
+    dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _build_stats_vals(stats):
+    """Map the Accounts client-stats JSON to Odoo stat fields: last-activity
+    dates, totals, and recent-activity counts. The AI-credit and request
+    balance sub-objects are intentionally skipped, and days-since is computed
+    in Odoo, not synced."""
+    stats = stats or {}
+    mr = stats.get("muckrock") or {}
+    dc = stats.get("documentcloud") or {}
+    return {
+        "x_studio_mr_last_login": _parse_dt(mr.get("last_login_at")),
+        "x_studio_mr_last_request": _parse_dt(mr.get("last_request_at")),
+        "x_studio_mr_total_requests": mr.get("total_requests") or 0,
+        "x_studio_mr_recent_requests": mr.get("recent_request_count") or 0,
+        "x_studio_dc_last_login": _parse_dt(dc.get("last_login_at")),
+        "x_studio_dc_last_upload": _parse_dt(dc.get("last_upload_at")),
+        "x_studio_dc_last_ai_credit": _parse_dt(dc.get("last_ai_credit_at")),
+        "x_studio_dc_total_documents": dc.get("total_documents") or 0,
+        "x_studio_dc_recent_uploads": dc.get("recent_upload_count") or 0,
+    }
+
+
+def _normalize_stat(field, value):
+    """Normalize a value read back from Odoo so it compares cleanly against
+    _build_stats_vals output (empty int -> 0, empty datetime -> False)."""
+    if field in STAT_INT_FIELDS:
+        return value or 0
+    return value or False
 
 
 def _resolve_plan_id(name):
@@ -165,6 +222,7 @@ def _build_org_vals(org, odoo_plan_ids, sunlight_status, member_tag_ids):
         vals["category_id"] = [(4, tag_id) for tag_id in member_tag_ids]
     if org.about:
         vals["x_studio_about"] = org.about
+    vals.update(_build_stats_vals(org.client_stats))
     return vals
 
 
@@ -205,11 +263,14 @@ def _diff_and_update_org(
             "company_type",
             "x_studio_about",
             "category_id",
-        ],
+        ]
+        + STAT_FIELDS,
     )[0]
     current_normalized = {k: v for k, v in current.items() if k != "id"}
     current_normalized["x_studio_plan_1"] = sorted(current.get("x_studio_plan_1") or [])
     current_normalized["category_id"] = sorted(current.get("category_id") or [])
+    for f in STAT_FIELDS:
+        current_normalized[f] = _normalize_stat(f, current.get(f))
     for k in current_normalized:
         if current_normalized[k] is False and k in vals and vals[k] == "":
             current_normalized[k] = ""
@@ -299,19 +360,53 @@ def _member_desired_plans(user, org_plan_ids):
     return sorted(set(org_plan_ids) | set(personal_plan_ids))
 
 
-def _find_member(email):
-    """Find an existing Odoo contact by primary, then secondary, email.
-    Returns (odoo_id or None, matched_via_secondary)."""
+def _find_member(user):
+    """Find an existing Odoo contact for a Squarelet user by account uuid
+    (globally unique), falling back to email ONLY for contacts not yet linked
+    to any account. Returns (odoo_id or None, matched_via_secondary).
+
+    The email fallback is filtered to contacts with an empty
+    x_studio_muckrock_accounts_uuid so that a contact already claimed by one
+    account can't be re-matched (and overwritten) by a different account that
+    happens to share an email — e.g. one person with two Squarelet accounts
+    under different emails. In that case the second account misses both the
+    uuid and the (uuid-filtered) email match and correctly creates its own
+    contact. Deduping those underlying accounts is handled upstream, not here."""
+    uuid_str = str(user.uuid)
+
+    # 1. Exact account match by uuid — unambiguous, one account = one contact
     results = odoo_search(
         "res.partner",
-        [["email", "=", email], ["is_company", "=", False]],
+        [
+            ["x_studio_muckrock_accounts_uuid", "=", uuid_str],
+            ["is_company", "=", False],
+        ],
+        ["id"],
+    )
+    if results:
+        return results[0]["id"], False
+
+    # 2. Fall back to email (primary, then secondary), but only for contacts
+    #    not yet linked to an account (no uuid) — first sync of a pre-existing
+    #    Odoo contact.
+    results = odoo_search(
+        "res.partner",
+        [
+            ["email", "=", user.email],
+            ["x_studio_muckrock_accounts_uuid", "=", False],
+            ["is_company", "=", False],
+        ],
         ["id"],
     )
     if results:
         return results[0]["id"], False
     results = odoo_search(
         "res.partner",
-        [["x_studio_secondary_email", "=", email], ["is_company", "=", False]],
+        [
+            ["x_studio_secondary_email", "=", user.email],
+            ["x_studio_muckrock_accounts_uuid", "=", False],
+            ["is_company", "=", False],
+        ],
         ["id"],
     )
     if results:
@@ -333,12 +428,13 @@ def _member_vals(user, odoo_org_id, matched_via_secondary):
     }
     if matched_via_secondary:
         del vals["email"]
+    vals.update(_build_stats_vals(user.client_stats))
     return vals
 
 
 def sync_member(user, org_name, odoo_org_id, org_plan_ids, dry_run=False):
     desired_plans = _member_desired_plans(user, org_plan_ids)
-    odoo_id, matched_via_secondary = _find_member(user.email)
+    odoo_id, matched_via_secondary = _find_member(user)
     vals = _member_vals(user, odoo_org_id, matched_via_secondary)
 
     if odoo_id is None:
@@ -375,7 +471,8 @@ def _update_member(user, org_name, odoo_id, vals, desired_plans, dry_run):
             "x_studio_muckrock_accounts_id",
             "x_studio_muckrock_accounts_uuid",
             "x_studio_plan_1",
-        ],
+        ]
+        + STAT_FIELDS,
     )[0]
     current_parent = current.get("parent_id")
     normalized = {
@@ -388,6 +485,8 @@ def _update_member(user, org_name, odoo_id, vals, desired_plans, dry_run):
         "x_studio_muckrock_accounts_id": current["x_studio_muckrock_accounts_id"],
         "x_studio_muckrock_accounts_uuid": current["x_studio_muckrock_accounts_uuid"],
     }
+    for f in STAT_FIELDS:
+        normalized[f] = _normalize_stat(f, current.get(f))
     diffs = {k: (normalized[k], v) for k, v in vals.items() if normalized.get(k) != v}
 
     if "parent_id" in diffs and normalized.get("parent_id") is not None:
