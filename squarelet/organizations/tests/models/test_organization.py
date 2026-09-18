@@ -9,7 +9,7 @@ import stripe
 # Squarelet
 from squarelet.organizations.models import (
     Organization,
-    Subscription,
+    SubscriptionItem,
     consolidate_inherited_benefits,
 )
 from squarelet.organizations.payments.exceptions import SubscriptionError
@@ -186,7 +186,7 @@ class TestOrganization:
     @pytest.mark.django_db()
     def test_subscription_blank(self, organization_factory):
         organization = organization_factory()
-        assert organization.subscriptions.first() is None
+        assert organization.subscription_items.first() is None
 
     @pytest.mark.django_db()
     def test_save_card(self, organization_factory, mocker, user_factory):
@@ -219,7 +219,7 @@ class TestOrganization:
             status=status,
             latest_invoice=None,
         )
-        # Patch the subscription service used by Subscription.start() in payment.py
+        # Patch the subscription service used by SubscriptionItem.start() in payment.py
         mock_sub_service = mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
         ).return_value.get_subscription_service.return_value
@@ -236,7 +236,7 @@ class TestOrganization:
     def test_add_subscription(
         self, organization_factory, mocker, user_factory, professional_plan_factory
     ):
-        """Adding a subscription creates a Subscription record, passes quantity to
+        """Adding a subscription creates a SubscriptionItem record, passes quantity to
         Stripe, and sets org.update_on from Stripe's current_period_end."""
 
         user = user_factory()
@@ -252,7 +252,7 @@ class TestOrganization:
 
         organization.add_subscription(plan, max_users, user, token="tok_visa")
 
-        sub = organization.subscriptions.get(plan=plan)
+        sub = organization.subscription_items.get(plan=plan)
         assert sub.quantity == max_users
 
         organization.refresh_from_db()
@@ -262,10 +262,9 @@ class TestOrganization:
 
         mock_sub_service.create.assert_called_with(
             stripe_customer=mock_customer.stripe_customer,
-            plan_id=plan.stripe_id,
-            quantity=max_users,
+            items=[{"plan": plan.stripe_id, "quantity": max_users}],
             billing="charge_automatically",
-            metadata={"action": f"Subscription ({plan.name})"},
+            metadata={"action": f"Subscription ({organization})"},
             days_until_due=None,
             anchor_day=None,
             cancel_at_period_end=False,
@@ -299,10 +298,9 @@ class TestOrganization:
 
         mock_sub_service.create.assert_called_with(
             stripe_customer=mock_customer.stripe_customer,
-            plan_id=plan_b.stripe_id,
-            quantity=1,
+            items=[{"plan": plan_b.stripe_id, "quantity": 1}],
             billing="charge_automatically",
-            metadata={"action": f"Subscription ({plan_b.name})"},
+            metadata={"action": f"Subscription ({organization})"},
             days_until_due=None,
             anchor_day=15,
             cancel_at_period_end=False,
@@ -322,13 +320,12 @@ class TestOrganization:
 
         organization.add_subscription(plan, 1, user, payment_method="invoice")
 
-        assert organization.subscriptions.filter(plan=plan).exists()
+        assert organization.subscription_items.filter(plan=plan).exists()
         mock_sub_service.create.assert_called_with(
             stripe_customer=mock_customer.stripe_customer,
-            plan_id=plan.stripe_id,
-            quantity=1,
+            items=[{"plan": plan.stripe_id, "quantity": 1}],
             billing="send_invoice",
-            metadata={"action": f"Subscription ({plan.name})"},
+            metadata={"action": f"Subscription ({organization})"},
             days_until_due=30,
             anchor_day=None,
             cancel_at_period_end=False,
@@ -347,13 +344,12 @@ class TestOrganization:
 
         organization.add_subscription(plan, 3, user, payment_method="existing-card")
 
-        assert organization.subscriptions.filter(plan=plan).exists()
+        assert organization.subscription_items.filter(plan=plan).exists()
         mock_sub_service.create.assert_called_with(
             stripe_customer=mock_customer.stripe_customer,
-            plan_id=plan.stripe_id,
-            quantity=3,
+            items=[{"plan": plan.stripe_id, "quantity": 3}],
             billing="charge_automatically",
-            metadata={"action": f"Subscription ({plan.name})"},
+            metadata={"action": f"Subscription ({organization})"},
             days_until_due=None,
             anchor_day=None,
             cancel_at_period_end=False,
@@ -379,13 +375,12 @@ class TestOrganization:
         )
 
         mocked_save_card.assert_called_with(token, user)
-        assert organization.subscriptions.filter(plan=plan).exists()
+        assert organization.subscription_items.filter(plan=plan).exists()
         mock_sub_service.create.assert_called_with(
             stripe_customer=mock_customer.stripe_customer,
-            plan_id=plan.stripe_id,
-            quantity=2,
+            items=[{"plan": plan.stripe_id, "quantity": 2}],
             billing="charge_automatically",
-            metadata={"action": f"Subscription ({plan.name})"},
+            metadata={"action": f"Subscription ({organization})"},
             days_until_due=None,
             anchor_day=None,
             cancel_at_period_end=False,
@@ -406,13 +401,12 @@ class TestOrganization:
 
         organization.add_subscription(plan, 4, user)
 
-        assert organization.subscriptions.filter(plan=plan).exists()
+        assert organization.subscription_items.filter(plan=plan).exists()
         mock_sub_service.create.assert_called_with(
             stripe_customer=mock_customer.stripe_customer,
-            plan_id=plan.stripe_id,
-            quantity=4,
+            items=[{"plan": plan.stripe_id, "quantity": 4}],
             billing="charge_automatically",
-            metadata={"action": f"Subscription ({plan.name})"},
+            metadata={"action": f"Subscription ({organization})"},
             days_until_due=None,
             anchor_day=None,
             cancel_at_period_end=False,
@@ -424,24 +418,26 @@ class TestOrganization:
         organization_factory,
         mocker,
         professional_plan_factory,
-        subscription_factory,
+        subscription_item_factory,
     ):
         mocker.patch("stripe.Plan.create")
         plan = professional_plan_factory()
         organization = organization_factory()
-        sub = subscription_factory(
-            organization=organization, plan=plan, subscription_id="sub_test123"
+        sub = subscription_item_factory(
+            subscription__organization=organization,
+            plan=plan,
+            subscription__subscription_id="sub_test123",
         )
         # Inject mock Stripe subscription via cached_property's __dict__ slot
         mock_stripe_sub = mocker.MagicMock()
-        sub.__dict__["stripe_subscription"] = mock_stripe_sub
+        sub.subscription.__dict__["stripe_subscription"] = mock_stripe_sub
 
-        organization.subscription_cancelled(subscription=sub)
+        organization.subscription_cancelled(subscription=sub.subscription)
 
         # Should cancel in Stripe first by calling delete on the stripe_subscription
         mock_stripe_sub.delete.assert_called_once()
         # Local subscription should be deleted
-        assert not Subscription.objects.filter(pk=sub.pk).exists()
+        assert not SubscriptionItem.objects.filter(pk=sub.pk).exists()
 
     @pytest.mark.django_db
     def test_subscription_cancelled_without_subscription_id(
@@ -449,20 +445,22 @@ class TestOrganization:
         organization_factory,
         mocker,
         professional_plan_factory,
-        subscription_factory,
+        subscription_item_factory,
     ):
         """Should still delete local subscription even if no subscription_id"""
         mocker.patch("stripe.Plan.create")
         plan = professional_plan_factory()
         organization = organization_factory()
-        sub = subscription_factory(
-            organization=organization, plan=plan, subscription_id=None
+        sub = subscription_item_factory(
+            subscription__organization=organization,
+            plan=plan,
+            subscription__subscription_id="",
         )
 
-        organization.subscription_cancelled(subscription=sub)
+        organization.subscription_cancelled(subscription=sub.subscription)
 
         # Should still delete local subscription
-        assert not Subscription.objects.filter(pk=sub.pk).exists()
+        assert not SubscriptionItem.objects.filter(pk=sub.pk).exists()
 
     @pytest.mark.django_db
     def test_subscription_cancelled_stripe_error(
@@ -470,14 +468,16 @@ class TestOrganization:
         organization_factory,
         mocker,
         professional_plan_factory,
-        subscription_factory,
+        subscription_item_factory,
     ):
         """Should handle Stripe errors gracefully and still delete local subscription"""
         mocker.patch("stripe.Plan.create")
         plan = professional_plan_factory()
         organization = organization_factory()
-        sub = subscription_factory(
-            organization=organization, plan=plan, subscription_id="sub_test123"
+        sub = subscription_item_factory(
+            subscription__organization=organization,
+            plan=plan,
+            subscription__subscription_id="sub_test123",
         )
 
         mock_stripe_sub = mocker.MagicMock()
@@ -493,12 +493,12 @@ class TestOrganization:
             return_value=mock_provider,
         )
 
-        organization.subscription_cancelled(subscription=sub)
+        organization.subscription_cancelled(subscription=sub.subscription)
 
         # Should attempt to delete the Stripe subscription
         mock_stripe_sub.delete.assert_called_once()
         # Should still delete local subscription despite error
-        assert not Subscription.objects.filter(pk=sub.pk).exists()
+        assert not SubscriptionItem.objects.filter(pk=sub.pk).exists()
 
     @pytest.mark.django_db
     def test_subscription_cancelled_correct_stripe_pattern(
@@ -506,15 +506,17 @@ class TestOrganization:
         organization_factory,
         mocker,
         professional_plan_factory,
-        subscription_factory,
+        subscription_item_factory,
     ):
         """Test subscription_cancelled uses correct Stripe API pattern
         (retrieve then delete)"""
         mocker.patch("stripe.Plan.create")
         plan = professional_plan_factory()
         organization = organization_factory()
-        sub = subscription_factory(
-            organization=organization, plan=plan, subscription_id="sub_test123"
+        sub = subscription_item_factory(
+            subscription__organization=organization,
+            plan=plan,
+            subscription__subscription_id="sub_test123",
         )
         mock_stripe_sub = mocker.MagicMock()
         mock_provider = mocker.MagicMock()
@@ -526,12 +528,12 @@ class TestOrganization:
             return_value=mock_provider,
         )
 
-        organization.subscription_cancelled(subscription=sub)
+        organization.subscription_cancelled(subscription=sub.subscription)
 
         # Verify delete was called on the stripe_subscription instance
         mock_stripe_sub.delete.assert_called_once()
         # Verify local subscription was deleted
-        assert not Subscription.objects.filter(pk=sub.pk).exists()
+        assert not SubscriptionItem.objects.filter(pk=sub.pk).exists()
 
     @pytest.mark.django_db
     def test_subscription_cancelled_nonexistent_stripe_subscription(
@@ -539,14 +541,16 @@ class TestOrganization:
         organization_factory,
         mocker,
         professional_plan_factory,
-        subscription_factory,
+        subscription_item_factory,
     ):
         """Test graceful handling when Stripe subscription doesn't exist"""
         mocker.patch("stripe.Plan.create")
         plan = professional_plan_factory()
         organization = organization_factory()
-        sub = subscription_factory(
-            organization=organization, plan=plan, subscription_id="sub_nonexistent"
+        sub = subscription_item_factory(
+            subscription__organization=organization,
+            plan=plan,
+            subscription__subscription_id="sub_nonexistent",
         )
         mock_provider = mocker.MagicMock()
         # stripe_subscription returns None (subscription doesn't exist on Stripe)
@@ -557,10 +561,10 @@ class TestOrganization:
         )
 
         # Should not raise an error
-        organization.subscription_cancelled(subscription=sub)
+        organization.subscription_cancelled(subscription=sub.subscription)
 
         # Verify local subscription was still deleted
-        assert not Subscription.objects.filter(pk=sub.pk).exists()
+        assert not SubscriptionItem.objects.filter(pk=sub.pk).exists()
 
     @pytest.mark.django_db(transaction=True)
     def test_subscription_cancelled_removes_wix_labels(
@@ -572,12 +576,12 @@ class TestOrganization:
         user2 = user_factory()
         organization = organization_factory(plans=[wix_plan], users=[user1, user2])
 
-        sub = organization.subscriptions.first()
+        sub = organization.subscription_items.first()
         sub.__dict__["stripe_subscription"] = None  # no Stripe sub to cancel
 
         mock_unsync = mocker.patch("squarelet.organizations.tasks.unsync_wix.delay")
 
-        organization.subscription_cancelled(subscription=sub)
+        organization.subscription_cancelled(subscription=sub.subscription)
 
         # Should call unsync for each user
         assert mock_unsync.call_count == 2
@@ -593,12 +597,12 @@ class TestOrganization:
         user = user_factory()
         organization = organization_factory(plans=[non_wix_plan], users=[user])
 
-        sub = organization.subscriptions.first()
+        sub = organization.subscription_items.first()
         sub.__dict__["stripe_subscription"] = None
 
         mock_unsync = mocker.patch("squarelet.organizations.tasks.unsync_wix.delay")
 
-        organization.subscription_cancelled(subscription=sub)
+        organization.subscription_cancelled(subscription=sub.subscription)
 
         mock_unsync.assert_not_called()
 
@@ -614,7 +618,7 @@ class TestOrganization:
 
         organization.modify_subscription(old_plan, new_plan, 5, user)
 
-        assert organization.subscriptions.filter(plan=new_plan).exists()
+        assert organization.subscription_items.filter(plan=new_plan).exists()
 
     @pytest.mark.django_db(transaction=True)
     def test_remove_subscription_wix_removes_labels(
@@ -712,7 +716,7 @@ class TestOrganization:
                     if f.many_to_many and not f.auto_created
                 ]
             )
-            == 4
+            == 3
         )
 
     @pytest.mark.django_db()
@@ -1327,7 +1331,7 @@ class TestMultipleSubscriptions:
     def test_add_subscription_creates_new(
         self, organization_factory, plan_factory, user_factory, mocker
     ):
-        """add_subscription creates a new Subscription for an org with none."""
+        """add_subscription creates a new SubscriptionItem for an org with none."""
         org = organization_factory()
         plan = plan_factory()
         user = user_factory()
@@ -1340,17 +1344,23 @@ class TestMultipleSubscriptions:
         # Pass payment_method explicitly to skip card detection (avoids Stripe call)
         org.add_subscription(plan, org.max_users, user, payment_method="invoice")
 
-        assert Subscription.objects.filter(organization=org, plan=plan).exists()
+        assert SubscriptionItem.objects.filter(
+            subscription__organization=org, plan=plan
+        ).exists()
 
     @pytest.mark.django_db
     def test_add_subscription_same_plan_raises(
-        self, organization_factory, plan_factory, subscription_factory, user_factory
+        self,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+        user_factory,
     ):
         """add_subscription raises ValueError if org already has active sub for plan."""
         org = organization_factory()
         plan = plan_factory()
         user = user_factory()
-        subscription_factory(organization=org, plan=plan)
+        subscription_item_factory(subscription__organization=org, plan=plan)
 
         with pytest.raises(
             SubscriptionError, match="already has an active subscription"
@@ -1376,7 +1386,9 @@ class TestMultipleSubscriptions:
         org.add_subscription(plan_a, org.max_users, user, payment_method="invoice")
         org.add_subscription(plan_b, org.max_users, user, payment_method="invoice")
 
-        assert Subscription.objects.filter(organization=org).count() == 2
+        assert (
+            SubscriptionItem.objects.filter(subscription__organization=org).count() == 2
+        )
 
     @pytest.mark.django_db
     def test_add_subscription_none_max_users_uses_plan_minimum(
@@ -1399,7 +1411,7 @@ class TestMultipleSubscriptions:
 
         org.add_subscription(plan, None, user, payment_method="invoice")
 
-        sub = Subscription.objects.get(organization=org, plan=plan)
+        sub = SubscriptionItem.objects.get(subscription__organization=org, plan=plan)
         assert sub.quantity == plan.minimum_users
 
     @pytest.mark.django_db
@@ -1407,7 +1419,7 @@ class TestMultipleSubscriptions:
         self,
         organization_factory,
         plan_factory,
-        subscription_factory,
+        subscription_item_factory,
         user_factory,
         mocker,
     ):
@@ -1416,8 +1428,8 @@ class TestMultipleSubscriptions:
         plan_a = plan_factory()
         plan_b = plan_factory()
         user = user_factory()
-        sub_a = subscription_factory(organization=org, plan=plan_a)
-        sub_b = subscription_factory(organization=org, plan=plan_b)
+        sub_a = subscription_item_factory(subscription__organization=org, plan=plan_a)
+        sub_b = subscription_item_factory(subscription__organization=org, plan=plan_b)
 
         mocker.patch(
             "squarelet.organizations.models.Subscription.stripe_subscription",
@@ -1426,16 +1438,17 @@ class TestMultipleSubscriptions:
 
         org.remove_subscription(plan_a, user)
 
-        sub_a.refresh_from_db()
-        assert sub_a.cancelled
-        assert Subscription.objects.filter(pk=sub_b.pk).exists()
+        # Both lines share one subscription, so removing one drops just that
+        # line and leaves the other billing.
+        assert not SubscriptionItem.objects.filter(pk=sub_a.pk).exists()
+        assert SubscriptionItem.objects.filter(pk=sub_b.pk).exists()
 
     @pytest.mark.django_db
     def test_modify_subscription(
         self,
         organization_factory,
         plan_factory,
-        subscription_factory,
+        subscription_item_factory,
         user_factory,
     ):
         """modify_subscription updates the plan on the matching subscription."""
@@ -1443,11 +1456,11 @@ class TestMultipleSubscriptions:
         plan_a = plan_factory()
         plan_b = plan_factory()
         user = user_factory()
-        subscription_factory(organization=org, plan=plan_a)
+        subscription_item_factory(subscription__organization=org, plan=plan_a)
 
         org.modify_subscription(plan_a, plan_b, org.max_users, user)
 
-        assert org.subscriptions.filter(plan=plan_b).exists()
+        assert org.subscription_items.filter(plan=plan_b).exists()
 
     @pytest.mark.django_db
     def test_modify_subscription_missing_plan_raises(
@@ -1464,25 +1477,27 @@ class TestMultipleSubscriptions:
 
     @pytest.mark.django_db
     def test_has_active_subscription_with_plan_arg(
-        self, organization_factory, plan_factory, subscription_factory
+        self, organization_factory, plan_factory, subscription_item_factory
     ):
         """has_active_subscription(plan=X) is True for X, False for others."""
         org = organization_factory()
         plan_a = plan_factory()
         plan_b = plan_factory()
-        subscription_factory(organization=org, plan=plan_a)
+        subscription_item_factory(subscription__organization=org, plan=plan_a)
 
         assert org.has_active_subscription(plan=plan_a)
         assert not org.has_active_subscription(plan=plan_b)
 
     @pytest.mark.django_db
     def test_has_active_subscription_includes_cancelled(
-        self, organization_factory, plan_factory, subscription_factory
+        self, organization_factory, plan_factory, subscription_item_factory
     ):
         """cancelled=True means pending cancellation at period end — still active."""
         org = organization_factory()
         plan = plan_factory()
-        subscription_factory(organization=org, plan=plan, cancelled=True)
+        subscription_item_factory(
+            subscription__organization=org, plan=plan, subscription__cancelled=True
+        )
 
         assert org.has_active_subscription(plan=plan)
         assert org.has_active_subscription()
