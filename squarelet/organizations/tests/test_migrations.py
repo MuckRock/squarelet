@@ -47,12 +47,26 @@ def _bracket(suffix):
 
 
 def migrate_to(target):
-    """Run the organizations app to `target` and return its model registry."""
+    """Run the organizations app to `target` and return its model registry.
+
+    The registry describes what is *applied*, not `target`'s ancestry.
+    The two differ when the graph has a parallel branch: migrating to a
+    node unapplies only its descendants, so a migration on a sibling
+    branch stays applied and its column stays in the table - and a model
+    built from `target` alone does not know the column exists.  Inserting
+    through that model then writes NULL into a NOT NULL column.  Every
+    merge migration adds such a branch, so this has to hold.
+    """
     executor = MigrationExecutor(connection)
     executor.loader.build_graph()
     executor.migrate([(APP, target)])
     executor.loader.build_graph()
-    return executor.loader.project_state([(APP, target)]).apps
+    applied = [
+        node
+        for node in executor.loader.applied_migrations
+        if node[0] == APP and node in executor.loader.graph.nodes
+    ]
+    return executor.loader.project_state(applied).apps
 
 
 def migrate_to_latest():
