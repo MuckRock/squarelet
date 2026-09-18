@@ -488,6 +488,30 @@ class Command(BaseCommand):
         subscription = item.subscription
         legacy_name = item.plan.name  # captured before repointing
 
+        if is_billing(item) and not local_only:
+            # Identify this line on Stripe *before* repointing it, because
+            # the plan is what identifies it: `sync_stripe_item_ids` matches
+            # Stripe's lines by Price, and once `plan_price` points at the
+            # new one it matches nothing.  A line described to Stripe with
+            # no id is a request to *add* a line - and since the new Price
+            # differs from the legacy one, Stripe accepts it.  The legacy
+            # line stays, the new one is added, and the next invoice bills
+            # both.
+            #
+            # Release 2's `backfill_stripe_item_ids` should have reached
+            # every line already; this is what makes that a checked
+            # dependency rather than an assumed one.
+            stripe_sub = subscription.stripe_subscription
+            if stripe_sub is not None:
+                subscription.sync_stripe_item_ids(stripe_sub)
+                item.refresh_from_db(fields=["stripe_item_id"])
+            if not item.stripe_item_id:
+                raise CommandError(
+                    f"{item.plan.slug}: no Stripe item id, so repointing it "
+                    f"would add a second line rather than replace this one.  "
+                    f"Run backfill_stripe_item_ids for this organization first."
+                )
+
         with transaction.atomic():
             item.plan = plan_price.plan
             item.plan_price = plan_price
