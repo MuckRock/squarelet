@@ -333,6 +333,24 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_REDIS_MAX_CONNECTIONS = env.int("CELERY_REDIS_MAX_CONNECTIONS", default=10)
 
+# If we have a memory leak that progressively turns into an OOM,
+# this helps us recycle after a certain number of tasks, keeping the memory leak
+# from hitting OOM
+CELERY_WORKER_MAX_TASKS_PER_CHILD = env.int(
+    "CELERY_WORKER_MAX_TASKS_PER_CHILD", default=100
+)
+
+# If idle memory is high when no tasks are running right
+# after a dyno restart, we probably need to drop this parameter.
+CELERY_WORKER_CONCURRENCY = env.int("CELERY_WORKER_CONCURRENCY", default=3)
+
+# https://docs.celeryq.dev/en/v5.5.3/reference/cli.html#cmdoption-celery-worker-max-memory-per-child
+# Default is No limit according to documentation which on production is actually None.
+# This allows us to fine tune behavior if a only a specific memory intensive task becomes problematic
+# in the future. Prevents one high memory consuming task from keeping the dyno in OOM until recycle.
+CELERY_WORKER_MAX_MEMORY_PER_CHILD = env.int(
+    "CELERY_WORKER_MAX_MEMORY_PER_CHILD", default=None
+)
 
 CELERY_BEAT_SCHEDULE = {
     "db_cleanup": {
