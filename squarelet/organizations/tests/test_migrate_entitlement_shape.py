@@ -215,6 +215,31 @@ class TestTheRun:
         }, f"{slug} must keep its per-unit value, not have it zeroed"
         assert grant_new(entitlement.resources, 25) == 25 * per_unit
 
+    def test_a_reshape_that_would_change_a_grant_aborts_and_rolls_back(self):
+        """Checked at quantity 1 whether or not anyone holds it.
+
+        A tier with `minimum_users: 0` and a nonzero per-user rate grants
+        `base + per_user` at quantity 1 today and `base` after the
+        reshape - the formulas do not agree for this shape.  With no
+        subscriber on it, the old grant check printed no rows at all and
+        the entitlement went through changed.  Now it aborts, and because
+        the run is one transaction, the entitlement reshaped *before* it
+        is rolled back too.
+        """
+        fine = tier_entitlement()
+        broken = EntitlementFactory(
+            resources={"base_requests": 50, "minimum_users": 0, "requests_per_user": 10}
+        )
+        broken.plans.add(plan_named("Zero Minimum", "zero-minimum"))
+
+        with pytest.raises(CommandError, match="would change the grant at quantity 1"):
+            run()
+
+        fine.refresh_from_db()
+        broken.refresh_from_db()
+        assert fine.resources == TIER, "rolled back with the rest"
+        assert broken.resources["requests_per_user"] == 10
+
     def test_dry_run_writes_nothing(self):
         entitlement = tier_entitlement()
 
