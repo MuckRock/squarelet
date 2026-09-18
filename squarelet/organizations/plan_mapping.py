@@ -132,6 +132,17 @@ DEFERRED_SLUGS = set()
 # Bills at both cadences, which one map entry cannot say.
 COHORT_SLUG = "election-accountability-cohort"
 
+# Every pack plan, as 0082 seeds them: what decides "is this a pack?".
+# PACK_DECOMPOSITION lists only the packs a legacy plan becomes, so a pack
+# missing from it would get the tier reshape and grant nothing.
+PACK_SLUGS = frozenset(
+    {
+        "muckrock-request-pack",
+        "documentcloud-credit-pack",
+        "scoutpost-credit-pack",
+    }
+)
+
 # Which pack a legacy plan's resource blocks become, for the plans production
 # has block-holders on; the migration refuses any other.
 PACK_DECOMPOSITION = {
