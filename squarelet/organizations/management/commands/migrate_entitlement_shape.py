@@ -78,14 +78,27 @@ class Command(BaseCommand):
 
         Packs are exempt: their `base` carries the per-unit value, so
         `base * q` is what they are supposed to mean.
+
+        So are lines whose plan does not scale at all.  The danger above
+        needs a per-unit rate to multiply; a Professional line at quantity
+        3 - a per-unit plan the backfill deliberately leaves at its
+        quantity - grants the same 20 requests at any quantity, and the
+        reshape is a no-op for it.  Refusing it blocked the whole run over
+        a number that changes nothing.
         """
-        carrying = list(
-            SubscriptionItem.objects.select_related(
+        carrying = [
+            item
+            for item in SubscriptionItem.objects.select_related(
                 "subscription__organization", "plan"
             )
+            .prefetch_related("plan__entitlements")
             .exclude(plan__slug__in=PACK_SLUGS)
             .filter(quantity__gt=1)
-        )
+            if any(
+                scaling_pairs(entitlement.resources)
+                for entitlement in item.plan.entitlements.all()
+            )
+        ]
         if carrying:
             lines = "\n".join(
                 f"  - {item.subscription.organization.slug}: {item.plan.slug} "

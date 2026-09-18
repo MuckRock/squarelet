@@ -152,6 +152,26 @@ class TestPreflight:
 
         run()  # does not raise
 
+    def test_a_line_on_a_plan_that_does_not_scale_is_fine_at_any_quantity(self):
+        """A Professional at quantity 3, as the backfill leaves per-unit plans.
+
+        Its entitlement is flat - 20 requests, no per-block rate - so the
+        multiplication the preflight guards against cannot happen, and the
+        reshape is a no-op.  This used to refuse the whole run over it.
+        """
+        # Not the real "professional" slug: get-or-create on name would
+        # adopt a row an earlier test module seeded with a *scaling*
+        # entitlement, and this test would then be about that row.
+        flat = plan_named("Flat Per-Unit Plan", "flat-per-unit")
+        entitlement = EntitlementFactory(resources={"base_requests": 20})
+        entitlement.plans.add(flat)
+        SubscriptionItemFactory(plan=flat, quantity=3)
+
+        run()  # does not raise
+
+        entitlement.refresh_from_db()
+        assert entitlement.resources == {"base_requests": 20}, "left alone"
+
     def test_an_entitlement_on_both_a_pack_and_a_tier_aborts(self):
         entitlement = tier_entitlement()
         entitlement.plans.add(plan_named(*PACK_PLAN))
