@@ -46,6 +46,12 @@ LEGACY_PLAN_MAP = {
     ("education-grant", False): ("organization", "monthly", "comped", ""),
     ("startsmall-grants", False): ("organization", "monthly", "comped", ""),
     ("education-plan", False): ("organization", "monthly", "comped", ""),
+    # Same $100 as Organization, same base grant on both clients; the only
+    # difference was 5 rather than 10 requests per block, and its two
+    # subscribers hold no blocks.  Neither an InsideClimate-style coded
+    # rate nor a custom plan buys anything here.  Decided 2026-09-18,
+    # replacing an earlier plan to cancel one and comp the other.
+    ("custom-crp", True): ("organization", "monthly", "standard", ""),
     # A negotiated rate, so a price of its own rather than a coupon
     ("insideclimate-news-plan", True): (
         "organization",
@@ -165,9 +171,6 @@ PACK_DECOMPOSITION = {
 # Deliberately left alone.  Each needs a decision or an action outside this
 # command, given per entry below.
 DEFERRED_SLUGS = {
-    # Two organizations going opposite ways - one cancelled, one comped - so
-    # the slug alone cannot decide.
-    "custom-crp",
     # Its one subscription belongs to an organization that was merged away.
     "sunlight-premium-annual",
 }
