@@ -14,13 +14,13 @@ from squarelet.organizations.plan_mapping import (
     EXPECTED_GRANT_CHANGES,
     LEGACY_PLAN_MAP,
     PACK_DECOMPOSITION,
+    PACK_SLUGS,
 )
 
 logger = logging.getLogger(__name__)
 
 # Every pack any legacy plan decomposes into.  Lines on these plans are an
 # output of this command, never an input.
-PACK_SLUGS = {slug for packs in PACK_DECOMPOSITION.values() for slug in packs}
 
 
 def is_billing(item):
