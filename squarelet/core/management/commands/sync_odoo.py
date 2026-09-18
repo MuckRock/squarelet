@@ -104,6 +104,23 @@ def odoo_write(model, ids, vals):
     return _odoo_request(f"{model}/write", {"ids": ids, "vals": vals})
 
 
+def log_org_note(odoo_id, body, dry_run=False):
+    """Post an internal note to an org's Odoo chatter (mail.thread log)."""
+    if dry_run:
+        logger.info("[DRY RUN] Would log note on Odoo ID %s: %s", odoo_id, body)
+        return
+    _odoo_request(
+        "res.partner/message_post",
+        {
+            "ids": [odoo_id],
+            "body": body,
+            "message_type": "comment",
+            "subtype_xmlid": "mail.mt_note",
+        },
+    )
+    logger.info("Logged note on Odoo ID %s", odoo_id)
+
+
 def _parse_dt(value):
     """ISO 8601 client-stats timestamp -> naive-UTC string Odoo accepts
     ('YYYY-MM-DD HH:MM:SS'), or False when missing. Handles both the
@@ -157,6 +174,14 @@ def _resolve_plan_id(name):
         logger.warning("No Odoo plan match for Squarelet plan: %s", name)
     _PLAN_ID_CACHE[name] = pid
     return pid
+
+
+def _plan_note(plan_ids):
+    """Render Odoo plan ids as names for a note, via the run's name->id cache.
+    Omits any id not in the cache rather than raising, so a note can never
+    take down the sync."""
+    id_to_name = {pid: name for name, pid in _PLAN_ID_CACHE.items() if pid}
+    return ", ".join(id_to_name[pid] for pid in sorted(plan_ids) if pid in id_to_name)
 
 
 def _build_plan_vals(plan):
@@ -266,6 +291,11 @@ def _diff_and_update_org(
         ]
         + STAT_FIELDS,
     )[0]
+    # Plans present in Odoo but not in the new desired set — a partial removal
+    # (org kept at least one plan). A full lapse is caught by the sweep instead,
+    # since such an org falls out of the sync queryset entirely.
+    removed_plan_ids = set(current.get("x_studio_plan_1") or []) - set(odoo_plan_ids)
+
     current_normalized = {k: v for k, v in current.items() if k != "id"}
     current_normalized["x_studio_plan_1"] = sorted(current.get("x_studio_plan_1") or [])
     current_normalized["category_id"] = sorted(current.get("category_id") or [])
@@ -311,6 +341,12 @@ def _diff_and_update_org(
         else:
             odoo_write("res.partner", [odoo_id], vals)
             logger.info("Updated org: %s", org.name)
+        if removed_plan_ids:
+            log_org_note(
+                odoo_id,
+                f"Plan(s) removed by Squarelet sync: {_plan_note(removed_plan_ids)}",
+                dry_run=dry_run,
+            )
     else:
         logger.info("No changes for org: %s", org.name)
 
@@ -608,8 +644,15 @@ def remove_departed_members(
             _flag_departed_member(member, org, dry_run)
 
 
-def cancel_org(odoo_id, name, dry_run=False):
-    """Cancel a single Confirmed org."""
+def cancel_org(odoo_id, name, plan_ids, dry_run=False):
+    """Cancel a single Confirmed org, noting which plan(s) it lost.
+
+    plan_ids are the org's current x_studio_plan_1 in Odoo — the plans about
+    to be orphaned by the lapse. They're still on the record at cancel time
+    (the sweep sets status only, it doesn't clear the plan field), so the note
+    can name them. This is a full-lapse audit note: such an org fell out of
+    the sync set entirely, so the per-org path never ran for it — this is the
+    only place the lapse is recorded."""
     if dry_run:
         logger.info("[DRY RUN] Would cancel lapsed org: %s (Odoo ID %s)", name, odoo_id)
     else:
@@ -619,6 +662,14 @@ def cancel_org(odoo_id, name, dry_run=False):
             {"x_studio_sunlight_status": "Cancelled"},
         )
         logger.info("Cancelled lapsed org: %s", name)
+    if plan_ids:
+        body = (
+            f"Marked Cancelled by Squarelet sync — lost plan(s): "
+            f"{_plan_note(plan_ids)}."
+        )
+    else:
+        body = "Marked Cancelled by Squarelet sync — no active Sunlight plan."
+    log_org_note(odoo_id, body, dry_run=dry_run)
 
 
 def _sweep_lapsed_orgs(active_slugs, dry_run=False, only_slug=None):
@@ -635,7 +686,9 @@ def _sweep_lapsed_orgs(active_slugs, dry_run=False, only_slug=None):
     if only_slug is not None:
         domain.append(["x_studio_slug", "=", only_slug])
 
-    candidates = odoo_search_all("res.partner", domain, ["id", "name"])
+    candidates = odoo_search_all(
+        "res.partner", domain, ["id", "name", "x_studio_plan_1"]
+    )
 
     logger.info(
         "Found %d confirmed orgs in Odoo with no active plan in Squarelet"
@@ -643,7 +696,9 @@ def _sweep_lapsed_orgs(active_slugs, dry_run=False, only_slug=None):
         len(candidates),
     )
     for org in candidates:
-        cancel_org(org["id"], org["name"], dry_run=dry_run)
+        cancel_org(
+            org["id"], org["name"], org.get("x_studio_plan_1") or [], dry_run=dry_run
+        )
 
 
 class CollaborativeConfig:
@@ -665,14 +720,22 @@ def remove_collaborative_tag(tagged, config, dry_run=False):
             tagged["name"],
             tagged["id"],
         )
-    else:
-        write_vals = {"category_id": [(3, config.tag_id)]}
-        current_plan_ids = set(tagged.get("x_studio_plan_1") or [])
-        remaining = current_plan_ids - set(config.plan_ids)
-        if remaining != current_plan_ids:
-            write_vals["x_studio_plan_1"] = [(6, 0, sorted(remaining))]
-        odoo_write("res.partner", [tagged["id"]], write_vals)
-        logger.info("Removed %s Member tag from: %s", config.slug, tagged["name"])
+        return
+    write_vals = {"category_id": [(3, config.tag_id)]}
+    current_plan_ids = set(tagged.get("x_studio_plan_1") or [])
+    remaining = current_plan_ids - set(config.plan_ids)
+    removed = current_plan_ids - remaining
+    if remaining != current_plan_ids:
+        write_vals["x_studio_plan_1"] = [(6, 0, sorted(remaining))]
+    odoo_write("res.partner", [tagged["id"]], write_vals)
+    logger.info("Removed %s Member tag from: %s", config.slug, tagged["name"])
+    if removed:
+        log_org_note(
+            tagged["id"],
+            f"Plan(s) removed — no longer a {config.slug} member: "
+            f"{_plan_note(removed)}",
+            dry_run=dry_run,
+        )
 
 
 def _sweep_stale_collaborative_tags(config, dry_run=False, only_slug=None):
