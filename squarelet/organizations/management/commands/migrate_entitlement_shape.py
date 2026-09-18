@@ -138,29 +138,51 @@ class Command(BaseCommand):
                 f"{entitlement.resources} -> {target}"
             )
         )
-        self._show_grants(entitlement, target)
+        self._check_grants(entitlement, target)
         entitlement.resources = target
         entitlement.save(update_fields=["resources"])
         return "reshaped"
 
-    def _show_grants(self, entitlement, target):
-        """Before and after, at the quantities subscribers actually hold.
+    def _check_grants(self, entitlement, target):
+        """Refuse a reshape that changes what anyone receives.
 
-        The arithmetic is the point of this step, so print it rather than
-        asking anyone to trust it.  Every row should show the same number
-        three times.
+        The arithmetic is the point of this step, so it is checked rather
+        than trusted: at every quantity a subscriber holds, and at quantity
+        1 whether or not anyone holds it, the grant today must equal the
+        grant after under *both* formulas.
+
+        Quantity 1 unconditionally, because an entitlement with no
+        subscription line is not exempt - an unsold pack is one, and so is
+        an entitlement reached only through an EntitlementGrant, which the
+        serializer sends at quantity 1.  This used to print a flag for the
+        held quantities and never abort, so an entitlement nobody held yet
+        printed nothing at all: the two packs the tier transform zeroed
+        went through with a clean-looking log.
+
+        Raises, so the surrounding transaction rolls every entitlement
+        back.  A single wrong number here means the transform is wrong for
+        that shape, and a partial run would be worse than none.
         """
-        quantities = sorted(
+        held = set(
             SubscriptionItem.objects.filter(plan__entitlements=entitlement)
             .values_list("quantity", flat=True)
             .distinct()
         )
-        for quantity in quantities:
+        for quantity in sorted(held | {1}):
             before = grant_old(entitlement.resources, quantity)
             after_old = grant_old(target, quantity)
             after_new = grant_new(target, quantity)
-            flag = "" if before == after_old == after_new else "  <-- CHANGED"
+            agree = before == after_old == after_new
             self.stdout.write(
                 f"      quantity {quantity}: {before} today, {after_old} "
-                f"under the old formula, {after_new} under the new{flag}"
+                f"under the old formula, {after_new} under the new"
+                + ("" if agree else "  <-- CHANGED")
             )
+            if not agree:
+                raise CommandError(
+                    f"{entitlement.slug}: reshaping would change the grant "
+                    f"at quantity {quantity} - {before} today, {after_old} "
+                    f"under the old formula, {after_new} under the new.  "
+                    f"The transform is wrong for this shape; nothing was "
+                    f"written."
+                )
