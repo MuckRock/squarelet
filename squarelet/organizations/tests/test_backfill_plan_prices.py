@@ -1,6 +1,8 @@
+# pylint: disable=too-many-lines
 # Django
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.db.models.signals import post_save
 
 # Standard Library
 from io import StringIO
@@ -19,7 +21,7 @@ from squarelet.organizations.management.commands.backfill_plan_prices import (
 from squarelet.organizations.management.commands.consolidate_stripe_products import (
     PRICE_MATRIX,
 )
-from squarelet.organizations.models import Plan, SubscriptionItem
+from squarelet.organizations.models import Plan, Subscription, SubscriptionItem
 from squarelet.organizations.tests.factories import (
     EntitlementFactory,
     OrganizationFactory,
@@ -93,15 +95,64 @@ def targets_fixture(db):  # pylint: disable=unused-argument
     return plans
 
 
+class FakeStripe:
+    """Enough of Stripe to catch the line-identity bug.
+
+    Holds each subscription's billing lines under the Price they bill
+    *now* - the legacy one, for every line this command visits - and
+    keeps holding that until `modify` is called, the way the real one
+    holds what it was last told.  Lines are registered by `per_user` and
+    `legacy_line` as they are made, before the command has touched them.
+
+    A fixture that answered from the line's current Price on demand would
+    "already hold" the new Price the moment the command repointed a line,
+    and the sync that runs *after* the repoint would find a match real
+    Stripe has no way of giving.  That is how the command added a second
+    Stripe line beside every legacy one with 56 tests green.
+    """
+
+    def __init__(self):
+        self.held = {}
+
+    def register(self, item):
+        """Stripe learns of a line the moment it exists, under its Price."""
+        if item.is_free:
+            return
+        lines = self.held.setdefault(item.subscription_id, [])
+        lines.append({"id": f"si_{item.pk}", "price": {"id": item.stripe_price_id}})
+
+    def snapshot(self, subscription):
+        lines = self.held.get(subscription.pk)
+        if lines is None:
+            return None  # a subscription Stripe has never heard of
+        return {"id": subscription.subscription_id, "items": {"data": lines}}
+
+
+STRIPE = FakeStripe()
+
+
 @pytest.fixture(name="stripe", autouse=True)
 def stripe_fixture(mocker):
-    """An inert Stripe, so the run reaches `modify` without leaving here."""
-    mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
+    """A Stripe that holds each subscription's lines and accepts every
+    modify - so the run reaches `modify` without leaving here, and the
+    line it is about to move can be found there first."""
+    STRIPE.held.clear()
+    mocker.patch.object(Subscription, "stripe_subscription", property(STRIPE.snapshot))
     service = mocker.patch(
         "squarelet.organizations.models.payment.get_payment_provider"
     ).return_value.get_subscription_service.return_value
     service.modify.return_value = None
-    return service
+
+    # Stripe learns of every billing line as the test creates it, under
+    # the Price it bills at that moment.  A signal rather than a change to
+    # the factory, so nothing outside this module is affected.
+    def learn(sender, instance, created, **kwargs):  # pylint: disable=unused-argument
+        if created:
+            STRIPE.register(instance)
+
+    post_save.connect(learn, sender=SubscriptionItem, weak=False)
+    yield service
+    post_save.disconnect(learn, sender=SubscriptionItem)
 
 
 def legacy(slug, **kwargs):
@@ -384,7 +435,7 @@ class TestCollisionWithALineItLeavesAlone:
 
 def per_user(slug="organization", quantity=30, **kwargs):
     """A subscriber holding resource blocks over their plan's minimum."""
-    return SubscriptionItemFactory(
+    item = SubscriptionItemFactory(
         plan=legacy(
             slug,
             base_price=100,
@@ -396,6 +447,7 @@ def per_user(slug="organization", quantity=30, **kwargs):
         quantity=quantity,
         **kwargs,
     )
+    return item
 
 
 @pytest.mark.django_db()
@@ -659,6 +711,50 @@ class TestStripeSwitchover:
 
 @pytest.mark.django_db()
 @pytest.mark.usefixtures("targets")
+class TestTheLineIsIdentifiedBeforeItMoves:
+    """Repointing a line Stripe cannot identify adds a second line.
+
+    `sync_stripe_item_ids` matches by Price.  Done after the repoint, the
+    new Price matches nothing and the id stays blank; a spec with no id
+    asks Stripe to *add* a line, and since the new Price differs from the
+    legacy one Stripe accepts it - so the next invoice bills both.  Every
+    pre-split line is blank unless release 2's backfill reached it.
+    """
+
+    def test_the_stripe_id_is_learned_from_the_legacy_price(self, stripe):
+        actor = UserFactory()
+        item = per_user(quantity=5)
+        assert item.stripe_item_id == "", "blank, as every pre-split line is"
+
+        run(actor=actor.username)
+
+        item.refresh_from_db()
+        assert item.stripe_item_id == f"si_{item.pk}"
+        sent = stripe.modify.call_args.kwargs["items"]
+        assert all("id" in line for line in sent), "every line replaces, none adds"
+
+    def test_a_line_stripe_cannot_identify_is_refused(self, stripe, mocker):
+        """Named and skipped, rather than silently doubled."""
+        actor = UserFactory()
+        item = per_user(quantity=5)
+        # Stripe holds nothing under this line's Price - the state release
+        # 2's backfill would have left behind if it never reached the line.
+        mocker.patch.object(
+            type(item.subscription),
+            "stripe_subscription",
+            property(lambda self: {"id": "sub_live", "items": {"data": []}}),
+        )
+
+        with pytest.raises(CommandError, match="1 subscription\\(s\\) failed"):
+            run(actor=actor.username)
+
+        item.refresh_from_db()
+        assert item.plan_price is None, "left alone"
+        stripe.modify.assert_not_called()
+
+
+@pytest.mark.django_db()
+@pytest.mark.usefixtures("targets")
 class TestRerunning:
     """Safe to run twice, with no "done" marker to get out of step.
 
@@ -805,8 +901,10 @@ class TestQuantityStopsBeingAMultiplier:
         item.refresh_from_db()
         billed = item.plan_price.amount * item.quantity
         assert billed == 10_000  # $100, as before - not $500
+        # With the line's Stripe id, so this *replaces* the legacy line
+        # rather than adding a second one beside it.
         assert stripe.modify.call_args.kwargs["items"] == [
-            {"plan": item.stripe_price_id, "quantity": 1}
+            {"id": f"si_{item.pk}", "plan": item.stripe_price_id, "quantity": 1}
         ]
 
     def test_a_per_unit_plan_keeps_its_quantity(self):
