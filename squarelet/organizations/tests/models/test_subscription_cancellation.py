@@ -639,3 +639,60 @@ class TestResubscribeIsPerLine:
         assert c.cancelled, "never asked for back"
         subscription.refresh_from_db()
         assert not subscription.cancelled, "there is an active plan again"
+
+
+@pytest.mark.django_db()
+class TestAFreeLineIsNeverCancelledBySubscription:
+    """A free line is never sent to Stripe, so nothing that ends the Stripe
+    subscription is a statement about it.  Whoever cancelled - the customer
+    on the last paid line, or someone in the dashboard - did not know it was
+    there."""
+
+    def _paid_beside_free(self, subscription_item_factory, plan_factory, mocker):
+        mocker.patch(
+            "squarelet.organizations.models.Subscription.stripe_subscription", None
+        )
+        paid = subscription_item_factory(
+            plan=plan_factory(name="Paid Plan", base_price=30),
+            subscription__subscription_id="sub_free_beside",
+            subscription__current_period_end=datetime(
+                2026, 10, 20, 12, tzinfo=dt_timezone.utc
+            ),
+        )
+        free = subscription_item_factory(
+            subscription=paid.subscription,
+            plan=plan_factory(name="Free Plan", base_price=0, price_per_user=0),
+        )
+        return paid, free
+
+    def test_cancelling_the_last_paid_line_leaves_it_alone(
+        self, subscription_item_factory, plan_factory, mocker
+    ):
+        paid, free = self._paid_beside_free(
+            subscription_item_factory, plan_factory, mocker
+        )
+
+        paid.cancel()
+
+        paid.subscription.refresh_from_db()
+        assert paid.subscription.cancelled, "the paid line was the last one"
+        free.refresh_from_db()
+        assert not free.cancelled
+
+    def test_a_cancellation_from_stripe_leaves_it_alone(
+        self, subscription_item_factory, plan_factory, mocker
+    ):
+        """What the webhook does on a dashboard cancellation."""
+        paid, free = self._paid_beside_free(
+            subscription_item_factory, plan_factory, mocker
+        )
+        subscription = paid.subscription
+        subscription.mark_cancelled(subscription.current_period_end)
+        subscription.save()
+
+        subscription.push_cancellation_to_items()
+
+        paid.refresh_from_db()
+        free.refresh_from_db()
+        assert paid.cancelled and paid.cancelled_by_subscription
+        assert not free.cancelled

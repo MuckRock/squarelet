@@ -416,6 +416,20 @@ class ChargeQuerySet(models.QuerySet):
 
 
 class SubscriptionItemQuerySet(models.QuerySet):
+    FREE_PLAN = Q(plan__base_price=0, plan__price_per_user=0)
+
+    def paid(self):
+        """Lines Stripe is billing - the ones a Stripe subscription is about.
+
+        A free line is never sent to Stripe and never bills, so nothing
+        Stripe says about a subscription is a statement about it.  Same
+        test `Plan.free` makes, in a form the database can apply.
+        """
+        return self.exclude(self.FREE_PLAN)
+
+    def free(self):
+        return self.filter(self.FREE_PLAN)
+
     def start(self, organization, plan, payment_method="card", quantity=1):
         """Add a line for `plan` and make sure Stripe knows about it.
 
