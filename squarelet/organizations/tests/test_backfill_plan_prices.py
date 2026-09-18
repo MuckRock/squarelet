@@ -600,14 +600,19 @@ class TestDecomposition:
         assert item.subscription.free
 
     def test_only_the_plans_with_real_block_holders_are_listed(self):
-        """Twelve organizations hold blocks and all are on an Org plan.
+        """Thirteen organizations hold blocks: twelve billing on an Org
+        plan, and one comped on Flexible Users with 200 of them.
 
         Nobody can join them - the purchase flow hardcodes `minimum_users`,
         so self-service cannot sell a block.  Listing the Sunlight tiers
         too would be a guess nothing exercises, and the preflight refuses
         to run if one ever does turn up.
         """
-        assert set(PACK_DECOMPOSITION) == {"organization", "organization-annual"}
+        assert set(PACK_DECOMPOSITION) == {
+            "organization",
+            "organization-annual",
+            "organization-flexible-users-annual",
+        }
 
     def test_an_unlisted_plan_with_block_holders_aborts(self):
         actor = UserFactory()
@@ -1180,6 +1185,54 @@ class TestWhatTheOrganizationReceives:
 
         item.refresh_from_db()
         assert item.plan_price is None, "nothing written"
+
+    def test_the_flexible_users_comp_keeps_its_two_hundred_blocks(self, targets):
+        """One subscriber, $0 for 200 blocks, comped for now.
+
+        The blocks grant requests, so they have to survive as a comped pack
+        line at quantity 200 - not vanish when the base line drops to 1 -
+        and the pack has to cost nothing or the subscription stops being
+        free.  Grant before and after must match exactly.
+        """
+        actor = UserFactory()
+        item = SubscriptionItemFactory(
+            plan=legacy(
+                "organization-flexible-users-annual",
+                base_price=0,
+                minimum_users=5,
+                price_per_user=0,
+                for_groups=True,
+                annual=True,
+            ),
+            subscription__subscription_id="",
+            quantity=205,
+        )
+        muckrock = self._entitle(
+            item.plan,
+            {"base_requests": 50, "requests_per_user": 10, "minimum_users": 5},
+        )
+        self._entitle(
+            targets["organization"],
+            {"base_requests": 50, "requests_per_user": 10, "minimum_users": 5},
+            client=muckrock.client,
+        )
+        self._entitle(
+            targets["muckrock-request-pack"],
+            {"base_requests": 0, "requests_per_user": 10, "minimum_users": 0},
+            client=muckrock.client,
+        )
+
+        run(actor=actor.username)
+
+        item.refresh_from_db()
+        assert item.plan_price.label == "comped"
+        assert item.quantity == 1
+        pack = SubscriptionItem.objects.get(
+            subscription=item.subscription, plan__slug="muckrock-request-pack"
+        )
+        assert pack.quantity == 200
+        assert pack.plan_price.label == "comped"
+        assert pack.plan_price.amount == 0
 
     def test_a_decided_change_is_allowed_and_reported(self, targets):
         """Beta gains requests on purpose; that is recorded, not refused."""
