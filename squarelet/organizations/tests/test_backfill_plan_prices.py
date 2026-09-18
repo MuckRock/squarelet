@@ -1089,6 +1089,66 @@ class TestWhatTheOrganizationReceives:
         item.refresh_from_db()
         assert item.plan_price is None
 
+    def _production_organization(self, targets):
+        """The Organization plan as production grants it, with a block-holder
+        on it: MuckRock 50 req + 10/block, DocumentCloud 5,000 cr + 500/block,
+        and a request pack that carries only the MuckRock half."""
+        item = per_user("organization", quantity=15)
+        assert item.plan.pk == targets["organization"].pk, "maps to itself"
+        muckrock = self._entitle(
+            item.plan,
+            {"base_requests": 50, "requests_per_user": 10, "minimum_users": 5},
+        )
+        self._entitle(
+            item.plan,
+            {"base_credits": 5000, "credits_per_user": 500, "minimum_users": 5},
+        )
+        self._entitle(
+            targets["muckrock-request-pack"],
+            {"base_requests": 0, "requests_per_user": 10, "minimum_users": 0},
+            client=muckrock.client,
+        )
+        return item
+
+    def test_a_block_holder_keeps_its_requests_and_loses_the_credit_overage(
+        self, targets
+    ):
+        """The decision PACK_DECOMPOSITION records, checked rather than
+        waived.
+
+        The twelve real block-holders all failed here: a legacy block
+        granted both, one pack covers the requests, and the check saw the
+        dropped credits as an unexplained change.  Putting `organization`
+        in EXPECTED_GRANT_CHANGES would have waived it for all 65
+        Organization subscribers.
+        """
+        actor = UserFactory()
+        item = self._production_organization(targets)
+
+        out = run(actor=actor.username)
+
+        assert "block overage not carried by a pack, as decided" in out
+        item.refresh_from_db()
+        assert item.plan_price is not None
+        assert item.quantity == 1
+
+    def test_a_block_holder_whose_pack_is_wrong_is_still_refused(self, targets):
+        """Decomposition explains the dropped half, not any old difference."""
+        actor = UserFactory()
+        item = self._production_organization(targets)
+        # A pack that under-delivers: 5 requests per block, not 10.
+        pack = targets["muckrock-request-pack"].entitlements.get()
+        pack.resources["requests_per_user"] = 5
+        pack.save()
+
+        out = StringIO()
+        with pytest.raises(CommandError, match="failed"):
+            call_command("backfill_plan_prices", stdout=out, actor=actor.username)
+
+        assert "what this organization receives" in out.getvalue()
+        item.refresh_from_db()
+        assert item.plan_price is None
+
     def test_a_decided_change_is_allowed_and_reported(self, targets):
         """Beta gains requests on purpose; that is recorded, not refused."""
         actor = UserFactory()
