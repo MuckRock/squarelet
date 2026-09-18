@@ -6,7 +6,7 @@ from django.utils.timezone import get_current_timezone
 
 # Standard Library
 import base64
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone as dt_timezone
 from io import BytesIO
 
 # Third Party
@@ -2605,6 +2605,60 @@ class TestHandleSubscriptionUpdated:
 
         subscription.refresh_from_db()
         assert subscription.cancelled is True
+
+    @pytest.mark.django_db
+    def test_cancellation_reaches_the_lines(
+        self, subscription_factory, subscription_item_factory
+    ):
+        """The UI lists lines, not subscriptions.
+
+        Subscription.cancel() flags them; a cancellation scheduled outside
+        our own flow - the Stripe dashboard, say - arrives here instead, and
+        used to leave every line saying it would renew.
+        """
+        subscription = subscription_factory(
+            subscription_id="sub_lines", cancelled=False
+        )
+        item = subscription_item_factory(subscription=subscription)
+
+        tasks.handle_subscription_updated(
+            {
+                "id": "sub_lines",
+                "status": "active",
+                "cancel_at_period_end": True,
+            }
+        )
+
+        item.refresh_from_db()
+        assert item.cancelled is True
+
+    @pytest.mark.django_db
+    def test_a_payload_without_items_keeps_the_period_end(self, subscription_factory):
+        """The cancellation event is exactly the one that omits `items`.
+
+        Nulling the period end from it threw away the date `cancel()` had
+        just worked out, and the cancellation was rewritten with no date -
+        which the sweep treats as due tonight.
+        """
+        period_end = datetime(2026, 10, 20, 12, tzinfo=dt_timezone.utc)
+        subscription = subscription_factory(
+            subscription_id="sub_toggle",
+            cancelled=True,
+            cancel_at=date(2026, 10, 20),
+            current_period_end=period_end,
+        )
+
+        tasks.handle_subscription_updated(
+            {
+                "id": "sub_toggle",
+                "status": "active",
+                "cancel_at_period_end": True,
+            }
+        )
+
+        subscription.refresh_from_db()
+        assert subscription.current_period_end == period_end
+        assert subscription.cancel_at == date(2026, 10, 20)
 
     @pytest.mark.django_db
     def test_syncs_cancel_at_period_end_false(self, subscription_factory):
