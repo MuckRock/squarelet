@@ -1,5 +1,6 @@
 # Django
 from django.core.management.base import BaseCommand
+from django.db.models import Q
 
 # Standard Library
 import time
@@ -29,6 +30,14 @@ class Command(BaseCommand):
     Safe to re-run: lines that already have an id are left alone, and each
     subscription is independent, so a Stripe error on one does not stop the
     rest.
+
+    It also caches the subscription's own Stripe fields - status,
+    collection method and, above all, `current_period_end`.  The split
+    reads the renewal date from that column rather than from a live Stripe
+    call per line, and the data migration had nothing to fill it from: so
+    until something wrote it, every subscriber saw "Renews on None".  The
+    subscription has to be fetched here anyway, so recording what came back
+    is free.
     """
 
     help = "Populate SubscriptionItem.stripe_item_id from Stripe"
@@ -47,18 +56,20 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        # Only subscriptions that actually have a line missing an id: the
-        # rest would cost a Stripe read to learn nothing.
+        # A subscription needs visiting if any line lacks an id, or if its
+        # own renewal date was never cached - both are the state everything
+        # predating the split is in.  Anything with both already filled in
+        # would cost a Stripe read to learn nothing.
         qs = (
             Subscription.objects.select_related("organization")
             .exclude(subscription_id="")
-            .filter(items__stripe_item_id="")
+            .filter(Q(items__stripe_item_id="") | Q(current_period_end__isnull=True))
             .distinct()
         )
         if options["org"]:
             qs = qs.filter(organization__slug=options["org"])
 
-        self.stdout.write(f"{qs.count()} subscription(s) with unidentified lines...\n")
+        self.stdout.write(f"{qs.count()} subscription(s) to bring up to date...\n")
 
         counts = {"filled": 0, "skipped": 0, "errors": 0}
         start = time.monotonic()
@@ -97,6 +108,8 @@ class Command(BaseCommand):
             if dry_run:
                 return self._report(subscription)
             subscription.sync_stripe_item_ids(stripe_sub)
+            subscription.cache_stripe_subscription_fields(stripe_sub)
+            subscription.save(update_fields=Subscription.STRIPE_CACHED_FIELDS)
             return "filled"
         except stripe.StripeError as exc:
             # One subscription's failure must not strand the rest: this runs
