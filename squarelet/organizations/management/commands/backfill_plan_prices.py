@@ -73,6 +73,18 @@ def legacy_bill_cents(item):
     return 100 * plan.base_price * item.quantity
 
 
+def blocks_grant(item):
+    """Whether this line's blocks grant anything beyond the tier's base.
+
+    True when any entitlement on the plan scales with quantity, so that
+    dropping the line to quantity 1 without a pack would change what the
+    organization receives.
+    """
+    return resource_totals([(item.plan, item.quantity)]) != resource_totals(
+        [(item.plan, item.plan.minimum_users)]
+    )
+
+
 def target_quantity(item):
     """What the line's quantity becomes once it bills a flat Price.
 
@@ -253,12 +265,22 @@ class Command(BaseCommand):
                 + ".  Add them to LEGACY_PLAN_MAP or DEFERRED_SLUGS."
             )
 
+        # A line needs a pack when its blocks *do* something - bill, or
+        # grant - and no pack exists to carry that.  Billing blocks always
+        # count.  A comped line's blocks count only if its entitlement
+        # scales with them: a custom comped plan with a flat entitlement
+        # and a block count nobody has looked at in years grants the same
+        # at 30 as at 1, and demanding a pack for it would be inventing a
+        # grant.  Gating on billing alone let a comped line whose blocks
+        # *do* scale through preflight, to be refused one at a time by
+        # `_check_grants` - the failure this preflight exists to surface
+        # up front.
         undecomposed = {
             item.plan.slug
             for item in pending
             if item.plan.slug not in DEFERRED_SLUGS
             and blocks_held(item)
-            and is_billing(item)
+            and (is_billing(item) or blocks_grant(item))
             and item.plan.slug not in PACK_DECOMPOSITION
         }
         if undecomposed:

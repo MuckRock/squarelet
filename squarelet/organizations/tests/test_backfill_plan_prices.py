@@ -1149,6 +1149,38 @@ class TestWhatTheOrganizationReceives:
         item.refresh_from_db()
         assert item.plan_price is None
 
+    @pytest.mark.usefixtures("targets")
+    def test_a_comped_block_holder_whose_blocks_scale_is_caught_up_front(self):
+        """Preflight, not one line at a time.
+
+        Cost nothing, but its entitlement scales with the blocks, so
+        dropping to quantity 1 without a pack cuts the grant.  Gated on
+        billing, preflight let it through and `_check_grants` refused it
+        per line after earlier subscribers were already committed.
+        """
+        actor = UserFactory()
+        item = SubscriptionItemFactory(
+            plan=legacy(
+                "muckrock-editorial-partner",
+                base_price=0,
+                minimum_users=5,
+                price_per_user=0,
+                for_groups=True,
+            ),
+            subscription__subscription_id="",
+            quantity=30,
+        )
+        self._entitle(
+            item.plan,
+            {"base_requests": 50, "requests_per_user": 10, "minimum_users": 5},
+        )
+
+        with pytest.raises(CommandError, match="PACK_DECOMPOSITION"):
+            run(actor=actor.username)
+
+        item.refresh_from_db()
+        assert item.plan_price is None, "nothing written"
+
     def test_a_decided_change_is_allowed_and_reported(self, targets):
         """Beta gains requests on purpose; that is recorded, not refused."""
         actor = UserFactory()
