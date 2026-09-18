@@ -302,20 +302,30 @@ class Command(BaseCommand):
             ).exists():
                 missing.add(target)
 
+        # A pack takes its base tier's label, so a decomposed plan needs
+        # its packs at every label its subscribers can arrive under: the
+        # standard pack for billing block-holders and the comped one for
+        # comped block-holders.  Checking only standard let a comped
+        # organization above its minimum reach `_plan_for`, whose bare
+        # `.get()` then raised DoesNotExist - not a CommandError, so
+        # nothing caught it, and the run died mid-way with earlier
+        # subscribers already committed and pushed to Stripe.
         for plan_slug, packs in PACK_DECOMPOSITION.items():
-            base = LEGACY_PLAN_MAP.get((plan_slug, True))
-            if base is None:
-                continue
-            for pack_slug in packs:
-                target = (pack_slug, base[1], "standard", "")
-                if not PlanPrice.objects.filter(
-                    plan__slug=pack_slug,
-                    interval=base[1],
-                    label="standard",
-                    code="",
-                    active=True,
-                ).exists():
-                    missing.add(target)
+            for billing in (True, False):
+                base = LEGACY_PLAN_MAP.get((plan_slug, billing))
+                if base is None:
+                    continue
+                pack_label = "comped" if base[2] == "comped" else "standard"
+                for pack_slug in packs:
+                    target = (pack_slug, base[1], pack_label, "")
+                    if not PlanPrice.objects.filter(
+                        plan__slug=pack_slug,
+                        interval=base[1],
+                        label=pack_label,
+                        code="",
+                        active=True,
+                    ).exists():
+                        missing.add(target)
         return missing
 
     def _collisions(self, pending):

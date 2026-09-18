@@ -21,7 +21,12 @@ from squarelet.organizations.management.commands.backfill_plan_prices import (
 from squarelet.organizations.management.commands.consolidate_stripe_products import (
     PRICE_MATRIX,
 )
-from squarelet.organizations.models import Plan, Subscription, SubscriptionItem
+from squarelet.organizations.models import (
+    Plan,
+    PlanPrice,
+    Subscription,
+    SubscriptionItem,
+)
 from squarelet.organizations.tests.factories import (
     EntitlementFactory,
     OrganizationFactory,
@@ -329,6 +334,35 @@ class TestPreflightRefusesToGuess:
         actor = UserFactory()
         SubscriptionItemFactory(
             plan=legacy("professional"), subscription__subscription_id="sub_live"
+        )
+
+        with pytest.raises(CommandError, match="consolidate_stripe_products"):
+            run(actor=actor.username)
+
+    @pytest.mark.usefixtures("targets")
+    def test_a_missing_comped_pack_is_named_up_front(self):
+        """Not a DoesNotExist from the middle of the run.
+
+        A comped block-holder needs the *comped* pack, and the preflight
+        only checked for the standard one - so the first such organization
+        hit a bare `.get()` in `_plan_for`, which is not a CommandError and
+        escaped everything, after earlier subscribers were already
+        committed and pushed to Stripe.
+        """
+        actor = UserFactory()
+        PlanPrice.objects.filter(
+            plan__slug="muckrock-request-pack", label="comped"
+        ).delete()
+        SubscriptionItemFactory(  # a comped block-holder
+            plan=legacy(
+                "organization",
+                base_price=100,
+                minimum_users=5,
+                price_per_user=10,
+                for_groups=True,
+            ),
+            subscription__subscription_id="",
+            quantity=30,
         )
 
         with pytest.raises(CommandError, match="consolidate_stripe_products"):
