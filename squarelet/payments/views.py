@@ -133,10 +133,16 @@ class PlanDetailView(DetailView):
             user = self.request.user
             existing_subscriptions = []
 
+            # What a purchase of this plan would be stored as, which is what
+            # "already subscribed" has to be asked about.  The nonprofit
+            # checkbox is not answered yet and does not change the plan the
+            # price hangs off, only which price under it.
+            held_plan = SubscriptionItem.objects.canonical_plan(plan)
+
             # Check user's individual organization
             individual_org = user.individual_organization
             individual_subscription = individual_org.subscription_items.filter(
-                plan=plan
+                plan=held_plan
             ).first()
             if individual_subscription:
                 existing_subscriptions.append((individual_subscription, individual_org))
@@ -155,7 +161,7 @@ class PlanDetailView(DetailView):
                 admin_orgs = admin_orgs_base
 
             for org in admin_orgs:
-                org_subscription = org.subscription_items.filter(plan=plan).first()
+                org_subscription = org.subscription_items.filter(plan=held_plan).first()
                 if org_subscription:
                     existing_subscriptions.append((org_subscription, org))
 
@@ -228,7 +234,12 @@ class PlanDetailView(DetailView):
                 result = form.save(request.user)
                 organization = result["organization"]
 
-                if organization.subscription_items.filter(plan=plan).exists():
+                # The row the purchase will be stored under, from the plan
+                # the form actually selected - not the one in the URL.
+                held_plan = SubscriptionItem.objects.canonical_plan(
+                    result["plan"], result.get("nonprofit", False)
+                )
+                if organization.subscription_items.filter(plan=held_plan).exists():
                     messages.warning(request, _("Already subscribed"))
                     return redirect(plan)
 
@@ -294,6 +305,7 @@ class PlanDetailView(DetailView):
                 request.user,
                 token=stripe_token,
                 payment_method=payment_method,
+                nonprofit=result.get("nonprofit", False),
             )
         )
         return None
@@ -313,6 +325,7 @@ class PlanDetailView(DetailView):
                 request.user,
                 token=stripe_token,
                 payment_method=payment_method,
+                nonprofit=result.get("nonprofit", False),
             )
             return None
         except PaymentActionRequired as exc:

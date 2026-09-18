@@ -151,13 +151,43 @@ class SubscriptionItemInline(admin.TabularInline):
     """
 
     model = SubscriptionItem
-    fields = ("plan", "quantity", "cancelled", "cancel_at", "stripe_item_id")
+    fields = (
+        "plan",
+        "plan_price",
+        "bills_against",
+        "quantity",
+        "cancelled",
+        "cancel_at",
+        "stripe_item_id",
+    )
     readonly_fields = fields
     extra = 0
     can_delete = False
 
     def has_add_permission(self, request, obj=None):
         return False
+
+    def bills_against(self, obj):
+        """The Stripe object this line actually bills - which is the thing
+        to check when verifying a purchase landed on the new pricing.
+
+        `stripe_price_id` prefers the `PlanPrice` and falls back to the
+        legacy Plan id.  Only the former is a Stripe Price, so only it gets
+        a dashboard link; the legacy id is shown plainly so a reader can
+        see at a glance that this line has not moved yet.
+        """
+        stripe_id = obj.stripe_price_id
+        if not stripe_id:
+            return self.get_empty_value_display()
+        if obj.plan_price_id and obj.plan_price.stripe_price_id:
+            return format_html(
+                '<a href="{}" target="_blank" rel="noopener">{}</a>',
+                get_stripe_dashboard_url("prices", stripe_id),
+                stripe_id,
+            )
+        return format_html("{} <em>(legacy)</em>", stripe_id)
+
+    bills_against.short_description = "Bills against"
 
 
 class SubscriptionInline(admin.TabularInline):
