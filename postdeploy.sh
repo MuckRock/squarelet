@@ -9,7 +9,15 @@
 # only copying staging data into an environment that expects to receive it.
 set -e
 if [ -n "$HEROKU_APP_NAME" ] && [ "$DJANGO_ENV" = "staging" ]; then
-  LATEST_BACKUP=$(heroku pg:backups --app squarelet-staging | awk '/b[0-9]+/ {print $1; exit}')
+  LATEST_BACKUP=$(heroku pg:backups --app squarelet-staging \
+    | awk '$1 ~ /^[ab][0-9]+$/ {print $1; exit}') # Backups can start with a or b now
+
+  if [ -z "$LATEST_BACKUP" ]; then # Raise loudly that something about backups changed
+    echo "ERROR: could not determine latest squarelet-staging backup" >&2
+    exit 1
+  fi
+  echo "Restoring squarelet-staging backup: $LATEST_BACKUP"
+
   heroku pg:backups:restore "squarelet-staging::$LATEST_BACKUP" DATABASE_URL \
     --app "$HEROKU_APP_NAME" \
     --confirm "$HEROKU_APP_NAME"
