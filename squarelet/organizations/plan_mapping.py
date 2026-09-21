@@ -28,6 +28,15 @@ honest.
 LEGACY_PLAN_MAP = {
     # MuckRock Professional
     ("professional", True): ("professional", "monthly", "standard", ""),
+    # Its own tier - the one DocumentCloud-only plan.  Maps to itself like
+    # professional and organization; the identity row was simply never
+    # written, which surfaced as a preflight refusal on production's data.
+    ("documentcloud-premium", True): (
+        "documentcloud-premium",
+        "monthly",
+        "standard",
+        "",
+    ),
     ("professional", False): ("professional", "monthly", "comped", ""),
     ("professional-pre-paid", True): ("professional", "annual", "standard", ""),
     # Beta - early users grandfathered onto a free plan, not a distinct tier
@@ -181,6 +190,8 @@ PACK_DECOMPOSITION = {
     # Its one subscriber holds 200 blocks, comped.  The blocks grant real
     # requests, so they become a comped pack line rather than vanishing.
     "organization-flexible-users-annual": ("muckrock-request-pack",),
+    # $10/mo + $10/blk over 1, DocumentCloud only: a block is credits.
+    "documentcloud-premium": ("documentcloud-credit-pack",),
 }
 
 # Deliberately left alone.  Each needs a decision or an action outside this
@@ -188,6 +199,15 @@ PACK_DECOMPOSITION = {
 DEFERRED_SLUGS = {
     # Its one subscription belongs to an organization that was merged away.
     "sunlight-premium-annual",
+    # A one-year programme at a $3,000 cohort rate, not renewing, nobody
+    # joining.  Its decided target needs a $1,000 coupon that nothing in
+    # this stack applies yet, and mapping it without one would repoint the
+    # line to the $4,000 price - which the money check refuses anyway.
+    # Left alone on purpose: it keeps billing exactly what it bills on the
+    # legacy Stripe Plan, the sweep removes each line as it lapses, and 2f
+    # archives the plan once the last one has.  Nothing needs to support
+    # it; coupon support is for the *next* cohort.
+    "election-accountability-cohort",
 }
 
 

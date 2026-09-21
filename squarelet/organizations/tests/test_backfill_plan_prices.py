@@ -600,8 +600,9 @@ class TestDecomposition:
         assert item.subscription.free
 
     def test_only_the_plans_with_real_block_holders_are_listed(self):
-        """Thirteen organizations hold blocks: twelve billing on an Org
-        plan, and one comped on Flexible Users with 200 of them.
+        """Twelve billing on an Org plan, one comped on Flexible Users with
+        200 blocks, and DocumentCloud Premium's one subscriber, whose plan
+        sells blocks of credits.
 
         Nobody can join them - the purchase flow hardcodes `minimum_users`,
         so self-service cannot sell a block.  Listing the Sunlight tiers
@@ -612,6 +613,7 @@ class TestDecomposition:
             "organization",
             "organization-annual",
             "organization-flexible-users-annual",
+            "documentcloud-premium",
         }
 
     def test_an_unlisted_plan_with_block_holders_aborts(self):
