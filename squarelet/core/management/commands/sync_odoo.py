@@ -266,6 +266,26 @@ def _compute_org_plans_and_status(org, inherited_plan_ids):
     return odoo_plan_ids, sunlight_status
 
 
+def _reconcile_category_id(
+    current, current_normalized, vals_normalized, member_tag_ids
+):
+    """Fold the category_id (member-tag) field into the normalized dicts so the
+    diff only fires when a desired tag is actually missing in Odoo. Mutates
+    current_normalized / vals_normalized in place."""
+    if not member_tag_ids:
+        current_normalized.pop("category_id", None)
+        vals_normalized.pop("category_id", None)
+        return
+    current_tags = set(current.get("category_id") or [])
+    missing_tags = [t for t in member_tag_ids if t not in current_tags]
+    if missing_tags:
+        vals_normalized["category_id"] = f"add_tags:{missing_tags}"
+        current_normalized["category_id"] = f"missing_tags:{missing_tags}"
+    else:
+        current_normalized.pop("category_id", None)
+        vals_normalized.pop("category_id", None)
+
+
 def _diff_and_update_org(
     org, odoo_id, vals, odoo_plan_ids, sunlight_status, member_tag_ids, dry_run
 ):  # pylint:disable=too-many-positional-arguments
@@ -312,18 +332,7 @@ def _diff_and_update_org(
         current_normalized.pop("x_studio_sunlight_status", None)
     vals_normalized["x_studio_plan_1"] = sorted(odoo_plan_ids)
 
-    if member_tag_ids:
-        current_tags = set(current.get("category_id") or [])
-        missing_tags = [t for t in member_tag_ids if t not in current_tags]
-        if missing_tags:
-            vals_normalized["category_id"] = f"add_tags:{missing_tags}"
-            current_normalized["category_id"] = f"missing_tags:{missing_tags}"
-        else:
-            current_normalized.pop("category_id", None)
-            vals_normalized.pop("category_id", None)
-    else:
-        current_normalized.pop("category_id", None)
-        vals_normalized.pop("category_id", None)
+    _reconcile_category_id(current, current_normalized, vals_normalized, member_tag_ids)
 
     diffs = {
         k: (current_normalized.get(k), vals_normalized[k])
@@ -853,6 +862,48 @@ def _sync_org(org, collaborative_data, dry_run, remove_members):
     return org.slug
 
 
+def _run_sync(dry_run, remove_members, slug):
+    """Run the full sync pass: ensure plans, sync orgs + members, then the
+    lapsed-org and stale-tag sweeps."""
+    if dry_run:
+        logger.info("DRY RUN - no changes will be made")
+    _ensure_all_plans(dry_run=dry_run)
+    collaborative_data = _load_collaborative_data()
+    all_orgs = _build_org_queryset(collaborative_data)
+    if slug:
+        all_orgs = all_orgs.filter(slug=slug)
+    active_slugs = set()
+    for org in all_orgs:
+        processed_slug = _sync_org(org, collaborative_data, dry_run, remove_members)
+        if processed_slug:
+            active_slugs.add(processed_slug)
+    _sweep_lapsed_orgs(active_slugs, dry_run=dry_run, only_slug=slug)
+    for config in collaborative_data.values():
+        if config.member_slugs:
+            _sweep_stale_collaborative_tags(config, dry_run=dry_run, only_slug=slug)
+    logger.info("Sync complete")
+
+
+def _send_sync_report(buffer, failed):
+    """Email the buffered sync log as an attachment, tagging the subject
+    OK/FAILED. Called from handle's finally so a report goes out on both
+    success and unhandled failure."""
+    today = date.today().isoformat()
+    status = "FAILED" if failed else "OK"
+    email = EmailMessage(
+        subject=f"Odoo Sync Report ({status}) - {today}",
+        body=(
+            "Sync encountered an error — see attached log for the traceback."
+            if failed
+            else "See attached for full sync report."
+        ),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[settings.ODOO_SYNC_REPORT_EMAIL],
+    )
+    email.attach(f"sync_report_{today}.txt", buffer.getvalue(), "text/plain")
+    email.send()
+
+
 class Command(BaseCommand):
     """Sync Accounts Sunlight orgs and members to Odoo"""
 
@@ -873,13 +924,10 @@ class Command(BaseCommand):
             help="Limit sync to a single org by slug",
         )
 
-    def handle(self, *args, **kwargs):  # pylint:disable=too-many-locals
+    def handle(self, *args, **kwargs):
         if not settings.ODOO_SYNC_ENABLED:
             self.stdout.write("ODOO_SYNC_ENABLED is not set; skipping sync.")
             return
-        dry_run = kwargs["dry_run"]
-        remove_members = kwargs["remove_members"]
-        slug = kwargs.get("slug")
         buffer = StringIO()
         handler = logging.StreamHandler(buffer)
         handler.setLevel(logging.INFO)
@@ -888,27 +936,7 @@ class Command(BaseCommand):
         logger.setLevel(logging.INFO)
         failed = False
         try:
-            if dry_run:
-                logger.info("DRY RUN - no changes will be made")
-            _ensure_all_plans(dry_run=dry_run)
-            collaborative_data = _load_collaborative_data()
-            all_orgs = _build_org_queryset(collaborative_data)
-            if slug:
-                all_orgs = all_orgs.filter(slug=slug)
-            active_slugs = set()
-            for org in all_orgs:
-                processed_slug = _sync_org(
-                    org, collaborative_data, dry_run, remove_members
-                )
-                if processed_slug:
-                    active_slugs.add(processed_slug)
-            _sweep_lapsed_orgs(active_slugs, dry_run=dry_run, only_slug=slug)
-            for config in collaborative_data.values():
-                if config.member_slugs:
-                    _sweep_stale_collaborative_tags(
-                        config, dry_run=dry_run, only_slug=slug
-                    )
-            logger.info("Sync complete")
+            _run_sync(kwargs["dry_run"], kwargs["remove_members"], kwargs.get("slug"))
         except Exception:
             failed = True
             logger.exception("Sync failed with an unhandled exception")
@@ -917,17 +945,4 @@ class Command(BaseCommand):
             handler.flush()
             logger.removeHandler(handler)
             logger.setLevel(_prev_level)
-            today = date.today().isoformat()
-            status = "FAILED" if failed else "OK"
-            email = EmailMessage(
-                subject=f"Odoo Sync Report ({status}) - {today}",
-                body=(
-                    "Sync encountered an error — see attached log for the traceback."
-                    if failed
-                    else "See attached for full sync report."
-                ),
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                to=[settings.ODOO_SYNC_REPORT_EMAIL],
-            )
-            email.attach(f"sync_report_{today}.txt", buffer.getvalue(), "text/plain")
-            email.send()
+            _send_sync_report(buffer, failed)
