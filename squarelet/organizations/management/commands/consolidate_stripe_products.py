@@ -83,6 +83,13 @@ PRICE_MATRIX = [
 ]
 
 
+# Every plan the consolidation keeps - the tiers and the packs.  This is the
+# authoritative "what we sell" list: a plan in the matrix is a plan we
+# sell, whether or not any legacy plan maps onto it and whether or not its
+# Prices have been created yet.
+CANONICAL_SLUGS = frozenset(row[0] for row in PRICE_MATRIX)
+
+
 class Command(BaseCommand):
     """Create the Stripe Products and Prices behind the consolidated plans.
 
