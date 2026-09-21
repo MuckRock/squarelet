@@ -420,7 +420,7 @@ class Command(BaseCommand):
             return self._settle(item, dry_run, local_only)
 
         try:
-            plan_price, packs = self._plan_for(item)
+            plan_price, packs, note = self._plan_for(item)
         except CommandError as exc:
             self.stdout.write(self.style.ERROR(f"  ! {org.slug}: {exc}"))
             return "failed"
@@ -429,6 +429,8 @@ class Command(BaseCommand):
         if packs:
             summary += "".join(f" + {qty} x {price.plan.slug}" for price, qty in packs)
         self.stdout.write(self.style.SUCCESS(f"  + {org.slug}: {summary}"))
+        if note:
+            self.stdout.write(f"      {note}")
         if dry_run:
             return "migrated"
 
@@ -523,8 +525,8 @@ class Command(BaseCommand):
                     f"${new / 100:,.2f} after.  Fix the price matrix or "
                     f"PACK_DECOMPOSITION before migrating this subscriber."
                 )
-        self._check_grants(item, plan_price, packs)
-        return plan_price, packs
+        note = self._check_grants(item, plan_price, packs)
+        return plan_price, packs, note
 
     def _check_grants(self, item, plan_price, packs):
         """Refuse if the organization would receive a different amount.
@@ -537,6 +539,9 @@ class Command(BaseCommand):
         has needed to look at in years.
 
         Compared before repointing, because `item.plan` is about to change.
+        Returns a note for the caller to print under the subscriber's line
+        when the change is one somebody decided on, so it reads next to the
+        org it is about rather than the one above it.
         """
         before = resource_totals([(item.plan, item.quantity)])
         after = resource_totals(
@@ -544,12 +549,11 @@ class Command(BaseCommand):
             + [(price.plan, quantity) for price, quantity in packs]
         )
         if before == after:
-            return
+            return None
 
         reason = EXPECTED_GRANT_CHANGES.get(item.plan.slug)
         if reason is not None:
-            self.stdout.write(f"      grant changes as decided: {reason}")
-            return
+            return f"grant changes as decided: {reason}"
 
         if packs:
             # Decomposition keeps only what its packs carry, by decision:
@@ -582,10 +586,7 @@ class Command(BaseCommand):
                     for key in before
                     if before[key] != after[key]
                 }
-                self.stdout.write(
-                    f"      block overage not carried by a pack, as decided: " f"{lost}"
-                )
-                return
+                return f"block overage not carried by a pack, as decided: {lost}"
 
         raise CommandError(
             f"would change what this organization receives: "

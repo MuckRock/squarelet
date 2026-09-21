@@ -1134,7 +1134,11 @@ class TestWhatTheOrganizationReceives:
 
         out = run(actor=actor.username)
 
-        assert "block overage not carried by a pack, as decided" in out
+        # The note has to sit under the org it is about.  It used to print
+        # before the "+" line and so read as belonging to the previous org.
+        org_line = out.index(f"+ {item.subscription.organization.slug}:")
+        note_line = out.index("block overage not carried by a pack, as decided")
+        assert org_line < note_line
         item.refresh_from_db()
         assert item.plan_price is not None
         assert item.quantity == 1
