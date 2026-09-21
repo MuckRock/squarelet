@@ -13,7 +13,11 @@ import requests
 
 # Squarelet
 from squarelet.core.management.commands import sync_odoo
-from squarelet.organizations.tests.factories import OrganizationFactory, PlanFactory
+from squarelet.organizations.tests.factories import (
+    OrganizationFactory,
+    PlanFactory,
+    PlanPriceFactory,
+)
 
 # pylint:disable=protected-access
 
@@ -195,16 +199,22 @@ class TestBuildPlanVals:
         plan = Mock()
         plan.name = "Scoutpost Team"
         plan.slug = "scoutpost-team"
-        plan.base_price = 50.0
-        plan.price_per_user = 10.0
-        plan.annual = False
+        plan.list_price = Mock(amount_dollars=50.0, interval="monthly")
         assert sync_odoo._build_plan_vals(plan) == {
             "x_name": "Scoutpost Team",
             "x_studio_slug": "scoutpost-team",
             "x_studio_base_price": 50.0,
-            "x_studio_price_per_user": 10.0,
+            "x_studio_price_per_user": 0,
             "x_studio_annual": False,
         }
+
+    def test_a_plan_with_no_price_mirrors_as_free(self):
+        plan = Mock()
+        plan.name = "Unpriced"
+        plan.slug = "unpriced"
+        plan.list_price = None
+        assert sync_odoo._build_plan_vals(plan)["x_studio_base_price"] == 0
+        assert sync_odoo._build_plan_vals(plan)["x_studio_annual"] is False
 
 
 class TestComputeOrgPlansAndStatus:
@@ -776,13 +786,10 @@ class TestEnsureAllPlans:
 
     def test_creates_missing_plans_with_full_data(self):
         """A plan absent in Odoo is created with all mirrored pricing fields."""
-        PlanFactory(
-            name="Scoutpost Pro",
-            slug="scoutpost-pro",
-            base_price=10,
-            price_per_user=0,
-            annual=False,
-            wix=True,
+        PlanPriceFactory(
+            plan=PlanFactory(name="Scoutpost Pro", slug="scoutpost-pro", wix=True),
+            interval="monthly",
+            amount=1_000,
         )
         with patch.object(sync_odoo, "odoo_search", return_value=[]), patch.object(
             sync_odoo, "odoo_create", return_value=[200]
@@ -793,7 +800,7 @@ class TestEnsureAllPlans:
         assert ours == {
             "x_name": "Scoutpost Pro",
             "x_studio_slug": "scoutpost-pro",
-            "x_studio_base_price": 10,
+            "x_studio_base_price": 10.0,
             "x_studio_price_per_user": 0,
             "x_studio_annual": False,
         }

@@ -185,13 +185,20 @@ def _plan_note(plan_ids):
 
 
 def _build_plan_vals(plan):
-    """Map a Plan from Accounts to the x_plan fields Odoo mirrors."""
+    """Map a Plan from Accounts to the x_plan fields Odoo mirrors.
+
+    Pricing comes from the plan's list price.  Odoo's fields still carry
+    the legacy names - a per-user rate is always 0 now, since blocks are
+    a pack of their own rather than more of the tier - and a plan with no
+    price mirrors as free, which is what it is until it has one.
+    """
+    price = plan.list_price
     return {
         "x_name": plan.name,
         "x_studio_slug": plan.slug,
-        "x_studio_base_price": plan.base_price,
-        "x_studio_price_per_user": plan.price_per_user,
-        "x_studio_annual": plan.annual,
+        "x_studio_base_price": price.amount_dollars if price else 0,
+        "x_studio_price_per_user": 0,
+        "x_studio_annual": bool(price and price.interval == "annual"),
     }
 
 

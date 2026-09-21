@@ -219,8 +219,8 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         for org in user.organizations.filter(individual=False):
             plans.extend(
                 (org, sub.plan)
-                for sub in org.subscription_items.select_related("plan")
-                if not sub.plan.free
+                for sub in org.subscription_items.select_related("plan", "plan_price")
+                if not sub.is_free
             )
             plans.extend((org, plan) for _source, plan in org.get_inherited_plans())
         return plans
