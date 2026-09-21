@@ -85,21 +85,23 @@ class Command(BaseCommand):
         if plan.archived:
             return "already"
 
-        # Cancelled lines do not count: they are the record of what someone
-        # used to be on, and they keep pointing at the archived plan quite
-        # happily.  A live line means somebody is still being served by it.
-        live = plan.subscription_items.exclude(cancelled=True).count()
+        # Every line counts, cancelled or not.  A cancelled line is not the
+        # record of someone who left - that is OrganizationChangeLog - it is
+        # a subscriber still billed and still served until `cancel_at`, who
+        # can press Resubscribe and be live again.  Archiving under them
+        # left one Sunlight subscriber renewing on an archived plan.  The
+        # sweep deletes the line when its date arrives; the plan becomes
+        # archivable on the run after that.
+        lines = plan.subscription_items.count()
         sellable = plan.prices.filter(active=True).count()
-        if live or sellable:
+        if lines or sellable:
             self.stdout.write(
                 f"  ~ {plan.slug}: still in use "
-                f"({live} live line(s), {sellable} active price(s))"
+                f"({lines} line(s), {sellable} active price(s))"
             )
             return "in_use"
 
-        cancelled = plan.subscription_items.filter(cancelled=True).count()
-        detail = f" (keeps {cancelled} cancelled line(s))" if cancelled else ""
-        self.stdout.write(self.style.SUCCESS(f"  - {plan.slug}: archived{detail}"))
+        self.stdout.write(self.style.SUCCESS(f"  - {plan.slug}: archived"))
         plan.archived = True
         plan.save(update_fields=["archived"])
         return "archived"
