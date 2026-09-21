@@ -163,15 +163,15 @@ def _normalize_stat(field, value):
 
 
 def _resolve_plan_id(name):
-    """Resolve a Squarelet plan to its Odoo x_plan id by name match.
+    """Resolve a plan on Accounts to its Odoo x_plan id by name match.
     Creation is handled up front by _ensure_all_plans, so this is
-    lookup-only; a missing plan means it wasn't in Squarelet at ensure time."""
+    lookup-only; a missing plan means it wasn't in Accounts at ensure time."""
     if name in _PLAN_ID_CACHE:
         return _PLAN_ID_CACHE[name]
     res = odoo_search("x_plan", [["x_name", "=", name]], ["id"])
     pid = res[0]["id"] if res else None
     if pid is None:
-        logger.warning("No Odoo plan match for Squarelet plan: %s", name)
+        logger.warning("No Odoo plan match for Accounts plan: %s", name)
     _PLAN_ID_CACHE[name] = pid
     return pid
 
@@ -185,7 +185,7 @@ def _plan_note(plan_ids):
 
 
 def _build_plan_vals(plan):
-    """Map a Squarelet Plan to the x_plan fields Odoo mirrors."""
+    """Map a Plan from Accounts to the x_plan fields Odoo mirrors."""
     return {
         "x_name": plan.name,
         "x_studio_slug": plan.slug,
@@ -196,7 +196,7 @@ def _build_plan_vals(plan):
 
 
 def _resolve_or_create_plan(plan, dry_run):
-    """Return the Odoo x_plan id for a Squarelet plan, creating it if
+    """Return the Odoo x_plan id for an Accounts plan, creating it if
     missing. Returns None if it can't be resolved (dry-run, or a failed
     create)."""
     res = odoo_search("x_plan", [["x_name", "=", plan.name]], ["id"])
@@ -214,7 +214,7 @@ def _resolve_or_create_plan(plan, dry_run):
 
 
 def _ensure_all_plans(dry_run=False):
-    """Create an Odoo x_plan with full pricing data for any Squarelet
+    """Create an Odoo x_plan with full pricing data for any Accounts
     plan that lacks one. Runs before sync so every plan resolves to a
     real id and no plan silently drops out of an org's plan list."""
     for plan in Plan.objects.all():
@@ -344,7 +344,7 @@ def _diff_and_update_org(
         if removed_plan_ids:
             log_org_note(
                 odoo_id,
-                f"Plan(s) removed by Squarelet sync: {_plan_note(removed_plan_ids)}",
+                f"Plan(s) removed by Accounts sync: {_plan_note(removed_plan_ids)}",
                 dry_run=dry_run,
             )
     else:
@@ -397,14 +397,14 @@ def _member_desired_plans(user, org_plan_ids):
 
 
 def _find_member(user):
-    """Find an existing Odoo contact for a Squarelet user by account uuid
+    """Find an existing Odoo contact for a Accounts user by account uuid
     (globally unique), falling back to email ONLY for contacts not yet linked
     to any account. Returns (odoo_id or None, matched_via_secondary).
 
     The email fallback is filtered to contacts with an empty
     x_studio_muckrock_accounts_uuid so that a contact already claimed by one
     account can't be re-matched (and overwritten) by a different account that
-    happens to share an email — e.g. one person with two Squarelet accounts
+    happens to share an email — e.g. one person with two accounts from Accounts
     under different emails. In that case the second account misses both the
     uuid and the (uuid-filtered) email match and correctly creates its own
     contact. Deduping those underlying accounts is handled upstream, not here."""
@@ -664,18 +664,18 @@ def cancel_org(odoo_id, name, plan_ids, dry_run=False):
         logger.info("Cancelled lapsed org: %s", name)
     if plan_ids:
         body = (
-            f"Marked Cancelled by Squarelet sync — lost plan(s): "
+            f"Marked Cancelled by Accounts sync — lost plan(s): "
             f"{_plan_note(plan_ids)}."
         )
     else:
-        body = "Marked Cancelled by Squarelet sync — no active Sunlight plan."
+        body = "Marked Cancelled by Accounts sync — no active Sunlight plan."
     log_org_note(odoo_id, body, dry_run=dry_run)
 
 
 def _sweep_lapsed_orgs(active_slugs, dry_run=False, only_slug=None):
-    """Find Confirmed Odoo orgs no longer active in Squarelet, cancel each."""
+    """Find Confirmed Odoo orgs no longer active in Accounts, cancel each."""
     logger.info(
-        "Checking %d active Squarelet slugs against Odoo confirmed orgs",
+        "Checking %d active Accounts slugs against Odoo confirmed orgs",
         len(active_slugs),
     )
     domain = [
@@ -691,7 +691,7 @@ def _sweep_lapsed_orgs(active_slugs, dry_run=False, only_slug=None):
     )
 
     logger.info(
-        "Found %d confirmed orgs in Odoo with no active plan in Squarelet"
+        "Found %d confirmed orgs in Odoo with no active plan in Accounts"
         " — these would be cancelled",
         len(candidates),
     )
@@ -854,7 +854,7 @@ def _sync_org(org, collaborative_data, dry_run, remove_members):
 
 
 class Command(BaseCommand):
-    """Sync Squarelet Sunlight orgs and members to Odoo"""
+    """Sync Accounts Sunlight orgs and members to Odoo"""
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -865,7 +865,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--remove-members",
             action="store_true",
-            help="Unlink members from Odoo orgs if they are no longer in Squarelet",
+            help="Unlink members from Odoo orgs if they are no longer in Accounts",
         )
         parser.add_argument(
             "--slug",
