@@ -1816,7 +1816,7 @@ class Plan(models.Model):
     def has_available_slots(self):
         """Check if new subscriptions are allowed for this plan"""
         # Only Sunlight plans have subscription limits
-        if self.slug.startswith("sunlight-") and self.wix:
+        if self.is_sunlight_plan and self.wix:
             current_count = SubscriptionItem.objects.sunlight_active_count()
             return current_count < settings.MAX_SUNLIGHT_SUBSCRIPTIONS
         return True
@@ -1836,19 +1836,13 @@ class Plan(models.Model):
 
     @property
     def is_sunlight_plan(self):
-        """Check if this is a Sunlight Research Center plan"""
-        return self.slug.startswith("sunlight-")
+        """Whether this plan is marketed under Sunlight Research Center.
 
-    @property
-    def nonprofit_variant_slug(self):
-        """Get the nonprofit variant slug for this plan"""
-        if self.slug.startswith("sunlight-nonprofit-"):
-            return self.slug  # Already a nonprofit variant
-        elif self.slug.startswith("sunlight-"):
-            # Convert sunlight-essential -> sunlight-nonprofit-essential
-            # Convert sunlight-essential-annual -> sunlight-nonprofit-essential-annual
-            return self.slug.replace("sunlight-", "sunlight-nonprofit-", 1)
-        return None
+        Keyed on `product`, which is what the field is for.  The slug
+        prefix stopped identifying the tier once the annual and nonprofit
+        variants collapsed onto one row per tier.
+        """
+        return self.product == "sunlight"
 
     @property
     def stripe_id(self):

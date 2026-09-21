@@ -733,11 +733,8 @@ class SubscriptionItemQuerySet(models.QuerySet):
         return item, stripe_subscription
 
     def sunlight_active_count(self):
-        """Count active Sunlight subscriptions across all variants"""
-        return self.filter(
-            plan__slug__startswith="sunlight-",
-            plan__wix=True,
-        ).count()
+        """Count active Sunlight subscriptions across all tiers"""
+        return self.filter(plan__product="sunlight", plan__wix=True).count()
 
 
 class InvoiceQuerySet(models.QuerySet):

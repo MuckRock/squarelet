@@ -915,32 +915,24 @@ class TestEnterpriseTemplateSelection(ViewTestMixin):
         # Verify custom template is used
         assert response.template_name == ["payments/plan_enterprise.html"]
 
-    def test_enterprise_annual_plan_uses_custom_template(
-        self, rf, user_factory, plan_factory, mocker
+    def test_enterprise_annual_redirects_to_the_enterprise_page(
+        self, rf, user_factory, plan_factory
     ):
-        """Test that Enterprise annual plans use the plan_enterprise.html template"""
-        user = user_factory()
-        plan = plan_factory(
+        """The annual row is an alias of the canonical Enterprise row; it
+        lands on the same custom template by way of the redirect."""
+        canonical = plan_factory(
+            name="Sunlight Enterprise", slug="sunlight-enterprise", public=True
+        )
+        annual = plan_factory(
             name="Sunlight Enterprise Annual",
             slug="sunlight-enterprise-annual",
             public=True,
-            annual=True,
         )
 
-        # Mock Stripe customer to avoid API calls
-        mock_customer = mocker.MagicMock()
-        mock_customer.payment_details = None
-        mocker.patch.object(
-            user.individual_organization, "customer", return_value=mock_customer
-        )
+        response = self.call_view(rf, user_factory(), pk=annual.pk, slug=annual.slug)
 
-        response = self.call_view(rf, user, pk=plan.pk, slug=plan.slug)
-
-        # Should return 200 OK
-        assert response.status_code == 200
-
-        # Verify custom template is used
-        assert response.template_name == ["payments/plan_enterprise.html"]
+        assert response.status_code == 301
+        assert response.url == f"{canonical.get_absolute_url()}?interval=annual"
 
     def test_non_enterprise_plan_uses_default_template(
         self, rf, user_factory, plan_factory, mocker

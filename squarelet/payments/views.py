@@ -95,8 +95,9 @@ class PlanDetailView(DetailView):
         """Override to use custom template for Enterprise plans"""
         plan = self.get_object()
 
-        # Check if this is an Enterprise plan
-        if plan.slug.startswith("sunlight-enterprise"):
+        # The Enterprise tier is one canonical row now; its annual and
+        # custom variants redirect here before this is reached.
+        if plan.slug == "sunlight-enterprise":
             return ["payments/plan_enterprise.html"]
 
         return [self.template_name]
@@ -306,7 +307,7 @@ class PlanDetailView(DetailView):
         Returns an HttpResponse for early exits (waitlist, 3DS, Stripe errors),
         or None to signal the caller should build the success response.
         """
-        if plan.slug.startswith("sunlight-") and plan.wix:
+        if plan.is_sunlight_plan and plan.wix:
             return self._handle_sunlight_subscription(request, plan, result)
         return self._handle_regular_subscription(request, plan, result)
 
