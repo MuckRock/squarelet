@@ -31,6 +31,25 @@ def legacy_plan(name="Dead Plan", slug="dead-plan"):
     return PlanFactory(name=name, slug=slug)
 
 
+def plan_with_slug(name, slug):
+    """One row per slug, seeded or not.
+
+    The migration seeds the canonical tiers and the entry rows, and whether
+    they are present when a test runs depends on which transactional tests
+    ran before it.  `PlanFactory` on an existing slug makes a second row
+    slugged `<slug>-2`, which no mapping entry names - so a test about
+    `sunlight-essential-annual` would quietly be about a plan nothing
+    resolves through.
+    """
+    existing = Plan.objects.including_archived().filter(slug=slug).first()
+    if existing is not None:
+        existing.archived = False
+        existing.save(update_fields=["archived"])
+        existing.prices.all().delete()
+        return existing
+    return PlanFactory(name=name, slug=slug)
+
+
 @pytest.mark.django_db()
 class TestWhatGetsArchived:
     def test_an_unused_legacy_plan_is_archived(self):
@@ -85,6 +104,82 @@ class TestWhatGetsArchived:
 
         plan.refresh_from_db()
         assert not plan.archived
+
+
+@pytest.mark.django_db()
+class TestEntryRowsAreKeptWhilePurchasesGoThroughThem:
+    """`sunlight-essential-annual` holds no price of its own.
+
+    Purchases pick it and `resolve_purchase` maps it to
+    `sunlight-essential`'s annual price - so after 2d it has zero lines and
+    zero prices, and "no active price" archived the only way to buy annual.
+    Sellable means `resolve_target` names an active price.  When the UI
+    picks interval and label directly and these rows leave the mapping,
+    the same test archives them with no change.
+    """
+
+    def test_an_entry_row_whose_target_is_priced_is_kept(self):
+        canonical = plan_with_slug("Sunlight Essential", "sunlight-essential")
+        PlanPriceFactory(plan=canonical, interval="annual", label="standard")
+        entry = plan_with_slug(
+            "Sunlight Essential (Annual)", "sunlight-essential-annual"
+        )
+
+        out = run()
+
+        entry.refresh_from_db()
+        assert not entry.archived
+        assert "sunlight-essential-annual: still in use" in out
+        assert "still purchasable" in out
+
+    def test_an_entry_row_whose_target_has_no_price_is_archived(self):
+        """Nothing to resolve to, so nothing can be bought through it."""
+        plan_with_slug("Sunlight Essential", "sunlight-essential")
+        entry = plan_with_slug(
+            "Sunlight Essential (Annual)", "sunlight-essential-annual"
+        )
+
+        run()
+
+        entry.refresh_from_db()
+        assert entry.archived
+
+
+@pytest.mark.django_db()
+class TestEveryCanonicalPlanIsKept:
+    """The price matrix, not the mapping's targets.
+
+    Derived from the mapping, the keep set was its targets plus a local
+    copy of the pack list built from PACK_DECOMPOSITION - and missed two
+    packs nothing decomposes into yet and three tiers no legacy plan maps
+    onto.  They survived only because consolidation had given them prices.
+    """
+
+    @pytest.mark.parametrize(
+        "slug",
+        [
+            "documentcloud-credit-pack",
+            "scoutpost-credit-pack",
+            "documentcloud-premium",
+            "scoutpost-pro",
+            "scoutpost-team",
+        ],
+    )
+    def test_a_canonical_plan_with_no_price_yet_is_still_kept(self, slug):
+        """As on any environment where this runs before consolidation."""
+        plan = plan_with_slug(f"Canonical {slug}", slug)
+
+        out = run()
+
+        plan.refresh_from_db()
+        assert not plan.archived, f"{slug} is in the price matrix"
+        # Kept as canonical - not "still in use", which is what it read as
+        # when only a price consolidation happened to have created saved it.
+        # Checked per plan rather than by the summary counts: the migration
+        # seeds other plans, and whether they are present when this runs
+        # depends on which transactional tests ran before it.
+        assert f"{slug}: still in use" not in out
+        assert canonical_slugs() >= {slug}
 
 
 @pytest.mark.django_db()
