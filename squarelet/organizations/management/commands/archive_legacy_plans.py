@@ -60,7 +60,9 @@ class Command(BaseCommand):
         counts = collections.Counter()
 
         with transaction.atomic():
-            for plan in Plan.objects.order_by("slug"):
+            # Every plan, archived ones included: the run has to see what
+            # it archived last time to report it as already done.
+            for plan in Plan.objects.including_archived().order_by("slug"):
                 counts[self._consider(plan, keep)] += 1
             if dry_run:
                 transaction.set_rollback(True)

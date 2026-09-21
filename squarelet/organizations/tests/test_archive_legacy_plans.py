@@ -47,7 +47,10 @@ class TestWhatGetsArchived:
 
         run()
 
-        assert Plan.objects.filter(pk=plan.pk).exists()
+        # Hidden from the default manager, which is the point of archiving -
+        # but the row is there for the change log to reference.
+        assert not Plan.objects.filter(pk=plan.pk).exists()
+        assert Plan.objects.including_archived().filter(pk=plan.pk).exists()
 
     def test_a_canonical_plan_is_untouched(self):
         slug = sorted(canonical_slugs())[0]
@@ -118,6 +121,42 @@ class TestACancelledLineStillBlocksIt:
 
 @pytest.mark.django_db()
 class TestArchivedPlansAreNotOffered:
+    """`Plan.objects` hides them, so every surface is safe by default.
+
+    Before the manager did this, the only place reading the flag was
+    `choices()`, whose one caller is a template tag no template invokes -
+    and the sign-up form, the Sunlight listings and purchase-by-slug all
+    queried `Plan.objects` directly.  Archiving changed nothing a customer
+    could see.  These test the real surfaces, not the tag.
+    """
+
+    def test_the_default_manager_hides_it(self):
+        PlanFactory(name="Retired", slug="retired", public=True, archived=True)
+
+        assert not Plan.objects.filter(slug="retired").exists()
+        assert Plan.objects.including_archived().filter(slug="retired").exists()
+
+    def test_the_sign_up_form_does_not_offer_it(self):
+        """`Plan.objects.filter(public=True)` - the sign-up form's queryset."""
+        PlanFactory(name="Retired", slug="retired", public=True, archived=True)
+
+        assert not Plan.objects.filter(public=True).filter(slug="retired").exists()
+
+    def test_it_cannot_be_fetched_by_slug_to_buy(self):
+        """The purchase view's `Plan.objects.get(slug=...)`."""
+        PlanFactory(name="Retired", slug="retired", public=True, archived=True)
+
+        with pytest.raises(Plan.DoesNotExist):
+            Plan.objects.get(slug="retired")
+
+    def test_an_organization_on_it_still_resolves_its_own_plan(self):
+        """Retired for new buyers, not vanished from the people on it."""
+        item = SubscriptionItemFactory(
+            plan=PlanFactory(name="Retired", slug="retired", archived=True)
+        )
+
+        assert item.plan in item.subscription.organization.get_plans()
+
     def test_an_archived_plan_is_not_a_choice(self):
         organization = OrganizationFactory(individual=False)
         plan = PlanFactory(name="Retired", slug="retired", public=True, archived=True)

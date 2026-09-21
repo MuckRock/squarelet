@@ -379,7 +379,11 @@ class PlanFilter(admin.SimpleListFilter):
     template = "admin/dropdown_filter.html"
 
     def lookups(self, request, model_admin):
-        plans = Plan.objects.order_by("name").values_list("pk", "name")
+        # Archived ones too: support filters by the plan an organization
+        # *used* to be on as often as the one it is on.
+        plans = (
+            Plan.objects.including_archived().order_by("name").values_list("pk", "name")
+        )
         return [("none", "— No plan —"), *plans]
 
     def queryset(self, request, queryset):
