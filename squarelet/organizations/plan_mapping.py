@@ -197,8 +197,6 @@ PACK_DECOMPOSITION = {
 # Deliberately left alone.  Each needs a decision or an action outside this
 # command, given per entry below.
 DEFERRED_SLUGS = {
-    # Its one subscription belongs to an organization that was merged away.
-    "sunlight-premium-annual",
     # A one-year programme at a $3,000 cohort rate, not renewing, nobody
     # joining.  Its decided target needs a $1,000 coupon that nothing in
     # this stack applies yet, and mapping it without one would repoint the
