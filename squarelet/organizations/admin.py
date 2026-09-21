@@ -78,7 +78,9 @@ class PrettyJSONWidget(Textarea):
 
 class SubscriptionInline(admin.TabularInline):
     model = Subscription
-    readonly_fields = ("plan", "subscription_id", "cancelled", "quantity")
+    fields = ("plan", "plan_price", "subscription_id", "cancelled", "quantity")
+    readonly_fields = ("plan", "plan_price", "subscription_id", "cancelled", "quantity")
+    autocomplete_fields = "plan_price"
     extra = 0
     can_delete = False
 
