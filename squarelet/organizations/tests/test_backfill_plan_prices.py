@@ -340,6 +340,23 @@ class TestPreflightRefusesToGuess:
             run(actor=actor.username)
 
     @pytest.mark.usefixtures("targets")
+    def test_a_target_nobody_needs_may_be_missing(self):
+        """Staging has no documentcloud-premium plan, so consolidate could
+        not create its price - and the preflight refused the whole run over
+        a target no line on that database resolved to.
+        """
+        actor = UserFactory()
+        PlanPrice.objects.filter(plan__slug="documentcloud-premium").delete()
+        item = SubscriptionItemFactory(
+            plan=legacy("professional"), subscription__subscription_id="sub_live"
+        )
+
+        run(actor=actor.username)
+
+        item.refresh_from_db()
+        assert item.plan_price is not None
+
+    @pytest.mark.usefixtures("targets")
     def test_a_missing_comped_pack_is_named_up_front(self):
         """Not a DoesNotExist from the middle of the run.
 

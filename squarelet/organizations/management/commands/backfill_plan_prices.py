@@ -299,7 +299,7 @@ class Command(BaseCommand):
                 "entry in PACK_DECOMPOSITION: " + ", ".join(sorted(undecomposed))
             )
 
-        missing = self._missing_prices()
+        missing = self._missing_prices(pending)
         if missing:
             raise CommandError(
                 "These target prices do not exist - run "
@@ -320,11 +320,24 @@ class Command(BaseCommand):
             )
 
     @staticmethod
-    def _missing_prices():
-        """Targets named by the mapping tables that nothing has created yet."""
+    def _missing_prices(pending):
+        """Targets the pending lines resolve to that nothing has created yet.
+
+        Only the targets these lines need.  Checking every value in the map
+        refused a review app over `documentcloud-premium`: staging has no
+        such plan, so `consolidate_stripe_products --allow-missing` could
+        not create its price, and no line on that database wanted it.
+        Production has every plan, so there the two checks agree - but the
+        one that mirrors `_plan_for` is the one that cannot disagree.
+        """
+        keys = {
+            (item.plan.slug, is_billing(item))
+            for item in pending
+            if item.plan.slug not in DEFERRED_SLUGS
+        }
         missing = set()
-        for target in set(LEGACY_PLAN_MAP.values()):
-            slug, interval, label, code = target
+        for key in keys:
+            slug, interval, label, code = LEGACY_PLAN_MAP[key]
             if not PlanPrice.objects.filter(
                 plan__slug=slug,
                 interval=interval,
@@ -332,32 +345,29 @@ class Command(BaseCommand):
                 code=code,
                 active=True,
             ).exists():
-                missing.add(target)
+                missing.add((slug, interval, label, code))
 
         # A pack takes its base tier's label, so a decomposed plan needs
-        # its packs at every label its subscribers can arrive under: the
-        # standard pack for billing block-holders and the comped one for
-        # comped block-holders.  Checking only standard let a comped
+        # its packs at every label its subscribers actually arrive under:
+        # the standard pack for billing block-holders and the comped one
+        # for comped block-holders.  Checking only standard let a comped
         # organization above its minimum reach `_plan_for`, whose bare
         # `.get()` then raised DoesNotExist - not a CommandError, so
         # nothing caught it, and the run died mid-way with earlier
         # subscribers already committed and pushed to Stripe.
-        for plan_slug, packs in PACK_DECOMPOSITION.items():
-            for billing in (True, False):
-                base = LEGACY_PLAN_MAP.get((plan_slug, billing))
-                if base is None:
-                    continue
-                pack_label = "comped" if base[2] == "comped" else "standard"
-                for pack_slug in packs:
-                    target = (pack_slug, base[1], pack_label, "")
-                    if not PlanPrice.objects.filter(
-                        plan__slug=pack_slug,
-                        interval=base[1],
-                        label=pack_label,
-                        code="",
-                        active=True,
-                    ).exists():
-                        missing.add(target)
+        for plan_slug, billing in keys:
+            base = LEGACY_PLAN_MAP[(plan_slug, billing)]
+            pack_label = "comped" if base[2] == "comped" else "standard"
+            for pack_slug in PACK_DECOMPOSITION.get(plan_slug, ()):
+                target = (pack_slug, base[1], pack_label, "")
+                if not PlanPrice.objects.filter(
+                    plan__slug=pack_slug,
+                    interval=base[1],
+                    label=pack_label,
+                    code="",
+                    active=True,
+                ).exists():
+                    missing.add(target)
         return missing
 
     def _collisions(self, pending):
