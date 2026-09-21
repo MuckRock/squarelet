@@ -373,6 +373,67 @@ class TestBillingShapeFollowsThePrice:
 
 
 @pytest.mark.django_db()
+class TestATierIsOneUnit:
+    """A flat Price bills `unit_amount x quantity`, so a tier line is one unit.
+
+    The purchase views passed `plan.minimum_users` as the quantity, which
+    the legacy tiered Stripe Plans priced as the base: five units at a
+    five-minimum billed $100.  A flat Price has no such tier.  Five units
+    of the $100 Organization price is $500, and production's canonical
+    Organization row has `minimum_users = 5`.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _no_stripe(self, mocker):
+        mocker.patch("squarelet.organizations.models.Subscription.start")
+        mocker.patch(
+            "squarelet.organizations.models.payment.SubscriptionItem.notify_started"
+        )
+
+    def test_a_purchase_against_a_price_is_one_unit(
+        self, organization_factory, plan_price_factory
+    ):
+        price = plan_price_factory(amount=10_000, stripe_price_id="price_org")
+        price.plan.minimum_users = 5
+        price.plan.save()
+
+        item, _ = SubscriptionItem.objects.start(
+            organization=organization_factory(), plan=price.plan
+        )
+
+        assert item.quantity == 1
+        assert item.subscription.stripe_items() == [
+            {"plan": "price_org", "quantity": 1}
+        ]
+
+    def test_a_legacy_purchase_still_takes_the_minimum(
+        self, organization_factory, legacy_plan
+    ):
+        """No price to resolve to means the legacy tiered Plan, which prices
+        its minimum as the base and wants that many units."""
+        legacy_plan.minimum_users = 5
+        legacy_plan.save()
+
+        item, _ = SubscriptionItem.objects.start(
+            organization=organization_factory(), plan=legacy_plan
+        )
+
+        assert item.quantity == 5
+
+    def test_an_explicit_quantity_is_kept(
+        self, organization_factory, plan_price_factory
+    ):
+        """What a pack purchase will pass, once there is a UI for one."""
+        price = plan_price_factory(amount=1_000, stripe_price_id="price_pack")
+
+        item, _ = SubscriptionItem.objects.start(
+            organization=organization_factory(), plan=price.plan, quantity=3
+        )
+
+        assert item.quantity == 3
+
+
+@pytest.mark.django_db()
 class TestAPriceWithNoStripePriceIsNotReady:
     """A paid price Stripe has never heard of cannot be sold against.
 

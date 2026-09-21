@@ -237,7 +237,7 @@ def test_premium_subscription_form_save(plan_factory, user, mocker):
     form.save(user)
 
     create_sub_mock.assert_called_once_with(
-        plan, plan.minimum_users, user, token="tok_visa"
+        plan, None, user, token="tok_visa"
     )
 
 
@@ -408,7 +408,7 @@ def test_premium_subscription_form_save_new_organization(plan_factory, user, moc
     add_creator_mock.assert_called_once_with(user)
     set_billing_email_mock.assert_called_once_with("billing@example.com")
     create_sub_mock.assert_called_once_with(
-        plan, plan.minimum_users, user, token="tok_visa"
+        plan, None, user, token="tok_visa"
     )
 
 

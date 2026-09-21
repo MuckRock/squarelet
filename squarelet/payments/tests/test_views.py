@@ -52,7 +52,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         # Verify subscription was created
         mock_add_subscription.assert_called_once_with(
             plan,
-            plan.minimum_users,
+            None,
             user,
             token="tok_visa",
             payment_method="new-card",
@@ -166,7 +166,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         # Verify subscription was created with existing org
         mock_add_subscription.assert_called_once_with(
             plan,
-            plan.minimum_users,
+            None,
             user,
             token="tok_visa",
             payment_method="new-card",
@@ -319,7 +319,7 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
         # Should succeed and call add_subscription with invoice payment method
         mock_add_subscription.assert_called_once_with(
             plan,
-            plan.minimum_users,
+            None,
             user,
             token="",
             payment_method="invoice",

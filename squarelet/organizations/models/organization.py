@@ -581,10 +581,6 @@ class Organization(AvatarMixin, models.Model):
                 f"Organization already has an active subscription to {plan}"
             )
 
-        # max_users is absent from the PaymentForm for individual orgs
-        if max_users is None:
-            max_users = plan.minimum_users
-
         is_first = not self.subscription_items.exists()
 
         payment_method = self._resolve_payment_method(payment_method, token)
@@ -601,7 +597,11 @@ class Organization(AvatarMixin, models.Model):
         # receives no billing_cycle_anchor (Stripe sets its own anchor). Only after
         # the subscription exists do we record the anchor for subsequent subscriptions
         # to align to.
-        _, stripe_subscription = self.subscription_items.start(
+        # `max_users` is None from every purchase view: how many units one
+        # of the plan is depends on what the line bills against, and
+        # `start` is what knows.  Filling in `plan.minimum_users` here
+        # bought five of a tier once the line resolved to a flat Price.
+        item, stripe_subscription = self.subscription_items.start(
             organization=self,
             plan=plan,
             payment_method=payment_method,
@@ -627,7 +627,7 @@ class Organization(AvatarMixin, models.Model):
             user=user,
             reason=ChangeLogReason.updated,
             to_plan=plan,
-            to_max_users=max_users,
+            to_max_users=item.quantity,
         )
 
         if plan.wix:

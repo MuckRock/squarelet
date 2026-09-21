@@ -301,7 +301,7 @@ class PlanDetailView(DetailView):
         transaction.on_commit(
             lambda: organization.add_subscription(
                 selected_plan,
-                selected_plan.minimum_users,
+                None,
                 request.user,
                 token=stripe_token,
                 payment_method=payment_method,
@@ -321,7 +321,7 @@ class PlanDetailView(DetailView):
         try:
             organization.add_subscription(
                 selected_plan,
-                selected_plan.minimum_users,
+                None,
                 request.user,
                 token=stripe_token,
                 payment_method=payment_method,

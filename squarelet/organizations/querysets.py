@@ -555,13 +555,27 @@ class SubscriptionItemQuerySet(models.QuerySet):
         return canonical
 
     def start(
-        self, organization, plan, payment_method="card", quantity=1, nonprofit=False
+        self, organization, plan, payment_method="card", quantity=None, nonprofit=False
     ):
         """Add a line for `plan` and make sure Stripe knows about it.
 
-        Interval and collection method decide which subscription the line
-        joins; a line matching none starts a new one.  Returns the line and
-        its Stripe subscription, None when the subscription costs nothing.
+        Stripe requires every item on a subscription to share a billing
+        interval and a collection method, so those two fields decide which
+        subscription the line joins.  A line that matches an existing
+        subscription is added to it and bills on the same invoice; one that
+        does not starts a new subscription.
+
+        `quantity` is how many units of the plan; leave it None for one of
+        it, which is what every purchase today is.  What "one" means
+        depends on what the line bills against.  A flat Price bills
+        `unit_amount x quantity`, so one of a tier is quantity 1 - blocks
+        above it are a pack line, not more of the tier.  The legacy tiered
+        Stripe Plans price their minimum as the base and want that many
+        units, which is what the purchase views used to pass for every
+        plan; against a Price that bought five of the tier.
+
+        Returns the new line and the Stripe subscription carrying it, which
+        is None for a subscription that costs nothing.
         """
         # Lazy import to avoid a circular import (payment.py imports this module)
         # pylint: disable=import-outside-toplevel
@@ -569,6 +583,8 @@ class SubscriptionItemQuerySet(models.QuerySet):
         from squarelet.organizations.models.payment import Subscription
 
         canonical_plan, plan_price = self.resolve_purchase(plan, nonprofit)
+        if quantity is None:
+            quantity = 1 if plan_price is not None else plan.minimum_users
         # The billing shape follows the resolved price, not `plan.annual`.
         # Annual is a separate `Plan` row today, and the row a customer picks
         # is not always the row they end up on -- the nonprofit variants are
