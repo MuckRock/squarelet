@@ -6,19 +6,48 @@ from django.db import transaction
 import collections
 
 # Squarelet
-from squarelet.organizations.models.payment import Plan
-from squarelet.organizations.plan_mapping import LEGACY_PLAN_MAP, PACK_DECOMPOSITION
-
-PACK_SLUGS = {slug for packs in PACK_DECOMPOSITION.values() for slug in packs}
+from squarelet.organizations.management.commands.consolidate_stripe_products import (
+    CANONICAL_SLUGS,
+)
+from squarelet.organizations.models.payment import Plan, PlanPrice
+from squarelet.organizations.plan_mapping import resolve_target
 
 
 def canonical_slugs():
-    """Every plan the consolidation keeps.
+    """Every plan the consolidation keeps: the price matrix, verbatim.
 
-    Derived from the mapping rather than listed again, so a plan cannot be
-    archived by forgetting to write it down somewhere.
+    Not derived from the mapping.  That gave the mapping's *targets* plus
+    a local copy of the pack list built from PACK_DECOMPOSITION - the
+    derivation #805 replaced for classifying packs - and it missed five
+    plans: two packs nothing decomposes into yet, and three tiers no legacy
+    plan maps onto.  They survived only because consolidation had given
+    them prices, and any environment where this ran first archived them
+    for good.  The matrix is what we sell; that is the list.
     """
-    return {target[0] for target in LEGACY_PLAN_MAP.values()} | PACK_SLUGS
+    return set(CANONICAL_SLUGS)
+
+
+def sellable_through(plan):
+    """Whether a purchase can still be made *through* this plan.
+
+    The purchase flow picks a Plan and `resolve_purchase` maps it to a
+    canonical PlanPrice - so `sunlight-essential-annual` never holds a
+    price of its own, yet is the only way to buy annual today.  Asking
+    whether the plan holds an active price said "cannot be bought" about
+    the very rows purchases go through.  The right question is whether
+    `resolve_target` still names an active price for it.  Once the UI
+    picks interval and label directly and these rows leave the mapping,
+    the same test archives them with no change here.
+    """
+    if plan.prices.filter(active=True).exists():
+        return True
+    target = resolve_target(plan.slug, allow_comped=False)
+    if target is None:
+        return False
+    slug, interval, label, code = target
+    return PlanPrice.objects.filter(
+        plan__slug=slug, interval=interval, label=label, code=code, active=True
+    ).exists()
 
 
 class Command(BaseCommand):
@@ -95,12 +124,10 @@ class Command(BaseCommand):
         # sweep deletes the line when its date arrives; the plan becomes
         # archivable on the run after that.
         lines = plan.subscription_items.count()
-        sellable = plan.prices.filter(active=True).count()
+        sellable = sellable_through(plan)
         if lines or sellable:
-            self.stdout.write(
-                f"  ~ {plan.slug}: still in use "
-                f"({lines} line(s), {sellable} active price(s))"
-            )
+            why = f"{lines} line(s)" + (", still purchasable" if sellable else "")
+            self.stdout.write(f"  ~ {plan.slug}: still in use ({why})")
             return "in_use"
 
         self.stdout.write(self.style.SUCCESS(f"  - {plan.slug}: archived"))
