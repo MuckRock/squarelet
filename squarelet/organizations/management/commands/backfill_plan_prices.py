@@ -188,7 +188,17 @@ class Command(BaseCommand):
             f"\n{counts['migrated']} migrated, {counts['deferred']} deferred, "
             f"{counts['failed']} failed"
         )
-        self._report_remaining()
+        if dry_run:
+            # Both reports below read the database after the run.  A dry
+            # run writes nothing, so they would say every line is still
+            # unmigrated and still at its old quantity - true, and useless,
+            # and the "unexpected" one used to call it a bug.
+            self.stdout.write(
+                "\n(dry run: what remains is what was there - the "
+                "remaining-lines report only means something after a real run)"
+            )
+        else:
+            self._report_remaining()
         if counts["failed"]:
             raise CommandError(
                 f"{counts['failed']} subscription(s) failed; everything else "
@@ -673,13 +683,15 @@ class Command(BaseCommand):
 
         # The precondition the entitlement shape migration checks, reported
         # here so a problem surfaces in the run that could have fixed it
-        # rather than in the one that cannot.
+        # rather than in the one that cannot.  Group plans only: a per-unit
+        # plan keeps its quantity on purpose - a Professional at 3 is three
+        # of them - and the shape migration knows to leave those alone.
         above_one = list(
             SubscriptionItem.objects.select_related(
                 "subscription__organization", "plan"
             )
             .exclude(plan__slug__in=PACK_SLUGS)
-            .filter(quantity__gt=1)
+            .filter(quantity__gt=1, plan__for_groups=True)
         )
         if above_one:
             self.stdout.write(

@@ -94,6 +94,78 @@ class TestTheSeedRehearsesTheMigration:
         # The nonprofit lands on the nonprofit price.
         assert "(Annual, Nonprofit)" in out.split("mig-nonprofit: ")[1].split("\n")[0]
 
+    def test_a_real_run_then_a_rerun(self, mocker):
+        """What the review-app rehearsal looks like after the dry run.
+
+        The dry run never reaches `_write`, so it exercises neither the
+        line-identity fix nor the re-run guard.  A real local-only run
+        does the first; running it again does the second, and is the case
+        that used to reprice nonprofits.
+        """
+        mocker.patch(
+            "squarelet.organizations.models.Subscription.stripe_subscription", None
+        )
+        mocker.patch(
+            "squarelet.organizations.models.payment.Plan.ensure_stripe_product",
+            return_value="prod_mig",
+        )
+        mocker.patch(
+            "squarelet.organizations.models.payment.PlanPrice.ensure_stripe_price",
+            return_value="price_mig",
+        )
+        run("seed_migration_data")
+        run("consolidate_stripe_products", allow_missing=True)
+
+        first = run("backfill_plan_prices", local_only=True, actor="mig-actor")
+
+        assert "18 migrated, 2 deferred, 0 failed" in first
+        # The post-run reports now describe a database the run changed.
+        assert "2 deferred by choice, 0 unexpected" in first
+        # A per-unit plan keeps its quantity on purpose and must not be
+        # listed as a problem; group plans were all dropped to 1 by the run.
+        report = (
+            first.split("still above quantity 1")[-1]
+            if ("still above quantity 1" in first)
+            else ""
+        )
+        assert "mig-pro-3" not in report, report
+        assert "mig-org-18" not in report, "was dropped to 1 by the run"
+        # Two lines now: the base at 1 and the pack beside it.
+        big = SubscriptionItem.objects.get(
+            subscription__organization__slug="mig-org-18", plan__slug="organization"
+        )
+        assert big.quantity == 1
+        pack = SubscriptionItem.objects.get(
+            subscription__organization__slug="mig-org-18",
+            plan__slug="muckrock-request-pack",
+        )
+        assert pack.quantity == 13
+        nonprofit = SubscriptionItem.objects.get(
+            subscription__organization__slug="mig-nonprofit"
+        )
+        assert nonprofit.plan_price.label == "nonprofit"
+        comped = SubscriptionItem.objects.get(
+            subscription__organization__slug="mig-beta"
+        )
+        assert comped.granted_reason.startswith("Migrated from legacy")
+
+        before = set(
+            SubscriptionItem.objects.values_list(
+                "pk", "plan_id", "plan_price_id", "quantity"
+            )
+        )
+        second = run("backfill_plan_prices", local_only=True, actor="mig-actor")
+        after = set(
+            SubscriptionItem.objects.values_list(
+                "pk", "plan_id", "plan_price_id", "quantity"
+            )
+        )
+
+        assert before == after, "a re-run changes nothing"
+        assert "already on" in second
+        nonprofit.refresh_from_db()
+        assert nonprofit.plan_price.label == "nonprofit", "still the deal they had"
+
     def test_teardown_removes_it(self):
         run("seed_migration_data")
         run("seed_migration_data", teardown=True)
