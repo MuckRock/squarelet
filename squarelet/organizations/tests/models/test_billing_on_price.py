@@ -212,6 +212,66 @@ class TestPurchaseResolvesAPrice:
 
         assert self._resolve(plan=plan) == annual
 
+    def test_an_explicit_interval_picks_that_price(self, plan_price_factory):
+        """A canonical tier is one row with both intervals; the page asks
+        for the annual one by name."""
+        plan = plan_price_factory(interval="monthly", amount=10_000).plan
+        annual = plan_price_factory(plan=plan, interval="annual", amount=100_000)
+
+        assert self._resolve(plan=plan).interval == "monthly"
+        assert (
+            SubscriptionItem.objects.resolve_purchase(plan, interval="annual")[1]
+            == annual
+        )
+
+    def test_an_interval_the_plan_lacks_resolves_to_nothing(self, plan_price_factory):
+        """Not for sale at that interval - the same answer as no price."""
+        plan = plan_price_factory(interval="monthly").plan
+
+        assert (
+            SubscriptionItem.objects.resolve_purchase(plan, interval="annual")[1]
+            is None
+        )
+
+    def test_intervals_for_sale_are_read_off_the_standard_list_prices(
+        self, plan_price_factory
+    ):
+        """A nonprofit discount or a comped row at an interval does not
+        put that interval up for sale - only a standard list price does."""
+        plan = plan_price_factory(interval="monthly", label="standard").plan
+        plan_price_factory(plan=plan, interval="annual", label="nonprofit")
+        plan_price_factory(plan=plan, interval="annual", label="comped", amount=0)
+
+        assert SubscriptionItem.objects.intervals_for_sale(plan) == ["monthly"]
+
+        plan_price_factory(plan=plan, interval="annual", label="standard")
+
+        assert SubscriptionItem.objects.intervals_for_sale(plan) == [
+            "monthly",
+            "annual",
+        ]
+
+    def test_a_negotiated_rate_does_not_make_an_interval_for_sale(
+        self, plan_price_factory
+    ):
+        plan = plan_price_factory(interval="monthly").plan
+        plan_price_factory(plan=plan, interval="annual", code="insideclimate")
+
+        assert SubscriptionItem.objects.intervals_for_sale(plan) == ["monthly"]
+
+    def test_the_plan_reads_its_own_price_the_same_way(self, plan_price_factory):
+        """`Plan.price_for` is what the pages use; it must agree with the
+        purchase, which is the whole point of it."""
+        plan = plan_price_factory(interval="monthly", amount=10_000).plan
+        annual = plan_price_factory(plan=plan, interval="annual", amount=100_000)
+        nonprofit = plan_price_factory(
+            plan=plan, interval="annual", label="nonprofit", amount=50_000
+        )
+
+        assert plan.list_price.amount == 10_000
+        assert plan.price_for(interval="annual") == annual
+        assert plan.price_for(interval="annual", nonprofit=True) == nonprofit
+
     def test_list_pricing_wins_over_a_negotiated_rate(self, plan_price_factory):
         """A deal attached to a plan is not what a stranger buying it pays.
 

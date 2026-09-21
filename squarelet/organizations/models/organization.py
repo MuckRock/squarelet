@@ -550,7 +550,7 @@ class Organization(AvatarMixin, models.Model):
         return users_list
 
     @transaction.atomic
-    def add_subscription(
+    def add_subscription(  # pylint: disable=too-many-locals
         self,
         plan,
         max_users,
@@ -558,6 +558,7 @@ class Organization(AvatarMixin, models.Model):
         token=None,
         payment_method=None,
         nonprofit=False,
+        interval=None,
     ):
         """Add a new subscription to a plan.
 
@@ -614,6 +615,7 @@ class Organization(AvatarMixin, models.Model):
             payment_method=payment_method,
             quantity=max_users,
             nonprofit=nonprofit,
+            interval=interval,
         )
 
         if is_first and stripe_subscription:

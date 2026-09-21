@@ -19,7 +19,7 @@ from crispy_forms.layout import Field as CrispyField, Layout
 # Squarelet
 from squarelet.core.forms import StripeForm
 from squarelet.core.layout import Field
-from squarelet.organizations.models import Organization, Plan
+from squarelet.organizations.models import Organization, PlanPrice, SubscriptionItem
 from squarelet.organizations.models.payment import get_payment_brand
 from squarelet.users.forms import NewOrganizationModelChoiceField
 
@@ -92,13 +92,24 @@ class PlanPurchaseForm(StripeForm):
         widget=forms.HiddenInput(),
     )
 
-    def __init__(self, *args, plan=None, user=None, **kwargs):
+    # Which of the plan's prices this purchase is for.  A canonical tier is
+    # one row with a monthly and an annual price; the page chose one and
+    # the form carries the choice back so the purchase resolves the same
+    # price the page showed.
+    price_interval = forms.ChoiceField(
+        choices=PlanPrice.INTERVAL_CHOICES,
+        required=False,
+        widget=forms.HiddenInput(),
+    )
+
+    def __init__(self, *args, plan=None, user=None, interval=None, **kwargs):
         """
         Initialize the form with plan and user context.
 
         Args:
             plan: The Plan instance being purchased
             user: The authenticated User instance
+            interval: which of the plan's prices, when it has more than one
         """
         # Don't pass instance to parent - we handle organization differently
         kwargs.pop("instance", None)
@@ -107,6 +118,25 @@ class PlanPurchaseForm(StripeForm):
         self.plan = plan
         self.user = user
         self.fields["stripe_token"].required = False
+
+        # The price this form sells, read the way the purchase will read
+        # it.  None means the plan is not for sale at that interval; the
+        # template says so instead of rendering a form.
+        self.intervals = (
+            SubscriptionItem.objects.intervals_for_sale(plan) if plan else []
+        )
+        if interval is None and self.is_bound:
+            interval = self.data.get("price_interval") or None
+        if interval not in self.intervals:
+            interval = self.intervals[0] if self.intervals else None
+        self.interval = interval
+        self.fields["price_interval"].initial = interval
+        self.price = plan.price_for(interval) if plan and interval else None
+        self.nonprofit_price = None
+        if self.price is not None:
+            candidate = plan.price_for(interval, nonprofit=True)
+            if candidate.label == "nonprofit":
+                self.nonprofit_price = candidate
 
         # Remove inherited fields we don't use from StripeForm
         if "use_card_on_file" in self.fields:
@@ -182,21 +212,20 @@ class PlanPurchaseForm(StripeForm):
             ("new-card", _("Use new card")),
         ]
 
-        # Invoice option only for annual plans
-        if self.plan and self.plan.annual:
+        # Invoice option only for annual prices
+        if self.interval == "annual":
             choices.append(("invoice", _("Pay by invoice")))
 
         self.fields["payment_method"].choices = choices
 
     def _configure_nonprofit_field(self):
+        """Offer the nonprofit box only where there is a nonprofit rate.
+
+        Whether a plan has one is a fact about its prices, not about which
+        product it is marketed under - Sunlight is the only product with
+        one today, and this stays right if that changes.
         """
-        Show nonprofit field only for Sunlight
-        plans that aren't nonprofit variants
-        """
-        is_nonprofit_variant = self.plan and self.plan.slug.startswith(
-            "sunlight-nonprofit-"
-        )
-        if not self.plan or not self.plan.is_sunlight_plan or is_nonprofit_variant:
+        if self.nonprofit_price is None:
             del self.fields["is_nonprofit"]
 
     def user_has_verified_email(self):
@@ -246,64 +275,17 @@ class PlanPurchaseForm(StripeForm):
         Returns:
             dict: Plan information for JS
         """
-        if not self.plan:
+        if self.price is None:
             return {}
 
         data = {
-            "annual": self.plan.annual,
-            "is_sunlight_plan": self.plan.is_sunlight_plan,
-            "base_price": self.plan.base_price,
-            "price_per_user": self.plan.price_per_user,
-            "minimum_users": self.plan.minimum_users,
+            "interval": self.price.interval,
+            "amount": self.price.amount_dollars,
+            "has_nonprofit_variant": self.nonprofit_price is not None,
         }
-
-        # Add nonprofit plan pricing if available
-        data["has_nonprofit_variant"] = False
-        if self.plan.is_sunlight_plan:
-            nonprofit_price = self._nonprofit_base_price()
-            if nonprofit_price is not None:
-                data["nonprofit_base_price"] = nonprofit_price
-                data["has_nonprofit_variant"] = True
-
+        if self.nonprofit_price is not None:
+            data["nonprofit_amount"] = self.nonprofit_price.amount_dollars
         return data
-
-    def _nonprofit_base_price(self):
-        """What a nonprofit pays for this plan, or None if there is no rate.
-
-        Read from `PlanPrice` so that the figure shown is the one a purchase
-        would actually be sold at - the two resolve the same way, through the
-        canonical plan the sale lands on.  Reading the separate
-        `sunlight-nonprofit-*` `Plan` row instead is what made this a blocker
-        for deleting those rows, and left display and billing free to
-        disagree.
-
-        Falls back to that row while no `PlanPrice` exists, which is the
-        window between this shipping and `consolidate_stripe_products` being
-        run.  Without the fallback the nonprofit discount would simply
-        vanish from the page for the duration.
-        """
-        # Lazy import to avoid a circular import
-        # pylint: disable=import-outside-toplevel
-        # Squarelet
-        from squarelet.organizations.models import PlanPrice, SubscriptionItem
-
-        canonical_plan, standard = SubscriptionItem.objects.resolve_purchase(self.plan)
-        if standard is not None:
-            price = PlanPrice.objects.filter(
-                plan=canonical_plan,
-                interval=standard.interval,
-                label="nonprofit",
-                code="",
-                active=True,
-            ).first()
-            if price is not None:
-                return price.amount_dollars
-
-        nonprofit_slug = self.plan.nonprofit_variant_slug
-        if not nonprofit_slug:
-            return None
-        variant = Plan.objects.filter(slug=nonprofit_slug).first()
-        return variant.base_price if variant is not None else None
 
     def clean_new_organization_name(self):
         """Validate new organization name is provided when creating new org"""
@@ -326,15 +308,17 @@ class PlanPurchaseForm(StripeForm):
         return ""
 
     def clean_is_nonprofit(self):
-        """Validate nonprofit checkbox is only used for Sunlight plans"""
+        """The box is only offered where there is a rate; refuse it elsewhere"""
         is_nonprofit = self.cleaned_data.get("is_nonprofit", False)
 
-        if is_nonprofit and self.plan and not self.plan.is_sunlight_plan:
-            raise forms.ValidationError(
-                _("Non-profit discount is only available for Sunlight plans")
-            )
+        if is_nonprofit and self.nonprofit_price is None:
+            raise forms.ValidationError(_("There is no non-profit rate for this plan"))
 
         return is_nonprofit
+
+    def clean_price_interval(self):
+        """The interval the page showed, or the plan's first one."""
+        return self.interval
 
     def clean(self):
         """
@@ -371,35 +355,13 @@ class PlanPurchaseForm(StripeForm):
                     _("Please provide card information."),
                 )
         elif payment_method == "invoice":
-            if self.plan and not self.plan.annual:
+            if self.interval != "annual":
                 self.add_error(
                     "payment_method",
                     _("Invoice payment is only available for annual plans."),
                 )
 
         return data
-
-    def get_selected_plan(self):
-        """
-        Get the actual plan to subscribe to, handling nonprofit substitution.
-
-        Returns:
-            Plan instance (may be nonprofit variant if is_nonprofit is True)
-        """
-        if not self.is_valid():
-            return self.plan
-
-        is_nonprofit = self.cleaned_data.get("is_nonprofit", False)
-
-        if is_nonprofit and self.plan and self.plan.is_sunlight_plan:
-            nonprofit_slug = self.plan.nonprofit_variant_slug
-            if nonprofit_slug:
-                try:
-                    return Plan.objects.get(slug=nonprofit_slug)
-                except Plan.DoesNotExist:
-                    pass
-
-        return self.plan
 
     def get_or_create_organization(self, user):
         """
@@ -447,22 +409,23 @@ class PlanPurchaseForm(StripeForm):
             user: The authenticated user
 
         Returns:
-            dict with organization, plan, payment_method, stripe_token and
-            nonprofit
+            dict with organization, plan, interval, payment_method,
+            stripe_token and nonprofit
         """
         organization = self.get_or_create_organization(user)
-        selected_plan = self.get_selected_plan()
 
         return {
             "organization": organization,
-            "plan": selected_plan,
+            # The row the customer picked.  Nonprofit used to substitute a
+            # `sunlight-nonprofit-*` row in here; it is a label on the
+            # price now, and `nonprofit` below chooses it.
+            "plan": self.plan,
+            "interval": self.interval,
             "payment_method": self.cleaned_data.get("payment_method"),
             "stripe_token": self.cleaned_data.get("stripe_token"),
-            # Self-reported, on the honour system, and only offered for
-            # Sunlight plans - which involve talking to staff anyway.  The
-            # field was collected and validated here long before anything
-            # read it; it now chooses which PlanPrice the subscription is
-            # sold at.
+            # Self-reported, on the honour system, and only offered where
+            # the plan has a nonprofit price.  It chooses which PlanPrice
+            # the subscription is sold at.
             "nonprofit": self.cleaned_data.get("is_nonprofit", False),
         }
 

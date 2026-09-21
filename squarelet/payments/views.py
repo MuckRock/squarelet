@@ -35,6 +35,7 @@ from squarelet.organizations.models.payment import (
 )
 from squarelet.organizations.payments.base import PaymentActionRequired
 from squarelet.organizations.payments.exceptions import SubscriptionError
+from squarelet.organizations.plan_mapping import resolve_target
 from squarelet.organizations.tasks import add_to_waitlist
 from squarelet.payments.forms import (
     CancelSubscriptionForm,
@@ -46,25 +47,31 @@ from squarelet.payments.forms import (
 logger = logging.getLogger(__name__)
 
 
-def get_matching_plan_tier(plan):
-    """
-    For Sunlight Research Center plans, find the matching plan tier
-    with a different payment schedule (monthly <-> annual).
-    """
-    if not plan.slug.startswith("sunlight-"):
-        return None
+def legacy_alias_redirect(plan, query):
+    """Where a legacy entry row's page sends the visitor, or None.
 
-    if plan.annual:
-        # Find monthly equivalent by removing "-annual" suffix
-        matching_slug = plan.slug.replace("-annual", "")
-    else:
-        # Find annual equivalent by adding "-annual" suffix
-        matching_slug = f"{plan.slug}-annual"
-
-    try:
-        return Plan.objects.get(slug=matching_slug)
-    except Plan.DoesNotExist:
+    `sunlight-essential-annual` and `sunlight-nonprofit-essential` were
+    rows of their own so that a URL could name the interval and the rate.
+    Both are now a query string on the canonical tier's page, and the old
+    URLs - which the Sunlight site links to - keep working by redirecting
+    there.  A row that maps onto a *different* plan at a list price is such
+    an alias.  A negotiated (`code`) target is not: its page dies with its
+    row, and only the organization that held one could ever see it.
+    """
+    target = resolve_target(plan.slug, allow_comped=False)
+    if target is None:
         return None
+    slug, interval, label, code = target
+    if code or slug == plan.slug:
+        return None
+    canonical = Plan.objects.including_archived().filter(slug=slug).first()
+    if canonical is None:
+        return None
+    params = query.copy()
+    params["interval"] = interval
+    if label == "nonprofit":
+        params["nonprofit"] = "1"
+    return f"{canonical.get_absolute_url()}?{params.urlencode()}"
 
 
 def protect_private_plan(plan, user):
@@ -94,6 +101,18 @@ class PlanDetailView(DetailView):
 
         return [self.template_name]
 
+    def dispatch(self, request, *args, **kwargs):
+        # Looked up including archived rows, so that a legacy entry row
+        # keeps redirecting after `archive_legacy_plans` retires it.  An
+        # archived row that is not an alias is simply gone.
+        plan = get_object_or_404(Plan.objects.including_archived(), pk=kwargs["pk"])
+        alias = legacy_alias_redirect(plan, request.GET)
+        if alias is not None:
+            return redirect(alias, permanent=True)
+        if plan.archived:
+            raise Http404("Plan not found")
+        return super().dispatch(request, *args, **kwargs)
+
     def get_object(self, queryset=None):
         """Override to check private plan access"""
         if queryset is None:
@@ -115,7 +134,11 @@ class PlanDetailView(DetailView):
         return PlanPurchaseForm(
             plan=plan,
             user=user,
-            initial={"purchase_redirect": purchase_redirect},
+            interval=self.request.GET.get("interval"),
+            initial={
+                "purchase_redirect": purchase_redirect,
+                "is_nonprofit": bool(self.request.GET.get("nonprofit")),
+            },
         )
 
     def get_context_data(self, **kwargs):
@@ -125,9 +148,17 @@ class PlanDetailView(DetailView):
         # Add form to context
         if "form" not in kwargs:
             context["form"] = self.get_form()
+        form = context["form"]
 
-        # Add matching plan tier with different payment schedule (for Sunlight plans)
-        context["matching_plan"] = get_matching_plan_tier(plan)
+        # What the page shows is what the form sells.  `price` is None
+        # for a plan with nothing to sell at, which the template says
+        # rather than rendering a form around a blank amount.
+        context["price"] = form.price
+        context["nonprofit_price"] = form.nonprofit_price
+        context["interval"] = form.interval
+        context["other_interval"] = next(
+            (i for i in form.intervals if i != form.interval), None
+        )
 
         if self.request.user.is_authenticated:
             user = self.request.user
@@ -178,9 +209,6 @@ class PlanDetailView(DetailView):
             context["admin_link"] = reverse(
                 "admin:organizations_plan_change", args=[plan.pk]
             )
-
-        # Add nonprofit variant flag for template
-        context["is_nonprofit_variant"] = plan.slug.startswith("sunlight-nonprofit-")
 
         return context
 
@@ -306,6 +334,7 @@ class PlanDetailView(DetailView):
                 token=stripe_token,
                 payment_method=payment_method,
                 nonprofit=result.get("nonprofit", False),
+                interval=result.get("interval"),
             )
         )
         return None
@@ -326,6 +355,7 @@ class PlanDetailView(DetailView):
                 token=stripe_token,
                 payment_method=payment_method,
                 nonprofit=result.get("nonprofit", False),
+                interval=result.get("interval"),
             )
             return None
         except PaymentActionRequired as exc:
@@ -361,51 +391,6 @@ class PlanDetailView(DetailView):
                 return JsonResponse({"error": str(exc)}, status=400)
             messages.error(request, str(exc))
             return redirect(plan)
-
-
-class SunlightResearchPlansView(TemplateView):
-    template_name = "payments/sunlight-research-plans.html"
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-
-        # 1. Fetch Sunlight research plans
-        sunlight_plans = list(
-            Plan.objects.filter(slug__startswith="sunlight-", wix=True)
-        )
-        context["sunlight_plans"] = sunlight_plans
-
-        # 2. Fetch user subscription information
-        # 3. Fetch organization subscription information
-        #    for each organization the user administers
-        existing_subscriptions = []
-
-        if self.request.user.is_authenticated:
-            # Check user's individual organization
-            individual_org = self.request.user.individual_organization
-            individual_subscriptions = individual_org.subscription_items.filter(
-                plan__slug__startswith="sunlight-", plan__wix=True
-            ).select_related("plan")
-
-            for subscription in individual_subscriptions:
-                existing_subscriptions.append((subscription.plan, individual_org))
-
-            # Check organizations where user is admin
-            admin_orgs = Organization.objects.filter(
-                users=self.request.user, memberships__admin=True, individual=False
-            ).distinct()
-
-            for org in admin_orgs:
-                org_subscriptions = org.subscription_items.filter(
-                    plan__slug__startswith="sunlight-", plan__wix=True
-                ).select_related("plan")
-
-                for subscription in org_subscriptions:
-                    existing_subscriptions.append((subscription.plan, org))
-
-        context["existing_subscriptions"] = existing_subscriptions
-
-        return context
 
 
 class PlanRedirectView(RedirectView):

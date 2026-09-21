@@ -9,8 +9,7 @@ import collections
 from squarelet.organizations.management.commands.consolidate_stripe_products import (
     CANONICAL_SLUGS,
 )
-from squarelet.organizations.models.payment import Plan, PlanPrice
-from squarelet.organizations.plan_mapping import resolve_target
+from squarelet.organizations.models.payment import Plan
 
 
 def canonical_slugs():
@@ -30,24 +29,15 @@ def canonical_slugs():
 def sellable_through(plan):
     """Whether a purchase can still be made *through* this plan.
 
-    The purchase flow picks a Plan and `resolve_purchase` maps it to a
-    canonical PlanPrice - so `sunlight-essential-annual` never holds a
-    price of its own, yet is the only way to buy annual today.  Asking
-    whether the plan holds an active price said "cannot be bought" about
-    the very rows purchases go through.  The right question is whether
-    `resolve_target` still names an active price for it.  Once the UI
-    picks interval and label directly and these rows leave the mapping,
-    the same test archives them with no change here.
+    A plan is sellable when it holds an active price of its own.  The
+    legacy entry rows - `sunlight-essential-annual`, `sunlight-nonprofit-*`
+    - hold none, and used to count as sellable anyway because the purchase
+    flow picked them and `resolve_purchase` mapped them to the canonical
+    tier's price.  The plan page now picks the interval and the rate
+    itself and those rows' URLs redirect to it, so nothing is bought
+    through them any more, and the plain test archives them.
     """
-    if plan.prices.filter(active=True).exists():
-        return True
-    target = resolve_target(plan.slug, allow_comped=False)
-    if target is None:
-        return False
-    slug, interval, label, code = target
-    return PlanPrice.objects.filter(
-        plan__slug=slug, interval=interval, label=label, code=code, active=True
-    ).exists()
+    return plan.prices.filter(active=True).exists()
 
 
 class Command(BaseCommand):

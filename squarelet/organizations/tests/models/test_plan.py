@@ -31,12 +31,20 @@ class TestPlan:
         plan = professional_plan_factory.build()
         assert not plan.free
 
-    @pytest.mark.parametrize(
-        "users,cost", [(0, 100), (1, 100), (5, 100), (7, 120), (10, 150)]
-    )
-    def test_cost(self, organization_plan_factory, users, cost):
-        plan = organization_plan_factory.build()
-        assert plan.cost(users) == cost
+    @pytest.mark.django_db()
+    def test_requires_payment_reads_the_list_price(
+        self, plan_factory, plan_price_factory
+    ):
+        """Monthly and paid, yes; annual is invoiced, free is free, and a
+        plan with nothing to sell needs no payment either."""
+        monthly = plan_price_factory(interval="monthly", amount=4_000).plan
+        annual = plan_price_factory(interval="annual", amount=48_000).plan
+        free = plan_price_factory(interval="monthly", amount=0).plan
+
+        assert monthly.requires_payment()
+        assert not annual.requires_payment()
+        assert not free.requires_payment()
+        assert not plan_factory(name="No Price").requires_payment()
 
     def test_stripe_id(self, plan_factory):
         plan = plan_factory.build()
