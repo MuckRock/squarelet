@@ -85,36 +85,35 @@ class TestWhatGetsArchived:
 
 
 @pytest.mark.django_db()
-class TestCancelledLinesDoNotBlockIt:
-    """They are the record of what someone used to be on.
+class TestACancelledLineStillBlocksIt:
+    """A cancelled line is a subscriber leaving, not one who has left.
 
-    Deleting the plan would have taken them with it - SubscriptionItem.plan
-    is CASCADE - which is one of the reasons this archives instead.  A flag
-    lets them keep pointing at it quite happily.
+    It still bills and still grants access until `cancel_at`, and its
+    subscriber can press Resubscribe and be live again.  This used to
+    archive a plan with only cancelled lines on it, which left one Sunlight
+    subscriber renewing on an archived plan.  The sweep deletes the line
+    when the date arrives; the plan becomes archivable on the run after.
     """
 
-    def test_a_plan_with_only_cancelled_lines_is_archived(self):
+    def test_a_plan_with_only_a_cancelled_line_is_left_alone(self):
         plan = legacy_plan()
         SubscriptionItemFactory(plan=plan, cancelled=True)
+
+        out = run()
+
+        plan.refresh_from_db()
+        assert not plan.archived
+        assert "still in use (1 line(s)" in out
+
+    def test_once_the_sweep_has_removed_it_the_plan_is_archived(self):
+        plan = legacy_plan()
+        item = SubscriptionItemFactory(plan=plan, cancelled=True)
+        item.delete()  # what restore_organization does when cancel_at arrives
 
         run()
 
         plan.refresh_from_db()
         assert plan.archived
-
-    def test_the_cancelled_line_survives(self):
-        plan = legacy_plan()
-        item = SubscriptionItemFactory(plan=plan, cancelled=True)
-
-        run()
-
-        assert type(item).objects.filter(pk=item.pk).exists()
-
-    def test_they_are_counted_in_the_report(self):
-        plan = legacy_plan()
-        SubscriptionItemFactory(plan=plan, cancelled=True)
-
-        assert "keeps 1 cancelled line" in run()
 
 
 @pytest.mark.django_db()
