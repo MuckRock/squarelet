@@ -28,6 +28,7 @@ import stripe
 
 # Squarelet
 from squarelet.organizations.models import Subscription, SubscriptionItem
+from squarelet.organizations.payments.exceptions import SubscriptionError
 
 pytestmark = [pytest.mark.stripe, pytest.mark.django_db()]
 
@@ -362,7 +363,7 @@ class TestCancellingOnStripe:
         assert live["cancel_at_period_end"] is False
         assert subscription.cancel_at is None
 
-    def test_a_pending_cancellation_survives_adding_a_plan(
+    def test_a_pending_cancellation_survives_adding_a_line(
         self, organization_factory, plan_factory, sandbox
     ):
         """Touching a line must not quietly re-bill a leaving customer.
@@ -370,16 +371,53 @@ class TestCancellingOnStripe:
         `stripe_modify` sends cancel_at_period_end on every call, so sending
         the wrong value reverses a cancellation on Stripe - where the money
         is - with nothing in our own records to show it happened.
+
+        Reached with a free line, which is the only kind that may still
+        join a subscription that is ending.  It is not itself described to
+        Stripe, but adding it still modifies the subscription, which is
+        what sends the flag.
         """
         organization = organization_factory()
         with_card(organization, sandbox)
         item = start(organization, paid_plan(plan_factory, sandbox), sandbox)
         item.subscription.cancel()
 
-        start(organization, paid_plan(plan_factory, sandbox, price=40), sandbox)
+        free_name = f"Sandbox Free {uuid4().hex[:8]}"
+        start(
+            organization,
+            plan_factory(
+                name=free_name,
+                slug=slugify(free_name),
+                base_price=0,
+                price_per_user=0,
+            ),
+            sandbox,
+        )
 
         live = stripe.Subscription.retrieve(item.subscription.subscription_id)
         assert live["cancel_at_period_end"] is True
+
+    def test_a_paid_plan_cannot_join_a_subscription_that_is_ending(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        """There is one subscription per organization per billing shape, so
+        the new line would join the one that is ending: Stripe charges for
+        it at once and the sweep deletes it at the cancellation date.
+
+        Refused until the cancellation completes.  Per-line cancellation
+        replaces the refusal in the next release.
+        """
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        item = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+        item.subscription.cancel()
+
+        with pytest.raises(SubscriptionError, match="cancellation pending"):
+            start(organization, paid_plan(plan_factory, sandbox, price=40), sandbox)
+
+        live = stripe.Subscription.retrieve(item.subscription.subscription_id)
+        assert live["cancel_at_period_end"] is True
+        assert len(live["items"]["data"]) == 1, "nothing was added or charged"
 
     def test_a_free_line_is_never_described_to_stripe(
         self, organization_factory, plan_factory, sandbox
