@@ -64,11 +64,7 @@ def restore_organization():
         cancelled=True,
     ).filter(Q(cancel_at__lte=today) | Q(cancel_at__isnull=True))
     for subscription in ended:
-        subscription.items.paid().delete()
-        if subscription.items.exists():
-            subscription.forget_stripe_subscription()
-        else:
-            subscription.delete()
+        retire_subscription(subscription)
 
     # Drop individually cancelled lines whose period has run out.  Stripe has
     # no per-item cancel_at_period_end, so this is what enforces it - and it
@@ -738,35 +734,16 @@ def retire_subscription(subscription):
     about.  One row now carries every line, so deleting the row revokes
     access nobody cancelled.
 
-    Anything left keeps the row, minus the Stripe identity.  The id and
-    the line item ids have to go with it: left behind they would be sent
-    to whatever subscription is started next, which has never heard of
-    them, and the cached period would have the pages announcing a renewal
-    for a subscription that no longer exists.
+    Anything left keeps the row, minus the Stripe identity: left behind,
+    the ids would be sent to whatever subscription is started next, which
+    has never heard of them.
 
     Returns how many lines survived.
     """
-    for item in subscription.items.select_related("plan"):
-        if not item.is_free:
-            item.delete()
-
-    # `subscription.items.count()` would answer from a prefetch cache with
-    # the pre-delete number.
-    survivors = SubscriptionItem.objects.filter(subscription=subscription).count()
+    subscription.items.paid().delete()
+    survivors = subscription.items.count()
     if survivors:
-        subscription.subscription_id = ""
-        subscription.stripe_status = ""
-        subscription.current_period_end = None
-        subscription.remember_stripe_subscription(None)
-        subscription.items.update(stripe_item_id="")
-        subscription.clear_cancellation()
-        subscription.save(
-            update_fields=[
-                "subscription_id",
-                *Subscription.STRIPE_CACHED_FIELDS,
-                *Subscription.CANCELLATION_FIELDS,
-            ]
-        )
+        subscription.forget_stripe_subscription()
     else:
         subscription.delete()
     return survivors
