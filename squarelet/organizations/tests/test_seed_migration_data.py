@@ -121,14 +121,17 @@ class TestTheSeedRehearsesTheMigration:
         assert "18 migrated, 2 deferred, 0 failed" in first
         # The post-run reports now describe a database the run changed.
         assert "2 deferred by choice, 0 unexpected" in first
-        # A per-unit plan keeps its quantity on purpose and must not be
-        # listed as a problem; group plans were all dropped to 1 by the run.
+        # Only the deferred cohort lines are left above quantity 1, which
+        # is what blocks the entitlement shape migration.  Everything the
+        # run touched came out at 1, or at a pack beside a base of 1.
         report = (
             first.split("still above quantity 1")[-1]
             if ("still above quantity 1" in first)
             else ""
         )
-        assert "mig-pro-3" not in report, report
+        assert "mig-cohort-active" in report, report
+        assert "mig-cohort-leaving" in report, report
+        assert "mig-pro" not in report, "a per-unit line at 1 is not a blocker"
         assert "mig-org-18" not in report, "was dropped to 1 by the run"
         # Two lines now: the base at 1 and the pack beside it.
         big = SubscriptionItem.objects.get(

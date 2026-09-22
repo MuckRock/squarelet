@@ -235,8 +235,13 @@ SUBSCRIBERS = [
     ("mig-org-min", "organization", 5, True, False),
     # 200 comped blocks -> a comped pack line.
     ("mig-flexible", "organization-flexible-users-annual", 205, False, False),
-    # Per-unit plan: keeps its quantity.
-    ("mig-pro-3", "professional", 3, True, False),
+    # Per-unit plan.  At quantity 1, because production has no individual
+    # line above it (confirmed 2026-09-22) - and a per-unit line that *is*
+    # above 1 blocks the entitlement shape migration, which would make
+    # this seed unable to rehearse the step after the one it is for.
+    # That a per-unit plan keeps its quantity is covered by
+    # test_a_per_unit_plan_keeps_its_quantity.
+    ("mig-pro", "professional", 1, True, False),
     # Both Custom CRP organizations, at their 75 minimum.
     ("mig-crp-a", "custom-crp", 75, True, False),
     ("mig-crp-b", "custom-crp", 75, True, False),
