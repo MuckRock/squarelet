@@ -9,6 +9,7 @@ import pytest
 # Squarelet
 from squarelet.core.exceptions import ContextHttp404
 from squarelet.core.views import SelectPlanView, page_not_found, sunlight_tiers
+from squarelet.organizations.models import Plan
 
 
 def _request(rf, user=None):
@@ -90,12 +91,28 @@ class TestSunlightTiersOnThePlanPage:
     way out.
     """
 
+    @pytest.fixture(autouse=True)
+    def _only_the_tiers_this_test_makes(self, db):  # pylint: disable=unused-argument
+        """Release 1 seeds the three Sunlight tiers, so a test that builds
+        its own has to say which ones are on the page rather than assume
+        an empty table."""
+        Plan.objects.including_archived().filter(product="sunlight").update(wix=False)
+
+    def _tier(self, plan_factory, name, slug, **kwargs):
+        plan = Plan.objects.including_archived().filter(slug=slug).first()
+        if plan is None:
+            plan = plan_factory(name=name, slug=slug)
+        for field, value in {"product": "sunlight", "wix": True, **kwargs}.items():
+            setattr(plan, field, value)
+        plan.save()
+        plan.prices.all().delete()
+        return plan
+
     def _essential(self, plan_factory, plan_price_factory):
-        plan = plan_factory(
-            name="Sunlight Essential",
-            slug="sunlight-essential",
-            product="sunlight",
-            wix=True,
+        plan = self._tier(
+            plan_factory,
+            "Sunlight Essential",
+            "sunlight-essential",
             short_description="For newsrooms",
         )
         plan_price_factory(plan=plan, interval="monthly", amount=68_000)
@@ -137,12 +154,7 @@ class TestSunlightTiersOnThePlanPage:
         self, plan_factory, plan_price_factory
     ):
         self._essential(plan_factory, plan_price_factory)
-        plan_factory(
-            name="Sunlight Enterprise",
-            slug="sunlight-enterprise",
-            product="sunlight",
-            wix=True,
-        )
+        self._tier(plan_factory, "Sunlight Enterprise", "sunlight-enterprise")
 
         assert [t["name"] for t in sunlight_tiers()] == ["Essential", "Enterprise"]
 

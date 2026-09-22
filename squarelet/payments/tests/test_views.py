@@ -8,11 +8,29 @@ from autoslug.utils import slugify
 
 # Squarelet
 from squarelet.core.tests.mixins import ViewTestMixin
-from squarelet.organizations.models import Organization
+from squarelet.organizations.models import Organization, Plan
 from squarelet.payments import views
 from squarelet.services.models import Service
 
 # pylint: disable=too-many-positional-arguments
+
+
+def plan_at_slug(plan_factory, name, slug, **kwargs):
+    """A plan at exactly `slug`, adopting the seeded row if there is one.
+
+    Release 1's migration seeds the canonical tiers *and* the legacy entry
+    rows, and `slug` is an AutoSlugField - so asking the factory for a slug
+    that already exists under another name quietly yields `<slug>-2`, and
+    everything that resolves by slug finds the seeded row instead.
+    """
+    plan = Plan.objects.including_archived().filter(slug=slug).first()
+    if plan is None:
+        return plan_factory(name=name, slug=slug, **kwargs)
+    for field, value in kwargs.items():
+        setattr(plan, field, value)
+    plan.save()
+    plan.prices.all().delete()
+    return plan
 
 
 @pytest.mark.django_db()
@@ -797,7 +815,7 @@ class TestLegacyEntryRowsRedirect(ViewTestMixin):
     url = "/plans/{pk}-{slug}/"
 
     def _canonical(self, plan_factory, plan_price_factory):
-        plan = plan_factory(name="Sunlight Essential", slug="sunlight-essential")
+        plan = plan_at_slug(plan_factory, "Sunlight Essential", "sunlight-essential")
         plan_price_factory(plan=plan, interval="monthly", amount=68_000)
         plan_price_factory(plan=plan, interval="annual", amount=800_000)
         plan_price_factory(
@@ -809,8 +827,8 @@ class TestLegacyEntryRowsRedirect(ViewTestMixin):
         self, rf, user_factory, plan_factory, plan_price_factory
     ):
         canonical = self._canonical(plan_factory, plan_price_factory)
-        annual = plan_factory(
-            name="Sunlight Essential Annual", slug="sunlight-essential-annual"
+        annual = plan_at_slug(
+            plan_factory, "Sunlight Essential Annual", "sunlight-essential-annual"
         )
 
         response = self.call_view(rf, user_factory(), pk=annual.pk, slug=annual.slug)
@@ -822,8 +840,10 @@ class TestLegacyEntryRowsRedirect(ViewTestMixin):
         self, rf, user_factory, plan_factory, plan_price_factory
     ):
         canonical = self._canonical(plan_factory, plan_price_factory)
-        nonprofit = plan_factory(
-            name="Sunlight Essential Nonprofit", slug="sunlight-nonprofit-essential"
+        nonprofit = plan_at_slug(
+            plan_factory,
+            "Sunlight Essential Nonprofit",
+            "sunlight-nonprofit-essential",
         )
 
         response = self.call_view(
@@ -841,9 +861,10 @@ class TestLegacyEntryRowsRedirect(ViewTestMixin):
     ):
         """The point of the redirect: the row can go and the link survives."""
         canonical = self._canonical(plan_factory, plan_price_factory)
-        annual = plan_factory(
-            name="Sunlight Essential Annual",
-            slug="sunlight-essential-annual",
+        annual = plan_at_slug(
+            plan_factory,
+            "Sunlight Essential Annual",
+            "sunlight-essential-annual",
             archived=True,
         )
 
@@ -872,10 +893,12 @@ class TestLegacyEntryRowsRedirect(ViewTestMixin):
             user.individual_organization, "customer", return_value=mock_customer
         )
         plan_price_factory(
-            plan=plan_factory(name="Organization", slug="organization"),
+            plan=plan_at_slug(plan_factory, "Organization", "organization"),
             interval="monthly",
         )
-        deal = plan_factory(name="InsideClimate", slug="insideclimate-news-plan")
+        deal = plan_at_slug(
+            plan_factory, "InsideClimate", "insideclimate-news-plan"
+        )
 
         response = self.call_view(rf, user, pk=deal.pk, slug=deal.slug)
 
@@ -894,10 +917,8 @@ class TestEnterpriseTemplateSelection(ViewTestMixin):
     ):
         """Test that Enterprise plans use the plan_enterprise.html template"""
         user = user_factory()
-        plan = plan_factory(
-            name="Sunlight Enterprise",
-            slug="sunlight-enterprise",
-            public=True,
+        plan = plan_at_slug(
+            plan_factory, "Sunlight Enterprise", "sunlight-enterprise", public=True
         )
 
         # Mock Stripe customer to avoid API calls
@@ -920,12 +941,13 @@ class TestEnterpriseTemplateSelection(ViewTestMixin):
     ):
         """The annual row is an alias of the canonical Enterprise row; it
         lands on the same custom template by way of the redirect."""
-        canonical = plan_factory(
-            name="Sunlight Enterprise", slug="sunlight-enterprise", public=True
+        canonical = plan_at_slug(
+            plan_factory, "Sunlight Enterprise", "sunlight-enterprise", public=True
         )
-        annual = plan_factory(
-            name="Sunlight Enterprise Annual",
-            slug="sunlight-enterprise-annual",
+        annual = plan_at_slug(
+            plan_factory,
+            "Sunlight Enterprise Annual",
+            "sunlight-enterprise-annual",
             public=True,
         )
 
