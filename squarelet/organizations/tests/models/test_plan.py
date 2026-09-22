@@ -1,4 +1,5 @@
 # Django
+from django.db import transaction
 from django.test import override_settings
 
 # Third Party
@@ -129,10 +130,10 @@ class TestArchivingAPlan:
         assert not price.active
 
     @pytest.mark.django_db
-    def test_the_product_survives_while_a_price_remains(
+    def test_the_product_goes_once_its_prices_have(
         self, plan_factory, plan_price_factory, mocker
     ):
-        """Other variants still hang off it."""
+        """A retired plan keeps nothing sellable, Product included."""
         service = mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
         ).return_value.get_plan_service.return_value
@@ -144,7 +145,133 @@ class TestArchivingAPlan:
 
         plan.archive_stripe_plan()
 
+        service.archive_price.assert_called_once_with("price_1")
+        service.archive_product.assert_called_once_with("prod_1")
+
+    @pytest.mark.django_db
+    def test_a_comped_price_is_deactivated_too(
+        self, plan_factory, plan_price_factory, mocker
+    ):
+        """It has no Stripe object, but it still makes the plan resolve."""
+        mocker.patch("squarelet.organizations.models.payment.get_payment_provider")
+        plan = plan_factory(name="Comped Tier", base_price=0)
+        plan.prices.all().delete()
+        comped = plan_price_factory(
+            plan=plan, label="comped", amount=0, stripe_price_id=""
+        )
+
+        plan.archive_stripe_plan()
+
+        comped.refresh_from_db()
+        assert not comped.active
+
+    @pytest.mark.django_db
+    def test_running_it_twice_is_quiet(self, plan_factory, plan_price_factory, mocker):
+        service = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_plan_service.return_value
+        plan = plan_factory(name="Twice Retired", base_price=0)
+        plan.prices.all().delete()
+        plan_price_factory(plan=plan, stripe_price_id="price_1")
+
+        plan.archive_stripe_plan()
+        service.archive_price.reset_mock()
+        plan.archive_stripe_plan()
+
+        service.archive_price.assert_not_called()
+
+
+@pytest.mark.django_db
+class TestArchivingRetiresTheStripeObjects:
+    """Archiving the plan is what actually retires it.
+
+    `archive_legacy_plans` and the admin both set `Plan.archived` and
+    neither deletes the row, so the `pre_delete` hook this PR added could
+    not fire: `PlanPrice.plan` is PROTECT, and Django raises while
+    collecting, before any `pre_delete` receiver runs.  Every plan created
+    after 3a has a price, so every one of them was undeletable *and*
+    never had its Stripe objects retired.
+    """
+
+    @pytest.fixture(name="service")
+    def service_fixture(self, mocker):
+        return mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_plan_service.return_value
+
+    def _priced_plan(self, plan_factory, plan_price_factory, name):
+        plan = plan_factory(name=name, base_price=0)
+        plan.prices.all().delete()
+        plan.stripe_product_id = "prod_1"
+        plan.save()
+        plan_price_factory(plan=plan, stripe_price_id="price_1")
+        return plan
+
+    def test_flipping_the_flag_retires_stripe(
+        self,
+        plan_factory,
+        plan_price_factory,
+        service,
+        django_capture_on_commit_callbacks,
+    ):
+        plan = self._priced_plan(plan_factory, plan_price_factory, "Retire Me")
+
+        with django_capture_on_commit_callbacks(execute=True):
+            plan.archived = True
+            plan.save(update_fields=["archived"])
+
+        service.archive_price.assert_called_once_with("price_1")
+        service.archive_product.assert_called_once_with("prod_1")
+
+    def test_saving_an_already_archived_plan_does_nothing(
+        self,
+        plan_factory,
+        plan_price_factory,
+        service,
+        django_capture_on_commit_callbacks,
+    ):
+        """Only the transition retires; an edit afterwards must not."""
+        plan = self._priced_plan(plan_factory, plan_price_factory, "Already Gone")
+        with django_capture_on_commit_callbacks(execute=True):
+            plan.archived = True
+            plan.save(update_fields=["archived"])
+        service.archive_price.reset_mock()
+        service.archive_product.reset_mock()
+
+        with django_capture_on_commit_callbacks(execute=True):
+            plan.name = "Already Gone, renamed"
+            plan.save()
+
+        service.archive_price.assert_not_called()
         service.archive_product.assert_not_called()
+
+    def test_creating_a_plan_retires_nothing(
+        self, plan_factory, service, django_capture_on_commit_callbacks
+    ):
+        with django_capture_on_commit_callbacks(execute=True):
+            plan_factory(name="Brand New", base_price=0)
+
+        service.archive_price.assert_not_called()
+        service.archive_product.assert_not_called()
+
+    def test_a_rollback_leaves_stripe_alone(
+        self, plan_factory, plan_price_factory, service
+    ):
+        """Stripe is told only once the archive is durable - otherwise a
+        rolled-back request leaves a live row on a dead Stripe Price."""
+        plan = self._priced_plan(plan_factory, plan_price_factory, "Rolled Back")
+
+        try:
+            with transaction.atomic():
+                plan.archived = True
+                plan.save(update_fields=["archived"])
+                raise RuntimeError("boom")
+        except RuntimeError:
+            pass
+
+        service.archive_price.assert_not_called()
+        plan.refresh_from_db()
+        assert not plan.archived
 
     @pytest.mark.django_db
     def test_has_available_slots_non_sunlight_plan(self, plan_factory):

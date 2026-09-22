@@ -1898,29 +1898,36 @@ class Plan(models.Model):
         return price
 
     def archive_stripe_plan(self):
-        """Deactivate this plan's Stripe Prices, and its Product if empty.
+        """Retire this plan's Stripe objects: every Price, then the Product.
 
         Not a delete, because Stripe does not offer one for a Price: the
         object is immutable and permanent once anything could have billed
         against it.  Deactivating is the whole of what removal means.
 
-        The Product is archived only once no `PlanPrice` rows are left
-        pointing at this plan, so a plan that keeps one variant does not
-        lose the Product the others hang off.
+        Every active price goes, including the free and comped rows that
+        have no Stripe object of their own - those carry no Stripe state
+        but they do make the plan resolvable, and a retired plan should
+        not resolve.  The Product follows, because by then nothing is
+        left hanging off it.
+
+        Called when a plan is archived, and again if one is ever deleted.
+        Both are idempotent: an already-inactive Price answers
+        `InvalidRequestError`, and the second pass finds no active rows.
         """
         plan_service = get_payment_provider().get_plan_service()
 
-        for price in self.prices.exclude(stripe_price_id=""):
-            try:
-                plan_service.archive_price(price.stripe_price_id)
-            except stripe.InvalidRequestError:  # pragma: no cover
-                # Already gone or already inactive; either way it is not
-                # billing anything, which is the point.
-                pass
+        for price in self.prices.filter(active=True):
+            if price.stripe_price_id:
+                try:
+                    plan_service.archive_price(price.stripe_price_id)
+                except stripe.InvalidRequestError:  # pragma: no cover
+                    # Already gone or already inactive; either way it is
+                    # not billing anything, which is the point.
+                    pass
             price.active = False
             price.save(update_fields=["active"])
 
-        if self.stripe_product_id and not self.prices.exists():
+        if self.stripe_product_id:
             try:
                 plan_service.archive_product(self.stripe_product_id)
             except stripe.InvalidRequestError:  # pragma: no cover
