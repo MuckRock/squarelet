@@ -32,7 +32,7 @@ from squarelet.organizations.models import Invitation, Organization
 from squarelet.organizations.models.organization import Membership
 
 # Local
-from .models import LoginLog, User
+from .models import ApplicationToken, LoginLog, User
 
 
 class PermissionFilter(SimpleListFilter):
@@ -377,6 +377,45 @@ class LoginLogAdmin(admin.ModelAdmin):
         return response
 
     export_as_csv.short_description = "Export Selected"
+
+
+@admin.register(ApplicationToken)
+class ApplicationTokenAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "user",
+        "display_prefix",
+        "allow_staff",
+        "created_at",
+        "last_used_at",
+        "expires_at",
+        "revoked_at",
+    )
+    list_select_related = ("user",)
+    list_filter = ("allow_staff",)
+    search_fields = ("name", "prefix", "user__username")
+    date_hierarchy = "created_at"
+    autocomplete_fields = ("user",)
+    readonly_fields = (
+        "display_prefix",
+        "expires_in",
+        "created_at",
+        "last_used_at",
+        "expires_at",
+        "revoked_at",
+    )
+    fields = ("user", "name", "allow_staff") + readonly_fields
+    actions = ["revoke"]
+
+    def has_add_permission(self, request):
+        # Tokens are only issued from the user's account page, where the
+        # plaintext can be shown once
+        return False
+
+    @admin.action(description="Revoke selected tokens")
+    def revoke(self, request, queryset):
+        for token in queryset:
+            token.revoke()
 
 
 admin.site.unregister(Authenticator)
