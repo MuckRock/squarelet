@@ -7,7 +7,7 @@ import collections
 import logging
 
 # Squarelet
-from squarelet.organizations.entitlement_shape import grants_old
+from squarelet.organizations.entitlement_shape import grants_old, scaling_pairs
 from squarelet.organizations.models.payment import PlanPrice, SubscriptionItem
 from squarelet.organizations.plan_mapping import (
     DEFERRED_SLUGS,
@@ -694,16 +694,31 @@ class Command(BaseCommand):
 
         # The precondition the entitlement shape migration checks, reported
         # here so a problem surfaces in the run that could have fixed it
-        # rather than in the one that cannot.  Group plans only: a per-unit
-        # plan keeps its quantity on purpose - a Professional at 3 is three
-        # of them - and the shape migration knows to leave those alone.
-        above_one = list(
-            SubscriptionItem.objects.select_related(
+        # rather than in the one that cannot.  It has to ask exactly what
+        # that step asks, or it reassures about lines that will stop it:
+        # non-pack, above quantity 1, entitlements that scale.
+        #
+        # Filtering on `for_groups` instead looked right - a per-unit plan
+        # keeps its quantity on purpose, a Professional at 3 being three of
+        # them - but those lines block the shape migration all the same.
+        # Professional's entitlement carries `base_requests` *and*
+        # `requests_per_user`, so it counts as scaling even though the
+        # per-unit value is 0, and reshaping it would take that
+        # organization from 20 requests to 60.  Which is a decision, not
+        # something to discover from a refusal one release later.
+        above_one = [
+            item
+            for item in SubscriptionItem.objects.select_related(
                 "subscription__organization", "plan"
             )
+            .prefetch_related("plan__entitlements")
             .exclude(plan__slug__in=PACK_SLUGS)
-            .filter(quantity__gt=1, plan__for_groups=True)
-        )
+            .filter(quantity__gt=1)
+            if any(
+                scaling_pairs(entitlement.resources)
+                for entitlement in item.plan.entitlements.all()
+            )
+        ]
         if above_one:
             self.stdout.write(
                 f"{len(above_one)} line(s) are still above quantity 1, which "

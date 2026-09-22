@@ -1046,6 +1046,53 @@ class TestQuantityStopsBeingAMultiplier:
         item.refresh_from_db()
         assert item.plan_price is None
 
+    def test_a_per_unit_line_above_one_is_reported_as_blocking(self):
+        """It blocks the entitlement shape migration, so it has to be named.
+
+        The report filtered to group plans, on the reasoning that a
+        per-unit plan keeps its quantity deliberately.  True, and beside
+        the point: Professional's entitlement pairs `base_requests` with
+        `requests_per_user`, so the shape migration counts it as scaling
+        and refuses the line - after this run is over.
+        """
+        actor = UserFactory()
+        item = SubscriptionItemFactory(
+            plan=legacy("professional", base_price=100, for_groups=False),
+            subscription__subscription_id="sub_live",
+            quantity=3,
+        )
+        item.plan.entitlements.add(
+            EntitlementFactory(
+                resources={
+                    "base_requests": 20,
+                    "minimum_users": 1,
+                    "requests_per_user": 0,
+                }
+            )
+        )
+
+        out = run(actor=actor.username)
+
+        assert "still above quantity 1" in out
+        assert f"{item.subscription.organization.slug}: professional" in out
+
+    def test_a_line_whose_entitlement_cannot_scale_is_not_reported(self):
+        """Sunlight's research hours do not move with quantity, and the
+        shape migration leaves such a line alone - so neither does this."""
+        actor = UserFactory()
+        item = SubscriptionItemFactory(
+            plan=legacy("professional", base_price=100, for_groups=False),
+            subscription__subscription_id="sub_live",
+            quantity=3,
+        )
+        item.plan.entitlements.add(
+            EntitlementFactory(resources={"research_hours": 10, "feature_level": 2})
+        )
+
+        out = run(actor=actor.username)
+
+        assert "still above quantity 1" not in out
+
     def test_nothing_is_left_above_quantity_one(self):
         """Which is exactly what the entitlement migration refuses on."""
         actor = UserFactory()
