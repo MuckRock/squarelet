@@ -14,6 +14,7 @@ from fuzzywuzzy import fuzz, process
 
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason
+from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.payments.factory import get_payment_provider
 
 # pylint:disable=too-many-positional-arguments
@@ -439,6 +440,24 @@ class SubscriptionItemQuerySet(models.QuerySet):
             interval=interval,
             collection_method=collection_method,
         )
+        if subscription.cancelled and not plan.free:
+            # One subscription per organization per billing shape, so a new
+            # paid line has nowhere else to go - it joins the one that is
+            # ending.  Stripe charges for it at once, and the sweep deletes
+            # it when the cancellation date arrives: money taken for a plan
+            # that then disappears.  Refused until the cancellation
+            # completes, because the alternative on this branch is lifting
+            # the cancellation, which would resume the plan they cancelled.
+            #
+            # Per-line cancellation replaces this: once a line carries its
+            # own date, buying keeps the subscription renewing and what was
+            # cancelled still stops on its own.
+            raise SubscriptionError(
+                f"This organization has a cancellation pending on its "
+                f"{interval} billing.  A plan added now would be charged "
+                f"immediately and removed when the cancellation completes; "
+                f"wait until then, or resubscribe to the cancelled plan."
+            )
         # Stripe inside the transaction on purpose.  The row has to exist
         # before the call, because it is what `stripe_items` describes - but
         # a Stripe failure must not leave an organization holding a line it
