@@ -284,22 +284,33 @@ class TestMemberDesiredPlans:
 
 
 class TestFindMember:
-    """_find_member matches by primary email, then secondary."""
+    """_find_member matches by account uuid, then primary email, then secondary."""
+
+    def test_uuid_match(self):
+        """A uuid hit returns its id immediately, without an email search."""
+        user = Mock(uuid="u-1", email="a@b.com")
+        with patch.object(sync_odoo, "odoo_search", return_value=[{"id": 2}]) as s:
+            assert sync_odoo._find_member(user) == (2, False)
+        assert s.call_count == 1
 
     def test_primary_match(self):
-        """A primary-email hit returns its id and matched_via_secondary=False."""
-        with patch.object(sync_odoo, "odoo_search", return_value=[{"id": 3}]):
-            assert sync_odoo._find_member("a@b.com") == (3, False)
+        """No uuid hit but a primary-email hit returns id and False."""
+        user = Mock(uuid="u-1", email="a@b.com")
+        # uuid miss, primary-email hit
+        with patch.object(sync_odoo, "odoo_search", side_effect=[[], [{"id": 3}]]):
+            assert sync_odoo._find_member(user) == (3, False)
 
     def test_secondary_match(self):
-        """No primary hit but a secondary hit returns id and True."""
-        with patch.object(sync_odoo, "odoo_search", side_effect=[[], [{"id": 8}]]):
-            assert sync_odoo._find_member("a@b.com") == (8, True)
+        """No uuid/primary hit but a secondary hit returns id and True."""
+        user = Mock(uuid="u-1", email="a@b.com")
+        with patch.object(sync_odoo, "odoo_search", side_effect=[[], [], [{"id": 8}]]):
+            assert sync_odoo._find_member(user) == (8, True)
 
     def test_no_match(self):
-        """Neither primary nor secondary match returns (None, False)."""
-        with patch.object(sync_odoo, "odoo_search", side_effect=[[], []]):
-            assert sync_odoo._find_member("a@b.com") == (None, False)
+        """No uuid, primary, or secondary match returns (None, False)."""
+        user = Mock(uuid="u-1", email="a@b.com")
+        with patch.object(sync_odoo, "odoo_search", side_effect=[[], [], []]):
+            assert sync_odoo._find_member(user) == (None, False)
 
 
 class TestMemberVals:
@@ -311,6 +322,7 @@ class TestMemberVals:
         user.email = "jane@b.com"
         user.id = 5
         user.uuid = "u-5"
+        user.client_stats = {}
         return user
 
     def test_includes_email_by_default(self):
@@ -471,16 +483,20 @@ class TestCancelOrg:
 
     def test_writes_cancelled_status(self):
         """A live cancel writes the Cancelled sunlight status."""
-        with patch.object(sync_odoo, "odoo_write") as write:
-            sync_odoo.cancel_org(1, "Acme", dry_run=False)
+        with patch.object(sync_odoo, "odoo_write") as write, patch.object(
+            sync_odoo, "log_org_note"
+        ):
+            sync_odoo.cancel_org(1, "Acme", [], dry_run=False)
         write.assert_called_once_with(
             "res.partner", [1], {"x_studio_sunlight_status": "Cancelled"}
         )
 
     def test_dry_run_no_write(self):
         """Dry-run performs no write."""
-        with patch.object(sync_odoo, "odoo_write") as write:
-            sync_odoo.cancel_org(1, "Acme", dry_run=True)
+        with patch.object(sync_odoo, "odoo_write") as write, patch.object(
+            sync_odoo, "log_org_note"
+        ):
+            sync_odoo.cancel_org(1, "Acme", [], dry_run=True)
         write.assert_not_called()
 
 
@@ -491,7 +507,9 @@ class TestRemoveCollaborativeTag:
         """The tag is unlinked and only this collaborative's plans are dropped."""
         tagged = {"id": 1, "name": "Acme", "x_studio_plan_1": [10, 20]}
         cfg = sync_odoo.CollaborativeConfig("rural-news-network", 3, [20], set())
-        with patch.object(sync_odoo, "odoo_write") as write:
+        with patch.object(sync_odoo, "odoo_write") as write, patch.object(
+            sync_odoo, "log_org_note"
+        ):
             sync_odoo.remove_collaborative_tag(tagged, cfg, dry_run=False)
         written = write.call_args.args[2]
         assert written["category_id"] == [(3, 3)]

@@ -5,7 +5,7 @@ from django.core.management.base import BaseCommand
 
 # Standard Library
 import logging
-from datetime import date
+from datetime import date, datetime, timezone
 from io import StringIO
 
 # Third Party
@@ -25,6 +25,22 @@ _PLAN_ID_CACHE = {}
 
 # Default page size for paginated search_read calls
 _PAGE_SIZE = 200
+
+# Client-stats fields synced to Odoo
+STAT_INT_FIELDS = {
+    "x_studio_mr_total_requests",
+    "x_studio_mr_recent_requests",
+    "x_studio_dc_total_documents",
+    "x_studio_dc_recent_uploads",
+}
+STAT_DATETIME_FIELDS = {
+    "x_studio_mr_last_login",
+    "x_studio_mr_last_request",
+    "x_studio_dc_last_login",
+    "x_studio_dc_last_upload",
+    "x_studio_dc_last_ai_credit",
+}
+STAT_FIELDS = sorted(STAT_INT_FIELDS | STAT_DATETIME_FIELDS)
 
 
 def _headers():
@@ -88,22 +104,88 @@ def odoo_write(model, ids, vals):
     return _odoo_request(f"{model}/write", {"ids": ids, "vals": vals})
 
 
+def log_org_note(odoo_id, body, dry_run=False):
+    """Post an internal note to an org's Odoo chatter (mail.thread log)."""
+    if dry_run:
+        logger.info("[DRY RUN] Would log note on Odoo ID %s: %s", odoo_id, body)
+        return
+    _odoo_request(
+        "res.partner/message_post",
+        {
+            "ids": [odoo_id],
+            "body": body,
+            "message_type": "comment",
+            "subtype_xmlid": "mail.mt_note",
+        },
+    )
+    logger.info("Logged note on Odoo ID %s", odoo_id)
+
+
+def _parse_dt(value):
+    """ISO 8601 client-stats timestamp -> naive-UTC string Odoo accepts
+    ('YYYY-MM-DD HH:MM:SS'), or False when missing. Handles both the
+    '+/-HH:MM' offsets (MuckRock) and the 'Z' suffix (DocumentCloud)."""
+    if not value:
+        return False
+    dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _build_stats_vals(stats):
+    """Map the Accounts client-stats JSON to Odoo stat fields: last-activity
+    dates, totals, and recent-activity counts. The AI-credit and request
+    balance sub-objects are intentionally skipped, and days-since is computed
+    in Odoo, not synced."""
+    stats = stats or {}
+    mr = stats.get("muckrock") or {}
+    dc = stats.get("documentcloud") or {}
+    return {
+        "x_studio_mr_last_login": _parse_dt(mr.get("last_login_at")),
+        "x_studio_mr_last_request": _parse_dt(mr.get("last_request_at")),
+        "x_studio_mr_total_requests": mr.get("total_requests") or 0,
+        "x_studio_mr_recent_requests": mr.get("recent_request_count") or 0,
+        "x_studio_dc_last_login": _parse_dt(dc.get("last_login_at")),
+        "x_studio_dc_last_upload": _parse_dt(dc.get("last_upload_at")),
+        "x_studio_dc_last_ai_credit": _parse_dt(dc.get("last_ai_credit_at")),
+        "x_studio_dc_total_documents": dc.get("total_documents") or 0,
+        "x_studio_dc_recent_uploads": dc.get("recent_upload_count") or 0,
+    }
+
+
+def _normalize_stat(field, value):
+    """Normalize a value read back from Odoo so it compares cleanly against
+    _build_stats_vals output (empty int -> 0, empty datetime -> False)."""
+    if field in STAT_INT_FIELDS:
+        return value or 0
+    return value or False
+
+
 def _resolve_plan_id(name):
-    """Resolve a Squarelet plan to its Odoo x_plan id by name match.
+    """Resolve a plan on Accounts to its Odoo x_plan id by name match.
     Creation is handled up front by _ensure_all_plans, so this is
-    lookup-only; a missing plan means it wasn't in Squarelet at ensure time."""
+    lookup-only; a missing plan means it wasn't in Accounts at ensure time."""
     if name in _PLAN_ID_CACHE:
         return _PLAN_ID_CACHE[name]
     res = odoo_search("x_plan", [["x_name", "=", name]], ["id"])
     pid = res[0]["id"] if res else None
     if pid is None:
-        logger.warning("No Odoo plan match for Squarelet plan: %s", name)
+        logger.warning("No Odoo plan match for Accounts plan: %s", name)
     _PLAN_ID_CACHE[name] = pid
     return pid
 
 
+def _plan_note(plan_ids):
+    """Render Odoo plan ids as names for a note, via the run's name->id cache.
+    Omits any id not in the cache rather than raising, so a note can never
+    take down the sync."""
+    id_to_name = {pid: name for name, pid in _PLAN_ID_CACHE.items() if pid}
+    return ", ".join(id_to_name[pid] for pid in sorted(plan_ids) if pid in id_to_name)
+
+
 def _build_plan_vals(plan):
-    """Map a Squarelet Plan to the x_plan fields Odoo mirrors."""
+    """Map a Plan from Accounts to the x_plan fields Odoo mirrors."""
     return {
         "x_name": plan.name,
         "x_studio_slug": plan.slug,
@@ -114,7 +196,7 @@ def _build_plan_vals(plan):
 
 
 def _resolve_or_create_plan(plan, dry_run):
-    """Return the Odoo x_plan id for a Squarelet plan, creating it if
+    """Return the Odoo x_plan id for an Accounts plan, creating it if
     missing. Returns None if it can't be resolved (dry-run, or a failed
     create)."""
     res = odoo_search("x_plan", [["x_name", "=", plan.name]], ["id"])
@@ -132,7 +214,7 @@ def _resolve_or_create_plan(plan, dry_run):
 
 
 def _ensure_all_plans(dry_run=False):
-    """Create an Odoo x_plan with full pricing data for any Squarelet
+    """Create an Odoo x_plan with full pricing data for any Accounts
     plan that lacks one. Runs before sync so every plan resolves to a
     real id and no plan silently drops out of an org's plan list."""
     for plan in Plan.objects.all():
@@ -165,6 +247,7 @@ def _build_org_vals(org, odoo_plan_ids, sunlight_status, member_tag_ids):
         vals["category_id"] = [(4, tag_id) for tag_id in member_tag_ids]
     if org.about:
         vals["x_studio_about"] = org.about
+    vals.update(_build_stats_vals(org.client_stats))
     return vals
 
 
@@ -181,6 +264,26 @@ def _compute_org_plans_and_status(org, inherited_plan_ids):
         odoo_plan_ids = sorted(set(own_plan_ids))
     sunlight_status = "Confirmed" if has_sunlight else None
     return odoo_plan_ids, sunlight_status
+
+
+def _reconcile_category_id(
+    current, current_normalized, vals_normalized, member_tag_ids
+):
+    """Fold the category_id (member-tag) field into the normalized dicts so the
+    diff only fires when a desired tag is actually missing in Odoo. Mutates
+    current_normalized / vals_normalized in place."""
+    if not member_tag_ids:
+        current_normalized.pop("category_id", None)
+        vals_normalized.pop("category_id", None)
+        return
+    current_tags = set(current.get("category_id") or [])
+    missing_tags = [t for t in member_tag_ids if t not in current_tags]
+    if missing_tags:
+        vals_normalized["category_id"] = f"add_tags:{missing_tags}"
+        current_normalized["category_id"] = f"missing_tags:{missing_tags}"
+    else:
+        current_normalized.pop("category_id", None)
+        vals_normalized.pop("category_id", None)
 
 
 def _diff_and_update_org(
@@ -205,11 +308,19 @@ def _diff_and_update_org(
             "company_type",
             "x_studio_about",
             "category_id",
-        ],
+        ]
+        + STAT_FIELDS,
     )[0]
+    # Plans present in Odoo but not in the new desired set — a partial removal
+    # (org kept at least one plan). A full lapse is caught by the sweep instead,
+    # since such an org falls out of the sync queryset entirely.
+    removed_plan_ids = set(current.get("x_studio_plan_1") or []) - set(odoo_plan_ids)
+
     current_normalized = {k: v for k, v in current.items() if k != "id"}
     current_normalized["x_studio_plan_1"] = sorted(current.get("x_studio_plan_1") or [])
     current_normalized["category_id"] = sorted(current.get("category_id") or [])
+    for f in STAT_FIELDS:
+        current_normalized[f] = _normalize_stat(f, current.get(f))
     for k in current_normalized:
         if current_normalized[k] is False and k in vals and vals[k] == "":
             current_normalized[k] = ""
@@ -221,18 +332,7 @@ def _diff_and_update_org(
         current_normalized.pop("x_studio_sunlight_status", None)
     vals_normalized["x_studio_plan_1"] = sorted(odoo_plan_ids)
 
-    if member_tag_ids:
-        current_tags = set(current.get("category_id") or [])
-        missing_tags = [t for t in member_tag_ids if t not in current_tags]
-        if missing_tags:
-            vals_normalized["category_id"] = f"add_tags:{missing_tags}"
-            current_normalized["category_id"] = f"missing_tags:{missing_tags}"
-        else:
-            current_normalized.pop("category_id", None)
-            vals_normalized.pop("category_id", None)
-    else:
-        current_normalized.pop("category_id", None)
-        vals_normalized.pop("category_id", None)
+    _reconcile_category_id(current, current_normalized, vals_normalized, member_tag_ids)
 
     diffs = {
         k: (current_normalized.get(k), vals_normalized[k])
@@ -250,6 +350,12 @@ def _diff_and_update_org(
         else:
             odoo_write("res.partner", [odoo_id], vals)
             logger.info("Updated org: %s", org.name)
+        if removed_plan_ids:
+            log_org_note(
+                odoo_id,
+                f"Plan(s) removed by Accounts sync: {_plan_note(removed_plan_ids)}",
+                dry_run=dry_run,
+            )
     else:
         logger.info("No changes for org: %s", org.name)
 
@@ -299,19 +405,53 @@ def _member_desired_plans(user, org_plan_ids):
     return sorted(set(org_plan_ids) | set(personal_plan_ids))
 
 
-def _find_member(email):
-    """Find an existing Odoo contact by primary, then secondary, email.
-    Returns (odoo_id or None, matched_via_secondary)."""
+def _find_member(user):
+    """Find an existing Odoo contact for a Accounts user by account uuid
+    (globally unique), falling back to email ONLY for contacts not yet linked
+    to any account. Returns (odoo_id or None, matched_via_secondary).
+
+    The email fallback is filtered to contacts with an empty
+    x_studio_muckrock_accounts_uuid so that a contact already claimed by one
+    account can't be re-matched (and overwritten) by a different account that
+    happens to share an email — e.g. one person with two accounts from Accounts
+    under different emails. In that case the second account misses both the
+    uuid and the (uuid-filtered) email match and correctly creates its own
+    contact. Deduping those underlying accounts is handled upstream, not here."""
+    uuid_str = str(user.uuid)
+
+    # 1. Exact account match by uuid — unambiguous, one account = one contact
     results = odoo_search(
         "res.partner",
-        [["email", "=", email], ["is_company", "=", False]],
+        [
+            ["x_studio_muckrock_accounts_uuid", "=", uuid_str],
+            ["is_company", "=", False],
+        ],
+        ["id"],
+    )
+    if results:
+        return results[0]["id"], False
+
+    # 2. Fall back to email (primary, then secondary), but only for contacts
+    #    not yet linked to an account (no uuid) — first sync of a pre-existing
+    #    Odoo contact.
+    results = odoo_search(
+        "res.partner",
+        [
+            ["email", "=", user.email],
+            ["x_studio_muckrock_accounts_uuid", "=", False],
+            ["is_company", "=", False],
+        ],
         ["id"],
     )
     if results:
         return results[0]["id"], False
     results = odoo_search(
         "res.partner",
-        [["x_studio_secondary_email", "=", email], ["is_company", "=", False]],
+        [
+            ["x_studio_secondary_email", "=", user.email],
+            ["x_studio_muckrock_accounts_uuid", "=", False],
+            ["is_company", "=", False],
+        ],
         ["id"],
     )
     if results:
@@ -333,12 +473,13 @@ def _member_vals(user, odoo_org_id, matched_via_secondary):
     }
     if matched_via_secondary:
         del vals["email"]
+    vals.update(_build_stats_vals(user.client_stats))
     return vals
 
 
 def sync_member(user, org_name, odoo_org_id, org_plan_ids, dry_run=False):
     desired_plans = _member_desired_plans(user, org_plan_ids)
-    odoo_id, matched_via_secondary = _find_member(user.email)
+    odoo_id, matched_via_secondary = _find_member(user)
     vals = _member_vals(user, odoo_org_id, matched_via_secondary)
 
     if odoo_id is None:
@@ -375,7 +516,8 @@ def _update_member(user, org_name, odoo_id, vals, desired_plans, dry_run):
             "x_studio_muckrock_accounts_id",
             "x_studio_muckrock_accounts_uuid",
             "x_studio_plan_1",
-        ],
+        ]
+        + STAT_FIELDS,
     )[0]
     current_parent = current.get("parent_id")
     normalized = {
@@ -388,6 +530,8 @@ def _update_member(user, org_name, odoo_id, vals, desired_plans, dry_run):
         "x_studio_muckrock_accounts_id": current["x_studio_muckrock_accounts_id"],
         "x_studio_muckrock_accounts_uuid": current["x_studio_muckrock_accounts_uuid"],
     }
+    for f in STAT_FIELDS:
+        normalized[f] = _normalize_stat(f, current.get(f))
     diffs = {k: (normalized[k], v) for k, v in vals.items() if normalized.get(k) != v}
 
     if "parent_id" in diffs and normalized.get("parent_id") is not None:
@@ -509,8 +653,15 @@ def remove_departed_members(
             _flag_departed_member(member, org, dry_run)
 
 
-def cancel_org(odoo_id, name, dry_run=False):
-    """Cancel a single Confirmed org."""
+def cancel_org(odoo_id, name, plan_ids, dry_run=False):
+    """Cancel a single Confirmed org, noting which plan(s) it lost.
+
+    plan_ids are the org's current x_studio_plan_1 in Odoo — the plans about
+    to be orphaned by the lapse. They're still on the record at cancel time
+    (the sweep sets status only, it doesn't clear the plan field), so the note
+    can name them. This is a full-lapse audit note: such an org fell out of
+    the sync set entirely, so the per-org path never ran for it — this is the
+    only place the lapse is recorded."""
     if dry_run:
         logger.info("[DRY RUN] Would cancel lapsed org: %s (Odoo ID %s)", name, odoo_id)
     else:
@@ -520,12 +671,20 @@ def cancel_org(odoo_id, name, dry_run=False):
             {"x_studio_sunlight_status": "Cancelled"},
         )
         logger.info("Cancelled lapsed org: %s", name)
+    if plan_ids:
+        body = (
+            f"Marked Cancelled by Accounts sync — lost plan(s): "
+            f"{_plan_note(plan_ids)}."
+        )
+    else:
+        body = "Marked Cancelled by Accounts sync — no active Sunlight plan."
+    log_org_note(odoo_id, body, dry_run=dry_run)
 
 
 def _sweep_lapsed_orgs(active_slugs, dry_run=False, only_slug=None):
-    """Find Confirmed Odoo orgs no longer active in Squarelet, cancel each."""
+    """Find Confirmed Odoo orgs no longer active in Accounts, cancel each."""
     logger.info(
-        "Checking %d active Squarelet slugs against Odoo confirmed orgs",
+        "Checking %d active Accounts slugs against Odoo confirmed orgs",
         len(active_slugs),
     )
     domain = [
@@ -536,15 +695,19 @@ def _sweep_lapsed_orgs(active_slugs, dry_run=False, only_slug=None):
     if only_slug is not None:
         domain.append(["x_studio_slug", "=", only_slug])
 
-    candidates = odoo_search_all("res.partner", domain, ["id", "name"])
+    candidates = odoo_search_all(
+        "res.partner", domain, ["id", "name", "x_studio_plan_1"]
+    )
 
     logger.info(
-        "Found %d confirmed orgs in Odoo with no active plan in Squarelet"
+        "Found %d confirmed orgs in Odoo with no active plan in Accounts"
         " — these would be cancelled",
         len(candidates),
     )
     for org in candidates:
-        cancel_org(org["id"], org["name"], dry_run=dry_run)
+        cancel_org(
+            org["id"], org["name"], org.get("x_studio_plan_1") or [], dry_run=dry_run
+        )
 
 
 class CollaborativeConfig:
@@ -566,14 +729,22 @@ def remove_collaborative_tag(tagged, config, dry_run=False):
             tagged["name"],
             tagged["id"],
         )
-    else:
-        write_vals = {"category_id": [(3, config.tag_id)]}
-        current_plan_ids = set(tagged.get("x_studio_plan_1") or [])
-        remaining = current_plan_ids - set(config.plan_ids)
-        if remaining != current_plan_ids:
-            write_vals["x_studio_plan_1"] = [(6, 0, sorted(remaining))]
-        odoo_write("res.partner", [tagged["id"]], write_vals)
-        logger.info("Removed %s Member tag from: %s", config.slug, tagged["name"])
+        return
+    write_vals = {"category_id": [(3, config.tag_id)]}
+    current_plan_ids = set(tagged.get("x_studio_plan_1") or [])
+    remaining = current_plan_ids - set(config.plan_ids)
+    removed = current_plan_ids - remaining
+    if remaining != current_plan_ids:
+        write_vals["x_studio_plan_1"] = [(6, 0, sorted(remaining))]
+    odoo_write("res.partner", [tagged["id"]], write_vals)
+    logger.info("Removed %s Member tag from: %s", config.slug, tagged["name"])
+    if removed:
+        log_org_note(
+            tagged["id"],
+            f"Plan(s) removed — no longer a {config.slug} member: "
+            f"{_plan_note(removed)}",
+            dry_run=dry_run,
+        )
 
 
 def _sweep_stale_collaborative_tags(config, dry_run=False, only_slug=None):
@@ -691,8 +862,50 @@ def _sync_org(org, collaborative_data, dry_run, remove_members):
     return org.slug
 
 
+def _run_sync(dry_run, remove_members, slug):
+    """Run the full sync pass: ensure plans, sync orgs + members, then the
+    lapsed-org and stale-tag sweeps."""
+    if dry_run:
+        logger.info("DRY RUN - no changes will be made")
+    _ensure_all_plans(dry_run=dry_run)
+    collaborative_data = _load_collaborative_data()
+    all_orgs = _build_org_queryset(collaborative_data)
+    if slug:
+        all_orgs = all_orgs.filter(slug=slug)
+    active_slugs = set()
+    for org in all_orgs:
+        processed_slug = _sync_org(org, collaborative_data, dry_run, remove_members)
+        if processed_slug:
+            active_slugs.add(processed_slug)
+    _sweep_lapsed_orgs(active_slugs, dry_run=dry_run, only_slug=slug)
+    for config in collaborative_data.values():
+        if config.member_slugs:
+            _sweep_stale_collaborative_tags(config, dry_run=dry_run, only_slug=slug)
+    logger.info("Sync complete")
+
+
+def _send_sync_report(buffer, failed):
+    """Email the buffered sync log as an attachment, tagging the subject
+    OK/FAILED. Called from handle's finally so a report goes out on both
+    success and unhandled failure."""
+    today = date.today().isoformat()
+    status = "FAILED" if failed else "OK"
+    email = EmailMessage(
+        subject=f"Odoo Sync Report ({status}) - {today}",
+        body=(
+            "Sync encountered an error — see attached log for the traceback."
+            if failed
+            else "See attached for full sync report."
+        ),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[settings.ODOO_SYNC_REPORT_EMAIL],
+    )
+    email.attach(f"sync_report_{today}.txt", buffer.getvalue(), "text/plain")
+    email.send()
+
+
 class Command(BaseCommand):
-    """Sync Squarelet Sunlight orgs and members to Odoo"""
+    """Sync Accounts Sunlight orgs and members to Odoo"""
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -703,7 +916,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--remove-members",
             action="store_true",
-            help="Unlink members from Odoo orgs if they are no longer in Squarelet",
+            help="Unlink members from Odoo orgs if they are no longer in Accounts",
         )
         parser.add_argument(
             "--slug",
@@ -711,13 +924,10 @@ class Command(BaseCommand):
             help="Limit sync to a single org by slug",
         )
 
-    def handle(self, *args, **kwargs):  # pylint:disable=too-many-locals
+    def handle(self, *args, **kwargs):
         if not settings.ODOO_SYNC_ENABLED:
             self.stdout.write("ODOO_SYNC_ENABLED is not set; skipping sync.")
             return
-        dry_run = kwargs["dry_run"]
-        remove_members = kwargs["remove_members"]
-        slug = kwargs.get("slug")
         buffer = StringIO()
         handler = logging.StreamHandler(buffer)
         handler.setLevel(logging.INFO)
@@ -726,27 +936,7 @@ class Command(BaseCommand):
         logger.setLevel(logging.INFO)
         failed = False
         try:
-            if dry_run:
-                logger.info("DRY RUN - no changes will be made")
-            _ensure_all_plans(dry_run=dry_run)
-            collaborative_data = _load_collaborative_data()
-            all_orgs = _build_org_queryset(collaborative_data)
-            if slug:
-                all_orgs = all_orgs.filter(slug=slug)
-            active_slugs = set()
-            for org in all_orgs:
-                processed_slug = _sync_org(
-                    org, collaborative_data, dry_run, remove_members
-                )
-                if processed_slug:
-                    active_slugs.add(processed_slug)
-            _sweep_lapsed_orgs(active_slugs, dry_run=dry_run, only_slug=slug)
-            for config in collaborative_data.values():
-                if config.member_slugs:
-                    _sweep_stale_collaborative_tags(
-                        config, dry_run=dry_run, only_slug=slug
-                    )
-            logger.info("Sync complete")
+            _run_sync(kwargs["dry_run"], kwargs["remove_members"], kwargs.get("slug"))
         except Exception:
             failed = True
             logger.exception("Sync failed with an unhandled exception")
@@ -755,17 +945,4 @@ class Command(BaseCommand):
             handler.flush()
             logger.removeHandler(handler)
             logger.setLevel(_prev_level)
-            today = date.today().isoformat()
-            status = "FAILED" if failed else "OK"
-            email = EmailMessage(
-                subject=f"Odoo Sync Report ({status}) - {today}",
-                body=(
-                    "Sync encountered an error — see attached log for the traceback."
-                    if failed
-                    else "See attached for full sync report."
-                ),
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                to=[settings.ODOO_SYNC_REPORT_EMAIL],
-            )
-            email.attach(f"sync_report_{today}.txt", buffer.getvalue(), "text/plain")
-            email.send()
+            _send_sync_report(buffer, failed)

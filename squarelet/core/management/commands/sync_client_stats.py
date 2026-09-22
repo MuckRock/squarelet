@@ -1,6 +1,7 @@
 # Django
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
+from django.utils import timezone
 
 # Standard Library
 import logging
@@ -47,6 +48,7 @@ class Command(BaseCommand):
 
         self.session = requests_retry_session()
         self.session.headers.update({"User-Agent": "Accounts Stats Sync"})
+        self.synced_at = timezone.now().isoformat()
 
         clients = {
             "documentcloud": (
@@ -165,6 +167,7 @@ class Command(BaseCommand):
             matched_uuids.add(key)
             stats = entity.client_stats or {}
             stats[client] = data
+            stats["synced_at"] = self.synced_at
             entity.client_stats = stats
             batch.append(entity)
         if batch:
