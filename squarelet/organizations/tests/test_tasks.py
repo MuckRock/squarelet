@@ -2891,9 +2891,7 @@ class TestReconcilingACancelledSubscription:
             subscription=subscription, plan=plan_factory(name="Paid", base_price=100)
         )
 
-        tasks.handle_subscription_deleted(
-            {"id": "sub_paid_only", "status": "canceled"}
-        )
+        tasks.handle_subscription_deleted({"id": "sub_paid_only", "status": "canceled"})
 
         assert not Subscription.objects.filter(pk=subscription.pk).exists()
         assert not SubscriptionItem.objects.filter(
