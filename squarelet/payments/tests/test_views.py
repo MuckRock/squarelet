@@ -896,9 +896,7 @@ class TestLegacyEntryRowsRedirect(ViewTestMixin):
             plan=plan_at_slug(plan_factory, "Organization", "organization"),
             interval="monthly",
         )
-        deal = plan_at_slug(
-            plan_factory, "InsideClimate", "insideclimate-news-plan"
-        )
+        deal = plan_at_slug(plan_factory, "InsideClimate", "insideclimate-news-plan")
 
         response = self.call_view(rf, user, pk=deal.pk, slug=deal.slug)
 
