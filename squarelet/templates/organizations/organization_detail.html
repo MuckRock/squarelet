@@ -125,7 +125,7 @@
         </div>
         {% endif %}
       </header>
-      <main class="profile">
+      <div class="card profile">
         <div class="icon">
           {% with avatar=organization.avatar %}
           {% if avatar %}
@@ -158,7 +158,7 @@
             <p class="org-about">{{ organization.about }}</p>
           {% endif %}
         </div>
-      </main>
+      </div>
     </section>
 
     {% if show_members_section %}
@@ -178,7 +178,7 @@
           </div>
         {% endif %}
       </header>
-      <main class="orgs">
+      <div class="card orgs">
         {% if member_org_invitations and member_org_invitations.count > 0 %}
           <div class="notification-banner blue">
             <div class="banner-content">
@@ -220,7 +220,7 @@
             </li>
           {% endfor %}
         </ul>
-      </main>
+      </div>
     </section>
     {% endif %}
 
@@ -229,7 +229,7 @@
       <header>
         <h2>{% trans "Affiliations" %}</h2>
       </header>
-      <main class="orgs">
+      <div class="card orgs">
         {% if group_invitations|length > 0 %}
           <ul class="card-list">
             {% for invitation in group_invitations %}
@@ -268,7 +268,7 @@
             {% endfor %}
           </ul>
         {% endif %}
-      </main>
+      </div>
     </section>
     {% endif %}
 
@@ -355,7 +355,7 @@
           {% endif %}
         </div>
       </header>
-      <main class="members">
+      <div class="card members">
         {% if pending_requests and pending_requests.count > 0 %}
           <div class="notification-banner blue">
             <div class="banner-content">
@@ -409,7 +409,7 @@
         {% else %}
           <p class="help-text">{% trans "This organization has no members." %}</p>
         {% endif %}
-      </main>
+      </div>
     </section>
     {% endif %}
 
@@ -421,7 +421,7 @@
           {% trans "Learn about verification" %}
         </a>
       </header>
-      <main class="verification-status">
+      <div class="card verification-status">
         {% if organization.verified_journalist %}
           <div class="status verified">
             {% icon "verified-24" %}
@@ -453,7 +453,7 @@
             <a target="_blank" rel="noopener noreferrer" href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433">{% trans "Learn more" %}</a>
           </p>
         </div>
-      </main>
+      </div>
     </section>
 
     {% if security_settings %}
@@ -461,7 +461,7 @@
       <header>
         <h2>{% trans "Security Settings" %}</h2>
       </header>
-      <main class="security">
+      <div class="card security">
         {% comment %}
         <div class="security-setting">
           <h3>{% trans "Join requests" %}</h3>
@@ -504,7 +504,7 @@
               </form>
             </div>
         {% endif %}
-      </main>
+      </div>
     </section>
     {% endif %}
 {% endblock main %}

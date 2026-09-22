@@ -18,17 +18,8 @@
   align-self: center;
 }
 
-.modal-layout main {
-  box-sizing: border-box;
-  width: 100%;
-  border-radius: 0.5rem;
-  border: 1px solid var(--gray-2, #d8dee2);
-  background: var(--white, #fff);
-  box-shadow: var(--shadow-1);
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem 1rem;
-  padding: 1rem;
+.modal-layout > .card {
+  gap: 0.5rem;
 }
 
 .modal-layout :is(h1, h2, h3) {

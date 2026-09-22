@@ -68,21 +68,6 @@
   width: 100%;
 }
 
-.your-orgs .card,
-.pending .card {
-  gap: 1rem;
-}
-
-#organization_list .card {
-  max-width: unset;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  border-radius: 0.5rem;
-}
-
 #org_search {
   align-self: stretch;
   flex: 1 0 auto;
@@ -120,7 +105,6 @@ p {
 
 .introduction .card {
   margin: 1rem auto;
-  gap: 1rem;
   text-align: center;
 }
 

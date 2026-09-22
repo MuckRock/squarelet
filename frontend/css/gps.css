@@ -468,16 +468,6 @@ strong {
   max-width: 60ch;
 }
 
-.card {
-  padding: 2rem;
-  box-sizing: border-box;
-  border-radius: var(--radius-4);
-  box-shadow: var(--shadow-1);
-  background: var(--white);
-  color: var(--gray-5);
-  margin: 0 auto;
-}
-
 /* Form Fields */
 
 .form {

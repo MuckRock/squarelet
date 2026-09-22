@@ -27,18 +27,9 @@
   }
 
   .card {
-    display: flex;
-    width: 100%;
-    max-width: 100%;
-    padding: 1rem;
-    flex-direction: column;
     align-items: flex-start;
-
-    border-radius: 0.5rem;
-    border: 1px solid var(--gray-2, #d8dee2);
-    box-sizing: border-box;
-
-    box-shadow: var(--shadow-1);
+    /* Domain rows sit flush against each other. */
+    gap: 0;
   }
 }
 

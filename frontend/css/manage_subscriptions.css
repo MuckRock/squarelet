@@ -1,11 +1,3 @@
-.subscription-card {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem 1rem;
-  padding: 1rem;
-}
-
 .subscription-card h3 {
   font-family: var(--font-sans, "Source Sans Pro");
   font-size: var(--font-md, 1rem);
@@ -69,28 +61,11 @@
   content: ",";
 }
 
-.account-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-}
-
 .remove-card-form {
   margin: 0;
 }
 
-.account-card {
-  display: flex;
-  align-items: center;
+/* Tighter than the .card--stack default. */
+.subscription-card {
   gap: 0.5rem;
-}
-
-.account-card .icon {
-  display: flex;
-  align-items: center;
-}
-
-.account-card-brand {
-  text-transform: capitalize;
 }

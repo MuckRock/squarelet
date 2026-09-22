@@ -1,10 +1,6 @@
 
 .plan-card {
-  display: flex;
-  flex-direction: column;
   gap: 1rem 0.5rem;
-  padding: 1rem;
-  box-shadow: 0 2px 2px rgba(30, 48, 56, 0.15);
 }
 
 /* Plan name + org name inline references */
@@ -80,26 +76,4 @@ a.plan-name {
 
 .plan-upgrade .btn {
   max-width: 12em;
-}
-
-.account-row {
-  display: flex;
-  justify-contents: space-between;
-  align-items: center;
-  gap: 1rem;
-}
-
-.account-card {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.account-card .icon {
-  display: flex;
-  align-items: center;
-}
-
-.account-card-brand {
-  text-transform: capitalize;
 }

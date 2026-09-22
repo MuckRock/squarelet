@@ -19,7 +19,7 @@
         {% trans "Return to your account" %}
       </a>
     </header>
-    <main class="card">
+    <div class="card card--large">
       <h1>{% translate "Disable Two-Factor Authentication" %}</h1>
       <p>
           {% blocktranslate %}You are about to disable two-factor authentication. Are you sure?{% endblocktranslate %}
@@ -31,6 +31,6 @@
           {% trans "Disable" %}
         </button>
       </form>
-    </main>
+    </div>
   </div>
 {% endblock content %}

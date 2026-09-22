@@ -112,7 +112,7 @@
         <header>
           {% sign_up_message %}
         </header>
-        <main class="fields">
+        <div class="fields">
           {% csrf_token %}
           {{form.non_field_errors}}
           {{form.plan}}
@@ -168,7 +168,7 @@
             </span>
             {{ form.tos.errors }}
           </label>
-        </main>
+        </div>
 
         <footer>
           <button class="button primary">{% trans 'Sign up' %}</button>

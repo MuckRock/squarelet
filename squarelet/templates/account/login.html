@@ -222,7 +222,7 @@
     <form class="login-form" id="login_form" method="POST">
       {% sign_in_message %}
 
-      <main class="fields">
+      <div class="fields">
         {% csrf_token %}
         {{form.non_field_errors}}
         <label class="login text field">
@@ -248,7 +248,7 @@
             </a>
           </div>
         </div>
-      </main>
+      </div>
 
       <footer class="flex row wrap">
         <button class="button primary">{% trans 'Sign in' %}</button>

@@ -30,20 +30,13 @@
   flex-direction: column;
   justify-content: center;
 }
-.plan main {
+.plan .main {
   display: flex;
   align-items: flex-start;
   justify-content: center;
   flex-wrap: wrap;
   gap: 1.5rem;
   align-self: stretch;
-}
-.plan .free.plan main {
-  flex-direction: row-reverse;
-  padding: 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid var(--gray-2, #d8dee2);
-  background: var(--white, #fff);
 }
 .header-display {
   text-align: center;
@@ -150,8 +143,8 @@
   background: var(--purple-1, #f4f1fe);
 }
 
-.professional.plan main,
-.organization.plan main {
+.professional.plan .main,
+.organization.plan .main {
   justify-content: flex-start;
   flex: 1 0 0;
 }

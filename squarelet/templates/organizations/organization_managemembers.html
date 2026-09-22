@@ -72,7 +72,7 @@
       </form>
     </header>
 
-    <div class="card">
+    <div class="card card--stack">
       <form method="POST"
         id="invite-form"
         action="{% url "organizations:manage-members" slug=organization.slug %}">
@@ -121,7 +121,7 @@
         {% trans "View request history" %}
       </a>
     </header>
-    <div class="card">
+    <div class="card card--stack">
       <ul class="card-list">
         {% for invitation in requested_invitations %}
         <li class="card-item">
@@ -169,7 +169,7 @@
         {% trans "View invitation history" %}
       </a>
     </header>
-    <div class="card">
+    <div class="card card--stack">
       <ul class="card-list">
         {% for invitation in pending_invitations %}
         <li class="card-item">
@@ -212,7 +212,7 @@
       <header>
         <h2>{{ count }} member{{ count|pluralize }}</h2>
       </header>
-      <div class="card">
+      <div class="card card--stack">
         <ul class="card-list">
           {% for membership in members %}
           <li class="card-item">

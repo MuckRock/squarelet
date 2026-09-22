@@ -57,7 +57,7 @@
       </div>
     </header>
 
-    <div class="card">
+    <div class="card card--stack">
       <form method="POST" id="invite-form" action="{% url "organizations:manage-member-orgs" organization.slug %}">
         {% csrf_token %}
         <div id="org_search"></div>
@@ -89,7 +89,7 @@
           <p>{% trans "Organizations you've invited to join" %}:</p>
         </div>
       </header>
-      <div class="card">
+      <div class="card card--stack">
         <ul class="card-list">
           {% for invitation in pending_invitations %}
             {% with org=invitation.to_organization %}
@@ -130,7 +130,7 @@
           {% endblocktrans %}
         </h2>
       </header>
-      <div class="card">
+      <div class="card card--stack">
         <ul class="card-list">
           {% for member in members %}
             <li class="card-item">

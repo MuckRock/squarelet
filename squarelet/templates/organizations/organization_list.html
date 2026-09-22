@@ -30,7 +30,7 @@
         Designed for teams collaborating on reporting, research, and more, organizations make it easy to work together when using MuckRock's tools.
         {% endblocktrans %}
       </p>
-      <div class="card">
+      <div class="card card--stack">
         <p class="lead">{% blocktrans %}You need a MuckRock account to join and create organizations.{% endblocktrans %}</p>
         <div class="btn-group">
           <a class="btn primary" href="{% url 'account_login' %}?next={% url "organizations:list" %}">{% trans "Sign in" %}</a>
@@ -96,7 +96,7 @@
 
     <section id="your-orgs" class="your-orgs">
       <h2>{% trans "Your organizations" %}</h2>
-      <div class="card">
+      <div class="card card--stack">
         {% include "organizations/your_organizations.html" %}
       </div>
     </section>
@@ -108,7 +108,7 @@
             <h2>{% trans "Pre-approved" %}</h2>
             <p class="caption">{% trans "Based on your email address, you're pre-approved to join:" %}</p>
           </header>
-          <div class="card">
+          <div class="card card--stack">
             <ul class="card-list">
             {% for organization in potential_orgs %}
             <li class="card-item">
@@ -143,7 +143,7 @@
             </div>
           </header>
           {% if pending_invitations|length > 0 %}
-          <div class="card">
+          <div class="card card--stack">
             <ul class="card-list">
             {% for invite in pending_invitations %}
               <li class="card-item">
@@ -171,7 +171,7 @@
               </a>
             </div>
           </header>
-          <div class="card">
+          <div class="card card--stack">
             {% if pending_requests|length > 0 %}
             <ul class="card-list">
               {% for invite in pending_requests %}

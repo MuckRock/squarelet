@@ -1,3 +1,31 @@
+/* The card surface: appearance only, no layout opinions. Anything that wants
+   a white panel composes this with a layout modifier (or its own rules). */
+.card {
+  box-sizing: border-box;
+  border-radius: var(--radius-3, 0.5rem);
+  border: 1px solid var(--gray-2, #d8dee2);
+  background: var(--white, #fff);
+  box-shadow: var(--shadow-1);
+  color: var(--gray-5, #233944);
+}
+
+/* The most common card body: a padded vertical stack. */
+.card--stack {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+/* A large standalone card, used by the auth and marketing flows. */
+.card--large {
+  width: 100%;
+  padding: 2rem;
+  border-radius: var(--radius-4, 1rem);
+  margin: 0 auto;
+}
+
 /* Card section and list primitives */
 
 .card-section {
@@ -108,4 +136,27 @@
 .caption {
   flex: 0 1 auto;
   white-space: nowrap;
+}
+
+/* Payment-account rows, shown inside subscription and plan cards. */
+.account-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.account-card {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.account-card .icon {
+  display: flex;
+  align-items: center;
+}
+
+.account-card-brand {
+  text-transform: capitalize;
 }

@@ -3,7 +3,6 @@ import "@/css/organization_managemembers.css";
 import "@/css/organization_list.css";
 import "@/css/user_detail.css";
 import "@/css/team_list_item.css";
-import "@/css/card.css";
 
 import { mount } from "svelte";
 import OrgSearch from "../components/OrgSearch.svelte";

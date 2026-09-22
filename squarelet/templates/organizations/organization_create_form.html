@@ -26,7 +26,7 @@
   {% else %}
     <h1 class="title">{% trans "Create an organization" %}</h1>
     <div id="org_name_search"></div>
-    <form class="card" method="POST" action="{% url 'organizations:create' %}" enctype="multipart/form-data">
+    <form class="card card--large" method="POST" action="{% url 'organizations:create' %}" enctype="multipart/form-data">
       {% csrf_token %}
       {% crispy form form.helper %}
       <button type="submit" class="btn primary full">{% trans "Create organization" %}</button>

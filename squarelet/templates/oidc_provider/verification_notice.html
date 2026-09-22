@@ -18,7 +18,7 @@
       </h1>
     </header>
 
-    <main>
+    <div class="main">
       {% if verification_notice %}
         <div class="verification-notice-body">{{ verification_notice|markdown }}</div>
       {% endif %}
@@ -33,7 +33,7 @@
 
       <div class="oidc-authorization-actions">
         {% if has_verified_email %}
-          <div id="verification-options" class="verification card">
+          <div id="verification-options" class="verification card card--stack">
             {% for organization in unverified_orgs %}
               <div class="unverified org">
                 {% include "account/team_list_item.html" with organization=organization %}
@@ -64,7 +64,7 @@
           </p>
         {% endif %}
       </div>
-    </main>
+    </div>
     <footer>
       <a id="verification-continue" class="primary button" href="{{ continue_url }}">
         {% blocktrans with client=client.name %}Continue to {{ client }}{% endblocktrans %}

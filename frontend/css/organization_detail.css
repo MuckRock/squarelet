@@ -22,7 +22,7 @@
 }
 
 /* Members section */
-section#members main.members {
+section#members .members {
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -38,7 +38,7 @@ section#members main.members {
 }
 
 /* Security section */
-section#security main.security {
+section#security .security {
   display: flex;
   flex-direction: column;
   gap: 1rem;

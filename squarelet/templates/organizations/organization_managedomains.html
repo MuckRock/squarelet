@@ -50,7 +50,7 @@
         <h2>{% trans "Trusted domains" %}</h2>
       </div>
     </header>
-    <div class="card">
+    <div class="card card--stack">
       {% if domains %}
         {% for domain in domains %}
           <div class="domain-row">
@@ -75,7 +75,7 @@
         <h2>{% trans "Add a new domain" %}</h2>
       </div>
     </header>
-    <div class="card">
+    <div class="card card--stack">
       {% if available_domains %}
         <p class="help-text">{% trans "Select a domain from your verified email addresses to add as a trusted domain." %}</p>
         <form method="post" class="add-domain-form">

@@ -18,9 +18,9 @@ Args:
 {% endcomment %}
 
 {% if subscriptions or upgrade_plan or not inherited_benefits %}
-<main class="plan-card{% if not subscriptions %} plan-card--no-subscription{% endif %}">
+<div class="card card--stack plan-card{% if not subscriptions %} plan-card--no-subscription{% endif %}">
   {% if subscriptions %}
-    <div class="card-section">
+    <section class="card-section">
       <header class="card-section-label">
         <h3>{% trans "Subscriptions" %}</h3>
         <span class="caption">
@@ -60,10 +60,10 @@ Args:
           </li>
         {% endfor %}
       </ul>
-    </div>
+    </section>
 
     {% if subscription_benefits %}
-    <div class="card-section">
+    <section class="card-section">
       <header class="card-section-label">
         <h3>{% trans "Benefits" %}</h3>
         <span class="caption">
@@ -82,7 +82,7 @@ Args:
           </li>
         {% endfor %}
       </ul>
-    </div>
+    </section>
     {% endif %}
   {% else %}
     <div class="card-section-label">
@@ -131,7 +131,7 @@ Args:
     {% endif %}
   {% endif %}
   {% if inherited_benefits %}
-  <div class="card-section">
+  <section class="card-section">
     <header class="card-section-label">
       <p>
         {% if subject == "users" %}
@@ -150,7 +150,7 @@ Args:
         </li>
       {% endfor %}
     </ul>
-  </div>
+  </section>
   {% endif %}
-</main>
+</div>
 {% endif %}
