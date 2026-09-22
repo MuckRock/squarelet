@@ -801,9 +801,11 @@ class PlanAdmin(StripeLinkMixin, VersionAdmin):
         "auto_renew",
         "for_individuals",
         "for_groups",
+        "archived",
         "stripe_id_display",
         "slack_webhook_url",
     )
+    list_filter = ("archived", "public", "wix")
     readonly_fields = ("stripe_link",)
     search_fields = ("name", "description")
     autocomplete_fields = ("private_organizations", "entitlements")
@@ -812,6 +814,17 @@ class PlanAdmin(StripeLinkMixin, VersionAdmin):
         JSONField: {"widget": PrettyJSONWidget},
     }
     inlines = [PlanPriceInline]
+
+    def get_queryset(self, request):
+        """Staff see retired plans; customers do not.
+
+        `Plan.objects` excludes archived rows so that nothing offers one
+        for sale, and the admin reads the default manager - which hid
+        retired plans from staff too.  Since `archive_legacy_plans` only
+        ever archives, the admin is the only way back, and it could not
+        see the row it needed to restore.
+        """
+        return Plan.objects.including_archived()
 
     def save_formset(self, request, form, formset, change):
         """Give any newly added price its Stripe Price.
