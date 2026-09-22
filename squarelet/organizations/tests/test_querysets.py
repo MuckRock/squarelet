@@ -21,7 +21,6 @@ from squarelet.organizations.models import (
     Plan,
     SubscriptionItem,
 )
-from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.tests.factories import (
     ChargeFactory,
     InvoiceFactory,
@@ -387,77 +386,6 @@ def test_joining_a_live_subscription_settles_the_charge(mocker):
     )
 
     settle.assert_called_once_with(updated)
-
-
-@pytest.mark.django_db
-class TestBuyingOntoACancelledSubscription:
-    """One subscription per organization per billing shape, so a new line
-    has nowhere to go but the one that is ending.
-
-    Stripe charges for it at once and the sweep deletes it at the
-    cancellation date - money taken for a plan that then disappears.
-    Per-line cancellation replaces this refusal with keeping the
-    subscription renewing for the new line.
-    """
-
-    def _cancelling(self, **kwargs):
-        item = SubscriptionItemFactory(
-            plan=PlanFactory(name="Leaving Plan", base_price=50),
-            subscription__subscription_id="sub_leaving",
-            subscription__cancelled=True,
-            **kwargs,
-        )
-        return item.subscription
-
-    def test_a_paid_line_is_refused(self, mocker):
-        mocker.patch("squarelet.organizations.models.Subscription.stripe_modify")
-        mocker.patch(
-            "squarelet.organizations.models.payment.SubscriptionItem.notify_started"
-        )
-        subscription = self._cancelling()
-
-        with pytest.raises(SubscriptionError, match="cancellation pending"):
-            SubscriptionItem.objects.start(
-                organization=subscription.organization,
-                plan=PlanFactory(name="Arriving Plan", base_price=100),
-            )
-
-        assert subscription.items.count() == 1
-
-    def test_a_free_line_may_still_join(self, mocker):
-        """It costs nothing, so there is nothing to take wrongly - and it
-        now survives the cancellation rather than being swept with it."""
-        mocker.patch("squarelet.organizations.models.Subscription.stripe_modify")
-        mocker.patch("squarelet.organizations.models.Subscription.settle_added_line")
-        mocker.patch(
-            "squarelet.organizations.models.payment.SubscriptionItem.notify_started"
-        )
-        subscription = self._cancelling()
-
-        SubscriptionItem.objects.start(
-            organization=subscription.organization,
-            plan=PlanFactory(name="Free Arrival", base_price=0, price_per_user=0),
-        )
-
-        assert subscription.items.count() == 2
-
-    def test_a_live_subscription_is_unaffected(self, mocker):
-        mocker.patch("squarelet.organizations.models.Subscription.stripe_modify")
-        mocker.patch("squarelet.organizations.models.Subscription.settle_added_line")
-        mocker.patch(
-            "squarelet.organizations.models.payment.SubscriptionItem.notify_started"
-        )
-        item = SubscriptionItemFactory(
-            plan=PlanFactory(name="Staying Plan", base_price=50),
-            subscription__subscription_id="sub_live_ok",
-        )
-
-        SubscriptionItem.objects.start(
-            organization=item.subscription.organization,
-            plan=PlanFactory(name="Second Plan", base_price=100),
-        )
-
-        assert item.subscription.items.count() == 2
 
 
 @pytest.mark.django_db

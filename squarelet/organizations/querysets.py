@@ -14,7 +14,6 @@ from fuzzywuzzy import fuzz, process
 
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason
-from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.payments.factory import get_payment_provider
 
 # pylint:disable=too-many-positional-arguments
@@ -440,15 +439,6 @@ class SubscriptionItemQuerySet(models.QuerySet):
             interval=interval,
             collection_method=collection_method,
         )
-        if subscription.cancelled and not plan.free:
-            # A new paid line would join the ending subscription - charged
-            # now, deleted by the sweep.  Refused until per-line cancellation.
-            raise SubscriptionError(
-                f"This organization has a cancellation pending on its "
-                f"{interval} billing.  A plan added now would be charged "
-                f"immediately and removed when the cancellation completes; "
-                f"wait until then, or resubscribe to the cancelled plan."
-            )
         # Inside the transaction on purpose: a Stripe failure must not leave
         # an organization holding a line nobody bills.
         with transaction.atomic():

@@ -492,6 +492,86 @@ class TestUpgradingAwayFromAOneOffPlan:
 
 
 @pytest.mark.django_db()
+class TestBuyingOntoACancellingSubscription:
+    """A plan bought while cancelling is a plan the customer means to keep.
+
+    Stripe's `cancel_at_period_end` belongs to the subscription, so the new
+    line would be deleted along with everything else when the period ran out.
+    Lifting the cancellation is the only way to keep it, and the line they
+    actually cancelled has to survive that, on its own date.
+    """
+
+    @pytest.fixture
+    def leaving(self, subscription_with, paid_plan, quiet_join):
+        (line,) = subscription_with(
+            paid_plan("Leaving Plan"), subscription_id="sub_leaving"
+        )
+        subscription = line.subscription
+        subscription.mark_cancelled(subscription.current_period_end)
+        subscription.save()
+        subscription.push_cancellation_to_items()
+        line.refresh_from_db()
+        return line
+
+    def test_the_subscription_carries_on(self, leaving, paid_plan):
+        join(leaving.subscription, paid_plan("Arriving Plan", price=40))
+
+        leaving.subscription.refresh_from_db()
+        assert not leaving.subscription.cancelled
+        assert leaving.subscription.cancel_at is None
+
+    def test_the_new_line_is_not_ending(self, leaving, paid_plan):
+        arriving = join(leaving.subscription, paid_plan("Arriving Plan", price=40))
+
+        arriving.refresh_from_db()
+        assert not arriving.cancelled
+
+    def test_the_cancelled_line_still_ends_on_its_own_date(self, leaving, paid_plan):
+        ends_on = leaving.cancel_at
+
+        join(leaving.subscription, paid_plan("Arriving Plan", price=40))
+
+        leaving.refresh_from_db()
+        assert leaving.cancelled
+        assert leaving.cancel_at == ends_on
+
+    def test_resubscribing_does_not_revive_it(self, leaving, paid_plan):
+        """It is ending in its own right now, not because its parent was.
+
+        `uncancel` and the Stripe webhook revive only
+        `cancelled_by_subscription` lines.
+        """
+        join(leaving.subscription, paid_plan("Arriving Plan", price=40))
+
+        leaving.refresh_from_db()
+        assert not leaving.cancelled_by_subscription
+        # What `uncancel` does once Stripe has been told to renew.
+        leaving.subscription.refresh_from_db()
+        leaving.subscription.push_cancellation_to_items()
+        leaving.refresh_from_db()
+        assert leaving.cancelled, "the customer asked for this one to end"
+
+    def test_a_free_line_leaves_the_cancellation_alone(self, leaving, free_plan):
+        """A free line is never billed, so it cannot be a reason to renew.
+
+        Carrying on for one would leave Stripe renewing a subscription whose
+        only paid line is cancelled, which nothing can sweep.
+        """
+        join(leaving.subscription, free_plan())
+
+        leaving.subscription.refresh_from_db()
+        assert leaving.subscription.cancelled
+
+    def test_a_one_off_leaves_the_cancellation_alone(self, leaving, one_off_plan):
+        """A plan that bills once is flagged to stop the moment it is bought,
+        so it is not asking for anything to be renewed either."""
+        join(leaving.subscription, one_off_plan("Credit Pack"))
+
+        leaving.subscription.refresh_from_db()
+        assert leaving.subscription.cancelled
+
+
+@pytest.mark.django_db()
 class TestResubscribeIsPerLine:
     """Resubscribe brings back the plan you pressed it on.
 
