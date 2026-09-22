@@ -10,6 +10,7 @@ import logging
 from squarelet.organizations.entitlement_shape import grants_old, scaling_pairs
 from squarelet.organizations.models.payment import PlanPrice, SubscriptionItem
 from squarelet.organizations.plan_mapping import (
+    COHORT_SLUG,
     DEFERRED_SLUGS,
     EXPECTED_GRANT_CHANGES,
     LEGACY_PLAN_MAP,
@@ -199,6 +200,7 @@ class Command(BaseCommand):
             )
         else:
             self._report_remaining()
+            self._report_cohort()
         if counts["failed"]:
             raise CommandError(
                 f"{counts['failed']} subscription(s) failed; everything else "
@@ -492,6 +494,21 @@ class Command(BaseCommand):
         slug, interval, label, code = LEGACY_PLAN_MAP[
             (item.plan.slug, is_billing(item))
         ]
+        if item.plan.slug == COHORT_SLUG:
+            # One legacy plan billing at two cadences, which the mapping
+            # cannot express: it is keyed on the slug, and the slug says
+            # annual for all five of these lines.  One of them is billed
+            # monthly, and the money check cannot see the difference -
+            # $250 a month and $3,000 a year are the same number of cents
+            # to it - so migrating that line off the map would quietly
+            # turn twelve payments into one.
+            #
+            # The line's own subscription is the only local record of how
+            # it bills.  `0084` derived that field from the plan's annual
+            # flag too, so it has to be corrected for the monthly
+            # subscriber before this runs; the release runbook says so,
+            # and `_report_cohort` below prints what it found.
+            interval = item.subscription.interval
         plan_price = PlanPrice.objects.select_related("plan").get(
             plan__slug=slug,
             interval=interval,
@@ -528,6 +545,21 @@ class Command(BaseCommand):
                 price.amount * qty for price, qty in packs
             )
             old = legacy_bill_cents(item)
+            if item.plan.slug == COHORT_SLUG:
+                # Both sides annualised, because this plan's row states one
+                # cadence and bills at two.  `legacy_bill_cents` reads the
+                # plan, so it answers the annual figure for every line -
+                # including the monthly subscriber, whose $250 is correct
+                # and would otherwise read as a 92% discount.
+                #
+                # What this check no longer asserts for these lines is the
+                # cadence: $250 x 12 and $3,000 x 1 are both $3,000, so
+                # moving one to the other's row would pass here.  That is
+                # settled before this point instead, by taking the interval
+                # from the line's own subscription, and shown by
+                # `_report_cohort` afterwards.
+                periods = 12 if plan_price.interval == "monthly" else 1
+                new *= periods
             if new != old:
                 raise CommandError(
                     f"would change the bill: {item.plan.slug} at quantity "
@@ -676,6 +708,33 @@ class Command(BaseCommand):
                 # amounts are identical by construction and checked above, so
                 # there is nothing legitimate to prorate.
                 subscription.stripe_modify(proration_behavior="none")
+
+    def _report_cohort(self):
+        """Name each cohort line and the cadence it was migrated at.
+
+        The money check cannot speak to this: $250 a month and $3,000 a
+        year are the same number of cents to it, so a line moved to the
+        wrong cadence passes silently.  Printing the split is what makes
+        it reviewable, and the count is small enough to read.
+        """
+        lines = list(
+            SubscriptionItem.objects.select_related(
+                "subscription__organization", "plan_price"
+            ).filter(plan_price__code="election-cohort")
+        )
+        if not lines:
+            return
+        self.stdout.write(f"\ncohort lines, by cadence ({len(lines)}):")
+        for item in lines:
+            self.stdout.write(
+                f"  - {item.subscription.organization.slug}: "
+                f"{item.plan_price.interval} at "
+                f"${item.plan_price.amount / 100:,.2f}"
+            )
+        self.stdout.write(
+            "  (a line on the wrong cadence bills the same amount per "
+            "year, so nothing else will flag it)"
+        )
 
     def _report_remaining(self):
         """What is left, and why - so a non-zero count is not alarming."""

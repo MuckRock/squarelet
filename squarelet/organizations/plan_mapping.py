@@ -148,6 +148,17 @@ LEGACY_PLAN_MAP = {
         "standard",
         "",
     ),
+    # A cohort rate, sold as a one-year programme and still renewing.  The
+    # interval here is nominal: this plan bills two of its subscribers
+    # annually and one monthly, which one legacy slug cannot express, so
+    # `backfill_plan_prices` picks the row from the line's own
+    # subscription rather than from this entry.  See COHORT_SLUG there.
+    ("election-accountability-cohort", True): (
+        "sunlight-essential",
+        "annual",
+        "standard",
+        "election-cohort",
+    ),
     # The older, cheaper Sunlight Basic rate, kept for the subscribers who
     # still hold it.  A permanent grandfather rate is what the subscription
     # costs rather than a discount that expires, so it is a price with a
@@ -194,19 +205,21 @@ PACK_DECOMPOSITION = {
     "documentcloud-premium": ("documentcloud-credit-pack",),
 }
 
-# Deliberately left alone.  Each needs a decision or an action outside this
-# command, given per entry below.
-DEFERRED_SLUGS = {
-    # A one-year programme at a $3,000 cohort rate, not renewing, nobody
-    # joining.  Its decided target needs a $1,000 coupon that nothing in
-    # this stack applies yet, and mapping it without one would repoint the
-    # line to the $4,000 price - which the money check refuses anyway.
-    # Left alone on purpose: it keeps billing exactly what it bills on the
-    # legacy Stripe Plan, the sweep removes each line as it lapses, and 2f
-    # archives the plan once the last one has.  Nothing needs to support
-    # it; coupon support is for the *next* cohort.
-    "election-accountability-cohort",
-}
+# Deliberately left alone.  Each would need a decision or an action
+# outside this command.
+#
+# Empty since 2026-09-22, when the Election Accountability Cohort got a
+# coded price of its own.  It was left here on the reading that the
+# programme was ending by itself; the renewal dates said otherwise - two
+# of its five lines renew, the first in October 2026 - so waiting for it
+# to lapse meant waiting until September 2027, and holding the entitlement
+# shape migration and a non-null `plan_price` behind it.
+DEFERRED_SLUGS = set()
+
+# The one legacy plan billing at two cadences.  `backfill_plan_prices`
+# takes its interval from each line's own subscription rather than from
+# LEGACY_PLAN_MAP, which is keyed on the slug and so can only say one.
+COHORT_SLUG = "election-accountability-cohort"
 
 
 def resolve_target(slug, *, allow_comped):

@@ -80,6 +80,15 @@ PRICE_MATRIX = [
     # cheaper Sunlight Basic rate for the subscribers who still hold it.
     ("organization", "monthly", "standard", "insideclimate", 3_000),
     ("sunlight-essential", "annual", "standard", "legacy-basic", 200_000),
+    # The Election Accountability Cohort rate, at both cadences: the
+    # programme was sold as a year but two of its five subscribers renew,
+    # and one of those pays monthly.  $250 a month is $3,000 a year
+    # exactly, so the two rows are one deal priced twice rather than two
+    # deals.  A coupon was the earlier plan and is the wrong tool - the
+    # code carries a rate, a coupon carries an expiry, and this rate has
+    # no expiry to carry.
+    ("sunlight-essential", "annual", "standard", "election-cohort", 300_000),
+    ("sunlight-essential", "monthly", "standard", "election-cohort", 25_000),
 ]
 
 

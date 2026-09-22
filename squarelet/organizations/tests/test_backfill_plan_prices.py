@@ -13,7 +13,6 @@ import pytest
 # Squarelet
 from squarelet.organizations.entitlement_shape import grants_old
 from squarelet.organizations.management.commands.backfill_plan_prices import (
-    DEFERRED_SLUGS,
     LEGACY_PLAN_MAP,
     PACK_DECOMPOSITION,
     PACK_SLUGS,
@@ -245,19 +244,125 @@ class TestBillingDecidesTheLabel:
 
 
 @pytest.mark.django_db()
+class TestTheCohortBillsAtTwoCadences:
+    """One legacy plan, two billing cadences, which a slug cannot express.
+
+    `LEGACY_PLAN_MAP` is keyed on the slug and says annual, because the
+    plan row says annual - and one of the five subscribers is billed
+    monthly regardless.  `0084` derived the subscription's interval from
+    that same flag, so the line's own record has to be corrected before
+    the run; this is what reads it once it has been.
+
+    The numbers here are the fixture's scale, not production's: $1,200 a
+    year against $100 a month, so that both cadences come to the same
+    money in whole cents.
+    """
+
+    def _cohort_plan(self):
+        return legacy(
+            "election-accountability-cohort",
+            base_price=1200,
+            minimum_users=5,
+            price_per_user=0,
+            for_groups=True,
+            annual=True,
+        )
+
+    def _price(self, interval, amount):
+        essential = Plan.objects.get(slug="sunlight-essential")
+        price, _created = PlanPrice.objects.update_or_create(
+            plan=essential,
+            interval=interval,
+            label="standard",
+            code="election-cohort",
+            defaults={"amount": amount, "stripe_price_id": f"price_cohort_{interval}"},
+        )
+        return price
+
+    def _line(self, interval):
+        return SubscriptionItemFactory(
+            plan=self._cohort_plan(),
+            quantity=5,
+            subscription__subscription_id=f"sub_cohort_{interval}",
+            subscription__interval=interval,
+        )
+
+    @pytest.mark.usefixtures("targets")
+    def test_an_annual_line_takes_the_annual_price(self):
+        actor = UserFactory()
+        self._price("annual", 120_000)
+        item = self._line("annual")
+
+        run(actor=actor.username)
+
+        item.refresh_from_db()
+        assert item.plan_price.interval == "annual"
+        assert item.plan_price.amount == 120_000
+
+    @pytest.mark.usefixtures("targets")
+    def test_a_monthly_line_takes_the_monthly_price(self):
+        """The map says annual for this slug; the subscription says monthly,
+        and it is the subscription that bills."""
+        actor = UserFactory()
+        self._price("annual", 120_000)
+        self._price("monthly", 10_000)
+        item = self._line("monthly")
+
+        run(actor=actor.username)
+
+        item.refresh_from_db()
+        assert item.plan_price.interval == "monthly"
+        assert item.plan_price.amount == 10_000
+
+    @pytest.mark.usefixtures("targets")
+    def test_the_bill_is_compared_over_a_year(self):
+        """$100 a month is not a 92% discount on $1,200 a year.
+
+        `legacy_bill_cents` reads the plan, which states the annual figure
+        for every line on it, so a monthly line has to be compared
+        annualised or the check refuses a correct move.  A wrong monthly
+        amount is still caught.
+        """
+        actor = UserFactory()
+        self._price("annual", 120_000)
+        self._price("monthly", 9_000)  # $1,080 a year, not $1,200
+        item = self._line("monthly")
+
+        # Refused per line and reported in the summary, the way every
+        # other money mismatch is.
+        with pytest.raises(CommandError, match="subscription\\(s\\) failed"):
+            run(actor=actor.username)
+
+        item.refresh_from_db()
+        assert item.plan_price is None
+
+
+@pytest.mark.django_db()
 class TestWhatIsLeftAlone:
     @pytest.mark.usefixtures("targets")
-    def test_deferred_slugs_are_not_touched(self):
+    def test_deferred_slugs_are_not_touched(self, mocker):
+        """The set is empty today - the cohort was the last member, and it
+        has a price of its own since 2026-09-22.  The mechanism stays, and
+        so does its test: a slug goes back in whenever a plan needs a
+        decision the migration cannot make, and it must then be skipped
+        rather than refused as unmapped.
+        """
         actor = UserFactory()
-        slug = sorted(DEFERRED_SLUGS)[0]
+        slug = "awaiting-a-decision"
+        mocker.patch(
+            "squarelet.organizations.management.commands"
+            ".backfill_plan_prices.DEFERRED_SLUGS",
+            {slug},
+        )
         sub = SubscriptionItemFactory(
             plan=legacy(slug), subscription__subscription_id=""
         )
 
-        run(actor=actor.username)
+        out = run(actor=actor.username)
 
         sub.refresh_from_db()
         assert sub.plan_price is None
+        assert f"{slug} deferred" in out
 
     @pytest.mark.usefixtures("targets")
     def test_pack_lines_from_an_earlier_run_are_not_reprocessed(self):

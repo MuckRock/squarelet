@@ -71,13 +71,18 @@ class TestTheSeedRehearsesTheMigration:
 
         refused = [line for line in out.split("\n") if line.strip().startswith("!")]
         assert not refused, refused
-        assert "18 migrated, 2 deferred, 0 failed" in out
+        assert "21 migrated, 0 deferred, 0 failed" in out
         # DocumentCloud Premium at quantity 1: no blocks, no pack, same grant.
         dc = out.split("mig-dc-premium: ")[1].split("\n")[0]
         assert "documentcloud-premium -> DocumentCloud Premium" in dc
         assert "pack" not in dc
-        # Deferred: exactly the two the mapping defers.
-        assert "election-accountability-cohort deferred" in out
+        # Nothing is deferred any more: the cohort has a coded price at
+        # both cadences, and that was the last slug in the set.
+        assert " deferred\n" not in out, "no line should be left alone now"
+        cohort = [line for line in out.split("\n") if "election-accountability" in line]
+        assert len(cohort) == 3, cohort
+        assert any("Annual, Standard, election-cohort" in line for line in cohort)
+        assert any("Monthly, Standard, election-cohort" in line for line in cohort)
         # Decomposed: the block-holders each gain a pack.
         assert "mig-org-18: organization -> " in out
         assert "18" not in out.split("mig-org-18")[1].split("\n")[0].split("x")[0]
@@ -118,21 +123,26 @@ class TestTheSeedRehearsesTheMigration:
 
         first = run("backfill_plan_prices", local_only=True, actor="mig-actor")
 
-        assert "18 migrated, 2 deferred, 0 failed" in first
+        assert "21 migrated, 0 deferred, 0 failed" in first
         # The post-run reports now describe a database the run changed.
-        assert "2 deferred by choice, 0 unexpected" in first
-        # Only the deferred cohort lines are left above quantity 1, which
-        # is what blocks the entitlement shape migration.  Everything the
-        # run touched came out at 1, or at a pack beside a base of 1.
-        report = (
-            first.split("still above quantity 1")[-1]
-            if ("still above quantity 1" in first)
-            else ""
-        )
-        assert "mig-cohort-active" in report, report
-        assert "mig-cohort-leaving" in report, report
-        assert "mig-pro" not in report, "a per-unit line at 1 is not a blocker"
-        assert "mig-org-18" not in report, "was dropped to 1 by the run"
+        assert "0 deferred by choice, 0 unexpected" in first
+        # Nothing is left above quantity 1 at all, which is what the
+        # entitlement shape migration refuses on.  The cohort lines were
+        # the last holdouts and they now hold a price of their own.
+        assert "still above quantity 1" not in first, first
+        # Each cohort line at the cadence its own subscription bills,
+        # which the mapping cannot express and the money check cannot see.
+        cohort = {
+            item.subscription.organization.slug: item.plan_price.interval
+            for item in SubscriptionItem.objects.select_related(
+                "subscription__organization", "plan_price"
+            ).filter(plan_price__code="election-cohort")
+        }
+        assert cohort == {
+            "mig-cohort-active": "annual",
+            "mig-cohort-leaving": "annual",
+            "mig-cohort-monthly": "monthly",
+        }, cohort
         # Two lines now: the base at 1 and the pack beside it.
         big = SubscriptionItem.objects.get(
             subscription__organization__slug="mig-org-18", plan__slug="organization"

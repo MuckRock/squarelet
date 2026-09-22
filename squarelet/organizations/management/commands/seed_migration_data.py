@@ -221,6 +221,11 @@ CANONICAL_PLANS = [
     (slug, slug.replace("-", " ").title()) for slug in sorted(CANONICAL_SLUGS)
 ]
 
+# Subscribers whose subscription bills at a cadence their plan does not
+# claim.  One real organization is in this position; the migration reads
+# the subscription rather than the plan because of it.
+INTERVAL_OVERRIDES = {"mig-cohort-monthly": "monthly"}
+
 # Every subscriber shape the command has a branch for.
 # (org slug, plan slug, quantity, billing, cancelled)
 SUBSCRIBERS = [
@@ -254,9 +259,13 @@ SUBSCRIBERS = [
     ("mig-sunlight-basic", "sunlight-basic-annual", 5, True, False),
     # Nonprofit label: the re-run must not reprice this one.
     ("mig-nonprofit", "sunlight-nonprofit-essential-annual", 5, True, False),
-    # Deferred, one active and one winding down.
+    # The cohort: one renewing, one winding down, and one billed monthly
+    # on a plan whose own flag says annual - the shape that makes this
+    # slug the only one whose interval comes from the line rather than
+    # from the mapping.
     ("mig-cohort-active", "election-accountability-cohort", 5, True, False),
     ("mig-cohort-leaving", "election-accountability-cohort", 5, True, True),
+    ("mig-cohort-monthly", "election-accountability-cohort", 5, True, False),
     # DocumentCloud Premium: one individual at quantity 1, as production
     # has it.  No blocks, so no pack; $10 -> $10; and the grant is the same
     # 5,000 credits either side.  (A seeded version of this at quantity 4
@@ -420,6 +429,11 @@ class Command(BaseCommand):
     def _subscribers(self, plans):
         period_end = timezone.now() + timedelta(days=20)
         for org_slug, plan_slug, quantity, billing, cancelled in SUBSCRIBERS:
+            # Production has one subscriber billed at a cadence its plan
+            # does not claim, and `0084` derived the field from the plan
+            # flag - so the row says annual and Stripe says monthly until
+            # someone corrects it.  Seeded here so the backfill is
+            # rehearsed against the shape, not just against the fix.
             org, _ = Organization.objects.get_or_create(
                 slug=org_slug,
                 defaults={
@@ -428,7 +442,9 @@ class Command(BaseCommand):
                 },
             )
             plan = plans[plan_slug]
-            interval = "annual" if plan.annual else "monthly"
+            interval = INTERVAL_OVERRIDES.get(
+                org_slug, "annual" if plan.annual else "monthly"
+            )
             subscription, _ = Subscription.objects.update_or_create(
                 organization=org,
                 interval=interval,
