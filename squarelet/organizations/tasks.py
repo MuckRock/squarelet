@@ -671,17 +671,53 @@ def handle_payment_method_attached(pm_data):
 
 
 def _reconcile_cancelled_subscription(subscription, reason):
-    """Delete a locally-tracked subscription that Stripe has ended and
-    invalidate the organization's entitlement cache."""
+    """End what Stripe ended, and no more.
+
+    Stripe ending a subscription ends what it was billing - the paid lines
+    on it.  A free or comped line has no Stripe counterpart and was never
+    part of that subscription as far as Stripe is concerned; the split put
+    it on the same local row, so deleting the row outright would revoke
+    access nobody cancelled.  Before the split every plan had a row of its
+    own and a cancellation could only reach the one plan it was about.
+
+    Anything left keeps the row, minus the Stripe identity.  The id and
+    the line item ids have to go with it: left behind they would be sent
+    to whatever subscription is started next, which has never heard of
+    them, and the cached period would have the pages announcing a renewal
+    for a subscription that no longer exists.
+    """
     organization_uuid = subscription.organization.uuid
     subscription_id = subscription.subscription_id
-    subscription.delete()
+
+    for item in subscription.items.select_related("plan"):
+        if not item.is_free:
+            item.delete()
+
+    survivors = subscription.items.count()
+    if survivors:
+        subscription.subscription_id = ""
+        subscription.stripe_status = ""
+        subscription.current_period_end = None
+        subscription.remember_stripe_subscription(None)
+        subscription.items.update(stripe_item_id="")
+        subscription.clear_cancellation()
+        subscription.save(
+            update_fields=[
+                "subscription_id",
+                *Subscription.STRIPE_CACHED_FIELDS,
+                *Subscription.CANCELLATION_FIELDS,
+            ]
+        )
+    else:
+        subscription.delete()
+
     send_cache_invalidations("organization", [organization_uuid])
     logger.info(
         "[STRIPE-WEBHOOK-SUBSCRIPTION] Reconciled cancelled subscription %s (%s); "
-        "deleted local record and invalidated cache for org %s",
+        "kept %d free line(s) and invalidated cache for org %s",
         subscription_id,
         reason,
+        survivors,
         organization_uuid,
     )
 
