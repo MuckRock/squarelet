@@ -151,6 +151,40 @@ def test_restore_organization_annual_sub_deleted_after_cancel_at(
     assert org.update_on is None
 
 
+@pytest.mark.django_db
+def test_restore_organization_keeps_the_free_line(
+    organization_plan_factory, plan_factory, subscription_item_factory, mocker
+):
+    """The nightly sweep ends the paid lines, not the row.
+
+    It bulk-deleted every cancelled subscription that was due, which after
+    the split cascades to the free and comped lines sharing that row -
+    access nobody cancelled, on a job that runs every night.
+    """
+    mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
+    mocker.patch("stripe.Plan.create")
+    today = date.today()
+    paid = SubscriptionItemFactory(
+        plan=organization_plan_factory(),
+        subscription__cancelled=True,
+        subscription__cancel_at=today - timedelta(days=1),
+        subscription__organization__update_on=today - timedelta(1),
+    )
+    free = subscription_item_factory(
+        subscription=paid.subscription,
+        plan=plan_factory(name="Comped Line", base_price=0, price_per_user=0),
+    )
+
+    tasks.restore_organization()
+
+    assert not SubscriptionItem.objects.filter(pk=paid.pk).exists()
+    assert SubscriptionItem.objects.filter(pk=free.pk).exists()
+    subscription = free.subscription
+    subscription.refresh_from_db()
+    assert subscription.subscription_id == ""
+    assert subscription.cancelled is False
+
+
 class TestRestoreOrganizationGrants:
     """Coverage for grant-only org refresh in restore_organization."""
 
