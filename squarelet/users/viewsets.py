@@ -22,7 +22,13 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from squarelet.core.mail import send_mail
 from squarelet.oidc.permissions import ScopePermission
 from squarelet.organizations.models import Membership
-from squarelet.users.models import User
+from squarelet.users.app_tokens import (
+    jwt_for_token,
+    log_event,
+    log_rejection,
+    token_prefix,
+)
+from squarelet.users.models import ApplicationToken, User
 from squarelet.users.serializers import UserReadSerializer, UserWriteSerializer
 
 
@@ -141,3 +147,28 @@ class OIDCTokenExchangeView(APIView):
                 "refresh_token": str(refresh),
             }
         )
+
+
+class ApplicationTokenExchangeView(APIView):
+    """Exchange a user's application token for a short-lived JWT pair
+
+    This replaces posting a username and password to `/api/token/` from
+    personal scripts and tools.
+    """
+
+    authentication_classes = []
+    permission_classes = []
+    swagger_schema = None
+
+    def post(self, request):
+        plaintext = request.data.get("token", "")
+        token = ApplicationToken.authenticate(plaintext)
+        if token is None:
+            log_rejection("invalid", request, token_prefix(plaintext))
+            return Response(
+                {"detail": _("Invalid, expired, or revoked application token.")},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        log_event(token, "exchange", request)
+        refresh = jwt_for_token(token)
+        return Response({"access": str(refresh.access_token), "refresh": str(refresh)})
