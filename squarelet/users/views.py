@@ -2,7 +2,7 @@
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.http.response import (
     Http404,
     HttpResponse,
@@ -13,14 +13,18 @@ from django.http.response import (
     JsonResponse,
 )
 from django.shortcuts import get_object_or_404, redirect
+from django.template.response import TemplateResponse
 from django.urls import reverse
+from django.utils.cache import add_never_cache_headers
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import (
     DetailView,
+    FormView,
     ListView,
     RedirectView,
     TemplateView,
     UpdateView,
+    View,
 )
 
 # Standard Library
@@ -67,6 +71,7 @@ from squarelet.payments.views import (
 )
 from squarelet.services.models import Service
 from squarelet.users.forms import (
+    ApplicationTokenForm,
     SignupForm,
     UserAutologinPreferenceForm,
     UserUpdateForm,
@@ -75,7 +80,7 @@ from squarelet.users.hijack import hijack_by_group
 from squarelet.users.onboarding import OnboardingStepRegistry, onboarding_check
 
 # Local
-from .models import User
+from .models import ApplicationToken, User
 
 logger = logging.getLogger(__name__)
 
@@ -151,6 +156,7 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
             ).get_viewable(self.request.user)
         )
         context["is_own_page"] = user == self.request.user
+        context["active_app_token_count"] = user.application_tokens.active().count()
         context["potential_organizations"] = list(user.get_potential_organizations())
         context["pending_invitations"] = InvitationAcceptForm.attach_to_invitations(
             list(user.get_pending_invitations()), user, request=self.request
@@ -738,3 +744,96 @@ class UpdateReceiptEmail(IndividualSubscriptionView, BaseUpdateReceiptEmail):
 
 class PaymentsList(IndividualSubscriptionView, BasePaymentsList):
     pass
+
+
+class ApplicationTokenMixin(LoginRequiredMixin, StaffAccessMixin):
+    """Shared behavior for managing a user's application tokens
+
+    Staff may view and revoke another user's tokens, but only the owner may
+    create or rotate them, since that reveals a usable secret.
+    """
+
+    def get_token_user(self):
+        return get_object_or_404(User, username=self.kwargs["username"])
+
+    def is_owner(self):
+        return self.kwargs["username"] == self.request.user.username
+
+    def require_owner(self):
+        if not self.is_owner():
+            raise PermissionDenied
+
+    def render_plaintext(self, token, plaintext):
+        """Show a newly issued token exactly once, straight from the POST"""
+        response = TemplateResponse(
+            self.request,
+            "users/application_token_created.html",
+            {"token": token, "plaintext": plaintext, "token_user": token.user},
+        )
+        add_never_cache_headers(response)
+        return response
+
+
+class ApplicationTokensView(ApplicationTokenMixin, FormView):
+    """List a user's application tokens and create new ones"""
+
+    template_name = "users/application_tokens.html"
+    form_class = ApplicationTokenForm
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        token_user = self.get_token_user()
+        context["token_user"] = token_user
+        context["tokens"] = token_user.application_tokens.all()
+        context["can_manage"] = self.is_owner()
+        return context
+
+    def post(self, request, *args, **kwargs):
+        self.require_owner()
+        return super().post(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        token, plaintext = ApplicationToken.generate(
+            self.request.user,
+            form.cleaned_data["name"],
+            expires_in=form.cleaned_data["expires_in"],
+            allow_staff=form.cleaned_data.get("allow_staff", False),
+        )
+        return self.render_plaintext(token, plaintext)
+
+
+class ApplicationTokenActionView(ApplicationTokenMixin, View):
+    """Base for POST-only actions on a single active token"""
+
+    http_method_names = ["post"]
+
+    def get_token(self):
+        return get_object_or_404(
+            ApplicationToken.objects.active().select_related("user"),
+            pk=self.kwargs["pk"],
+            user__username=self.kwargs["username"],
+        )
+
+
+class ApplicationTokenRotateView(ApplicationTokenActionView):
+    """Revoke a token and issue a replacement with the same settings"""
+
+    def post(self, request, *args, **kwargs):
+        self.require_owner()
+        token, plaintext = self.get_token().rotate()
+        return self.render_plaintext(token, plaintext)
+
+
+class ApplicationTokenRevokeView(ApplicationTokenActionView):
+    """Revoke a token so it can no longer be exchanged or refreshed"""
+
+    def post(self, request, *args, **kwargs):
+        token = self.get_token()
+        token.revoke()
+        messages.success(request, _("Revoked the application token “%s”.") % token.name)
+        return redirect("users:tokens", username=self.kwargs["username"])

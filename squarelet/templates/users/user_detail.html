@@ -431,6 +431,28 @@
             </div>
             {% endif %}
         </div>
+        <div class="app-tokens">
+          <div class="status-row">
+            <h3>{% trans "Application tokens" %}</h3>
+            {% if active_app_token_count %}
+              <span class="badge green">
+                {% blocktrans count counter=active_app_token_count %}{{ counter }} active{% plural %}{{ counter }} active{% endblocktrans %}
+              </span>
+            {% else %}
+              <span class="badge">{% trans "None" %}</span>
+            {% endif %}
+            <a href="{% url "users:tokens" username=user.username %}" class="small btn ghost primary">{% trans "Manage tokens" %}</a>
+            {% if is_own_page %}
+              <a href="{% url "users:tokens" username=user.username %}#create" class="small btn ghost primary">
+                {% icon "plus-circle" %}
+                {% trans "Create token" %}
+              </a>
+            {% endif %}
+          </div>
+          <p class="help-text">
+            {% trans "Let your own scripts and tools use MuckRock APIs without your password. You can revoke or rotate each token at any time." %}
+          </p>
+        </div>
       </div>
     </section>
 {% endblock main %}

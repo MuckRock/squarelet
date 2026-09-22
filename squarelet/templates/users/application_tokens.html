@@ -1,0 +1,161 @@
+{% extends "layouts/sidebar_layout.html" %}
+{% load django_vite i18n humanize %}
+{% load icon %}
+
+{% block title %}{{ token_user.username }} | {% trans "Application tokens" %}{% endblock %}
+
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/application_tokens.ts" %}
+{% endblock vite %}
+
+{% block layout_id %}application-tokens{% endblock %}
+
+{% block header %}
+  <header>
+    <h1>{{ token_user.get_full_name|default:token_user.username }}</h1>
+    <span class="arrow">{% icon "chevron-right" %}</span>
+    <h2>{% trans "Application tokens" %}</h2>
+  </header>
+{% endblock %}
+
+{% block sidebar %}
+  <a href="{% url "users:detail" username=token_user.username %}#security" class="btn small ghost primary">
+    {% icon "chevron-left" %}
+    {% trans "Back to security settings" %}
+  </a>
+  <ul>
+    <li>
+      <a href="#tokens" class="nav-item">
+        {% icon "lock" %}
+        {% trans "Your tokens" %}
+      </a>
+    </li>
+    {% if can_manage %}
+    <li>
+      <a href="#create" class="nav-item">
+        {% icon "plus-circle" %}
+        {% trans "Create a token" %}
+      </a>
+    </li>
+    {% endif %}
+  </ul>
+{% endblock sidebar %}
+
+{% block main %}
+  <p class="help-text">
+    {% blocktrans %}Application tokens let your own scripts and tools use MuckRock APIs without your password. Exchange a token for short-lived API credentials by posting it to <code>/api/token/app/</code>. Give each tool its own token so you can see how it's used and revoke it on its own.{% endblocktrans %}
+  </p>
+
+  <section id="tokens">
+    <header>
+      <div class="title">
+        <h2>{% trans "Tokens" %}</h2>
+      </div>
+    </header>
+    <div class="card">
+      {% if tokens %}
+        <table class="tokens">
+          <thead>
+            <tr>
+              <th scope="col">{% trans "Name" %}</th>
+              <th scope="col">{% trans "Token" %}</th>
+              <th scope="col">{% trans "Created" %}</th>
+              <th scope="col">{% trans "Last used" %}</th>
+              <th scope="col">{% trans "Expires" %}</th>
+              <th scope="col"><span class="sr-only">{% trans "Actions" %}</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for token in tokens %}
+              <tr class="{% if not token.is_active %}inactive{% endif %}">
+                <td class="token-name">
+                  {{ token.name }}
+                  {% if token.allow_staff %}<span class="badge">{% trans "Staff" %}</span>{% endif %}
+                </td>
+                <td><code>{{ token.display_prefix }}…</code></td>
+                <td><time datetime="{{ token.created_at|date:"c" }}" title="{{ token.created_at|date:"c" }}">{{ token.created_at|naturalday }}</time></td>
+                <td>
+                  {% if token.last_used_at %}
+                    <time datetime="{{ token.last_used_at|date:"c" }}" title="{{ token.last_used_at|date:"c" }}">{{ token.last_used_at|naturaltime }}</time>
+                  {% else %}
+                    <span class="muted">{% trans "Never" %}</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if token.revoked_at %}
+                    <span class="badge red">{% trans "Revoked" %}</span>
+                  {% elif not token.is_active %}
+                    <span class="badge red">{% trans "Expired" %}</span>
+                  {% elif token.expires_at %}
+                    <time datetime="{{ token.expires_at|date:"c" }}" title="{{ token.expires_at|date:"c" }}">{{ token.expires_at|naturalday }}</time>
+                  {% else %}
+                    <span class="muted">{% trans "Never" %}</span>
+                  {% endif %}
+                </td>
+                <td class="token-actions">
+                  {% if token.is_active %}
+                    {% if can_manage %}
+                    <form method="post" action="{% url "users:token-rotate" username=token_user.username pk=token.pk %}">
+                      {% csrf_token %}
+                      <button type="submit" class="btn ghost primary small" data-confirm="{% trans "Rotate this token? Scripts using the current token will stop working." %}">
+                        {% icon "sync" %}
+                        {% trans "Rotate" %}
+                      </button>
+                    </form>
+                    {% endif %}
+                    <form method="post" action="{% url "users:token-revoke" username=token_user.username pk=token.pk %}">
+                      {% csrf_token %}
+                      <button type="submit" class="btn ghost danger small" data-confirm="{% trans "Revoke this token? Scripts using it will stop working." %}">
+                        {% icon "x" %}
+                        {% trans "Revoke" %}
+                      </button>
+                    </form>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="help-text">{% trans "No application tokens yet." %}</p>
+      {% endif %}
+    </div>
+  </section>
+
+  {% if can_manage %}
+  <section id="create">
+    <header>
+      <div class="title">
+        <h2>{% trans "Create a token" %}</h2>
+      </div>
+    </header>
+    <form method="post" class="card create-token-form" action="{% url "users:tokens" username=token_user.username %}">
+      {% csrf_token %}
+      {% for field in form %}
+        {% if field.field.widget.input_type == "checkbox" %}
+        <div class="field field-checkbox{% if field.errors %} has-errors{% endif %}">
+          <label for="{{ field.id_for_label }}" class="field-label-inline">
+            {{ field }}
+            {{ field.label }}
+          </label>
+          {% for error in field.errors %}<p class="error">{{ error }}</p>{% endfor %}
+          {% if field.help_text %}<small class="help">{{ field.help_text }}</small>{% endif %}
+        </div>
+        {% else %}
+        <div class="field{% if field.errors %} has-errors{% endif %}">
+          <label for="{{ field.id_for_label }}" class="field-label">
+            {{ field.label }}
+            {% if field.field.required %}<span class="field-required">{% trans "Required" %}</span>{% endif %}
+          </label>
+          {{ field }}
+          {% for error in field.errors %}<p class="error">{{ error }}</p>{% endfor %}
+          {% if field.help_text %}<small class="help">{{ field.help_text }}</small>{% endif %}
+        </div>
+        {% endif %}
+      {% endfor %}
+      <button type="submit" class="btn primary">{% trans "Create token" %}</button>
+    </form>
+  </section>
+  {% endif %}
+{% endblock main %}

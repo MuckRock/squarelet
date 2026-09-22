@@ -82,4 +82,19 @@ urlpatterns = [
     path(
         "<str:username>/payments/", view=views.PaymentsList.as_view(), name="payments"
     ),
+    path(
+        "<str:username>/tokens/",
+        view=views.ApplicationTokensView.as_view(),
+        name="tokens",
+    ),
+    path(
+        "<str:username>/tokens/<int:pk>/rotate/",
+        view=views.ApplicationTokenRotateView.as_view(),
+        name="token-rotate",
+    ),
+    path(
+        "<str:username>/tokens/<int:pk>/revoke/",
+        view=views.ApplicationTokenRevokeView.as_view(),
+        name="token-revoke",
+    ),
 ]

@@ -1,4 +1,6 @@
 # Django
+from django.core.exceptions import PermissionDenied
+from django.http.response import Http404
 from django.utils import timezone
 
 # Standard Library
@@ -14,6 +16,8 @@ from rest_framework_simplejwt.backends import TokenBackend
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
 # Squarelet
+from squarelet.core.tests.mixins import ViewTestMixin
+from squarelet.users import views
 from squarelet.users.models import ApplicationToken
 
 LOGGER = "squarelet.users.app_tokens"
@@ -285,3 +289,218 @@ class TestApplicationTokenRefresh:
         ).data
         response = self.refresh(api_client, pair["refresh"])
         assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.django_db()
+class TestApplicationTokensView(ViewTestMixin):
+    """List and create tokens from the user's account"""
+
+    view = views.ApplicationTokensView
+    url = "/users/{username}/tokens/"
+
+    def test_get_lists_own_tokens(self, rf, application_token_factory, user_factory):
+        token = application_token_factory()
+        application_token_factory(user=user_factory())
+        response = self.call_view(rf, token.user, username=token.user.username)
+        assert response.status_code == 200
+        assert list(response.context_data["tokens"]) == [token]
+        assert response.context_data["can_manage"] is True
+        response.render()
+        assert token.name in response.content.decode()
+        assert token.display_prefix in response.content.decode()
+
+    def test_get_other_user(self, rf, user_factory):
+        with pytest.raises(Http404):
+            self.call_view(rf, user_factory(), username=user_factory().username)
+
+    def test_staff_can_view(self, rf, application_token_factory, user_factory):
+        token = application_token_factory()
+        response = self.call_view(
+            rf, user_factory(is_staff=True), username=token.user.username
+        )
+        assert list(response.context_data["tokens"]) == [token]
+        assert response.context_data["can_manage"] is False
+
+    def test_staff_cannot_create_for_others(self, rf, user_factory):
+        user = user_factory()
+        with pytest.raises(PermissionDenied):
+            self.call_view(
+                rf,
+                user_factory(is_staff=True),
+                {"name": "script", "expires_in": ""},
+                username=user.username,
+            )
+        assert not user.application_tokens.exists()
+
+    def test_create_shows_plaintext_once(self, rf, user_factory):
+        user = user_factory()
+        response = self.call_view(
+            rf,
+            user,
+            {"name": "nightly scraper", "expires_in": "30"},
+            **{"username": user.username},
+        )
+        assert response.status_code == 200
+        token = user.application_tokens.get()
+        assert token.name == "nightly scraper"
+        assert token.expires_in == 30
+        plaintext = response.context_data["plaintext"]
+        assert ApplicationToken.authenticate(plaintext) == token
+        assert "no-store" in response["Cache-Control"]
+        response.render()
+        assert plaintext in response.content.decode()
+        # A fresh GET never shows it again
+        response = self.call_view(rf, user, username=user.username)
+        assert "plaintext" not in response.context_data
+
+    @pytest.mark.freeze_time("2026-01-15 12:00:00")
+    @pytest.mark.parametrize("expires_in,days", [("7", 7), ("30", 30), ("90", 90)])
+    def test_create_expiration(self, rf, user_factory, expires_in, days):
+        user = user_factory()
+        self.call_view(
+            rf, user, {"name": "s", "expires_in": expires_in}, username=user.username
+        )
+        token = user.application_tokens.get()
+        assert token.expires_at == timezone.now() + timedelta(days=days)
+
+    def test_create_never_expires(self, rf, user_factory):
+        user = user_factory()
+        self.call_view(
+            rf, user, {"name": "s", "expires_in": ""}, username=user.username
+        )
+        assert user.application_tokens.get().expires_at is None
+
+    def test_create_requires_name(self, rf, user_factory):
+        user = user_factory()
+        response = self.call_view(
+            rf, user, {"name": "", "expires_in": ""}, username=user.username
+        )
+        assert response.context_data["form"].errors["name"]
+        assert "plaintext" not in response.context_data
+        assert not user.application_tokens.exists()
+
+    def test_non_staff_cannot_allow_staff(self, rf, user_factory):
+        user = user_factory()
+        self.call_view(
+            rf,
+            user,
+            {"name": "s", "expires_in": "", "allow_staff": "on"},
+            username=user.username,
+        )
+        assert user.application_tokens.get().allow_staff is False
+
+    def test_staff_can_allow_staff(self, rf, user_factory):
+        user = user_factory(is_staff=True)
+        self.call_view(
+            rf,
+            user,
+            {"name": "s", "expires_in": "", "allow_staff": "on"},
+            username=user.username,
+        )
+        assert user.application_tokens.get().allow_staff is True
+
+
+@pytest.mark.django_db()
+class TestApplicationTokenRotateView(ViewTestMixin):
+    view = views.ApplicationTokenRotateView
+    url = "/users/{username}/tokens/{pk}/rotate/"
+
+    def test_rotate_shows_new_plaintext(self, rf, application_token_factory):
+        token = application_token_factory(expires_in=ApplicationToken.Expiry.YEAR)
+        response = self.call_view(
+            rf, token.user, {}, username=token.user.username, pk=token.pk
+        )
+        assert response.status_code == 200
+        token.refresh_from_db()
+        assert not token.is_active
+        plaintext = response.context_data["plaintext"]
+        new = ApplicationToken.authenticate(plaintext)
+        assert new.name == token.name
+        assert new.expires_in == token.expires_in
+        assert "no-store" in response["Cache-Control"]
+
+    def test_rotate_requires_post(self, rf, application_token_factory):
+        token = application_token_factory()
+        response = self.call_view(
+            rf, token.user, username=token.user.username, pk=token.pk
+        )
+        assert response.status_code == 405
+
+    def test_rotate_revoked(self, rf, application_token_factory):
+        token = application_token_factory()
+        token.revoke()
+        with pytest.raises(Http404):
+            self.call_view(
+                rf, token.user, {}, username=token.user.username, pk=token.pk
+            )
+
+    def test_rotate_other_users_token(self, rf, application_token_factory):
+        token = application_token_factory()
+        other = application_token_factory()
+        with pytest.raises(Http404):
+            self.call_view(
+                rf, token.user, {}, username=token.user.username, pk=other.pk
+            )
+
+    def test_staff_cannot_rotate(self, rf, application_token_factory, user_factory):
+        token = application_token_factory()
+        with pytest.raises(PermissionDenied):
+            self.call_view(
+                rf,
+                user_factory(is_staff=True),
+                {},
+                username=token.user.username,
+                pk=token.pk,
+            )
+
+
+@pytest.mark.django_db()
+class TestApplicationTokenRevokeView(ViewTestMixin):
+    view = views.ApplicationTokenRevokeView
+    url = "/users/{username}/tokens/{pk}/revoke/"
+
+    def test_revoke(self, rf, application_token_factory):
+        token = application_token_factory()
+        response = self.call_view(
+            rf, token.user, {}, username=token.user.username, pk=token.pk
+        )
+        assert response.status_code == 302
+        assert response.url == f"/users/{token.user.username}/tokens/"
+        token.refresh_from_db()
+        assert not token.is_active
+
+    def test_staff_can_revoke(self, rf, application_token_factory, user_factory):
+        token = application_token_factory()
+        self.call_view(
+            rf,
+            user_factory(is_staff=True),
+            {},
+            username=token.user.username,
+            pk=token.pk,
+        )
+        token.refresh_from_db()
+        assert not token.is_active
+
+    def test_revoke_other_users_token(
+        self, rf, application_token_factory, user_factory
+    ):
+        token = application_token_factory()
+        with pytest.raises(Http404):
+            self.call_view(
+                rf, user_factory(), {}, username=token.user.username, pk=token.pk
+            )
+
+
+@pytest.mark.django_db()
+class TestUserDetailSecuritySection(ViewTestMixin):
+    view = views.UserDetailView
+    url = "/users/{username}/"
+
+    def test_shows_active_token_count(self, rf, application_token_factory, mocker):
+        mocker.patch("squarelet.organizations.models.Customer.card", None)
+        token = application_token_factory()
+        application_token_factory(user=token.user).revoke()
+        response = self.call_view(rf, token.user, username=token.user.username)
+        assert response.context_data["active_app_token_count"] == 1
+        response.render()
+        assert f"/users/{token.user.username}/tokens/" in response.content.decode()
