@@ -24,6 +24,7 @@ from squarelet.organizations.models import (
     Charge,
     Invoice,
     PaymentMethod,
+    Subscription,
     SubscriptionItem,
 )
 from squarelet.organizations.tests.factories import (
@@ -2748,7 +2749,7 @@ class TestHandleSubscriptionUpdated:
             {"id": "sub_upd_cancel", "status": "canceled"}
         )
 
-        assert not SubscriptionItem.objects.filter(pk=subscription.pk).exists()
+        assert not Subscription.objects.filter(pk=subscription.pk).exists()
         patched.assert_called_once_with("organization", [org_uuid])
 
     @pytest.mark.django_db
@@ -2773,7 +2774,7 @@ class TestHandleSubscriptionDeleted:
 
         tasks.handle_subscription_deleted({"id": "sub_del", "status": "canceled"})
 
-        assert not SubscriptionItem.objects.filter(pk=subscription.pk).exists()
+        assert not Subscription.objects.filter(pk=subscription.pk).exists()
         patched.assert_called_once_with("organization", [org_uuid])
 
     @pytest.mark.django_db
@@ -2782,6 +2783,103 @@ class TestHandleSubscriptionDeleted:
         mock_logger = mocker.patch("squarelet.organizations.tasks.logger")
         tasks.handle_subscription_deleted({"id": "sub_unknown"})
         mock_logger.warning.assert_called_once()
+
+
+@pytest.mark.django_db
+class TestReconcilingACancelledSubscription:
+    """Stripe ending a subscription ends the paid lines on it, not the row.
+
+    Before the split each plan had a subscription of its own, so a
+    cancellation could only reach the plan it was about.  One row now
+    carries every line, and a free or comped line has no Stripe
+    counterpart at all - deleting the row would revoke access nobody
+    cancelled, on the normal end-of-life event Stripe fires at period end.
+    """
+
+    def _mixed(self, subscription_factory, subscription_item_factory, plan_factory):
+        subscription = subscription_factory(subscription_id="sub_mixed")
+        paid = subscription_item_factory(
+            subscription=subscription,
+            plan=plan_factory(name="Paid Plan", base_price=100),
+            stripe_item_id="si_paid",
+        )
+        free = subscription_item_factory(
+            subscription=subscription,
+            plan=plan_factory(name="Comped Plan", base_price=0, price_per_user=0),
+        )
+        return subscription, paid, free
+
+    def test_the_free_line_survives(
+        self, subscription_factory, subscription_item_factory, plan_factory, mocker
+    ):
+        mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
+        subscription, paid, free = self._mixed(
+            subscription_factory, subscription_item_factory, plan_factory
+        )
+
+        tasks.handle_subscription_deleted({"id": "sub_mixed", "status": "canceled"})
+
+        assert not SubscriptionItem.objects.filter(pk=paid.pk).exists()
+        assert SubscriptionItem.objects.filter(pk=free.pk).exists()
+        assert Subscription.objects.filter(pk=subscription.pk).exists()
+
+    def test_the_survivors_forget_stripe(
+        self, subscription_factory, subscription_item_factory, plan_factory, mocker
+    ):
+        """Ids left behind are sent to whatever subscription starts next,
+        which has never heard of them - and a cached period has the pages
+        announcing a renewal for something that no longer exists."""
+        mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
+        subscription, _paid, free = self._mixed(
+            subscription_factory, subscription_item_factory, plan_factory
+        )
+        SubscriptionItem.objects.filter(pk=free.pk).update(stripe_item_id="si_free")
+        subscription.mark_cancelled(subscription.current_period_end)
+
+        tasks.handle_subscription_deleted({"id": "sub_mixed", "status": "canceled"})
+
+        subscription.refresh_from_db()
+        free.refresh_from_db()
+        assert subscription.subscription_id == ""
+        assert subscription.stripe_status == ""
+        assert subscription.current_period_end is None
+        assert subscription.cancelled is False
+        assert subscription.cancel_at is None
+        assert free.stripe_item_id == ""
+
+    def test_a_wholly_paid_subscription_is_still_deleted(
+        self, subscription_factory, subscription_item_factory, plan_factory, mocker
+    ):
+        """The behaviour every subscription had before the split."""
+        mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
+        subscription = subscription_factory(subscription_id="sub_paid_only")
+        subscription_item_factory(
+            subscription=subscription, plan=plan_factory(name="Paid", base_price=100)
+        )
+
+        tasks.handle_subscription_deleted(
+            {"id": "sub_paid_only", "status": "canceled"}
+        )
+
+        assert not Subscription.objects.filter(pk=subscription.pk).exists()
+        assert not SubscriptionItem.objects.filter(
+            subscription__pk=subscription.pk
+        ).exists()
+
+    def test_the_updated_webhook_takes_the_same_path(
+        self, subscription_factory, subscription_item_factory, plan_factory, mocker
+    ):
+        """status=canceled arrives before the deletion event and is the one
+        that usually fires first."""
+        mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
+        _subscription, paid, free = self._mixed(
+            subscription_factory, subscription_item_factory, plan_factory
+        )
+
+        tasks.handle_subscription_updated({"id": "sub_mixed", "status": "canceled"})
+
+        assert not SubscriptionItem.objects.filter(pk=paid.pk).exists()
+        assert SubscriptionItem.objects.filter(pk=free.pk).exists()
 
 
 class TestHandleInvoiceFinalizedHostedUrl:
