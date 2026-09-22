@@ -33,6 +33,7 @@ from squarelet.organizations.models.payment import (
     PaymentMethod,
     Plan,
     Subscription,
+    SubscriptionItem,
 )
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.users.models import User
@@ -55,12 +56,18 @@ def restore_organization():
         Organization.objects.filter(id__in=due_org_ids).values_list("uuid", flat=True)
     )
 
-    # Delete cancelled subscriptions for due orgs where the Stripe cancellation
+    # Retire cancelled subscriptions for due orgs where the Stripe cancellation
     # date has passed (or is null, which covers free plans and legacy records).
-    Subscription.objects.filter(
+    # One row at a time rather than a bulk delete: the delete cascaded to
+    # every line on the subscription, and after the split that includes the
+    # free and comped ones, which nobody cancelled and which have no Stripe
+    # counterpart to have ended.
+    due_cancelled = Subscription.objects.filter(
         organization_id__in=due_org_ids,
         cancelled=True,
-    ).filter(Q(cancel_at__lte=today) | Q(cancel_at__isnull=True)).delete()
+    ).filter(Q(cancel_at__lte=today) | Q(cancel_at__isnull=True))
+    for subscription in due_cancelled:
+        retire_subscription(subscription)
 
     # Determine which orgs still have active subscriptions
     orgs_with_subs = set(
@@ -670,30 +677,32 @@ def handle_payment_method_attached(pm_data):
         )
 
 
-def _reconcile_cancelled_subscription(subscription, reason):
-    """End what Stripe ended, and no more.
+def retire_subscription(subscription):
+    """End the paid lines on a subscription and keep whatever is free.
 
-    Stripe ending a subscription ends what it was billing - the paid lines
-    on it.  A free or comped line has no Stripe counterpart and was never
-    part of that subscription as far as Stripe is concerned; the split put
-    it on the same local row, so deleting the row outright would revoke
-    access nobody cancelled.  Before the split every plan had a row of its
-    own and a cancellation could only reach the one plan it was about.
+    A cancellation ends what was being billed.  A free or comped line has
+    no Stripe counterpart at all - before the split it had a subscription
+    row of its own, and a cancellation could only reach the plan it was
+    about.  One row now carries every line, so deleting the row revokes
+    access nobody cancelled.
 
     Anything left keeps the row, minus the Stripe identity.  The id and
     the line item ids have to go with it: left behind they would be sent
     to whatever subscription is started next, which has never heard of
     them, and the cached period would have the pages announcing a renewal
     for a subscription that no longer exists.
-    """
-    organization_uuid = subscription.organization.uuid
-    subscription_id = subscription.subscription_id
 
+    Returns how many lines survived.
+    """
     for item in subscription.items.select_related("plan"):
         if not item.is_free:
             item.delete()
 
-    survivors = subscription.items.count()
+    # Asked of the database rather than of `subscription.items`, which
+    # answers a `count()` from a prefetch cache if the caller filled one -
+    # the stale answer being the pre-delete number, which keeps a row that
+    # should have gone.
+    survivors = SubscriptionItem.objects.filter(subscription=subscription).count()
     if survivors:
         subscription.subscription_id = ""
         subscription.stripe_status = ""
@@ -710,6 +719,15 @@ def _reconcile_cancelled_subscription(subscription, reason):
         )
     else:
         subscription.delete()
+    return survivors
+
+
+def _reconcile_cancelled_subscription(subscription, reason):
+    """End what Stripe ended, and no more."""
+    organization_uuid = subscription.organization.uuid
+    subscription_id = subscription.subscription_id
+
+    survivors = retire_subscription(subscription)
 
     send_cache_invalidations("organization", [organization_uuid])
     logger.info(
