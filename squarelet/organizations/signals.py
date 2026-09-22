@@ -49,6 +49,42 @@ def make_stripe_plan(sender, instance, created, raw, using, update_fields, **kwa
 
 
 @receiver(
+    signals.pre_save,
+    sender=Plan,
+    dispatch_uid="squarelet.organizations.signals.archive_stripe_plan_on_retire",
+)
+def archive_stripe_plan_on_retire(sender, instance, raw=False, **kwargs):
+    """Retire a plan's Stripe objects when the plan is archived.
+
+    Archiving is how a plan is actually retired - `archive_legacy_plans`
+    and the admin both set the flag and neither deletes the row - so this
+    is the hook that has to work.  The `pre_delete` one below cannot:
+    `PlanPrice.plan` is PROTECT, and Django raises `ProtectedError` while
+    collecting, before any `pre_delete` receiver is called.  So it fires
+    only for a plan with no prices at all, which after 3a is only a plan
+    whose price rows were deleted by hand first.  Left in place for that
+    case; this receiver is the one that retires a plan's Stripe objects
+    in practice.
+
+    Deferred to commit so that Stripe is told only once the archive is
+    durable.  A rollback after a successful `archive_price` would
+    otherwise leave a live-looking row pointing at a dead Stripe Price,
+    which nothing repairs.
+    """
+    # pylint: disable=unused-argument,protected-access
+    if raw or instance._state.adding or not instance.pk:
+        return
+    was_archived = (
+        Plan.objects.including_archived()
+        .filter(pk=instance.pk)
+        .values_list("archived", flat=True)
+        .first()
+    )
+    if was_archived is False and instance.archived:
+        transaction.on_commit(instance.archive_stripe_plan)
+
+
+@receiver(
     signals.pre_delete,
     sender=Plan,
     dispatch_uid="squarelet.organizations.signals.archive_stripe_plan",
@@ -56,10 +92,9 @@ def make_stripe_plan(sender, instance, created, raw, using, update_fields, **kwa
 def archive_stripe_plan(sender, instance, using, **kwargs):
     """Deactivate a plan's Stripe objects when the plan is deleted.
 
-    Rarely fires now that retiring a plan sets `Plan.archived` instead of
-    deleting the row - the change log holds PROTECT keys to Plan, so most
-    plans cannot be deleted at all.  It still has to be right for the ones
-    that can.
+    Reaches only plans with no `PlanPrice` rows - see above - which is why
+    archiving is hooked to the flag as well.  It still has to be right for
+    the plans that can be deleted.
     """
     # pylint: disable=unused-argument
     instance.archive_stripe_plan()
