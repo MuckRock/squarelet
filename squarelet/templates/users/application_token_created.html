@@ -2,7 +2,7 @@
 {% load django_vite i18n %}
 {% load icon %}
 
-{% block title %}{{ token_user.username }} | {% trans "Your new application token" %}{% endblock %}
+{% block title %}{{ token_user.username }} | {% trans "Your new API token" %}{% endblock %}
 
 {% block vite %}
 {{ block.super }}
@@ -15,28 +15,31 @@
   <header>
     <h1>{{ token_user.get_full_name|default:token_user.username }}</h1>
     <span class="arrow">{% icon "chevron-right" %}</span>
-    <h2>{% trans "Your new application token" %}</h2>
+    <h2>{% trans "Save your new API token" %}</h2>
   </header>
 {% endblock %}
 
 {% block sidebar %}
   <a href="{% url "users:tokens" username=token_user.username %}" class="btn small ghost primary">
     {% icon "chevron-left" %}
-    {% trans "Back to application tokens" %}
+    {% trans "Back to API tokens" %}
   </a>
 {% endblock sidebar %}
 
 {% block main %}
   <section id="created">
     <div class="card token-created">
+      <aside class="tip">
+        <div class="icon">{% icon "lock" %}</div>
+        <div class="inner">
+          <p>{% trans "Copy this token now. For your security, we won't show it again." %}</p>
+        </div>
+      </aside>
       <h3>{{ token.name }}</h3>
-      <p class="help-text error">
-        {% icon "lock" %}
-        {% trans "Copy this token now. For your security, we won't show it again." %}
-      </p>
+      
       <div class="token-plaintext">
-        <input type="text" readonly value="{{ plaintext }}" aria-label="{% trans "Application token" %}" />
-        <button type="button" class="btn primary" data-clipboard value="{{ plaintext }}">
+        <input type="text" readonly value="{{ plaintext }}" aria-label="{% trans "API token" %}" />
+        <button type="button" class="btn ghost primary" data-clipboard value="{{ plaintext }}">
           {% icon "copy" %}
           {% trans "Copy" %}
         </button>
@@ -56,7 +59,7 @@
       <p class="help-text">{% trans "Exchange it for short-lived API credentials:" %}</p>
       <pre class="token-usage"><code>curl -X POST {{ settings.SQUARELET_URL }}/api/token/app/ \
   -d token=YOUR_TOKEN</code></pre>
-      <a href="{% url "users:tokens" username=token_user.username %}" class="btn ghost primary">{% trans "Done" %}</a>
     </div>
+    <a href="{% url "users:tokens" username=token_user.username %}" class="btn primary">{% trans "Done" %}</a>
   </section>
 {% endblock main %}

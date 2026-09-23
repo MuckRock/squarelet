@@ -1,0 +1,72 @@
+/* A tip: an icon + message callout for a notice the user should read before
+ * moving on (e.g. "copy this now, we won't show it again"). Ported from
+ * documentcloud-frontend's Tip.svelte. Default is the neutral "normal"
+ * look; add a modifier for other severities. */
+.tip {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 1rem;
+  padding: 1rem;
+  box-sizing: border-box;
+  border-radius: var(--radius-4, 1rem);
+  border: 1px solid var(--yellow-2);
+  color: var(--yellow-5);
+  background: var(--yellow-1);
+  --tip-fill: var(--yellow-4);
+}
+
+.tip .icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 20px;
+  /* Overrides the global .icon's `fill: currentColor` so the icon can use
+     the tip's (lighter) fill shade instead of its (darker) text color. */
+  fill: var(--tip-fill);
+}
+
+.tip p {
+  margin: 0;
+}
+
+.tip .icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.tip .inner {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--font-md, 1rem);
+}
+
+.tip--primary {
+  border-color: var(--blue-2);
+  color: var(--blue-5);
+  background: var(--blue-1);
+  --tip-fill: var(--blue-3);
+}
+
+.tip--premium {
+  border-color: var(--green-2);
+  color: var(--green-5);
+  background: var(--green-1);
+  --tip-fill: var(--green-3);
+}
+
+.tip--danger {
+  border-color: var(--orange-2);
+  color: var(--orange-5);
+  background: var(--orange-1);
+  --tip-fill: var(--orange-3);
+}
+
+.tip--error {
+  border-color: var(--red-2);
+  color: var(--red-5);
+  background: var(--red-1);
+  --tip-fill: var(--red-3);
+}

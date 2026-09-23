@@ -2,7 +2,7 @@
 {% load django_vite i18n humanize %}
 {% load icon %}
 
-{% block title %}{{ token_user.username }} | {% trans "Application tokens" %}{% endblock %}
+{% block title %}{{ token_user.username }} | {% trans "API tokens" %}{% endblock %}
 
 {% block vite %}
 {{ block.super }}
@@ -15,7 +15,7 @@
   <header>
     <h1>{{ token_user.get_full_name|default:token_user.username }}</h1>
     <span class="arrow">{% icon "chevron-right" %}</span>
-    <h2>{% trans "Application tokens" %}</h2>
+    <h2>{% trans "API tokens" %}</h2>
   </header>
 {% endblock %}
 
@@ -27,15 +27,15 @@
   <ul>
     <li>
       <a href="#tokens" class="nav-item">
-        {% icon "lock" %}
-        {% trans "Your tokens" %}
+        {% icon "key" %}
+        {% trans "Your API tokens" %}
       </a>
     </li>
     {% if can_manage %}
     <li>
       <a href="#create" class="nav-item">
         {% icon "plus-circle" %}
-        {% trans "Create a token" %}
+        {% trans "Create an API token" %}
       </a>
     </li>
     {% endif %}
@@ -44,13 +44,13 @@
 
 {% block main %}
   <p class="help-text">
-    {% blocktrans %}Application tokens let your own scripts and tools use MuckRock APIs without your password. Exchange a token for short-lived API credentials by posting it to <code>/api/token/app/</code>. Give each tool its own token so you can see how it's used and revoke it on its own.{% endblocktrans %}
+    {% blocktrans %}API tokens let your own scripts and tools use MuckRock APIs without your password. Exchange a token for short-lived API credentials by posting it to <code>/api/token/app/</code>. Give each tool its own token so you can see how it's used and revoke it on its own.{% endblocktrans %}
   </p>
 
   <section id="tokens">
     <header>
       <div class="title">
-        <h2>{% trans "Tokens" %}</h2>
+        <h2>{% trans "API tokens" %}</h2>
       </div>
     </header>
     <div class="card">
@@ -118,7 +118,7 @@
           </tbody>
         </table>
       {% else %}
-        <p class="help-text">{% trans "No application tokens yet." %}</p>
+        <p class="help-text">{% trans "No API tokens yet." %}</p>
       {% endif %}
     </div>
   </section>
@@ -127,7 +127,7 @@
   <section id="create">
     <header>
       <div class="title">
-        <h2>{% trans "Create a token" %}</h2>
+        <h2>{% trans "Create an API token" %}</h2>
       </div>
     </header>
     <form method="post" class="card create-token-form" action="{% url "users:tokens" username=token_user.username %}">

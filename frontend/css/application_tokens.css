@@ -114,10 +114,12 @@ table.tokens {
     margin: 0;
   }
 
-  .help-text.error {
-    display: flex;
-    align-items: center;
-    gap: 0.375rem;
+  .tip {
+    margin: 0;
+  }
+
+  .tip p {
+    margin: 0;
   }
 
   .token-plaintext {
@@ -142,13 +144,18 @@ table.tokens {
     grid-template-columns: max-content 1fr;
     gap: 0.25rem 1rem;
     margin: 0;
+    align-items: baseline;
 
     dt {
+      font-size: var(--font-sm);
       font-weight: 600;
     }
 
     dd {
       margin: 0;
+      font-family: var(--font-mono);
+      font-size: var(--font-sm);
+      font-weight: 600;
     }
   }
 
