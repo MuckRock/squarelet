@@ -56,10 +56,9 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        # A subscription needs visiting if any line lacks an id, or if its
-        # own renewal date was never cached - both are the state everything
-        # predating the split is in.  Anything with both already filled in
-        # would cost a Stripe read to learn nothing.
+        # A subscription needs visiting if any line lacks an id or its
+        # renewal date was never cached; anything with both filled in would
+        # cost a Stripe read to learn nothing.
         qs = (
             Subscription.objects.select_related("organization")
             .exclude(subscription_id="")
@@ -94,12 +93,11 @@ class Command(BaseCommand):
         try:
             stripe_sub = subscription.stripe_subscription
             if stripe_sub is None:
-                # `retrieve` swallows InvalidRequestError and answers None, so
-                # a subscription Stripe has never heard of arrives here rather
-                # than as the exception below.  Counting that as "skipped"
-                # made a run against the wrong Stripe account - or against
-                # rows carrying ids from another one - look like a run with
-                # nothing to do.
+                # `retrieve` swallows InvalidRequestError and answers None,
+                # so a subscription Stripe has never heard of arrives here
+                # rather than as the exception below.  Counted separately, or
+                # a run against the wrong Stripe account looks like a run
+                # with nothing to do.
                 self.stderr.write(
                     f"  [ERROR] {subscription.subscription_id} "
                     f"({subscription.organization.slug}): not found on Stripe"

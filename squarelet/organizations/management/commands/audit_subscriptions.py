@@ -256,16 +256,12 @@ class Command(BaseCommand):
 
         for line in sub.items.all():
             if line.is_free and not line.stripe_item_id:
-                # A free line is dropped before the subscription is
-                # described to Stripe - `stripe_items()` skips it, because
-                # naming a Plan that does not exist there fails the whole
-                # call - so it has no Stripe item to be compared against.
-                # Comparing it anyway reported it missing on every run, on
-                # every subscription carrying one, permanently.
+                # `stripe_items()` drops a free line before describing the
+                # subscription, so it has no Stripe item to compare against
+                # and would otherwise report missing on every run.
                 #
                 # Deliberately not every free line: one that *does* carry a
-                # Stripe item id is on Stripe when it should not be, and
-                # that is real drift the audit exists to surface.
+                # Stripe item id is drift the audit exists to surface.
                 continue
             label = line.plan.slug if line.plan else "None"
             stripe_item = stripe_items.get(line.stripe_item_id)
