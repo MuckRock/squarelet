@@ -9,20 +9,13 @@ from django.db import migrations, models
 def adopt_items_into_subscriptions(apps, schema_editor):
     """Give every item a parent, one per billing shape.
 
-    Stripe requires every item on a subscription to share a billing interval
-    and a collection method, which is what the new uniqueness constraint
-    encodes: one Subscription per (organization, interval, collection
-    method).  Items agreeing on all three belong on the same parent.  Both
-    are inferred from the plan - annual plans bill annually and are the only
-    ones invoiced rather than charged.
-
-    Written as a grouping although today's data is a one-to-one lift, so a
-    second line of the same shape appearing before the deploy does not meet
+    One Subscription per (organization, interval, collection method), both
+    inferred from the plan.  Grouped rather than one parent per item, so a
+    second line of the same shape appearing before the deploy does not hit
     the constraint as an opaque IntegrityError.
 
-    A group whose lines disagree about cancellation is refused rather than
-    collapsed: a parent holds one answer, and guessing costs the customer
-    money either way.
+    Refuses a group whose lines disagree about cancelling: a parent holds one
+    answer, and guessing costs the customer money either way.
     """
     SubscriptionItem = apps.get_model("organizations", "SubscriptionItem")
     Subscription = apps.get_model("organizations", "Subscription")
@@ -41,9 +34,8 @@ def adopt_items_into_subscriptions(apps, schema_editor):
             if item.legacy_subscription_id
         }
         if len(stripe_ids) > 1:
-            # They cannot share a parent - the row holds one Stripe id, so
-            # the other would bill on with nothing naming it - and the
-            # constraint leaves no room for a second parent.
+            # The row holds one Stripe id, so the other would bill on with
+            # nothing naming it.
             raise RuntimeError(
                 "Organization %s holds more than one %s/%s Stripe "
                 "subscription (%s).  Consolidate them before migrating."
@@ -57,9 +49,8 @@ def adopt_items_into_subscriptions(apps, schema_editor):
 
         cancellations = {bool(item.cancelled) for item in items}
         if len(cancellations) > 1:
-            # A parent holds one answer, and either way of collapsing a
-            # disagreement is wrong with the customer's money: `all` renews a
-            # plan they cancelled, `any` cancels ones they kept.
+            # `all` renews a plan they cancelled, `any` cancels ones they
+            # kept.
             raise RuntimeError(
                 "Organization %s holds %s/%s lines that disagree about "
                 "cancelling (%s).  Settle them before migrating: there is "
@@ -77,9 +68,7 @@ def adopt_items_into_subscriptions(apps, schema_editor):
             )
         cancelled = cancellations.pop()
         cancel_ats = [item.cancel_at for item in items if item.cancel_at]
-        # The Stripe-facing fields describe a single subscription, so they
-        # come from the line naming it - identical across the group, by the
-        # check above.
+        # Identical across the group, by the check above.
         source = next(
             (item for item in items if item.legacy_subscription_id), items[0]
         )
@@ -106,9 +95,6 @@ def adopt_items_into_subscriptions(apps, schema_editor):
 def split_back_out(apps, schema_editor):
     """Copy subscription-level state back onto each item.
 
-    The parents themselves need no clearing up: reversing this migration's
-    CreateModel drops the table they live in.
-
     `legacy_subscription_id` is unique, so a Stripe id can go back onto only
     one line - it returns to the oldest, and the rest name nothing.
     """
@@ -127,7 +113,6 @@ def split_back_out(apps, schema_editor):
             item.current_period_end = parent.current_period_end
             item.save()
 
-    # Flush the deferred foreign-key triggers the writes above queued:
     # Postgres refuses to ALTER a table with trigger events still pending,
     # and the operations after this drop the parent column and table.
     schema_editor.execute("SET CONSTRAINTS ALL IMMEDIATE")
@@ -244,9 +229,8 @@ class Migration(migrations.Migration):
             name="subscriptionitem",
             unique_together=set(),
         ),
-        # The FK below wants the column name `subscription_id`, which the old
-        # CharField still occupies - and the data migration still needs to
-        # read it, so rename rather than drop.
+        # The FK below wants `subscription_id`, which the old CharField still
+        # occupies - and the data migration needs to read it.
         migrations.RenameField(
             model_name="subscriptionitem",
             old_name="subscription_id",
@@ -299,8 +283,7 @@ class Migration(migrations.Migration):
         ),
         migrations.RunPython(adopt_items_into_subscriptions, split_back_out),
         # Nullable only so the column could be added before there was
-        # anything to put in it.  A line reaches its organization through the
-        # parent, so one without a parent cannot be billed or rendered.
+        # anything to put in it.
         migrations.AlterField(
             model_name="subscriptionitem",
             name="subscription",

@@ -521,9 +521,7 @@ class OrganizationAdmin(VersionAdmin):
         )
         plan_value = request.GET.get("plan")
         if plan_value and plan_value != "none":
-            # `to_attr` attaches to the last relation in the path, so the
-            # subscriptions are collected on the organization and their
-            # matching lines prefetched underneath.
+            # `to_attr` attaches to the last relation in the path.
             qs = qs.prefetch_related(
                 Prefetch(
                     "subscriptions",

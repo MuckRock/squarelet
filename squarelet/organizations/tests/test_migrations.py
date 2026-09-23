@@ -22,9 +22,7 @@ from datetime import date
 import pytest
 
 APP = "organizations"
-# Migrations under test, found by name rather than by number: branches
-# further up the stack add migrations of their own, and only the name is
-# stable across them.
+# Found by name, not number: branches above add migrations of their own.
 PARENT = "subscription_parent"
 ITEM_CANCELLATION = "subscription_item_cancellation"
 
@@ -48,13 +46,10 @@ def _bracket(suffix):
 def migrate_to(target):
     """Run the organizations app to `target` and return its model registry.
 
-    The registry describes what is *applied*, not `target`'s ancestry.
-    The two differ when the graph has a parallel branch: migrating to a
-    node unapplies only its descendants, so a migration on a sibling
-    branch stays applied and its column stays in the table - and a model
-    built from `target` alone does not know the column exists.  Inserting
-    through that model then writes NULL into a NOT NULL column.  Every
-    merge migration adds such a branch, so this has to hold.
+    The registry describes what is *applied*, not `target`'s ancestry.  A
+    sibling branch stays applied and its column stays in the table, so a model
+    built from `target` alone would write NULL into a NOT NULL column.  Every
+    merge migration adds such a branch.
     """
     executor = MigrationExecutor(connection)
     executor.loader.build_graph()
@@ -71,9 +66,8 @@ def migrate_to(target):
 def migrate_to_latest():
     """Put the app back at its newest migration, whatever that is.
 
-    Not the migration under test: branches above this one add migrations
-    after it, and leaving the schema short of them would break every test
-    that ran afterwards.
+    Not the migration under test: branches above add migrations after it, and
+    a short schema breaks every test that runs next.
     """
     executor = MigrationExecutor(connection)
     executor.loader.build_graph()
@@ -88,9 +82,8 @@ class TestAdoptItemsIntoSubscriptions:
     def _leave_the_database_migrated(self):
         """Put the schema back for whatever runs next.
 
-        The rows go first: a test that deliberately leaves data 0085 refuses
-        would otherwise be refused again on the way back up, and every test
-        after it would run against the wrong schema.
+        The rows go first, or data 0085 refuses is refused again on the way
+        back up and every later test runs against the wrong schema.
         """
         yield
         with connection.cursor() as cursor:
@@ -117,9 +110,8 @@ class TestAdoptItemsIntoSubscriptions:
             plan=self._plan(old, "Paid"),
             subscription_id="sub_shared",
         )
-        # Comped lines never reached Stripe, so they carry no id.  The old
-        # schema made `subscription_id` unique, which is why a group can hold
-        # at most one line that names a Stripe subscription.
+        # Comped lines carry no id, and the old schema made `subscription_id`
+        # unique - so a group holds at most one line naming Stripe.
         SubscriptionItem.objects.create(
             organization=organization, plan=self._plan(old, "Comped")
         )
@@ -176,10 +168,8 @@ class TestAdoptItemsIntoSubscriptions:
     def test_lines_that_disagree_about_cancelling_are_refused(self):
         """A parent holds one answer, and both ways of guessing cost money.
 
-        Collapsing with `all` renews a plan the customer cancelled;
-        collapsing with `any` cancels ones they kept.  Until per-line
-        cancellation exists there is nowhere to record the difference, so
-        this refuses rather than picks.
+        `all` renews a plan the customer cancelled; `any` cancels ones they
+        kept.  Nowhere to record the difference until per-line cancellation.
         """
         old = migrate_to(_bracket(PARENT)[0])
         SubscriptionItem = old.get_model(APP, "SubscriptionItem")
@@ -228,9 +218,8 @@ class TestAdoptItemsIntoSubscriptions:
 class TestRollingTheSplitBack:
     """Reversing with rows in the table, which is the only case that matters.
 
-    A migration that only reverses on an empty database is not reversible;
-    it just has not been asked.  This release is the one carrying the data
-    move, so its rollback is worth more than the others'.
+    A migration that only reverses on an empty database is not reversible; it
+    just has not been asked.
     """
 
     @pytest.fixture(autouse=True)
