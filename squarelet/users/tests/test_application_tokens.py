@@ -52,7 +52,17 @@ class TestApplicationTokenModel:
 
     @pytest.mark.parametrize(
         "plaintext",
-        ["", "garbage", "mr_nope", "mr_abc_def", "xx_abc_def_ghi"],
+        [
+            "",
+            "garbage",
+            "mr_nope",
+            "mr_abc_def",
+            "xx_abc_def_ghi",
+            None,
+            5,
+            ["mr", "abc", "def"],
+            {"token": "mr_abc_def"},
+        ],
     )
     def test_authenticate_malformed(self, plaintext):
         assert ApplicationToken.authenticate(plaintext) is None
@@ -122,11 +132,17 @@ class TestApplicationTokenModel:
         assert ApplicationToken.authenticate(old_plaintext) is None
         assert ApplicationToken.authenticate(new_plaintext) == new
 
-    def test_log_label(self, user_factory):
+    def test_name_label(self, user_factory):
         token, _plaintext = ApplicationToken.generate(
             user_factory(username="alice"), "nightly scraper"
         )
-        assert token.log_label == "alice:nightly scraper"
+        assert token.name_label == "alice:nightly scraper"
+
+    def test_prefix_label(self, user_factory):
+        token, _plaintext = ApplicationToken.generate(
+            user_factory(username="alice"), "nightly scraper"
+        )
+        assert token.prefix_label == f"alice:{token.prefix}"
 
     def test_active_queryset(self, user_factory):
         user = user_factory()
@@ -211,6 +227,12 @@ class TestApplicationTokenExchange:
         response = self.exchange(api_client, "mr_nope_nope")
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
+    @pytest.mark.parametrize("token", [5, ["mr", "abc", "def"], {"a": "b"}])
+    def test_non_string_token(self, api_client, token):
+        """A non-string `token` in a JSON body should 401, not 500"""
+        response = api_client.post(self.url, {"token": token}, format="json")
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
     def test_missing_token(self, api_client):
         response = api_client.post(self.url, {})
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -232,7 +254,10 @@ class TestApplicationTokenExchange:
         token = application_token_factory(user__username="alice", name="scraper")
         with caplog.at_level("INFO", logger=LOGGER):
             self.exchange(api_client, token.plaintext)
-        assert f"app_token=alice:scraper id={token.pk} event=exchange" in caplog.text
+        assert (
+            f"app_token=alice:{token.prefix} id={token.pk} event=exchange"
+            in caplog.text
+        )
 
     def test_rejection_is_logged(self, api_client, caplog):
         with caplog.at_level("INFO", logger=LOGGER):
@@ -280,7 +305,9 @@ class TestApplicationTokenRefresh:
         refresh_token = self.pair(api_client, token)["refresh"]
         with caplog.at_level("INFO", logger=LOGGER):
             self.refresh(api_client, refresh_token)
-        assert f"app_token=alice:scraper id={token.pk} event=refresh" in caplog.text
+        assert (
+            f"app_token=alice:{token.prefix} id={token.pk} event=refresh" in caplog.text
+        )
 
     def test_password_refresh_unaffected(self, api_client, user_factory):
         user = user_factory(password="testpassword")

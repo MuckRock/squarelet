@@ -253,8 +253,6 @@ LOGGING = {
             "handlers": ["console"],
             "propagate": False,
         },
-        # Attributes application token use to `<username>:<token name>` so
-        # problematic scripts can be found quickly
         "squarelet.users.app_tokens": {
             "level": env("APP_TOKEN_LOG_LEVEL", default="INFO"),
             "handlers": ["console"],

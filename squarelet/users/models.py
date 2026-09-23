@@ -382,11 +382,12 @@ class ApplicationTokenQuerySet(models.QuerySet):
 
 
 class ApplicationToken(models.Model):
-    """A long-lived, user-owned token for authenticating personal scripts and tools
+    """A long-lived, user-owned token for authenticating personal scripts and tools.
 
-    The plaintext token has the form `mr_<prefix>_<secret>`.  Only the prefix,
-    used for lookup and display, and a hash of the secret are stored.  Scripts
-    exchange the token for a short-lived JWT pair at `/api/token/app/`.
+    The plaintext token has the form `mr_<prefix>_<secret>`. We only store the prefix,
+    (used for lookup and display) and a hash of the secret for lookup.
+
+    Scripts exchange the token for a short-lived JWT pair at `/api/token/app/`.
     """
 
     PLAINTEXT_NAMESPACE = "mr"
@@ -435,14 +436,15 @@ class ApplicationToken(models.Model):
 
     @staticmethod
     def _hash(secret):
-        # The secret is high-entropy random data, so a fast hash is sufficient
-        # and keeps token exchange cheap, unlike password hashers.
+        # The secret is high-entropy random data; it can't be easily guessed,
+        # unlike common or exposed passwords. So we don't need to slow-hash
+        # these as we would a password submitted by users.
         return hashlib.sha256(secret.encode()).hexdigest()
 
     @classmethod
     def generate(cls, user, name, expires_in=None, allow_staff=False):
         """Create a new token, returning it along with its plaintext value.
-        The plaintext is not stored and cannot be recovered later."""
+        **The plaintext is not stored and cannot be recovered later.**"""
         prefix = secrets.token_hex(6)
         secret = secrets.token_urlsafe(32)
         expires_at = timezone.now() + timedelta(days=expires_in) if expires_in else None
@@ -460,7 +462,9 @@ class ApplicationToken(models.Model):
     @classmethod
     def authenticate(cls, plaintext):
         """Return the active token matching the plaintext, or None"""
-        parts = (plaintext or "").split("_", 2)
+        if not isinstance(plaintext, str):
+            return None
+        parts = plaintext.split("_", 2)
         if len(parts) != 3 or parts[0] != cls.PLAINTEXT_NAMESPACE:
             return None
         _namespace, prefix, secret = parts
@@ -488,9 +492,12 @@ class ApplicationToken(models.Model):
         return f"{self.PLAINTEXT_NAMESPACE}_{self.prefix}"
 
     @property
-    def log_label(self):
-        """Attribute requests as `<username>:<token name>`"""
+    def name_label(self):
         return f"{self.user.username}:{self.name}"
+
+    @property
+    def prefix_label(self):
+        return f"{self.user.username}:{self.prefix}"
 
     def touch(self):
         self.last_used_at = timezone.now()

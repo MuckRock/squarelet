@@ -172,3 +172,26 @@ class ApplicationTokenExchangeView(APIView):
         log_event(token, "exchange", request)
         refresh = jwt_for_token(token)
         return Response({"access": str(refresh.access_token), "refresh": str(refresh)})
+
+
+# TODO — Handle changes to staff-user access
+#
+# ApplicationTokenExchangeView mints a JWT whose staff claim
+# is computed once, at exchange time, from token.allow_staff
+# and token.user.is_staff (squarelet/users/app_tokens.py::jwt_for_token).
+# On refresh, TokenRefreshSerializer (squarelet/users/serializers.py)
+# only checks that the underlying ApplicationToken hasn't been
+# revoked or expired (via app_token_id) — it doesn't recompute
+# the staff claim from the user's current is_staff value,
+# because simplejwt copies claims forward from the old token
+# to the new one on rotation.
+#
+# If a user's staff status is revoked while they hold a live
+# application-token session, requests made with their already-
+# issued access token — and any access tokens minted from
+# subsequent refreshes — will keep asserting staff=True until
+# the refresh token itself expires (currently using simplejwt's
+# 1-day default), not just until the 5-minute access-token TTL.
+#
+# Should TokenRefreshSerializer.validate() also re-check token.user.is_staff
+# and refuse/downgrade the refresh when staff status has been pulled?
