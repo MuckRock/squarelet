@@ -42,3 +42,22 @@ class UserFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = "users.User"
         django_get_or_create = ("username",)
+
+
+class ApplicationTokenFactory(factory.django.DjangoModelFactory):
+    """Builds tokens through `ApplicationToken.generate` so the secret is hashed.
+    The plaintext is available on the instance as `plaintext`."""
+
+    user = factory.SubFactory(UserFactory)
+    name = factory.Sequence(lambda n: f"script-{n}")
+    expires_in = None
+    allow_staff = False
+
+    @classmethod
+    def _create(cls, model_class, *args, **kwargs):
+        token, plaintext = model_class.generate(*args, **kwargs)
+        token.plaintext = plaintext
+        return token
+
+    class Meta:
+        model = "users.ApplicationToken"

@@ -1,0 +1,171 @@
+/* Content-specific styles for application_tokens.html and
+ * application_token_created.html. Layout rules are in sidebar_layout.css
+ */
+
+#application-tokens .content section {
+  margin: 1rem 0;
+
+  header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+
+    .title {
+      flex: 1 0 0;
+    }
+
+    h2 {
+      color: var(--gray-5, #233944);
+      font-weight: 400;
+      line-height: normal;
+      margin: 0;
+    }
+  }
+
+  .card {
+    display: flex;
+    width: 100%;
+    max-width: 100%;
+    padding: 1rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+
+    border-radius: 0.5rem;
+    border: 1px solid var(--gray-2, #d8dee2);
+    box-sizing: border-box;
+    box-shadow: var(--shadow-1);
+    overflow-x: auto;
+  }
+}
+
+#application-tokens code {
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-sm, 0.875rem);
+}
+
+table.tokens {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-md, 1rem);
+  color: var(--gray-5, #233944);
+
+  th {
+    text-align: left;
+    font-weight: 600;
+    font-size: var(--font-sm, 0.875rem);
+    color: var(--gray-4, #5c717c);
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--gray-2, #d8dee2);
+  }
+
+  td {
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--gray-1, #eef1f3);
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+
+  tr.inactive td {
+    color: var(--gray-4, #5c717c);
+  }
+
+  .token-name {
+    font-weight: 600;
+    white-space: normal;
+
+    .badge {
+      margin-left: 0.25rem;
+    }
+  }
+
+  .token-actions {
+    text-align: right;
+
+    form {
+      display: inline;
+    }
+  }
+
+  .muted {
+    color: var(--gray-4, #5c717c);
+  }
+}
+
+.create-token-form {
+  .field {
+    width: 100%;
+  }
+
+  input[type="text"],
+  select {
+    width: 100%;
+    max-width: 30rem;
+  }
+}
+
+.token-created {
+  h3 {
+    margin: 0;
+  }
+
+  .tip {
+    margin: 0;
+  }
+
+  .tip p {
+    margin: 0;
+  }
+
+  .token-plaintext {
+    display: flex;
+    width: 100%;
+    gap: 0.5rem;
+
+    input {
+      flex: 1 1 auto;
+      min-width: 0;
+      padding: 0.5rem;
+      font-family: var(--font-mono, monospace);
+      font-size: var(--font-sm, 0.875rem);
+      border: 1px solid var(--gray-3, #a8b4bd);
+      border-radius: 0.5rem;
+      background: var(--gray-1, #eef1f3);
+    }
+  }
+
+  .token-details {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.25rem 1rem;
+    margin: 0;
+    align-items: baseline;
+
+    dt {
+      font-size: var(--font-sm);
+      font-weight: 600;
+    }
+
+    dd {
+      margin: 0;
+      font-family: var(--font-mono);
+      font-size: var(--font-sm);
+      font-weight: 600;
+    }
+  }
+
+  .token-usage {
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    background: var(--gray-1, #eef1f3);
+    overflow-x: auto;
+  }
+}

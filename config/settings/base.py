@@ -543,6 +543,8 @@ SIMPLE_JWT = {
     "AUDIENCE": ["squarelet", "muckrock", "documentcloud"],
     "ISSUER": "squarelet",
     "USER_ID_FIELD": "individual_organization_id",
+    # Refuses refreshes for revoked application tokens
+    "TOKEN_REFRESH_SERIALIZER": "squarelet.users.serializers.TokenRefreshSerializer",
     # These are set in `users/apps.py` as they need to fetch from the database
     "SIGNING_KEY": "",
     "VERIFYING_KEY": "",

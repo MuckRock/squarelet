@@ -320,7 +320,6 @@ section .orgs {
   font-size: var(--font-md, 1rem);
   color: var(--gray-5, #233944);
   margin: 0;
-  flex: 1 0 0;
   white-space: nowrap;
 }
 
@@ -331,43 +330,38 @@ section .orgs {
   align-self: stretch;
 }
 
-.autologin .status-row {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.autologin .status-row h3 {
-  flex: 1 0 auto;
-  font-weight: 600;
-}
-
-.content .security .password {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  align-self: stretch;
-}
-
-.content .security .mfa {
+.content .security .mfa,
+.content .security .app-tokens {
   width: 100%;
 }
 
-.content .security .mfa-overview {
+.content .security .status-row {
   width: 100%;
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
+  gap: 0.5rem;
   align-self: stretch;
+}
+
+.content .security .status-label {
+  display: flex;
+  align-items: center;
   gap: 0.5rem;
 }
 
-.content .security .mfa-active {
+.content .security .status-row .actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
+}
+
+@media (max-width: 512px) {
+  .content .security .status-row .actions {
+    flex-basis: 100%;
+  }
 }
 
 .content .security .recovery-codes {

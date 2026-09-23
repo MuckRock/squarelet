@@ -253,6 +253,11 @@ LOGGING = {
             "handlers": ["console"],
             "propagate": False,
         },
+        "squarelet.users.app_tokens": {
+            "level": env("APP_TOKEN_LOG_LEVEL", default="INFO"),
+            "handlers": ["console"],
+            "propagate": False,
+        },
         "django.db.backends": {
             "level": "ERROR",
             "handlers": ["console"],

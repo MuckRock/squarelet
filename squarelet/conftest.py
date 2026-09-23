@@ -23,7 +23,7 @@ from squarelet.organizations.tests.factories import (
     ProfileChangeRequestFactory,
     SubscriptionFactory,
 )
-from squarelet.users.tests.factories import UserFactory
+from squarelet.users.tests.factories import ApplicationTokenFactory, UserFactory
 
 register(ChargeFactory)
 register(PlanFactory)
@@ -42,6 +42,7 @@ register(CustomerFactory)
 register(PaymentMethodFactory)
 
 register(UserFactory)
+register(ApplicationTokenFactory)
 
 
 @pytest.fixture

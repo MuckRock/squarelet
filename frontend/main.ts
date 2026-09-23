@@ -4,6 +4,7 @@ import "./css/autocomplete.css";
 import "./css/project.css";
 import "./css/main.css";
 import "./css/card.css";
+import "./css/tip.css";
 import "./css/modal.css";
 
 import { AutocompleteView } from "./autocomplete";

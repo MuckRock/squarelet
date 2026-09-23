@@ -32,7 +32,7 @@ from squarelet.organizations.models import Invitation, Organization
 from squarelet.organizations.models.organization import Membership
 
 # Local
-from .models import LoginLog, User
+from .models import ApplicationToken, LoginLog, User
 
 
 class PermissionFilter(SimpleListFilter):
@@ -76,6 +76,28 @@ class MembershipInline(admin.TabularInline):
     fields = ["organization", "admin"]
     autocomplete_fields = ("organization",)
     extra = 0
+
+
+class ApplicationTokenInline(admin.TabularInline):
+    model = ApplicationToken
+    fields = (
+        "name",
+        "display_prefix",
+        "allow_staff",
+        "created_at",
+        "last_used_at",
+        "expires_at",
+        "revoked_at",
+    )
+    readonly_fields = fields
+    extra = 0
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        # Do not allow creating tokens in admin.
+        # Tokens are only issued from the user's account page,
+        # after which the plaintext token are shown once.
+        return False
 
 
 @admin.register(User)
@@ -187,7 +209,7 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
     )
     list_filter = AuthUserAdmin.list_filter + (PermissionFilter,)
     search_fields = ("username_deterministic", "name", "email_deterministic")
-    inlines = [EmailInline, InvitationInline, MembershipInline]
+    inlines = [EmailInline, InvitationInline, MembershipInline, ApplicationTokenInline]
 
     def get_queryset(self, request):
         """Add deterministic fields for username and email so they
@@ -377,6 +399,46 @@ class LoginLogAdmin(admin.ModelAdmin):
         return response
 
     export_as_csv.short_description = "Export Selected"
+
+
+@admin.register(ApplicationToken)
+class ApplicationTokenAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "user",
+        "display_prefix",
+        "allow_staff",
+        "created_at",
+        "last_used_at",
+        "expires_at",
+        "revoked_at",
+    )
+    list_select_related = ("user",)
+    list_filter = ("allow_staff",)
+    search_fields = ("name", "prefix", "user__username")
+    date_hierarchy = "created_at"
+    autocomplete_fields = ("user",)
+    readonly_fields = (
+        "display_prefix",
+        "expires_in",
+        "created_at",
+        "last_used_at",
+        "expires_at",
+        "revoked_at",
+    )
+    fields = ("user", "name", "allow_staff") + readonly_fields
+    actions = ["revoke"]
+
+    def has_add_permission(self, request):
+        # Do not allow creating tokens in admin.
+        # Tokens are only issued from the user's account page,
+        # after which the plaintext token are shown once.
+        return False
+
+    @admin.action(description="Revoke selected tokens")
+    def revoke(self, request, queryset):
+        for token in queryset:
+            token.revoke()
 
 
 admin.site.unregister(Authenticator)

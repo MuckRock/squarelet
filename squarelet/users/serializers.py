@@ -10,10 +10,15 @@ import string
 from allauth.account.models import EmailAddress
 from allauth.socialaccount.models import SocialAccount, SocialToken
 from rest_framework import serializers
+from rest_framework.exceptions import AuthenticationFailed
+from rest_framework_simplejwt.serializers import (
+    TokenRefreshSerializer as BaseTokenRefreshSerializer,
+)
 
 # Squarelet
 from squarelet.organizations.serializers import MembershipSerializer
-from squarelet.users.models import User
+from squarelet.users.app_tokens import log_event, log_rejection
+from squarelet.users.models import ApplicationToken, User
 
 
 class SocialTokenSerializer(serializers.ModelSerializer):
@@ -148,3 +153,30 @@ class UserWriteSerializer(UserBaseSerializer):
         if EmailAddress.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError("That email already has an account")
         return value
+
+
+class TokenRefreshSerializer(
+    BaseTokenRefreshSerializer
+):  # pylint: disable=abstract-method
+    """Refuse to refresh JWTs minted from a revoked or expired application token"""
+
+    def validate(self, attrs):
+        refresh = self.token_class(attrs["refresh"])
+        token_id = refresh.payload.get("app_token_id")
+        if token_id is not None:
+            request = self.context.get("request")
+            token = (
+                ApplicationToken.objects.active()
+                .select_related("user")
+                .filter(pk=token_id)
+                .first()
+            )
+            if token is None:
+                log_rejection(f"inactive id={token_id}", request)
+                raise AuthenticationFailed(
+                    "Application token is expired or revoked.",
+                    "app_token_inactive",
+                )
+            token.touch()
+            log_event(token, "refresh", request)
+        return super().validate(attrs)

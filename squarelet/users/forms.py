@@ -22,7 +22,7 @@ from squarelet.core.utils import format_stripe_error
 from squarelet.organizations.models import Plan
 from squarelet.organizations.models.organization import Organization
 from squarelet.organizations.payments.exceptions import SubscriptionError
-from squarelet.users.models import User
+from squarelet.users.models import ApplicationToken, User
 
 logger = logging.getLogger(__name__)
 
@@ -477,3 +477,36 @@ class UserAutologinPreferenceForm(forms.ModelForm):
             )
         }
         widgets = {"use_autologin": forms.CheckboxInput()}
+
+
+class ApplicationTokenForm(forms.Form):
+    """Create an application token for a personal script or tool"""
+
+    name = forms.CharField(
+        label=_("Name"),
+        max_length=255,
+        help_text=_("What will use this token? For example, “nightly FOIA sync”."),
+        widget=forms.TextInput(attrs={"placeholder": _("My script")}),
+    )
+    expires_in = forms.TypedChoiceField(
+        label=_("Expires"),
+        choices=[*ApplicationToken.Expiry.choices, ("", _("Never"))],
+        coerce=int,
+        empty_value=None,
+        required=False,
+        initial=ApplicationToken.Expiry.MONTH,
+    )
+    allow_staff = forms.BooleanField(
+        label=_("Allow staff access"),
+        required=False,
+        help_text=_(
+            "Leave unchecked to keep scripts using this token from acting with "
+            "your staff permissions."
+        ),
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Only staff have staff access to grant
+        if user is None or not user.is_staff:
+            del self.fields["allow_staff"]

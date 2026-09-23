@@ -365,35 +365,23 @@
         </a>
       </header>
       <div class="card security">
-        <form class="autologin" method="post" action="{% url 'users:detail' username=user.username %}">
-          {% csrf_token %}
-          <div class="status-row">
-            <h3>{% trans "Automatic login links" %}</h3>
-            {% if user.use_autologin %}
-              <span class="badge green">{% trans "Enabled" %}</span>
-              <input type="hidden" name="use_autologin" value="False" />
-              <button type="submit" class="btn ghost danger small">{% trans "Disable" %}</button>
-            {% else %}
-              <span class="badge">{% trans "Disabled" %}</span>
-              <input type="hidden" name="use_autologin" value="True" />
-              <button type="submit" class="btn ghost primary small">{% trans "Enable" %}</button>
-            {% endif %}
-          </div>
-          <p class="help-text">
-            {% trans "When enabled, links we email you (like notifications) include a secure token that signs you in automatically." %}
-          </p>
-        </form>
-        <div class="password">
+        <div class="password status-row">
           <h3>{% trans "Password" %}</h3>
-          <a href="{% url "account_change_password" %}" class="small btn ghost primary">{% trans "Change password" %}</a>
+          <div class="actions">
+            <a href="{% url "account_change_password" %}" class="small btn ghost primary">{% trans "Change password" %}</a>
+          </div>
         </div>
         <div class="mfa">
-          <div class="mfa-overview">
-            <h3>{% trans "Two-factor authentication" %}</h3>
-            <div class="mfa-active">
+          <div class="status-row">
+            <div class="status-label">
+              <h3>{% trans "Two-factor authentication" %}</h3>
               {% if user.has_mfa_enabled %}
-              <span class="badge green">{% trans "Enabled" %}</span>
-              <a class="small btn ghost danger" href="{% url "mfa_deactivate_totp" %}">{% trans "Disable two-factor auth" %}</a>
+                <span class="badge green">{% trans "Enabled" %}</span>
+              {% endif %}
+            </div>
+            <div class="actions">
+              {% if user.has_mfa_enabled %}
+                <a class="small btn ghost danger" href="{% url "mfa_deactivate_totp" %}">{% trans "Disable two-factor auth" %}</a>
               {% else %}
                 {% if has_unverified_emails %}
                   <button class="small btn ghost primary" disabled>{% trans "Enable two-factor auth" %}</button>
@@ -431,6 +419,57 @@
             </div>
             {% endif %}
         </div>
+        <div class="app-tokens">
+          <div class="status-row">
+            <div class="status-label">
+              <h3>{% trans "API tokens" %}</h3>
+              {% if active_app_token_count %}
+                <span class="badge green">
+                  {% blocktrans count counter=active_app_token_count %}{{ counter }} active{% plural %}{{ counter }} active{% endblocktrans %}
+                </span>
+              {% else %}
+                <span class="badge">{% trans "None" %}</span>
+              {% endif %}
+            </div>
+            <div class="actions">
+              <a href="{% url "users:tokens" username=user.username %}" class="small btn ghost primary">{% trans "Manage tokens" %}</a>
+              {% if is_own_page %}
+                <a href="{% url "users:tokens" username=user.username %}#create" class="small btn ghost primary">
+                  {% icon "plus-circle" %}
+                  {% trans "Create token" %}
+                </a>
+              {% endif %}
+            </div>
+          </div>
+          <p class="help-text">
+            {% trans "Let your own scripts and tools use MuckRock APIs without your password. You can revoke or rotate each token at any time." %}
+          </p>
+        </div>
+        <form class="autologin" method="post" action="{% url 'users:detail' username=user.username %}">
+          {% csrf_token %}
+          <div class="status-row">
+            <div class="status-label">
+              <h3>{% trans "Automatic login links" %}</h3>
+              {% if user.use_autologin %}
+                <span class="badge green">{% trans "Enabled" %}</span>
+              {% else %}
+                <span class="badge">{% trans "Disabled" %}</span>
+              {% endif %}
+            </div>
+            <div class="actions">
+              {% if user.use_autologin %}
+                <input type="hidden" name="use_autologin" value="False" />
+                <button type="submit" class="btn ghost danger small">{% trans "Disable" %}</button>
+              {% else %}
+                <input type="hidden" name="use_autologin" value="True" />
+                <button type="submit" class="btn ghost primary small">{% trans "Enable" %}</button>
+              {% endif %}
+            </div>
+          </div>
+          <p class="help-text">
+            {% trans "When enabled, links we email you (like notifications) include a secure token that signs you in automatically." %}
+          </p>
+        </form>
       </div>
     </section>
 {% endblock main %}

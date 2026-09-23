@@ -7,22 +7,12 @@ import "@/css/user_list_item.css";
 import "@/css/invitation_list_item.css";
 
 import { mount } from "svelte";
-import { showAlert } from "../alerts";
+import { initClipboardButtons } from "../clipboard";
 import UserSelect from "../components/UserSelect.svelte";
 
 function main() {
   // Clipboard buttons for invite links
-  document.querySelectorAll("button[data-clipboard]").forEach((button) => {
-    button.addEventListener("click", (e) => {
-      e.preventDefault();
-      const target = e.currentTarget as HTMLButtonElement;
-      window?.navigator?.clipboard?.writeText(target.value);
-      showAlert("Invitation link copied to clipboard.", "success", {
-        canDismiss: true,
-        autoDismiss: true,
-      });
-    });
-  });
+  initClipboardButtons("Invitation link copied to clipboard.");
 
   // Mount UserSelect onto the invite form
   const el = document.getElementById("user-select");

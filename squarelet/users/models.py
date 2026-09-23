@@ -8,9 +8,14 @@ from django.db.models import Q
 from django.http.request import urlencode
 from django.templatetags.static import static
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 # Standard Library
+import hashlib
+import hmac
+import secrets
+from datetime import timedelta
 from functools import cached_property
 
 # Third Party
@@ -367,3 +372,149 @@ class LoginLog(models.Model):
 
     class Meta:
         ordering = ("created_at",)
+
+
+class ApplicationTokenQuerySet(models.QuerySet):
+    def active(self):
+        return self.filter(revoked_at__isnull=True).filter(
+            Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
+        )
+
+
+class ApplicationToken(models.Model):
+    """A long-lived, user-owned token for authenticating personal scripts and tools.
+
+    The plaintext token has the form `mr_<prefix>_<secret>`. We only store the prefix,
+    (used for lookup and display) and a hash of the secret for lookup.
+
+    Scripts exchange the token for a short-lived JWT pair at `/api/token/app/`.
+    """
+
+    PLAINTEXT_NAMESPACE = "mr"
+
+    class Expiry(models.IntegerChoices):
+        WEEK = 7, _("1 week")
+        MONTH = 30, _("1 month")
+        QUARTER = 90, _("3 months")
+        YEAR = 365, _("1 year")
+
+    objects = ApplicationTokenQuerySet.as_manager()
+
+    user = models.ForeignKey(
+        verbose_name=_("user"),
+        to="users.User",
+        on_delete=models.CASCADE,
+        related_name="application_tokens",
+    )
+    name = models.CharField(
+        _("name"), max_length=255, help_text=_("The script or tool using this token")
+    )
+    prefix = models.CharField(_("prefix"), max_length=16, unique=True, editable=False)
+    hashed_secret = models.CharField(_("hashed secret"), max_length=64, editable=False)
+    allow_staff = models.BooleanField(
+        _("allow staff access"),
+        default=False,
+        help_text=_("Tokens may only use the user's staff access when this is set"),
+    )
+    expires_in = models.PositiveSmallIntegerField(
+        _("expires in (days)"),
+        choices=Expiry.choices,
+        null=True,
+        blank=True,
+        help_text=_("The lifetime chosen when the token was created; blank is never"),
+    )
+    created_at = AutoCreatedField(_("created at"))
+    last_used_at = models.DateTimeField(_("last used at"), null=True, blank=True)
+    expires_at = models.DateTimeField(_("expires at"), null=True, blank=True)
+    revoked_at = models.DateTimeField(_("revoked at"), null=True, blank=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self):
+        return f"{self.name} ({self.display_prefix})"
+
+    @staticmethod
+    def _hash(secret):
+        # The secret is high-entropy random data; it can't be easily guessed,
+        # unlike common or exposed passwords. So we don't need to slow-hash
+        # these as we would a password submitted by users.
+        return hashlib.sha256(secret.encode()).hexdigest()
+
+    @classmethod
+    def generate(cls, user, name, expires_in=None, allow_staff=False):
+        """Create a new token, returning it along with its plaintext value.
+        **The plaintext is not stored and cannot be recovered later.**"""
+        prefix = secrets.token_hex(6)
+        secret = secrets.token_urlsafe(32)
+        expires_at = timezone.now() + timedelta(days=expires_in) if expires_in else None
+        token = cls.objects.create(
+            user=user,
+            name=name,
+            prefix=prefix,
+            hashed_secret=cls._hash(secret),
+            allow_staff=allow_staff,
+            expires_in=expires_in,
+            expires_at=expires_at,
+        )
+        return token, f"{cls.PLAINTEXT_NAMESPACE}_{prefix}_{secret}"
+
+    @classmethod
+    def authenticate(cls, plaintext):
+        """Return the active token matching the plaintext, or None"""
+        if not isinstance(plaintext, str):
+            return None
+        parts = plaintext.split("_", 2)
+        if len(parts) != 3 or parts[0] != cls.PLAINTEXT_NAMESPACE:
+            return None
+        _namespace, prefix, secret = parts
+        token = (
+            cls.objects.active()
+            .filter(prefix=prefix, user__is_active=True)
+            .select_related("user")
+            .first()
+        )
+        if token is None or not hmac.compare_digest(
+            token.hashed_secret, cls._hash(secret)
+        ):
+            return None
+        token.touch()
+        return token
+
+    @property
+    def is_active(self):
+        if self.revoked_at is not None:
+            return False
+        return self.expires_at is None or self.expires_at > timezone.now()
+
+    @property
+    def display_prefix(self):
+        return f"{self.PLAINTEXT_NAMESPACE}_{self.prefix}"
+
+    @property
+    def name_label(self):
+        return f"{self.user.username}:{self.name}"
+
+    @property
+    def prefix_label(self):
+        return f"{self.user.username}:{self.prefix}"
+
+    def touch(self):
+        self.last_used_at = timezone.now()
+        self.save(update_fields=["last_used_at"])
+
+    def revoke(self):
+        if self.revoked_at is None:
+            self.revoked_at = timezone.now()
+            self.save(update_fields=["revoked_at"])
+
+    def rotate(self):
+        """Revoke this token and issue a replacement with the same settings"""
+        with transaction.atomic():
+            self.revoke()
+            return self.generate(
+                self.user,
+                self.name,
+                expires_in=self.expires_in,
+                allow_staff=self.allow_staff,
+            )
