@@ -35,7 +35,7 @@
         </div>
       </header>
 
-      <form method="POST" action="{% url "organizations:update" slug=organization.slug %}" class="form card">
+      <form method="POST" action="{% url "organizations:update" slug=organization.slug %}" class="form card card--large">
         {% crispy form form.helper %}
         <button type="submit" class="btn primary">
           {% trans "Save changes" %}
@@ -54,7 +54,7 @@
       </header>
 
       {% if pending_change_requests %}
-      <div class="card" id="pending-requests">
+      <div class="card card--stack" id="pending-requests">
         <h3>{% trans "Pending Change Requests" %}</h3>
         <p>{% trans "You have the following change requests awaiting staff approval:" %}</p>
         {% for change in pending_change_requests %}
@@ -162,7 +162,7 @@
         {% endfor %}
       </div>
       {% endif %}
-      <form method="POST" action="{% url "organizations:request-profile-change" slug=organization.slug %}" class="form card">
+      <form method="POST" action="{% url "organizations:request-profile-change" slug=organization.slug %}" class="form card card--large">
         {% crispy profile_change_form profile_change_form.helper %}
 
         <button type="submit" class="btn primary">

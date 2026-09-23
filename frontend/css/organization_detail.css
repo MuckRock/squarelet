@@ -22,18 +22,12 @@
 }
 
 /* Members section */
-section#members main.members {
+section#members .members {
   display: flex;
   flex-direction: column;
   gap: 1rem;
   padding: 1rem;
   color: var(--gray-5, #233944);
-}
-
-.user-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
 }
 
 .staff-info {
@@ -44,7 +38,7 @@ section#members main.members {
 }
 
 /* Security section */
-section#security main.security {
+section#security .security {
   display: flex;
   flex-direction: column;
   gap: 1rem;

@@ -1860,16 +1860,6 @@ a.service-provider:focus {
   transition: all 0.2s linear;
 }
 
-.card {
-  padding: 2rem;
-  box-sizing: border-box;
-  border-radius: var(--radius-4);
-  box-shadow: var(--shadow-1);
-  background: var(--white);
-  color: var(--gray-5);
-  margin: 0 auto;
-}
-
 .icon {
   display: inline-block;
   vertical-align: text-top;

@@ -22,7 +22,7 @@
       </h2>
     </header>
 
-    <main>
+    <div class="main">
       <div class="plan-actions">
         <!-- Show existing subscriptions for authenticated users -->
         {% if user.is_authenticated and existing_subscriptions %}
@@ -40,7 +40,7 @@
 
         {% if user.is_authenticated and show_waitlist %}
         <!-- Waitlist Form -->
-        <div class="waitlist card">
+        <div class="waitlist card card--large">
           <div class="waitlist">
             <h3>{% trans "Subscription Limit Reached" %}</h3>
             <p>{% trans "This plan is currently at capacity. Join the waitlist to be notified when a spot becomes available." %}</p>
@@ -125,7 +125,7 @@
           {{ plan.description|markdown|safe }}
         </div>
       {% endif %}
-    </main>
+    </div>
   </div>
 </div>
 {% endblock %}

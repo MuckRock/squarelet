@@ -33,7 +33,7 @@
       </h2>
     {% endif %}
     </header>
-    <main>
+    <div class="main">
       {% if user.is_anonymous %}
       <div class="plan-actions">
         <a href="{% url 'account_signup' %}{% pass_query %}" class="button primary">
@@ -78,7 +78,7 @@
           </span>
         </li>
       </ul>
-    </main>
+    </div>
   </section>
   <section class="plan premium">
     {% if org_plans %}
@@ -111,7 +111,7 @@
         </h2>
       </header>
     {% endif %}
-    <main>
+    <div class="main">
       <div class="plan professional">
         <header>
           <span class="person icon">
@@ -119,7 +119,7 @@
           </span>
           <h3>{% trans "Premium for professionals" %}</h3>
         </header>
-        <main>
+        <div class="main">
           <ul class="checklist">
             <li class="checklist-item">
               <span class="checkmark icon">
@@ -156,7 +156,7 @@
               </span>
             </li>
           </ul>
-        </main>
+        </div>
         <footer>
           <div class="price">
             $40/month
@@ -177,7 +177,7 @@
           </span>
           <h3>{% trans "Premium for organizations" %}</h3>
         </header>
-        <main>
+        <div class="main">
           <ul class="checklist">
             <li class="checklist-item">
               <span class="checkmark icon">
@@ -214,7 +214,7 @@
               </span>
             </li>
           </ul>
-        </main>
+        </div>
         <footer>
           <div class="price">
             $100/month
@@ -229,7 +229,7 @@
         </footer>
       </div>
       
-    </main>
+    </div>
   </section>
 
   <section class="plan sunlight">
@@ -245,7 +245,7 @@
         {% endblocktrans %}
       </p>
     </header>
-    <main>
+    <div class="main">
       <div class="sunlight-tiers">
         {% for tier in sunlight_tiers %}
         <div class="tier tier-{{ tier.name|lower }}">
@@ -253,7 +253,7 @@
             <h3>{{ tier.name }}</h3>
             <p><strong>{{ tier.short_description }}</strong></p>
           </header>
-          <main>
+          <div class="main">
             {% with benefits=tier.monthly.standard.get_benefits|default:tier.annual.standard.get_benefits %}
             {% if benefits %}
             <ul class="checklist">
@@ -268,7 +268,7 @@
             </ul>
             {% endif %}
             {% endwith %}
-          </main>
+          </div>
           <footer>
             {% if tier.name == "Enterprise" %}
             <div class="actions">
@@ -347,10 +347,10 @@
         </div>
         {% endfor %}
       </div>
-    </main>
+    </div>
   </section>
   <section>
-    <main>
+    <div class="main">
       <div class="verified plan">
         <header>
           <h2 class="header-display">
@@ -364,7 +364,7 @@
           <p><a target="_blank" rel="noopener noreferrer" href="https://help.muckrock.com/19ef8892696381dba944e17e14938433?pvs=4">Learn more about verification</a></p>
           {% endif %}
         </header>
-        <main>
+        <div class="main">
           <ul class="services-list">
             <li class="service">
               <div class="identity">
@@ -390,9 +390,9 @@
               </ul>
             </li>
           </ul>
-        </main>
+        </div>
       </div>
-    </main>
+    </div>
   </section>
 </article>
 {% endblock %}

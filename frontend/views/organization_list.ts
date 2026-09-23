@@ -2,7 +2,6 @@
 // there should be exactly **one** search field on the page
 
 // import css here for bundling
-import "@/css/gps.css";
 import "@/css/sidebar_layout.css";
 import "@/css/team_list_item.css";
 import "@/css/organization_list.css";

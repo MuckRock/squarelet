@@ -125,7 +125,7 @@
         </div>
         {% endif %}
       </header>
-      <main class="profile">
+      <div class="card profile">
         <div class="icon">
           {% with avatar=organization.avatar %}
           {% if avatar %}
@@ -158,7 +158,7 @@
             <p class="org-about">{{ organization.about }}</p>
           {% endif %}
         </div>
-      </main>
+      </div>
     </section>
 
     {% if show_members_section %}
@@ -178,7 +178,7 @@
           </div>
         {% endif %}
       </header>
-      <main class="orgs">
+      <div class="card orgs">
         {% if member_org_invitations and member_org_invitations.count > 0 %}
           <div class="notification-banner blue">
             <div class="banner-content">
@@ -199,12 +199,12 @@
             </div>
           </div>
         {% endif %}
-        <div class="org-list">
+        <ul class="card-list">
           {% for member in members %}
-            <div class="org">
+            <li class="card-item">
               {% include "account/team_list_item.html" with organization=member %}
               {% if can_manage_member_orgs %}
-                <form method="post" action="{% url "organizations:detail" organization.slug %}" class="member-actions">
+                <form method="post" action="{% url "organizations:detail" organization.slug %}" class="actions">
                   {% csrf_token %}
                   <input type="hidden" name="member_org" value="{{ member.slug }}">
                   <button class="btn danger ghost small" type="submit" name="action" value="remove_member_org">
@@ -213,14 +213,14 @@
                   </button>
                 </form>
               {% endif %}
-            </div>
+            </li>
           {% empty %}
-            <div class="empty empty--no-border">
-              <p>{% trans "No member organizations" %}</p>
-            </div>
-          {% endfor %} 
-        </div>
-      </main>
+            <li class="card-item">
+              <p class="caption">{% trans "No member organizations" %}</p>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
     </section>
     {% endif %}
 
@@ -229,12 +229,13 @@
       <header>
         <h2>{% trans "Affiliations" %}</h2>
       </header>
-      <main class="orgs">
+      <div class="card orgs">
         {% if group_invitations|length > 0 %}
+          <ul class="card-list">
             {% for invitation in group_invitations %}
-              <div class="org">
+              <li class="card-item">
                 {% include "account/team_list_item.html" with organization=invitation.from_organization %}
-                <form method="post" action="{% url "organizations:detail" organization.slug %}" class="member-actions">
+                <form method="post" action="{% url "organizations:detail" organization.slug %}" class="actions">
                   {% csrf_token %}
                   <input type="hidden" name="invitation" value="{{ invitation.uuid }}">
                   <button class="btn primary small" type="submit" name="action" value="accept_group_invitation">
@@ -245,15 +246,17 @@
                     {% trans "Reject" %}
                   </button>
                 </form>
-              </div>
+              </li>
             {% endfor %}
+          </ul>
         {% endif %}
 
         {% if groups|length > 0 %}
+          <ul class="card-list">
             {% for group in groups %}
-              <div class="org">
+              <li class="card-item">
                 {% include "account/team_list_item.html" with organization=group %}
-                <form method="post" action="{% url "organizations:detail" group.slug %}" class="member-actions">
+                <form method="post" action="{% url "organizations:detail" group.slug %}" class="actions">
                   {% csrf_token %}
                   <input type="hidden" name="member_org" value="{{ organization.slug }}">
                   <button class="btn danger ghost small" type="submit" name="action" value="remove_member_org">
@@ -261,10 +264,11 @@
                     {% trans "Leave" %}
                   </button>
                 </form>
-              </div>
-            {% endfor %} 
+              </li>
+            {% endfor %}
+          </ul>
         {% endif %}
-      </main>
+      </div>
     </section>
     {% endif %}
 
@@ -351,7 +355,7 @@
           {% endif %}
         </div>
       </header>
-      <main class="members">
+      <div class="card members">
         {% if pending_requests and pending_requests.count > 0 %}
           <div class="notification-banner blue">
             <div class="banner-content">
@@ -393,17 +397,19 @@
           </div>
         {% endif %}
         {% if users|length > 0 %}
-          <div class="user-list">
+          <ul class="card-list">
             {% for user in users %}
-              {% with membership=user.org_membership_list.0 %}
-                {% include "organizations/user_list_item.html" %}
-              {% endwith %}
+              <li class="card-item">
+                {% with membership=user.org_membership_list.0 %}
+                  {% include "organizations/user_list_item.html" %}
+                {% endwith %}
+              </li>
             {% endfor %}
-          </div>
+          </ul>
         {% else %}
           <p class="help-text">{% trans "This organization has no members." %}</p>
         {% endif %}
-      </main>
+      </div>
     </section>
     {% endif %}
 
@@ -415,7 +421,7 @@
           {% trans "Learn about verification" %}
         </a>
       </header>
-      <main class="verification-status">
+      <div class="card verification-status">
         {% if organization.verified_journalist %}
           <div class="status verified">
             {% icon "verified-24" %}
@@ -447,7 +453,7 @@
             <a target="_blank" rel="noopener noreferrer" href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433">{% trans "Learn more" %}</a>
           </p>
         </div>
-      </main>
+      </div>
     </section>
 
     {% if security_settings %}
@@ -455,7 +461,7 @@
       <header>
         <h2>{% trans "Security Settings" %}</h2>
       </header>
-      <main class="security">
+      <div class="card security">
         {% comment %}
         <div class="security-setting">
           <h3>{% trans "Join requests" %}</h3>
@@ -498,7 +504,7 @@
               </form>
             </div>
         {% endif %}
-      </main>
+      </div>
     </section>
     {% endif %}
 {% endblock main %}

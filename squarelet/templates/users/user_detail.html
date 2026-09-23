@@ -96,7 +96,7 @@
           </a>
         </div>
       </header>
-      <main class="profile">
+      <div class="card profile">
         <div class="icon">
         {% if user.avatar %}
           {% thumbnail user.avatar "240x240" crop="center" as img %}
@@ -127,7 +127,7 @@
             </time>
           </p>
         </div>
-      </main>
+      </div>
     </section>
 
     <section id="billing">
@@ -156,7 +156,7 @@
         </a>
       </header>
 
-      <main class="verification-status">
+      <div class="card verification-status">
         {% if verified %}
         <div class="status verified">
           {% icon "verified-24" %}
@@ -193,7 +193,7 @@
             <a target="_blank" rel="noopener noreferrer" href="https://help.muckrock.com/Request-verification-19ef8892696381dba944e17e14938433">Learn more</a>
           </p>
         </div>
-      </main>
+      </div>
     </section>
 
     <section id="organizations">
@@ -210,9 +210,9 @@
           </a>
         </div>
       </header>
-      <main class="orgs">
+      <div class="card orgs">
         {% include "organizations/your_organizations.html" with show_invitations=True %}
-      </main>
+      </div>
       <footer>
         <p class="help-text">If you're a freelancer who works with multiple organizations, you may <a target="_blank" rel="noopener noreferrer" href="{% airtable_verification_url %}">request individual verification as a journalist</a>.</p>
       </footer>
@@ -274,7 +274,7 @@
           {% endif %}
         </div>
       </header>
-      <main class="accounts">
+      <div class="card accounts">
         {% for email in emails %}
         <div class="email account">
           <div class="account-detail">
@@ -353,7 +353,7 @@
           </div>
         {% endfor %}
         {% endif %}
-      </main>
+      </div>
     </section>
 
     <section id="security">
@@ -364,7 +364,7 @@
           {% trans "Security best practices" %}
         </a>
       </header>
-      <main class="security">
+      <div class="card security">
         <form class="autologin" method="post" action="{% url 'users:detail' username=user.username %}">
           {% csrf_token %}
           <div class="status-row">
@@ -431,6 +431,6 @@
             </div>
             {% endif %}
         </div>
-      </main>
+      </div>
     </section>
 {% endblock main %}

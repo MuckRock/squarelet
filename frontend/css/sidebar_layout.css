@@ -186,13 +186,9 @@
   gap: 0.125rem;
 }
 
-.sidebar-layout > .content section main {
-  box-sizing: border-box;
+/* Cards fill the content column; the surface itself comes from .card. */
+.sidebar-layout > .content section > .card {
   width: 100%;
-  border-radius: 0.5rem;
-  border: 1px solid var(--gray-2, #d8dee2);
-  background: var(--white, #fff);
-  box-shadow: var(--shadow-1);
 }
 
 /* Dense variant: always-visible sidebar, tighter spacing */

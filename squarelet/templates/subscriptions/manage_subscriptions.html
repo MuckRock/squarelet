@@ -69,7 +69,7 @@
 
     {% for subscription in subscriptions %}
       {% with annual=subscription.plan.annual cancelled=subscription.cancelled %}
-        <main id="{{ subscription.plan.slug }}" class="subscription-card">
+        <div id="{{ subscription.plan.slug }}" class="card card--stack subscription-card">
           <div class="subscription-row">
             <h3 class="{% if subject == "organizations" %}organization{% else %}professional{% endif %}">{{ subscription.plan.name }}</h3>
             {% if cancelled %}
@@ -122,12 +122,12 @@
               </form>
             {% endif %}
           </div>
-        </main>
+        </div>
       {% endwith %}
     {% empty %}
-      <main class="subscription-card">
+      <div class="card card--stack subscription-card">
         <p class="empty empty--no-border">{% trans "You have no active subscriptions." %}</p>
-      </main>
+      </div>
     {% endfor %}
   </section>
 
@@ -145,7 +145,7 @@
       </a>
     </header>
 
-    <main class="subscription-card">
+    <div class="card card--stack subscription-card">
       <div class="account-row">
         <div class="account-card">
           <span class="icon">{% icon "credit-card" %}</span>
@@ -169,7 +169,7 @@
           </form>
         {% endif %}
       </div>
-    </main>
+    </div>
   </section>
 
   <section id="email">
@@ -183,7 +183,7 @@
       </a>
     </header>
 
-    <main class="subscription-card">
+    <div class="card card--stack subscription-card">
       {% if receipt_email %}
         <div class="subscription-detail">
           <span class="icon">
@@ -194,7 +194,7 @@
           </span>
         </div>
       {% endif %}
-    </main>
+    </div>
   </section>
 
   <section id="recent">

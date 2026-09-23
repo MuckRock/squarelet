@@ -24,8 +24,8 @@
       {% endif %}
     </header>
 
-    <main>
-      <div class="plan-details card">
+    <div class="main">
+      <div class="plan-details card card--large">
         <!-- Plan benefits -->
         {% with benefits=plan.get_benefits %}
         {% if benefits %}
@@ -56,11 +56,11 @@
       </div>
 
       {% if plan.description %}
-        <div class="plan-description card">
+        <div class="plan-description card card--large">
           {{ plan.description|markdown|safe }}
         </div>
       {% endif %}
-    </main>
+    </div>
   </div>
 </div>
 {% endblock %}

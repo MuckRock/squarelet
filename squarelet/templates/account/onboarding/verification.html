@@ -9,7 +9,7 @@
 {% endblock vite %}
 
 {% block onboarding_step %}
-<div class="step">
+<section class="step">
     <header>
       <div class="icon">{% icon "verified" %}</div>
       <h2 class="title">{% blocktrans %}Request Verification{% endblocktrans %}</h2>
@@ -24,8 +24,8 @@
         {% endblocktrans %}
       </p>
     </header>
-    <main>
-      <div class="verification card">
+    <div class="main">
+      <div class="verification card card--stack">
         {% for organization in unverified_orgs %}
           <div class="unverified org">
             {% include "account/team_list_item.html" %}
@@ -48,7 +48,7 @@
           </div>
         {% endif %}
       </div>
-    </main>
+    </div>
     <footer>
       <form method="POST" action="{% url 'account_onboarding' %}">
         {% csrf_token %}
@@ -56,5 +56,5 @@
         <button type="submit" name="verification" value="skip" class="primary button">{% trans "Continue signing in" %}</button>
       </form>
     </footer>
-</div>
+</section>
 {% endblock %}

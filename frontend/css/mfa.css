@@ -164,10 +164,9 @@
   width: 100%;
 }
 
-.card {
+#recovery-codes .card,
+#deactivate-mfa .card {
   margin: 1rem auto;
-  width: 100%;
-  max-width: 100%;
 }
 
 .nav-link {
