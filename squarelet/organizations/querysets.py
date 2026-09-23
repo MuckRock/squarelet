@@ -442,28 +442,21 @@ class SubscriptionItemQuerySet(models.QuerySet):
         )
         if subscription.cancelled and not plan.free:
             # One subscription per organization per billing shape, so a new
-            # paid line has nowhere else to go - it joins the one that is
-            # ending.  Stripe charges for it at once, and the sweep deletes
-            # it when the cancellation date arrives: money taken for a plan
-            # that then disappears.  Refused until the cancellation
-            # completes, because the alternative on this branch is lifting
-            # the cancellation, which would resume the plan they cancelled.
-            #
-            # Per-line cancellation replaces this: once a line carries its
-            # own date, buying keeps the subscription renewing and what was
-            # cancelled still stops on its own.
+            # paid line joins the one that is ending: Stripe charges for it
+            # at once and the sweep deletes it on the cancellation date.
+            # Refused until per-line cancellation lands, since the only
+            # alternative here is lifting a cancellation the customer asked
+            # for.
             raise SubscriptionError(
                 f"This organization has a cancellation pending on its "
                 f"{interval} billing.  A plan added now would be charged "
                 f"immediately and removed when the cancellation completes; "
                 f"wait until then, or resubscribe to the cancelled plan."
             )
-        # Stripe inside the transaction on purpose.  The row has to exist
-        # before the call, because it is what `stripe_items` describes - but
-        # a Stripe failure must not leave an organization holding a line it
-        # is not being billed for.  The reverse order is the survivable one:
-        # Stripe succeeding and the commit failing leaves a subscription
-        # Stripe knows about and we retry into.
+        # Stripe inside the transaction on purpose: the row has to exist
+        # before the call describes it, and a Stripe failure must not leave
+        # an organization holding a line nobody bills.  A failed commit after
+        # a Stripe success is the survivable direction - we retry into it.
         with transaction.atomic():
             item = self.model.objects.create(
                 subscription=subscription, plan=plan, quantity=quantity
@@ -476,18 +469,15 @@ class SubscriptionItemQuerySet(models.QuerySet):
                     anchor_day=anchor.day if anchor else None,
                 )
             else:
-                # Take what Stripe returned, not the cached object: that
-                # was fetched before the line was added, so it does not
-                # contain it.
+                # Take what Stripe returned - the cached object was fetched
+                # before the line was added.
                 stripe_subscription = subscription.stripe_modify()
                 if stripe_subscription is not None:
                     subscription.settle_added_line(stripe_subscription)
 
-        # Every new line, as master did.  Gating this on price was a change
-        # nobody asked for: `notify_started` already decides who to enrol by
-        # entitlement - only the line that first grants `organization`, and
-        # only once - so a free plan carrying that entitlement stopped
-        # enrolling anyone, and no free signup produced a Slack notification.
+        # Every new line, free or paid.  `notify_started` already decides
+        # who to enrol by entitlement, so gating on price here would drop
+        # free signups that carry the `organization` entitlement.
         item.notify_started()
         return item, stripe_subscription
 
