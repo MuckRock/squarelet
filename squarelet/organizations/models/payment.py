@@ -374,15 +374,12 @@ class Subscription(models.Model):
 
     One row per Stripe subscription; its lines are SubscriptionItems.  Stripe
     requires every item on a subscription to share a billing interval and a
-    collection method, so an organization needs a separate subscription for
-    each combination it holds - a monthly MuckRock plan and an annual Sunlight
-    plan cannot sit on the same one.  That is what the uniqueness constraint
-    below encodes.
+    collection method, so an organization needs one subscription per
+    combination it holds - which is what the uniqueness constraint below
+    encodes.
 
-    Fields here are subscription-level: status, period end and cancellation
-    apply to every item at once.  Keeping them in one place means a renewal
-    webhook updates a single row rather than fanning out across items that
-    could then disagree.
+    Status, period end and cancellation are subscription-level and apply to
+    every line at once.
     """
 
     INTERVAL_CHOICES = [
@@ -425,8 +422,7 @@ class Subscription(models.Model):
         help_text=_("How Stripe collects payment, shared by every item"),
     )
 
-    # The cancelled flag marks a subscription as ready for cancellation.
-    # Cancellation happens at the end of the billing period; at that point the
+    # Cancellation takes effect at the end of the billing period, when the
     # record is deleted.
     cancelled = models.BooleanField(default=False)
     cancel_at = models.DateField(
@@ -715,9 +711,8 @@ class Subscription(models.Model):
 class SubscriptionItem(models.Model):
     """One line on a Stripe subscription.
 
-    The organization is reached through `subscription`, deliberately not
-    duplicated here: a denormalized copy that has to agree with its parent is
-    exactly the kind of drift this migration exists to remove.
+    The organization is reached through `subscription` rather than
+    duplicated here, so a line can never disagree with its parent.
     """
 
     objects = SubscriptionItemQuerySet.as_manager()
