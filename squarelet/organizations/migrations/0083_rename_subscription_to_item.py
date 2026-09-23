@@ -25,12 +25,10 @@ class Migration(migrations.Migration):
             old_name="Subscription",
             new_name="SubscriptionItem",
         ),
-        # Nullable here, and dropped entirely by the next migration once the
-        # organization has moved to the parent.  It is relaxed in *this*
-        # migration rather than alongside the data move so that reversing
-        # works: Postgres refuses to ALTER a table in the same transaction
-        # that has just written to it, so the NOT NULL has to be restored in
-        # a transaction of its own.
+        # Nullable here, and dropped by the next migration once the
+        # organization has moved to the parent.  Relaxed in *this* migration
+        # so that reversing works - Postgres refuses to ALTER a table in the
+        # same transaction that has just written to it.
         migrations.AlterField(
             model_name="subscriptionitem",
             name="organization",

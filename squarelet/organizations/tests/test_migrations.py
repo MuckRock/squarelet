@@ -22,10 +22,9 @@ from datetime import date
 import pytest
 
 APP = "organizations"
-# Migrations under test, found by name rather than by number.  Branches
-# further up the stack add migrations of their own, and a number pinned here
-# would go stale the first time one landed below it - the name is the part
-# that does not move.
+# Migrations under test, found by name rather than by number: branches
+# further up the stack add migrations of their own, and only the name is
+# stable across them.
 PARENT = "subscription_parent"
 ITEM_CANCELLATION = "subscription_item_cancellation"
 
