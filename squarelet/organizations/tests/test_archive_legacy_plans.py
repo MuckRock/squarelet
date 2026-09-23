@@ -27,8 +27,14 @@ def run(**kwargs):
 
 
 def legacy_plan(name="Dead Plan", slug="dead-plan"):
-    """A plan the consolidation has moved everyone off."""
-    return PlanFactory(name=name, slug=slug)
+    """A plan the consolidation has moved everyone off.
+
+    With no price, which is what makes it finished: a plan that still
+    holds one can still be bought and is not archived.
+    """
+    plan = PlanFactory(name=name, slug=slug)
+    plan.prices.all().delete()
+    return plan
 
 
 def plan_with_slug(name, slug):
@@ -47,7 +53,13 @@ def plan_with_slug(name, slug):
         existing.save(update_fields=["archived"])
         existing.prices.all().delete()
         return existing
-    return PlanFactory(name=name, slug=slug)
+    plan = PlanFactory(name=name, slug=slug)
+    # Unpriced, like the legacy rows this command is about: the factory
+    # gives a plan a list price because most tests need a sellable one,
+    # and a sellable plan is exactly what this command declines to
+    # archive.
+    plan.prices.all().delete()
+    return plan
 
 
 @pytest.mark.django_db()
@@ -194,6 +206,11 @@ class TestACancelledLineStillBlocksIt:
         plan = legacy_plan()
         item = SubscriptionItemFactory(plan=plan, cancelled=True)
         item.delete()  # what restore_organization does when cancel_at arrives
+        # Every line holds a price, so making one priced this plan.  A
+        # legacy row in production holds no price of its own - its
+        # subscribers were repointed at a canonical tier - so take it back
+        # to that state now the line has gone.
+        plan.prices.all().delete()
 
         run()
 

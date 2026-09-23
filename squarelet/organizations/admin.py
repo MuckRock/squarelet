@@ -179,7 +179,7 @@ class SubscriptionItemInline(admin.TabularInline):
         stripe_id = obj.stripe_price_id
         if not stripe_id:
             return self.get_empty_value_display()
-        if obj.plan_price_id and obj.plan_price.stripe_price_id:
+        if obj.plan_price.stripe_price_id:
             return format_html(
                 '<a href="{}" target="_blank" rel="noopener">{}</a>',
                 get_stripe_dashboard_url("prices", stripe_id),

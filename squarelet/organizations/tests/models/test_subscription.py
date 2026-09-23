@@ -14,9 +14,29 @@ import stripe
 # Squarelet
 from squarelet.organizations.models import SubscriptionItem
 from squarelet.organizations.payments.exceptions import SubscriptionError
+from squarelet.organizations.tests.factories import PlanPriceFactory
+
 
 # Local
 from .test_invoice import Invoice, create_mock_stripe_invoice
+
+
+def sellable(plan, interval="monthly"):
+    """A plan with a list price, which is what a line can move onto.
+
+    Every line holds a price now, so `modify` refuses a plan that has
+    none - there would be nowhere for the line to land.  The plans a test
+    moves *to* are built here rather than by a factory, so they have to
+    be priced here.
+    """
+    PlanPriceFactory(
+        plan=plan,
+        interval=interval,
+        label="standard",
+        code="",
+        amount=100 * plan.base_price,
+    )
+    return plan
 
 
 class TestSubscription:
@@ -417,7 +437,9 @@ class TestSubscription:
             items=[
                 {
                     "id": "si_mod",
-                    "plan": item.plan.stripe_id,
+                    # The line's price, not the plan's legacy id: every
+                    # line holds one now, so the fallback is gone.
+                    "plan": item.plan_price.stripe_price_id,
                     "quantity": item.quantity,
                 }
             ],
@@ -667,7 +689,7 @@ class TestSubscriptionItem:
             plan=professional_plan_factory(),
             subscription__subscription_id="sub_live",
         )
-        plan = professional_plan_factory(name="Other Paid", base_price=30)
+        plan = sellable(professional_plan_factory(name="Other Paid", base_price=30))
         # `modify` identifies the line on Stripe before changing its
         # plan; nothing here is exercising that.
         mocker.patch(
@@ -701,7 +723,7 @@ class TestSubscriptionItem:
         started = mocker.patch("squarelet.organizations.models.Subscription.start")
         mocker.patch("squarelet.organizations.models.Subscription.stripe_modify")
 
-        item.modify(professional_plan_factory())
+        item.modify(sellable(professional_plan_factory()))
 
         started.assert_called_once()
 
@@ -722,7 +744,9 @@ class TestSubscriptionItem:
             plan=professional_plan_factory(), subscription__subscription_id="sub_live"
         )
 
-        item.modify(plan_factory(name="Free Tier", base_price=0, price_per_user=0))
+        item.modify(
+            sellable(plan_factory(name="Free Tier", base_price=0, price_per_user=0))
+        )
 
         service.delete.assert_called_once()
         item.subscription.refresh_from_db()
@@ -743,7 +767,9 @@ class TestSubscriptionItem:
             subscription__subscription_id="sub_monthly",
             subscription__interval="monthly",
         )
-        annual = plan_factory(name="Annual Plan", annual=True, base_price=300)
+        annual = sellable(
+            plan_factory(name="Annual Plan", annual=True, base_price=300), "annual"
+        )
 
         with pytest.raises(SubscriptionError, match="bills annual"):
             item.modify(annual)
@@ -800,7 +826,9 @@ class TestSubscriptionItem:
             "squarelet.organizations.models.Subscription.stripe_subscription", None
         )
 
-        item.modify(plan_factory(name="Free Tier", base_price=0, price_per_user=0))
+        item.modify(
+            sellable(plan_factory(name="Free Tier", base_price=0, price_per_user=0))
+        )
 
         service.delete.assert_not_called()
         item.subscription.refresh_from_db()
@@ -826,7 +854,7 @@ class TestSubscriptionItem:
         specs = paid.subscription.stripe_items()
 
         assert len(specs) == 1
-        assert specs[0]["plan"] == paid.plan.stripe_id
+        assert specs[0]["plan"] == paid.plan_price.stripe_price_id
 
     @pytest.mark.django_db()
     def test_cancel_last_item_cancels_the_subscription(
@@ -955,9 +983,12 @@ class TestLinesAreIdentifiedBeforeTheyAreDescribed:
             subscription__subscription_id="sub_live",
             stripe_item_id="",
         )
+        # Stripe reports the line under the Price it bills, which is the
+        # line's own now - matching on the plan's legacy id would find
+        # nothing and leave the id blank.
         mocker.patch(
             "squarelet.organizations.models.Subscription.stripe_subscription",
-            self._stripe_sub(item.plan.stripe_id),
+            self._stripe_sub(item.plan_price.stripe_price_id),
         )
         service = mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
@@ -970,7 +1001,7 @@ class TestLinesAreIdentifiedBeforeTheyAreDescribed:
         sent = service.modify.call_args.kwargs["items"]
         assert sent == [
             {
-                "plan": item.plan.stripe_id,
+                "plan": item.plan_price.stripe_price_id,
                 "quantity": item.quantity,
                 "id": "si_existing",
             }

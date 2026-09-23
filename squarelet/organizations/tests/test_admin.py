@@ -151,13 +151,19 @@ class TestWhatALineBillsAgainst:
         assert "https://dashboard.stripe.com/prices/price_new" in html
         assert "legacy" not in html
 
-    def test_a_line_still_on_the_legacy_plan_says_so(
-        self, subscription_item_factory, plan_factory
+    def test_a_line_whose_price_has_no_stripe_price_says_so(
+        self, subscription_item_factory, plan_factory, plan_price_factory
     ):
-        """The legacy id is a Stripe Plan, not a Price - no link."""
+        """What a half-finished consolidation leaves: a paid row with no
+        Stripe Price behind it, so the line still bills the legacy Stripe
+        Plan - which is not a Price, and gets no dashboard link.
+        """
+        plan = plan_factory(name="Legacy Org", slug="organization", base_price=100)
         item = subscription_item_factory(
-            plan=plan_factory(name="Legacy Org", slug="organization", base_price=100),
-            plan_price=None,
+            plan=plan,
+            plan_price=plan_price_factory(
+                plan=plan, interval="monthly", amount=10_000, stripe_price_id=""
+            ),
         )
 
         html = self._inline().bills_against(item)

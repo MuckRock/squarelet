@@ -266,7 +266,7 @@ class TestOrganization:
 
         mock_sub_service.create.assert_called_with(
             stripe_customer=mock_customer.stripe_customer,
-            items=[{"plan": plan.stripe_id, "quantity": max_users}],
+            items=[{"plan": plan.list_price.stripe_price_id, "quantity": max_users}],
             billing="charge_automatically",
             metadata={"action": f"Subscription ({organization})"},
             days_until_due=None,
@@ -302,7 +302,7 @@ class TestOrganization:
 
         mock_sub_service.create.assert_called_with(
             stripe_customer=mock_customer.stripe_customer,
-            items=[{"plan": plan_b.stripe_id, "quantity": 1}],
+            items=[{"plan": plan_b.list_price.stripe_price_id, "quantity": 1}],
             billing="charge_automatically",
             metadata={"action": f"Subscription ({organization})"},
             days_until_due=None,
@@ -353,7 +353,7 @@ class TestOrganization:
         assert organization.subscription_items.filter(plan=plan).exists()
         mock_sub_service.create.assert_called_with(
             stripe_customer=mock_customer.stripe_customer,
-            items=[{"plan": plan.stripe_id, "quantity": 1}],
+            items=[{"plan": plan.list_price.stripe_price_id, "quantity": 1}],
             billing="send_invoice",
             metadata={"action": f"Subscription ({organization})"},
             days_until_due=30,
@@ -377,7 +377,7 @@ class TestOrganization:
         assert organization.subscription_items.filter(plan=plan).exists()
         mock_sub_service.create.assert_called_with(
             stripe_customer=mock_customer.stripe_customer,
-            items=[{"plan": plan.stripe_id, "quantity": 3}],
+            items=[{"plan": plan.list_price.stripe_price_id, "quantity": 3}],
             billing="charge_automatically",
             metadata={"action": f"Subscription ({organization})"},
             days_until_due=None,
@@ -408,7 +408,7 @@ class TestOrganization:
         assert organization.subscription_items.filter(plan=plan).exists()
         mock_sub_service.create.assert_called_with(
             stripe_customer=mock_customer.stripe_customer,
-            items=[{"plan": plan.stripe_id, "quantity": 2}],
+            items=[{"plan": plan.list_price.stripe_price_id, "quantity": 2}],
             billing="charge_automatically",
             metadata={"action": f"Subscription ({organization})"},
             days_until_due=None,
@@ -434,7 +434,7 @@ class TestOrganization:
         assert organization.subscription_items.filter(plan=plan).exists()
         mock_sub_service.create.assert_called_with(
             stripe_customer=mock_customer.stripe_customer,
-            items=[{"plan": plan.stripe_id, "quantity": 4}],
+            items=[{"plan": plan.list_price.stripe_price_id, "quantity": 4}],
             billing="charge_automatically",
             metadata={"action": f"Subscription ({organization})"},
             days_until_due=None,

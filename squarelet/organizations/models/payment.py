@@ -1116,11 +1116,10 @@ class SubscriptionItem(Cancellable, models.Model):
         to="organizations.PlanPrice",
         on_delete=models.PROTECT,
         related_name="subscription_items",
-        blank=True,
-        null=True,
         help_text=_(
-            "The price this subscription is billed at.  Nullable until every "
-            "subscription has been migrated off the legacy plan foreign key."
+            "The price this subscription is billed at.  Every line has one: "
+            "the plan a line is on is now a fact about its price, not the "
+            "other way round."
         ),
     )
 
@@ -1189,16 +1188,8 @@ class SubscriptionItem(Cancellable, models.Model):
 
     @property
     def is_free(self):
-        """Whether this line costs anything.
-
-        Reads the price once the line has one, and falls back to the plan
-        while `plan_price` can still be null - which it is for every
-        subscriber the backfill deliberately skipped, and for every signup
-        until the purchase flow starts recording a price.
-        """
-        if self.plan_price_id:
-            return self.plan_price.amount == 0
-        return self.plan is None or self.plan.free
+        """Whether this line costs anything."""
+        return self.plan_price.amount == 0
 
     @property
     def is_nonprofit(self):
@@ -1208,23 +1199,24 @@ class SubscriptionItem(Cancellable, models.Model):
         survive a move between tiers.  Self-reported and on the honour
         system, the way the checkbox that sets it is.
         """
-        return bool(self.plan_price_id and self.plan_price.label == "nonprofit")
+        return self.plan_price.label == "nonprofit"
 
     @property
     def stripe_price_id(self):
         """The Stripe object this line bills against.
 
-        Prefers the `PlanPrice`'s Stripe Price.  Falls back to the plan's
-        legacy id in two cases: while `plan_price` is still null, and when
-        a price exists but has no Stripe Price yet - a partial state
-        `consolidate_stripe_products` can leave and completes on a re-run.
-        Falling back means the line keeps billing exactly as it did before,
-        which is the safe reading of "not ready yet".
+        Falls back to the plan's legacy id when the price has no Stripe
+        Price yet - the partial state `consolidate_stripe_products` leaves
+        when it fails part-way and completes on a re-run.  Billing as it
+        billed before is the safe reading of "not ready yet".
+
+        The other fallback this had, for a line with no price at all, went
+        when the column became non-null.
 
         A free line has no Stripe counterpart at all; `stripe_items` drops
         those before asking.
         """
-        if self.plan_price_id and self.plan_price.stripe_price_id:
+        if self.plan_price.stripe_price_id:
             return self.plan_price.stripe_price_id
         return self.plan.stripe_id
 
@@ -1283,11 +1275,16 @@ class SubscriptionItem(Cancellable, models.Model):
         canonical_plan, plan_price = SubscriptionItem.objects.resolve_purchase(
             plan, nonprofit=self.is_nonprofit
         )
-        interval = (
-            plan_price.interval
-            if plan_price
-            else "annual" if plan.annual else "monthly"
-        )
+        if plan_price is None:
+            # Every line holds a price, so there is nowhere for this one to
+            # land.  Refused rather than written, because the alternative -
+            # a line pointing at a plan it is not billed for - is the state
+            # the non-null column exists to make impossible.
+            raise SubscriptionError(
+                f"Cannot change {self.plan} to {plan}: it has no price to "
+                f"bill against.  Give the plan a price first."
+            )
+        interval = plan_price.interval
         if interval != self.subscription.interval:
             raise SubscriptionError(
                 f"Cannot change {self.plan} to {plan} in place: it bills "

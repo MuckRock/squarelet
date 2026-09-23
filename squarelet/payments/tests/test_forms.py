@@ -152,6 +152,9 @@ class TestPlanPurchaseFormInit:
         """Invoice payment option shown for annual prices"""
         user = user_factory()
         price = plan_price_factory(interval="annual")
+        # Annual only: a plan arrives from the factory with a monthly list
+        # price, and the page defaults to the first interval on offer.
+        price.plan.prices.exclude(pk=price.pk).delete()
 
         form = PlanPurchaseForm(plan=price.plan, user=user)
 
@@ -511,6 +514,7 @@ class TestPlanPurchaseFormPlanData:
         """What the page's script reads: the price, in dollars."""
         user = user_factory()
         price = plan_price_factory(interval="annual", amount=100_000)
+        price.plan.prices.exclude(pk=price.pk).delete()
 
         form = PlanPurchaseForm(plan=price.plan, user=user)
         plan_data = form.get_plan_data()
@@ -583,6 +587,7 @@ class TestNonprofitPriceComesFromPlanPrice:
         """No list price means nothing to sell to a stranger; the nonprofit
         rate is a discount on it, not a price of its own."""
         plan = plan_factory(name="Organization", slug="organization")
+        plan.prices.all().delete()
         plan_price_factory(plan=plan, interval="monthly", label="nonprofit", amount=1)
 
         assert not self._form(plan)

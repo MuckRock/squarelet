@@ -14,6 +14,7 @@ from fuzzywuzzy import fuzz, process
 
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason
+from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.payments.factory import get_payment_provider
 
 # pylint:disable=too-many-positional-arguments
@@ -657,19 +658,27 @@ class SubscriptionItemQuerySet(models.QuerySet):
         from squarelet.organizations.models.payment import Subscription
 
         canonical_plan, plan_price = self.resolve_purchase(plan, nonprofit, interval)
+        if plan_price is None:
+            # Every line holds a price, so a plan with none cannot be sold.
+            # Refused here rather than written, because the row would be
+            # rejected by the column anyway and an IntegrityError says
+            # nothing about which plan or why.
+            raise SubscriptionError(
+                f"{plan} has no price to bill against"
+                + (f" at {interval}" if interval else "")
+                + ".  Give the plan a price first."
+            )
         if quantity is None:
-            quantity = 1 if plan_price is not None else plan.minimum_users
-        # The billing shape follows the resolved price, not `plan.annual`.
-        # Annual is a separate `Plan` row today, and the row a customer picks
-        # is not always the row they end up on -- the nonprofit variants are
-        # substituted in by the form.  Trusting the flag would let an annual
-        # price land on a subscription recorded as monthly, which groups it
-        # onto the wrong invoice and picks the wrong collection method.
-        interval = (
-            plan_price.interval
-            if plan_price
-            else "annual" if plan.annual else "monthly"
-        )
+            # One of the plan.  A flat Price bills `unit_amount x
+            # quantity`, so a tier is one unit and the blocks above it are
+            # a pack line of their own.
+            quantity = 1
+        # The billing shape follows the resolved price.  The row a customer
+        # picks is not always the row they end up on, so reading the plan
+        # would let an annual price land on a subscription recorded as
+        # monthly - the wrong invoice group and the wrong collection
+        # method.
+        interval = plan_price.interval
         collection_method = self._collection_method(interval, payment_method)
         subscription, created = Subscription.objects.get_or_create(
             organization=organization,

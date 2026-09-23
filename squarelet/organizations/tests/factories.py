@@ -127,17 +127,52 @@ class SubscriptionFactory(factory.django.DjangoModelFactory):
         django_get_or_create = ("organization", "interval", "collection_method")
 
 
+def _price_for_line(plan, interval):
+    """The plan's list price at this interval, made only if absent.
+
+    Reused rather than created every time: a test that sets up its own
+    price for a plan would otherwise collide with one of these on
+    `unique_active_plan_price`, and the collision would be the factory's
+    fault rather than the test's.
+    """
+    # Local import: this module is imported for its factories, and the
+    # models it builds import it back through the app registry.
+    # pylint: disable=import-outside-toplevel
+    # Squarelet
+    from squarelet.organizations.models.payment import PlanPrice
+
+    if plan is None or plan.pk is None:
+        # `build()` makes an unsaved line from unsaved parts; there is no
+        # database to look in and nothing will be written.
+        return None
+
+    existing = PlanPrice.objects.filter(
+        plan=plan, interval=interval, label="standard", code="", active=True
+    ).first()
+    if existing is not None:
+        return existing
+    return PlanPriceFactory(plan=plan, interval=interval, amount=100 * plan.base_price)
+
+
 class SubscriptionItemFactory(factory.django.DjangoModelFactory):
     """A line on a subscription.
 
     Pass `subscription__organization=` or `subscription__cancelled=` to steer
     the parent; a bare call builds one for you.
+
+    Every line has a price, the way the column now requires - built on the
+    line's own plan, at the interval its subscription bills, so the three
+    agree without the caller having to say so.  Pass `plan_price=` to
+    choose one; pass `plan=` alone and the price follows it.
     """
 
     subscription = factory.SubFactory(
         "squarelet.organizations.tests.factories.SubscriptionFactory"
     )
     plan = factory.SubFactory("squarelet.organizations.tests.factories.PlanFactory")
+    plan_price = factory.LazyAttribute(
+        lambda item: _price_for_line(item.plan, item.subscription.interval)
+    )
 
     class Meta:
         model = "organizations.SubscriptionItem"
@@ -145,7 +180,17 @@ class SubscriptionItemFactory(factory.django.DjangoModelFactory):
 
 @factory.django.mute_signals(signals.pre_save, signals.post_save)
 class PlanFactory(factory.django.DjangoModelFactory):
-    """A factory for creating Plan test objects"""
+    """A factory for creating Plan test objects.
+
+    Comes with a list price at its own interval, because every plan made
+    through the app has had one since `make_stripe_plan` started creating
+    them - and a line cannot be sold against a plan that has none.  The
+    signals stay muted so nothing reaches Stripe; the price is written
+    directly.
+
+    A test that wants an unsellable plan deletes it: `plan.prices.all()
+    .delete()`.
+    """
 
     name = factory.Sequence(lambda n: f"Plan {n}")
     slug = factory.LazyAttribute(lambda obj: slugify(obj.name))
@@ -154,6 +199,23 @@ class PlanFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = "organizations.Plan"
         django_get_or_create = ("name",)
+
+    @factory.post_generation
+    def list_price(self, create, extracted, **kwargs):
+        """The plan's standard price, unless the test brought its own."""
+        # pylint: disable=unused-argument
+        if not create or extracted is False:
+            return
+        interval = "annual" if self.annual else "monthly"
+        if self.prices.filter(interval=interval, label="standard", code="").exists():
+            return
+        PlanPriceFactory(
+            plan=self,
+            interval=interval,
+            label="standard",
+            code="",
+            amount=100 * self.base_price,
+        )
 
 
 class ProfessionalPlanFactory(PlanFactory):
@@ -189,6 +251,29 @@ class PlanPriceFactory(factory.django.DjangoModelFactory):
 
     class Meta:
         model = "organizations.PlanPrice"
+
+    @classmethod
+    def _create(cls, model_class, *args, **kwargs):
+        """Update the plan's price at these terms rather than adding a second.
+
+        A plan arrives from `PlanFactory` already holding a list price, so
+        a test asking for one at the same terms means "make it look like
+        this", not "make another" - which the active-price constraint
+        refuses anyway.  Updating keeps the test's amount rather than
+        silently handing back the default, which a plain get_or_create
+        would do.
+        """
+        natural = {
+            field: kwargs.pop(field)
+            for field in ("plan", "interval", "label", "code")
+            if field in kwargs
+        }
+        if set(natural) == {"plan", "interval", "label", "code"}:
+            price, _created = model_class.objects.update_or_create(
+                **natural, defaults=kwargs
+            )
+            return price
+        return super()._create(model_class, *args, **natural, **kwargs)
 
 
 class OrganizationPlanFactory(PlanFactory):

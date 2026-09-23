@@ -58,30 +58,6 @@ class TestWhatIsSentToStripe:
             {"plan": "price_paid", "quantity": item.quantity}
         ]
 
-    def test_a_line_without_a_price_falls_back_to_the_plan(
-        self, subscription_item_factory, legacy_plan
-    ):
-        item = subscription_item_factory(plan=legacy_plan)
-
-        assert item.subscription.stripe_items() == [
-            {"plan": item.plan.stripe_id, "quantity": item.quantity}
-        ]
-
-    def test_a_mixed_subscription_sends_the_right_thing_per_line(
-        self, subscription_item_factory, paid_price, legacy_plan
-    ):
-        """The state production sits in for the whole window before 3c."""
-        migrated = subscription_item_factory(
-            plan=paid_price.plan, plan_price=paid_price
-        )
-        legacy = subscription_item_factory(
-            subscription=migrated.subscription, plan=legacy_plan
-        )
-
-        specs = migrated.subscription.stripe_items()
-
-        assert {s["plan"] for s in specs} == {"price_paid", legacy.plan.stripe_id}
-
     def test_a_price_with_no_stripe_price_yet_falls_back(
         self, subscription_item_factory, plan_price_factory, plan_factory
     ):
@@ -299,12 +275,19 @@ class TestPurchaseResolvesAPrice:
 
     def test_a_comped_price_is_unreachable(self, plan_price_factory):
         plan = plan_price_factory(interval="monthly", label="comped", amount=0).plan
+        # Only the comped row: the factory's standard list price would
+        # otherwise be the thing resolved, which is not what this asks.
+        plan.prices.exclude(label="comped").delete()
 
         assert self._resolve(plan=plan) is None
 
     def test_no_price_yet_resolves_to_none(self, plan_factory):
-        """Every plan, until consolidate_stripe_products has run."""
-        assert self._resolve(plan=plan_factory()) is None
+        """A plan with nothing to sell - one whose price was retired, or
+        one an admin made before giving it a price."""
+        plan = plan_factory(name="Unpriced Tier")
+        plan.prices.all().delete()
+
+        assert self._resolve(plan=plan) is None
 
 
 @pytest.mark.django_db()
@@ -466,19 +449,17 @@ class TestATierIsOneUnit:
             {"plan": "price_org", "quantity": 1}
         ]
 
-    def test_a_legacy_purchase_still_takes_the_minimum(
+    def test_a_plan_with_no_price_cannot_be_sold(
         self, organization_factory, legacy_plan
     ):
-        """No price to resolve to means the legacy tiered Plan, which prices
-        its minimum as the base and wants that many units."""
-        legacy_plan.minimum_users = 5
-        legacy_plan.save()
+        """There is nowhere for the line to land, so it is refused rather
+        than written - the quantity question does not arise."""
+        legacy_plan.prices.all().delete()
 
-        item, _ = SubscriptionItem.objects.start(
-            organization=organization_factory(), plan=legacy_plan
-        )
-
-        assert item.quantity == 5
+        with pytest.raises(SubscriptionError, match="no price to bill against"):
+            SubscriptionItem.objects.start(
+                organization=organization_factory(), plan=legacy_plan
+            )
 
     def test_an_explicit_quantity_is_kept(
         self, organization_factory, plan_price_factory

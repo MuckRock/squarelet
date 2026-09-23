@@ -149,10 +149,11 @@ LEGACY_PLAN_MAP = {
         "",
     ),
     # A cohort rate, sold as a one-year programme and still renewing.  The
-    # interval here is nominal: this plan bills two of its subscribers
+    # interval here is nominal: this plan billed two of its subscribers
     # annually and one monthly, which one legacy slug cannot express, so
-    # `backfill_plan_prices` picks the row from the line's own
-    # subscription rather than from this entry.  See COHORT_SLUG there.
+    # the migration picked the row from each line's own subscription
+    # rather than from this entry.  Kept because a purchase of this row
+    # still resolves through it.
     ("election-accountability-cohort", True): (
         "sunlight-essential",
         "annual",
@@ -230,11 +231,6 @@ PACK_DECOMPOSITION = {
 # to lapse meant waiting until September 2027, and holding the entitlement
 # shape migration and a non-null `plan_price` behind it.
 DEFERRED_SLUGS = set()
-
-# The one legacy plan billing at two cadences.  `backfill_plan_prices`
-# takes its interval from each line's own subscription rather than from
-# LEGACY_PLAN_MAP, which is keyed on the slug and so can only say one.
-COHORT_SLUG = "election-accountability-cohort"
 
 
 def resolve_target(slug, *, allow_comped):

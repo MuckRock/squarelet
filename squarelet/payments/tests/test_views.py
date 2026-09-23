@@ -75,7 +75,9 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
             token="tok_visa",
             payment_method="new-card",
             nonprofit=False,
-            interval=None,
+            # The plan is sellable, so the page had an interval to carry
+            # back - it is None only when there is nothing to sell.
+            interval="monthly",
         )
 
         # Should redirect to the organization
@@ -190,7 +192,9 @@ class TestPlanDetailViewCreateOrganization(ViewTestMixin):
             token="tok_visa",
             payment_method="new-card",
             nonprofit=False,
-            interval=None,
+            # The plan is sellable, so the page had an interval to carry
+            # back - it is None only when there is nothing to sell.
+            interval="monthly",
         )
 
         # Should redirect to the organization
@@ -672,8 +676,8 @@ class TestPlanDetailViewWithSlug(ViewTestMixin):
         # Should return 200 OK (no redirect needed)
         assert response.status_code == 200
 
-        # A plan with no price has nothing to sell, and says so
-        assert response.context_data["price"] is None
+        # One list price, so one interval on offer and nothing to switch to
+        assert response.context_data["price"] == plan.list_price
         assert response.context_data["other_interval"] is None
 
     def test_canonical_url_with_outdated_slug_still_works(
@@ -782,6 +786,7 @@ class TestTheOtherInterval(ViewTestMixin):
             user.individual_organization, "customer", return_value=mock_customer
         )
         plan = plan_factory(name="No Price Yet")
+        plan.prices.all().delete()
 
         html = self._get(rf, user, plan).rendered_content
 
