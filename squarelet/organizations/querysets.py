@@ -441,22 +441,16 @@ class SubscriptionItemQuerySet(models.QuerySet):
             collection_method=collection_method,
         )
         if subscription.cancelled and not plan.free:
-            # One subscription per organization per billing shape, so a new
-            # paid line joins the one that is ending: Stripe charges for it
-            # at once and the sweep deletes it on the cancellation date.
-            # Refused until per-line cancellation lands, since the only
-            # alternative here is lifting a cancellation the customer asked
-            # for.
+            # A new paid line would join the ending subscription - charged
+            # now, deleted by the sweep.  Refused until per-line cancellation.
             raise SubscriptionError(
                 f"This organization has a cancellation pending on its "
                 f"{interval} billing.  A plan added now would be charged "
                 f"immediately and removed when the cancellation completes; "
                 f"wait until then, or resubscribe to the cancelled plan."
             )
-        # Stripe inside the transaction on purpose: the row has to exist
-        # before the call describes it, and a Stripe failure must not leave
-        # an organization holding a line nobody bills.  A failed commit after
-        # a Stripe success is the survivable direction - we retry into it.
+        # Inside the transaction on purpose: a Stripe failure must not leave
+        # an organization holding a line nobody bills.
         with transaction.atomic():
             item = self.model.objects.create(
                 subscription=subscription, plan=plan, quantity=quantity
@@ -469,15 +463,13 @@ class SubscriptionItemQuerySet(models.QuerySet):
                     anchor_day=anchor.day if anchor else None,
                 )
             else:
-                # Take what Stripe returned - the cached object was fetched
-                # before the line was added.
+                # The cached object was fetched before the line was added.
                 stripe_subscription = subscription.stripe_modify()
                 if stripe_subscription is not None:
                     subscription.settle_added_line(stripe_subscription)
 
-        # Every new line, free or paid.  `notify_started` already decides
-        # who to enrol by entitlement, so gating on price here would drop
-        # free signups that carry the `organization` entitlement.
+        # `notify_started` gates on entitlement; gating on price here would
+        # drop free signups that carry `organization`.
         item.notify_started()
         return item, stripe_subscription
 

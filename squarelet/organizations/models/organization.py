@@ -910,9 +910,8 @@ class Organization(AvatarMixin, models.Model):
         """
         wix_plans = []
 
-        # Filtered in Python rather than in SQL so a prefetch can serve it:
-        # `get_plans().filter(wix=True)` builds a fresh queryset every call,
-        # and this walks every group and then recurses up the hierarchy.
+        # Filtered in Python so a prefetch can serve it; a fresh queryset
+        # cannot, and this recurses up the whole hierarchy.
         for group in self.groups.filter(share_resources=True).prefetch_related(
             "subscriptions__plans"
         ):
@@ -947,8 +946,7 @@ class Organization(AvatarMixin, models.Model):
             if source.pk in _seen:
                 return
             _seen.add(source.pk)
-            # `prefetched_plans`, not `get_plans`: the loops below prefetch
-            # `subscriptions__plans`, and a fresh queryset cannot read it.
+            # `get_plans` builds a fresh queryset that cannot read the prefetch.
             for plan in source.prefetched_plans():
                 if not plan.free:
                     inherited.append((source, plan))

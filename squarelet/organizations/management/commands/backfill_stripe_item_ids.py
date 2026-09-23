@@ -56,9 +56,8 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        # A subscription needs visiting if any line lacks an id or its
-        # renewal date was never cached; anything with both filled in would
-        # cost a Stripe read to learn nothing.
+        # Anything with both already filled in would cost a Stripe read to
+        # learn nothing.
         qs = (
             Subscription.objects.select_related("organization")
             .exclude(subscription_id="")
@@ -93,11 +92,8 @@ class Command(BaseCommand):
         try:
             stripe_sub = subscription.stripe_subscription
             if stripe_sub is None:
-                # `retrieve` swallows InvalidRequestError and answers None,
-                # so a subscription Stripe has never heard of arrives here
-                # rather than as the exception below.  Counted separately, or
-                # a run against the wrong Stripe account looks like a run
-                # with nothing to do.
+                # Counted separately: otherwise a run against the wrong
+                # Stripe account looks like a run with nothing to do.
                 self.stderr.write(
                     f"  [ERROR] {subscription.subscription_id} "
                     f"({subscription.organization.slug}): not found on Stripe"
@@ -110,8 +106,7 @@ class Command(BaseCommand):
             subscription.save(update_fields=Subscription.STRIPE_CACHED_FIELDS)
             return "filled"
         except stripe.StripeError as exc:
-            # One subscription's failure must not strand the rest: this runs
-            # once, after a deploy, over every organization that has one.
+            # One subscription's failure must not strand the rest.
             self.stderr.write(f"  {subscription.organization.slug}: {exc}")
             return "errors"
 
