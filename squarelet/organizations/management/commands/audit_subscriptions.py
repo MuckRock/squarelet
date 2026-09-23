@@ -256,12 +256,8 @@ class Command(BaseCommand):
 
         for line in sub.items.all():
             if line.is_free and not line.stripe_item_id:
-                # `stripe_items()` drops a free line before describing the
-                # subscription, so it has no Stripe item to compare against
-                # and would otherwise report missing on every run.
-                #
-                # Deliberately not every free line: one that *does* carry a
-                # Stripe item id is drift the audit exists to surface.
+                # A free line has no Stripe item to compare against, but one
+                # carrying an id is drift worth surfacing.
                 continue
             label = line.plan.slug if line.plan else "None"
             stripe_item = stripe_items.get(line.stripe_item_id)
@@ -293,8 +289,7 @@ class Command(BaseCommand):
                     (f"item[{label}] plan_stripe_id", local_plan_id, stripe_plan_id)
                 )
 
-        # Lines Stripe is billing that we have no local record for - the
-        # failure mode that matters most, since the customer is being charged.
+        # The failure mode that matters most: the customer is being charged.
         for extra_id in set(stripe_items) - seen:
             extra = stripe_items[extra_id]
             price = getattr(extra, "price", None) or getattr(extra, "plan", None)
@@ -389,9 +384,8 @@ class Command(BaseCommand):
         if not _datetimes_match(sub.current_period_end, stripe_cpe):
             diffs.append(("current_period_end", sub.current_period_end, stripe_cpe))
 
-        # Per-line comparison.  A subscription may bill several plans, so
-        # each local line is matched to its Stripe item by stripe_item_id
-        # rather than assuming a single line at items.data[0].
+        # A subscription may bill several plans, so match by id rather than
+        # assuming items.data[0].
         diffs.extend(self._compare_items(sub, items))
 
         # discounts / coupons applied to this subscription

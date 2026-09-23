@@ -81,9 +81,8 @@ class Command(BaseCommand):
             )
             return "error"
 
-        # retrieve() swallows InvalidRequestError and returns None, so a
-        # subscription that no longer exists on Stripe arrives here as None
-        # rather than as the exception caught above.
+        # retrieve() returns None instead of raising for a subscription that
+        # no longer exists.
         if stripe_sub is None:
             self.stdout.write(
                 f"  [ERROR] {local_sub.subscription_id} "

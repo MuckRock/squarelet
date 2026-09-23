@@ -58,8 +58,7 @@ def restore_organization():
 
     # Retire cancelled subscriptions for due orgs where the Stripe cancellation
     # date has passed (or is null, which covers free plans and legacy records).
-    # One row at a time rather than a bulk delete, which cascades to the
-    # free and comped lines nobody cancelled.
+    # A bulk delete cascades to the free and comped lines nobody cancelled.
     due_cancelled = Subscription.objects.filter(
         organization_id__in=due_org_ids,
         cancelled=True,
@@ -696,8 +695,8 @@ def retire_subscription(subscription):
         if not item.is_free:
             item.delete()
 
-    # Asked of the database rather than of `subscription.items`, which would
-    # answer a `count()` from a prefetch cache with the pre-delete number.
+    # `subscription.items.count()` would answer from a prefetch cache with
+    # the pre-delete number.
     survivors = SubscriptionItem.objects.filter(subscription=subscription).count()
     if survivors:
         subscription.subscription_id = ""
