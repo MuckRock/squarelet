@@ -169,13 +169,10 @@ class Organization(AvatarMixin, models.Model):
     def subscription_items(self):
         """Every subscription line belonging to this organization.
 
-        A queryset rather than a related manager: items hang off Subscription
-        now, so there is no direct relation from here.  Reads behave the same
-        (`filter`, `get`, `exists`, ...), but creating an item needs a parent
-        subscription, so use `add_subscription()` for that.
-
-        This does not participate in `prefetch_related`.  To avoid a query per
-        organization, prefetch `subscriptions__items` and walk that instead.
+        A queryset, not a related manager: reads behave the same, but
+        creating an item needs a parent subscription - use
+        `add_subscription()`.  Does not participate in `prefetch_related`;
+        prefetch `subscriptions__items` and walk that instead.
         """
         # pylint: disable=import-outside-toplevel
         # Squarelet
@@ -186,14 +183,8 @@ class Organization(AvatarMixin, models.Model):
     def get_plans(self):
         """Plans this organization is subscribed to.
 
-        Replaces the old `plans` many-to-many.  SubscriptionItem no longer
-        carries an organization of its own - it reaches one through its
-        subscription - so a through-model relation is no longer possible from
-        here.  The equivalent relation lives on Subscription as `plans`.
-
-        Callers that need this for many organizations at once should prefetch
-        `subscriptions__plans` and walk that instead, so this stays a single
-        query per organization rather than one per call.
+        One query per organization.  For many at once, prefetch
+        `subscriptions__plans` and walk that instead.
         """
         # pylint: disable=import-outside-toplevel
         # Squarelet
@@ -726,10 +717,8 @@ class Organization(AvatarMixin, models.Model):
     def subscription_cancelled(self, subscription):
         """The subscription was cancelled due to payment failure
 
-        Args:
-            subscription: The Subscription to cancel.  Every line it carries
-                goes with it, because they all bill on the one invoice that
-                failed.
+        Every line on `subscription` goes with it - they all bill on the one
+        invoice that failed.
         """
         if subscription is None:
             logger.error(

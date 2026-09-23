@@ -373,13 +373,9 @@ class Subscription(models.Model):
     """A subscription on Stripe.
 
     One row per Stripe subscription; its lines are SubscriptionItems.  Stripe
-    requires every item on a subscription to share a billing interval and a
-    collection method, so an organization needs one subscription per
-    combination it holds - which is what the uniqueness constraint below
-    encodes.
-
-    Status, period end and cancellation are subscription-level and apply to
-    every line at once.
+    requires every item to share a billing interval and collection method, so
+    an organization needs one subscription per combination it holds - what the
+    uniqueness constraint below encodes.
     """
 
     INTERVAL_CHOICES = [
@@ -422,8 +418,7 @@ class Subscription(models.Model):
         help_text=_("How Stripe collects payment, shared by every item"),
     )
 
-    # Cancellation takes effect at the end of the billing period, when the
-    # record is deleted.
+    # Cancellation takes effect at period end, when the record is deleted.
     cancelled = models.BooleanField(default=False)
     cancel_at = models.DateField(
         _("cancel at"),
@@ -469,8 +464,8 @@ class Subscription(models.Model):
     def stripe_items(self, include_ids=False):
         """Stripe line specs for every item on this subscription.
 
-        Pass include_ids when modifying an existing subscription: Stripe needs
-        each line's own id to update it in place rather than replace it.
+        Pass include_ids when modifying: Stripe needs each line's own id to
+        update it in place rather than replace it.
         """
         specs = []
         for item in self.items.select_related("plan"):
@@ -495,8 +490,7 @@ class Subscription(models.Model):
     def start(self, payment_method="card", anchor_day=None):
         """Create this subscription on Stripe, with all of its items.
 
-        Returns the Stripe subscription for paid subscriptions, or None when
-        every line is free - those never reach Stripe at all.
+        Returns the Stripe subscription, or None when every line is free.
         """
         if self.stripe_subscription:
             logger.error(
@@ -623,8 +617,7 @@ class Subscription(models.Model):
             self.cancel_at = self.current_period_end.date()
         self.save()
 
-        # The notification names a plan, so it belongs to the lines, not to
-        # the subscription that carries them.
+        # The notification names a plan, so it belongs to the lines.
         for item in self.items.select_related("plan"):
             item.send_slack_notification("cancelled")
 
@@ -685,16 +678,13 @@ class Subscription(models.Model):
     class Meta:
         ordering = ("organization", "interval")
         constraints = [
-            # Every real Stripe subscription id is unique; any number of
-            # comped subscriptions may leave it blank.
+            # Comped subscriptions leave it blank, so the constraint is partial.
             models.UniqueConstraint(
                 fields=["subscription_id"],
                 condition=~models.Q(subscription_id=""),
                 name="unique_stripe_subscription_id_when_set",
             ),
-            # One subscription per organization per billing shape.  Anything
-            # that would need a second one for the same shape should be an
-            # item on the existing subscription instead.
+            # One subscription per organization per billing shape.
             models.UniqueConstraint(
                 fields=["organization", "interval", "collection_method"],
                 name="unique_subscription_per_billing_shape",
@@ -711,8 +701,7 @@ class Subscription(models.Model):
 class SubscriptionItem(models.Model):
     """One line on a Stripe subscription.
 
-    The organization is reached through `subscription` rather than
-    duplicated here, so a line can never disagree with its parent.
+    The organization is reached through `subscription`, never duplicated here.
     """
 
     objects = SubscriptionItemQuerySet.as_manager()
@@ -791,9 +780,8 @@ class SubscriptionItem(models.Model):
     )
 
     class Meta:
-        # One line per plan per subscription.  "An organization may not hold
-        # the same plan twice" is now wider than a single subscription can
-        # see, so add_subscription() enforces that part.
+        # Per subscription only; add_subscription() enforces it across the
+        # organization.
         unique_together = ("subscription", "plan")
         ordering = ("plan",)
 
@@ -805,9 +793,8 @@ class SubscriptionItem(models.Model):
     def organization(self):
         """The owning organization, reached through the parent subscription.
 
-        Read-only on purpose: the column lives on `Subscription` so a line can
-        never disagree with the subscription it bills on.  Select or prefetch
-        `subscription__organization` before touching this in a loop.
+        Read-only.  Select or prefetch `subscription__organization` before
+        touching this in a loop.
         """
         return self.subscription.organization
 
@@ -824,11 +811,9 @@ class SubscriptionItem(models.Model):
     def cancel(self):
         """Stop billing this line.
 
-        The last line on a subscription cancels the whole subscription at
-        period end, so the customer keeps what they already paid for.  Any
-        other line is dropped from the Stripe subscription right away with
-        proration suppressed - the next invoice simply omits it, and no
-        mid-period credit or charge is generated.
+        The last line cancels the whole subscription at period end.  Any
+        other is dropped immediately with proration suppressed, so the next
+        invoice omits it rather than crediting it.
         """
         if self.subscription.items.count() <= 1:
             self.subscription.cancel()
@@ -846,9 +831,8 @@ class SubscriptionItem(models.Model):
     def notify_started(self):
         """Announce a newly added line.
 
-        The Mailchimp journey fires only for the line that first grants the
-        organization entitlement, so an org that already has it through
-        another line is not enrolled twice.
+        Fires only for the line that first grants the organization
+        entitlement, so an org is not enrolled twice.
         """
         organization = self.subscription.organization
         if self.plan_id and self.plan.entitlements.filter(slug="organization").exists():

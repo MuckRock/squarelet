@@ -419,14 +419,9 @@ class SubscriptionItemQuerySet(models.QuerySet):
     def start(self, organization, plan, payment_method="card", quantity=1):
         """Add a line for `plan` and make sure Stripe knows about it.
 
-        Stripe requires every item on a subscription to share a billing
-        interval and a collection method, so those two fields decide which
-        subscription the line joins.  A line that matches an existing
-        subscription is added to it and bills on the same invoice; one that
-        does not starts a new subscription.
-
-        Returns the new line and the Stripe subscription carrying it, which
-        is None for a subscription that costs nothing.
+        Interval and collection method decide which subscription the line
+        joins; a line matching none starts a new one.  Returns the line and
+        its Stripe subscription, None when the subscription costs nothing.
         """
         # Lazy import to avoid a circular import (payment.py imports this module)
         # pylint: disable=import-outside-toplevel
@@ -455,8 +450,6 @@ class SubscriptionItemQuerySet(models.QuerySet):
                 anchor_day=anchor.day if anchor else None,
             )
         else:
-            # The subscription is already live on Stripe, so the new line is
-            # pushed onto it rather than opening a second subscription.
             subscription.stripe_modify()
             stripe_subscription = subscription.stripe_subscription
 

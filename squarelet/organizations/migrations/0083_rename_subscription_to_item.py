@@ -5,15 +5,12 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
     """Rename Subscription to SubscriptionItem.
 
-    Hand-written: makemigrations cannot infer a rename without being asked
-    interactively, and non-interactively it emits CreateModel + DeleteModel,
-    which would drop every subscription.
+    Hand-written: non-interactively makemigrations emits CreateModel +
+    DeleteModel for a rename, which would drop every subscription.
 
-    First half of splitting the model in two.  A SubscriptionItem is one line
-    on a Stripe subscription; the Subscription that owns those lines arrives
-    next.  Renaming on its own first means every existing reference fails
-    loudly rather than silently binding to a `Subscription` that now means
-    something different.
+    Renamed on its own, before the new `Subscription` arrives, so every
+    existing reference fails loudly rather than binding to a name that now
+    means something different.
     """
 
     dependencies = [
@@ -25,10 +22,8 @@ class Migration(migrations.Migration):
             old_name="Subscription",
             new_name="SubscriptionItem",
         ),
-        # Nullable here, and dropped by the next migration once the
-        # organization has moved to the parent.  Relaxed in *this* migration
-        # so that reversing works - Postgres refuses to ALTER a table in the
-        # same transaction that has just written to it.
+        # Relaxed here rather than alongside the data move so reversing
+        # works: Postgres refuses to ALTER a table it has just written to.
         migrations.AlterField(
             model_name="subscriptionitem",
             name="organization",
