@@ -78,6 +78,28 @@ class MembershipInline(admin.TabularInline):
     extra = 0
 
 
+class ApplicationTokenInline(admin.TabularInline):
+    model = ApplicationToken
+    fields = (
+        "name",
+        "display_prefix",
+        "allow_staff",
+        "created_at",
+        "last_used_at",
+        "expires_at",
+        "revoked_at",
+    )
+    readonly_fields = fields
+    extra = 0
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        # Do not allow creating tokens in admin.
+        # Tokens are only issued from the user's account page,
+        # after which the plaintext token are shown once.
+        return False
+
+
 @admin.register(User)
 class MyUserAdmin(VersionAdmin, AuthUserAdmin):
     add_form = MyUserCreationForm
@@ -187,7 +209,7 @@ class MyUserAdmin(VersionAdmin, AuthUserAdmin):
     )
     list_filter = AuthUserAdmin.list_filter + (PermissionFilter,)
     search_fields = ("username_deterministic", "name", "email_deterministic")
-    inlines = [EmailInline, InvitationInline, MembershipInline]
+    inlines = [EmailInline, InvitationInline, MembershipInline, ApplicationTokenInline]
 
     def get_queryset(self, request):
         """Add deterministic fields for username and email so they
@@ -408,8 +430,9 @@ class ApplicationTokenAdmin(admin.ModelAdmin):
     actions = ["revoke"]
 
     def has_add_permission(self, request):
-        # Tokens are only issued from the user's account page, where the
-        # plaintext can be shown once
+        # Do not allow creating tokens in admin.
+        # Tokens are only issued from the user's account page,
+        # after which the plaintext token are shown once.
         return False
 
     @admin.action(description="Revoke selected tokens")
