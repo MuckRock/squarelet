@@ -99,7 +99,7 @@
 }
 
 .card-subsection .card-item:hover {
-  border-color: var(--gray-1);
+  background-color: var(--gray-1);
 }
 
 .card-item form {
