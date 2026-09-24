@@ -3,6 +3,7 @@ import pytest
 
 # Squarelet
 from squarelet.organizations.models import Plan, Subscription, SubscriptionItem
+from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.plan_mapping import resolve_target
 
 
@@ -351,3 +352,134 @@ class TestWhereAPurchaseIsStored:
         plan = plan_factory(name="Unmapped Plan")
 
         assert SubscriptionItem.objects.stored_under(plan) == {plan}
+
+
+@pytest.fixture(name="no_stripe")
+def no_stripe_fixture(mocker):
+    mocker.patch("squarelet.organizations.models.Subscription.start")
+    mocker.patch(
+        "squarelet.organizations.models.payment.SubscriptionItem.notify_started"
+    )
+
+
+@pytest.mark.django_db()
+@pytest.mark.usefixtures("no_stripe")
+class TestSellingAgainstThePrice:
+    def test_the_line_is_stored_under_the_tier_and_its_price(
+        self, organization_factory, plan_factory, plan_price_factory
+    ):
+        canonical = plan_with_slug(
+            plan_factory, "Sunlight Essential", "sunlight-essential"
+        )
+        price = plan_price_factory(
+            plan=canonical, interval="annual", label="nonprofit", amount=400_000
+        )
+        # The row the form substitutes in, with its annual flag wrong.
+        picked = plan_with_slug(
+            plan_factory,
+            "Sunlight Nonprofit Essential Annual",
+            "sunlight-nonprofit-essential-annual",
+            annual=False,
+        )
+
+        item, _ = SubscriptionItem.objects.start(
+            organization=organization_factory(), plan=picked
+        )
+
+        assert item.plan == canonical
+        assert item.plan_price == price
+        assert item.subscription.interval == "annual"
+
+    def test_a_tier_is_one_unit_of_its_price(
+        self, organization_factory, plan_price_factory
+    ):
+        price = plan_price_factory(amount=10_000)
+        price.plan.minimum_users = 5
+        price.plan.save()
+
+        item, _ = SubscriptionItem.objects.start(
+            organization=organization_factory(), plan=price.plan
+        )
+
+        assert item.quantity == 1
+
+    def test_a_legacy_plan_still_takes_its_minimum(
+        self, organization_factory, legacy_plan
+    ):
+        """A legacy tiered Stripe Plan prices its minimum as the base."""
+        legacy_plan.minimum_users = 5
+        legacy_plan.save()
+
+        item, _ = SubscriptionItem.objects.start(
+            organization=organization_factory(), plan=legacy_plan
+        )
+
+        assert item.quantity == 5
+
+    def test_an_explicit_quantity_is_kept(
+        self, organization_factory, plan_price_factory
+    ):
+        price = plan_price_factory(amount=1_000)
+
+        item, _ = SubscriptionItem.objects.start(
+            organization=organization_factory(), plan=price.plan, quantity=3
+        )
+
+        assert item.quantity == 3
+
+    def test_a_zero_price_goes_on_the_free_subscription(
+        self, organization_factory, plan_factory, plan_price_factory
+    ):
+        plan = plan_with_slug(
+            plan_factory, "Organization", "organization", base_price=100
+        )
+        plan_price_factory(plan=plan, amount=0)
+
+        item, _ = SubscriptionItem.objects.start(
+            organization=organization_factory(), plan=plan
+        )
+
+        assert item.subscription.kind == "free"
+
+    def test_buying_a_variant_a_second_time_is_refused(
+        self, organization_factory, plan_factory, plan_price_factory
+    ):
+        """Refused before any card or Stripe work, not at the insert."""
+        canonical = plan_with_slug(
+            plan_factory, "Sunlight Essential", "sunlight-essential"
+        )
+        plan_price_factory(plan=canonical, interval="annual", label="nonprofit")
+        picked = plan_with_slug(
+            plan_factory,
+            "Sunlight Nonprofit Essential Annual",
+            "sunlight-nonprofit-essential-annual",
+            annual=True,
+        )
+        organization = organization_factory()
+        SubscriptionItem.objects.start(
+            organization=organization, plan=picked, nonprofit=True
+        )
+
+        with pytest.raises(SubscriptionError, match="already has an active"):
+            organization.add_subscription(picked, None, None, nonprofit=True)
+
+    def test_a_line_bought_before_prices_existed_still_counts(
+        self, organization_factory, plan_factory, plan_price_factory
+    ):
+        """Held under the plan picked, not yet under its tier."""
+        canonical = plan_with_slug(
+            plan_factory, "Sunlight Essential", "sunlight-essential"
+        )
+        picked = plan_with_slug(
+            plan_factory,
+            "Sunlight Essential (Annual)",
+            "sunlight-essential-annual",
+            annual=True,
+        )
+        organization = organization_factory()
+        held, _ = SubscriptionItem.objects.start(organization=organization, plan=picked)
+        assert held.plan == picked
+        plan_price_factory(plan=canonical, interval="annual")
+
+        with pytest.raises(SubscriptionError, match="already has an active"):
+            organization.add_subscription(picked, None, None)
