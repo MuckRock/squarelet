@@ -195,6 +195,21 @@ LEGACY_PLAN_MAP = {
 # None of this is trusted on faith: the migration recomputes each
 # subscriber's bill both ways and refuses anyone the arithmetic does not
 # reproduce exactly.
+# Every pack plan, as 0082 seeds them.  The canonical list: anything that
+# needs to know "is this a pack?" reads this, not PACK_DECOMPOSITION,
+# which only lists the packs a *legacy* plan decomposes into and so
+# omits any pack nothing decomposes into yet.  `migrate_entitlement_shape`
+# derived its pack set from the decomposition map and applied the tier
+# transform to the two packs it did not list, zeroing their per-unit
+# value - a sellable product that granted nothing.
+PACK_SLUGS = frozenset(
+    {
+        "muckrock-request-pack",
+        "documentcloud-credit-pack",
+        "scoutpost-credit-pack",
+    }
+)
+
 PACK_DECOMPOSITION = {
     "organization": ("muckrock-request-pack",),
     "organization-annual": ("muckrock-request-pack",),
