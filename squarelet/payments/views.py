@@ -702,7 +702,11 @@ class BaseCancelSubscription(SubscriptionObjectMixin, UpdateView):
     template_name = "subscriptions/cancel_subscription.html"
 
     def get_line(self):
-        return self.object.subscription_items.filter(id=self.kwargs["pk"]).first()
+        return (
+            self.object.subscription_items.filter(id=self.kwargs["pk"])
+            .select_related("plan", "subscription")
+            .first()
+        )
 
     proration_signer = TimestampSigner(salt="squarelet.payments.removal-proration")
 
@@ -726,10 +730,10 @@ class BaseCancelSubscription(SubscriptionObjectMixin, UpdateView):
         line = self.get_line()
         if line:
             context["plans"] = [line.plan.name]
-            context["removes_now"] = line.removes_now
+            context["removes_now"] = removes_now = line.removes_now
             context["free"] = line.is_free
             context["next_date"] = line.subscription.next_date
-            if line.removes_now and not line.is_free:
+            if removes_now and not line.is_free:
                 stamp = int(time.time())
                 context["proration_date"] = self.proration_signer.sign(str(stamp))
                 credit = line.removal_credit(stamp)
