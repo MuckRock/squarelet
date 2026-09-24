@@ -174,7 +174,11 @@ class ProfessionalPlanFactory(PlanFactory):
 
 
 class PlanPriceFactory(factory.django.DjangoModelFactory):
-    """A price under a plan.  Defaults to a paid monthly list price."""
+    """A price under a plan.  Defaults to a paid monthly list price.
+
+    Paid prices get a Stripe id, as they have once `consolidate_stripe_products`
+    has run; pass `stripe_price_id=""` for one it has not reached.
+    """
 
     plan = factory.SubFactory("squarelet.organizations.tests.factories.PlanFactory")
     interval = "monthly"
@@ -182,6 +186,9 @@ class PlanPriceFactory(factory.django.DjangoModelFactory):
     code = ""
     amount = 10000
     currency = "usd"
+    stripe_price_id = factory.LazyAttributeSequence(
+        lambda price, n: "" if price.amount == 0 else f"price_factory{n}"
+    )
 
     class Meta:
         model = "organizations.PlanPrice"
