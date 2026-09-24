@@ -357,6 +357,46 @@ class TestRevivingOnlyWhatTheSubscriptionEnded:
         assert two.cancelled, "and this one"
         assert not three.cancelled, "only the subscription's own ending is reversed"
 
+    def test_reversing_from_stripe_revives_the_line_that_ended_it(
+        self, subscription_with, paid_plan, one_off_plan
+    ):
+        """Otherwise Stripe renews a subscription whose only line is ending."""
+        line, pack = subscription_with(
+            paid_plan("Only Plan"), one_off_plan(), subscription_id="sub_only"
+        )
+        for item in (line, pack):
+            item.mark_cancelled(item.subscription.current_period_end)
+            item.save()
+        subscription = line.subscription
+        subscription.mark_cancelled(subscription.current_period_end)
+        subscription.save()
+
+        tasks.handle_subscription_updated(
+            {"id": "sub_only", "status": "active", "cancel_at_period_end": False}
+        )
+
+        line.refresh_from_db()
+        pack.refresh_from_db()
+        assert not line.cancelled
+        assert pack.cancelled, "a one-off still bills only once"
+
+    def test_downgrading_a_cancelled_plan_to_free_keeps_it(
+        self,
+        subscription_with,
+        paid_plan,
+        free_plan,
+        stripe_subscription,
+        subscription_service,
+    ):
+        """The free plan is what they chose to keep."""
+        (line,) = subscription_with(paid_plan("Only Plan"), subscription_id="sub_only")
+        line.cancel()
+
+        line.modify(free_plan())
+
+        line.refresh_from_db()
+        assert not line.cancelled
+
     def test_reversing_from_stripe_does_not_revive_them_either(self, three_lines):
         """Same rule, reached from Stripe rather than from Resubscribe."""
         one, two, _three = three_lines

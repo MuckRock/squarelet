@@ -763,7 +763,7 @@ class Subscription(Cancellable, models.Model):
         self._check_3ds_action_required(stripe_subscription)
         self._sync_latest_invoice(stripe_subscription)
 
-    def push_cancellation_to_items(self):
+    def push_cancellation_to_items(self, reviving=None):
         """Give every line this subscription's own cancellation state.
 
         Lines mirror their subscription because they bill on one Stripe
@@ -785,6 +785,13 @@ class Subscription(Cancellable, models.Model):
             self.items.filter(cancelled_by_subscription=True).update(
                 cancelled=False, cancel_at=None, cancelled_by_subscription=False
             )
+            paid = [item for item in self.items.all() if not item.is_free]
+            if reviving is None and paid and all(item.cancelled for item in paid):
+                # Its last line ended it, and renewing again means that line
+                # carries on.  Resubscribe passes `reviving`, and picks its own.
+                self.items.filter(
+                    pk__in=[item.pk for item in paid if item.plan.auto_renew]
+                ).update(cancelled=False, cancel_at=None)
 
     def cancel(self):
         if self.stripe_subscription:
@@ -803,7 +810,7 @@ class Subscription(Cancellable, models.Model):
         for item in self.items.select_related("plan"):
             item.send_slack_notification("cancelled")
 
-    def uncancel(self):
+    def uncancel(self, reviving=None):
         """Re-enable renewal for a subscription that was pending cancellation.
 
         Clears the cancelled flag and cancel_at date locally, and removes
@@ -827,7 +834,7 @@ class Subscription(Cancellable, models.Model):
                 self.cache_stripe_subscription_fields(updated)
         self.clear_cancellation()
         self.save()
-        self.push_cancellation_to_items()
+        self.push_cancellation_to_items(reviving=reviving)
 
     def sync_to_stripe(self, payment_method="card"):
         """Make Stripe match this subscription, from whatever state it is in.
@@ -1106,6 +1113,7 @@ class SubscriptionItem(Cancellable, models.Model):
             self.refresh_from_db()
 
         self.plan = plan
+        was_cancelled = self.subscription.cancelled
         # A pending cancellation belonged to the plan being replaced.  Keeping
         # it would drop the line the customer has just chosen, on the old
         # plan's date - so re-derive it from the new plan, the way `start`
@@ -1135,6 +1143,14 @@ class SubscriptionItem(Cancellable, models.Model):
                 self.subscription.mark_cancelled(self.subscription.current_period_end)
                 self.subscription.save()
         self.subscription.sync_to_stripe()
+        if was_cancelled and not self.subscription.cancelled and plan.auto_renew:
+            # Becoming free ended the Stripe subscription, and the cancellation
+            # with it.
+            self.clear_cancellation()
+            self.cancelled_by_subscription = False
+            self.save(
+                update_fields=[*self.CANCELLATION_FIELDS, "cancelled_by_subscription"]
+            )
         if self.cancelled and self.cancel_at is None:
             # A subscription only gets a period once Stripe starts it.
             self.mark_cancelled(self.subscription.current_period_end)
@@ -1177,7 +1193,7 @@ class SubscriptionItem(Cancellable, models.Model):
         if self.subscription.cancelled:
             # Reviving any line means the subscription renews again, and
             # that brings back whatever it had taken down collaterally.
-            self.subscription.uncancel()
+            self.subscription.uncancel(reviving=self)
             self.refresh_from_db()
 
         # This line, always: Resubscribe must return the plan it was
