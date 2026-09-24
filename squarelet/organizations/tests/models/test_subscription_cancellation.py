@@ -257,6 +257,41 @@ class TestTheCancellationPairMovesTogether:
         paid_line.subscription.refresh_from_db()
         assert paid_line.subscription.cancelled
 
+    def test_a_plan_change_that_starts_billing_ends_on_the_new_period(
+        self, subscription_with, free_plan, one_off_plan, no_stripe_subscription, mocker
+    ):
+        """No period exists until Stripe starts the subscription."""
+
+        def start(subscription, *args, **kwargs):
+            subscription.current_period_end = PERIOD_END
+            subscription.save()
+
+        mocker.patch(
+            "squarelet.organizations.models.Subscription.sync_to_stripe",
+            autospec=True,
+            side_effect=start,
+        )
+        line, _free = subscription_with(
+            free_plan("Free One"),
+            free_plan("Free Two"),
+            subscription_id="",
+            period_end=None,
+        )
+
+        line.modify(one_off_plan(price=30))
+
+        line.refresh_from_db()
+        assert line.cancelled
+        assert line.cancel_at == ENDS_ON
+
+    def test_a_free_line_does_not_keep_stripe_renewing(
+        self, subscription_with, one_off_plan, free_plan
+    ):
+        """Stripe never sees the free line, so only the one-off counts."""
+        line, _free = subscription_with(one_off_plan(), free_plan())
+
+        assert not line.subscription.auto_renew
+
     def test_a_cancelled_subscription_is_not_revived_by_a_plan_change(
         self, paid_line, professional_plan_factory, no_stripe_subscription, mocker
     ):

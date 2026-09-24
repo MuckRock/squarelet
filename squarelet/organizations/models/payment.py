@@ -523,11 +523,15 @@ class Subscription(Cancellable, models.Model):
 
     @property
     def auto_renew(self):
-        """Does the subscription renew?  True while any line still does."""
+        """Does the subscription renew?  True while any paid line still does.
+
+        Free lines never reach Stripe, so they cannot keep it renewing.
+        """
         items = list(self.items.all())
-        if not items:
+        lines = [item for item in items if not item.is_free] or items
+        if not lines:
             return True
-        return any(item.plan.auto_renew for item in items)
+        return any(item.plan.auto_renew for item in lines)
 
     @property
     def next_date(self):
@@ -1085,7 +1089,11 @@ class SubscriptionItem(Cancellable, models.Model):
             else:
                 self.mark_cancelled(self.subscription.current_period_end)
         self.save()
-        if not plan.auto_renew and not self.subscription.cancelled:
+        if (
+            not plan.auto_renew
+            and not self.subscription.cancelled
+            and self.subscription.current_period_end
+        ):
             renewing = [
                 sibling
                 for sibling in self.subscription.items.exclude(pk=self.pk)
@@ -1096,11 +1104,13 @@ class SubscriptionItem(Cancellable, models.Model):
             if not renewing:
                 # Nothing paid renews, and only a cancelled subscription tells
                 # Stripe to stop.
-                self.subscription.mark_cancelled(
-                    self.subscription.current_period_end
-                )
+                self.subscription.mark_cancelled(self.subscription.current_period_end)
                 self.subscription.save()
         self.subscription.sync_to_stripe()
+        if self.cancelled and self.cancel_at is None:
+            # A subscription only gets a period once Stripe starts it.
+            self.mark_cancelled(self.subscription.current_period_end)
+            self.save(update_fields=self.CANCELLATION_FIELDS)
 
     def cancel(self):
         """Stop billing this line at the end of the current period.
