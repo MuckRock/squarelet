@@ -1149,12 +1149,8 @@ class SubscriptionItem(models.Model):
         if self.is_free or not self.removes_now:
             return None
         subscription = self.subscription
-        stripe_sub = subscription.stripe_subscription
-        if stripe_sub is None:
-            return None
-        subscription.sync_stripe_item_ids(stripe_sub)
-        self.refresh_from_db()
-        if not self.stripe_item_id:
+        # The ids already stored are enough; showing a page shouldn't write.
+        if not (subscription.subscription_id and self.stripe_item_id):
             return None
         try:
             preview = (

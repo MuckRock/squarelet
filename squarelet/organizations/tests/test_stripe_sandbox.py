@@ -285,6 +285,8 @@ class TestRemovingOnePlan:
         )
         subscription_id = leaving.subscription.subscription_id
         moment = int(time.time())
+        # As the confirm page does: its id was written through another instance.
+        leaving.refresh_from_db()
 
         credit = leaving.removal_credit(moment)
         assert leaving.cancel(proration_date=moment) is True
@@ -309,6 +311,7 @@ class TestRemovingOnePlan:
         )
         start(organization, paid_plan(plan_factory, sandbox, price=50), sandbox)
         moment = int(time.time())
+        first.refresh_from_db()
         first_credit = first.removal_credit(moment)
         first.cancel(proration_date=moment)
         second.refresh_from_db()
