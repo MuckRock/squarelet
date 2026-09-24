@@ -1087,6 +1087,13 @@ class SubscriptionItem(models.Model):
                 f"{self.subscription.interval}.  Remove the line and add the "
                 f"new plan, which puts it on the right subscription."
             )
+        kind = Subscription.kind_for(plan)
+        if kind != self.subscription.kind:
+            raise SubscriptionError(
+                f"Cannot change {self.plan} to {plan} in place: one is "
+                f"{self.subscription.kind} and the other {kind}, and those never "
+                f"share a subscription.  Remove the line and add the new plan."
+            )
 
         stripe_sub = self.subscription.stripe_subscription
         if stripe_sub is not None:
