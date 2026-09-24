@@ -21,6 +21,7 @@ from django.views.generic import (
 # Standard Library
 import logging
 import sys
+import time
 
 # Third Party
 import stripe
@@ -702,6 +703,17 @@ class BaseCancelSubscription(SubscriptionObjectMixin, UpdateView):
     def get_line(self):
         return self.object.subscription_items.filter(id=self.kwargs["pk"]).first()
 
+    def get_proration_date(self):
+        """The moment the confirm page priced the credit at, if still usable.
+
+        Removing at the same moment makes the credit match what was shown.
+        """
+        try:
+            stamp = int(self.request.POST.get("proration_date", ""))
+        except ValueError:
+            return None
+        return stamp if 0 <= time.time() - stamp <= 3600 else None
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         line = self.get_line()
@@ -710,6 +722,11 @@ class BaseCancelSubscription(SubscriptionObjectMixin, UpdateView):
             context["removes_now"] = line.removes_now
             context["free"] = line.is_free
             context["next_date"] = line.subscription.next_date
+            if line.removes_now and not line.is_free:
+                context["proration_date"] = int(time.time())
+                credit = line.removal_credit(context["proration_date"])
+                if credit:
+                    context["credit"] = f"{credit / 100:,.2f}"
         return context
 
     def form_valid(self, form):
@@ -720,7 +737,9 @@ class BaseCancelSubscription(SubscriptionObjectMixin, UpdateView):
         if line.subscription.cancelled:
             messages.info(self.request, _(f"This already ends on {next_date}."))
             return redirect(self.reverse_subject("subscriptions"))
-        if self.object.remove_subscription(line, user=self.request.user):
+        if self.object.remove_subscription(
+            line, user=self.request.user, proration_date=self.get_proration_date()
+        ):
             self.log_staff_action("removed a plan", description=line.plan.name)
             messages.success(self.request, _(f"{line.plan.name} removed."))
         else:

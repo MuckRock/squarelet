@@ -271,6 +271,23 @@ class TestModernChargeService:
 
 
 class TestModernSubscriptionService:
+    def test_preview_removal_prices_the_deleted_item_at_a_moment(
+        self, subscription_service, mocker
+    ):
+        preview = mocker.patch("stripe.Invoice.create_preview")
+
+        subscription_service.preview_removal("cus_1", "sub_1", "si_1", 1_700_000_000)
+
+        preview.assert_called_once_with(
+            customer="cus_1",
+            subscription="sub_1",
+            subscription_details={
+                "items": [{"id": "si_1", "deleted": True}],
+                "proration_behavior": "create_prorations",
+                "proration_date": 1_700_000_000,
+            },
+        )
+
     def test_create_uses_collection_method(self, subscription_service, mocker):
         mock_customer = mocker.MagicMock(id="cus_123")
         mock_create = mocker.patch("stripe.Subscription.create")
