@@ -3066,6 +3066,27 @@ class TestReconcilingACancelledSubscription:
         assert subscription.cancel_at is None
         assert free.stripe_item_id == ""
 
+    def test_the_sweep_forgets_the_period_too(
+        self, subscription_factory, subscription_item_factory, plan_factory, mocker
+    ):
+        """A kept period has the page announcing a renewal that is not coming."""
+        mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
+        subscription, _paid, _free = self._mixed(
+            subscription_factory, subscription_item_factory, plan_factory
+        )
+        subscription.stripe_status = "active"
+        subscription.current_period_end = timezone.now() - timedelta(days=1)
+        subscription.mark_cancelled(subscription.current_period_end)
+        subscription.save()
+        subscription.organization.update_on = date.today()
+        subscription.organization.save()
+
+        tasks.restore_organization()
+
+        subscription.refresh_from_db()
+        assert subscription.stripe_status == ""
+        assert subscription.current_period_end is None
+
     def test_a_wholly_paid_subscription_is_still_deleted(
         self, subscription_factory, subscription_item_factory, plan_factory, mocker
     ):

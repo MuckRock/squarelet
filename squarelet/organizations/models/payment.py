@@ -802,10 +802,19 @@ class Subscription(Cancellable, models.Model):
         row the customer has just downgraded onto, every line with it.
         """
         self.subscription_id = ""
+        self.stripe_status = ""
+        self.current_period_end = None
         self.remember_stripe_subscription(None)
         self.items.update(stripe_item_id="")
         self.clear_cancellation()
-        self.save(update_fields=["subscription_id", *self.CANCELLATION_FIELDS])
+        self.save(
+            update_fields=[
+                "subscription_id",
+                "stripe_status",
+                "current_period_end",
+                *self.CANCELLATION_FIELDS,
+            ]
+        )
         self.push_cancellation_to_items()
 
     def push_cancellation_to_items(self, reviving=None):
