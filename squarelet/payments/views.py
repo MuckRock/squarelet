@@ -717,6 +717,9 @@ class BaseCancelSubscription(SubscriptionObjectMixin, UpdateView):
         if line is None:
             return redirect(self.reverse_subject("subscriptions"))
         next_date = line.subscription.next_date
+        if line.subscription.cancelled:
+            messages.info(self.request, _(f"This already ends on {next_date}."))
+            return redirect(self.reverse_subject("subscriptions"))
         if self.object.remove_subscription(line, user=self.request.user):
             self.log_staff_action("removed a plan", description=line.plan.name)
             messages.success(self.request, _(f"{line.plan.name} removed."))
