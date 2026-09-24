@@ -490,6 +490,28 @@ class TestSubscription:
         assert item.cancel_at is None
 
     @pytest.mark.django_db()
+    def test_resubscribing_beside_a_live_replacement_is_refused(
+        self, subscription_item_factory, subscription_factory, mocker
+    ):
+        """Two live subscriptions of one shape would bill the same period twice."""
+        leaving = subscription_item_factory(subscription__cancelled=True).subscription
+        subscription_factory(
+            organization=leaving.organization,
+            interval=leaving.interval,
+            collection_method=leaving.collection_method,
+        )
+        mocker.patch(
+            "squarelet.organizations.models.Organization.customer",
+            return_value=mocker.Mock(stripe_payment_method_id="pm_test"),
+        )
+
+        with pytest.raises(SubscriptionError, match="live subscription"):
+            leaving.uncancel()
+
+        leaving.refresh_from_db()
+        assert leaving.cancelled
+
+    @pytest.mark.django_db()
     def test_uncancelling_a_line_revives_a_cancelled_subscription(
         self, subscription_item_factory, plan_factory, mocker
     ):
