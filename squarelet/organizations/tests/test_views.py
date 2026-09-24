@@ -11,7 +11,8 @@ from django.utils import timezone
 
 # Standard Library
 import json
-from datetime import date, datetime, timezone as dt_timezone
+import time
+from datetime import date, datetime, timedelta, timezone as dt_timezone
 from unittest.mock import MagicMock, call
 
 # Third Party
@@ -19,6 +20,7 @@ import pytest
 import stripe
 from actstream.models import Action
 from allauth.account.models import EmailAddress
+from freezegun import freeze_time
 
 # Squarelet
 from squarelet.core.exceptions import ContextHttp404
@@ -1749,6 +1751,135 @@ class TestManageSubscriptions(ViewTestMixin):
         )
         page = self.call_view(rf, admin, slug=organization.slug).render()
         assert page.content.count(b"/cancel") == 2
+
+
+@pytest.mark.django_db()
+class TestRemovingAPlan(ViewTestMixin):
+    """The confirm page prices the credit at one moment and removes at it."""
+
+    view = views.CancelSubscription
+    url = "/organizations/{slug}/subscriptions/{pk}/cancel"
+
+    @pytest.fixture
+    def line(
+        self,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+    ):
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        leaving = subscription_item_factory(
+            subscription__organization=organization,
+            plan=plan_factory(name="Leaving", base_price=30),
+        )
+        subscription_item_factory(
+            subscription=leaving.subscription,
+            plan=plan_factory(name="Staying", base_price=30),
+        )
+        leaving.admin = admin
+        return leaving
+
+    def test_the_page_shows_the_credit(self, rf, line, mocker):
+        mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.removal_credit",
+            return_value=1240,
+        )
+
+        page = self.call_view(
+            rf, line.admin, slug=line.subscription.organization.slug, pk=line.pk
+        ).render()
+
+        assert b"$12.40" in page.content
+        assert b'name="proration_date"' in page.content
+
+    def test_the_plans_are_read_once(self, rf, line, mocker):
+        """Whether the plan comes off now is asked once."""
+        mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.removal_credit",
+            return_value=1240,
+        )
+
+        with CaptureQueriesContext(connection) as queries:
+            self.call_view(
+                rf, line.admin, slug=line.subscription.organization.slug, pk=line.pk
+            ).render()
+
+        reads = [
+            query
+            for query in queries.captured_queries
+            if 'FROM "organizations_subscriptionitem"' in query["sql"]
+        ]
+        # The plan itself, then the plans beside it.
+        assert len(reads) == 2
+
+    def test_a_fresh_stamp_reaches_the_removal(self, rf, line, mocker):
+        remove = mocker.patch(
+            "squarelet.organizations.models.Organization.remove_subscription",
+            return_value=True,
+        )
+        stamp = int(time.time()) - 60
+
+        self.call_view(
+            rf,
+            line.admin,
+            {"proration_date": self.view.proration_signer.sign(str(stamp))},
+            slug=line.subscription.organization.slug,
+            pk=line.pk,
+        )
+
+        assert remove.call_args.kwargs["proration_date"] == stamp
+
+    def test_a_stamp_over_an_hour_old_is_dropped(self, rf, line, mocker):
+        """Stripe then prices the credit at the moment of removal."""
+        remove = mocker.patch(
+            "squarelet.organizations.models.Organization.remove_subscription",
+            return_value=True,
+        )
+        with freeze_time(timezone.now() - timedelta(hours=2)):
+            token = self.view.proration_signer.sign(str(int(time.time())))
+
+        self.call_view(
+            rf,
+            line.admin,
+            {"proration_date": token},
+            slug=line.subscription.organization.slug,
+            pk=line.pk,
+        )
+
+        assert remove.call_args.kwargs["proration_date"] is None
+
+    def test_an_edited_stamp_is_ignored(self, rf, line, mocker):
+        """An earlier moment would mean a larger credit."""
+        remove = mocker.patch(
+            "squarelet.organizations.models.Organization.remove_subscription",
+            return_value=True,
+        )
+
+        self.call_view(
+            rf,
+            line.admin,
+            {"proration_date": str(int(time.time()) - 1800)},
+            slug=line.subscription.organization.slug,
+            pk=line.pk,
+        )
+
+        assert remove.call_args.kwargs["proration_date"] is None
+
+    def test_a_stripe_failure_is_shown_not_raised(self, rf, line, mocker):
+        mocker.patch(
+            "squarelet.organizations.models.Organization.remove_subscription",
+            side_effect=stripe.APIConnectionError("down"),
+        )
+
+        response = self.call_view(
+            rf, line.admin, {}, slug=line.subscription.organization.slug, pk=line.pk
+        )
+
+        assert response.status_code == 302
+        # pylint:disable=protected-access
+        assert self.request._messages.add.call_args.args[0] == messages.ERROR
 
 
 @pytest.mark.django_db()

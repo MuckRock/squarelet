@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import ValidationError
+from django.core.signing import BadSignature, TimestampSigner
 from django.db import transaction
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -21,6 +22,7 @@ from django.views.generic import (
 # Standard Library
 import logging
 import sys
+import time
 
 # Third Party
 import stripe
@@ -700,16 +702,43 @@ class BaseCancelSubscription(SubscriptionObjectMixin, UpdateView):
     template_name = "subscriptions/cancel_subscription.html"
 
     def get_line(self):
-        return self.object.subscription_items.filter(id=self.kwargs["pk"]).first()
+        return (
+            self.object.subscription_items.filter(id=self.kwargs["pk"])
+            .select_related("plan", "subscription")
+            .first()
+        )
+
+    proration_signer = TimestampSigner(salt="squarelet.payments.removal-proration")
+
+    def get_proration_date(self):
+        """The moment the confirm page priced the credit at, if still usable.
+
+        Signed, so it can't be backdated for a larger credit, and good for an
+        hour.  Removing at the same moment makes the credit match what was shown.
+        """
+        try:
+            return int(
+                self.proration_signer.unsign(
+                    self.request.POST.get("proration_date", ""), max_age=3600
+                )
+            )
+        except (BadSignature, ValueError):
+            return None
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         line = self.get_line()
         if line:
             context["plans"] = [line.plan.name]
-            context["removes_now"] = line.removes_now
+            context["removes_now"] = removes_now = line.removes_now
             context["free"] = line.is_free
             context["next_date"] = line.subscription.next_date
+            if removes_now and not line.is_free:
+                stamp = int(time.time())
+                context["proration_date"] = self.proration_signer.sign(str(stamp))
+                credit = line.removal_credit(stamp)
+                if credit:
+                    context["credit"] = f"{credit / 100:,.2f}"
         return context
 
     def form_valid(self, form):
@@ -720,7 +749,17 @@ class BaseCancelSubscription(SubscriptionObjectMixin, UpdateView):
         if line.subscription.cancelled:
             messages.info(self.request, _(f"This already ends on {next_date}."))
             return redirect(self.reverse_subject("subscriptions"))
-        if self.object.remove_subscription(line, user=self.request.user):
+        try:
+            with transaction.atomic():
+                removed = self.object.remove_subscription(
+                    line,
+                    user=self.request.user,
+                    proration_date=self.get_proration_date(),
+                )
+        except stripe.StripeError as exc:
+            messages.error(self.request, f"Stripe error: {format_stripe_error(exc)}")
+            return redirect(self.reverse_subject("subscriptions"))
+        if removed:
             self.log_staff_action("removed a plan", description=line.plan.name)
             messages.success(self.request, _(f"{line.plan.name} removed."))
         else:

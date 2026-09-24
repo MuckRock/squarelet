@@ -612,14 +612,22 @@ class TestOrganization:
 
     @pytest.mark.django_db(transaction=True)
     def test_modify_subscription_changes_plan(
-        self, organization_factory, user_factory, plan_factory
+        self,
+        organization_factory,
+        user_factory,
+        plan_factory,
+        mocker,
     ):
         """modify_subscription updates the subscription to the new plan"""
-        old_plan = plan_factory(slug="sunlight-enterprise", wix=True)
-        new_plan = plan_factory(slug="sunlight-essential", wix=True)
+        old_plan = plan_factory(slug="sunlight-enterprise", wix=True, base_price=90)
+        new_plan = plan_factory(slug="sunlight-essential", wix=True, base_price=30)
         user = user_factory()
         organization = organization_factory(admins=[user], plans=[old_plan])
 
+        mocker.patch("squarelet.organizations.models.Subscription.sync_to_stripe")
+        mocker.patch(
+            "squarelet.organizations.models.Subscription.stripe_subscription", None
+        )
         organization.modify_subscription(old_plan, new_plan, 5, user)
 
         assert organization.subscription_items.filter(plan=new_plan).exists()
@@ -1514,17 +1522,41 @@ class TestMultipleSubscriptions:
         plan_factory,
         subscription_item_factory,
         user_factory,
+        mocker,
     ):
         """modify_subscription updates the plan on the matching subscription."""
         org = organization_factory()
-        plan_a = plan_factory()
-        plan_b = plan_factory()
+        plan_a = plan_factory(base_price=30)
+        plan_b = plan_factory(base_price=40)
         user = user_factory()
         subscription_item_factory(subscription__organization=org, plan=plan_a)
 
+        mocker.patch("squarelet.organizations.models.Subscription.sync_to_stripe")
+        mocker.patch(
+            "squarelet.organizations.models.Subscription.stripe_subscription", None
+        )
         org.modify_subscription(plan_a, plan_b, org.max_users, user)
 
         assert org.subscription_items.filter(plan=plan_b).exists()
+
+    @pytest.mark.django_db
+    def test_a_refused_change_is_not_logged(
+        self,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+        user_factory,
+    ):
+        org = organization_factory()
+        paid = plan_factory(base_price=30)
+        subscription_item_factory(subscription__organization=org, plan=paid)
+
+        with pytest.raises(SubscriptionError):
+            org.modify_subscription(
+                paid, plan_factory(base_price=0), org.max_users, user_factory()
+            )
+
+        assert not org.change_logs.filter(to_plan__base_price=0).exists()
 
     @pytest.mark.django_db
     def test_modify_subscription_missing_plan_raises(

@@ -643,7 +643,7 @@ class Organization(AvatarMixin, models.Model):
             for child_org in self.children.all():
                 sync_wix_for_group_member.delay(child_org.pk, self.pk, plan.pk)
 
-    def remove_subscription(self, plan_or_subscription, user=None):
+    def remove_subscription(self, plan_or_subscription, user=None, proration_date=None):
         """Stop the given plan or SubscriptionItem.  Returns True if it came off now."""
         # pylint: disable=import-outside-toplevel
         # Squarelet
@@ -663,7 +663,7 @@ class Organization(AvatarMixin, models.Model):
             from_max_users=self.max_users,
             to_max_users=self.max_users,
         )
-        removed = sub.cancel()
+        removed = sub.cancel(proration_date)
         if removed:
             # Its entitlements are gone now; the other apps must hear about it.
             transaction.on_commit(
@@ -718,16 +718,17 @@ class Organization(AvatarMixin, models.Model):
         if max_users is None:
             max_users = self.max_users
 
+        from_max_users = self.max_users
+        sub.quantity = max_users
+        sub.modify(new_plan)
         self.change_logs.create(
             user=user,
             reason=ChangeLogReason.updated,
             from_plan=old_plan,
-            from_max_users=self.max_users,
+            from_max_users=from_max_users,
             to_plan=new_plan,
             to_max_users=max_users,
         )
-        sub.quantity = max_users
-        sub.modify(new_plan)
 
     def _dispatch_wix_unsync(self, plan):
         """Dispatch Wix unsync tasks for this org's users and, if this org is a
