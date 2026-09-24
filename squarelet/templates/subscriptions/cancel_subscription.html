@@ -19,6 +19,9 @@
   {% url subject|add:':subscriptions' subject_slug as subscriptions_url %}
   <form id="cancel-subscription-form" method="post" enctype="multipart/form-data">
     {% crispy form form.helper %}
+    {% if proration_date %}
+      <input type="hidden" name="proration_date" value="{{ proration_date }}">
+    {% endif %}
     <div>
       {% for plan in plans %}
         <h3 class="plan {% if subject == "organizations" %}organization{% else %}professional{% endif %}">
@@ -34,6 +37,10 @@
     <p class="help">
       {% if removes_now and free %}
         {% trans "You will lose access to these subscription benefits immediately." %}
+      {% elif removes_now and credit %}
+        {% blocktrans %}
+          You will lose access to these subscription benefits immediately. <strong>${{ credit }}</strong> for your remaining time will be credited to your next invoice.
+        {% endblocktrans %}
       {% elif removes_now %}
         {% blocktrans %}
           You will lose access to these subscription benefits immediately. Your remaining time will be credited to your next invoice.

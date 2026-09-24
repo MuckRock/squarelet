@@ -11,6 +11,7 @@ from django.utils import timezone
 
 # Standard Library
 import json
+import time
 from datetime import date, datetime, timezone as dt_timezone
 from unittest.mock import MagicMock, call
 
@@ -1749,6 +1750,82 @@ class TestManageSubscriptions(ViewTestMixin):
         )
         page = self.call_view(rf, admin, slug=organization.slug).render()
         assert page.content.count(b"/cancel") == 2
+
+
+@pytest.mark.django_db()
+class TestRemovingAPlan(ViewTestMixin):
+    """The confirm page prices the credit at one moment and removes at it."""
+
+    view = views.CancelSubscription
+    url = "/organizations/{slug}/subscriptions/{pk}/cancel"
+
+    @pytest.fixture
+    def line(
+        self,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+    ):
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        leaving = subscription_item_factory(
+            subscription__organization=organization,
+            plan=plan_factory(name="Leaving", base_price=30),
+        )
+        subscription_item_factory(
+            subscription=leaving.subscription,
+            plan=plan_factory(name="Staying", base_price=30),
+        )
+        leaving.admin = admin
+        return leaving
+
+    def test_the_page_shows_the_credit(self, rf, line, mocker):
+        mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.removal_credit",
+            return_value=1240,
+        )
+
+        page = self.call_view(
+            rf, line.admin, slug=line.subscription.organization.slug, pk=line.pk
+        ).render()
+
+        assert b"$12.40" in page.content
+        assert b'name="proration_date"' in page.content
+
+    def test_a_fresh_stamp_reaches_the_removal(self, rf, line, mocker):
+        remove = mocker.patch(
+            "squarelet.organizations.models.Organization.remove_subscription",
+            return_value=True,
+        )
+        stamp = int(time.time()) - 60
+
+        self.call_view(
+            rf,
+            line.admin,
+            {"proration_date": stamp},
+            slug=line.subscription.organization.slug,
+            pk=line.pk,
+        )
+
+        assert remove.call_args.kwargs["proration_date"] == stamp
+
+    def test_a_stale_stamp_is_dropped(self, rf, line, mocker):
+        """Stripe then prices the credit at the moment of removal."""
+        remove = mocker.patch(
+            "squarelet.organizations.models.Organization.remove_subscription",
+            return_value=True,
+        )
+
+        self.call_view(
+            rf,
+            line.admin,
+            {"proration_date": int(time.time()) - 7200},
+            slug=line.subscription.organization.slug,
+            pk=line.pk,
+        )
+
+        assert remove.call_args.kwargs["proration_date"] is None
 
 
 @pytest.mark.django_db()

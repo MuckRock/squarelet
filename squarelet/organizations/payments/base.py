@@ -121,6 +121,10 @@ class SubscriptionService(ABC):
         """Immediately cancel and delete a subscription."""
 
     @abstractmethod
+    def preview_removal(self, customer_id, subscription_id, item_id, proration_date):
+        """Preview the next invoice as if `item_id` were removed at `proration_date`."""
+
+    @abstractmethod
     def get_current_period_end(self, stripe_subscription):
         """Return the current period end timestamp for a subscription.
 
