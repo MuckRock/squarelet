@@ -1794,6 +1794,26 @@ class TestRemovingAPlan(ViewTestMixin):
         assert b"$12.40" in page.content
         assert b'name="proration_date"' in page.content
 
+    def test_the_plans_are_read_once(self, rf, line, mocker):
+        """Whether the plan comes off now is asked once."""
+        mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.removal_credit",
+            return_value=1240,
+        )
+
+        with CaptureQueriesContext(connection) as queries:
+            self.call_view(
+                rf, line.admin, slug=line.subscription.organization.slug, pk=line.pk
+            ).render()
+
+        reads = [
+            query
+            for query in queries.captured_queries
+            if 'FROM "organizations_subscriptionitem"' in query["sql"]
+        ]
+        # The plan itself, then the plans beside it.
+        assert len(reads) == 2
+
     def test_a_fresh_stamp_reaches_the_removal(self, rf, line, mocker):
         remove = mocker.patch(
             "squarelet.organizations.models.Organization.remove_subscription",
