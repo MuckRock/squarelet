@@ -109,22 +109,29 @@ class MembershipFactory(factory.django.DjangoModelFactory):
 class SubscriptionFactory(factory.django.DjangoModelFactory):
     """A Stripe subscription for one organization.
 
-    Keyed on the billing shape the way production is: asking for a second
-    subscription with the same interval and collection method returns the
-    one that already exists, rather than tripping the unique constraint.
+    Keyed the way the unique constraint is: asking for a second live
+    renewing subscription of the same shape returns the one that exists.
     """
 
     organization = factory.SubFactory(
         "squarelet.organizations.tests.factories.OrganizationFactory"
     )
-    # Declared so django_get_or_create can key on them; both match the
-    # model defaults.
+    # Declared so django_get_or_create can key on them; all match the model
+    # defaults.
     interval = "monthly"
     collection_method = "charge_automatically"
+    kind = "renewing"
+    cancelled = False
 
     class Meta:
         model = "organizations.Subscription"
-        django_get_or_create = ("organization", "interval", "collection_method")
+        django_get_or_create = (
+            "organization",
+            "interval",
+            "collection_method",
+            "kind",
+            "cancelled",
+        )
 
 
 class SubscriptionItemFactory(factory.django.DjangoModelFactory):

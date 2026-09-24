@@ -25,6 +25,7 @@ APP = "organizations"
 # Found by name, not number: branches above add migrations of their own.
 PARENT = "subscription_parent"
 ITEM_CANCELLATION = "subscription_item_cancellation"
+KIND = "subscription_kind"
 
 
 def _bracket(suffix):
@@ -251,3 +252,52 @@ class TestRollingTheSplitBack:
         assert line.organization_id == organization.pk
         assert line.subscription_id == "sub_rollback"
         assert line.stripe_status == "active"
+
+
+@pytest.mark.django_db(transaction=True)
+class TestClassifySubscriptions:
+    """The kind migration reads each subscription's kind off its lines."""
+
+    @pytest.fixture(autouse=True)
+    def _leave_the_database_migrated(self):
+        yield
+        with connection.cursor() as cursor:
+            cursor.execute("DELETE FROM organizations_subscriptionitem")
+            cursor.execute("DELETE FROM organizations_subscription")
+        migrate_to_latest()
+
+    @staticmethod
+    def _line(apps, name, base_price=0, auto_renew=True, subscription=None):
+        Organization = apps.get_model(APP, "Organization")
+        Plan = apps.get_model(APP, "Plan")
+        Subscription = apps.get_model(APP, "Subscription")
+        SubscriptionItem = apps.get_model(APP, "SubscriptionItem")
+        if subscription is None:
+            organization = Organization.objects.create(name=name, slug=name.lower())
+            subscription = Subscription.objects.create(organization=organization)
+        plan = Plan.objects.create(
+            name=name, slug=name.lower(), base_price=base_price, auto_renew=auto_renew
+        )
+        SubscriptionItem.objects.create(subscription=subscription, plan=plan)
+        return subscription
+
+    def test_each_row_takes_its_lines_kind(self):
+        old = migrate_to(_bracket(KIND)[0])
+        free = self._line(old, "Free")
+        paid = self._line(old, "Paid", base_price=30)
+        pack = self._line(old, "Pack", base_price=25, auto_renew=False)
+
+        new = migrate_to(_bracket(KIND)[1])
+
+        Subscription = new.get_model(APP, "Subscription")
+        kinds = dict(Subscription.objects.values_list("pk", "kind"))
+        assert kinds == {free.pk: "free", paid.pk: "renewing", pack.pk: "one_off"}
+
+    def test_a_row_mixing_free_and_paid_is_refused(self):
+        """Guessing which row each line belongs on is not the migration's job."""
+        old = migrate_to(_bracket(KIND)[0])
+        mixed = self._line(old, "Paid", base_price=30)
+        self._line(old, "Comped", subscription=mixed)
+
+        with pytest.raises(RuntimeError, match="mixes Comped, Paid"):
+            migrate_to(_bracket(KIND)[1])

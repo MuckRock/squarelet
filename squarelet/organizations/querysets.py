@@ -14,7 +14,6 @@ from fuzzywuzzy import fuzz, process
 
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason
-from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.payments.factory import get_payment_provider
 
 # pylint:disable=too-many-positional-arguments
@@ -420,9 +419,10 @@ class SubscriptionItemQuerySet(models.QuerySet):
     def start(self, organization, plan, payment_method="card", quantity=1):
         """Add a line for `plan` and make sure Stripe knows about it.
 
-        Interval and collection method decide which subscription the line
-        joins; a line matching none starts a new one.  Returns the line and
-        its Stripe subscription, None when the subscription costs nothing.
+        A renewing paid plan joins the organization's live subscription of the
+        same interval and collection method, a free plan joins its free one,
+        and a one-off always starts its own.  Returns the line and its Stripe
+        subscription, None when the subscription costs nothing.
         """
         # Lazy import to avoid a circular import (payment.py imports this module)
         # pylint: disable=import-outside-toplevel
@@ -435,19 +435,29 @@ class SubscriptionItemQuerySet(models.QuerySet):
             if interval == "annual" and payment_method == "invoice"
             else "charge_automatically"
         )
-        subscription, created = Subscription.objects.get_or_create(
-            organization=organization,
-            interval=interval,
-            collection_method=collection_method,
-        )
-        if subscription.cancelled and not plan.free:
-            # A new paid line would join the ending subscription - charged
-            # now, deleted by the sweep.  Refused until per-line cancellation.
-            raise SubscriptionError(
-                f"This organization has a cancellation pending on its "
-                f"{interval} billing.  A plan added now would be charged "
-                f"immediately and removed when the cancellation completes; "
-                f"wait until then, or resubscribe to the cancelled plan."
+        kind = Subscription.kind_for(plan)
+        if kind == "one_off":
+            subscription = Subscription.objects.create(
+                organization=organization,
+                interval=interval,
+                collection_method=collection_method,
+                kind=kind,
+            )
+            created = True
+        elif kind == "free":
+            subscription, created = Subscription.objects.get_or_create(
+                organization=organization,
+                kind=kind,
+                defaults={"interval": interval},
+            )
+        else:
+            # A cancelling subscription is left to run out; this starts anew.
+            subscription, created = Subscription.objects.get_or_create(
+                organization=organization,
+                interval=interval,
+                collection_method=collection_method,
+                kind=kind,
+                cancelled=False,
             )
         # Inside the transaction on purpose: a Stripe failure must not leave
         # an organization holding a line nobody bills.
