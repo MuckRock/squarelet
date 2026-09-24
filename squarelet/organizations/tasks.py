@@ -70,18 +70,17 @@ def restore_organization():
     # Drop individually cancelled lines whose period has run out.  Stripe has
     # no per-item cancel_at_period_end, so this is what enforces it - and it
     # has to happen before Stripe drafts the renewal invoice, which is why
-    # this task runs shortly after midnight.
+    # this task runs shortly after midnight.  Every night, not only on the
+    # organization's anchor date, which need not match the line's period.
     due_items = (
-        SubscriptionItem.objects.filter(
-            subscription__organization_id__in=due_org_ids,
-            cancelled=True,
-        )
+        SubscriptionItem.objects.filter(cancelled=True)
         # A line whose whole subscription is cancelled goes with it, above.
         .exclude(subscription__cancelled=True).filter(
             Q(cancel_at__lte=today) | Q(cancel_at__isnull=True)
         )
     )
-    for item in due_items.select_related("subscription", "plan"):
+    swept_org_uuids = set()
+    for item in due_items.select_related("subscription__organization", "plan"):
         # Stripe rejects removing a subscription's only line, so a line with
         # no surviving sibling cannot be removed here whatever else is true.
         remaining = (
@@ -116,6 +115,8 @@ def restore_organization():
                 exc,
                 exc_info=sys.exc_info(),
             )
+        else:
+            swept_org_uuids.add(item.subscription.organization.uuid)
 
     # Determine which orgs still have active subscriptions
     orgs_with_subs = set(
@@ -146,7 +147,7 @@ def restore_organization():
             union_qs = qs_list[0].union(*qs_list[1:])
             grant_uuids = {row["uuid"] for row in union_qs}
 
-    all_uuids = list({*due_org_uuids, *grant_uuids})
+    all_uuids = list({*due_org_uuids, *swept_org_uuids, *grant_uuids})
     send_cache_invalidations("organization", all_uuids)
 
 

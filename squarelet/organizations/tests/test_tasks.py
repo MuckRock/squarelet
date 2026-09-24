@@ -85,6 +85,34 @@ def test_restore_organization_removes_due_cancelled_lines(
     )
 
 
+@pytest.mark.django_db(transaction=True)
+def test_a_due_line_is_removed_before_the_organization_anchor(
+    organization_plan_factory, plan_factory, mocker
+):
+    """Removing the line is all that stops Stripe renewing it."""
+    invalidate = mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
+    mocker.patch("stripe.Plan.create")
+    mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
+    mocker.patch("squarelet.organizations.models.payment.get_payment_provider")
+    today = date.today()
+    due = SubscriptionItemFactory(
+        plan=organization_plan_factory(),
+        stripe_item_id="si_due",
+        cancelled=True,
+        cancel_at=today,
+        subscription__subscription_id="sub_offcycle",
+        subscription__organization__update_on=today + timedelta(10),
+    )
+    SubscriptionItemFactory(
+        subscription=due.subscription, plan=plan_factory(name="Keeper Plan")
+    )
+
+    tasks.restore_organization()
+
+    assert not SubscriptionItem.objects.filter(pk=due.pk).exists()
+    assert due.subscription.organization.uuid in invalidate.call_args.args[1]
+
+
 @pytest.mark.django_db()
 def test_restore_organization(organization_plan_factory, mocker):
     patched = mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
