@@ -151,13 +151,35 @@ class SubscriptionItemInline(admin.TabularInline):
     """
 
     model = SubscriptionItem
-    fields = ("plan", "quantity", "cancelled", "cancel_at", "stripe_item_id")
+    fields = (
+        "plan",
+        "plan_price",
+        "bills_against",
+        "quantity",
+        "cancelled",
+        "cancel_at",
+        "stripe_item_id",
+    )
     readonly_fields = fields
     extra = 0
     can_delete = False
 
     def has_add_permission(self, request, obj=None):
         return False
+
+    @admin.display(description="Bills against")
+    def bills_against(self, obj):
+        """Where to check that a line has moved onto the new pricing."""
+        stripe_id = obj.stripe_price_id
+        if not stripe_id:
+            return self.get_empty_value_display()
+        if obj.plan_price_id and obj.plan_price.stripe_price_id:
+            return format_html(
+                '<a href="{}" target="_blank" rel="noopener">{}</a>',
+                get_stripe_dashboard_url("prices", stripe_id),
+                stripe_id,
+            )
+        return format_html("{} <em>(legacy)</em>", stripe_id)
 
 
 class SubscriptionInline(admin.TabularInline):

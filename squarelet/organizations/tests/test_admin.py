@@ -24,6 +24,7 @@ from squarelet.organizations.models import (
     Plan,
     PlanPrice,
     Subscription,
+    SubscriptionItem,
 )
 
 
@@ -124,6 +125,39 @@ class TestSubscriptionAdmin:
         subscription = subscription_factory(subscription_id="")
 
         assert admin.stripe_link(subscription) == admin.get_empty_value_display()
+
+
+@pytest.mark.django_db
+class TestWhatALineBillsAgainst:
+    def _inline(self):
+        return SubscriptionItemInline(SubscriptionItem, AdminSite())
+
+    @override_settings(ENV="prod")
+    def test_a_line_on_a_price_links_to_it(
+        self, subscription_item_factory, plan_price_factory
+    ):
+        price = plan_price_factory(stripe_price_id="price_new")
+        item = subscription_item_factory(plan=price.plan, plan_price=price)
+
+        html = self._inline().bills_against(item)
+
+        assert "https://dashboard.stripe.com/prices/price_new" in html
+        assert "legacy" not in html
+
+    def test_a_line_still_on_the_legacy_plan_says_so(
+        self, subscription_item_factory, plan_factory
+    ):
+        """The legacy id is a Stripe Plan, which has no dashboard page to link."""
+        item = subscription_item_factory(
+            plan=plan_factory(name="Legacy Org", slug="organization", base_price=100),
+            plan_price=None,
+        )
+
+        html = self._inline().bills_against(item)
+
+        assert "squarelet_plan_organization" in html
+        assert "legacy" in html
+        assert "href" not in html
 
 
 class TestInvoiceAdmin:
