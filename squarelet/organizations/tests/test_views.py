@@ -1784,6 +1784,30 @@ class TestCancelSubscription(ViewTestMixin):
     view = views.CancelSubscription
     url = "/organizations/{slug}/subscriptions/{pk}/cancel"
 
+    def test_the_change_log_names_who_did_it(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+        mocker,
+    ):
+        remove = mocker.patch(
+            "squarelet.organizations.models.Organization.remove_subscription",
+            return_value=True,
+        )
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        line = subscription_item_factory(
+            subscription__organization=organization,
+            plan=plan_factory(name="Leaving", base_price=30),
+        )
+
+        self.call_view(rf, admin, {}, slug=organization.slug, pk=line.pk)
+
+        assert remove.call_args.kwargs["user"] == admin
+
     def test_staff_cancel_subscription_creates_action(
         self,
         rf,
