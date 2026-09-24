@@ -29,6 +29,7 @@ import stripe
 
 # Squarelet
 from squarelet.organizations.models import Subscription, SubscriptionItem
+from squarelet.organizations.models.payment import _proration_for
 from squarelet.organizations.payments.exceptions import SubscriptionError
 
 pytestmark = [pytest.mark.stripe, pytest.mark.django_db()]
@@ -295,6 +296,39 @@ class TestRemovingOnePlan:
         )
         applied = -sum(min(line["amount"], 0) for line in upcoming["lines"]["data"])
         assert applied == credit
+
+    def test_an_earlier_credit_is_not_counted_again(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        """Removing a second plan shows its own credit, not the first one's too."""
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        first = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+        second = start(
+            organization, paid_plan(plan_factory, sandbox, price=40), sandbox
+        )
+        start(organization, paid_plan(plan_factory, sandbox, price=50), sandbox)
+        moment = int(time.time())
+        first_credit = first.removal_credit(moment)
+        first.cancel(proration_date=moment)
+        second.refresh_from_db()
+
+        second_credit = second.removal_credit(moment)
+
+        assert 0 < second_credit
+        assert second_credit != first_credit + second_credit
+        item_id = second.stripe_item_id
+        second.cancel(proration_date=moment)
+        upcoming = stripe.Invoice.create_preview(
+            customer=organization.customer().customer_id,
+            subscription=second.subscription.subscription_id,
+        )
+        applied = -sum(
+            line["amount"]
+            for line in upcoming["lines"]["data"]
+            if _proration_for(line, item_id)
+        )
+        assert applied == second_credit
 
 
 class TestWhatTheCustomerIsCharged:
