@@ -311,6 +311,25 @@ class TestOrganization:
         )
 
     @pytest.mark.django_db
+    def test_add_subscription_sells_one_unit_of_a_priced_plan(
+        self, organization_factory, plan_price_factory, user_factory, mocker
+    ):
+        """A flat Price bills per unit; five of the minimum would be five times."""
+        user = user_factory()
+        price = plan_price_factory(amount=10_000, stripe_price_id="price_org")
+        price.plan.minimum_users = 5
+        price.plan.save()
+        organization = organization_factory(admins=[user])
+        _, mock_sub_service, _ = self._setup_stripe_mock(mocker)
+
+        organization.add_subscription(price.plan, None, user, payment_method="card")
+
+        assert mock_sub_service.create.call_args.kwargs["items"] == [
+            {"plan": "price_org", "quantity": 1}
+        ]
+        assert organization.change_logs.get().to_max_users == 1
+
+    @pytest.mark.django_db
     def test_add_subscription_with_invoice_payment_method(
         self, organization_factory, mocker, user_factory, plan_factory
     ):
