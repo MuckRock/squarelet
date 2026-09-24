@@ -283,7 +283,7 @@ class Command(BaseCommand):
                 stripe_plan_id = getattr(stripe_item.price, "id", None)
             elif getattr(stripe_item, "plan", None):
                 stripe_plan_id = getattr(stripe_item.plan, "id", None)
-            local_plan_id = line.plan.stripe_id if line.plan else None
+            local_plan_id = line.stripe_price_id if line.plan else None
             if stripe_plan_id != local_plan_id:
                 diffs.append(
                     (f"item[{label}] plan_stripe_id", local_plan_id, stripe_plan_id)
