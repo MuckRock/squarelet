@@ -562,6 +562,21 @@ class TestBuyingOntoACancellingSubscription:
         leaving.subscription.refresh_from_db()
         assert leaving.subscription.cancelled
 
+    def test_reviving_the_subscription_does_not_make_a_one_off_recur(
+        self, leaving, one_off_plan
+    ):
+        """It stops because it bills once, not because the subscription did."""
+        pack = join(leaving.subscription, one_off_plan("Credit Pack"))
+        subscription = leaving.subscription
+        subscription.refresh_from_db()
+        subscription.clear_cancellation()
+        subscription.save()
+
+        subscription.push_cancellation_to_items()
+
+        pack.refresh_from_db()
+        assert pack.cancelled
+
     def test_a_one_off_leaves_the_cancellation_alone(self, leaving, one_off_plan):
         """A plan that bills once is flagged to stop the moment it is bought,
         so it is not asking for anything to be renewed either."""
