@@ -1540,6 +1540,25 @@ class TestMultipleSubscriptions:
         assert org.subscription_items.filter(plan=plan_b).exists()
 
     @pytest.mark.django_db
+    def test_a_refused_change_is_not_logged(
+        self,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+        user_factory,
+    ):
+        org = organization_factory()
+        paid = plan_factory(base_price=30)
+        subscription_item_factory(subscription__organization=org, plan=paid)
+
+        with pytest.raises(SubscriptionError):
+            org.modify_subscription(
+                paid, plan_factory(base_price=0), org.max_users, user_factory()
+            )
+
+        assert not org.change_logs.filter(to_plan__base_price=0).exists()
+
+    @pytest.mark.django_db
     def test_modify_subscription_missing_plan_raises(
         self, organization_factory, plan_factory, user_factory
     ):
