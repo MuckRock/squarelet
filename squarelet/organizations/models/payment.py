@@ -389,6 +389,24 @@ def _stripe_price_id(stripe_item):
     return None
 
 
+def _proration_for(line, item_id):
+    """Whether an invoice line is a proration for Stripe subscription item `item_id`.
+
+    Newer API versions nest this under `parent`; older ones put it on the line.
+    Subscript access: a StripeObject refuses `.get`.
+    """
+    parent = line["parent"] if "parent" in line else None
+    if parent and "subscription_item_details" in parent:
+        details = parent["subscription_item_details"]
+        return bool(details["proration"]) and details["subscription_item"] == item_id
+    return (
+        "proration" in line
+        and bool(line["proration"])
+        and "subscription_item" in line
+        and line["subscription_item"] == item_id
+    )
+
+
 class Cancellable:
     """The `cancelled`/`cancel_at` pair, shared by a subscription and its lines.
 
@@ -1152,8 +1170,11 @@ class SubscriptionItem(models.Model):
         except stripe.StripeError as exc:
             logger.warning("[SUBSCRIPTION-ITEM] Removal preview failed: %s", exc)
             return None
-        # The removal's prorations are the only credits a preview can carry.
-        return -sum(min(line["amount"], 0) for line in preview["lines"]["data"])
+        return -sum(
+            line["amount"]
+            for line in preview["lines"]["data"]
+            if _proration_for(line, self.stripe_item_id)
+        )
 
     def cancel(self, proration_date=None):
         """Stop this plan.  Returns True if it came off now.
