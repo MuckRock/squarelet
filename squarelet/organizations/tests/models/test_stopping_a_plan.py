@@ -172,3 +172,15 @@ class TestTheRemovalCredit:
         two_lines.cancel(proration_date=1_700_000_000)
 
         assert stripe_service.modify.call_args.kwargs["proration_date"] == 1_700_000_000
+
+    def test_a_moment_from_before_a_renewal_is_dropped(self, two_lines, stripe_service):
+        """Stripe refuses a proration date outside the current period."""
+        stripe_service.modify.side_effect = [
+            stripe.InvalidRequestError("outside the period", "proration_date"),
+            None,
+        ]
+
+        two_lines.cancel(proration_date=1_700_000_000)
+
+        assert "proration_date" not in stripe_service.modify.call_args.kwargs
+        assert not SubscriptionItem.objects.filter(pk=two_lines.pk).exists()
