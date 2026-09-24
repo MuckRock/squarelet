@@ -117,7 +117,15 @@ class PlanQuerySet(models.QuerySet):
         return self.get_viewable(AnonymousUser())
 
     def choices(self, organization):
-        """Return the plan choices for the given organization"""
+        """Return the plan choices for the given organization
+
+        Archived plans are never offered, including to an organization
+        currently on one - a retired plan is retired for renewals too, and
+        the clause below would otherwise hand it back to exactly the people
+        being moved off it.  The manager already excludes them; this
+        method reaches them only through `including_archived()`, which
+        nothing offering a choice should be doing.
+        """
         if organization.individual:
             queryset = self.filter(for_individuals=True)
         else:
@@ -134,6 +142,29 @@ class PlanQuerySet(models.QuerySet):
     def free(self):
         """Free plans"""
         return self.filter(base_price=0, price_per_user=0)
+
+
+class PlanManager(models.Manager.from_queryset(PlanQuerySet)):
+    """`Plan.objects` hides archived plans; `including_archived()` does not.
+
+    An archived plan is retired: nothing should offer it, list it or sell
+    it.  Excluding it here rather than at each surface is the only version
+    where the *next* surface someone adds is safe too - before this, the
+    only place that read the flag was a template tag no template invoked,
+    and the sign-up form, the Sunlight listings and purchase-by-slug all
+    ignored it, so archiving changed nothing a customer could see.
+
+    The handful of callers that legitimately need a retired plan - the
+    archive command itself, the admin's plan filter, an organization
+    resolving the plan it is already on, the Wix tasks unsyncing someone
+    leaving one - say so with `including_archived()`.
+    """
+
+    def get_queryset(self):
+        return PlanQuerySet(self.model, using=self._db).exclude(archived=True)
+
+    def including_archived(self):
+        return PlanQuerySet(self.model, using=self._db)
 
 
 class EntitlementQuerySet(models.QuerySet):

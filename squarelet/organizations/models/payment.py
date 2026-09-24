@@ -27,7 +27,7 @@ from squarelet.organizations.querysets import (
     ChargeQuerySet,
     EntitlementGrantQuerySet,
     EntitlementQuerySet,
-    PlanQuerySet,
+    PlanManager,
     SubscriptionItemQuerySet,
 )
 
@@ -1577,7 +1577,7 @@ class SubscriptionItem(Cancellable, models.Model):
 class Plan(models.Model):
     """Plans that organizations can subscribe to"""
 
-    objects = PlanQuerySet.as_manager()
+    objects = PlanManager()
 
     name = models.CharField(_("name"), max_length=255, help_text=_("The plan's name"))
     slug = AutoSlugField(
@@ -1645,6 +1645,15 @@ class Plan(models.Model):
         help_text=_("The additional cost per month per user over the minimum"),
     )
 
+    archived = models.BooleanField(
+        _("archived"),
+        default=False,
+        help_text=_(
+            "Retired: nobody is on it and it can no longer be bought.  The "
+            "row is kept because the change log references it - deleting it "
+            "would destroy the history of who used to be on what."
+        ),
+    )
     public = models.BooleanField(
         _("public"),
         default=False,
