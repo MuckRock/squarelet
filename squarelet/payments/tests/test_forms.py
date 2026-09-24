@@ -124,56 +124,86 @@ class TestPlanPurchaseFormInit:
         assert user.individual_organization not in form.fields["organization"].queryset
         assert org in form.fields["organization"].queryset
 
-    def test_init_with_sunlight_plan_shows_nonprofit(self, user_factory, plan_factory):
-        """Nonprofit field shown for Sunlight plans"""
+    def test_a_plan_with_a_nonprofit_rate_offers_the_box(
+        self, user_factory, plan_price_factory
+    ):
+        """Whether the box appears is a fact about the plan's prices, not
+        about which product it is marketed under."""
         user = user_factory()
-        # Create a plan that looks like a Sunlight plan (slug starts with sunlight-)
-        plan = plan_factory(
-            slug="sunlight-test",
-            public=True,
-            for_individuals=True,
-            for_groups=False,
-        )
+        price = plan_price_factory(interval="monthly", label="standard")
+        plan_price_factory(plan=price.plan, interval="monthly", label="nonprofit")
 
-        form = PlanPurchaseForm(plan=plan, user=user)
+        form = PlanPurchaseForm(plan=price.plan, user=user)
 
         assert "is_nonprofit" in form.fields
+        assert form.nonprofit_price.label == "nonprofit"
 
-    def test_init_with_non_sunlight_plan_hides_nonprofit(
-        self, user_factory, plan_factory
+    def test_a_plan_without_a_nonprofit_rate_hides_the_box(
+        self, user_factory, plan_price_factory
     ):
-        """Nonprofit field hidden for non-Sunlight plans"""
         user = user_factory()
-        plan = plan_factory(
-            slug="professional",
-            public=True,
-            for_individuals=True,
-            for_groups=False,
-        )
+        price = plan_price_factory(interval="monthly", label="standard")
 
-        form = PlanPurchaseForm(plan=plan, user=user)
+        form = PlanPurchaseForm(plan=price.plan, user=user)
 
         assert "is_nonprofit" not in form.fields
 
-    def test_init_annual_plan_shows_invoice_option(self, user_factory, plan_factory):
-        """Invoice payment option shown for annual plans"""
+    def test_an_annual_price_offers_invoice(self, user_factory, plan_price_factory):
+        """Invoice payment option shown for annual prices"""
         user = user_factory()
-        plan = plan_factory(annual=True, public=True, for_individuals=True)
+        price = plan_price_factory(interval="annual")
 
-        form = PlanPurchaseForm(plan=plan, user=user)
+        form = PlanPurchaseForm(plan=price.plan, user=user)
 
+        assert form.interval == "annual"
         choices = dict(form.fields["payment_method"].choices)
         assert "invoice" in choices
 
-    def test_init_monthly_plan_hides_invoice_option(self, user_factory, plan_factory):
-        """Invoice payment option hidden for monthly plans"""
+    def test_a_monthly_price_does_not(self, user_factory, plan_price_factory):
+        """Invoice payment option hidden for monthly prices"""
         user = user_factory()
-        plan = plan_factory(annual=False, public=True, for_individuals=True)
+        price = plan_price_factory(interval="monthly")
 
-        form = PlanPurchaseForm(plan=plan, user=user)
+        form = PlanPurchaseForm(plan=price.plan, user=user)
 
         choices = dict(form.fields["payment_method"].choices)
         assert "invoice" not in choices
+
+    def test_the_interval_asked_for_is_the_one_sold(
+        self, user_factory, plan_price_factory
+    ):
+        """A canonical tier is one row with both; the page names one and
+        the form carries it back."""
+        user = user_factory()
+        plan = plan_price_factory(interval="monthly", amount=10_000).plan
+        plan_price_factory(plan=plan, interval="annual", amount=100_000)
+
+        form = PlanPurchaseForm(plan=plan, user=user, interval="annual")
+
+        assert form.price.amount == 100_000
+        assert form.fields["price_interval"].initial == "annual"
+
+    def test_a_bound_form_reads_the_interval_it_posted(
+        self, user_factory, plan_price_factory
+    ):
+        user = user_factory()
+        plan = plan_price_factory(interval="monthly", amount=10_000).plan
+        plan_price_factory(plan=plan, interval="annual", amount=100_000)
+
+        form = PlanPurchaseForm({"price_interval": "annual"}, plan=plan, user=user)
+
+        assert form.price.amount == 100_000
+
+    def test_an_interval_the_plan_lacks_falls_back_to_its_first(
+        self, user_factory, plan_price_factory
+    ):
+        user = user_factory()
+        price = plan_price_factory(interval="monthly")
+
+        form = PlanPurchaseForm(plan=price.plan, user=user, interval="annual")
+
+        assert form.interval == "monthly"
+        assert form.price == price
 
 
 @pytest.mark.django_db
@@ -233,10 +263,10 @@ class TestPlanPurchaseFormValidation:
         assert not form.is_valid()
         assert "payment_method" in form.errors
 
-    def test_invoice_only_for_annual_plans(self, user_factory, plan_factory):
-        """Invoice payment only allowed for annual plans"""
+    def test_invoice_only_for_annual_plans(self, user_factory, plan_price_factory):
+        """Invoice payment only allowed for annual prices"""
         user = user_factory()
-        plan = plan_factory(annual=False, public=True, for_individuals=True)
+        plan = plan_price_factory(interval="monthly").plan
 
         data = {
             "organization": str(user.individual_organization.pk),
@@ -477,27 +507,19 @@ class TestPlanPurchaseFormOrgCards:
 class TestPlanPurchaseFormPlanData:
     """Test get_plan_data method"""
 
-    def test_returns_plan_info(self, user_factory, plan_factory, mocker):
-        """Returns plan information for frontend"""
+    def test_returns_the_resolved_price(self, user_factory, plan_price_factory):
+        """What the page's script reads: the price, in dollars."""
         user = user_factory()
-        # Mock stripe to avoid API calls
-        mocker.patch("stripe.Plan.create")
-        plan = plan_factory(
-            public=True,
-            for_individuals=True,
-            annual=True,
-            base_price=1000,
-            price_per_user=100,
-            minimum_users=5,
-        )
+        price = plan_price_factory(interval="annual", amount=100_000)
 
-        form = PlanPurchaseForm(plan=plan, user=user)
+        form = PlanPurchaseForm(plan=price.plan, user=user)
         plan_data = form.get_plan_data()
 
-        assert plan_data["annual"] is True
-        assert plan_data["base_price"] == 1000
-        assert plan_data["price_per_user"] == 100
-        assert plan_data["minimum_users"] == 5
+        assert plan_data == {
+            "interval": "annual",
+            "amount": 1000.0,
+            "has_nonprofit_variant": False,
+        }
 
     def test_returns_empty_dict_without_plan(self, user_factory):
         """Returns empty dict when no plan provided"""
@@ -516,8 +538,8 @@ class TestNonprofitPriceComesFromPlanPrice:
     rows a breaking change.
     """
 
-    def _form(self, plan):
-        return PlanPurchaseForm(plan=plan).get_plan_data()
+    def _form(self, plan, **kwargs):
+        return PlanPurchaseForm(plan=plan, **kwargs).get_plan_data()
 
     def test_reads_the_nonprofit_label_off_the_canonical_plan(
         self, plan_factory, plan_price_factory
@@ -533,31 +555,34 @@ class TestNonprofitPriceComesFromPlanPrice:
         data = self._form(plan)
 
         assert data["has_nonprofit_variant"]
-        assert data["nonprofit_base_price"] == 350.0
+        assert data["nonprofit_amount"] == 350.0
 
-    def test_falls_back_to_the_variant_row_before_prices_exist(self, plan_factory):
-        """The window between this shipping and consolidate being run."""
+    def test_the_nonprofit_rate_follows_the_interval(
+        self, plan_factory, plan_price_factory
+    ):
         plan = plan_factory(name="Sunlight Essential", slug="sunlight-essential")
-        plan_factory(
-            name="Sunlight Essential Nonprofit",
-            slug="sunlight-nonprofit-essential",
-            base_price=350,
-        )
+        for interval, standard, nonprofit in [
+            ("monthly", 68_000, 35_000),
+            ("annual", 800_000, 400_000),
+        ]:
+            plan_price_factory(plan=plan, interval=interval, amount=standard)
+            plan_price_factory(
+                plan=plan, interval=interval, label="nonprofit", amount=nonprofit
+            )
 
-        data = self._form(plan)
+        assert self._form(plan, interval="annual")["nonprofit_amount"] == 4000.0
 
-        assert data["has_nonprofit_variant"]
-        assert data["nonprofit_base_price"] == 350
-
-    def test_no_nonprofit_rate_at_all(self, plan_factory):
-        plan = plan_factory(name="Sunlight Essential", slug="sunlight-essential")
+    def test_no_nonprofit_rate_at_all(self, plan_price_factory):
+        plan = plan_price_factory(interval="monthly").plan
 
         assert not self._form(plan)["has_nonprofit_variant"]
 
-    def test_non_sunlight_plans_have_no_nonprofit_rate(
+    def test_a_plan_with_only_a_nonprofit_price_is_not_for_sale(
         self, plan_factory, plan_price_factory
     ):
+        """No list price means nothing to sell to a stranger; the nonprofit
+        rate is a discount on it, not a price of its own."""
         plan = plan_factory(name="Organization", slug="organization")
         plan_price_factory(plan=plan, interval="monthly", label="nonprofit", amount=1)
 
-        assert not self._form(plan)["has_nonprofit_variant"]
+        assert not self._form(plan)

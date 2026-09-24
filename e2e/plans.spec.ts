@@ -91,12 +91,21 @@ test.describe("Plan purchase organization selection", () => {
     });
 
     test("does not offer the create-new-organization option", async ({ page }) => {
+      // The selection has to be on the page first: a count of 0 is also
+      // what an unrendered form returns, which passed while the page was
+      // saying the plan could not be bought at all.
+      await expect(
+        page.locator(`${orgForm} select.org-select`),
+      ).toBeVisible();
       await expect(
         page.locator(`${orgForm} select.org-select option[value="new"]`),
       ).toHaveCount(0);
     });
 
     test("does not show the no-subscription-options message", async ({ page }) => {
+      await expect(
+        page.locator(`${orgForm} .organization-selection`),
+      ).toBeVisible();
       await expect(
         page.locator(`${orgForm} .no-subscription-options`),
       ).toHaveCount(0);

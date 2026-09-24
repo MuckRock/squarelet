@@ -1749,6 +1749,26 @@ class Plan(models.Model):
     def get_absolute_url(self):
         return reverse("plan_detail", kwargs={"pk": self.pk, "slug": self.slug})
 
+    def price_for(self, interval=None, nonprofit=False):
+        """The price a purchase of this plan would be sold at, or None.
+
+        What the pages read.  It resolves exactly the way a purchase does,
+        through the canonical tier, so the number shown is the number
+        charged - display and billing cannot disagree, which they could
+        while the pages read `base_price` off whichever row the URL named.
+        None means the plan is not for sale: no price, or none at that
+        interval.
+        """
+        _canonical, price = SubscriptionItem.objects.resolve_purchase(
+            self, nonprofit=nonprofit, interval=interval
+        )
+        return price
+
+    @property
+    def list_price(self):
+        """`price_for()` with no arguments, for templates."""
+        return self.price_for()
+
     @property
     def free(self):
         return self.base_price == 0 and self.price_per_user == 0
@@ -1785,15 +1805,18 @@ class Plan(models.Model):
 
     def requires_payment(self):
         """Does this plan require immediate payment?
-        Free plans never require payment
-        Annual payments are invoiced and do not require payment at time of purchase
+
+        Free plans never require payment.  Annual payments are invoiced and
+        do not require payment at time of purchase.  Read off the list
+        price, so a plan with nothing to sell needs no payment either.
         """
-        return not self.free and not self.annual
+        price = self.list_price
+        return price is not None and price.amount > 0 and price.interval == "monthly"
 
     def has_available_slots(self):
         """Check if new subscriptions are allowed for this plan"""
         # Only Sunlight plans have subscription limits
-        if self.slug.startswith("sunlight-") and self.wix:
+        if self.is_sunlight_plan and self.wix:
             current_count = SubscriptionItem.objects.sunlight_active_count()
             return current_count < settings.MAX_SUNLIGHT_SUBSCRIPTIONS
         return True
@@ -1813,19 +1836,13 @@ class Plan(models.Model):
 
     @property
     def is_sunlight_plan(self):
-        """Check if this is a Sunlight Research Center plan"""
-        return self.slug.startswith("sunlight-")
+        """Whether this plan is marketed under Sunlight Research Center.
 
-    @property
-    def nonprofit_variant_slug(self):
-        """Get the nonprofit variant slug for this plan"""
-        if self.slug.startswith("sunlight-nonprofit-"):
-            return self.slug  # Already a nonprofit variant
-        elif self.slug.startswith("sunlight-"):
-            # Convert sunlight-essential -> sunlight-nonprofit-essential
-            # Convert sunlight-essential-annual -> sunlight-nonprofit-essential-annual
-            return self.slug.replace("sunlight-", "sunlight-nonprofit-", 1)
-        return None
+        Keyed on `product`, which is what the field is for.  The slug
+        prefix stopped identifying the tier once the annual and nonprofit
+        variants collapsed onto one row per tier.
+        """
+        return self.product == "sunlight"
 
     @property
     def stripe_id(self):

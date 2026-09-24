@@ -107,34 +107,19 @@ class TestWhatGetsArchived:
 
 
 @pytest.mark.django_db()
-class TestEntryRowsAreKeptWhilePurchasesGoThroughThem:
+class TestEntryRowsAreArchivedOnceNothingIsBoughtThroughThem:
     """`sunlight-essential-annual` holds no price of its own.
 
-    Purchases pick it and `resolve_purchase` maps it to
-    `sunlight-essential`'s annual price - so after 2d it has zero lines and
-    zero prices, and "no active price" archived the only way to buy annual.
-    Sellable means `resolve_target` names an active price.  When the UI
-    picks interval and label directly and these rows leave the mapping,
-    the same test archives them with no change.
+    While the purchase flow picked it and `resolve_purchase` mapped it to
+    `sunlight-essential`'s annual price, it was kept as the only way to
+    buy annual.  The plan page now names the interval itself and the old
+    URL redirects there, so the row is finished: no lines, no price of
+    its own, nothing bought through it.
     """
 
-    def test_an_entry_row_whose_target_is_priced_is_kept(self):
+    def test_an_entry_row_is_archived_even_though_its_target_is_priced(self):
         canonical = plan_with_slug("Sunlight Essential", "sunlight-essential")
         PlanPriceFactory(plan=canonical, interval="annual", label="standard")
-        entry = plan_with_slug(
-            "Sunlight Essential (Annual)", "sunlight-essential-annual"
-        )
-
-        out = run()
-
-        entry.refresh_from_db()
-        assert not entry.archived
-        assert "sunlight-essential-annual: still in use" in out
-        assert "still purchasable" in out
-
-    def test_an_entry_row_whose_target_has_no_price_is_archived(self):
-        """Nothing to resolve to, so nothing can be bought through it."""
-        plan_with_slug("Sunlight Essential", "sunlight-essential")
         entry = plan_with_slug(
             "Sunlight Essential (Annual)", "sunlight-essential-annual"
         )
@@ -143,6 +128,8 @@ class TestEntryRowsAreKeptWhilePurchasesGoThroughThem:
 
         entry.refresh_from_db()
         assert entry.archived
+        canonical.refresh_from_db()
+        assert not canonical.archived
 
 
 @pytest.mark.django_db()

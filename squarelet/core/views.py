@@ -20,11 +20,54 @@ class HomeView(RedirectView):
             return reverse("select_plan")
 
 
+def sunlight_tiers():
+    """The Sunlight tiers and their prices, for the plan page.
+
+    One entry per canonical Sunlight plan, in tier order, each carrying
+    the plan and its list prices by interval and label::
+
+        {"name": "Essential", "plan": <Plan>, "short_description": ...,
+         "monthly": {"standard": <PlanPrice>, "nonprofit": <PlanPrice>},
+         "annual": {...}}
+
+    A missing price is None.  Read off `PlanPrice` rather than off the
+    separate `*-annual` and `sunlight-nonprofit-*` rows those used to be,
+    so the numbers shown are the ones a purchase is sold at.
+    """
+    tier_order = ["sunlight-essential", "sunlight-enhanced", "sunlight-enterprise"]
+    plans = {
+        plan.slug: plan
+        for plan in Plan.objects.filter(product="sunlight", wix=True).prefetch_related(
+            "prices", "entitlements"
+        )
+    }
+    tiers = []
+    for slug in tier_order:
+        plan = plans.get(slug)
+        if plan is None:
+            continue
+        tier = {
+            "name": plan.slug.replace("sunlight-", "").title(),
+            "plan": plan,
+            "short_description": plan.short_description,
+            "monthly": {"standard": None, "nonprofit": None},
+            "annual": {"standard": None, "nonprofit": None},
+        }
+        for price in plan.prices.all():
+            if (
+                price.active
+                and not price.code
+                and price.label in ("standard", "nonprofit")
+            ):
+                tier[price.interval][price.label] = price
+        tiers.append(tier)
+    return tiers
+
+
 class SelectPlanView(TemplateView):
     template_name = "pages/selectplan.html"
 
     def get_context_data(self, **kwargs):
-        # pylint: disable=too-many-locals
         context = super().get_context_data(**kwargs)
         user = self.request.user
         pro_plan = None
@@ -39,58 +82,7 @@ class SelectPlanView(TemplateView):
         context["pro_plan"] = pro_plan
         context["org_plans"] = org_plans
 
-        # Add Sunlight plans structured by tier and payment schedule
-        sunlight_plans_list = Plan.objects.filter(
-            slug__startswith="sunlight-", wix=True
-        ).order_by("slug")
-
-        # Structure the plans as: tiers -> each tier has monthly and annual plans
-        sunlight_tiers = {}
-        for plan in sunlight_plans_list:
-            # Extract tier from slug: "sunlight-essential", "sunlight-essential-annual"
-            if plan.slug.endswith("-annual"):
-                tier_name = plan.slug.replace("sunlight-", "").replace("-annual", "")
-                payment_type = "annual"
-            else:
-                tier_name = plan.slug.replace("sunlight-", "")
-                payment_type = "monthly"
-
-            if tier_name not in sunlight_tiers:
-                sunlight_tiers[tier_name] = {
-                    "name": tier_name.title(),
-                    "short_description": plan.short_description,
-                    "monthly": None,
-                    "annual": None,
-                }
-
-            sunlight_tiers[tier_name][payment_type] = plan
-
-        # Fetch nonprofit variant plans and add them to tiers
-        for tier_name, tier_data in sunlight_tiers.items():
-            for payment_type in ["monthly", "annual"]:
-                if tier_data[payment_type]:
-                    standard_plan = tier_data[payment_type]
-                    nonprofit_slug = standard_plan.nonprofit_variant_slug
-                    if nonprofit_slug:
-                        try:
-                            nonprofit_plan = Plan.objects.get(slug=nonprofit_slug)
-                            tier_data[payment_type] = {
-                                "standard": standard_plan,
-                                "nonprofit": nonprofit_plan,
-                            }
-                        except Plan.DoesNotExist:
-                            # No nonprofit variant exists, keep the standard plan
-                            tier_data[payment_type] = {
-                                "standard": standard_plan,
-                                "nonprofit": None,
-                            }
-
-        # Convert to ordered list for template
-        tier_order = ["essential", "enhanced", "enterprise"]
-        context["sunlight_tiers"] = [
-            sunlight_tiers[tier] for tier in tier_order if tier in sunlight_tiers
-        ]
-
+        context["sunlight_tiers"] = sunlight_tiers()
         return context
 
 

@@ -16,7 +16,7 @@ from oidc_provider.models import Client, ResponseType
 from squarelet.oidc.models import ClientProfile
 from squarelet.organizations.models import Membership, Organization
 from squarelet.organizations.models.invitation import Invitation, OrganizationInvitation
-from squarelet.organizations.models.payment import Customer, Plan
+from squarelet.organizations.models.payment import Customer, Plan, PlanPrice
 from squarelet.users.models import User
 
 E2E_PASSWORD = "e2e-test-password"
@@ -112,10 +112,35 @@ class Command(BaseCommand):
         elif action == "clear_invitations":
             self.clear_invitations()
 
+    @staticmethod
+    def price(plan, amount, interval="monthly"):
+        """Give a plan a price a purchase can actually resolve to.
+
+        Every plan has had one since 3a, but the Stripe half of it needs
+        credentials this environment does not have - and a paid price with
+        no Stripe Price behind it is refused on purpose, being the state a
+        half-finished `consolidate_stripe_products` leaves.  So the id is
+        filled in here with one that looks like Stripe's and belongs to
+        nothing; e2e never calls Stripe, and the pages only need the price
+        to resolve.
+        """
+        price, _created = PlanPrice.objects.get_or_create(
+            plan=plan,
+            interval=interval,
+            label="standard",
+            code="",
+            defaults={"amount": amount, "currency": "usd"},
+        )
+        if price.amount and not price.stripe_price_id:
+            PlanPrice.objects.filter(pk=price.pk).update(
+                stripe_price_id=f"price_e2e_{plan.slug}_{interval}"
+            )
+        return price
+
     @transaction.atomic
-    def seed(self):
+    def seed(self):  # pylint: disable=too-many-locals
         # Create the organization plan (required by the org detail view)
-        Plan.objects.get_or_create(
+        organization_plan, _ = Plan.objects.get_or_create(
             slug="organization",
             defaults={
                 "name": "Organization",
@@ -126,9 +151,10 @@ class Command(BaseCommand):
                 "for_groups": True,
             },
         )
+        self.price(organization_plan, 0)
 
         # Create a free group plan for e2e purchase redirect tests
-        Plan.objects.get_or_create(
+        test_plan, _ = Plan.objects.get_or_create(
             slug="e2e-test-plan",
             defaults={
                 "name": "E2E Test Plan",
@@ -140,10 +166,11 @@ class Command(BaseCommand):
                 "public": True,
             },
         )
+        self.price(test_plan, 0)
 
         # Create the professional plan (referenced by the user detail view
         # as the individual upgrade option)
-        Plan.objects.get_or_create(
+        professional, _ = Plan.objects.get_or_create(
             slug="professional",
             defaults={
                 "name": "Professional",
@@ -154,6 +181,7 @@ class Command(BaseCommand):
                 "for_groups": False,
             },
         )
+        self.price(professional, 2000)
 
         # Create users
         created_users = {}

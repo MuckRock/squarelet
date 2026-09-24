@@ -254,7 +254,7 @@
             <p><strong>{{ tier.short_description }}</strong></p>
           </header>
           <div class="main">
-            {% with benefits=tier.monthly.standard.get_benefits|default:tier.annual.standard.get_benefits %}
+            {% with benefits=tier.plan.get_benefits %}
             {% if benefits %}
             <ul class="checklist">
               {% for benefit in benefits %}
@@ -283,7 +283,7 @@
               <h5>Standard</h5>
               {% if tier.annual.standard %}
                 <div class="price annual">
-                  <span class="amount">${{ tier.annual.standard.base_price|intcomma }}</span>
+                  <span class="amount">${{ tier.annual.standard.amount_dollars|floatformat:"-2"|intcomma }}</span>
                   <span class="period">/ year</span>
                 </div>
               {% endif %}
@@ -292,7 +292,7 @@
               {% endif %}
               {% if tier.monthly.standard %}
                 <div class="price monthly">
-                  <span class="amount">${{ tier.monthly.standard.base_price|intcomma }}</span>
+                  <span class="amount">${{ tier.monthly.standard.amount_dollars|floatformat:"-2"|intcomma }}</span>
                   <span class="period">/ month</span>
                 </div>
               {% endif %}
@@ -303,7 +303,7 @@
               <h5>Non-profit</h5>
               {% if tier.annual.nonprofit %}
               <div class="price annual">
-                <span class="amount">${{ tier.annual.nonprofit.base_price|intcomma }}</span>
+                <span class="amount">${{ tier.annual.nonprofit.amount_dollars|floatformat:"-2"|intcomma }}</span>
                 <span class="period">/ year</span>
               </div>
               {% endif %}
@@ -312,30 +312,30 @@
               {% endif %}
               {% if tier.monthly.nonprofit %}
               <div class="price monthly">
-                <span class="amount">${{ tier.monthly.nonprofit.base_price|intcomma }}</span>
+                <span class="amount">${{ tier.monthly.nonprofit.amount_dollars|floatformat:"-2"|intcomma }}</span>
                 <span class="period">/ month</span>
               </div>
               {% endif %}
             </div>
             {% endif %}
             <div class="actions">
-              {% if tier.annual %}
+              {% if tier.annual.standard %}
               {% if user.is_anonymous %}
-              <a class="btn premium" href="{% url 'plan_detail' tier.annual.standard.pk tier.annual.standard.slug %}{% pass_query %}">
+              <a class="btn premium" href="{% url 'plan_detail' tier.plan.pk tier.plan.slug %}{% pass_query interval='annual' %}">
                 {% trans "Sign up & subscribe" %}
               </a>
               {% else %}
-              <a class="btn premium" href="{% url 'plan_detail' tier.annual.standard.pk tier.annual.standard.slug %}{% pass_query %}">
+              <a class="btn premium" href="{% url 'plan_detail' tier.plan.pk tier.plan.slug %}{% pass_query interval='annual' %}">
                 {% trans "Subscribe" %}
               </a>
               {% endif %}
-              {% elif tier.monthly %}
+              {% elif tier.monthly.standard %}
               {% if user.is_anonymous %}
-              <a class="btn premium" href="{% url 'plan_detail' tier.monthly.standard.pk tier.monthly.standard.slug %}{% pass_query %}">
+              <a class="btn premium" href="{% url 'plan_detail' tier.plan.pk tier.plan.slug %}{% pass_query interval='monthly' %}">
                 {% trans "Sign up & subscribe" %}
               </a>
               {% else %}
-              <a class="btn premium" href="{% url 'plan_detail' tier.monthly.standard.pk tier.monthly.standard.slug %}{% pass_query %}">
+              <a class="btn premium" href="{% url 'plan_detail' tier.plan.pk tier.plan.slug %}{% pass_query interval='monthly' %}">
                 {% trans "Subscribe" %}
               </a>
               {% endif %}

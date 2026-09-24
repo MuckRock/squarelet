@@ -482,7 +482,7 @@ class SubscriptionItemQuerySet(models.QuerySet):
         return "charge_automatically"
 
     @staticmethod
-    def resolve_purchase(plan, nonprofit=False):
+    def resolve_purchase(plan, nonprofit=False, interval=None):
         """What a new subscription to `plan` should actually be recorded as.
 
         Returns `(canonical_plan, plan_price)`, or `(plan, None)` when there
@@ -493,11 +493,18 @@ class SubscriptionItemQuerySet(models.QuerySet):
         the migration picks those up.
 
         The plan a customer picks is not necessarily the plan they end up
-        on.  Annual and nonprofit are separate `Plan` rows today, and both
+        on.  Annual and nonprofit were separate `Plan` rows, and both
         collapse onto a canonical tier where the difference is carried by
         the price's `interval` and `label` instead.  Resolving both here
         means a new subscription is recorded exactly as a migrated one is,
         so the migration has genuinely nothing to do for it.
+
+        `interval` is how the plan page asks for the annual price of a
+        canonical tier, which is one row with both.  Left None, the
+        interval is whatever the mapping says for the picked row - annual
+        for the legacy `*-annual` rows, monthly for a canonical tier.  A
+        price at an interval the plan does not have resolves to nothing,
+        the same as a plan with no price at all.
         """
         # Lazy import to avoid a circular import (payment.py imports this module)
         # pylint: disable=import-outside-toplevel
@@ -508,24 +515,26 @@ class SubscriptionItemQuerySet(models.QuerySet):
         target = resolve_target(plan.slug, allow_comped=False) or (
             plan.slug,
             "annual" if plan.annual else "monthly",
-            "nonprofit" if nonprofit else "standard",
+            "standard",
             "",
         )
-        canonical_slug, interval, label, code = target
+        canonical_slug, mapped_interval, label, code = target
+        interval = interval or mapped_interval
 
         labels = [label]
         if nonprofit and label == "standard":
-            # `resolve_target` answers from the slug alone, and today the
-            # slug carries the nonprofit-ness: the form substitutes a
-            # `sunlight-nonprofit-*` row in before we ever see it.  Those
-            # rows go away in #806, and then the flag is the only thing that
-            # knows - so a nonprofit would have been shown the nonprofit
-            # rate and billed the standard one.
+            # `resolve_target` answers from the slug alone; the flag is the
+            # only thing that knows the customer is a nonprofit, now that
+            # the `sunlight-nonprofit-*` rows are gone.  Without this a
+            # nonprofit would be shown the nonprofit rate and billed the
+            # standard one.
             #
             # Preferred, not forced.  A tier with no nonprofit price, or a
             # negotiated `code` with no nonprofit counterpart, should still
             # sell at the price it has rather than match nothing and drop
-            # back to legacy billing.
+            # back to legacy billing.  The same holds for a plan the map
+            # does not know, which is why the fallback target above asks
+            # for standard and lets this preference apply.
             labels.insert(0, "nonprofit")
 
         price = None
@@ -572,6 +581,34 @@ class SubscriptionItemQuerySet(models.QuerySet):
         return price.plan, price
 
     @staticmethod
+    def intervals_for_sale(plan):
+        """The intervals `plan` can be bought at, through its canonical tier.
+
+        Read off the standard list prices - blank `code`, `standard` label -
+        so that neither a negotiated rate nor a nonprofit discount makes an
+        interval look purchasable that a stranger cannot reach.  A paid
+        price with no Stripe Price yet does not count either, for the
+        reason `resolve_purchase` refuses to sell against one.  Empty for a
+        plan with nothing to sell.
+        """
+        # pylint: disable=import-outside-toplevel
+        # Squarelet
+        from squarelet.organizations.models.payment import PlanPrice
+        from squarelet.organizations.plan_mapping import resolve_target
+
+        target = resolve_target(plan.slug, allow_comped=False)
+        canonical_slug = target[0] if target else plan.slug
+        return list(
+            PlanPrice.objects.filter(
+                plan__slug=canonical_slug, active=True, code="", label="standard"
+            )
+            .filter(Q(amount=0) | ~Q(stripe_price_id=""))
+            .order_by("-interval")  # monthly before annual
+            .values_list("interval", flat=True)
+            .distinct()
+        )
+
+    @staticmethod
     def canonical_plan(plan, nonprofit=False):
         """The plan a purchase of `plan` will actually be recorded against.
 
@@ -586,7 +623,13 @@ class SubscriptionItemQuerySet(models.QuerySet):
         return canonical
 
     def start(
-        self, organization, plan, payment_method="card", quantity=None, nonprofit=False
+        self,
+        organization,
+        plan,
+        payment_method="card",
+        quantity=None,
+        nonprofit=False,
+        interval=None,
     ):
         """Add a line for `plan` and make sure Stripe knows about it.
 
@@ -613,7 +656,7 @@ class SubscriptionItemQuerySet(models.QuerySet):
         # Squarelet
         from squarelet.organizations.models.payment import Subscription
 
-        canonical_plan, plan_price = self.resolve_purchase(plan, nonprofit)
+        canonical_plan, plan_price = self.resolve_purchase(plan, nonprofit, interval)
         if quantity is None:
             quantity = 1 if plan_price is not None else plan.minimum_users
         # The billing shape follows the resolved price, not `plan.annual`.
@@ -690,11 +733,8 @@ class SubscriptionItemQuerySet(models.QuerySet):
         return item, stripe_subscription
 
     def sunlight_active_count(self):
-        """Count active Sunlight subscriptions across all variants"""
-        return self.filter(
-            plan__slug__startswith="sunlight-",
-            plan__wix=True,
-        ).count()
+        """Count active Sunlight subscriptions across all tiers"""
+        return self.filter(plan__product="sunlight", plan__wix=True).count()
 
 
 class InvoiceQuerySet(models.QuerySet):

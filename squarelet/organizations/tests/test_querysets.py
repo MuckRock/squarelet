@@ -427,8 +427,12 @@ class TestSubscriptionItemQuerySet(TestCase):
     def test_sunlight_active_count_basic(self):
         """Test count returns correct number of active Sunlight subscriptions"""
         # Create Sunlight plans
-        sunlight_plan1 = PlanFactory(slug="sunlight-essential-monthly", wix=True)
-        sunlight_plan2 = PlanFactory(slug="sunlight-enhanced-annual", wix=True)
+        sunlight_plan1 = PlanFactory(
+            slug="sunlight-essential-monthly", product="sunlight", wix=True
+        )
+        sunlight_plan2 = PlanFactory(
+            slug="sunlight-enhanced-annual", product="sunlight", wix=True
+        )
 
         # Create active subscriptions
         SubscriptionItemFactory(plan=sunlight_plan1, subscription__cancelled=False)
@@ -441,7 +445,9 @@ class TestSubscriptionItemQuerySet(TestCase):
     @pytest.mark.django_db
     def test_sunlight_active_count_includes_cancelled(self):
         """cancelled=True means pending cancellation — still counts toward limit."""
-        sunlight_plan = PlanFactory(slug="sunlight-essential-monthly", wix=True)
+        sunlight_plan = PlanFactory(
+            slug="sunlight-essential-monthly", product="sunlight", wix=True
+        )
 
         # Create active and pending-cancellation subscriptions
         SubscriptionItemFactory(plan=sunlight_plan, subscription__cancelled=False)
@@ -455,8 +461,12 @@ class TestSubscriptionItemQuerySet(TestCase):
     @pytest.mark.django_db
     def test_sunlight_active_count_excludes_non_wix(self):
         """Test count excludes Sunlight plans with wix=False"""
-        sunlight_wix = PlanFactory(slug="sunlight-essential-monthly", wix=True)
-        sunlight_no_wix = PlanFactory(slug="sunlight-enhanced-annual", wix=False)
+        sunlight_wix = PlanFactory(
+            slug="sunlight-essential-monthly", product="sunlight", wix=True
+        )
+        sunlight_no_wix = PlanFactory(
+            slug="sunlight-enhanced-annual", product="sunlight", wix=False
+        )
 
         SubscriptionItemFactory(plan=sunlight_wix, subscription__cancelled=False)
         SubscriptionItemFactory(plan=sunlight_no_wix, subscription__cancelled=False)
@@ -467,7 +477,9 @@ class TestSubscriptionItemQuerySet(TestCase):
     @pytest.mark.django_db
     def test_sunlight_active_count_mixed_subscriptions(self):
         """Test count with mix of Sunlight and non-Sunlight subscriptions"""
-        sunlight_plan = PlanFactory(slug="sunlight-essential-monthly", wix=True)
+        sunlight_plan = PlanFactory(
+            slug="sunlight-essential-monthly", product="sunlight", wix=True
+        )
         regular_plan = PlanFactory(slug="professional", wix=False)
 
         # Create mix of subscriptions (cancelled Sunlight still counts)
