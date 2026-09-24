@@ -1085,6 +1085,21 @@ class SubscriptionItem(Cancellable, models.Model):
             else:
                 self.mark_cancelled(self.subscription.current_period_end)
         self.save()
+        if not plan.auto_renew and not self.subscription.cancelled:
+            renewing = [
+                sibling
+                for sibling in self.subscription.items.exclude(pk=self.pk)
+                if sibling.plan.auto_renew
+                and not sibling.cancelled
+                and not sibling.is_free
+            ]
+            if not renewing:
+                # Nothing paid renews, and only a cancelled subscription tells
+                # Stripe to stop.
+                self.subscription.mark_cancelled(
+                    self.subscription.current_period_end
+                )
+                self.subscription.save()
         self.subscription.sync_to_stripe()
 
     def cancel(self):

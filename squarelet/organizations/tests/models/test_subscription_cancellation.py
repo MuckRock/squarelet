@@ -236,6 +236,27 @@ class TestTheCancellationPairMovesTogether:
         assert paid_line.cancelled
         assert paid_line.cancel_at == ENDS_ON
 
+    def test_changing_the_last_renewing_line_to_a_one_off_ends_the_subscription(
+        self,
+        paid_line,
+        subscription_item_factory,
+        paid_plan,
+        one_off_plan,
+        no_stripe_subscription,
+        mocker,
+    ):
+        """Nothing would renew, so Stripe has to be told to stop."""
+        mocker.patch("squarelet.organizations.models.Subscription.sync_to_stripe")
+        other = subscription_item_factory(
+            subscription=paid_line.subscription, plan=paid_plan("Second Plan")
+        )
+        other.cancel()
+
+        paid_line.modify(one_off_plan(price=30))
+
+        paid_line.subscription.refresh_from_db()
+        assert paid_line.subscription.cancelled
+
     def test_a_cancelled_subscription_is_not_revived_by_a_plan_change(
         self, paid_line, professional_plan_factory, no_stripe_subscription, mocker
     ):
