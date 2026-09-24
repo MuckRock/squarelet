@@ -28,6 +28,15 @@ honest.
 LEGACY_PLAN_MAP = {
     # MuckRock Professional
     ("professional", True): ("professional", "monthly", "standard", ""),
+    # Its own tier - the one DocumentCloud-only plan.  Maps to itself like
+    # professional and organization; the identity row was simply never
+    # written, which surfaced as a preflight refusal on production's data.
+    ("documentcloud-premium", True): (
+        "documentcloud-premium",
+        "monthly",
+        "standard",
+        "",
+    ),
     ("professional", False): ("professional", "monthly", "comped", ""),
     ("professional-pre-paid", True): ("professional", "annual", "standard", ""),
     # Beta - early users grandfathered onto a free plan, not a distinct tier
@@ -46,6 +55,24 @@ LEGACY_PLAN_MAP = {
     ("education-grant", False): ("organization", "monthly", "comped", ""),
     ("startsmall-grants", False): ("organization", "monthly", "comped", ""),
     ("education-plan", False): ("organization", "monthly", "comped", ""),
+    # Pays $0 today, manually invoiced, for 200 blocks.  Comped for now -
+    # "for now" because the standard annual rate for 200 blocks is
+    # substantial and moving them onto it needs a conversation first.
+    # Monthly rather than annual: a comped price never reaches Stripe, so
+    # the interval is cosmetic, and every other comped Organization account
+    # is monthly.  Decided 2026-09-18.
+    ("organization-flexible-users-annual", False): (
+        "organization",
+        "monthly",
+        "comped",
+        "",
+    ),
+    # Same $100 as Organization, same base grant on both clients; the only
+    # difference was 5 rather than 10 requests per block, and its two
+    # subscribers hold no blocks.  Neither an InsideClimate-style coded
+    # rate nor a custom plan buys anything here.  Decided 2026-09-18,
+    # replacing an earlier plan to cancel one and comp the other.
+    ("custom-crp", True): ("organization", "monthly", "standard", ""),
     # A negotiated rate, so a price of its own rather than a coupon
     ("insideclimate-news-plan", True): (
         "organization",
@@ -108,17 +135,91 @@ LEGACY_PLAN_MAP = {
         "nonprofit",
         "",
     ),
+    # --- Per-user plans, which decompose rather than simply repoint --------
+    #
+    # These land on a flat tier price exactly like the rows above; what makes
+    # them different is that the line also carries a block count, so the
+    # migration adds pack lines alongside.  The target here covers the base
+    # only.  See PACK_DECOMPOSITION for the blocks.
+    ("organization-annual", True): ("organization", "annual", "standard", ""),
+    ("sunlight-enterprise-annual", True): (
+        "sunlight-enterprise",
+        "annual",
+        "standard",
+        "",
+    ),
+    # A cohort rate, sold as a one-year programme and still renewing.  The
+    # interval here is nominal: this plan bills two of its subscribers
+    # annually and one monthly, which one legacy slug cannot express, so
+    # `backfill_plan_prices` picks the row from the line's own
+    # subscription rather than from this entry.  See COHORT_SLUG there.
+    ("election-accountability-cohort", True): (
+        "sunlight-essential",
+        "annual",
+        "standard",
+        "election-cohort",
+    ),
+    # The older, cheaper Sunlight Basic rate, kept for the subscribers who
+    # still hold it.  A permanent grandfather rate is what the subscription
+    # costs rather than a discount that expires, so it is a price with a
+    # `code` and not a coupon.
+    ("sunlight-basic-annual", True): (
+        "sunlight-essential",
+        "annual",
+        "standard",
+        "legacy-basic",
+    ),
 }
 
-# Deliberately left alone.  Each needs a decision or an action outside this
-# command, given per entry below.
-DEFERRED_SLUGS = {
-    # Two organizations going opposite ways - one cancelled, one comped - so
-    # the slug alone cannot decide.
-    "custom-crp",
-    # Its one subscription belongs to an organization that was merged away.
-    "sunlight-premium-annual",
+# Which packs one resource block becomes, per legacy plan.
+#
+# A block was never a single product's unit: it granted MuckRock requests
+# *and* DocumentCloud credits together.  Packs are sold per product, so how
+# many a block turns into is a per-plan fact and cannot be derived from the
+# block count alone.
+#
+# Only these two plans need an entry.  Twelve organizations hold blocks over
+# their minimum in production and every one of them is on Organization or
+# Organization (Annual) - checked against live data, not inferred.  Nobody
+# else can join them: the purchase flow hardcodes `minimum_users`, so
+# self-service cannot sell a block at all.  Listing the Sunlight tiers too
+# would be writing down a guess nothing exercises; if a block-holder ever
+# does appear on one, the migration refuses to run until it is added.
+#
+# An Organization block costs one pack ($10/mo, $120/yr) and becomes one.
+# Preserving the DocumentCloud half would double what those subscribers pay,
+# and the overage went essentially unused - 37 credits across all twelve for
+# all time, against a 30,000/month grant.  Dropping it is what keeps the
+# bill identical without a coupon or a conversation.
+#
+# None of this is trusted on faith: the migration recomputes each
+# subscriber's bill both ways and refuses anyone the arithmetic does not
+# reproduce exactly.
+PACK_DECOMPOSITION = {
+    "organization": ("muckrock-request-pack",),
+    "organization-annual": ("muckrock-request-pack",),
+    # Its one subscriber holds 200 blocks, comped.  The blocks grant real
+    # requests, so they become a comped pack line rather than vanishing.
+    "organization-flexible-users-annual": ("muckrock-request-pack",),
+    # $10/mo + $10/blk over 1, DocumentCloud only: a block is credits.
+    "documentcloud-premium": ("documentcloud-credit-pack",),
 }
+
+# Deliberately left alone.  Each would need a decision or an action
+# outside this command.
+#
+# Empty since 2026-09-22, when the Election Accountability Cohort got a
+# coded price of its own.  It was left here on the reading that the
+# programme was ending by itself; the renewal dates said otherwise - two
+# of its five lines renew, the first in October 2026 - so waiting for it
+# to lapse meant waiting until September 2027, and holding the entitlement
+# shape migration and a non-null `plan_price` behind it.
+DEFERRED_SLUGS = set()
+
+# The one legacy plan billing at two cadences.  `backfill_plan_prices`
+# takes its interval from each line's own subscription rather than from
+# LEGACY_PLAN_MAP, which is keyed on the slug and so can only say one.
+COHORT_SLUG = "election-accountability-cohort"
 
 
 def resolve_target(slug, *, allow_comped):
@@ -141,3 +242,22 @@ def resolve_target(slug, *, allow_comped):
     if not allow_comped and target[2] == "comped":
         return None
     return target
+
+
+# Legacy plans whose entitlements deliberately change when they consolidate.
+#
+# Repointing a subscription moves it onto the canonical tier's entitlements,
+# which is usually a no-op by construction.  Where it is not, the change was
+# a decision rather than an accident, and the migration reports it instead of
+# refusing.  Everything absent from this map must come out identical.
+EXPECTED_GRANT_CHANGES = {
+    "beta": "Grandfathered onto Professional: 5 -> 20 MuckRock requests.",
+    "insideclimate-news-plan": (
+        "Normalized to Organization: 15 -> 50 requests, plus DocumentCloud "
+        "access it does not have today."
+    ),
+    "education-plan": (
+        "Gains Organization's 50 requests, where org-features-minus-requests "
+        "grants zero, plus DocumentCloud access."
+    ),
+}

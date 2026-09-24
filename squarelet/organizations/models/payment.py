@@ -578,10 +578,29 @@ class Subscription(Cancellable, models.Model):
     def sync_stripe_item_ids(self, stripe_sub):
         """Record the Stripe id of each line, matching them up by Price.
 
-        A spec with no `stripe_item_id` asks Stripe to *add* a line, so a
-        blank id is rejected or silently billed twice.  Matching on the Price
-        is safe because a subscription cannot hold the same Price twice.
-        Note `stripe_sub["items"]` - attribute access reaches the dict method.
+        `stripe_items(include_ids=True)` omits the id it does not have, and a
+        line spec with no id is how you ask Stripe to *add* a line rather
+        than update one.  So a line with a blank `stripe_item_id` is either
+        rejected - "an existing Subscription Item is already using that
+        Price" - or, where Stripe accepts it, silently duplicated and billed
+        twice.
+
+        Two ways a line ends up in that state.  Anything predating the
+        subscription/item split: the column arrived empty and the data
+        migration had nothing to fill it from, the old schema having had one
+        Stripe subscription per row and no per-line id at all.  And any line
+        Stripe created for us since, which is what the backfill relies on -
+        it is deliberately re-runnable, with no "done" marker, so a second
+        pass over an already-migrated subscriber has to be a no-op rather
+        than a second pack line.
+
+        Matching on the Price is what makes the write-back safe: a
+        subscription cannot hold the same Price twice, so the correspondence
+        is one-to-one.
+
+        Note `stripe_sub["items"]` rather than `stripe_sub.items` - a
+        StripeObject is dict-like, and attribute access reaches the dict
+        method instead of the field.
         """
         try:
             data = stripe_sub["items"]["data"]
@@ -598,9 +617,7 @@ class Subscription(Cancellable, models.Model):
             if item.is_free:
                 continue
             # Whatever `stripe_items` sends as the price is what Stripe
-            # echoes back, so the two have to read the same field.  This
-            # branch moves the specs onto PlanPrice; the lookup follows, or
-            # it silently matches nothing and the self-heal stops healing.
+            # echoes back, so the two have to read the same field.
             item_id = by_price.get(item.stripe_price_id)
             if item_id and item_id != item.stripe_item_id:
                 item.stripe_item_id = item_id
