@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models import Q
 from django.urls import reverse
-from django.utils.timezone import get_current_timezone
+from django.utils.timezone import get_current_timezone, localtime
 from django.utils.translation import gettext_lazy as _
 
 # Standard Library
@@ -21,6 +21,7 @@ from autoslug import AutoSlugField
 from squarelet.core.storage import private_storage
 from squarelet.core.utils import is_production_env, mailchimp_journey
 from squarelet.organizations.payments.base import PaymentActionRequired
+from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.organizations.querysets import (
     ChargeQuerySet,
@@ -369,7 +370,52 @@ class Customer(models.Model):
         )
 
 
-class Subscription(models.Model):
+def _stripe_price_id(stripe_item):
+    """The Price id on a Stripe subscription item, old field name or new.
+
+    Subscript access: a StripeObject is dict-like but refuses `.get`.
+    """
+    for key in ("price", "plan"):
+        try:
+            price = stripe_item[key]
+        except (KeyError, TypeError):
+            continue
+        if not price:
+            continue
+        try:
+            return price["id"]
+        except (KeyError, TypeError):
+            return None
+    return None
+
+
+class Cancellable:
+    """The `cancelled`/`cancel_at` pair, shared by a subscription and its lines.
+
+    The nightly sweep acts on `cancelled=True` with a `cancel_at` that has
+    arrived *or is null*, so the flag without a date means "delete tonight".
+    Write the pair only through these methods.  Neither saves.
+    """
+
+    CANCELLATION_FIELDS = ("cancelled", "cancel_at")
+
+    def mark_cancelled(self, period_end):
+        """Stop at the end of the period closing at `period_end`.
+
+        No period end means the sweep reads the null date as due immediately.
+        """
+        self.cancelled = True
+        # Local time, as `next_date` reads it: the column is UTC, so a period
+        # ending after 20:00 local would fall on the next day.
+        self.cancel_at = localtime(period_end).date() if period_end else None
+
+    def clear_cancellation(self):
+        """No longer stopping - back to renewing normally."""
+        self.cancelled = False
+        self.cancel_at = None
+
+
+class Subscription(Cancellable, models.Model):
     """A subscription on Stripe.
 
     One row per Stripe subscription; its lines are SubscriptionItems.  Stripe
@@ -441,6 +487,14 @@ class Subscription(models.Model):
         blank=True,
     )
 
+    # Callers save by explicit field list, so a field missing here is never
+    # persisted.
+    STRIPE_CACHED_FIELDS = (
+        "stripe_status",
+        "collection_method",
+        "current_period_end",
+    )
+
     @cached_property
     def stripe_subscription(self):
         if self.subscription_id:
@@ -458,8 +512,22 @@ class Subscription(models.Model):
 
     @property
     def auto_renew(self):
-        """Renew unless some line says otherwise."""
-        return all(item.plan.auto_renew for item in self.items.all())
+        """Does the subscription renew?  True while any line still does."""
+        items = list(self.items.all())
+        if not items:
+            return True
+        return any(item.plan.auto_renew for item in items)
+
+    @property
+    def next_date(self):
+        """The date this subscription next renews, or ends if cancelled.
+
+        Read from the cached `current_period_end`; the billing pages render
+        one row per line and cannot afford a Stripe call each.
+        """
+        if not self.current_period_end:
+            return None
+        return localtime(self.current_period_end).date()
 
     def stripe_items(self, include_ids=False):
         """Stripe line specs for every item on this subscription.
@@ -469,23 +537,75 @@ class Subscription(models.Model):
         """
         specs = []
         for item in self.items.select_related("plan"):
+            if item.is_free:
+                # Naming a free plan's missing Stripe Plan fails the whole call.
+                continue
             spec = {"plan": item.plan.stripe_id, "quantity": item.quantity}
             if include_ids and item.stripe_item_id:
                 spec["id"] = item.stripe_item_id
             specs.append(spec)
         return specs
 
+    def sync_stripe_item_ids(self, stripe_sub):
+        """Record the Stripe id of each line, matching them up by Price.
+
+        A spec with no `stripe_item_id` asks Stripe to *add* a line, so a
+        blank id is rejected or silently billed twice.  Matching on the Price
+        is safe because a subscription cannot hold the same Price twice.
+        Note `stripe_sub["items"]` - attribute access reaches the dict method.
+        """
+        try:
+            data = stripe_sub["items"]["data"]
+        except (KeyError, TypeError):
+            return
+
+        by_price = {}
+        for stripe_item in data:
+            price_id = _stripe_price_id(stripe_item)
+            if price_id:
+                by_price[price_id] = stripe_item["id"]
+
+        for item in self.items.select_related("plan"):
+            if item.is_free:
+                continue
+            item_id = by_price.get(item.plan.stripe_id)
+            if item_id and item_id != item.stripe_item_id:
+                item.stripe_item_id = item_id
+                item.save(update_fields=["stripe_item_id"])
+
+    def remember_stripe_subscription(self, stripe_sub):
+        """Seed or clear the `stripe_subscription` cache.
+
+        `start()` consults the cached_property before there is an id, so it
+        caches None; later reads on the same instance would keep seeing it.
+        """
+        self.__dict__["stripe_subscription"] = stripe_sub
+
     def cache_stripe_subscription_fields(self, stripe_sub):
-        """Cache subscription status and period end from a Stripe subscription."""
+        """Cache subscription status and period end from a Stripe subscription.
+
+        Webhooks omit `items` for a bare cancel_at_period_end toggle, so a
+        payload with no period end must not overwrite the stored date - the
+        sweep reads a cancellation with no date as due immediately.
+        """
         self.stripe_status = stripe_sub.status or ""
+        # Derived from `plan.annual` this mislabels annual card payers as
+        # `send_invoice`, hiding their subscription from `get_or_create`.
+        try:
+            collection_method = stripe_sub["collection_method"]
+        except (KeyError, TypeError):
+            collection_method = None
+        if collection_method:
+            self.collection_method = collection_method
         ts = (
             get_payment_provider()
             .get_subscription_service()
             .get_current_period_end(stripe_sub)
         )
-        self.current_period_end = (
-            datetime.fromtimestamp(ts, tz=get_current_timezone()) if ts else None
-        )
+        if ts:
+            self.current_period_end = datetime.fromtimestamp(
+                ts, tz=get_current_timezone()
+            )
 
     def start(self, payment_method="card", anchor_day=None):
         """Create this subscription on Stripe, with all of its items.
@@ -525,11 +645,17 @@ class Subscription(models.Model):
             )
         )
         self.subscription_id = stripe_subscription.id
+        self.remember_stripe_subscription(stripe_subscription)
         self.cache_stripe_subscription_fields(stripe_subscription)
         if not self.auto_renew and self.current_period_end:
-            self.cancel_at = self.current_period_end.date()
+            # A date without the flag reads as "renews" to every caller.
+            self.mark_cancelled(self.current_period_end)
         # Save before creating the invoice
         self.save()
+
+        # An unidentified line makes the next modify ask Stripe to add a line
+        # it already has.
+        self.sync_stripe_item_ids(stripe_subscription)
 
         # Check for 3DS/SCA on the first invoice payment.
         if stripe_subscription.status == "incomplete":
@@ -553,6 +679,11 @@ class Subscription(models.Model):
             .get_invoice_service()
             .retrieve(invoice_id, expand=["confirmation_secret"])
         )
+        # Stripe returns a confirmation secret either way; only the invoice
+        # status says whether authentication is required.
+        if fresh_invoice.status == "paid":
+            return
+
         cs = fresh_invoice.confirmation_secret
         if cs and not isinstance(cs, str):
             client_secret = cs.client_secret
@@ -603,6 +734,16 @@ class Subscription(models.Model):
                 exc_info=True,
             )
 
+    def settle_added_line(self, stripe_subscription):
+        """Finish the charge Stripe made for a line just added.
+
+        A card payer is invoiced for the proration immediately (see
+        `proration_behavior`), so it may need authenticating and produces an
+        invoice worth keeping.  No-op for an invoiced organization.
+        """
+        self._check_3ds_action_required(stripe_subscription)
+        self._sync_latest_invoice(stripe_subscription)
+
     def cancel(self):
         if self.stripe_subscription:
             updated = (
@@ -612,9 +753,7 @@ class Subscription(models.Model):
             )
             if updated:
                 self.cache_stripe_subscription_fields(updated)
-        self.cancelled = True
-        if self.current_period_end:
-            self.cancel_at = self.current_period_end.date()
+        self.mark_cancelled(self.current_period_end)
         self.save()
 
         # The notification names a plan, so it belongs to the lines.
@@ -643,37 +782,88 @@ class Subscription(models.Model):
             )
             if updated:
                 self.cache_stripe_subscription_fields(updated)
-        self.cancelled = False
-        self.cancel_at = None
+        self.clear_cancellation()
         self.save()
+
+    def sync_to_stripe(self, payment_method="card"):
+        """Make Stripe match this subscription, from whatever state it is in.
+
+        Returns the Stripe subscription only when it created one.  Handles
+        the three transitions a plan change causes - become free (delete),
+        become paid (create), stay paid (update).  `stripe_modify` covers
+        only the last, and no-ops without a Stripe subscription.
+        """
+        if self.free:
+            if self.subscription_id:
+                # Cancelled in the Stripe dashboard: already the state we want.
+                if self.stripe_subscription is not None:
+                    get_payment_provider().get_subscription_service().delete(
+                        self.stripe_subscription
+                    )
+                self.subscription_id = ""
+                self.remember_stripe_subscription(None)
+                # Sending these to the next subscription raises "No such
+                # subscription_item".
+                self.items.update(stripe_item_id="")
+                # A flag left without a date reads as due immediately, and the
+                # sweep would delete the subscription just downgraded to.
+                self.clear_cancellation()
+                self.save(update_fields=["subscription_id", *self.CANCELLATION_FIELDS])
+            return None
+        if not self.subscription_id:
+            return self.start(payment_method=payment_method)
+        self.stripe_modify()
+        # `self.stripe_subscription` would cost a Stripe round trip per change.
+        return None
+
+    @property
+    def proration_behavior(self):
+        """How Stripe should settle a mid-period change to these lines.
+
+        A card payer gets the invoice at the moment they act; Stripe's
+        default would defer it to the upcoming invoice, leaving
+        `settle_added_line` nothing to authenticate.  Invoiced organizations
+        stay on the default deliberately.
+        """
+        if self.collection_method == "send_invoice":
+            return "create_prorations"
+        return "always_invoice"
 
     def stripe_modify(self):
         """Push local state to Stripe for every item on this subscription."""
         if self.stripe_subscription:
+            # A line sent without a `stripe_item_id` asks Stripe to *add* it,
+            # which it refuses - the Price is already on the subscription.
+            self.sync_stripe_item_ids(self.stripe_subscription)
             updated = (
                 get_payment_provider()
                 .get_subscription_service()
                 .modify(
                     self.subscription_id,
-                    cancel_at_period_end=not self.auto_renew,
+                    # `not auto_renew` alone would reverse a pending
+                    # cancellation on the next unrelated change.
+                    cancel_at_period_end=self.cancelled or not self.auto_renew,
                     items=self.stripe_items(include_ids=True),
-                    billing=(
-                        "send_invoice"
-                        if self.interval == "annual"
-                        else "charge_automatically"
-                    ),
+                    # Deriving this from `annual` stops auto-charging annual
+                    # card payers.
+                    billing=self.collection_method,
                     metadata={"action": f"Subscription ({self.organization})"},
-                    days_until_due=(30 if self.interval == "annual" else None),
+                    days_until_due=(
+                        30 if self.collection_method == "send_invoice" else None
+                    ),
+                    proration_behavior=self.proration_behavior,
                 )
             )
-            self.cancelled = False
             if updated:
                 self.cache_stripe_subscription_fields(updated)
-            if not self.auto_renew and self.current_period_end:
-                self.cancel_at = self.current_period_end.date()
-            else:
-                self.cancel_at = None
+                self.sync_stripe_item_ids(updated)
+            # Clearing this here would revive a cancelled subscription on any
+            # unrelated line change.
+            if self.cancelled or not self.auto_renew:
+                self.mark_cancelled(self.current_period_end)
             self.save()
+            return updated
+        return None
 
     class Meta:
         ordering = ("organization", "interval")
@@ -798,34 +988,110 @@ class SubscriptionItem(models.Model):
         """
         return self.subscription.organization
 
+    @property
+    def cancelled(self):
+        """Whether this line is going away.
+
+        Whole-subscription: Stripe ends one whole.  Exposed per line because
+        the UI lists lines.
+        """
+        return self.subscription.cancelled
+
+    @property
+    def cancel_at(self):
+        """When this line stops, which is when its subscription does."""
+        return self.subscription.cancel_at
+
+    @property
+    def next_date(self):
+        """When this line next renews, or ends if it is cancelled.
+
+        Delegates to the subscription; every line on one shares a period.
+        """
+        return self.subscription.next_date
+
+    @property
+    def is_free(self):
+        """Whether this line costs anything.
+
+        A free plan is dropped before the items are described to Stripe.
+        """
+        return self.plan is None or self.plan.free
+
     def modify(self, plan):
         """Change which plan this line bills.
 
-        Never use this to move between products - that is an add plus a
-        remove, since the two subscriptions bill separately.
+        Refuses a change of billing interval, and never moves between
+        products - Stripe will not carry both intervals on one subscription,
+        so either is a remove plus an add.  Goes through `sync_to_stripe`,
+        because a plan change can change whether the subscription bills.
         """
+        # `sync_stripe_item_ids` matches on the Price, so a moved plan matches
+        # nothing and the customer is billed for both.
+        interval = "annual" if plan.annual else "monthly"
+        if interval != self.subscription.interval:
+            raise SubscriptionError(
+                f"Cannot change {self.plan} to {plan} in place: it bills "
+                f"{interval} and this subscription bills "
+                f"{self.subscription.interval}.  Remove the line and add the "
+                f"new plan, which puts it on the right subscription."
+            )
+
+        stripe_sub = self.subscription.stripe_subscription
+        if stripe_sub is not None:
+            self.subscription.sync_stripe_item_ids(stripe_sub)
+            # It wrote straight to the rows, so this instance is stale.
+            self.refresh_from_db()
+
         self.plan = plan
         self.save()
-        self.subscription.stripe_modify()
+        self.subscription.sync_to_stripe()
 
     def cancel(self):
-        """Stop billing this line.
+        """Stop billing this line at the end of the current period.
 
-        The last line cancels the whole subscription at period end.  Any
-        other is dropped immediately with proration suppressed, so the next
-        invoice omits it rather than crediting it.
+        Cancels the whole subscription: Stripe has no per-item
+        cancel_at_period_end.
         """
-        if self.subscription.items.count() <= 1:
-            self.subscription.cancel()
-            return
+        self.subscription.cancel()
 
-        if self.subscription.stripe_subscription and self.stripe_item_id:
+    def uncancel(self):
+        """Reverse a pending cancellation, whole-subscription like `cancel`."""
+        self.subscription.uncancel()
+
+    def remove_from_stripe(self):
+        """Drop this line from the Stripe subscription and delete it locally.
+
+        Proration is suppressed - the line is paid through period end, so the
+        next invoice omits it rather than crediting it.  Identifies the line
+        first: the only id that could find it again goes with the row.
+        """
+        stripe_sub = self.subscription.stripe_subscription
+        if stripe_sub is not None:
+            # A wrong id is worse than a missing one: Stripe rejects the whole
+            # call rather than the line.
+            self.subscription.sync_stripe_item_ids(stripe_sub)
+            # It wrote straight to the rows, so this instance is stale.
+            self.refresh_from_db()
+
+        if stripe_sub is not None and self.stripe_item_id:
             get_payment_provider().get_subscription_service().modify(
                 self.subscription.subscription_id,
                 items=[{"id": self.stripe_item_id, "deleted": True}],
                 proration_behavior="none",
             )
-        self.send_slack_notification("cancelled")
+        elif not self.is_free:
+            # Delete anyway - it is what the customer asked for - but log it:
+            # the charge may outlive the record of what it was for.
+            logger.error(
+                "[SUBSCRIPTION-ITEM] Removing paid line %s (%s) for %s with "
+                "no Stripe item to remove; check subscription %s for a "
+                "charge that should have stopped.",
+                self.pk,
+                self.plan,
+                self.subscription.organization,
+                self.subscription.subscription_id or "(none)",
+            )
         self.delete()
 
     def notify_started(self):

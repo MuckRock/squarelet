@@ -33,6 +33,7 @@ from squarelet.organizations.models.payment import (
     PaymentMethod,
     Plan,
     Subscription,
+    SubscriptionItem,
 )
 from squarelet.organizations.payments.factory import get_payment_provider
 from squarelet.users.models import User
@@ -55,12 +56,15 @@ def restore_organization():
         Organization.objects.filter(id__in=due_org_ids).values_list("uuid", flat=True)
     )
 
-    # Delete cancelled subscriptions for due orgs where the Stripe cancellation
+    # Retire cancelled subscriptions for due orgs where the Stripe cancellation
     # date has passed (or is null, which covers free plans and legacy records).
-    Subscription.objects.filter(
+    # A bulk delete cascades to the free and comped lines nobody cancelled.
+    due_cancelled = Subscription.objects.filter(
         organization_id__in=due_org_ids,
         cancelled=True,
-    ).filter(Q(cancel_at__lte=today) | Q(cancel_at__isnull=True)).delete()
+    ).filter(Q(cancel_at__lte=today) | Q(cancel_at__isnull=True))
+    for subscription in due_cancelled:
+        retire_subscription(subscription)
 
     # Determine which orgs still have active subscriptions
     orgs_with_subs = set(
@@ -670,18 +674,63 @@ def handle_payment_method_attached(pm_data):
         )
 
 
+def retire_subscription(subscription):
+    """End the paid lines on a subscription and keep whatever is free.
+
+    A cancellation ends what was being billed.  A free or comped line has
+    no Stripe counterpart at all - before the split it had a subscription
+    row of its own, and a cancellation could only reach the plan it was
+    about.  One row now carries every line, so deleting the row revokes
+    access nobody cancelled.
+
+    Anything left keeps the row, minus the Stripe identity.  The id and
+    the line item ids have to go with it: left behind they would be sent
+    to whatever subscription is started next, which has never heard of
+    them, and the cached period would have the pages announcing a renewal
+    for a subscription that no longer exists.
+
+    Returns how many lines survived.
+    """
+    for item in subscription.items.select_related("plan"):
+        if not item.is_free:
+            item.delete()
+
+    # `subscription.items.count()` would answer from a prefetch cache with
+    # the pre-delete number.
+    survivors = SubscriptionItem.objects.filter(subscription=subscription).count()
+    if survivors:
+        subscription.subscription_id = ""
+        subscription.stripe_status = ""
+        subscription.current_period_end = None
+        subscription.remember_stripe_subscription(None)
+        subscription.items.update(stripe_item_id="")
+        subscription.clear_cancellation()
+        subscription.save(
+            update_fields=[
+                "subscription_id",
+                *Subscription.STRIPE_CACHED_FIELDS,
+                *Subscription.CANCELLATION_FIELDS,
+            ]
+        )
+    else:
+        subscription.delete()
+    return survivors
+
+
 def _reconcile_cancelled_subscription(subscription, reason):
-    """Delete a locally-tracked subscription that Stripe has ended and
-    invalidate the organization's entitlement cache."""
+    """End what Stripe ended, and no more."""
     organization_uuid = subscription.organization.uuid
     subscription_id = subscription.subscription_id
-    subscription.delete()
+
+    survivors = retire_subscription(subscription)
+
     send_cache_invalidations("organization", [organization_uuid])
     logger.info(
         "[STRIPE-WEBHOOK-SUBSCRIPTION] Reconciled cancelled subscription %s (%s); "
-        "deleted local record and invalidated cache for org %s",
+        "kept %d free line(s) and invalidated cache for org %s",
         subscription_id,
         reason,
+        survivors,
         organization_uuid,
     )
 
@@ -721,19 +770,14 @@ def handle_subscription_updated(subscription_data):
     # covers cancellations scheduled outside our own flow (dashboard, or the
     # cancel_at_period_end set for auto_renew=False plans). The record is
     # finally deleted when Stripe sends the deletion event at period end.
-    subscription.cancelled = bool(subscription_data.get("cancel_at_period_end"))
-    # Track when Stripe will terminate the subscription, consistent with how
-    # Subscription.cancel() sets it. Clear it when a cancellation is reversed.
-    if subscription.cancelled and subscription.current_period_end:
-        subscription.cancel_at = subscription.current_period_end.date()
+    if subscription_data.get("cancel_at_period_end"):
+        subscription.mark_cancelled(subscription.current_period_end)
     else:
-        subscription.cancel_at = None
+        subscription.clear_cancellation()
     subscription.save(
         update_fields=[
-            "stripe_status",
-            "current_period_end",
-            "cancelled",
-            "cancel_at",
+            *Subscription.STRIPE_CACHED_FIELDS,
+            *Subscription.CANCELLATION_FIELDS,
         ]
     )
     logger.info(

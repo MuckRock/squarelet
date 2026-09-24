@@ -183,14 +183,32 @@ class Organization(AvatarMixin, models.Model):
     def get_plans(self):
         """Plans this organization is subscribed to.
 
-        One query per organization.  For many at once, prefetch
-        `subscriptions__plans` and walk that instead.
+        Callers that need this for many organizations want `prefetched_plans()`;
+        this must return a queryset, because callers filter and slice it.
         """
         # pylint: disable=import-outside-toplevel
         # Squarelet
         from squarelet.organizations.models.payment import Plan
 
         return Plan.objects.filter(subscriptions__organization=self).distinct()
+
+    def prefetched_plans(self):
+        """The distinct plans on this organization's subscriptions.
+
+        Companion to `get_plans()` for callers looping over organizations.
+        `get_plans()` builds a fresh queryset every call, so a
+        `subscriptions__plans` prefetch cannot be used by it - the prefetch
+        is paid for and then ignored, and the query it was meant to save
+        still runs, once per organization.  This walks the prefetch.
+
+        Returns a list rather than a queryset, because there is no queryset
+        to return.  Correct without a prefetch too, just not cheaper.
+        """
+        plans = {}
+        for subscription in self.subscriptions.all():
+            for plan in subscription.plans.all():
+                plans.setdefault(plan.pk, plan)
+        return list(plans.values())
 
     # Every user has an individual organization
     # created when creating an account. Its UUID
@@ -528,8 +546,11 @@ class Organization(AvatarMixin, models.Model):
     def add_subscription(self, plan, max_users, user, token=None, payment_method=None):
         """Add a new subscription to a plan.
 
-        Raises SubscriptionError if the org already has a non-cancelled
-        subscription for this plan.
+        Raises SubscriptionError if the org already holds a line for this
+        plan, cancelled or not.  A cancelled line still occupies it:
+        `unique_together` is (subscription, plan), so a second line for the
+        same plan on the same subscription cannot exist.  Reviving one is
+        `uncancel`'s job, reached through Resubscribe.
         """
         # Lock this org row to serialize concurrent subscription attempts
         # (e.g. double form submit), preventing a race between the exists()
@@ -889,15 +910,20 @@ class Organization(AvatarMixin, models.Model):
         """
         wix_plans = []
 
-        # Check membership groups
-        for group in self.groups.filter(share_resources=True):
-            for plan in group.get_plans().filter(wix=True):
-                wix_plans.append((group, plan))
+        # Filtered in Python so a prefetch can serve it; a fresh queryset
+        # cannot, and this recurses up the whole hierarchy.
+        for group in self.groups.filter(share_resources=True).prefetch_related(
+            "subscriptions__plans"
+        ):
+            for plan in group.prefetched_plans():
+                if plan.wix:
+                    wix_plans.append((group, plan))
 
         # Check parent hierarchy (recursive)
         if self.parent and self.parent.share_resources:
-            for plan in self.parent.get_plans().filter(wix=True):
-                wix_plans.append((self.parent, plan))
+            for plan in self.parent.prefetched_plans():
+                if plan.wix:
+                    wix_plans.append((self.parent, plan))
             # Also get parent's groups recursively
             wix_plans.extend(self.parent.get_wix_plans_from_groups())
 
@@ -920,7 +946,8 @@ class Organization(AvatarMixin, models.Model):
             if source.pk in _seen:
                 return
             _seen.add(source.pk)
-            for plan in source.get_plans():
+            # `get_plans` builds a fresh queryset that cannot read the prefetch.
+            for plan in source.prefetched_plans():
                 if not plan.free:
                     inherited.append((source, plan))
 

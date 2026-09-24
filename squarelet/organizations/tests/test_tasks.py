@@ -6,7 +6,7 @@ from django.utils.timezone import get_current_timezone
 
 # Standard Library
 import base64
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone as dt_timezone
 from io import BytesIO
 
 # Third Party
@@ -24,6 +24,7 @@ from squarelet.organizations.models import (
     Charge,
     Invoice,
     PaymentMethod,
+    Subscription,
     SubscriptionItem,
 )
 from squarelet.organizations.tests.factories import (
@@ -148,6 +149,40 @@ def test_restore_organization_annual_sub_deleted_after_cancel_at(
     # org lost its last sub, so update_on clears
     org.refresh_from_db()
     assert org.update_on is None
+
+
+@pytest.mark.django_db
+def test_restore_organization_keeps_the_free_line(
+    organization_plan_factory, plan_factory, subscription_item_factory, mocker
+):
+    """The nightly sweep ends the paid lines, not the row.
+
+    It bulk-deleted every cancelled subscription that was due, which after
+    the split cascades to the free and comped lines sharing that row -
+    access nobody cancelled, on a job that runs every night.
+    """
+    mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
+    mocker.patch("stripe.Plan.create")
+    today = date.today()
+    paid = SubscriptionItemFactory(
+        plan=organization_plan_factory(),
+        subscription__cancelled=True,
+        subscription__cancel_at=today - timedelta(days=1),
+        subscription__organization__update_on=today - timedelta(1),
+    )
+    free = subscription_item_factory(
+        subscription=paid.subscription,
+        plan=plan_factory(name="Comped Line", base_price=0, price_per_user=0),
+    )
+
+    tasks.restore_organization()
+
+    assert not SubscriptionItem.objects.filter(pk=paid.pk).exists()
+    assert SubscriptionItem.objects.filter(pk=free.pk).exists()
+    subscription = free.subscription
+    subscription.refresh_from_db()
+    assert subscription.subscription_id == ""
+    assert subscription.cancelled is False
 
 
 class TestRestoreOrganizationGrants:
@@ -2607,6 +2642,60 @@ class TestHandleSubscriptionUpdated:
         assert subscription.cancelled is True
 
     @pytest.mark.django_db
+    def test_cancellation_reaches_the_lines(
+        self, subscription_factory, subscription_item_factory
+    ):
+        """The UI lists lines, not subscriptions.
+
+        Subscription.cancel() flags them; a cancellation scheduled outside
+        our own flow - the Stripe dashboard, say - arrives here instead, and
+        used to leave every line saying it would renew.
+        """
+        subscription = subscription_factory(
+            subscription_id="sub_lines", cancelled=False
+        )
+        item = subscription_item_factory(subscription=subscription)
+
+        tasks.handle_subscription_updated(
+            {
+                "id": "sub_lines",
+                "status": "active",
+                "cancel_at_period_end": True,
+            }
+        )
+
+        item.refresh_from_db()
+        assert item.cancelled is True
+
+    @pytest.mark.django_db
+    def test_a_payload_without_items_keeps_the_period_end(self, subscription_factory):
+        """The cancellation event is exactly the one that omits `items`.
+
+        Nulling the period end from it threw away the date `cancel()` had
+        just worked out, and the cancellation was rewritten with no date -
+        which the sweep treats as due tonight.
+        """
+        period_end = datetime(2026, 10, 20, 12, tzinfo=dt_timezone.utc)
+        subscription = subscription_factory(
+            subscription_id="sub_toggle",
+            cancelled=True,
+            cancel_at=date(2026, 10, 20),
+            current_period_end=period_end,
+        )
+
+        tasks.handle_subscription_updated(
+            {
+                "id": "sub_toggle",
+                "status": "active",
+                "cancel_at_period_end": True,
+            }
+        )
+
+        subscription.refresh_from_db()
+        assert subscription.current_period_end == period_end
+        assert subscription.cancel_at == date(2026, 10, 20)
+
+    @pytest.mark.django_db
     def test_syncs_cancel_at_period_end_false(self, subscription_factory):
         """Clears the local cancelled flag when Stripe cancellation is reversed"""
         subscription = subscription_factory(
@@ -2694,7 +2783,7 @@ class TestHandleSubscriptionUpdated:
             {"id": "sub_upd_cancel", "status": "canceled"}
         )
 
-        assert not SubscriptionItem.objects.filter(pk=subscription.pk).exists()
+        assert not Subscription.objects.filter(pk=subscription.pk).exists()
         patched.assert_called_once_with("organization", [org_uuid])
 
     @pytest.mark.django_db
@@ -2719,7 +2808,7 @@ class TestHandleSubscriptionDeleted:
 
         tasks.handle_subscription_deleted({"id": "sub_del", "status": "canceled"})
 
-        assert not SubscriptionItem.objects.filter(pk=subscription.pk).exists()
+        assert not Subscription.objects.filter(pk=subscription.pk).exists()
         patched.assert_called_once_with("organization", [org_uuid])
 
     @pytest.mark.django_db
@@ -2728,6 +2817,101 @@ class TestHandleSubscriptionDeleted:
         mock_logger = mocker.patch("squarelet.organizations.tasks.logger")
         tasks.handle_subscription_deleted({"id": "sub_unknown"})
         mock_logger.warning.assert_called_once()
+
+
+@pytest.mark.django_db
+class TestReconcilingACancelledSubscription:
+    """Stripe ending a subscription ends the paid lines on it, not the row.
+
+    Before the split each plan had a subscription of its own, so a
+    cancellation could only reach the plan it was about.  One row now
+    carries every line, and a free or comped line has no Stripe
+    counterpart at all - deleting the row would revoke access nobody
+    cancelled, on the normal end-of-life event Stripe fires at period end.
+    """
+
+    def _mixed(self, subscription_factory, subscription_item_factory, plan_factory):
+        subscription = subscription_factory(subscription_id="sub_mixed")
+        paid = subscription_item_factory(
+            subscription=subscription,
+            plan=plan_factory(name="Paid Plan", base_price=100),
+            stripe_item_id="si_paid",
+        )
+        free = subscription_item_factory(
+            subscription=subscription,
+            plan=plan_factory(name="Comped Plan", base_price=0, price_per_user=0),
+        )
+        return subscription, paid, free
+
+    def test_the_free_line_survives(
+        self, subscription_factory, subscription_item_factory, plan_factory, mocker
+    ):
+        mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
+        subscription, paid, free = self._mixed(
+            subscription_factory, subscription_item_factory, plan_factory
+        )
+
+        tasks.handle_subscription_deleted({"id": "sub_mixed", "status": "canceled"})
+
+        assert not SubscriptionItem.objects.filter(pk=paid.pk).exists()
+        assert SubscriptionItem.objects.filter(pk=free.pk).exists()
+        assert Subscription.objects.filter(pk=subscription.pk).exists()
+
+    def test_the_survivors_forget_stripe(
+        self, subscription_factory, subscription_item_factory, plan_factory, mocker
+    ):
+        """Ids left behind are sent to whatever subscription starts next,
+        which has never heard of them - and a cached period has the pages
+        announcing a renewal for something that no longer exists."""
+        mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
+        subscription, _paid, free = self._mixed(
+            subscription_factory, subscription_item_factory, plan_factory
+        )
+        SubscriptionItem.objects.filter(pk=free.pk).update(stripe_item_id="si_free")
+        subscription.mark_cancelled(subscription.current_period_end)
+
+        tasks.handle_subscription_deleted({"id": "sub_mixed", "status": "canceled"})
+
+        subscription.refresh_from_db()
+        free.refresh_from_db()
+        assert subscription.subscription_id == ""
+        assert subscription.stripe_status == ""
+        assert subscription.current_period_end is None
+        assert subscription.cancelled is False
+        assert subscription.cancel_at is None
+        assert free.stripe_item_id == ""
+
+    def test_a_wholly_paid_subscription_is_still_deleted(
+        self, subscription_factory, subscription_item_factory, plan_factory, mocker
+    ):
+        """The behaviour every subscription had before the split."""
+        mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
+        subscription = subscription_factory(subscription_id="sub_paid_only")
+        subscription_item_factory(
+            subscription=subscription, plan=plan_factory(name="Paid", base_price=100)
+        )
+
+        tasks.handle_subscription_deleted({"id": "sub_paid_only", "status": "canceled"})
+
+        assert not Subscription.objects.filter(pk=subscription.pk).exists()
+        assert not SubscriptionItem.objects.filter(
+            subscription__pk=subscription.pk
+        ).exists()
+
+    def test_the_updated_webhook_takes_the_same_path(
+        self, subscription_factory, subscription_item_factory, plan_factory, mocker
+    ):
+        """status=canceled arrives before the deletion event and is the one
+        that usually fires first."""
+        mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
+        _subscription, paid, free = self._mixed(
+            subscription_factory, subscription_item_factory, plan_factory
+        )
+
+        tasks.handle_subscription_updated({"id": "sub_mixed", "status": "canceled"})
+
+        assert not SubscriptionItem.objects.filter(pk=paid.pk).exists()
+        assert SubscriptionItem.objects.filter(pk=free.pk).exists()
 
 
 class TestHandleInvoiceFinalizedHostedUrl:

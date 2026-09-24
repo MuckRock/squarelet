@@ -1,6 +1,6 @@
 # Django
 from django.contrib.auth.models import AnonymousUser
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Q
 from django.utils import timezone
 from django.utils.timezone import get_current_timezone
@@ -14,6 +14,7 @@ from fuzzywuzzy import fuzz, process
 
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason
+from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.payments.factory import get_payment_provider
 
 # pylint:disable=too-many-positional-arguments
@@ -439,22 +440,37 @@ class SubscriptionItemQuerySet(models.QuerySet):
             interval=interval,
             collection_method=collection_method,
         )
-        item = self.model.objects.create(
-            subscription=subscription, plan=plan, quantity=quantity
-        )
-
-        if created or not subscription.subscription_id:
-            anchor = organization.billing_anchor
-            stripe_subscription = subscription.start(
-                payment_method=payment_method,
-                anchor_day=anchor.day if anchor else None,
+        if subscription.cancelled and not plan.free:
+            # A new paid line would join the ending subscription - charged
+            # now, deleted by the sweep.  Refused until per-line cancellation.
+            raise SubscriptionError(
+                f"This organization has a cancellation pending on its "
+                f"{interval} billing.  A plan added now would be charged "
+                f"immediately and removed when the cancellation completes; "
+                f"wait until then, or resubscribe to the cancelled plan."
             )
-        else:
-            subscription.stripe_modify()
-            stripe_subscription = subscription.stripe_subscription
+        # Inside the transaction on purpose: a Stripe failure must not leave
+        # an organization holding a line nobody bills.
+        with transaction.atomic():
+            item = self.model.objects.create(
+                subscription=subscription, plan=plan, quantity=quantity
+            )
 
-        if not plan.free:
-            item.notify_started()
+            if created or not subscription.subscription_id:
+                anchor = organization.billing_anchor
+                stripe_subscription = subscription.start(
+                    payment_method=payment_method,
+                    anchor_day=anchor.day if anchor else None,
+                )
+            else:
+                # The cached object was fetched before the line was added.
+                stripe_subscription = subscription.stripe_modify()
+                if stripe_subscription is not None:
+                    subscription.settle_added_line(stripe_subscription)
+
+        # `notify_started` gates on entitlement; gating on price here would
+        # drop free signups that carry `organization`.
+        item.notify_started()
         return item, stripe_subscription
 
     def sunlight_active_count(self):
