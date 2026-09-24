@@ -4,8 +4,9 @@ from django.contrib import messages
 from django.contrib.auth.models import AnonymousUser, Permission
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
+from django.db import connection
 from django.http.response import Http404
-from django.test.utils import override_settings
+from django.test.utils import CaptureQueriesContext, override_settings
 from django.utils import timezone
 
 # Standard Library
@@ -1687,6 +1688,40 @@ class TestManageSubscriptions(ViewTestMixin):
         (block,) = response.context_data["subscriptions"]
         assert block["lines"] == [item]
         assert block["subscription"].next_date == date(2026, 10, 20)
+
+    def test_more_plans_do_not_mean_more_queries(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+    ):
+        """Whether each plan can come off now is read from the lines loaded."""
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        first = subscription_item_factory(
+            subscription__organization=organization,
+            plan=plan_factory(name="First", base_price=30),
+        )
+        subscription_item_factory(
+            subscription=first.subscription,
+            plan=plan_factory(name="Second", base_price=30),
+        )
+
+        def render_queries():
+            with CaptureQueriesContext(connection) as queries:
+                self.call_view(rf, admin, slug=organization.slug).render()
+            return len(queries)
+
+        two = render_queries()
+        for name in ("Third", "Fourth"):
+            subscription_item_factory(
+                subscription=first.subscription,
+                plan=plan_factory(name=name, base_price=30),
+            )
+
+        assert render_queries() == two
 
     def test_remove_is_offered_only_beside_another_paid_plan(
         self,
