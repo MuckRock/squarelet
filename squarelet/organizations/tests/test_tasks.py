@@ -140,6 +140,26 @@ def test_a_stripe_failure_on_a_free_line_does_not_stop_the_sweep(plan_factory, m
 
 
 @pytest.mark.django_db()
+def test_sweeping_the_only_line_retires_the_subscription(plan_factory, mocker):
+    """Otherwise the organization keeps a monthly anchor for nothing."""
+    mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
+    today = date.today()
+    line = SubscriptionItemFactory(
+        plan=plan_factory(name="Free Plan", base_price=0, price_per_user=0),
+        cancelled=True,
+        cancel_at=today,
+        subscription__organization__update_on=today,
+    )
+    organization = line.subscription.organization
+
+    tasks.restore_organization()
+
+    organization.refresh_from_db()
+    assert not Subscription.objects.filter(pk=line.subscription.pk).exists()
+    assert organization.update_on is None
+
+
+@pytest.mark.django_db()
 def test_restore_organization(organization_plan_factory, mocker):
     patched = mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
     mocker.patch("stripe.Plan.create")

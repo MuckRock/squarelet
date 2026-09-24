@@ -113,6 +113,10 @@ def restore_organization():
             )
         else:
             swept_org_uuids.add(item.subscription.organization.uuid)
+            if not item.subscription.items.exists():
+                # An empty row keeps the organization on a renewal cycle it
+                # no longer has.
+                item.subscription.delete()
 
     # Determine which orgs still have active subscriptions
     orgs_with_subs = set(
