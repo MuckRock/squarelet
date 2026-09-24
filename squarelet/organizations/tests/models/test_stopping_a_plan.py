@@ -118,11 +118,23 @@ class TestTheRemovalCredit:
             "squarelet.organizations.models.payment.get_payment_provider"
         ).return_value.get_subscription_service.return_value
 
-    def test_the_credit_is_the_prorations_stripe_previews(
+    def test_the_credit_is_the_removed_items_proration_only(
         self, two_lines, stripe_service
     ):
+        """A credit already waiting from an earlier removal is not this one's."""
+
+        def line(amount, item, proration=True):
+            details = {"proration": proration, "subscription_item": item}
+            return {"amount": amount, "parent": {"subscription_item_details": details}}
+
         stripe_service.preview_removal.return_value = {
-            "lines": {"data": [{"amount": -1240}, {"amount": 3000}]}
+            "lines": {
+                "data": [
+                    line(-1240, "si_leaving"),
+                    line(-1000, "si_removed_earlier"),
+                    line(3000, "si_staying", proration=False),
+                ]
+            }
         }
 
         assert two_lines.removal_credit(1_700_000_000) == 1240
