@@ -26,6 +26,11 @@ urlpatterns = [
         view=views.CancelSubscription.as_view(),
         name="cancel-subscription",
     ),
+    path(
+        "<slug:slug>/subscriptions/<int:pk>/end",
+        view=views.EndSubscription.as_view(),
+        name="end-subscription",
+    ),
     path("<slug:slug>/card/", view=views.UpdateCard.as_view(), name="update-card"),
     path(
         "<slug:slug>/card/remove/",

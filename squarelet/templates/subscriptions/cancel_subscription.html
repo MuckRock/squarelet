@@ -2,7 +2,7 @@
 {% load i18n crispy_forms_tags %}
 {% load icon %}
 
-{% block title %}{{ subscription.plan.name }} | Cancel Subscription{% endblock %}
+{% block title %}{{ plans|join:", " }} | {% if removes_now %}Remove Plan{% else %}Cancel Subscription{% endif %}{% endblock %}
 
 {% block layout_id %}cancel_subscription{% endblock %}
 
@@ -12,7 +12,7 @@
 {% block header %}
   <h1>{{ organization.name }}</h1>
   <span class="arrow">{% icon "chevron-right" %}</span>
-  <h2>{% trans "Cancel subscription" %}</h2>
+  <h2>{% if removes_now %}{% trans "Remove plan" %}{% else %}{% trans "Cancel subscription" %}{% endif %}</h2>
 {% endblock header %}
 
 {% block main %}
@@ -20,24 +20,37 @@
   <form id="cancel-subscription-form" method="post" enctype="multipart/form-data">
     {% crispy form form.helper %}
     <div>
-      <h3 class="plan {% if subject == "organizations" %}organization{% else %}professional{% endif %}">
-        {{ subscription.plan.name }}
-      </h3>
-      <p>{% trans "Are you sure you want to cancel this plan?" %}</p>
+      {% for plan in plans %}
+        <h3 class="plan {% if subject == "organizations" %}organization{% else %}professional{% endif %}">
+          {{ plan }}
+        </h3>
+      {% endfor %}
+      {% if removes_now %}
+        <p>{% trans "Are you sure you want to remove this plan?" %}</p>
+      {% else %}
+        <p>{% trans "Are you sure you want to cancel this subscription?" %}</p>
+      {% endif %}
     </div>
     <p class="help">
-      {% blocktrans with date=next_date %}
-        Your plan is paid through <strong>{{ date }}.</strong>
-      {% endblocktrans %}
+      {% if removes_now and free %}
+        {% trans "It comes off now." %}
+      {% elif removes_now %}
+        {% blocktrans %}
+          It comes off your subscription now, and the unused time is credited to your next invoice.
+        {% endblocktrans %}
+      {% else %}
+        {% blocktrans with date=next_date %}
+          Everything on it stays active until <strong>{{ date }}</strong>, then ends.  Nothing is refunded.
+        {% endblocktrans %}
+      {% endif %}
     </p>
     <div class="buttons">
       <button type="submit" class="btn primary caution">
         {% icon "x-circle" %}
-        {% trans "Cancel plan" %}
+        {% if removes_now %}{% trans "Remove plan" %}{% else %}{% trans "Cancel subscription" %}{% endif %}
       </button>
-
       <a href="{{ subscriptions_url }}" class="btn ghost primary">
-        {% trans "Keep plan" %}
+        {% trans "Keep it" %}
       </a>
     </div>
   </form>

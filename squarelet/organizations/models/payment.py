@@ -1098,20 +1098,43 @@ class SubscriptionItem(models.Model):
         self.save()
         self.subscription.sync_to_stripe()
 
-    def cancel(self):
-        """Stop billing this line at the end of the current period.
+    @property
+    def removes_now(self):
+        """Whether stopping this plan takes it off now rather than at period end.
 
-        Cancels the whole subscription: Stripe has no per-item
-        cancel_at_period_end.  A free line has no period, so it goes now and
-        leaves the organization's other free plans alone.
+        A free plan always does.  A paid one does while other paid plans stay on
+        its renewing subscription, which carries the credit for its unused time.
         """
         subscription = self.subscription
         if subscription.kind == "free":
-            self.delete()
-            if not subscription.items.exists():
+            return True
+        return (
+            subscription.kind == "renewing"
+            and not subscription.cancelled
+            and any(
+                not sibling.is_free
+                for sibling in subscription.items.exclude(pk=self.pk).select_related(
+                    "plan"
+                )
+            )
+        )
+
+    def cancel(self):
+        """Stop this plan.  Returns True if it came off now.
+
+        Otherwise the whole subscription cancels at period end: Stripe has no
+        per-item cancel_at_period_end, and with nothing else billing there is no
+        invoice to credit.
+        """
+        if self.removes_now:
+            subscription = self.subscription
+            self.remove_from_stripe()
+            if subscription.kind == "free" and not subscription.items.exists():
                 subscription.delete()
-            return
-        subscription.cancel()
+            return True
+        if not self.subscription.cancelled:
+            self.subscription.cancel()
+        return False
 
     def uncancel(self):
         """Reverse a pending cancellation, whole-subscription like `cancel`."""
@@ -1120,9 +1143,8 @@ class SubscriptionItem(models.Model):
     def remove_from_stripe(self):
         """Drop this line from the Stripe subscription and delete it locally.
 
-        Proration is suppressed - the line is paid through period end, so the
-        next invoice omits it rather than crediting it.  Identifies the line
-        first: the only id that could find it again goes with the row.
+        Stripe credits the unused time against the next invoice.  Identifies
+        the line first: the only id that could find it again goes with the row.
         """
         stripe_sub = self.subscription.stripe_subscription
         if stripe_sub is not None:
@@ -1136,7 +1158,7 @@ class SubscriptionItem(models.Model):
             get_payment_provider().get_subscription_service().modify(
                 self.subscription.subscription_id,
                 items=[{"id": self.stripe_item_id, "deleted": True}],
-                proration_behavior="none",
+                proration_behavior="create_prorations",
             )
         elif not self.is_free:
             # Delete anyway - it is what the customer asked for - but log it:

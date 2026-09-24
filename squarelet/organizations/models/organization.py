@@ -644,7 +644,7 @@ class Organization(AvatarMixin, models.Model):
                 sync_wix_for_group_member.delay(child_org.pk, self.pk, plan.pk)
 
     def remove_subscription(self, plan_or_subscription, user=None):
-        """Cancel the subscription for the given plan or SubscriptionItem instance."""
+        """Stop the given plan or SubscriptionItem.  Returns True if it came off now."""
         # pylint: disable=import-outside-toplevel
         # Squarelet
         from squarelet.organizations.models.payment import SubscriptionItem as Sub
@@ -663,10 +663,11 @@ class Organization(AvatarMixin, models.Model):
             from_max_users=self.max_users,
             to_max_users=self.max_users,
         )
-        sub.cancel()
+        removed = sub.cancel()
 
         if wix_unsync_plan:
             self._dispatch_wix_unsync(wix_unsync_plan)
+        return removed
 
     def modify_subscription(self, old_plan, new_plan, max_users, user):
         """Modify the subscription for old_plan to new_plan.

@@ -1684,9 +1684,73 @@ class TestManageSubscriptions(ViewTestMixin):
         response = self.call_view(rf, admin, slug=organization.slug)
 
         assert response.status_code == 200
-        rendered = list(response.context_data["subscriptions"])
-        assert rendered == [item]
-        assert rendered[0].next_date == date(2026, 10, 20)
+        (block,) = response.context_data["subscriptions"]
+        assert block["lines"] == [item]
+        assert block["subscription"].next_date == date(2026, 10, 20)
+
+    def test_remove_is_offered_only_beside_another_paid_plan(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+    ):
+        """A lone paid plan only offers cancelling the subscription."""
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        first = subscription_item_factory(
+            subscription__organization=organization,
+            plan=plan_factory(name="First", base_price=30),
+        )
+
+        page = self.call_view(rf, admin, slug=organization.slug).render()
+        assert b"/end" in page.content
+        assert page.content.count(b"/cancel") == 0
+
+        subscription_item_factory(
+            subscription=first.subscription,
+            plan=plan_factory(name="Second", base_price=30),
+        )
+        page = self.call_view(rf, admin, slug=organization.slug).render()
+        assert page.content.count(b"/cancel") == 2
+
+
+@pytest.mark.django_db()
+class TestEndSubscription(ViewTestMixin):
+    """Cancel subscription ends every plan on it at period end."""
+
+    view = views.EndSubscription
+    url = "/organizations/{slug}/subscriptions/{pk}/end"
+
+    def test_every_plan_ends_with_the_subscription(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+        mocker,
+    ):
+        cancel = mocker.patch("squarelet.organizations.models.Subscription.cancel")
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        first = subscription_item_factory(
+            subscription__organization=organization,
+            plan=plan_factory(name="First", base_price=30),
+        )
+        subscription_item_factory(
+            subscription=first.subscription,
+            plan=plan_factory(name="Second", base_price=30),
+        )
+
+        response = self.call_view(
+            rf, admin, {}, slug=organization.slug, pk=first.subscription.pk
+        )
+
+        assert response.status_code == 302
+        cancel.assert_called_once_with()
+        assert first.subscription.items.count() == 2
 
 
 @pytest.mark.django_db()
@@ -1729,7 +1793,10 @@ class TestCancelSubscription(ViewTestMixin):
         mocker,
     ):
         """Staff cancelling a subscription on someone's behalf is logged"""
-        mocker.patch("squarelet.organizations.models.Organization.remove_subscription")
+        mocker.patch(
+            "squarelet.organizations.models.Organization.remove_subscription",
+            return_value=False,
+        )
         staff_member = user_factory(is_staff=True)
         staff_member = _assign_org_perm(staff_member, "can_edit_subscription")
         organization = organization_factory()

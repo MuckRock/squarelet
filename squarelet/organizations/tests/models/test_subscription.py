@@ -781,10 +781,10 @@ class TestSubscriptionItem:
         assert SubscriptionItem.objects.filter(pk=item.pk).exists()
 
     @pytest.mark.django_db()
-    def test_remove_from_stripe_drops_the_line_without_proration(
+    def test_remove_from_stripe_credits_the_unused_time(
         self, subscription_item_factory, mocker
     ):
-        """The line was paid for through the period, so no credit is issued."""
+        """The rest of the period was paid for, so Stripe credits it."""
         item = subscription_item_factory(
             subscription__subscription_id="sub_multi", stripe_item_id="si_one"
         )
@@ -798,7 +798,7 @@ class TestSubscriptionItem:
         mock_sub_svc.modify.assert_called_once_with(
             "sub_multi",
             items=[{"id": "si_one", "deleted": True}],
-            proration_behavior="none",
+            proration_behavior="create_prorations",
         )
         assert not SubscriptionItem.objects.filter(pk=item.pk).exists()
 

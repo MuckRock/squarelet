@@ -552,12 +552,17 @@ class BaseManageSubscriptions(SubscriptionObjectMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        # Get subscriptions and add renewal/cancellation date and cost data
-        subscriptions = self.object.subscription_items.select_related(
-            "subscription", "plan"
-        )
-        for subscription in subscriptions:
-            subscription.cost = subscription.plan.cost(self.object.max_users)
+        # One block per subscription, since cancellation is per subscription.
+        subscriptions = []
+        for subscription in self.object.subscriptions.prefetch_related(
+            "items__plan"
+        ).order_by("pk"):
+            lines = list(subscription.items.all())
+            if not lines:
+                continue
+            for line in lines:
+                line.cost = line.plan.cost(self.object.max_users)
+            subscriptions.append({"subscription": subscription, "lines": lines})
         context["subscriptions"] = subscriptions
 
         # Get card on file
@@ -689,30 +694,78 @@ class BaseUpdateReceiptEmail(SubscriptionObjectMixin, UpdateView):
 
 
 class BaseCancelSubscription(SubscriptionObjectMixin, UpdateView):
+    """Stop one plan: now with a credit while others bill, else at period end."""
+
     form_class = CancelSubscriptionForm
     template_name = "subscriptions/cancel_subscription.html"
 
+    def get_line(self):
+        return self.object.subscription_items.filter(id=self.kwargs["pk"]).first()
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        subscription = self.object.subscription_items.filter(
-            id=self.kwargs["pk"]
-        ).first()
-        if subscription:
-            context["subscription"] = subscription
-            context["next_date"] = subscription.subscription.next_date
+        line = self.get_line()
+        if line:
+            context["plans"] = [line.plan.name]
+            context["removes_now"] = line.removes_now
+            context["free"] = line.is_free
+            context["next_date"] = line.subscription.next_date
         return context
 
     def form_valid(self, form):
-        organization = self.object
-        subscription = self.object.subscription_items.filter(
-            id=self.kwargs["pk"]
-        ).first()
-        if subscription:
-            organization.remove_subscription(subscription)
+        line = self.get_line()
+        if line is None:
+            return redirect(self.reverse_subject("subscriptions"))
+        next_date = line.subscription.next_date
+        if self.object.remove_subscription(line):
+            self.log_staff_action("removed a plan", description=line.plan.name)
+            messages.success(self.request, _(f"{line.plan.name} removed."))
+        else:
             self.log_staff_action(
-                "cancelled a subscription", description=subscription.plan.name
+                "cancelled a subscription", description=line.plan.name
             )
-        messages.success(self.request, _("Subscription cancelled."))
+            messages.success(
+                self.request, _(f"Subscription cancelled.  It ends on {next_date}.")
+            )
+        return redirect(self.reverse_subject("subscriptions"))
+
+
+class BaseEndSubscription(SubscriptionObjectMixin, UpdateView):
+    """Cancel every plan on one subscription at period end."""
+
+    form_class = CancelSubscriptionForm
+    template_name = "subscriptions/cancel_subscription.html"
+
+    def get_subscription(self):
+        return self.object.subscriptions.filter(
+            id=self.kwargs["pk"], kind="renewing"
+        ).first()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        subscription = self.get_subscription()
+        if subscription:
+            context["plans"] = [
+                line.plan.name for line in subscription.items.select_related("plan")
+            ]
+            context["removes_now"] = False
+            context["next_date"] = subscription.next_date
+        return context
+
+    def form_valid(self, form):
+        subscription = self.get_subscription()
+        if subscription and not subscription.cancelled:
+            subscription.cancel()
+            self.log_staff_action(
+                "cancelled a subscription",
+                description=", ".join(
+                    line.plan.name for line in subscription.items.select_related("plan")
+                ),
+            )
+            messages.success(
+                self.request,
+                _(f"Subscription cancelled.  It ends on {subscription.next_date}."),
+            )
         return redirect(self.reverse_subject("subscriptions"))
 
 
