@@ -86,11 +86,7 @@ def restore_organization():
         # were never sent, and one flagged to stop next month is still
         # billing today.  A free line tells Stripe nothing, so it is never
         # blocked.
-        if item.is_free:
-            item.remove_from_stripe()
-            continue
-
-        if not item.subscription.other_paid_items(item):
+        if not item.is_free and not item.subscription.other_paid_items(item):
             # Unreachable by design, but if it happens Stripe was never told
             # to stop and the sweep skips this line nightly while the
             # customer keeps paying - so be noisy rather than `continue`.

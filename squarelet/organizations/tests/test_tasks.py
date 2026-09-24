@@ -116,6 +116,30 @@ def test_a_due_line_is_removed_before_the_organization_anchor(
 
 
 @pytest.mark.django_db()
+def test_a_stripe_failure_on_a_free_line_does_not_stop_the_sweep(plan_factory, mocker):
+    """One bad row must not leave every other organization unswept."""
+    mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
+    mocker.patch(
+        "squarelet.organizations.models.Subscription.stripe_subscription",
+        new_callable=mocker.PropertyMock,
+        side_effect=stripe.APIConnectionError("Stripe is down"),
+    )
+    today = date.today()
+    free = SubscriptionItemFactory(
+        plan=plan_factory(name="Free Plan", base_price=0, price_per_user=0),
+        cancelled=True,
+        cancel_at=today,
+        subscription__subscription_id="sub_stale",
+        subscription__organization__update_on=today,
+    )
+
+    tasks.restore_organization()
+
+    free.subscription.organization.refresh_from_db()
+    assert free.subscription.organization.update_on > today
+
+
+@pytest.mark.django_db()
 def test_restore_organization(organization_plan_factory, mocker):
     patched = mocker.patch("squarelet.organizations.tasks.send_cache_invalidations")
     mocker.patch("stripe.Plan.create")
