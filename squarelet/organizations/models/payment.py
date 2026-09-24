@@ -1111,7 +1111,8 @@ class SubscriptionItem(models.Model):
         return (
             subscription.kind == "renewing"
             and not subscription.cancelled
-            and subscription.items.exclude(pk=self.pk).exists()
+            # Through `all()` so a prefetch, as the billing page has, serves it.
+            and any(line.pk != self.pk for line in subscription.items.all())
         )
 
     def cancel(self):
