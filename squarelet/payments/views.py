@@ -755,12 +755,10 @@ class BaseEndSubscription(SubscriptionObjectMixin, UpdateView):
     def form_valid(self, form):
         subscription = self.get_subscription()
         if subscription and not subscription.cancelled:
-            subscription.cancel()
+            plans = self.object.end_subscription(subscription, user=self.request.user)
             self.log_staff_action(
                 "cancelled a subscription",
-                description=", ".join(
-                    line.plan.name for line in subscription.items.select_related("plan")
-                ),
+                description=", ".join(plan.name for plan in plans),
             )
             messages.success(
                 self.request,

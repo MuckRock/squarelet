@@ -674,6 +674,26 @@ class Organization(AvatarMixin, models.Model):
             self._dispatch_wix_unsync(wix_unsync_plan)
         return removed
 
+    def end_subscription(self, subscription, user=None):
+        """Cancel every plan on `subscription` at period end.
+
+        Logged and unsynced per plan, as `remove_subscription` does for one.
+        """
+        plans = [line.plan for line in subscription.items.select_related("plan")]
+        for plan in plans:
+            self.change_logs.create(
+                user=user,
+                reason=ChangeLogReason.updated,
+                from_plan=plan,
+                from_max_users=self.max_users,
+                to_max_users=self.max_users,
+            )
+        subscription.cancel()
+        for plan in plans:
+            if plan.wix:
+                self._dispatch_wix_unsync(plan)
+        return plans
+
     def modify_subscription(self, old_plan, new_plan, max_users, user):
         """Modify the subscription for old_plan to new_plan.
 
