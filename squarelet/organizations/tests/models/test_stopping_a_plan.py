@@ -149,6 +149,23 @@ class TestTheRemovalCredit:
 
         assert two_lines.removal_credit(1_700_000_000) is None
 
+    def test_pricing_the_credit_asks_stripe_only_for_the_preview(
+        self, two_lines, stripe_service, mocker
+    ):
+        """No subscription fetch to fail in an outage, and no writes on a GET."""
+        mocker.patch(
+            "squarelet.organizations.models.Subscription.stripe_subscription",
+            new_callable=mocker.PropertyMock,
+            side_effect=stripe.APIConnectionError("down"),
+        )
+        sync = mocker.patch(
+            "squarelet.organizations.models.Subscription.sync_stripe_item_ids"
+        )
+        stripe_service.preview_removal.return_value = {"lines": {"data": []}}
+
+        assert two_lines.removal_credit(1_700_000_000) == 0
+        sync.assert_not_called()
+
     def test_the_removal_uses_the_moment_the_credit_was_priced_at(
         self, two_lines, stripe_service
     ):
