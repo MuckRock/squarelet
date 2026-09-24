@@ -467,7 +467,9 @@ class SubscriptionItemQuerySet(models.QuerySet):
             )
 
             if created or not subscription.subscription_id:
-                anchor = organization.billing_anchor
+                # A one-off runs a full term from purchase, not to the next
+                # anchor date.
+                anchor = organization.billing_anchor if kind != "one_off" else None
                 stripe_subscription = subscription.start(
                     payment_method=payment_method,
                     anchor_day=anchor.day if anchor else None,
