@@ -30,6 +30,17 @@ class TestCompareItems:
 
         assert not Command()._compare_items(line.subscription, stripe_items)
 
+    def test_a_line_on_its_price_is_compared_against_the_price(
+        self, subscription_item_factory, plan_price_factory
+    ):
+        price = plan_price_factory(stripe_price_id="price_new")
+        line = subscription_item_factory(
+            plan=price.plan, plan_price=price, stripe_item_id="si_1", quantity=1
+        )
+        stripe_items = _items(_stripe_item("si_1", "price_new", 1))
+
+        assert not Command()._compare_items(line.subscription, stripe_items)
+
     def test_quantity_drift_is_reported_per_line(self, subscription_item_factory):
         line = subscription_item_factory(stripe_item_id="si_1", quantity=3)
         stripe_items = _items(_stripe_item("si_1", line.plan.stripe_id, 7))
