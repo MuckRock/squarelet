@@ -704,7 +704,7 @@ class BaseCancelSubscription(SubscriptionObjectMixin, UpdateView):
     def get_line(self):
         return (
             self.object.subscription_items.filter(id=self.kwargs["pk"])
-            .select_related("plan", "subscription")
+            .select_related("plan", "plan_price", "subscription")
             .first()
         )
 

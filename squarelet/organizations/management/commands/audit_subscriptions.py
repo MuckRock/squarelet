@@ -122,7 +122,7 @@ class Command(BaseCommand):
         """Return (local_subs, id→sub map) for subscriptions with a Stripe ID."""
         qs = (
             Subscription.objects.select_related("organization")
-            .prefetch_related("items__plan")
+            .prefetch_related("items__plan", "items__plan_price")
             .exclude(subscription_id="")
         )
         if org_filter:
@@ -137,7 +137,7 @@ class Command(BaseCommand):
         """Print paid subscriptions with no subscription_id; return count."""
         qs = (
             Subscription.objects.select_related("organization")
-            .prefetch_related("items__plan")
+            .prefetch_related("items__plan", "items__plan_price")
             .filter(subscription_id="", items__plan__base_price__gt=0)
             .distinct()
         )
