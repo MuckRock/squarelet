@@ -522,3 +522,66 @@ class TestSellingAgainstThePrice:
         organization.add_subscription(picked, None, None, payment_method="card")
 
         assert organization.change_logs.get().to_plan == tier
+
+
+@pytest.mark.django_db()
+class TestChangingTierRepricesTheLine:
+    """Leaving the old price behind would bill the tier the customer left."""
+
+    def _modify(self, item, plan, mocker):
+        mocker.patch(
+            "squarelet.organizations.models.Subscription.stripe_subscription", None
+        )
+        mocker.patch("squarelet.organizations.models.Subscription.sync_to_stripe")
+        item.modify(plan)
+        item.refresh_from_db()
+        return item
+
+    @pytest.fixture
+    def tiers(self, plan_factory):
+        return (
+            plan_with_slug(plan_factory, "Sunlight Essential", "sunlight-essential"),
+            plan_with_slug(plan_factory, "Sunlight Enhanced", "sunlight-enhanced"),
+        )
+
+    def test_the_price_moves_with_the_plan(
+        self, subscription_item_factory, plan_price_factory, tiers, mocker
+    ):
+        essential, enhanced = tiers
+        from_price = plan_price_factory(plan=essential, amount=68_000)
+        to_price = plan_price_factory(plan=enhanced, amount=138_000)
+        item = subscription_item_factory(plan=essential, plan_price=from_price)
+
+        self._modify(item, enhanced, mocker)
+
+        assert item.plan == enhanced
+        assert item.plan_price == to_price
+
+    def test_a_nonprofit_stays_a_nonprofit(
+        self, subscription_item_factory, plan_price_factory, tiers, mocker
+    ):
+        essential, enhanced = tiers
+        from_price = plan_price_factory(
+            plan=essential, label="nonprofit", amount=35_000
+        )
+        plan_price_factory(plan=enhanced, label="standard", amount=138_000)
+        to_nonprofit = plan_price_factory(
+            plan=enhanced, label="nonprofit", amount=68_000
+        )
+        item = subscription_item_factory(plan=essential, plan_price=from_price)
+
+        self._modify(item, enhanced, mocker)
+
+        assert item.plan_price == to_nonprofit
+
+    def test_a_move_onto_a_zero_price_is_refused(
+        self, subscription_item_factory, plan_price_factory, tiers, mocker
+    ):
+        """A $0 price belongs on the free subscription."""
+        essential, enhanced = tiers
+        from_price = plan_price_factory(plan=essential, amount=68_000)
+        plan_price_factory(plan=enhanced, amount=0)
+        item = subscription_item_factory(plan=essential, plan_price=from_price)
+
+        with pytest.raises(SubscriptionError, match="never share a subscription"):
+            self._modify(item, enhanced, mocker)

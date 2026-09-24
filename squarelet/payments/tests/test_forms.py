@@ -123,8 +123,10 @@ class TestPlanPurchaseFormInit:
         assert user.individual_organization not in form.fields["organization"].queryset
         assert org in form.fields["organization"].queryset
 
-    def test_init_with_sunlight_plan_shows_nonprofit(self, user_factory, plan_factory):
-        """Nonprofit field shown for Sunlight plans"""
+    def test_init_with_sunlight_plan_shows_nonprofit(
+        self, user_factory, plan_factory, plan_price_factory
+    ):
+        """Nonprofit field shown for Sunlight plans with a nonprofit rate"""
         user = user_factory()
         # Create a plan that looks like a Sunlight plan (slug starts with sunlight-)
         plan = plan_factory(
@@ -133,10 +135,28 @@ class TestPlanPurchaseFormInit:
             for_individuals=True,
             for_groups=False,
         )
+        plan_price_factory(plan=plan, label="standard")
+        plan_price_factory(plan=plan, label="nonprofit", amount=5_000)
 
         form = PlanPurchaseForm(plan=plan, user=user)
 
         assert "is_nonprofit" in form.fields
+
+    def test_a_sunlight_plan_without_a_nonprofit_rate_hides_it(
+        self, user_factory, plan_factory, plan_price_factory
+    ):
+        """Ticking it would change nothing."""
+        plan = plan_factory(
+            slug="sunlight-test",
+            public=True,
+            for_individuals=True,
+            for_groups=False,
+        )
+        plan_price_factory(plan=plan, label="standard")
+
+        form = PlanPurchaseForm(plan=plan, user=user_factory())
+
+        assert "is_nonprofit" not in form.fields
 
     def test_init_with_non_sunlight_plan_hides_nonprofit(
         self, user_factory, plan_factory
@@ -505,3 +525,53 @@ class TestPlanPurchaseFormPlanData:
         form = PlanPurchaseForm(plan=None, user=user)
 
         assert not form.get_plan_data()
+
+
+@pytest.mark.django_db()
+class TestNonprofitPriceComesFromPlanPrice:
+    """The nonprofit rate shown is the one a purchase is sold at."""
+
+    def _form(self, plan):
+        return PlanPurchaseForm(plan=plan).get_plan_data()
+
+    def test_reads_the_nonprofit_price_of_the_tier(
+        self, plan_factory, plan_price_factory
+    ):
+        plan = plan_factory(name="Sunlight Essential", slug="sunlight-essential")
+        plan_price_factory(
+            plan=plan, interval="monthly", label="standard", amount=68_000
+        )
+        plan_price_factory(
+            plan=plan, interval="monthly", label="nonprofit", amount=35_000
+        )
+
+        data = self._form(plan)
+
+        assert data["has_nonprofit_variant"]
+        assert data["nonprofit_base_price"] == 350.0
+
+    def test_falls_back_to_the_variant_row_before_prices_exist(self, plan_factory):
+        plan = plan_factory(name="Sunlight Essential", slug="sunlight-essential")
+        plan_factory(
+            name="Sunlight Essential Nonprofit",
+            slug="sunlight-nonprofit-essential",
+            base_price=350,
+        )
+
+        data = self._form(plan)
+
+        assert data["has_nonprofit_variant"]
+        assert data["nonprofit_base_price"] == 350
+
+    def test_no_nonprofit_rate_at_all(self, plan_factory):
+        plan = plan_factory(name="Sunlight Essential", slug="sunlight-essential")
+
+        assert not self._form(plan)["has_nonprofit_variant"]
+
+    def test_non_sunlight_plans_have_no_nonprofit_rate(
+        self, plan_factory, plan_price_factory
+    ):
+        plan = plan_factory(name="Organization", slug="organization")
+        plan_price_factory(plan=plan, interval="monthly", label="nonprofit", amount=1)
+
+        assert not self._form(plan)["has_nonprofit_variant"]

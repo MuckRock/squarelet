@@ -1129,11 +1129,17 @@ class SubscriptionItem(models.Model):
         """Change which plan this line bills.
 
         Raises SubscriptionError for a change of interval or kind: the new plan
-        belongs on another subscription, so that is a remove plus an add.
+        belongs on another subscription, so that is a remove plus an add.  A
+        nonprofit line stays on the nonprofit price.
         """
-        # `sync_stripe_item_ids` matches on the Price, so a moved plan matches
-        # nothing and the customer is billed for both.
-        interval = "annual" if plan.annual else "monthly"
+        canonical_plan, plan_price = SubscriptionItem.objects.resolve_purchase(
+            plan, nonprofit=self.is_nonprofit
+        )
+        interval = (
+            plan_price.interval
+            if plan_price
+            else "annual" if plan.annual else "monthly"
+        )
         if interval != self.subscription.interval:
             raise SubscriptionError(
                 f"Cannot change {self.plan} to {plan} in place: it bills "
@@ -1141,7 +1147,7 @@ class SubscriptionItem(models.Model):
                 f"{self.subscription.interval}.  Remove the line and add the "
                 f"new plan, which puts it on the right subscription."
             )
-        kind = Subscription.kind_for(plan)
+        kind = Subscription.kind_for(canonical_plan, plan_price)
         if kind != self.subscription.kind:
             raise SubscriptionError(
                 f"Cannot change {self.plan} to {plan} in place: one is "
@@ -1149,13 +1155,16 @@ class SubscriptionItem(models.Model):
                 f"share a subscription.  Remove the line and add the new plan."
             )
 
+        # Identified while the price still matches, or the item is sent with no
+        # id, which Stripe adds alongside the old one: billed for both.
         stripe_sub = self.subscription.stripe_subscription
         if stripe_sub is not None:
             self.subscription.sync_stripe_item_ids(stripe_sub)
             # It wrote straight to the rows, so this instance is stale.
             self.refresh_from_db()
 
-        self.plan = plan
+        self.plan = canonical_plan
+        self.plan_price = plan_price
         self.save()
         self.subscription.sync_to_stripe()
 
