@@ -790,6 +790,11 @@ class Subscription(Cancellable, models.Model):
         Clears the cancelled flag and cancel_at date locally, and removes
         cancel_at_period_end on the Stripe subscription so it auto-renews.
         """
+        if self.kind == "one_off":
+            raise SubscriptionError(
+                "A one-time purchase ends when its term does.  Buy it again for "
+                "another term."
+            )
         if (
             self.kind == "renewing"
             and Subscription.objects.filter(
