@@ -4,7 +4,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 # Standard Library
-from datetime import timedelta
+from datetime import date, timedelta
 from uuid import uuid4
 
 # Third Party
@@ -447,6 +447,28 @@ class TestWhereANewLineGoes:
         )
 
         assert second.subscription == first.subscription
+
+    def test_a_one_off_runs_a_full_term_from_purchase(self, mocker):
+        """Anchoring it to the billing day would end it at the next anchor."""
+        start = mocker.patch("squarelet.organizations.models.Subscription.start")
+        organization = OrganizationFactory(billing_anchor=date(2026, 9, 1))
+        plan = PlanFactory(name="Pack", base_price=25)
+        plan.auto_renew = False
+        plan.save()
+
+        SubscriptionItem.objects.start(organization=organization, plan=plan)
+
+        assert start.call_args.kwargs["anchor_day"] is None
+
+    def test_a_renewing_plan_keeps_the_billing_day(self, mocker):
+        start = mocker.patch("squarelet.organizations.models.Subscription.start")
+        organization = OrganizationFactory(billing_anchor=date(2026, 9, 1))
+
+        SubscriptionItem.objects.start(
+            organization=organization, plan=PlanFactory(name="Paid", base_price=25)
+        )
+
+        assert start.call_args.kwargs["anchor_day"] == 1
 
     def test_each_one_off_gets_its_own_subscription(self):
         organization = OrganizationFactory()
