@@ -431,7 +431,9 @@ def handle_invoice_created(invoice_data):
     if subscription:
         metadata = {
             "organization": str(organization.uuid),
-            "plan": str(subscription.plan),
+            "plan": ", ".join(
+                str(item.plan) for item in subscription.items.select_related("plan")
+            ),
             "subscription_id": subscription.subscription_id,
         }
         try:
