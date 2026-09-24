@@ -1808,6 +1808,33 @@ class TestCancelSubscription(ViewTestMixin):
 
         assert remove.call_args.kwargs["user"] == admin
 
+    def test_a_plan_already_ending_is_left_alone(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+        mocker,
+    ):
+        """No removal, no change log, no 'cancelled' in the audit trail."""
+        remove = mocker.patch(
+            "squarelet.organizations.models.Organization.remove_subscription"
+        )
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        line = subscription_item_factory(
+            subscription__organization=organization,
+            subscription__cancelled=True,
+            plan=plan_factory(name="Ending", base_price=30),
+        )
+
+        response = self.call_view(rf, admin, {}, slug=organization.slug, pk=line.pk)
+
+        assert response.status_code == 302
+        remove.assert_not_called()
+        assert not Action.objects.filter(verb="cancelled a subscription").exists()
+
     def test_staff_cancel_subscription_creates_action(
         self,
         rf,
