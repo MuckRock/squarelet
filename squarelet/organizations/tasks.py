@@ -46,6 +46,7 @@ logger = logging.getLogger(__name__)
 @shared_task
 def restore_organization():
     """Monthly refresh of subscriptions and entitlement grants"""
+    # pylint: disable=too-many-locals
     today = date.today()
 
     # --- Subscriptions ---

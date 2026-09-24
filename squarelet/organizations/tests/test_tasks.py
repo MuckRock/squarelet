@@ -105,7 +105,8 @@ def test_a_due_line_is_removed_before_the_organization_anchor(
         subscription__organization__update_on=today + timedelta(10),
     )
     SubscriptionItemFactory(
-        subscription=due.subscription, plan=plan_factory(name="Keeper Plan")
+        subscription=due.subscription,
+        plan=plan_factory(name="Keeper Plan", base_price=30),
     )
 
     tasks.restore_organization()
