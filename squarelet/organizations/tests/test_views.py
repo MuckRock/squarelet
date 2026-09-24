@@ -1814,6 +1814,26 @@ class TestRemovingAPlan(ViewTestMixin):
         # The plan itself, then the plans beside it.
         assert len(reads) == 2
 
+    def test_the_price_comes_with_the_plan(self, rf, line, plan_price_factory, mocker):
+        mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.removal_credit",
+            return_value=1240,
+        )
+        line.plan_price = plan_price_factory(plan=line.plan)
+        line.save()
+
+        with CaptureQueriesContext(connection) as queries:
+            self.call_view(
+                rf, line.admin, slug=line.subscription.organization.slug, pk=line.pk
+            ).render()
+
+        assert not [
+            query
+            for query in queries.captured_queries
+            if query["sql"].startswith("SELECT")
+            and 'FROM "organizations_planprice"' in query["sql"]
+        ]
+
     def test_a_fresh_stamp_reaches_the_removal(self, rf, line, mocker):
         remove = mocker.patch(
             "squarelet.organizations.models.Organization.remove_subscription",
