@@ -22,6 +22,7 @@ from allauth.account.models import EmailAddress
 # Squarelet
 from squarelet.core.exceptions import ContextHttp404
 from squarelet.core.tests.mixins import ViewTestMixin
+from squarelet.organizations.payments.exceptions import SubscriptionError
 
 # Local
 from .. import views
@@ -1659,6 +1660,30 @@ class TestManageSubscriptions(ViewTestMixin):
         rendered = list(response.context_data["subscriptions"])
         assert rendered == [item]
         assert rendered[0].next_date == date(2026, 10, 20)
+
+
+@pytest.mark.django_db()
+class TestResubscribe(ViewTestMixin):
+    view = views.Resubscribe
+    url = "/organizations/{slug}/resubscribe/{pk}/"
+
+    def test_a_refusal_is_shown_not_raised(
+        self, rf, user_factory, organization_factory, subscription_item_factory, mocker
+    ):
+        """Resubscribing beside a live replacement is refused with a message."""
+        mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.uncancel",
+            side_effect=SubscriptionError("already has a live subscription"),
+        )
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        line = subscription_item_factory(subscription__organization=organization)
+
+        response = self.call_view(rf, admin, {}, slug=organization.slug, pk=line.pk)
+
+        assert response.status_code == 302
+        self.request._messages.add.assert_called_once()
+        assert "live subscription" in str(self.request._messages.add.call_args)
 
 
 @pytest.mark.django_db()

@@ -783,6 +783,8 @@ class BaseResubscribe(SubscriptionObjectMixin, View):
             subscription.uncancel()
         except ValidationError as exc:
             return self._error(exc.message, "update-card")
+        except SubscriptionError as exc:
+            return self._error(str(exc))
         except stripe.StripeError as exc:
             return self._error(f"Stripe error: {format_stripe_error(exc)}")
 
