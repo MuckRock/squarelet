@@ -1419,6 +1419,36 @@ class TestMultipleSubscriptions:
         assert sub.quantity == plan.minimum_users
 
     @pytest.mark.django_db
+    def test_removing_a_plan_now_tells_the_other_apps(
+        self,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+        user_factory,
+        mocker,
+        django_capture_on_commit_callbacks,
+    ):
+        """Its entitlements go with it, so their caches must be invalidated."""
+        invalidate = mocker.patch(
+            "squarelet.organizations.models.organization.send_cache_invalidations"
+        )
+        org = organization_factory()
+        plan_a = plan_factory(base_price=30)
+        subscription_item_factory(subscription__organization=org, plan=plan_a)
+        subscription_item_factory(
+            subscription__organization=org, plan=plan_factory(base_price=40)
+        )
+        mocker.patch(
+            "squarelet.organizations.models.Subscription.stripe_subscription",
+            new_callable=lambda: property(lambda self: None),
+        )
+
+        with django_capture_on_commit_callbacks(execute=True):
+            org.remove_subscription(plan_a, user_factory())
+
+        invalidate.assert_called_with("organization", org.uuid)
+
+    @pytest.mark.django_db
     def test_remove_subscription_by_plan(
         self,
         organization_factory,
