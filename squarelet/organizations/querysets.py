@@ -15,6 +15,7 @@ from fuzzywuzzy import fuzz, process
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.payments.factory import get_payment_provider
+from squarelet.organizations.plan_mapping import resolve_target
 
 # pylint:disable=too-many-positional-arguments
 
@@ -416,6 +417,67 @@ class ChargeQuerySet(models.QuerySet):
 
 
 class SubscriptionItemQuerySet(models.QuerySet):
+    @staticmethod
+    def resolve_purchase(plan, nonprofit=False):
+        """The `(plan, price)` a purchase of `plan` is recorded as.
+
+        Annual and nonprofit are separate Plan rows today; both land on their
+        canonical tier's price, as the migration lands existing lines.
+        `(plan, None)` when there is no price to sell yet, which bills the
+        legacy plan as before.
+        """
+        # Lazy import to avoid a circular import (payment.py imports this module)
+        # pylint: disable=import-outside-toplevel
+        # Squarelet
+        from squarelet.organizations.models.payment import PlanPrice
+
+        canonical_slug, interval, label, code = resolve_target(
+            plan.slug, allow_comped=False
+        ) or (
+            plan.slug,
+            "annual" if plan.annual else "monthly",
+            "nonprofit" if nonprofit else "standard",
+            "",
+        )
+        labels = [label]
+        if nonprofit and label == "standard":
+            # Once the nonprofit Plan rows are gone the slug can't say so.
+            # Preferred, not forced: a tier with no nonprofit price sells at
+            # its list price.
+            labels.insert(0, "nonprofit")
+
+        for candidate in labels:
+            price = (
+                PlanPrice.objects.select_related("plan")
+                .filter(
+                    plan__slug=canonical_slug,
+                    interval=interval,
+                    label=candidate,
+                    code=code,
+                    active=True,
+                )
+                .first()
+            )
+            if price is not None:
+                break
+        else:
+            return plan, None
+        if not price.stripe_price_id and price.amount != 0:
+            # Stripe hasn't got this price yet.  Selling on it would bill the
+            # canonical plan's legacy id: the monthly standard amount.
+            return plan, None
+        return price.plan, price
+
+    @staticmethod
+    def canonical_plan(plan, nonprofit=False):
+        """The plan a purchase of `plan` is stored under.
+
+        What "already subscribed?" must ask about, or a second purchase of a
+        variant reaches `unique_together` as an IntegrityError.
+        """
+        canonical, _price = SubscriptionItemQuerySet.resolve_purchase(plan, nonprofit)
+        return canonical
+
     def start(self, organization, plan, payment_method="card", quantity=1):
         """Add a line for `plan` and make sure Stripe knows about it.
 
