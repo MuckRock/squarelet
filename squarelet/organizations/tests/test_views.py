@@ -1751,6 +1751,7 @@ class TestEndSubscription(ViewTestMixin):
         assert response.status_code == 302
         cancel.assert_called_once_with()
         assert first.subscription.items.count() == 2
+        assert organization.change_logs.filter(user=admin).count() == 2
 
 
 @pytest.mark.django_db()

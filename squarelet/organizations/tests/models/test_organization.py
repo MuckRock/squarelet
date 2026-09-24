@@ -1419,6 +1419,37 @@ class TestMultipleSubscriptions:
         assert sub.quantity == plan.minimum_users
 
     @pytest.mark.django_db
+    def test_ending_a_subscription_logs_and_unsyncs_every_plan(
+        self,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+        user_factory,
+        mocker,
+    ):
+        cancel = mocker.patch("squarelet.organizations.models.Subscription.cancel")
+        unsync = mocker.patch(
+            "squarelet.organizations.models.Organization._dispatch_wix_unsync"
+        )
+        org = organization_factory()
+        user = user_factory()
+        wix = plan_factory(name="Wix", base_price=30, wix=True)
+        first = subscription_item_factory(subscription__organization=org, plan=wix)
+        subscription_item_factory(
+            subscription=first.subscription,
+            plan=plan_factory(name="Other", base_price=40),
+        )
+
+        org.end_subscription(first.subscription, user=user)
+
+        cancel.assert_called_once_with()
+        logged = org.change_logs.filter(user=user).values_list(
+            "from_plan__name", flat=True
+        )
+        assert sorted(logged) == ["Other", "Wix"]
+        unsync.assert_called_once_with(wix)
+
+    @pytest.mark.django_db
     def test_removing_a_plan_now_tells_the_other_apps(
         self,
         organization_factory,
