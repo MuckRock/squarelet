@@ -1709,8 +1709,7 @@ class TestResubscribe(ViewTestMixin):
         response = self.call_view(rf, admin, {}, slug=organization.slug, pk=line.pk)
 
         assert response.status_code == 302
-        self.request._messages.add.assert_called_once()
-        assert "live subscription" in str(self.request._messages.add.call_args)
+        self.assert_message(messages.ERROR, "already has a live subscription")
 
 
 @pytest.mark.django_db()
