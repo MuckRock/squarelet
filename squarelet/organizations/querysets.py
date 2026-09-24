@@ -474,26 +474,40 @@ class SubscriptionItemQuerySet(models.QuerySet):
         }
         return set(Plan.objects.filter(slug__in=slugs))
 
-    def start(self, organization, plan, payment_method="card", quantity=1):
+    def start(
+        self, organization, plan, payment_method="card", quantity=None, nonprofit=False
+    ):
         """Add a line for `plan` and make sure Stripe knows about it.
 
         A renewing paid plan joins the organization's live subscription of the
         same interval and collection method, a free plan joins its free one,
         and a one-off always starts its own.  Returns the line and its Stripe
         subscription, None when the subscription costs nothing.
+
+        `quantity` None means one of the plan: one unit of a flat Price, or
+        the minimum a legacy tiered Stripe Plan prices as its base.
         """
+        # pylint: disable=too-many-locals
         # Lazy import to avoid a circular import (payment.py imports this module)
         # pylint: disable=import-outside-toplevel
         # Squarelet
         from squarelet.organizations.models.payment import Subscription
 
-        interval = "annual" if plan.annual else "monthly"
+        canonical_plan, plan_price = self.resolve_purchase(plan, nonprofit)
+        if quantity is None:
+            quantity = 1 if plan_price else plan.minimum_users
+        # Not `plan.annual`: the form can substitute a row whose flag is wrong.
+        interval = (
+            plan_price.interval
+            if plan_price
+            else "annual" if plan.annual else "monthly"
+        )
         collection_method = (
             "send_invoice"
             if interval == "annual" and payment_method == "invoice"
             else "charge_automatically"
         )
-        kind = Subscription.kind_for(plan)
+        kind = Subscription.kind_for(canonical_plan, plan_price)
         if kind == "one_off":
             subscription = Subscription.objects.create(
                 organization=organization,
@@ -521,7 +535,10 @@ class SubscriptionItemQuerySet(models.QuerySet):
         # an organization holding a line nobody bills.
         with transaction.atomic():
             item = self.model.objects.create(
-                subscription=subscription, plan=plan, quantity=quantity
+                subscription=subscription,
+                plan=canonical_plan,
+                plan_price=plan_price,
+                quantity=quantity,
             )
 
             if created or not subscription.subscription_id:
