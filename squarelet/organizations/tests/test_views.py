@@ -12,7 +12,7 @@ from django.utils import timezone
 # Standard Library
 import json
 import time
-from datetime import date, datetime, timezone as dt_timezone
+from datetime import date, datetime, timedelta, timezone as dt_timezone
 from unittest.mock import MagicMock, call
 
 # Third Party
@@ -20,6 +20,7 @@ import pytest
 import stripe
 from actstream.models import Action
 from allauth.account.models import EmailAddress
+from freezegun import freeze_time
 
 # Squarelet
 from squarelet.core.exceptions import ContextHttp404
@@ -1803,15 +1804,34 @@ class TestRemovingAPlan(ViewTestMixin):
         self.call_view(
             rf,
             line.admin,
-            {"proration_date": stamp},
+            {"proration_date": self.view.proration_signer.sign(str(stamp))},
             slug=line.subscription.organization.slug,
             pk=line.pk,
         )
 
         assert remove.call_args.kwargs["proration_date"] == stamp
 
-    def test_a_stale_stamp_is_dropped(self, rf, line, mocker):
+    def test_a_stamp_over_an_hour_old_is_dropped(self, rf, line, mocker):
         """Stripe then prices the credit at the moment of removal."""
+        remove = mocker.patch(
+            "squarelet.organizations.models.Organization.remove_subscription",
+            return_value=True,
+        )
+        with freeze_time(timezone.now() - timedelta(hours=2)):
+            token = self.view.proration_signer.sign(str(int(time.time())))
+
+        self.call_view(
+            rf,
+            line.admin,
+            {"proration_date": token},
+            slug=line.subscription.organization.slug,
+            pk=line.pk,
+        )
+
+        assert remove.call_args.kwargs["proration_date"] is None
+
+    def test_an_edited_stamp_is_ignored(self, rf, line, mocker):
+        """An earlier moment would mean a larger credit."""
         remove = mocker.patch(
             "squarelet.organizations.models.Organization.remove_subscription",
             return_value=True,
@@ -1820,7 +1840,7 @@ class TestRemovingAPlan(ViewTestMixin):
         self.call_view(
             rf,
             line.admin,
-            {"proration_date": int(time.time()) - 7200},
+            {"proration_date": str(int(time.time()) - 1800)},
             slug=line.subscription.organization.slug,
             pk=line.pk,
         )
