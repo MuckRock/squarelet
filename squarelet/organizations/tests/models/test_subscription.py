@@ -490,6 +490,23 @@ class TestSubscription:
         assert item.cancel_at is None
 
     @pytest.mark.django_db()
+    def test_a_one_off_cannot_be_resubscribed(self, subscription_item_factory, mocker):
+        """Clearing its ending would make a one-time purchase renew."""
+        stripe_uncancel = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_subscription_service.return_value.uncancel
+        pack = subscription_item_factory(
+            subscription__kind="one_off", subscription__cancelled=True
+        ).subscription
+
+        with pytest.raises(SubscriptionError, match="one-time purchase"):
+            pack.uncancel()
+
+        stripe_uncancel.assert_not_called()
+        pack.refresh_from_db()
+        assert pack.cancelled
+
+    @pytest.mark.django_db()
     def test_resubscribing_beside_a_live_replacement_is_refused(
         self, subscription_item_factory, subscription_factory, mocker
     ):
