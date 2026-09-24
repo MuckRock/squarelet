@@ -664,6 +664,11 @@ class Organization(AvatarMixin, models.Model):
             to_max_users=self.max_users,
         )
         removed = sub.cancel()
+        if removed:
+            # Its entitlements are gone now; the other apps must hear about it.
+            transaction.on_commit(
+                lambda: send_cache_invalidations("organization", self.uuid)
+            )
 
         if wix_unsync_plan:
             self._dispatch_wix_unsync(wix_unsync_plan)
