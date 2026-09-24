@@ -1847,6 +1847,20 @@ class TestRemovingAPlan(ViewTestMixin):
 
         assert remove.call_args.kwargs["proration_date"] is None
 
+    def test_a_stripe_failure_is_shown_not_raised(self, rf, line, mocker):
+        mocker.patch(
+            "squarelet.organizations.models.Organization.remove_subscription",
+            side_effect=stripe.APIConnectionError("down"),
+        )
+
+        response = self.call_view(
+            rf, line.admin, {}, slug=line.subscription.organization.slug, pk=line.pk
+        )
+
+        assert response.status_code == 302
+        # pylint:disable=protected-access
+        assert self.request._messages.add.call_args.args[0] == messages.ERROR
+
 
 @pytest.mark.django_db()
 class TestEndSubscription(ViewTestMixin):

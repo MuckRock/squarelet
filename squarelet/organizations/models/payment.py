@@ -1210,13 +1210,23 @@ class SubscriptionItem(models.Model):
             self.refresh_from_db()
 
         if stripe_sub is not None and self.stripe_item_id:
-            timing = {"proration_date": proration_date} if proration_date else {}
-            get_payment_provider().get_subscription_service().modify(
-                self.subscription.subscription_id,
-                items=[{"id": self.stripe_item_id, "deleted": True}],
-                proration_behavior="create_prorations",
-                **timing,
-            )
+            removal = {
+                "items": [{"id": self.stripe_item_id, "deleted": True}],
+                "proration_behavior": "create_prorations",
+            }
+            service = get_payment_provider().get_subscription_service()
+            try:
+                service.modify(
+                    self.subscription.subscription_id,
+                    **removal,
+                    **({"proration_date": proration_date} if proration_date else {}),
+                )
+            except stripe.InvalidRequestError:
+                if not proration_date:
+                    raise
+                # The period can renew between pricing and removing, leaving
+                # the moment outside it; Stripe then prices it at now.
+                service.modify(self.subscription.subscription_id, **removal)
         elif not self.is_free:
             # Delete anyway - it is what the customer asked for - but log it:
             # the charge may outlive the record of what it was for.
