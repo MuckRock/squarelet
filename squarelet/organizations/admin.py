@@ -168,6 +168,9 @@ class SubscriptionItemInline(StripeLinkMixin, admin.TabularInline):
     def has_add_permission(self, request, obj=None):
         return False
 
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("plan", "plan_price")
+
     def _stripe_id(self, obj):
         return obj.plan_price.stripe_price_id if obj.plan_price_id else ""
 
