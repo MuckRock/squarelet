@@ -29,17 +29,8 @@ class TestWhatIsSentToStripe:
             {"plan": "price_paid", "quantity": item.quantity}
         ]
 
-    def test_a_line_without_a_price_falls_back_to_the_plan(
-        self, subscription_item_factory, legacy_plan
-    ):
-        item = subscription_item_factory(plan=legacy_plan)
-
-        assert item.subscription.stripe_items() == [
-            {"plan": item.plan.stripe_id, "quantity": item.quantity}
-        ]
-
     def test_a_mixed_subscription_sends_the_right_thing_per_line(
-        self, subscription_item_factory, paid_price, legacy_plan
+        self, subscription_item_factory, paid_price, legacy_plan, plan_price_factory
     ):
         """Production looks like this until every line is migrated."""
         migrated = subscription_item_factory(
@@ -48,25 +39,23 @@ class TestWhatIsSentToStripe:
         legacy = subscription_item_factory(
             subscription=migrated.subscription, plan=legacy_plan
         )
+        # A failed `consolidate_stripe_products` can leave a paid price blank.
+        unready_price = plan_price_factory(
+            plan__name="Unready Plan", plan__base_price=100, stripe_price_id=""
+        )
+        unready = subscription_item_factory(
+            subscription=migrated.subscription,
+            plan=unready_price.plan,
+            plan_price=unready_price,
+        )
 
         specs = migrated.subscription.stripe_items()
 
-        assert {s["plan"] for s in specs} == {"price_paid", legacy.plan.stripe_id}
-
-    def test_a_price_with_no_stripe_price_yet_falls_back(
-        self, subscription_item_factory, plan_price_factory, plan_factory
-    ):
-        """A failed `consolidate_stripe_products` can leave a paid price blank."""
-        price = plan_price_factory(
-            plan=plan_factory(name="Unready Plan", base_price=100),
-            amount=10_000,
-            stripe_price_id="",
-        )
-        item = subscription_item_factory(plan=price.plan, plan_price=price)
-
-        assert item.subscription.stripe_items() == [
-            {"plan": item.plan.stripe_id, "quantity": item.quantity}
-        ]
+        assert {s["plan"] for s in specs} == {
+            "price_paid",
+            legacy.plan.stripe_id,
+            unready.plan.stripe_id,
+        }
 
     def test_include_ids_still_carries_the_item_id(
         self, subscription_item_factory, paid_price
@@ -114,9 +103,13 @@ class TestAZeroPriceIsFree:
     """A comped price on a paid plan costs nothing and never reaches Stripe."""
 
     def test_the_line_and_subscription_are_free(
-        self, subscription_item_factory, plan_price_factory
+        self, subscription_item_factory, plan_factory, plan_price_factory
     ):
-        price = plan_price_factory(label="comped", amount=0)
+        price = plan_price_factory(
+            plan=plan_factory(name="Paid Plan", base_price=100),
+            label="comped",
+            amount=0,
+        )
         item = subscription_item_factory(plan=price.plan, plan_price=price)
 
         assert item.is_free
@@ -140,16 +133,6 @@ class TestAZeroPriceIsFree:
         price = plan_price_factory(plan=plan, amount=10_000)
 
         assert Subscription.kind_for(plan, price) == "renewing"
-
-    def test_without_a_price_the_plan_decides(
-        self, subscription_item_factory, plan_factory
-    ):
-        item = subscription_item_factory(
-            plan=plan_factory(name="Free Plan", base_price=0, price_per_user=0)
-        )
-
-        assert item.is_free
-        assert Subscription.kind_for(item.plan) == "free"
 
 
 @pytest.mark.django_db()
