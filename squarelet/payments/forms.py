@@ -19,7 +19,12 @@ from crispy_forms.layout import Field as CrispyField, Layout
 # Squarelet
 from squarelet.core.forms import StripeForm
 from squarelet.core.layout import Field
-from squarelet.organizations.models import Organization, Plan
+from squarelet.organizations.models import (
+    Organization,
+    Plan,
+    PlanPrice,
+    SubscriptionItem,
+)
 from squarelet.organizations.models.payment import get_payment_brand
 from squarelet.users.forms import NewOrganizationModelChoiceField
 
@@ -188,14 +193,16 @@ class PlanPurchaseForm(StripeForm):
         self.fields["payment_method"].choices = choices
 
     def _configure_nonprofit_field(self):
-        """
-        Show nonprofit field only for Sunlight
-        plans that aren't nonprofit variants
-        """
+        """Offer the nonprofit box only on a Sunlight plan with a nonprofit rate."""
         is_nonprofit_variant = self.plan and self.plan.slug.startswith(
             "sunlight-nonprofit-"
         )
-        if not self.plan or not self.plan.is_sunlight_plan or is_nonprofit_variant:
+        if (
+            not self.plan
+            or not self.plan.is_sunlight_plan
+            or is_nonprofit_variant
+            or self._nonprofit_base_price() is None
+        ):
             del self.fields["is_nonprofit"]
 
     def user_has_verified_email(self):
@@ -259,17 +266,36 @@ class PlanPurchaseForm(StripeForm):
         # Add nonprofit plan pricing if available
         data["has_nonprofit_variant"] = False
         if self.plan.is_sunlight_plan:
-            nonprofit_slug = self.plan.nonprofit_variant_slug
-            if nonprofit_slug:
-                try:
-                    nonprofit_plan = Plan.objects.get(slug=nonprofit_slug)
-                    data["nonprofit_base_price"] = nonprofit_plan.base_price
-                    data["nonprofit_price_per_user"] = nonprofit_plan.price_per_user
-                    data["has_nonprofit_variant"] = True
-                except Plan.DoesNotExist:
-                    pass
+            nonprofit_price = self._nonprofit_base_price()
+            if nonprofit_price is not None:
+                data["nonprofit_base_price"] = nonprofit_price
+                data["has_nonprofit_variant"] = True
 
         return data
+
+    def _nonprofit_base_price(self):
+        """What a nonprofit pays for this plan, or None if there is no rate.
+
+        Read from the price a nonprofit purchase would be sold at, and from the
+        nonprofit Plan row until prices exist.
+        """
+        canonical_plan, standard = SubscriptionItem.objects.resolve_purchase(self.plan)
+        if standard is not None:
+            price = PlanPrice.objects.filter(
+                plan=canonical_plan,
+                interval=standard.interval,
+                label="nonprofit",
+                code="",
+                active=True,
+            ).first()
+            if price is not None:
+                return price.amount_dollars
+
+        nonprofit_slug = self.plan.nonprofit_variant_slug
+        if not nonprofit_slug:
+            return None
+        variant = Plan.objects.filter(slug=nonprofit_slug).first()
+        return variant.base_price if variant is not None else None
 
     def clean_new_organization_name(self):
         """Validate new organization name is provided when creating new org"""
