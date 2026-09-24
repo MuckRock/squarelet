@@ -67,52 +67,41 @@
       </div>
     </header>
 
-    {% for subscription in subscriptions %}
-      {% with annual=subscription.plan.annual cancelled=subscription.cancelled %}
-        <div id="{{ subscription.plan.slug }}" class="card card--stack subscription-card">
+    {% for group in subscriptions %}
+      {% with sub=group.subscription %}
+        <div class="subscription-block" id="subscription-{{ sub.id }}">
           <div class="subscription-row">
-            <h3 class="{% if subject == "organizations" %}organization{% else %}professional{% endif %}">{{ subscription.plan.name }}</h3>
-            {% if cancelled %}
-              <span class="red badge">
-                {% trans "Cancelled" %}
+            <div class="subscription-frequency">
+              <span class="blue badge">
+                {% if sub.kind == "one_off" %}
+                  {% trans "One-time" %}
+                {% elif sub.kind == "free" %}
+                  {% trans "Free" %}
+                {% else %}
+                  {% if sub.interval == "annual" %}{% trans "Annual" %}{% else %}{% trans "Monthly" %}{% endif %}
+                {% endif %}
               </span>
-            {% else %}
-              <div class="subscription-frequency">
-                <span class="blue badge">
-                  {{ annual|yesno:_("Annual,Monthly") }}
-                </span>
-              </div>
-            {% endif %}
-          </div>
-          <div class="subscription-row">
-            <div class="subscription-group">
-              <span class="subscription-detail">
-                <span class="icon">
-                  {% icon "tag" %}
-                </span>
-                <span>
-                  <strong>${{ subscription.cost|floatformat:2|intcomma }}</strong>
-                  {{ annual|yesno:_("per year,per month") }}
-                </span>
-              </span>
-              <span class="subscription-detail">
-                <span class="icon">
-                  {% icon "calendar" %}
-                </span>
-                <span>
-                  {{ cancelled|yesno:_("Ends on,Renews on") }}
-                  <strong>{{ subscription.next_date }}</strong>
-                </span>
-              </span>
+              {% if sub.cancelled and sub.kind == "renewing" %}
+                <span class="red badge">{% trans "Cancelled" %}</span>
+              {% endif %}
             </div>
-            {% if not cancelled %}
-              {% url subject|add:':cancel-subscription' subject_slug subscription.id as cancel_url %}
-              <a href="{{ cancel_url }}" class="btn ghost danger small">
+            {% if sub.kind != "free" %}
+              <span class="subscription-detail">
+                <span class="icon">{% icon "calendar" %}</span>
+                <span>
+                  {{ sub.cancelled|yesno:_("Ends on,Renews on") }}
+                  <strong>{{ sub.next_date }}</strong>
+                </span>
+              </span>
+            {% endif %}
+            {% if sub.kind == "renewing" and not sub.cancelled %}
+              {% url subject|add:':end-subscription' subject_slug sub.id as end_url %}
+              <a href="{{ end_url }}" class="btn ghost danger small">
                 {% icon "x-circle" %}
-                {% trans "Cancel plan" %}
+                {% trans "Cancel subscription" %}
               </a>
-            {% else %}
-              {% url subject|add:':resubscribe' subject_slug subscription.id as resubscribe_url %}
+            {% elif sub.kind == "renewing" %}
+              {% url subject|add:':resubscribe' subject_slug group.lines.0.id as resubscribe_url %}
               <form method="post" action="{{ resubscribe_url }}">
                 {% csrf_token %}
                 <button type="submit" class="btn ghost primary small">
@@ -122,6 +111,29 @@
               </form>
             {% endif %}
           </div>
+          {% for line in group.lines %}
+            <div id="{{ line.plan.slug }}" class="card card--stack subscription-card">
+              <div class="subscription-row">
+                <h3 class="{% if subject == "organizations" %}organization{% else %}professional{% endif %}">{{ line.plan.name }}</h3>
+                {% if sub.kind != "free" %}
+                  <span class="subscription-detail">
+                    <span class="icon">{% icon "tag" %}</span>
+                    <span>
+                      <strong>${{ line.cost|floatformat:2|intcomma }}</strong>
+                      {% if sub.kind == "one_off" %}{% trans "once" %}{% elif sub.interval == "annual" %}{% trans "per year" %}{% else %}{% trans "per month" %}{% endif %}
+                    </span>
+                  </span>
+                {% endif %}
+                {% if line.removes_now %}
+                  {% url subject|add:':cancel-subscription' subject_slug line.id as remove_url %}
+                  <a href="{{ remove_url }}" class="btn ghost danger small">
+                    {% icon "x-circle" %}
+                    {% trans "Remove" %}
+                  </a>
+                {% endif %}
+              </div>
+            </div>
+          {% endfor %}
         </div>
       {% endwith %}
     {% empty %}

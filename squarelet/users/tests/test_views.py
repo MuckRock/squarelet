@@ -612,7 +612,10 @@ class TestIndividualSubscriptionStaffActions(ViewTestMixin):
         self, rf, user_factory, plan_factory, subscription_item_factory, mocker
     ):
         """Staff cancelling a user's subscription targets the individual org"""
-        mocker.patch("squarelet.organizations.models.Organization.remove_subscription")
+        mocker.patch(
+            "squarelet.organizations.models.Organization.remove_subscription",
+            return_value=False,
+        )
         user = user_factory(username="dotted.name")
         staff = user_factory(is_staff=True)
         organization = user.individual_organization
@@ -639,7 +642,10 @@ class TestIndividualSubscriptionStaffActions(ViewTestMixin):
         self, rf, user_factory, plan_factory, subscription_item_factory, mocker
     ):
         """A user cancelling their own subscription is not logged"""
-        mocker.patch("squarelet.organizations.models.Organization.remove_subscription")
+        mocker.patch(
+            "squarelet.organizations.models.Organization.remove_subscription",
+            return_value=False,
+        )
         user = user_factory(username="dotted.name")
         subscription = subscription_item_factory(
             subscription__organization=user.individual_organization, plan=plan_factory()
@@ -657,7 +663,10 @@ class TestIndividualSubscriptionStaffActions(ViewTestMixin):
     ):
         """A staff member managing their own individual account is not logged —
         they are the owner (admin) of their own individual organization"""
-        mocker.patch("squarelet.organizations.models.Organization.remove_subscription")
+        mocker.patch(
+            "squarelet.organizations.models.Organization.remove_subscription",
+            return_value=False,
+        )
         staff = user_factory(is_staff=True, username="staffer")
         subscription = subscription_item_factory(
             subscription__organization=staff.individual_organization,
