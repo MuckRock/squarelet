@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import ValidationError
+from django.core.signing import BadSignature, TimestampSigner
 from django.db import transaction
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -703,16 +704,22 @@ class BaseCancelSubscription(SubscriptionObjectMixin, UpdateView):
     def get_line(self):
         return self.object.subscription_items.filter(id=self.kwargs["pk"]).first()
 
+    proration_signer = TimestampSigner(salt="squarelet.payments.removal-proration")
+
     def get_proration_date(self):
         """The moment the confirm page priced the credit at, if still usable.
 
-        Removing at the same moment makes the credit match what was shown.
+        Signed, so it can't be backdated for a larger credit, and good for an
+        hour.  Removing at the same moment makes the credit match what was shown.
         """
         try:
-            stamp = int(self.request.POST.get("proration_date", ""))
-        except ValueError:
+            return int(
+                self.proration_signer.unsign(
+                    self.request.POST.get("proration_date", ""), max_age=3600
+                )
+            )
+        except (BadSignature, ValueError):
             return None
-        return stamp if 0 <= time.time() - stamp <= 3600 else None
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -723,8 +730,9 @@ class BaseCancelSubscription(SubscriptionObjectMixin, UpdateView):
             context["free"] = line.is_free
             context["next_date"] = line.subscription.next_date
             if line.removes_now and not line.is_free:
-                context["proration_date"] = int(time.time())
-                credit = line.removal_credit(context["proration_date"])
+                stamp = int(time.time())
+                context["proration_date"] = self.proration_signer.sign(str(stamp))
+                credit = line.removal_credit(stamp)
                 if credit:
                     context["credit"] = f"{credit / 100:,.2f}"
         return context
