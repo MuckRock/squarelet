@@ -1090,10 +1090,8 @@ class SubscriptionItem(models.Model):
     def modify(self, plan):
         """Change which plan this line bills.
 
-        Refuses a change of billing interval, and never moves between
-        products - Stripe will not carry both intervals on one subscription,
-        so either is a remove plus an add.  Goes through `sync_to_stripe`,
-        because a plan change can change whether the subscription bills.
+        Raises SubscriptionError for a change of interval or kind: the new plan
+        belongs on another subscription, so that is a remove plus an add.
         """
         # `sync_stripe_item_ids` matches on the Price, so a moved plan matches
         # nothing and the customer is billed for both.
