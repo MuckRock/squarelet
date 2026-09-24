@@ -4,7 +4,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 # Standard Library
-from datetime import timedelta
+from datetime import date, timedelta
 from uuid import uuid4
 
 # Third Party
@@ -21,7 +21,6 @@ from squarelet.organizations.models import (
     Plan,
     SubscriptionItem,
 )
-from squarelet.organizations.payments.exceptions import SubscriptionError
 from squarelet.organizations.tests.factories import (
     ChargeFactory,
     InvoiceFactory,
@@ -383,63 +382,108 @@ def test_joining_a_live_subscription_settles_the_charge(mocker):
     )
 
     SubscriptionItem.objects.start(
-        organization=organization, plan=PlanFactory(name="Joining Plan")
+        organization=organization, plan=PlanFactory(name="Joining Plan", base_price=30)
     )
 
     settle.assert_called_once_with(updated)
 
 
 @pytest.mark.django_db
-class TestBuyingOntoACancelledSubscription:
-    """One subscription per organization per billing shape, so a new line
-    has nowhere to go but the one that is ending.
+class TestWhereANewLineGoes:
+    """Renewing paid plans share a live subscription per billing shape, a
+    one-off gets its own, and free plans never share a row with paid ones."""
 
-    Stripe charges for it at once and the sweep deletes it at the
-    cancellation date - money taken for a plan that then disappears.
-    Per-line cancellation replaces this refusal with keeping the
-    subscription renewing for the new line.
-    """
-
-    def _cancelling(self, **kwargs):
-        item = SubscriptionItemFactory(
-            plan=PlanFactory(name="Leaving Plan", base_price=50),
-            subscription__subscription_id="sub_leaving",
-            subscription__cancelled=True,
-            **kwargs,
-        )
-        return item.subscription
-
-    def test_a_paid_line_is_refused(self, mocker):
-        mocker.patch("squarelet.organizations.models.Subscription.stripe_modify")
-        mocker.patch(
-            "squarelet.organizations.models.payment.SubscriptionItem.notify_started"
-        )
-        subscription = self._cancelling()
-
-        with pytest.raises(SubscriptionError, match="cancellation pending"):
-            SubscriptionItem.objects.start(
-                organization=subscription.organization,
-                plan=PlanFactory(name="Arriving Plan", base_price=100),
-            )
-
-        assert subscription.items.count() == 1
-
-    def test_a_free_line_may_still_join(self, mocker):
-        """It costs nothing, so there is nothing to take wrongly - and it
-        now survives the cancellation rather than being swept with it."""
+    @pytest.fixture(autouse=True)
+    def quiet(self, mocker):
+        mocker.patch("squarelet.organizations.models.Subscription.start")
         mocker.patch("squarelet.organizations.models.Subscription.stripe_modify")
         mocker.patch("squarelet.organizations.models.Subscription.settle_added_line")
         mocker.patch(
             "squarelet.organizations.models.payment.SubscriptionItem.notify_started"
         )
-        subscription = self._cancelling()
 
-        SubscriptionItem.objects.start(
-            organization=subscription.organization,
+    def _cancelling(self):
+        item = SubscriptionItemFactory(
+            plan=PlanFactory(name="Leaving Plan", base_price=50),
+            subscription__subscription_id="sub_leaving",
+            subscription__cancelled=True,
+        )
+        return item.subscription
+
+    def test_buying_onto_a_cancelling_subscription_starts_a_new_one(self):
+        """The cancelling one runs out on its own date."""
+        leaving = self._cancelling()
+
+        item, _ = SubscriptionItem.objects.start(
+            organization=leaving.organization,
+            plan=PlanFactory(name="Arriving Plan", base_price=100),
+        )
+
+        assert item.subscription != leaving
+        assert not item.subscription.cancelled
+        assert leaving.items.count() == 1
+
+    def test_a_free_plan_never_joins_a_paid_subscription(self):
+        leaving = self._cancelling()
+
+        item, _ = SubscriptionItem.objects.start(
+            organization=leaving.organization,
             plan=PlanFactory(name="Free Arrival", base_price=0, price_per_user=0),
         )
 
-        assert subscription.items.count() == 2
+        assert item.subscription.kind == "free"
+        assert leaving.items.count() == 1
+
+    def test_free_plans_share_one_row(self):
+        organization = OrganizationFactory()
+        first, _ = SubscriptionItem.objects.start(
+            organization=organization,
+            plan=PlanFactory(name="Free One", base_price=0, price_per_user=0),
+        )
+
+        second, _ = SubscriptionItem.objects.start(
+            organization=organization,
+            plan=PlanFactory(name="Free Two", base_price=0, price_per_user=0),
+        )
+
+        assert second.subscription == first.subscription
+
+    def test_a_one_off_runs_a_full_term_from_purchase(self, mocker):
+        """Anchoring it to the billing day would end it at the next anchor."""
+        start = mocker.patch("squarelet.organizations.models.Subscription.start")
+        organization = OrganizationFactory(billing_anchor=date(2026, 9, 1))
+        plan = PlanFactory(name="Pack", base_price=25)
+        plan.auto_renew = False
+        plan.save()
+
+        SubscriptionItem.objects.start(organization=organization, plan=plan)
+
+        assert start.call_args.kwargs["anchor_day"] is None
+
+    def test_a_renewing_plan_keeps_the_billing_day(self, mocker):
+        start = mocker.patch("squarelet.organizations.models.Subscription.start")
+        organization = OrganizationFactory(billing_anchor=date(2026, 9, 1))
+
+        SubscriptionItem.objects.start(
+            organization=organization, plan=PlanFactory(name="Paid", base_price=25)
+        )
+
+        assert start.call_args.kwargs["anchor_day"] == 1
+
+    def test_each_one_off_gets_its_own_subscription(self):
+        organization = OrganizationFactory()
+        packs = []
+        for name in ("Pack One", "Pack Two"):
+            plan = PlanFactory(name=name, base_price=25)
+            plan.auto_renew = False
+            plan.save()
+            item, _ = SubscriptionItem.objects.start(
+                organization=organization, plan=plan
+            )
+            packs.append(item)
+
+        assert {pack.subscription.kind for pack in packs} == {"one_off"}
+        assert packs[0].subscription != packs[1].subscription
 
     def test_a_live_subscription_is_unaffected(self, mocker):
         mocker.patch("squarelet.organizations.models.Subscription.stripe_modify")

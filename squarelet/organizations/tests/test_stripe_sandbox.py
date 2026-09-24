@@ -28,7 +28,6 @@ import stripe
 
 # Squarelet
 from squarelet.organizations.models import Subscription, SubscriptionItem
-from squarelet.organizations.payments.exceptions import SubscriptionError
 
 pytestmark = [pytest.mark.stripe, pytest.mark.django_db()]
 
@@ -397,27 +396,27 @@ class TestCancellingOnStripe:
         live = stripe.Subscription.retrieve(item.subscription.subscription_id)
         assert live["cancel_at_period_end"] is True
 
-    def test_a_paid_plan_cannot_join_a_subscription_that_is_ending(
+    def test_buying_onto_a_cancelling_subscription_starts_a_new_one(
         self, organization_factory, plan_factory, sandbox
     ):
-        """There is one subscription per organization per billing shape, so
-        the new line would join the one that is ending: Stripe charges for
-        it at once and the sweep deletes it at the cancellation date.
-
-        Refused until the cancellation completes.  Per-line cancellation
-        replaces the refusal in the next release.
-        """
+        """The cancelling one runs out untouched; the new plan bills on its own."""
         organization = organization_factory()
         with_card(organization, sandbox)
         item = start(organization, paid_plan(plan_factory, sandbox), sandbox)
         item.subscription.cancel()
 
-        with pytest.raises(SubscriptionError, match="cancellation pending"):
-            start(organization, paid_plan(plan_factory, sandbox, price=40), sandbox)
+        arriving = start(
+            organization, paid_plan(plan_factory, sandbox, price=40), sandbox
+        )
 
-        live = stripe.Subscription.retrieve(item.subscription.subscription_id)
-        assert live["cancel_at_period_end"] is True
-        assert len(live["items"]["data"]) == 1, "nothing was added or charged"
+        assert (
+            arriving.subscription.subscription_id != item.subscription.subscription_id
+        )
+        leaving = stripe.Subscription.retrieve(item.subscription.subscription_id)
+        assert leaving["cancel_at_period_end"] is True
+        assert len(leaving["items"]["data"]) == 1, "nothing was added to it"
+        new = stripe.Subscription.retrieve(arriving.subscription.subscription_id)
+        assert new["cancel_at_period_end"] is False
 
     def test_a_free_line_is_never_described_to_stripe(
         self, organization_factory, plan_factory, sandbox

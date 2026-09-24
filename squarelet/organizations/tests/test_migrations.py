@@ -25,6 +25,7 @@ APP = "organizations"
 # Found by name, not number: branches above add migrations of their own.
 PARENT = "subscription_parent"
 ITEM_CANCELLATION = "subscription_item_cancellation"
+KIND = "subscription_kind"
 
 
 def _bracket(suffix):
@@ -251,3 +252,129 @@ class TestRollingTheSplitBack:
         assert line.organization_id == organization.pk
         assert line.subscription_id == "sub_rollback"
         assert line.stripe_status == "active"
+
+
+@pytest.mark.django_db(transaction=True)
+class TestClassifySubscriptions:
+    """The kind migration reads each subscription's kind off its lines."""
+
+    @pytest.fixture(autouse=True)
+    def _leave_the_database_migrated(self):
+        yield
+        with connection.cursor() as cursor:
+            cursor.execute("DELETE FROM organizations_subscriptionitem")
+            cursor.execute("DELETE FROM organizations_subscription")
+        migrate_to_latest()
+
+    @staticmethod
+    def _line(apps, name, base_price=0, auto_renew=True, subscription=None, **row):
+        Organization = apps.get_model(APP, "Organization")
+        Plan = apps.get_model(APP, "Plan")
+        Subscription = apps.get_model(APP, "Subscription")
+        SubscriptionItem = apps.get_model(APP, "SubscriptionItem")
+        if subscription is None:
+            if "organization" not in row:
+                row["organization"] = Organization.objects.create(
+                    name=name, slug=name.lower()
+                )
+            subscription = Subscription.objects.create(**row)
+        plan = Plan.objects.create(
+            name=name, slug=name.lower(), base_price=base_price, auto_renew=auto_renew
+        )
+        SubscriptionItem.objects.create(subscription=subscription, plan=plan)
+        return subscription
+
+    def test_each_row_takes_its_lines_kind(self):
+        old = migrate_to(_bracket(KIND)[0])
+        free = self._line(old, "Free")
+        paid = self._line(old, "Paid", base_price=30)
+        pack = self._line(old, "Pack", base_price=25, auto_renew=False)
+
+        new = migrate_to(_bracket(KIND)[1])
+
+        Subscription = new.get_model(APP, "Subscription")
+        kinds = dict(Subscription.objects.values_list("pk", "kind"))
+        assert kinds == {free.pk: "free", paid.pk: "renewing", pack.pk: "one_off"}
+
+    def test_free_lines_leave_a_paid_row_for_a_free_one(self):
+        old = migrate_to(_bracket(KIND)[0])
+        paid = self._line(old, "Paid", base_price=30)
+        self._line(old, "Comped", subscription=paid)
+
+        new = migrate_to(_bracket(KIND)[1])
+
+        SubscriptionItem = new.get_model(APP, "SubscriptionItem")
+        lines = {
+            item.plan.name: item.subscription
+            for item in SubscriptionItem.objects.select_related("plan", "subscription")
+        }
+        assert lines["Paid"].kind == "renewing"
+        assert lines["Comped"].kind == "free"
+        assert lines["Comped"].organization_id == lines["Paid"].organization_id
+
+    def test_free_rows_are_merged_into_one(self):
+        """The same free plan on both rows keeps a single line."""
+        old = migrate_to(_bracket(KIND)[0])
+        monthly = self._line(old, "Free")
+        annual = self._line(
+            old, "Other Free", organization=monthly.organization, interval="annual"
+        )
+        SubscriptionItem = old.get_model(APP, "SubscriptionItem")
+        SubscriptionItem.objects.create(
+            subscription=annual, plan=monthly.items.get().plan
+        )
+
+        new = migrate_to(_bracket(KIND)[1])
+
+        Subscription = new.get_model(APP, "Subscription")
+        (row,) = Subscription.objects.filter(organization_id=monthly.organization_id)
+        assert row.kind == "free"
+        assert sorted(row.items.values_list("plan__name", flat=True)) == [
+            "Free",
+            "Other Free",
+        ]
+
+    def test_a_cancelled_free_row_is_not_the_merge_target(self):
+        """It is due for the sweep, so free lines moving off a paid row go to a
+        live free row instead of being swept with it."""
+        old = migrate_to(_bracket(KIND)[0])
+        ending = self._line(old, "Old Free")
+        Subscription = old.get_model(APP, "Subscription")
+        Subscription.objects.filter(pk=ending.pk).update(cancelled=True)
+        paid = self._line(
+            old,
+            "Paid",
+            base_price=30,
+            organization=ending.organization,
+            interval="annual",
+        )
+        self._line(old, "Comped", subscription=paid)
+
+        new = migrate_to(_bracket(KIND)[1])
+
+        Subscription = new.get_model(APP, "Subscription")
+        assert not Subscription.objects.filter(pk=ending.pk).exists()
+        (free,) = Subscription.objects.filter(
+            organization_id=ending.organization_id, kind="free"
+        )
+        assert not free.cancelled
+        assert list(free.items.values_list("plan__name", flat=True)) == ["Comped"]
+
+    def test_a_free_row_still_naming_stripe_is_refused(self):
+        """Deleting or keeping it would orphan a Stripe subscription."""
+        old = migrate_to(_bracket(KIND)[0])
+        free = self._line(old, "Free")
+        Subscription = old.get_model(APP, "Subscription")
+        Subscription.objects.filter(pk=free.pk).update(subscription_id="sub_stale")
+
+        with pytest.raises(RuntimeError, match="names Stripe subscription sub_stale"):
+            migrate_to(_bracket(KIND)[1])
+
+    def test_a_one_off_beside_another_paid_line_is_refused(self):
+        """Separating them would mean splitting a live Stripe subscription."""
+        old = migrate_to(_bracket(KIND)[0])
+        paid = self._line(old, "Paid", base_price=30)
+        self._line(old, "Pack", base_price=25, auto_renew=False, subscription=paid)
+
+        with pytest.raises(RuntimeError, match="one-off beside Pack, Paid"):
+            migrate_to(_bracket(KIND)[1])

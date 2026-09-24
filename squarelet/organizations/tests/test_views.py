@@ -22,6 +22,7 @@ from allauth.account.models import EmailAddress
 # Squarelet
 from squarelet.core.exceptions import ContextHttp404
 from squarelet.core.tests.mixins import ViewTestMixin
+from squarelet.organizations.payments.exceptions import SubscriptionError
 
 # Local
 from .. import views
@@ -1453,6 +1454,33 @@ class TestRemoveCard(ViewTestMixin):
             "removing your payment method.",
         )
 
+    def test_a_free_subscription_does_not_block_removal(
+        self,
+        rf,
+        organization_factory,
+        user_factory,
+        plan_factory,
+        subscription_item_factory,
+        mocker,
+    ):
+        """Nothing free is billed to the card."""
+        self._mock_card_on_file(mocker)
+        mocked_remove = mocker.patch(
+            "squarelet.organizations.models.Organization.remove_payment_method"
+        )
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        subscription_item_factory(
+            subscription__organization=organization,
+            subscription__kind="free",
+            plan=plan_factory(name="Free", base_price=0, price_per_user=0),
+        )
+
+        response = self.call_view(rf, user, {}, slug=organization.slug)
+
+        assert response.status_code == 302
+        mocked_remove.assert_called_once()
+
     def test_allowed_when_all_subscriptions_cancelled(
         self,
         rf,
@@ -1659,6 +1687,29 @@ class TestManageSubscriptions(ViewTestMixin):
         rendered = list(response.context_data["subscriptions"])
         assert rendered == [item]
         assert rendered[0].next_date == date(2026, 10, 20)
+
+
+@pytest.mark.django_db()
+class TestResubscribe(ViewTestMixin):
+    view = views.Resubscribe
+    url = "/organizations/{slug}/resubscribe/{pk}/"
+
+    def test_a_refusal_is_shown_not_raised(
+        self, rf, user_factory, organization_factory, subscription_item_factory, mocker
+    ):
+        """Resubscribing beside a live replacement is refused with a message."""
+        mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.uncancel",
+            side_effect=SubscriptionError("already has a live subscription"),
+        )
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        line = subscription_item_factory(subscription__organization=organization)
+
+        response = self.call_view(rf, admin, {}, slug=organization.slug, pk=line.pk)
+
+        assert response.status_code == 302
+        self.assert_message(messages.ERROR, "already has a live subscription")
 
 
 @pytest.mark.django_db()

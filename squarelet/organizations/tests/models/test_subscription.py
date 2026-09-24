@@ -895,3 +895,67 @@ class TestLinesAreIdentifiedBeforeTheyAreDescribed:
         assert "id" not in service.modify.call_args.kwargs["items"][0]
         item.refresh_from_db()
         assert item.stripe_item_id == ""
+
+
+class TestWhatEachKindAllows:
+    """Resubscribing and cancelling, as each kind of subscription permits."""
+
+    @pytest.mark.django_db()
+    def test_resubscribing_beside_a_live_replacement_is_refused(
+        self, subscription_item_factory, subscription_factory, mocker
+    ):
+        """Two live subscriptions of one shape would bill the same period twice."""
+        leaving = subscription_item_factory(subscription__cancelled=True).subscription
+        subscription_factory(
+            organization=leaving.organization,
+            interval=leaving.interval,
+            collection_method=leaving.collection_method,
+        )
+        mocker.patch(
+            "squarelet.organizations.models.Organization.customer",
+            return_value=mocker.Mock(stripe_payment_method_id="pm_test"),
+        )
+
+        with pytest.raises(SubscriptionError, match="live subscription"):
+            leaving.uncancel()
+
+        leaving.refresh_from_db()
+        assert leaving.cancelled
+
+    @pytest.mark.django_db()
+    def test_a_one_off_cannot_be_resubscribed(self, subscription_item_factory, mocker):
+        """Clearing its ending would make a one-time purchase renew."""
+        stripe_uncancel = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_subscription_service.return_value.uncancel
+        pack = subscription_item_factory(
+            subscription__kind="one_off", subscription__cancelled=True
+        ).subscription
+
+        with pytest.raises(SubscriptionError, match="one-time purchase"):
+            pack.uncancel()
+
+        stripe_uncancel.assert_not_called()
+        pack.refresh_from_db()
+        assert pack.cancelled
+
+    @pytest.mark.django_db()
+    def test_cancelling_a_free_plan_leaves_the_others(
+        self, subscription_item_factory, plan_factory
+    ):
+        """A free row has no period, so cancelling it would sweep them all tonight."""
+        leaving = subscription_item_factory(
+            subscription__kind="free",
+            plan=plan_factory(name="Free One", base_price=0, price_per_user=0),
+        )
+        staying = subscription_item_factory(
+            subscription=leaving.subscription,
+            plan=plan_factory(name="Free Two", base_price=0, price_per_user=0),
+        )
+
+        leaving.cancel()
+
+        assert not SubscriptionItem.objects.filter(pk=leaving.pk).exists()
+        staying.subscription.refresh_from_db()
+        assert not staying.subscription.cancelled
+        assert SubscriptionItem.objects.filter(pk=staying.pk).exists()

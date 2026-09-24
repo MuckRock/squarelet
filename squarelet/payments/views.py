@@ -640,8 +640,12 @@ class BaseRemoveCard(SubscriptionObjectMixin, View):
             return self._error(_("You do not have a card on file to remove."))
 
         # A non-cancelled subscription still bills the card on file, so removing
-        # it would set up a failed renewal. Require cancellation first.
-        if organization.subscriptions.filter(cancelled=False).exists():
+        # it would set up a failed renewal.  A free one never reaches Stripe.
+        if (
+            organization.subscriptions.filter(cancelled=False)
+            .exclude(kind="free")
+            .exists()
+        ):
             return self._error(
                 _(
                     "You must cancel your active subscriptions before "
@@ -783,6 +787,8 @@ class BaseResubscribe(SubscriptionObjectMixin, View):
             subscription.uncancel()
         except ValidationError as exc:
             return self._error(exc.message, "update-card")
+        except SubscriptionError as exc:
+            return self._error(str(exc))
         except stripe.StripeError as exc:
             return self._error(f"Stripe error: {format_stripe_error(exc)}")
 
