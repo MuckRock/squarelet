@@ -142,7 +142,7 @@ class StripeLinkMixin:
     stripe_link.short_description = "Stripe"
 
 
-class SubscriptionItemInline(admin.TabularInline):
+class SubscriptionItemInline(StripeLinkMixin, admin.TabularInline):
     """The plans billed on a subscription.
 
     The split moved plans off the organization and onto lines, and nothing
@@ -151,6 +151,7 @@ class SubscriptionItemInline(admin.TabularInline):
     """
 
     model = SubscriptionItem
+    stripe_resource = "prices"
     fields = (
         "plan",
         "plan_price",
@@ -167,19 +168,17 @@ class SubscriptionItemInline(admin.TabularInline):
     def has_add_permission(self, request, obj=None):
         return False
 
+    def _stripe_id(self, obj):
+        return obj.plan_price.stripe_price_id if obj.plan_price_id else ""
+
     @admin.display(description="Bills against")
     def bills_against(self, obj):
         """Where to check that a line has moved onto the new pricing."""
-        stripe_id = obj.stripe_price_id
-        if not stripe_id:
+        if obj.is_free:
             return self.get_empty_value_display()
-        if obj.plan_price_id and obj.plan_price.stripe_price_id:
-            return format_html(
-                '<a href="{}" target="_blank" rel="noopener">{}</a>',
-                get_stripe_dashboard_url("prices", stripe_id),
-                stripe_id,
-            )
-        return format_html("{} <em>(legacy)</em>", stripe_id)
+        if self._stripe_id(obj):
+            return self.render_stripe_id(obj)
+        return format_html("{} <em>(legacy)</em>", obj.stripe_price_id)
 
 
 class SubscriptionInline(admin.TabularInline):

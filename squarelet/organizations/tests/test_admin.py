@@ -144,6 +144,19 @@ class TestWhatALineBillsAgainst:
         assert "https://dashboard.stripe.com/prices/price_new" in html
         assert "legacy" not in html
 
+    def test_a_free_line_bills_nothing(
+        self, subscription_item_factory, plan_factory, plan_price_factory
+    ):
+        """Not "(legacy)": that would read as a line still to migrate."""
+        price = plan_price_factory(
+            plan=plan_factory(name="Comped Org", base_price=100), amount=0
+        )
+        item = subscription_item_factory(plan=price.plan, plan_price=price)
+
+        assert self._inline().bills_against(item) == (
+            self._inline().get_empty_value_display()
+        )
+
     def test_a_line_still_on_the_legacy_plan_says_so(
         self, subscription_item_factory, plan_factory
     ):
