@@ -195,6 +195,17 @@ class StripeModernSubscriptionService(SubscriptionService):
     def delete(self, stripe_subscription):
         stripe_subscription.delete()
 
+    def preview_removal(self, customer_id, subscription_id, item_id, proration_date):
+        return stripe.Invoice.create_preview(
+            customer=customer_id,
+            subscription=subscription_id,
+            subscription_details={
+                "items": [{"id": item_id, "deleted": True}],
+                "proration_behavior": "create_prorations",
+                "proration_date": proration_date,
+            },
+        )
+
     def get_current_period_end(self, stripe_subscription):
         # current_period_end moved from subscription root to subscription items
         # in API version 2025-03-31.basil. Webhook payloads may omit items

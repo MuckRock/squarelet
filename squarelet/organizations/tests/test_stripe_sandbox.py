@@ -20,6 +20,7 @@ from django.core.management import call_command
 from django.utils.text import slugify
 
 # Standard Library
+import time
 from uuid import uuid4
 
 # Third Party
@@ -28,6 +29,7 @@ import stripe
 
 # Squarelet
 from squarelet.organizations.models import Subscription, SubscriptionItem
+from squarelet.organizations.payments.exceptions import SubscriptionError
 
 pytestmark = [pytest.mark.stripe, pytest.mark.django_db()]
 
@@ -227,44 +229,6 @@ class TestAddingASecondPlan:
         assert first.stripe_item_id.startswith("si_")
 
 
-class TestGoingFreeAndBack:
-    """An id has to name an item on the subscription that exists now."""
-
-    def test_a_line_does_not_keep_an_id_from_a_deleted_subscription(
-        self, organization_factory, plan_factory, sandbox
-    ):
-        """Downgrading deletes the Stripe subscription the ids referred to.
-
-        Kept, they would be sent to whichever subscription is started next,
-        which has never heard of them - Stripe rejects the whole call, and
-        the line can never be removed.
-        """
-        organization = organization_factory()
-        with_card(organization, sandbox)
-        item = start(organization, paid_plan(plan_factory, sandbox), sandbox)
-        free_name = f"Sandbox Free {uuid4().hex[:8]}"
-        item.modify(
-            plan_factory(
-                name=free_name,
-                slug=slugify(free_name),
-                base_price=0,
-                price_per_user=0,
-            )
-        )
-
-        item.refresh_from_db()
-        assert item.stripe_item_id == ""
-
-        # And the next subscription identifies itself from scratch.
-        revived = start(organization, paid_plan(plan_factory, sandbox), sandbox)
-
-        revived.refresh_from_db()
-        assert revived.stripe_item_id.startswith("si_")
-        assert stripe_prices(revived.subscription.subscription_id) == {
-            revived.plan.stripe_id
-        }
-
-
 class TestChangingAPlan:
     """`modify_subscription` has no caller today and must work when it does."""
 
@@ -283,28 +247,54 @@ class TestChangingAPlan:
         assert item.subscription.subscription_id == subscription_id
         assert stripe_prices(subscription_id) == {new_plan.stripe_id}
 
-    def test_moving_to_a_free_plan_stops_the_billing(
+    def test_moving_to_a_free_plan_is_refused_and_billing_carries_on(
         self, organization_factory, plan_factory, sandbox
     ):
-        """The last paid line going free has to end the subscription."""
+        """Free and paid never share a subscription: remove and add instead."""
         organization = organization_factory()
         with_card(organization, sandbox)
         item = start(organization, paid_plan(plan_factory, sandbox), sandbox)
         subscription_id = item.subscription.subscription_id
         free_name = f"Sandbox Free {uuid4().hex[:8]}"
 
-        item.modify(
-            plan_factory(
-                name=free_name,
-                slug=slugify(free_name),
-                base_price=0,
-                price_per_user=0,
+        with pytest.raises(SubscriptionError, match="never share a subscription"):
+            item.modify(
+                plan_factory(
+                    name=free_name,
+                    slug=slugify(free_name),
+                    base_price=0,
+                    price_per_user=0,
+                )
             )
-        )
 
-        assert stripe.Subscription.retrieve(subscription_id).status == "canceled"
-        item.subscription.refresh_from_db()
-        assert item.subscription.subscription_id == ""
+        assert stripe.Subscription.retrieve(subscription_id).status == "active"
+
+
+class TestRemovingOnePlan:
+    """The credit shown before removing is the credit Stripe applies."""
+
+    def test_the_previewed_credit_is_the_one_applied(
+        self, organization_factory, plan_factory, sandbox
+    ):
+        organization = organization_factory()
+        with_card(organization, sandbox)
+        leaving = start(organization, paid_plan(plan_factory, sandbox), sandbox)
+        staying = start(
+            organization, paid_plan(plan_factory, sandbox, price=40), sandbox
+        )
+        subscription_id = leaving.subscription.subscription_id
+        moment = int(time.time())
+
+        credit = leaving.removal_credit(moment)
+        assert leaving.cancel(proration_date=moment) is True
+
+        assert credit > 0
+        assert stripe_prices(subscription_id) == {staying.plan.stripe_id}
+        upcoming = stripe.Invoice.create_preview(
+            customer=organization.customer().customer_id, subscription=subscription_id
+        )
+        applied = -sum(min(line["amount"], 0) for line in upcoming["lines"]["data"])
+        assert applied == credit
 
 
 class TestWhatTheCustomerIsCharged:

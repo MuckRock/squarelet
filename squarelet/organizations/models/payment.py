@@ -1122,7 +1122,40 @@ class SubscriptionItem(models.Model):
             and any(line.pk != self.pk for line in subscription.items.all())
         )
 
-    def cancel(self):
+    def removal_credit(self, proration_date):
+        """The credit, in cents, that removing this line at `proration_date` gives.
+
+        None when Stripe can't be asked or doesn't answer, so the page falls
+        back to saying a credit is coming without its amount.
+        """
+        if self.is_free or not self.removes_now:
+            return None
+        subscription = self.subscription
+        stripe_sub = subscription.stripe_subscription
+        if stripe_sub is None:
+            return None
+        subscription.sync_stripe_item_ids(stripe_sub)
+        self.refresh_from_db()
+        if not self.stripe_item_id:
+            return None
+        try:
+            preview = (
+                get_payment_provider()
+                .get_subscription_service()
+                .preview_removal(
+                    subscription.organization.customer().customer_id,
+                    subscription.subscription_id,
+                    self.stripe_item_id,
+                    proration_date,
+                )
+            )
+        except stripe.StripeError as exc:
+            logger.warning("[SUBSCRIPTION-ITEM] Removal preview failed: %s", exc)
+            return None
+        # The removal's prorations are the only credits a preview can carry.
+        return -sum(min(line["amount"], 0) for line in preview["lines"]["data"])
+
+    def cancel(self, proration_date=None):
         """Stop this plan.  Returns True if it came off now.
 
         Otherwise the whole subscription cancels at period end: Stripe has no
@@ -1131,7 +1164,7 @@ class SubscriptionItem(models.Model):
         """
         if self.removes_now:
             subscription = self.subscription
-            self.remove_from_stripe()
+            self.remove_from_stripe(proration_date)
             if subscription.kind == "free" and not subscription.items.exists():
                 subscription.delete()
             return True
@@ -1143,11 +1176,13 @@ class SubscriptionItem(models.Model):
         """Reverse a pending cancellation, whole-subscription like `cancel`."""
         self.subscription.uncancel()
 
-    def remove_from_stripe(self):
+    def remove_from_stripe(self, proration_date=None):
         """Drop this line from the Stripe subscription and delete it locally.
 
-        Stripe credits the unused time against the next invoice.  Identifies
-        the line first: the only id that could find it again goes with the row.
+        Stripe credits the unused time against the next invoice, counted from
+        `proration_date` when given so it matches a credit already shown.
+        Identifies the line first: the only id that could find it again goes
+        with the row.
         """
         stripe_sub = self.subscription.stripe_subscription
         if stripe_sub is not None:
@@ -1158,10 +1193,12 @@ class SubscriptionItem(models.Model):
             self.refresh_from_db()
 
         if stripe_sub is not None and self.stripe_item_id:
+            timing = {"proration_date": proration_date} if proration_date else {}
             get_payment_provider().get_subscription_service().modify(
                 self.subscription.subscription_id,
                 items=[{"id": self.stripe_item_id, "deleted": True}],
                 proration_behavior="create_prorations",
+                **timing,
             )
         elif not self.is_free:
             # Delete anyway - it is what the customer asked for - but log it:
