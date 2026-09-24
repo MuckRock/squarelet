@@ -645,27 +645,22 @@ class TestSubscriptionItem:
         started.assert_called_once()
 
     @pytest.mark.django_db()
-    def test_downgrading_to_a_free_plan_stops_billing(
+    def test_changing_a_paid_plan_to_a_free_one_is_refused(
         self, subscription_item_factory, plan_factory, professional_plan_factory, mocker
     ):
-        """The other half, and the worse one.
-
-        Without this the Stripe subscription survives the downgrade and the
-        customer keeps being charged for a free plan.
-        """
+        """Free and paid never share a subscription: remove and add instead."""
         service = mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
         ).return_value.get_subscription_service.return_value
-        mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
         item = subscription_item_factory(
             plan=professional_plan_factory(), subscription__subscription_id="sub_live"
         )
 
-        item.modify(plan_factory(name="Free Tier", base_price=0, price_per_user=0))
+        with pytest.raises(SubscriptionError, match="never share a subscription"):
+            item.modify(plan_factory(name="Free Tier", base_price=0, price_per_user=0))
 
-        service.delete.assert_called_once()
-        item.subscription.refresh_from_db()
-        assert item.subscription.subscription_id == ""
+        service.delete.assert_not_called()
+        service.modify.assert_not_called()
 
     @pytest.mark.django_db()
     def test_changing_to_a_different_interval_is_refused(
@@ -718,32 +713,6 @@ class TestSubscriptionItem:
 
         assert subscription.cancel_at == subscription.next_date
         assert subscription.cancel_at == date(2026, 10, 19)
-
-    @pytest.mark.django_db()
-    def test_downgrading_still_works_when_stripe_has_already_lost_it(
-        self, subscription_item_factory, plan_factory, professional_plan_factory, mocker
-    ):
-        """A subscription cancelled in the Stripe dashboard retrieves as None.
-
-        Deleting None raised, so the local record went on naming a
-        subscription Stripe had already forgotten and every retry of the
-        downgrade failed the same way.
-        """
-        item = subscription_item_factory(
-            plan=professional_plan_factory(), subscription__subscription_id="sub_gone"
-        )
-        service = mocker.patch(
-            "squarelet.organizations.models.payment.get_payment_provider"
-        ).return_value.get_subscription_service.return_value
-        mocker.patch(
-            "squarelet.organizations.models.Subscription.stripe_subscription", None
-        )
-
-        item.modify(plan_factory(name="Free Tier", base_price=0, price_per_user=0))
-
-        service.delete.assert_not_called()
-        item.subscription.refresh_from_db()
-        assert item.subscription.subscription_id == ""
 
     @pytest.mark.django_db()
     def test_a_free_line_is_not_described_to_stripe(
