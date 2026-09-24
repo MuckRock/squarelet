@@ -334,6 +334,42 @@ class TestClassifySubscriptions:
             "Other Free",
         ]
 
+    def test_a_cancelled_free_row_is_not_the_merge_target(self):
+        """It is due for the sweep, so free lines moving off a paid row go to a
+        live free row instead of being swept with it."""
+        old = migrate_to(_bracket(KIND)[0])
+        ending = self._line(old, "Old Free")
+        Subscription = old.get_model(APP, "Subscription")
+        Subscription.objects.filter(pk=ending.pk).update(cancelled=True)
+        paid = self._line(
+            old,
+            "Paid",
+            base_price=30,
+            organization=ending.organization,
+            interval="annual",
+        )
+        self._line(old, "Comped", subscription=paid)
+
+        new = migrate_to(_bracket(KIND)[1])
+
+        Subscription = new.get_model(APP, "Subscription")
+        assert not Subscription.objects.filter(pk=ending.pk).exists()
+        (free,) = Subscription.objects.filter(
+            organization_id=ending.organization_id, kind="free"
+        )
+        assert not free.cancelled
+        assert list(free.items.values_list("plan__name", flat=True)) == ["Comped"]
+
+    def test_a_free_row_still_naming_stripe_is_refused(self):
+        """Deleting or keeping it would orphan a Stripe subscription."""
+        old = migrate_to(_bracket(KIND)[0])
+        free = self._line(old, "Free")
+        Subscription = old.get_model(APP, "Subscription")
+        Subscription.objects.filter(pk=free.pk).update(subscription_id="sub_stale")
+
+        with pytest.raises(RuntimeError, match="names Stripe subscription sub_stale"):
+            migrate_to(_bracket(KIND)[1])
+
     def test_a_one_off_beside_another_paid_line_is_refused(self):
         """Separating them would mean splitting a live Stripe subscription."""
         old = migrate_to(_bracket(KIND)[0])
