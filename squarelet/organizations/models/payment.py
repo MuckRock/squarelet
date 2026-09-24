@@ -1102,9 +1102,16 @@ class SubscriptionItem(models.Model):
         """Stop billing this line at the end of the current period.
 
         Cancels the whole subscription: Stripe has no per-item
-        cancel_at_period_end.
+        cancel_at_period_end.  A free line has no period, so it goes now and
+        leaves the organization's other free plans alone.
         """
-        self.subscription.cancel()
+        subscription = self.subscription
+        if subscription.kind == "free":
+            self.delete()
+            if not subscription.items.exists():
+                subscription.delete()
+            return
+        subscription.cancel()
 
     def uncancel(self):
         """Reverse a pending cancellation, whole-subscription like `cancel`."""

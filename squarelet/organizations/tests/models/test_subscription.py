@@ -490,6 +490,27 @@ class TestSubscription:
         assert item.cancel_at is None
 
     @pytest.mark.django_db()
+    def test_cancelling_a_free_plan_leaves_the_others(
+        self, subscription_item_factory, plan_factory
+    ):
+        """A free row has no period, so cancelling it would sweep them all tonight."""
+        leaving = subscription_item_factory(
+            subscription__kind="free",
+            plan=plan_factory(name="Free One", base_price=0, price_per_user=0),
+        )
+        staying = subscription_item_factory(
+            subscription=leaving.subscription,
+            plan=plan_factory(name="Free Two", base_price=0, price_per_user=0),
+        )
+
+        leaving.cancel()
+
+        assert not SubscriptionItem.objects.filter(pk=leaving.pk).exists()
+        staying.subscription.refresh_from_db()
+        assert not staying.subscription.cancelled
+        assert SubscriptionItem.objects.filter(pk=staying.pk).exists()
+
+    @pytest.mark.django_db()
     def test_a_one_off_cannot_be_resubscribed(self, subscription_item_factory, mocker):
         """Clearing its ending would make a one-time purchase renew."""
         stripe_uncancel = mocker.patch(
