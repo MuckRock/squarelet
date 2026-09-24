@@ -614,8 +614,11 @@ class Subscription(Cancellable, models.Model):
         for item in self.items.select_related("plan", "plan_price"):
             if item.is_free:
                 continue
-            # Must read what `stripe_items` sent, or nothing matches.
-            item_id = by_price.get(item.stripe_price_id)
+            # Must read what `stripe_items` sent, or nothing matches.  The legacy
+            # id too: a newly priced line's item bills it until it is swapped.
+            item_id = by_price.get(item.stripe_price_id) or by_price.get(
+                item.plan.stripe_id
+            )
             if item_id and item_id != item.stripe_item_id:
                 item.stripe_item_id = item_id
                 item.save(update_fields=["stripe_item_id"])

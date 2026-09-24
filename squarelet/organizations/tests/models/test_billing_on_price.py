@@ -94,6 +94,20 @@ class TestWhatIsSentToStripe:
         item.refresh_from_db()
         assert item.stripe_item_id == "si_new"
 
+    def test_a_newly_priced_line_is_matched_on_its_legacy_id(
+        self, subscription_item_factory, paid_price
+    ):
+        """Unmatched, it is sent with no id and Stripe bills it twice."""
+        item = subscription_item_factory(plan=paid_price.plan, plan_price=paid_price)
+        stripe_sub = {
+            "items": {"data": [{"id": "si_old", "price": {"id": item.plan.stripe_id}}]}
+        }
+
+        item.subscription.sync_stripe_item_ids(stripe_sub)
+
+        item.refresh_from_db()
+        assert item.stripe_item_id == "si_old"
+
 
 @pytest.mark.django_db()
 class TestAZeroPriceIsFree:
