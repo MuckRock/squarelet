@@ -41,7 +41,7 @@ class TestEnsureStripePrice:
         plan_service.create_price.assert_not_called()
 
     def test_creates_and_records_a_price(self, plan_price_factory, plan_service):
-        price = plan_price_factory()
+        price = plan_price_factory(stripe_price_id="")
 
         assert price.ensure_stripe_price() == "price_new"
 
@@ -56,7 +56,7 @@ class TestEnsureStripePrice:
     ):
         """The case a rolled-back transaction leaves behind."""
         plan_service.find_price.return_value = Mock(id="price_orphan")
-        price = plan_price_factory()
+        price = plan_price_factory(stripe_price_id="")
 
         assert price.ensure_stripe_price() == "price_orphan"
 
@@ -187,7 +187,7 @@ class TestPricedRowIsImmutable:
         price.clean()
 
     def test_a_row_with_no_stripe_price_is_free_to_change(self, plan_price_factory):
-        price = plan_price_factory(amount=10000)
+        price = plan_price_factory(amount=10000, stripe_price_id="")
         price.amount = 12000
 
         price.clean()
