@@ -718,16 +718,17 @@ class Organization(AvatarMixin, models.Model):
         if max_users is None:
             max_users = self.max_users
 
+        from_max_users = self.max_users
+        sub.quantity = max_users
+        sub.modify(new_plan)
         self.change_logs.create(
             user=user,
             reason=ChangeLogReason.updated,
             from_plan=old_plan,
-            from_max_users=self.max_users,
+            from_max_users=from_max_users,
             to_plan=new_plan,
             to_max_users=max_users,
         )
-        sub.quantity = max_users
-        sub.modify(new_plan)
 
     def _dispatch_wix_unsync(self, plan):
         """Dispatch Wix unsync tasks for this org's users and, if this org is a
