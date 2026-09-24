@@ -463,6 +463,21 @@ class Subscription(Cancellable, models.Model):
         default="charge_automatically",
         help_text=_("How Stripe collects payment, shared by every item"),
     )
+    KIND_CHOICES = (
+        ("renewing", _("Renewing")),
+        ("one_off", _("One-off")),
+        ("free", _("Free")),
+    )
+    kind = models.CharField(
+        _("kind"),
+        max_length=20,
+        choices=KIND_CHOICES,
+        default="renewing",
+        help_text=_(
+            "Renewing paid plans share a subscription per billing shape, a "
+            "one-off purchase gets its own, and free plans never reach Stripe."
+        ),
+    )
 
     # Cancellation takes effect at period end, when the record is deleted.
     cancelled = models.BooleanField(default=False)
@@ -504,6 +519,15 @@ class Subscription(Cancellable, models.Model):
                 .retrieve(self.subscription_id)
             )
         return None
+
+    @staticmethod
+    def kind_for(plan):
+        """Which kind of subscription a line for `plan` belongs on."""
+        if plan.free:
+            return "free"
+        if not plan.auto_renew:
+            return "one_off"
+        return "renewing"
 
     @property
     def free(self):
@@ -766,6 +790,22 @@ class Subscription(Cancellable, models.Model):
         Clears the cancelled flag and cancel_at date locally, and removes
         cancel_at_period_end on the Stripe subscription so it auto-renews.
         """
+        if (
+            self.kind == "renewing"
+            and Subscription.objects.filter(
+                organization=self.organization,
+                interval=self.interval,
+                collection_method=self.collection_method,
+                kind="renewing",
+                cancelled=False,
+            )
+            .exclude(pk=self.pk)
+            .exists()
+        ):
+            raise SubscriptionError(
+                "This organization already has a live subscription on the same "
+                "billing.  These plans can be added to it once this one ends."
+            )
         customer = self.organization.customer()
         if not customer.stripe_payment_method_id:
             raise ValidationError(
@@ -874,10 +914,16 @@ class Subscription(Cancellable, models.Model):
                 condition=~models.Q(subscription_id=""),
                 name="unique_stripe_subscription_id_when_set",
             ),
-            # One subscription per organization per billing shape.
+            # A cancelling subscription runs out beside its replacement.
             models.UniqueConstraint(
                 fields=["organization", "interval", "collection_method"],
-                name="unique_subscription_per_billing_shape",
+                condition=models.Q(kind="renewing", cancelled=False),
+                name="unique_live_renewing_subscription_per_shape",
+            ),
+            models.UniqueConstraint(
+                fields=["organization"],
+                condition=models.Q(kind="free"),
+                name="unique_free_subscription_per_organization",
             ),
         ]
 
