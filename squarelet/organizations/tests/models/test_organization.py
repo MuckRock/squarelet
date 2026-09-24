@@ -1429,8 +1429,8 @@ class TestMultipleSubscriptions:
     ):
         """remove_subscription by plan cancels that sub and leaves others."""
         org = organization_factory()
-        plan_a = plan_factory()
-        plan_b = plan_factory()
+        plan_a = plan_factory(base_price=30)
+        plan_b = plan_factory(base_price=40)
         user = user_factory()
         sub_a = subscription_item_factory(subscription__organization=org, plan=plan_a)
         sub_b = subscription_item_factory(subscription__organization=org, plan=plan_b)
@@ -1440,15 +1440,11 @@ class TestMultipleSubscriptions:
             new_callable=lambda: property(lambda self: None),
         )
 
-        org.remove_subscription(plan_a, user)
+        assert org.remove_subscription(plan_a, user) is True
 
-        # Cancellation is subscription-level here, and both lines share one
-        # subscription - so removing either ends both.  Cancelling one plan
-        # of several is the feature that comes next.
-        sub_a.refresh_from_db()
+        assert not org.subscription_items.filter(pk=sub_a.pk).exists()
         sub_b.refresh_from_db()
-        assert sub_a.cancelled
-        assert sub_b.cancelled
+        assert not sub_b.subscription.cancelled
 
     @pytest.mark.django_db
     def test_modify_subscription(

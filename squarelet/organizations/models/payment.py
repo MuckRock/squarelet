@@ -1102,8 +1102,8 @@ class SubscriptionItem(models.Model):
     def removes_now(self):
         """Whether stopping this plan takes it off now rather than at period end.
 
-        A free plan always does.  A paid one does while other paid plans stay on
-        its renewing subscription, which carries the credit for its unused time.
+        A free plan always does.  A paid one does while other plans stay on its
+        renewing subscription, which carries the credit for its unused time.
         """
         subscription = self.subscription
         if subscription.kind == "free":
@@ -1111,12 +1111,7 @@ class SubscriptionItem(models.Model):
         return (
             subscription.kind == "renewing"
             and not subscription.cancelled
-            and any(
-                not sibling.is_free
-                for sibling in subscription.items.exclude(pk=self.pk).select_related(
-                    "plan"
-                )
-            )
+            and subscription.items.exclude(pk=self.pk).exists()
         )
 
     def cancel(self):
