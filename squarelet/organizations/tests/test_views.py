@@ -1454,6 +1454,33 @@ class TestRemoveCard(ViewTestMixin):
             "removing your payment method.",
         )
 
+    def test_a_free_subscription_does_not_block_removal(
+        self,
+        rf,
+        organization_factory,
+        user_factory,
+        plan_factory,
+        subscription_item_factory,
+        mocker,
+    ):
+        """Nothing free is billed to the card."""
+        self._mock_card_on_file(mocker)
+        mocked_remove = mocker.patch(
+            "squarelet.organizations.models.Organization.remove_payment_method"
+        )
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        subscription_item_factory(
+            subscription__organization=organization,
+            subscription__kind="free",
+            plan=plan_factory(name="Free", base_price=0, price_per_user=0),
+        )
+
+        response = self.call_view(rf, user, {}, slug=organization.slug)
+
+        assert response.status_code == 302
+        mocked_remove.assert_called_once()
+
     def test_allowed_when_all_subscriptions_cancelled(
         self,
         rf,
