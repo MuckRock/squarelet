@@ -39,12 +39,12 @@ Args:
             <a class="plan-name {% if subject == "organizations" %}organization{% else %}professional{% endif %}" href="{% url 'plan_detail' pk=subscription.plan.id slug=subscription.plan.slug %}">{{ subscription.plan.name }}</a>
             <div class="card-item-meta">
               <span class="caption">
-                {% if subscription.plan.free %}
+                {% if subscription.is_free %}
                   {% trans "Free" %}
-                {% elif subscription.plan.annual %}
-                  {% blocktrans with price=subscription.plan.base_price|intcomma %}${{ price }} per year{% endblocktrans %}
+                {% elif subscription.bills_annually %}
+                  {% blocktrans with price=subscription.price|intcomma %}${{ price }} per year{% endblocktrans %}
                 {% else %}
-                  {% blocktrans with price=subscription.plan.base_price|intcomma %}${{ price }} per month{% endblocktrans %}
+                  {% blocktrans with price=subscription.price|intcomma %}${{ price }} per month{% endblocktrans %}
                 {% endif %}
               </span>
               {% if subscription.cancelled and subscription.cancel_at %}

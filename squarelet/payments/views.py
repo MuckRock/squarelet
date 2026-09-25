@@ -137,9 +137,7 @@ class PlanDetailView(DetailView):
 
             # Check user's individual organization
             individual_org = user.individual_organization
-            individual_subscription = individual_org.subscription_items.filter(
-                plan=plan
-            ).first()
+            individual_subscription = individual_org.line_holding(plan)
             if individual_subscription:
                 existing_subscriptions.append((individual_subscription, individual_org))
 
@@ -157,7 +155,7 @@ class PlanDetailView(DetailView):
                 admin_orgs = admin_orgs_base
 
             for org in admin_orgs:
-                org_subscription = org.subscription_items.filter(plan=plan).first()
+                org_subscription = org.line_holding(plan)
                 if org_subscription:
                     existing_subscriptions.append((org_subscription, org))
 
@@ -230,7 +228,7 @@ class PlanDetailView(DetailView):
                 result = form.save(request.user)
                 organization = result["organization"]
 
-                if organization.subscription_items.filter(plan=plan).exists():
+                if organization.has_active_subscription(result["plan"]):
                     messages.warning(request, _("Already subscribed"))
                     return redirect(plan)
 
@@ -292,10 +290,11 @@ class PlanDetailView(DetailView):
         transaction.on_commit(
             lambda: organization.add_subscription(
                 selected_plan,
-                selected_plan.minimum_users,
+                None,
                 request.user,
                 token=stripe_token,
                 payment_method=payment_method,
+                nonprofit=result.get("nonprofit", False),
             )
         )
         return None
@@ -311,10 +310,11 @@ class PlanDetailView(DetailView):
         try:
             organization.add_subscription(
                 selected_plan,
-                selected_plan.minimum_users,
+                None,
                 request.user,
                 token=stripe_token,
                 payment_method=payment_method,
+                nonprofit=result.get("nonprofit", False),
             )
             return None
         except PaymentActionRequired as exc:

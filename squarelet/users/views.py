@@ -177,9 +177,9 @@ class UserDetailView(LoginRequiredMixin, StaffAccessMixin, AdminLinkMixin, Detai
         individual_org = user.individual_organization
         upgrade_plan = Plan.objects.filter(slug="professional").first()
         subscriptions = list(
-            individual_org.subscription_items.select_related("plan").prefetch_related(
-                "plan__entitlements"
-            )
+            individual_org.subscription_items.select_related(
+                "plan", "plan_price"
+            ).prefetch_related("plan__entitlements")
         )
         context["subscriptions"] = subscriptions
         context["subscription_benefits"] = consolidate_plan_benefits(
