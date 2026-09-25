@@ -1146,11 +1146,10 @@ class SubscriptionItem(models.Model):
                 f"Cannot change {self.plan} to {plan} in place: {plan} has no "
                 f"nonprofit rate."
             )
-        interval = (
-            plan_price.interval
-            if plan_price
-            else "annual" if plan.annual else "monthly"
-        )
+        if plan_price:
+            interval = plan_price.interval
+        else:
+            interval = "annual" if plan.annual else "monthly"
         if interval != self.subscription.interval:
             raise SubscriptionError(
                 f"Cannot change {self.plan} to {plan} in place: it bills "

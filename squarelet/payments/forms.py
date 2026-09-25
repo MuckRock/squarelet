@@ -3,6 +3,7 @@
 # Django
 from django import forms
 from django.db.models import Q
+from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 
 # Standard Library
@@ -19,12 +20,7 @@ from crispy_forms.layout import Field as CrispyField, Layout
 # Squarelet
 from squarelet.core.forms import StripeForm
 from squarelet.core.layout import Field
-from squarelet.organizations.models import (
-    Organization,
-    Plan,
-    PlanPrice,
-    SubscriptionItem,
-)
+from squarelet.organizations.models import Organization, Plan, SubscriptionItem
 from squarelet.organizations.models.payment import get_payment_brand
 from squarelet.users.forms import NewOrganizationModelChoiceField
 
@@ -201,7 +197,7 @@ class PlanPurchaseForm(StripeForm):
             not self.plan
             or not self.plan.is_sunlight_plan
             or is_nonprofit_variant
-            or self._nonprofit_base_price() is None
+            or self._nonprofit_base_price is None
         ):
             del self.fields["is_nonprofit"]
 
@@ -266,30 +262,25 @@ class PlanPurchaseForm(StripeForm):
         # Add nonprofit plan pricing if available
         data["has_nonprofit_variant"] = False
         if self.plan.is_sunlight_plan:
-            nonprofit_price = self._nonprofit_base_price()
+            nonprofit_price = self._nonprofit_base_price
             if nonprofit_price is not None:
                 data["nonprofit_base_price"] = nonprofit_price
                 data["has_nonprofit_variant"] = True
 
         return data
 
+    @cached_property
     def _nonprofit_base_price(self):
         """What a nonprofit pays for this plan, or None if there is no rate.
 
-        Read from the price a nonprofit purchase would be sold at, and from the
-        nonprofit Plan row until prices exist.
+        The price a nonprofit purchase is sold at, or the nonprofit Plan row
+        until prices exist.
         """
-        canonical_plan, standard = SubscriptionItem.objects.resolve_purchase(self.plan)
-        if standard is not None:
-            price = PlanPrice.objects.filter(
-                plan=canonical_plan,
-                interval=standard.interval,
-                label="nonprofit",
-                code="",
-                active=True,
-            ).first()
-            if price is not None:
-                return price.amount_dollars
+        _plan, price = SubscriptionItem.objects.resolve_purchase(
+            self.plan, nonprofit=True
+        )
+        if price is not None and price.label == "nonprofit":
+            return price.amount_dollars
 
         nonprofit_slug = self.plan.nonprofit_variant_slug
         if not nonprofit_slug:

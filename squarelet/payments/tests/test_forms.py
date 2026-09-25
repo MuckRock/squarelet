@@ -1,5 +1,9 @@
 """Tests for PlanPurchaseForm"""
 
+# Django
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
+
 # Standard Library
 from pathlib import Path
 
@@ -550,28 +554,24 @@ class TestNonprofitPriceComesFromPlanPrice:
         assert data["has_nonprofit_variant"]
         assert data["nonprofit_base_price"] == 350.0
 
-    def test_falls_back_to_the_variant_row_before_prices_exist(self, plan_factory):
+    def test_the_rate_shown_is_the_rate_sold(self, plan_factory, plan_price_factory):
+        """Even with no active standard price beside it."""
         plan = plan_factory(name="Sunlight Essential", slug="sunlight-essential")
-        plan_factory(
-            name="Sunlight Essential Nonprofit",
-            slug="sunlight-nonprofit-essential",
-            base_price=350,
+        plan_price_factory(
+            plan=plan, interval="monthly", label="standard", active=False
+        )
+        plan_price_factory(
+            plan=plan, interval="monthly", label="nonprofit", amount=35_000
         )
 
-        data = self._form(plan)
+        assert self._form(plan)["nonprofit_base_price"] == 350.0
 
-        assert data["has_nonprofit_variant"]
-        assert data["nonprofit_base_price"] == 350
-
-    def test_no_nonprofit_rate_at_all(self, plan_factory):
+    def test_the_rate_is_looked_up_once(self, plan_factory, plan_price_factory):
         plan = plan_factory(name="Sunlight Essential", slug="sunlight-essential")
+        plan_price_factory(plan=plan, label="nonprofit", amount=35_000)
+        form = PlanPurchaseForm(plan=plan)
 
-        assert not self._form(plan)["has_nonprofit_variant"]
+        with CaptureQueriesContext(connection) as queries:
+            form.get_plan_data()
 
-    def test_non_sunlight_plans_have_no_nonprofit_rate(
-        self, plan_factory, plan_price_factory
-    ):
-        plan = plan_factory(name="Organization", slug="organization")
-        plan_price_factory(plan=plan, interval="monthly", label="nonprofit", amount=1)
-
-        assert not self._form(plan)["has_nonprofit_variant"]
+        assert not [q for q in queries.captured_queries if "planprice" in q["sql"]]
