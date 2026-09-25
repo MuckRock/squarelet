@@ -695,16 +695,12 @@ class Organization(AvatarMixin, models.Model):
         return plans
 
     def modify_subscription(self, old_plan, new_plan, max_users, user):
-        """Modify the subscription for old_plan to new_plan.
+        """Upgrade or downgrade from `old_plan` to `new_plan`, in place.
 
-        This updates the existing Stripe subscription in-place rather than
-        cancelling and recreating it, which preserves the billing cycle anchor
-        and generates prorations. A remove+add would create a new subscription
-        with a new anchor and charge the customer immediately.
-
-        When the multi-subscription view is built, this method may become
-        unnecessary if upgrades/downgrades are replaced by explicit
-        add/remove actions — but verify that use case is gone before removing.
+        For a move to a strict superset or subset of the plan held, such as
+        Pro to a bundle containing it: the customer holds one at a time and
+        Stripe prorates the difference.  Anything else is an add plus a
+        remove.  Deciding which a change is falls to the caller.
         """
         try:
             sub = self.subscription_items.get(plan=old_plan)
