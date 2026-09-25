@@ -496,12 +496,11 @@ class SubscriptionItemQuerySet(models.QuerySet):
         canonical_plan, plan_price = self.resolve_purchase(plan, nonprofit)
         if quantity is None:
             quantity = 1 if plan_price else plan.minimum_users
-        # Not `plan.annual`: the form can substitute a row whose flag is wrong.
-        interval = (
-            plan_price.interval
-            if plan_price
-            else "annual" if plan.annual else "monthly"
-        )
+        if plan_price:
+            # Not the tier's flag: an annual price is held under a monthly tier.
+            interval = plan_price.interval
+        else:
+            interval = "annual" if plan.annual else "monthly"
         collection_method = (
             "send_invoice"
             if interval == "annual" and payment_method == "invoice"
