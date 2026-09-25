@@ -559,8 +559,7 @@ class Organization(AvatarMixin, models.Model):
         # check and the INSERT.
         Organization.objects.select_for_update().filter(pk=self.pk).get()
 
-        held_plans = self.subscription_items.stored_under(plan)
-        if self.subscription_items.filter(plan__in=held_plans).exists():
+        if self.has_active_subscription(plan):
             raise SubscriptionError(
                 f"Organization already has an active subscription to {plan}"
             )
@@ -827,10 +826,15 @@ class Organization(AvatarMixin, models.Model):
 
     def has_active_subscription(self, plan=None):
         """Check if the organization has an active subscription"""
-        qs = self.subscription_items.all()
         if plan is not None:
-            qs = qs.filter(plan=plan)
-        return qs.exists()
+            return self.line_holding(plan) is not None
+        return self.subscription_items.exists()
+
+    def line_holding(self, plan):
+        """The line holding the tier a purchase of `plan` is sold as, if any."""
+        return self.subscription_items.filter(
+            plan__in=self.subscription_items.stored_under(plan)
+        ).first()
 
     def charge(
         self,

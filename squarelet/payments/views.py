@@ -134,13 +134,10 @@ class PlanDetailView(DetailView):
         if self.request.user.is_authenticated:
             user = self.request.user
             existing_subscriptions = []
-            held_plans = SubscriptionItem.objects.stored_under(plan)
 
             # Check user's individual organization
             individual_org = user.individual_organization
-            individual_subscription = individual_org.subscription_items.filter(
-                plan__in=held_plans
-            ).first()
+            individual_subscription = individual_org.line_holding(plan)
             if individual_subscription:
                 existing_subscriptions.append((individual_subscription, individual_org))
 
@@ -158,9 +155,7 @@ class PlanDetailView(DetailView):
                 admin_orgs = admin_orgs_base
 
             for org in admin_orgs:
-                org_subscription = org.subscription_items.filter(
-                    plan__in=held_plans
-                ).first()
+                org_subscription = org.line_holding(plan)
                 if org_subscription:
                     existing_subscriptions.append((org_subscription, org))
 
@@ -233,8 +228,7 @@ class PlanDetailView(DetailView):
                 result = form.save(request.user)
                 organization = result["organization"]
 
-                held_plans = SubscriptionItem.objects.stored_under(result["plan"])
-                if organization.subscription_items.filter(plan__in=held_plans).exists():
+                if organization.has_active_subscription(result["plan"]):
                     messages.warning(request, _("Already subscribed"))
                     return redirect(plan)
 
