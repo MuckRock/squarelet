@@ -322,7 +322,30 @@ class TestWhereAPurchaseIsStored:
             annual=True,
         )
 
-        assert SubscriptionItem.objects.stored_under(picked) == {picked, tier}
+        assert SubscriptionItem.objects.stored_under(picked) >= {picked, tier}
+
+    def test_every_schedule_and_rate_of_a_tier_counts(self, plan_factory):
+        """Holding Essential monthly, annual Essential is the same tier."""
+        rows = {
+            plan_with_slug(plan_factory, name, slug)
+            for name, slug in [
+                ("Sunlight Essential", "sunlight-essential"),
+                ("Sunlight Essential (Annual)", "sunlight-essential-annual"),
+                ("Sunlight Nonprofit Essential", "sunlight-nonprofit-essential"),
+                (
+                    "Sunlight Nonprofit Essential (Annual)",
+                    "sunlight-nonprofit-essential-annual",
+                ),
+            ]
+        }
+        enhanced = plan_with_slug(
+            plan_factory, "Sunlight Enhanced", "sunlight-enhanced"
+        )
+
+        for row in rows:
+            held = SubscriptionItem.objects.stored_under(row)
+            assert held >= rows, row.slug
+            assert enhanced not in held
 
     def test_an_unmapped_plan_is_only_itself(self, plan_factory):
         plan = plan_factory(name="Unmapped Plan")
