@@ -15,7 +15,7 @@ from fuzzywuzzy import fuzz, process
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.payments.factory import get_payment_provider
-from squarelet.organizations.plan_mapping import resolve_target
+from squarelet.organizations.plan_mapping import LEGACY_PLAN_MAP, resolve_target
 
 # pylint:disable=too-many-positional-arguments
 
@@ -456,19 +456,23 @@ class SubscriptionItemQuerySet(models.QuerySet):
 
     @staticmethod
     def stored_under(plan):
-        """The plans a purchase of `plan` may be stored under.
+        """Every plan that holds the tier a purchase of `plan` is sold as.
 
-        Its tier once priced, itself until then; "already subscribed?" has to
-        ask about both.
+        The tier itself once priced, and each variant row sold as it before
+        then; an organization holds a tier once, whatever its schedule or rate.
         """
         # Lazy import to avoid a circular import (payment.py imports this module)
         # pylint: disable=import-outside-toplevel
         # Squarelet
         from squarelet.organizations.models.payment import Plan
 
-        target = resolve_target(plan.slug)
-        tier = Plan.objects.filter(slug=target[0]).first() if target else None
-        return {plan, tier} - {None}
+        tier = (resolve_target(plan.slug) or (plan.slug,))[0]
+        slugs = {tier, plan.slug} | {
+            slug
+            for slug, _billing in LEGACY_PLAN_MAP
+            if (resolve_target(slug) or (None,))[0] == tier
+        }
+        return set(Plan.objects.filter(slug__in=slugs))
 
     def start(self, organization, plan, payment_method="card", quantity=1):
         """Add a line for `plan` and make sure Stripe knows about it.
