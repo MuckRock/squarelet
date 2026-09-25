@@ -606,12 +606,12 @@ class Organization(AvatarMixin, models.Model):
         self.change_logs.create(
             user=user,
             reason=ChangeLogReason.updated,
-            to_plan=plan,
+            to_plan=item.plan,
             to_max_users=item.quantity,
         )
 
-        if plan.wix:
-            self._dispatch_wix_sync(plan)
+        if item.plan.wix:
+            self._dispatch_wix_sync(item.plan)
 
     def _resolve_payment_method(self, payment_method, token):
         """Normalize the payment_method value for a subscription."""
