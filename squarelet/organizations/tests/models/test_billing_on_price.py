@@ -483,3 +483,23 @@ class TestSellingAgainstThePrice:
 
         with pytest.raises(SubscriptionError, match="already has an active"):
             organization.add_subscription(picked, None, None)
+
+    def test_the_tier_counts_as_held_on_any_schedule(
+        self, organization_factory, plan_factory
+    ):
+        monthly = plan_with_slug(
+            plan_factory, "Sunlight Essential", "sunlight-essential", base_price=680
+        )
+        annual = plan_with_slug(
+            plan_factory,
+            "Sunlight Essential (Annual)",
+            "sunlight-essential-annual",
+            annual=True,
+        )
+        organization = organization_factory()
+        held, _ = SubscriptionItem.objects.start(
+            organization=organization, plan=monthly
+        )
+
+        assert organization.has_active_subscription(annual)
+        assert organization.line_holding(annual) == held
