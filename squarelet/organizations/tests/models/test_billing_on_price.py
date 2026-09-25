@@ -503,3 +503,22 @@ class TestSellingAgainstThePrice:
 
         assert organization.has_active_subscription(annual)
         assert organization.line_holding(annual) == held
+
+    def test_the_log_names_the_plan_held(
+        self, organization_factory, plan_factory, plan_price_factory, mocker
+    ):
+        """So the addition pairs with the removal, which logs the line's plan."""
+        mocker.patch("squarelet.organizations.models.Organization.customer")
+        tier = plan_with_slug(plan_factory, "Sunlight Essential", "sunlight-essential")
+        plan_price_factory(plan=tier, interval="annual")
+        picked = plan_with_slug(
+            plan_factory,
+            "Sunlight Essential (Annual)",
+            "sunlight-essential-annual",
+            annual=True,
+        )
+        organization = organization_factory()
+
+        organization.add_subscription(picked, None, None, payment_method="card")
+
+        assert organization.change_logs.get().to_plan == tier
