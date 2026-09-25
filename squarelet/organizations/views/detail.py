@@ -62,9 +62,9 @@ class Detail(ResolveOrganizationSlugMixin, AdminLinkMixin, DetailView):
         # Get subscriptions, if any, along with the benefits they add up to
         upgrade_plan = Plan.objects.get(slug="organization")
         subscriptions = list(
-            org.subscription_items.select_related("plan").prefetch_related(
-                "plan__entitlements"
-            )
+            org.subscription_items.select_related(
+                "plan", "plan_price"
+            ).prefetch_related("plan__entitlements")
         )
         context["subscriptions"] = subscriptions
         context["subscription_benefits"] = consolidate_plan_benefits(
