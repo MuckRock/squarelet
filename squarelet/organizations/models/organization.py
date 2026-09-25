@@ -694,13 +694,15 @@ class Organization(AvatarMixin, models.Model):
                 self._dispatch_wix_unsync(plan)
         return plans
 
-    def modify_subscription(self, old_plan, new_plan, user):
+    def modify_subscription(self, old_plan, new_plan, user, quantity=None):
         """Upgrade or downgrade from `old_plan` to `new_plan`, in place.
 
         For a move to a strict superset or subset of the plan held, such as
-        Pro to a bundle containing it: the customer holds one at a time and
-        Stripe prorates the difference.  Anything else is an add plus a
-        remove.  Deciding which a change is falls to the caller.
+        Pro to a bundle containing it, or a new `quantity` of a pack (the same
+        plan in and out): the customer holds one at a time and Stripe
+        prorates the difference.  Anything else is an add plus a remove.
+        Deciding which a change is falls to the caller.  `quantity` None keeps
+        the line's.
         """
         sub = self.line_holding(old_plan)
         if sub is None:
@@ -708,13 +710,13 @@ class Organization(AvatarMixin, models.Model):
                 f"Organization does not have an active subscription to {old_plan}"
             )
 
-        from_plan = sub.plan
-        sub.modify(new_plan)
+        from_plan, from_quantity = sub.plan, sub.quantity
+        sub.modify(new_plan, quantity)
         self.change_logs.create(
             user=user,
             reason=ChangeLogReason.updated,
             from_plan=from_plan,
-            from_max_users=sub.quantity,
+            from_max_users=from_quantity,
             to_plan=sub.plan,
             to_max_users=sub.quantity,
         )
