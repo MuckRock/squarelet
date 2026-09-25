@@ -1125,15 +1125,31 @@ class SubscriptionItem(models.Model):
             return self.plan_price.stripe_price_id
         return self.plan.stripe_id
 
-    def modify(self, plan):
-        """Change which plan this line bills.
+    def modify(self, plan, quantity=None):
+        """Change which plan this line bills, and how many of it if given.
 
-        Raises SubscriptionError for a change of interval or kind: the new plan
-        belongs on another subscription, so that is a remove plus an add.
+        Raises SubscriptionError for a change of interval or kind, which
+        belongs on another subscription; from a negotiated rate, which belongs
+        to one tier; and for a nonprofit line to a plan with no nonprofit rate.
         """
-        # `sync_stripe_item_ids` matches on the Price, so a moved plan matches
-        # nothing and the customer is billed for both.
-        interval = "annual" if plan.annual else "monthly"
+        if self.plan_price_id and self.plan_price.code:
+            raise SubscriptionError(
+                f"Cannot change {self.plan} to {plan} in place: it bills the "
+                f"negotiated rate {self.plan_price.code!r}, which does not carry "
+                f"to another plan."
+            )
+        canonical_plan, plan_price = SubscriptionItem.objects.resolve_purchase(
+            plan, nonprofit=self.is_nonprofit
+        )
+        if self.is_nonprofit and not (plan_price and plan_price.label == "nonprofit"):
+            raise SubscriptionError(
+                f"Cannot change {self.plan} to {plan} in place: {plan} has no "
+                f"nonprofit rate."
+            )
+        if plan_price:
+            interval = plan_price.interval
+        else:
+            interval = "annual" if plan.annual else "monthly"
         if interval != self.subscription.interval:
             raise SubscriptionError(
                 f"Cannot change {self.plan} to {plan} in place: it bills "
@@ -1141,7 +1157,7 @@ class SubscriptionItem(models.Model):
                 f"{self.subscription.interval}.  Remove the line and add the "
                 f"new plan, which puts it on the right subscription."
             )
-        kind = Subscription.kind_for(plan)
+        kind = Subscription.kind_for(canonical_plan, plan_price)
         if kind != self.subscription.kind:
             raise SubscriptionError(
                 f"Cannot change {self.plan} to {plan} in place: one is "
@@ -1149,13 +1165,18 @@ class SubscriptionItem(models.Model):
                 f"share a subscription.  Remove the line and add the new plan."
             )
 
+        # Identified while the price still matches, or the item is sent with no
+        # id, which Stripe adds alongside the old one: billed for both.
         stripe_sub = self.subscription.stripe_subscription
         if stripe_sub is not None:
             self.subscription.sync_stripe_item_ids(stripe_sub)
             # It wrote straight to the rows, so this instance is stale.
             self.refresh_from_db()
 
-        self.plan = plan
+        self.plan = canonical_plan
+        self.plan_price = plan_price
+        if quantity is not None:
+            self.quantity = quantity
         self.save()
         self.subscription.sync_to_stripe()
 

@@ -1,5 +1,9 @@
 """Tests for PlanPurchaseForm"""
 
+# Django
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
+
 # Standard Library
 from pathlib import Path
 
@@ -123,8 +127,10 @@ class TestPlanPurchaseFormInit:
         assert user.individual_organization not in form.fields["organization"].queryset
         assert org in form.fields["organization"].queryset
 
-    def test_init_with_sunlight_plan_shows_nonprofit(self, user_factory, plan_factory):
-        """Nonprofit field shown for Sunlight plans"""
+    def test_init_with_sunlight_plan_shows_nonprofit(
+        self, user_factory, plan_factory, plan_price_factory
+    ):
+        """Nonprofit field shown for Sunlight plans with a nonprofit rate"""
         user = user_factory()
         # Create a plan that looks like a Sunlight plan (slug starts with sunlight-)
         plan = plan_factory(
@@ -133,10 +139,28 @@ class TestPlanPurchaseFormInit:
             for_individuals=True,
             for_groups=False,
         )
+        plan_price_factory(plan=plan, label="standard")
+        plan_price_factory(plan=plan, label="nonprofit", amount=5_000)
 
         form = PlanPurchaseForm(plan=plan, user=user)
 
         assert "is_nonprofit" in form.fields
+
+    def test_a_sunlight_plan_without_a_nonprofit_rate_hides_it(
+        self, user_factory, plan_factory, plan_price_factory
+    ):
+        """Ticking it would change nothing."""
+        plan = plan_factory(
+            slug="sunlight-test",
+            public=True,
+            for_individuals=True,
+            for_groups=False,
+        )
+        plan_price_factory(plan=plan, label="standard")
+
+        form = PlanPurchaseForm(plan=plan, user=user_factory())
+
+        assert "is_nonprofit" not in form.fields
 
     def test_init_with_non_sunlight_plan_hides_nonprofit(
         self, user_factory, plan_factory
@@ -505,3 +529,49 @@ class TestPlanPurchaseFormPlanData:
         form = PlanPurchaseForm(plan=None, user=user)
 
         assert not form.get_plan_data()
+
+
+@pytest.mark.django_db()
+class TestNonprofitPriceComesFromPlanPrice:
+    """The nonprofit rate shown is the one a purchase is sold at."""
+
+    def _form(self, plan):
+        return PlanPurchaseForm(plan=plan).get_plan_data()
+
+    def test_reads_the_nonprofit_price_of_the_tier(
+        self, plan_factory, plan_price_factory
+    ):
+        plan = plan_factory(name="Sunlight Essential", slug="sunlight-essential")
+        plan_price_factory(
+            plan=plan, interval="monthly", label="standard", amount=68_000
+        )
+        plan_price_factory(
+            plan=plan, interval="monthly", label="nonprofit", amount=35_000
+        )
+
+        data = self._form(plan)
+
+        assert data["has_nonprofit_variant"]
+        assert data["nonprofit_base_price"] == 350.0
+
+    def test_the_rate_shown_is_the_rate_sold(self, plan_factory, plan_price_factory):
+        """Even with no active standard price beside it."""
+        plan = plan_factory(name="Sunlight Essential", slug="sunlight-essential")
+        plan_price_factory(
+            plan=plan, interval="monthly", label="standard", active=False
+        )
+        plan_price_factory(
+            plan=plan, interval="monthly", label="nonprofit", amount=35_000
+        )
+
+        assert self._form(plan)["nonprofit_base_price"] == 350.0
+
+    def test_the_rate_is_looked_up_once(self, plan_factory, plan_price_factory):
+        plan = plan_factory(name="Sunlight Essential", slug="sunlight-essential")
+        plan_price_factory(plan=plan, label="nonprofit", amount=35_000)
+        form = PlanPurchaseForm(plan=plan)
+
+        with CaptureQueriesContext(connection) as queries:
+            form.get_plan_data()
+
+        assert not [q for q in queries.captured_queries if "planprice" in q["sql"]]

@@ -694,40 +694,31 @@ class Organization(AvatarMixin, models.Model):
                 self._dispatch_wix_unsync(plan)
         return plans
 
-    def modify_subscription(self, old_plan, new_plan, max_users, user):
-        """Modify the subscription for old_plan to new_plan.
+    def modify_subscription(self, old_plan, new_plan, user, quantity=None):
+        """Upgrade or downgrade from `old_plan` to `new_plan`, in place.
 
-        This updates the existing Stripe subscription in-place rather than
-        cancelling and recreating it, which preserves the billing cycle anchor
-        and generates prorations. A remove+add would create a new subscription
-        with a new anchor and charge the customer immediately.
-
-        When the multi-subscription view is built, this method may become
-        unnecessary if upgrades/downgrades are replaced by explicit
-        add/remove actions — but verify that use case is gone before removing.
+        For a move to a strict superset or subset of the plan held, such as
+        Pro to a bundle containing it, or a new `quantity` of a pack (the same
+        plan in and out): the customer holds one at a time and Stripe
+        prorates the difference.  Anything else is an add plus a remove.
+        Deciding which a change is falls to the caller.  `quantity` None keeps
+        the line's.
         """
-        try:
-            sub = self.subscription_items.get(plan=old_plan)
-        except self.subscription_items.model.DoesNotExist:
+        sub = self.line_holding(old_plan)
+        if sub is None:
             raise ValueError(
                 f"Organization does not have an active subscription to {old_plan}"
             )
 
-        # max_users is absent from the PaymentForm for individual orgs
-        # set it to current max users, which is 1
-        if max_users is None:
-            max_users = self.max_users
-
-        from_max_users = self.max_users
-        sub.quantity = max_users
-        sub.modify(new_plan)
+        from_plan, from_quantity = sub.plan, sub.quantity
+        sub.modify(new_plan, quantity)
         self.change_logs.create(
             user=user,
             reason=ChangeLogReason.updated,
-            from_plan=old_plan,
-            from_max_users=from_max_users,
-            to_plan=new_plan,
-            to_max_users=max_users,
+            from_plan=from_plan,
+            from_max_users=from_quantity,
+            to_plan=sub.plan,
+            to_max_users=sub.quantity,
         )
 
     def _dispatch_wix_unsync(self, plan):
