@@ -539,9 +539,11 @@ class Subscription(Cancellable, models.Model):
         return None
 
     @staticmethod
-    def kind_for(plan):
+    def kind_for(plan, plan_price=None):
         """Which kind of subscription a line for `plan` belongs on."""
-        if plan.free:
+        # A $0 price on a paid plan never reaches Stripe.
+        free = plan_price.amount == 0 if plan_price else plan.free
+        if free:
             return "free"
         if not plan.auto_renew:
             return "one_off"
@@ -550,7 +552,9 @@ class Subscription(Cancellable, models.Model):
     @property
     def free(self):
         """A subscription costs nothing when every line does."""
-        return all(item.plan is None or item.plan.free for item in self.items.all())
+        return all(
+            item.is_free for item in self.items.select_related("plan", "plan_price")
+        )
 
     @property
     def auto_renew(self):
@@ -578,11 +582,11 @@ class Subscription(Cancellable, models.Model):
         update it in place rather than replace it.
         """
         specs = []
-        for item in self.items.select_related("plan"):
+        for item in self.items.select_related("plan", "plan_price"):
             if item.is_free:
                 # Naming a free plan's missing Stripe Plan fails the whole call.
                 continue
-            spec = {"plan": item.plan.stripe_id, "quantity": item.quantity}
+            spec = {"plan": item.stripe_price_id, "quantity": item.quantity}
             if include_ids and item.stripe_item_id:
                 spec["id"] = item.stripe_item_id
             specs.append(spec)
@@ -607,10 +611,14 @@ class Subscription(Cancellable, models.Model):
             if price_id:
                 by_price[price_id] = stripe_item["id"]
 
-        for item in self.items.select_related("plan"):
+        for item in self.items.select_related("plan", "plan_price"):
             if item.is_free:
                 continue
-            item_id = by_price.get(item.plan.stripe_id)
+            # Must read what `stripe_items` sent, or nothing matches.  The legacy
+            # id too: a newly priced line's item bills it until it is swapped.
+            item_id = by_price.get(item.stripe_price_id) or by_price.get(
+                item.plan.stripe_id
+            )
             if item_id and item_id != item.stripe_item_id:
                 item.stripe_item_id = item_id
                 item.save(update_fields=["stripe_item_id"])
@@ -1081,11 +1089,26 @@ class SubscriptionItem(models.Model):
 
     @property
     def is_free(self):
-        """Whether this line costs anything.
-
-        A free plan is dropped before the items are described to Stripe.
-        """
+        """Whether this line costs anything; the price decides once there is one."""
+        if self.plan_price_id:
+            return self.plan_price.amount == 0
         return self.plan is None or self.plan.free
+
+    @property
+    def is_nonprofit(self):
+        """Whether this line bills at a nonprofit rate."""
+        return bool(self.plan_price_id and self.plan_price.label == "nonprofit")
+
+    @property
+    def stripe_price_id(self):
+        """The Stripe object this line bills against.
+
+        The plan's legacy id until the line has a price with a Stripe Price,
+        so a line not yet moved keeps billing as it did.
+        """
+        if self.plan_price_id and self.plan_price.stripe_price_id:
+            return self.plan_price.stripe_price_id
+        return self.plan.stripe_id
 
     def modify(self, plan):
         """Change which plan this line bills.

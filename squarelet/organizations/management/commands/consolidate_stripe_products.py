@@ -1,5 +1,6 @@
 # Django
 from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
 
 # Standard Library
 import logging
@@ -225,14 +226,16 @@ class Command(BaseCommand):
         if dry_run:
             return "created"
 
-        plan_price = PlanPrice.objects.create(
-            plan=plan,
-            stripe_price_id="",
-            interval=interval,
-            label=label,
-            code=code,
-            amount=amount,
-            currency=CURRENCY,
-        )
-        self.stdout.write(f"    -> {plan_price.ensure_stripe_price()}")
+        # Together, so a Stripe failure leaves no paid row without a Price.
+        with transaction.atomic():
+            plan_price = PlanPrice.objects.create(
+                plan=plan,
+                stripe_price_id="",
+                interval=interval,
+                label=label,
+                code=code,
+                amount=amount,
+                currency=CURRENCY,
+            )
+            self.stdout.write(f"    -> {plan_price.ensure_stripe_price()}")
         return "created"
