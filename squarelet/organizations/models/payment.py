@@ -1138,8 +1138,8 @@ class SubscriptionItem(models.Model):
             return self.plan_price.stripe_price_id
         return self.plan.stripe_id
 
-    def modify(self, plan):
-        """Change which plan this line bills.
+    def modify(self, plan, quantity=None):
+        """Change which plan this line bills, and how many of it if given.
 
         Raises SubscriptionError for a change of interval or kind, which
         belongs on another subscription; from a negotiated rate, which belongs
@@ -1188,6 +1188,8 @@ class SubscriptionItem(models.Model):
 
         self.plan = canonical_plan
         self.plan_price = plan_price
+        if quantity is not None:
+            self.quantity = quantity
         self.save()
         self.subscription.sync_to_stripe()
 
