@@ -1128,13 +1128,24 @@ class SubscriptionItem(models.Model):
     def modify(self, plan):
         """Change which plan this line bills.
 
-        Raises SubscriptionError for a change of interval or kind: the new plan
-        belongs on another subscription, so that is a remove plus an add.  A
-        nonprofit line stays on the nonprofit price.
+        Raises SubscriptionError for a change of interval or kind, which
+        belongs on another subscription; from a negotiated rate, which belongs
+        to one tier; and for a nonprofit line to a plan with no nonprofit rate.
         """
+        if self.plan_price_id and self.plan_price.code:
+            raise SubscriptionError(
+                f"Cannot change {self.plan} to {plan} in place: it bills the "
+                f"negotiated rate {self.plan_price.code!r}, which does not carry "
+                f"to another plan."
+            )
         canonical_plan, plan_price = SubscriptionItem.objects.resolve_purchase(
             plan, nonprofit=self.is_nonprofit
         )
+        if self.is_nonprofit and not (plan_price and plan_price.label == "nonprofit"):
+            raise SubscriptionError(
+                f"Cannot change {self.plan} to {plan} in place: {plan} has no "
+                f"nonprofit rate."
+            )
         interval = (
             plan_price.interval
             if plan_price

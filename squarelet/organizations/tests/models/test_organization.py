@@ -647,7 +647,7 @@ class TestOrganization:
         mocker.patch(
             "squarelet.organizations.models.Subscription.stripe_subscription", None
         )
-        organization.modify_subscription(old_plan, new_plan, 5, user)
+        organization.modify_subscription(old_plan, new_plan, user)
 
         assert organization.subscription_items.filter(plan=new_plan).exists()
 
@@ -1554,7 +1554,7 @@ class TestMultipleSubscriptions:
         mocker.patch(
             "squarelet.organizations.models.Subscription.stripe_subscription", None
         )
-        org.modify_subscription(plan_a, plan_b, org.max_users, user)
+        org.modify_subscription(plan_a, plan_b, user)
 
         assert org.subscription_items.filter(plan=plan_b).exists()
 
@@ -1571,9 +1571,7 @@ class TestMultipleSubscriptions:
         subscription_item_factory(subscription__organization=org, plan=paid)
 
         with pytest.raises(SubscriptionError):
-            org.modify_subscription(
-                paid, plan_factory(base_price=0), org.max_users, user_factory()
-            )
+            org.modify_subscription(paid, plan_factory(base_price=0), user_factory())
 
         assert not org.change_logs.filter(to_plan__base_price=0).exists()
 
@@ -1588,7 +1586,7 @@ class TestMultipleSubscriptions:
         user = user_factory()
 
         with pytest.raises(ValueError, match="does not have an active subscription"):
-            org.modify_subscription(plan_a, plan_b, org.max_users, user)
+            org.modify_subscription(plan_a, plan_b, user)
 
     @pytest.mark.django_db
     def test_has_active_subscription_with_plan_arg(
