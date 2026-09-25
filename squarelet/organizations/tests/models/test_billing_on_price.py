@@ -631,6 +631,24 @@ class TestChangingTierRepricesTheLine:
         log = organization.change_logs.get()
         assert (log.from_plan, log.to_plan) == (essential, enhanced)
 
+    def test_a_new_pack_quantity_survives_the_stripe_sync(
+        self, subscription_item_factory, plan_price_factory, mocker
+    ):
+        """Identifying the line on Stripe reloads it; the quantity comes after."""
+        price = plan_price_factory(amount=1_000)
+        item = subscription_item_factory(plan=price.plan, plan_price=price, quantity=2)
+        mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
+        mocker.patch("squarelet.organizations.models.Subscription.sync_stripe_item_ids")
+        mocker.patch("squarelet.organizations.models.Subscription.sync_to_stripe")
+        organization = item.subscription.organization
+
+        organization.modify_subscription(price.plan, price.plan, None, quantity=5)
+
+        item.refresh_from_db()
+        assert item.quantity == 5
+        log = organization.change_logs.get()
+        assert (log.from_max_users, log.to_max_users) == (2, 5)
+
     def test_a_move_onto_a_zero_price_is_refused(
         self, subscription_item_factory, plan_price_factory, tiers, mocker
     ):
