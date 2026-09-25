@@ -208,6 +208,20 @@ class TestPlanCard:
 
         assert "$300 per year" in html
 
+    def test_a_priced_line_shows_its_price_not_its_plans(
+        self, subscription_item_factory, plan_factory, plan_price_factory
+    ):
+        """A nonprofit annual buyer is held under the monthly standard tier."""
+        plan = plan_factory(name="Tier Plan", annual=False, base_price=680)
+        price = plan_price_factory(
+            plan=plan, interval="annual", label="nonprofit", amount=400_000
+        )
+        item = subscription_item_factory(plan=plan, plan_price=price)
+
+        html = self._render(subscriptions=[item])
+
+        assert "$4,000 per year" in html
+
     def test_free_subscription_shows_free_instead_of_price(
         self, organization_factory, plan_factory
     ):

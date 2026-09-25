@@ -1100,6 +1100,21 @@ class SubscriptionItem(models.Model):
         return bool(self.plan_price_id and self.plan_price.label == "nonprofit")
 
     @property
+    def bills_annually(self):
+        """Whether this line bills yearly; the price decides once there is one."""
+        if self.plan_price_id:
+            return self.plan_price.interval == "annual"
+        return self.plan.annual
+
+    @property
+    def price(self):
+        """What this line bills per period, in dollars."""
+        if not self.plan_price_id:
+            return self.plan.base_price
+        dollars, cents = divmod(self.plan_price.amount, 100)
+        return dollars if not cents else self.plan_price.amount / 100
+
+    @property
     def stripe_price_id(self):
         """The Stripe object this line bills against.
 
