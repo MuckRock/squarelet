@@ -32,7 +32,24 @@
 
 .subscription-group {
   display: flex;
+  align-items: center;
   gap: 1rem;
+}
+
+/* One per Stripe subscription: its schedule and actions, then its plans. */
+.subscription-block {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.subscription-block + .subscription-block {
+  margin-top: 1rem;
+}
+
+.subscription-card .subscription-row {
+  gap: 0.25rem 1rem;
 }
 
 @media (max-width: 28rem) {
