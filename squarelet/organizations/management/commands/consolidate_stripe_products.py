@@ -53,6 +53,14 @@ PRICE_MATRIX = [
     ("documentcloud-credit-pack", "annual", "standard", "", 12_000),
     ("scoutpost-credit-pack", "monthly", "standard", "", 1_000),
     ("scoutpost-credit-pack", "annual", "standard", "", 12_000),
+    # A comped organization's resource blocks become a pack line that costs
+    # nothing, or its subscription would stop being free.
+    ("muckrock-request-pack", "monthly", "comped", "", 0),
+    ("muckrock-request-pack", "annual", "comped", "", 0),
+    ("documentcloud-credit-pack", "monthly", "comped", "", 0),
+    ("documentcloud-credit-pack", "annual", "comped", "", 0),
+    ("scoutpost-credit-pack", "monthly", "comped", "", 0),
+    ("scoutpost-credit-pack", "annual", "comped", "", 0),
     # Admin keeps its own Plan rather than consolidating - it is the only
     # plan granting staff access across all three products - but still needs
     # a price, so that plan_price can eventually be made non-null for every

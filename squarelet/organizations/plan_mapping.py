@@ -132,6 +132,32 @@ DEFERRED_SLUGS = set()
 # Bills at both cadences, which one map entry cannot say.
 COHORT_SLUG = "election-accountability-cohort"
 
+# Which pack a legacy plan's resource blocks become.  Only plans with block
+# holders in production; the migration refuses any other until it is added.
+# A block granted MuckRock requests and DocumentCloud credits and costs one
+# request pack; the credit overage (37 credits used, ever) is dropped so the
+# bill stays the same.
+PACK_DECOMPOSITION = {
+    "organization": ("muckrock-request-pack",),
+    "organization-annual": ("muckrock-request-pack",),
+    "organization-flexible-users-annual": ("muckrock-request-pack",),
+    "documentcloud-premium": ("documentcloud-credit-pack",),
+}
+
+# Legacy plans whose grant changes on purpose when they consolidate.  Any
+# other change stops the migration.
+EXPECTED_GRANT_CHANGES = {
+    "beta": "Grandfathered onto Professional: 5 -> 20 MuckRock requests.",
+    "insideclimate-news-plan": (
+        "Normalized to Organization: 15 -> 50 requests, plus DocumentCloud "
+        "access it does not have today."
+    ),
+    "education-plan": (
+        "Gains Organization's 50 requests, where org-features-minus-requests "
+        "grants zero, plus DocumentCloud access."
+    ),
+}
+
 
 def tier_of(slug):
     """The canonical plan a plan slug lands on, comped included; itself if unmapped."""

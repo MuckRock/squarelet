@@ -13,7 +13,10 @@ from io import StringIO
 import pytest
 
 # Squarelet
-from squarelet.organizations.management.commands.backfill_plan_prices import Command
+from squarelet.organizations.management.commands.backfill_plan_prices import (
+    PACK_SLUGS,
+    Command,
+)
 from squarelet.organizations.models import (
     Plan,
     PlanPrice,
@@ -22,6 +25,7 @@ from squarelet.organizations.models import (
 )
 from squarelet.organizations.plan_mapping import LEGACY_PLAN_MAP
 from squarelet.organizations.tests.factories import (
+    EntitlementFactory,
     InvoiceFactory,
     OrganizationFactory,
     PlanFactory,
@@ -41,6 +45,8 @@ def targets_fixture(db):  # pylint: disable=unused-argument
             plans[slug] = Plan.objects.filter(slug=slug).first() or PlanFactory(
                 name=f"Canonical {slug}", slug=slug
             )
+            # A seeded plan's real entitlements would reach the grant check.
+            plans[slug].entitlements.clear()
         PlanPriceFactory(
             plan=plans[slug],
             interval=interval,
@@ -48,6 +54,20 @@ def targets_fixture(db):  # pylint: disable=unused-argument
             code=code,
             amount=0 if label == "comped" else 10_000,
         )
+    # Packs at a tenth of a tier, so $100 + $10 a block comes out even.
+    for pack_slug in sorted(PACK_SLUGS):
+        plans[pack_slug] = Plan.objects.filter(slug=pack_slug).first() or PlanFactory(
+            name=f"Pack {pack_slug}", slug=pack_slug
+        )
+        plans[pack_slug].entitlements.clear()
+        for interval in ("monthly", "annual"):
+            for label, amount in (("standard", 1_000), ("comped", 0)):
+                PlanPriceFactory(
+                    plan=plans[pack_slug],
+                    interval=interval,
+                    label=label,
+                    amount=amount,
+                )
     return plans
 
 
@@ -60,6 +80,7 @@ def legacy(slug, **kwargs):
         for field, value in kwargs.items():
             setattr(existing, field, value)
         existing.save()
+        existing.entitlements.clear()
         return existing
     return PlanFactory(name=f"Legacy {slug}", slug=slug, **kwargs)
 
@@ -270,14 +291,14 @@ class TestPreflightRefusesToGuess:
         item.refresh_from_db()
         assert item.plan_price is None
 
-    def test_a_line_holding_blocks_is_refused(self, actor):
+    def test_blocks_on_a_plan_with_no_pack_are_refused(self, actor):
         line(
-            "organization",
+            "professional",
             quantity=30,
             plan_fields={"for_groups": True, "minimum_users": 5, "price_per_user": 10},
         )
 
-        with pytest.raises(CommandError, match="resource blocks"):
+        with pytest.raises(CommandError, match="PACK_DECOMPOSITION"):
             run(actor=actor)
 
     def test_a_missing_target_price_is_refused(self, actor):
@@ -402,13 +423,13 @@ class TestRunningIt:
     def test_a_change_made_during_the_run_is_kept(self, actor, mocker):
         """The run reads every line up front; its write must not undo others'."""
         item = line("professional")
-        real = Command._price_for
+        real = Command._prices_for
 
         def meanwhile(line_):
             SubscriptionItem.objects.filter(pk=line_.pk).update(stripe_item_id="si_new")
             return real(line_)
 
-        mocker.patch.object(Command, "_price_for", staticmethod(meanwhile))
+        mocker.patch.object(Command, "_prices_for", staticmethod(meanwhile))
 
         run(actor=actor)
 
@@ -453,3 +474,231 @@ class TestRunningIt:
         item.refresh_from_db()
         assert item.plan_price is None
         assert "awaiting-a-decision deferred" in out
+
+
+GROUP = {"for_groups": True, "minimum_users": 5, "price_per_user": 10}
+
+
+def block_holder(slug="organization", quantity=30, billing=True):
+    """A subscriber holding resource blocks over their plan's minimum."""
+    return line(slug, billing=billing, quantity=quantity, plan_fields=dict(GROUP))
+
+
+def entitle(plan, resources, client=None):
+    entitlement = EntitlementFactory(
+        resources=resources, **({"client": client} if client else {})
+    )
+    plan.entitlements.add(entitlement)
+    return entitlement
+
+
+@pytest.mark.django_db()
+@pytest.mark.usefixtures("targets")
+class TestBlocksBecomePacks:
+    def test_the_tier_line_drops_to_one_and_a_pack_carries_the_blocks(self, actor):
+        item = block_holder(quantity=30)
+
+        run(actor=actor)
+
+        item.refresh_from_db()
+        pack = SubscriptionItem.objects.get(
+            subscription=item.subscription, plan__slug="muckrock-request-pack"
+        )
+        assert item.quantity == 1
+        assert pack.quantity == 25
+        assert pack.plan_price.amount == 1_000
+
+    def test_the_bill_is_the_same_on_one_invoice(self, actor):
+        """$100 + 25 blocks x $10, before and after."""
+        item = block_holder(quantity=30)
+
+        run(actor=actor)
+
+        lines = SubscriptionItem.objects.filter(subscription=item.subscription)
+        assert sum(line.plan_price.amount * line.quantity for line in lines) == 35_000
+
+    def test_a_pack_rate_that_changes_the_bill_is_refused(self, actor):
+        item = block_holder(quantity=30)
+        item.plan.price_per_user = 5
+        item.plan.save()
+
+        with pytest.raises(CommandError, match="failed"):
+            run(actor=actor)
+
+        item.refresh_from_db()
+        assert item.plan_price is None
+        assert item.quantity == 30
+
+    def test_a_comped_block_holder_gets_a_free_pack_on_the_free_row(self, actor):
+        item = block_holder(quantity=30, billing=False)
+
+        run(actor=actor)
+
+        item.refresh_from_db()
+        pack = SubscriptionItem.objects.get(plan__slug="muckrock-request-pack")
+        assert pack.subscription == item.subscription
+        assert item.subscription.kind == "free"
+        assert pack.quantity == 25
+        assert pack.plan_price.amount == 0
+
+    def test_pack_lines_are_not_migrated_again(self, actor):
+        item = block_holder(quantity=30)
+        run(actor=actor)
+
+        out = run(actor=actor)
+
+        assert "0 migrated, 1 already done" in out
+        item.refresh_from_db()
+        pack = SubscriptionItem.objects.get(plan__slug="muckrock-request-pack")
+        assert pack.quantity == 25
+
+    def test_a_missing_comped_pack_is_named_up_front(self, actor):
+        PlanPrice.objects.filter(
+            plan__slug="muckrock-request-pack", label="comped"
+        ).delete()
+        block_holder(quantity=30, billing=False)
+
+        with pytest.raises(CommandError, match="consolidate_stripe_products"):
+            run(actor=actor)
+
+
+@pytest.mark.django_db()
+class TestWhatTheOrganizationReceives:
+    """A line moves onto another plan's entitlements; the grant must hold."""
+
+    def test_a_repoint_that_changes_the_grant_is_refused(self, targets, actor):
+        item = line("professional-pre-paid")
+        client = entitle(item.plan, {"base_requests": 20, "minimum_users": 1}).client
+        entitle(
+            targets["professional"],
+            {"base_requests": 500, "minimum_users": 1},
+            client=client,
+        )
+
+        out = StringIO()
+        with pytest.raises(CommandError, match="failed"):
+            call_command("backfill_plan_prices", stdout=out, actor=actor)
+
+        assert "what this organization receives" in out.getvalue()
+        item.refresh_from_db()
+        assert item.plan_price is None
+
+    def test_a_decided_change_is_allowed_and_noted(self, targets, actor):
+        item = line("beta", billing=False)
+        client = entitle(item.plan, {"base_requests": 5, "minimum_users": 1}).client
+        entitle(
+            targets["professional"],
+            {"base_requests": 20, "minimum_users": 1},
+            client=client,
+        )
+
+        out = run(actor=actor)
+
+        item.refresh_from_db()
+        assert item.plan_price is not None
+        assert "grant changes as decided" in out
+
+    def _organization_with_blocks(self, targets):
+        """Production's Organization: 50 requests + 10 a block on MuckRock,
+        5,000 credits + 500 a block on DocumentCloud; the pack carries only
+        the requests."""
+        item = block_holder(quantity=15)
+        muckrock = entitle(
+            item.plan,
+            {"base_requests": 50, "requests_per_user": 10, "minimum_users": 5},
+        )
+        entitle(
+            item.plan,
+            {"base_credits": 5000, "credits_per_user": 500, "minimum_users": 5},
+        )
+        entitle(
+            targets["muckrock-request-pack"],
+            {"base_requests": 0, "requests_per_user": 10, "minimum_users": 0},
+            client=muckrock.client,
+        )
+        return item
+
+    def test_a_block_holder_keeps_its_requests_and_drops_the_credit_overage(
+        self, targets, actor
+    ):
+        item = self._organization_with_blocks(targets)
+
+        out = run(actor=actor)
+
+        slug = item.subscription.organization.slug
+        assert out.index(f"+ {slug}:") < out.index("block overage not carried")
+        item.refresh_from_db()
+        assert item.plan_price is not None
+
+    def test_a_pack_that_under_delivers_is_refused(self, targets, actor):
+        item = self._organization_with_blocks(targets)
+        pack = targets["muckrock-request-pack"].entitlements.get()
+        pack.resources["requests_per_user"] = 5
+        pack.save()
+
+        with pytest.raises(CommandError, match="failed"):
+            run(actor=actor)
+
+        item.refresh_from_db()
+        assert item.plan_price is None
+
+    @pytest.mark.usefixtures("targets")
+    def test_comped_blocks_that_grant_need_a_pack_up_front(self, actor):
+        item = line(
+            "muckrock-editorial-partner",
+            billing=False,
+            quantity=30,
+            plan_fields={**GROUP, "base_price": 0, "price_per_user": 0},
+        )
+        entitle(
+            item.plan,
+            {"base_requests": 50, "requests_per_user": 10, "minimum_users": 5},
+        )
+
+        with pytest.raises(CommandError, match="PACK_DECOMPOSITION"):
+            run(actor=actor)
+
+    def test_a_flat_comped_plan_is_not_inflated(self, targets, actor):
+        """Its flat grant would scale by the block count on Organization."""
+        item = line(
+            "premium-org-comp",
+            billing=False,
+            quantity=30,
+            plan_fields={**GROUP, "base_price": 0, "price_per_user": 0},
+        )
+        client = entitle(item.plan, {"base_requests": 50, "minimum_users": 5}).client
+        entitle(
+            targets["organization"],
+            {"base_requests": 50, "minimum_users": 5, "requests_per_user": 10},
+            client=client,
+        )
+
+        run(actor=actor)
+
+        item.refresh_from_db()
+        assert item.quantity == 1
+        assert not SubscriptionItem.objects.filter(plan__slug__in=PACK_SLUGS).exists()
+
+
+@pytest.mark.django_db()
+@pytest.mark.usefixtures("targets")
+class TestWhatBlocksTheShapeMigration:
+    def test_a_scaling_line_left_above_one_is_named(self, actor):
+        item = line("professional", quantity=3, plan_fields={"base_price": 100})
+        entitle(
+            item.plan,
+            {"base_requests": 20, "minimum_users": 1, "requests_per_user": 0},
+        )
+
+        out = run(actor=actor)
+
+        assert "still above quantity 1" in out
+        assert f"{item.subscription.organization.slug}: professional" in out
+
+    def test_a_line_that_cannot_scale_is_not(self, actor):
+        item = line("professional", quantity=3, plan_fields={"base_price": 100})
+        entitle(item.plan, {"research_hours": 10})
+
+        out = run(actor=actor)
+
+        assert "still above quantity 1" not in out
