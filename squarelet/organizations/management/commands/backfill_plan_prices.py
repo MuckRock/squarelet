@@ -95,6 +95,8 @@ class Command(BaseCommand):
 
     Needs `consolidate_stripe_products` to have created the prices.  A line
     whose price costs nothing moves to its organization's free subscription.
+    Stripe is updated per subscription with proration off, since the amounts
+    are checked to be unchanged.
     """
 
     help = "Move every subscription line onto its consolidated plan and price"
@@ -112,11 +114,23 @@ class Command(BaseCommand):
                 "Required unless --dry-run."
             ),
         )
+        parser.add_argument(
+            "--local-only",
+            action="store_true",
+            help=(
+                "Write local state without calling Stripe, to rehearse against "
+                "a database with no usable Stripe account.  Never for the real "
+                "run: Stripe would go on billing the old prices."
+            ),
+        )
 
     def handle(self, *args, **options):
         dry_run = options["dry_run"]
+        local_only = options["local_only"]
         if dry_run:
             self.stdout.write(self.style.WARNING("DRY RUN - nothing written"))
+        elif local_only:
+            self.stdout.write(self.style.WARNING("LOCAL ONLY - Stripe untouched"))
 
         actor = self._resolve_actor(options["actor"], dry_run)
         pending = self._pending()
@@ -126,7 +140,7 @@ class Command(BaseCommand):
         # and a re-run picks it up.
         counts = collections.Counter()
         for item in pending:
-            counts[self._migrate(item, actor, dry_run)] += 1
+            counts[self._migrate(item, actor, dry_run, local_only)] += 1
 
         self.stdout.write(
             f"\n{counts['migrated']} migrated, {counts['done']} already done, "
@@ -309,14 +323,13 @@ class Command(BaseCommand):
 
     # -- per line ----------------------------------------------------------
 
-    def _migrate(self, item, actor, dry_run):
+    def _migrate(self, item, actor, dry_run, local_only):
         org = item.subscription.organization
         if item.plan.slug in DEFERRED_SLUGS:
             self.stdout.write(f"  ~ {org.slug}: {item.plan.slug} deferred")
             return "deferred"
         if item.plan_price_id:
-            self.stdout.write(f"  = {org.slug}: {item.plan.slug} on {item.plan_price}")
-            return "done"
+            return self._settle(item, dry_run, local_only)
 
         try:
             plan_price, packs = self._prices_for(item)
@@ -334,7 +347,7 @@ class Command(BaseCommand):
         if dry_run:
             return "migrated"
         try:
-            self._write(item, plan_price, packs, actor)
+            self._write(item, plan_price, packs, actor, local_only)
         except Exception as exc:  # pylint: disable=broad-except
             logger.exception("backfill_plan_prices failed for %s", org.slug)
             self.stdout.write(self.style.ERROR(f"  ! {org.slug}: {exc}"))
@@ -432,8 +445,34 @@ class Command(BaseCommand):
             f"it in EXPECTED_GRANT_CHANGES."
         )
 
+    def _settle(self, item, dry_run, local_only):
+        """A line already migrated: push its subscription to Stripe again.
+
+        A no-op where Stripe already agrees, and the missing half where the
+        local write committed and the Stripe call did not.
+        """
+        org = item.subscription.organization
+        self.stdout.write(f"  = {org.slug}: {item.plan.slug} on {item.plan_price}")
+        if dry_run or local_only or not is_billing(item):
+            return "done"
+        try:
+            item.subscription.stripe_modify(proration_behavior="none")
+        except Exception as exc:  # pylint: disable=broad-except
+            logger.exception("backfill_plan_prices failed for %s", org.slug)
+            self.stdout.write(self.style.ERROR(f"  ! {org.slug}: {exc}"))
+            return "failed"
+        return "done"
+
     @staticmethod
-    def _write(item, plan_price, packs, actor):
+    def _write(item, plan_price, packs, actor, local_only):
+        """Local rows, then Stripe, in one transaction.
+
+        A Stripe failure leaves no local trace; the reverse is caught by the
+        next run's `_settle`.
+        """
+        stripe = is_billing(item) and not local_only
+        if stripe:
+            _identify(item)
         legacy_name = item.plan.name
         # Only the fields this sets: the row was read at the start of the run.
         fields = ["plan", "plan_price", "quantity"]
@@ -457,6 +496,10 @@ class Command(BaseCommand):
                     plan=pack_price.plan,
                     defaults=defaults,
                 )
+            if stripe:
+                # One call for the tier and its packs, so no invoice is ever
+                # half migrated.
+                item.subscription.stripe_modify(proration_behavior="none")
             # The line's plan, and so its entitlements, just changed.
             organization = item.subscription.organization
             transaction.on_commit(
@@ -524,6 +567,31 @@ def _lands_free(slug, billing):
         .first()
     )
     return Subscription.kind_for(price.plan, price) == "free"
+
+
+def _identify(item):
+    """Record the line's Stripe item id before its price changes.
+
+    Matched by its current price; once repointed it matches nothing, and a
+    line sent without an id is added beside the old one: billed twice.  A
+    subscription holding one paid line and one Stripe item pairs them
+    whatever the price, which covers the few items on a price no plan names.
+    """
+    subscription = item.subscription
+    stripe_sub = subscription.stripe_subscription
+    if stripe_sub is not None:
+        subscription.sync_stripe_item_ids(stripe_sub)
+        item.refresh_from_db(fields=["stripe_item_id"])
+        stripe_items = stripe_sub["items"]["data"]
+        paid = [line for line in subscription.items.all() if not line.is_free]
+        if not item.stripe_item_id and len(stripe_items) == 1 and paid == [item]:
+            item.stripe_item_id = stripe_items[0]["id"]
+            item.save(update_fields=["stripe_item_id"])
+    if not item.stripe_item_id:
+        raise CommandError(
+            f"{item.plan.slug}: no Stripe item id, so repointing it would add a "
+            f"second line.  Run backfill_stripe_item_ids for it first."
+        )
 
 
 def _pack_label(label):

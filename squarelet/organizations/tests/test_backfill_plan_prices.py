@@ -4,6 +4,7 @@
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import connection
+from django.db.models.signals import post_save
 from django.test.utils import CaptureQueriesContext
 
 # Standard Library
@@ -33,6 +34,53 @@ from squarelet.organizations.tests.factories import (
     SubscriptionItemFactory,
 )
 from squarelet.users.tests.factories import UserFactory
+
+
+class FakeStripe:
+    """Holds each subscription's lines under the price they had when made.
+
+    Answering from a line's current price would "already hold" the new one
+    the moment the command repointed it, hiding a line added twice.
+    """
+
+    def __init__(self):
+        self.held = {}
+
+    def register(self, item):
+        if item.is_free or not item.subscription.subscription_id:
+            return
+        self.held.setdefault(item.subscription_id, []).append(
+            {"id": f"si_{item.pk}", "price": {"id": item.stripe_price_id}}
+        )
+
+    def snapshot(self, subscription):
+        lines = self.held.get(subscription.pk)
+        if lines is None:
+            return None
+        return {"id": subscription.subscription_id, "items": {"data": lines}}
+
+
+STRIPE = FakeStripe()
+
+
+@pytest.fixture(name="stripe", autouse=True)
+def stripe_fixture(mocker):
+    """Stripe learns of each billing line as it is created, and accepts every
+    modify."""
+    STRIPE.held.clear()
+    mocker.patch.object(Subscription, "stripe_subscription", property(STRIPE.snapshot))
+    service = mocker.patch(
+        "squarelet.organizations.models.payment.get_payment_provider"
+    ).return_value.get_subscription_service.return_value
+    service.modify.return_value = None
+
+    def learn(sender, instance, created, **kwargs):  # pylint: disable=unused-argument
+        if created:
+            STRIPE.register(instance)
+
+    post_save.connect(learn, sender=SubscriptionItem, weak=False)
+    yield service
+    post_save.disconnect(learn, sender=SubscriptionItem)
 
 
 @pytest.fixture(name="targets")
@@ -422,7 +470,7 @@ class TestRunningIt:
 
     def test_a_change_made_during_the_run_is_kept(self, actor, mocker):
         """The run reads every line up front; its write must not undo others'."""
-        item = line("professional")
+        item = line("beta", billing=False)
         real = Command._prices_for
 
         def meanwhile(line_):
@@ -764,3 +812,83 @@ class TestWhatBlocksTheShapeMigration:
         out = run(actor=actor)
 
         assert "still above quantity 1" not in out
+
+
+@pytest.mark.django_db()
+@pytest.mark.usefixtures("targets")
+class TestStripeSwitchover:
+    def test_the_tier_and_its_pack_go_in_one_call_without_proration(self, stripe):
+        block_holder(quantity=30)
+
+        run(actor=UserFactory().username)
+
+        assert stripe.modify.call_count == 1
+        call = stripe.modify.call_args.kwargs
+        assert call["proration_behavior"] == "none"
+        assert sorted(item["quantity"] for item in call["items"]) == [1, 25]
+
+    def test_every_line_sent_replaces_one_stripe_holds(self, stripe):
+        """Identified by its old price before it moves; none is added."""
+        item = block_holder(quantity=5)
+
+        run(actor=UserFactory().username)
+
+        item.refresh_from_db()
+        assert item.stripe_item_id == f"si_{item.pk}"
+        assert all("id" in line for line in stripe.modify.call_args.kwargs["items"])
+
+    def test_a_lone_line_on_an_unnamed_price_is_paired_with_its_item(self):
+        """Arizona Luminaria and hmalf bill prices no plan names."""
+        item = line("professional")
+        STRIPE.held[item.subscription_id] = [{"id": "si_odd", "price": {"id": "pro"}}]
+
+        run(actor=UserFactory().username)
+
+        item.refresh_from_db()
+        assert item.stripe_item_id == "si_odd"
+        assert item.plan_price is not None
+
+    def test_a_line_stripe_cannot_identify_is_refused(self, stripe):
+        item = line("professional")
+        STRIPE.held[item.subscription_id] = [
+            {"id": "si_a", "price": {"id": "other_a"}},
+            {"id": "si_b", "price": {"id": "other_b"}},
+        ]
+
+        with pytest.raises(CommandError, match="failed"):
+            run(actor=UserFactory().username)
+
+        item.refresh_from_db()
+        assert item.plan_price is None
+        stripe.modify.assert_not_called()
+
+    def test_a_stripe_failure_leaves_no_local_trace(self, stripe):
+        stripe.modify.side_effect = ValueError("stripe said no")
+        item = block_holder(quantity=30)
+
+        with pytest.raises(CommandError):
+            run(actor=UserFactory().username)
+
+        item.refresh_from_db()
+        assert item.plan_price is None
+        assert item.quantity == 30
+        assert not SubscriptionItem.objects.filter(plan__slug__in=PACK_SLUGS).exists()
+
+    def test_a_failed_stripe_half_is_finished_by_the_next_run(self, stripe):
+        actor = UserFactory().username
+        item = block_holder(quantity=30)
+        run(actor=actor, local_only=True)
+        stripe.modify.assert_not_called()
+
+        run(actor=actor)
+
+        assert stripe.modify.call_args.kwargs["proration_behavior"] == "none"
+        item.refresh_from_db()
+        assert item.quantity == 1
+
+    def test_a_comped_line_never_reaches_stripe(self, stripe):
+        line("beta", billing=False)
+
+        run(actor=UserFactory().username)
+
+        stripe.modify.assert_not_called()
