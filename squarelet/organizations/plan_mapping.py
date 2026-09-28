@@ -12,6 +12,13 @@ LEGACY_PLAN_MAP = {
     ("professional", True): ("professional", "monthly", "standard", ""),
     ("professional", False): ("professional", "monthly", "comped", ""),
     ("professional-pre-paid", True): ("professional", "annual", "standard", ""),
+    # The one DocumentCloud-only tier, which keeps its own plan.
+    ("documentcloud-premium", True): (
+        "documentcloud-premium",
+        "monthly",
+        "standard",
+        "",
+    ),
     # Grandfathered early users
     ("beta", False): ("professional", "monthly", "comped", ""),
     ("beta", True): ("professional", "monthly", "comped", ""),
@@ -28,6 +35,17 @@ LEGACY_PLAN_MAP = {
     ("education-grant", False): ("organization", "monthly", "comped", ""),
     ("startsmall-grants", False): ("organization", "monthly", "comped", ""),
     ("education-plan", False): ("organization", "monthly", "comped", ""),
+    # $0 today for 200 blocks, invoiced by hand.  Comped until someone talks
+    # to them about the standard rate (decided 2026-09-18).
+    ("organization-flexible-users-annual", False): (
+        "organization",
+        "monthly",
+        "comped",
+        "",
+    ),
+    # Organization in all but 5 requests per block, and neither subscriber
+    # holds a block (decided 2026-09-18).
+    ("custom-crp", True): ("organization", "monthly", "standard", ""),
     # A negotiated rate, so a price of its own rather than a coupon
     ("insideclimate-news-plan", True): (
         "organization",
@@ -81,15 +99,33 @@ LEGACY_PLAN_MAP = {
         "nonprofit",
         "",
     ),
+    # --- Private plans ------------------------------------------------------
+    ("organization-annual", True): ("organization", "annual", "standard", ""),
+    ("sunlight-enterprise-annual", True): (
+        "sunlight-enterprise",
+        "annual",
+        "standard",
+        "",
+    ),
+    # Negotiated rates: prices of their own, not coupons, since neither
+    # expires.  The cohort's interval here is nominal; its subscribers bill at
+    # both cadences.
+    ("election-accountability-cohort", True): (
+        "sunlight-essential",
+        "annual",
+        "standard",
+        "election-cohort",
+    ),
+    ("sunlight-basic-annual", True): (
+        "sunlight-essential",
+        "annual",
+        "standard",
+        "legacy-basic",
+    ),
 }
 
 # Left on their legacy plans until someone decides.
-DEFERRED_SLUGS = {
-    # Two organizations going opposite ways: one cancelled, one comped.
-    "custom-crp",
-    # Its one subscription belongs to an organization that was merged away.
-    "sunlight-premium-annual",
-}
+DEFERRED_SLUGS = set()
 
 
 def tier_of(slug):
