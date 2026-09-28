@@ -33,14 +33,14 @@
     </div>
     <p class="help">
       {% if removes_now and free %}
-        {% trans "It comes off now." %}
+        {% trans "You will lose access to these subscription benefits immediately." %}
       {% elif removes_now %}
         {% blocktrans %}
-          It comes off your subscription now, and the unused time is credited to your next invoice.
+          You will lose access to these subscription benefits immediately. Your remaining time will be credited to your next invoice.
         {% endblocktrans %}
       {% else %}
         {% blocktrans with date=next_date %}
-          Everything on it stays active until <strong>{{ date }}</strong>, then ends.  Nothing is refunded.
+          You will retain your subscription benefits until <strong>{{ date }}</strong>.
         {% endblocktrans %}
       {% endif %}
     </p>
