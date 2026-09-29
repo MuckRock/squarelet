@@ -182,12 +182,6 @@ class Command(BaseCommand):
 
     def _ensure_price(self, plan, spec, *, dry_run):
         interval, label, code, amount = spec
-        if amount is None:
-            variant = self._variant(interval, label, code)
-            self.stdout.write(
-                self.style.WARNING(f"! price {plan.slug} {variant}: amount pending")
-            )
-            return "pending"
         existing = PlanPrice.objects.filter(
             plan=plan, interval=interval, label=label, code=code, active=True
         ).first()
@@ -212,6 +206,13 @@ class Command(BaseCommand):
             if not dry_run:
                 self.stdout.write(f"    -> {existing.ensure_stripe_price()}")
             return "completed"
+
+        if amount is None:
+            variant = self._variant(interval, label, code)
+            self.stdout.write(
+                self.style.WARNING(f"! price {plan.slug} {variant}: amount pending")
+            )
+            return "pending"
 
         if amount == 0:
             variant = self._variant(interval, label, code)
