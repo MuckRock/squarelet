@@ -319,6 +319,27 @@ class TestPreflightRefusesToGuess:
         with pytest.raises(CommandError, match="already held"):
             run(actor=actor)
 
+    def test_where_a_line_lands_is_decided_one_way(self, actor, targets):
+        """By its price's kind, for the collision check and the write alike."""
+        comped = PlanPrice.objects.get(
+            plan=targets["professional"], interval="monthly", label="comped"
+        )
+        comped.amount = 500  # mis-seeded: comped, yet it costs something
+        comped.save()
+        item = line("beta", billing=False)
+        free = Subscription.objects.create(
+            organization=item.subscription.organization, kind="free"
+        )
+        SubscriptionItemFactory(
+            subscription=free, plan=targets["professional"], plan_price=comped
+        )
+        stays_on = item.subscription
+
+        run(actor=actor)
+
+        item.refresh_from_db()
+        assert item.subscription == stays_on
+
     def test_the_actor_is_required(self):
         with pytest.raises(CommandError, match="--actor is required"):
             run()
