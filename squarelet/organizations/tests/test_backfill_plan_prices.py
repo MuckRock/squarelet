@@ -231,6 +231,17 @@ class TestPreflightRefusesToGuess:
         with pytest.raises(CommandError, match="map to a comped price"):
             run(actor=actor)
 
+    def test_a_comped_line_on_an_ending_subscription_is_refused(self, actor):
+        item = line("beta", billing=False)
+        item.subscription.cancelled = True
+        item.subscription.save()
+
+        with pytest.raises(CommandError, match="subscriptions that are ending"):
+            run(actor=actor)
+
+        item.refresh_from_db()
+        assert item.plan_price is None
+
     def test_a_line_holding_blocks_is_refused(self, actor):
         line(
             "organization",
