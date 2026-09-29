@@ -375,11 +375,9 @@ class Command(BaseCommand):
         # create_user makes the individual organization a user needs.
         actor = User.objects.filter(username="mig-actor").first()
         if actor is None:
+            # Named as the grantor only; it never needs to log in.
             actor = User.objects.create_user(
-                username="mig-actor",
-                email="mig-actor@example.com",
-                password="mig-actor-password",
-                is_staff=True,
+                username="mig-actor", email="mig-actor@example.com", password=None
             )
         return actor
 
