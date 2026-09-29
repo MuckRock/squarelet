@@ -9,7 +9,13 @@ from io import StringIO
 import pytest
 
 # Squarelet
-from squarelet.organizations.models import Plan, PlanPrice, Subscription
+from squarelet.organizations.management.commands.backfill_plan_prices import Command
+from squarelet.organizations.models import (
+    Plan,
+    PlanPrice,
+    Subscription,
+    SubscriptionItem,
+)
 from squarelet.organizations.plan_mapping import LEGACY_PLAN_MAP
 from squarelet.organizations.tests.factories import (
     InvoiceFactory,
@@ -349,6 +355,23 @@ class TestRunningIt:
         invalidate.assert_called_with(
             "organization", item.subscription.organization.uuid
         )
+
+    def test_a_change_made_during_the_run_is_kept(self, actor, mocker):
+        """The run reads every line up front; its write must not undo others'."""
+        item = line("professional")
+        real = Command._price_for
+
+        def meanwhile(line_):
+            SubscriptionItem.objects.filter(pk=line_.pk).update(stripe_item_id="si_new")
+            return real(line_)
+
+        mocker.patch.object(Command, "_price_for", staticmethod(meanwhile))
+
+        run(actor=actor)
+
+        item.refresh_from_db()
+        assert item.plan_price is not None
+        assert item.stripe_item_id == "si_new"
 
     def test_a_second_run_leaves_migrated_lines_alone(self, actor):
         item = line("professional")
