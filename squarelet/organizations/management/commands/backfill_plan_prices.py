@@ -575,8 +575,10 @@ def _stripe_ids(subscription):
     by_price = {
         _stripe_price_id(stripe_item): stripe_item["id"] for stripe_item in stripe_items
     }
+    # An id Stripe no longer holds is as good as none.
+    held = set(by_price.values())
     ids = {
-        line: line.stripe_item_id
+        line: (line.stripe_item_id if line.stripe_item_id in held else "")
         or by_price.get(line.stripe_price_id)
         or by_price.get(line.plan.stripe_id, "")
         for line in paid
