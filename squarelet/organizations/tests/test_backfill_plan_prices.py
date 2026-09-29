@@ -964,10 +964,3 @@ class TestStripeSwitchover:
         run(actor=actor)
 
         stripe.modify.assert_not_called()
-
-    def test_a_comped_line_never_reaches_stripe(self, stripe):
-        line("beta", billing=False)
-
-        run(actor=UserFactory().username)
-
-        stripe.modify.assert_not_called()

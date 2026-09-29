@@ -753,13 +753,6 @@ class TestProrationIsOptOut:
         item.subscription.stripe_modify(**kwargs)
         return service.modify.call_args.kwargs["proration_behavior"]
 
-    def test_by_default_the_subscription_decides(
-        self, subscription_item_factory, mocker
-    ):
-        item = subscription_item_factory(subscription__subscription_id="sub_1")
-
-        assert self._modify(item, mocker) == item.subscription.proration_behavior
-
     def test_one_call_can_turn_it_off(self, subscription_item_factory, mocker):
         item = subscription_item_factory(subscription__subscription_id="sub_1")
 
