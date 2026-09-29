@@ -132,11 +132,8 @@ DEFERRED_SLUGS = set()
 # Bills at both cadences, which one map entry cannot say.
 COHORT_SLUG = "election-accountability-cohort"
 
-# Which pack a legacy plan's resource blocks become.  Only plans with block
-# holders in production; the migration refuses any other until it is added.
-# A block granted MuckRock requests and DocumentCloud credits and costs one
-# request pack; the credit overage (37 credits used, ever) is dropped so the
-# bill stays the same.
+# Which pack a legacy plan's resource blocks become, for the plans production
+# has block-holders on; the migration refuses any other.
 PACK_DECOMPOSITION = {
     "organization": ("muckrock-request-pack",),
     "organization-annual": ("muckrock-request-pack",),
