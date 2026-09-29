@@ -327,15 +327,18 @@ class Command(BaseCommand):
     @staticmethod
     def _write(item, plan_price, actor):
         legacy_name = item.plan.name
+        # Only the fields this sets: the row was read at the start of the run.
+        fields = ["plan", "plan_price", "quantity"]
         with transaction.atomic():
+            item.quantity = target_quantity(item)
             item.plan = plan_price.plan
             item.plan_price = plan_price
-            item.quantity = target_quantity(item)
             if plan_price.amount == 0:
                 item.granted_reason = f"Migrated from legacy {legacy_name} plan"
                 item.granted_by = actor
+                fields += ["granted_reason", "granted_by", "subscription"]
                 _move_to_free_subscription(item)
-            item.save()
+            item.save(update_fields=fields)
             # The line's plan, and so its entitlements, just changed.
             organization = item.subscription.organization
             transaction.on_commit(
@@ -393,7 +396,7 @@ def _move_to_free_subscription(item):
         )
     item.subscription = free
     if alone:
-        # Saved first, so the row it leaves is empty when deleted.
-        item.save()
+        # Moved first, so the row it leaves is empty when deleted.
+        item.save(update_fields=["subscription"])
         subscription.invoices.update(subscription=free)
         subscription.delete()
