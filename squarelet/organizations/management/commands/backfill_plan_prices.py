@@ -153,16 +153,15 @@ class Command(BaseCommand):
             )
 
         missing = sorted(
-            {_target(*key) for key in keys}
+            {_target(*key) for key in keys if key[0] != COHORT_SLUG}
             - set(
                 PlanPrice.objects.filter(active=True).values_list(
                     "plan__slug", "interval", "label", "code"
                 )
             )
         )
-        # The cohort bills at both cadences; the map names only one.
-        if any(slug == COHORT_SLUG for slug, _billing in keys):
-            missing += self._missing_cohort_prices(pending)
+        # The cohort bills at both cadences; its lines say which they need.
+        missing += self._missing_cohort_prices(pending)
         if missing:
             raise CommandError(
                 "These target prices do not exist - run "
