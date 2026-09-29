@@ -12,6 +12,7 @@ import pytest
 # Squarelet
 from squarelet.organizations.management.commands.seed_migration_data import SUBSCRIBERS
 from squarelet.organizations.models import Organization, SubscriptionItem
+from squarelet.users.models import User
 
 
 def run(command, **kwargs):
@@ -116,3 +117,11 @@ class TestTheRehearsal:
 
         assert before == after, "a re-run changes nothing"
         assert f"0 migrated, {len(SUBSCRIBERS)} already done" in second
+
+    def test_teardown_after_a_rehearsal_removes_it(self):
+        run("backfill_plan_prices", local_only=True, actor="mig-actor")
+
+        run("seed_migration_data", teardown=True)
+
+        assert not Organization.objects.filter(slug__startswith="mig-").exists()
+        assert not User.objects.filter(username="mig-actor").exists()

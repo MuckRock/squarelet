@@ -422,9 +422,10 @@ class Command(BaseCommand):
         OrganizationChangeLog.objects.filter(
             Q(organization__in=orgs) | Q(user__username="mig-actor")
         ).delete()
-        User.objects.filter(username="mig-actor").delete()
+        # Before the user: migrated comped lines name it as their grantor.
         SubscriptionItem.objects.filter(subscription__organization__in=orgs).delete()
         Subscription.objects.filter(organization__in=orgs).delete()
+        User.objects.filter(username="mig-actor").delete()
         count = orgs.count()
         orgs.delete()
         Entitlement.objects.filter(slug__startswith="mig-").delete()
