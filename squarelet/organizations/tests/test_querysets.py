@@ -470,6 +470,18 @@ class TestWhereANewLineGoes:
 
         assert start.call_args.kwargs["anchor_day"] == 1
 
+    def test_an_annual_plan_renews_a_year_from_purchase(self, mocker):
+        """On the monthly billing day it would bill a month's stub, then a year."""
+        start = mocker.patch("squarelet.organizations.models.Subscription.start")
+        organization = OrganizationFactory(billing_anchor=date(2026, 9, 1))
+
+        SubscriptionItem.objects.start(
+            organization=organization,
+            plan=PlanFactory(name="Paid Annual", base_price=250, annual=True),
+        )
+
+        assert start.call_args.kwargs["anchor_day"] is None
+
     def test_each_one_off_gets_its_own_subscription(self):
         organization = OrganizationFactory()
         packs = []
