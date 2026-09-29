@@ -8,6 +8,7 @@ import collections
 import logging
 
 # Squarelet
+from squarelet.oidc.middleware import send_cache_invalidations
 from squarelet.organizations.models.payment import (
     PlanPrice,
     Subscription,
@@ -335,6 +336,11 @@ class Command(BaseCommand):
                 item.granted_by = actor
                 _move_to_free_subscription(item)
             item.save()
+            # The line's plan, and so its entitlements, just changed.
+            organization = item.subscription.organization
+            transaction.on_commit(
+                lambda: send_cache_invalidations("organization", organization.uuid)
+            )
 
     # -- reports -----------------------------------------------------------
 

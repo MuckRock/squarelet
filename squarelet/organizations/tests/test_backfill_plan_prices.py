@@ -334,6 +334,22 @@ class TestRunningIt:
         assert item.plan_price is None
         assert "DRY RUN" in out
 
+    def test_the_organization_hears_its_entitlements_changed(
+        self, actor, mocker, django_capture_on_commit_callbacks
+    ):
+        invalidate = mocker.patch(
+            "squarelet.organizations.management.commands.backfill_plan_prices"
+            ".send_cache_invalidations"
+        )
+        item = line("professional")
+
+        with django_capture_on_commit_callbacks(execute=True):
+            run(actor=actor)
+
+        invalidate.assert_called_with(
+            "organization", item.subscription.organization.uuid
+        )
+
     def test_a_second_run_leaves_migrated_lines_alone(self, actor):
         item = line("professional")
         run(actor=actor)
