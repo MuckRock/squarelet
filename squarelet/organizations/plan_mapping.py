@@ -144,6 +144,10 @@ PACK_DECOMPOSITION = {
     "documentcloud-premium": ("documentcloud-credit-pack",),
 }
 
+# What a block granted that no pack carries, and may be dropped: DocumentCloud
+# credits (37 used by all block-holders, ever).
+DROPPED_WITH_BLOCKS = frozenset({"base_ai_credits"})
+
 # Legacy plans whose grant changes on purpose when they consolidate.  Any
 # other change stops the migration.
 EXPECTED_GRANT_CHANGES = {
