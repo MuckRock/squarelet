@@ -74,6 +74,13 @@ class TestTheSeed:
 
         assert Organization.objects.filter(slug="mig-org-6").exists()
 
+    def test_its_actor_cannot_log_in(self):
+        run("seed_migration_data")
+
+        actor = User.objects.get(username="mig-actor")
+        assert not actor.is_staff
+        assert not actor.has_usable_password()
+
     def test_teardown_removes_it(self):
         run("seed_migration_data")
         run("seed_migration_data", teardown=True)
