@@ -623,7 +623,7 @@ class TestWhatTheOrganizationReceives:
         )
         entitle(
             item.plan,
-            {"base_credits": 5000, "credits_per_user": 500, "minimum_users": 5},
+            {"base_ai_credits": 5000, "ai_credits_per_user": 500, "minimum_users": 5},
         )
         entitle(
             targets["muckrock-request-pack"],
@@ -643,6 +643,20 @@ class TestWhatTheOrganizationReceives:
         assert out.index(f"+ {slug}:") < out.index("block overage not carried")
         item.refresh_from_db()
         assert item.plan_price is not None
+
+    def test_only_documentcloud_credits_may_be_dropped(self, targets, actor):
+        """Another resource the pack does not carry is still refused."""
+        item = self._organization_with_blocks(targets)
+        entitle(
+            item.plan,
+            {"base_credits": 100, "credits_per_user": 10, "minimum_users": 5},
+        )
+
+        with pytest.raises(CommandError, match="failed"):
+            run(actor=actor)
+
+        item.refresh_from_db()
+        assert item.plan_price is None
 
     def test_a_pack_that_under_delivers_is_refused(self, targets, actor):
         item = self._organization_with_blocks(targets)
