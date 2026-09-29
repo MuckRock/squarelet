@@ -131,7 +131,7 @@ class Command(BaseCommand):
     def _pending():
         return list(
             SubscriptionItem.objects.select_related(
-                "subscription__organization", "plan", "plan_price"
+                "subscription__organization", "plan", "plan_price__plan"
             ).order_by("plan__slug", "pk")
         )
 
@@ -245,7 +245,7 @@ class Command(BaseCommand):
 
         held = SubscriptionItem.objects.exclude(
             pk__in={item.pk for item in pending}
-        ).select_related("subscription", "plan", "plan_price")
+        ).select_related("subscription", "plan")
         for other in held:
             place = (
                 ("free", other.subscription.organization_id)
