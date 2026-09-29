@@ -1691,6 +1691,36 @@ class TestManageSubscriptions(ViewTestMixin):
         assert block["lines"] == [item]
         assert block["subscription"].next_date == date(2026, 10, 20)
 
+    def test_a_priced_line_shows_its_own_price(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_price_factory,
+        subscription_item_factory,
+    ):
+        """Not the tier's monthly base labelled per year."""
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        price = plan_price_factory(
+            plan__name="Tier Plan",
+            plan__base_price=1380,
+            interval="annual",
+            label="nonprofit",
+            amount=800_000,
+        )
+        subscription_item_factory(
+            subscription__organization=organization,
+            subscription__interval="annual",
+            plan=price.plan,
+            plan_price=price,
+        )
+
+        response = self.call_view(rf, admin, slug=organization.slug).render()
+
+        assert b"$8,000.00" in response.content
+        assert b"$1,380.00" not in response.content
+
     def test_more_plans_do_not_mean_more_queries(
         self,
         rf,
