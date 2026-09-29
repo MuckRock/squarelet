@@ -207,6 +207,15 @@ class TestTheCohortBillsAtTwoCadences:
         item.refresh_from_db()
         assert item.plan_price.interval == "monthly"
 
+    def test_each_cohort_line_s_cadence_is_reported(self, actor):
+        """The money check cannot tell $250 a month from $3,000 a year."""
+        item = self._line("monthly")
+
+        out = run(actor=actor)
+
+        slug = item.subscription.organization.slug
+        assert f"cohort {slug}: monthly" in out
+
     def test_a_monthly_line_takes_the_monthly_price(self, actor):
         item = self._line("monthly")
 
