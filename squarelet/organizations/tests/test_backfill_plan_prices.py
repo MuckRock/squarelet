@@ -659,6 +659,8 @@ class TestWhatTheOrganizationReceives:
 
         slug = item.subscription.organization.slug
         assert out.index(f"+ {slug}:") < out.index("block overage not carried")
+        # 5,000 + 10 blocks x 500 credits, down to the tier's 5,000.
+        assert "10000 -> 5000" in out
         item.refresh_from_db()
         assert item.plan_price is not None
 
