@@ -161,6 +161,7 @@ class Command(BaseCommand):
             SubscriptionItem.objects.select_related(
                 "subscription__organization", "plan", "plan_price__plan"
             )
+            .prefetch_related("plan__entitlements")
             .exclude(plan__slug__in=PACK_SLUGS)
             .order_by("plan__slug", "pk")
         )
