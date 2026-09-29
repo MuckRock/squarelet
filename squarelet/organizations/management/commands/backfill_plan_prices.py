@@ -346,7 +346,7 @@ class Command(BaseCommand):
         """Each cohort line's cadence, which the money check cannot see."""
         lines = SubscriptionItem.objects.select_related(
             "subscription__organization", "plan_price"
-        ).filter(plan_price__code="election-cohort")
+        ).filter(plan_price__code=_target(COHORT_SLUG, True)[3])
         for item in lines:
             self.stdout.write(
                 f"  cohort {item.subscription.organization.slug}: "
