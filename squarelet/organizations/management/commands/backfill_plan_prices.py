@@ -164,6 +164,20 @@ class Command(BaseCommand):
                 + ", ".join(comped_but_billing)
             )
 
+        # A free subscription cannot end, so the move would drop the date or
+        # take the organization's free row down with it.
+        ending_comps = sorted(
+            f"{item.subscription.organization.slug} ({item.plan.slug})"
+            for item in pending
+            if item.subscription.cancelled
+            and _target(item.plan.slug, is_billing(item))[2] == "comped"
+        )
+        if ending_comps:
+            raise CommandError(
+                "These comped lines are on subscriptions that are ending; let "
+                "them lapse or resubscribe them first: " + ", ".join(ending_comps)
+            )
+
         holding_blocks = sorted(
             {item.plan.slug for item in pending if blocks_held(item)}
         )
