@@ -15,7 +15,12 @@ from freezegun import freeze_time
 
 # Squarelet
 from squarelet.organizations.management.commands.seed_migration_data import SUBSCRIBERS
-from squarelet.organizations.models import Organization, Subscription, SubscriptionItem
+from squarelet.organizations.models import (
+    Organization,
+    Plan,
+    Subscription,
+    SubscriptionItem,
+)
 from squarelet.users.models import User
 
 
@@ -95,6 +100,14 @@ class TestTheSeed:
         assert (
             subscription.cancel_at == localtime(subscription.current_period_end).date()
         )
+
+    def test_it_makes_no_admin_plan(self):
+        # Out of the way without the delete signal, which reaches Stripe.
+        Plan.objects.filter(slug="admin").update(slug="admin-real")
+
+        run("seed_migration_data")
+
+        assert not Plan.objects.filter(slug="admin").exists()
 
     def test_its_actor_cannot_log_in(self):
         run("seed_migration_data")

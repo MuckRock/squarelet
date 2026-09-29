@@ -201,9 +201,11 @@ LEGACY_PLANS = [
     ("documentcloud-premium", "DocumentCloud Premium", 10, 1, 10, True, False),
 ]
 
-# Every tier and pack, so every target price can exist.
+# Every tier and pack, so every target price can exist.  Not the staff-only
+# admin plan: nothing seeded lands on it.
 CANONICAL_PLANS = [
-    (slug, slug.replace("-", " ").title()) for slug in sorted(CANONICAL_SLUGS)
+    (slug, slug.replace("-", " ").title())
+    for slug in sorted(CANONICAL_SLUGS - {"admin"})
 ]
 
 # A cohort subscriber billed monthly on a plan that says annual, as one is.
