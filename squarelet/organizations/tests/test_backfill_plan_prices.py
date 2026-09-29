@@ -1,6 +1,8 @@
 # Django
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 
 # Standard Library
 from io import StringIO
@@ -421,6 +423,20 @@ class TestRunningIt:
         assert "0 migrated, 1 already done" in out
         item.refresh_from_db()
         assert item.plan_price.label == "standard"
+
+    def test_a_re_run_costs_the_same_however_many_lines_are_done(self, actor):
+        def rerun_queries():
+            run(actor=actor)
+            with CaptureQueriesContext(connection) as queries:
+                run(actor=actor)
+            return len(queries)
+
+        line("beta", billing=False)
+        one = rerun_queries()
+        line("beta", billing=False)
+        line("beta", billing=False)
+
+        assert rerun_queries() == one
 
     def test_a_deferred_slug_is_skipped(self, actor, mocker):
         mocker.patch(
