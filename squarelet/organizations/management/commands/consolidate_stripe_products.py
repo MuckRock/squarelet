@@ -81,6 +81,10 @@ PRICE_MATRIX = [
 ]
 
 
+# Every plan we sell: the tiers and the packs.
+CANONICAL_SLUGS = frozenset(row[0] for row in PRICE_MATRIX)
+
+
 class Command(BaseCommand):
     """Create the Stripe Products and Prices behind the consolidated plans.
 
