@@ -198,6 +198,15 @@ class TestTheCohortBillsAtTwoCadences:
             subscription__interval=interval,
         )
 
+    def test_only_the_cadences_in_use_must_exist(self, actor):
+        PlanPrice.objects.filter(code="election-cohort", interval="annual").delete()
+        item = self._line("monthly")
+
+        run(actor=actor)
+
+        item.refresh_from_db()
+        assert item.plan_price.interval == "monthly"
+
     def test_a_monthly_line_takes_the_monthly_price(self, actor):
         item = self._line("monthly")
 
