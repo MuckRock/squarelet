@@ -151,3 +151,9 @@ class TestTheRehearsal:
 
         assert not Organization.objects.filter(slug__startswith="mig-").exists()
         assert not User.objects.filter(username="mig-actor").exists()
+
+    def test_seeding_over_a_rehearsal_is_refused(self):
+        run("backfill_plan_prices", local_only=True, actor="mig-actor")
+
+        with pytest.raises(CommandError, match="--teardown"):
+            run("seed_migration_data")
