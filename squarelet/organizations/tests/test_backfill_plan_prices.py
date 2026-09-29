@@ -676,6 +676,20 @@ class TestWhatTheOrganizationReceives:
         item.refresh_from_db()
         assert item.plan_price is None
 
+    def test_a_line_s_entitlements_are_read_with_it(self, targets, actor):
+        """Only the target tier and pack are looked up per line."""
+        self._organization_with_blocks(targets)
+
+        with CaptureQueriesContext(connection) as queries:
+            run(actor=actor)
+
+        reads = [
+            query
+            for query in queries.captured_queries
+            if '"organizations_entitlement"' in query["sql"]
+        ]
+        assert len(reads) <= 4
+
     def test_a_pack_that_under_delivers_is_refused(self, targets, actor):
         item = self._organization_with_blocks(targets)
         pack = targets["muckrock-request-pack"].entitlements.get()
