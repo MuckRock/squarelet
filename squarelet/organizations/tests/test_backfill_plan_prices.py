@@ -848,6 +848,15 @@ class TestStripeSwitchover:
         assert item.stripe_item_id == "si_odd"
         assert item.plan_price is not None
 
+    def test_a_stale_item_id_is_replaced_by_the_one_stripe_holds(self):
+        item = line("professional", stripe_item_id="si_gone")
+        STRIPE.held[item.subscription_id] = [{"id": "si_odd", "price": {"id": "pro"}}]
+
+        run(actor=UserFactory().username)
+
+        item.refresh_from_db()
+        assert item.stripe_item_id == "si_odd"
+
     def test_a_line_stripe_cannot_identify_is_refused(self, stripe):
         item = line("professional")
         STRIPE.held[item.subscription_id] = [
