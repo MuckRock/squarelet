@@ -2,6 +2,8 @@
 
 # Django
 from django.core.management import call_command
+from django.core.management.base import CommandError
+from django.test.utils import override_settings
 
 # Standard Library
 from io import StringIO
@@ -54,6 +56,23 @@ class TestTheSeed:
         assert SubscriptionItem.objects.filter(
             subscription__organization__in=orgs
         ).count() == len(SUBSCRIBERS)
+
+    @override_settings(ENV="staging")
+    def test_it_refuses_staging_and_production(self, monkeypatch):
+        monkeypatch.delenv("HEROKU_PR_NUMBER", raising=False)
+
+        with pytest.raises(CommandError, match="review app"):
+            run("seed_migration_data")
+
+        assert not Organization.objects.filter(slug__startswith="mig-").exists()
+
+    @override_settings(ENV="staging")
+    def test_it_runs_on_a_review_app(self, monkeypatch):
+        monkeypatch.setenv("HEROKU_PR_NUMBER", "855")
+
+        run("seed_migration_data")
+
+        assert Organization.objects.filter(slug="mig-org-6").exists()
 
     def test_teardown_removes_it(self):
         run("seed_migration_data")
