@@ -35,8 +35,7 @@ LEGACY_PLAN_MAP = {
     ("education-grant", False): ("organization", "monthly", "comped", ""),
     ("startsmall-grants", False): ("organization", "monthly", "comped", ""),
     ("education-plan", False): ("organization", "monthly", "comped", ""),
-    # $0 today for 200 blocks, invoiced by hand.  Comped until someone talks
-    # to them about the standard rate (decided 2026-09-18).
+    # $0 for 200 blocks, invoiced by hand.
     ("organization-flexible-users-annual", False): (
         "organization",
         "monthly",
@@ -44,7 +43,7 @@ LEGACY_PLAN_MAP = {
         "",
     ),
     # Organization in all but 5 requests per block, and neither subscriber
-    # holds a block (decided 2026-09-18).
+    # holds a block.
     ("custom-crp", True): ("organization", "monthly", "standard", ""),
     # A negotiated rate, so a price of its own rather than a coupon
     ("insideclimate-news-plan", True): (
@@ -124,7 +123,7 @@ LEGACY_PLAN_MAP = {
     ),
 }
 
-# Left on their legacy plans until someone decides.
+# Plans the migration leaves on their legacy rows.
 DEFERRED_SLUGS = set()
 
 
