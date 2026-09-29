@@ -552,6 +552,20 @@ class TestBlocksBecomePacks:
         pack = SubscriptionItem.objects.get(plan__slug="muckrock-request-pack")
         assert pack.quantity == 25
 
+    def test_a_pack_already_held_is_not_overwritten(self, actor, targets):
+        item = block_holder(quantity=30)
+        held = SubscriptionItemFactory(
+            subscription=item.subscription,
+            plan=targets["muckrock-request-pack"],
+            quantity=3,
+        )
+
+        with pytest.raises(CommandError, match="already held"):
+            run(actor=actor)
+
+        held.refresh_from_db()
+        assert held.quantity == 3
+
     def test_a_missing_comped_pack_is_named_up_front(self, actor):
         PlanPrice.objects.filter(
             plan__slug="muckrock-request-pack", label="comped"
