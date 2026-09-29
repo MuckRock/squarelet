@@ -340,25 +340,28 @@ class Command(BaseCommand):
     @staticmethod
     def _prices_for(item):
         """The line's target price and pack lines; raises if the bill changes."""
-        slug, interval, label, code = _target(item.plan.slug, is_billing(item))
-        if item.plan.slug == COHORT_SLUG:
-            # The one plan billing at two cadences: the line's own subscription
-            # says which.
-            interval = item.subscription.interval
+        slug, _map_interval, label, code = _target(item.plan.slug, is_billing(item))
         plan_price = PlanPrice.objects.select_related("plan").get(
-            plan__slug=slug, interval=interval, label=label, code=code, active=True
+            plan__slug=slug,
+            interval=_interval(item),
+            label=label,
+            code=code,
+            active=True,
         )
-        packs = []
-        if blocks_held(item):
-            for pack_slug in PACK_DECOMPOSITION.get(item.plan.slug, ()):
-                pack = PlanPrice.objects.select_related("plan").get(
+        blocks = blocks_held(item)
+        packs = [
+            (
+                PlanPrice.objects.select_related("plan").get(
                     plan__slug=pack_slug,
                     interval=interval,
-                    label=_pack_label(label),
-                    code="",
+                    label=pack_label,
+                    code=pack_code,
                     active=True,
-                )
-                packs.append((pack, blocks_held(item)))
+                ),
+                blocks,
+            )
+            for pack_slug, interval, pack_label, pack_code in _pack_keys(item)
+        ]
 
         if is_billing(item):
             new = plan_price.amount * target_quantity(item) + sum(
@@ -512,16 +515,27 @@ def _pack_label(label):
     return "comped" if label == "comped" else "standard"
 
 
+def _interval(item):
+    """The cadence a line is migrated at: the cohort's own, else the map's."""
+    if item.plan.slug == COHORT_SLUG:
+        return item.subscription.interval
+    return _target(item.plan.slug, is_billing(item))[1]
+
+
+def _pack_keys(item):
+    """The (slug, interval, label, code) of each pack the line's blocks become."""
+    if not blocks_held(item):
+        return []
+    label = _pack_label(_target(item.plan.slug, is_billing(item))[2])
+    return [
+        (pack_slug, _interval(item), label, "")
+        for pack_slug in PACK_DECOMPOSITION.get(item.plan.slug, ())
+    ]
+
+
 def _pack_targets(pending):
     """The pack prices the pending lines' blocks decompose into."""
-    targets = set()
-    for item in pending:
-        if not blocks_held(item):
-            continue
-        _tier, interval, label, _code = _target(item.plan.slug, is_billing(item))
-        for pack_slug in PACK_DECOMPOSITION.get(item.plan.slug, ()):
-            targets.add((pack_slug, interval, _pack_label(label), ""))
-    return targets
+    return {key for item in pending for key in _pack_keys(item)}
 
 
 def _move_to_free_subscription(item):
