@@ -433,17 +433,26 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def teardown(self):
-        orgs = Organization.objects.filter(slug__startswith="mig-")
+        # Exactly what was seeded: a real "mig-" slug is not ours to delete.
+        orgs = Organization.objects.filter(slug__in=SEEDED_ORGS)
+        actor = User.objects.filter(username="mig-actor").first()
         # Change logs protect the user and plans they name.
         OrganizationChangeLog.objects.filter(
-            Q(organization__in=orgs) | Q(user__username="mig-actor")
+            Q(organization__in=orgs) | Q(user=actor)
         ).delete()
         # Before the user: migrated comped lines name it as their grantor.
         SubscriptionItem.objects.filter(subscription__organization__in=orgs).delete()
         Subscription.objects.filter(organization__in=orgs).delete()
-        User.objects.filter(username="mig-actor").delete()
         count = orgs.count()
         orgs.delete()
-        Entitlement.objects.filter(slug__startswith="mig-").delete()
-        Client.objects.filter(client_id__startswith="mig-").delete()
+        if actor is not None:
+            individual = actor.individual_organization
+            actor.delete()
+            individual.delete()
+        Entitlement.objects.filter(
+            slug__in={f"mig-{plan_slug}" for plan_slug in ENTITLEMENTS}
+        ).delete()
+        Client.objects.filter(
+            client_id__in={f"mig-{name}" for name in (MUCKROCK, DOCUMENTCLOUD)}
+        ).delete()
         self.stdout.write(f"Removed {count} seeded organizations and their lines.")

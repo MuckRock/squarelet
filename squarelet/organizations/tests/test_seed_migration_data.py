@@ -74,6 +74,16 @@ class TestTheSeed:
 
         assert Organization.objects.filter(slug="mig-org-6").exists()
 
+    def test_teardown_leaves_a_real_organization_alone(self, organization_factory):
+        real = organization_factory(slug="mig-media")
+        run("seed_migration_data")
+
+        out = run("seed_migration_data", teardown=True)
+
+        assert Organization.objects.filter(pk=real.pk).exists()
+        assert f"Removed {len(SUBSCRIBERS)} seeded organizations" in out
+        assert not Organization.objects.filter(slug="mig-actor").exists()
+
     def test_its_actor_cannot_log_in(self):
         run("seed_migration_data")
 
