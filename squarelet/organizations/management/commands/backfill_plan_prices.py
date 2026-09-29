@@ -152,42 +152,6 @@ class Command(BaseCommand):
                 + ".  Add them to LEGACY_PLAN_MAP or DEFERRED_SLUGS."
             )
 
-        # Stripe keeps charging a line whatever its local price says.
-        comped_but_billing = sorted(
-            slug
-            for slug, billing in keys
-            if billing and _target(slug, True)[2] == "comped"
-        )
-        if comped_but_billing:
-            raise CommandError(
-                "These are billing on Stripe but map to a comped price; cancel "
-                "the Stripe subscription or change the mapping first: "
-                + ", ".join(comped_but_billing)
-            )
-
-        # A free subscription cannot end, so the move would drop the date or
-        # take the organization's free row down with it.
-        ending_comps = sorted(
-            f"{item.subscription.organization.slug} ({item.plan.slug})"
-            for item in pending
-            if item.subscription.cancelled
-            and _target(item.plan.slug, is_billing(item))[2] == "comped"
-        )
-        if ending_comps:
-            raise CommandError(
-                "These comped lines are on subscriptions that are ending; let "
-                "them lapse or resubscribe them first: " + ", ".join(ending_comps)
-            )
-
-        holding_blocks = sorted(
-            {item.plan.slug for item in pending if blocks_held(item)}
-        )
-        if holding_blocks:
-            raise CommandError(
-                "These have subscribers holding resource blocks, which need "
-                "pack lines: " + ", ".join(holding_blocks)
-            )
-
         missing = sorted(
             {_target(*key) for key in keys}
             - set(
@@ -205,7 +169,41 @@ class Command(BaseCommand):
                 "consolidate_stripe_products first: " + str(missing)
             )
 
-        collisions = self._collisions(pending)
+        # Stripe keeps charging a line whatever its local price says.
+        free = {key: _lands_free(*key) for key in keys}
+        comped_but_billing = sorted(
+            slug for slug, billing in keys if billing and free[(slug, billing)]
+        )
+        if comped_but_billing:
+            raise CommandError(
+                "These are billing on Stripe but map to a comped price; cancel "
+                "the Stripe subscription or change the mapping first: "
+                + ", ".join(comped_but_billing)
+            )
+
+        # A free subscription cannot end, so the move would drop the date or
+        # take the organization's free row down with it.
+        ending_comps = sorted(
+            f"{item.subscription.organization.slug} ({item.plan.slug})"
+            for item in pending
+            if item.subscription.cancelled and free[(item.plan.slug, is_billing(item))]
+        )
+        if ending_comps:
+            raise CommandError(
+                "These comped lines are on subscriptions that are ending; let "
+                "them lapse or resubscribe them first: " + ", ".join(ending_comps)
+            )
+
+        holding_blocks = sorted(
+            {item.plan.slug for item in pending if blocks_held(item)}
+        )
+        if holding_blocks:
+            raise CommandError(
+                "These have subscribers holding resource blocks, which need "
+                "pack lines: " + ", ".join(holding_blocks)
+            )
+
+        collisions = self._collisions(pending, free)
         if collisions:
             raise CommandError(
                 "These subscriptions carry several lines that would collapse "
@@ -228,7 +226,7 @@ class Command(BaseCommand):
         return [(slug, interval, label, code) for interval in sorted(needed - held)]
 
     @staticmethod
-    def _collisions(pending):
+    def _collisions(pending, free):
         """Lines that would land on one plan on one subscription.
 
         SubscriptionItem is unique on (subscription, plan); caught here, not as
@@ -236,17 +234,15 @@ class Command(BaseCommand):
         organization's free row, not the one it is on.
         """
 
-        def where(subscription, target):
-            if target[2] == "comped":
-                return ("free", subscription.organization_id)
-            return subscription.pk
-
         landing = collections.defaultdict(list)
         for item in pending:
-            target = _target(item.plan.slug, is_billing(item))
-            landing[(where(item.subscription, target), target[0])].append(
-                item.plan.slug
+            key = (item.plan.slug, is_billing(item))
+            place = (
+                ("free", item.subscription.organization_id)
+                if free[key]
+                else item.subscription_id
             )
+            landing[(place, _target(*key)[0])].append(item.plan.slug)
 
         held = SubscriptionItem.objects.exclude(
             pk__in={item.pk for item in pending}
@@ -333,7 +329,7 @@ class Command(BaseCommand):
             item.quantity = target_quantity(item)
             item.plan = plan_price.plan
             item.plan_price = plan_price
-            if plan_price.amount == 0:
+            if Subscription.kind_for(plan_price.plan, plan_price) == "free":
                 item.granted_reason = f"Migrated from legacy {legacy_name} plan"
                 item.granted_by = actor
                 fields += ["granted_reason", "granted_by", "subscription"]
@@ -369,6 +365,17 @@ class Command(BaseCommand):
 
 def _target(slug, billing):
     return LEGACY_PLAN_MAP[(slug, billing)]
+
+
+def _lands_free(slug, billing):
+    """Whether this legacy plan's target belongs on the free subscription."""
+    tier, _interval, label, code = _target(slug, billing)
+    price = (
+        PlanPrice.objects.select_related("plan")
+        .filter(plan__slug=tier, label=label, code=code, active=True)
+        .first()
+    )
+    return Subscription.kind_for(price.plan, price) == "free"
 
 
 def _move_to_free_subscription(item):
