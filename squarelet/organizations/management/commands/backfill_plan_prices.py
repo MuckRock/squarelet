@@ -484,7 +484,8 @@ class Command(BaseCommand):
                 )
             if stripe:
                 # One call for the tier and its packs, so no invoice is ever
-                # half migrated.
+                # half migrated.  Reloaded: it was read at the start of the run.
+                item.subscription.refresh_from_db()
                 item.subscription.stripe_modify(proration_behavior="none")
             # The line's plan, and so its entitlements, just changed.
             organization = item.subscription.organization

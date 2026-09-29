@@ -894,6 +894,27 @@ class TestStripeSwitchover:
         item.refresh_from_db()
         assert item.stripe_item_id == ""
 
+    def test_a_subscription_changed_during_the_run_is_sent_as_it_is(
+        self, stripe, mocker
+    ):
+        """A customer who resubscribes mid-run is not cancelled again."""
+        item = line("professional")
+        item.subscription.cancelled = True
+        item.subscription.save()
+        real = Command._prices_for
+
+        def meanwhile(line_):
+            Subscription.objects.filter(pk=line_.subscription_id).update(
+                cancelled=False
+            )
+            return real(line_)
+
+        mocker.patch.object(Command, "_prices_for", staticmethod(meanwhile))
+
+        run(actor=UserFactory().username)
+
+        assert stripe.modify.call_args.kwargs["cancel_at_period_end"] is False
+
     def test_a_stripe_failure_leaves_no_local_trace(self, stripe):
         stripe.modify.side_effect = ValueError("stripe said no")
         item = block_holder(quantity=30)
