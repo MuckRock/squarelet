@@ -924,6 +924,24 @@ class TestStripeSwitchover:
 
         assert stripe.modify.call_args.kwargs["cancel_at_period_end"] is False
 
+    def test_a_billing_line_s_change_during_the_run_is_kept(self, mocker):
+        item = line("professional")
+        real = Command._prices_for
+
+        def meanwhile(line_):
+            SubscriptionItem.objects.filter(pk=line_.pk).update(
+                granted_reason="noted by staff"
+            )
+            return real(line_)
+
+        mocker.patch.object(Command, "_prices_for", staticmethod(meanwhile))
+
+        run(actor=UserFactory().username)
+
+        item.refresh_from_db()
+        assert item.plan_price is not None
+        assert item.granted_reason == "noted by staff"
+
     def test_a_stripe_failure_leaves_no_local_trace(self, stripe):
         stripe.modify.side_effect = ValueError("stripe said no")
         item = block_holder(quantity=30)
