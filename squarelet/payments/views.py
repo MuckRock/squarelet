@@ -557,13 +557,17 @@ class BaseManageSubscriptions(SubscriptionObjectMixin, DetailView):
         # One block per subscription, since cancellation is per subscription.
         subscriptions = []
         for subscription in self.object.subscriptions.prefetch_related(
-            "items__plan"
+            "items__plan", "items__plan_price"
         ).order_by("pk"):
             lines = list(subscription.items.all())
             if not lines:
                 continue
             for line in lines:
-                line.cost = line.plan.cost(self.object.max_users)
+                line.cost = (
+                    line.price * line.quantity
+                    if line.plan_price_id
+                    else line.plan.cost(self.object.max_users)
+                )
             subscriptions.append({"subscription": subscription, "lines": lines})
         context["subscriptions"] = subscriptions
 
