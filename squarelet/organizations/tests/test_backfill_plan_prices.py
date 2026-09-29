@@ -862,6 +862,23 @@ class TestStripeSwitchover:
         assert item.plan_price is None
         stripe.modify.assert_not_called()
 
+    def test_a_sibling_stripe_cannot_identify_stops_the_call(self, stripe):
+        """The modify sends every paid line, not only the one migrating."""
+        item = line("professional")
+        sibling = SubscriptionItemFactory(
+            subscription=item.subscription, plan=legacy("custom-crp")
+        )
+        STRIPE.held[item.subscription_id] = [
+            {"id": f"si_{item.pk}", "price": {"id": item.stripe_price_id}},
+            {"id": "si_odd", "price": {"id": "unnamed"}},
+        ]
+        assert not sibling.stripe_item_id
+
+        with pytest.raises(CommandError, match="failed"):
+            run(actor=UserFactory().username)
+
+        stripe.modify.assert_not_called()
+
     def test_a_stripe_failure_leaves_no_local_trace(self, stripe):
         stripe.modify.side_effect = ValueError("stripe said no")
         item = block_holder(quantity=30)

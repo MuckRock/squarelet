@@ -575,6 +575,19 @@ def _identify(item):
             f"{item.plan.slug}: no Stripe item id, so repointing it would add a "
             f"second line.  Run backfill_stripe_item_ids for it first."
         )
+    # Every paid line goes in the same modify; one without an id is added again.
+    unidentified = [
+        line.plan.slug
+        for line in subscription.items.exclude(pk=item.pk).select_related(
+            "plan", "plan_price"
+        )
+        if not line.is_free and not line.stripe_item_id
+    ]
+    if unidentified:
+        raise CommandError(
+            f"{', '.join(unidentified)} on the same subscription has no Stripe "
+            f"item id, and would be billed twice.  Identify it first."
+        )
 
 
 def _pack_label(label):
