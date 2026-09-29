@@ -412,10 +412,13 @@ class Command(BaseCommand):
                     # Fake, so the line reads as billing; nothing reaches Stripe.
                     "subscription_id": f"sub_mig_{org_slug}" if billing else "",
                     "current_period_end": period_end,
-                    "cancelled": cancelled,
-                    "cancel_at": (period_end.date() if cancelled else None),
                 },
             )
+            if cancelled:
+                subscription.mark_cancelled(period_end)
+            else:
+                subscription.clear_cancellation()
+            subscription.save(update_fields=Subscription.CANCELLATION_FIELDS)
             SubscriptionItem.objects.update_or_create(
                 subscription=subscription,
                 plan=plan,
