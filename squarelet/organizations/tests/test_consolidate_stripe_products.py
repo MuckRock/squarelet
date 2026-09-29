@@ -53,6 +53,19 @@ class TestTheMatrix:
         assert not PlanPrice.objects.filter(plan=plan).exists()
         create.assert_not_called()
 
+    def test_a_price_set_by_hand_is_reported_as_there(
+        self, plan_factory, plan_price_factory
+    ):
+        """So the report matches what purchases can already see."""
+        plan = plan_factory(name="Pending Plan", base_price=100)
+        plan_price_factory(plan=plan, interval="monthly", label="nonprofit")
+
+        result = Command()._ensure_price(
+            plan, ("monthly", "nonprofit", "", None), dry_run=False
+        )
+
+        assert result == "skipped"
+
     def test_the_cohort_rate_is_one_deal_at_both_cadences(self):
         cohort = {
             interval: amount
