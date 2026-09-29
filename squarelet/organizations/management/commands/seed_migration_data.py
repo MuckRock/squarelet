@@ -1,11 +1,13 @@
 # Django
-from django.core.management.base import BaseCommand
+from django.conf import settings
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.db.models import Q
 from django.db.models.signals import post_save
 from django.utils import timezone
 
 # Standard Library
+import os
 from datetime import timedelta
 
 # Third Party
@@ -246,8 +248,10 @@ SUBSCRIBERS = [
 class Command(BaseCommand):
     """Seed every subscriber shape release 5 migrates.
 
-    Idempotent.  Then rehearse: consolidate_stripe_products --allow-missing,
-    and backfill_plan_prices --local-only, since nothing here is on Stripe.
+    For a throwaway review app or local dev only: it rewrites the Organization,
+    Professional and DocumentCloud Premium plans and their entitlements, and
+    refuses to run anywhere else.  Then rehearse: consolidate_stripe_products
+    --allow-missing, and backfill_plan_prices --local-only.
     """
 
     help = "Seed manufactured subscribers in every shape the 2d migration handles"
@@ -258,6 +262,11 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        # Heroku sets HEROKU_PR_NUMBER on review apps, which also run as staging.
+        if settings.ENV != "dev" and not os.environ.get("HEROKU_PR_NUMBER"):
+            raise CommandError(
+                "Only for local dev or a review app: this rewrites real plans."
+            )
         if options["teardown"]:
             self.teardown()
         else:
