@@ -4,16 +4,18 @@
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test.utils import override_settings
+from django.utils.timezone import localtime
 
 # Standard Library
 from io import StringIO
 
 # Third Party
 import pytest
+from freezegun import freeze_time
 
 # Squarelet
 from squarelet.organizations.management.commands.seed_migration_data import SUBSCRIBERS
-from squarelet.organizations.models import Organization, SubscriptionItem
+from squarelet.organizations.models import Organization, Subscription, SubscriptionItem
 from squarelet.users.models import User
 
 
@@ -83,6 +85,16 @@ class TestTheSeed:
         assert Organization.objects.filter(pk=real.pk).exists()
         assert f"Removed {len(SUBSCRIBERS)} seeded organizations" in out
         assert not Organization.objects.filter(slug="mig-actor").exists()
+
+    def test_an_ending_subscription_ends_on_its_local_date(self):
+        """As the real cancel flow records it: just after UTC midnight, a day behind."""
+        with freeze_time("2026-09-30 02:00:00", tz_offset=0):
+            run("seed_migration_data")
+
+        subscription = Subscription.objects.get(organization__slug="mig-cohort-leaving")
+        assert (
+            subscription.cancel_at == localtime(subscription.current_period_end).date()
+        )
 
     def test_its_actor_cannot_log_in(self):
         run("seed_migration_data")
