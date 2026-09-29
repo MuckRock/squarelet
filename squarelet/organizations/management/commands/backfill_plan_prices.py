@@ -14,6 +14,7 @@ from squarelet.organizations.models.payment import (
     PlanPrice,
     Subscription,
     SubscriptionItem,
+    _stripe_price_id,
 )
 from squarelet.organizations.plan_mapping import (
     COHORT_SLUG,
@@ -335,6 +336,8 @@ class Command(BaseCommand):
         try:
             plan_price, packs = self._prices_for(item)
             note = self._check_grants(item, plan_price, packs)
+            if dry_run and is_billing(item) and not local_only:
+                _identify(item, write=False)
         except CommandError as exc:
             self.stdout.write(self.style.ERROR(f"  ! {org.slug}: {exc}"))
             return "failed"
@@ -455,7 +458,7 @@ class Command(BaseCommand):
         """
         stripe = is_billing(item) and not local_only
         if stripe:
-            _identify(item)
+            _identify(item, write=True)
         legacy_name = item.plan.name
         # Only the fields this sets: the row was read at the start of the run.
         fields = ["plan", "plan_price", "quantity"]
@@ -552,42 +555,59 @@ def _lands_free(slug, billing):
     return Subscription.kind_for(price.plan, price) == "free"
 
 
-def _identify(item):
-    """Record the line's Stripe item id before its price changes.
+def _stripe_ids(subscription):
+    """Each paid line's Stripe item id, as Stripe holds it.
 
-    Matched by its current price; once repointed it matches nothing, and a
-    line sent without an id is added beside the old one: billed twice.  A
-    subscription holding one paid line and one Stripe item pairs them
-    whatever the price, which covers the few items on a price no plan names.
+    Matched by the line's current price or plan; a subscription holding one
+    paid line and one Stripe item pairs them whatever the price, which covers
+    the few items on a price no plan names.  Blank where nothing matches.
     """
-    subscription = item.subscription
-    stripe_sub = subscription.stripe_subscription
-    if stripe_sub is not None:
-        subscription.sync_stripe_item_ids(stripe_sub)
-        item.refresh_from_db(fields=["stripe_item_id"])
-        stripe_items = stripe_sub["items"]["data"]
-        paid = [line for line in subscription.items.all() if not line.is_free]
-        if not item.stripe_item_id and len(stripe_items) == 1 and paid == [item]:
-            item.stripe_item_id = stripe_items[0]["id"]
-            item.save(update_fields=["stripe_item_id"])
-    if not item.stripe_item_id:
-        raise CommandError(
-            f"{item.plan.slug}: no Stripe item id, so repointing it would add a "
-            f"second line.  Run backfill_stripe_item_ids for it first."
-        )
-    # Every paid line goes in the same modify; one without an id is added again.
-    unidentified = [
-        line.plan.slug
-        for line in subscription.items.exclude(pk=item.pk).select_related(
-            "plan", "plan_price"
-        )
-        if not line.is_free and not line.stripe_item_id
+    paid = [
+        line
+        for line in subscription.items.select_related("plan", "plan_price")
+        if not line.is_free
     ]
+    stripe_sub = subscription.stripe_subscription
+    if stripe_sub is None:
+        return {line: line.stripe_item_id for line in paid}
+    stripe_items = stripe_sub["items"]["data"]
+    by_price = {
+        _stripe_price_id(stripe_item): stripe_item["id"] for stripe_item in stripe_items
+    }
+    ids = {
+        line: line.stripe_item_id
+        or by_price.get(line.stripe_price_id)
+        or by_price.get(line.plan.stripe_id, "")
+        for line in paid
+    }
+    if len(paid) == 1 and len(stripe_items) == 1 and not ids[paid[0]]:
+        ids[paid[0]] = stripe_items[0]["id"]
+    return ids
+
+
+def _identify(item, write):
+    """Make sure every paid line on the subscription has its Stripe item id.
+
+    Needed before the price changes: repointed, a line matches nothing, and
+    one sent without an id is added beside the old item: billed twice.  The
+    modify sends every paid line, so the others count too.  Saves the ids
+    found when `write`.
+    """
+    ids = _stripe_ids(item.subscription)
+    unidentified = sorted(
+        line.plan.slug for line, item_id in ids.items() if not item_id
+    )
     if unidentified:
         raise CommandError(
-            f"{', '.join(unidentified)} on the same subscription has no Stripe "
-            f"item id, and would be billed twice.  Identify it first."
+            f"no Stripe item id for {', '.join(unidentified)}, so the new price "
+            f"would be added beside the old one.  Identify it first."
         )
+    if write:
+        for line, item_id in ids.items():
+            if line.stripe_item_id != item_id:
+                line.stripe_item_id = item_id
+                line.save(update_fields=["stripe_item_id"])
+        item.refresh_from_db(fields=["stripe_item_id"])
 
 
 def _pack_label(label):

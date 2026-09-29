@@ -879,6 +879,21 @@ class TestStripeSwitchover:
 
         stripe.modify.assert_not_called()
 
+    def test_a_dry_run_names_a_line_stripe_cannot_identify(self):
+        item = line("professional")
+        STRIPE.held[item.subscription_id] = [
+            {"id": "si_a", "price": {"id": "other_a"}},
+            {"id": "si_b", "price": {"id": "other_b"}},
+        ]
+
+        out = StringIO()
+        with pytest.raises(CommandError, match="failed"):
+            call_command("backfill_plan_prices", stdout=out, dry_run=True)
+
+        assert "no Stripe item id for professional" in out.getvalue()
+        item.refresh_from_db()
+        assert item.stripe_item_id == ""
+
     def test_a_stripe_failure_leaves_no_local_trace(self, stripe):
         stripe.modify.side_effect = ValueError("stripe said no")
         item = block_holder(quantity=30)
