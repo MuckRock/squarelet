@@ -329,7 +329,8 @@ class Command(BaseCommand):
             self.stdout.write(f"  ~ {org.slug}: {item.plan.slug} deferred")
             return "deferred"
         if item.plan_price_id:
-            return self._settle(item, dry_run, local_only)
+            self.stdout.write(f"  = {org.slug}: {item.plan.slug} on {item.plan_price}")
+            return "done"
 
         try:
             plan_price, packs = self._prices_for(item)
@@ -445,30 +446,12 @@ class Command(BaseCommand):
             f"it in EXPECTED_GRANT_CHANGES."
         )
 
-    def _settle(self, item, dry_run, local_only):
-        """A line already migrated: push its subscription to Stripe again.
-
-        A no-op where Stripe already agrees, and the missing half where the
-        local write committed and the Stripe call did not.
-        """
-        org = item.subscription.organization
-        self.stdout.write(f"  = {org.slug}: {item.plan.slug} on {item.plan_price}")
-        if dry_run or local_only or not is_billing(item):
-            return "done"
-        try:
-            item.subscription.stripe_modify(proration_behavior="none")
-        except Exception as exc:  # pylint: disable=broad-except
-            logger.exception("backfill_plan_prices failed for %s", org.slug)
-            self.stdout.write(self.style.ERROR(f"  ! {org.slug}: {exc}"))
-            return "failed"
-        return "done"
-
     @staticmethod
     def _write(item, plan_price, packs, actor, local_only):
         """Local rows, then Stripe, in one transaction.
 
-        A Stripe failure leaves no local trace; the reverse is caught by the
-        next run's `_settle`.
+        A Stripe failure leaves no local trace, so a saved line's Stripe half
+        succeeded and a re-run need not touch Stripe.
         """
         stripe = is_billing(item) and not local_only
         if stripe:

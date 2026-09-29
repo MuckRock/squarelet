@@ -874,17 +874,16 @@ class TestStripeSwitchover:
         assert item.quantity == 30
         assert not SubscriptionItem.objects.filter(plan__slug__in=PACK_SLUGS).exists()
 
-    def test_a_failed_stripe_half_is_finished_by_the_next_run(self, stripe):
+    def test_a_re_run_leaves_stripe_alone(self, stripe):
+        """A saved line's Stripe half succeeded in the same transaction."""
         actor = UserFactory().username
-        item = block_holder(quantity=30)
-        run(actor=actor, local_only=True)
-        stripe.modify.assert_not_called()
+        block_holder(quantity=30)
+        run(actor=actor)
+        stripe.modify.reset_mock()
 
         run(actor=actor)
 
-        assert stripe.modify.call_args.kwargs["proration_behavior"] == "none"
-        item.refresh_from_db()
-        assert item.quantity == 1
+        stripe.modify.assert_not_called()
 
     def test_a_comped_line_never_reaches_stripe(self, stripe):
         line("beta", billing=False)
