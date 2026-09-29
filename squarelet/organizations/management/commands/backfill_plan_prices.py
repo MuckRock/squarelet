@@ -269,8 +269,8 @@ class Command(BaseCommand):
         """Lines that would land on one plan on one subscription.
 
         SubscriptionItem is unique on (subscription, plan); caught here, not as
-        an IntegrityError half way through the run.  A comped line lands on its
-        organization's free row, not the one it is on.
+        an IntegrityError or an overwritten pack half way through the run.  A
+        comped line lands on its organization's free row, not the one it is on.
         """
 
         landing = collections.defaultdict(list)
@@ -282,6 +282,8 @@ class Command(BaseCommand):
                 else item.subscription_id
             )
             landing[(place, _target(*key)[0])].append(item.plan.slug)
+            for pack_slug, *_rest in _pack_keys(item):
+                landing[(place, pack_slug)].append(f"{item.plan.slug} blocks")
 
         held = SubscriptionItem.objects.exclude(
             pk__in={item.pk for item in pending}
