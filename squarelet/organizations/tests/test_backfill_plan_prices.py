@@ -540,6 +540,8 @@ class TestBlocksBecomePacks:
         assert item.subscription.kind == "free"
         assert pack.quantity == 25
         assert pack.plan_price.amount == 0
+        assert pack.granted_by.username == actor
+        assert pack.granted_reason == item.granted_reason
 
     def test_pack_lines_are_not_migrated_again(self, actor):
         item = block_holder(quantity=30)

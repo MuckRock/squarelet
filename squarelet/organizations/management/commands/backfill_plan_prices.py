@@ -445,10 +445,14 @@ class Command(BaseCommand):
                 _move_to_free_subscription(item)
             item.save(update_fields=fields)
             for pack_price, quantity in packs:
+                defaults = {"plan_price": pack_price, "quantity": quantity}
+                if Subscription.kind_for(pack_price.plan, pack_price) == "free":
+                    defaults["granted_reason"] = item.granted_reason
+                    defaults["granted_by"] = actor
                 SubscriptionItem.objects.update_or_create(
                     subscription=item.subscription,
                     plan=pack_price.plan,
-                    defaults={"plan_price": pack_price, "quantity": quantity},
+                    defaults=defaults,
                 )
             # The line's plan, and so its entitlements, just changed.
             organization = item.subscription.organization
