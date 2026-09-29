@@ -1,3 +1,5 @@
+# The command's steps are the unit under test here.
+# pylint: disable=protected-access
 # Django
 from django.core.management import call_command
 from django.core.management.base import CommandError
