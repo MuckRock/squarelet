@@ -612,6 +612,22 @@ class TestWhatTheOrganizationReceives:
         assert item.plan_price is not None
         assert "grant changes as decided" in out
 
+    def test_a_decided_change_may_not_lose_anything(self, targets, actor):
+        item = line("beta", billing=False)
+        client = entitle(item.plan, {"base_requests": 5, "minimum_users": 1}).client
+        entitle(item.plan, {"base_ai_credits": 2000, "minimum_users": 1})
+        entitle(
+            targets["professional"],
+            {"base_requests": 20, "minimum_users": 1},
+            client=client,
+        )
+
+        with pytest.raises(CommandError, match="failed"):
+            run(actor=actor)
+
+        item.refresh_from_db()
+        assert item.plan_price is None
+
     def _organization_with_blocks(self, targets):
         """Production's Organization: 50 requests + 10 a block on MuckRock,
         5,000 credits + 500 a block on DocumentCloud; the pack carries only
