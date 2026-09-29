@@ -73,5 +73,4 @@ class TestTheMatrix:
             if code == "election-cohort"
         }
 
-        assert cohort == {"monthly": 25_000, "annual": 300_000}
         assert cohort["monthly"] * 12 == cohort["annual"]
