@@ -18,6 +18,7 @@ from squarelet.organizations.models.payment import (
 from squarelet.organizations.plan_mapping import (
     COHORT_SLUG,
     DEFERRED_SLUGS,
+    DROPPED_WITH_BLOCKS,
     EXPECTED_GRANT_CHANGES,
     LEGACY_PLAN_MAP,
     PACK_DECOMPOSITION,
@@ -386,8 +387,8 @@ class Command(BaseCommand):
         """Refuse if the organization would receive a different amount.
 
         Returns a note when the change is one decided on: listed in
-        EXPECTED_GRANT_CHANGES, or a block-holder's resources no pack carries
-        falling to the tier's base (the dropped credit overage).
+        EXPECTED_GRANT_CHANGES, or a block-holder's DROPPED_WITH_BLOCKS
+        resources falling to the tier's base.
         """
         before = resource_totals([(item.plan, item.quantity)])
         after = resource_totals(
@@ -407,8 +408,12 @@ class Command(BaseCommand):
             unexplained = {
                 key
                 for key in set(before) | set(after)
-                if (key in carried and before[key] != after[key])
-                or (key not in carried and after[key] != at_base[key])
+                if after[key]
+                != (
+                    at_base[key]
+                    if key not in carried and key[1] in DROPPED_WITH_BLOCKS
+                    else before[key]
+                )
             }
             if not unexplained:
                 lost = {
