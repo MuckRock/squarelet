@@ -419,10 +419,12 @@ class Command(BaseCommand):
                 )
             }
             if not unexplained:
-                lost = {
-                    k: before[k] - after[k] for k in before if before[k] != after[k]
+                changed = {
+                    key: f"{before[key]} -> {after[key]}"
+                    for key in set(before) | set(after)
+                    if before[key] != after[key]
                 }
-                return f"block overage not carried by a pack, as decided: {lost}"
+                return f"block overage not carried by a pack, as decided: {changed}"
 
         raise CommandError(
             f"would change what this organization receives: {dict(before)} "
