@@ -245,6 +245,9 @@ SUBSCRIBERS = [
 ]
 
 
+SEEDED_ORGS = {org for org, *_ in SUBSCRIBERS}
+
+
 class Command(BaseCommand):
     """Seed every subscriber shape release 5 migrates.
 
@@ -274,6 +277,12 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def seed(self):
+        # Seeded again, each migrated line would get a legacy one beside it.
+        if SubscriptionItem.objects.filter(
+            subscription__organization__slug__in=SEEDED_ORGS,
+            plan_price__isnull=False,
+        ).exists():
+            raise CommandError("Already rehearsed: run --teardown first.")
         # Saving a paid plan would create a legacy Stripe Plan.
         post_save.disconnect(
             make_stripe_plan,
