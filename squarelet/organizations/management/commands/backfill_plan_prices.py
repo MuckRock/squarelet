@@ -397,7 +397,9 @@ class Command(BaseCommand):
         )
         if before == after:
             return None
-        if item.plan.slug in EXPECTED_GRANT_CHANGES:
+        # The decided changes are all gains; a loss is never one of them.
+        gains_only = all(after[key] >= before[key] for key in before)
+        if item.plan.slug in EXPECTED_GRANT_CHANGES and gains_only:
             return f"grant changes as decided: {EXPECTED_GRANT_CHANGES[item.plan.slug]}"
 
         if packs:
