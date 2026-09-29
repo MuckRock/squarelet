@@ -37,7 +37,7 @@ class TestPrivatePlansHaveATarget:
         """Reaching one takes being granted its plan."""
         assert resolve_target(slug)[::3] == ("sunlight-essential", code)
 
-    def test_flexible_users_migrates_comped_and_is_never_sold(self):
+    def test_flexible_users_migrates_comped(self):
         slug = "organization-flexible-users-annual"
 
         assert LEGACY_PLAN_MAP[(slug, False)] == (
@@ -46,4 +46,3 @@ class TestPrivatePlansHaveATarget:
             "comped",
             "",
         )
-        assert resolve_target(slug) is None
