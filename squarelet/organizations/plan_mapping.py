@@ -19,6 +19,9 @@ LEGACY_PLAN_MAP = {
         "standard",
         "",
     ),
+    # Tiers that were never legacy plans: each is its own target.
+    ("scoutpost-pro", True): ("scoutpost-pro", "monthly", "standard", ""),
+    ("scoutpost-team", True): ("scoutpost-team", "monthly", "standard", ""),
     # Grandfathered early users
     ("beta", False): ("professional", "monthly", "comped", ""),
     ("beta", True): ("professional", "monthly", "comped", ""),
