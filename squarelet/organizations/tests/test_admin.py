@@ -9,6 +9,7 @@ import stripe
 # Squarelet
 from squarelet.organizations.admin import (
     ChargeAdmin,
+    EntitlementAdmin,
     InvoiceAdmin,
     OrganizationAdmin,
     PlanAdmin,
@@ -19,6 +20,7 @@ from squarelet.organizations.admin import (
 )
 from squarelet.organizations.models import (
     Charge,
+    Entitlement,
     Invoice,
     Organization,
     Plan,
@@ -124,6 +126,29 @@ class TestSubscriptionAdmin:
         subscription = subscription_factory(subscription_id="")
 
         assert admin.stripe_link(subscription) == admin.get_empty_value_display()
+
+
+@pytest.mark.django_db
+class TestEntitlementAdmin:
+    def test_the_slug_can_be_changed_from_the_admin(self, rf, entitlement):
+        admin = EntitlementAdmin(Entitlement, AdminSite())
+        form_class = admin.get_form(rf.get("/"), entitlement)
+        form = form_class(
+            instance=entitlement,
+            data={
+                "name": entitlement.name,
+                "client": entitlement.client.pk,
+                "slug": "new-slug",
+                "description": entitlement.description,
+                "resources": '{"requests": 1}',
+                "benefits": "[]",
+            },
+        )
+
+        assert form.is_valid(), form.errors
+        form.save()
+        entitlement.refresh_from_db()
+        assert entitlement.slug == "new-slug"
 
 
 class TestInvoiceAdmin:

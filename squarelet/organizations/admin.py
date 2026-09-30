@@ -838,9 +838,9 @@ class PlanPriceAdmin(StripeLinkMixin, VersionAdmin):
 
 @admin.register(Entitlement)
 class EntitlementAdmin(VersionAdmin):
-    list_display = ("name", "client")
+    list_display = ("name", "slug", "client")
     list_filter = ("client",)
-    search_fields = ("name",)
+    search_fields = ("name", "slug")
     autocomplete_fields = ("client",)
     formfield_overrides = {
         JSONField: {"widget": PrettyJSONWidget},
