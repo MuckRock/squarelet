@@ -21,6 +21,8 @@ class TestPrivatePlansHaveATarget:
                 "documentcloud-premium",
                 ("documentcloud-premium", "monthly", "standard", ""),
             ),
+            ("scoutpost-pro", ("scoutpost-pro", "monthly", "standard", "")),
+            ("scoutpost-team", ("scoutpost-team", "monthly", "standard", "")),
         ],
     )
     def test_at_list_price(self, slug, target):
