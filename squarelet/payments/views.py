@@ -729,11 +729,16 @@ class BaseCancelSubscription(SubscriptionObjectMixin, UpdateView):
         context = super().get_context_data(**kwargs)
         line = self.get_line()
         if line:
-            context["plans"] = [line.plan.name]
-            context["removes_now"] = removes_now = line.removes_now
-            context["free"] = line.is_free
-            context["next_date"] = line.subscription.next_date
-            if removes_now and not line.is_free:
+            # A property that queries the other lines, so read it once.
+            removes_now = line.removes_now
+            free = line.is_free
+            context.update(
+                plans=[line.plan.name],
+                removes_now=removes_now,
+                free=free,
+                next_date=line.subscription.next_date,
+            )
+            if removes_now and not free:
                 stamp = int(time.time())
                 context["proration_date"] = self.proration_signer.sign(str(stamp))
                 credit = line.removal_credit(stamp)
