@@ -976,6 +976,15 @@ class SubscriptionItem(models.Model):
             "reach Stripe, which is every comped one."
         ),
     )
+    ends_on = models.DateField(
+        _("ends on"),
+        null=True,
+        blank=True,
+        help_text=_(
+            "The day a free line stops, such as a comp that runs out.  Paid lines "
+            "end with their subscription."
+        ),
+    )
 
     quantity = models.PositiveIntegerField(
         _("quantity"),
