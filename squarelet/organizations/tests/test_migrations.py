@@ -360,6 +360,24 @@ class TestClassifySubscriptions:
         assert not free.cancelled
         assert list(free.items.values_list("plan__name", flat=True)) == ["Comped"]
 
+    def test_a_free_row_due_to_end_passes_its_date_to_its_lines(self):
+        """A free row can't end; a comp that runs out on a date still does."""
+        old = migrate_to(_bracket(KIND)[0])
+        trial = self._line(old, "Trial")
+        Subscription = old.get_model(APP, "Subscription")
+        Subscription.objects.filter(pk=trial.pk).update(
+            cancelled=True, cancel_at=date(2099, 12, 31)
+        )
+
+        new = migrate_to(_bracket(KIND)[1])
+
+        Subscription = new.get_model(APP, "Subscription")
+        row = Subscription.objects.get(pk=trial.pk)
+        assert (row.kind, row.cancelled, row.cancel_at) == ("free", False, None)
+        assert list(row.items.values_list("ends_on", flat=True)) == [
+            date(2099, 12, 31)
+        ]
+
     def test_a_free_row_still_naming_stripe_is_refused(self):
         """Deleting or keeping it would orphan a Stripe subscription."""
         old = migrate_to(_bracket(KIND)[0])

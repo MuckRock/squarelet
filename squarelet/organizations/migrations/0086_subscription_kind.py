@@ -18,8 +18,9 @@ def classify(apps, schema_editor):
     """Give each subscription the kind its lines make it.
 
     Free lines never reach Stripe, so each organization's are gathered onto one
-    free row.  A one-off sharing a row with other paid lines would need a live
-    Stripe subscription split, so that is refused rather than guessed.
+    free row; a free row due to end passes its date to its lines.  A one-off
+    sharing a row with other paid lines would need a live Stripe subscription
+    split, so that is refused rather than guessed.
     """
     Invoice = apps.get_model("organizations", "Invoice")
     Subscription = apps.get_model("organizations", "Subscription")
@@ -56,8 +57,12 @@ def classify(apps, schema_editor):
                 )
                 continue
             if subscription.cancelled and (subscription.cancel_at or today) > today:
-                problems.append(f"{where} is cancelled until {subscription.cancel_at}")
-                continue
+                # A free row can't end, so its lines carry the date instead.
+                subscription.items.update(ends_on=subscription.cancel_at)
+                Subscription.objects.filter(pk=subscription.pk).update(
+                    cancelled=False, cancel_at=None
+                )
+                subscription.cancelled = False
             free_rows[subscription.organization_id].append(subscription)
         else:
             continue
@@ -126,6 +131,16 @@ class Migration(migrations.Migration):
                 help_text="Renewing paid plans share a subscription per billing shape, a one-off purchase gets its own, and free plans never reach Stripe.",
                 max_length=20,
                 verbose_name="kind",
+            ),
+        ),
+        migrations.AddField(
+            model_name="subscriptionitem",
+            name="ends_on",
+            field=models.DateField(
+                blank=True,
+                help_text="The day a free line stops, such as a comp that runs out.  Paid lines end with their subscription.",
+                null=True,
+                verbose_name="ends on",
             ),
         ),
         migrations.RunPython(classify, migrations.RunPython.noop),
