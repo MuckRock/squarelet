@@ -13,7 +13,7 @@ import requests
 
 # Squarelet
 from squarelet.core.utils import requests_retry_session
-from squarelet.organizations.models.organization import Membership, Organization
+from squarelet.organizations.models.organization import Organization
 from squarelet.organizations.models.payment import Plan
 
 logger = logging.getLogger(__name__)
@@ -165,7 +165,8 @@ def _normalize_stat(field, value):
 def _resolve_plan_id(name):
     """Resolve a plan on Accounts to its Odoo x_plan id by name match.
     Creation is handled up front by _ensure_all_plans, so this is
-    lookup-only; a missing plan means it wasn't in Accounts at ensure time."""
+    lookup-only. A missing plan means it wasn't in Accounts at the time
+    _ensure_all_plans was called"""
     if name in _PLAN_ID_CACHE:
         return _PLAN_ID_CACHE[name]
     res = odoo_search("x_plan", [["x_name", "=", name]], ["id"])
@@ -174,6 +175,17 @@ def _resolve_plan_id(name):
         logger.warning("No Odoo plan match for Accounts plan: %s", name)
     _PLAN_ID_CACHE[name] = pid
     return pid
+
+
+def _resolve_plan_ids(plans):
+    """Calls _resolve_plan_id but on a list of plans
+    Necessary for linting"""
+    plan_ids = []
+    for plan in plans:
+        pid = _resolve_plan_id(plan.name)
+        if pid is not None:
+            plan_ids.append(pid)
+    return plan_ids
 
 
 def _plan_note(plan_ids):
@@ -224,7 +236,8 @@ def _ensure_all_plans(dry_run=False):
 
 def _build_org_vals(org, odoo_plan_ids, sunlight_status, member_tag_ids):
     """Build the vals dict for a res.partner org record."""
-    urls = list(org.urls.values_list("url", flat=True))
+    # Read the urls from the prefetch
+    urls = [u.url for u in org.urls.all()]
     vals = {
         "name": org.name,
         "x_studio_slug": org.slug,
@@ -252,12 +265,11 @@ def _build_org_vals(org, odoo_plan_ids, sunlight_status, member_tag_ids):
 
 
 def _compute_org_plans_and_status(org, inherited_plan_ids):
-    """Return (odoo_plan_ids, sunlight_status) for an org."""
-    plans = list(org.get_plans().values_list("name", "wix"))
-    has_sunlight = any(wix for _, wix in plans)
-    own_plan_ids = [
-        pid for pid in (_resolve_plan_id(name) for name, _ in plans) if pid is not None
-    ]
+    """Return (odoo_plan_ids, sunlight_status) for an org.
+    Reads plans from the subscriptions__plans prefetch."""
+    plans = org.prefetched_plans()
+    has_sunlight = any(plan.wix for plan in plans)
+    own_plan_ids = _resolve_plan_ids(plans)
     if inherited_plan_ids is not None:
         odoo_plan_ids = sorted(set(own_plan_ids + inherited_plan_ids))
     else:
@@ -397,13 +409,10 @@ def get_or_create_org(org, dry_run=False, member_tag_ids=None, inherited_plan_id
 
 
 def _member_desired_plans(user, org_plan_ids):
-    """Union of the org's inherited plans and the user's own personal plans."""
-    personal = list(
-        user.individual_organization.get_plans().values_list("name", flat=True)
+    """Union of the org's inherited plans and the user's own personal plans"""
+    personal_plan_ids = _resolve_plan_ids(
+        user.individual_organization.prefetched_plans()
     )
-    personal_plan_ids = [
-        pid for pid in (_resolve_plan_id(name) for name in personal) if pid is not None
-    ]
     return sorted(set(org_plan_ids) | set(personal_plan_ids))
 
 
@@ -630,7 +639,8 @@ def _is_departed(member, current_emails):
 def remove_departed_members(
     org, odoo_org_id, org_plan_ids, remove=False, dry_run=False
 ):
-    current_emails = {e.lower() for e in org.users.values_list("email", flat=True)}
+    # Read from the users prefetch
+    current_emails = {u.email.lower() for u in org.users.all()}
     org_plans = set(org_plan_ids)
 
     odoo_members = odoo_search_all(
@@ -788,17 +798,16 @@ def _load_collaborative_data():
             )
             continue
         tag_id = int(tag_id)
-        plan_ids = [
-            pid
-            for pid in (
-                _resolve_plan_id(name)
-                for name in collab_org.get_plans()
-                .filter(wix=True)
-                .values_list("name", flat=True)
-            )
-            if pid is not None
-        ]
-        member_slugs = set(collab_org.members.values_list("slug", flat=True))
+        # Collect the collab org's wix plans from the prefetch
+        wix_plans = []
+        for plan in collab_org.prefetched_plans():
+            if plan.wix:
+                wix_plans.append(plan)
+        plan_ids = _resolve_plan_ids(wix_plans)
+        member_slugs = set()
+        # Use the members prefetch
+        for member in collab_org.members.all():
+            member_slugs.add(member.slug)
         collaborative_data[collab_org.slug] = CollaborativeConfig(
             collab_org.slug, tag_id, plan_ids, member_slugs
         )
@@ -819,9 +828,11 @@ def _build_org_queryset(collaborative_data):
     for config in collaborative_data.values():
         all_collaborative_member_slugs |= config.member_slugs
     all_slugs = (sunlight_slugs | all_collaborative_member_slugs) - SKIP_SLUGS
-    return Organization.objects.filter(
-        slug__in=all_slugs,
-    ).prefetch_related("plans", "users", "urls")
+    return Organization.objects.filter(slug__in=all_slugs).prefetch_related(
+        "subscriptions__plans",
+        "users__individual_organization__subscriptions__plans",
+        "urls",
+    )
 
 
 def _sync_org(org, collaborative_data, dry_run, remove_members):
@@ -852,11 +863,9 @@ def _sync_org(org, collaborative_data, dry_run, remove_members):
         logger.info("Skipping members for %s — org not yet in Odoo", org.name)
         return org.slug
 
-    memberships = Membership.objects.filter(organization=org).select_related("user")
-    for membership in memberships:
-        sync_member(
-            membership.user, org.name, odoo_org_id, odoo_plan_ids, dry_run=dry_run
-        )
+    # reading the prefetch also carries each user's individual-org plans
+    for user in org.users.all():
+        sync_member(user, org.name, odoo_org_id, odoo_plan_ids, dry_run=dry_run)
 
     remove_departed_members(
         org, odoo_org_id, odoo_plan_ids, remove=remove_members, dry_run=dry_run
