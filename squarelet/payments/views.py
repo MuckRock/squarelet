@@ -729,7 +729,7 @@ class BaseCancelSubscription(SubscriptionObjectMixin, UpdateView):
         context = super().get_context_data(**kwargs)
         line = self.get_line()
         if line:
-            # A property that queries the other lines, so read it once.
+            # A property that queries the db for other lines, so read it once.
             removes_now = line.removes_now
             free = line.is_free
             context.update(
@@ -741,7 +741,7 @@ class BaseCancelSubscription(SubscriptionObjectMixin, UpdateView):
             if removes_now and not free:
                 stamp = int(time.time())
                 context["proration_date"] = self.proration_signer.sign(str(stamp))
-                credit = line.removal_credit(stamp)
+                credit = line.removal_credit(stamp, removes_now)
                 if credit:
                     context["credit"] = f"{credit / 100:,.2f}"
         return context

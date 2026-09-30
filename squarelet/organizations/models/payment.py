@@ -1147,13 +1147,16 @@ class SubscriptionItem(models.Model):
             and any(line.pk != self.pk for line in subscription.items.all())
         )
 
-    def removal_credit(self, proration_date):
-        """The credit, in cents, that removing this line at `proration_date` gives.
+    def removal_credit(self, proration_date, removes_now=None):
+        """The credit that removing this line at `proration_date` gives, in cents.
 
-        None when Stripe can't be asked or doesn't answer, so the page falls
-        back to saying a credit is coming without its amount.
+        Positive.  None when Stripe can't be asked or doesn't answer, so the
+        page falls back to saying a credit is coming without its amount.  Pass
+        `removes_now` if already read: the property queries the other lines.
         """
-        if self.is_free or not self.removes_now:
+        if removes_now is None:
+            removes_now = self.removes_now
+        if self.is_free or not removes_now:
             return None
         subscription = self.subscription
         # The ids already stored are enough; showing a page shouldn't write.
@@ -1173,6 +1176,7 @@ class SubscriptionItem(models.Model):
         except stripe.StripeError as exc:
             logger.warning("[SUBSCRIPTION-ITEM] Removal preview failed: %s", exc)
             return None
+        # Stripe gives a credit as a negative amount.
         return -sum(
             line["amount"]
             for line in preview["lines"]["data"]

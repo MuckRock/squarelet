@@ -1814,6 +1814,20 @@ class TestRemovingAPlan(ViewTestMixin):
         # The plan itself, then the plans beside it.
         assert len(reads) == 2
 
+    def test_the_credit_reuses_the_page_s_answer(self, rf, line, mocker):
+        """`removes_now` queries the other lines; the credit must not ask again."""
+        removes_now = mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.removes_now",
+            new_callable=mocker.PropertyMock,
+            return_value=True,
+        )
+
+        self.call_view(
+            rf, line.admin, slug=line.subscription.organization.slug, pk=line.pk
+        ).render()
+
+        assert removes_now.call_count == 1
+
     def test_a_fresh_stamp_reaches_the_removal(self, rf, line, mocker):
         remove = mocker.patch(
             "squarelet.organizations.models.Organization.remove_subscription",
