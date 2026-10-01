@@ -522,3 +522,141 @@ class TestSellingAgainstThePrice:
         organization.add_subscription(picked, None, None, payment_method="card")
 
         assert organization.change_logs.get().to_plan == tier
+
+
+@pytest.mark.django_db()
+class TestChangingTierRepricesTheLine:
+    """Leaving the old price behind would bill the tier the customer left."""
+
+    def _modify(self, item, plan, mocker):
+        mocker.patch(
+            "squarelet.organizations.models.Subscription.stripe_subscription", None
+        )
+        mocker.patch("squarelet.organizations.models.Subscription.sync_to_stripe")
+        item.modify(plan)
+        item.refresh_from_db()
+        return item
+
+    @pytest.fixture
+    def tiers(self, plan_factory):
+        return (
+            plan_with_slug(plan_factory, "Sunlight Essential", "sunlight-essential"),
+            plan_with_slug(plan_factory, "Sunlight Enhanced", "sunlight-enhanced"),
+        )
+
+    def test_the_price_moves_with_the_plan(
+        self, subscription_item_factory, plan_price_factory, tiers, mocker
+    ):
+        essential, enhanced = tiers
+        from_price = plan_price_factory(plan=essential, amount=68_000)
+        to_price = plan_price_factory(plan=enhanced, amount=138_000)
+        item = subscription_item_factory(plan=essential, plan_price=from_price)
+
+        self._modify(item, enhanced, mocker)
+
+        assert item.plan == enhanced
+        assert item.plan_price == to_price
+
+    def test_a_nonprofit_stays_a_nonprofit(
+        self, subscription_item_factory, plan_price_factory, tiers, mocker
+    ):
+        essential, enhanced = tiers
+        from_price = plan_price_factory(
+            plan=essential, label="nonprofit", amount=35_000
+        )
+        plan_price_factory(plan=enhanced, label="standard", amount=138_000)
+        to_nonprofit = plan_price_factory(
+            plan=enhanced, label="nonprofit", amount=68_000
+        )
+        item = subscription_item_factory(plan=essential, plan_price=from_price)
+
+        self._modify(item, enhanced, mocker)
+
+        assert item.plan_price == to_nonprofit
+
+    def test_a_nonprofit_is_not_moved_onto_full_price(
+        self, subscription_item_factory, plan_price_factory, tiers, mocker
+    ):
+        essential, enhanced = tiers
+        from_price = plan_price_factory(
+            plan=essential, label="nonprofit", amount=35_000
+        )
+        plan_price_factory(plan=enhanced, label="standard", amount=138_000)
+        item = subscription_item_factory(plan=essential, plan_price=from_price)
+
+        with pytest.raises(SubscriptionError, match="no nonprofit rate"):
+            self._modify(item, enhanced, mocker)
+
+    def test_a_negotiated_rate_is_not_carried_to_another_tier(
+        self, subscription_item_factory, plan_price_factory, tiers, mocker
+    ):
+        essential, enhanced = tiers
+        from_price = plan_price_factory(plan=essential, code="insideclimate")
+        plan_price_factory(plan=enhanced, amount=138_000)
+        item = subscription_item_factory(plan=essential, plan_price=from_price)
+
+        with pytest.raises(SubscriptionError, match="insideclimate"):
+            self._modify(item, enhanced, mocker)
+
+    @pytest.fixture
+    def annual_variant(self, plan_factory, mocker):
+        """A variant row of Essential, with Stripe out of the way."""
+        mocker.patch(
+            "squarelet.organizations.models.Subscription.stripe_subscription", None
+        )
+        mocker.patch("squarelet.organizations.models.Subscription.sync_to_stripe")
+        return plan_with_slug(
+            plan_factory,
+            "Sunlight Essential (Annual)",
+            "sunlight-essential-annual",
+            annual=True,
+        )
+
+    def test_the_organization_finds_the_line_by_its_tier(
+        self, subscription_item_factory, plan_price_factory, tiers, annual_variant
+    ):
+        """And logs the plans the line was and is held under."""
+        essential, enhanced = tiers
+        item = subscription_item_factory(
+            plan=essential, plan_price=plan_price_factory(plan=essential)
+        )
+        plan_price_factory(plan=enhanced, amount=138_000)
+        organization = item.subscription.organization
+
+        organization.modify_subscription(annual_variant, enhanced, None)
+
+        item.refresh_from_db()
+        assert item.plan == enhanced
+        assert item.quantity == 1, "one unit of a flat price, not a seat count"
+        log = organization.change_logs.get()
+        assert (log.from_plan, log.to_plan) == (essential, enhanced)
+
+    def test_a_new_pack_quantity_survives_the_stripe_sync(
+        self, subscription_item_factory, plan_price_factory, mocker
+    ):
+        """Identifying the line on Stripe reloads it; the quantity comes after."""
+        price = plan_price_factory(amount=1_000)
+        item = subscription_item_factory(plan=price.plan, plan_price=price, quantity=2)
+        mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
+        mocker.patch("squarelet.organizations.models.Subscription.sync_stripe_item_ids")
+        mocker.patch("squarelet.organizations.models.Subscription.sync_to_stripe")
+        organization = item.subscription.organization
+
+        organization.modify_subscription(price.plan, price.plan, None, quantity=5)
+
+        item.refresh_from_db()
+        assert item.quantity == 5
+        log = organization.change_logs.get()
+        assert (log.from_max_users, log.to_max_users) == (2, 5)
+
+    def test_a_move_onto_a_zero_price_is_refused(
+        self, subscription_item_factory, plan_price_factory, tiers, mocker
+    ):
+        """A $0 price belongs on the free subscription."""
+        essential, enhanced = tiers
+        from_price = plan_price_factory(plan=essential, amount=68_000)
+        plan_price_factory(plan=enhanced, amount=0)
+        item = subscription_item_factory(plan=essential, plan_price=from_price)
+
+        with pytest.raises(SubscriptionError, match="never share a subscription"):
+            self._modify(item, enhanced, mocker)
