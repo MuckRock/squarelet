@@ -12,6 +12,16 @@ LEGACY_PLAN_MAP = {
     ("professional", True): ("professional", "monthly", "standard", ""),
     ("professional", False): ("professional", "monthly", "comped", ""),
     ("professional-pre-paid", True): ("professional", "annual", "standard", ""),
+    # The one DocumentCloud-only tier, which keeps its own plan.
+    ("documentcloud-premium", True): (
+        "documentcloud-premium",
+        "monthly",
+        "standard",
+        "",
+    ),
+    # Tiers that were never legacy plans: each is its own target.
+    ("scoutpost-pro", True): ("scoutpost-pro", "monthly", "standard", ""),
+    ("scoutpost-team", True): ("scoutpost-team", "monthly", "standard", ""),
     # Grandfathered early users
     ("beta", False): ("professional", "monthly", "comped", ""),
     ("beta", True): ("professional", "monthly", "comped", ""),
@@ -28,6 +38,16 @@ LEGACY_PLAN_MAP = {
     ("education-grant", False): ("organization", "monthly", "comped", ""),
     ("startsmall-grants", False): ("organization", "monthly", "comped", ""),
     ("education-plan", False): ("organization", "monthly", "comped", ""),
+    # $0 for 200 blocks, invoiced by hand.
+    ("organization-flexible-users-annual", False): (
+        "organization",
+        "monthly",
+        "comped",
+        "",
+    ),
+    # Organization in all but 5 requests per block, and neither subscriber
+    # holds a block.
+    ("custom-crp", True): ("organization", "monthly", "standard", ""),
     # A negotiated rate, so a price of its own rather than a coupon
     ("insideclimate-news-plan", True): (
         "organization",
@@ -81,15 +101,33 @@ LEGACY_PLAN_MAP = {
         "nonprofit",
         "",
     ),
+    # --- Private plans ------------------------------------------------------
+    ("organization-annual", True): ("organization", "annual", "standard", ""),
+    ("sunlight-enterprise-annual", True): (
+        "sunlight-enterprise",
+        "annual",
+        "standard",
+        "",
+    ),
+    # Negotiated rates: prices of their own, not coupons, since neither
+    # expires.  The cohort's interval here is nominal; its subscribers bill at
+    # both cadences.
+    ("election-accountability-cohort", True): (
+        "sunlight-essential",
+        "annual",
+        "standard",
+        "election-cohort",
+    ),
+    ("sunlight-basic-annual", True): (
+        "sunlight-essential",
+        "annual",
+        "standard",
+        "legacy-basic",
+    ),
 }
 
-# Left on their legacy plans until someone decides.
-DEFERRED_SLUGS = {
-    # Two organizations going opposite ways: one cancelled, one comped.
-    "custom-crp",
-    # Its one subscription belongs to an organization that was merged away.
-    "sunlight-premium-annual",
-}
+# Plans the migration leaves on their legacy rows.
+DEFERRED_SLUGS = set()
 
 
 def resolve_target(slug):

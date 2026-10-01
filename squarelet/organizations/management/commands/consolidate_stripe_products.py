@@ -45,6 +45,9 @@ PRICE_MATRIX = [
     ("sunlight-enterprise", "monthly", "standard", "", 275_000),
     ("sunlight-enterprise", "annual", "standard", "", 3_200_000),
     ("sunlight-enterprise", "annual", "comped", "", 0),
+    # Amount pending: skipped, and the nonprofit box stays hidden, until set.
+    ("sunlight-enterprise", "monthly", "nonprofit", "", None),
+    ("sunlight-enterprise", "annual", "nonprofit", "", None),
     ("scoutpost-pro", "monthly", "standard", "", 1_000),
     ("scoutpost-team", "monthly", "standard", "", 5_000),
     ("muckrock-request-pack", "monthly", "standard", "", 1_000),
@@ -66,6 +69,10 @@ PRICE_MATRIX = [
     # cheaper Sunlight Basic rate for the subscribers who still hold it.
     ("organization", "monthly", "standard", "insideclimate", 3_000),
     ("sunlight-essential", "annual", "standard", "legacy-basic", 200_000),
+    # The Election Accountability cohort's rate, one deal at both cadences:
+    # two of its subscribers renew, one monthly.  $250/mo is $3,000/yr.
+    ("sunlight-essential", "annual", "standard", "election-cohort", 300_000),
+    ("sunlight-essential", "monthly", "standard", "election-cohort", 25_000),
 ]
 
 
@@ -132,6 +139,8 @@ class Command(BaseCommand):
             f"{counts['comped']} comped rows (no Stripe Price), "
             f"{counts['skipped']} already present"
         )
+        if counts["pending"]:
+            summary += f", {counts['pending']} waiting on an amount"
         if counts["completed"]:
             summary += f", {counts['completed']} completed from an earlier partial run"
         self.stdout.write(summary)
@@ -197,6 +206,13 @@ class Command(BaseCommand):
             if not dry_run:
                 self.stdout.write(f"    -> {existing.ensure_stripe_price()}")
             return "completed"
+
+        if amount is None:
+            variant = self._variant(interval, label, code)
+            self.stdout.write(
+                self.style.WARNING(f"! price {plan.slug} {variant}: amount pending")
+            )
+            return "pending"
 
         if amount == 0:
             variant = self._variant(interval, label, code)
