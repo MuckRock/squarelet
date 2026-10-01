@@ -137,9 +137,7 @@ class PlanDetailView(DetailView):
 
             # Check user's individual organization
             individual_org = user.individual_organization
-            individual_subscription = individual_org.subscription_items.filter(
-                plan=plan
-            ).first()
+            individual_subscription = individual_org.line_holding(plan)
             if individual_subscription:
                 existing_subscriptions.append((individual_subscription, individual_org))
 
@@ -157,7 +155,7 @@ class PlanDetailView(DetailView):
                 admin_orgs = admin_orgs_base
 
             for org in admin_orgs:
-                org_subscription = org.subscription_items.filter(plan=plan).first()
+                org_subscription = org.line_holding(plan)
                 if org_subscription:
                     existing_subscriptions.append((org_subscription, org))
 
@@ -230,7 +228,7 @@ class PlanDetailView(DetailView):
                 result = form.save(request.user)
                 organization = result["organization"]
 
-                if organization.subscription_items.filter(plan=plan).exists():
+                if organization.has_active_subscription(result["plan"]):
                     messages.warning(request, _("Already subscribed"))
                     return redirect(plan)
 
@@ -292,10 +290,11 @@ class PlanDetailView(DetailView):
         transaction.on_commit(
             lambda: organization.add_subscription(
                 selected_plan,
-                selected_plan.minimum_users,
+                None,
                 request.user,
                 token=stripe_token,
                 payment_method=payment_method,
+                nonprofit=result.get("nonprofit", False),
             )
         )
         return None
@@ -311,10 +310,11 @@ class PlanDetailView(DetailView):
         try:
             organization.add_subscription(
                 selected_plan,
-                selected_plan.minimum_users,
+                None,
                 request.user,
                 token=stripe_token,
                 payment_method=payment_method,
+                nonprofit=result.get("nonprofit", False),
             )
             return None
         except PaymentActionRequired as exc:
@@ -557,13 +557,17 @@ class BaseManageSubscriptions(SubscriptionObjectMixin, DetailView):
         # One block per subscription, since cancellation is per subscription.
         subscriptions = []
         for subscription in self.object.subscriptions.prefetch_related(
-            "items__plan"
+            "items__plan", "items__plan_price"
         ).order_by("pk"):
             lines = list(subscription.items.all())
             if not lines:
                 continue
             for line in lines:
-                line.cost = line.plan.cost(self.object.max_users)
+                line.cost = (
+                    line.price * line.quantity
+                    if line.plan_price_id
+                    else line.plan.cost(self.object.max_users)
+                )
             subscriptions.append({"subscription": subscription, "lines": lines})
         context["subscriptions"] = subscriptions
 

@@ -412,6 +412,7 @@ class TestPlanPurchaseFormSave:
         assert result["plan"] == plan
         assert result["payment_method"] == "new-card"
         assert result["stripe_token"] == "tok_visa"
+        assert result["nonprofit"] is False
 
     def test_save_creates_new_organization(self, user_factory, plan_factory):
         """Save creates new organization when selected"""

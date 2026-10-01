@@ -543,7 +543,9 @@ class Organization(AvatarMixin, models.Model):
         return users_list
 
     @transaction.atomic
-    def add_subscription(self, plan, max_users, user, token=None, payment_method=None):
+    def add_subscription(  # pylint: disable=too-many-positional-arguments
+        self, plan, max_users, user, token=None, payment_method=None, nonprofit=False
+    ):
         """Add a new subscription to a plan.
 
         Raises SubscriptionError if the org already holds a line for this
@@ -557,14 +559,10 @@ class Organization(AvatarMixin, models.Model):
         # check and the INSERT.
         Organization.objects.select_for_update().filter(pk=self.pk).get()
 
-        if self.subscription_items.filter(plan=plan).exists():
+        if self.has_active_subscription(plan):
             raise SubscriptionError(
                 f"Organization already has an active subscription to {plan}"
             )
-
-        # max_users is absent from the PaymentForm for individual orgs
-        if max_users is None:
-            max_users = plan.minimum_users
 
         is_first = not self.subscription_items.exists()
 
@@ -582,11 +580,13 @@ class Organization(AvatarMixin, models.Model):
         # receives no billing_cycle_anchor (Stripe sets its own anchor). Only after
         # the subscription exists do we record the anchor for subsequent subscriptions
         # to align to.
-        _, stripe_subscription = self.subscription_items.start(
+        # `max_users` None lets `start` decide what one of the plan is.
+        item, stripe_subscription = self.subscription_items.start(
             organization=self,
             plan=plan,
             payment_method=payment_method,
             quantity=max_users,
+            nonprofit=nonprofit,
         )
 
         if is_first and stripe_subscription:
@@ -606,12 +606,12 @@ class Organization(AvatarMixin, models.Model):
         self.change_logs.create(
             user=user,
             reason=ChangeLogReason.updated,
-            to_plan=plan,
-            to_max_users=max_users,
+            to_plan=item.plan,
+            to_max_users=item.quantity,
         )
 
-        if plan.wix:
-            self._dispatch_wix_sync(plan)
+        if item.plan.wix:
+            self._dispatch_wix_sync(item.plan)
 
     def _resolve_payment_method(self, payment_method, token):
         """Normalize the payment_method value for a subscription."""
@@ -826,10 +826,15 @@ class Organization(AvatarMixin, models.Model):
 
     def has_active_subscription(self, plan=None):
         """Check if the organization has an active subscription"""
-        qs = self.subscription_items.all()
         if plan is not None:
-            qs = qs.filter(plan=plan)
-        return qs.exists()
+            return self.line_holding(plan) is not None
+        return self.subscription_items.exists()
+
+    def line_holding(self, plan):
+        """The line holding the tier a purchase of `plan` is sold as, if any."""
+        return self.subscription_items.filter(
+            plan__in=self.subscription_items.stored_under(plan)
+        ).first()
 
     def charge(
         self,

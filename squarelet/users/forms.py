@@ -248,9 +248,7 @@ class PremiumSubscriptionForm(StripeForm):
         if billing_email:
             organization.set_billing_email(billing_email)
         try:
-            organization.add_subscription(
-                plan, plan.minimum_users, user, token=stripe_token
-            )
+            organization.add_subscription(plan, None, user, token=stripe_token)
             return True
         except stripe.StripeError as exc:
             user_message = format_stripe_error(exc)
