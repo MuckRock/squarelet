@@ -26,6 +26,13 @@ def clear_plan_cache():
     sync_odoo._PLAN_ID_CACHE.clear()
 
 
+def _plan(name, wix=False):
+    """A Mock Plan; name is set after init since Mock(name=...) names the mock."""
+    plan = Mock(wix=wix)
+    plan.name = name
+    return plan
+
+
 class TestOdooRequest:
     """_odoo_request returns parsed JSON on success and raises on failure."""
 
@@ -213,10 +220,7 @@ class TestComputeOrgPlansAndStatus:
     def test_confirmed_when_any_wix_plan(self):
         """An own wix plan sets status Confirmed and resolves all plan ids."""
         org = Mock()
-        org.get_plans.return_value.values_list.return_value = [
-            ("Pro", True),
-            ("Free", False),
-        ]
+        org.prefetched_plans.return_value = [_plan("Pro", True), _plan("Free")]
         with patch.object(sync_odoo, "_resolve_plan_id", side_effect=[10, 20]):
             ids, status = sync_odoo._compute_org_plans_and_status(org, None)
         assert ids == [10, 20]
@@ -225,7 +229,7 @@ class TestComputeOrgPlansAndStatus:
     def test_no_status_without_wix_plan(self):
         """No own wix plan leaves the sunlight status unset."""
         org = Mock()
-        org.get_plans.return_value.values_list.return_value = [("Free", False)]
+        org.prefetched_plans.return_value = [_plan("Free")]
         with patch.object(sync_odoo, "_resolve_plan_id", return_value=20):
             _, status = sync_odoo._compute_org_plans_and_status(org, None)
         assert status is None
@@ -233,7 +237,7 @@ class TestComputeOrgPlansAndStatus:
     def test_inherited_plans_merged_and_deduped(self):
         """Inherited ids are merged with own ids and duplicates removed."""
         org = Mock()
-        org.get_plans.return_value.values_list.return_value = [("Pro", True)]
+        org.prefetched_plans.return_value = [_plan("Pro", True)]
         with patch.object(sync_odoo, "_resolve_plan_id", return_value=10):
             ids, _ = sync_odoo._compute_org_plans_and_status(org, [10, 30])
         assert ids == [10, 30]
@@ -243,7 +247,7 @@ class TestComputeOrgPlansAndStatus:
         inherited (collaborative/enterprise) plans must not confirm it."""
         org = Mock()
         # own plans: none of them wix
-        org.get_plans.return_value.values_list.return_value = [("Free", False)]
+        org.prefetched_plans.return_value = [_plan("Free")]
         with patch.object(sync_odoo, "_resolve_plan_id", return_value=20):
             ids, status = sync_odoo._compute_org_plans_and_status(
                 org, inherited_plan_ids=[101, 102]
@@ -257,7 +261,7 @@ class TestComputeOrgPlansAndStatus:
         """An own wix plan sets Confirmed; inherited plans are additive, not
         the trigger."""
         org = Mock()
-        org.get_plans.return_value.values_list.return_value = [("Sunlight Basic", True)]
+        org.prefetched_plans.return_value = [_plan("Sunlight Basic", True)]
         with patch.object(sync_odoo, "_resolve_plan_id", return_value=10):
             ids, status = sync_odoo._compute_org_plans_and_status(
                 org, inherited_plan_ids=[101]
@@ -272,9 +276,7 @@ class TestMemberDesiredPlans:
     def test_unions_org_and_personal_plans(self):
         """Org plans and the user's personal plans are unioned."""
         user = Mock()
-        user.individual_organization.get_plans.return_value.values_list.return_value = [
-            "Personal"
-        ]
+        user.individual_organization.prefetched_plans.return_value = [_plan("Personal")]
         with patch.object(sync_odoo, "_resolve_plan_id", return_value=30):
             assert sync_odoo._member_desired_plans(user, [10, 20]) == [10, 20, 30]
 
@@ -283,9 +285,7 @@ class TestMemberDesiredPlans:
         This shouldn't ever happen as we ensure all plans at the beginning,
         but it is important we still have a test case."""
         user = Mock()
-        user.individual_organization.get_plans.return_value.values_list.return_value = [
-            "Broken"
-        ]
+        user.individual_organization.prefetched_plans.return_value = [_plan("Broken")]
         with patch.object(sync_odoo, "_resolve_plan_id", return_value=None):
             assert sync_odoo._member_desired_plans(user, [10]) == [10]
 
@@ -443,7 +443,8 @@ class TestRemoveDepartedMembers:
     def _org(self):
         org = Mock()
         org.name = "Acme"
-        org.users.values_list.return_value = ["stay@b.com"]
+        # remove_departed_members reads the users prefetch via .all()
+        org.users.all.return_value = [Mock(email="stay@b.com")]
         return org
 
     def test_flags_when_not_removing(self):
