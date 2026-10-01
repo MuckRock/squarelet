@@ -660,3 +660,21 @@ class TestChangingTierRepricesTheLine:
 
         with pytest.raises(SubscriptionError, match="never share a subscription"):
             self._modify(item, enhanced, mocker)
+
+
+@pytest.mark.django_db()
+class TestProrationIsOptOut:
+    def _modify(self, item, mocker, **kwargs):
+        mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
+        mocker.patch("squarelet.organizations.models.Subscription.sync_stripe_item_ids")
+        service = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_subscription_service.return_value
+        service.modify.return_value = None
+        item.subscription.stripe_modify(**kwargs)
+        return service.modify.call_args.kwargs["proration_behavior"]
+
+    def test_one_call_can_turn_it_off(self, subscription_item_factory, mocker):
+        item = subscription_item_factory(subscription__subscription_id="sub_1")
+
+        assert self._modify(item, mocker, proration_behavior="none") == "none"
