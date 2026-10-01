@@ -15,6 +15,7 @@ from fuzzywuzzy import fuzz, process
 # Squarelet
 from squarelet.organizations.choices import ChangeLogReason
 from squarelet.organizations.payments.factory import get_payment_provider
+from squarelet.organizations.plan_mapping import LEGACY_PLAN_MAP, resolve_target
 
 # pylint:disable=too-many-positional-arguments
 
@@ -416,6 +417,63 @@ class ChargeQuerySet(models.QuerySet):
 
 
 class SubscriptionItemQuerySet(models.QuerySet):
+    @staticmethod
+    def resolve_purchase(plan, nonprofit=False):
+        """The `(plan, price)` a purchase of `plan` is recorded as.
+
+        Annual and nonprofit are separate Plan rows today; both land on their
+        canonical tier's price, as the migration lands existing lines.
+        `(plan, None)` until `consolidate_stripe_products` has created the
+        price, which bills the legacy plan as before.
+        """
+        # Lazy import to avoid a circular import (payment.py imports this module)
+        # pylint: disable=import-outside-toplevel
+        # Squarelet
+        from squarelet.organizations.models.payment import PlanPrice
+
+        slug, interval, label, code = resolve_target(plan.slug) or (
+            plan.slug,
+            "annual" if plan.annual else "monthly",
+            "standard",
+            "",
+        )
+        if nonprofit and label == "standard":
+            label = "nonprofit"
+        price = (
+            PlanPrice.objects.select_related("plan")
+            .filter(
+                plan__slug=slug,
+                interval=interval,
+                label=label,
+                code=code,
+                active=True,
+            )
+            .first()
+        )
+        if price is None:
+            return plan, None
+        return price.plan, price
+
+    @staticmethod
+    def stored_under(plan):
+        """Every plan that holds the tier a purchase of `plan` is sold as.
+
+        The tier itself once priced, and each variant row sold as it before
+        then; an organization holds a tier once, whatever its schedule or rate.
+        """
+        # Lazy import to avoid a circular import (payment.py imports this module)
+        # pylint: disable=import-outside-toplevel
+        # Squarelet
+        from squarelet.organizations.models.payment import Plan
+
+        tier = (resolve_target(plan.slug) or (plan.slug,))[0]
+        slugs = {tier, plan.slug} | {
+            slug
+            for slug, _billing in LEGACY_PLAN_MAP
+            if (resolve_target(slug) or (None,))[0] == tier
+        }
+        return set(Plan.objects.filter(slug__in=slugs))
+
     def start(self, organization, plan, payment_method="card", quantity=1):
         """Add a line for `plan` and make sure Stripe knows about it.
 
