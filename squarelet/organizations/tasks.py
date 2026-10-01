@@ -691,7 +691,7 @@ def retire_subscription(subscription):
 
     Returns how many lines survived.
     """
-    for item in subscription.items.select_related("plan"):
+    for item in subscription.items.select_related("plan", "plan_price"):
         if not item.is_free:
             item.delete()
 
