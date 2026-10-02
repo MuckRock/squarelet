@@ -2,13 +2,18 @@
 from django.contrib.admin.sites import AdminSite
 from django.test import RequestFactory, override_settings
 
+# Standard Library
+import json
+
 # Third Party
 import pytest
 import stripe
+from actstream.models import Action
 
 # Squarelet
 from squarelet.organizations.admin import (
     ChargeAdmin,
+    EntitlementAdmin,
     InvoiceAdmin,
     OrganizationAdmin,
     PlanAdmin,
@@ -19,12 +24,14 @@ from squarelet.organizations.admin import (
 )
 from squarelet.organizations.models import (
     Charge,
+    Entitlement,
     Invoice,
     Organization,
     Plan,
     PlanPrice,
     Subscription,
 )
+from squarelet.organizations.tests.factories import EntitlementFactory
 
 
 @pytest.mark.django_db
@@ -124,6 +131,52 @@ class TestSubscriptionAdmin:
         subscription = subscription_factory(subscription_id="")
 
         assert admin.stripe_link(subscription) == admin.get_empty_value_display()
+
+
+@pytest.mark.django_db
+class TestEntitlementAdmin:
+    @pytest.fixture
+    def entitlement(self):
+        # A required JSONField rejects `{}` as empty.
+        return EntitlementFactory(resources={"requests": 1})
+
+    def _slug_change(self, rf, entitlement, user=None):
+        admin = EntitlementAdmin(Entitlement, AdminSite())
+        request = rf.get("/")
+        request.user = user
+        form = admin.get_form(request, entitlement)(
+            instance=entitlement,
+            data={
+                "name": entitlement.name,
+                "client": entitlement.client.pk,
+                "slug": "new-slug",
+                "description": entitlement.description,
+                "resources": json.dumps(entitlement.resources),
+                "benefits": "[]",
+                # Fields with callable defaults are compared against these
+                # hidden inputs; the admin page always submits them.
+                "initial-resources": json.dumps(entitlement.resources),
+                "initial-benefits": "[]",
+            },
+        )
+        assert form.is_valid(), form.errors
+        return admin, request, form
+
+    def test_the_slug_can_be_changed_from_the_admin(self, rf, entitlement):
+        _, _, form = self._slug_change(rf, entitlement)
+        form.save()
+
+        entitlement.refresh_from_db()
+        assert entitlement.slug == "new-slug"
+
+    def test_a_slug_change_is_logged(self, rf, entitlement, user):
+        admin, request, form = self._slug_change(rf, entitlement, user)
+        admin.save_model(request, form.save(commit=False), form, change=True)
+
+        action = Action.objects.get(verb="updated entitlement")
+        assert action.actor == user
+        assert action.action_object == entitlement
+        assert action.description == "Changed fields: slug"
 
 
 class TestInvoiceAdmin:
