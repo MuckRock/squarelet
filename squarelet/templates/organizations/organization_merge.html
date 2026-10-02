@@ -1,71 +1,13 @@
 {% extends "base.html" %}
-{% load crispy_forms_tags %}
+{% load crispy_forms_tags django_vite %}
 {% load avatar %}
 {% load i18n %}
 {% block title %}Merge Organizations{% endblock %}
 
-{% block css %}
+{% block vite %}
 {{ block.super }}
-<style>
-  .container {
-    max-width: var(--max-width, 62rem);
-    margin: 3rem auto;
-  }
-  .form-horizontal {
-    display: flex;
-    gap: 2rem;
-    flex-wrap: wrap;
-  }
-  .form-horizontal > * {
-    flex: 1 1 auto;
-  }
-  .form-horizontal select {
-    width: 100%;
-    font-size: var(--font-md, 1rem);
-    font-family: var(--font-sans);
-  }
-  .form-horizontal .control-group {
-    flex: 1 1 100%;
-  }
-  table {
-    background: var(--white);
-    width: 100%;
-    border-collapse: collapse;
-  }
-  td, th {
-    padding: .25rem .5rem;
-    border: 1px solid var(--gray-2);
-    vertical-align: top;
-  }
-  th {
-    background-color: var(--gray-1);
-    font-weight: var(--semibold, 600);
-  }
-  .column-header {
-    text-align: left;
-  }
-  .row-header {
-    text-align: right;
-  }
-  table ul {
-    margin: 0;
-    padding-left: 1rem;
-  }
-  .empty {
-    color: var(--gray-4);
-    list-style-type: none;
-  }
-  li.empty {
-    margin-left: -1rem;
-  }
-  p.caution {
-    color: var(--orange-4);
-    background: var(--orange-2);
-    padding: .25rem .5rem;
-    border-radius: .25rem;
-  }
-</style>
-{% endblock %}
+{% vite_asset "frontend/views/organization_merge.ts" %}
+{% endblock vite %}
 
 {% block content %}
   <div class="container">

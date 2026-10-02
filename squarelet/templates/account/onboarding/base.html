@@ -1,25 +1,15 @@
 {% extends "account/login.html" %}
 
-{% load i18n %}
+{% load i18n django_vite %}
 {% load account socialaccount %}
 {% load handleintent %}
 
 {% block title %}{% endblock %}
 
-{% block css %}
-  {{ block.super }}
-  <style>
-    .container {
-      flex: 1 1 28em;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin: 0 auto;
-      padding: 4rem 1rem;
-      gap: 2rem;
-    }
-  </style>
-{% endblock %}
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/onboarding_base.ts" %}
+{% endblock vite %}
 
 {% block login_step %}
   <div class="container" id="{% block onboarding_step_id %}{% endblock %}">
