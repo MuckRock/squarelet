@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% load i18n static %}
+{% load i18n static django_vite %}
 {% load account %}
 
 {% block head_title %}{% trans "Confirm Email Address" %}{% endblock %}
@@ -39,42 +39,7 @@
   </div>
 {% endblock %}
 
-{% block css %}
-  <style>
-    .container {
-      flex: 1 1 auto;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      padding: 4rem;
-    }
-
-    .card {
-      width: 100%;
-      box-sizing: border-box;
-      text-align: center;
-    }
-
-    .card h1 {
-      margin: 0;
-      font-weight: 600;
-      font-size: var(--font-xl);
-    }
-
-    .card p {
-      max-width: 20rem;
-      margin: 1em auto;
-    }
-
-    .card a {
-      word-break: break-word;
-    }
-
-    form.confirm-email .button {
-      margin: 0 auto;
-      width: 100%;
-      max-width: 24rem;
-    }
-  </style>
-{% endblock %}
+{% block vite %}
+{{ block.super }}
+{% vite_asset "frontend/views/email_confirm.ts" %}
+{% endblock vite %}

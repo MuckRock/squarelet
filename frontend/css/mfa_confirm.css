@@ -1,0 +1,35 @@
+header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+h1 {
+  color: var(--gray-5, #233944);
+  text-align: center;
+  font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
+
+  /* Title */
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-size: var(--font-xl, 1.5rem);
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+}
+
+/* Initially disable the continue button */
+.continue-btn:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.continue-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.help-text {
+  font-size: var(--font-sm, .875rem);
+  opacity: .7;
+}
