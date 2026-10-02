@@ -284,6 +284,19 @@ Vite then handles all static assets on this page, so `organization_list.ts` impo
 
 Svelte components live in `frontend/components` and can be imported into view files as needed. They need to be mounted explicitly, using Svelte's `mount()` function. We use Svelte 5.
 
+Entrypoints load after `frontend/main.ts`, so on a page, view CSS wins over `main.css` at equal specificity. A child template's entrypoint loads after its parent's.
+
+Code that every page needs, like the navigation menu or the avatar widget, is imported by `frontend/main.ts` instead of a view.
+
+`{% static %}` is for images and icons referenced from markup (`<img src="{% static 'icons/check.svg' %}">`).
+
+### Passing data from a template to a script.
+
+Scripts can't read the template context, so the template exposes what they need:
+
+- A single value goes in a `data-` attribute on the element it belongs to, read with `el.dataset`. Translated strings go this way too, so the script doesn't hard-code English.
+- Anything structured goes through [`json_script`](https://docs.djangoproject.com/en/5.2/ref/templates/builtins/#json-script), read with `JSON.parse(document.getElementById("plan-data").textContent)`.
+
 ### Icons
 
 Icons are sometimes duplicated, because we need to use them in both Django templates and Svelte components. For Django templates, add SVG files to `squarelet/templates/core/icons`. For Svelte or other frontend-only use, add SVG files to `frontend/icons`.

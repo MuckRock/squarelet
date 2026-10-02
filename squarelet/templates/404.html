@@ -1,17 +1,12 @@
 {% extends "base.html" %}
-{% load i18n icon %}
+{% load i18n icon django_vite %}
 
 {% block title %}Page not found{% endblock %}
 
-{% block css %}
+{% block vite %}
 {{ block.super }}
-<style>
-  ul {
-    list-style: none;
-    padding: 0;
-  }
-</style>
-{% endblock %}
+{% vite_asset "frontend/views/404.ts" %}
+{% endblock vite %}
 
 {% block content %}
   <div class="_cls-content">

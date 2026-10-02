@@ -1,47 +1,11 @@
 {% extends "account/onboarding/base.html" %}
-{% load i18n static %}
+{% load i18n static django_vite %}
 {% load account socialaccount %}
 
-{% block css %}
+{% block vite %}
 {{ block.super }}
-<style>
-  header {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  h1 {
-    color: var(--gray-5, #233944);
-    text-align: center;
-    font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
-
-    /* Title */
-    font-family: var(--font-sans, "Source Sans Pro");
-    font-size: var(--font-xl, 1.5rem);
-    font-style: normal;
-    font-weight: 600;
-    line-height: normal;
-  }
-
-  /* Initially disable the continue button */
-  .continue-btn:disabled {
-    opacity: 0.5;
-    pointer-events: none;
-  }
-
-  .continue-form {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .help-text {
-    font-size: var(--font-sm, .875rem);
-    opacity: .7;
-  }
-</style>
-{% endblock css %}
+{% vite_asset "frontend/views/mfa_confirm.ts" %}
+{% endblock vite %}
 
 {% block onboarding_step %}
   <header>
@@ -70,28 +34,3 @@
   </form>
 
 {% endblock %}
-
-{% block javascript %}
-  {{block.super}}
-  <script>
-    // Get elements
-    const downloadButton = document.getElementById('download-codes-btn');
-    const continueButton = document.getElementById('continue-btn');
-    const continueHelpText = document.getElementById('continue-help');
-
-    // Flag to track if the download button has been clicked
-    let downloadClicked = false;
-
-    // Watch for click on the download button
-    downloadButton.addEventListener('click', () => {
-      downloadClicked = true;
-      // Enable the continue button once the download has been clicked
-      continueButton.disabled = false;
-      // Hide the help text after the download has been clicked
-      continueHelpText.style.display = 'none';
-    });
-
-  </script>
-{% endblock javascript %}
-
-  
