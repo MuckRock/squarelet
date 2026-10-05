@@ -23,9 +23,6 @@ header h2, p {
   max-width: 18rem;
 }
 .help.link {
-  font-size: var(--font-md, 1rem);
-  font-weight: var(--font-semibold, 600);
-  color: var(--primary);
   text-decoration: none;
 }
 .help.text {

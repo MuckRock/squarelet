@@ -2076,6 +2076,12 @@ a.service-provider:focus {
   color: var(--orange-3);
 }
 
+.help.link {
+  font-size: var(--font-md, 1rem);
+  font-weight: var(--font-semibold, 600);
+  color: var(--primary);
+}
+
 .m-0 {
   margin: 0;
 }

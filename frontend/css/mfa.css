@@ -65,25 +65,13 @@
   }
   h1 {
     width: 100%;
+    text-align: center;
     text-wrap: balance;
     margin: 0;
-  }
-  h1 {
-    text-align: center;
-  }
-  .help.link {
-    font-size: var(--font-md, 1rem);
-    font-weight: var(--font-semibold, 600);
-    color: var(--primary);
   }
   .field {
     display: flex;
     flex-direction: column;
-  }
-  .help.text {
-    font-weight: var(--font-regular, 400);
-    font-size: var(--font-sm, 0.875em);
-    color: var(--gray-4);
   }
   .qr-code-container {
     gap: 1rem;
