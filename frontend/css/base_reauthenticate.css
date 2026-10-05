@@ -24,15 +24,3 @@ header, .main, form {
   font-weight: var(--font-semibold, 600);
   color: var(--primary);
 }
-.flex {
-  display: flex;
-}
-.row {
-  flex-direction: row;
-}
-.gap-1 {
-  gap: 1rem;
-}
-.align-end {
-  align-items: flex-end;
-}

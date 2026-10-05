@@ -16,9 +16,3 @@ p {
   font-weight: var(--font-semibold, 600);
   color: var(--primary);
 }
-.flex {
-  display: flex;
-}
-.gap-1 {
-  gap: 1rem;
-}
