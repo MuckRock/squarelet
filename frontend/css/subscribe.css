@@ -22,16 +22,7 @@ header .icon {
   align-items: center;
 }
 header .title {
-  color: var(--gray-5, #233944);
   text-align: center;
-  font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
-
-  /* Title */
-  font-family: var(--font-sans, "Source Sans Pro");
-  font-size: var(--font-xl, 1.5rem);
-  font-style: normal;
-  font-weight: 600;
-  line-height: normal;
 }
 .icon {
   display: flex !important;

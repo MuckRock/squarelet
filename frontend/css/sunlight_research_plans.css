@@ -42,16 +42,6 @@
   border: 1px solid var(--gray-2, #D8DEE2);
   background: var(--white, #FFF);
 }
-.header-display {
-  text-align: center;
-  color: var(--gray-5, #233944);
-  font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
-  font-family: var(--font-sans, "Source Sans Pro");
-  font-size: var(--font-xl, 1.5rem);
-  font-style: normal;
-  font-weight: 600;
-  line-height: 2.25rem;
-}
 .heavy-underline {
   text-decoration-line: underline;
   text-decoration-style: solid;
