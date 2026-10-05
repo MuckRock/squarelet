@@ -7,7 +7,8 @@
  * Page-level CSS is imported here for non-form elements (header, benefits, etc.)
  */
 
-import "@/css/plan.css"
+import "@/css/plan_page.css";
+import "@/css/plan.css";
 
 // Page-level initialization (if needed in the future)
 document.addEventListener("DOMContentLoaded", function () {
