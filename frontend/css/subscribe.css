@@ -25,7 +25,7 @@ header .title {
   text-align: center;
 }
 .icon {
-  display: flex !important;
+  display: flex;
   align-items: center;
   fill: currentColor;
 }

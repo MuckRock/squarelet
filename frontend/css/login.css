@@ -159,9 +159,6 @@ when it is side-by-side with the service gallery */
   border-top: 1px solid var(--gray-2);
 }
 
-.social-login > * {
-  with: min-content;
-}
 
 .social-login .ghost.button {
   gap: 0.5rem;
