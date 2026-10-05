@@ -12,8 +12,8 @@
 {% endblock vite %}
 
 {% block login_step %}
-<section class="container">
-  <header>
+<section class="container auth-step">
+  <header class="auth-stack">
     <div class="icon">
       <img src="{% static 'icons/security.svg' %}" />
     </div>
@@ -24,7 +24,7 @@
       {% endblocktrans %}
     </p>
   </header>
-  <div class="main">
+  <div class="main auth-stack">
   {% block reauthenticate_content %}{% endblock %}
   {% if reauthentication_alternatives %}
     {% element hr %}

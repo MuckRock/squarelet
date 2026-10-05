@@ -1,21 +1,3 @@
-.container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+.auth-step {
   justify-content: center;
-  padding: 4rem 1rem;
-  gap: 2rem;
-}
-header, .main, form {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-}
-.container h1,
-.container p {
-  width: 100%;
-  text-align: center;
-  text-wrap: balance;
-  margin: 0;
 }

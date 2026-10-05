@@ -1,15 +1,10 @@
 {% extends "account/onboarding/base.html" %}
 
-{% load i18n static django_vite %}
+{% load i18n static %}
 {% load account socialaccount %}
 
-{% block vite %}
-{{ block.super }}
-{% vite_asset "frontend/views/mfa_opt_in.ts" %}
-{% endblock vite %}
-
 {% block onboarding_step %}
-  <header>
+  <header class="auth-stack">
     <div class="icon">
       <img src="{% static 'icons/security.svg' %}" />
     </div>
