@@ -7,12 +7,9 @@
   margin: 0 0 auto;
 }
 
-.subscription-card .professional {
-  color: var(--blue-4);
-}
-
+.subscription-card .professional,
 .subscription-card .organization {
-  color: var(--purple-4);
+  color: var(--tone-4);
 }
 
 .subscription-frequency {

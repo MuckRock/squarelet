@@ -49,16 +49,8 @@
   flex: 1 0 18rem;
   align-self: stretch;
   border-radius: 0.5rem;
-}
-
-.professional.plan {
-  border: 1px solid var(--blue-2);
-  background: var(--blue-1);
-}
-
-.organization.plan {
-  border: 1px solid var(--purple-2);
-  background: var(--purple-1, #f4f1fe);
+  border: 1px solid var(--tone-2);
+  background: var(--tone-1);
 }
 
 .professional.plan .main,
@@ -67,12 +59,9 @@
   flex: 1 0 0;
 }
 
-.professional.plan .icon {
-  fill: var(--blue-3);
-}
-
+.professional.plan .icon,
 .organization.plan .icon {
-  fill: var(--purple-3);
+  fill: var(--tone-3);
 }
 
 .plan header {
@@ -97,12 +86,9 @@
   line-height: normal;
 }
 
-.professional.plan h3 {
-  color: var(--blue-4);
-}
-
+.professional.plan h3,
 .organization.plan h3 {
-  color: var(--purple-4);
+  color: var(--tone-4);
 }
 
 .plan footer {
@@ -113,12 +99,9 @@
   align-self: stretch;
 }
 
-.professional.plan .price {
-  color: var(--blue-5, #1e2b60);
-}
-
+.professional.plan .price,
 .organization.plan .price {
-  color: var(--purple-5);
+  color: var(--tone-5);
 }
 
 .org-list {

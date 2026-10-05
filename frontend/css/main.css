@@ -2110,3 +2110,22 @@ a.service-provider:focus {
 .gap-1 {
   gap: 1rem;
 }
+
+/* Plan tones: individual plans are blue, group plans purple. */
+.professional,
+.individual {
+  --tone-1: var(--blue-1);
+  --tone-2: var(--blue-2);
+  --tone-3: var(--blue-3);
+  --tone-4: var(--blue-4);
+  --tone-5: var(--blue-5);
+}
+
+.organization,
+.group {
+  --tone-1: var(--purple-1);
+  --tone-2: var(--purple-2);
+  --tone-3: var(--purple-3);
+  --tone-4: var(--purple-4);
+  --tone-5: var(--purple-5);
+}
