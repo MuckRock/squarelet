@@ -24,7 +24,7 @@
         <h2>{% trans "Pre-approved" %}</h2>
         <p>{% trans "Based on your email address, you're pre-approved to join:" %}</p>
       </header>
-      <div class="orgs">
+      <div class="orgs card card--stack">
         {% for organization in potential_orgs %}
         <div class="invite">
           {% include "account/team_list_item.html" %}
@@ -46,7 +46,7 @@
     <div class="pending">
       <h2>{% trans "Pending requests" %}</h2>
       
-      <div class="orgs">
+      <div class="orgs card card--stack">
         {% for invite in invitations %}
         <div class="invite">
           {% include "account/team_list_item.html" with organization=invite.organization %}

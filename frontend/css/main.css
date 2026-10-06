@@ -224,7 +224,7 @@ a._cls-nostyle {
     background: white;
     padding: 1rem;
     border-radius: 0px 0px 10px 10px;
-    box-shadow: 0px 2px 4px 2px var(--shadow, rgba(30, 48, 56, 0.15));
+    box-shadow: var(--shadow-1);
   }
 
   ._cls-navMenuMobile {
@@ -1655,7 +1655,7 @@ textarea {
   width: 5.25rem;
   border-radius: 25%;
   border: 2px solid var(--white, #ffffff);
-  box-shadow: 0px 2px 4px 2px var(--shadow, rgba(30, 48, 56, 0.15));
+  box-shadow: var(--shadow-1);
 }
 
 .service-info .service-owner {
@@ -1702,7 +1702,7 @@ a.service-provider:focus {
   height: 2.625rem;
   border: 2px solid #fff;
   border-radius: 25%;
-  box-shadow: 0px 2px 4px var(--shadow, rgba(30, 48, 56, 0.15));
+  box-shadow: var(--shadow-1);
   background: #fff;
   opacity: 0.95;
 }
@@ -2109,11 +2109,6 @@ a.service-provider:focus {
 
 .gap-1 {
   gap: 1rem;
-}
-
-/* card.css loads after this file and gives .card a shadow. */
-.shadow-0 {
-  box-shadow: none !important;
 }
 
 /* Plan tones: individual plans are blue, group plans purple. */
