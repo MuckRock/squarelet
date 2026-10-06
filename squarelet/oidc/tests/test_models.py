@@ -9,6 +9,7 @@ test in test_tasks.py mocks `ClientProfile.send_cache_invalidation` away.
 import hashlib
 import hmac
 import logging
+import re
 from urllib.parse import parse_qs
 from uuid import uuid4
 
@@ -126,7 +127,8 @@ class TestSendCacheInvalidation:
         assert f"count={UUID_LOG_THRESHOLD}" in caplog.text
         for uuid in uuids:
             assert uuid in caplog.text
-        assert "more" not in caplog.text
+        # The remainder marker, not any "more": a random URL can contain it.
+        assert not re.search(r"\+\d+ more", caplog.text)
 
     def test_bulk_batch_is_abbreviated(self, requests_mock, caplog):
         """A bulk batch logs a sample and a remainder, not thousands of uuids
