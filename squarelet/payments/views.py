@@ -352,7 +352,6 @@ class PlanDetailView(DetailView):
             return redirect(plan)
 
 
-
 class PlanRedirectView(RedirectView):
     """
     Redirects ID-only or slug-only plan URLs to the canonical ID+slug format
