@@ -11,9 +11,6 @@
 .free.plan .main {
   flex-direction: row-reverse;
   padding: 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid var(--gray-2, #d8dee2);
-  background: var(--white, #fff);
 }
 
 .plan-actions {
@@ -187,9 +184,6 @@
   flex: 1 0 0;
   align-self: stretch;
   flex-wrap: wrap;
-
-  border-radius: 0.5rem;
-  border: 1px solid var(--gray-2, #d8dee2);
 }
 
 .service .checkmark svg {
@@ -250,9 +244,6 @@
   align-items: flex-start;
   gap: 1.25rem;
   flex: 1 0 16rem;
-  border-radius: 0.5rem;
-  border: 1px solid var(--gray-2, #d8dee2);
-  background: var(--white, #fff);
 }
 
 .sunlight-tiers .tier header {

@@ -2111,6 +2111,11 @@ a.service-provider:focus {
   gap: 1rem;
 }
 
+/* card.css loads after this file and gives .card a shadow. */
+.shadow-0 {
+  box-shadow: none !important;
+}
+
 /* Plan tones: individual plans are blue, group plans purple. */
 .professional,
 .individual {
