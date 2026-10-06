@@ -63,46 +63,6 @@
   text-decoration-color: var(--green-3, #a0a0a0);
 }
 
-.checklist {
-  list-style-type: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
-  gap: 0.5rem;
-}
-
-.checklist-item {
-  display: flex;
-  align-items: flex-start;
-  padding: 0.25rem 0.5rem;
-  gap: 0.5rem;
-  align-self: stretch;
-}
-
-.checklist-item .text {
-  flex: 1 0 0;
-  color: var(--gray-5, #233944);
-  font-feature-settings: "ss04" on;
-  font-family: var(--font-sans, "Source Sans Pro");
-  font-size: var(--font-sm, 0.825rem);
-  font-style: normal;
-  font-weight: 600;
-  line-height: normal;
-}
-
-.checklist-item .icon {
-  display: flex;
-  align-items: center;
-}
-
-.checklist-item .icon svg {
-  width: var(--font-md, 1rem);
-  height: var(--font-md, 1rem);
-}
-
 .plan header {
   display: flex;
   padding: 0.25rem 0.5rem;

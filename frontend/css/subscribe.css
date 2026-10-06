@@ -72,31 +72,8 @@ header .title {
   color: var(--tone-4);
 }
 
-.benefits-list {
-  margin: 0;
-  padding: 0;
-  list-style-type: none;
-}
 
-.benefits-list li {
-  display: flex;
-  padding: 0.25rem 0.5rem;
-  align-items: center;
-  gap: 0.5rem;
-  align-self: stretch;
 
-  font-weight: 600;
-  line-height: normal;
-}
-
-.benefits-list .benefit-text {
-  color: var(--gray-5, #233944);
-  font-family: var(--font-sans, "Source Sans Pro");
-  font-size: var(--font-md, 1em);
-  font-style: normal;
-  font-weight: 600;
-  line-height: normal;
-}
 
 .tab {
   border: 1px solid var(--tone-1);
@@ -164,8 +141,6 @@ header .title {
 }
 
 .checkmark svg {
-  width: 1.125rem;
-  height: 1.125rem;
   opacity: 0.85;
 }
 
