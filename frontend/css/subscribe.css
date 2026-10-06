@@ -146,7 +146,7 @@ header .title {
 
 .plan-price {
   margin: 0;
-  color: var(--purple-5, #1E2B60);
+  color: var(--tone-5);
   font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
 
   /* Heading */
