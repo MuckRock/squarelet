@@ -1,10 +1,6 @@
 .container {
-  max-width: 32rem;
+  max-width: 36rem;
   margin: 3rem auto;
-  padding: 2rem;
-  background: var(--white);
-  border-radius: 8px;
-  border: 1px solid var(--gray-2);
 }
 
 h2 {

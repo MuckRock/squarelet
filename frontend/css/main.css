@@ -503,31 +503,6 @@ a._cls-nostyle {
   justify-content: space-around;
 }
 
-._cls-card {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  flex: 1;
-  box-shadow: 0 0 2px #0000004d;
-  padding-bottom: 1.5em;
-  border-radius: 5px;
-  background: white;
-  margin: 0.5em;
-}
-
-._cls-card h1 {
-  background: #2c343f;
-  font-size: 1em;
-  height: 40px;
-  line-height: 40px;
-  text-align: center;
-  color: white;
-  border-top-left-radius: 5px;
-  border-top-right-radius: 5px;
-  margin: 0;
-  padding: 0;
-}
-
 ._cls-cardAction button {
   background: var(--blue-3);
   color: var(--white);
@@ -550,12 +525,6 @@ a._cls-nostyle {
 ._cls-expandedContent {
   margin: 1em;
   text-align: center;
-}
-
-._cls-card li {
-  color: #737373;
-  margin: 1em 0;
-  line-height: 1.3;
 }
 
 ._cls-cardContent ul {
@@ -880,34 +849,6 @@ nav a:hover ._cls-serviceName {
   align-items: center;
 }
 
-._cls-profList {
-  list-style: none;
-  padding: 0;
-}
-
-._cls-profList li {
-  margin: 0.8em 0;
-  background: white;
-  border-radius: 5px;
-  box-shadow:
-    0 0 2px #0000001c,
-    0 1px 3px #00000021;
-  padding: 0.5em 1em;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  gap: 0.5em;
-}
-
-._cls-profList li:hover {
-  background: #e6eaec;
-  box-shadow: 0 2px 3px #00000036;
-}
-
-._cls-profList a {
-  text-decoration: none;
-}
-
 ._cls-infoPreSpaced {
   margin-bottom: 1em;
 }
@@ -922,11 +863,6 @@ nav a:hover ._cls-serviceName {
 
 ._cls-inlineInlineForm {
   display: inline;
-}
-
-._cls-profList li._cls-pendingInvite {
-  background: #efefef;
-  border: dashed 1px gray;
 }
 
 ._cls-manageTable {

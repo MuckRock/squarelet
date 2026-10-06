@@ -27,7 +27,6 @@ section#members .members {
   flex-direction: column;
   gap: 1rem;
   padding: 1rem;
-  color: var(--gray-5, #233944);
 }
 
 .staff-info {
@@ -43,7 +42,6 @@ section#security .security {
   flex-direction: column;
   gap: 1rem;
   padding: 1rem;
-  color: var(--gray-5, #233944);
 }
 
 .security-setting {
