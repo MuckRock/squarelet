@@ -11,9 +11,6 @@
 .invitation-history-table-wrapper {
   overflow-x: auto;
   margin: 2em 0;
-  background: var(--white);
-  border: 1px solid var(--gray-2);
-  border-radius: 0.5rem;
 }
 
 .invitation-history-table {
@@ -74,9 +71,6 @@
   padding: 2rem;
   text-align: center;
   color: var(--gray-4);
-  background: var(--white);
-  border: 1px solid var(--gray-2);
-  border-radius: 0.5rem;
 }
 
 .pagination {

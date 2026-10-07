@@ -23,7 +23,7 @@
 
 {% block table_content %}
 {% if invitations %}
-<div class="invitation-history-table-wrapper">
+<div class="invitation-history-table-wrapper card">
   <table class="invitation-history-table">
     <thead>
       <tr>
@@ -54,6 +54,6 @@
   </table>
 </div>
 {% else %}
-<p class="empty-message">{% trans "No invitations have been sent." %}</p>
+<p class="empty-message card">{% trans "No invitations have been sent." %}</p>
 {% endif %}
 {% endblock %}

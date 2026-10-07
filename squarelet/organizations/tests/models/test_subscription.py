@@ -645,27 +645,22 @@ class TestSubscriptionItem:
         started.assert_called_once()
 
     @pytest.mark.django_db()
-    def test_downgrading_to_a_free_plan_stops_billing(
+    def test_changing_a_paid_plan_to_a_free_one_is_refused(
         self, subscription_item_factory, plan_factory, professional_plan_factory, mocker
     ):
-        """The other half, and the worse one.
-
-        Without this the Stripe subscription survives the downgrade and the
-        customer keeps being charged for a free plan.
-        """
+        """Free and paid never share a subscription: remove and add instead."""
         service = mocker.patch(
             "squarelet.organizations.models.payment.get_payment_provider"
         ).return_value.get_subscription_service.return_value
-        mocker.patch("squarelet.organizations.models.Subscription.stripe_subscription")
         item = subscription_item_factory(
             plan=professional_plan_factory(), subscription__subscription_id="sub_live"
         )
 
-        item.modify(plan_factory(name="Free Tier", base_price=0, price_per_user=0))
+        with pytest.raises(SubscriptionError, match="never share a subscription"):
+            item.modify(plan_factory(name="Free Tier", base_price=0, price_per_user=0))
 
-        service.delete.assert_called_once()
-        item.subscription.refresh_from_db()
-        assert item.subscription.subscription_id == ""
+        service.delete.assert_not_called()
+        service.modify.assert_not_called()
 
     @pytest.mark.django_db()
     def test_changing_to_a_different_interval_is_refused(
@@ -720,32 +715,6 @@ class TestSubscriptionItem:
         assert subscription.cancel_at == date(2026, 10, 19)
 
     @pytest.mark.django_db()
-    def test_downgrading_still_works_when_stripe_has_already_lost_it(
-        self, subscription_item_factory, plan_factory, professional_plan_factory, mocker
-    ):
-        """A subscription cancelled in the Stripe dashboard retrieves as None.
-
-        Deleting None raised, so the local record went on naming a
-        subscription Stripe had already forgotten and every retry of the
-        downgrade failed the same way.
-        """
-        item = subscription_item_factory(
-            plan=professional_plan_factory(), subscription__subscription_id="sub_gone"
-        )
-        service = mocker.patch(
-            "squarelet.organizations.models.payment.get_payment_provider"
-        ).return_value.get_subscription_service.return_value
-        mocker.patch(
-            "squarelet.organizations.models.Subscription.stripe_subscription", None
-        )
-
-        item.modify(plan_factory(name="Free Tier", base_price=0, price_per_user=0))
-
-        service.delete.assert_not_called()
-        item.subscription.refresh_from_db()
-        assert item.subscription.subscription_id == ""
-
-    @pytest.mark.django_db()
     def test_a_free_line_is_not_described_to_stripe(
         self, subscription_item_factory, plan_factory, professional_plan_factory
     ):
@@ -781,10 +750,10 @@ class TestSubscriptionItem:
         assert SubscriptionItem.objects.filter(pk=item.pk).exists()
 
     @pytest.mark.django_db()
-    def test_remove_from_stripe_drops_the_line_without_proration(
+    def test_remove_from_stripe_credits_the_unused_time(
         self, subscription_item_factory, mocker
     ):
-        """The line was paid for through the period, so no credit is issued."""
+        """The rest of the period was paid for, so Stripe credits it."""
         item = subscription_item_factory(
             subscription__subscription_id="sub_multi", stripe_item_id="si_one"
         )
@@ -798,7 +767,7 @@ class TestSubscriptionItem:
         mock_sub_svc.modify.assert_called_once_with(
             "sub_multi",
             items=[{"id": "si_one", "deleted": True}],
-            proration_behavior="none",
+            proration_behavior="create_prorations",
         )
         assert not SubscriptionItem.objects.filter(pk=item.pk).exists()
 
@@ -895,3 +864,67 @@ class TestLinesAreIdentifiedBeforeTheyAreDescribed:
         assert "id" not in service.modify.call_args.kwargs["items"][0]
         item.refresh_from_db()
         assert item.stripe_item_id == ""
+
+
+class TestWhatEachKindAllows:
+    """Resubscribing and cancelling, as each kind of subscription permits."""
+
+    @pytest.mark.django_db()
+    def test_resubscribing_beside_a_live_replacement_is_refused(
+        self, subscription_item_factory, subscription_factory, mocker
+    ):
+        """Two live subscriptions of one shape would bill the same period twice."""
+        leaving = subscription_item_factory(subscription__cancelled=True).subscription
+        subscription_factory(
+            organization=leaving.organization,
+            interval=leaving.interval,
+            collection_method=leaving.collection_method,
+        )
+        mocker.patch(
+            "squarelet.organizations.models.Organization.customer",
+            return_value=mocker.Mock(stripe_payment_method_id="pm_test"),
+        )
+
+        with pytest.raises(SubscriptionError, match="live subscription"):
+            leaving.uncancel()
+
+        leaving.refresh_from_db()
+        assert leaving.cancelled
+
+    @pytest.mark.django_db()
+    def test_a_one_off_cannot_be_resubscribed(self, subscription_item_factory, mocker):
+        """Clearing its ending would make a one-time purchase renew."""
+        stripe_uncancel = mocker.patch(
+            "squarelet.organizations.models.payment.get_payment_provider"
+        ).return_value.get_subscription_service.return_value.uncancel
+        pack = subscription_item_factory(
+            subscription__kind="one_off", subscription__cancelled=True
+        ).subscription
+
+        with pytest.raises(SubscriptionError, match="one-time purchase"):
+            pack.uncancel()
+
+        stripe_uncancel.assert_not_called()
+        pack.refresh_from_db()
+        assert pack.cancelled
+
+    @pytest.mark.django_db()
+    def test_cancelling_a_free_plan_leaves_the_others(
+        self, subscription_item_factory, plan_factory
+    ):
+        """A free row has no period, so cancelling it would sweep them all tonight."""
+        leaving = subscription_item_factory(
+            subscription__kind="free",
+            plan=plan_factory(name="Free One", base_price=0, price_per_user=0),
+        )
+        staying = subscription_item_factory(
+            subscription=leaving.subscription,
+            plan=plan_factory(name="Free Two", base_price=0, price_per_user=0),
+        )
+
+        leaving.cancel()
+
+        assert not SubscriptionItem.objects.filter(pk=leaving.pk).exists()
+        staying.subscription.refresh_from_db()
+        assert not staying.subscription.cancelled
+        assert SubscriptionItem.objects.filter(pk=staying.pk).exists()

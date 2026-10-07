@@ -16,6 +16,7 @@ from .profile import RequestProfileChange, ReviewProfileChange, Update
 from .subscription import (
     CancelSubscription,
     ChargeDetail,
+    EndSubscription,
     ManageSubscriptions,
     PaymentsList,
     PDFChargeDetail,
@@ -38,6 +39,7 @@ __all__ = [
     "RemoveCard",
     "UpdateReceiptEmail",
     "CancelSubscription",
+    "EndSubscription",
     "PaymentsList",
     "ChargeDetail",
     "PDFChargeDetail",

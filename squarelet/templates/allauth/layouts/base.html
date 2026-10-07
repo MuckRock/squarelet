@@ -1,22 +1,16 @@
 {% extends 'base.html' %}
 
-{% load i18n static %}
+{% load i18n static django_vite %}
 
 {% block title %}
     {% block head_title %}
     {% endblock head_title %}
 {% endblock title %}
 
-{% block css %}
+{% block vite %}
 {{ block.super }}
-<style>
-  .container {
-    max-width: 96rem;
-    margin: 0 auto;
-    padding: 4rem 1rem;
-  }
-</style>
-{% endblock css %}
+{% vite_asset "frontend/views/allauth_layout.ts" %}
+{% endblock vite %}
 
 
 {% block container %}

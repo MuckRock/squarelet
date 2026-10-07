@@ -612,14 +612,22 @@ class TestOrganization:
 
     @pytest.mark.django_db(transaction=True)
     def test_modify_subscription_changes_plan(
-        self, organization_factory, user_factory, plan_factory
+        self,
+        organization_factory,
+        user_factory,
+        plan_factory,
+        mocker,
     ):
         """modify_subscription updates the subscription to the new plan"""
-        old_plan = plan_factory(slug="sunlight-enterprise", wix=True)
-        new_plan = plan_factory(slug="sunlight-essential", wix=True)
+        old_plan = plan_factory(slug="sunlight-enterprise", wix=True, base_price=90)
+        new_plan = plan_factory(slug="sunlight-essential", wix=True, base_price=30)
         user = user_factory()
         organization = organization_factory(admins=[user], plans=[old_plan])
 
+        mocker.patch("squarelet.organizations.models.Subscription.sync_to_stripe")
+        mocker.patch(
+            "squarelet.organizations.models.Subscription.stripe_subscription", None
+        )
         organization.modify_subscription(old_plan, new_plan, 5, user)
 
         assert organization.subscription_items.filter(plan=new_plan).exists()
@@ -1419,6 +1427,67 @@ class TestMultipleSubscriptions:
         assert sub.quantity == plan.minimum_users
 
     @pytest.mark.django_db
+    def test_ending_a_subscription_logs_and_unsyncs_every_plan(
+        self,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+        user_factory,
+        mocker,
+    ):
+        cancel = mocker.patch("squarelet.organizations.models.Subscription.cancel")
+        unsync = mocker.patch(
+            "squarelet.organizations.models.Organization._dispatch_wix_unsync"
+        )
+        org = organization_factory()
+        user = user_factory()
+        wix = plan_factory(name="Wix", base_price=30, wix=True)
+        first = subscription_item_factory(subscription__organization=org, plan=wix)
+        subscription_item_factory(
+            subscription=first.subscription,
+            plan=plan_factory(name="Other", base_price=40),
+        )
+
+        org.end_subscription(first.subscription, user=user)
+
+        cancel.assert_called_once_with()
+        logged = org.change_logs.filter(user=user).values_list(
+            "from_plan__name", flat=True
+        )
+        assert sorted(logged) == ["Other", "Wix"]
+        unsync.assert_called_once_with(wix)
+
+    @pytest.mark.django_db
+    def test_removing_a_plan_now_tells_the_other_apps(
+        self,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+        user_factory,
+        mocker,
+        django_capture_on_commit_callbacks,
+    ):
+        """Its entitlements go with it, so their caches must be invalidated."""
+        invalidate = mocker.patch(
+            "squarelet.organizations.models.organization.send_cache_invalidations"
+        )
+        org = organization_factory()
+        plan_a = plan_factory(base_price=30)
+        subscription_item_factory(subscription__organization=org, plan=plan_a)
+        subscription_item_factory(
+            subscription__organization=org, plan=plan_factory(base_price=40)
+        )
+        mocker.patch(
+            "squarelet.organizations.models.Subscription.stripe_subscription",
+            new_callable=lambda: property(lambda self: None),
+        )
+
+        with django_capture_on_commit_callbacks(execute=True):
+            org.remove_subscription(plan_a, user_factory())
+
+        invalidate.assert_called_with("organization", org.uuid)
+
+    @pytest.mark.django_db
     def test_remove_subscription_by_plan(
         self,
         organization_factory,
@@ -1429,8 +1498,8 @@ class TestMultipleSubscriptions:
     ):
         """remove_subscription by plan cancels that sub and leaves others."""
         org = organization_factory()
-        plan_a = plan_factory()
-        plan_b = plan_factory()
+        plan_a = plan_factory(base_price=30)
+        plan_b = plan_factory(base_price=40)
         user = user_factory()
         sub_a = subscription_item_factory(subscription__organization=org, plan=plan_a)
         sub_b = subscription_item_factory(subscription__organization=org, plan=plan_b)
@@ -1440,15 +1509,11 @@ class TestMultipleSubscriptions:
             new_callable=lambda: property(lambda self: None),
         )
 
-        org.remove_subscription(plan_a, user)
+        assert org.remove_subscription(plan_a, user) is True
 
-        # Cancellation is subscription-level here, and both lines share one
-        # subscription - so removing either ends both.  Cancelling one plan
-        # of several is the feature that comes next.
-        sub_a.refresh_from_db()
+        assert not org.subscription_items.filter(pk=sub_a.pk).exists()
         sub_b.refresh_from_db()
-        assert sub_a.cancelled
-        assert sub_b.cancelled
+        assert not sub_b.subscription.cancelled
 
     @pytest.mark.django_db
     def test_modify_subscription(
@@ -1457,17 +1522,41 @@ class TestMultipleSubscriptions:
         plan_factory,
         subscription_item_factory,
         user_factory,
+        mocker,
     ):
         """modify_subscription updates the plan on the matching subscription."""
         org = organization_factory()
-        plan_a = plan_factory()
-        plan_b = plan_factory()
+        plan_a = plan_factory(base_price=30)
+        plan_b = plan_factory(base_price=40)
         user = user_factory()
         subscription_item_factory(subscription__organization=org, plan=plan_a)
 
+        mocker.patch("squarelet.organizations.models.Subscription.sync_to_stripe")
+        mocker.patch(
+            "squarelet.organizations.models.Subscription.stripe_subscription", None
+        )
         org.modify_subscription(plan_a, plan_b, org.max_users, user)
 
         assert org.subscription_items.filter(plan=plan_b).exists()
+
+    @pytest.mark.django_db
+    def test_a_refused_change_is_not_logged(
+        self,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+        user_factory,
+    ):
+        org = organization_factory()
+        paid = plan_factory(base_price=30)
+        subscription_item_factory(subscription__organization=org, plan=paid)
+
+        with pytest.raises(SubscriptionError):
+            org.modify_subscription(
+                paid, plan_factory(base_price=0), org.max_users, user_factory()
+            )
+
+        assert not org.change_logs.filter(to_plan__base_price=0).exists()
 
     @pytest.mark.django_db
     def test_modify_subscription_missing_plan_raises(

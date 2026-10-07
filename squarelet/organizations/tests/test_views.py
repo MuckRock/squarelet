@@ -4,13 +4,15 @@ from django.contrib import messages
 from django.contrib.auth.models import AnonymousUser, Permission
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
+from django.db import connection
 from django.http.response import Http404
-from django.test.utils import override_settings
+from django.test.utils import CaptureQueriesContext, override_settings
 from django.utils import timezone
 
 # Standard Library
 import json
-from datetime import date, datetime, timezone as dt_timezone
+import time
+from datetime import date, datetime, timedelta, timezone as dt_timezone
 from unittest.mock import MagicMock, call
 
 # Third Party
@@ -18,10 +20,12 @@ import pytest
 import stripe
 from actstream.models import Action
 from allauth.account.models import EmailAddress
+from freezegun import freeze_time
 
 # Squarelet
 from squarelet.core.exceptions import ContextHttp404
 from squarelet.core.tests.mixins import ViewTestMixin
+from squarelet.organizations.payments.exceptions import SubscriptionError
 
 # Local
 from .. import views
@@ -1453,6 +1457,33 @@ class TestRemoveCard(ViewTestMixin):
             "removing your payment method.",
         )
 
+    def test_a_free_subscription_does_not_block_removal(
+        self,
+        rf,
+        organization_factory,
+        user_factory,
+        plan_factory,
+        subscription_item_factory,
+        mocker,
+    ):
+        """Nothing free is billed to the card."""
+        self._mock_card_on_file(mocker)
+        mocked_remove = mocker.patch(
+            "squarelet.organizations.models.Organization.remove_payment_method"
+        )
+        user = user_factory()
+        organization = organization_factory(admins=[user])
+        subscription_item_factory(
+            subscription__organization=organization,
+            subscription__kind="free",
+            plan=plan_factory(name="Free", base_price=0, price_per_user=0),
+        )
+
+        response = self.call_view(rf, user, {}, slug=organization.slug)
+
+        assert response.status_code == 302
+        mocked_remove.assert_called_once()
+
     def test_allowed_when_all_subscriptions_cancelled(
         self,
         rf,
@@ -1656,9 +1687,274 @@ class TestManageSubscriptions(ViewTestMixin):
         response = self.call_view(rf, admin, slug=organization.slug)
 
         assert response.status_code == 200
-        rendered = list(response.context_data["subscriptions"])
-        assert rendered == [item]
-        assert rendered[0].next_date == date(2026, 10, 20)
+        (block,) = response.context_data["subscriptions"]
+        assert block["lines"] == [item]
+        assert block["subscription"].next_date == date(2026, 10, 20)
+
+    def test_more_plans_do_not_mean_more_queries(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+    ):
+        """Whether each plan can come off now is read from the lines loaded."""
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        first = subscription_item_factory(
+            subscription__organization=organization,
+            plan=plan_factory(name="First", base_price=30),
+        )
+        subscription_item_factory(
+            subscription=first.subscription,
+            plan=plan_factory(name="Second", base_price=30),
+        )
+
+        def render_queries():
+            with CaptureQueriesContext(connection) as queries:
+                self.call_view(rf, admin, slug=organization.slug).render()
+            return len(queries)
+
+        two = render_queries()
+        for name in ("Third", "Fourth"):
+            subscription_item_factory(
+                subscription=first.subscription,
+                plan=plan_factory(name=name, base_price=30),
+            )
+
+        assert render_queries() == two
+
+    def test_remove_is_offered_only_beside_another_paid_plan(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+    ):
+        """A lone paid plan only offers cancelling the subscription."""
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        first = subscription_item_factory(
+            subscription__organization=organization,
+            plan=plan_factory(name="First", base_price=30),
+        )
+
+        page = self.call_view(rf, admin, slug=organization.slug).render()
+        assert b"/end" in page.content
+        assert page.content.count(b"/cancel") == 0
+
+        subscription_item_factory(
+            subscription=first.subscription,
+            plan=plan_factory(name="Second", base_price=30),
+        )
+        page = self.call_view(rf, admin, slug=organization.slug).render()
+        assert page.content.count(b"/cancel") == 2
+
+
+@pytest.mark.django_db()
+class TestRemovingAPlan(ViewTestMixin):
+    """The confirm page prices the credit at one moment and removes at it."""
+
+    view = views.CancelSubscription
+    url = "/organizations/{slug}/subscriptions/{pk}/cancel"
+
+    @pytest.fixture
+    def line(
+        self,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+    ):
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        leaving = subscription_item_factory(
+            subscription__organization=organization,
+            plan=plan_factory(name="Leaving", base_price=30),
+        )
+        subscription_item_factory(
+            subscription=leaving.subscription,
+            plan=plan_factory(name="Staying", base_price=30),
+        )
+        leaving.admin = admin
+        return leaving
+
+    def test_the_page_shows_the_credit(self, rf, line, mocker):
+        mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.removal_credit",
+            return_value=1240,
+        )
+
+        page = self.call_view(
+            rf, line.admin, slug=line.subscription.organization.slug, pk=line.pk
+        ).render()
+
+        assert b"$12.40" in page.content
+        assert b'name="proration_date"' in page.content
+
+    def test_the_plans_are_read_once(self, rf, line, mocker):
+        """Whether the plan comes off now is asked once."""
+        mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.removal_credit",
+            return_value=1240,
+        )
+
+        with CaptureQueriesContext(connection) as queries:
+            self.call_view(
+                rf, line.admin, slug=line.subscription.organization.slug, pk=line.pk
+            ).render()
+
+        reads = [
+            query
+            for query in queries.captured_queries
+            if 'FROM "organizations_subscriptionitem"' in query["sql"]
+        ]
+        # The plan itself, then the plans beside it.
+        assert len(reads) == 2
+
+    def test_the_credit_reuses_the_page_s_answer(self, rf, line, mocker):
+        """`removes_now` queries the other lines; the credit must not ask again."""
+        removes_now = mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.removes_now",
+            new_callable=mocker.PropertyMock,
+            return_value=True,
+        )
+
+        self.call_view(
+            rf, line.admin, slug=line.subscription.organization.slug, pk=line.pk
+        ).render()
+
+        assert removes_now.call_count == 1
+
+    def test_a_fresh_stamp_reaches_the_removal(self, rf, line, mocker):
+        remove = mocker.patch(
+            "squarelet.organizations.models.Organization.remove_subscription",
+            return_value=True,
+        )
+        stamp = int(time.time()) - 60
+
+        self.call_view(
+            rf,
+            line.admin,
+            {"proration_date": self.view.proration_signer.sign(str(stamp))},
+            slug=line.subscription.organization.slug,
+            pk=line.pk,
+        )
+
+        assert remove.call_args.kwargs["proration_date"] == stamp
+
+    def test_a_stamp_over_an_hour_old_is_dropped(self, rf, line, mocker):
+        """Stripe then prices the credit at the moment of removal."""
+        remove = mocker.patch(
+            "squarelet.organizations.models.Organization.remove_subscription",
+            return_value=True,
+        )
+        with freeze_time(timezone.now() - timedelta(hours=2)):
+            token = self.view.proration_signer.sign(str(int(time.time())))
+
+        self.call_view(
+            rf,
+            line.admin,
+            {"proration_date": token},
+            slug=line.subscription.organization.slug,
+            pk=line.pk,
+        )
+
+        assert remove.call_args.kwargs["proration_date"] is None
+
+    def test_an_edited_stamp_is_ignored(self, rf, line, mocker):
+        """An earlier moment would mean a larger credit."""
+        remove = mocker.patch(
+            "squarelet.organizations.models.Organization.remove_subscription",
+            return_value=True,
+        )
+
+        self.call_view(
+            rf,
+            line.admin,
+            {"proration_date": str(int(time.time()) - 1800)},
+            slug=line.subscription.organization.slug,
+            pk=line.pk,
+        )
+
+        assert remove.call_args.kwargs["proration_date"] is None
+
+    def test_a_stripe_failure_is_shown_not_raised(self, rf, line, mocker):
+        mocker.patch(
+            "squarelet.organizations.models.Organization.remove_subscription",
+            side_effect=stripe.APIConnectionError("down"),
+        )
+
+        response = self.call_view(
+            rf, line.admin, {}, slug=line.subscription.organization.slug, pk=line.pk
+        )
+
+        assert response.status_code == 302
+        # pylint:disable=protected-access
+        assert self.request._messages.add.call_args.args[0] == messages.ERROR
+
+
+@pytest.mark.django_db()
+class TestEndSubscription(ViewTestMixin):
+    """Cancel subscription ends every plan on it at period end."""
+
+    view = views.EndSubscription
+    url = "/organizations/{slug}/subscriptions/{pk}/end"
+
+    def test_every_plan_ends_with_the_subscription(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+        mocker,
+    ):
+        cancel = mocker.patch("squarelet.organizations.models.Subscription.cancel")
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        first = subscription_item_factory(
+            subscription__organization=organization,
+            plan=plan_factory(name="First", base_price=30),
+        )
+        subscription_item_factory(
+            subscription=first.subscription,
+            plan=plan_factory(name="Second", base_price=30),
+        )
+
+        response = self.call_view(
+            rf, admin, {}, slug=organization.slug, pk=first.subscription.pk
+        )
+
+        assert response.status_code == 302
+        cancel.assert_called_once_with()
+        assert first.subscription.items.count() == 2
+        assert organization.change_logs.filter(user=admin).count() == 2
+
+
+@pytest.mark.django_db()
+class TestResubscribe(ViewTestMixin):
+    view = views.Resubscribe
+    url = "/organizations/{slug}/resubscribe/{pk}/"
+
+    def test_a_refusal_is_shown_not_raised(
+        self, rf, user_factory, organization_factory, subscription_item_factory, mocker
+    ):
+        """Resubscribing beside a live replacement is refused with a message."""
+        mocker.patch(
+            "squarelet.organizations.models.SubscriptionItem.uncancel",
+            side_effect=SubscriptionError("already has a live subscription"),
+        )
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        line = subscription_item_factory(subscription__organization=organization)
+
+        response = self.call_view(rf, admin, {}, slug=organization.slug, pk=line.pk)
+
+        assert response.status_code == 302
+        self.assert_message(messages.ERROR, "already has a live subscription")
 
 
 @pytest.mark.django_db()
@@ -1667,6 +1963,57 @@ class TestCancelSubscription(ViewTestMixin):
 
     view = views.CancelSubscription
     url = "/organizations/{slug}/subscriptions/{pk}/cancel"
+
+    def test_the_change_log_names_who_did_it(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+        mocker,
+    ):
+        remove = mocker.patch(
+            "squarelet.organizations.models.Organization.remove_subscription",
+            return_value=True,
+        )
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        line = subscription_item_factory(
+            subscription__organization=organization,
+            plan=plan_factory(name="Leaving", base_price=30),
+        )
+
+        self.call_view(rf, admin, {}, slug=organization.slug, pk=line.pk)
+
+        assert remove.call_args.kwargs["user"] == admin
+
+    def test_a_plan_already_ending_is_left_alone(
+        self,
+        rf,
+        user_factory,
+        organization_factory,
+        plan_factory,
+        subscription_item_factory,
+        mocker,
+    ):
+        """No removal, no change log, no 'cancelled' in the audit trail."""
+        remove = mocker.patch(
+            "squarelet.organizations.models.Organization.remove_subscription"
+        )
+        admin = user_factory()
+        organization = organization_factory(admins=[admin])
+        line = subscription_item_factory(
+            subscription__organization=organization,
+            subscription__cancelled=True,
+            plan=plan_factory(name="Ending", base_price=30),
+        )
+
+        response = self.call_view(rf, admin, {}, slug=organization.slug, pk=line.pk)
+
+        assert response.status_code == 302
+        remove.assert_not_called()
+        assert not Action.objects.filter(verb="cancelled a subscription").exists()
 
     def test_staff_cancel_subscription_creates_action(
         self,
@@ -1678,7 +2025,10 @@ class TestCancelSubscription(ViewTestMixin):
         mocker,
     ):
         """Staff cancelling a subscription on someone's behalf is logged"""
-        mocker.patch("squarelet.organizations.models.Organization.remove_subscription")
+        mocker.patch(
+            "squarelet.organizations.models.Organization.remove_subscription",
+            return_value=False,
+        )
         staff_member = user_factory(is_staff=True)
         staff_member = _assign_org_perm(staff_member, "can_edit_subscription")
         organization = organization_factory()

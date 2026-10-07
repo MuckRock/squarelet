@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import ValidationError
+from django.core.signing import BadSignature, TimestampSigner
 from django.db import transaction
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
@@ -21,6 +22,7 @@ from django.views.generic import (
 # Standard Library
 import logging
 import sys
+import time
 
 # Third Party
 import stripe
@@ -350,51 +352,6 @@ class PlanDetailView(DetailView):
             return redirect(plan)
 
 
-class SunlightResearchPlansView(TemplateView):
-    template_name = "payments/sunlight-research-plans.html"
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-
-        # 1. Fetch Sunlight research plans
-        sunlight_plans = list(
-            Plan.objects.filter(slug__startswith="sunlight-", wix=True)
-        )
-        context["sunlight_plans"] = sunlight_plans
-
-        # 2. Fetch user subscription information
-        # 3. Fetch organization subscription information
-        #    for each organization the user administers
-        existing_subscriptions = []
-
-        if self.request.user.is_authenticated:
-            # Check user's individual organization
-            individual_org = self.request.user.individual_organization
-            individual_subscriptions = individual_org.subscription_items.filter(
-                plan__slug__startswith="sunlight-", plan__wix=True
-            ).select_related("plan")
-
-            for subscription in individual_subscriptions:
-                existing_subscriptions.append((subscription.plan, individual_org))
-
-            # Check organizations where user is admin
-            admin_orgs = Organization.objects.filter(
-                users=self.request.user, memberships__admin=True, individual=False
-            ).distinct()
-
-            for org in admin_orgs:
-                org_subscriptions = org.subscription_items.filter(
-                    plan__slug__startswith="sunlight-", plan__wix=True
-                ).select_related("plan")
-
-                for subscription in org_subscriptions:
-                    existing_subscriptions.append((subscription.plan, org))
-
-        context["existing_subscriptions"] = existing_subscriptions
-
-        return context
-
-
 class PlanRedirectView(RedirectView):
     """
     Redirects ID-only or slug-only plan URLs to the canonical ID+slug format
@@ -552,12 +509,17 @@ class BaseManageSubscriptions(SubscriptionObjectMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        # Get subscriptions and add renewal/cancellation date and cost data
-        subscriptions = self.object.subscription_items.select_related(
-            "subscription", "plan"
-        )
-        for subscription in subscriptions:
-            subscription.cost = subscription.plan.cost(self.object.max_users)
+        # One block per subscription, since cancellation is per subscription.
+        subscriptions = []
+        for subscription in self.object.subscriptions.prefetch_related(
+            "items__plan"
+        ).order_by("pk"):
+            lines = list(subscription.items.all())
+            if not lines:
+                continue
+            for line in lines:
+                line.cost = line.plan.cost(self.object.max_users)
+            subscriptions.append({"subscription": subscription, "lines": lines})
         context["subscriptions"] = subscriptions
 
         # Get card on file
@@ -640,8 +602,12 @@ class BaseRemoveCard(SubscriptionObjectMixin, View):
             return self._error(_("You do not have a card on file to remove."))
 
         # A non-cancelled subscription still bills the card on file, so removing
-        # it would set up a failed renewal. Require cancellation first.
-        if organization.subscriptions.filter(cancelled=False).exists():
+        # it would set up a failed renewal.  A free one never reaches Stripe.
+        if (
+            organization.subscriptions.filter(cancelled=False)
+            .exclude(kind="free")
+            .exists()
+        ):
             return self._error(
                 _(
                     "You must cancel your active subscriptions before "
@@ -685,30 +651,121 @@ class BaseUpdateReceiptEmail(SubscriptionObjectMixin, UpdateView):
 
 
 class BaseCancelSubscription(SubscriptionObjectMixin, UpdateView):
+    """Stop one plan: now with a credit while others bill, else at period end."""
+
     form_class = CancelSubscriptionForm
     template_name = "subscriptions/cancel_subscription.html"
 
+    def get_line(self):
+        return (
+            self.object.subscription_items.filter(id=self.kwargs["pk"])
+            .select_related("plan", "subscription")
+            .first()
+        )
+
+    proration_signer = TimestampSigner(salt="squarelet.payments.removal-proration")
+
+    def get_proration_date(self):
+        """The moment the confirm page priced the credit at, if still usable.
+
+        Signed, so it can't be backdated for a larger credit, and good for an
+        hour.  Removing at the same moment makes the credit match what was shown.
+        """
+        try:
+            return int(
+                self.proration_signer.unsign(
+                    self.request.POST.get("proration_date", ""), max_age=3600
+                )
+            )
+        except (BadSignature, ValueError):
+            return None
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        subscription = self.object.subscription_items.filter(
-            id=self.kwargs["pk"]
-        ).first()
-        if subscription:
-            context["subscription"] = subscription
-            context["next_date"] = subscription.subscription.next_date
+        line = self.get_line()
+        if line:
+            # A property that queries the db for other lines, so read it once.
+            removes_now = line.removes_now
+            free = line.is_free
+            context.update(
+                plans=[line.plan.name],
+                removes_now=removes_now,
+                free=free,
+                next_date=line.subscription.next_date,
+            )
+            if removes_now and not free:
+                stamp = int(time.time())
+                context["proration_date"] = self.proration_signer.sign(str(stamp))
+                credit = line.removal_credit(stamp, removes_now)
+                if credit:
+                    context["credit"] = f"{credit / 100:,.2f}"
         return context
 
     def form_valid(self, form):
-        organization = self.object
-        subscription = self.object.subscription_items.filter(
-            id=self.kwargs["pk"]
-        ).first()
-        if subscription:
-            organization.remove_subscription(subscription)
+        line = self.get_line()
+        if line is None:
+            return redirect(self.reverse_subject("subscriptions"))
+        next_date = line.subscription.next_date
+        if line.subscription.cancelled:
+            messages.info(self.request, _(f"This already ends on {next_date}."))
+            return redirect(self.reverse_subject("subscriptions"))
+        try:
+            with transaction.atomic():
+                removed = self.object.remove_subscription(
+                    line,
+                    user=self.request.user,
+                    proration_date=self.get_proration_date(),
+                )
+        except stripe.StripeError as exc:
+            messages.error(self.request, f"Stripe error: {format_stripe_error(exc)}")
+            return redirect(self.reverse_subject("subscriptions"))
+        if removed:
+            self.log_staff_action("removed a plan", description=line.plan.name)
+            messages.success(self.request, _(f"{line.plan.name} removed."))
+        else:
             self.log_staff_action(
-                "cancelled a subscription", description=subscription.plan.name
+                "cancelled a subscription", description=line.plan.name
             )
-        messages.success(self.request, _("Subscription cancelled."))
+            messages.success(
+                self.request, _(f"Subscription cancelled.  It ends on {next_date}.")
+            )
+        return redirect(self.reverse_subject("subscriptions"))
+
+
+class BaseEndSubscription(SubscriptionObjectMixin, UpdateView):
+    """Cancel every plan on one subscription at period end."""
+
+    form_class = CancelSubscriptionForm
+    template_name = "subscriptions/cancel_subscription.html"
+
+    def get_subscription(self):
+        return self.object.subscriptions.filter(
+            id=self.kwargs["pk"], kind="renewing"
+        ).first()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        subscription = self.get_subscription()
+        if subscription:
+            context["plans"] = [
+                line.plan.name for line in subscription.items.select_related("plan")
+            ]
+            context["removes_now"] = False
+            context["next_date"] = subscription.next_date
+        return context
+
+    def form_valid(self, form):
+        subscription = self.get_subscription()
+        if subscription and not subscription.cancelled:
+            plans = self.object.end_subscription(subscription, user=self.request.user)
+            self.log_staff_action(
+                "cancelled a subscription",
+                description=", ".join(plan.name for plan in plans),
+            )
+            messages.success(
+                self.request,
+                _(f"Subscription cancelled.  It ends on {subscription.next_date}."),
+            )
         return redirect(self.reverse_subject("subscriptions"))
 
 
@@ -783,6 +840,8 @@ class BaseResubscribe(SubscriptionObjectMixin, View):
             subscription.uncancel()
         except ValidationError as exc:
             return self._error(exc.message, "update-card")
+        except SubscriptionError as exc:
+            return self._error(str(exc))
         except stripe.StripeError as exc:
             return self._error(f"Stripe error: {format_stripe_error(exc)}")
 

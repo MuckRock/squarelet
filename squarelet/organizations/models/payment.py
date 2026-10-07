@@ -389,6 +389,24 @@ def _stripe_price_id(stripe_item):
     return None
 
 
+def _proration_for(line, item_id):
+    """Whether an invoice line is a proration for Stripe subscription item `item_id`.
+
+    Newer API versions nest this under `parent`; older ones put it on the line.
+    Subscript access: a StripeObject refuses `.get`.
+    """
+    parent = line["parent"] if "parent" in line else None
+    if parent and "subscription_item_details" in parent:
+        details = parent["subscription_item_details"]
+        return bool(details["proration"]) and details["subscription_item"] == item_id
+    return (
+        "proration" in line
+        and bool(line["proration"])
+        and "subscription_item" in line
+        and line["subscription_item"] == item_id
+    )
+
+
 class Cancellable:
     """The `cancelled`/`cancel_at` pair, shared by a subscription and its lines.
 
@@ -463,6 +481,21 @@ class Subscription(Cancellable, models.Model):
         default="charge_automatically",
         help_text=_("How Stripe collects payment, shared by every item"),
     )
+    KIND_CHOICES = (
+        ("renewing", _("Renewing")),
+        ("one_off", _("One-off")),
+        ("free", _("Free")),
+    )
+    kind = models.CharField(
+        _("kind"),
+        max_length=20,
+        choices=KIND_CHOICES,
+        default="renewing",
+        help_text=_(
+            "Renewing paid plans share a subscription per billing shape, a "
+            "one-off purchase gets its own, and free plans never reach Stripe."
+        ),
+    )
 
     # Cancellation takes effect at period end, when the record is deleted.
     cancelled = models.BooleanField(default=False)
@@ -504,6 +537,15 @@ class Subscription(Cancellable, models.Model):
                 .retrieve(self.subscription_id)
             )
         return None
+
+    @staticmethod
+    def kind_for(plan):
+        """Which kind of subscription a line for `plan` belongs on."""
+        if plan.free:
+            return "free"
+        if not plan.auto_renew:
+            return "one_off"
+        return "renewing"
 
     @property
     def free(self):
@@ -766,6 +808,27 @@ class Subscription(Cancellable, models.Model):
         Clears the cancelled flag and cancel_at date locally, and removes
         cancel_at_period_end on the Stripe subscription so it auto-renews.
         """
+        if self.kind == "one_off":
+            raise SubscriptionError(
+                "A one-time purchase ends when its term does.  Buy it again for "
+                "another term."
+            )
+        if (
+            self.kind == "renewing"
+            and Subscription.objects.filter(
+                organization=self.organization,
+                interval=self.interval,
+                collection_method=self.collection_method,
+                kind="renewing",
+                cancelled=False,
+            )
+            .exclude(pk=self.pk)
+            .exists()
+        ):
+            raise SubscriptionError(
+                "This organization already has a live subscription on the same "
+                "billing.  These plans can be added to it once this one ends."
+            )
         customer = self.organization.customer()
         if not customer.stripe_payment_method_id:
             raise ValidationError(
@@ -874,10 +937,16 @@ class Subscription(Cancellable, models.Model):
                 condition=~models.Q(subscription_id=""),
                 name="unique_stripe_subscription_id_when_set",
             ),
-            # One subscription per organization per billing shape.
+            # A cancelling subscription runs out beside its replacement.
             models.UniqueConstraint(
                 fields=["organization", "interval", "collection_method"],
-                name="unique_subscription_per_billing_shape",
+                condition=models.Q(kind="renewing", cancelled=False),
+                name="unique_live_renewing_subscription_per_shape",
+            ),
+            models.UniqueConstraint(
+                fields=["organization"],
+                condition=models.Q(kind="free"),
+                name="unique_free_subscription_per_organization",
             ),
         ]
 
@@ -923,6 +992,15 @@ class SubscriptionItem(models.Model):
         help_text=_(
             "The subscription item ID on stripe.  Blank for items that never "
             "reach Stripe, which is every comped one."
+        ),
+    )
+    ends_on = models.DateField(
+        _("ends on"),
+        null=True,
+        blank=True,
+        help_text=_(
+            "The day a free line stops, such as a comp that runs out.  Paid lines "
+            "end with their subscription."
         ),
     )
 
@@ -1021,10 +1099,8 @@ class SubscriptionItem(models.Model):
     def modify(self, plan):
         """Change which plan this line bills.
 
-        Refuses a change of billing interval, and never moves between
-        products - Stripe will not carry both intervals on one subscription,
-        so either is a remove plus an add.  Goes through `sync_to_stripe`,
-        because a plan change can change whether the subscription bills.
+        Raises SubscriptionError for a change of interval or kind: the new plan
+        belongs on another subscription, so that is a remove plus an add.
         """
         # `sync_stripe_item_ids` matches on the Price, so a moved plan matches
         # nothing and the customer is billed for both.
@@ -1035,6 +1111,13 @@ class SubscriptionItem(models.Model):
                 f"{interval} and this subscription bills "
                 f"{self.subscription.interval}.  Remove the line and add the "
                 f"new plan, which puts it on the right subscription."
+            )
+        kind = Subscription.kind_for(plan)
+        if kind != self.subscription.kind:
+            raise SubscriptionError(
+                f"Cannot change {self.plan} to {plan} in place: one is "
+                f"{self.subscription.kind} and the other {kind}, and those never "
+                f"share a subscription.  Remove the line and add the new plan."
             )
 
         stripe_sub = self.subscription.stripe_subscription
@@ -1047,24 +1130,87 @@ class SubscriptionItem(models.Model):
         self.save()
         self.subscription.sync_to_stripe()
 
-    def cancel(self):
-        """Stop billing this line at the end of the current period.
+    @property
+    def removes_now(self):
+        """Whether stopping this plan takes it off now rather than at period end.
 
-        Cancels the whole subscription: Stripe has no per-item
-        cancel_at_period_end.
+        A free plan always does.  A paid one does while other plans stay on its
+        renewing subscription, which carries the credit for its unused time.
         """
-        self.subscription.cancel()
+        subscription = self.subscription
+        if subscription.kind == "free":
+            return True
+        return (
+            subscription.kind == "renewing"
+            and not subscription.cancelled
+            # Through `all()` so a prefetch, as the billing page has, serves it.
+            and any(line.pk != self.pk for line in subscription.items.all())
+        )
+
+    def removal_credit(self, proration_date, removes_now=None):
+        """The credit that removing this line at `proration_date` gives, in cents.
+
+        Positive.  None when Stripe can't be asked or doesn't answer, so the
+        page falls back to saying a credit is coming without its amount.  Pass
+        `removes_now` if already read: the property queries the other lines.
+        """
+        if removes_now is None:
+            removes_now = self.removes_now
+        if self.is_free or not removes_now:
+            return None
+        subscription = self.subscription
+        # The ids already stored are enough; showing a page shouldn't write.
+        if not (subscription.subscription_id and self.stripe_item_id):
+            return None
+        try:
+            preview = (
+                get_payment_provider()
+                .get_subscription_service()
+                .preview_removal(
+                    subscription.organization.customer().customer_id,
+                    subscription.subscription_id,
+                    self.stripe_item_id,
+                    proration_date,
+                )
+            )
+        except stripe.StripeError as exc:
+            logger.warning("[SUBSCRIPTION-ITEM] Removal preview failed: %s", exc)
+            return None
+        # Stripe gives a credit as a negative amount.
+        return -sum(
+            line["amount"]
+            for line in preview["lines"]["data"]
+            if _proration_for(line, self.stripe_item_id)
+        )
+
+    def cancel(self, proration_date=None):
+        """Stop this plan.  Returns True if it came off now.
+
+        Otherwise the whole subscription cancels at period end: Stripe has no
+        per-item cancel_at_period_end, and with nothing else billing there is no
+        invoice to credit.
+        """
+        if self.removes_now:
+            subscription = self.subscription
+            self.remove_from_stripe(proration_date)
+            if subscription.kind == "free" and not subscription.items.exists():
+                subscription.delete()
+            return True
+        if not self.subscription.cancelled:
+            self.subscription.cancel()
+        return False
 
     def uncancel(self):
         """Reverse a pending cancellation, whole-subscription like `cancel`."""
         self.subscription.uncancel()
 
-    def remove_from_stripe(self):
+    def remove_from_stripe(self, proration_date=None):
         """Drop this line from the Stripe subscription and delete it locally.
 
-        Proration is suppressed - the line is paid through period end, so the
-        next invoice omits it rather than crediting it.  Identifies the line
-        first: the only id that could find it again goes with the row.
+        Stripe credits the unused time against the next invoice, counted from
+        `proration_date` when given so it matches a credit already shown.
+        Identifies the line first: the only id that could find it again goes
+        with the row.
         """
         stripe_sub = self.subscription.stripe_subscription
         if stripe_sub is not None:
@@ -1075,11 +1221,23 @@ class SubscriptionItem(models.Model):
             self.refresh_from_db()
 
         if stripe_sub is not None and self.stripe_item_id:
-            get_payment_provider().get_subscription_service().modify(
-                self.subscription.subscription_id,
-                items=[{"id": self.stripe_item_id, "deleted": True}],
-                proration_behavior="none",
-            )
+            removal = {
+                "items": [{"id": self.stripe_item_id, "deleted": True}],
+                "proration_behavior": "create_prorations",
+            }
+            service = get_payment_provider().get_subscription_service()
+            try:
+                service.modify(
+                    self.subscription.subscription_id,
+                    **removal,
+                    **({"proration_date": proration_date} if proration_date else {}),
+                )
+            except stripe.InvalidRequestError:
+                if not proration_date:
+                    raise
+                # The period can renew between pricing and removing, leaving
+                # the moment outside it; Stripe then prices it at now.
+                service.modify(self.subscription.subscription_id, **removal)
         elif not self.is_free:
             # Delete anyway - it is what the customer asked for - but log it:
             # the charge may outlive the record of what it was for.

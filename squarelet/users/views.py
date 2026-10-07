@@ -58,6 +58,7 @@ from squarelet.organizations.models import (
 from squarelet.organizations.models.payment import Plan
 from squarelet.payments.views import (
     BaseCancelSubscription,
+    BaseEndSubscription,
     BaseManageSubscriptions,
     BasePaymentsList,
     BaseRemoveCard,
@@ -717,6 +718,10 @@ class ManageSubscriptions(IndividualSubscriptionView, BaseManageSubscriptions):
 
 
 class CancelSubscription(IndividualSubscriptionView, BaseCancelSubscription):
+    pass
+
+
+class EndSubscription(IndividualSubscriptionView, BaseEndSubscription):
     pass
 
 

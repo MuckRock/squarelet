@@ -1,0 +1,23 @@
+/* The column beside the service gallery on onboarding and reauthentication steps. */
+.auth-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4rem 1rem;
+  gap: 2rem;
+}
+
+.auth-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.auth-stack h1,
+.auth-stack p {
+  width: 100%;
+  text-align: center;
+  text-wrap: balance;
+  margin: 0;
+}

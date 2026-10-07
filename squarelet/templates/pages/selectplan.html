@@ -33,7 +33,7 @@
       </h2>
     {% endif %}
     </header>
-    <div class="main">
+    <div class="main card">
       {% if user.is_anonymous %}
       <div class="plan-actions">
         <a href="{% url 'account_signup' %}{% pass_query %}" class="button primary">
@@ -248,7 +248,7 @@
     <div class="main">
       <div class="sunlight-tiers">
         {% for tier in sunlight_tiers %}
-        <div class="tier tier-{{ tier.name|lower }}">
+        <div class="tier card tier-{{ tier.name|lower }}">
           <header>
             <h3>{{ tier.name }}</h3>
             <p><strong>{{ tier.short_description }}</strong></p>
@@ -370,7 +370,7 @@
               <div class="identity">
                 {% include "core/logos/documentcloud.svg" %}
               </div>
-              <ul class="checklist">
+              <ul class="checklist card">
                 <li class="checklist-item">
                   <span class="checkmark icon">
                     {% icon "checkmark" %}

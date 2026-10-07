@@ -44,6 +44,7 @@ from squarelet.organizations.tasks import (
 )
 from squarelet.payments.views import (
     BaseCancelSubscription,
+    BaseEndSubscription,
     BaseManageSubscriptions,
     BasePaymentsList,
     BaseRemoveCard,
@@ -80,6 +81,10 @@ class UpdateReceiptEmail(OrgSubscriptionView, BaseUpdateReceiptEmail):
 
 
 class CancelSubscription(OrgSubscriptionView, BaseCancelSubscription):
+    pass
+
+
+class EndSubscription(OrgSubscriptionView, BaseEndSubscription):
     pass
 
 

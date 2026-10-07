@@ -224,7 +224,7 @@ a._cls-nostyle {
     background: white;
     padding: 1rem;
     border-radius: 0px 0px 10px 10px;
-    box-shadow: 0px 2px 4px 2px var(--shadow, rgba(30, 48, 56, 0.15));
+    box-shadow: var(--shadow-1);
   }
 
   ._cls-navMenuMobile {
@@ -503,31 +503,6 @@ a._cls-nostyle {
   justify-content: space-around;
 }
 
-._cls-card {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  flex: 1;
-  box-shadow: 0 0 2px #0000004d;
-  padding-bottom: 1.5em;
-  border-radius: 5px;
-  background: white;
-  margin: 0.5em;
-}
-
-._cls-card h1 {
-  background: #2c343f;
-  font-size: 1em;
-  height: 40px;
-  line-height: 40px;
-  text-align: center;
-  color: white;
-  border-top-left-radius: 5px;
-  border-top-right-radius: 5px;
-  margin: 0;
-  padding: 0;
-}
-
 ._cls-cardAction button {
   background: var(--blue-3);
   color: var(--white);
@@ -550,12 +525,6 @@ a._cls-nostyle {
 ._cls-expandedContent {
   margin: 1em;
   text-align: center;
-}
-
-._cls-card li {
-  color: #737373;
-  margin: 1em 0;
-  line-height: 1.3;
 }
 
 ._cls-cardContent ul {
@@ -880,34 +849,6 @@ nav a:hover ._cls-serviceName {
   align-items: center;
 }
 
-._cls-profList {
-  list-style: none;
-  padding: 0;
-}
-
-._cls-profList li {
-  margin: 0.8em 0;
-  background: white;
-  border-radius: 5px;
-  box-shadow:
-    0 0 2px #0000001c,
-    0 1px 3px #00000021;
-  padding: 0.5em 1em;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  gap: 0.5em;
-}
-
-._cls-profList li:hover {
-  background: #e6eaec;
-  box-shadow: 0 2px 3px #00000036;
-}
-
-._cls-profList a {
-  text-decoration: none;
-}
-
 ._cls-infoPreSpaced {
   margin-bottom: 1em;
 }
@@ -922,11 +863,6 @@ nav a:hover ._cls-serviceName {
 
 ._cls-inlineInlineForm {
   display: inline;
-}
-
-._cls-profList li._cls-pendingInvite {
-  background: #efefef;
-  border: dashed 1px gray;
 }
 
 ._cls-manageTable {
@@ -1655,7 +1591,7 @@ textarea {
   width: 5.25rem;
   border-radius: 25%;
   border: 2px solid var(--white, #ffffff);
-  box-shadow: 0px 2px 4px 2px var(--shadow, rgba(30, 48, 56, 0.15));
+  box-shadow: var(--shadow-1);
 }
 
 .service-info .service-owner {
@@ -1702,7 +1638,7 @@ a.service-provider:focus {
   height: 2.625rem;
   border: 2px solid #fff;
   border-radius: 25%;
-  box-shadow: 0px 2px 4px var(--shadow, rgba(30, 48, 56, 0.15));
+  box-shadow: var(--shadow-1);
   background: #fff;
   opacity: 0.95;
 }
@@ -2076,6 +2012,106 @@ a.service-provider:focus {
   color: var(--orange-3);
 }
 
+.help.link {
+  font-size: var(--font-md, 1rem);
+  font-weight: var(--font-semibold, 600);
+  color: var(--primary);
+}
+
 .m-0 {
   margin: 0;
+}
+
+.flex {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.flex.row {
+  flex-direction: row;
+}
+
+.flex.wrap {
+  flex-wrap: wrap;
+}
+
+.flex.align-center {
+  align-items: center;
+}
+
+.flex.align-end {
+  align-items: flex-end;
+}
+
+.gap-1 {
+  gap: 1rem;
+}
+
+/* Plan tones: individual plans are blue, group plans purple. */
+.professional,
+.individual {
+  --tone-1: var(--blue-1);
+  --tone-2: var(--blue-2);
+  --tone-3: var(--blue-3);
+  --tone-4: var(--blue-4);
+  --tone-5: var(--blue-5);
+}
+
+.organization,
+.group {
+  --tone-1: var(--purple-1);
+  --tone-2: var(--purple-2);
+  --tone-3: var(--purple-3);
+  --tone-4: var(--purple-4);
+  --tone-5: var(--purple-5);
+}
+
+/* Checklist: a list of benefits or features, each with a leading icon. */
+.checklist {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 0.25rem 0.5rem;
+  gap: 0.5rem;
+  align-self: stretch;
+  font-size: var(--font-sm, 0.875rem);
+}
+
+.checklist-item .text {
+  flex: 1 0 0;
+  color: var(--gray-5, #233944);
+  font-feature-settings: "ss04" on;
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+}
+
+.checklist-item .icon {
+  display: flex;
+  align-items: center;
+}
+
+.checklist-item .icon svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.checklist--md .checklist-item {
+  font-size: var(--font-md, 1rem);
+}
+
+.checklist--md .checklist-item .icon svg {
+  width: 1.125rem;
+  height: 1.125rem;
 }

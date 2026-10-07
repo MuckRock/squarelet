@@ -7,12 +7,9 @@
   margin: 0 0 auto;
 }
 
-.subscription-card .professional {
-  color: var(--blue-4);
-}
-
+.subscription-card .professional,
 .subscription-card .organization {
-  color: var(--purple-4);
+  color: var(--tone-4);
 }
 
 .subscription-frequency {
@@ -32,7 +29,24 @@
 
 .subscription-group {
   display: flex;
+  align-items: center;
   gap: 1rem;
+}
+
+/* One per Stripe subscription: its schedule and actions, then its plans. */
+.subscription-block {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.subscription-block + .subscription-block {
+  margin-top: 1rem;
+}
+
+.subscription-card .subscription-row {
+  gap: 0.25rem 1rem;
 }
 
 @media (max-width: 28rem) {

@@ -1,0 +1,70 @@
+.pad-b-3 {
+  padding-bottom: 3rem;
+}
+.wrapper#form, .signup-form, header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3rem;
+}
+.signup-form {
+  margin: 0;
+  max-width: 24rem;
+}
+.social-account {
+  margin: 2rem;
+  max-width: 32rem;
+}
+header {
+  text-align: center;
+}
+header h2, p {
+  max-width: 18rem;
+}
+.help.link {
+  text-decoration: none;
+}
+.help.text {
+  font-size: var(--font-sm, 0.875rem);
+  line-height: 1.4;
+  color: var(--gray-4);
+  font-weight: var(--font-regular, 400);
+}
+.help.text ul {
+  margin: .5em 0;
+  padding-left: 2em;
+}
+.help.text li {
+  margin-bottom: 0.25em;
+}
+.label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.required {
+  font-size: var(--font-xs, 0.75rem);
+  font-weight: var(--font-semibold, 600);
+  color: var(--orange-3);
+}
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+footer {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+footer .button {
+  display: block;
+  width: 100%;
+}
+.errorlist {
+  margin: 0;
+}

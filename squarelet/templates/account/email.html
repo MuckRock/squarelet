@@ -53,7 +53,12 @@
             name="action_send"
             style="display: {% if user.primary_email.verified %}none{% else %}inline-block{% endif %};"
           >{% trans 'Re-send Verification' %}</button>
-          <button class="_cls-altAction" type="submit" name="action_remove" >{% trans 'Remove' %}</button>
+          <button
+            class="_cls-altAction"
+            type="submit"
+            name="action_remove"
+            data-confirm="{% trans 'Do you really want to remove the selected e-mail address?' %}"
+          >{% trans 'Remove' %}</button>
         </div>
 
       </fieldset>
@@ -78,22 +83,3 @@
       {% trans 'Cancel' %}
     </a></p>
 {% endblock %}
-
-
-{% block javascript %}
-  {{ block.super }}
-  <script type="text/javascript">
-    (function() {
-      var message = "{% trans 'Do you really want to remove the selected e-mail address?' %}";
-      var actions = document.getElementsByName('action_remove');
-      if (actions.length) {
-        actions[0].addEventListener("click", function(e) {
-          if (! confirm(message)) {
-            e.preventDefault();
-          }
-        });
-      }
-    })();
-  </script>
-{% endblock %}
-

@@ -1,0 +1,45 @@
+.avatar-preview-wrapper {
+  width: 5rem;
+  height: 5rem;
+  border-radius: 2.5rem;
+  border: 1px solid var(--gray-2);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.avatar-placeholder {
+  fill: var(--gray-2);
+  height: 100%;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.avatar-placeholder svg {
+  height: 3rem;
+  width: 3rem;
+  margin-top: -.25rem;
+}
+.avatar-preview {
+  display: block;
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+}
+.avatar-widget {
+  display: flex;
+  padding: 0.5rem 0;
+  align-items: center;
+  gap: 0.5rem;
+  align-self: stretch;
+}
+.avatar-actions {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 0.5rem;
+  align-self: stretch;
+}
+.avatar-preview-wrapper:not(.has-file) img {
+  display: none;
+}
