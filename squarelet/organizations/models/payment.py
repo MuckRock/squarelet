@@ -2062,7 +2062,8 @@ class Entitlement(models.Model):
         _("slug"),
         populate_from="name",
         unique_with="client",
-        help_text=_("A slug to identify the plan"),
+        editable=True,
+        help_text=_("A slug to identify the entitlement"),
     )
     description = models.TextField(
         _("description"),
