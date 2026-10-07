@@ -1,7 +1,6 @@
 {% extends "account/onboarding/base.html" %}
 
 {% load i18n static django_vite %}
-{% load icon %}
 
 {% block title %}{% trans "Join an organization" %}{% endblock title %}
 
@@ -12,9 +11,9 @@
 
 {% block onboarding_step %}
 <div class="message">
-    <header>
+    <header class="auth-stack">
       <div class="icon">
-        {% icon "people" %}
+        <img src="{% static 'icons/people-colored.svg' %}" />
       </div>
       <h1>{% trans "Join your team on MuckRock to access collaboration, advanced features, and shared resources" %}</h1>
     </header>
