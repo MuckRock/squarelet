@@ -29,7 +29,7 @@
 
 {% block table_content %}
 {% if invitations %}
-<div class="invitation-history-table-wrapper">
+<div class="invitation-history-table-wrapper card">
   <table class="invitation-history-table">
     <thead>
       <tr>
@@ -73,7 +73,7 @@
   </table>
 </div>
 {% else %}
-<p class="empty-message">
+<p class="empty-message card">
   {% if is_own_page %}
     {% trans "You have no invitations from organizations." %}
   {% else %}

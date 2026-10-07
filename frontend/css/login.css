@@ -1,0 +1,174 @@
+.login-layout {
+  flex: 1;
+  gap: 0;
+  display: flex;
+  flex-flow: row-reverse wrap;
+  align-items: stretch;
+  justify-content: center;
+}
+
+.login-layout h2 {
+  font-weight: 600;
+  text-align: center;
+  font-size: var(--font-lg, 1.25rem);
+}
+
+.login-layout > * {
+  flex: 1 1 36rem;
+}
+
+.login-form, .signup-form {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3rem;
+  max-width: 24rem;
+  margin: 0 auto;
+  padding: 3rem;
+}
+
+.login-form .instruction {
+  margin: 0 auto;
+  text-align: center;
+  font-weight: 600;
+  max-width: 25rem;
+}
+
+.login-form .fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.password-help {
+  justify-content: space-between;
+}
+
+.password-help>:not(.button) {
+  flex: 0 1 8rem;
+}
+
+@media (max-width: 24.125em) {
+  .password-help {
+    justify-content: center;
+  }
+}
+
+.login-form footer .button {
+  flex-basis: 8rem;
+}
+
+.login-form footer>* {
+  flex: 1 0 0;
+}
+
+.errorlist {
+  color: var(--red-4, #5D275F);
+  background: var(--red-1, #FAE8EE);
+  list-style-type: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  font-weight: 600;
+}
+
+.wrapper#form {
+  box-sizing: border-box;
+}
+
+/* Gives the form a little breathing room
+when it is side-by-side with the service gallery */
+@media (min-width: 72rem) {
+  .wrapper#form {
+    padding-top: 2rem;
+  }
+}
+
+.wrapper#service-gallery {
+  background: linear-gradient(180deg, #1367D0 0%, #4294F0 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /*
+  These rules allow the service gallery to overflow smoothly,
+  in case we ever want to restore that functionality:
+  overflow-y: auto;
+  min-height: 70vh;
+  */
+}
+
+.service-gallery {
+  flex: 1 1 0;
+  max-height: 100%;
+  padding: 3rem 4rem;
+  color: var(--blue-1, #EEF3F9);
+  /* If the service gallery wrapper is set to overflow,
+  the gallery needs to set its own minimum height. */ 
+  /* min-height: 70vh; */
+}
+
+.service-gallery header {
+  max-width: 32rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 0 auto 2rem;
+}
+
+.service-gallery .service-providers {
+  max-width: 32rem;
+  margin: 0 auto;
+  padding-bottom: 3rem;
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  justify-content: center;
+  align-content: flex-start;
+  gap: 1.5rem;
+}
+
+.service-provider {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.service-gallery h2 {
+  margin: 0 auto;
+  color: var(--blue-1, #EEF3F9);
+  text-align: center;
+  font-feature-settings: 'ss04' on, 'liga' off, 'clig' off;
+  font-family: var(--font-sans, "Source Sans Pro");
+  font-size: var(--font-lg, 1.25rem);
+  font-style: normal;
+  font-weight: 600;
+  line-height: 1.75rem; /* 140% */
+  max-width: 28.75rem;
+  width: 100%;
+}
+
+.social-login {
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  max-width: 28rem;
+  margin: 0 auto;
+  padding: 2rem 0;
+  border-top: 1px solid var(--gray-2);
+}
+
+
+.social-login .ghost.button {
+  gap: 0.5rem;
+}
+
+.social-login .social-icon {
+  display: flex;
+  align-items: center;
+}
+
+.social-login form {
+  margin-top: 0;
+}

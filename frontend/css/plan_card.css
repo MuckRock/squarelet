@@ -30,19 +30,19 @@ a.plan-name {
 }
 
 /* Plan benefits checklist */
-.plan-benefits.checklist {
+.plan-benefits--columns {
+  display: block;
   column-count: 2;
   column-gap: 0.5rem;
 }
 
 @media (max-width: 28rem) {
-  .plan-benefits.checklist {
+  .plan-benefits--columns {
     column-count: 1;
   }
 }
 
-.plan-benefits .checklist-item {
-  align-items: flex-start;
+.plan-benefits .checklist-item .text {
   font-weight: 400;
 }
 
@@ -55,6 +55,8 @@ a.plan-name {
 }
 
 .plan-benefits .checklist-item .icon svg {
+  width: 100%;
+  height: 100%;
   fill: var(--blue-3);
 }
 

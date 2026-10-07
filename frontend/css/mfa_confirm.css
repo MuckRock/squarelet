@@ -1,0 +1,26 @@
+header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+h1 {
+  text-align: center;
+}
+
+/* Initially disable the continue button */
+.continue-btn:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.continue-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.help-text {
+  font-size: var(--font-sm, .875rem);
+  opacity: .7;
+}

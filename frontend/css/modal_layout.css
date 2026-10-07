@@ -61,12 +61,9 @@
   font-size: var(--font-sm, 0.875em);
 }
 
-.modal-layout .plan.professional {
-  color: var(--blue-4);
-}
-
+.modal-layout .plan.professional,
 .modal-layout .plan.organization {
-  color: var(--purple-4);
+  color: var(--tone-4);
 }
 
 .modal-layout p {

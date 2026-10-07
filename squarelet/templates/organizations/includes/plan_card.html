@@ -74,7 +74,7 @@ Args:
           {% endif %}
         </span>
       </header>
-      <ul class="card-subsection plan-benefits checklist">
+      <ul class="card-subsection plan-benefits checklist plan-benefits--columns">
         {% for benefit in subscription_benefits %}
           <li class="checklist-item">
             <span class="icon">{% icon "checkmark" %}</span>
@@ -114,7 +114,7 @@ Args:
         </p>
         {% with upgrade_benefits=upgrade_plan.get_benefits %}
         {% if upgrade_benefits %}
-          <ul class="plan-benefits card-subsection checklist">
+          <ul class="plan-benefits card-subsection checklist plan-benefits--columns">
             {% for benefit in upgrade_benefits %}
               <li class="checklist-item">
                 <span class="icon">{% icon "checkmark" %}</span>
@@ -142,7 +142,7 @@ Args:
         {% for org in inherited_orgs %}<a class="org-name" href="{{ org.get_absolute_url }}">{{ org.name }}</a>{% if not forloop.last %}{% if forloop.revcounter == 2 %} and {% else %}, {% endif %}{% endif %}{% endfor %}:
       </p>
     </header>
-    <ul class="card-subsection plan-benefits checklist">
+    <ul class="card-subsection plan-benefits checklist plan-benefits--columns">
       {% for benefit in inherited_benefits %}
         <li class="checklist-item">
           <span class="icon">{% icon "checkmark" %}</span>

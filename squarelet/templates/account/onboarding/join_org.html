@@ -1,7 +1,6 @@
 {% extends "account/onboarding/base.html" %}
 
 {% load i18n static django_vite %}
-{% load icon %}
 
 {% block title %}{% trans "Join an organization" %}{% endblock title %}
 
@@ -12,9 +11,9 @@
 
 {% block onboarding_step %}
 <div class="message">
-    <header>
+    <header class="auth-stack">
       <div class="icon">
-        {% icon "people" %}
+        <img src="{% static 'icons/people-colored.svg' %}" />
       </div>
       <h1>{% trans "Join your team on MuckRock to access collaboration, advanced features, and shared resources" %}</h1>
     </header>
@@ -24,7 +23,7 @@
         <h2>{% trans "Pre-approved" %}</h2>
         <p>{% trans "Based on your email address, you're pre-approved to join:" %}</p>
       </header>
-      <div class="orgs">
+      <div class="orgs card card--stack">
         {% for organization in potential_orgs %}
         <div class="invite">
           {% include "account/team_list_item.html" %}
@@ -46,7 +45,7 @@
     <div class="pending">
       <h2>{% trans "Pending requests" %}</h2>
       
-      <div class="orgs">
+      <div class="orgs card card--stack">
         {% for invite in invitations %}
         <div class="invite">
           {% include "account/team_list_item.html" with organization=invite.organization %}
