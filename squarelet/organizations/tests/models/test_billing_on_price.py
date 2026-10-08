@@ -351,7 +351,7 @@ class TestWhereAPurchaseIsStored:
             annual=True,
         )
 
-        assert SubscriptionItem.objects.stored_under(picked) >= {picked, tier}
+        assert SubscriptionItem.objects.plans_of_tier(picked) >= {picked, tier}
 
     def test_every_schedule_and_rate_of_a_tier_counts(self, plan_factory):
         """Holding Essential monthly, annual Essential is the same tier."""
@@ -372,11 +372,18 @@ class TestWhereAPurchaseIsStored:
         )
 
         for row in rows:
-            held = SubscriptionItem.objects.stored_under(row)
+            held = SubscriptionItem.objects.plans_of_tier(row)
             assert held >= rows, row.slug
             assert enhanced not in held
+
+    def test_a_comped_legacy_plan_holds_its_tier(self, plan_factory):
+        """Beta is comped Professional, so it counts as holding Professional."""
+        professional = plan_with_slug(plan_factory, "Professional", "professional")
+        beta = plan_with_slug(plan_factory, "Beta", "beta")
+
+        assert beta in SubscriptionItem.objects.plans_of_tier(professional)
 
     def test_an_unmapped_plan_is_only_itself(self, plan_factory):
         plan = plan_factory(name="Unmapped Plan")
 
-        assert SubscriptionItem.objects.stored_under(plan) == {plan}
+        assert SubscriptionItem.objects.plans_of_tier(plan) == {plan}
