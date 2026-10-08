@@ -1,3 +1,7 @@
+# Django
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
+
 # Third Party
 import pytest
 
@@ -151,3 +155,28 @@ class TestNonprofitLines:
             plan=paid_price.plan, plan_price=paid_price
         ).is_nonprofit
         assert not subscription_item_factory(plan=legacy_plan).is_nonprofit
+
+
+@pytest.mark.django_db()
+class TestFreeReadsThePrefetch:
+    def test_with_a_prefetch_it_asks_nothing_more(
+        self, subscription_item_factory, paid_price
+    ):
+        item = subscription_item_factory(plan=paid_price.plan, plan_price=paid_price)
+        subscription = Subscription.objects.prefetch_related(
+            "items__plan", "items__plan_price"
+        ).get(pk=item.subscription_id)
+
+        with CaptureQueriesContext(connection) as queries:
+            assert not subscription.free
+
+        assert not queries.captured_queries
+
+    def test_without_one_it_asks_once(self, subscription_item_factory, paid_price):
+        item = subscription_item_factory(plan=paid_price.plan, plan_price=paid_price)
+        subscription = Subscription.objects.get(pk=item.subscription_id)
+
+        with CaptureQueriesContext(connection) as queries:
+            assert not subscription.free
+
+        assert len(queries.captured_queries) == 1
